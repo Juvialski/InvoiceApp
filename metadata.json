@@ -1,0 +1,6 @@
+{
+  "name": "Invoice Operations",
+  "description": "Gmail and upload invoice intake with Supabase original-source preservation, Gemini 3.5 Flash-Lite extraction, deterministic validation, and human verification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
