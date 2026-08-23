@@ -279,11 +279,16 @@ test("controller maps session/channel lifecycle and ignores events after sign-ou
 });
 
 test("realtime migration is additive, ordered, and covers only mapped persisted tables", () => {
-  const migrationUrl = new URL("../supabase/migrations/20260823180000_workspace_sync_realtime.sql", import.meta.url);
-  const sql = readFileSync(migrationUrl, "utf8");
+  const realtimeUrls = [
+    new URL("../supabase/migrations/20260823180000_workspace_sync_realtime.sql", import.meta.url),
+    new URL("../supabase/migrations/20260823192000_payroll_automation_realtime.sql", import.meta.url),
+  ];
+  const scheduleUrl = new URL("../supabase/migrations/20260823190000_payroll_schedule_domain.sql", import.meta.url);
+  const realtimeSql = realtimeUrls.map((migrationUrl) => readFileSync(migrationUrl, "utf8")).join("\n");
+  const sql = `${realtimeSql}\n${readFileSync(scheduleUrl, "utf8")}`;
   for (const table of WORKSPACE_SYNCED_TABLES) assert.match(sql, new RegExp(`'${table}'`));
-  assert.match(sql, /alter publication supabase_realtime add table/);
-  assert.doesNotMatch(sql, /create publication\s+supabase_realtime/i);
-  assert.doesNotMatch(sql, /alter table\s+/i);
-  assert.doesNotMatch(sql, /create policy\s+/i);
+  assert.match(realtimeSql, /alter publication supabase_realtime add table/);
+  assert.doesNotMatch(realtimeSql, /create publication\s+supabase_realtime/i);
+  assert.doesNotMatch(realtimeSql, /alter table\s+/i);
+  assert.doesNotMatch(realtimeSql, /create policy\s+/i);
 });

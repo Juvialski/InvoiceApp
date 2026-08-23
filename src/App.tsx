@@ -18,7 +18,7 @@ import { ProjectsPage } from "./components/projects/ProjectsPage";
 import { PayrollOperatingCosts } from "./components/engineering/PayrollOperatingCosts";
 import { ProjectWorkspace } from "./components/projects/ProjectWorkspace";
 import { ExpensesPage } from "./components/expenses/ExpensesPage";
-import { PayrollPage } from "./components/payroll/PayrollPage";
+import { PayrollPageV2 as PayrollPage } from "./components/payroll/PayrollPageV2";
 import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH } from "./utils/routes";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
@@ -30,6 +30,9 @@ import { enqueueSerializedSave } from "./utils/saveSequencing";
 import { currencySymbolFor, DEFAULT_CURRENCY, loadRegionalSettings, RegionalSettings, setRegionalSettings as setActiveRegionalSettings } from "./config/regional";
 import { calculateProjectCost } from "./utils/projectCosting";
 import { calculatePayrollRunFromWorkEntries } from "./lib/payrollCalculation";
+import { buildAutomaticPayrollDraft, createDefaultPayrollSchedule, dateOnly, ensurePayrollPeriodsAndRuns, payrollDraftToRecords } from "./lib/payrollWorkflow";
+import type { PayrollSchedule } from "./lib/payrollSchedule";
+import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./lib/payrollAutomation";
 import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, signOutWorkspace, supabase } from "./lib/supabase";
 import {
   deleteInvoiceFromSupabase,
@@ -59,7 +62,7 @@ import {
   writeProjectsToLocal,
 } from "./lib/projects";
 import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
-import { canTransitionPayrollRun, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
+import { canTransitionPayrollRun, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
 import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
@@ -183,6 +186,8 @@ export default function App() {
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(readInvoiceProjectAllocationsFromLocal);
   const [expenses, setExpenses] = useState<Expense[]>(readExpensesFromLocal);
   const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(readPayrollWorkspaceFromLocal);
+  const payrollDataRef = useRef<PayrollWorkspaceData>(payrollData);
+  const payrollAutomationKeyRef = useRef("");
   const [workspaceSyncStatus, setWorkspaceSyncStatus] = useState<WorkspaceSyncStatus>(isSupabaseConfigured ? "connecting" : "guest");
   const workspaceSyncControllerRef = useRef<WorkspaceSyncController | null>(null);
   const initialWorkspaceLoadRef = useRef<Promise<void> | null>(null);
@@ -495,6 +500,48 @@ export default function App() {
     }
   }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, session, authResolved]);
 
+  useEffect(() => {
+    payrollDataRef.current = payrollData;
+  }, [payrollData]);
+
+  useEffect(() => {
+    if (!authResolved || activeTab !== "payroll" || workspaceLoading) return;
+    const snapshot = payrollDataRef.current;
+    let schedules = snapshot.schedules || [];
+    if (!schedules.length) {
+      const seeded = createDefaultPayrollSchedule(dateOnly()) as unknown as PayrollSchedule;
+      schedules = [{ ...seeded, autoCalculate: false, autoCreateRuns: true, autoSelectCurrentPeriod: true }];
+      payrollAutomationKeyRef.current = `seed:${schedules[0].id}`;
+      setPayrollData((current) => current.schedules?.length ? current : { ...current, schedules });
+      if (session && supabase) {
+        void savePayrollScheduleToSupabase(schedules[0]).catch((error) => showNotification("info", userFacingError(error, "Payroll schedule will remain available locally until its migration is applied.")));
+      }
+      return;
+    }
+    const activeSchedule = schedules.find((schedule) => schedule.active) || schedules[0];
+    if (!activeSchedule) return;
+    const today = dateOnly();
+    const key = `${session?.user?.id || "guest"}:${today}:${activeSchedule.id}:${snapshot.periods.length}:${snapshot.runs.length}`;
+    if (payrollAutomationKeyRef.current === key) return;
+    payrollAutomationKeyRef.current = key;
+    const ensured = ensurePayrollPeriodsAndRuns({ schedules, periods: snapshot.periods, runs: snapshot.runs, referenceDate: today, previous: 2, next: 2 });
+    const periodChanged = ensured.periods.length !== snapshot.periods.length || ensured.periods.some((period) => {
+      const previous = snapshot.periods.find((item) => item.id === period.id);
+      return !previous || previous.status !== period.status || previous.payDate !== period.payDate || previous.scheduleId !== period.scheduleId || previous.scheduleVersionId !== period.scheduleVersionId;
+    });
+    if (!periodChanged && !ensured.createdRuns.length) return;
+    setPayrollData((current) => ({ ...current, periods: ensured.periods, runs: ensured.runs }));
+    if (session && supabase) {
+      void (async () => {
+        try {
+          for (const period of ensured.periods.filter((item) => item.autoGenerated && (!snapshot.periods.some((old) => old.id === item.id && old.status === item.status && old.payDate === item.payDate)))) await savePayrollPeriodToSupabase(period);
+          for (const run of ensured.createdRuns) await savePayrollRunToSupabase(run);
+        } catch (error) {
+          showNotification("info", userFacingError(error, "Generated payroll periods are available locally; apply the latest payroll migration to sync them."));
+        }
+      })();
+    }
+  }, [activeTab, authResolved, workspaceLoading, session?.user?.id, payrollData.periods.length, payrollData.runs.length, payrollData.schedules?.length]);
   useEffect(() => {
     if (activeTab !== "extractor") setUploadProjectContextId(null);
   }, [activeTab]);
@@ -887,6 +934,36 @@ export default function App() {
     }
   };
 
+  const handleSavePayrollSchedule = async (schedule: PayrollSchedule) => {
+    try {
+      const saved = session && supabase ? await savePayrollScheduleToSupabase(schedule) : { ...schedule, updatedAt: new Date().toISOString() };
+      setPayrollData((current) => ({ ...current, schedules: [saved, ...(current.schedules || []).filter((item) => item.id !== saved.id)] }));
+      payrollAutomationKeyRef.current = "";
+      showNotification("success", "Payroll schedule saved. Future periods will use the saved version; locked history remains unchanged.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save payroll schedule."));
+    }
+  };
+
+  const handleSaveCompensationProfile = async (profile: WorkerCompensationProfile) => {
+    try {
+      const saved = session && supabase ? await saveWorkerCompensationProfileToSupabase(profile) : profile;
+      setPayrollData((current) => ({ ...current, compensationProfiles: [saved, ...(current.compensationProfiles || []).filter((item) => item.id !== saved.id)] }));
+      showNotification("success", "Effective compensation profile saved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save compensation profile."));
+    }
+  };
+
+  const handleSaveRecurringComponent = async (component: RecurringPayrollComponent) => {
+    try {
+      const saved = session && supabase ? await saveRecurringPayrollComponentToSupabase(component) : component;
+      setPayrollData((current) => ({ ...current, recurringComponents: [saved, ...(current.recurringComponents || []).filter((item) => item.id !== saved.id)] }));
+      showNotification("success", "Recurring payroll component saved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save recurring payroll component."));
+    }
+  };
   const handleStagePayrollImport = async (batch: PayrollImportBatch, rows: PayrollImportRow[], bytes: Uint8Array) => {
     try {
       const duplicates = findDuplicatePayrollImportBatches(payrollImportData.batches, batch.fileSha256);
@@ -1017,6 +1094,58 @@ export default function App() {
         showNotification("error", "Select a valid, non-VOID payroll period before calculating.");
         return;
       }
+      const existingRunEntries = payrollData.entries.filter((entry) => entry.payrollRunId === run.id);
+      const hasConfiguredAutomationSources = Boolean(payrollData.workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === period.id) || (payrollData.compensationProfiles || []).length || (payrollData.recurringComponents || []).length);
+      const selectedSchedule = (payrollData.schedules || []).find((schedule) => schedule.active && (!period.scheduleId || schedule.id === period.scheduleId));
+      const automationMode = selectedSchedule?.automationMode || "ASSISTED";
+      const scheduleEnabled = Boolean(selectedSchedule && automationMode !== "MANUAL");
+      const automationEnabled = Boolean(scheduleEnabled && (hasConfiguredAutomationSources || existingRunEntries.length === 0));
+      if (automationEnabled) {
+        const draft = buildAutomaticPayrollDraft({
+          period,
+          run,
+          workers: payrollData.workers,
+          assignments: payrollData.assignments,
+          profiles: payrollData.compensationProfiles || [],
+          recurringComponents: payrollData.recurringComponents || [],
+          workEntries: payrollData.workEntries,
+          projects,
+          mode: automationMode,
+          existingAllocations: payrollData.allocations.filter((allocation) => payrollData.entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)),
+          existingEntries: payrollData.entries.filter((entry) => entry.payrollRunId === run.id),
+        });
+        if (draft.readiness === "BLOCKING") {
+          showNotification("error", `Payroll needs attention before calculation: ${draft.exceptions.filter((issue) => issue.severity === "BLOCKING").map((issue) => issue.message).slice(0, 3).join(" ")}`);
+          return;
+        }
+        const records = payrollDraftToRecords(draft, run.id);
+        if (!records.entries.length) {
+          showNotification("error", "No payroll entries are ready. Add approved work entries or configure a worker compensation profile.");
+          return;
+        }
+        const invalidAllocations = records.entries.flatMap((entry) => validatePayrollAllocations(entry, records.allocations.filter((allocation) => allocation.payrollEntryId === entry.id)).issues);
+        if (invalidAllocations.length) {
+          showNotification("error", invalidAllocations.join(" "));
+          return;
+        }
+        let savedEntries = records.entries;
+        let savedAllocations = records.allocations;
+        if (session && supabase) {
+          const persisted = await replacePayrollRunEntriesToSupabase(run.id, records.entries, records.allocations);
+          savedEntries = persisted.entries;
+          savedAllocations = persisted.allocations;
+        }
+        const savedRun = session && supabase ? await savePayrollRunToSupabase({ ...run, status: "CALCULATED", calculatedAt: new Date().toISOString() }) : { ...run, status: "CALCULATED" as const, calculatedAt: new Date().toISOString() };
+        setPayrollData((current) => {
+          const oldEntryIds = new Set(current.entries.filter((entry) => entry.payrollRunId === run.id).map((entry) => entry.id));
+          const replacementEntryIds = new Set(savedEntries.map((entry) => entry.id));
+          return { ...current, runs: current.runs.map((item) => item.id === savedRun.id ? savedRun : item), entries: [...current.entries.filter((item) => item.payrollRunId !== run.id), ...savedEntries], allocations: [...current.allocations.filter((item) => !oldEntryIds.has(item.payrollEntryId) && !replacementEntryIds.has(item.payrollEntryId)), ...savedAllocations] };
+        });
+        const warningCount = draft.exceptions.filter((issue) => issue.severity === "WARNING").length;
+        showNotification("success", `Payroll run calculated from ${draft.mode.toLowerCase()} sources for ${savedEntries.length} worker${savedEntries.length === 1 ? "" : "s"}.${warningCount ? ` ${warningCount} warning${warningCount === 1 ? "" : "s"} need review.` : ""}`);
+        return;
+      }
+
       const invalidApprovedEntries = payrollData.workEntries.filter((entry) => entry.status === "APPROVED" && (!entry.periodId || entry.workDate < period.periodStart || entry.workDate > period.periodEnd));
       if (invalidApprovedEntries.length) {
         showNotification("error", `${invalidApprovedEntries.length} approved work entr${invalidApprovedEntries.length === 1 ? "y is" : "ies are"} missing a valid period/date link.`);
@@ -1072,6 +1201,17 @@ export default function App() {
         return;
       }
       if (run.status === "APPROVED") {
+        const approvalPeriod = payrollData.periods.find((period) => period.id === previous.periodId);
+        const approvalSchedule = (payrollData.schedules || []).find((schedule) => schedule.active && (!approvalPeriod?.scheduleId || schedule.id === approvalPeriod.scheduleId));
+        const approvalMode = approvalSchedule?.automationMode || "ASSISTED";
+        const automationEnabled = approvalMode !== "MANUAL" && Boolean((payrollData.workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === approvalPeriod?.id) || (payrollData.compensationProfiles || []).length || (payrollData.recurringComponents || []).length || payrollData.entries.filter((entry) => entry.payrollRunId === previous.id).length === 0));
+        if (approvalPeriod && automationEnabled) {
+          const draft = buildAutomaticPayrollDraft({ period: approvalPeriod, run: previous, workers: payrollData.workers, assignments: payrollData.assignments, profiles: payrollData.compensationProfiles || [], recurringComponents: payrollData.recurringComponents || [], workEntries: payrollData.workEntries, projects, mode: approvalMode });
+          if (draft.readiness === "BLOCKING") {
+            showNotification("error", `Approval is blocked until payroll issues are resolved: ${draft.exceptions.filter((issue) => issue.severity === "BLOCKING").map((issue) => issue.message).slice(0, 3).join(" ")}`);
+            return;
+          }
+        }
         const runEntries = payrollData.entries.filter((entry) => entry.payrollRunId === run.id);
         const approval = validatePayrollRunApproval({ id: run.id, status: previous.status }, runEntries);
         const allocationIssues = runEntries.flatMap((entry) => validatePayrollAllocations(entry, payrollData.allocations.filter((allocation) => allocation.payrollEntryId === entry.id)).issues);
@@ -1580,7 +1720,7 @@ export default function App() {
         {!routeNotFound && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
-        {!routeNotFound && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} />}
+        {!routeNotFound && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "vendors" && <Vendors invoices={invoices} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><PayrollOperatingCosts runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}

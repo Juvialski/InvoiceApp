@@ -11,3 +11,7 @@
   0%, 100% { box-shadow: 0 0 0 0 rgb(56 189 248 / 0); }
   20% { box-shadow: 0 0 0 5px rgb(56 189 248 / 0.18); }
 }
+
+.field-label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
+.field-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #fff; padding: 0.6rem 0.75rem; font-size: 0.75rem; color: #1e293b; }
+.field-input:focus { outline: 2px solid rgba(99, 102, 241, 0.2); border-color: #818cf8; }

@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, Save, Upload, X } from "lucide-react";
-import type { Project, Worker } from "../../types";
+import type { PayrollPeriod, Project, Worker } from "../../types";
 import { applyPayrollColumnMappings, parsePayrollWorkbook, type CanonicalPayrollField, type ParsedPayrollWorkbook, type PayrollColumnMapping, type PayrollCellValue } from "../../lib/payrollImport";
 import {
   applySavedPayrollTemplate,
@@ -13,10 +13,13 @@ import {
   type StagedPayrollImport,
 } from "../../lib/payrollImportWorkflow";
 import type { PayrollImportBatch, PayrollImportRow, PayrollImportTemplate, LaborContextType } from "../../lib/payrollImportPersistence";
+import { matchPayrollImportPeriod } from "../../lib/payrollImportPeriod";
 
 interface PayrollImportWorkflowProps {
   workers: Worker[];
   projects: Project[];
+  periods?: PayrollPeriod[];
+  selectedPeriodId?: string;
   batches: PayrollImportBatch[];
   templates: PayrollImportTemplate[];
   onStage: (batch: PayrollImportBatch, rows: PayrollImportRow[], bytes: Uint8Array) => void;
@@ -38,7 +41,7 @@ function localId() { return globalThis.crypto?.randomUUID?.() || `local-template
 function money(value: number | undefined) { return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 2 }).format(value || 0); }
 function displayContext(context: LaborContextType) { return context === "ADMIN_OFFICE" ? "Admin / office" : context === "GENERAL_OVERHEAD" ? "General overhead" : context === "PROJECT" ? "Project labor" : "Unallocated / needs review"; }
 
-export const PayrollImportWorkflow: React.FC<PayrollImportWorkflowProps> = ({ workers, projects, batches, templates, onStage, onSaveTemplate, onCommit }) => {
+export const PayrollImportWorkflow: React.FC<PayrollImportWorkflowProps> = ({ workers, projects, periods = [], selectedPeriodId, batches, templates, onStage, onSaveTemplate, onCommit }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [step, setStep] = useState<Step>("upload");
   const [busy, setBusy] = useState(false);
@@ -50,6 +53,7 @@ export const PayrollImportWorkflow: React.FC<PayrollImportWorkflowProps> = ({ wo
   const [periodEnd, setPeriodEnd] = useState("");
   const [payDate, setPayDate] = useState("");
   const [templateName, setTemplateName] = useState("");
+  const [periodWarning, setPeriodWarning] = useState<string | null>(null);
 
   const selectedParsedSheet = parsed?.sheets.find((sheet) => sheet.sourceSheet === selectedSheet) || parsed?.sheets.find((sheet) => sheet.status === "DETECTED");
   const selectedMapping = selectedParsedSheet?.table?.mappings || [];
@@ -57,7 +61,7 @@ export const PayrollImportWorkflow: React.FC<PayrollImportWorkflowProps> = ({ wo
   const validation = useMemo(() => staged ? validatePayrollImportCommit({ batch: staged.batch, rows: staged.rows, periodStart, periodEnd, payDate }) : { valid: false, issues: [], readyRows: [] }, [staged, periodStart, periodEnd, payDate]);
   const readyCount = staged?.rows.filter((row) => row.status !== "SKIPPED").length || 0;
 
-  const reset = () => { setStep("upload"); setBusy(false); setMessage(null); setParsed(null); setStaged(null); setSelectedSheet(""); setPeriodStart(""); setPeriodEnd(""); setPayDate(""); setTemplateName(""); if (inputRef.current) inputRef.current.value = ""; };
+  const reset = () => { setStep("upload"); setBusy(false); setMessage(null); setParsed(null); setStaged(null); setSelectedSheet(""); setPeriodStart(""); setPeriodEnd(""); setPayDate(""); setTemplateName(""); setPeriodWarning(null); if (inputRef.current) inputRef.current.value = ""; };
 
   const handleFile = async (file?: File) => {
     if (!file) return;
@@ -75,6 +79,13 @@ export const PayrollImportWorkflow: React.FC<PayrollImportWorkflowProps> = ({ wo
       setParsed(workbook); setStaged(next); setSelectedSheet(workbook.sheets.find((sheet) => sheet.status === "DETECTED")?.sourceSheet || workbook.sheetNames[0] || "");
       const metadata = workbook.sheets.find((sheet) => sheet.status === "DETECTED")?.metadata;
       setPeriodStart(metadata?.periodStart || ""); setPeriodEnd(metadata?.periodEnd || ""); setPayDate(metadata?.payDate || "");
+      const periodMatch = matchPayrollImportPeriod({ periodStart: metadata?.periodStart, periodEnd: metadata?.periodEnd, periods, selectedPeriodId });
+      setPeriodWarning(periodMatch.message || null);
+      if (periodMatch.period) {
+        setPeriodStart(periodMatch.period.periodStart);
+        setPeriodEnd(periodMatch.period.periodEnd);
+        if (!metadata?.payDate && periodMatch.period.payDate) setPayDate(periodMatch.period.payDate);
+      }
       onStage(next.batch, next.rows, bytes);
       setStep(workbook.sheets.some((sheet) => sheet.table) ? "map" : "upload");
       setMessage({ tone: duplicate ? "info" : "success", text: `${file.name} detected with ${next.rows.length} payroll row${next.rows.length === 1 ? "" : "s"}. Review the mapping before commit.` });
@@ -114,7 +125,7 @@ export const PayrollImportWorkflow: React.FC<PayrollImportWorkflowProps> = ({ wo
   return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Adaptive payroll import</p><h3 className="mt-1 text-lg font-black">Import a payroll workbook</h3><p className="mt-1 max-w-2xl text-xs text-slate-500">Upload .xlsx, .xls, or .csv. The detector finds sheets, metadata, headers, duplicate amount columns, and footers, then keeps uncertain rows in review.</p></div><button onClick={() => inputRef.current?.click()} disabled={busy} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Upload className="h-3.5 w-3.5" /> {busy ? "Reading…" : "Choose file"}</button><input ref={inputRef} type="file" accept=".xlsx,.xls,.xlsm,.csv" className="hidden" onChange={(event) => void handleFile(event.target.files?.[0])} /></div>
     <div className="grid gap-2 text-[10px] font-black uppercase tracking-wide text-slate-400 sm:grid-cols-3"><StepPill active={step === "upload"} done={Boolean(parsed)} label="1 · Upload" /><StepPill active={step === "map"} done={step === "review"} label="2 · Map & preview" /><StepPill active={step === "review"} done={false} label="3 · Confirm draft" /></div>
-    {message && <div className={`flex items-start gap-2 rounded-xl p-3 text-xs ${message.tone === "error" ? "bg-rose-50 text-rose-800" : message.tone === "success" ? "bg-emerald-50 text-emerald-800" : "bg-indigo-50 text-indigo-800"}`}><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{message.text}</div>}
+    {message && <div className={`flex items-start gap-2 rounded-xl p-3 text-xs ${message.tone === "error" ? "bg-rose-50 text-rose-800" : message.tone === "success" ? "bg-emerald-50 text-emerald-800" : "bg-indigo-50 text-indigo-800"}`}><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{message.text}</div>}{periodWarning && <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /><span>{periodWarning} Confirm the period before committing this DRAFT.</span></div>}
     {!parsed && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><FileSpreadsheet className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">Start with a payroll spreadsheet</p><p className="mt-1 text-xs text-slate-500">No payroll data is committed during parsing.</p></div>}
     {parsed && staged && <>
       <div className="grid gap-3 sm:grid-cols-4"><Metric label="Workbook" value={staged.batch.originalFileName} /><Metric label="Sheets" value={staged.batch.sheetNames.length} /><Metric label="Rows" value={readyCount} /><Metric label="Detection" value={`${Math.round((parsed.confidence.score || 0) * 100)}% ${parsed.confidence.level}`} /></div>
