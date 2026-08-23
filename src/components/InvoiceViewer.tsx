@@ -13,7 +13,6 @@ import {
   Calendar,
   DollarSign,
   Receipt,
-  Sparkles,
   ArrowLeft,
   ChevronDown,
   ChevronUp,
@@ -241,7 +240,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Extracted via {invoice.modelUsed || "Gemini Flash Lite"} • {invoice.items.length} line items detected
+              Extraction record • {invoice.items.length} line items detected
             </p>
             {isEditingHeader && <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
               <input value={invoice.invoiceNumber || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceNumber: e.target.value })} placeholder="Invoice number" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />

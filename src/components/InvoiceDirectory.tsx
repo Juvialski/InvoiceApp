@@ -102,6 +102,8 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
             </table>
           </div>
         </div>
+      ) : invoices.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center"><Files className="w-8 h-8 text-slate-300 mx-auto" /><p className="text-sm font-bold mt-3">No invoices yet.</p><p className="text-xs text-slate-500 mt-1">Upload an invoice or open Gmail Inbox to begin.</p><button onClick={onAddNew} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold"><Plus className="w-3.5 h-3.5" />Upload invoice</button></div>
       ) : (
         <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center"><Files className="w-8 h-8 text-slate-300 mx-auto" /><p className="text-sm font-bold mt-3">No matching invoices</p><p className="text-xs text-slate-500 mt-1">Try changing the filters or extract another invoice.</p></div>
       )}

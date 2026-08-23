@@ -46,12 +46,17 @@ export function loadRegionalSettings(): RegionalSettings {
   try {
     const saved = JSON.parse(storage.getItem(SETTINGS_KEY) || "null");
     if (!saved || typeof saved !== "object") return { ...DEFAULT_REGIONAL_SETTINGS };
-    return {
-      country: typeof saved.country === "string" && saved.country ? saved.country : DEFAULT_COUNTRY,
-      locale: typeof saved.locale === "string" && saved.locale ? saved.locale : DEFAULT_LOCALE,
-      currency: typeof saved.currency === "string" && saved.currency ? saved.currency.toUpperCase() : DEFAULT_CURRENCY,
-      timezone: typeof saved.timezone === "string" && saved.timezone ? saved.timezone : DEFAULT_TIMEZONE,
-    };
+    const isDeploymentProfile = saved.country === DEFAULT_COUNTRY
+      && saved.locale === DEFAULT_LOCALE
+      && String(saved.currency || "").toUpperCase() === DEFAULT_CURRENCY
+      && saved.timezone === DEFAULT_TIMEZONE;
+    if (isDeploymentProfile) return { ...DEFAULT_REGIONAL_SETTINGS };
+
+    // Older browser sessions could have selected foreign workspace defaults.
+    // Reset only the workspace profile; explicit invoice currencies continue
+    // to be formatted independently by formatMoney/currencySymbolFor.
+    storage.setItem(SETTINGS_KEY, JSON.stringify(DEFAULT_REGIONAL_SETTINGS));
+    return { ...DEFAULT_REGIONAL_SETTINGS };
   } catch {
     return { ...DEFAULT_REGIONAL_SETTINGS };
   }

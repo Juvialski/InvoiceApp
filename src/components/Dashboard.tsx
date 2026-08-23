@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, CheckCircle2, Clock3, Files, Mail, Receipt, WalletCards } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Mail, Receipt, WalletCards } from "lucide-react";
 import { InvoiceData } from "../types";
 import { formatMoney, totalVatByCurrency, totalsByCurrency } from "../utils/invoiceLogic";
 
@@ -34,11 +34,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
     <div className="space-y-6">
       <section className="bg-gradient-to-br from-slate-950 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden relative">
         <div className="relative z-10 max-w-2xl">
-          <span className="text-[10px] uppercase tracking-[0.22em] font-bold text-indigo-200">Philippines-first invoice operations</span>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-2">From Gmail and documents to review-ready invoice data.</h2>
-          <p className="text-sm text-slate-300 mt-2 max-w-xl">PHP is the workspace default. Foreign invoices stay in their source currencies, while deterministic checks surface VAT and reconciliation questions for a human reviewer.</p>
+          <span className="text-[10px] uppercase tracking-[0.22em] font-bold text-indigo-200">Daily invoice operations</span>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-2">Process invoices and clear the review queue.</h2>
+          <p className="text-sm text-slate-300 mt-2 max-w-xl">Upload documents or process an inbox item. Totals remain in each invoice&apos;s source currency, while VAT and reconciliation checks highlight the next action.</p>
           <div className="flex flex-wrap gap-2 mt-5">
-            <button onClick={() => onNavigate("extractor")} className="px-4 py-2 rounded-xl bg-white text-slate-950 text-xs font-bold">Extract documents</button>
+            <button onClick={() => onNavigate("extractor")} className="px-4 py-2 rounded-xl bg-white text-slate-950 text-xs font-bold">Upload documents</button>
             <button onClick={() => onNavigate("inbox")} className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center gap-2"><Mail className="w-3.5 h-3.5" /> Process an email</button>
           </div>
         </div>
@@ -47,7 +47,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
 
       <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
-          { label: "Total Invoice Value", value: phpTotal ? formatMoney(phpTotal, "PHP") : "No PHP invoices", icon: WalletCards, tone: "text-indigo-600 bg-indigo-50" },
+          { label: "Total Invoice Value", value: formatMoney(phpTotal, "PHP"), icon: WalletCards, tone: "text-indigo-600 bg-indigo-50" },
           { label: "Outstanding", value: phpOutstanding ? formatMoney(phpOutstanding, "PHP") : "₱0.00", icon: Receipt, tone: "text-amber-700 bg-amber-50" },
           { label: "Overdue", value: overdue.length, icon: Clock3, tone: "text-rose-700 bg-rose-50" },
           { label: "VAT Amount", value: phpVat ? formatMoney(phpVat, "PHP") : "₱0.00", icon: Receipt, tone: "text-violet-700 bg-violet-50" },

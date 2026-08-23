@@ -42,7 +42,6 @@ function invoiceRegisterRow(invoice: InvoiceData) {
     Source: invoice.sourceType || "UPLOAD",
     "Email Sender": invoice.sourceMetadata?.sender || "",
     "Email Subject": invoice.sourceMetadata?.subject || "",
-    "Gemini Model": invoice.modelUsed || "",
     Confidence: invoice.confidenceScore ?? "",
   };
 }
@@ -128,7 +127,6 @@ function reviewRows(invoices: InvoiceData[]) {
     Source: invoice.sourceType || "UPLOAD",
     "Source Email": invoice.sourceMetadata?.sender || "",
     "Source Subject": invoice.sourceMetadata?.subject || "",
-    "Model Used": invoice.modelUsed || "",
   }));
 }
 
@@ -227,7 +225,6 @@ export function exportInvoiceLineItemsToCSV(invoice: InvoiceData) {
     Source: invoice.sourceType || "UPLOAD",
     "Email Sender": invoice.sourceMetadata?.sender || "",
     "Email Subject": invoice.sourceMetadata?.subject || "",
-    "Model Used": invoice.modelUsed || "",
     Confidence: invoice.confidenceScore ?? "",
   }));
   downloadCsv(rows.length ? rows : [invoiceRegisterRow(invoice)], `Invoice_${invoice.invoiceNumber || "export"}.csv`);

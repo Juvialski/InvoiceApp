@@ -6,9 +6,7 @@ import {
   Mail,
   Building2,
   Download,
-  Sparkles,
   ClipboardCheck,
-  Database,
   Settings as SettingsIcon,
 } from "lucide-react";
 
@@ -34,7 +32,7 @@ const tabs: Array<{ id: AppTab; label: string; icon: React.ElementType }> = [
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceLabel }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel }) => {
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -45,11 +43,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Invoice Operations</h1>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/60"><Sparkles className="w-3 h-3 mr-1" /> Gemini 3.5 Flash-Lite</span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">PH-first · ₱</span>
-                  {workspaceLabel && <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><Database className="w-3 h-3 mr-1" />{workspaceLabel}</span>}
                 </div>
-                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Gmail → originals → AI extraction → human verification → verified invoice</p>
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Invoice intake → extraction → review → verified record</p>
               </div>
             </div>
             {invoicesCount > 0 && <button onClick={onBatchExportExcel} className="xl:hidden p-2 rounded-xl bg-indigo-600 text-white" title="Export all invoices"><Download className="w-4 h-4" /></button>}

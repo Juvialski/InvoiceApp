@@ -36,7 +36,7 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, onOpenInvoic
   const queue = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW"), [invoices]);
 
   if (!queue.length) {
-    return <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-sm"><CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" /><h2 className="mt-3 text-lg font-black">Review queue is clear</h2><p className="text-xs text-slate-500 mt-1">New Gmail and uploaded invoices with uncertainty or validation issues will appear here.</p></div>;
+    return <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-sm"><CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" /><h2 className="mt-3 text-lg font-black">No invoices need review.</h2><p className="text-xs text-slate-500 mt-1">New Gmail and uploaded invoices with uncertainty or validation issues will appear here.</p></div>;
   }
 
   return (

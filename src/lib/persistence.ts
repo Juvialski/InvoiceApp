@@ -541,6 +541,9 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     .single();
   if (existingError) throw existingError;
   const durableAiSnapshot = existingRow?.current_data?.aiSnapshot || previous.aiSnapshot || updated.aiSnapshot;
+  const persistedBefore = existingRow?.current_data
+    ? { ...(existingRow.current_data as Partial<InvoiceData>), id: updated.id }
+    : previous;
   const currentData = {
     ...updated,
     ...(durableAiSnapshot ? { aiSnapshot: clone(durableAiSnapshot) } : {}),
@@ -564,7 +567,11 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   if (error) throw error;
   await replaceLineItems(updated.id, updated.items);
 
-  const before = comparableSnapshot(previous);
+  // The database row is the final source of truth. The caller normally passes
+  // the serialized queue's previous snapshot, but reading the row here also
+  // protects history if an older client or a retried request supplies stale
+  // local state.
+  const before = comparableSnapshot(persistedBefore as InvoiceData);
   const after = comparableSnapshot(updated);
   const fields = Array.from(new Set([...Object.keys(before), ...Object.keys(after)])).filter((field) => JSON.stringify((before as any)[field] ?? null) !== JSON.stringify((after as any)[field] ?? null));
   if (fields.length || eventType !== "HUMAN_EDIT") {
