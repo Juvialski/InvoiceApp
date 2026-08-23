@@ -1,17 +1,16 @@
 import React, { useMemo, useState } from "react";
 import { CheckCircle2, Eye, Search, Trash2, AlertTriangle, Files, Plus, Filter } from "lucide-react";
 import { InvoiceData } from "../types";
-import { formatDate, formatMoney } from "../utils/invoiceLogic";
+import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 
 interface InvoiceDirectoryProps {
   invoices: InvoiceData[];
   onSelectInvoice: (invoice: InvoiceData) => void;
   onDeleteInvoice: (id: string) => void;
   onAddNew: () => void;
-  onVerify: (invoice: InvoiceData) => void;
 }
 
-export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, onSelectInvoice, onDeleteInvoice, onAddNew, onVerify }) => {
+export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, onSelectInvoice, onDeleteInvoice, onAddNew }) => {
   const [query, setQuery] = useState("");
   const [reviewFilter, setReviewFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
@@ -87,18 +86,21 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="p-3">Invoice</th><th className="p-3">Vendor / TIN</th><th className="p-3">Type / Source</th><th className="p-3">Total</th><th className="p-3">Review</th><th className="p-3">Payment</th><th className="p-3 text-right">Actions</th></tr></thead>
-              <tbody className="divide-y divide-slate-100">{filtered.map((invoice) => (
-                <tr key={invoice.id} className="hover:bg-slate-50">
-                  <td className="p-3"><button onClick={() => onSelectInvoice(invoice)} className="font-bold text-slate-900 hover:text-indigo-600 text-left">{invoice.invoiceNumber || "Unnumbered"}</button><p className="text-[10px] text-slate-500 mt-0.5">{formatDate(invoice.invoiceDate, "short")} • {invoice.invoiceSubtype || invoice.documentType || "INVOICE"}</p>{invoice.duplicateStatus === "POSSIBLE_DUPLICATE" && <span className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold text-rose-700"><AlertTriangle className="w-3 h-3" /> potential duplicate</span>}</td>
-                  <td className="p-3 max-w-[230px]"><p className="font-semibold truncate">{invoice.vendor?.registeredName || invoice.vendor?.name || "Unknown vendor"}</p><p className="text-[10px] text-slate-500 truncate">TIN: {invoice.vendor?.taxId || "Not found"}</p></td>
-                  <td className="p-3"><span className="px-2 py-1 rounded-lg bg-slate-100 text-[10px] font-bold">{invoice.sourceType || "UPLOAD"}</span><p className="text-[9px] text-slate-500 mt-1">{invoice.invoiceSubtype || invoice.documentType || "INVOICE"}</p></td>
-                  <td className="p-3 font-sans tabular-nums font-black whitespace-nowrap">{invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"}</td>
-                  <td className="p-3"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-bold ${invoice.reviewStatus === "NEEDS_REVIEW" ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{invoice.reviewStatus === "NEEDS_REVIEW" ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}{invoice.reviewStatus === "NEEDS_REVIEW" ? "Review" : "Verified"}</span></td>
+              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="p-3">Vendor / invoice</th><th className="p-3">Date / project</th><th className="p-3">Amount</th><th className="p-3">Source</th><th className="p-3">Review</th><th className="p-3">Payment</th><th className="p-3 text-right">Actions</th></tr></thead>
+              <tbody className="divide-y divide-slate-100">{filtered.map((invoice) => {
+                const display = getInvoiceDisplay(invoice);
+                const needsReview = invoice.reviewStatus === "NEEDS_REVIEW";
+                const openLabel = needsReview ? "Open review" : "Open read-only";
+                return <tr key={invoice.id} className="hover:bg-slate-50">
+                  <td className="p-3 max-w-[250px]"><button onClick={() => onSelectInvoice(invoice)} className="font-black text-slate-900 hover:text-indigo-600 text-left truncate max-w-full block">{display.primaryLabel}</button><p className="text-[10px] text-slate-600 mt-0.5 truncate">{display.invoiceLabel}</p><p className="text-[10px] text-slate-500 truncate">TIN: {invoice.vendor?.taxId || "Not found"}</p>{invoice.duplicateStatus === "POSSIBLE_DUPLICATE" && <span className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold text-rose-700"><AlertTriangle className="w-3 h-3" /> potential duplicate</span>}</td>
+                  <td className="p-3 min-w-[150px]"><p className="font-semibold text-slate-800">{display.dateLabel}</p><p className="text-[10px] text-slate-500 mt-1 truncate">{display.projectKnown ? (display.projectReference ? `Project: ${display.projectLabel}` : `PO: ${display.projectLabel}`) : display.documentLabel}</p></td>
+                  <td className="p-3 font-sans tabular-nums font-black whitespace-nowrap"><p>{display.amountLabel}</p>{display.amountLabel !== display.currencyLabel && <p className="text-[9px] uppercase font-bold text-slate-400 mt-0.5">{display.currencyLabel}</p>}</td>
+                  <td className="p-3 max-w-[180px]"><span className="px-2 py-1 rounded-lg bg-slate-100 text-[10px] font-bold">{display.sourceLabel}</span><p className="text-[9px] text-slate-500 mt-1 truncate" title={display.sourceFileLabel}>{display.sourceFileLabel}</p><p className="text-[9px] text-slate-400 mt-0.5 truncate">{display.documentLabel}</p></td>
+                  <td className="p-3"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-bold ${needsReview ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{needsReview ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}{needsReview ? "Review" : "Verified"}</span></td>
                   <td className="p-3"><span className="text-[9px] font-bold uppercase text-slate-700">{(invoice.status || "UNPAID").replaceAll("_", " ")}</span></td>
-                  <td className="p-3"><div className="flex justify-end gap-1"><button onClick={() => onSelectInvoice(invoice)} className="p-2 rounded-lg bg-slate-100 hover:bg-indigo-50" title="Open invoice"><Eye className="w-3.5 h-3.5" /></button>{invoice.reviewStatus === "NEEDS_REVIEW" && <button onClick={() => onVerify(invoice)} className="p-2 rounded-lg bg-emerald-50 text-emerald-700" title="Mark verified"><CheckCircle2 className="w-3.5 h-3.5" /></button>}<button onClick={() => onDeleteInvoice(invoice.id)} className="p-2 rounded-lg bg-rose-50 text-rose-600" title="Archive invoice"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
-                </tr>
-              ))}</tbody>
+                  <td className="p-3"><div className="flex justify-end gap-1"><button onClick={() => onSelectInvoice(invoice)} className="p-2 rounded-lg bg-slate-100 hover:bg-indigo-50" title={openLabel} aria-label={`${openLabel}: ${display.primaryLabel}`}><Eye className="w-3.5 h-3.5" /></button><button onClick={() => onDeleteInvoice(invoice.id)} className="p-2 rounded-lg bg-rose-50 text-rose-600" title="Archive invoice" aria-label={`Archive ${display.primaryLabel}`}><Trash2 className="w-3.5 h-3.5" /></button></div></td>
+                </tr>;
+              })}</tbody>
             </table>
           </div>
         </div>

@@ -18,7 +18,6 @@ interface HeaderProps {
   invoicesCount: number;
   reviewCount: number;
   onBatchExportExcel: () => void;
-  workspaceLabel?: string;
 }
 
 const tabs: Array<{ id: AppTab; label: string; icon: React.ElementType }> = [

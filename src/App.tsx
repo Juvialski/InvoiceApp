@@ -4,14 +4,11 @@ import type { Session } from "@supabase/supabase-js";
 import { Header, AppTab } from "./components/Header";
 import { Dashboard } from "./components/Dashboard";
 import { UploadZone, ExtractPayload } from "./components/UploadZone";
-import { InvoiceViewer } from "./components/InvoiceViewer";
 import { InvoiceDirectory } from "./components/InvoiceDirectory";
 import { EmailInbox } from "./components/EmailInbox";
 import { Vendors } from "./components/Vendors";
 import { Reports } from "./components/Reports";
-import { ReviewPanel } from "./components/ReviewPanel";
 import { ReviewQueue } from "./components/ReviewQueue";
-import { SourceComparison } from "./components/SourceComparison";
 import { VerificationWorkspace } from "./components/VerificationWorkspace";
 import type { SaveState } from "./components/VerificationWorkspace";
 import { Settings as SettingsScreen } from "./components/Settings";
@@ -120,14 +117,15 @@ export default function App() {
   const sourcePayloadsRef = useRef(new Map<string, ExtractPayload>());
   const retryingInvoiceRef = useRef<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
-  const [verificationMode, setVerificationMode] = useState(false);
   const [reviewSessionIds, setReviewSessionIds] = useState<string[]>([]);
   const [reviewCompletion, setReviewCompletion] = useState<{ verifiedCount: number; totalCount: number; newItems: number } | null>(null);
+  const [workspaceOrigin, setWorkspaceOrigin] = useState<AppTab>("dashboard");
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
   const [processingCount, setProcessingCount] = useState(0);
   const [notification, setNotification] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(isSupabaseConfigured);
+  const [googleBannerDismissed, setGoogleBannerDismissed] = useState(false);
   const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
   const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
   const [saveState, setSaveState] = useState<SaveState>("saved");
@@ -305,7 +303,7 @@ export default function App() {
         sourcePayloadsRef.current.set(saved.id, { textData: body || subject, fileName: subject || "Email invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, emailRecordId: manualEmail?.id } });
         extractedInvoices.push(saved);
       }
-      if (extractedInvoices.length) startReview(extractedInvoices);
+      if (extractedInvoices.length) startReview(extractedInvoices, undefined, "inbox");
       showNotification("success", `Email processed: ${classification.documentType || "financial document"} detected and saved for review.`);
       return classification;
     } catch (error: any) {
@@ -478,7 +476,7 @@ export default function App() {
         extractedInvoices.push(saved);
         extractedCount = 1;
       }
-      if (extractedInvoices.length) startReview(extractedInvoices);
+      if (extractedInvoices.length) startReview(extractedInvoices, undefined, "inbox");
       showNotification("success", `Saved original Gmail message and ${stored.documents.length} attachment${stored.documents.length === 1 ? "" : "s"}; created ${extractedCount} invoice extraction${extractedCount === 1 ? "" : "s"}.`);
       return extractedCount;
     } finally {
@@ -710,7 +708,7 @@ export default function App() {
     showNotification("info", "Invoice record archived. The original source file, AI snapshot, and review history remain preserved.");
   };
 
-  const startReview = (requestedQueue?: InvoiceData[], initialId?: string) => {
+  const startReview = (requestedQueue?: InvoiceData[], initialId?: string, origin: AppTab = activeTab) => {
     const queue = requestedQueue?.length ? requestedQueue : invoicesRef.current.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW");
     const ids = queue.map((invoice) => invoice.id);
     const firstId = initialId && ids.includes(initialId) ? initialId : ids[0];
@@ -722,41 +720,40 @@ export default function App() {
     if (!first) return;
     setReviewSessionIds(ids);
     setReviewCompletion(null);
+    setWorkspaceOrigin(origin);
     setSelectedInvoice(first);
-    setVerificationMode(true);
     setSaveState("saved");
     setActiveTab("extractor");
   };
 
-  const openInvoiceDetails = (invoice: InvoiceData) => {
-    setSelectedInvoice(invoice);
-    setVerificationMode(false);
-    setReviewCompletion(null);
-    setReviewSessionIds([]);
-    setSaveState("saved");
-    setActiveTab("extractor");
-  };
-
-  const openInvoiceForReview = (invoice: InvoiceData) => {
+  const openInvoiceForReview = (invoice: InvoiceData, origin: AppTab = activeTab) => {
     const queue = invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW");
-    startReview(queue, invoice.id);
+    startReview(queue, invoice.id, origin);
   };
 
   const openInvoice = (invoice: InvoiceData) => {
-    if (invoice.reviewStatus === "NEEDS_REVIEW") openInvoiceForReview(invoice);
-    else openInvoiceDetails(invoice);
+    if (invoice.reviewStatus === "NEEDS_REVIEW") {
+      openInvoiceForReview(invoice, activeTab);
+      return;
+    }
+    setWorkspaceOrigin(activeTab);
+    setSelectedInvoice(invoice);
+    setReviewSessionIds([]);
+    setReviewCompletion(null);
+    setSaveState("saved");
+    setActiveTab("extractor");
   };
 
   const handleBatchComplete = (successful: InvoiceData[], failed: Array<{ name: string; error: string }>) => {
-    if (successful.length) startReview(successful);
+    if (successful.length) startReview(successful, undefined, "extractor");
     if (successful.length || failed.length) {
       const summary = `${successful.length} invoice${successful.length === 1 ? "" : "s"} extracted successfully. ${failed.length} failed.`;
       showNotification(failed.length ? "info" : "success", summary);
     }
   };
 
-  const reviewQueue = orderedReviewQueue(invoices, reviewSessionIds.length ? reviewSessionIds : undefined);
-  const reviewIndex = selectedInvoice ? reviewSessionIds.indexOf(selectedInvoice.id) : -1;
+  const reviewQueue = reviewSessionIds.length ? orderedReviewQueue(invoices, reviewSessionIds) : [];
+  const reviewIndex = selectedInvoice && reviewSessionIds.length ? reviewSessionIds.indexOf(selectedInvoice.id) : -1;
 
   const moveReview = async (direction: "next" | "previous") => {
     if (!selectedInvoice || !reviewSessionIds.length) return false;
@@ -781,6 +778,12 @@ export default function App() {
       showNotification("error", userFacingError(error, "Could not verify invoice. Retry before continuing."));
       return false;
     }
+    if (reviewSessionIds.length <= 1) {
+      setReviewSessionIds([]);
+      setReviewCompletion(null);
+      setSaveState("saved");
+      return true;
+    }
     const nextId = nextPendingReviewInvoiceId(reviewSessionIds, invoicesRef.current, selectedInvoice.id);
     if (nextId) {
       const next = invoicesRef.current.find((item) => item.id === nextId);
@@ -804,10 +807,36 @@ export default function App() {
   const exitReview = async () => {
     if (selectedInvoice && !await flushInvoiceSave(selectedInvoice)) return;
     setSelectedInvoice(null);
-    setVerificationMode(false);
     setReviewSessionIds([]);
     setReviewCompletion(null);
-    setActiveTab("review");
+    setActiveTab(workspaceOrigin);
+  };
+
+  const exitStandaloneWorkspace = async () => {
+    if (selectedInvoice && !await flushInvoiceSave(selectedInvoice)) return;
+    setSelectedInvoice(null);
+    setReviewSessionIds([]);
+    setReviewCompletion(null);
+    setActiveTab(workspaceOrigin);
+  };
+
+  const leaveWorkspace = reviewSessionIds.length ? exitReview : exitStandaloneWorkspace;
+  const workspaceOriginLabel = workspaceOrigin === "dashboard"
+    ? "Dashboard"
+    : workspaceOrigin === "inbox"
+      ? "Gmail Inbox"
+      : workspaceOrigin === "review"
+        ? "Review Queue"
+        : workspaceOrigin === "extractor"
+          ? "Extract"
+          : "Invoices";
+
+  const resetWorkspaceSelection = (tab: AppTab) => {
+    setSelectedInvoice(null);
+    setReviewSessionIds([]);
+    setReviewCompletion(null);
+    setWorkspaceOrigin(tab);
+    setActiveTab(tab);
   };
 
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").length;
@@ -829,13 +858,13 @@ export default function App() {
 
         {!isSupabaseConfigured && <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3"><Cloud className="w-5 h-5 text-amber-700 shrink-0" /><div><p className="text-xs font-black text-amber-900">Workspace connection is not configured</p><p className="text-[11px] text-amber-800 mt-1">The local workspace is available for document review. Connect the workspace to persist Gmail, original files, and review history.</p></div></div>}
         {workspaceLoading && <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" />Loading workspace…</div>}
-        {isSupabaseConfigured && !session && <div className="mb-5 p-4 rounded-2xl border border-indigo-200 bg-indigo-50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"><div className="flex gap-3"><Cloud className="w-5 h-5 text-indigo-600 shrink-0" /><div><p className="text-xs font-black text-indigo-900">Workspace connection available</p><p className="text-[11px] text-indigo-800 mt-1">Connect Google + Gmail to sign in, grant read-only mailbox access, and load your persistent invoice workspace.</p></div></div><button onClick={() => void connectGoogleAndGmail()} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold">Connect Google + Gmail</button></div>}
+        {isSupabaseConfigured && !session && !googleBannerDismissed && <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-2.5 flex items-center justify-between gap-3"><div className="flex items-center gap-2.5 min-w-0"><Cloud className="w-4 h-4 text-indigo-600 shrink-0" /><p className="text-[11px] font-semibold text-indigo-900 truncate">Gmail sync is not connected.</p></div><div className="flex items-center gap-2 shrink-0"><button onClick={() => void connectGoogleAndGmail()} className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold">Connect</button><button type="button" onClick={() => setGoogleBannerDismissed(true)} className="p-1 rounded-md text-indigo-500 hover:bg-indigo-100" aria-label="Dismiss Gmail connection notice"><X className="w-3.5 h-3.5" /></button></div></div>}
 
         {activeTab === "dashboard" && <Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} />}
-        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? verificationMode ? <VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={exitReview} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"))} onReturnToDashboard={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("dashboard"); }} onViewVerified={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("invoices"); }} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /> : <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} onReopen={() => void handleReopen(selectedInvoice)} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} />}</div>}
+        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? <VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} />}</div>}
         {activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
-        {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onVerify={(invoice) => void handleVerify(invoice)} onStartReview={(queue) => startReview(queue)} />}
-        {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("extractor"); }} onVerify={(invoice) => void handleVerify(invoice)} />}
+        {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
+        {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
         {activeTab === "vendors" && <Vendors invoices={invoices} />}
         {activeTab === "reports" && <Reports invoices={invoices} />}
         {activeTab === "settings" && <SettingsScreen settings={regionalSettings} onChange={handleRegionalSettingsChange} />}

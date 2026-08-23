@@ -85,7 +85,7 @@ export const SourceComparison: React.FC<SourceComparisonProps> = ({ invoice, onR
 
   const displayValue = (path: string, value: unknown) => {
     const normalizedPath = path.toLowerCase();
-    if (typeof value === "number" && (normalizedPath.includes("sales") || normalizedPath.includes("vatamount") || normalizedPath.includes("tax") || ["subtotal", "grandtotal", "balancedue"].includes(normalizedPath))) return formatMoney(value, invoice.currency || "PHP");
+    if (typeof value === "number" && (normalizedPath.includes("sales") || normalizedPath.includes("vatamount") || normalizedPath.includes("tax") || ["subtotal", "grandtotal", "balancedue"].includes(normalizedPath))) return invoice.currency ? formatMoney(value, invoice.currency) : "Currency unclear";
     return shortValue(value);
   };
 

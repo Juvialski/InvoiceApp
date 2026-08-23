@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, FileText, Inbox, Loader2, LogOut, Mail, Paperclip, RefreshCw, ScanSearch, Sparkles, UploadCloud } from "lucide-react";
 import { EmailClassification, GmailConnectionInfo, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "../types";
 import { formatDateTime } from "../config/regional";
+import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 
 interface EmailInboxProps {
   invoices: InvoiceData[];
@@ -108,7 +109,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, 
         {classification && <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs"><b>{classification.documentType}</b>{classification.invoiceSubtype ? ` • ${classification.invoiceSubtype}` : ""} • {Math.round(classification.confidence || 0)}% • {classification.reason}</div>}
       </section>
 
-      {emailInvoices.length > 0 && <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"><h3 className="text-sm font-black">Recently imported from email</h3><div className="mt-3 grid md:grid-cols-2 gap-2">{emailInvoices.map((invoice) => <button key={invoice.id} onClick={() => onOpenInvoice(invoice)} className="text-left border border-slate-200 rounded-xl p-3 hover:bg-slate-50"><div className="flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-600" /><span className="text-xs font-black">{invoice.invoiceNumber || invoice.fileName}</span></div><p className="text-[10px] text-slate-500 mt-1 truncate">{invoice.sourceMetadata?.subject || invoice.sourceMetadata?.sender || "Email source"}</p></button>)}</div></section>}
+      {emailInvoices.length > 0 && <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"><h3 className="text-sm font-black">Recently imported from email</h3><div className="mt-3 grid md:grid-cols-2 gap-2">{emailInvoices.map((invoice) => { const display = getInvoiceDisplay(invoice); return <button key={invoice.id} onClick={() => onOpenInvoice(invoice)} className="text-left border border-slate-200 rounded-xl p-3 hover:bg-slate-50"><div className="flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-600" /><span className="text-xs font-black truncate">{display.primaryLabel}</span></div><p className="text-[10px] text-slate-600 mt-1 truncate">{display.invoiceLabel} • {display.dateLabel}</p><p className="text-[10px] text-slate-500 mt-1 truncate">{invoice.sourceMetadata?.subject || invoice.sourceMetadata?.sender || "Email source"}</p></button>; })}</div></section>}
     </div>
   );
 };

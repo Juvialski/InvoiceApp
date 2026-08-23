@@ -33,6 +33,7 @@ interface InvoiceViewerProps {
   onUpdateInvoice: (updated: InvoiceData) => void;
   onBack: () => void;
   compact?: boolean;
+  readOnly?: boolean;
   focusFieldPath?: string;
   focusFieldToken?: number;
 }
@@ -42,12 +43,17 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   onUpdateInvoice,
   onBack,
   compact = false,
+  readOnly = false,
   focusFieldPath,
   focusFieldToken,
 }) => {
   const [copied, setCopied] = useState(false);
   const [activeView, setActiveView] = useState<"details" | "preview">("details");
   const [isEditingHeader, setIsEditingHeader] = useState(false);
+  const readOnlyFieldStyles = readOnly ? "[&_input]:pointer-events-none [&_select]:pointer-events-none [&_input]:bg-transparent [&_input]:border-transparent [&_input]:px-0 [&_input]:shadow-none [&_select]:bg-transparent [&_select]:border-transparent [&_select]:px-0 [&_select]:shadow-none [&_input]:focus:ring-0 [&_select]:focus:ring-0" : "";
+  const updateInvoice = (updated: InvoiceData) => {
+    if (!readOnly) onUpdateInvoice(updated);
+  };
   const changedPaths = useMemo(() => {
     if (!invoice.aiSnapshot) return new Set<string>();
     const paths = [
@@ -57,6 +63,10 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
     ];
     return new Set(paths.filter((path) => JSON.stringify(valueAtPath(invoice.aiSnapshot, path) ?? null) !== JSON.stringify(valueAtPath(invoice, path) ?? null)));
   }, [invoice]);
+
+  useEffect(() => {
+    if (readOnly) setIsEditingHeader(false);
+  }, [invoice.id, readOnly]);
 
   useEffect(() => {
     if (!focusFieldPath) return;
@@ -104,6 +114,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
 
   // Line item mutation helpers
   const handleUpdateLineItem = (itemId: string, field: keyof LineItem, value: any) => {
+    if (readOnly) return;
     const updatedItems = invoice.items.map((item) => {
       if (item.id === itemId) {
         const newItem = { ...item, [field]: value };
@@ -137,6 +148,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   };
 
   const handleAddLineItem = () => {
+    if (readOnly) return;
     const newItem: LineItem = {
       id: `item-${Date.now()}`,
       itemNumber: invoice.items.length + 1,
@@ -157,6 +169,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   };
 
   const handleDeleteLineItem = (itemId: string) => {
+    if (readOnly) return;
     const updatedItems = invoice.items.filter((it) => it.id !== itemId);
     const newSubtotal = updatedItems.reduce((sum, it) => sum + (it.total || 0), 0);
     const newGrandTotal =
@@ -176,6 +189,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   };
 
   const handlePartyUpdate = (party: "vendor" | "customer", field: string, value: string) => {
+    if (readOnly) return;
     onUpdateInvoice({
       ...invoice,
       [party]: {
@@ -186,6 +200,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   };
 
   const handleFinancialUpdate = (field: string, value: number) => {
+    if (readOnly) return;
     const updated = { ...invoice, [field]: value };
     if (field === "subtotal" || field === "totalTax" || field === "shippingFee" || field === "otherFees" || field === "totalDiscount" || field === "amountPaid") {
       const gTotal =
@@ -201,6 +216,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   };
 
   const handlePhilippineTaxUpdate = (field: string, value: string | number | boolean | undefined) => {
+    if (readOnly) return;
     const details = { ...(invoice.philippineTaxDetails || {}), [field]: value };
     const updated: InvoiceData = { ...invoice, philippineTaxDetails: details };
     if (field === "invoiceKind") updated.invoiceSubtype = value === "NON_VAT_INVOICE" ? "NON_VAT_INVOICE" : value === "VAT_INVOICE" ? "VAT_INVOICE" : invoice.invoiceSubtype;
@@ -212,7 +228,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   };
 
   return (
-    <div className={compact ? "space-y-4" : "space-y-6"}>
+    <div aria-readonly={readOnly} className={`${compact ? "space-y-4" : "space-y-6"} ${readOnlyFieldStyles}`}>
       {/* Top Action & Navigation Header */}
       <div className={`${compact ? "hidden" : ""} bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4`}>
         <div className="flex items-center space-x-3">
@@ -226,7 +242,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-900 font-mono">
+              <h2 className="text-base font-bold text-slate-900 font-sans">
                 {invoice.invoiceNumber || "Invoice"}
               </h2>
               <span
@@ -246,10 +262,10 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
             </p>
             {invoice.projectReference && <p className="text-[10px] text-indigo-700 mt-1 truncate">Project / reference: {invoice.projectReference}</p>}
             {isEditingHeader && <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3">
-              <input value={invoice.invoiceNumber || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceNumber: e.target.value })} placeholder="Invoice number" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
-              <input type="date" value={invoice.invoiceDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceDate: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
-              <input type="date" value={invoice.dueDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, dueDate: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
-              <input value={invoice.projectReference || ""} onChange={(e) => onUpdateInvoice({ ...invoice, projectReference: e.target.value })} placeholder="Project / reference" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
+              <input value={invoice.invoiceNumber || ""} onChange={(e) => updateInvoice({ ...invoice, invoiceNumber: e.target.value })} placeholder="Invoice number" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
+              <input type="date" value={invoice.invoiceDate || ""} onChange={(e) => updateInvoice({ ...invoice, invoiceDate: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
+              <input type="date" value={invoice.dueDate || ""} onChange={(e) => updateInvoice({ ...invoice, dueDate: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
+              <input value={invoice.projectReference || ""} onChange={(e) => updateInvoice({ ...invoice, projectReference: e.target.value })} placeholder="Project / reference" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
             </div>}
           </div>
         </div>
@@ -283,11 +299,24 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Export CSV</span>
           </button>
-          <button onClick={() => setIsEditingHeader((value) => !value)} className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition"><Edit2 className="w-3.5 h-3.5" /><span>{isEditingHeader ? "Done" : "Edit header"}</span></button>
+          {!readOnly && <button onClick={() => setIsEditingHeader((value) => !value)} className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition"><Edit2 className="w-3.5 h-3.5" /><span>{isEditingHeader ? "Done" : "Edit header"}</span></button>}
         </div>
       </div>
 
-      {compact && <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm"><div className="flex items-center justify-between gap-2"><div><p className="text-[9px] uppercase tracking-wide font-black text-indigo-600">Invoice details</p><p className="text-[10px] text-slate-500 mt-0.5">Edit the extracted header before checking the totals.</p></div>{edited("invoiceNumber") && <span className="inline-flex items-center gap-1 text-[9px] font-black text-sky-700"><span className="w-1.5 h-1.5 rounded-full bg-sky-500" />Edited</span>}</div><div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3"><label className="text-[9px] uppercase font-black text-slate-400">Invoice number<input data-field-path="invoiceNumber" value={invoice.invoiceNumber || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceNumber: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-mono text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Invoice date<input data-field-path="invoiceDate" type="date" value={invoice.invoiceDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Due date<input data-field-path="dueDate" type="date" value={invoice.dueDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, dueDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Project / reference<input data-field-path="projectReference" value={invoice.projectReference || ""} onChange={(e) => onUpdateInvoice({ ...invoice, projectReference: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label></div></div>}
+      {compact && <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div><p className="text-[9px] uppercase tracking-wide font-black text-indigo-600">Invoice details</p><p className="text-[10px] text-slate-500 mt-0.5">{readOnly ? "Verified extracted header." : "Edit the extracted header before checking the totals."}</p></div>
+            {edited("invoiceNumber") && <span className="inline-flex items-center gap-1 text-[9px] font-black text-sky-700 shrink-0"><span className="w-1.5 h-1.5 rounded-full bg-sky-500" />Edited</span>}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <button type="button" onClick={handleExportExcel} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-[10px] font-bold text-indigo-800 hover:bg-indigo-100"><FileSpreadsheet className="w-3.5 h-3.5" />Excel</button>
+            <button type="button" onClick={handleExportCSV} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100"><Download className="w-3.5 h-3.5" />CSV</button>
+            <button type="button" onClick={handleCopyTable} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-100">{copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}{copied ? "Copied" : "Copy"}</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3"><label className="text-[9px] uppercase font-black text-slate-400">Invoice number<input data-field-path="invoiceNumber" value={invoice.invoiceNumber || ""} onChange={(e) => updateInvoice({ ...invoice, invoiceNumber: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-mono text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Invoice date<input data-field-path="invoiceDate" type="date" value={invoice.invoiceDate || ""} onChange={(e) => updateInvoice({ ...invoice, invoiceDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Due date<input data-field-path="dueDate" type="date" value={invoice.dueDate || ""} onChange={(e) => updateInvoice({ ...invoice, dueDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Project / reference<input data-field-path="projectReference" value={invoice.projectReference || ""} onChange={(e) => updateInvoice({ ...invoice, projectReference: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label></div>
+      </div>}
 
       {/* Bento Grid Top Section: Status Cards, Confidence, Excel Hero & Key Meta */}
       <div className={`${compact ? "hidden" : ""} grid grid-cols-1 md:grid-cols-12 gap-4`}>
@@ -325,7 +354,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
               <span>Date: {formatDate(invoice.invoiceDate, "medium")}</span>
             </span>
-            <span className="font-mono text-slate-600">Due: {invoice.dueDate ? formatDate(invoice.dueDate, "medium") : "Upon Receipt"}</span>
+            <span className="font-sans tabular-nums text-slate-600">Due: {invoice.dueDate ? formatDate(invoice.dueDate, "medium") : "Upon Receipt"}</span>
           </div>
         </div>
 
@@ -486,7 +515,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                   <input
                     type="text"
                     value={invoice.purchaseOrderNumber || ""}
-                    onChange={(e) => onUpdateInvoice({ ...invoice, purchaseOrderNumber: e.target.value })}
+                    onChange={(e) => updateInvoice({ ...invoice, purchaseOrderNumber: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 font-mono mt-0.5 transition text-xs"
                   />
                 </div>
@@ -510,7 +539,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               <label className="text-[10px] text-slate-500 font-bold">Withholding Rate %<input type="number" step="0.01" value={invoice.philippineTaxDetails?.withholdingTaxRate ?? invoice.withholdingTaxRate ?? ""} onChange={(e) => handlePhilippineTaxUpdate("withholdingTaxRate", e.target.value === "" ? undefined : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-sans tabular-nums text-xs text-slate-800" /></label>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2 text-[10px]"><label className="text-slate-500 font-bold">ATP / OCN<input value={invoice.philippineTaxDetails?.authorityToPrintNumber || invoice.philippineTaxDetails?.outboundCorrespondenceNumber || ""} onChange={(e) => handlePhilippineTaxUpdate("authorityToPrintNumber", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs" /></label><label className="text-slate-500 font-bold">Permit / BIR details<input value={invoice.philippineTaxDetails?.permitToUseNumber || invoice.philippineTaxDetails?.birPermitDetailsRaw || ""} onChange={(e) => handlePhilippineTaxUpdate("birPermitDetailsRaw", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs" /></label></div>
-            {invoice.validation?.philippineVat?.applicable && <div className={`mt-3 rounded-xl p-3 text-[10px] ${invoice.validation.philippineVat.status === "PASS" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}><p className="font-black uppercase">12% VAT validation: {invoice.validation.philippineVat.status === "PASS" ? "PASS" : "NEEDS REVIEW"}</p>{invoice.validation.philippineVat.expectedVat !== undefined && <p className="mt-1">Expected: {formatMoney(invoice.validation.philippineVat.expectedVat, invoice.currency || "PHP")} • Document: {formatMoney(invoice.validation.philippineVat.documentVat || 0, invoice.currency || "PHP")} • Difference: {formatMoney(invoice.validation.philippineVat.difference || 0, invoice.currency || "PHP")}</p>}</div>}
+            {invoice.validation?.philippineVat?.applicable && <div className={`mt-3 rounded-xl p-3 text-[10px] ${invoice.validation.philippineVat.status === "PASS" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}><p className="font-black uppercase">12% VAT validation: {invoice.validation.philippineVat.status === "PASS" ? "PASS" : "NEEDS REVIEW"}</p>{invoice.validation.philippineVat.expectedVat !== undefined && <p className="mt-1">Expected: {invoice.currency ? formatMoney(invoice.validation.philippineVat.expectedVat, invoice.currency) : "Currency unclear"} • Document: {invoice.currency ? formatMoney(invoice.validation.philippineVat.documentVat || 0, invoice.currency) : "Currency unclear"} • Difference: {invoice.currency ? formatMoney(invoice.validation.philippineVat.difference || 0, invoice.currency) : "Currency unclear"}</p>}</div>}
             {invoice.philippineInvoiceCompleteness && invoice.philippineInvoiceCompleteness.status !== "NOT_APPLICABLE" && <div className="mt-3"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase text-slate-500">PH Invoice Completeness</p><span className={`text-[9px] font-bold ${invoice.philippineInvoiceCompleteness.status === "COMPLETE" ? "text-emerald-700" : "text-amber-700"}`}>{invoice.philippineInvoiceCompleteness.status.replaceAll("_", " ")}</span></div><div className="mt-2 grid grid-cols-1 gap-1 max-h-36 overflow-auto">{invoice.philippineInvoiceCompleteness.items.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 text-[10px]"><span className="truncate">{item.label}</span><span className={item.status === "COMPLETE" ? "text-emerald-700" : item.status === "NOT_APPLICABLE" ? "text-slate-400" : "text-amber-700"}>{item.status === "COMPLETE" ? "✓" : item.status === "NOT_APPLICABLE" ? "○" : "Review"}</span></div>)}</div></div>}
           </div>}
 
@@ -546,7 +575,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                 <Receipt className="w-4 h-4 text-indigo-600" />
                 <span>Extracted Data Points ({invoice.items.length} items)</span>
               </h3>
-              <button
+              {!readOnly && <button
                 type="button"
                 id="add-line-item-btn"
                 onClick={handleAddLineItem}
@@ -554,7 +583,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Item</span>
-              </button>
+              </button>}
             </div>
 
             {/* Table */}
@@ -569,7 +598,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                     <th className="py-3 px-3 text-[11px] font-bold text-slate-500 uppercase w-20">Unit</th>
                     <th className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase text-right w-28">Unit Price</th>
                     <th className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase text-right w-28">Amount</th>
-                    <th className="py-3 px-2 w-10 text-center"></th>
+                    {!readOnly && <th className="py-3 px-2 w-10 text-center"></th>}
                   </tr>
                 </thead>
                 <tbody className="text-xs divide-y divide-slate-100">
@@ -629,7 +658,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                       <td className="py-3 px-4 text-right font-sans tabular-nums font-bold text-slate-900">
                         {invoice.currency ? formatMoney(item.total, invoice.currency) : "—"}
                       </td>
-                      <td className="py-3 px-2 text-center">
+                      {!readOnly && <td className="py-3 px-2 text-center">
                         <button
                           type="button"
                           onClick={() => handleDeleteLineItem(item.id)}
@@ -638,14 +667,14 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      </td>
+                      </td>}
                     </tr>
                   ))}
 
                   {invoice.items.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="text-center py-8 text-slate-400 text-xs">
-                        No line items found. Click "Add Item" above to add one.
+                      <td colSpan={readOnly ? 7 : 8} className="text-center py-8 text-slate-400 text-xs">
+                        No line items found. {!readOnly && "Click \"Add Item\" above to add one."}
                       </td>
                     </tr>
                   )}

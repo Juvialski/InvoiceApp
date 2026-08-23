@@ -1,12 +1,13 @@
 import React from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Mail, Receipt, WalletCards } from "lucide-react";
 import { InvoiceData } from "../types";
+import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { formatMoney, totalVatByCurrency, totalsByCurrency } from "../utils/invoiceLogic";
 
 interface DashboardProps {
   invoices: InvoiceData[];
   onOpenInvoice: (invoice: InvoiceData) => void;
-  onNavigate: (tab: "extractor" | "inbox" | "invoices") => void;
+  onNavigate: (tab: "extractor" | "inbox" | "invoices" | "review") => void;
 }
 
 const isPhilippine = (invoice: InvoiceData) => invoice.currency?.toUpperCase() === "PHP" || invoice.vendor?.country?.toLowerCase().includes("philippines") || Boolean(invoice.philippineTaxDetails);
@@ -32,17 +33,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
 
   return (
     <div className="space-y-6">
-      <section className="bg-gradient-to-br from-slate-950 to-indigo-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl overflow-hidden relative">
-        <div className="relative z-10 max-w-2xl">
-          <span className="text-[10px] uppercase tracking-[0.22em] font-bold text-indigo-200">Daily invoice operations</span>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-2">Process invoices and clear the review queue.</h2>
-          <p className="text-sm text-slate-300 mt-2 max-w-xl">Upload documents or process an inbox item. Totals remain in each invoice&apos;s source currency, while VAT and reconciliation checks highlight the next action.</p>
-          <div className="flex flex-wrap gap-2 mt-5">
-            <button onClick={() => onNavigate("extractor")} className="px-4 py-2 rounded-xl bg-white text-slate-950 text-xs font-bold">Upload documents</button>
-            <button onClick={() => onNavigate("inbox")} className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center gap-2"><Mail className="w-3.5 h-3.5" /> Process an email</button>
+      <section className="bg-gradient-to-r from-slate-950 to-indigo-950 text-white rounded-2xl px-4 py-4 sm:px-5 shadow-lg overflow-hidden relative">
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-indigo-200">Invoice Overview</p>
+            <p className="text-xs text-slate-300 mt-1">Keep intake moving and resolve the next review item.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <button onClick={() => onNavigate("extractor")} className="px-3.5 py-2 rounded-xl bg-white text-slate-950 text-xs font-bold">Upload invoice</button>
+            <button onClick={() => onNavigate("review")} className="px-3.5 py-2 rounded-xl bg-amber-400 text-amber-950 text-xs font-black">Review {needsReview.length}</button>
+            <button onClick={() => onNavigate("inbox")} className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center gap-2"><Mail className="w-3.5 h-3.5" /> Process email</button>
           </div>
         </div>
-        <div className="absolute -right-12 -bottom-20 w-64 h-64 rounded-full bg-indigo-500/20 blur-2xl" />
       </section>
 
       <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -94,12 +96,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
 
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-sm">Recent activity</h3><button onClick={() => onNavigate("invoices")} className="text-xs font-bold text-indigo-600">View all</button></div>
-        {latest.length ? <div className="space-y-2">{latest.map((invoice) => (
-          <button key={invoice.id} onClick={() => onOpenInvoice(invoice)} className="w-full text-left flex items-center justify-between gap-3 rounded-xl p-3 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition">
-            <div className="min-w-0"><p className="text-xs font-bold text-slate-900 truncate">{invoice.invoiceNumber || invoice.fileName || "Unnumbered invoice"}</p><p className="text-[11px] text-slate-500 truncate">{invoice.vendor?.registeredName || invoice.vendor?.name || "Unknown vendor"} • {invoice.sourceType || "UPLOAD"}</p></div>
-            <div className="text-right shrink-0"><p className="text-xs font-black font-sans tabular-nums">{invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"}</p><span className={`text-[9px] font-bold uppercase ${invoice.reviewStatus === "NEEDS_REVIEW" ? "text-amber-700" : "text-emerald-700"}`}>{invoice.reviewStatus === "NEEDS_REVIEW" ? "Review" : "Verified"}</span></div>
-          </button>
-        ))}</div> : <p className="text-xs text-slate-500">No invoice activity yet.</p>}
+        {latest.length ? <div className="space-y-2">{latest.map((invoice) => {
+          const display = getInvoiceDisplay(invoice);
+          return <button key={invoice.id} onClick={() => onOpenInvoice(invoice)} className="w-full text-left flex items-center justify-between gap-3 rounded-xl p-3 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap"><p className="text-xs font-bold text-slate-900 truncate">{display.primaryLabel}</p><span className={`text-[9px] font-bold uppercase ${invoice.reviewStatus === "NEEDS_REVIEW" ? "text-amber-700" : "text-emerald-700"}`}>{invoice.reviewStatus === "NEEDS_REVIEW" ? "Review" : "Verified"}</span></div>
+              <p className="text-[11px] text-slate-600 truncate">{display.invoiceLabel} • {display.dateLabel}</p>
+              <p className="text-[10px] text-slate-400 truncate">{display.sourceLabel}{display.projectKnown ? ` • ${display.projectLabel}` : ""} • {display.sourceFileLabel}</p>
+            </div>
+            <div className="text-right shrink-0"><p className="text-xs font-black font-sans tabular-nums">{display.amountLabel}</p>{display.amountLabel !== display.currencyLabel && <p className="text-[9px] font-semibold text-slate-400 uppercase">{display.currencyLabel}</p>}</div>
+          </button>;
+        })}</div> : <p className="text-xs text-slate-500">No invoice activity yet.</p>}
       </section>
     </div>
   );
