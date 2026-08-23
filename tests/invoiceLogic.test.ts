@@ -133,6 +133,16 @@ test("pre-Philippine stored invoice shape remains readable", () => {
   assert.equal(applyLocalChecks(legacy).philippineInvoiceCompleteness?.status, "NOT_APPLICABLE");
 });
 
+test("PH completeness is a review aid and flags missing required fields", () => {
+  const complete = applyLocalChecks(SAMPLE_INVOICES[0].previewData);
+  assert.equal(complete.philippineInvoiceCompleteness?.status, "COMPLETE");
+  assert.match(complete.philippineInvoiceCompleteness?.disclaimer || "", /not a legal certification/i);
+
+  const missingTin = applyLocalChecks(invoice({ vendor: { name: "Supplier", country: "Philippines" }, philippineTaxDetails: { invoiceKind: "VAT_INVOICE", sellerRegistration: "VAT", vatableSales: 100000, vatAmount: 12000 } }));
+  assert.equal(missingTin.philippineInvoiceCompleteness?.status, "MISSING_INFORMATION");
+  assert.equal(missingTin.philippineInvoiceCompleteness?.items.some((item) => item.id === "seller-tin" && item.status === "MISSING_INFORMATION"), true);
+});
+
 test("all demo presets except the intentional validation fixture pass arithmetic checks", () => {
   const results = SAMPLE_INVOICES.map((preset) => applyLocalChecks(preset.previewData));
   assert.deepEqual(results.slice(0, 4).map((result) => result.validation?.status), ["PASS", "PASS", "PASS", "PASS"]);
