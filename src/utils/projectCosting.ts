@@ -58,6 +58,48 @@ function invoiceAllocationAmount(invoice: CostInvoice, projectId?: string) {
     .reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), 0);
 }
 
+function invoicePaidAmount(invoice: CostInvoice) {
+  const total = money(invoice.grandTotal);
+  const reported = Number(invoice.amountPaid);
+  if (invoice.status === "PAID" && !Number.isFinite(reported)) return total;
+  return money(Math.min(total, Math.max(0, Number.isFinite(reported) ? reported : 0)));
+}
+
+/**
+ * Allocates an invoice-level payment across the invoice's project allocations.
+ * Shares use a stable largest-remainder cent allocation so their rounded sum
+ * cannot exceed the invoice-level payment.
+ */
+function invoicePaidAllocationAmounts(invoice: CostInvoice) {
+  const allocations = invoice.allocations || [];
+  const projectAmounts = new Map<string, { amount: number; order: number }>();
+  allocations.forEach((allocation, order) => {
+    const amount = Math.max(0, normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation));
+    const current = projectAmounts.get(allocation.projectId);
+    projectAmounts.set(allocation.projectId, { amount: (current?.amount || 0) + amount, order: current?.order ?? order });
+  });
+  const allocationTotal = money([...projectAmounts.values()].reduce((sum, allocation) => sum + allocation.amount, 0));
+  const denominator = Math.max(money(invoice.grandTotal), allocationTotal);
+  const result = new Map<string, number>();
+  if (denominator <= 0) return result;
+
+  const paidCents = Math.max(0, Math.round(invoicePaidAmount(invoice) * 100));
+  const targetCents = Math.min(paidCents, Math.floor(invoicePaidAmount(invoice) * allocationTotal / denominator * 100 + 1e-8));
+  const shares = [...projectAmounts.entries()].map(([projectId, details]) => {
+    const rawCents = invoicePaidAmount(invoice) * details.amount / denominator * 100;
+    const cents = Math.floor(rawCents + 1e-8);
+    return { projectId, order: details.order, cents, remainder: rawCents - cents };
+  });
+  let remainingCents = targetCents - shares.reduce((sum, share) => sum + share.cents, 0);
+  shares.sort((left, right) => right.remainder - left.remainder || left.order - right.order);
+  for (let index = 0; remainingCents > 0 && shares.length > 0; index += 1) {
+    shares[index % shares.length].cents += 1;
+    remainingCents -= 1;
+  }
+  for (const share of shares) result.set(share.projectId, money(share.cents / 100));
+  return result;
+}
+
 function isConfirmedInvoice(invoice: CostInvoice) {
   return invoice.reviewStatus === "VERIFIED";
 }
@@ -117,8 +159,8 @@ export function calculateProjectCost(project: Pick<Project, "id" | "projectBudge
       continue;
     }
     summary.invoiceCost += amount;
-    const paidAmount = invoice.status === "PAID" ? amount : Math.min(amount, Math.max(0, Number(invoice.amountPaid) || 0));
-    const unpaidAmount = money(amount - paidAmount);
+    const paidAmount = invoicePaidAllocationAmounts(invoice).get(projectId) || 0;
+    const unpaidAmount = money(Math.max(0, amount - paidAmount));
     summary.paidInvoiceCost += paidAmount;
     summary.unpaidInvoiceCost += unpaidAmount;
     if (unpaidAmount > 0) summary.committedCost += unpaidAmount;
