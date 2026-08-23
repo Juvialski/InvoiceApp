@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { InvoiceData } from "../types";
 import { exportBatchInvoicesToExcel } from "../utils/excelExport";
+import { formatDate, formatMoney, totalsByCurrency } from "../utils/invoiceLogic";
 
 interface BatchManagerProps {
   invoices: InvoiceData[];
@@ -30,8 +31,9 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
   onClearAll,
   onAddNew,
 }) => {
-  const totalAmount = invoices.reduce((sum, inv) => sum + (inv.grandTotal || 0), 0);
-  const totalTax = invoices.reduce((sum, inv) => sum + (inv.totalTax || 0), 0);
+  const totals = totalsByCurrency(invoices);
+  const phpTotal = totals.PHP || 0;
+  const phpTax = invoices.filter((invoice) => invoice.currency === "PHP").reduce((sum, invoice) => sum + (Number(invoice.philippineTaxDetails?.vatAmount ?? invoice.totalTax) || 0), 0);
   const totalLineItems = invoices.reduce((sum, inv) => sum + (inv.items?.length || 0), 0);
 
   const handleExportAllExcel = () => {
@@ -104,7 +106,7 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                 Total Extracted Value
               </span>
               <div className="text-xl sm:text-2xl font-black text-indigo-900 font-mono mt-0.5">
-                ${totalAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                {phpTotal ? formatMoney(phpTotal, "PHP") : "No PHP invoices"}
               </div>
             </div>
 
@@ -113,7 +115,7 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                 Aggregated Tax / VAT
               </span>
               <div className="text-xl sm:text-2xl font-black text-emerald-900 font-mono mt-0.5">
-                ${totalTax.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                {formatMoney(phpTax, "PHP")}
               </div>
             </div>
 
@@ -157,10 +159,10 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                       {inv.invoiceNumber || "N/A"}
                     </td>
                     <td className="py-3.5 px-4 text-slate-600">
-                      {inv.invoiceDate || "N/A"}
+                      {formatDate(inv.invoiceDate, "short")}
                     </td>
                     <td className="py-3.5 px-4 max-w-[180px] truncate text-slate-800 font-medium" title={inv.vendor?.name}>
-                      {inv.vendor?.companyName || inv.vendor?.name || "N/A"}
+                      {inv.vendor?.registeredName || inv.vendor?.companyName || inv.vendor?.name || "N/A"}
                     </td>
                     <td className="py-3.5 px-4 max-w-[180px] truncate text-slate-600" title={inv.customer?.name}>
                       {inv.customer?.companyName || inv.customer?.name || "N/A"}
@@ -171,8 +173,7 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-right font-mono font-black text-slate-900">
-                      {inv.currencySymbol || "$"}
-                      {inv.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      {inv.currency ? formatMoney(inv.grandTotal, inv.currency) : "Currency unclear"}
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <span

@@ -12,10 +12,12 @@ import { Reports } from "./components/Reports";
 import { ReviewPanel } from "./components/ReviewPanel";
 import { ReviewQueue } from "./components/ReviewQueue";
 import { SourceComparison } from "./components/SourceComparison";
+import { Settings as SettingsScreen } from "./components/Settings";
 import { EmailClassification, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "./types";
 import { SAMPLE_INVOICES } from "./data/sampleInvoices";
 import { exportBatchInvoicesToExcel } from "./utils/excelExport";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
+import { currencySymbolFor, DEFAULT_CURRENCY, loadRegionalSettings, RegionalSettings, setRegionalSettings as setActiveRegionalSettings } from "./config/regional";
 import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, signOutWorkspace, supabase } from "./lib/supabase";
 import {
   deleteInvoiceFromSupabase,
@@ -33,9 +35,13 @@ import {
 } from "./lib/persistence";
 
 function prepareStoredInvoice(invoice: InvoiceData): InvoiceData {
+  const sourceType = invoice.sourceType || (invoice.id?.startsWith("sample") ? "SAMPLE" : "UPLOAD");
+  const currency = invoice.currency || (sourceType === "SAMPLE" ? DEFAULT_CURRENCY : "");
   return applyLocalChecks({
     ...invoice,
-    sourceType: invoice.sourceType || (invoice.id?.startsWith("sample") ? "SAMPLE" : "UPLOAD"),
+    sourceType,
+    currency,
+    currencySymbol: invoice.currencySymbol || (currency ? currencySymbolFor(currency) : undefined),
     processingStatus: invoice.processingStatus || "EXTRACTED",
     duplicateStatus: invoice.duplicateStatus || "UNIQUE",
   });
@@ -72,6 +78,23 @@ function gmailQueryDate(value: string, exclusive = false) {
   return parsed.toISOString().slice(0, 10).replaceAll("-", "/");
 }
 
+function valueAtPath(value: any, path: string) {
+  return path.split(".").reduce((current, key) => current?.[key], value);
+}
+
+function withPathValue<T extends Record<string, any>>(source: T, path: string, value: unknown): T {
+  const next: any = { ...source };
+  const parts = path.split(".");
+  let cursor = next;
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    const key = parts[index];
+    cursor[key] = { ...(cursor[key] || {}) };
+    cursor = cursor[key];
+  }
+  cursor[parts[parts.length - 1]] = value;
+  return next;
+}
+
 export default function App() {
   const [invoices, setInvoices] = useState<InvoiceData[]>(localFallbackInvoices);
   const invoicesRef = useRef(invoices);
@@ -84,6 +107,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(isSupabaseConfigured);
   const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
+  const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
 
   const showNotification = (type: "success" | "error" | "info", message: string) => {
     setNotification({ type, message });
@@ -282,7 +306,7 @@ export default function App() {
       const range = selectedWindow.after && selectedWindow.before
         ? `after:${gmailQueryDate(selectedWindow.after)} before:${gmailQueryDate(selectedWindow.before, true)}`
         : `newer_than:${selectedWindow.days || 30}d`;
-      const query = `${range} {subject:invoice subject:receipt subject:statement \"credit note\" \"tax invoice\" filename:pdf filename:png filename:jpg filename:jpeg}`;
+      const query = `${range} {subject:invoice subject:\"sales invoice\" subject:\"service invoice\" subject:\"VAT invoice\" subject:billing subject:SOA \"statement of account\" \"credit note\" \"tax invoice\" BIR VAT TIN \"amount due\" filename:pdf filename:png filename:jpg filename:jpeg}`;
       const data = await gmailRequest("/api/gmail/scan", { query, maxResults: 30 });
       const classified = await classifyGmailCandidates(data.messages || []);
       const nextSync = await saveGmailSyncState(data.historyId, data.emailAddress);
@@ -428,6 +452,11 @@ export default function App() {
     showNotification("success", `Verified ${verified.invoiceNumber || "invoice"}. The original AI snapshot and source file remain unchanged.`);
   };
 
+  const handleRegionalSettingsChange = (next: RegionalSettings) => {
+    const saved = setActiveRegionalSettings(next);
+    setRegionalSettingsState(saved);
+  };
+
   const handleReopen = async (invoice: InvoiceData) => {
     const reopened = { ...invoice, reviewStatus: "NEEDS_REVIEW" as const, verifiedAt: undefined };
     if (session && supabase) {
@@ -476,6 +505,21 @@ export default function App() {
     showNotification("info", `Restored ${reverted.invoiceNumber || "invoice"} to its original AI values for review.`);
   };
 
+  const handleRevertField = async (invoice: InvoiceData, path: string) => {
+    if (!invoice.aiSnapshot) return;
+    const originalValue = valueAtPath(invoice.aiSnapshot, path);
+    const reverted = applyLocalChecks(withPathValue(invoice, path, originalValue));
+    if (session && supabase) {
+      await updateInvoiceInSupabase(lastPersistedRef.current.get(invoice.id) || invoice, reverted, "FIELD_REVERTED");
+      lastPersistedRef.current.set(invoice.id, reverted);
+    }
+    const next = invoicesRef.current.map((item) => item.id === reverted.id ? reverted : item);
+    invoicesRef.current = next;
+    setInvoices(next);
+    setSelectedInvoice((current) => current?.id === reverted.id ? reverted : current);
+    showNotification("info", `Reverted ${path.replaceAll(".", " ")} to the original AI value.`);
+  };
+
   const handleDeleteInvoice = async (id: string) => {
     if (session && supabase) await deleteInvoiceFromSupabase(id);
     const next = invoicesRef.current.filter((invoice) => invoice.id !== id);
@@ -509,12 +553,13 @@ export default function App() {
         {isSupabaseConfigured && !session && <div className="mb-5 p-4 rounded-2xl border border-indigo-200 bg-indigo-50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"><div className="flex gap-3"><Cloud className="w-5 h-5 text-indigo-600 shrink-0" /><div><p className="text-xs font-black text-indigo-900">Supabase is configured</p><p className="text-[11px] text-indigo-800 mt-1">Connect Google + Gmail from Gmail Inbox to sign in, grant read-only Gmail access, and load your persistent invoice workspace.</p></div></div><button onClick={() => void connectGoogleAndGmail()} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold">Connect Google + Gmail</button></div>}
 
         {activeTab === "dashboard" && <Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} />}
-        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} onReopen={() => void handleReopen(selectedInvoice)} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} />}</div>}
+        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} onReopen={() => void handleReopen(selectedInvoice)} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} />}</div>}
         {activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoice} onVerify={(invoice) => void handleVerify(invoice)} />}
         {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => { setSelectedInvoice(null); setActiveTab("extractor"); }} onVerify={(invoice) => void handleVerify(invoice)} />}
         {activeTab === "vendors" && <Vendors invoices={invoices} />}
         {activeTab === "reports" && <Reports invoices={invoices} />}
+        {activeTab === "settings" && <SettingsScreen settings={regionalSettings} onChange={handleRegionalSettingsChange} />}
       </main>
       <footer className="border-t border-slate-200 py-4 bg-white text-center text-[10px] text-slate-500">Invoice Operations • Gmail read-only intake • Supabase originals & review history • Gemini 3.5 Flash-Lite • Gemini 3.7 Flash fallback</footer>
     </div>

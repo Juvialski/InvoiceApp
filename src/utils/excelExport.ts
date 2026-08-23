@@ -1,318 +1,239 @@
 import * as XLSX from "xlsx";
 import { InvoiceData } from "../types";
 
-/**
- * Calculates optimal column widths based on cell content lengths
- */
-function getColumnWidths(data: (string | number | undefined)[][]) {
-  const colWidths: { wch: number }[] = [];
-  data.forEach((row) => {
-    row.forEach((cell, colIndex) => {
-      const cellLength = cell ? String(cell).length : 0;
-      if (!colWidths[colIndex]) {
-        colWidths[colIndex] = { wch: Math.max(cellLength + 3, 12) };
-      } else {
-        colWidths[colIndex].wch = Math.max(colWidths[colIndex].wch, cellLength + 3, 12);
-      }
-    });
-  });
-  return colWidths;
+function getColumnWidths(rows: unknown[][]) {
+  const widths: { wch: number }[] = [];
+  rows.forEach((row) => row.forEach((cell, index) => {
+    const length = String(cell ?? "").length;
+    widths[index] = { wch: Math.min(42, Math.max(widths[index]?.wch || 12, length + 3)) };
+  }));
+  return widths;
 }
 
-/**
- * Exports a single detailed invoice to a beautifully structured Excel file (.xlsx)
- */
+function vendorName(invoice: InvoiceData) {
+  return invoice.vendor?.registeredName || invoice.vendor?.companyName || invoice.vendor?.name || "";
+}
+
+function taxRegistration(invoice: InvoiceData) {
+  return invoice.vendor?.taxRegistration || invoice.philippineTaxDetails?.sellerRegistration || "UNKNOWN";
+}
+
+function invoiceRegisterRow(invoice: InvoiceData) {
+  const tax = invoice.philippineTaxDetails || {};
+  return {
+    "Invoice Date": invoice.invoiceDate || "",
+    "Invoice Number": invoice.invoiceNumber || "",
+    "Invoice Type": invoice.invoiceSubtype || invoice.documentType || "INVOICE",
+    "Vendor Registered Name": vendorName(invoice),
+    "Vendor TIN": invoice.vendor?.taxId || "",
+    "VAT / Non-VAT": taxRegistration(invoice),
+    Currency: invoice.currency || "",
+    "VATable Sales": tax.vatableSales ?? "",
+    "VAT Amount": tax.vatAmount ?? invoice.totalTax ?? "",
+    "Zero-Rated Sales": tax.zeroRatedSales ?? "",
+    "VAT-Exempt Sales": tax.vatExemptSales ?? "",
+    Subtotal: invoice.subtotal,
+    Discount: invoice.totalDiscount || 0,
+    "Invoice Total": invoice.grandTotal,
+    "Withholding Tax": invoice.withholdingTaxAmount ?? tax.withholdingTaxAmount ?? "",
+    "Net Payable": invoice.netAmountPayable ?? tax.netAmountPayable ?? "",
+    "Payment Status": invoice.status || "UNPAID",
+    "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
+    Source: invoice.sourceType || "UPLOAD",
+    "Email Sender": invoice.sourceMetadata?.sender || "",
+    "Email Subject": invoice.sourceMetadata?.subject || "",
+    "Gemini Model": invoice.modelUsed || "",
+    Confidence: invoice.confidenceScore ?? "",
+  };
+}
+
+function lineItemRows(invoices: InvoiceData[]) {
+  const rows: Record<string, string | number>[] = [];
+  invoices.forEach((invoice) => (invoice.items || []).forEach((item, index) => rows.push({
+    "Invoice Number": invoice.invoiceNumber || "",
+    "Invoice Date": invoice.invoiceDate || "",
+    "Vendor Registered Name": vendorName(invoice),
+    "Vendor TIN": invoice.vendor?.taxId || "",
+    "Item Number": item.itemNumber || index + 1,
+    SKU: item.sku || "",
+    Description: item.description || "",
+    Quantity: item.quantity,
+    "Unit Price": item.unitPrice,
+    Discount: item.discount || 0,
+    "Tax Rate %": item.taxRate || 0,
+    "Tax Treatment": item.taxTreatment || "",
+    "Tax Amount": item.taxAmount || 0,
+    Amount: item.total,
+    Currency: invoice.currency || "",
+  })));
+  return rows;
+}
+
+function vatRows(invoices: InvoiceData[]) {
+  return invoices.map((invoice) => {
+    const tax = invoice.philippineTaxDetails || {};
+    return {
+      "Invoice Number": invoice.invoiceNumber || "",
+      "Invoice Date": invoice.invoiceDate || "",
+      Vendor: vendorName(invoice),
+      TIN: invoice.vendor?.taxId || "",
+      Currency: invoice.currency || "",
+      "VAT / Non-VAT": taxRegistration(invoice),
+      "VATable Sales": tax.vatableSales ?? "",
+      "VAT Amount": tax.vatAmount ?? invoice.totalTax ?? "",
+      "Zero-Rated Sales": tax.zeroRatedSales ?? "",
+      "VAT-Exempt Sales": tax.vatExemptSales ?? "",
+      "Completeness Status": invoice.philippineInvoiceCompleteness?.status || "NOT_APPLICABLE",
+      "Validation Status": invoice.validation?.status || "",
+    };
+  });
+}
+
+function vendorRows(invoices: InvoiceData[]) {
+  const map = new Map<string, { "Vendor": string; "TIN": string; "VAT / Non-VAT": string; Location: string; "Invoice Count": number; "Total PHP Spend": number; "Latest Invoice": string; "Review Issues": number }>();
+  invoices.forEach((invoice) => {
+    const name = vendorName(invoice);
+    const tin = invoice.vendor?.taxId || "";
+    const key = tin ? `tin:${tin}` : `name:${name.toLowerCase()}`;
+    const row = map.get(key) || {
+      Vendor: name,
+      TIN: tin,
+      "VAT / Non-VAT": taxRegistration(invoice),
+      Location: [invoice.vendor?.cityMunicipality || invoice.vendor?.city, invoice.vendor?.province || invoice.vendor?.state, invoice.vendor?.country].filter(Boolean).join(", "),
+      "Invoice Count": 0,
+      "Total PHP Spend": 0,
+      "Latest Invoice": invoice.invoiceDate || "",
+      "Review Issues": 0,
+    };
+    row["Invoice Count"] += 1;
+    if (invoice.currency === "PHP") row["Total PHP Spend"] += Number(invoice.grandTotal) || 0;
+    row["Review Issues"] += invoice.validation?.issues?.length || 0;
+    if ((invoice.invoiceDate || "") > row["Latest Invoice"]) row["Latest Invoice"] = invoice.invoiceDate || "";
+    map.set(key, row);
+  });
+  return Array.from(map.values());
+}
+
+function reviewRows(invoices: InvoiceData[]) {
+  return invoices.map((invoice) => ({
+    "Invoice Number": invoice.invoiceNumber || "",
+    Vendor: vendorName(invoice),
+    "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
+    "Duplicate Status": invoice.duplicateStatus || "UNIQUE",
+    "Confidence %": invoice.confidenceScore ?? "",
+    "Validation Status": invoice.validation?.status || "",
+    "Validation Flag Count": invoice.validation?.issues?.length || 0,
+    "Validation Messages": (invoice.validation?.issues || []).map((issue) => issue.message).join(" | "),
+    "PH Completeness": invoice.philippineInvoiceCompleteness?.status || "NOT_APPLICABLE",
+    Source: invoice.sourceType || "UPLOAD",
+    "Source Email": invoice.sourceMetadata?.sender || "",
+    "Source Subject": invoice.sourceMetadata?.subject || "",
+    "Model Used": invoice.modelUsed || "",
+  }));
+}
+
+function appendJsonSheet(wb: XLSX.WorkBook, rows: Record<string, unknown>[], name: string) {
+  const sheet = XLSX.utils.json_to_sheet(rows);
+  sheet["!cols"] = getColumnWidths(XLSX.utils.sheet_to_json(sheet, { header: 1 }) as unknown[][]);
+  XLSX.utils.book_append_sheet(wb, sheet, name);
+}
+
+function appendInvoiceDetails(wb: XLSX.WorkBook, invoice: InvoiceData) {
+  const tax = invoice.philippineTaxDetails || {};
+  const rows: unknown[][] = [
+    ["INVOICE DETAILS", "", "", ""],
+    ["Invoice Number", invoice.invoiceNumber, "Invoice Date", invoice.invoiceDate],
+    ["Invoice Type", invoice.invoiceSubtype || invoice.documentType || "INVOICE", "Currency", invoice.currency || ""],
+    ["Vendor Registered Name", vendorName(invoice), "Vendor TIN", invoice.vendor?.taxId || ""],
+    ["VAT / Non-VAT", taxRegistration(invoice), "Review Status", invoice.reviewStatus || "NEEDS_REVIEW"],
+    ["Subtotal", invoice.subtotal, "Invoice Total", invoice.grandTotal],
+    ["VATable Sales", tax.vatableSales ?? "", "VAT Amount", tax.vatAmount ?? invoice.totalTax ?? ""],
+    ["Zero-Rated Sales", tax.zeroRatedSales ?? "", "VAT-Exempt Sales", tax.vatExemptSales ?? ""],
+    ["Discount", invoice.totalDiscount || 0, "Withholding Tax", invoice.withholdingTaxAmount ?? tax.withholdingTaxAmount ?? ""],
+    ["Net Payable", invoice.netAmountPayable ?? tax.netAmountPayable ?? "", "Payment Status", invoice.status || "UNPAID"],
+    ["TIN / branch", [invoice.vendor?.taxId, invoice.vendor?.branchCode].filter(Boolean).join(" / "), "ATP / OCN", [tax.authorityToPrintNumber, tax.outboundCorrespondenceNumber].filter(Boolean).join(" / ")],
+  ];
+  const sheet = XLSX.utils.aoa_to_sheet(rows);
+  sheet["!cols"] = getColumnWidths(rows);
+  XLSX.utils.book_append_sheet(wb, sheet, "Invoice Details");
+}
+
 export function exportSingleInvoiceToExcel(invoice: InvoiceData) {
   const wb = XLSX.utils.book_new();
-  const ai = invoice.aiSnapshot;
-
-  // Build 2D array for the invoice worksheet
-  const rows: (string | number | undefined)[][] = [];
-
-  // Title header
-  rows.push(["SALES INVOICE DETAILS", "", "", "", "", "", ""]);
-  rows.push(["Extracted with Gemini AI", "", "", "", "", "", ""]);
-  rows.push(["Source:", invoice.sourceType || "UPLOAD", "", "", "Review Status:", invoice.reviewStatus || "NEEDS_REVIEW"]);
-  rows.push(["Model:", invoice.modelUsed || "", "", "", "Category:", invoice.category || "Uncategorized"]);
-  rows.push(["AI Grand Total:", ai?.grandTotal as number | undefined, "", "", "Current/Verified Grand Total:", invoice.grandTotal]);
-  rows.push(["Verified At:", invoice.verifiedAt || "", "", "", "Duplicate Status:", invoice.duplicateStatus || "UNIQUE"]);
-  rows.push([]);
-
-  // Invoice Metadata
-  rows.push(["INVOICE INFORMATION", "", "", "", "FINANCIAL SUMMARY", ""]);
-  rows.push(["Invoice Number:", invoice.invoiceNumber, "", "", "Subtotal:", `${invoice.currencySymbol || ""}${invoice.subtotal.toFixed(2)} ${invoice.currency}`]);
-  rows.push(["Invoice Date:", invoice.invoiceDate, "", "", "Total Discount:", `${invoice.currencySymbol || ""}${(invoice.totalDiscount || 0).toFixed(2)}`]);
-  rows.push(["Due Date:", invoice.dueDate || "N/A", "", "", "Total Tax / VAT:", `${invoice.currencySymbol || ""}${invoice.totalTax.toFixed(2)}`]);
-  rows.push(["PO Number:", invoice.purchaseOrderNumber || "N/A", "", "", "Shipping / Fees:", `${invoice.currencySymbol || ""}${((invoice.shippingFee || 0) + (invoice.otherFees || 0)).toFixed(2)}`]);
-  rows.push(["Currency:", invoice.currency, "", "", "GRAND TOTAL:", `${invoice.currencySymbol || ""}${invoice.grandTotal.toFixed(2)} ${invoice.currency}`]);
-  rows.push(["Payment Terms:", invoice.paymentTerms || "N/A", "", "", "Amount Paid:", `${invoice.currencySymbol || ""}${(invoice.amountPaid || 0).toFixed(2)}`]);
-  rows.push(["Status:", invoice.status || "UNPAID", "", "", "BALANCE DUE:", `${invoice.currencySymbol || ""}${(invoice.balanceDue ?? invoice.grandTotal).toFixed(2)} ${invoice.currency}`]);
-  rows.push([]);
-
-  // Parties Information
-  rows.push(["VENDOR / SELLER DETAILS", "", "", "", "CUSTOMER / BUYER DETAILS", ""]);
-  rows.push(["Business Name:", invoice.vendor?.companyName || invoice.vendor?.name || "N/A", "", "", "Client Name:", invoice.customer?.companyName || invoice.customer?.name || "N/A"]);
-  rows.push(["Tax ID / VAT:", invoice.vendor?.taxId || "N/A", "", "", "Customer Tax ID:", invoice.customer?.taxId || "N/A"]);
-  rows.push(["Street Address:", invoice.vendor?.address || "N/A", "", "", "Billing Address:", invoice.customer?.address || "N/A"]);
-  rows.push(["City / State / Postal:", `${invoice.vendor?.city || ""} ${invoice.vendor?.state || ""} ${invoice.vendor?.postalCode || ""}`.trim() || "N/A", "", "", "City / State / Postal:", `${invoice.customer?.city || ""} ${invoice.customer?.state || ""} ${invoice.customer?.postalCode || ""}`.trim() || "N/A"]);
-  rows.push(["Country:", invoice.vendor?.country || "N/A", "", "", "Country:", invoice.customer?.country || "N/A"]);
-  rows.push(["Email:", invoice.vendor?.email || "N/A", "", "", "Email:", invoice.customer?.email || "N/A"]);
-  rows.push(["Phone:", invoice.vendor?.phone || "N/A", "", "", "Phone:", invoice.customer?.phone || "N/A"]);
-  rows.push(["Website:", invoice.vendor?.website || "N/A", "", "", "", ""]);
-  rows.push([]);
-
-  // Line Items Section
-  rows.push(["LINE ITEMS BREAKDOWN", "", "", "", "", "", "", ""]);
-  rows.push([
-    "Item #",
-    "SKU / Code",
-    "Description",
-    "Quantity",
-    `Unit Price (${invoice.currency})`,
-    "Discount",
-    "Tax Rate (%)",
-    `Total Amount (${invoice.currency})`,
-  ]);
-
-  invoice.items.forEach((item, index) => {
-    rows.push([
-      item.itemNumber || index + 1,
-      item.sku || "-",
-      item.description,
-      item.quantity,
-      item.unitPrice,
-      item.discount || 0,
-      item.taxRate ? `${item.taxRate}%` : "0%",
-      item.total,
-    ]);
-  });
-
-  rows.push([]);
-  rows.push(["", "", "", "", "", "", "Subtotal:", invoice.subtotal]);
-  if (invoice.totalDiscount) {
-    rows.push(["", "", "", "", "", "", "Discount:", -invoice.totalDiscount]);
-  }
-  rows.push(["", "", "", "", "", "", "Total Tax:", invoice.totalTax]);
-  if (invoice.shippingFee) {
-    rows.push(["", "", "", "", "", "", "Shipping Fee:", invoice.shippingFee]);
-  }
-  rows.push(["", "", "", "", "", "", "GRAND TOTAL:", invoice.grandTotal]);
-  rows.push([]);
-
-  // Notes & Payment Terms
-  if (invoice.notes || invoice.termsAndConditions) {
-    rows.push(["ADDITIONAL NOTES & TERMS", ""]);
-    if (invoice.notes) rows.push(["Notes:", invoice.notes]);
-    if (invoice.termsAndConditions) rows.push(["Terms & Conditions:", invoice.termsAndConditions]);
-    rows.push([]);
-  }
-
-  // Create sheet
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = getColumnWidths(rows);
-
-  XLSX.utils.book_append_sheet(wb, ws, "Invoice Details");
-
-  // Also append a pure Line Items Raw Data sheet for easy pivot/formulas
-  const rawItemsData = invoice.items.map((item, idx) => ({
-    "Invoice #": invoice.invoiceNumber,
-    "Invoice Date": invoice.invoiceDate,
-    "Item #": item.itemNumber || idx + 1,
-    "SKU": item.sku || "",
-    "Description": item.description,
-    "Quantity": item.quantity,
-    "Unit Price": item.unitPrice,
-    "Discount": item.discount || 0,
-    "Tax Rate %": item.taxRate || 0,
-    "Tax Amount": item.taxAmount || 0,
-    "Total": item.total,
-    "Currency": invoice.currency,
-  }));
-  const wsItems = XLSX.utils.json_to_sheet(rawItemsData);
-  XLSX.utils.book_append_sheet(wb, wsItems, "Line Items Table");
-
-  const reviewRows = [{
-    "Invoice #": invoice.invoiceNumber,
-    "Source": invoice.sourceType || "UPLOAD",
-    "Source Document": invoice.sourceDocumentId || "",
-    "Source SHA-256": invoice.sourceSha256 || "",
-    "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
-    "Verified At": invoice.verifiedAt || "",
-    "Duplicate Status": invoice.duplicateStatus || "UNIQUE",
-    "AI Grand Total": ai?.grandTotal ?? "",
-    "Verified/Current Grand Total": invoice.grandTotal,
-    "Validation Status": invoice.validation?.status || "",
-    "Validation Issues": (invoice.validation?.issues || []).map((issue) => issue.message).join(" | "),
-    "Model Used": invoice.modelUsed || "",
-  }];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reviewRows), "Review & Validation");
-
-  // Trigger download
+  appendInvoiceDetails(wb, invoice);
+  appendJsonSheet(wb, lineItemRows([invoice]), "Line Items");
+  appendJsonSheet(wb, vatRows([invoice]), "VAT Summary");
+  appendJsonSheet(wb, vendorRows([invoice]), "Vendors");
+  appendJsonSheet(wb, reviewRows([invoice]), "Review & Validation");
   const cleanInvNum = (invoice.invoiceNumber || "Invoice").replace(/[^a-zA-Z0-9-_]/g, "_");
-  const fileName = `${cleanInvNum}_${invoice.invoiceDate || new Date().toISOString().slice(0, 10)}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  XLSX.writeFile(wb, `${cleanInvNum}_${invoice.invoiceDate || new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
-/**
- * Exports multiple invoices into a single comprehensive Excel Workbook
- */
 export function exportBatchInvoicesToExcel(invoices: InvoiceData[], customFileName?: string) {
-  if (!invoices || invoices.length === 0) return;
-
+  if (!invoices?.length) return;
   const wb = XLSX.utils.book_new();
-
-  // Sheet 1: Invoices Master Summary
-  const summaryData = invoices.map((inv) => ({
-    "Invoice #": inv.invoiceNumber,
-    "Invoice Date": inv.invoiceDate,
-    "Due Date": inv.dueDate || "",
-    "PO Number": inv.purchaseOrderNumber || "",
-    "Status": inv.status || "UNPAID",
-    "Vendor Name": inv.vendor?.companyName || inv.vendor?.name || "",
-    "Vendor Tax ID": inv.vendor?.taxId || "",
-    "Customer Name": inv.customer?.companyName || inv.customer?.name || "",
-    "Customer Tax ID": inv.customer?.taxId || "",
-    "Currency": inv.currency,
-    "Subtotal": inv.subtotal,
-    "Discount": inv.totalDiscount || 0,
-    "Tax / VAT": inv.totalTax,
-    "Shipping / Other": (inv.shippingFee || 0) + (inv.otherFees || 0),
-    "Grand Total": inv.grandTotal,
-    "AI Grand Total": inv.aiSnapshot?.grandTotal ?? "",
-    "Verified At": inv.verifiedAt || "",
-    "Amount Paid": inv.amountPaid || 0,
-    "Balance Due": inv.balanceDue ?? inv.grandTotal,
-    "Payment Terms": inv.paymentTerms || "",
-    "Items Count": inv.items?.length || 0,
-    "Notes": inv.notes || "",
-    "Document Type": inv.documentType || "INVOICE",
-    "Source": inv.sourceType || "UPLOAD",
-    "Source Email Sender": inv.sourceMetadata?.sender || "",
-    "Source Email Subject": inv.sourceMetadata?.subject || "",
-    "Source Document": inv.sourceDocumentId || "",
-    "Source SHA-256": inv.sourceSha256 || "",
-    "Review Status": inv.reviewStatus || "NEEDS_REVIEW",
-    "Duplicate Status": inv.duplicateStatus || "UNIQUE",
-    "Category": inv.category || "Uncategorized",
-    "AI Confidence %": inv.confidenceScore ?? "",
-    "Validation Flags": inv.validation?.issues?.length || 0,
-    "Validation Messages": (inv.validation?.issues || []).map((issue) => issue.message).join(" | "),
-    "Model Used": inv.modelUsed || "",
-  }));
-
-  const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-  XLSX.utils.book_append_sheet(wb, wsSummary, "Invoices Summary");
-
-  // Sheet 2: Consolidated Line Items from all invoices
-  const allItemsData: any[] = [];
-  invoices.forEach((inv) => {
-    (inv.items || []).forEach((item, idx) => {
-      allItemsData.push({
-        "Invoice #": inv.invoiceNumber,
-        "Invoice Date": inv.invoiceDate,
-        "Vendor": inv.vendor?.companyName || inv.vendor?.name || "",
-        "Customer": inv.customer?.companyName || inv.customer?.name || "",
-        "Item #": item.itemNumber || idx + 1,
-        "SKU / Code": item.sku || "",
-        "Item Description": item.description,
-        "Quantity": item.quantity,
-        "Unit Price": item.unitPrice,
-        "Discount": item.discount || 0,
-        "Tax Rate %": item.taxRate || 0,
-        "Tax Amount": item.taxAmount || 0,
-      "Line Total": item.total,
-      "Currency": inv.currency,
-        "Review Status": inv.reviewStatus || "NEEDS_REVIEW",
-        "Duplicate Status": inv.duplicateStatus || "UNIQUE",
-        "AI Grand Total": inv.aiSnapshot?.grandTotal ?? "",
-        "Verified Grand Total": inv.grandTotal,
-        "Model Used": inv.modelUsed || "",
-      });
-    });
-  });
-
-  const wsItems = XLSX.utils.json_to_sheet(allItemsData);
-  XLSX.utils.book_append_sheet(wb, wsItems, "All Line Items");
-
-  // Sheet 3: Vendors Directory
-  const vendorMap = new Map<string, any>();
-  invoices.forEach((inv) => {
-    const vName = inv.vendor?.name || inv.vendor?.companyName;
-    if (vName && !vendorMap.has(vName)) {
-      vendorMap.set(vName, {
-        "Vendor Name": vName,
-        "Tax ID": inv.vendor?.taxId || "",
-        "Address": inv.vendor?.address || "",
-        "City": inv.vendor?.city || "",
-        "State/Postal": `${inv.vendor?.state || ""} ${inv.vendor?.postalCode || ""}`.trim(),
-        "Country": inv.vendor?.country || "",
-        "Email": inv.vendor?.email || "",
-        "Phone": inv.vendor?.phone || "",
-        "Website": inv.vendor?.website || "",
-      });
-    }
-  });
-  if (vendorMap.size > 0) {
-    const wsVendors = XLSX.utils.json_to_sheet(Array.from(vendorMap.values()));
-    XLSX.utils.book_append_sheet(wb, wsVendors, "Vendors List");
-  }
-
-  // Sheet 4: Review & validation queue
-  const reviewData = invoices.map((inv) => ({
-    "Invoice #": inv.invoiceNumber,
-    "Vendor": inv.vendor?.companyName || inv.vendor?.name || "",
-    "Review Status": inv.reviewStatus || "NEEDS_REVIEW",
-    "Duplicate Status": inv.duplicateStatus || "UNIQUE",
-    "Confidence %": inv.confidenceScore ?? "",
-    "Validation Status": inv.validation?.status || "",
-    "Validation Flag Count": inv.validation?.issues?.length || 0,
-    "Validation Messages": (inv.validation?.issues || []).map((issue) => issue.message).join(" | "),
-    "Source": inv.sourceType || "UPLOAD",
-    "Source Email": inv.sourceMetadata?.sender || "",
-    "Source Subject": inv.sourceMetadata?.subject || "",
-    "Model Used": inv.modelUsed || "",
-  }));
-  const wsReview = XLSX.utils.json_to_sheet(reviewData);
-  XLSX.utils.book_append_sheet(wb, wsReview, "Review & Validation");
-
+  appendJsonSheet(wb, invoices.map(invoiceRegisterRow), "Invoice Register");
+  appendJsonSheet(wb, lineItemRows(invoices), "Line Items");
+  appendJsonSheet(wb, vatRows(invoices), "VAT Summary");
+  appendJsonSheet(wb, vendorRows(invoices), "Vendors");
+  appendJsonSheet(wb, reviewRows(invoices), "Review & Validation");
   const dateStr = new Date().toISOString().slice(0, 10);
-  const fileName = customFileName || `Sales_Invoices_Export_${invoices.length}_invoices_${dateStr}.xlsx`;
-  XLSX.writeFile(wb, fileName);
+  XLSX.writeFile(wb, customFileName || `Invoice_Register_${invoices.length}_${dateStr}.xlsx`);
 }
 
-/**
- * Exports single invoice line items as CSV format
- */
-export function exportInvoiceLineItemsToCSV(invoice: InvoiceData) {
-  const data = invoice.items.map((item, idx) => ({
-    "Invoice Number": invoice.invoiceNumber,
-    "Invoice Date": invoice.invoiceDate,
-    "Item Number": item.itemNumber || idx + 1,
-    "SKU": item.sku || "",
-    "Description": `"${(item.description || "").replace(/"/g, '""')}"`,
-    "Quantity": item.quantity,
-    "Unit Price": item.unitPrice,
-    "Discount": item.discount || 0,
-    "Tax Rate": item.taxRate || 0,
-    "Line Total": item.total,
-    "Currency": invoice.currency,
-    "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
-    "Duplicate Status": invoice.duplicateStatus || "UNIQUE",
-    "AI Grand Total": invoice.aiSnapshot?.grandTotal ?? "",
-    "Verified Grand Total": invoice.grandTotal,
-    "Validation Issues": (invoice.validation?.issues || []).map((issue) => issue.message).join(" | "),
-    "Model Used": invoice.modelUsed || "",
-    "Source": invoice.sourceType || "UPLOAD",
-  }));
+function csvValue(value: unknown) {
+  const text = String(value ?? "");
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
 
-  const headers = Object.keys(data[0] || {}).join(",");
-  const csvRows = data.map((row) => Object.values(row).join(","));
-  const csvContent = "data:text/csv;charset=utf-8," + [headers, ...csvRows].join("\n");
-  const encodedUri = encodeURI(csvContent);
+function downloadCsv(rows: Record<string, unknown>[], fileName: string) {
+  const headers = Object.keys(rows[0] || {});
+  const csv = [headers, ...rows.map((row) => headers.map((header) => row[header]))].map((row) => row.map(csvValue).join(",")).join("\n");
   const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", `Line_Items_${invoice.invoiceNumber || "Invoice"}.csv`);
+  link.href = `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+export function exportInvoiceLineItemsToCSV(invoice: InvoiceData) {
+  const tax = invoice.philippineTaxDetails || {};
+  const rows = (invoice.items || []).map((item, index) => ({
+    "Invoice Number": invoice.invoiceNumber || "",
+    "Invoice Date": invoice.invoiceDate || "",
+    "Invoice Type": invoice.invoiceSubtype || invoice.documentType || "INVOICE",
+    "Vendor Registered Name": vendorName(invoice),
+    "Vendor TIN": invoice.vendor?.taxId || "",
+    "VAT / Non-VAT": taxRegistration(invoice),
+    Currency: invoice.currency || "",
+    "VATable Sales": tax.vatableSales ?? "",
+    "VAT Amount": tax.vatAmount ?? invoice.totalTax ?? "",
+    "Zero-Rated Sales": tax.zeroRatedSales ?? "",
+    "VAT-Exempt Sales": tax.vatExemptSales ?? "",
+    "Item Number": item.itemNumber || index + 1,
+    SKU: item.sku || "",
+    Description: item.description || "",
+    Quantity: item.quantity,
+    "Unit Price": item.unitPrice,
+    Discount: item.discount || 0,
+    "Tax Treatment": item.taxTreatment || "",
+    Amount: item.total,
+    "Invoice Total": invoice.grandTotal,
+    "Withholding Tax": invoice.withholdingTaxAmount ?? tax.withholdingTaxAmount ?? "",
+    "Net Payable": invoice.netAmountPayable ?? tax.netAmountPayable ?? "",
+    "Payment Status": invoice.status || "UNPAID",
+    "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
+    Source: invoice.sourceType || "UPLOAD",
+    "Email Sender": invoice.sourceMetadata?.sender || "",
+    "Email Subject": invoice.sourceMetadata?.subject || "",
+    "Model Used": invoice.modelUsed || "",
+    Confidence: invoice.confidenceScore ?? "",
+  }));
+  downloadCsv(rows.length ? rows : [invoiceRegisterRow(invoice)], `Invoice_${invoice.invoiceNumber || "export"}.csv`);
+}
+
+export function exportInvoiceRegisterToCSV(invoices: InvoiceData[]) {
+  if (!invoices?.length) return;
+  downloadCsv(invoices.map(invoiceRegisterRow), `Invoice_Register_${new Date().toISOString().slice(0, 10)}.csv`);
 }

@@ -23,6 +23,7 @@ import {
   exportSingleInvoiceToExcel,
   exportInvoiceLineItemsToCSV,
 } from "../utils/excelExport";
+import { formatDate, formatMoney } from "../config/regional";
 
 interface InvoiceViewerProps {
   invoice: InvoiceData;
@@ -160,6 +161,17 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
     onUpdateInvoice(updated);
   };
 
+  const handlePhilippineTaxUpdate = (field: string, value: string | number | boolean | undefined) => {
+    const details = { ...(invoice.philippineTaxDetails || {}), [field]: value };
+    const updated: InvoiceData = { ...invoice, philippineTaxDetails: details };
+    if (field === "invoiceKind") updated.invoiceSubtype = value === "NON_VAT_INVOICE" ? "NON_VAT_INVOICE" : value === "VAT_INVOICE" ? "VAT_INVOICE" : invoice.invoiceSubtype;
+    if (field === "withholdingTaxAmount") {
+      updated.withholdingTaxAmount = value === undefined ? undefined : Number(value);
+      updated.netAmountPayable = value === undefined ? undefined : Math.round((Number(invoice.grandTotal || 0) - Number(value || 0)) * 100) / 100;
+    }
+    onUpdateInvoice(updated);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Action & Navigation Header */}
@@ -268,9 +280,9 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
             <span className="flex items-center gap-1 font-medium">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span>Date: {invoice.invoiceDate || "N/A"}</span>
+              <span>Date: {formatDate(invoice.invoiceDate, "medium")}</span>
             </span>
-            <span className="font-mono text-slate-600">Due: {invoice.dueDate || "Upon Receipt"}</span>
+            <span className="font-mono text-slate-600">Due: {invoice.dueDate ? formatDate(invoice.dueDate, "medium") : "Upon Receipt"}</span>
           </div>
         </div>
 
@@ -296,18 +308,14 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
           </span>
           <div>
             <div className="text-2xl font-black text-indigo-600 font-mono tracking-tight">
-              {invoice.currencySymbol || "$"}
-              {invoice.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              {invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"}
             </div>
             <p className="text-[11px] text-slate-500 mt-1 font-medium">
-              Balance: {invoice.currencySymbol || "$"}
-              {(invoice.balanceDue ?? invoice.grandTotal).toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-              })}
+              Balance: {invoice.currency ? formatMoney(invoice.balanceDue ?? invoice.grandTotal, invoice.currency) : "Currency unclear"}
             </p>
           </div>
           <div className="text-[10px] font-bold uppercase text-slate-400 bg-slate-50 py-1 px-2 rounded-lg text-center mt-2">
-            Currency: {invoice.currency || "USD"}
+            Currency: {invoice.currency || "Currency unclear"}
           </div>
         </div>
       </div>
@@ -334,14 +342,22 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                   className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5 transition font-medium"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-[10px] text-slate-400 uppercase block font-bold">Registered Name</label><input value={invoice.vendor?.registeredName || ""} onChange={(e) => handlePartyUpdate("vendor", "registeredName", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div>
+                <div><label className="text-[10px] text-slate-400 uppercase block font-bold">Trade Name</label><input value={invoice.vendor?.tradeName || ""} onChange={(e) => handlePartyUpdate("vendor", "tradeName", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div>
+              </div>
               <div>
-                <label className="text-[10px] text-slate-400 uppercase block font-bold">Tax ID / VAT</label>
+                <label className="text-[10px] text-slate-400 uppercase block font-bold">TIN / VAT Registration</label>
                 <input
                   type="text"
                   value={invoice.vendor?.taxId || ""}
                   onChange={(e) => handlePartyUpdate("vendor", "taxId", e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 font-mono mt-0.5 transition text-xs"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-[10px] text-slate-400 uppercase block font-bold">Branch Code</label><input value={invoice.vendor?.branchCode || ""} onChange={(e) => handlePartyUpdate("vendor", "branchCode", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs font-mono" /></div>
+                <div><label className="text-[10px] text-slate-400 uppercase block font-bold">Tax Registration</label><select value={invoice.vendor?.taxRegistration || "UNKNOWN"} onChange={(e) => handlePartyUpdate("vendor", "taxRegistration", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs"><option value="VAT">VAT</option><option value="NON_VAT">Non-VAT</option><option value="UNKNOWN">Unknown</option></select></div>
               </div>
               <div>
                 <label className="text-[10px] text-slate-400 uppercase block font-bold">Street Address</label>
@@ -352,6 +368,9 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                   className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5 transition text-xs"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-2"><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Barangay</label><input value={invoice.vendor?.barangay || ""} onChange={(e) => handlePartyUpdate("vendor", "barangay", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div><div><label className="text-[10px] text-slate-400 uppercase block font-bold">City / Municipality</label><input value={invoice.vendor?.cityMunicipality || invoice.vendor?.city || ""} onChange={(e) => handlePartyUpdate("vendor", "cityMunicipality", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div></div>
+              <div className="grid grid-cols-2 gap-2"><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Province</label><input value={invoice.vendor?.province || invoice.vendor?.state || ""} onChange={(e) => handlePartyUpdate("vendor", "province", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Region</label><input value={invoice.vendor?.region || ""} onChange={(e) => handlePartyUpdate("vendor", "region", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div></div>
+              <div><label className="text-[10px] text-slate-400 uppercase block font-bold">Postal Code</label><input value={invoice.vendor?.postalCode || ""} onChange={(e) => handlePartyUpdate("vendor", "postalCode", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs font-mono" /></div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] text-slate-400 uppercase block font-bold">Email</label>
@@ -393,8 +412,9 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                   className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5 transition font-medium"
                 />
               </div>
+              <div><label className="text-[10px] text-slate-400 uppercase block font-bold">Buyer Registered Name</label><input value={invoice.customer?.registeredName || ""} onChange={(e) => handlePartyUpdate("customer", "registeredName", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div>
               <div>
-                <label className="text-[10px] text-slate-400 uppercase block font-bold">Customer Tax ID</label>
+                <label className="text-[10px] text-slate-400 uppercase block font-bold">Buyer TIN</label>
                 <input
                   type="text"
                   value={invoice.customer?.taxId || ""}
@@ -402,6 +422,8 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                   className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white rounded-lg px-2.5 py-1.5 text-slate-800 font-mono mt-0.5 transition text-xs"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-2"><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Barangay</label><input value={invoice.customer?.barangay || ""} onChange={(e) => handlePartyUpdate("customer", "barangay", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div><div><label className="text-[10px] text-slate-400 uppercase block font-bold">City / Municipality</label><input value={invoice.customer?.cityMunicipality || invoice.customer?.city || ""} onChange={(e) => handlePartyUpdate("customer", "cityMunicipality", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div></div>
+              <div className="grid grid-cols-2 gap-2"><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Province</label><input value={invoice.customer?.province || invoice.customer?.state || ""} onChange={(e) => handlePartyUpdate("customer", "province", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div><div><label className="text-[10px] text-slate-400 uppercase block font-bold">Country</label><input value={invoice.customer?.country || ""} onChange={(e) => handlePartyUpdate("customer", "country", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 mt-0.5 text-xs" /></div></div>
               <div>
                 <label className="text-[10px] text-slate-400 uppercase block font-bold">Billing Address</label>
                 <input
@@ -433,6 +455,17 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               </div>
             </div>
           </div>
+
+          {(invoice.currency === "PHP" || invoice.philippineTaxDetails || invoice.vendor?.country?.toLowerCase().includes("philippines")) && <div className="bg-white border border-violet-200 rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-2 pb-3 border-b border-violet-100"><div><h3 className="text-xs font-bold uppercase tracking-wider text-violet-900">Philippine Tax Details</h3><p className="text-[10px] text-violet-700 mt-1">Review aid only — not a legal certification.</p></div><select value={invoice.philippineTaxDetails?.invoiceKind || "UNKNOWN"} onChange={(e) => handlePhilippineTaxUpdate("invoiceKind", e.target.value)} className="rounded-lg border border-violet-200 px-2 py-1 text-[10px] font-bold bg-white"><option value="VAT_INVOICE">VAT Invoice</option><option value="NON_VAT_INVOICE">Non-VAT Invoice</option><option value="UNKNOWN">Unknown</option></select></div>
+            <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+              {[["VATable Sales", "vatableSales"], ["VAT Amount", "vatAmount"], ["Zero-Rated", "zeroRatedSales"], ["VAT-Exempt", "vatExemptSales"], ["Withholding Tax", "withholdingTaxAmount"]].map(([label, field]) => <label key={field} className="text-[10px] text-slate-500 font-bold">{label}<input type="number" step="0.01" value={(invoice.philippineTaxDetails as any)?.[field] ?? ""} onChange={(e) => handlePhilippineTaxUpdate(field, e.target.value === "" ? undefined : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-xs text-slate-800" /></label>)}
+              <label className="text-[10px] text-slate-500 font-bold">Withholding Rate %<input type="number" step="0.01" value={invoice.philippineTaxDetails?.withholdingTaxRate ?? invoice.withholdingTaxRate ?? ""} onChange={(e) => handlePhilippineTaxUpdate("withholdingTaxRate", e.target.value === "" ? undefined : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-xs text-slate-800" /></label>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2 text-[10px]"><label className="text-slate-500 font-bold">ATP / OCN<input value={invoice.philippineTaxDetails?.authorityToPrintNumber || invoice.philippineTaxDetails?.outboundCorrespondenceNumber || ""} onChange={(e) => handlePhilippineTaxUpdate("authorityToPrintNumber", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs" /></label><label className="text-slate-500 font-bold">Permit / BIR details<input value={invoice.philippineTaxDetails?.permitToUseNumber || invoice.philippineTaxDetails?.birPermitDetailsRaw || ""} onChange={(e) => handlePhilippineTaxUpdate("birPermitDetailsRaw", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs" /></label></div>
+            {invoice.validation?.philippineVat?.applicable && <div className={`mt-3 rounded-xl p-3 text-[10px] ${invoice.validation.philippineVat.status === "PASS" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}><p className="font-black uppercase">12% VAT validation: {invoice.validation.philippineVat.status === "PASS" ? "PASS" : "NEEDS REVIEW"}</p>{invoice.validation.philippineVat.expectedVat !== undefined && <p className="mt-1">Expected: {formatMoney(invoice.validation.philippineVat.expectedVat, invoice.currency || "PHP")} • Document: {formatMoney(invoice.validation.philippineVat.documentVat || 0, invoice.currency || "PHP")} • Difference: {formatMoney(invoice.validation.philippineVat.difference || 0, invoice.currency || "PHP")}</p>}</div>}
+            {invoice.philippineInvoiceCompleteness && invoice.philippineInvoiceCompleteness.status !== "NOT_APPLICABLE" && <div className="mt-3"><div className="flex items-center justify-between"><p className="text-[10px] font-black uppercase text-slate-500">PH Invoice Completeness</p><span className={`text-[9px] font-bold ${invoice.philippineInvoiceCompleteness.status === "COMPLETE" ? "text-emerald-700" : "text-amber-700"}`}>{invoice.philippineInvoiceCompleteness.status.replaceAll("_", " ")}</span></div><div className="mt-2 grid grid-cols-1 gap-1 max-h-36 overflow-auto">{invoice.philippineInvoiceCompleteness.items.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 text-[10px]"><span className="truncate">{item.label}</span><span className={item.status === "COMPLETE" ? "text-emerald-700" : item.status === "NOT_APPLICABLE" ? "text-slate-400" : "text-amber-700"}>{item.status === "COMPLETE" ? "✓" : item.status === "NOT_APPLICABLE" ? "○" : "Review"}</span></div>)}</div></div>}
+          </div>}
 
           {/* Original Preview (if image) */}
           {invoice.previewUrl && (
@@ -533,8 +566,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                         />
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
-                        {invoice.currencySymbol || "$"}
-                        {item.total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {invoice.currency ? formatMoney(item.total, invoice.currency) : "—"}
                       </td>
                       <td className="py-3 px-2 text-center">
                         <button
@@ -601,13 +633,13 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                 <div className="text-right">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Subtotal</p>
                   <p className="text-base font-bold text-slate-900 font-mono">
-                    {invoice.currencySymbol}{invoice.subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    {invoice.currency ? formatMoney(invoice.subtotal, invoice.currency) : "Currency unclear"}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider">Grand Total</p>
                   <p className="text-xl font-black text-indigo-600 font-mono">
-                    {invoice.currencySymbol}{invoice.grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    {invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"}
                   </p>
                 </div>
               </div>
