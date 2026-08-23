@@ -34,7 +34,7 @@ begin
       'payroll_import_rows',
       'payroll_import_templates',
       'gmail_connections',
-      'gmail_sync_state',
+      'gmail_sync_state'
     ] loop
       -- The guard makes this safe to replay and avoids failing if a partially
       -- provisioned environment has not applied one of the domain migrations.
