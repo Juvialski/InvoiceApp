@@ -62,6 +62,8 @@ import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase,
 import { canTransitionPayrollRun, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
 import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
+import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
+import { createBrowserWorkspaceSyncEnvironment, createWorkspaceSyncController, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
 
 function prepareStoredInvoice(invoice: InvoiceData): InvoiceData {
@@ -143,6 +145,7 @@ function initialAppLocation(): AppLocation {
 export default function App() {
   const [invoices, setInvoices] = useState<InvoiceData[]>(localFallbackInvoices);
   const invoicesRef = useRef(invoices);
+  const selectedInvoiceRef = useRef<InvoiceData | null>(null);
   const lastPersistedRef = useRef(new Map<string, InvoiceData>());
   const updateTimersRef = useRef(new Map<string, number>());
   const editRevisionRef = useRef(new Map<string, number>());
@@ -159,11 +162,18 @@ export default function App() {
   const [processingCount, setProcessingCount] = useState(0);
   const [notification, setNotification] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const [authResolved, setAuthResolved] = useState(!isSupabaseConfigured);
+  const workspaceGenerationRef = useRef(0);
   const [workspaceLoading, setWorkspaceLoading] = useState(isSupabaseConfigured);
   const [googleBannerDismissed, setGoogleBannerDismissed] = useState(false);
   const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
   const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
   const [saveState, setSaveState] = useState<SaveState>("saved");
+  const saveStateRef = useRef<SaveState>("saved");
+  const [remoteInvoiceUpdate, setRemoteInvoiceUpdate] = useState<{ invoiceId: string; invoice: InvoiceData } | null>(null);
+  const remoteInvoiceRemovedRef = useRef(new Set<string>());
+  const remoteInvoiceUpdatesRef = useRef(new Map<string, InvoiceData>());
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
   const savePromisesRef = useRef(new Map<string, Promise<unknown>>());
   const [projects, setProjects] = useState<Project[]>(readProjectsFromLocal);
@@ -173,6 +183,14 @@ export default function App() {
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(readInvoiceProjectAllocationsFromLocal);
   const [expenses, setExpenses] = useState<Expense[]>(readExpensesFromLocal);
   const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(readPayrollWorkspaceFromLocal);
+  const [workspaceSyncStatus, setWorkspaceSyncStatus] = useState<WorkspaceSyncStatus>(isSupabaseConfigured ? "connecting" : "guest");
+  const workspaceSyncControllerRef = useRef<WorkspaceSyncController | null>(null);
+  const initialWorkspaceLoadRef = useRef<Promise<void> | null>(null);
+  const workspaceRefreshFailureRef = useRef<string | null>(null);
+  const updateSaveState = (nextState: SaveState) => {
+    saveStateRef.current = nextState;
+    setSaveState(nextState);
+  };
   const navigateToPath = (path: string, replace = false) => {
     const nextPath = path.startsWith("/") ? path : `/${path}`;
     const [pathname, query = ""] = nextPath.split("?", 2);
@@ -219,7 +237,7 @@ export default function App() {
   useEffect(() => {
     const invoiceRoute = route.kind === "invoice" || route.kind === "review-invoice" ? route : null;
     if (invoiceRoute) {
-      const resolved = invoices.find((invoice) => invoice.id === invoiceRoute.invoiceId) || null;
+      const resolved = resolveEntityById(invoices, invoiceRoute.invoiceId);
       setSelectedInvoice(resolved);
       if (invoiceRoute.kind === "review-invoice" && !reviewSessionIds.length && !workspaceLoading) {
         const ids = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").map((invoice) => invoice.id);
@@ -236,7 +254,7 @@ export default function App() {
       setSelectedProject(null);
       return;
     }
-    setSelectedProject(projects.find((project) => project.id === route.projectId) || null);
+    setSelectedProject(resolveEntityById(projects, route.projectId));
   }, [route, projects]);
 
   const [expenseFormContext, setExpenseFormContext] = useState<string | null>(null);
@@ -247,94 +265,235 @@ export default function App() {
     window.setTimeout(() => setNotification((current) => current?.message === message ? null : current), 5000);
   };
 
-  const loadWorkspace = async (nextSession: Session | null) => {
-    if (!isSupabaseConfigured || !nextSession) {
-      setWorkspaceLoading(false);
+  const allWorkspaceRefreshGroups: readonly WorkspaceRefreshGroup[] = ["invoices", "engineering", "payroll", "payroll-imports", "gmail"];
+
+  const currentWorkspaceLoadToken = () => {
+    const userId = sessionRef.current?.user?.id;
+    return userId ? { generation: workspaceGenerationRef.current, userId } : null;
+  };
+
+  const canApplyWorkspaceResult = (token: { generation: number; userId: string }) =>
+    canApplyWorkspaceLoad(token, currentWorkspaceLoadToken());
+
+  const refreshInvoicesForWorkspace = async (token: { generation: number; userId: string }) => {
+    const storedInvoices = await loadInvoicesFromSupabase();
+    if (!canApplyWorkspaceResult(token)) return;
+    const prepared: InvoiceData[] = (storedInvoices as InvoiceData[]).map(prepareStoredInvoice);
+    const selected = selectedInvoiceRef.current;
+    const selectedId = selected?.id || null;
+    const localById = new Map<string, InvoiceData>(invoicesRef.current.map((invoice): [string, InvoiceData] => [invoice.id, invoice]));
+    const next: InvoiceData[] = prepared.map((remoteInvoice) => {
+      const decision = decideRemoteInvoiceRefresh({
+        invoiceId: remoteInvoice.id,
+        selectedInvoiceId: selectedId,
+        saveState: saveStateRef.current,
+        remoteExists: true,
+      });
+      if (decision.action === "defer") {
+        remoteInvoiceUpdatesRef.current.set(remoteInvoice.id, remoteInvoice);
+        remoteInvoiceRemovedRef.current.delete(remoteInvoice.id);
+        setRemoteInvoiceUpdate({ invoiceId: remoteInvoice.id, invoice: remoteInvoice });
+        return localById.get(remoteInvoice.id) || remoteInvoice;
+      }
+      remoteInvoiceUpdatesRef.current.delete(remoteInvoice.id);
+      remoteInvoiceRemovedRef.current.delete(remoteInvoice.id);
+      setRemoteInvoiceUpdate((current) => current?.invoiceId === remoteInvoice.id ? null : current);
+      return remoteInvoice;
+    });
+    if (selected && !prepared.some((invoice) => invoice.id === selected.id)) {
+      const decision = decideRemoteInvoiceRefresh({
+        invoiceId: selected.id,
+        selectedInvoiceId: selected.id,
+        saveState: saveStateRef.current,
+        remoteExists: false,
+      });
+      if (decision.action === "defer") {
+        remoteInvoiceUpdatesRef.current.set(selected.id, selected);
+        remoteInvoiceRemovedRef.current.add(selected.id);
+        setRemoteInvoiceUpdate({ invoiceId: selected.id, invoice: selected });
+        if (!next.some((invoice) => invoice.id === selected.id)) next.push(selected);
+      }
+    }
+    invoicesRef.current = next;
+    setInvoices(next);
+    lastPersistedRef.current = new Map(prepared.map((invoice) => [invoice.id, invoice]));
+  };
+
+  const refreshEngineeringForWorkspace = async (token: { generation: number; userId: string }) => {
+    const results = await Promise.allSettled([
+      loadProjectsFromSupabase(),
+      loadInvoiceProjectAllocationsFromSupabase(),
+      loadExpensesFromSupabase(),
+    ]);
+    if (!canApplyWorkspaceResult(token)) return;
+    const failures: string[] = [];
+    if (results[0].status === "fulfilled") setProjects(results[0].value);
+    else failures.push("projects");
+    if (results[1].status === "fulfilled") setInvoiceProjectAllocations(results[1].value);
+    else failures.push("invoice allocations");
+    if (results[2].status === "fulfilled") setExpenses(results[2].value);
+    else failures.push("expenses");
+    if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
+  };
+
+  const refreshPayrollForWorkspace = async (token: { generation: number; userId: string }) => {
+    const data = await loadPayrollWorkspaceFromSupabase();
+    if (!canApplyWorkspaceResult(token)) return;
+    setPayrollData(data);
+  };
+
+  const refreshPayrollImportsForWorkspace = async (token: { generation: number; userId: string }) => {
+    const data = await loadPayrollImportWorkspaceFromSupabase();
+    if (!canApplyWorkspaceResult(token)) return;
+    setPayrollImportData(data);
+  };
+
+  const refreshGmailForWorkspace = async (token: { generation: number; userId: string }) => {
+    const data = await loadGmailSyncState();
+    if (!canApplyWorkspaceResult(token)) return;
+    setSyncState(data);
+  };
+
+  const refreshWorkspaceGroups = async (groups: readonly WorkspaceRefreshGroup[], token = currentWorkspaceLoadToken()) => {
+    if (!token) return;
+    const requested = new Set(groups);
+    const results = await Promise.allSettled([
+      requested.has("invoices") ? refreshInvoicesForWorkspace(token) : Promise.resolve(),
+      requested.has("engineering") ? refreshEngineeringForWorkspace(token) : Promise.resolve(),
+      requested.has("payroll") ? refreshPayrollForWorkspace(token) : Promise.resolve(),
+      requested.has("payroll-imports") ? refreshPayrollImportsForWorkspace(token) : Promise.resolve(),
+      requested.has("gmail") ? refreshGmailForWorkspace(token) : Promise.resolve(),
+    ]);
+    const failures = results
+      .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+      .map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason));
+    workspaceRefreshFailureRef.current = failures.length ? failures.join(" ") : null;
+    if (failures.length) throw new Error(failures.join(" "));
+  };
+
+  const loadWorkspaceGuarded = async (nextSession: Session, generation: number) => {
+    const userId = nextSession.user.id;
+    const token = { generation, userId };
+    if (!isSupabaseConfigured || !canApplyWorkspaceResult(token)) {
+      if (canApplyWorkspaceResult(token)) setWorkspaceLoading(false);
       return;
     }
     setWorkspaceLoading(true);
+    workspaceRefreshFailureRef.current = null;
     try {
       await ensureWorkspaceProfile();
-      const [storedInvoices, storedSync] = await Promise.all([loadInvoicesFromSupabase(), loadGmailSyncState()]);
-      const prepared = storedInvoices.map(prepareStoredInvoice);
-      invoicesRef.current = prepared;
-      setInvoices(prepared);
-      lastPersistedRef.current = new Map(prepared.map((invoice) => [invoice.id, invoice]));
-      setSyncState(storedSync);
-      const engineeringResults = await Promise.allSettled([
-        loadProjectsFromSupabase(),
-        loadInvoiceProjectAllocationsFromSupabase(),
-        loadExpensesFromSupabase(),
-        loadPayrollWorkspaceFromSupabase(),
-      ]);
-      if (engineeringResults.every((result) => result.status === "fulfilled")) {
-        const [storedProjects, storedAllocations, storedExpenses, storedPayroll] = engineeringResults.map((result) => result.status === "fulfilled" ? result.value : undefined) as [Project[], InvoiceProjectAllocation[], Expense[], PayrollWorkspaceData];
-        setProjects(storedProjects);
-        setInvoiceProjectAllocations(storedAllocations);
-        setExpenses(storedExpenses);
-        setPayrollData(storedPayroll);
-      } else {
-        showNotification("info", "Invoice workspace loaded. Apply the project-costing migration to enable connected Projects, Expenses, and Payroll data.");
-      }
-      try {
-        setPayrollImportData(await loadPayrollImportWorkspaceFromSupabase());
-      } catch {
-        showNotification("info", "Payroll import history is unavailable until its staging migration is applied.");
-      }
+      if (!canApplyWorkspaceResult(token)) return;
+      await refreshWorkspaceGroups(allWorkspaceRefreshGroups, token);
     } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not load the workspace. Check your connection or contact your administrator."));
+      if (!canApplyWorkspaceResult(token)) return;
+      setWorkspaceSyncStatus("degraded");
+      const message = error instanceof Error ? error.message : String(error);
+      if (/Engineering refresh failed|payroll import/i.test(message)) {
+        showNotification("info", "Some connected workspace data is unavailable until its Supabase migration is applied.");
+      } else {
+        showNotification("error", userFacingError(error, "Could not load the workspace. Check your connection or contact your administrator."));
+      }
     } finally {
-      setWorkspaceLoading(false);
+      if (canApplyWorkspaceResult(token)) setWorkspaceLoading(false);
     }
   };
 
   useEffect(() => {
     if (!supabase) {
-      setWorkspaceLoading(false);
-      return;
+      sessionRef.current = null;
+      setSession(null);
+      setAuthResolved(true);
+      return undefined;
     }
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => {
+    const applySession = (nextSession: Session | null) => {
       if (!active) return;
-      captureGoogleProviderTokens(data.session);
-      setSession(data.session);
-      void loadWorkspace(data.session);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      const previousUserId = sessionRef.current?.user?.id || null;
+      const nextUserId = nextSession?.user?.id || null;
+      if (previousUserId !== nextUserId) workspaceGenerationRef.current += 1;
+      sessionRef.current = nextSession;
       captureGoogleProviderTokens(nextSession);
       setSession(nextSession);
-      if (nextSession) void loadWorkspace(nextSession);
-      else {
-        const local = localFallbackInvoices();
-        invoicesRef.current = local;
-        setInvoices(local);
-        setPayrollImportData(readPayrollImportWorkspaceFromLocal());
-        setSyncState({});
-        setProjects(readProjectsFromLocal());
-        setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
-        setExpenses(readExpensesFromLocal());
-        setPayrollData(readPayrollWorkspaceFromLocal());
-      }
-    });
-    return () => { active = false; listener.subscription.unsubscribe(); };
+      setAuthResolved(true);
+    };
+    void supabase.auth.getSession().then(({ data }) => applySession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => applySession(nextSession));
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
-    invoicesRef.current = invoices;
-    if (!session) {
-      try { localStorage.setItem("extracted_invoices", JSON.stringify(invoices)); } catch { /* preview URLs may fill local storage */ }
+    if (!authResolved) return undefined;
+    const activeSession = session;
+    const userId = activeSession?.user?.id || null;
+    if (!supabase || !activeSession || !userId) {
+      workspaceSyncControllerRef.current = null;
+      setWorkspaceSyncStatus("guest");
+      setWorkspaceLoading(false);
+      const local = localFallbackInvoices();
+      invoicesRef.current = local;
+      setInvoices(local);
+      setPayrollImportData(readPayrollImportWorkspaceFromLocal());
+      setSyncState({});
+      setProjects(readProjectsFromLocal());
+      setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
+      setExpenses(readExpensesFromLocal());
+      setPayrollData(readPayrollWorkspaceFromLocal());
+      return undefined;
     }
-  }, [invoices, session]);
+
+    const generation = workspaceGenerationRef.current;
+    const controller = createWorkspaceSyncController({
+      client: supabase,
+      environment: createBrowserWorkspaceSyncEnvironment(),
+      refresh: async (groups) => {
+        const initialLoad = initialWorkspaceLoadRef.current;
+        if (initialLoad) await initialLoad;
+        const token = { generation, userId };
+        if (canApplyWorkspaceResult(token)) await refreshWorkspaceGroups(groups, token);
+      },
+      onStateChange: (nextState) => {
+        if (nextState.userId !== sessionRef.current?.user?.id) return;
+        setWorkspaceSyncStatus(nextState.status);
+      },
+      onError: () => {
+        if (sessionRef.current?.user?.id === userId) setWorkspaceSyncStatus("degraded");
+      },
+    });
+    workspaceSyncControllerRef.current = controller;
+    const initialLoad = loadWorkspaceGuarded(activeSession, generation);
+    initialWorkspaceLoadRef.current = initialLoad;
+    void initialLoad.then(
+      () => { if (initialWorkspaceLoadRef.current === initialLoad) initialWorkspaceLoadRef.current = null; },
+      () => { if (initialWorkspaceLoadRef.current === initialLoad) initialWorkspaceLoadRef.current = null; },
+    );
+    void controller.setSession(activeSession);
+
+    return () => {
+      if (workspaceSyncControllerRef.current === controller) workspaceSyncControllerRef.current = null;
+      if (initialWorkspaceLoadRef.current === initialLoad) initialWorkspaceLoadRef.current = null;
+      void controller.dispose();
+    };
+  }, [authResolved, session?.user?.id]);
 
   useEffect(() => {
-    if (!session) {
+    invoicesRef.current = invoices;
+    if (shouldPersistGuestWorkspace(authResolved, session?.user?.id)) {
+      try { localStorage.setItem("extracted_invoices", JSON.stringify(invoices)); } catch { /* preview URLs may fill local storage */ }
+    }
+  }, [invoices, session, authResolved]);
+
+  useEffect(() => {
+    if (shouldPersistGuestWorkspace(authResolved, session?.user?.id)) {
       writeProjectsToLocal(projects);
       writeInvoiceProjectAllocationsToLocal(invoiceProjectAllocations);
       writePayrollImportWorkspaceToLocal(payrollImportData);
       writeExpensesToLocal(expenses);
       writePayrollWorkspaceToLocal(payrollData);
     }
-  }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, session]);
+  }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, session, authResolved]);
 
   useEffect(() => {
     if (activeTab !== "extractor") setUploadProjectContextId(null);
@@ -359,7 +518,7 @@ export default function App() {
     invoicesRef.current = next;
     setInvoices(next);
     setReviewCompletion(null);
-    setSaveState("saved");
+    updateSaveState("saved");
     return prepared;
   };
 
@@ -967,20 +1126,20 @@ export default function App() {
         const localInvoices = invoicesRef.current.map((item) => item.id === invoice.id ? invoice : item);
         localStorage.setItem("extracted_invoices", JSON.stringify(localInvoices));
       } catch { /* local persistence is best effort */ }
-      if (editRevisionRef.current.get(invoice.id) === revision) setSaveState("saved");
+      if (editRevisionRef.current.get(invoice.id) === revision) updateSaveState("saved");
       return;
     }
 
     const operation = enqueueSerializedSave<InvoiceData>(savePromisesRef.current, lastPersistedRef.current, invoice.id, async (previous) => {
-      setSaveState("saving");
+      updateSaveState("saving");
       await updateInvoiceInSupabase(previous || invoice, invoice, eventType);
       return invoice;
     });
     try {
       await operation;
-      if (editRevisionRef.current.get(invoice.id) === revision) setSaveState("saved");
+      if (editRevisionRef.current.get(invoice.id) === revision) updateSaveState("saved");
     } catch (error) {
-      if (editRevisionRef.current.get(invoice.id) === revision) setSaveState("error");
+      if (editRevisionRef.current.get(invoice.id) === revision) updateSaveState("error");
       throw error;
     }
   };
@@ -1008,7 +1167,7 @@ export default function App() {
     invoicesRef.current = next;
     setInvoices(next);
     setSelectedInvoice(checked);
-    setSaveState("unsaved");
+    updateSaveState("unsaved");
 
     if (session && supabase) {
       const existingTimer = updateTimersRef.current.get(checked.id);
@@ -1019,8 +1178,48 @@ export default function App() {
       }, 900);
       updateTimersRef.current.set(checked.id, timer);
     } else {
-      setSaveState("saved");
+      updateSaveState("saved");
     }
+  };
+
+  const reloadLatestRemoteInvoice = () => {
+    const pending = remoteInvoiceUpdate;
+    if (!pending || saveStateRef.current === "saving") return;
+    const invoiceId = pending.invoiceId;
+    const timer = updateTimersRef.current.get(invoiceId);
+    if (timer) {
+      window.clearTimeout(timer);
+      updateTimersRef.current.delete(invoiceId);
+    }
+    editRevisionRef.current.set(invoiceId, (editRevisionRef.current.get(invoiceId) || 0) + 1);
+    const removed = remoteInvoiceRemovedRef.current.has(invoiceId);
+    const latest = remoteInvoiceUpdatesRef.current.get(invoiceId) || pending.invoice;
+    if (removed) {
+      const next = invoicesRef.current.filter((invoice) => invoice.id !== invoiceId);
+      invoicesRef.current = next;
+      setInvoices(next);
+      lastPersistedRef.current.delete(invoiceId);
+      if (selectedInvoiceRef.current?.id === invoiceId) setSelectedInvoice(null);
+    } else {
+      const next = invoicesRef.current.map((invoice) => invoice.id === invoiceId ? latest : invoice);
+      invoicesRef.current = next;
+      setInvoices(next);
+      setSelectedInvoice((current) => current?.id === invoiceId ? latest : current);
+      lastPersistedRef.current.set(invoiceId, latest);
+    }
+    remoteInvoiceUpdatesRef.current.delete(invoiceId);
+    remoteInvoiceRemovedRef.current.delete(invoiceId);
+    setRemoteInvoiceUpdate(null);
+    saveStateRef.current = "saved";
+    updateSaveState("saved");
+  };
+
+  const keepEditingRemoteInvoice = () => {
+    const invoiceId = remoteInvoiceUpdate?.invoiceId;
+    if (!invoiceId) return;
+    remoteInvoiceUpdatesRef.current.delete(invoiceId);
+    remoteInvoiceRemovedRef.current.delete(invoiceId);
+    setRemoteInvoiceUpdate(null);
   };
 
   const handleVerify = async (invoice: InvoiceData) => {
@@ -1111,7 +1310,7 @@ export default function App() {
       invoicesRef.current = next;
       setInvoices(next);
       setSelectedInvoice((current) => current?.id === saved.id ? saved : current);
-      setSaveState("saved");
+      updateSaveState("saved");
       if (saved.extractionQuality?.requiresRetry) showNotification("info", "Extraction is still incomplete. Review the highlighted fields manually or retry with Enhanced extraction.");
       else showNotification("success", "Extraction improved. Please review the updated fields.");
       return saved;
@@ -1193,7 +1392,7 @@ export default function App() {
     setReviewCompletion(null);
     setWorkspaceOrigin(origin);
     setSelectedInvoice(first);
-    setSaveState("saved");
+    updateSaveState("saved");
     navigateToPath(appPathForReviewInvoice(first.id, returnPath));
   };
 
@@ -1215,7 +1414,7 @@ export default function App() {
     setSelectedInvoice(invoice);
     setReviewSessionIds([]);
     setReviewCompletion(null);
-    setSaveState("saved");
+    updateSaveState("saved");
     navigateToPath(appPathForInvoice(invoice.id, returnPath));
   };
 
@@ -1241,7 +1440,7 @@ export default function App() {
     const target = invoicesRef.current.find((item) => item.id === targetId);
     if (!target) return false;
     setSelectedInvoice(target);
-    setSaveState("saved");
+    updateSaveState("saved");
     if (route.kind === "review-invoice") navigateToPath(appPathForReviewInvoice(target.id, workspaceReturnPath), true);
     return true;
   };
@@ -1257,7 +1456,7 @@ export default function App() {
     if (reviewSessionIds.length <= 1) {
       setReviewSessionIds([]);
       setReviewCompletion(null);
-      setSaveState("saved");
+      updateSaveState("saved");
       return true;
     }
     const nextId = nextPendingReviewInvoiceId(reviewSessionIds, invoicesRef.current, selectedInvoice.id);
@@ -1265,7 +1464,7 @@ export default function App() {
       const next = invoicesRef.current.find((item) => item.id === nextId);
       if (next) {
         setSelectedInvoice(next);
-        setSaveState("saved");
+        updateSaveState("saved");
         if (route.kind === "review-invoice") navigateToPath(appPathForReviewInvoice(next.id, workspaceReturnPath), true);
         return true;
       }
@@ -1348,9 +1547,9 @@ export default function App() {
     lastSyncedAt: syncState.lastSyncedAt,
   };
 
-  const routeProject = route.kind === "project" ? projects.find((project) => project.id === route.projectId) : undefined;
+  const routeProject = route.kind === "project" ? resolveEntityById(projects, route.projectId) : undefined;
   const routeInvoice = route.kind === "invoice" || route.kind === "review-invoice"
-    ? invoices.find((invoice) => invoice.id === route.invoiceId)
+    ? resolveEntityById(invoices, route.invoiceId)
     : undefined;
   const routeNotFound = route.kind === "unknown"
     || (route.kind === "project" && !workspaceLoading && !routeProject)
@@ -1358,11 +1557,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} />
       <main className="flex-1 w-full px-3 sm:px-5 lg:px-7 2xl:px-8 py-6 overflow-x-hidden">
+        {remoteInvoiceUpdate && selectedInvoice?.id === remoteInvoiceUpdate.invoiceId && <div role="status" className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+          <p><strong>This invoice was updated in another browser.</strong> Your local edits are protected.</p>
+          <div className="flex shrink-0 gap-2">
+            <button type="button" onClick={reloadLatestRemoteInvoice} disabled={saveState === "saving"} className="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-50">Reload latest</button>
+            <button type="button" onClick={keepEditingRemoteInvoice} className="rounded-lg bg-amber-700 px-2.5 py-1.5 text-[10px] font-bold text-white">Keep editing</button>
+          </div>
+        </div>}
         {notification && <div className={`mb-5 p-3.5 rounded-2xl text-xs flex items-center justify-between shadow-sm border ${notification.type === "success" ? "bg-emerald-50 text-emerald-900 border-emerald-200" : notification.type === "error" ? "bg-rose-50 text-rose-900 border-rose-200" : "bg-white text-slate-800 border-slate-200"}`}><div className="flex items-center gap-2.5">{notification.type === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}<span className="font-semibold">{notification.message}</span></div><button onClick={() => setNotification(null)}><X className="w-3.5 h-3.5" /></button></div>}
 
-        {!isSupabaseConfigured && <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3"><Cloud className="w-5 h-5 text-amber-700 shrink-0" /><div><p className="text-xs font-black text-amber-900">Workspace connection is not configured</p><p className="text-[11px] text-amber-800 mt-1">The local workspace is available for document review. Connect the workspace to persist Gmail, original files, and review history.</p></div></div>}
+        {!isSupabaseConfigured && <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3"><Cloud className="w-5 h-5 text-amber-700 shrink-0" /><div><p className="text-xs font-black text-amber-900">Browser-only workspace</p><p className="text-[11px] text-amber-800 mt-1">Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in.</p></div></div>}
         {workspaceLoading && <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" />Loading workspace…</div>}
         {routeNotFound && <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-6"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-700">Navigation error</p><h2 className="mt-1 text-lg font-black text-rose-950">Page not found</h2><p className="mt-1 text-xs text-rose-900">The requested workspace record or destination is not available.</p><button type="button" onClick={() => navigateToPath(appPathForTab("dashboard"))} className="mt-4 rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white">Return to dashboard</button></div>}
         {isSupabaseConfigured && !session && !googleBannerDismissed && <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-2.5 flex items-center justify-between gap-3"><div className="flex items-center gap-2.5 min-w-0"><Cloud className="w-4 h-4 text-indigo-600 shrink-0" /><p className="text-[11px] font-semibold text-indigo-900 truncate">Gmail sync is not connected.</p></div><div className="flex items-center gap-2 shrink-0"><button onClick={() => void connectGoogleAndGmail()} className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold">Connect</button><button type="button" onClick={() => setGoogleBannerDismissed(true)} className="p-1 rounded-md text-indigo-500 hover:bg-indigo-100" aria-label="Dismiss Gmail connection notice"><X className="w-3.5 h-3.5" /></button></div></div>}

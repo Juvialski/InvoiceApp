@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
+  CheckCircle2,
+  RefreshCw,
+  WifiOff,
   BarChart3,
   Building2,
   BriefcaseBusiness,
@@ -21,6 +25,7 @@ import {
   type RouteDefinition,
   type RouteId,
 } from "../utils/routes";
+import type { WorkspaceSyncStatus } from "../lib/workspaceSync";
 
 export type { AppTab } from "../utils/routes";
 
@@ -30,6 +35,7 @@ interface HeaderProps {
   invoicesCount: number;
   reviewCount: number;
   onBatchExportExcel: () => void;
+  workspaceSyncStatus?: WorkspaceSyncStatus;
 }
 
 const routeIcons: Record<RouteId, React.ElementType> = {
@@ -59,6 +65,24 @@ function badgeLabelFor(route: RouteDefinition, count: number) {
   if (!count) return "";
   if (route.id === "review") return `${count} item${count === 1 ? "" : "s"} needing review`;
   return `${count} invoice${count === 1 ? "" : "s"}`;
+}
+
+function workspaceSyncLabel(status: WorkspaceSyncStatus) {
+  if (status === "guest") return "Browser-only workspace";
+  if (status === "connecting") return "Connecting";
+  if (status === "syncing") return "Syncing";
+  if (status === "offline") return "Offline";
+  if (status === "degraded") return "Reconnecting";
+  if (status === "error") return "Sync issue";
+  return "Synced";
+}
+
+function workspaceSyncClasses(status: WorkspaceSyncStatus) {
+  if (status === "guest") return "border-slate-200 bg-slate-50 text-slate-600";
+  if (status === "offline" || status === "error") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (status === "degraded" || status === "connecting") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (status === "syncing") return "border-indigo-200 bg-indigo-50 text-indigo-700";
+  return "border-emerald-200 bg-emerald-50 text-emerald-700";
 }
 
 interface NavigationRouteButtonProps {
@@ -94,12 +118,26 @@ const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({ route, ac
   );
 };
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest" }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const activeNavigation = resolveActiveRouteForAppTab(activeTab);
   const activeOverflowRoute = activeNavigation.activeOverflowRouteId ? getRouteDefinition(activeNavigation.activeOverflowRouteId) : undefined;
+  const syncLabel = workspaceSyncLabel(workspaceSyncStatus as WorkspaceSyncStatus);
+  const SyncIcon = workspaceSyncStatus === "synced"
+    ? CheckCircle2
+    : workspaceSyncStatus === "syncing"
+      ? RefreshCw
+      : workspaceSyncStatus === "offline"
+        ? WifiOff
+        : workspaceSyncStatus === "degraded" || workspaceSyncStatus === "error"
+          ? AlertTriangle
+          : MoreHorizontal;
+  const syncTitle = workspaceSyncStatus === "guest"
+    ? "Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in."
+    : syncLabel;
+
 
   useEffect(() => {
     if (!moreOpen) return undefined;
@@ -182,6 +220,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
                 </div>
               </div>
             </nav>
+            <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold ${workspaceSyncClasses(workspaceSyncStatus as WorkspaceSyncStatus)}`} title={syncTitle} aria-label={syncTitle}>
+              <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${workspaceSyncStatus === "syncing" ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{syncLabel}</span>
+            </div>
             {invoicesCount > 0 && <button type="button" onClick={onBatchExportExcel} className="hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-700 xl:flex" aria-label="Export all invoices" title="Export all invoices"><Download aria-hidden="true" className="h-3.5 w-3.5" /> Export All</button>}
           </div>
         </div>
