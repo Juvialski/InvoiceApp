@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { InvoiceData } from "../src/types.ts";
 import { SAMPLE_INVOICES } from "../src/data/sampleInvoices.ts";
 import { applyLocalChecks, formatMoney, validateInvoice } from "../src/utils/invoiceLogic.ts";
+import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "../src/utils/reviewQueue.ts";
 
 function invoice(overrides: Partial<InvoiceData> = {}): InvoiceData {
   return {
@@ -148,4 +149,24 @@ test("all demo presets except the intentional validation fixture pass arithmetic
   assert.deepEqual(results.slice(0, 4).map((result) => result.validation?.status), ["PASS", "PASS", "PASS", "PASS"]);
   assert.equal(results[4].validation?.status, "REVIEW");
   assert.equal(results[4].validation?.issues.some((issue) => issue.id === "grand-total-mismatch"), true);
+});
+
+test("review session navigation preserves the entered queue order", () => {
+  const session = [
+    invoice({ id: "review-a", reviewStatus: "NEEDS_REVIEW" }),
+    invoice({ id: "review-b", reviewStatus: "NEEDS_REVIEW" }),
+    invoice({ id: "review-c", reviewStatus: "NEEDS_REVIEW" }),
+  ];
+  const ids = session.map((item) => item.id);
+
+  assert.deepEqual(orderedReviewQueue(session, ["review-b", "review-c"]).map((item) => item.id), ["review-b", "review-c"]);
+  assert.equal(nextReviewInvoiceId(ids, session, "review-b", "next"), "review-c");
+  assert.equal(nextReviewInvoiceId(ids, session, "review-b", "previous"), "review-a");
+  assert.equal(nextReviewInvoiceId(ids, session, "review-a", "previous"), undefined);
+
+  const afterVerification = session.map((item) => item.id === "review-b" ? { ...item, reviewStatus: "VERIFIED" as const } : item);
+  assert.equal(nextPendingReviewInvoiceId(ids, afterVerification, "review-a"), "review-c");
+  assert.equal(nextPendingReviewInvoiceId(ids, afterVerification, "review-c"), "review-a");
+  const allButCVerified = afterVerification.map((item) => item.id === "review-a" || item.id === "review-b" ? { ...item, reviewStatus: "VERIFIED" as const } : item);
+  assert.equal(nextPendingReviewInvoiceId(ids, allButCVerified, "review-c"), undefined);
 });

@@ -12,11 +12,14 @@ import { Reports } from "./components/Reports";
 import { ReviewPanel } from "./components/ReviewPanel";
 import { ReviewQueue } from "./components/ReviewQueue";
 import { SourceComparison } from "./components/SourceComparison";
+import { VerificationWorkspace } from "./components/VerificationWorkspace";
+import type { SaveState } from "./components/VerificationWorkspace";
 import { Settings as SettingsScreen } from "./components/Settings";
 import { EmailClassification, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "./types";
 import { SAMPLE_INVOICES } from "./data/sampleInvoices";
 import { exportBatchInvoicesToExcel } from "./utils/excelExport";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
+import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
 import { currencySymbolFor, DEFAULT_CURRENCY, loadRegionalSettings, RegionalSettings, setRegionalSettings as setActiveRegionalSettings } from "./config/regional";
 import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, signOutWorkspace, supabase } from "./lib/supabase";
 import {
@@ -101,6 +104,9 @@ export default function App() {
   const lastPersistedRef = useRef(new Map<string, InvoiceData>());
   const updateTimersRef = useRef(new Map<string, number>());
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
+  const [verificationMode, setVerificationMode] = useState(false);
+  const [reviewSessionIds, setReviewSessionIds] = useState<string[]>([]);
+  const [reviewCompletion, setReviewCompletion] = useState<{ verifiedCount: number; totalCount: number; newItems: number } | null>(null);
   const [activeTab, setActiveTab] = useState<AppTab>("dashboard");
   const [processingCount, setProcessingCount] = useState(0);
   const [notification, setNotification] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
@@ -108,6 +114,8 @@ export default function App() {
   const [workspaceLoading, setWorkspaceLoading] = useState(isSupabaseConfigured);
   const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
   const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
+  const [saveState, setSaveState] = useState<SaveState>("saved");
+  const savePromisesRef = useRef(new Map<string, Promise<void>>());
 
   const showNotification = (type: "success" | "error" | "info", message: string) => {
     setNotification({ type, message });
@@ -186,6 +194,9 @@ export default function App() {
     invoicesRef.current = next;
     setInvoices(next);
     setSelectedInvoice(prepared);
+    setVerificationMode(false);
+    setReviewCompletion(null);
+    setSaveState("saved");
     return prepared;
   };
 
@@ -416,40 +427,81 @@ export default function App() {
     showNotification("info", session ? "Loaded and saved sample invoice without using Gemini." : "Loaded sample invoice locally without using Gemini.");
   };
 
+  const persistInvoice = async (invoice: InvoiceData, eventType = "HUMAN_EDIT") => {
+    if (!session || !supabase) {
+      try {
+        const localInvoices = invoicesRef.current.map((item) => item.id === invoice.id ? invoice : item);
+        localStorage.setItem("extracted_invoices", JSON.stringify(localInvoices));
+      } catch { /* local persistence is best effort */ }
+      setSaveState("saved");
+      return;
+    }
+
+    const previous = lastPersistedRef.current.get(invoice.id) || invoice;
+    const queued = savePromisesRef.current.get(invoice.id);
+    const operation = (queued || Promise.resolve()).catch(() => undefined).then(async () => {
+      setSaveState("saving");
+      await updateInvoiceInSupabase(previous, invoice, eventType);
+      lastPersistedRef.current.set(invoice.id, invoice);
+      setSaveState("saved");
+    });
+    savePromisesRef.current.set(invoice.id, operation);
+    try {
+      await operation;
+    } catch (error) {
+      setSaveState("error");
+      throw error;
+    } finally {
+      if (savePromisesRef.current.get(invoice.id) === operation) savePromisesRef.current.delete(invoice.id);
+    }
+  };
+
+  const flushInvoiceSave = async (invoice: InvoiceData, eventType = "HUMAN_EDIT") => {
+    const timer = updateTimersRef.current.get(invoice.id);
+    if (timer) {
+      window.clearTimeout(timer);
+      updateTimersRef.current.delete(invoice.id);
+    }
+    try {
+      await persistInvoice(invoice, eventType);
+      return true;
+    } catch (error: any) {
+      showNotification("error", error?.message || "Could not save invoice. Your edits have not been lost; retry before continuing.");
+      return false;
+    }
+  };
+
   const handleUpdateInvoice = (updated: InvoiceData) => {
     const checked = applyLocalChecks(updated);
     const next = invoicesRef.current.map((invoice) => invoice.id === checked.id ? checked : invoice);
     invoicesRef.current = next;
     setInvoices(next);
     setSelectedInvoice(checked);
+    setSaveState("unsaved");
 
     if (session && supabase) {
       const existingTimer = updateTimersRef.current.get(checked.id);
       if (existingTimer) window.clearTimeout(existingTimer);
       const timer = window.setTimeout(() => {
-        const previous = lastPersistedRef.current.get(checked.id) || checked;
-        void updateInvoiceInSupabase(previous, checked).then(() => {
-          lastPersistedRef.current.set(checked.id, checked);
-        }).catch((error: any) => showNotification("error", error?.message || "Could not save invoice edit to Supabase."));
+        updateTimersRef.current.delete(checked.id);
+        void persistInvoice(checked).catch((error: any) => showNotification("error", error?.message || "Could not save invoice edit to Supabase."));
       }, 900);
       updateTimersRef.current.set(checked.id, timer);
+    } else {
+      setSaveState("saved");
     }
   };
 
   const handleVerify = async (invoice: InvoiceData) => {
     const verified = { ...applyLocalChecks(invoice), reviewStatus: "VERIFIED" as const, verifiedAt: new Date().toISOString() };
-    if (session && supabase) {
-      const timer = updateTimersRef.current.get(invoice.id);
-      if (timer) window.clearTimeout(timer);
-      const previous = lastPersistedRef.current.get(invoice.id) || invoice;
-      await updateInvoiceInSupabase(previous, verified, "VERIFIED");
-      lastPersistedRef.current.set(invoice.id, verified);
-    }
+    const persisted = await flushInvoiceSave(verified, "VERIFIED");
+    if (!persisted) throw new Error("Could not save invoice verification.");
     const next = invoicesRef.current.map((item) => item.id === verified.id ? verified : item);
     invoicesRef.current = next;
     setInvoices(next);
     if (selectedInvoice?.id === verified.id) setSelectedInvoice(verified);
     showNotification("success", `Verified ${verified.invoiceNumber || "invoice"}. The original AI snapshot and source file remain unchanged.`);
+    return verified;
   };
 
   const handleRegionalSettingsChange = (next: RegionalSettings) => {
@@ -459,10 +511,7 @@ export default function App() {
 
   const handleReopen = async (invoice: InvoiceData) => {
     const reopened = { ...invoice, reviewStatus: "NEEDS_REVIEW" as const, verifiedAt: undefined };
-    if (session && supabase) {
-      await updateInvoiceInSupabase(lastPersistedRef.current.get(invoice.id) || invoice, reopened, "REOPENED");
-      lastPersistedRef.current.set(invoice.id, reopened);
-    }
+    if (!await flushInvoiceSave(reopened, "REOPENED")) return;
     const next = invoicesRef.current.map((item) => item.id === reopened.id ? reopened : item);
     invoicesRef.current = next;
     setInvoices(next);
@@ -494,10 +543,7 @@ export default function App() {
       reviewStatus: "NEEDS_REVIEW",
       verifiedAt: undefined,
     });
-    if (session && supabase) {
-      await updateInvoiceInSupabase(lastPersistedRef.current.get(invoice.id) || invoice, reverted, "REVERTED_TO_AI");
-      lastPersistedRef.current.set(invoice.id, reverted);
-    }
+    if (!await flushInvoiceSave(reverted, "REVERTED_TO_AI")) return;
     const next = invoicesRef.current.map((item) => item.id === reverted.id ? reverted : item);
     invoicesRef.current = next;
     setInvoices(next);
@@ -509,10 +555,7 @@ export default function App() {
     if (!invoice.aiSnapshot) return;
     const originalValue = valueAtPath(invoice.aiSnapshot, path);
     const reverted = applyLocalChecks(withPathValue(invoice, path, originalValue));
-    if (session && supabase) {
-      await updateInvoiceInSupabase(lastPersistedRef.current.get(invoice.id) || invoice, reverted, "FIELD_REVERTED");
-      lastPersistedRef.current.set(invoice.id, reverted);
-    }
+    if (!await flushInvoiceSave(reverted, "FIELD_REVERTED")) return;
     const next = invoicesRef.current.map((item) => item.id === reverted.id ? reverted : item);
     invoicesRef.current = next;
     setInvoices(next);
@@ -530,7 +573,90 @@ export default function App() {
     showNotification("info", "Invoice record archived. The original source file, AI snapshot, and review history remain preserved.");
   };
 
-  const openInvoice = (invoice: InvoiceData) => { setSelectedInvoice(invoice); setActiveTab("extractor"); };
+  const startReview = (requestedQueue?: InvoiceData[], initialId?: string) => {
+    const queue = requestedQueue?.length ? requestedQueue : invoicesRef.current.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW");
+    const ids = queue.map((invoice) => invoice.id);
+    const firstId = initialId && ids.includes(initialId) ? initialId : ids[0];
+    if (!firstId) {
+      showNotification("info", "Review queue is clear.");
+      return;
+    }
+    const first = invoicesRef.current.find((invoice) => invoice.id === firstId);
+    if (!first) return;
+    setReviewSessionIds(ids);
+    setReviewCompletion(null);
+    setSelectedInvoice(first);
+    setVerificationMode(true);
+    setSaveState("saved");
+    setActiveTab("extractor");
+  };
+
+  const openInvoice = (invoice: InvoiceData) => {
+    setSelectedInvoice(invoice);
+    setVerificationMode(false);
+    setReviewCompletion(null);
+    setSaveState("saved");
+    setActiveTab("extractor");
+  };
+
+  const openReviewInvoice = (invoice: InvoiceData) => {
+    const queue = invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW");
+    startReview(queue, invoice.id);
+  };
+
+  const reviewQueue = orderedReviewQueue(invoices, reviewSessionIds.length ? reviewSessionIds : undefined);
+  const reviewIndex = selectedInvoice ? reviewSessionIds.indexOf(selectedInvoice.id) : -1;
+
+  const moveReview = async (direction: "next" | "previous") => {
+    if (!selectedInvoice || !reviewSessionIds.length) return false;
+    if (!await flushInvoiceSave(selectedInvoice)) return false;
+    const targetId = nextReviewInvoiceId(reviewSessionIds, invoicesRef.current, selectedInvoice.id, direction);
+    if (!targetId) {
+      showNotification("info", direction === "next" ? "This is the last invoice in the review session." : "This is the first invoice in the review session.");
+      return false;
+    }
+    const target = invoicesRef.current.find((item) => item.id === targetId);
+    if (!target) return false;
+    setSelectedInvoice(target);
+    setSaveState("saved");
+    return true;
+  };
+
+  const verifyAndNext = async () => {
+    if (!selectedInvoice) return false;
+    try {
+      await handleVerify(selectedInvoice);
+    } catch (error: any) {
+      showNotification("error", error?.message || "Could not verify invoice. Retry before continuing.");
+      return false;
+    }
+    const nextId = nextPendingReviewInvoiceId(reviewSessionIds, invoicesRef.current, selectedInvoice.id);
+    if (nextId) {
+      const next = invoicesRef.current.find((item) => item.id === nextId);
+      if (next) {
+        setSelectedInvoice(next);
+        setSaveState("saved");
+        return true;
+      }
+    }
+    const verifiedCount = invoicesRef.current.filter((item) => reviewSessionIds.includes(item.id) && item.reviewStatus === "VERIFIED").length;
+    const newItems = invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW" && !reviewSessionIds.includes(item.id)).length;
+    setReviewCompletion({ verifiedCount, totalCount: reviewSessionIds.length, newItems });
+    return true;
+  };
+
+  const saveCurrentReview = async () => {
+    if (!selectedInvoice) return false;
+    return flushInvoiceSave(selectedInvoice);
+  };
+
+  const exitReview = () => {
+    setSelectedInvoice(null);
+    setVerificationMode(false);
+    setReviewCompletion(null);
+    setActiveTab("review");
+  };
+
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").length;
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
@@ -545,7 +671,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceLabel={session ? "Supabase synced" : isSupabaseConfigured ? "Supabase ready" : "Local demo"} />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-x-hidden">
         {notification && <div className={`mb-5 p-3.5 rounded-2xl text-xs flex items-center justify-between shadow-sm border ${notification.type === "success" ? "bg-emerald-50 text-emerald-900 border-emerald-200" : notification.type === "error" ? "bg-rose-50 text-rose-900 border-rose-200" : "bg-white text-slate-800 border-slate-200"}`}><div className="flex items-center gap-2.5">{notification.type === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}<span className="font-semibold">{notification.message}</span></div><button onClick={() => setNotification(null)}><X className="w-3.5 h-3.5" /></button></div>}
 
         {!isSupabaseConfigured && <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3"><Database className="w-5 h-5 text-amber-700 shrink-0" /><div><p className="text-xs font-black text-amber-900">Running in local demo mode</p><p className="text-[11px] text-amber-800 mt-1">The app remains usable in AI Studio before setup. To persist Gmail, original files, AI snapshots and verified data, connect the new Supabase project using the included migration and environment variables.</p></div></div>}
@@ -553,10 +679,10 @@ export default function App() {
         {isSupabaseConfigured && !session && <div className="mb-5 p-4 rounded-2xl border border-indigo-200 bg-indigo-50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"><div className="flex gap-3"><Cloud className="w-5 h-5 text-indigo-600 shrink-0" /><div><p className="text-xs font-black text-indigo-900">Supabase is configured</p><p className="text-[11px] text-indigo-800 mt-1">Connect Google + Gmail from Gmail Inbox to sign in, grant read-only Gmail access, and load your persistent invoice workspace.</p></div></div><button onClick={() => void connectGoogleAndGmail()} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold">Connect Google + Gmail</button></div>}
 
         {activeTab === "dashboard" && <Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} />}
-        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} onReopen={() => void handleReopen(selectedInvoice)} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} />}</div>}
+        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? verificationMode ? <VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} onUpdateInvoice={handleUpdateInvoice} onBack={exitReview} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"))} onReturnToDashboard={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("dashboard"); }} onViewVerified={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("invoices"); }} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /> : <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} onReopen={() => void handleReopen(selectedInvoice)} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} />}</div>}
         {activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
-        {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoice} onVerify={(invoice) => void handleVerify(invoice)} />}
-        {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => { setSelectedInvoice(null); setActiveTab("extractor"); }} onVerify={(invoice) => void handleVerify(invoice)} />}
+        {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openReviewInvoice} onVerify={(invoice) => void handleVerify(invoice)} onStartReview={(queue) => startReview(queue)} />}
+        {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("extractor"); }} onVerify={(invoice) => void handleVerify(invoice)} />}
         {activeTab === "vendors" && <Vendors invoices={invoices} />}
         {activeTab === "reports" && <Reports invoices={invoices} />}
         {activeTab === "settings" && <SettingsScreen settings={regionalSettings} onChange={handleRegionalSettingsChange} />}
