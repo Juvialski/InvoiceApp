@@ -8,6 +8,7 @@ export interface LineItem {
   discount?: number;
   taxRate?: number;
   taxAmount?: number;
+  taxTreatment?: "VATABLE" | "ZERO_RATED" | "VAT_EXEMPT" | "NON_VAT" | "UNKNOWN" | string;
   total: number;
 }
 
@@ -20,10 +21,18 @@ export interface TaxBreakdown {
 export interface PartyDetails {
   name: string;
   companyName?: string;
+  registeredName?: string;
+  tradeName?: string;
   taxId?: string;
+  branchCode?: string;
+  taxRegistration?: "VAT" | "NON_VAT" | "UNKNOWN" | string;
   address?: string;
   city?: string;
+  cityMunicipality?: string;
   state?: string;
+  province?: string;
+  barangay?: string;
+  region?: string;
   postalCode?: string;
   country?: string;
   email?: string;
@@ -35,7 +44,44 @@ export type SourceType = "UPLOAD" | "PASTED_TEXT" | "EMAIL" | "SAMPLE";
 export type ProcessingStatus = "NEW" | "EXTRACTING" | "EXTRACTED" | "FAILED";
 export type ReviewStatus = "NEEDS_REVIEW" | "VERIFIED";
 export type DuplicateStatus = "UNIQUE" | "POSSIBLE_DUPLICATE";
-export type DocumentType = "INVOICE" | "CREDIT_NOTE" | "RECEIPT" | "STATEMENT" | "PURCHASE_ORDER" | "OTHER";
+export type DocumentType = "INVOICE" | "CREDIT_NOTE" | "RECEIPT" | "STATEMENT" | "PURCHASE_ORDER" | "SUPPLEMENTARY_DOCUMENT" | "UNKNOWN" | "OTHER";
+export type InvoiceSubtype = "VAT_INVOICE" | "NON_VAT_INVOICE" | "SERVICE_INVOICE" | "SALES_INVOICE" | "COMMERCIAL_INVOICE" | "CASH_INVOICE" | "CHARGE_INVOICE" | "CREDIT_INVOICE" | "UNKNOWN" | string;
+
+export interface PhilippineTaxDetails {
+  invoiceKind?: "VAT_INVOICE" | "NON_VAT_INVOICE" | "UNKNOWN";
+  sellerRegistration?: "VAT" | "NON_VAT" | "UNKNOWN";
+  vatableSales?: number;
+  vatAmount?: number;
+  zeroRatedSales?: number;
+  vatExemptSales?: number;
+  salesSubjectToPercentageTax?: number;
+  authorityToPrintNumber?: string;
+  outboundCorrespondenceNumber?: string;
+  permitToUseNumber?: string;
+  approvedSerialFrom?: string;
+  approvedSerialTo?: string;
+  birPermitDetailsRaw?: string;
+  withholdingTaxRate?: number;
+  withholdingTaxAmount?: number;
+  netAmountPayable?: number;
+  vatInclusive?: boolean;
+}
+
+export type CompletenessItemStatus = "COMPLETE" | "REVIEW" | "MISSING_INFORMATION" | "NOT_APPLICABLE";
+
+export interface PhilippineInvoiceCompletenessItem {
+  id: string;
+  label: string;
+  status: CompletenessItemStatus;
+  field?: string;
+  note?: string;
+}
+
+export interface PhilippineInvoiceCompleteness {
+  status: "COMPLETE" | "REVIEW" | "MISSING_INFORMATION" | "NOT_APPLICABLE";
+  items: PhilippineInvoiceCompletenessItem[];
+  disclaimer: string;
+}
 
 export interface EmailSourceMetadata {
   sender?: string;
@@ -60,6 +106,9 @@ export interface FieldConfidence {
   customerName?: number;
   lineItems?: number;
   grandTotal?: number;
+  vendorTin?: number;
+  vatAmount?: number;
+  currency?: number;
 }
 
 export interface ValidationIssue {
@@ -77,6 +126,13 @@ export interface ValidationSummary {
   calculatedSubtotal?: number;
   calculatedGrandTotal?: number;
   calculatedBalanceDue?: number;
+  philippineVat?: {
+    applicable: boolean;
+    status: "PASS" | "REVIEW" | "NOT_APPLICABLE";
+    expectedVat?: number;
+    documentVat?: number;
+    difference?: number;
+  };
 }
 
 export interface InvoiceData {
@@ -92,6 +148,7 @@ export interface InvoiceData {
   extractionId?: string;
 
   documentType?: DocumentType | string;
+  invoiceSubtype?: InvoiceSubtype;
   sourceType?: SourceType;
   sourceMetadata?: EmailSourceMetadata;
   processingStatus?: ProcessingStatus;
@@ -122,6 +179,12 @@ export interface InvoiceData {
   grandTotal: number;
   amountPaid?: number;
   balanceDue?: number;
+  withholdingTaxRate?: number;
+  withholdingTaxAmount?: number;
+  netAmountPayable?: number;
+
+  philippineTaxDetails?: PhilippineTaxDetails;
+  philippineInvoiceCompleteness?: PhilippineInvoiceCompleteness;
 
   notes?: string;
   termsAndConditions?: string;
@@ -160,6 +223,7 @@ export interface ExtractionResponse {
 export interface EmailClassification {
   isInvoiceLike: boolean;
   documentType: DocumentType | string;
+  invoiceSubtype?: InvoiceSubtype;
   confidence: number;
   reason: string;
   suggestedVendor?: string;
