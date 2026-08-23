@@ -1,5 +1,6 @@
-import { Expense, InvoiceData, InvoiceProjectAllocation, PayrollProjectAllocation, Project, ProjectCostSummary, PayrollEntry, PayrollPeriod, PayrollRun, Worker } from "../types";
-import { calculateProjectCost, CostPayrollRecord, normalizedInvoiceAllocationAmount } from "./projectCosting";
+import type { Expense, InvoiceData, InvoiceProjectAllocation, PayrollProjectAllocation, Project, ProjectCostSummary, PayrollEntry, PayrollPeriod, PayrollRun, Worker } from "../types.ts";
+import { calculateProjectCost, normalizedInvoiceAllocationAmount } from "./projectCosting.ts";
+import type { CostPayrollRecord } from "./projectCosting.ts";
 
 export interface ProjectCostReportRow extends ProjectCostSummary { projectCode: string; projectName: string; currency: string; }
 
@@ -15,7 +16,28 @@ export function buildProjectInvoiceReport(projects: Project[], invoices: Invoice
 }
 
 export function buildPayrollReport(projects: Project[], workers: Worker[], periods: PayrollPeriod[], runs: PayrollRun[], entries: PayrollEntry[], allocations: PayrollProjectAllocation[]) {
-  return allocations.map((allocation) => { const entry = entries.find((item) => item.id === allocation.payrollEntryId); const run = runs.find((item) => item.id === entry?.payrollRunId); const period = periods.find((item) => item.id === run?.periodId); const worker = workers.find((item) => item.id === entry?.workerId); const project = projects.find((item) => item.id === allocation.projectId); return { period: period ? `${period.periodStart} – ${period.periodEnd}` : "", worker: worker?.displayName || "", project: project?.projectName || "", projectCode: project?.projectCode || "", role: worker?.jobTitle || "", grossPay: entry?.grossPay || 0, allocatedLaborCost: allocation.allocationAmount, netPay: entry?.netPay || 0, status: run?.status || "DRAFT" }; });
+  const rows = allocations.map((allocation) => {
+    const entry = entries.find((item) => item.id === allocation.payrollEntryId);
+    const run = runs.find((item) => item.id === entry?.payrollRunId);
+    const period = periods.find((item) => item.id === run?.periodId);
+    const worker = workers.find((item) => item.id === entry?.workerId);
+    const project = projects.find((item) => item.id === allocation.projectId);
+    return { period: period ? `${period.periodStart} – ${period.periodEnd}` : "", worker: worker?.displayName || "", project: project?.projectName || "", projectCode: project?.projectCode || "", role: worker?.jobTitle || "", grossPay: entry?.grossPay || 0, allocatedLaborCost: allocation.allocationAmount, netPay: entry?.netPay || 0, status: run?.status || "DRAFT" };
+  });
+
+  const unallocatedRows = entries.flatMap((entry) => {
+    const allocatedAmount = allocations
+      .filter((allocation) => allocation.payrollEntryId === entry.id)
+      .reduce((sum, allocation) => sum + (Number(allocation.allocationAmount) || 0), 0);
+    const unallocatedAmount = Math.round(Math.max(0, (Number(entry.projectAllocatedCost) || 0) - allocatedAmount) * 100) / 100;
+    if (unallocatedAmount <= 0) return [];
+    const run = runs.find((item) => item.id === entry.payrollRunId);
+    const period = periods.find((item) => item.id === run?.periodId);
+    const worker = workers.find((item) => item.id === entry.workerId);
+    return [{ period: period ? `${period.periodStart} – ${period.periodEnd}` : "", worker: worker?.displayName || "", project: "Unallocated labor", projectCode: "", role: worker?.jobTitle || "", grossPay: entry.grossPay || 0, allocatedLaborCost: unallocatedAmount, netPay: entry.netPay || 0, status: run?.status || "DRAFT" }];
+  });
+
+  return [...rows, ...unallocatedRows];
 }
 
 export function buildExpenseReport(projects: Project[], expenses: Expense[]) { return expenses.map((expense) => ({ date: expense.expenseDate, project: projects.find((project) => project.id === expense.projectId)?.projectName || "Unallocated", category: expense.category, description: expense.description, payee: expense.payee || "", amount: expense.amount, currency: expense.currency, status: expense.status, reference: expense.referenceNumber || "" })); }

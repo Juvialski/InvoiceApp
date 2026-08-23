@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
-import { Expense, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectWorkerAssignment, Worker } from "../types";
-import { buildExpenseReport, buildPayrollReport, buildProjectCostReport, buildProjectInvoiceReport } from "./projectReports";
-import { CostPayrollRecord } from "./projectCosting";
+import type { Expense, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectWorkerAssignment, Worker } from "../types.ts";
+import { buildExpenseReport, buildPayrollReport, buildProjectCostReport, buildProjectInvoiceReport } from "./projectReports.ts";
+import type { CostPayrollRecord } from "./projectCosting.ts";
 
 function getColumnWidths(rows: unknown[][]) {
   const widths: { wch: number }[] = [];
