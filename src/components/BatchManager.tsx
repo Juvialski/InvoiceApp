@@ -105,7 +105,7 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
               <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block">
                 Total Extracted Value
               </span>
-              <div className="text-xl sm:text-2xl font-black text-indigo-900 font-mono mt-0.5">
+              <div className="text-xl sm:text-2xl font-black font-sans tabular-nums text-indigo-900 mt-0.5">
                 {phpTotal ? formatMoney(phpTotal, "PHP") : "No PHP invoices"}
               </div>
             </div>
@@ -114,7 +114,7 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
               <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
                 Aggregated Tax / VAT
               </span>
-              <div className="text-xl sm:text-2xl font-black text-emerald-900 font-mono mt-0.5">
+              <div className="text-xl sm:text-2xl font-black font-sans tabular-nums text-emerald-900 mt-0.5">
                 {formatMoney(phpTax, "PHP")}
               </div>
             </div>
@@ -123,7 +123,7 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                 Total Items Extracted
               </span>
-              <div className="text-xl sm:text-2xl font-bold text-slate-800 font-mono mt-0.5">
+              <div className="text-xl sm:text-2xl font-bold font-sans tabular-nums text-slate-800 mt-0.5">
                 {totalLineItems} <span className="text-xs text-slate-500 font-sans font-normal">items across {invoices.length} invoices</span>
               </div>
             </div>
@@ -172,7 +172,7 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                         {inv.items?.length || 0}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-black text-slate-900">
+                    <td className="py-3.5 px-4 text-right font-sans tabular-nums font-black text-slate-900">
                       {inv.currency ? formatMoney(inv.grandTotal, inv.currency) : "Currency unclear"}
                     </td>
                     <td className="py-3.5 px-4 text-center">

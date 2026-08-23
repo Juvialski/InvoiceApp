@@ -69,11 +69,11 @@ export const Vendors: React.FC<VendorsProps> = ({ invoices }) => {
             </div>
             <div className="grid grid-cols-2 gap-2 mt-4">
               <div className="bg-slate-50 rounded-xl p-3"><p className="text-[9px] uppercase font-bold text-slate-500">Invoices</p><p className="text-lg font-black">{vendor.count}</p></div>
-              <div className="bg-slate-50 rounded-xl p-3"><p className="text-[9px] uppercase font-bold text-slate-500">PHP spend</p><p className="text-sm font-black mt-1 break-words">{phpSpend ? formatMoney(phpSpend, "PHP") : "—"}</p></div>
+              <div className="bg-slate-50 rounded-xl p-3"><p className="text-[9px] uppercase font-bold text-slate-500">PHP spend</p><p className="text-sm font-black font-sans tabular-nums mt-1 break-words">{phpSpend ? formatMoney(phpSpend, "PHP") : "—"}</p></div>
             </div>
             <div className="mt-3 border-t border-slate-100 pt-3 space-y-1">
               <div className="flex justify-between gap-2 text-[10px]"><span className="text-slate-500">Location</span><span className="font-semibold text-right break-words">{vendor.location || "—"}</span></div>
-              {currencyEntries.filter(([currency]) => currency !== "PHP").map(([currency, total]) => <div key={currency} className="flex justify-between text-[10px]"><span className="text-slate-500">{currency} total</span><span className="font-bold font-mono">{currency === "UNK" ? "Currency unclear" : formatMoney(total, currency)}</span></div>)}
+              {currencyEntries.filter(([currency]) => currency !== "PHP").map(([currency, total]) => <div key={currency} className="flex justify-between text-[10px]"><span className="text-slate-500">{currency} total</span><span className="font-bold font-sans tabular-nums">{currency === "UNK" ? "Currency unclear" : formatMoney(total, currency)}</span></div>)}
               <div className="flex justify-between gap-2 text-[10px]"><span className="text-slate-500">Latest invoice</span><span className="font-semibold">{formatDate(vendor.latest, "short")}</span></div>
               <div className="flex justify-between gap-2 text-[10px]"><span className="text-slate-500">Review issues</span><span className={`font-bold inline-flex items-center gap-1 ${vendor.issues ? "text-amber-700" : "text-emerald-700"}`}>{vendor.issues ? <AlertTriangle className="w-3 h-3" /> : null}{vendor.issues}</span></div>
             </div>

@@ -56,7 +56,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
         ].map(({ label, value, icon: Icon, tone }) => (
           <div key={label} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm min-w-0">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tone}`}><Icon className="w-4 h-4" /></div>
-            <p className="text-lg sm:text-xl font-black text-slate-900 mt-4 break-words">{value}</p>
+            <p className="text-lg sm:text-xl font-black font-sans tabular-nums text-slate-900 mt-4 break-words">{value}</p>
             <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{label}</p>
           </div>
         ))}
@@ -68,8 +68,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
           {Object.keys(totals).length ? <div className="space-y-3">
             {Object.entries(totals).map(([currency, value]) => (
               <div key={currency} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                <div><p className="text-xs font-bold text-slate-800">{currency === "UNK" ? "Currency unclear" : currency}</p><p className="text-[11px] text-slate-500">Outstanding {currency === "UNK" ? "—" : formatMoney(balances[currency] || 0, currency)}</p></div>
-                <p className="text-sm font-black font-mono text-right break-words">{currency === "UNK" ? "Needs review" : formatMoney(value, currency)}</p>
+                <div><p className="text-xs font-bold text-slate-800">{currency === "UNK" ? "Currency unclear" : currency}</p><p className="text-[11px] text-slate-500 font-sans tabular-nums">Outstanding {currency === "UNK" ? "—" : formatMoney(balances[currency] || 0, currency)}</p></div>
+                <p className="text-sm font-black font-sans tabular-nums text-right break-words">{currency === "UNK" ? "Needs review" : formatMoney(value, currency)}</p>
               </div>
             ))}
           </div> : <p className="text-xs text-slate-500">Extract an invoice to populate totals.</p>}
@@ -86,7 +86,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
               ["VAT-Exempt", formatMoney(phExempt, "PHP")],
               ["Missing VAT Details", missingVatDetails.length],
               ["Invoices Needing Review", needsReview.filter(isPhilippine).length],
-            ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3"><p className="text-[9px] uppercase font-bold text-slate-500">{label}</p><p className="text-sm font-black mt-1 break-words">{value}</p></div>)}
+            ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3"><p className="text-[9px] uppercase font-bold text-slate-500">{label}</p><p className="text-sm font-black font-sans tabular-nums mt-1 break-words">{value}</p></div>)}
           </div>
           <p className="text-[10px] text-slate-400 mt-4">Review summary only — this does not produce an official BIR tax return.</p>
         </div>
@@ -97,7 +97,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
         {latest.length ? <div className="space-y-2">{latest.map((invoice) => (
           <button key={invoice.id} onClick={() => onOpenInvoice(invoice)} className="w-full text-left flex items-center justify-between gap-3 rounded-xl p-3 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition">
             <div className="min-w-0"><p className="text-xs font-bold text-slate-900 truncate">{invoice.invoiceNumber || invoice.fileName || "Unnumbered invoice"}</p><p className="text-[11px] text-slate-500 truncate">{invoice.vendor?.registeredName || invoice.vendor?.name || "Unknown vendor"} • {invoice.sourceType || "UPLOAD"}</p></div>
-            <div className="text-right shrink-0"><p className="text-xs font-black font-mono">{invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"}</p><span className={`text-[9px] font-bold uppercase ${invoice.reviewStatus === "NEEDS_REVIEW" ? "text-amber-700" : "text-emerald-700"}`}>{invoice.reviewStatus === "NEEDS_REVIEW" ? "Review" : "Verified"}</span></div>
+            <div className="text-right shrink-0"><p className="text-xs font-black font-sans tabular-nums">{invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"}</p><span className={`text-[9px] font-bold uppercase ${invoice.reviewStatus === "NEEDS_REVIEW" ? "text-amber-700" : "text-emerald-700"}`}>{invoice.reviewStatus === "NEEDS_REVIEW" ? "Review" : "Verified"}</span></div>
           </button>
         ))}</div> : <p className="text-xs text-slate-500">No invoice activity yet.</p>}
       </section>

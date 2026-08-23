@@ -350,10 +350,10 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
             Grand Total
           </span>
           <div>
-            <div className="text-2xl font-black text-indigo-600 font-mono tracking-tight">
+            <div className="text-2xl font-black text-indigo-600 font-sans tabular-nums tracking-tight">
               {invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"}
             </div>
-            <p className="text-[11px] text-slate-500 mt-1 font-medium">
+            <p className="text-[11px] text-slate-500 mt-1 font-sans font-medium tabular-nums">
               Balance: {invoice.currency ? formatMoney(invoice.balanceDue ?? invoice.grandTotal, invoice.currency) : "Currency unclear"}
             </p>
           </div>
@@ -506,8 +506,8 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
           {(invoice.currency === "PHP" || invoice.philippineTaxDetails || invoice.vendor?.country?.toLowerCase().includes("philippines")) && <div className="bg-white border border-violet-200 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between gap-2 pb-3 border-b border-violet-100"><div><h3 className="text-xs font-bold uppercase tracking-wider text-violet-900">Philippine Tax Details</h3><p className="text-[10px] text-violet-700 mt-1">Review aid only — not a legal certification.</p></div><select data-field-path="philippineTaxDetails.invoiceKind" value={invoice.philippineTaxDetails?.invoiceKind || "UNKNOWN"} onChange={(e) => handlePhilippineTaxUpdate("invoiceKind", e.target.value)} className="rounded-lg border border-violet-200 px-2 py-1 text-[10px] font-bold bg-white"><option value="VAT_INVOICE">VAT Invoice</option><option value="NON_VAT_INVOICE">Non-VAT Invoice</option><option value="UNKNOWN">Unknown</option></select></div>
             <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-              {[["VATable Sales", "vatableSales"], ["VAT Amount", "vatAmount"], ["Zero-Rated", "zeroRatedSales"], ["VAT-Exempt", "vatExemptSales"], ["Withholding Tax", "withholdingTaxAmount"]].map(([label, field]) => <label key={field} className="text-[10px] text-slate-500 font-bold">{label} {edited(`philippineTaxDetails.${field}`) && <span className="text-sky-700 normal-case">• Edited</span>}<input data-field-path={`philippineTaxDetails.${field}`} type="number" step="0.01" value={(invoice.philippineTaxDetails as any)?.[field] ?? ""} onChange={(e) => handlePhilippineTaxUpdate(field, e.target.value === "" ? undefined : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-xs text-slate-800" /></label>)}
-              <label className="text-[10px] text-slate-500 font-bold">Withholding Rate %<input type="number" step="0.01" value={invoice.philippineTaxDetails?.withholdingTaxRate ?? invoice.withholdingTaxRate ?? ""} onChange={(e) => handlePhilippineTaxUpdate("withholdingTaxRate", e.target.value === "" ? undefined : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-mono text-xs text-slate-800" /></label>
+              {[["VATable Sales", "vatableSales"], ["VAT Amount", "vatAmount"], ["Zero-Rated", "zeroRatedSales"], ["VAT-Exempt", "vatExemptSales"], ["Withholding Tax", "withholdingTaxAmount"]].map(([label, field]) => <label key={field} className="text-[10px] text-slate-500 font-bold">{label} {edited(`philippineTaxDetails.${field}`) && <span className="text-sky-700 normal-case">• Edited</span>}<input data-field-path={`philippineTaxDetails.${field}`} type="number" step="0.01" value={(invoice.philippineTaxDetails as any)?.[field] ?? ""} onChange={(e) => handlePhilippineTaxUpdate(field, e.target.value === "" ? undefined : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-sans tabular-nums text-xs text-slate-800" /></label>)}
+              <label className="text-[10px] text-slate-500 font-bold">Withholding Rate %<input type="number" step="0.01" value={invoice.philippineTaxDetails?.withholdingTaxRate ?? invoice.withholdingTaxRate ?? ""} onChange={(e) => handlePhilippineTaxUpdate("withholdingTaxRate", e.target.value === "" ? undefined : Number(e.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 font-sans tabular-nums text-xs text-slate-800" /></label>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2 text-[10px]"><label className="text-slate-500 font-bold">ATP / OCN<input value={invoice.philippineTaxDetails?.authorityToPrintNumber || invoice.philippineTaxDetails?.outboundCorrespondenceNumber || ""} onChange={(e) => handlePhilippineTaxUpdate("authorityToPrintNumber", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs" /></label><label className="text-slate-500 font-bold">Permit / BIR details<input value={invoice.philippineTaxDetails?.permitToUseNumber || invoice.philippineTaxDetails?.birPermitDetailsRaw || ""} onChange={(e) => handlePhilippineTaxUpdate("birPermitDetailsRaw", e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs" /></label></div>
             {invoice.validation?.philippineVat?.applicable && <div className={`mt-3 rounded-xl p-3 text-[10px] ${invoice.validation.philippineVat.status === "PASS" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}><p className="font-black uppercase">12% VAT validation: {invoice.validation.philippineVat.status === "PASS" ? "PASS" : "NEEDS REVIEW"}</p>{invoice.validation.philippineVat.expectedVat !== undefined && <p className="mt-1">Expected: {formatMoney(invoice.validation.philippineVat.expectedVat, invoice.currency || "PHP")} • Document: {formatMoney(invoice.validation.philippineVat.documentVat || 0, invoice.currency || "PHP")} • Difference: {formatMoney(invoice.validation.philippineVat.difference || 0, invoice.currency || "PHP")}</p>}</div>}
@@ -603,7 +603,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                           data-field-path={`items.${idx}.quantity`}
                           value={item.quantity}
                           onChange={(e) => handleUpdateLineItem(item.id, "quantity", Number(e.target.value))}
-                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-1.5 py-1 text-center text-slate-700 font-mono transition"
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-1.5 py-1 text-center text-slate-700 font-sans tabular-nums transition"
                         />
                       </td>
                       <td className="py-3 px-3">
@@ -623,10 +623,10 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                           data-field-path={`items.${idx}.unitPrice`}
                           value={item.unitPrice}
                           onChange={(e) => handleUpdateLineItem(item.id, "unitPrice", Number(e.target.value))}
-                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-2 py-1 text-right text-slate-700 font-mono transition"
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-2 py-1 text-right text-slate-700 font-sans tabular-nums transition"
                         />
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                      <td className="py-3 px-4 text-right font-sans tabular-nums font-bold text-slate-900">
                         {invoice.currency ? formatMoney(item.total, invoice.currency) : "—"}
                       </td>
                       <td className="py-3 px-2 text-center">
@@ -658,7 +658,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Discount:</span>
-                  <input type="number" step="any" value={invoice.totalDiscount || 0} onChange={(e) => handleFinancialUpdate("totalDiscount", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800" />
+                  <input type="number" step="any" value={invoice.totalDiscount || 0} onChange={(e) => handleFinancialUpdate("totalDiscount", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Tax/VAT:</span>
@@ -668,7 +668,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                     data-field-path="totalTax"
                     value={invoice.totalTax || 0}
                     onChange={(e) => handleFinancialUpdate("totalTax", Number(e.target.value))}
-                    className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800"
+                    className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800"
                   />
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -679,29 +679,29 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                       data-field-path="shippingFee"
                       value={invoice.shippingFee || 0}
                     onChange={(e) => handleFinancialUpdate("shippingFee", Number(e.target.value))}
-                    className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800"
+                    className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800"
                   />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Other fees:</span>
-                  <input data-field-path="otherFees" type="number" step="any" value={invoice.otherFees || 0} onChange={(e) => handleFinancialUpdate("otherFees", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800" />
+                  <input data-field-path="otherFees" type="number" step="any" value={invoice.otherFees || 0} onChange={(e) => handleFinancialUpdate("otherFees", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Paid:</span>
-                  <input data-field-path="amountPaid" type="number" step="any" value={invoice.amountPaid || 0} onChange={(e) => handleFinancialUpdate("amountPaid", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800" />
+                  <input data-field-path="amountPaid" type="number" step="any" value={invoice.amountPaid || 0} onChange={(e) => handleFinancialUpdate("amountPaid", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-sans tabular-nums text-xs text-slate-800" />
                 </div>
               </div>
 
               <div className="flex items-center space-x-8">
                 <div className="text-right">
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Subtotal</p>
-                  <p data-field-path="subtotal" className="text-base font-bold text-slate-900 font-mono">
+                  <p data-field-path="subtotal" className="text-base font-bold text-slate-900 font-sans tabular-nums">
                     {invoice.currency ? formatMoney(invoice.subtotal, invoice.currency) : "Currency unclear"}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-indigo-500 font-bold uppercase tracking-wider">Grand Total</p>
-                  <p data-field-path="grandTotal" className="text-xl font-black text-indigo-600 font-mono">
+                  <p data-field-path="grandTotal" className="text-xl font-black text-indigo-600 font-sans tabular-nums">
                     {invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"}
                   </p>
                 </div>
