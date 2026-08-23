@@ -672,10 +672,14 @@ export async function loadEmailSource(emailId: string): Promise<{
   id: string;
   gmailMessageId?: string;
   sender: string;
+  recipients: string[];
+  cc: string[];
   subject: string;
   receivedAt?: string;
   bodyText: string;
   bodyHtml?: string;
+  attachmentCount: number;
+  attachments: Array<{ id: string; filename: string; mimeType: string; storagePath?: string }>;
   rawStoragePath?: string;
   rawSignedUrl?: string;
 } | null> {
@@ -683,19 +687,29 @@ export async function loadEmailSource(emailId: string): Promise<{
   await requireUserId();
   const { data, error } = await client
     .from("email_messages")
-    .select("id,gmail_message_id,sender,subject,received_at,body_text,body_html,raw_storage_path")
+    .select("id,gmail_message_id,sender,recipients,cc,subject,received_at,body_text,body_html,attachment_count,raw_storage_path")
     .eq("id", emailId)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
+  const { data: sourceRows, error: sourceError } = await client
+    .from("source_documents")
+    .select("id,filename,mime_type,storage_path")
+    .eq("email_message_id", emailId)
+    .order("attachment_index", { ascending: true });
+  if (sourceError) throw sourceError;
   return {
     id: data.id,
     gmailMessageId: data.gmail_message_id || undefined,
     sender: data.sender || "",
+    recipients: Array.isArray(data.recipients) ? data.recipients : [],
+    cc: Array.isArray(data.cc) ? data.cc : [],
     subject: data.subject || "",
     receivedAt: data.received_at || undefined,
     bodyText: data.body_text || "",
     bodyHtml: data.body_html || undefined,
+    attachmentCount: Number(data.attachment_count || sourceRows?.length || 0),
+    attachments: (sourceRows || []).map((row) => ({ id: row.id, filename: row.filename, mimeType: row.mime_type, storagePath: row.storage_path || undefined })),
     rawStoragePath: data.raw_storage_path || undefined,
     rawSignedUrl: data.raw_storage_path ? await signedUrl(EMAIL_BUCKET, data.raw_storage_path) : undefined,
   };

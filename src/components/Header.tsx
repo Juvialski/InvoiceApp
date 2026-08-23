@@ -38,8 +38,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="min-h-16 py-3 flex flex-col xl:flex-row xl:items-center gap-3 xl:justify-between">
-          <div className="flex items-center justify-between gap-3">
+        <div className="min-h-16 py-3 flex flex-col xl:flex-row xl:items-center gap-3 xl:justify-between overflow-hidden">
+          <div className="flex items-center justify-between gap-3 min-w-0 xl:flex-1">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0"><Files className="w-5 h-5" /></div>
               <div className="min-w-0">
@@ -55,8 +55,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
             {invoicesCount > 0 && <button onClick={onBatchExportExcel} className="xl:hidden p-2 rounded-xl bg-indigo-600 text-white" title="Export all invoices"><Download className="w-4 h-4" /></button>}
           </div>
 
-          <div className="flex items-center gap-2 min-w-0">
-            <nav className="flex overflow-x-auto no-scrollbar bg-slate-100 p-1 rounded-xl border border-slate-200/80 flex-1 xl:flex-none">
+          <div className="flex items-center gap-2 min-w-0 xl:flex-1">
+            <nav className="flex min-w-0 max-w-full overflow-x-auto no-scrollbar bg-slate-100 p-1 rounded-xl border border-slate-200/80 flex-1">
               {tabs.map(({ id, label, icon: Icon }) => (
                 <button key={id} onClick={() => setActiveTab(id)} className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${activeTab === id ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>
                   <Icon className="w-3.5 h-3.5" /><span>{label}</span>

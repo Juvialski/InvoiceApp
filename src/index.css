@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+.verification-field-highlight {
+  outline: 3px solid rgb(56 189 248 / 0.55);
+  outline-offset: 3px;
+  border-radius: 0.65rem;
+  animation: verification-field-pulse 1.8s ease-out;
+}
+
+@keyframes verification-field-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(56 189 248 / 0); }
+  20% { box-shadow: 0 0 0 5px rgb(56 189 248 / 0.18); }
+}
