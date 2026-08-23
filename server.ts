@@ -871,7 +871,16 @@ async function start() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (_req, res) => res.sendFile(path.join(distPath, "index.html")));
+    app.get("*", (req, res) => {
+      // Only browser document routes should fall back to the SPA entrypoint.
+      // Returning index.html for a mistyped API URL hides the real 404 and can
+      // make callers fail later while trying to parse HTML as JSON.
+      if (req.path === "/api" || req.path.startsWith("/api/")) {
+        res.status(404).json({ success: false, error: "API endpoint not found." });
+        return;
+      }
+      res.sendFile(path.join(distPath, "index.html"));
+    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
