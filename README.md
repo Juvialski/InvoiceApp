@@ -2,6 +2,8 @@
 
 A feature-first sales invoice workspace that preserves original invoice sources, extracts structured data with Gemini, and keeps the result open for human verification before it is treated as verified.
 
+The product is Philippines-first, not Philippines-only. New/manual presentation defaults to country `PH`, locale `en-PH`, currency `PHP` (`₱`), and timezone `Asia/Manila`. Imported foreign invoices keep their explicit USD, EUR, SGD, JPY, or other source currency; the app does not silently convert or combine currencies.
+
 ## Current workflow
 
 ```text
@@ -22,7 +24,7 @@ Verified invoice + review history
 
 ## Major features in this build
 
-- Fresh Supabase project support.
+- Backward-compatible Supabase persistence for the existing invoice/Gmail foundation.
 - Supabase Postgres persistence instead of browser-only storage when connected.
 - Private Storage buckets for original invoice files and raw emails.
 - Google OAuth through Supabase with Gmail `readonly` access.
@@ -49,6 +51,9 @@ Verified invoice + review history
 - Searchable invoice directory.
 - Dashboard and reports.
 - Per-currency totals rather than combining unrelated currencies.
+- Philippines-first invoice workflow with VAT / Non-VAT, TIN, branch, barangay, province, region, ATP/OCN, withholding, and mixed-tax fields.
+- Deterministic 12% VAT checks only when a VATable Philippine transaction provides enough source data; zero-rated, VAT-exempt, Non-VAT, VAT-inclusive, and unclear cases are not blindly charged or rejected.
+- PH invoice completeness review aid with `COMPLETE`, `REVIEW`, `MISSING_INFORMATION`, and `NOT_APPLICABLE` statuses.
 - Excel/CSV exports with review/validation metadata.
 - Local/demo fallback when Supabase is not configured.
 
@@ -105,6 +110,18 @@ New extractions always enter `NEEDS_REVIEW`; arithmetic checks do not count as h
 
 Removing an invoice from the directory archives the working record instead of deleting its source, extraction snapshot, or review history.
 
+## Philippines-first behavior
+
+- VAT invoices may expose VATable Sales, VAT Amount, Zero-Rated Sales, VAT-Exempt Sales, ATP/OCN or permit text, and mixed tax treatment.
+- Non-VAT invoices do not receive an automatic 12% VAT amount.
+- Withholding tax remains separate from `Invoice Total`; `Net Payable` is shown only when deterministically available.
+- Official Receipt, Billing Statement, and Statement of Account are treated conservatively as receipt/supplementary candidates unless the source clearly establishes an invoice.
+- Human verification remains required. The PH completeness checklist is a review aid and is not a legal certification of BIR compliance.
+
+**InvoiceApp helps extract and review invoice information. Its completeness checks are not a legal certification of BIR compliance.**
+
+The PH extraction vocabulary follows current official BIR/EOPT invoicing guidance, especially [BIR Revenue Regulations No. 7-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%207-%202024.pdf) and [BIR Revenue Memorandum Circular No. 77-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%2077-2024.pdf). This app does not provide tax or legal advice.
+
 ## Run locally
 
 ```bash
@@ -133,6 +150,8 @@ gemini-3.7-flash
 ```
 
 The extraction prompt does not allow Gemini to invent missing financial values. The server may fill only mathematically deterministic values; otherwise fields remain empty and are routed to human review.
+
+The primary extraction/classification model remains `gemini-3.5-flash-lite`, with `gemini-3.7-flash` retained as the existing fallback/accuracy path. PH terminology is added to the prompt without making the global document model PH-only.
 
 ## Intentionally deferred
 

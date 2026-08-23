@@ -1,6 +1,6 @@
 # Supabase + Gmail setup
 
-This build is intentionally ready for a **fresh Supabase project**. The app stays usable in local/demo mode before the project is connected.
+This build is intentionally ready for a **fresh Supabase project** and remains backward-compatible with the already-applied invoice operations foundation. The app stays usable in local/demo mode before the project is connected.
 
 ## 1. Create a fresh Supabase project
 
@@ -46,6 +46,12 @@ It also enables basic per-user RLS and explicit authenticated Data API grants. T
 The migration is safe to rerun for this foundation and adds stable Gmail attachment identifiers, duplicate markers, and append-only protections for AI extraction snapshots and review history. Apply it before testing the first authenticated read or write; a fresh project will otherwise return a missing-table error from the Data API.
 
 The invoice directory uses archive semantics: removing an invoice hides the working record while keeping the original document, immutable AI extraction, and review events.
+
+### Philippines-first localization
+
+The client defaults to `PH`, `en-PH`, `PHP` (`₱`), and `Asia/Manila`. Regional defaults are presentation/settings data; imported invoices preserve their source currency. PH tax fields are stored in the existing `invoices.current_data` JSON and immutable extraction snapshots, so this localization pass does not require wiping data or adding a migration. Do not rerun the foundation migration against a live workspace just for localization.
+
+The review workspace recognizes VAT / Non-VAT invoices, TIN and branch details, VATable / zero-rated / VAT-exempt amounts, ATP/OCN or permit text, and optional withholding tax. The deterministic 12% check is only applied when the source explicitly supports the simple VATable case. Completeness is a review aid, not legal certification.
 
 ## 3. Configure Google in Supabase Auth
 
@@ -100,7 +106,7 @@ The default extraction/classification model is `gemini-3.5-flash-lite` with `gem
 2. Go to **Gmail Inbox**.
 3. Click **Connect Google + Gmail**.
 4. Grant read-only Gmail permission.
-5. Choose a scan window and click **Scan likely invoice emails**.
+5. Choose a scan window and click **Scan likely invoice emails**. Candidate discovery includes invoice, sales invoice, service invoice, VAT invoice, billing, SOA, BIR, TIN, and amount-due terms, but remains conservative.
 6. Gemini classifies the candidates.
 7. Click **Import & extract** on an invoice-like email.
 8. Confirm the original raw email appears in `email-originals`.
@@ -109,6 +115,9 @@ The default extraction/classification model is `gemini-3.5-flash-lite` with `gem
 11. Compare **Original document**, **Source email**, and **AI vs human**.
 12. Edit a value, then click **Verify**.
 13. Confirm the invoice's working data changes while the `invoice_extractions` snapshot stays unchanged and `invoice_review_events` records the review.
+14. In **AI vs human**, revert one edited field to its original AI value and confirm a field-level review event is recorded.
+
+For current Philippine terminology, see [BIR Revenue Regulations No. 7-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%207-%202024.pdf) and [BIR Revenue Memorandum Circular No. 77-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%2077-2024.pdf). Official Receipt, Billing Statement, and Statement of Account should remain conservative candidates; Gemini classification and human review decide how they are handled.
 
 ## Sync behavior
 
