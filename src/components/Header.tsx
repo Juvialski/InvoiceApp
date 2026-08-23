@@ -8,9 +8,12 @@ import {
   Download,
   ClipboardCheck,
   Settings as SettingsIcon,
+  BriefcaseBusiness,
+  HardHat,
+  Receipt,
 } from "lucide-react";
 
-export type AppTab = "dashboard" | "extractor" | "inbox" | "review" | "invoices" | "vendors" | "reports" | "settings";
+export type AppTab = "dashboard" | "projects" | "extractor" | "inbox" | "review" | "invoices" | "payroll" | "expenses" | "vendors" | "reports" | "settings";
 
 interface HeaderProps {
   activeTab: AppTab;
@@ -22,12 +25,15 @@ interface HeaderProps {
 
 const tabs: Array<{ id: AppTab; label: string; icon: React.ElementType }> = [
   { id: "dashboard", label: "Dashboard", icon: BarChart3 },
+  { id: "projects", label: "Projects", icon: BriefcaseBusiness },
   { id: "extractor", label: "Extract", icon: FilePlus2 },
-  { id: "inbox", label: "Gmail Inbox", icon: Mail },
-  { id: "review", label: "Review Queue", icon: ClipboardCheck },
   { id: "invoices", label: "Invoices", icon: Files },
+  { id: "payroll", label: "Payroll", icon: HardHat },
+  { id: "expenses", label: "Expenses", icon: Receipt },
   { id: "vendors", label: "Vendors", icon: Building2 },
   { id: "reports", label: "Reports", icon: BarChart3 },
+  { id: "inbox", label: "Gmail Inbox", icon: Mail },
+  { id: "review", label: "Review Queue", icon: ClipboardCheck },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
 

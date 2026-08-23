@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Cloud, Loader2, X } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { Header, AppTab } from "./components/Header";
@@ -12,13 +12,20 @@ import { ReviewQueue } from "./components/ReviewQueue";
 import { VerificationWorkspace } from "./components/VerificationWorkspace";
 import type { SaveState } from "./components/VerificationWorkspace";
 import { Settings as SettingsScreen } from "./components/Settings";
-import { EmailClassification, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "./types";
-import { exportBatchInvoicesToExcel } from "./utils/excelExport";
+import { EngineeringDashboard } from "./components/engineering/EngineeringDashboard";
+import { ProjectReports } from "./components/engineering/ProjectReports";
+import { ProjectsPage } from "./components/projects/ProjectsPage";
+import { ProjectWorkspace } from "./components/projects/ProjectWorkspace";
+import { ExpensesPage } from "./components/expenses/ExpensesPage";
+import { PayrollPage } from "./components/payroll/PayrollPage";
+import { EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
+import { exportBatchInvoicesToExcel, exportEngineeringProjectWorkbookToExcel } from "./utils/excelExport";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
 import { readAndCleanLocalInvoices } from "./utils/demoCleanup";
 import { enqueueSerializedSave } from "./utils/saveSequencing";
 import { currencySymbolFor, DEFAULT_CURRENCY, loadRegionalSettings, RegionalSettings, setRegionalSettings as setActiveRegionalSettings } from "./config/regional";
+import { calculateProjectCost } from "./utils/projectCosting";
 import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, signOutWorkspace, supabase } from "./lib/supabase";
 import {
   deleteInvoiceFromSupabase,
@@ -36,6 +43,19 @@ import {
   saveManualSourceDocument,
   updateInvoiceInSupabase,
 } from "./lib/persistence";
+import {
+  archiveProjectInSupabase,
+  loadInvoiceProjectAllocationsFromSupabase,
+  loadProjectsFromSupabase,
+  readInvoiceProjectAllocationsFromLocal,
+  readProjectsFromLocal,
+  replaceInvoiceProjectAllocationsOnSupabase,
+  saveProjectToSupabase,
+  writeInvoiceProjectAllocationsToLocal,
+  writeProjectsToLocal,
+} from "./lib/projects";
+import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
+import { loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, saveAssignmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, writePayrollWorkspaceToLocal } from "./lib/payroll";
 
 function prepareStoredInvoice(invoice: InvoiceData): InvoiceData {
   const sourceType = invoice.sourceType || (invoice.id?.startsWith("sample") ? "SAMPLE" : "UPLOAD");
@@ -131,6 +151,14 @@ export default function App() {
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
   const savePromisesRef = useRef(new Map<string, Promise<unknown>>());
+  const [projects, setProjects] = useState<Project[]>(readProjectsFromLocal);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectFormSeed, setProjectFormSeed] = useState<Project | null>(null);
+  const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(readInvoiceProjectAllocationsFromLocal);
+  const [expenses, setExpenses] = useState<Expense[]>(readExpensesFromLocal);
+  const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(readPayrollWorkspaceFromLocal);
+  const [expenseFormContext, setExpenseFormContext] = useState<string | null>(null);
+  const [uploadProjectContextId, setUploadProjectContextId] = useState<string | null>(null);
 
   const showNotification = (type: "success" | "error" | "info", message: string) => {
     setNotification({ type, message });
@@ -151,6 +179,21 @@ export default function App() {
       setInvoices(prepared);
       lastPersistedRef.current = new Map(prepared.map((invoice) => [invoice.id, invoice]));
       setSyncState(storedSync);
+      const engineeringResults = await Promise.allSettled([
+        loadProjectsFromSupabase(),
+        loadInvoiceProjectAllocationsFromSupabase(),
+        loadExpensesFromSupabase(),
+        loadPayrollWorkspaceFromSupabase(),
+      ]);
+      if (engineeringResults.every((result) => result.status === "fulfilled")) {
+        const [storedProjects, storedAllocations, storedExpenses, storedPayroll] = engineeringResults.map((result) => result.status === "fulfilled" ? result.value : undefined) as [Project[], InvoiceProjectAllocation[], Expense[], PayrollWorkspaceData];
+        setProjects(storedProjects);
+        setInvoiceProjectAllocations(storedAllocations);
+        setExpenses(storedExpenses);
+        setPayrollData(storedPayroll);
+      } else {
+        showNotification("info", "Invoice workspace loaded. Apply the project-costing migration to enable connected Projects, Expenses, and Payroll data.");
+      }
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not load the workspace. Check your connection or contact your administrator."));
     } finally {
@@ -179,6 +222,10 @@ export default function App() {
         invoicesRef.current = local;
         setInvoices(local);
         setSyncState({});
+        setProjects(readProjectsFromLocal());
+        setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
+        setExpenses(readExpensesFromLocal());
+        setPayrollData(readPayrollWorkspaceFromLocal());
       }
     });
     return () => { active = false; listener.subscription.unsubscribe(); };
@@ -190,6 +237,19 @@ export default function App() {
       try { localStorage.setItem("extracted_invoices", JSON.stringify(invoices)); } catch { /* preview URLs may fill local storage */ }
     }
   }, [invoices, session]);
+
+  useEffect(() => {
+    if (!session) {
+      writeProjectsToLocal(projects);
+      writeInvoiceProjectAllocationsToLocal(invoiceProjectAllocations);
+      writeExpensesToLocal(expenses);
+      writePayrollWorkspaceToLocal(payrollData);
+    }
+  }, [projects, invoiceProjectAllocations, expenses, payrollData, session]);
+
+  useEffect(() => {
+    if (activeTab !== "extractor") setUploadProjectContextId(null);
+  }, [activeTab]);
 
   useEffect(() => () => {
     updateTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -489,6 +549,145 @@ export default function App() {
     // same persistence path used by uploads and email-derived invoices.
     showNotification("info", `${preset.invoiceNumber || "Sample preset"} is available for QA only and was not added to invoice records.`);
   };
+
+  const handleSaveProject = async (project: Project) => {
+    try {
+      const saved = session && supabase ? await saveProjectToSupabase(project) : { ...project, updatedAt: new Date().toISOString() };
+      setProjects((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]);
+      setSelectedProject((current) => current?.id === saved.id ? saved : current);
+      setProjectFormSeed(null);
+      showNotification("success", `${saved.projectCode} saved.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save project. Your draft remains available."));
+    }
+  };
+
+  const handleArchiveProject = async (project: Project) => {
+    try {
+      const archived = session && supabase
+        ? await archiveProjectInSupabase(project.id)
+        : { ...project, status: "ARCHIVED" as const, archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      setProjects((current) => current.map((item) => item.id === archived.id ? archived : item));
+      setSelectedProject((current) => current?.id === archived.id ? archived : current);
+      showNotification("info", `${project.projectCode} archived. Historical allocations remain visible.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not archive project."));
+    }
+  };
+
+  const handleSaveInvoiceProjectAllocations = async (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => {
+    try {
+      const saved = session && supabase
+        ? await replaceInvoiceProjectAllocationsOnSupabase(invoice.id, invoice.grandTotal, allocations)
+        : allocations.map((allocation) => ({ ...allocation, id: allocation.id || `local-allocation-${Date.now()}-${Math.random().toString(36).slice(2)}` }));
+      setInvoiceProjectAllocations((current) => [...current.filter((allocation) => allocation.invoiceId !== invoice.id), ...saved]);
+      showNotification("success", allocations.length ? "Invoice project allocation saved." : "Invoice is now unallocated.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save invoice project allocation."));
+      throw error;
+    }
+  };
+
+  const handleSaveExpense = async (expense: Expense) => {
+    try {
+      const saved = session && supabase ? await saveExpenseToSupabase(expense) : { ...expense, updatedAt: new Date().toISOString() };
+      setExpenses((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]);
+      setExpenseFormContext(null);
+      showNotification("success", "Expense saved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save expense."));
+    }
+  };
+
+  const handleArchiveExpense = async (expense: Expense) => {
+    try {
+      const archived = session && supabase ? await archiveExpenseInSupabase(expense.id) : { ...expense, status: "VOID" as const, archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      setExpenses((current) => current.map((item) => item.id === archived.id ? archived : item));
+      showNotification("info", "Expense archived and excluded from future project actual cost.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not archive expense."));
+    }
+  };
+
+  const handleSaveWorker = async (worker: Worker) => {
+    try {
+      const saved = session && supabase ? await saveWorkerToSupabase(worker) : { ...worker, updatedAt: new Date().toISOString() };
+      setPayrollData((current) => ({ ...current, workers: current.workers.some((item) => item.id === saved.id) ? current.workers.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.workers] }));
+      showNotification("success", `${saved.displayName} saved.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save worker."));
+    }
+  };
+
+  const handleSavePayrollPeriod = async (period: PayrollPeriod) => {
+    try {
+      const saved = session && supabase ? await savePayrollPeriodToSupabase(period) : { ...period, updatedAt: new Date().toISOString() };
+      setPayrollData((current) => ({ ...current, periods: current.periods.some((item) => item.id === saved.id) ? current.periods.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.periods] }));
+      showNotification("success", "Payroll period saved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save payroll period."));
+    }
+  };
+
+  const handleSaveWorkEntry = async (entry: WorkEntry) => {
+    try {
+      const saved = session && supabase ? await saveWorkEntryToSupabase(entry) : entry;
+      setPayrollData((current) => ({ ...current, workEntries: current.workEntries.some((item) => item.id === saved.id) ? current.workEntries.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.workEntries] }));
+      showNotification("success", "Work entry saved. Calculate a payroll run to post labor allocation.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save work entry."));
+    }
+  };
+
+  const handleSaveAssignment = async (assignment: ProjectWorkerAssignment) => {
+    try {
+      const saved = session && supabase ? await saveAssignmentToSupabase(assignment) : assignment;
+      setPayrollData((current) => ({ ...current, assignments: current.assignments.some((item) => item.id === saved.id) ? current.assignments.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.assignments] }));
+      showNotification("success", "Worker assignment saved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save worker assignment."));
+    }
+  };
+
+  const handleSavePayrollEntry = async (entry: PayrollEntry, allocations: PayrollProjectAllocation[]) => {
+    try {
+      const saved = session && supabase ? await savePayrollEntryToSupabase(entry, allocations) : { entry, allocations };
+      setPayrollData((current) => ({ ...current, entries: [...current.entries.filter((item) => item.id !== saved.entry.id), saved.entry], allocations: [...current.allocations.filter((item) => item.payrollEntryId !== saved.entry.id), ...saved.allocations] }));
+      showNotification("success", "Payroll entry and project allocations saved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save payroll entry."));
+    }
+  };
+
+  const handleUpdatePayrollRun = async (run: PayrollRun) => {
+    try {
+      const saved = session && supabase ? await savePayrollRunToSupabase(run) : run;
+      setPayrollData((current) => ({ ...current, runs: current.runs.map((item) => item.id === saved.id ? saved : item) }));
+      showNotification("success", `Payroll run marked ${saved.status.toLowerCase()}.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not update payroll run."));
+    }
+  };
+
+  const handleCreatePayrollRun = async () => {
+    const period = payrollData.periods.find((item) => item.status !== "VOID") || payrollData.periods[0];
+    if (!period) {
+      showNotification("info", "Create a payroll period before creating a run.");
+      setActiveTab("payroll");
+      return;
+    }
+    const run: PayrollRun = { id: globalThis.crypto?.randomUUID?.() || `local-payroll-run-${Date.now()}`, periodId: period.id, status: "DRAFT", createdAt: new Date().toISOString() };
+    try {
+      const saved = session && supabase ? await savePayrollRunToSupabase(run) : run;
+      setPayrollData((current) => ({ ...current, runs: [saved, ...current.runs.filter((item) => item.id !== saved.id)] }));
+      showNotification("success", "Draft payroll run created. Add time entries and project allocations before approval.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not create payroll run."));
+    }
+  };
+
+  const openProject = (project: Project) => { setSelectedProject(project); setProjectFormSeed(null); setActiveTab("projects"); };
+  const editProject = (project: Project) => { setProjectFormSeed(project); setSelectedProject(null); setActiveTab("projects"); };
 
   const persistInvoice = async (invoice: InvoiceData, eventType = "HUMAN_EDIT", revision = editRevisionRef.current.get(invoice.id) || 0) => {
     if (!session || !supabase) {
@@ -823,6 +1022,8 @@ export default function App() {
   const leaveWorkspace = reviewSessionIds.length ? exitReview : exitStandaloneWorkspace;
   const workspaceOriginLabel = workspaceOrigin === "dashboard"
     ? "Dashboard"
+    : workspaceOrigin === "projects"
+      ? "Projects"
     : workspaceOrigin === "inbox"
       ? "Gmail Inbox"
       : workspaceOrigin === "review"
@@ -835,9 +1036,27 @@ export default function App() {
     setSelectedInvoice(null);
     setReviewSessionIds([]);
     setReviewCompletion(null);
+    if (tab !== "extractor") setUploadProjectContextId(null);
     setWorkspaceOrigin(tab);
     setActiveTab(tab);
   };
+
+  const costInvoices = useMemo(() => invoices.map((invoice) => ({
+    ...invoice,
+    allocations: invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id),
+  })), [invoices, invoiceProjectAllocations]);
+  const costPayroll = useMemo(() => payrollData.runs.map((run) => ({
+    id: run.id,
+    status: run.status,
+    allocations: payrollData.allocations.filter((allocation) => payrollData.entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)),
+  })), [payrollData.runs, payrollData.allocations, payrollData.entries]);
+  const projectSummaries = useMemo<Record<string, ProjectCostSummary>>(() => {
+    const next: Record<string, ProjectCostSummary> = {};
+    projects.forEach((project) => { next[project.id] = calculateProjectCost(project, { invoices: costInvoices, payroll: costPayroll, expenses }); });
+    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: costPayroll, expenses });
+    next.__unallocated__ = unallocated;
+    return next;
+  }, [projects, costInvoices, costPayroll, expenses]);
 
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").length;
   const gmailConnection: GmailConnectionInfo = {
@@ -860,13 +1079,16 @@ export default function App() {
         {workspaceLoading && <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" />Loading workspace…</div>}
         {isSupabaseConfigured && !session && !googleBannerDismissed && <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-2.5 flex items-center justify-between gap-3"><div className="flex items-center gap-2.5 min-w-0"><Cloud className="w-4 h-4 text-indigo-600 shrink-0" /><p className="text-[11px] font-semibold text-indigo-900 truncate">Gmail sync is not connected.</p></div><div className="flex items-center gap-2 shrink-0"><button onClick={() => void connectGoogleAndGmail()} className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold">Connect</button><button type="button" onClick={() => setGoogleBannerDismissed(true)} className="p-1 rounded-md text-indigo-500 hover:bg-indigo-100" aria-label="Dismiss Gmail connection notice"><X className="w-3.5 h-3.5" /></button></div></div>}
 
-        {activeTab === "dashboard" && <Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} />}
-        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? <VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} />}</div>}
+        {activeTab === "dashboard" && <div className="space-y-6"><Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} /><EngineeringDashboard projects={projects} summaries={projectSummaries} invoices={invoices} expenses={expenses} onNavigate={setActiveTab} /></div>}
+        {activeTab === "projects" && (selectedProject ? <ProjectWorkspace project={selectedProject} summary={projectSummaries[selectedProject.id] || calculateProjectCost(selectedProject, { invoices: costInvoices, payroll: costPayroll, expenses })} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} payrollAllocations={payrollData.allocations} payrollPeriods={payrollData.periods} onBack={() => setSelectedProject(null)} onOpenInvoice={openInvoice} onUploadInvoice={() => { setUploadProjectContextId(selectedProject.id); setWorkspaceOrigin("projects"); setActiveTab("extractor"); }} onEditProject={() => editProject(selectedProject)} onArchiveProject={() => void handleArchiveProject(selectedProject)} onAddExpense={() => { setExpenseFormContext(selectedProject.id); setActiveTab("expenses"); }} onOpenPayroll={() => setActiveTab("payroll")} /> : <ProjectsPage projects={projects} summaries={projectSummaries} initialEditingProject={projectFormSeed} onOpenProject={openProject} onSaveProject={(project) => void handleSaveProject(project)} onArchiveProject={(project) => void handleArchiveProject(project)} />)}
+        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? <VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} projects={projects} invoiceProjectAllocations={invoiceProjectAllocations} preferredProjectId={uploadProjectContextId || undefined} onSaveProjectAllocations={handleSaveInvoiceProjectAllocations} /> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} />}</div>}
         {activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
-        {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
+        {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
+        {activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} />}
+        {activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
         {activeTab === "vendors" && <Vendors invoices={invoices} />}
-        {activeTab === "reports" && <Reports invoices={invoices} />}
+        {activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}
         {activeTab === "settings" && <SettingsScreen settings={regionalSettings} onChange={handleRegionalSettingsChange} />}
       </main>
       <footer className="border-t border-slate-200 py-4 bg-white text-center text-[10px] text-slate-500">Invoice Operations • Gmail read-only intake • Original sources & review history</footer>

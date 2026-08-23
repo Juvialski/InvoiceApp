@@ -1,5 +1,7 @@
 import * as XLSX from "xlsx";
-import { InvoiceData } from "../types";
+import { Expense, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectWorkerAssignment, Worker } from "../types";
+import { buildExpenseReport, buildPayrollReport, buildProjectCostReport, buildProjectInvoiceReport } from "./projectReports";
+import { CostPayrollRecord } from "./projectCosting";
 
 function getColumnWidths(rows: unknown[][]) {
   const widths: { wch: number }[] = [];
@@ -237,4 +239,31 @@ export function exportInvoiceLineItemsToCSV(invoice: InvoiceData) {
 export function exportInvoiceRegisterToCSV(invoices: InvoiceData[]) {
   if (!invoices?.length) return;
   downloadCsv(invoices.map(invoiceRegisterRow), `Invoice_Register_${new Date().toISOString().slice(0, 10)}.csv`);
+}
+
+export interface EngineeringWorkbookInput {
+  projects: Project[];
+  invoices: InvoiceData[];
+  invoiceAllocations: InvoiceProjectAllocation[];
+  expenses: Expense[];
+  workers: Worker[];
+  assignments: ProjectWorkerAssignment[];
+  periods: PayrollPeriod[];
+  runs: PayrollRun[];
+  entries: PayrollEntry[];
+  payrollAllocations: PayrollProjectAllocation[];
+}
+
+/** Keeps the existing invoice workbook intact while adding a separate project-cost workbook. */
+export function exportEngineeringProjectWorkbookToExcel(input: EngineeringWorkbookInput, customFileName?: string) {
+  const payroll: CostPayrollRecord[] = input.runs.map((run) => ({ id: run.id, status: run.status, allocations: input.payrollAllocations.filter((allocation) => input.entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)) }));
+  const workbook = XLSX.utils.book_new();
+  appendJsonSheet(workbook, input.projects.map((project) => ({ "Project Code": project.projectCode, "Project Name": project.projectName, Client: project.clientName || "", Location: project.location || "", Status: project.status, Budget: project.projectBudget, Currency: project.currency })), "Projects");
+  appendJsonSheet(workbook, buildProjectInvoiceReport(input.projects, input.invoices, input.invoiceAllocations), "Invoice Allocations");
+  appendJsonSheet(workbook, buildPayrollReport(input.projects, input.workers, input.periods, input.runs, input.entries, input.payrollAllocations), "Payroll Allocations");
+  appendJsonSheet(workbook, buildExpenseReport(input.projects, input.expenses), "Expenses");
+  appendJsonSheet(workbook, buildProjectCostReport(input.projects, input.invoices, input.invoiceAllocations, payroll, input.expenses).map((row) => ({ ...row })), "Project Cost Summary");
+  appendJsonSheet(workbook, input.workers.map((worker) => ({ "Employee Code": worker.employeeCode, Name: worker.displayName, Role: worker.jobTitle || "", "Employment Type": worker.employmentType, "Pay Type": worker.defaultPayType, "Default Rate": worker.defaultRate, Active: worker.active })), "Workers");
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(workbook, customFileName || `Engineering_Project_Costs_${dateStr}.xlsx`);
 }

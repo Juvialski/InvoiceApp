@@ -1,7 +1,8 @@
-import { createClient, Session, User } from "@supabase/supabase-js";
+import { createClient, type Session, type User } from "@supabase/supabase-js";
 
-const url = (import.meta.env.VITE_SUPABASE_URL || "").trim();
-const publishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || "").trim();
+const runtimeEnv: Record<string, string | undefined> = ((import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env || {}) as Record<string, string | undefined>;
+const url = (runtimeEnv.VITE_SUPABASE_URL || "").trim();
+const publishableKey = (runtimeEnv.VITE_SUPABASE_PUBLISHABLE_KEY || runtimeEnv.VITE_SUPABASE_ANON_KEY || "").trim();
 
 export const isSupabaseConfigured = Boolean(url && publishableKey);
 

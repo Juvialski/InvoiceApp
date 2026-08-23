@@ -7,7 +7,7 @@ import { formatMoney, totalVatByCurrency, totalsByCurrency } from "../utils/invo
 interface DashboardProps {
   invoices: InvoiceData[];
   onOpenInvoice: (invoice: InvoiceData) => void;
-  onNavigate: (tab: "extractor" | "inbox" | "invoices" | "review") => void;
+  onNavigate: (tab: "extractor" | "inbox" | "invoices" | "review" | "projects" | "payroll" | "expenses" | "reports") => void;
 }
 
 const isPhilippine = (invoice: InvoiceData) => invoice.currency?.toUpperCase() === "PHP" || invoice.vendor?.country?.toLowerCase().includes("philippines") || Boolean(invoice.philippineTaxDetails);
