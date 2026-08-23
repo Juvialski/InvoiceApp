@@ -1,5 +1,9 @@
 import type { InvoiceProjectAllocation, Project, ProjectStatus } from "../types.ts";
-import { validateInvoiceAllocations } from "../utils/projectCosting.ts";
+import {
+  replaceInvoiceProjectAllocationsLocally,
+  toInvoiceProjectAllocationPersistenceRows,
+  validateInvoiceProjectAllocationSet,
+} from "../utils/projectAllocations.ts";
 import { supabase } from "./supabase.ts";
 
 const PROJECTS_STORAGE_KEY = "engineering_projects";
@@ -27,5 +31,22 @@ export async function loadProjectsFromSupabase(): Promise<Project[]> { const use
 export async function saveProjectToSupabase(project: Project): Promise<Project> { const userId = await currentUserId(); if (!supabase || !userId) throw new Error("Sign in before saving projects."); const { data, error } = await supabase.from("projects").upsert(projectRow(project, userId)).select("*").single(); if (error) throw error; return projectFromRow(data as Row); }
 export async function archiveProjectInSupabase(projectId: string): Promise<Project> { const userId = await currentUserId(); if (!supabase || !userId) throw new Error("Sign in before archiving projects."); const archivedAt = new Date().toISOString(); const { data, error } = await supabase.from("projects").update({ status: "ARCHIVED", archived_at: archivedAt, updated_at: archivedAt }).eq("id", projectId).eq("user_id", userId).select("*").single(); if (error) throw error; return projectFromRow(data as Row); }
 export async function loadInvoiceProjectAllocationsFromSupabase(): Promise<InvoiceProjectAllocation[]> { const userId = await currentUserId(); if (!supabase || !userId) return []; const { data, error } = await supabase.from("invoice_project_allocations").select("*").eq("user_id", userId).order("created_at", { ascending: true }); if (error) throw error; return (data || []).map((row) => allocationFromRow(row as Row)); }
-export async function replaceInvoiceProjectAllocationsOnSupabase(invoiceId: string, invoiceTotal: number, allocations: InvoiceProjectAllocation[]) { const validation = validateInvoiceAllocations(invoiceTotal, allocations); if (!validation.valid) throw new Error(validation.message || "Invoice allocations exceed the invoice total."); const userId = await currentUserId(); if (!supabase || !userId) throw new Error("Sign in before assigning invoice projects."); const { error: deleteError } = await supabase.from("invoice_project_allocations").delete().eq("invoice_id", invoiceId).eq("user_id", userId); if (deleteError) throw deleteError; if (!allocations.length) return []; const rows = allocations.map((allocation) => ({ id: allocation.id && !allocation.id.startsWith("local-") ? allocation.id : undefined, user_id: userId, invoice_id: invoiceId, project_id: allocation.projectId, allocation_type: allocation.allocationType, allocation_percentage: allocation.allocationPercentage ?? null, allocation_amount: allocation.allocationType === "PERCENTAGE" ? Math.round(invoiceTotal * (allocation.allocationPercentage || 0)) / 100 : allocation.allocationAmount, currency: null, notes: allocation.notes || null })); const { data, error } = await supabase.from("invoice_project_allocations").insert(rows).select("*"); if (error) throw error; return (data || []).map((row) => allocationFromRow(row as Row)); }
+export async function replaceInvoiceProjectAllocationsOnSupabase(invoiceId: string, invoiceTotal: number, allocations: InvoiceProjectAllocation[]): Promise<InvoiceProjectAllocation[]> {
+  const validation = validateInvoiceProjectAllocationSet(invoiceTotal, allocations);
+  if (!validation.valid) throw new Error(validation.message || "Invoice project allocations are invalid.");
 
+  const userId = await currentUserId();
+  if (!supabase) {
+    const replaced = replaceInvoiceProjectAllocationsLocally(invoiceId, invoiceTotal, readInvoiceProjectAllocationsFromLocal(), allocations);
+    writeInvoiceProjectAllocationsToLocal(replaced);
+    return replaced.filter((allocation) => allocation.invoiceId === invoiceId);
+  }
+  if (!userId) throw new Error("Sign in before assigning invoice projects.");
+
+  const { data, error } = await supabase.rpc("replace_invoice_project_allocations", {
+    p_invoice_id: invoiceId,
+    p_allocations: toInvoiceProjectAllocationPersistenceRows(invoiceId, invoiceTotal, allocations),
+  });
+  if (error) throw error;
+  return (data || []).map((row) => allocationFromRow(row as Row));
+}
