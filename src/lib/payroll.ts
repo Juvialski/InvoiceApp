@@ -99,6 +99,11 @@ function departmentFromRow(row: Record<string, unknown>): Department {
 function objectValue(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function scheduleConfiguration(row: Record<string, unknown>) {
   const config = objectValue(row.configuration);
+  const legacyAutoCalculate = bool(row.auto_calculate, false);
+  const configuredAutoCalculate = config.autoCalculate === undefined ? legacyAutoCalculate : bool(config.autoCalculate, false);
+  const configuredAutoCreateRuns = config.autoCreateRuns === undefined
+    ? (config.auto_calculate === undefined ? legacyAutoCalculate : bool(config.auto_calculate, false))
+    : bool(config.autoCreateRuns, false);
   return {
     frequency: String(row.frequency || config.frequency || "SEMI_MONTHLY") as PayrollSchedule["frequency"],
     weekEndDay: config.weekEndDay === undefined ? undefined : Number(config.weekEndDay) as PayrollSchedule["weekEndDay"],
@@ -106,15 +111,17 @@ function scheduleConfiguration(row: Record<string, unknown>) {
     customPeriodLengthDays: config.customPeriodLengthDays === undefined ? undefined : numberValue(config.customPeriodLengthDays),
     customPeriodStartDay: config.customPeriodStartDay === undefined ? undefined : numberValue(config.customPeriodStartDay),
     customPeriodEndDay: config.customPeriodEndDay === undefined ? undefined : numberValue(config.customPeriodEndDay),
+    autoCalculate: configuredAutoCalculate,
+    autoCreateRuns: configuredAutoCreateRuns,
     autoSelectCurrentPeriod: config.autoSelectCurrentPeriod === undefined ? undefined : bool(config.autoSelectCurrentPeriod),
     automationMode: String(config.automationMode || "ASSISTED") as PayrollSchedule["automationMode"],
   };
 }
 function scheduleVersionFromRow(row: Record<string, unknown>): PayrollScheduleVersion {
-  return { id: String(row.id), scheduleId: String(row.schedule_id), version: numberValue(row.version), effectiveFrom: String(row.effective_from || ""), effectiveTo: text(row.effective_to), ...scheduleConfiguration(row), payDateRule: objectValue(row.pay_date_rule) as unknown as PayrollScheduleVersion["payDateRule"], autoGeneratePeriods: bool(row.auto_generate_periods), autoCalculate: bool(row.auto_calculate, false), autoCreateRuns: bool(row.auto_calculate, false), active: bool(row.active), createdAt: text(row.created_at), updatedAt: text(row.updated_at) };
+  return { id: String(row.id), scheduleId: String(row.schedule_id), version: numberValue(row.version), effectiveFrom: String(row.effective_from || ""), effectiveTo: text(row.effective_to), ...scheduleConfiguration(row), payDateRule: objectValue(row.pay_date_rule) as unknown as PayrollScheduleVersion["payDateRule"], autoGeneratePeriods: bool(row.auto_generate_periods), active: bool(row.active), createdAt: text(row.created_at), updatedAt: text(row.updated_at) };
 }
 function scheduleFromRow(row: Record<string, unknown>, versionRows: Record<string, unknown>[]): PayrollSchedule {
-  return { id: String(row.id), userId: text(row.user_id), name: text(row.name), effectiveFrom: String(row.effective_from || ""), ...scheduleConfiguration(row), payDateRule: objectValue(row.pay_date_rule) as unknown as PayrollSchedule["payDateRule"], autoGeneratePeriods: bool(row.auto_generate_periods), autoCalculate: bool(row.auto_calculate, false), autoCreateRuns: bool(row.auto_calculate, false), active: bool(row.active), versions: versionRows.filter((version) => String(version.schedule_id) === String(row.id)).map(scheduleVersionFromRow), createdAt: text(row.created_at), updatedAt: text(row.updated_at) };
+  return { id: String(row.id), userId: text(row.user_id), name: text(row.name), effectiveFrom: String(row.effective_from || ""), ...scheduleConfiguration(row), payDateRule: objectValue(row.pay_date_rule) as unknown as PayrollSchedule["payDateRule"], autoGeneratePeriods: bool(row.auto_generate_periods), active: bool(row.active), versions: versionRows.filter((version) => String(version.schedule_id) === String(row.id)).map(scheduleVersionFromRow), createdAt: text(row.created_at), updatedAt: text(row.updated_at) };
 }
 function profileFromRow(row: Record<string, unknown>): WorkerCompensationProfile {
   return { id: text(row.id), workerId: String(row.worker_id), effectiveFrom: String(row.effective_from || ""), effectiveTo: text(row.effective_to), frequency: String(row.frequency || "MONTHLY") as WorkerCompensationProfile["frequency"], rate: numberValue(row.rate), defaultLaborContext: String(row.default_labor_context || "UNALLOCATED_REVIEW") as WorkerCompensationProfile["defaultLaborContext"], defaultProjectId: text(row.default_project_id) };
@@ -133,9 +140,47 @@ export interface PayrollWorkspaceData {
   allocations: PayrollProjectAllocation[];
   workEntries: WorkEntry[];
   adjustments: PayrollAdjustment[];
-  schedules?: PayrollSchedule[];
-  compensationProfiles?: WorkerCompensationProfile[];
-  recurringComponents?: RecurringPayrollComponent[];
+  schedules: PayrollSchedule[];
+  compensationProfiles: WorkerCompensationProfile[];
+  recurringComponents: RecurringPayrollComponent[];
+}
+
+export interface PayrollWorkspaceRows {
+  departments: readonly Record<string, unknown>[];
+  workers: readonly Record<string, unknown>[];
+  assignments: readonly Record<string, unknown>[];
+  schedules: readonly Record<string, unknown>[];
+  scheduleVersions: readonly Record<string, unknown>[];
+  compensationProfiles: readonly Record<string, unknown>[];
+  recurringComponents: readonly Record<string, unknown>[];
+  periods: readonly Record<string, unknown>[];
+  runs: readonly Record<string, unknown>[];
+  entries: readonly Record<string, unknown>[];
+  allocations: readonly Record<string, unknown>[];
+  workEntries: readonly Record<string, unknown>[];
+  adjustments: readonly Record<string, unknown>[];
+}
+
+export function emptyPayrollWorkspaceData(): PayrollWorkspaceData {
+  return { departments: [], workers: [], assignments: [], schedules: [], compensationProfiles: [], recurringComponents: [], periods: [], runs: [], entries: [], allocations: [], workEntries: [], adjustments: [] };
+}
+
+/** Maps one complete server snapshot. Keeping this pure makes omissions visible in tests. */
+export function payrollWorkspaceFromRows(rows: PayrollWorkspaceRows): PayrollWorkspaceData {
+  return {
+    departments: rows.departments.map(departmentFromRow),
+    workers: rows.workers.map(workerFromRow),
+    assignments: rows.assignments.map(assignmentFromRow),
+    schedules: rows.schedules.map((row) => scheduleFromRow(row, [...rows.scheduleVersions])),
+    compensationProfiles: rows.compensationProfiles.map(profileFromRow),
+    recurringComponents: rows.recurringComponents.map(componentFromRow),
+    periods: rows.periods.map(periodFromRow),
+    runs: rows.runs.map(runFromRow),
+    entries: rows.entries.map(entryFromRow),
+    allocations: rows.allocations.map(allocationFromRow),
+    workEntries: rows.workEntries.map(workEntryFromRow),
+    adjustments: rows.adjustments.map(adjustmentFromRow),
+  };
 }
 
 async function currentUserId() {
@@ -162,7 +207,7 @@ export function readPayrollWorkspaceFromLocal(storage: Storage | undefined = typ
 }
 
 export function writePayrollWorkspaceToLocal(data: PayrollWorkspaceData, storage: Storage | undefined = typeof localStorage === "undefined" ? undefined : localStorage) {
-  writeJson(DEPARTMENTS_STORAGE_KEY, data.departments, storage); writeJson(WORKERS_STORAGE_KEY, data.workers, storage); writeJson(ASSIGNMENTS_STORAGE_KEY, data.assignments, storage); writeJson(PERIODS_STORAGE_KEY, data.periods, storage); writeJson(RUNS_STORAGE_KEY, data.runs, storage); writeJson(ENTRIES_STORAGE_KEY, data.entries, storage); writeJson(ALLOCATIONS_STORAGE_KEY, data.allocations, storage); writeJson(WORK_ENTRIES_STORAGE_KEY, data.workEntries, storage); writeJson(ADJUSTMENTS_STORAGE_KEY, data.adjustments, storage); writePayrollSchedulesToLocal(data.schedules || [], storage); writeJson(COMPENSATION_PROFILES_STORAGE_KEY, data.compensationProfiles || [], storage); writeJson(RECURRING_COMPONENTS_STORAGE_KEY, data.recurringComponents || [], storage);
+  writeJson(DEPARTMENTS_STORAGE_KEY, data.departments, storage); writeJson(WORKERS_STORAGE_KEY, data.workers, storage); writeJson(ASSIGNMENTS_STORAGE_KEY, data.assignments, storage); writeJson(PERIODS_STORAGE_KEY, data.periods, storage); writeJson(RUNS_STORAGE_KEY, data.runs, storage); writeJson(ENTRIES_STORAGE_KEY, data.entries, storage); writeJson(ALLOCATIONS_STORAGE_KEY, data.allocations, storage); writeJson(WORK_ENTRIES_STORAGE_KEY, data.workEntries, storage); writeJson(ADJUSTMENTS_STORAGE_KEY, data.adjustments, storage); writePayrollSchedulesToLocal(data.schedules, storage); writeJson(COMPENSATION_PROFILES_STORAGE_KEY, data.compensationProfiles, storage); writeJson(RECURRING_COMPONENTS_STORAGE_KEY, data.recurringComponents, storage);
 }
 
 export function createLocalWorker(input: Omit<Worker, "id" | "createdAt" | "updatedAt">): Worker { const now = new Date().toISOString(); return { ...input, id: id("worker"), createdAt: now, updatedAt: now }; }
@@ -249,11 +294,15 @@ export function validatePayrollAllocations(entry: Pick<PayrollEntry, "projectAll
 
 export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspaceData> {
   const userId = await currentUserId();
-  if (!supabase || !userId) return { departments: [], workers: [], assignments: [], periods: [], runs: [], entries: [], allocations: [], workEntries: [], adjustments: [] };
-  const [departments, workers, assignments, periods, runs, entries, allocations, workEntries, adjustments] = await Promise.all([
+  if (!supabase || !userId) return emptyPayrollWorkspaceData();
+  const [departments, workers, assignments, schedules, scheduleVersions, compensationProfiles, recurringComponents, periods, runs, entries, allocations, workEntries, adjustments] = await Promise.all([
     supabase.from("departments").select("*").is("archived_at", null).order("name"),
     supabase.from("workers").select("*").is("archived_at", null).order("last_name"),
     supabase.from("project_worker_assignments").select("*").order("start_date", { ascending: false }),
+    supabase.from("payroll_schedules").select("*").order("updated_at", { ascending: false }),
+    supabase.from("payroll_schedule_versions").select("*").order("version"),
+    supabase.from("worker_compensation_profiles").select("*").order("effective_from", { ascending: false }),
+    supabase.from("recurring_payroll_components").select("*").order("effective_from", { ascending: false }),
     supabase.from("payroll_periods").select("*").order("period_end", { ascending: false }),
     supabase.from("payroll_runs").select("*").order("created_at", { ascending: false }),
     supabase.from("payroll_entries").select("*"),
@@ -261,18 +310,22 @@ export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspa
     supabase.from("work_entries").select("*").order("work_date", { ascending: false }),
     supabase.from("payroll_adjustments").select("*"),
   ]);
-  for (const result of [departments, workers, assignments, periods, runs, entries, allocations, workEntries, adjustments]) if (result.error) throw result.error;
-  return {
-    departments: (departments.data || []).map((row) => departmentFromRow(row as Record<string, unknown>)),
-    workers: (workers.data || []).map((row) => workerFromRow(row as Record<string, unknown>)),
-    assignments: (assignments.data || []).map((row) => assignmentFromRow(row as Record<string, unknown>)),
-    periods: (periods.data || []).map((row) => periodFromRow(row as Record<string, unknown>)),
-    runs: (runs.data || []).map((row) => runFromRow(row as Record<string, unknown>)),
-    entries: (entries.data || []).map((row) => entryFromRow(row as Record<string, unknown>)),
-    allocations: (allocations.data || []).map((row) => allocationFromRow(row as Record<string, unknown>)),
-    workEntries: (workEntries.data || []).map((row) => workEntryFromRow(row as Record<string, unknown>)),
-    adjustments: (adjustments.data || []).map((row) => adjustmentFromRow(row as Record<string, unknown>)),
-  };
+  for (const result of [departments, workers, assignments, schedules, scheduleVersions, compensationProfiles, recurringComponents, periods, runs, entries, allocations, workEntries, adjustments]) if (result.error) throw result.error;
+  return payrollWorkspaceFromRows({
+    departments: (departments.data || []) as Record<string, unknown>[],
+    workers: (workers.data || []) as Record<string, unknown>[],
+    assignments: (assignments.data || []) as Record<string, unknown>[],
+    schedules: (schedules.data || []) as Record<string, unknown>[],
+    scheduleVersions: (scheduleVersions.data || []) as Record<string, unknown>[],
+    compensationProfiles: (compensationProfiles.data || []) as Record<string, unknown>[],
+    recurringComponents: (recurringComponents.data || []) as Record<string, unknown>[],
+    periods: (periods.data || []) as Record<string, unknown>[],
+    runs: (runs.data || []) as Record<string, unknown>[],
+    entries: (entries.data || []) as Record<string, unknown>[],
+    allocations: (allocations.data || []) as Record<string, unknown>[],
+    workEntries: (workEntries.data || []) as Record<string, unknown>[],
+    adjustments: (adjustments.data || []) as Record<string, unknown>[],
+  });
 }
 
 export async function saveDepartmentToSupabase(department: Department) {
@@ -301,12 +354,16 @@ export async function saveAssignmentToSupabase(assignment: ProjectWorkerAssignme
 
 function scheduleConfigurationForPersistence(schedule: PayrollSchedule | PayrollScheduleVersion) {
   return {
+    frequency: schedule.frequency,
     weekEndDay: schedule.weekEndDay ?? null,
     anchorPeriodEnd: schedule.anchorPeriodEnd || null,
     customCutoffDay: schedule.customCutoffDay ?? null,
     customPeriodLengthDays: schedule.customPeriodLengthDays ?? null,
     customPeriodStartDay: schedule.customPeriodStartDay ?? null,
     customPeriodEndDay: schedule.customPeriodEndDay ?? null,
+    autoCalculate: schedule.autoCalculate,
+    autoCreateRuns: schedule.autoCreateRuns ?? schedule.autoCalculate,
+    autoSelectCurrentPeriod: schedule.autoSelectCurrentPeriod ?? true,
     automationMode: schedule.automationMode || null,
   };
 }

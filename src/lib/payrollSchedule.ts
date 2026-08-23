@@ -211,7 +211,8 @@ export function resolvePayrollScheduleVersion(schedule: PayrollSchedule, referen
   const versions = (schedule.versions?.length ? schedule.versions : [versionFromSchedule(schedule)])
     .filter((version) => version.active && compareDates(version.effectiveFrom, referenceDate) <= 0 && (!version.effectiveTo || compareDates(referenceDate, version.effectiveTo) <= 0))
     .sort((left, right) => left.version - right.version || compareDates(left.effectiveFrom, right.effectiveFrom));
-  return versions.at(-1) || (schedule.versions?.find((version) => version.active) || versionFromSchedule(schedule));
+  const resolved = versions.at(-1) || (schedule.versions?.find((version) => version.active) || versionFromSchedule(schedule));
+  return resolved.scheduleId === schedule.id ? resolved : { ...resolved, scheduleId: schedule.id };
 }
 
 function assertValidDateOnly(value: unknown, label: string): asserts value is DateOnly {

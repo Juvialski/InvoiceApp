@@ -63,7 +63,8 @@ import {
   writeProjectsToLocal,
 } from "./lib/projects";
 import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
-import { canTransitionPayrollRun, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
+import { canTransitionPayrollRun, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
+import { selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
 import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
@@ -138,8 +139,12 @@ function textToBase64(value: string) {
 
 function userFacingError(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : String((error as any)?.message || "");
+  if (import.meta.env.DEV && message) console.error("[InvoiceApp]", error);
+  if (/record\s+["']?new["']?\s+has no field|project_id|default_project_id|row-level security|foreign key/i.test(message)) return fallback;
   return /gemini|supabase|storage|api[_ -]?key|provider|model/i.test(message) ? fallback : (message || fallback);
 }
+
+type PayrollWorkspaceLoadState = "idle" | "loading" | "loaded" | "failed";
 
 function initialAppLocation(): AppLocation {
   if (typeof window === "undefined") return parseAppLocation(DEFAULT_ROUTE_PATH);
@@ -190,6 +195,11 @@ export default function App() {
   const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(readPayrollWorkspaceFromLocal);
   const payrollDataRef = useRef<PayrollWorkspaceData>(payrollData);
   const payrollAutomationKeyRef = useRef("");
+  const payrollScheduleSignature = payrollData.schedules.map((schedule) => `${schedule.id}:${schedule.frequency}:${schedule.updatedAt || ""}`).join("|");
+  const [payrollWorkspaceLoadState, setPayrollWorkspaceLoadState] = useState<PayrollWorkspaceLoadState>(isSupabaseConfigured ? "loading" : "loaded");
+  const [payrollRefreshing, setPayrollRefreshing] = useState(false);
+  const payrollBootstrapInFlightRef = useRef<Promise<void> | null>(null);
+  const payrollBootstrapPersistedUsersRef = useRef(new Set<string>());
   const [workspaceSyncStatus, setWorkspaceSyncStatus] = useState<WorkspaceSyncStatus>(isSupabaseConfigured ? "connecting" : "guest");
   const workspaceSyncControllerRef = useRef<WorkspaceSyncController | null>(null);
   const initialWorkspaceLoadRef = useRef<Promise<void> | null>(null);
@@ -287,16 +297,20 @@ export default function App() {
     setInvoiceProjectAllocations([]);
     setExpenses([]);
     setPayrollImportData({ batches: [], rows: [], templates: [] });
-    const emptyPayrollData: PayrollWorkspaceData = { departments: [], workers: [], assignments: [], periods: [], runs: [], entries: [], allocations: [], workEntries: [], adjustments: [], schedules: [], compensationProfiles: [], recurringComponents: [] };
+    const emptyPayrollData = emptyPayrollWorkspaceData();
     setPayrollData(emptyPayrollData);
     payrollDataRef.current = emptyPayrollData;
     payrollAutomationKeyRef.current = "";
+    payrollBootstrapInFlightRef.current = null;
+    setPayrollWorkspaceLoadState(isSupabaseConfigured ? "loading" : "idle");
+    setPayrollRefreshing(false);
     setSyncState({});
   };
 
   const showNotification = (type: "success" | "error" | "info", message: string) => {
     setNotification({ type, message });
-    window.setTimeout(() => setNotification((current) => current?.message === message ? null : current), 5000);
+    const duration = type === "success" ? 3500 : type === "info" ? 9000 : 0;
+    if (duration > 0) window.setTimeout(() => setNotification((current) => current?.message === message ? null : current), duration);
   };
 
   const allWorkspaceRefreshGroups: readonly WorkspaceRefreshGroup[] = ["invoices", "engineering", "payroll", "payroll-imports", "gmail"];
@@ -371,9 +385,21 @@ export default function App() {
   };
 
   const refreshPayrollForWorkspace = async (token: { generation: number; userId: string }) => {
-    const data = await loadPayrollWorkspaceFromSupabase();
     if (!canApplyWorkspaceResult(token)) return;
-    setPayrollData(data);
+    setPayrollRefreshing(true);
+    setPayrollWorkspaceLoadState("loading");
+    try {
+      const data = await loadPayrollWorkspaceFromSupabase();
+      if (!canApplyWorkspaceResult(token)) return;
+      payrollDataRef.current = data;
+      setPayrollData(data);
+      setPayrollWorkspaceLoadState("loaded");
+    } catch (error) {
+      if (canApplyWorkspaceResult(token)) setPayrollWorkspaceLoadState("failed");
+      throw error;
+    } finally {
+      if (canApplyWorkspaceResult(token)) setPayrollRefreshing(false);
+    }
   };
 
   const refreshPayrollImportsForWorkspace = async (token: { generation: number; userId: string }) => {
@@ -482,7 +508,11 @@ export default function App() {
       setProjects(readProjectsFromLocal());
       setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
       setExpenses(readExpensesFromLocal());
-      setPayrollData(readPayrollWorkspaceFromLocal());
+      const localPayroll = readPayrollWorkspaceFromLocal();
+      payrollDataRef.current = localPayroll;
+      setPayrollData(localPayroll);
+      setPayrollWorkspaceLoadState("loaded");
+      setPayrollRefreshing(false);
       return undefined;
     }
 
@@ -542,43 +572,88 @@ export default function App() {
   }, [payrollData]);
 
   useEffect(() => {
-    if (!authResolved || activeTab !== "payroll" || workspaceLoading) return;
+    if (!authResolved || activeTab !== "payroll" || workspaceLoading || payrollRefreshing) return;
     const snapshot = payrollDataRef.current;
-    let schedules = snapshot.schedules || [];
-    if (!schedules.length) {
-      const seeded = createDefaultPayrollSchedule(dateOnly()) as unknown as PayrollSchedule;
-      schedules = [{ ...seeded, autoCalculate: false, autoCreateRuns: true, autoSelectCurrentPeriod: true }];
-      payrollAutomationKeyRef.current = `seed:${schedules[0].id}`;
-      setPayrollData((current) => current.schedules?.length ? current : { ...current, schedules });
-      if (session && supabase) {
-        void savePayrollScheduleToSupabase(schedules[0]).catch((error) => showNotification("info", userFacingError(error, "Payroll schedule will remain available locally until its migration is applied.")));
-      }
+    const userId = session?.user?.id;
+    if (userId && supabase) {
+      if (payrollWorkspaceLoadState !== "loaded" || snapshot.schedules.length > 0) return;
+      if (payrollBootstrapInFlightRef.current || payrollBootstrapPersistedUsersRef.current.has(userId)) return;
+      const token = currentWorkspaceLoadToken();
+      if (!token || token.generation !== workspaceGenerationRef.current || token.userId !== userId) return;
+      const seeded = { ...createDefaultPayrollSchedule(dateOnly()), autoCalculate: false, autoCreateRuns: true, autoSelectCurrentPeriod: true } as unknown as PayrollSchedule;
+      const localSnapshot = { ...snapshot, schedules: [seeded] };
+      payrollDataRef.current = localSnapshot;
+      setPayrollData(localSnapshot);
+      payrollAutomationKeyRef.current = `seed:${seeded.id}`;
+      const bootstrap = (async () => {
+        try {
+          const saved = await savePayrollScheduleToSupabase(seeded);
+          if (!canApplyWorkspaceResult(token)) return;
+          payrollBootstrapPersistedUsersRef.current.add(userId);
+          const next = { ...payrollDataRef.current, schedules: [saved] };
+          payrollDataRef.current = next;
+          setPayrollData(next);
+          setPayrollWorkspaceLoadState("loaded");
+        } catch (error) {
+          if (canApplyWorkspaceResult(token)) {
+            setPayrollWorkspaceLoadState("failed");
+            showNotification("error", userFacingError(error, "Could not create the payroll schedule."));
+          }
+        } finally {
+          if (payrollBootstrapInFlightRef.current === bootstrap) payrollBootstrapInFlightRef.current = null;
+        }
+      })();
+      payrollBootstrapInFlightRef.current = bootstrap;
       return;
     }
-    const activeSchedule = schedules.find((schedule) => schedule.active) || schedules[0];
+    if (!snapshot.schedules.length) {
+      const schedules = [{ ...createDefaultPayrollSchedule(dateOnly()), autoCalculate: false, autoCreateRuns: true, autoSelectCurrentPeriod: true }] as unknown as PayrollSchedule[];
+      const next = { ...snapshot, schedules };
+      payrollDataRef.current = next;
+      setPayrollData(next);
+      payrollAutomationKeyRef.current = `seed:${schedules[0]!.id}`;
+      return;
+    }
+    const activeSchedule = selectPrimaryPayrollSchedule(snapshot.schedules);
     if (!activeSchedule) return;
     const today = dateOnly();
     const key = `${session?.user?.id || "guest"}:${today}:${activeSchedule.id}:${snapshot.periods.length}:${snapshot.runs.length}`;
     if (payrollAutomationKeyRef.current === key) return;
     payrollAutomationKeyRef.current = key;
-    const ensured = ensurePayrollPeriodsAndRuns({ schedules, periods: snapshot.periods, runs: snapshot.runs, referenceDate: today, previous: 2, next: 2 });
+    const ensured = ensurePayrollPeriodsAndRuns({
+      schedules: [activeSchedule],
+      periods: snapshot.periods,
+      runs: snapshot.runs,
+      entries: snapshot.entries,
+      workEntries: snapshot.workEntries,
+      importBatches: payrollImportData.batches,
+      referenceDate: today,
+      previous: 2,
+      next: 2,
+    });
     const periodChanged = ensured.periods.length !== snapshot.periods.length || ensured.periods.some((period) => {
       const previous = snapshot.periods.find((item) => item.id === period.id);
-      return !previous || previous.status !== period.status || previous.payDate !== period.payDate || previous.scheduleId !== period.scheduleId || previous.scheduleVersionId !== period.scheduleVersionId;
+      return !previous || previous.status !== period.status || previous.payDate !== period.payDate || previous.scheduleId !== period.scheduleId || previous.scheduleVersionId !== period.scheduleVersionId || previous.lockedAt !== period.lockedAt || previous.notes !== period.notes;
     });
-    if (!periodChanged && !ensured.createdRuns.length) return;
-    setPayrollData((current) => ({ ...current, periods: ensured.periods, runs: ensured.runs }));
+    const runChanged = ensured.runs.some((run) => {
+      const previous = snapshot.runs.find((item) => item.id === run.id);
+      return !previous || previous.status !== run.status || previous.notes !== run.notes;
+    });
+    if (!periodChanged && !runChanged) return;
+    const next = { ...snapshot, periods: ensured.periods, runs: ensured.runs };
+    payrollDataRef.current = next;
+    setPayrollData(next);
     if (session && supabase) {
       void (async () => {
         try {
-          for (const period of ensured.periods.filter((item) => item.autoGenerated && (!snapshot.periods.some((old) => old.id === item.id && old.status === item.status && old.payDate === item.payDate)))) await savePayrollPeriodToSupabase(period);
-          for (const run of ensured.createdRuns) await savePayrollRunToSupabase(run);
+          for (const period of ensured.periods.filter((item) => item.autoGenerated && (!snapshot.periods.some((old) => old.id === item.id && old.status === period.status && old.payDate === period.payDate && old.scheduleVersionId === period.scheduleVersionId && old.lockedAt === period.lockedAt)))) await savePayrollPeriodToSupabase(period);
+          for (const run of ensured.runs.filter((item) => !snapshot.runs.some((old) => old.id === item.id && old.status === item.status && old.notes === item.notes))) await savePayrollRunToSupabase(run);
         } catch (error) {
           showNotification("info", userFacingError(error, "Generated payroll periods are available locally; apply the latest payroll migration to sync them."));
         }
       })();
     }
-  }, [activeTab, authResolved, workspaceLoading, session?.user?.id, payrollData.periods.length, payrollData.runs.length, payrollData.schedules?.length]);
+  }, [activeTab, authResolved, workspaceLoading, payrollRefreshing, payrollWorkspaceLoadState, session?.user?.id, payrollData.periods.length, payrollData.runs.length, payrollScheduleSignature, payrollImportData.batches.length]);
   useEffect(() => {
     if (activeTab !== "extractor") setUploadProjectContextId(null);
   }, [activeTab]);
@@ -971,14 +1046,22 @@ export default function App() {
     }
   };
 
-  const handleSavePayrollSchedule = async (schedule: PayrollSchedule) => {
+  const handleSavePayrollSchedule = async (schedule: PayrollSchedule): Promise<PayrollSchedule> => {
     try {
       const saved = session && supabase ? await savePayrollScheduleToSupabase(schedule) : { ...schedule, updatedAt: new Date().toISOString() };
-      setPayrollData((current) => ({ ...current, schedules: [saved, ...(current.schedules || []).filter((item) => item.id !== saved.id)] }));
+      setPayrollData((current) => {
+        const schedules = [saved, ...current.schedules.filter((item) => item.id !== saved.id).map((item) => saved.active ? { ...item, active: false } : item)];
+        const next = { ...current, schedules };
+        payrollDataRef.current = next;
+        return next;
+      });
       payrollAutomationKeyRef.current = "";
+      setPayrollWorkspaceLoadState("loaded");
       showNotification("success", "Payroll schedule saved. Future periods will use the saved version; locked history remains unchanged.");
+      return saved;
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save payroll schedule."));
+      throw error;
     }
   };
 
@@ -1801,7 +1884,7 @@ export default function App() {
             <button type="button" onClick={keepEditingRemoteInvoice} className="rounded-lg bg-amber-700 px-2.5 py-1.5 text-[10px] font-bold text-white">Keep editing</button>
           </div>
         </div>}
-        {notification && <div className={`mb-5 p-3.5 rounded-2xl text-xs flex items-center justify-between shadow-sm border ${notification.type === "success" ? "bg-emerald-50 text-emerald-900 border-emerald-200" : notification.type === "error" ? "bg-rose-50 text-rose-900 border-rose-200" : "bg-white text-slate-800 border-slate-200"}`}><div className="flex items-center gap-2.5">{notification.type === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}<span className="font-semibold">{notification.message}</span></div><button onClick={() => setNotification(null)}><X className="w-3.5 h-3.5" /></button></div>}
+        {notification && <div role={notification.type === "error" ? "alert" : "status"} className={`mb-5 p-3.5 rounded-2xl text-xs flex items-center justify-between shadow-sm border ${notification.type === "success" ? "bg-emerald-50 text-emerald-900 border-emerald-200" : notification.type === "error" ? "bg-rose-50 text-rose-900 border-rose-200" : "bg-white text-slate-800 border-slate-200"}`}><div className="flex items-center gap-2.5">{notification.type === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}<span className="font-semibold">{notification.message}</span></div><button type="button" aria-label="Dismiss notification" onClick={() => setNotification(null)}><X className="w-3.5 h-3.5" /></button></div>}
 
         {!isSupabaseConfigured && <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3"><Cloud className="w-5 h-5 text-amber-700 shrink-0" /><div><p className="text-xs font-black text-amber-900">Browser-only workspace</p><p className="text-[11px] text-amber-800 mt-1">Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in.</p></div></div>}
         {workspaceLoading && <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" />Loading workspace…</div>}

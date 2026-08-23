@@ -16,6 +16,8 @@ import {
   type PayrollScheduleVersion,
   type ScheduledPayrollPeriod,
 } from "./payrollSchedule.ts";
+import { reconcileObsoleteGeneratedPayrollPeriods, retireEmptyGeneratedPayrollRuns, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
+import type { PayrollImportBatch } from "./payrollImportPersistence.ts";
 import {
   buildPayrollDraft,
   type ApprovedWorkEntry,
@@ -50,6 +52,9 @@ export interface EnsurePayrollWorkflowInput {
   referenceDate: string;
   previous?: number;
   next?: number;
+  entries?: PayrollEntry[];
+  workEntries?: WorkEntry[];
+  importBatches?: PayrollImportBatch[];
 }
 
 export interface EnsurePayrollWorkflowResult {
@@ -57,6 +62,8 @@ export interface EnsurePayrollWorkflowResult {
   runs: PayrollRun[];
   createdPeriods: PayrollPeriod[];
   createdRuns: PayrollRun[];
+  retiredPeriodIds: string[];
+  integrityIssues: string[];
 }
 
 export interface PayrollAutomationRecordInput {
@@ -146,22 +153,36 @@ function boundary(period: Pick<PayrollPeriod, "scheduleId" | "periodStart" | "pe
 export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): EnsurePayrollWorkflowResult {
   const previous = input.previous ?? 2;
   const next = input.next ?? 2;
+  const initialPeriods = [...input.periods];
+  const primarySchedule = selectPrimaryPayrollSchedule(input.schedules.filter((schedule) => schedule.active && schedule.autoGeneratePeriods));
   let periods = [...input.periods];
-  const createdPeriods: PayrollPeriod[] = [];
-  const createdRuns: PayrollRun[] = [];
-
-  for (const schedule of input.schedules.filter((item) => item.active && item.autoGeneratePeriods)) {
-    const generated = generatePayrollPeriodsAroundReference(schedule, input.referenceDate, { previous, next });
-    const currentSchedulePeriods = periods.filter((period) => period.scheduleId === schedule.id);
+  const generated: ReturnType<typeof generatePayrollPeriodsAroundReference> = [];
+  if (primarySchedule) {
+    generated.push(...generatePayrollPeriodsAroundReference(primarySchedule, input.referenceDate, { previous, next }));
+    const currentSchedulePeriods = periods.filter((period) => period.scheduleId === primarySchedule.id);
     const merged = mergeGeneratedPayrollPeriods(currentSchedulePeriods.map(toScheduledPeriod), generated);
     const byId = new Map(currentSchedulePeriods.map((period) => [period.id, period]));
     const mergedPeriods = merged.map((period) => fromScheduledPeriod(period, period.id ? byId.get(period.id) : undefined));
     const mergedIds = new Set(mergedPeriods.map((period) => period.id));
-    const nextPeriods = periods.filter((period) => period.scheduleId !== schedule.id || !mergedIds.has(period.id));
-    periods = [...nextPeriods, ...mergedPeriods];
+    periods = [...periods.filter((period) => period.scheduleId !== primarySchedule.id || !mergedIds.has(period.id)), ...mergedPeriods];
   }
 
-  const current = selectCurrentPayrollPeriod(periods.filter((period) => period.scheduleId).map(toScheduledPeriod), input.referenceDate);
+  const desiredPeriods = generated.map((period) => fromScheduledPeriod(period));
+  const horizonEnd = desiredPeriods.reduce((latest, period) => period.periodEnd > latest ? period.periodEnd : latest, input.referenceDate);
+  const reconciliation = reconcileObsoleteGeneratedPayrollPeriods(periods, desiredPeriods, {
+    referenceDate: input.referenceDate,
+    horizonEnd,
+    runs: input.runs,
+    entries: input.entries,
+    workEntries: input.workEntries,
+    importBatches: input.importBatches,
+  });
+  periods = reconciliation.periods;
+
+  const currentCandidates = primarySchedule
+    ? periods.filter((period) => period.scheduleId === primarySchedule.id && period.status !== "VOID").map(toScheduledPeriod)
+    : [];
+  const current = selectCurrentPayrollPeriod(currentCandidates, input.referenceDate);
   if (current) {
     const currentPeriod = periods.find((period) => period.id === current.id);
     if (currentPeriod && currentPeriod.status === "DRAFT") {
@@ -170,20 +191,27 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
     }
   }
 
-  const scheduleById = new Map(input.schedules.map((schedule) => [schedule.id, schedule]));
-  for (const period of periods) {
-    const schedule = period.scheduleId ? scheduleById.get(period.scheduleId) : undefined;
-    const autoCreateRuns = Boolean(schedule && (schedule.autoCreateRuns ?? schedule.autoCalculate));
-    if (!autoCreateRuns || period.status === "VOID") continue;
-    if (!input.runs.some((run) => run.periodId === period.id) && !createdRuns.some((run) => run.periodId === period.id)) {
-      const run: PayrollRun = { id: id("run"), periodId: period.id, status: "DRAFT", createdAt: new Date().toISOString(), notes: "Auto-created draft run from payroll schedule." };
-      createdRuns.push(run);
+  let runs = retireEmptyGeneratedPayrollRuns(input.runs, reconciliation.retiredPeriodIds, input.entries || []);
+  const createdRuns: PayrollRun[] = [];
+  if (primarySchedule && current) {
+    const autoCreateRuns = Boolean(primarySchedule.autoCreateRuns ?? primarySchedule.autoCalculate);
+    if (autoCreateRuns && !runs.some((run) => run.periodId === current.id)) {
+      createdRuns.push({ id: id("run"), periodId: current.id, status: "DRAFT", createdAt: new Date().toISOString(), notes: "Auto-created draft run for the current payroll period." });
     }
   }
-  const knownPeriods = new Set(input.periods.map((period) => boundary(period)));
-  for (const period of periods) if (!knownPeriods.has(boundary(period))) createdPeriods.push(period);
-  const sortedPeriods = periods.sort((left, right) => right.periodEnd.localeCompare(left.periodEnd) || left.periodStart.localeCompare(right.periodStart));
-  return { periods: sortedPeriods, runs: [...createdRuns, ...input.runs], createdPeriods, createdRuns };
+  runs = [...createdRuns, ...runs];
+
+  const knownPeriods = new Set(initialPeriods.map((period) => period.id));
+  const createdPeriods = periods.filter((period) => !knownPeriods.has(period.id));
+  const sortedPeriods = periods.slice().sort((left, right) => right.periodEnd.localeCompare(left.periodEnd) || left.periodStart.localeCompare(right.periodStart));
+  return {
+    periods: sortedPeriods,
+    runs,
+    createdPeriods,
+    createdRuns,
+    retiredPeriodIds: reconciliation.retiredPeriodIds,
+    integrityIssues: reconciliation.issues.map((issue) => issue.message),
+  };
 }
 
 function rosterWorker(worker: Worker) {
