@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Cloud, Loader2, X } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { Header, AppTab } from "./components/Header";
+import { AuthScreen } from "./components/auth";
 import { Dashboard } from "./components/Dashboard";
 import { UploadZone, ExtractPayload } from "./components/UploadZone";
 import { InvoiceDirectory } from "./components/InvoiceDirectory";
@@ -169,7 +170,8 @@ export default function App() {
   const [authResolved, setAuthResolved] = useState(!isSupabaseConfigured);
   const workspaceGenerationRef = useRef(0);
   const [workspaceLoading, setWorkspaceLoading] = useState(isSupabaseConfigured);
-  const [googleBannerDismissed, setGoogleBannerDismissed] = useState(false);
+  const [guestModeState, setGuestModeState] = useState(!isSupabaseConfigured);
+  const guestModeRef = useRef(!isSupabaseConfigured);
   const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
   const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
   const [saveState, setSaveState] = useState<SaveState>("saved");
@@ -264,6 +266,33 @@ export default function App() {
 
   const [expenseFormContext, setExpenseFormContext] = useState<string | null>(null);
   const [uploadProjectContextId, setUploadProjectContextId] = useState<string | null>(null);
+  const setGuestMode = (enabled: boolean) => {
+    guestModeRef.current = enabled;
+    setGuestModeState(enabled);
+  };
+
+  const clearWorkspaceState = () => {
+    invoicesRef.current = [];
+    setInvoices([]);
+    setSelectedInvoice(null);
+    setReviewSessionIds([]);
+    setReviewCompletion(null);
+    lastPersistedRef.current.clear();
+    remoteInvoiceRemovedRef.current.clear();
+    remoteInvoiceUpdatesRef.current.clear();
+    setRemoteInvoiceUpdate(null);
+    setProjects([]);
+    setSelectedProject(null);
+    setProjectFormSeed(null);
+    setInvoiceProjectAllocations([]);
+    setExpenses([]);
+    setPayrollImportData({ batches: [], rows: [], templates: [] });
+    const emptyPayrollData: PayrollWorkspaceData = { departments: [], workers: [], assignments: [], periods: [], runs: [], entries: [], allocations: [], workEntries: [], adjustments: [], schedules: [], compensationProfiles: [], recurringComponents: [] };
+    setPayrollData(emptyPayrollData);
+    payrollDataRef.current = emptyPayrollData;
+    payrollAutomationKeyRef.current = "";
+    setSyncState({});
+  };
 
   const showNotification = (type: "success" | "error" | "info", message: string) => {
     setNotification({ type, message });
@@ -415,7 +444,14 @@ export default function App() {
       if (!active) return;
       const previousUserId = sessionRef.current?.user?.id || null;
       const nextUserId = nextSession?.user?.id || null;
-      if (previousUserId !== nextUserId) workspaceGenerationRef.current += 1;
+      if (previousUserId !== nextUserId) {
+        workspaceGenerationRef.current += 1;
+        setGuestMode(false);
+        clearWorkspaceState();
+        setWorkspaceLoading(Boolean(nextUserId));
+      } else if (!nextUserId && !guestModeRef.current) {
+        clearWorkspaceState();
+      }
       sessionRef.current = nextSession;
       captureGoogleProviderTokens(nextSession);
       setSession(nextSession);
@@ -437,6 +473,7 @@ export default function App() {
       workspaceSyncControllerRef.current = null;
       setWorkspaceSyncStatus("guest");
       setWorkspaceLoading(false);
+      if (!guestModeRef.current) { clearWorkspaceState(); return undefined; }
       const local = localFallbackInvoices();
       invoicesRef.current = local;
       setInvoices(local);
@@ -481,24 +518,24 @@ export default function App() {
       if (initialWorkspaceLoadRef.current === initialLoad) initialWorkspaceLoadRef.current = null;
       void controller.dispose();
     };
-  }, [authResolved, session?.user?.id]);
+  }, [authResolved, session?.user?.id, guestModeState]);
 
   useEffect(() => {
     invoicesRef.current = invoices;
-    if (shouldPersistGuestWorkspace(authResolved, session?.user?.id)) {
+    if (shouldPersistGuestWorkspace(authResolved, session?.user?.id) && guestModeState) {
       try { localStorage.setItem("extracted_invoices", JSON.stringify(invoices)); } catch { /* preview URLs may fill local storage */ }
     }
-  }, [invoices, session, authResolved]);
+  }, [invoices, session, authResolved, guestModeState]);
 
   useEffect(() => {
-    if (shouldPersistGuestWorkspace(authResolved, session?.user?.id)) {
+    if (shouldPersistGuestWorkspace(authResolved, session?.user?.id) && guestModeState) {
       writeProjectsToLocal(projects);
       writeInvoiceProjectAllocationsToLocal(invoiceProjectAllocations);
       writePayrollImportWorkspaceToLocal(payrollImportData);
       writeExpensesToLocal(expenses);
       writePayrollWorkspaceToLocal(payrollData);
     }
-  }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, session, authResolved]);
+  }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, session, authResolved, guestModeState]);
 
   useEffect(() => {
     payrollDataRef.current = payrollData;
@@ -1299,6 +1336,50 @@ export default function App() {
     }
   };
 
+  const authReturnPath = () => {
+    if (route.kind === "unknown" || route.pathname === "/reset-password") return DEFAULT_ROUTE_PATH;
+    return `${route.pathname}${route.search}`;
+  };
+
+  const handleAuthenticated = async () => {
+    setGuestMode(false);
+    navigateToPath(authReturnPath(), true);
+  };
+
+  const handleContinueInBrowser = async () => {
+    setGuestMode(true);
+    if (route.pathname === "/reset-password") navigateToPath(DEFAULT_ROUTE_PATH, true);
+  };
+
+  const handlePasswordUpdated = async () => {
+    setGuestMode(false);
+    navigateToPath(DEFAULT_ROUTE_PATH, true);
+  };
+
+  const handleSignOut = async () => {
+    if (selectedInvoice && !await flushInvoiceSave(selectedInvoice)) return;
+    updateTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    updateTimersRef.current.clear();
+    await Promise.allSettled([...savePromisesRef.current.values()]);
+    savePromisesRef.current.clear();
+    workspaceSyncControllerRef.current?.dispose();
+    workspaceSyncControllerRef.current = null;
+    initialWorkspaceLoadRef.current = null;
+    workspaceGenerationRef.current += 1;
+    sessionRef.current = null;
+    setGuestMode(false);
+    clearWorkspaceState();
+    setSession(null);
+
+    setAuthResolved(true);
+    setWorkspaceLoading(false);
+    setWorkspaceSyncStatus("guest");
+    try {
+      await signOutWorkspace();
+    } catch (error) {
+      showNotification("error", userFacingError(error, "Could not complete sign out. Please try again."));
+    }
+  };
   const handleUpdateInvoice = (updated: InvoiceData) => {
     const checked = applyLocalChecks(updated);
     const revision = (editRevisionRef.current.get(checked.id) || 0) + 1;
@@ -1695,9 +1776,23 @@ export default function App() {
     || (route.kind === "project" && !workspaceLoading && !routeProject)
     || ((route.kind === "invoice" || route.kind === "review-invoice") && !workspaceLoading && !routeInvoice);
 
+  const isResetPasswordRoute = route.pathname === "/reset-password";
+  const authRedirectPath = authReturnPath();
+  const emailRedirectTo = typeof window === "undefined" ? undefined : new URL(authRedirectPath, window.location.origin).toString();
+  const resetRedirectTo = typeof window === "undefined" ? undefined : new URL("/reset-password", window.location.origin).toString();
+  if (isSupabaseConfigured && !authResolved) {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-700"><Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />Checking your workspace session…</div>;
+  }
+  if (isSupabaseConfigured && (isResetPasswordRoute || (!session && !guestModeState))) {
+    if (isResetPasswordRoute && session) {
+      return <AuthScreen initialMode="reset-password" resetRedirectTo={resetRedirectTo} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} />;
+    }
+    return <AuthScreen initialMode={isResetPasswordRoute ? "reset-password" : "sign-in"} emailRedirectTo={emailRedirectTo} resetRedirectTo={resetRedirectTo} onAuthenticated={handleAuthenticated} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session?.user?.email || undefined} onSignOut={handleSignOut} />
       <main className="flex-1 w-full px-3 sm:px-5 lg:px-7 2xl:px-8 py-6 overflow-x-hidden">
         {remoteInvoiceUpdate && selectedInvoice?.id === remoteInvoiceUpdate.invoiceId && <div role="status" className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between">
           <p><strong>This invoice was updated in another browser.</strong> Your local edits are protected.</p>
@@ -1711,13 +1806,12 @@ export default function App() {
         {!isSupabaseConfigured && <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3"><Cloud className="w-5 h-5 text-amber-700 shrink-0" /><div><p className="text-xs font-black text-amber-900">Browser-only workspace</p><p className="text-[11px] text-amber-800 mt-1">Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in.</p></div></div>}
         {workspaceLoading && <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" />Loading workspace…</div>}
         {routeNotFound && <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-6"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-700">Navigation error</p><h2 className="mt-1 text-lg font-black text-rose-950">Page not found</h2><p className="mt-1 text-xs text-rose-900">The requested workspace record or destination is not available.</p><button type="button" onClick={() => navigateToPath(appPathForTab("dashboard"))} className="mt-4 rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white">Return to dashboard</button></div>}
-        {isSupabaseConfigured && !session && !googleBannerDismissed && <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50/70 px-3 py-2.5 flex items-center justify-between gap-3"><div className="flex items-center gap-2.5 min-w-0"><Cloud className="w-4 h-4 text-indigo-600 shrink-0" /><p className="text-[11px] font-semibold text-indigo-900 truncate">Gmail sync is not connected.</p></div><div className="flex items-center gap-2 shrink-0"><button onClick={() => void connectGoogleAndGmail()} className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-[10px] font-bold">Connect</button><button type="button" onClick={() => setGoogleBannerDismissed(true)} className="p-1 rounded-md text-indigo-500 hover:bg-indigo-100" aria-label="Dismiss Gmail connection notice"><X className="w-3.5 h-3.5" /></button></div></div>}
 
         {!routeNotFound && route.kind === "tab" && activeTab === "dashboard" && <div className="space-y-6"><Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} /><EngineeringDashboard projects={projects} summaries={projectSummaries} invoices={invoices} expenses={expenses} onNavigate={setActiveTab} /></div>}
         {!routeNotFound && activeTab === "projects" && (selectedProject ? <ProjectWorkspace project={selectedProject} summary={projectSummaries[selectedProject.id] || calculateProjectCost(selectedProject, { invoices: costInvoices, payroll: costPayroll, expenses })} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} payrollAllocations={payrollData.allocations} payrollPeriods={payrollData.periods} initialTab={route.kind === "project" ? route.view : "overview"} onTabChange={(tab) => { if (route.kind === "project" && selectedProject) navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView)); }} onSaveInvoiceAllocations={handleSaveInvoiceProjectAllocations} onBack={() => navigateToPath(appPathForTab("projects"))} onOpenInvoice={openInvoice} onUploadInvoice={() => { setUploadProjectContextId(selectedProject.id); setWorkspaceOrigin("projects"); setWorkspaceReturnPath(appPathForProject(selectedProject.id, "invoices")); navigateToPath(appPathForTab("extractor")); }} onEditProject={() => editProject(selectedProject)} onArchiveProject={() => void handleArchiveProject(selectedProject)} onAddExpense={() => { setExpenseFormContext(selectedProject.id); navigateToPath(appPathForTab("expenses")); }} onOpenPayroll={() => setActiveTab("payroll")} /> : <ProjectsPage projects={projects} summaries={projectSummaries} initialEditingProject={projectFormSeed} onOpenProject={openProject} onSaveProject={(project) => void handleSaveProject(project)} onArchiveProject={(project) => void handleArchiveProject(project)} />)}
         {!routeNotFound && (route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice && <div className="space-y-5"><VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} projects={projects} invoiceProjectAllocations={invoiceProjectAllocations} preferredProjectId={uploadProjectContextId || undefined} onSaveProjectAllocations={handleSaveInvoiceProjectAllocations} /></div>}
         {!routeNotFound && route.kind === "tab" && activeTab === "extractor" && <div className="space-y-5"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div>}
-        {!routeNotFound && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
+        {!routeNotFound && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={handleSignOut} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} />}

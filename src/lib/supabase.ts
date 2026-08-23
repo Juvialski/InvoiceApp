@@ -16,29 +16,125 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+export interface EmailPasswordCredentials {
+  email: string;
+  password: string;
+}
+
+export interface SignUpOptions {
+  emailRedirectTo?: string;
+}
+
+export interface PasswordResetRequest {
+  email: string;
+  redirectTo?: string;
+}
+
+export interface PasswordUpdate {
+  password: string;
+}
+
+const SUPABASE_CONFIGURATION_ERROR = "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY first.";
+
+/** Email addresses are identifiers; passwords must always be passed through unchanged. */
+export function normalizeAuthEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function requireSupabase() {
+  if (!supabase) throw new Error(SUPABASE_CONFIGURATION_ERROR);
+  return supabase;
+}
+
+function browserStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Build an absolute redirect URL without touching browser globals during SSR/tests. */
+export function getAuthRedirectUrl(path = "/") {
+  if (typeof window === "undefined") return undefined;
+  return new URL(path, window.location.origin).toString();
+}
+
+export async function signInWithEmail(input: EmailPasswordCredentials | string, password?: string) {
+  const credentials = typeof input === "string" ? { email: input, password: password ?? "" } : input;
+  const { email, password: passwordValue } = credentials;
+  const { data, error } = await requireSupabase().auth.signInWithPassword({
+    email: normalizeAuthEmail(email),
+    password: passwordValue,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function signUpWithEmail(input: EmailPasswordCredentials | string, passwordOrOptions?: string | SignUpOptions, maybeOptions: SignUpOptions = {}) {
+  const credentials = typeof input === "string" ? { email: input, password: typeof passwordOrOptions === "string" ? passwordOrOptions : "" } : input;
+  const options = typeof passwordOrOptions === "object" ? passwordOrOptions : maybeOptions;
+  const { email, password } = credentials;
+  const { data, error } = await requireSupabase().auth.signUp({
+    email: normalizeAuthEmail(email),
+    password,
+    ...(options.emailRedirectTo ? { options: { emailRedirectTo: options.emailRedirectTo } } : {}),
+  });
+  if (error) throw error;
+  return data;
+}
+
+/** Always returns successfully for an accepted request, whether or not the email exists. */
+export async function sendPasswordResetEmail(input: PasswordResetRequest | string, redirectTo?: string) {
+  const { email, redirectTo: requestedRedirect } = typeof input === "string" ? { email: input, redirectTo } : input;
+  const options = requestedRedirect ? { redirectTo: requestedRedirect } : {};
+  const { error } = await requireSupabase().auth.resetPasswordForEmail(normalizeAuthEmail(email), options);
+  if (error) throw error;
+}
+export const sendPasswordReset = sendPasswordResetEmail;
+
+export async function updatePassword(input: PasswordUpdate | string) {
+  const password = typeof input === "string" ? input : input.password;
+  const { data, error } = await requireSupabase().auth.updateUser({ password });
+  if (error) throw error;
+  return data;
+}
+
+// Descriptive aliases keep the auth foundation easy to consume from screens/hooks.
+export const requestPasswordReset = sendPasswordResetEmail;
+export const updateUserPassword = updatePassword;
+
 const ACCESS_TOKEN_KEY = "invoice_ops_google_provider_token";
 const REFRESH_TOKEN_KEY = "invoice_ops_google_provider_refresh_token";
 
 export function captureGoogleProviderTokens(session: Session | null) {
   const providerToken = (session as any)?.provider_token as string | undefined;
   const providerRefreshToken = (session as any)?.provider_refresh_token as string | undefined;
-  if (providerToken) localStorage.setItem(ACCESS_TOKEN_KEY, providerToken);
-  if (providerRefreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, providerRefreshToken);
+  const storage = browserStorage();
+  if (!storage) return;
+  if (providerToken) storage.setItem(ACCESS_TOKEN_KEY, providerToken);
+  if (providerRefreshToken) storage.setItem(REFRESH_TOKEN_KEY, providerRefreshToken);
 }
 
 export function getGoogleProviderToken() {
-  return localStorage.getItem(ACCESS_TOKEN_KEY) || "";
+  return browserStorage()?.getItem(ACCESS_TOKEN_KEY) || "";
 }
 
 export function clearGoogleProviderTokens() {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  const storage = browserStorage();
+  if (!storage) return;
+  storage.removeItem(ACCESS_TOKEN_KEY);
+  storage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 export async function connectGoogleAndGmail() {
-  if (!supabase) throw new Error("Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY first.");
-  const redirectTo = window.location.origin;
-  const { error } = await supabase.auth.signInWithOAuth({
+  const redirectTo = getAuthRedirectUrl();
+  if (!redirectTo) throw new Error("Google sign-in is only available in a browser.");
+  const client = requireSupabase();
+  const { data: currentUser, error: userError } = await client.auth.getUser();
+  if (userError || !currentUser.user) throw new Error("Sign in to Invoice Operations before connecting Gmail.");
+  const { error } = await client.auth.linkIdentity({
     provider: "google",
     options: {
       redirectTo,
@@ -53,12 +149,17 @@ export async function connectGoogleAndGmail() {
   if (error) throw error;
 }
 
+export const signInWithGoogle = connectGoogleAndGmail;
+
 export async function signOutWorkspace() {
-  if (!supabase) return;
   clearGoogleProviderTokens();
+  if (!supabase) return;
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
+
+export const signOut = signOutWorkspace;
+export const signOutUser = signOutWorkspace;
 
 export async function getWorkspaceUser(): Promise<User | null> {
   if (!supabase) return null;

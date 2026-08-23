@@ -16,6 +16,8 @@ import {
   MoreHorizontal,
   Receipt,
   Settings as SettingsIcon,
+  LogOut,
+  UserCircle2,
 } from "lucide-react";
 import {
   getRouteDefinition,
@@ -36,6 +38,8 @@ interface HeaderProps {
   reviewCount: number;
   onBatchExportExcel: () => void;
   workspaceSyncStatus?: WorkspaceSyncStatus;
+  accountEmail?: string;
+  onSignOut?: () => Promise<void> | void;
 }
 
 const routeIcons: Record<RouteId, React.ElementType> = {
@@ -118,10 +122,14 @@ const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({ route, ac
   );
 };
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest" }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest", accountEmail, onSignOut }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountBusy, setAccountBusy] = useState(false);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
   const activeNavigation = resolveActiveRouteForAppTab(activeTab);
   const activeOverflowRoute = activeNavigation.activeOverflowRouteId ? getRouteDefinition(activeNavigation.activeOverflowRouteId) : undefined;
   const syncLabel = workspaceSyncLabel(workspaceSyncStatus as WorkspaceSyncStatus);
@@ -161,7 +169,26 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
   }, [moreOpen]);
 
   useEffect(() => {
-    setMoreOpen(false);
+    if (!accountOpen) return undefined;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!accountMenuRef.current?.contains(target) && !accountButtonRef.current?.contains(target)) setAccountOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setAccountOpen(false);
+      accountButtonRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [accountOpen]);
+
+  useEffect(() => {
+    setMoreOpen(false); setAccountOpen(false);
   }, [activeTab]);
 
   const selectRoute = (route: RouteDefinition) => {
@@ -170,6 +197,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
   };
 
   const moreLabel = activeOverflowRoute ? `More navigation, current page: ${activeOverflowRoute.label}` : "More navigation";
+  const handleSignOut = async () => {
+    if (!onSignOut || accountBusy) return;
+    setAccountBusy(true);
+    try { await onSignOut(); setAccountOpen(false); }
+    finally { setAccountBusy(false); }
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-sm">
@@ -220,6 +253,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
                 </div>
               </div>
             </nav>
+            {accountEmail && onSignOut && <div className="relative shrink-0" ref={accountMenuRef}>
+              <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={`Account: ${accountEmail}`} aria-expanded={accountOpen} aria-controls="header-account-menu" className="inline-flex max-w-[13rem] items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-bold text-slate-700 shadow-sm hover:border-indigo-200 hover:text-indigo-700">
+                <UserCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" /><span className="hidden max-w-[10rem] truncate sm:inline">{accountEmail}</span>
+              </button>
+              {accountOpen && <div id="header-account-menu" role="menu" aria-label="Account menu" className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
+                <p className="truncate px-2 py-1.5 text-[10px] font-bold text-slate-500">{accountEmail}</p>
+                <p className="px-2 pb-1.5 text-[10px] font-semibold text-slate-400">Account / Workspace</p>
+                <button type="button" role="menuitem" onClick={() => void handleSignOut()} disabled={accountBusy} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><LogOut aria-hidden="true" className="h-3.5 w-3.5" />{accountBusy ? "Signing out…" : "Sign out"}</button>
+              </div>}
+            </div>}
             <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold ${workspaceSyncClasses(workspaceSyncStatus as WorkspaceSyncStatus)}`} title={syncTitle} aria-label={syncTitle}>
               <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${workspaceSyncStatus === "syncing" ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">{syncLabel}</span>

@@ -29,19 +29,19 @@ function compareHistoryIds(left?: string | null, right?: string | null) {
 async function requireUserId() {
   const client = requireSupabase();
   const { data, error } = await client.auth.getUser();
-  if (error || !data.user) throw new Error("Sign in with Google before saving workspace data.");
+  if (error || !data.user) throw new Error("Sign in before saving workspace data.");
   return data.user.id;
 }
 
 export async function ensureWorkspaceProfile() {
   const client = requireSupabase();
   const { data, error } = await client.auth.getUser();
-  if (error || !data.user) throw new Error("Sign in with Google before loading workspace data.");
+  if (error || !data.user) throw new Error("Sign in before loading workspace data.");
   const metadata = data.user.user_metadata || {};
   const { error: profileError } = await client.from("profiles").upsert({
     id: data.user.id,
     email: data.user.email || null,
-    full_name: metadata.full_name || metadata.name || null,
+    full_name: metadata.full_name || metadata.name || data.user.email?.split("@")[0] || null,
     avatar_url: metadata.avatar_url || null,
     updated_at: new Date().toISOString(),
   }, { onConflict: "id" });
