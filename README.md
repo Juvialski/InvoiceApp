@@ -70,6 +70,8 @@ The project keeps the original AI Studio-friendly architecture:
 - ZIP is packaged with project files directly at root
 - no service-role key is required in this iteration
 
+Gemini extraction and Gmail classification run through the Express server in `server.ts`, so `GEMINI_API_KEY` must be configured in the server/deployment runtime that serves `/api/*`. It must not be added as `VITE_GEMINI_API_KEY` or any other browser-exposed variable. Adding the same secret only to Supabase does not make it available to Express unless the deployment has explicitly moved model execution into an Edge Function.
+
 ## Required environment variables
 
 ```env
