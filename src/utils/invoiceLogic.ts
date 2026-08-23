@@ -5,7 +5,8 @@ import type {
   ValidationIssue,
   ValidationSummary,
 } from "../types.ts";
-import { DEFAULT_CURRENCY, formatDate, formatDateTime, formatMoney, getRegionalSettings } from "../config/regional.ts";
+import { DEFAULT_CURRENCY, currencySymbolFor, formatDate, formatDateTime, formatMoney, getRegionalSettings } from "../config/regional.ts";
+import { normalizeCurrency } from "./extractionQuality.ts";
 
 const PH_VAT_RATE = 0.12;
 const roundMoney = (value: number) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
@@ -189,8 +190,17 @@ export function validateInvoice(invoice: InvoiceData): ValidationSummary {
   if (!invoice.currency) {
     issues.push({ id: "missing-currency", severity: "warning", field: "currency", message: "Currency is missing; it was not inferred from location." });
   }
-  if (items.length === 0) {
+  const documentType = String(invoice.documentType || "").toUpperCase();
+  const subtype = String(invoice.invoiceSubtype || "").toUpperCase();
+  const canBeNonItemized = ["RECEIPT", "STATEMENT", "SUPPLEMENTARY_DOCUMENT"].includes(documentType);
+  const invoiceLike = !canBeNonItemized && (documentType.includes("INVOICE") || subtype.includes("INVOICE") || Number(invoice.subtotal) > 0 || Number(invoice.grandTotal) > 0);
+  if (items.length === 0 && invoiceLike && (Number(invoice.subtotal) > 0 || Number(invoice.grandTotal) > 0)) {
+    issues.push({ id: "missing-line-items", severity: "warning", field: "items", message: "Invoice totals are present but no line items were extracted." });
+  } else if (items.length === 0 && invoiceLike) {
     issues.push({ id: "no-line-items", severity: "warning", field: "items", message: "No line items were extracted." });
+  }
+  if (items.length > 0 && Number(invoice.grandTotal) > 0 && items.every((item) => Number(item.quantity) === 0 && Number(item.unitPrice) === 0 && Number(item.total) === 0)) {
+    issues.push({ id: "zero-value-line-items", severity: "warning", field: "items", message: "Extracted line items contain no usable quantities, prices, or amounts." });
   }
 
   items.forEach((item, index) => {
@@ -306,19 +316,25 @@ export function findPossibleDuplicate(invoice: InvoiceData, existing: InvoiceDat
 }
 
 export function applyLocalChecks(invoice: InvoiceData): InvoiceData {
-  const validation = validateInvoice(invoice);
-  const completeness = checkPhilippineInvoiceCompleteness(invoice);
-  const humanVerified = invoice.reviewStatus === "VERIFIED" && Boolean(invoice.verifiedAt);
-  const taxDetails = invoice.philippineTaxDetails;
-  const withholdingTaxAmount = invoice.withholdingTaxAmount ?? taxDetails?.withholdingTaxAmount;
-  const netAmountPayable = invoice.netAmountPayable ?? taxDetails?.netAmountPayable ?? (
+  const currency = normalizeCurrency(invoice.currency, invoice.currencySymbol);
+  const normalizedInvoice = {
+    ...invoice,
+    currency,
+    currencySymbol: currency ? currencySymbolFor(currency) : invoice.currencySymbol,
+  };
+  const validation = validateInvoice(normalizedInvoice);
+  const completeness = checkPhilippineInvoiceCompleteness(normalizedInvoice);
+  const humanVerified = normalizedInvoice.reviewStatus === "VERIFIED" && Boolean(normalizedInvoice.verifiedAt);
+  const taxDetails = normalizedInvoice.philippineTaxDetails;
+  const withholdingTaxAmount = normalizedInvoice.withholdingTaxAmount ?? taxDetails?.withholdingTaxAmount;
+  const netAmountPayable = normalizedInvoice.netAmountPayable ?? taxDetails?.netAmountPayable ?? (
     withholdingTaxAmount !== undefined && Number.isFinite(Number(withholdingTaxAmount))
-      ? roundMoney(numberOrZero(invoice.grandTotal) - numberOrZero(withholdingTaxAmount))
+      ? roundMoney(numberOrZero(normalizedInvoice.grandTotal) - numberOrZero(withholdingTaxAmount))
       : undefined
   );
   return {
-    ...invoice,
-    status: derivePaymentStatus(invoice),
+    ...normalizedInvoice,
+    status: derivePaymentStatus(normalizedInvoice),
     validation,
     philippineInvoiceCompleteness: completeness,
     ...(withholdingTaxAmount !== undefined ? { withholdingTaxAmount } : {}),

@@ -1,16 +1,18 @@
 import React, { useRef, useState } from "react";
-import { AlertCircle, FileText, Loader2, SlidersHorizontal, UploadCloud, Zap } from "lucide-react";
+import { AlertCircle, FileText, Loader2, RotateCcw, SlidersHorizontal, UploadCloud, Zap } from "lucide-react";
 import { SAMPLE_INVOICES } from "../data/sampleInvoices";
-import { InvoiceData } from "../types";
+import { InvoiceData, OriginalSourcePayload } from "../types";
 
-export interface ExtractPayload {
-  fileData?: string;
-  mimeType?: string;
-  textData?: string;
-  fileName?: string;
-  previewUrl?: string;
-  model?: string;
-  sourceType?: "UPLOAD" | "PASTED_TEXT";
+export interface ExtractPayload extends OriginalSourcePayload {
+  sourceType?: "UPLOAD" | "PASTED_TEXT" | "EMAIL";
+}
+
+interface QueueItem {
+  id: string;
+  name: string;
+  file: File;
+  status: "queued" | "processing" | "done" | "failed";
+  error?: string;
 }
 
 interface UploadZoneProps {
@@ -46,9 +48,36 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
   const [inputMode, setInputMode] = useState<"file" | "text">("file");
   const [textInput, setTextInput] = useState("");
   const [selectedModel, setSelectedModel] = useState("gemini-3.5-flash-lite");
-  const [queue, setQueue] = useState<Array<{ name: string; status: "queued" | "done" | "failed"; error?: string }>>([]);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const processingRef = useRef(false);
+
+  const processEntries = async (entries: QueueItem[], notifyBatch = true) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+    const successful: InvoiceData[] = [];
+    const failed: Array<{ name: string; error: string }> = [];
+    try {
+      for (const entry of entries) {
+        setQueue((current) => current.map((item) => item.id === entry.id ? { ...item, status: "processing", error: undefined } : item));
+        try {
+          const payload = await fileToPayload(entry.file, selectedModel);
+          const saved = await onExtract(payload);
+          successful.push(saved);
+          setQueue((current) => current.map((item) => item.id === entry.id ? { ...item, status: "done", error: undefined } : item));
+        } catch (e: any) {
+          const message = e?.message || `Failed to process ${entry.name}`;
+          failed.push({ name: entry.name, error: message });
+          setQueue((current) => current.map((item) => item.id === entry.id ? { ...item, status: "failed", error: message } : item));
+          setError(message);
+        }
+      }
+      if (notifyBatch) await onBatchComplete?.(successful, failed);
+    } finally {
+      processingRef.current = false;
+    }
+  };
 
   const processFiles = async (files: File[]) => {
     setError(null);
@@ -57,24 +86,21 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
       setError("Choose PDF, PNG, JPG, JPEG or WEBP invoice files.");
       return;
     }
-    setQueue(valid.map((file) => ({ name: file.name, status: "queued" })));
-    const successful: InvoiceData[] = [];
-    const failed: Array<{ name: string; error: string }> = [];
-    for (let index = 0; index < valid.length; index += 1) {
-      const file = valid[index];
-      try {
-        const payload = await fileToPayload(file, selectedModel);
-        const saved = await onExtract(payload);
-        successful.push(saved);
-        setQueue((current) => current.map((item, i) => i === index ? { ...item, status: "done" } : item));
-      } catch (e: any) {
-        const message = e?.message || `Failed to process ${file.name}`;
-        failed.push({ name: file.name, error: message });
-        setQueue((current) => current.map((item, i) => i === index ? { ...item, status: "failed", error: message } : item));
-        setError(message);
-      }
-    }
-    await onBatchComplete?.(successful, failed);
+    const entries = valid.map((file, index) => ({ id: `${file.name}-${file.lastModified}-${index}`, name: file.name, file, status: "queued" as const }));
+    setQueue(entries);
+    await processEntries(entries);
+  };
+
+  const retryOne = async (entry: QueueItem) => {
+    if (entry.status !== "failed" || isLoading) return;
+    setError(null);
+    await processEntries([entry]);
+  };
+
+  const retryFailed = async () => {
+    if (isLoading) return;
+    setError(null);
+    await processEntries(queue.filter((item) => item.status === "failed"));
   };
 
   const handleTextSubmit = async (e: React.FormEvent) => {
@@ -83,9 +109,17 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
       setError("Paste invoice text first.");
       return;
     }
-    const saved = await onExtract({ textData: textInput.trim(), fileName: "Pasted-Invoice-Text", model: selectedModel, sourceType: "PASTED_TEXT" });
-    await onBatchComplete?.([saved], []);
+    setError(null);
+    try {
+      const saved = await onExtract({ textData: textInput.trim(), fileName: "Pasted-Invoice-Text", model: selectedModel, sourceType: "PASTED_TEXT" });
+      await onBatchComplete?.([saved], []);
+    } catch (e: any) {
+      setError(e?.message || "Invoice extraction failed. Retry the pasted text.");
+    }
   };
+
+  const failedCount = queue.filter((item) => item.status === "failed").length;
+  const doneCount = queue.filter((item) => item.status === "done").length;
 
   return (
     <div className="space-y-5">
@@ -99,7 +133,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
                 <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">Extraction profile
                   <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700"><option value="gemini-3.5-flash-lite">Standard</option><option value="gemini-3.7-flash">Enhanced</option></select>
                 </label>
-                <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Leave this at Standard unless instructed otherwise.</p>
+                <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Standard automatically uses Enhanced once when deterministic checks find an incomplete result.</p>
               </div>
             </details>
             <div className="flex bg-slate-100 p-1 rounded-xl"><button onClick={() => setInputMode("file")} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${inputMode === "file" ? "bg-white shadow-sm" : "text-slate-500"}`}>Files</button><button onClick={() => setInputMode("text")} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${inputMode === "text" ? "bg-white shadow-sm" : "text-slate-500"}`}>Paste text</button></div>
@@ -110,11 +144,11 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); void processFiles(Array.from(e.dataTransfer.files || [])); }}
-            onClick={() => fileInputRef.current?.click()}
-            className={`mt-5 rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center cursor-pointer transition ${dragOver ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-indigo-300 bg-slate-50/50"}`}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); if (!isLoading) void processFiles(Array.from(e.dataTransfer.files || [])); }}
+            onClick={() => { if (!isLoading) fileInputRef.current?.click(); }}
+            className={`mt-5 rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center cursor-pointer transition ${dragOver ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-indigo-300 bg-slate-50/50"} ${isLoading ? "opacity-60 cursor-wait" : ""}`}
           >
-            <input ref={fileInputRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,image/*,application/pdf" className="hidden" onChange={(e) => void processFiles(Array.from(e.target.files || []))} />
+            <input ref={fileInputRef} type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,image/*,application/pdf" className="hidden" disabled={isLoading} onChange={(e) => void processFiles(Array.from(e.target.files || []))} />
             <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center mx-auto shadow-sm"><UploadCloud className="w-6 h-6 text-indigo-600" /></div>
             <p className="text-sm font-bold mt-4">Drop invoice files here or tap to browse</p>
             <p className="text-xs text-slate-500 mt-1">PDF and image batches supported • processed one-by-one so one bad file does not stop the rest</p>
@@ -124,7 +158,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
         )}
 
         {error && <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-100 text-xs text-rose-700 flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{error}</div>}
-        {queue.length > 0 && <div className="mt-4 space-y-2"><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">{queue.map((item) => <div key={item.name} title={item.error} className="p-2.5 rounded-xl border border-slate-200 bg-white"><div className="flex items-center gap-2"><FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" /><span className="text-[10px] font-semibold truncate flex-1">{item.name}</span><span className={`text-[9px] font-black uppercase ${item.status === "done" ? "text-emerald-700" : item.status === "failed" ? "text-rose-700" : "text-amber-700"}`}>{item.status}</span></div>{item.error && <p className="mt-1 text-[9px] text-rose-700 line-clamp-2">{item.error}</p>}</div>)}</div><p className="text-[10px] text-slate-500">{queue.filter((item) => item.status === "done").length} invoice{queue.filter((item) => item.status === "done").length === 1 ? "" : "s"} extracted successfully. {queue.filter((item) => item.status === "failed").length} failed.</p></div>}
+        {queue.length > 0 && <div className="mt-4 space-y-2"><div className="flex items-center justify-between gap-2"><p className="text-[10px] text-slate-500">{doneCount} invoice{doneCount === 1 ? "" : "s"} extracted successfully. {failedCount} failed.</p>{failedCount > 1 && <button type="button" onClick={() => void retryFailed()} disabled={isLoading} className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[10px] font-black text-rose-800 disabled:opacity-50"><RotateCcw className="w-3 h-3" />Retry failed</button>}</div><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">{queue.map((item) => <div key={item.id} title={item.error} className="p-2.5 rounded-xl border border-slate-200 bg-white"><div className="flex items-center gap-2"><FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" /><span className="text-[10px] font-semibold truncate flex-1">{item.name}</span><span className={`text-[9px] font-black uppercase ${item.status === "done" ? "text-emerald-700" : item.status === "failed" ? "text-rose-700" : item.status === "processing" ? "text-indigo-700" : "text-amber-700"}`}>{item.status}</span></div>{item.error && <div className="mt-1 flex items-start gap-2"><p className="text-[9px] text-rose-700 line-clamp-2 flex-1">{item.error}</p><button type="button" onClick={(e) => { e.stopPropagation(); void retryOne(item); }} disabled={isLoading || item.status !== "failed"} className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 py-1 text-[9px] font-black text-rose-800 disabled:opacity-50"><RotateCcw className="w-3 h-3" />Retry</button></div>}</div>)}</div></div>}
       </div>
 
       {sampleInvoicesEnabled && <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">

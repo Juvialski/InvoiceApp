@@ -28,9 +28,11 @@ import {
   ensureWorkspaceProfile,
   loadGmailSyncState,
   loadInvoicesFromSupabase,
+  loadSourcePayloadForRetry,
   markEmailClassification,
   markSourceDocumentStatus,
   persistNewInvoice,
+  persistExtractionAttempt,
   saveGmailMessageSource,
   saveGmailSyncState,
   saveManualEmailRecord,
@@ -96,6 +98,14 @@ function withPathValue<T extends Record<string, any>>(source: T, path: string, v
   return next;
 }
 
+function textToBase64(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  return btoa(binary);
+}
+
 function userFacingError(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : String((error as any)?.message || "");
   return /gemini|supabase|storage|api[_ -]?key|provider|model/i.test(message) ? fallback : (message || fallback);
@@ -107,6 +117,8 @@ export default function App() {
   const lastPersistedRef = useRef(new Map<string, InvoiceData>());
   const updateTimersRef = useRef(new Map<string, number>());
   const editRevisionRef = useRef(new Map<string, number>());
+  const sourcePayloadsRef = useRef(new Map<string, ExtractPayload>());
+  const retryingInvoiceRef = useRef<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
   const [verificationMode, setVerificationMode] = useState(false);
   const [reviewSessionIds, setReviewSessionIds] = useState<string[]>([]);
@@ -119,6 +131,7 @@ export default function App() {
   const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
   const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
   const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
   const savePromisesRef = useRef(new Map<string, Promise<unknown>>());
 
   const showNotification = (type: "success" | "error" | "info", message: string) => {
@@ -204,18 +217,33 @@ export default function App() {
   };
 
   const extractPayload = async (payload: any) => {
-    const response = await fetch("/api/extract-invoice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.error || "Invoice extraction failed.");
-    return result.data as InvoiceData;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 95_000);
+    try {
+      const response = await fetch("/api/extract-invoice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: controller.signal });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) throw new Error(result.error || "Invoice extraction failed. Please retry the document.");
+      return result.data as InvoiceData;
+    } catch (error: any) {
+      if (error?.name === "AbortError") throw new Error("Invoice extraction timed out. Please retry the document.");
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
   };
 
   const handleExtract = async (payload: ExtractPayload): Promise<InvoiceData> => {
     setProcessingCount((n) => n + 1);
     try {
       let storedSource: Awaited<ReturnType<typeof saveManualSourceDocument>> | undefined;
-      if (session && payload.fileData && payload.mimeType && payload.fileName) {
-        storedSource = await saveManualSourceDocument({ fileData: payload.fileData, mimeType: payload.mimeType, fileName: payload.fileName });
+      if (session && payload.fileName && ((payload.fileData && payload.mimeType) || payload.textData)) {
+        storedSource = await saveManualSourceDocument({
+          fileData: payload.fileData || textToBase64(payload.textData || ""),
+          mimeType: payload.mimeType || "text/plain",
+          fileName: payload.fileName,
+          emailMessageId: payload.emailContext?.emailRecordId,
+          sourceType: payload.sourceType === "EMAIL" ? "EMAIL" : "UPLOAD",
+        });
       }
       let extracted = await extractPayload(payload);
       if (storedSource) {
@@ -224,13 +252,15 @@ export default function App() {
           fileSize: storedSource.size,
           fileType: storedSource.mimeType,
           previewUrl: storedSource.previewUrl,
-          sourceDocumentId: storedSource.id,
-          sourceStoragePath: storedSource.storagePath,
-          sourceSha256: storedSource.sha256,
-          sourceMetadata: { ...(extracted.sourceMetadata || {}), sourceDocumentId: storedSource.id, sourceStoragePath: storedSource.storagePath, sourceSha256: storedSource.sha256 },
+           sourceDocumentId: storedSource.id,
+           sourceStoragePath: storedSource.storagePath,
+           sourceSha256: storedSource.sha256,
+           sourceEmailId: storedSource.emailMessageId || extracted.sourceEmailId,
+           sourceMetadata: { ...(extracted.sourceMetadata || {}), sourceDocumentId: storedSource.id, sourceStoragePath: storedSource.storagePath, sourceSha256: storedSource.sha256 },
         };
       }
       const prepared = await saveExtracted(extracted, storedSource?.previewUrl || payload.previewUrl);
+      sourcePayloadsRef.current.set(prepared.id, payload);
       if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", prepared.documentType);
       return prepared;
     } catch (error: any) {
@@ -264,13 +294,16 @@ export default function App() {
           });
           extracted = { ...extracted, fileSize: attachment.size, fileType: encoded.mimeType, sourceEmailId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath, sourceSha256: storedSource?.sha256, previewUrl: storedSource?.previewUrl || extracted.previewUrl };
           const saved = await saveExtracted(extracted, storedSource?.previewUrl);
+          sourcePayloadsRef.current.set(saved.id, { ...encoded, fileName: attachment.name, model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath } });
           extractedInvoices.push(saved);
           if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", saved.documentType);
         }
       } else {
         let extracted = await extractPayload({ textData: body || subject, fileName: subject || "Email invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, emailRecordId: manualEmail?.id } });
         extracted = { ...extracted, sourceEmailId: manualEmail?.id };
-        extractedInvoices.push(await saveExtracted(extracted));
+        const saved = await saveExtracted(extracted);
+        sourcePayloadsRef.current.set(saved.id, { textData: body || subject, fileName: subject || "Email invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, emailRecordId: manualEmail?.id } });
+        extractedInvoices.push(saved);
       }
       if (extractedInvoices.length) startReview(extractedInvoices);
       showNotification("success", `Email processed: ${classification.documentType || "financial document"} detected and saved for review.`);
@@ -403,7 +436,30 @@ export default function App() {
           sourceSha256: source?.sha256,
           previewUrl: source?.previewUrl,
         };
-        extractedInvoices.push(await saveExtracted(extracted, source?.previewUrl));
+        const saved = await saveExtracted(extracted, source?.previewUrl);
+        sourcePayloadsRef.current.set(saved.id, {
+          fileData: attachment.dataBase64,
+          mimeType: attachment.mimeType,
+          fileName: attachment.filename,
+          model: "gemini-3.5-flash-lite",
+          sourceType: "EMAIL",
+          emailContext: {
+            sender: imported.sender,
+            subject: imported.subject,
+            receivedAt: imported.receivedAt,
+            body: imported.bodyText,
+            attachmentName: attachment.filename,
+            gmailAttachmentId: attachment.attachmentId,
+            emailReference: imported.id,
+            gmailMessageId: imported.id,
+            gmailThreadId: imported.threadId,
+            emailRecordId: stored.email.id,
+            sourceDocumentId: source?.id,
+            sourceStoragePath: source?.storagePath,
+            rawEmailStoragePath: stored.email.rawStoragePath,
+          },
+        });
+        extractedInvoices.push(saved);
         if (source?.id) await markSourceDocumentStatus(source.id, "EXTRACTED", extracted.documentType);
         extractedCount += 1;
       }
@@ -417,7 +473,9 @@ export default function App() {
           emailContext: { sender: imported.sender, subject: imported.subject, receivedAt: imported.receivedAt, body: imported.bodyText, emailReference: imported.id, gmailMessageId: imported.id, gmailThreadId: imported.threadId, emailRecordId: stored.email.id, rawEmailStoragePath: stored.email.rawStoragePath },
         });
         extracted = { ...extracted, sourceEmailId: stored.email.id };
-        extractedInvoices.push(await saveExtracted(extracted));
+        const saved = await saveExtracted(extracted);
+        sourcePayloadsRef.current.set(saved.id, { textData: imported.bodyText, fileName: imported.subject || "Gmail invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender: imported.sender, subject: imported.subject, receivedAt: imported.receivedAt, body: imported.bodyText, emailReference: imported.id, gmailMessageId: imported.id, gmailThreadId: imported.threadId, emailRecordId: stored.email.id, rawEmailStoragePath: stored.email.rawStoragePath } });
+        extractedInvoices.push(saved);
         extractedCount = 1;
       }
       if (extractedInvoices.length) startReview(extractedInvoices);
@@ -530,6 +588,72 @@ export default function App() {
     setInvoices(next);
     setSelectedInvoice((current) => current?.id === reopened.id ? reopened : current);
     showNotification("info", `Reopened ${reopened.invoiceNumber || "invoice"} for review.`);
+  };
+
+  const handleRetryExtraction = async (invoice: InvoiceData): Promise<InvoiceData | null> => {
+    if (retryingInvoiceRef.current) return null;
+    retryingInvoiceRef.current = invoice.id;
+    setRetryingInvoiceId(invoice.id);
+    setProcessingCount((n) => n + 1);
+    try {
+      let sourcePayload = sourcePayloadsRef.current.get(invoice.id);
+      if (!sourcePayload && session && supabase) sourcePayload = (await loadSourcePayloadForRetry(invoice)) || undefined;
+      if (!sourcePayload && invoice.previewUrl?.startsWith("data:")) {
+        const match = invoice.previewUrl.match(/^data:([^;,]+);base64,(.+)$/);
+        if (match) sourcePayload = { fileData: match[2], mimeType: match[1], fileName: invoice.fileName || "invoice", sourceType: invoice.sourceType || "UPLOAD" };
+      }
+      if (!sourcePayload) throw new Error("The original source is unavailable for retry.");
+
+      const candidate = await extractPayload({ ...sourcePayload, model: "gemini-3.7-flash", retryReason: "manual", extractionFocus: "full" });
+      let saved: InvoiceData;
+      if (session && supabase) {
+        saved = await persistExtractionAttempt(invoice, candidate, { reason: "manual", automatic: false });
+      } else {
+        const aiSnapshot: Partial<InvoiceData> = { ...candidate, id: invoice.id };
+        delete (aiSnapshot as any).aiSnapshot;
+        const retryQuality = candidate.extractionQuality
+          ? { ...candidate.extractionQuality, attemptCount: (invoice.extractionQuality?.attemptCount || 1) + 1 }
+          : invoice.extractionQuality;
+        const retryResult = {
+          ...invoice,
+          ...candidate,
+          id: invoice.id,
+          fileName: invoice.fileName || candidate.fileName,
+          fileSize: invoice.fileSize || candidate.fileSize,
+          fileType: invoice.fileType || candidate.fileType,
+          previewUrl: invoice.previewUrl || candidate.previewUrl,
+          sourceDocumentId: invoice.sourceDocumentId || candidate.sourceDocumentId,
+          sourceStoragePath: invoice.sourceStoragePath || candidate.sourceStoragePath,
+          sourceSha256: invoice.sourceSha256 || candidate.sourceSha256,
+          sourceEmailId: invoice.sourceEmailId || candidate.sourceEmailId,
+          sourceType: invoice.sourceType || candidate.sourceType,
+          sourceMetadata: invoice.sourceMetadata || candidate.sourceMetadata,
+          extractionId: `local-extraction-${Date.now()}`,
+          aiSnapshot,
+          ...(retryQuality ? { extractionQuality: retryQuality } : {}),
+          reviewStatus: "NEEDS_REVIEW" as const,
+          verifiedAt: undefined,
+        };
+        saved = applyLocalChecks(retryResult);
+      }
+      sourcePayloadsRef.current.set(saved.id, sourcePayload);
+      lastPersistedRef.current.set(saved.id, saved);
+      const next = invoicesRef.current.map((item) => item.id === saved.id ? saved : item);
+      invoicesRef.current = next;
+      setInvoices(next);
+      setSelectedInvoice((current) => current?.id === saved.id ? saved : current);
+      setSaveState("saved");
+      if (saved.extractionQuality?.requiresRetry) showNotification("info", "Extraction is still incomplete. Review the highlighted fields manually or retry with Enhanced extraction.");
+      else showNotification("success", "Extraction improved. Please review the updated fields.");
+      return saved;
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Extraction failed. Your current draft is unchanged; retry the document."));
+      return null;
+    } finally {
+      retryingInvoiceRef.current = null;
+      setRetryingInvoiceId(null);
+      setProcessingCount((n) => Math.max(0, n - 1));
+    }
   };
 
   const handleRevertToAI = async (invoice: InvoiceData) => {
@@ -708,7 +832,7 @@ export default function App() {
         {isSupabaseConfigured && !session && <div className="mb-5 p-4 rounded-2xl border border-indigo-200 bg-indigo-50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"><div className="flex gap-3"><Cloud className="w-5 h-5 text-indigo-600 shrink-0" /><div><p className="text-xs font-black text-indigo-900">Workspace connection available</p><p className="text-[11px] text-indigo-800 mt-1">Connect Google + Gmail to sign in, grant read-only mailbox access, and load your persistent invoice workspace.</p></div></div><button onClick={() => void connectGoogleAndGmail()} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold">Connect Google + Gmail</button></div>}
 
         {activeTab === "dashboard" && <Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} />}
-        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? verificationMode ? <VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} onUpdateInvoice={handleUpdateInvoice} onBack={exitReview} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"))} onReturnToDashboard={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("dashboard"); }} onViewVerified={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("invoices"); }} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /> : <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} onReopen={() => void handleReopen(selectedInvoice)} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} />}</div>}
+        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? verificationMode ? <VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={exitReview} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"))} onReturnToDashboard={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("dashboard"); }} onViewVerified={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("invoices"); }} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /> : <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} onReopen={() => void handleReopen(selectedInvoice)} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} />}</div>}
         {activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onVerify={(invoice) => void handleVerify(invoice)} onStartReview={(queue) => startReview(queue)} />}
         {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => { setSelectedInvoice(null); setVerificationMode(false); setReviewCompletion(null); setActiveTab("extractor"); }} onVerify={(invoice) => void handleVerify(invoice)} />}

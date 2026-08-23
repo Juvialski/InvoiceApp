@@ -4,6 +4,15 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { randomUUID } from "crypto";
+import type { InvoiceData } from "./src/types.ts";
+import {
+  chooseBestExtractionCandidate,
+  evaluateExtractionQuality,
+  normalizeCurrency,
+  retryFocusForQuality,
+  shouldRunAutomaticRetry,
+  type ExtractionQuality,
+} from "./src/utils/extractionQuality.ts";
 
 dotenv.config();
 
@@ -11,6 +20,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const PRIMARY_MODEL = "gemini-3.5-flash-lite";
 const ACCURACY_MODEL = "gemini-3.7-flash";
+const EXTRACTION_TIMEOUT_MS = 60_000;
 
 function selectModel(requestedModel?: unknown) {
   return requestedModel === ACCURACY_MODEL ? ACCURACY_MODEL : PRIMARY_MODEL;
@@ -31,121 +41,136 @@ function getGeminiClient() {
 const partySchema = {
   type: Type.OBJECT,
   properties: {
-    name: { type: Type.STRING },
-    companyName: { type: Type.STRING },
-    registeredName: { type: Type.STRING, description: "Registered business name when visible" },
-    tradeName: { type: Type.STRING, description: "Business or trade name when visible" },
-    taxId: { type: Type.STRING },
-    branchCode: { type: Type.STRING },
-    taxRegistration: { type: Type.STRING, description: "VAT, NON_VAT, or UNKNOWN when explicitly stated" },
-    address: { type: Type.STRING },
-    city: { type: Type.STRING },
-    cityMunicipality: { type: Type.STRING },
-    state: { type: Type.STRING },
-    province: { type: Type.STRING },
-    barangay: { type: Type.STRING },
-    region: { type: Type.STRING },
-    postalCode: { type: Type.STRING },
-    country: { type: Type.STRING },
-    email: { type: Type.STRING },
-    phone: { type: Type.STRING },
-    website: { type: Type.STRING },
+    name: { type: Type.STRING, nullable: true },
+    companyName: { type: Type.STRING, nullable: true },
+    registeredName: { type: Type.STRING, nullable: true, description: "Registered business name when visible" },
+    tradeName: { type: Type.STRING, nullable: true, description: "Business or trade name when visible" },
+    taxId: { type: Type.STRING, nullable: true },
+    branchCode: { type: Type.STRING, nullable: true },
+    taxRegistration: { type: Type.STRING, nullable: true, description: "VAT, NON_VAT, or UNKNOWN when explicitly stated" },
+    address: { type: Type.STRING, nullable: true },
+    city: { type: Type.STRING, nullable: true },
+    cityMunicipality: { type: Type.STRING, nullable: true },
+    state: { type: Type.STRING, nullable: true },
+    province: { type: Type.STRING, nullable: true },
+    barangay: { type: Type.STRING, nullable: true },
+    region: { type: Type.STRING, nullable: true },
+    postalCode: { type: Type.STRING, nullable: true },
+    country: { type: Type.STRING, nullable: true },
+    email: { type: Type.STRING, nullable: true },
+    phone: { type: Type.STRING, nullable: true },
+    website: { type: Type.STRING, nullable: true },
   },
+  required: ["name", "companyName", "registeredName", "tradeName", "taxId", "branchCode", "taxRegistration", "address", "city", "cityMunicipality", "state", "province", "barangay", "region", "postalCode", "country", "email", "phone", "website"],
 };
 
 const invoiceSchema = {
   type: Type.OBJECT,
   properties: {
-    documentType: { type: Type.STRING, description: "INVOICE, CREDIT_NOTE, RECEIPT, STATEMENT, PURCHASE_ORDER, or OTHER" },
-    invoiceSubtype: { type: Type.STRING, description: "VAT_INVOICE, NON_VAT_INVOICE, SERVICE_INVOICE, SALES_INVOICE, COMMERCIAL_INVOICE, CASH_INVOICE, CHARGE_INVOICE, CREDIT_INVOICE, or UNKNOWN when visible" },
-    invoiceNumber: { type: Type.STRING },
-    invoiceDate: { type: Type.STRING, description: "YYYY-MM-DD when visible" },
-    dueDate: { type: Type.STRING, description: "YYYY-MM-DD when visible" },
-    purchaseOrderNumber: { type: Type.STRING },
-    currency: { type: Type.STRING, description: "ISO currency code" },
-    currencySymbol: { type: Type.STRING },
-    paymentTerms: { type: Type.STRING },
+    documentType: { type: Type.STRING, nullable: true, description: "INVOICE, CREDIT_NOTE, RECEIPT, STATEMENT, PURCHASE_ORDER, or OTHER" },
+    invoiceSubtype: { type: Type.STRING, nullable: true, description: "VAT_INVOICE, NON_VAT_INVOICE, SERVICE_INVOICE, SALES_INVOICE, COMMERCIAL_INVOICE, CASH_INVOICE, CHARGE_INVOICE, CREDIT_INVOICE, or UNKNOWN when visible" },
+    invoiceNumber: { type: Type.STRING, nullable: true },
+    invoiceDate: { type: Type.STRING, nullable: true, description: "YYYY-MM-DD when visible" },
+    dueDate: { type: Type.STRING, nullable: true, description: "YYYY-MM-DD when visible" },
+    purchaseOrderNumber: { type: Type.STRING, nullable: true },
+    projectReference: { type: Type.STRING, nullable: true, description: "Explicit Project, Reference, Job, Contract, or Work Order text when printed" },
+    currency: { type: Type.STRING, nullable: true, description: "ISO currency code; leave null when not explicit" },
+    currencySymbol: { type: Type.STRING, nullable: true },
+    paymentTerms: { type: Type.STRING, nullable: true },
     vendor: partySchema,
     customer: partySchema,
-    shippingAddress: partySchema,
+    shippingAddress: { ...partySchema, nullable: true },
     items: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
-          sku: { type: Type.STRING },
-          description: { type: Type.STRING },
-          quantity: { type: Type.NUMBER },
-          unitPrice: { type: Type.NUMBER },
-          discount: { type: Type.NUMBER },
-          taxRate: { type: Type.NUMBER },
-          taxAmount: { type: Type.NUMBER },
-          total: { type: Type.NUMBER },
+          sku: { type: Type.STRING, nullable: true },
+          description: { type: Type.STRING, nullable: true },
+          quantity: { type: Type.NUMBER, nullable: true },
+          unitOfMeasure: { type: Type.STRING, nullable: true, description: "Unit of measure such as bags, pcs, kg, m, sq.m., cu.m., liters, hours, days, sets, or lots" },
+          unitPrice: { type: Type.NUMBER, nullable: true },
+          discount: { type: Type.NUMBER, nullable: true },
+          taxRate: { type: Type.NUMBER, nullable: true },
+          taxAmount: { type: Type.NUMBER, nullable: true },
+          taxTreatment: { type: Type.STRING, nullable: true },
+          total: { type: Type.NUMBER, nullable: true },
         },
-        required: ["description"],
+        required: ["sku", "description", "quantity", "unitOfMeasure", "unitPrice", "discount", "taxRate", "taxAmount", "taxTreatment", "total"],
       },
     },
-    subtotal: { type: Type.NUMBER },
-    totalDiscount: { type: Type.NUMBER },
+    subtotal: { type: Type.NUMBER, nullable: true },
+    totalDiscount: { type: Type.NUMBER, nullable: true },
     taxBreakdown: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
-          name: { type: Type.STRING },
-          rate: { type: Type.NUMBER },
-          amount: { type: Type.NUMBER },
+          name: { type: Type.STRING, nullable: true },
+          rate: { type: Type.NUMBER, nullable: true },
+          amount: { type: Type.NUMBER, nullable: true },
         },
-        required: ["name", "amount"],
+        required: ["name", "rate", "amount"],
       },
     },
-    totalTax: { type: Type.NUMBER },
-    shippingFee: { type: Type.NUMBER },
-    otherFees: { type: Type.NUMBER },
-    grandTotal: { type: Type.NUMBER },
-    amountPaid: { type: Type.NUMBER },
-    balanceDue: { type: Type.NUMBER },
-    withholdingTaxRate: { type: Type.NUMBER, description: "Only when explicitly shown; do not infer a rate" },
-    withholdingTaxAmount: { type: Type.NUMBER, description: "EWT/CWT/withholding amount when explicitly shown" },
-    netAmountPayable: { type: Type.NUMBER, description: "Only when the source deterministically states or calculates it" },
+    totalTax: { type: Type.NUMBER, nullable: true },
+    shippingFee: { type: Type.NUMBER, nullable: true },
+    otherFees: { type: Type.NUMBER, nullable: true },
+    grandTotal: { type: Type.NUMBER, nullable: true },
+    amountPaid: { type: Type.NUMBER, nullable: true },
+    balanceDue: { type: Type.NUMBER, nullable: true },
+    withholdingTaxRate: { type: Type.NUMBER, nullable: true, description: "Only when explicitly shown; do not infer a rate" },
+    withholdingTaxAmount: { type: Type.NUMBER, nullable: true, description: "EWT/CWT/withholding amount when explicitly shown" },
+    netAmountPayable: { type: Type.NUMBER, nullable: true, description: "Only when the source deterministically states or calculates it" },
     philippineTaxDetails: {
       type: Type.OBJECT,
       properties: {
-        invoiceKind: { type: Type.STRING, description: "VAT_INVOICE, NON_VAT_INVOICE, or UNKNOWN" },
-        sellerRegistration: { type: Type.STRING, description: "VAT, NON_VAT, or UNKNOWN" },
-        vatableSales: { type: Type.NUMBER },
-        vatAmount: { type: Type.NUMBER },
-        zeroRatedSales: { type: Type.NUMBER },
-        vatExemptSales: { type: Type.NUMBER },
-        salesSubjectToPercentageTax: { type: Type.NUMBER },
-        authorityToPrintNumber: { type: Type.STRING, description: "ATP when visible" },
-        outboundCorrespondenceNumber: { type: Type.STRING, description: "OCN when visible" },
-        permitToUseNumber: { type: Type.STRING },
-        approvedSerialFrom: { type: Type.STRING },
-        approvedSerialTo: { type: Type.STRING },
-        birPermitDetailsRaw: { type: Type.STRING },
-        withholdingTaxRate: { type: Type.NUMBER },
-        withholdingTaxAmount: { type: Type.NUMBER },
-        netAmountPayable: { type: Type.NUMBER },
-        vatInclusive: { type: Type.BOOLEAN, description: "True only when the source clearly states prices/total are VAT-inclusive" },
+        invoiceKind: { type: Type.STRING, nullable: true, description: "VAT_INVOICE, NON_VAT_INVOICE, or UNKNOWN" },
+        sellerRegistration: { type: Type.STRING, nullable: true, description: "VAT, NON_VAT, or UNKNOWN" },
+        vatableSales: { type: Type.NUMBER, nullable: true },
+        vatAmount: { type: Type.NUMBER, nullable: true },
+        zeroRatedSales: { type: Type.NUMBER, nullable: true },
+        vatExemptSales: { type: Type.NUMBER, nullable: true },
+        salesSubjectToPercentageTax: { type: Type.NUMBER, nullable: true },
+        authorityToPrintNumber: { type: Type.STRING, nullable: true, description: "ATP when visible" },
+        outboundCorrespondenceNumber: { type: Type.STRING, nullable: true, description: "OCN when visible" },
+        permitToUseNumber: { type: Type.STRING, nullable: true },
+        approvedSerialFrom: { type: Type.STRING, nullable: true },
+        approvedSerialTo: { type: Type.STRING, nullable: true },
+        birPermitDetailsRaw: { type: Type.STRING, nullable: true },
+        withholdingTaxRate: { type: Type.NUMBER, nullable: true },
+        withholdingTaxAmount: { type: Type.NUMBER, nullable: true },
+        netAmountPayable: { type: Type.NUMBER, nullable: true },
+        vatInclusive: { type: Type.BOOLEAN, nullable: true, description: "True only when the source clearly states prices/total are VAT-inclusive" },
       },
+      required: ["invoiceKind", "sellerRegistration", "vatableSales", "vatAmount", "zeroRatedSales", "vatExemptSales", "salesSubjectToPercentageTax", "authorityToPrintNumber", "outboundCorrespondenceNumber", "permitToUseNumber", "approvedSerialFrom", "approvedSerialTo", "birPermitDetailsRaw", "withholdingTaxRate", "withholdingTaxAmount", "netAmountPayable", "vatInclusive"],
+      nullable: true,
     },
-    notes: { type: Type.STRING },
-    termsAndConditions: { type: Type.STRING },
-    category: { type: Type.STRING, description: "Short business/accounting category suggestion" },
-    confidenceScore: { type: Type.NUMBER, description: "Overall extraction confidence from 0 to 100. Do not invent a high score." },
+    notes: { type: Type.STRING, nullable: true },
+    termsAndConditions: { type: Type.STRING, nullable: true },
+    category: { type: Type.STRING, nullable: true, description: "Short business/accounting category suggestion" },
+    confidenceScore: { type: Type.NUMBER, nullable: true, description: "Overall extraction confidence from 0 to 100. Do not invent a high score." },
     fieldConfidence: {
       type: Type.OBJECT,
       properties: {
-        invoiceNumber: { type: Type.NUMBER },
-        invoiceDate: { type: Type.NUMBER },
-        vendorName: { type: Type.NUMBER },
-        customerName: { type: Type.NUMBER },
-        lineItems: { type: Type.NUMBER },
-        grandTotal: { type: Type.NUMBER },
+        invoiceNumber: { type: Type.NUMBER, nullable: true },
+        invoiceDate: { type: Type.NUMBER, nullable: true },
+        dueDate: { type: Type.NUMBER, nullable: true },
+        vendorName: { type: Type.NUMBER, nullable: true },
+        vendorTin: { type: Type.NUMBER, nullable: true },
+        customerName: { type: Type.NUMBER, nullable: true },
+        customerTin: { type: Type.NUMBER, nullable: true },
+        currency: { type: Type.NUMBER, nullable: true },
+        lineItems: { type: Type.NUMBER, nullable: true },
+        subtotal: { type: Type.NUMBER, nullable: true },
+        vatAmount: { type: Type.NUMBER, nullable: true },
+        grandTotal: { type: Type.NUMBER, nullable: true },
       },
+      required: ["invoiceNumber", "invoiceDate", "dueDate", "vendorName", "vendorTin", "customerName", "customerTin", "currency", "lineItems", "subtotal", "vatAmount", "grandTotal"],
+      nullable: true,
     },
   },
+  required: ["documentType", "invoiceSubtype", "invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "currency", "currencySymbol", "paymentTerms", "vendor", "customer", "shippingAddress", "items", "subtotal", "totalDiscount", "taxBreakdown", "totalTax", "shippingFee", "otherFees", "grandTotal", "amountPaid", "balanceDue", "withholdingTaxRate", "withholdingTaxAmount", "netAmountPayable", "philippineTaxDetails", "notes", "termsAndConditions", "category", "confidenceScore", "fieldConfidence"],
 };
 
 const emailClassificationSchema = {
@@ -214,6 +239,13 @@ function validateExtractedInvoice(data: any, items: any[]) {
   if (!data.invoiceDate) issues.push({ id: "missing-invoice-date", severity: "warning", field: "invoiceDate", message: "Invoice date is missing." });
   if (!data.vendor?.name) issues.push({ id: "missing-vendor", severity: "warning", field: "vendor.name", message: "Vendor name is missing." });
   if (!data.currency) issues.push({ id: "missing-currency", severity: "warning", field: "currency", message: "Currency is missing." });
+  const invoiceLike = String(data.documentType || "").toUpperCase().includes("INVOICE") || String(data.invoiceSubtype || "").toUpperCase().includes("INVOICE");
+  if (items.length === 0 && invoiceLike && (numeric(data.subtotal) > 0 || numeric(data.grandTotal) > 0)) {
+    issues.push({ id: "missing-line-items", severity: "warning", field: "items", message: "Invoice totals are present but no line items were extracted." });
+  }
+  if (items.length > 0 && numeric(data.grandTotal) > 0 && items.every((item) => numeric(item.quantity) === 0 && numeric(item.unitPrice) === 0 && numeric(item.total) === 0)) {
+    issues.push({ id: "zero-value-line-items", severity: "warning", field: "items", message: "Extracted line items contain no usable quantities, prices, or amounts." });
+  }
 
   const phTax = data.philippineTaxDetails || {};
   const phVatInvoice = Boolean(
@@ -231,7 +263,7 @@ function validateExtractedInvoice(data: any, items: any[]) {
   }
 
   return {
-    status: issues.length ? "REVIEW" : "PASS",
+    status: (issues.length ? "REVIEW" : "PASS") as "REVIEW" | "PASS",
     issues,
     calculatedSubtotal,
     calculatedGrandTotal,
@@ -239,23 +271,25 @@ function validateExtractedInvoice(data: any, items: any[]) {
   };
 }
 
+async function generateContentWithTimeout(ai: GoogleGenAI, model: string, contents: any, config: any) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), EXTRACTION_TIMEOUT_MS);
+  try {
+    return await ai.models.generateContent({ model, contents, config: { ...config, abortSignal: controller.signal } });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function generateStructured(ai: GoogleGenAI, requestedModel: unknown, contents: any, systemInstruction: string, responseSchema: any) {
   const primary = selectModel(requestedModel);
   try {
-    const response = await ai.models.generateContent({
-      model: primary,
-      contents,
-      config: { systemInstruction, responseMimeType: "application/json", responseSchema },
-    });
+    const response = await generateContentWithTimeout(ai, primary, contents, { systemInstruction, responseMimeType: "application/json", responseSchema });
     return { response, modelUsed: primary };
   } catch (error: any) {
     if (primary === ACCURACY_MODEL) throw error;
     console.warn(`${primary} failed; retrying with ${ACCURACY_MODEL}:`, error?.message);
-    const response = await ai.models.generateContent({
-      model: ACCURACY_MODEL,
-      contents,
-      config: { systemInstruction, responseMimeType: "application/json", responseSchema },
-    });
+    const response = await generateContentWithTimeout(ai, ACCURACY_MODEL, contents, { systemInstruction, responseMimeType: "application/json", responseSchema });
     return { response, modelUsed: ACCURACY_MODEL };
   }
 }
@@ -285,7 +319,171 @@ app.post("/api/classify-email", async (req, res) => {
   }
 });
 
+function compactParty(party: any) {
+  return {
+    name: party?.name || party?.registeredName || "",
+    companyName: party?.companyName || party?.registeredName || party?.name || "",
+    registeredName: party?.registeredName || "",
+    tradeName: party?.tradeName || "",
+    taxId: party?.taxId || "",
+    branchCode: party?.branchCode || "",
+    taxRegistration: party?.taxRegistration || "UNKNOWN",
+    address: party?.address || "",
+    city: party?.city || "",
+    cityMunicipality: party?.cityMunicipality || "",
+    state: party?.state || "",
+    province: party?.province || "",
+    barangay: party?.barangay || "",
+    region: party?.region || "",
+    postalCode: party?.postalCode || "",
+    country: party?.country || "",
+    email: party?.email || "",
+    phone: party?.phone || "",
+    website: party?.website || "",
+  };
+}
+
+function explicitCurrencyFromText(sourceText: string) {
+  if (/₱|\bPHP\b|PHILIPPINE\s+PESO/i.test(sourceText)) return "PHP";
+  if (/\bUSD\b|US\$/i.test(sourceText)) return "USD";
+  if (/\bEUR\b|€/i.test(sourceText)) return "EUR";
+  if (/\bSGD\b|S\$/i.test(sourceText)) return "SGD";
+  if (/\bJPY\b|¥/i.test(sourceText)) return "JPY";
+  return "";
+}
+
+function currencySymbolFor(currency: string) {
+  return ({ PHP: "₱", USD: "$", EUR: "€", SGD: "S$", JPY: "¥", GBP: "£" } as Record<string, string>)[currency] || "";
+}
+
+function normalizeTaxDetails(details: any) {
+  if (!details || typeof details !== "object") return undefined;
+  const output = { ...details };
+  for (const key of Object.keys(output)) if (output[key] === null || output[key] === undefined || output[key] === "") delete output[key];
+  return Object.keys(output).length ? output : undefined;
+}
+
+function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: string, fileName: string | undefined, sourceType: string, emailContext: any, sourceText: string): InvoiceData {
+  const rawItems = Array.isArray(extracted?.items) ? extracted.items : [];
+  const items = rawItems.map((item: any, index: number) => {
+    const quantity = numeric(item?.quantity);
+    const unitPrice = numeric(item?.unitPrice);
+    const discount = numeric(item?.discount);
+    const deterministicTotal = roundMoney(quantity * unitPrice - discount);
+    const total = item?.total === undefined || item?.total === null ? deterministicTotal : numeric(item.total);
+    return {
+      id: randomUUID(),
+      itemNumber: index + 1,
+      sku: item?.sku || "",
+      description: item?.description || "",
+      quantity,
+      unitOfMeasure: item?.unitOfMeasure || item?.uom || item?.unit || "",
+      unitPrice,
+      discount,
+      taxRate: numeric(item?.taxRate),
+      taxAmount: numeric(item?.taxAmount),
+      taxTreatment: item?.taxTreatment || "UNKNOWN",
+      total,
+    };
+  });
+  const validation = validateExtractedInvoice(extracted || {}, items);
+  const subtotal = extracted?.subtotal === undefined || extracted?.subtotal === null ? validation.calculatedSubtotal : numeric(extracted.subtotal);
+  const phTax = normalizeTaxDetails(extracted?.philippineTaxDetails);
+  const totalTax = extracted?.totalTax === undefined || extracted?.totalTax === null
+    ? numeric(phTax?.vatAmount)
+    : numeric(extracted.totalTax);
+  const grandTotal = extracted?.grandTotal === undefined || extracted?.grandTotal === null ? validation.calculatedGrandTotal : numeric(extracted.grandTotal);
+  const amountPaid = numeric(extracted?.amountPaid);
+  const balanceDue = extracted?.balanceDue === undefined || extracted?.balanceDue === null ? Math.max(0, grandTotal - amountPaid) : numeric(extracted.balanceDue);
+  const sourceCurrency = explicitCurrencyFromText(sourceText);
+  const currency = normalizeCurrency(extracted?.currency, extracted?.currencySymbol) || sourceCurrency;
+  const currencySymbol = currencySymbolFor(currency) || extracted?.currencySymbol || "";
+  const confidenceScore = extracted?.confidenceScore === undefined || extracted?.confidenceScore === null ? undefined : numeric(extracted.confidenceScore);
+  const sourceMetadata = emailContext
+    ? {
+        sender: emailContext.sender || "",
+        subject: emailContext.subject || "",
+        receivedAt: emailContext.receivedAt || "",
+        attachmentName: emailContext.attachmentName || fileName || "",
+        emailReference: emailContext.emailReference || "",
+        gmailMessageId: emailContext.gmailMessageId || "",
+        gmailThreadId: emailContext.gmailThreadId || "",
+        gmailAttachmentId: emailContext.gmailAttachmentId || "",
+        emailRecordId: emailContext.emailRecordId || "",
+        sourceDocumentId: emailContext.sourceDocumentId || "",
+        sourceStoragePath: emailContext.sourceStoragePath || "",
+        rawEmailStoragePath: emailContext.rawEmailStoragePath || "",
+      }
+    : { attachmentName: fileName || "" };
+  const invoiceData: InvoiceData = {
+    id: randomUUID(),
+    fileName: fileName || emailContext?.attachmentName || "invoice",
+    documentType: extracted?.documentType || "OTHER",
+    invoiceSubtype: extracted?.invoiceSubtype || "UNKNOWN",
+    sourceType: sourceType as InvoiceData["sourceType"],
+    sourceMetadata,
+    processingStatus: "EXTRACTED",
+    reviewStatus: "NEEDS_REVIEW",
+    duplicateStatus: "UNIQUE",
+    invoiceNumber: extracted?.invoiceNumber || "",
+    invoiceDate: extracted?.invoiceDate || "",
+    dueDate: extracted?.dueDate || "",
+    purchaseOrderNumber: extracted?.purchaseOrderNumber || "",
+    projectReference: extracted?.projectReference || extracted?.reference || "",
+    currency,
+    currencySymbol,
+    paymentTerms: extracted?.paymentTerms || "",
+    status: deriveStatus(grandTotal, amountPaid, balanceDue, extracted?.dueDate),
+    vendor: compactParty(extracted?.vendor),
+    customer: compactParty(extracted?.customer),
+    shippingAddress: extracted?.shippingAddress ? compactParty(extracted.shippingAddress) : undefined,
+    items,
+    subtotal,
+    totalDiscount: numeric(extracted?.totalDiscount),
+    taxBreakdown: Array.isArray(extracted?.taxBreakdown) ? extracted.taxBreakdown : [],
+    totalTax,
+    shippingFee: numeric(extracted?.shippingFee),
+    otherFees: numeric(extracted?.otherFees),
+    grandTotal,
+    amountPaid,
+    balanceDue,
+    withholdingTaxRate: extracted?.withholdingTaxRate === undefined || extracted?.withholdingTaxRate === null ? undefined : numeric(extracted.withholdingTaxRate),
+    withholdingTaxAmount: extracted?.withholdingTaxAmount === undefined || extracted?.withholdingTaxAmount === null ? undefined : numeric(extracted.withholdingTaxAmount),
+    netAmountPayable: extracted?.netAmountPayable === undefined || extracted?.netAmountPayable === null ? undefined : numeric(extracted.netAmountPayable),
+    philippineTaxDetails: phTax,
+    notes: extracted?.notes || "",
+    termsAndConditions: extracted?.termsAndConditions || "",
+    category: extracted?.category || "",
+    extractedAt: new Date().toISOString(),
+    modelUsed,
+    confidenceScore,
+    fieldConfidence: extracted?.fieldConfidence || {},
+    validation,
+    rawJson: responseText,
+  };
+  invoiceData.extractionQuality = evaluateExtractionQuality(invoiceData, sourceText);
+  return invoiceData;
+}
+
+function parseStructuredResponse(response: any) {
+  const responseText = response?.text || "";
+  const extracted = JSON.parse(responseText || "{}");
+  if (!extracted || typeof extracted !== "object" || Array.isArray(extracted)) throw new Error("Structured response was not an object.");
+  return { extracted, responseText };
+}
+
+function enhancedRetryInstruction(quality: ExtractionQuality) {
+  const focus = retryFocusForQuality(quality);
+  return `SECOND EXTRACTION PASS. Re-read the original source document that is attached or included above. Do not use a previous JSON result as evidence and do not invent corrections. Focus especially on: ${focus.join(", ")}.
+- For line-items, inspect the table row by row. Recognize headers such as Item, SKU, Code, Description, Qty, Quantity, Unit, UOM, Unit Price, Price, Amount, and Total. Preserve every visible row independently; do not summarize or merge rows. Preserve SKU, description, quantity, unit of measure, unit price, and amount.
+- For currency, inspect explicit labels and symbols such as Currency: PHP, PHP, Php, Philippine Peso, ₱, USD, US$, $, EUR, SGD, JPY, and preserve the source currency without inferring it from an address.
+- For parties, inspect FROM, BILL TO, SELLER, BUYER, CUSTOMER, and registered/trade-name sections.
+- For totals, inspect the financial summary near the bottom, including Subtotal, VATable Sales, VAT Amount, Zero-Rated Sales, VAT-Exempt Sales, Total Amount Due, Amount Paid, and Balance Due.
+Return the complete invoice schema again. Unknown source values must remain null.`;
+}
+
 app.post("/api/extract-invoice", async (req, res) => {
+  const startedAt = Date.now();
   try {
     const {
       fileData,
@@ -297,18 +495,17 @@ app.post("/api/extract-invoice", async (req, res) => {
       emailContext,
     } = req.body || {};
 
-    if (!fileData && !textData && !emailContext?.body) {
+    if ((!fileData || !mimeType) && !textData && !emailContext?.body) {
       return res.status(400).json({ success: false, error: "No invoice file, text, or email content provided." });
     }
 
     const ai = getGeminiClient();
     const parts: any[] = [];
     if (fileData && mimeType) parts.push({ inlineData: { mimeType, data: fileData } });
-
     const emailBlock = emailContext
       ? `\nEMAIL CONTEXT\nSender: ${emailContext.sender || "Unknown"}\nSubject: ${emailContext.subject || ""}\nReceived: ${emailContext.receivedAt || ""}\nAttachment: ${emailContext.attachmentName || fileName || ""}\nEmail body:\n${emailContext.body || ""}\n`
       : "";
-
+    const sourceText = [textData, emailContext?.body].filter(Boolean).join("\n");
     parts.push({
       text: `${emailBlock}\n${textData ? `DOCUMENT TEXT:\n${textData}` : "Analyze the attached document."}\n\nExtract the financial document into the requested structured schema.`,
     });
@@ -316,172 +513,113 @@ app.post("/api/extract-invoice", async (req, res) => {
     const systemPrompt = `You are a high-precision, internationally capable financial document extraction system for invoices, tax invoices, receipts, credit notes, statements, and purchase orders. Give special attention to Philippine invoice terminology while preserving the source's actual document type.
 Rules:
 1. Extract values that are explicitly visible in the document or email context.
-2. Never guess, estimate, or invent missing financial values, dates, invoice numbers, tax IDs, contact details, or parties.
-3. You may calculate a value only when it is mathematically deterministic from clearly extracted values. Otherwise leave it absent/empty.
+2. Never guess, estimate, or invent missing financial values, dates, invoice numbers, tax IDs, contact details, parties, rows, quantities, or currency.
+3. You may calculate a value only when it is mathematically deterministic from clearly extracted values. Otherwise return null.
 4. Prefer document values over email-body hints when they conflict. Email context may fill a field only when the email clearly states it.
 5. Numbers must be raw numeric values without currency symbols.
 6. Use ISO currency codes where possible and YYYY-MM-DD dates where unambiguous.
-7. Extract every visible line item. Preserve descriptions faithfully.
+7. Inspect every visible invoice table row independently. Recognize Item, SKU, Code, Description, Qty, Quantity, Unit, UOM, Unit Price, Price, Amount, and Total headers. Do not skip compact rows, summarize the table, or merge multiple visible rows. Preserve SKU/code, description, quantity, unit of measure, unit price, and amount. If three rows are visible, return three items. Do not infer rows that are not visible.
 8. confidenceScore and fieldConfidence must reflect actual uncertainty; do not default to a high score.
 9. category is only a short suggested classification (e.g. Software, Office Supplies, Professional Services, Utilities, Logistics).
-10. For Philippine documents recognize INVOICE, VAT INVOICE, NON-VAT INVOICE, SALES INVOICE, SERVICE INVOICE, COMMERCIAL INVOICE, CASH INVOICE, CHARGE INVOICE, CREDIT INVOICE, and Official Receipt. Keep documentType=INVOICE for invoice documents and use invoiceSubtype for the more specific label. An Official Receipt is usually RECEIPT or SUPPLEMENTARY_DOCUMENT when the source does not clearly establish an invoice; do not invent a legal conclusion.
-11. For Philippine fields look for Registered Name, Business/Trade Name, VAT REG TIN, TIN, Branch Code, Registered Business Address, invoice/serial number, transaction date, buyer registered name/TIN/address, description/nature of service, quantity, unit price/cost, amount, VATable Sales, VAT Amount, VAT on Local Sales, Zero-Rated Sales, VAT-Exempt Sales, Discount, Total Amount, ATP, OCN, Permit to Use/BIR Permit, and approved invoice serial ranges. These are optional for foreign invoices.
-12. Recognize ₱, PHP, Php, PhP, and Philippine Peso as PHP. Preserve explicit USD, US$, $, EUR, SGD, JPY, and other foreign currencies. Never infer PHP only from a Philippine address. If currency is unclear, leave currency empty and lower confidence.
-13. Keep withholding tax/EWT/CWT separate from VAT. Never subtract withholding from grandTotal unless the source explicitly provides netAmountPayable; do not infer a withholding rate.
-14. For VAT-inclusive wording, set philippineTaxDetails.vatInclusive=true only when clearly stated; otherwise leave it absent rather than guessing.
-15. Return only JSON matching the schema.`;
+10. Preserve explicit Project / Reference, Reference, Job, Contract, and Work Order text as projectReference when visible. Do not create project-management data.
+11. For Philippine documents recognize INVOICE, VAT INVOICE, NON-VAT INVOICE, SALES INVOICE, SERVICE INVOICE, COMMERCIAL INVOICE, CASH INVOICE, CHARGE INVOICE, CREDIT INVOICE, and Official Receipt. Keep documentType=INVOICE for invoice documents and use invoiceSubtype for the more specific label. An Official Receipt is usually RECEIPT or SUPPLEMENTARY_DOCUMENT when the source does not clearly establish an invoice; do not invent a legal conclusion.
+12. For Philippine fields look for Registered Name, Business/Trade Name, VAT REG TIN, TIN, Branch Code, Registered Business Address, invoice/serial number, transaction date, buyer registered name/TIN/address, description/nature of service, quantity, unit, unit price/cost, amount, VATable Sales, VAT Amount, VAT on Local Sales, Zero-Rated Sales, VAT-Exempt Sales, Discount, Total Amount, Amount Paid, Balance Due, ATP, OCN, Permit to Use/BIR Permit, and approved invoice serial ranges. These are optional for foreign invoices.
+13. Recognize ₱, PHP, Php, PhP, and Philippine Peso as PHP. Preserve explicit USD, US$, $, EUR, SGD, JPY, and other foreign currencies. Never infer PHP only from a Philippine address. If currency is unclear, return null and lower confidence.
+14. Keep withholding tax/EWT/CWT separate from VAT. Never subtract withholding from grandTotal unless the source explicitly provides netAmountPayable; do not infer a withholding rate.
+15. For VAT-inclusive wording, set philippineTaxDetails.vatInclusive=true only when clearly stated; otherwise leave it null rather than guessing.
+16. Return every schema property, using null for an unknown scalar or object and [] for an unknown array. Return only JSON matching the schema.`;
 
-    const { response, modelUsed } = await generateStructured(
-      ai,
-      model,
-      { parts },
-      systemPrompt,
-      invoiceSchema
-    );
-
-    const responseText = response.text || "{}";
-    let extracted: any;
-    try {
-      extracted = JSON.parse(responseText);
-    } catch {
-      return res.status(500).json({ success: false, error: "Gemini returned an unreadable structured response." });
-    }
-
-    const items = (extracted.items || []).map((item: any, index: number) => {
-      const quantity = numeric(item.quantity, item.unitPrice !== undefined ? 1 : 0);
-      const unitPrice = numeric(item.unitPrice);
-      const discount = numeric(item.discount);
-      const deterministicTotal = roundMoney(quantity * unitPrice - discount);
-      const total = item.total === undefined ? deterministicTotal : numeric(item.total);
-      return {
-        id: randomUUID(),
-        itemNumber: index + 1,
-        sku: item.sku || "",
-        description: item.description || `Item ${index + 1}`,
-        quantity,
-        unitPrice,
-        discount,
-        taxRate: numeric(item.taxRate),
-        taxAmount: numeric(item.taxAmount),
-        taxTreatment: item.taxTreatment || "UNKNOWN",
-        total,
-      };
-    });
-
-    const validation = validateExtractedInvoice(extracted, items);
-    const subtotal = extracted.subtotal === undefined ? validation.calculatedSubtotal : numeric(extracted.subtotal);
-    const grandTotal = extracted.grandTotal === undefined ? validation.calculatedGrandTotal : numeric(extracted.grandTotal);
-    const amountPaid = numeric(extracted.amountPaid);
-    const balanceDue = extracted.balanceDue === undefined ? Math.max(0, grandTotal - amountPaid) : numeric(extracted.balanceDue);
-    const confidenceScore = extracted.confidenceScore === undefined ? undefined : numeric(extracted.confidenceScore);
-    // Passing arithmetic and confidence checks only makes the extraction review-ready.
-    // Verification is an explicit human action.
-    const reviewStatus = "NEEDS_REVIEW";
-
-    const invoiceData = {
-      id: randomUUID(),
-      fileName: fileName || emailContext?.attachmentName || "invoice",
-      documentType: extracted.documentType || "OTHER",
-      invoiceSubtype: extracted.invoiceSubtype || "UNKNOWN",
-      sourceType,
-      sourceMetadata: emailContext
-        ? {
-            sender: emailContext.sender || "",
-            subject: emailContext.subject || "",
-            receivedAt: emailContext.receivedAt || "",
-            attachmentName: emailContext.attachmentName || fileName || "",
-            emailReference: emailContext.emailReference || "",
-            gmailMessageId: emailContext.gmailMessageId || "",
-            gmailThreadId: emailContext.gmailThreadId || "",
-            gmailAttachmentId: emailContext.gmailAttachmentId || "",
-            emailRecordId: emailContext.emailRecordId || "",
-            sourceDocumentId: emailContext.sourceDocumentId || "",
-            sourceStoragePath: emailContext.sourceStoragePath || "",
-            rawEmailStoragePath: emailContext.rawEmailStoragePath || "",
-          }
-        : { attachmentName: fileName || "" },
-      processingStatus: "EXTRACTED",
-      reviewStatus,
-      duplicateStatus: "UNIQUE",
-      invoiceNumber: extracted.invoiceNumber || "",
-      invoiceDate: extracted.invoiceDate || "",
-      dueDate: extracted.dueDate || "",
-      purchaseOrderNumber: extracted.purchaseOrderNumber || "",
-      currency: extracted.currency || "",
-      currencySymbol: extracted.currencySymbol || ({ PHP: "₱", USD: "$", EUR: "€", SGD: "S$", JPY: "¥", GBP: "£" } as Record<string, string>)[String(extracted.currency || "").toUpperCase()] || "",
-      paymentTerms: extracted.paymentTerms || "",
-      status: deriveStatus(grandTotal, amountPaid, balanceDue, extracted.dueDate),
-      vendor: {
-        name: extracted.vendor?.name || extracted.vendor?.registeredName || "",
-        companyName: extracted.vendor?.companyName || extracted.vendor?.registeredName || extracted.vendor?.name || "",
-        registeredName: extracted.vendor?.registeredName || "",
-        tradeName: extracted.vendor?.tradeName || "",
-        taxId: extracted.vendor?.taxId || "",
-        branchCode: extracted.vendor?.branchCode || "",
-        taxRegistration: extracted.vendor?.taxRegistration || "UNKNOWN",
-        address: extracted.vendor?.address || "",
-        city: extracted.vendor?.city || "",
-        cityMunicipality: extracted.vendor?.cityMunicipality || "",
-        state: extracted.vendor?.state || "",
-        province: extracted.vendor?.province || "",
-        barangay: extracted.vendor?.barangay || "",
-        region: extracted.vendor?.region || "",
-        postalCode: extracted.vendor?.postalCode || "",
-        country: extracted.vendor?.country || "",
-        email: extracted.vendor?.email || "",
-        phone: extracted.vendor?.phone || "",
-        website: extracted.vendor?.website || "",
-      },
-      customer: {
-        name: extracted.customer?.name || extracted.customer?.registeredName || "",
-        companyName: extracted.customer?.companyName || extracted.customer?.registeredName || extracted.customer?.name || "",
-        registeredName: extracted.customer?.registeredName || "",
-        tradeName: extracted.customer?.tradeName || "",
-        taxId: extracted.customer?.taxId || "",
-        branchCode: extracted.customer?.branchCode || "",
-        taxRegistration: extracted.customer?.taxRegistration || "UNKNOWN",
-        address: extracted.customer?.address || "",
-        city: extracted.customer?.city || "",
-        cityMunicipality: extracted.customer?.cityMunicipality || "",
-        state: extracted.customer?.state || "",
-        province: extracted.customer?.province || "",
-        barangay: extracted.customer?.barangay || "",
-        region: extracted.customer?.region || "",
-        postalCode: extracted.customer?.postalCode || "",
-        country: extracted.customer?.country || "",
-        email: extracted.customer?.email || "",
-        phone: extracted.customer?.phone || "",
-      },
-      shippingAddress: extracted.shippingAddress || undefined,
-      items,
-      subtotal,
-      totalDiscount: numeric(extracted.totalDiscount),
-      taxBreakdown: extracted.taxBreakdown || [],
-      totalTax: numeric(extracted.totalTax),
-      shippingFee: numeric(extracted.shippingFee),
-      otherFees: numeric(extracted.otherFees),
-      grandTotal,
-      amountPaid,
-      balanceDue,
-      withholdingTaxRate: extracted.withholdingTaxRate === undefined ? undefined : numeric(extracted.withholdingTaxRate),
-      withholdingTaxAmount: extracted.withholdingTaxAmount === undefined ? undefined : numeric(extracted.withholdingTaxAmount),
-      netAmountPayable: extracted.netAmountPayable === undefined ? undefined : numeric(extracted.netAmountPayable),
-      philippineTaxDetails: extracted.philippineTaxDetails || undefined,
-      notes: extracted.notes || "",
-      termsAndConditions: extracted.termsAndConditions || "",
-      category: extracted.category || "",
-      extractedAt: new Date().toISOString(),
-      modelUsed,
-      confidenceScore,
-      fieldConfidence: extracted.fieldConfidence || {},
-      validation,
-      rawJson: responseText,
+    const firstModel = selectModel(model);
+    const attempts: Array<{ candidate: InvoiceData; quality: ExtractionQuality; modelUsed: string; attemptNumber: number }> = [];
+    const attemptSummaries: Array<any> = [];
+    let firstFailure: any;
+    const runAttempt = async (requested: string, attemptNumber: number, contents: any, reason?: string) => {
+      const attemptStarted = Date.now();
+      try {
+        const response = await generateContentWithTimeout(ai, requested, contents, { systemInstruction: systemPrompt, responseMimeType: "application/json", responseSchema: invoiceSchema });
+        const { extracted, responseText } = parseStructuredResponse(response);
+        const candidate = buildInvoiceCandidate(extracted, responseText, requested, fileName, sourceType, emailContext, sourceText);
+        attempts.push({ candidate, quality: candidate.extractionQuality!, modelUsed: requested, attemptNumber });
+        attemptSummaries.push({ attemptNumber, model: requested, responseParsed: true, qualityScore: candidate.extractionQuality?.score, completenessScore: candidate.extractionQuality?.completeness, lineItemCount: candidate.items.length, reason });
+        console.info("invoice-extraction-attempt", {
+          sourceType,
+          mimeType: mimeType || "text",
+          requestedProfile: firstModel,
+          actualModel: requested,
+          durationMs: Date.now() - attemptStarted,
+          responseParsed: true,
+          lineItemCount: candidate.items.length,
+          currencyPresent: Boolean(candidate.currency),
+          invoiceNumberPresent: Boolean(candidate.invoiceNumber),
+          totalPresent: candidate.grandTotal > 0,
+          qualityScore: candidate.extractionQuality?.score,
+          completenessScore: candidate.extractionQuality?.completeness,
+          fallbackTriggered: attemptNumber > 1,
+          fallbackReason: reason || null,
+        });
+        return candidate;
+      } catch (error: any) {
+        attemptSummaries.push({ attemptNumber, model: requested, responseParsed: false, reason: reason || "request-or-parse-failure" });
+        console.warn("invoice-extraction-attempt-failed", {
+          sourceType,
+          mimeType: mimeType || "text",
+          requestedProfile: firstModel,
+          actualModel: requested,
+          durationMs: Date.now() - attemptStarted,
+          responseParsed: false,
+          fallbackTriggered: attemptNumber > 1,
+          fallbackReason: reason || "request-or-parse-failure",
+          error: error?.message || "unknown",
+        });
+        throw error;
+      }
     };
 
-    res.json({ success: true, data: invoiceData });
+    try {
+      await runAttempt(firstModel, 1, { parts });
+    } catch (error) {
+      firstFailure = error;
+    }
+
+    const first = attempts[0];
+    if (shouldRunAutomaticRetry(firstModel, first?.quality)) {
+      const reason = first ? `quality:${retryFocusForQuality(first.quality).join(",")}` : "request-or-parse-failure";
+      const retryContents = { parts: [...parts, { text: enhancedRetryInstruction(first?.quality || evaluateExtractionQuality({}, sourceText)) }] };
+      try {
+        await runAttempt(ACCURACY_MODEL, 2, retryContents, reason);
+      } catch (error: any) {
+        if (!firstFailure) firstFailure = error;
+      }
+    }
+
+    if (!attempts.length) {
+      console.error("Error in /api/extract-invoice:", firstFailure?.message || "No usable extraction candidate.");
+      return res.status(500).json({ success: false, error: "Invoice extraction failed. Please retry the document." });
+    }
+
+    const selected = chooseBestExtractionCandidate(attempts.map((attempt) => ({ candidate: attempt.candidate, quality: attempt.quality })));
+    if (!selected) return res.status(500).json({ success: false, error: "Invoice extraction failed. Please retry the document." });
+    const selectedAttempt = attempts.find((attempt) => attempt.candidate === selected.candidate)?.attemptNumber || 1;
+    selected.candidate.extractionQuality = {
+      ...selected.quality,
+      attemptCount: attemptSummaries.length,
+      fallbackUsed: attemptSummaries.length > 1,
+      selectedAttempt,
+      attempts: attemptSummaries.map((summary) => ({ ...summary, selected: summary.attemptNumber === selectedAttempt })),
+    };
+    console.info("invoice-extraction-selected", {
+      sourceType,
+      durationMs: Date.now() - startedAt,
+      attemptCount: attemptSummaries.length,
+      selectedAttempt,
+      selectedModel: selected.candidate.modelUsed,
+      selectedQualityScore: selected.candidate.extractionQuality.score,
+      selectedCompletenessScore: selected.candidate.extractionQuality.completeness,
+    });
+    return res.json({ success: true, data: selected.candidate });
   } catch (error: any) {
-    console.error("Error in /api/extract-invoice:", error);
-    res.status(500).json({ success: false, error: error?.message || "Invoice extraction failed." });
+    console.error("Error in /api/extract-invoice:", error?.message || "unknown");
+    return res.status(500).json({ success: false, error: "Invoice extraction failed. Please retry the document." });
   }
 });
 

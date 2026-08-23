@@ -17,6 +17,7 @@ const comparisonFields: Array<{ path: string; label: string }> = [
   { path: "invoiceNumber", label: "Invoice #" },
   { path: "invoiceDate", label: "Invoice date" },
   { path: "dueDate", label: "Due date" },
+  { path: "projectReference", label: "Project / reference" },
   { path: "vendor.name", label: "Vendor" },
   { path: "vendor.taxId", label: "Vendor TIN" },
   { path: "customer.name", label: "Customer" },

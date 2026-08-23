@@ -122,6 +122,11 @@ test("missing currency is reviewed instead of inferred from a Philippine address
   assert.equal(result.validation?.issues.some((issue) => issue.id === "missing-currency"), true);
 });
 
+test("nonzero invoice totals with no rows receive a missing-line-items warning", () => {
+  const result = applyLocalChecks(invoice({ items: [], subtotal: 100, totalTax: 12, grandTotal: 112, balanceDue: 112 }));
+  assert.equal(result.validation?.issues.some((issue) => issue.id === "missing-line-items"), true);
+});
+
 test("pre-Philippine stored invoice shape remains readable", () => {
   const legacy = invoice({
     currency: "USD",

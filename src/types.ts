@@ -4,6 +4,7 @@ export interface LineItem {
   sku?: string;
   description: string;
   quantity: number;
+  unitOfMeasure?: string;
   unitPrice: number;
   discount?: number;
   taxRate?: number;
@@ -102,13 +103,50 @@ export interface EmailSourceMetadata {
 export interface FieldConfidence {
   invoiceNumber?: number;
   invoiceDate?: number;
+  dueDate?: number;
   vendorName?: number;
-  customerName?: number;
-  lineItems?: number;
-  grandTotal?: number;
   vendorTin?: number;
-  vatAmount?: number;
+  customerName?: number;
+  customerTin?: number;
   currency?: number;
+  lineItems?: number;
+  subtotal?: number;
+  vatAmount?: number;
+  grandTotal?: number;
+}
+
+export interface ExtractionAttemptSummary {
+  attemptNumber: number;
+  model: string;
+  responseParsed: boolean;
+  qualityScore?: number;
+  completenessScore?: number;
+  lineItemCount?: number;
+  selected?: boolean;
+  automatic?: boolean;
+  reason?: string;
+}
+
+export interface ExtractionQuality {
+  score: number;
+  completeness: number;
+  status: "GOOD" | "NEEDS_REVIEW";
+  requiresRetry: boolean;
+  reasons: string[];
+  criticalMissing: string[];
+  lineItemCount: number;
+  populatedFieldCount: number;
+  reconciliation: {
+    lineItems: "PASS" | "REVIEW" | "NOT_APPLICABLE";
+    subtotal: "PASS" | "REVIEW" | "NOT_APPLICABLE";
+    grandTotal: "PASS" | "REVIEW" | "NOT_APPLICABLE";
+    balance: "PASS" | "REVIEW" | "NOT_APPLICABLE";
+    philippineVat: "PASS" | "REVIEW" | "NOT_APPLICABLE";
+  };
+  attemptCount?: number;
+  fallbackUsed?: boolean;
+  selectedAttempt?: number;
+  attempts?: ExtractionAttemptSummary[];
 }
 
 export interface ValidationIssue {
@@ -160,6 +198,7 @@ export interface InvoiceData {
   invoiceDate: string;
   dueDate?: string;
   purchaseOrderNumber?: string;
+  projectReference?: string;
   currency: string;
   currencySymbol?: string;
   paymentTerms?: string;
@@ -196,6 +235,7 @@ export interface InvoiceData {
   modelUsed: string;
   confidenceScore?: number;
   fieldConfidence?: FieldConfidence;
+  extractionQuality?: ExtractionQuality;
   validation?: ValidationSummary;
   rawJson?: string;
   verifiedAt?: string;
@@ -209,6 +249,19 @@ export interface ExtractionRequest {
   mimeType?: string;
   textData?: string;
   fileName?: string;
+  model?: string;
+  sourceType?: SourceType;
+  emailContext?: EmailSourceMetadata & { body?: string };
+  retryReason?: "automatic-quality" | "manual" | "request-failure";
+  extractionFocus?: string;
+}
+
+export interface OriginalSourcePayload {
+  fileData?: string;
+  mimeType?: string;
+  textData?: string;
+  fileName?: string;
+  previewUrl?: string;
   model?: string;
   sourceType?: SourceType;
   emailContext?: EmailSourceMetadata & { body?: string };

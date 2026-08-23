@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileText, Keyboard, Loader2, Save, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, FileText, Keyboard, Loader2, RotateCcw, Save, ShieldCheck } from "lucide-react";
 import { InvoiceData } from "../types";
 import { formatMoney } from "../config/regional";
 import { InvoiceViewer } from "./InvoiceViewer";
@@ -20,6 +20,8 @@ interface VerificationWorkspaceProps {
   queueIndex: number;
   saveState: SaveState;
   completion?: ReviewCompletion | null;
+  isRetrying: boolean;
+  onRetryExtraction: () => Promise<InvoiceData | null>;
   onUpdateInvoice: (invoice: InvoiceData) => void;
   onBack: () => void | Promise<void>;
   onPrevious: () => Promise<boolean>;
@@ -46,6 +48,8 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   queueIndex,
   saveState,
   completion,
+  isRetrying,
+  onRetryExtraction,
   onUpdateInvoice,
   onBack,
   onPrevious,
@@ -60,9 +64,17 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
 }) => {
   const [mobilePane, setMobilePane] = useState<"details" | "source">("details");
   const [warningConfirmation, setWarningConfirmation] = useState(false);
+  const [retryConfirmation, setRetryConfirmation] = useState(false);
   const [focusFieldPath, setFocusFieldPath] = useState<string>();
   const [focusFieldToken, setFocusFieldToken] = useState(0);
   const issueCount = invoice.validation?.issues?.length || 0;
+  const quality = invoice.extractionQuality;
+  const extractionIncomplete = Boolean(quality?.requiresRetry || quality?.status === "NEEDS_REVIEW" || (!quality && ((!invoice.currency && invoice.grandTotal > 0) || (invoice.items.length === 0 && (invoice.subtotal > 0 || invoice.grandTotal > 0)))));
+  const humanEdits = useMemo(() => {
+    if (!invoice.aiSnapshot) return false;
+    const paths = ["invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "currency", "vendor", "customer", "items", "subtotal", "totalTax", "grandTotal", "balanceDue", "philippineTaxDetails"];
+    return paths.some((path) => JSON.stringify(path.split(".").reduce((value: any, key) => value?.[key], invoice.aiSnapshot) ?? null) !== JSON.stringify(path.split(".").reduce((value: any, key) => value?.[key], invoice) ?? null));
+  }, [invoice]);
   const verifiedCount = useMemo(() => queue.filter((item) => item.reviewStatus === "VERIFIED").length, [queue]);
   const remainingCount = Math.max(0, queue.length - verifiedCount);
   const positionLabel = queue.length ? `${Math.min(queueIndex + 1, queue.length)} / ${queue.length}` : "—";
@@ -80,6 +92,12 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
     }
     const completed = await onVerifyAndNext();
     if (completed) setWarningConfirmation(false);
+  };
+
+  const requestRetry = () => {
+    if (isRetrying) return;
+    if (humanEdits) setRetryConfirmation(true);
+    else void onRetryExtraction();
   };
 
   useEffect(() => {
@@ -108,6 +126,12 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
 
   return <div className="space-y-3">
     <header className="rounded-2xl border border-slate-200 bg-white shadow-sm p-3.5 sm:p-4"><div className="flex flex-col xl:flex-row xl:items-center gap-3"><button type="button" onClick={() => void onBack()} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 shrink-0"><ArrowLeft className="w-4 h-4" />Review Queue</button><div className="hidden xl:block h-7 w-px bg-slate-200" /><div className="min-w-0 flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="text-[9px] font-black uppercase tracking-wider text-indigo-600">Verification workspace</span><span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{invoice.sourceType || "UPLOAD"}</span></div><div className="flex items-center gap-2 mt-0.5"><h1 className="text-base font-black font-mono truncate">{invoice.invoiceNumber || invoice.fileName || "Unnumbered invoice"}</h1><span className="text-[10px] text-slate-500 truncate">{invoice.vendor?.registeredName || invoice.vendor?.name || "Unknown vendor"}</span></div><p className="text-[10px] text-slate-500 mt-0.5">{invoice.currency ? formatMoney(invoice.grandTotal, invoice.currency) : "Currency unclear"} • {invoice.items.length} line item{invoice.items.length === 1 ? "" : "s"}</p></div><div className="flex items-center gap-3 shrink-0"><div className="text-right"><p className="text-[9px] uppercase font-black text-slate-400">Queue position</p><p className="text-sm font-black font-mono">{positionLabel}</p></div><div className="hidden sm:block h-7 w-px bg-slate-200" /><div className="text-right"><p className="text-[9px] uppercase font-black text-slate-400">Progress</p><p className="text-xs font-black text-emerald-700">{verifiedCount} verified <span className="text-slate-400">•</span> {remainingCount} remaining</p></div><div className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold ${saveState === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : saveState === "unsaved" ? "border-amber-200 bg-amber-50 text-amber-800" : saveState === "saving" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{saveState === "saving" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}{saveLabel(saveState)}</div></div></div></header>
+
+    <div className={`rounded-2xl border px-3.5 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${extractionIncomplete ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"}`}>
+      <div className="flex gap-2.5 min-w-0"><AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${extractionIncomplete ? "text-amber-700" : "text-slate-400"}`} /><div className="min-w-0"><p className={`text-xs font-black ${extractionIncomplete ? "text-amber-950" : "text-slate-800"}`}>{extractionIncomplete ? "Extraction incomplete" : "Extraction quality checked — human review required"}</p><p className="text-[10px] text-slate-600 mt-0.5">{extractionIncomplete ? (quality?.reasons?.slice(0, 2).join(" ") || "Critical fields still need review.") : "Retry is available if you want to re-read the original document."}</p></div></div>
+      <button type="button" onClick={requestRetry} disabled={isRetrying} className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-800 hover:bg-indigo-50 disabled:opacity-60"><RotateCcw className={`w-3.5 h-3.5 ${isRetrying ? "animate-spin" : ""}`} />{isRetrying ? "Retrying…" : "Retry extraction"}</button>
+    </div>
+    {retryConfirmation && <div className="rounded-xl border border-sky-200 bg-sky-50 px-3.5 py-3 text-[10px] text-sky-950"><p className="font-black">You have edited this extracted draft.</p><p className="mt-1">Retrying extraction may replace the current extracted draft. Your previous extraction and review history will remain preserved.</p><div className="mt-2 flex items-center gap-2"><button type="button" onClick={() => setRetryConfirmation(false)} className="rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 font-bold text-sky-800">Keep current draft</button><button type="button" onClick={() => { setRetryConfirmation(false); void onRetryExtraction(); }} disabled={isRetrying} className="rounded-lg bg-indigo-700 px-2.5 py-1.5 font-bold text-white disabled:opacity-60">Retry and replace draft</button></div></div>}
 
     <div className="lg:hidden grid grid-cols-2 gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1"><button type="button" onClick={() => setMobilePane("details")} className={`rounded-lg px-3 py-2 text-xs font-black ${mobilePane === "details" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>Details</button><button type="button" onClick={() => setMobilePane("source")} className={`rounded-lg px-3 py-2 text-xs font-black ${mobilePane === "source" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}>Source</button></div>
 

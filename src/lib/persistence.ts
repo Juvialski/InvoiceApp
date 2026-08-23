@@ -1,4 +1,4 @@
-import { InvoiceData, GmailImportedMessage, StoredEmailRecord, StoredSourceDocument, ReviewEvent } from "../types";
+import { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent } from "../types";
 import { supabase } from "./supabase";
 
 const INVOICE_BUCKET = "invoice-originals";
@@ -78,6 +78,33 @@ async function signedUrl(bucket: string, storagePath?: string | null) {
   return data?.signedUrl || undefined;
 }
 
+function encodeBase64(bytes: Uint8Array) {
+  let output = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    output += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(output);
+}
+
+async function sourceDocumentFromRow(row: any): Promise<StoredSourceDocument> {
+  return {
+    id: row.id,
+    emailMessageId: row.email_message_id || undefined,
+    gmailAttachmentId: row.gmail_attachment_id || undefined,
+    gmailPartId: row.gmail_part_id || undefined,
+    attachmentIndex: row.attachment_index ?? undefined,
+    filename: row.filename,
+    mimeType: row.mime_type,
+    size: Number(row.file_size || 0),
+    storagePath: row.storage_path,
+    sha256: row.sha256,
+    processingStatus: row.processing_status || undefined,
+    documentType: row.document_type || undefined,
+    previewUrl: await signedUrl(INVOICE_BUCKET, row.storage_path),
+  };
+}
+
 export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
   const client = requireSupabase();
   await requireUserId();
@@ -129,6 +156,16 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
   const bytes = decodeBase64(input.fileData);
   const hash = await sha256(bytes);
 
+  const { data: existingRows, error: existingError } = await client
+    .from("source_documents")
+    .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,sha256,processing_status,document_type,created_at")
+    .eq("user_id", userId)
+    .eq("sha256", hash)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (existingError) throw existingError;
+  if (existingRows?.[0]) return sourceDocumentFromRow(existingRows[0]);
+
   const now = new Date();
   const path = `${userId}/manual/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${hash.slice(0, 12)}-${crypto.randomUUID().slice(0, 8)}-${safeName(input.fileName)}`;
   const { error: uploadError } = await client.storage.from(INVOICE_BUCKET).upload(path, bytes, {
@@ -154,7 +191,64 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
     .single();
   if (error) throw error;
 
-  return { id: data.id, filename: input.fileName, mimeType: input.mimeType, size: bytes.byteLength, storagePath: path, sha256: hash, previewUrl: await signedUrl(INVOICE_BUCKET, path) };
+  return { id: data.id, emailMessageId: input.emailMessageId, filename: input.fileName, mimeType: input.mimeType, size: bytes.byteLength, storagePath: path, sha256: hash, processingStatus: "STORED", previewUrl: await signedUrl(INVOICE_BUCKET, path) };
+}
+
+export async function loadSourcePayloadForRetry(invoice: InvoiceData): Promise<OriginalSourcePayload | null> {
+  const client = requireSupabase();
+  await requireUserId();
+  if (invoice.sourceDocumentId) {
+    const { data: row, error: rowError } = await client
+      .from("source_documents")
+      .select("id,source_type,filename,mime_type,file_size,storage_path,sha256")
+      .eq("id", invoice.sourceDocumentId)
+      .maybeSingle();
+    if (rowError) throw rowError;
+    if (row) {
+      const { data: blob, error: downloadError } = await client.storage.from(INVOICE_BUCKET).download(row.storage_path);
+      if (downloadError) throw downloadError;
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const actualHash = await sha256(bytes);
+      if (row.sha256 && actualHash !== row.sha256) throw new Error("The preserved source document failed its integrity check.");
+      if (row.mime_type === "text/plain") {
+        return {
+          textData: new TextDecoder().decode(bytes),
+          fileName: row.filename,
+          sourceType: row.source_type as OriginalSourcePayload["sourceType"],
+          model: "gemini-3.7-flash",
+          emailContext: invoice.sourceMetadata,
+        };
+      }
+      return {
+        fileData: encodeBase64(bytes),
+        mimeType: row.mime_type,
+        fileName: row.filename,
+        sourceType: row.source_type as OriginalSourcePayload["sourceType"],
+        model: "gemini-3.7-flash",
+        emailContext: invoice.sourceMetadata,
+      };
+    }
+  }
+
+  if (invoice.sourceEmailId) {
+    const email = await loadEmailSource(invoice.sourceEmailId);
+    if (email?.bodyText) {
+      return {
+        textData: email.bodyText,
+        fileName: invoice.fileName || email.subject || "Email invoice",
+        sourceType: "EMAIL",
+        model: "gemini-3.7-flash",
+        emailContext: {
+          ...(invoice.sourceMetadata || {}),
+          sender: email.sender,
+          subject: email.subject,
+          receivedAt: email.receivedAt,
+          body: email.bodyText,
+        },
+      };
+    }
+  }
+  return null;
 }
 
 
@@ -479,6 +573,107 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
   return saved;
 }
 
+export async function persistExtractionAttempt(
+  existingInvoice: InvoiceData,
+  candidate: InvoiceData,
+  metadata: { reason?: string; automatic?: boolean } = {},
+): Promise<InvoiceData> {
+  const client = requireSupabase();
+  const userId = await requireUserId();
+  const { data: existingRow, error: existingError } = await client
+    .from("invoices")
+    .select("id,current_data,source_document_id,source_email_id,vendor_id,duplicate_status,duplicate_of_id")
+    .eq("id", existingInvoice.id)
+    .single();
+  if (existingError) throw existingError;
+
+  const currentData = (existingRow.current_data || existingInvoice) as InvoiceData;
+  const preservedSource = {
+    fileName: currentData.fileName || candidate.fileName,
+    fileSize: currentData.fileSize || candidate.fileSize,
+    fileType: currentData.fileType || candidate.fileType,
+    previewUrl: currentData.previewUrl || candidate.previewUrl,
+    sourceDocumentId: existingRow.source_document_id || currentData.sourceDocumentId || candidate.sourceDocumentId,
+    sourceStoragePath: currentData.sourceStoragePath || candidate.sourceStoragePath,
+    sourceSha256: currentData.sourceSha256 || candidate.sourceSha256,
+    sourceEmailId: existingRow.source_email_id || currentData.sourceEmailId || candidate.sourceEmailId,
+    sourceType: currentData.sourceType || candidate.sourceType,
+    sourceMetadata: { ...(candidate.sourceMetadata || {}), ...(currentData.sourceMetadata || {}) },
+  };
+  const aiSnapshot = clone({ ...candidate, ...preservedSource, id: existingRow.id });
+  delete (aiSnapshot as any).aiSnapshot;
+  const activeCandidate: InvoiceData = {
+    ...currentData,
+    ...candidate,
+    ...preservedSource,
+    id: existingRow.id,
+    reviewStatus: "NEEDS_REVIEW",
+    verifiedAt: undefined,
+    duplicateStatus: existingRow.duplicate_status || currentData.duplicateStatus || candidate.duplicateStatus || "UNIQUE",
+    duplicateOfId: existingRow.duplicate_of_id || currentData.duplicateOfId || candidate.duplicateOfId,
+    aiSnapshot,
+  };
+
+  const vendorId = await ensureVendor(activeCandidate) || existingRow.vendor_id || null;
+  const { count: existingAttemptCount, error: countError } = await client
+    .from("invoice_extractions")
+    .select("id", { count: "exact", head: true })
+    .eq("invoice_id", existingRow.id);
+  if (countError) throw countError;
+  const attemptNumber = (existingAttemptCount || 0) + 1;
+  const validationResult = {
+    ...(candidate.validation || {}),
+    extractionQuality: candidate.extractionQuality || {},
+    attemptNumber,
+    reason: metadata.reason || "manual",
+    automatic: Boolean(metadata.automatic),
+  };
+  const { data: extraction, error: extractionError } = await client
+    .from("invoice_extractions")
+    .insert({
+      user_id: userId,
+      invoice_id: existingRow.id,
+      model: candidate.modelUsed || "unknown",
+      raw_result: candidate.rawJson || null,
+      structured_result: aiSnapshot,
+      confidence: candidate.confidenceScore ?? null,
+      validation_result: validationResult,
+    })
+    .select("id")
+    .single();
+  if (extractionError) throw extractionError;
+
+  const saved = { ...activeCandidate, extractionId: extraction.id, aiSnapshot: clone(aiSnapshot) };
+  const { error: eventError } = await client.from("invoice_review_events").insert({
+    user_id: userId,
+    invoice_id: existingRow.id,
+    event_type: "AI_REEXTRACTION_CREATED",
+    previous_value: { extractionId: existingInvoice.extractionId || currentData.extractionId, attemptNumber: Math.max(1, attemptNumber - 1) },
+    new_value: { extractionId: extraction.id, model: candidate.modelUsed, quality: candidate.extractionQuality || {}, attemptNumber, automatic: Boolean(metadata.automatic) },
+  });
+  if (eventError) throw eventError;
+
+  const { error: updateError } = await client.from("invoices").update({
+    vendor_id: vendorId,
+    invoice_number: saved.invoiceNumber || null,
+    invoice_date: saved.invoiceDate || null,
+    due_date: saved.dueDate || null,
+    currency: saved.currency || null,
+    grand_total: saved.grandTotal || 0,
+    payment_status: saved.status || "UNPAID",
+    review_status: "NEEDS_REVIEW",
+    duplicate_status: saved.duplicateStatus || "UNIQUE",
+    duplicate_of_id: saved.duplicateOfId || null,
+    document_type: saved.documentType || "OTHER",
+    current_data: saved,
+    verified_at: null,
+    updated_at: new Date().toISOString(),
+  }).eq("id", existingRow.id);
+  if (updateError) throw updateError;
+  await replaceLineItems(existingRow.id, saved.items);
+  return saved;
+}
+
 async function replaceLineItems(invoiceId: string, items: InvoiceData["items"]) {
   const client = requireSupabase();
   const userId = await requireUserId();
@@ -506,6 +701,7 @@ function comparableSnapshot(invoice: InvoiceData) {
     invoiceDate: invoice.invoiceDate,
     dueDate: invoice.dueDate,
     purchaseOrderNumber: invoice.purchaseOrderNumber,
+    projectReference: invoice.projectReference,
     currency: invoice.currency,
     status: invoice.status,
     vendor: invoice.vendor,

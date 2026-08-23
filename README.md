@@ -13,7 +13,9 @@ Preserve original email + PDF/image in Supabase
       ↓
 Gemini 3.5 Flash-Lite classification/extraction
       ↓
-Deterministic invoice math validation
+Deterministic extraction-quality scoring + invoice math validation
+      ↓
+Bounded Enhanced retry when the result is objectively incomplete
       ↓
 Review Queue
       ↓
@@ -36,7 +38,10 @@ Verified invoice + review history
 - Manual email import remains available as a fallback.
 - PDF/image batch upload remains available.
 - Gemini 3.5 Flash-Lite extraction with Gemini 3.7 Flash fallback.
+- Deterministic extraction-quality scoring that separates API success from usable extraction success.
+- Bounded Standard → Enhanced retry using the original source when critical fields, line items, currency, totals, or reconciliation are incomplete.
 - Immutable AI extraction snapshots in `invoice_extractions`.
+- Manual re-extraction appends a new immutable extraction attempt to the same invoice and preserves the original source and prior AI baseline.
 - Separate editable/canonical invoice state in `invoices`.
 - Deterministic subtotal, grand-total, line-item and balance validation.
 - Duplicate invoice warnings.
@@ -152,6 +157,8 @@ gemini-3.7-flash
 ```
 
 The extraction prompt does not allow Gemini to invent missing financial values. The server may fill only mathematically deterministic values; otherwise fields remain empty and are routed to human review.
+
+Every structured response is evaluated deterministically after parsing. A valid but empty or internally inconsistent JSON response is marked `NEEDS_REVIEW`; Standard automatically receives one bounded Enhanced retry with the original document and targeted table/totals instructions. Human verification remains explicit.
 
 The primary extraction/classification model remains `gemini-3.5-flash-lite`, with `gemini-3.7-flash` retained as the existing fallback/accuracy path. PH terminology is added to the prompt without making the global document model PH-only.
 

@@ -51,7 +51,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   const changedPaths = useMemo(() => {
     if (!invoice.aiSnapshot) return new Set<string>();
     const paths = [
-      "invoiceNumber", "invoiceDate", "dueDate", "vendor.name", "vendor.taxId", "customer.name", "customer.taxId",
+      "invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "vendor.name", "vendor.taxId", "customer.name", "customer.taxId",
       "subtotal", "totalTax", "grandTotal", "balanceDue", "philippineTaxDetails.vatableSales", "philippineTaxDetails.vatAmount",
       "philippineTaxDetails.zeroRatedSales", "philippineTaxDetails.vatExemptSales", "withholdingTaxAmount", "items",
     ];
@@ -86,12 +86,13 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   };
 
   const handleCopyTable = () => {
-    const headers = ["Item #", "SKU", "Description", "Quantity", "Unit Price", "Total"];
+    const headers = ["Item #", "SKU", "Description", "Quantity", "Unit", "Unit Price", "Total"];
     const rows = invoice.items.map((it, idx) => [
       it.itemNumber || idx + 1,
       it.sku || "",
       it.description,
       it.quantity,
+      it.unitOfMeasure || "",
       it.unitPrice,
       it.total,
     ]);
@@ -142,6 +143,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
       sku: "",
       description: "New Product / Service",
       quantity: 1,
+      unitOfMeasure: "",
       unitPrice: 0,
       discount: 0,
       taxRate: 0,
@@ -242,10 +244,12 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
             <p className="text-xs text-slate-500 mt-0.5">
               Extraction record • {invoice.items.length} line items detected
             </p>
-            {isEditingHeader && <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+            {invoice.projectReference && <p className="text-[10px] text-indigo-700 mt-1 truncate">Project / reference: {invoice.projectReference}</p>}
+            {isEditingHeader && <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3">
               <input value={invoice.invoiceNumber || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceNumber: e.target.value })} placeholder="Invoice number" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
               <input type="date" value={invoice.invoiceDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceDate: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
               <input type="date" value={invoice.dueDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, dueDate: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
+              <input value={invoice.projectReference || ""} onChange={(e) => onUpdateInvoice({ ...invoice, projectReference: e.target.value })} placeholder="Project / reference" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
             </div>}
           </div>
         </div>
@@ -283,7 +287,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
         </div>
       </div>
 
-      {compact && <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm"><div className="flex items-center justify-between gap-2"><div><p className="text-[9px] uppercase tracking-wide font-black text-indigo-600">Invoice details</p><p className="text-[10px] text-slate-500 mt-0.5">Edit the extracted header before checking the totals.</p></div>{edited("invoiceNumber") && <span className="inline-flex items-center gap-1 text-[9px] font-black text-sky-700"><span className="w-1.5 h-1.5 rounded-full bg-sky-500" />Edited</span>}</div><div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3"><label className="text-[9px] uppercase font-black text-slate-400">Invoice number<input data-field-path="invoiceNumber" value={invoice.invoiceNumber || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceNumber: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-mono text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Invoice date<input data-field-path="invoiceDate" type="date" value={invoice.invoiceDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Due date<input data-field-path="dueDate" type="date" value={invoice.dueDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, dueDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label></div></div>}
+      {compact && <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm"><div className="flex items-center justify-between gap-2"><div><p className="text-[9px] uppercase tracking-wide font-black text-indigo-600">Invoice details</p><p className="text-[10px] text-slate-500 mt-0.5">Edit the extracted header before checking the totals.</p></div>{edited("invoiceNumber") && <span className="inline-flex items-center gap-1 text-[9px] font-black text-sky-700"><span className="w-1.5 h-1.5 rounded-full bg-sky-500" />Edited</span>}</div><div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3"><label className="text-[9px] uppercase font-black text-slate-400">Invoice number<input data-field-path="invoiceNumber" value={invoice.invoiceNumber || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceNumber: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-mono text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Invoice date<input data-field-path="invoiceDate" type="date" value={invoice.invoiceDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Due date<input data-field-path="dueDate" type="date" value={invoice.dueDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, dueDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label><label className="text-[9px] uppercase font-black text-slate-400">Project / reference<input data-field-path="projectReference" value={invoice.projectReference || ""} onChange={(e) => onUpdateInvoice({ ...invoice, projectReference: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs text-slate-800" /></label></div></div>}
 
       {/* Bento Grid Top Section: Status Cards, Confidence, Excel Hero & Key Meta */}
       <div className={`${compact ? "hidden" : ""} grid grid-cols-1 md:grid-cols-12 gap-4`}>
@@ -562,6 +566,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                     <th className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase min-w-[200px]">Description</th>
                     <th className="py-3 px-3 text-[11px] font-bold text-slate-500 uppercase w-28">SKU / Code</th>
                     <th className="py-3 px-3 text-[11px] font-bold text-slate-500 uppercase text-center w-20">Qty</th>
+                    <th className="py-3 px-3 text-[11px] font-bold text-slate-500 uppercase w-20">Unit</th>
                     <th className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase text-right w-28">Unit Price</th>
                     <th className="py-3 px-4 text-[11px] font-bold text-slate-500 uppercase text-right w-28">Amount</th>
                     <th className="py-3 px-2 w-10 text-center"></th>
@@ -601,6 +606,16 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                           className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-1.5 py-1 text-center text-slate-700 font-mono transition"
                         />
                       </td>
+                      <td className="py-3 px-3">
+                        <input
+                          type="text"
+                          data-field-path={`items.${idx}.unitOfMeasure`}
+                          value={item.unitOfMeasure || ""}
+                          placeholder="-"
+                          onChange={(e) => handleUpdateLineItem(item.id, "unitOfMeasure", e.target.value)}
+                          className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded px-1.5 py-1 text-slate-500 text-[11px] transition"
+                        />
+                      </td>
                       <td className="py-3 px-4 text-right">
                         <input
                           type="number"
@@ -629,7 +644,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
 
                   {invoice.items.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-slate-400 text-xs">
+                      <td colSpan={8} className="text-center py-8 text-slate-400 text-xs">
                         No line items found. Click "Add Item" above to add one.
                       </td>
                     </tr>
