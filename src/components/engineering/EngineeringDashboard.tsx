@@ -12,7 +12,7 @@ export const EngineeringDashboard: React.FC<EngineeringDashboardProps> = ({ proj
   const payroll = values.reduce((sum, item) => sum + item.payrollCost, 0);
   const supplier = values.reduce((sum, item) => sum + item.invoiceCost, 0);
   const other = values.reduce((sum, item) => sum + item.otherExpenseCost, 0);
-  const unallocated = values.reduce((sum, item) => sum + item.unallocatedInvoiceCost + item.unallocatedExpenseCost, 0);
+  const unallocated = values.reduce((sum, item) => sum + item.unallocatedInvoiceCost + item.unallocatedExpenseCost + item.unallocatedPayrollCost, 0);
   const outstanding = invoices.filter((invoice) => invoice.status !== "PAID" && invoice.currency === "PHP").reduce((sum, invoice) => sum + (invoice.balanceDue ?? invoice.grandTotal ?? 0), 0);
   const active = projects.filter((project) => project.status === "ACTIVE").length;
   const cards: Array<[string, string | number, React.ElementType, string]> = [["Active projects", active, BriefcaseBusiness, "text-indigo-700 bg-indigo-50"], ["Project budgets", money(budget), WalletCards, "text-sky-700 bg-sky-50"], ["Actual cost", money(actual), CircleDollarSign, "text-emerald-700 bg-emerald-50"], ["Supplier invoices", money(supplier), Receipt, "text-blue-700 bg-blue-50"], ["Payroll", money(payroll), HardHat, "text-violet-700 bg-violet-50"], ["Other expenses", money(other), Receipt, "text-amber-700 bg-amber-50"], ["Needs allocation", money(unallocated), AlertTriangle, "text-rose-700 bg-rose-50"]];

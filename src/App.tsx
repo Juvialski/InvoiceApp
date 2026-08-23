@@ -15,6 +15,7 @@ import { Settings as SettingsScreen } from "./components/Settings";
 import { EngineeringDashboard } from "./components/engineering/EngineeringDashboard";
 import { ProjectReports } from "./components/engineering/ProjectReports";
 import { ProjectsPage } from "./components/projects/ProjectsPage";
+import { PayrollOperatingCosts } from "./components/engineering/PayrollOperatingCosts";
 import { ProjectWorkspace } from "./components/projects/ProjectWorkspace";
 import { ExpensesPage } from "./components/expenses/ExpensesPage";
 import { PayrollPage } from "./components/payroll/PayrollPage";
@@ -56,7 +57,9 @@ import {
   writeProjectsToLocal,
 } from "./lib/projects";
 import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
-import { canTransitionPayrollRun, deletePayrollEntriesForRunToSupabase, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
+import { canTransitionPayrollRun, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
+import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
+import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
 
 function prepareStoredInvoice(invoice: InvoiceData): InvoiceData {
   const sourceType = invoice.sourceType || (invoice.id?.startsWith("sample") ? "SAMPLE" : "UPLOAD");
@@ -155,6 +158,7 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>(readProjectsFromLocal);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectFormSeed, setProjectFormSeed] = useState<Project | null>(null);
+  const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(readPayrollImportWorkspaceFromLocal);
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(readInvoiceProjectAllocationsFromLocal);
   const [expenses, setExpenses] = useState<Expense[]>(readExpensesFromLocal);
   const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(readPayrollWorkspaceFromLocal);
@@ -195,6 +199,11 @@ export default function App() {
       } else {
         showNotification("info", "Invoice workspace loaded. Apply the project-costing migration to enable connected Projects, Expenses, and Payroll data.");
       }
+      try {
+        setPayrollImportData(await loadPayrollImportWorkspaceFromSupabase());
+      } catch {
+        showNotification("info", "Payroll import history is unavailable until its staging migration is applied.");
+      }
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not load the workspace. Check your connection or contact your administrator."));
     } finally {
@@ -222,6 +231,7 @@ export default function App() {
         const local = localFallbackInvoices();
         invoicesRef.current = local;
         setInvoices(local);
+        setPayrollImportData(readPayrollImportWorkspaceFromLocal());
         setSyncState({});
         setProjects(readProjectsFromLocal());
         setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
@@ -243,10 +253,11 @@ export default function App() {
     if (!session) {
       writeProjectsToLocal(projects);
       writeInvoiceProjectAllocationsToLocal(invoiceProjectAllocations);
+      writePayrollImportWorkspaceToLocal(payrollImportData);
       writeExpensesToLocal(expenses);
       writePayrollWorkspaceToLocal(payrollData);
     }
-  }, [projects, invoiceProjectAllocations, expenses, payrollData, session]);
+  }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, session]);
 
   useEffect(() => {
     if (activeTab !== "extractor") setUploadProjectContextId(null);
@@ -640,6 +651,71 @@ export default function App() {
     }
   };
 
+  const handleStagePayrollImport = async (batch: PayrollImportBatch, rows: PayrollImportRow[], bytes: Uint8Array) => {
+    try {
+      const duplicates = findDuplicatePayrollImportBatches(payrollImportData.batches, batch.fileSha256);
+      let savedBatch = duplicates[0] ? { ...batch, duplicateOfBatchId: duplicates[0].id, warnings: [...batch.warnings, "A payroll file with this SHA-256 hash already exists in this workspace."] } : batch;
+      let savedRows = rows;
+      if (session && supabase) {
+        const storagePath = await uploadPayrollImportSourceToSupabase({ batchId: batch.id, fileName: batch.originalFileName, mimeType: batch.mimeType, bytes });
+        savedBatch = await savePayrollImportBatchToSupabase({ ...savedBatch, storagePath });
+        savedRows = await savePayrollImportRowsToSupabase(rows);
+      }
+      setPayrollImportData((current) => ({
+        ...current,
+        batches: [savedBatch, ...current.batches.filter((item) => item.id !== savedBatch.id)],
+        rows: [...savedRows, ...current.rows.filter((item) => item.batchId !== savedBatch.id)],
+      }));
+      showNotification("success", duplicates.length ? "Payroll workbook staged with a duplicate warning. Review the earlier batch before committing." : "Payroll workbook staged for review.");
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not stage the payroll workbook."));
+    }
+  };
+
+  const handleSavePayrollImportTemplate = async (template: PayrollImportTemplate) => {
+    try {
+      const saved = session && supabase ? await savePayrollImportTemplateToSupabase(template) : { ...template, updatedAt: new Date().toISOString() };
+      setPayrollImportData((current) => ({ ...current, templates: [saved, ...current.templates.filter((item) => item.id !== saved.id)] }));
+      showNotification("success", "Payroll mapping template saved.");
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not save the payroll mapping template."));
+    }
+  };
+
+  const handleCommitPayrollImport = async (staged: StagedPayrollImport, periodStart: string, periodEnd: string, payDate?: string) => {
+    try {
+      const sourceBatch = payrollImportData.batches.find((item) => item.id === staged.batch.id) || staged.batch;
+      const draft = buildDraftPayrollFromImport({ batch: sourceBatch, rows: staged.rows, periodStart, periodEnd, payDate });
+      let savedPeriod = draft.period;
+      let savedRun = draft.run;
+      let persisted = { entries: draft.entries, allocations: draft.allocations };
+      const committedEntryByRow = new Map(draft.entries.flatMap((entry) => entry.importRowId ? [[entry.importRowId, entry.id] as const] : []));
+      const committedRows = staged.rows.map((row) => row.status === "SKIPPED" ? row : { ...row, status: "COMMITTED" as const, committedPayrollEntryId: committedEntryByRow.get(row.id), updatedAt: new Date().toISOString() });
+      if (session && supabase) {
+        const committed = await commitPayrollImportToSupabase({ batchId: sourceBatch.id, period: draft.period, run: draft.run, entries: draft.entries, allocations: draft.allocations, rows: committedRows });
+        savedPeriod = committed.period;
+        savedRun = committed.run;
+        persisted = { entries: committed.entries, allocations: committed.allocations };
+      }
+      const committedBatch: PayrollImportBatch = { ...sourceBatch, status: "COMMITTED", committedPayrollPeriodId: savedPeriod.id, committedPayrollRunId: savedRun.id, committedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      setPayrollData((current) => ({
+        ...current,
+        periods: [savedPeriod, ...current.periods.filter((item) => item.id !== savedPeriod.id)],
+        runs: [savedRun, ...current.runs.filter((item) => item.id !== savedRun.id)],
+        entries: [...persisted.entries, ...current.entries.filter((item) => item.payrollRunId !== savedRun.id)],
+        allocations: [...persisted.allocations, ...current.allocations.filter((item) => !persisted.entries.some((entry) => entry.id === item.payrollEntryId))],
+      }));
+      setPayrollImportData((current) => ({
+        ...current,
+        batches: [committedBatch, ...current.batches.filter((item) => item.id !== committedBatch.id)],
+        rows: [...committedRows, ...current.rows.filter((item) => item.batchId !== committedBatch.id)],
+      }));
+      showNotification("success", "Imported " + persisted.entries.length + " payroll entr" + (persisted.entries.length === 1 ? "y" : "ies") + " into a DRAFT payroll run. Review before approval.");
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not commit the payroll import."));
+    }
+  };
+
   const handleSaveWorkEntry = async (entry: WorkEntry) => {
     try {
       const period = payrollData.periods.find((item) => item.id === entry.periodId);
@@ -733,16 +809,9 @@ export default function App() {
       let savedEntries = entriesToSave;
       let savedAllocations = allocationsToSave;
       if (session && supabase) {
-        await deletePayrollEntriesForRunToSupabase(run.id);
-        const persistedEntries: PayrollEntry[] = [];
-        const persistedAllocations: PayrollProjectAllocation[] = [];
-        for (const entry of entriesToSave) {
-          const saved = await savePayrollEntryToSupabase(entry, allocationsToSave.filter((allocation) => allocation.payrollEntryId === entry.id));
-          persistedEntries.push(saved.entry);
-          persistedAllocations.push(...saved.allocations);
-        }
-        savedEntries = persistedEntries;
-        savedAllocations = persistedAllocations;
+        const persisted = await replacePayrollRunEntriesToSupabase(run.id, entriesToSave, allocationsToSave);
+        savedEntries = persisted.entries;
+        savedAllocations = persisted.allocations;
       }
       const calculatedAt = new Date().toISOString();
       const nextRun = { ...run, status: "CALCULATED" as const, calculatedAt };
@@ -1166,6 +1235,7 @@ export default function App() {
     id: run.id,
     status: run.status,
     allocations: payrollData.allocations.filter((allocation) => payrollData.entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)),
+    entries: payrollData.entries.filter((entry) => entry.payrollRunId === run.id),
   })), [payrollData.runs, payrollData.allocations, payrollData.entries]);
   const projectSummaries = useMemo<Record<string, ProjectCostSummary>>(() => {
     const next: Record<string, ProjectCostSummary> = {};
@@ -1202,10 +1272,10 @@ export default function App() {
         {activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
         {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
-        {activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} />}
+        {activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} />}
         {activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
         {activeTab === "vendors" && <Vendors invoices={invoices} />}
-        {activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}
+        {activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><PayrollOperatingCosts runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}
         {activeTab === "settings" && <SettingsScreen settings={regionalSettings} onChange={handleRegionalSettingsChange} />}
       </main>
       <footer className="border-t border-slate-200 py-4 bg-white text-center text-[10px] text-slate-500">Invoice Operations • Gmail read-only intake • Original sources & review history</footer>

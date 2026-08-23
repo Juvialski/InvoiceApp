@@ -449,6 +449,15 @@ export type PayType = "MONTHLY" | "DAILY" | "HOURLY";
 export type PayrollPeriodStatus = "DRAFT" | "OPEN" | "CALCULATED" | "APPROVED" | "PAID" | "VOID";
 export type PayrollRunStatus = "DRAFT" | "CALCULATED" | "APPROVED" | "PAID" | "VOID";
 export type WorkEntryStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "VOID";
+export type PayrollLaborContextType = "PROJECT" | "ADMIN_OFFICE" | "GENERAL_OVERHEAD" | "UNALLOCATED_REVIEW";
+
+export interface PayrollLaborContext {
+  type: PayrollLaborContextType;
+  projectId?: string;
+  costCenterId?: string;
+  label?: string;
+  needsReview: boolean;
+}
 
 export interface Worker {
   id: string;
@@ -537,6 +546,7 @@ export interface PayrollRun {
   id: string;
   userId?: string;
   periodId: string;
+  importBatchId?: string;
   status: PayrollRunStatus;
   createdAt: string;
   calculatedAt?: string;
@@ -559,12 +569,14 @@ export interface PayrollEntry {
   otherDeductions?: number;
   employerCosts?: number;
   netPay: number;
+  costContext?: PayrollLaborContext;
+  importRowId?: string;
   projectAllocatedCost: number;
   calculationSnapshot?: Record<string, unknown>;
   createdAt?: string;
 }
 
-export type PayrollAllocationSource = "TIME_ENTRY" | "MANUAL" | "DEFAULT_ASSIGNMENT";
+export type PayrollAllocationSource = "TIME_ENTRY" | "MANUAL" | "DEFAULT_ASSIGNMENT" | "IMPORT";
 
 export interface PayrollProjectAllocation {
   id: string;
@@ -595,6 +607,7 @@ export interface ProjectCostSummary {
   invoiceCost: number;
   paidInvoiceCost: number;
   unpaidInvoiceCost: number;
+  unallocatedPayrollCost: number;
   pendingInvoiceCost: number;
   payrollCost: number;
   pendingPayrollCost: number;

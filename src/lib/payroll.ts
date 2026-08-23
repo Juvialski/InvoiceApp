@@ -61,7 +61,7 @@ function periodFromRow(row: Record<string, unknown>): PayrollPeriod {
 
 function runFromRow(row: Record<string, unknown>): PayrollRun {
   return {
-    id: String(row.id), userId: text(row.user_id), periodId: String(row.period_id), status: String(row.status || "DRAFT") as PayrollRun["status"],
+    id: String(row.id), userId: text(row.user_id), periodId: String(row.period_id), importBatchId: text(row.import_batch_id), status: String(row.status || "DRAFT") as PayrollRun["status"],
     createdAt: String(row.created_at || new Date().toISOString()), calculatedAt: text(row.calculated_at), approvedAt: text(row.approved_at), paidAt: text(row.paid_at), notes: text(row.notes),
   };
 }
@@ -70,7 +70,7 @@ function entryFromRow(row: Record<string, unknown>): PayrollEntry {
   return {
     id: String(row.id), payrollRunId: String(row.payroll_run_id), workerId: String(row.worker_id), basePay: numberValue(row.base_pay), regularPay: numberValue(row.regular_pay),
     overtimePay: numberValue(row.overtime_pay), allowances: numberValue(row.allowances), otherEarnings: numberValue(row.other_earnings), grossPay: numberValue(row.gross_pay), deductions: numberValue(row.deductions), otherDeductions: numberValue(row.other_deductions), employerCosts: numberValue(row.employer_costs), netPay: numberValue(row.net_pay),
-    projectAllocatedCost: numberValue(row.project_allocated_cost), calculationSnapshot: (row.calculation_snapshot || {}) as Record<string, unknown>, createdAt: text(row.created_at),
+    projectAllocatedCost: numberValue(row.project_allocated_cost), costContext: row.cost_context && typeof row.cost_context === "object" ? row.cost_context as PayrollEntry["costContext"] : undefined, importRowId: text(row.import_row_id), calculationSnapshot: (row.calculation_snapshot || {}) as Record<string, unknown>, createdAt: text(row.created_at),
   };
 }
 
@@ -281,7 +281,7 @@ export async function saveWorkEntryToSupabase(entry: WorkEntry) {
 export async function savePayrollRunToSupabase(run: PayrollRun) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before creating payroll runs.");
-  const { data, error } = await supabase.from("payroll_runs").upsert({ id: persistedId(run.id, "run"), user_id: userId, period_id: run.periodId, status: run.status, calculated_at: run.calculatedAt || null, approved_at: run.approvedAt || null, paid_at: run.paidAt || null, notes: run.notes || null }).select("*").single();
+  const { data, error } = await supabase.from("payroll_runs").upsert({ id: persistedId(run.id, "run"), user_id: userId, period_id: run.periodId, import_batch_id: run.importBatchId || null, status: run.status, calculated_at: run.calculatedAt || null, approved_at: run.approvedAt || null, paid_at: run.paidAt || null, notes: run.notes || null }).select("*").single();
   if (error) throw error;
   return runFromRow(data as Record<string, unknown>);
 }
@@ -290,7 +290,7 @@ export async function savePayrollEntryToSupabase(entry: PayrollEntry, allocation
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving payroll entries.");
   const entryId = persistedId(entry.id, "entry");
-  const { data: entryRow, error: entryError } = await supabase.from("payroll_entries").upsert({ id: entryId, user_id: userId, payroll_run_id: entry.payrollRunId, worker_id: entry.workerId, base_pay: entry.basePay, regular_pay: entry.regularPay, overtime_pay: entry.overtimePay, allowances: entry.allowances, other_earnings: entry.otherEarnings ?? 0, gross_pay: entry.grossPay, deductions: entry.deductions, other_deductions: entry.otherDeductions ?? 0, employer_costs: entry.employerCosts ?? 0, net_pay: entry.netPay, project_allocated_cost: entry.projectAllocatedCost, calculation_snapshot: entry.calculationSnapshot || {} }).select("*").single();
+  const { data: entryRow, error: entryError } = await supabase.from("payroll_entries").upsert({ id: entryId, user_id: userId, payroll_run_id: entry.payrollRunId, worker_id: entry.workerId, base_pay: entry.basePay, regular_pay: entry.regularPay, overtime_pay: entry.overtimePay, allowances: entry.allowances, other_earnings: entry.otherEarnings ?? 0, gross_pay: entry.grossPay, deductions: entry.deductions, other_deductions: entry.otherDeductions ?? 0, employer_costs: entry.employerCosts ?? 0, net_pay: entry.netPay, project_allocated_cost: entry.projectAllocatedCost, cost_context: entry.costContext || {}, import_row_id: entry.importRowId || null, calculation_snapshot: entry.calculationSnapshot || {} }).select("*").single();
   if (entryError) throw entryError;
   const { error: deleteError } = await supabase.from("payroll_project_allocations").delete().eq("payroll_entry_id", entryId).eq("user_id", userId);
   if (deleteError) throw deleteError;
@@ -313,4 +313,16 @@ export async function savePayrollAdjustmentToSupabase(adjustment: PayrollAdjustm
   const { data, error } = await supabase.from("payroll_adjustments").upsert({ id: persistedId(adjustment.id, "adjustment"), user_id: userId, payroll_entry_id: adjustment.payrollEntryId, type: adjustment.type, code: adjustment.code || null, description: adjustment.description || null, amount: adjustment.amount }).select("*").single();
   if (error) throw error;
   return adjustmentFromRow(data as Record<string, unknown>);
+}
+
+export async function replacePayrollRunEntriesToSupabase(runId: string, entries: PayrollEntry[], allocations: PayrollProjectAllocation[]) {
+  const userId = await currentUserId();
+  if (!supabase || !userId) throw new Error("Sign in before recalculating payroll.");
+  const { error } = await supabase.rpc("replace_payroll_run_entries", {
+    p_run_id: runId,
+    p_entries: entries,
+    p_allocations: allocations,
+  });
+  if (error) throw error;
+  return { entries, allocations };
 }

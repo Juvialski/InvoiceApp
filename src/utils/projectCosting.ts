@@ -5,6 +5,7 @@ import type {
   InvoiceProjectAllocation,
   PayrollProjectAllocation,
   Project,
+  PayrollEntry,
   ProjectCostSummary,
   PayrollPeriodStatus,
   PayrollRunStatus,
@@ -18,6 +19,7 @@ export interface CostPayrollRecord {
   id: string;
   status: PayrollPeriodStatus | PayrollRunStatus | string;
   currency?: string;
+  entries?: Array<Pick<PayrollEntry, "id" | "grossPay" | "costContext">>;
   allocations: PayrollProjectAllocation[];
 }
 
@@ -127,6 +129,7 @@ export function calculateProjectCost(project: Pick<Project, "id" | "projectBudge
     paidInvoiceCost: 0,
     unpaidInvoiceCost: 0,
     pendingInvoiceCost: 0,
+    unallocatedPayrollCost: 0,
     payrollCost: 0,
     pendingPayrollCost: 0,
     otherExpenseCost: 0,
@@ -167,7 +170,12 @@ export function calculateProjectCost(project: Pick<Project, "id" | "projectBudge
   }
 
   for (const payroll of input.payroll || []) {
-    if (!projectId) continue;
+    if (!projectId) {
+      for (const entry of payroll.entries || []) {
+        if (payroll.status !== "VOID" && (!entry.costContext || entry.costContext.type === "UNALLOCATED_REVIEW")) summary.unallocatedPayrollCost += money(entry.grossPay);
+      }
+      continue;
+    }
     for (const allocation of payroll.allocations || []) {
       if (allocation.projectId !== projectId) continue;
       const amount = money(allocation.allocationAmount);
@@ -214,6 +222,7 @@ export function aggregateProjectCosts(summaries: ProjectCostSummary[]) {
     payrollCost: money(total.payrollCost + summary.payrollCost),
     otherExpenseCost: money(total.otherExpenseCost + summary.otherExpenseCost),
     totalActualCost: money(total.totalActualCost + summary.totalActualCost),
+    unallocatedPayrollCost: money(total.unallocatedPayrollCost + summary.unallocatedPayrollCost),
     pendingInvoiceCost: money(total.pendingInvoiceCost + summary.pendingInvoiceCost),
     pendingPayrollCost: money(total.pendingPayrollCost + summary.pendingPayrollCost),
     pendingExpenseCost: money(total.pendingExpenseCost + summary.pendingExpenseCost),
@@ -223,5 +232,6 @@ export function aggregateProjectCosts(summaries: ProjectCostSummary[]) {
     budget: 0, invoiceCost: 0, payrollCost: 0, otherExpenseCost: 0, totalActualCost: 0,
     pendingInvoiceCost: 0, pendingPayrollCost: 0, pendingExpenseCost: 0,
     unallocatedInvoiceCost: 0, unallocatedExpenseCost: 0,
+    unallocatedPayrollCost: 0,
   });
 }
