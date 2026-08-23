@@ -444,6 +444,7 @@ export interface Expense {
 }
 
 export type EmploymentType = "REGULAR" | "PROJECT_BASED" | "CONTRACTUAL" | "DAILY" | "HOURLY" | "OTHER";
+export type EmploymentStatus = "ACTIVE" | "INACTIVE" | "ONBOARDING" | "OFFBOARDED";
 export type PayType = "MONTHLY" | "DAILY" | "HOURLY";
 export type PayrollPeriodStatus = "DRAFT" | "OPEN" | "CALCULATED" | "APPROVED" | "PAID" | "VOID";
 export type PayrollRunStatus = "DRAFT" | "CALCULATED" | "APPROVED" | "PAID" | "VOID";
@@ -452,19 +453,26 @@ export type WorkEntryStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "VOID";
 export interface Worker {
   id: string;
   userId?: string;
+  authUserId?: string;
   employeeCode: string;
   firstName: string;
   middleName?: string;
   lastName: string;
   displayName: string;
   employmentType: EmploymentType;
+  employmentStatus?: EmploymentStatus;
   jobTitle?: string;
   department?: string;
+  departmentId?: string;
+  managerWorkerId?: string;
   defaultPayType: PayType;
   defaultRate: number;
   active: boolean;
   hireDate?: string;
   endDate?: string;
+  workingDays?: string[];
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -496,10 +504,24 @@ export interface PayrollPeriod {
   updatedAt: string;
 }
 
+export interface Department {
+  id: string;
+  userId?: string;
+  name: string;
+  description?: string;
+  managerWorkerId?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
 export interface WorkEntry {
   id: string;
   workerId: string;
   projectId: string;
+  /** Optional for legacy local rows; new persisted entries must link a period. */
+  periodId?: string;
   workDate: string;
   regularHours?: number;
   overtimeHours?: number;
@@ -517,6 +539,7 @@ export interface PayrollRun {
   periodId: string;
   status: PayrollRunStatus;
   createdAt: string;
+  calculatedAt?: string;
   approvedAt?: string;
   paidAt?: string;
   notes?: string;
@@ -530,8 +553,11 @@ export interface PayrollEntry {
   regularPay: number;
   overtimePay: number;
   allowances: number;
+  otherEarnings?: number;
   grossPay: number;
   deductions: number;
+  otherDeductions?: number;
+  employerCosts?: number;
   netPay: number;
   projectAllocatedCost: number;
   calculationSnapshot?: Record<string, unknown>;
@@ -556,6 +582,11 @@ export interface PayrollAdjustment {
   code?: string;
   description?: string;
   amount: number;
+}
+
+export interface PayrollValidationResult {
+  valid: boolean;
+  issues: string[];
 }
 
 export interface ProjectCostSummary {

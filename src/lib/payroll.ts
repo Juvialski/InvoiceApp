@@ -1,9 +1,12 @@
 import type {
   PayrollAdjustment,
+  Department,
   PayrollEntry,
   PayrollPeriod,
   PayrollProjectAllocation,
   PayrollRun,
+  PayrollRunStatus,
+  PayrollValidationResult,
   ProjectWorkerAssignment,
   Worker,
   WorkEntry,
@@ -16,6 +19,9 @@ const PERIODS_STORAGE_KEY = "engineering_payroll_periods";
 const RUNS_STORAGE_KEY = "engineering_payroll_runs";
 const ALLOCATIONS_STORAGE_KEY = "engineering_payroll_allocations";
 const WORK_ENTRIES_STORAGE_KEY = "engineering_work_entries";
+const ENTRIES_STORAGE_KEY = "engineering_payroll_entries";
+const ADJUSTMENTS_STORAGE_KEY = "engineering_payroll_adjustments";
+const DEPARTMENTS_STORAGE_KEY = "engineering_departments";
 
 function id(prefix: string) {
   return globalThis.crypto?.randomUUID?.() || `local-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -29,12 +35,12 @@ function round(value: number) { return Math.round((Number(value) || 0) * 100) / 
 
 function workerFromRow(row: Record<string, unknown>): Worker {
   return {
-    id: String(row.id), userId: text(row.user_id), employeeCode: String(row.employee_code || ""),
+    id: String(row.id), userId: text(row.user_id), authUserId: text(row.auth_user_id), employeeCode: String(row.employee_code || ""),
     firstName: String(row.first_name || ""), middleName: text(row.middle_name), lastName: String(row.last_name || ""),
     displayName: String(row.display_name || [row.first_name, row.last_name].filter(Boolean).join(" ")),
-    employmentType: String(row.employment_type || "OTHER") as Worker["employmentType"], jobTitle: text(row.job_title), department: text(row.department),
+    employmentType: String(row.employment_type || "OTHER") as Worker["employmentType"], employmentStatus: text(row.employment_status) as Worker["employmentStatus"], jobTitle: text(row.job_title), department: text(row.department), departmentId: text(row.department_id), managerWorkerId: text(row.manager_worker_id),
     defaultPayType: String(row.default_pay_type || "MONTHLY") as Worker["defaultPayType"], defaultRate: numberValue(row.default_rate),
-    active: bool(row.active), hireDate: text(row.hire_date), endDate: text(row.end_date), notes: text(row.notes),
+    active: bool(row.active), hireDate: text(row.hire_date), endDate: text(row.end_date), workingDays: Array.isArray(row.working_days) ? row.working_days.map(String) : undefined, workingHoursStart: text(row.working_hours_start), workingHoursEnd: text(row.working_hours_end), notes: text(row.notes),
     createdAt: String(row.created_at || new Date().toISOString()), updatedAt: String(row.updated_at || new Date().toISOString()), archivedAt: text(row.archived_at),
   };
 }
@@ -56,14 +62,14 @@ function periodFromRow(row: Record<string, unknown>): PayrollPeriod {
 function runFromRow(row: Record<string, unknown>): PayrollRun {
   return {
     id: String(row.id), userId: text(row.user_id), periodId: String(row.period_id), status: String(row.status || "DRAFT") as PayrollRun["status"],
-    createdAt: String(row.created_at || new Date().toISOString()), approvedAt: text(row.approved_at), paidAt: text(row.paid_at), notes: text(row.notes),
+    createdAt: String(row.created_at || new Date().toISOString()), calculatedAt: text(row.calculated_at), approvedAt: text(row.approved_at), paidAt: text(row.paid_at), notes: text(row.notes),
   };
 }
 
 function entryFromRow(row: Record<string, unknown>): PayrollEntry {
   return {
     id: String(row.id), payrollRunId: String(row.payroll_run_id), workerId: String(row.worker_id), basePay: numberValue(row.base_pay), regularPay: numberValue(row.regular_pay),
-    overtimePay: numberValue(row.overtime_pay), allowances: numberValue(row.allowances), grossPay: numberValue(row.gross_pay), deductions: numberValue(row.deductions), netPay: numberValue(row.net_pay),
+    overtimePay: numberValue(row.overtime_pay), allowances: numberValue(row.allowances), otherEarnings: numberValue(row.other_earnings), grossPay: numberValue(row.gross_pay), deductions: numberValue(row.deductions), otherDeductions: numberValue(row.other_deductions), employerCosts: numberValue(row.employer_costs), netPay: numberValue(row.net_pay),
     projectAllocatedCost: numberValue(row.project_allocated_cost), calculationSnapshot: (row.calculation_snapshot || {}) as Record<string, unknown>, createdAt: text(row.created_at),
   };
 }
@@ -73,10 +79,19 @@ function allocationFromRow(row: Record<string, unknown>): PayrollProjectAllocati
 }
 
 function workEntryFromRow(row: Record<string, unknown>): WorkEntry {
-  return { id: String(row.id), workerId: String(row.worker_id), projectId: String(row.project_id), workDate: String(row.work_date || ""), regularHours: numberValue(row.regular_hours), overtimeHours: numberValue(row.overtime_hours), daysWorked: numberValue(row.days_worked), rate: numberValue(row.rate), overtimeRate: row.overtime_rate === null ? undefined : numberValue(row.overtime_rate), description: text(row.description), notes: text(row.notes), status: String(row.status || "DRAFT") as WorkEntry["status"] };
+  return { id: String(row.id), workerId: String(row.worker_id), projectId: String(row.project_id), periodId: text(row.period_id), workDate: String(row.work_date || ""), regularHours: numberValue(row.regular_hours), overtimeHours: numberValue(row.overtime_hours), daysWorked: numberValue(row.days_worked), rate: numberValue(row.rate), overtimeRate: row.overtime_rate === null ? undefined : numberValue(row.overtime_rate), description: text(row.description), notes: text(row.notes), status: String(row.status || "DRAFT") as WorkEntry["status"] };
+}
+
+function adjustmentFromRow(row: Record<string, unknown>): PayrollAdjustment {
+  return { id: String(row.id), payrollEntryId: String(row.payroll_entry_id), type: String(row.type) as PayrollAdjustment["type"], code: text(row.code), description: text(row.description), amount: numberValue(row.amount) };
+}
+
+function departmentFromRow(row: Record<string, unknown>): Department {
+  return { id: String(row.id), userId: text(row.user_id), name: String(row.name || ""), description: text(row.description), managerWorkerId: text(row.manager_worker_id), active: bool(row.active), createdAt: String(row.created_at || new Date().toISOString()), updatedAt: String(row.updated_at || new Date().toISOString()), archivedAt: text(row.archived_at) };
 }
 
 export interface PayrollWorkspaceData {
+  departments: Department[];
   workers: Worker[];
   assignments: ProjectWorkerAssignment[];
   periods: PayrollPeriod[];
@@ -104,16 +119,17 @@ function writeJson<T>(key: string, value: T[], storage: Storage | undefined) {
 
 export function readPayrollWorkspaceFromLocal(storage: Storage | undefined = typeof localStorage === "undefined" ? undefined : localStorage): PayrollWorkspaceData {
   return {
-    workers: localJson<Worker>(WORKERS_STORAGE_KEY, storage), assignments: localJson<ProjectWorkerAssignment>(ASSIGNMENTS_STORAGE_KEY, storage), periods: localJson<PayrollPeriod>(PERIODS_STORAGE_KEY, storage),
-    runs: localJson<PayrollRun>(RUNS_STORAGE_KEY, storage), entries: [], allocations: localJson<PayrollProjectAllocation>(ALLOCATIONS_STORAGE_KEY, storage), workEntries: localJson<WorkEntry>(WORK_ENTRIES_STORAGE_KEY, storage), adjustments: [],
+    departments: localJson<Department>(DEPARTMENTS_STORAGE_KEY, storage), workers: localJson<Worker>(WORKERS_STORAGE_KEY, storage), assignments: localJson<ProjectWorkerAssignment>(ASSIGNMENTS_STORAGE_KEY, storage), periods: localJson<PayrollPeriod>(PERIODS_STORAGE_KEY, storage),
+    runs: localJson<PayrollRun>(RUNS_STORAGE_KEY, storage), entries: localJson<PayrollEntry>(ENTRIES_STORAGE_KEY, storage), allocations: localJson<PayrollProjectAllocation>(ALLOCATIONS_STORAGE_KEY, storage), workEntries: localJson<WorkEntry>(WORK_ENTRIES_STORAGE_KEY, storage), adjustments: localJson<PayrollAdjustment>(ADJUSTMENTS_STORAGE_KEY, storage),
   };
 }
 
 export function writePayrollWorkspaceToLocal(data: PayrollWorkspaceData, storage: Storage | undefined = typeof localStorage === "undefined" ? undefined : localStorage) {
-  writeJson(WORKERS_STORAGE_KEY, data.workers, storage); writeJson(ASSIGNMENTS_STORAGE_KEY, data.assignments, storage); writeJson(PERIODS_STORAGE_KEY, data.periods, storage); writeJson(RUNS_STORAGE_KEY, data.runs, storage); writeJson(ALLOCATIONS_STORAGE_KEY, data.allocations, storage); writeJson(WORK_ENTRIES_STORAGE_KEY, data.workEntries, storage);
+  writeJson(DEPARTMENTS_STORAGE_KEY, data.departments, storage); writeJson(WORKERS_STORAGE_KEY, data.workers, storage); writeJson(ASSIGNMENTS_STORAGE_KEY, data.assignments, storage); writeJson(PERIODS_STORAGE_KEY, data.periods, storage); writeJson(RUNS_STORAGE_KEY, data.runs, storage); writeJson(ENTRIES_STORAGE_KEY, data.entries, storage); writeJson(ALLOCATIONS_STORAGE_KEY, data.allocations, storage); writeJson(WORK_ENTRIES_STORAGE_KEY, data.workEntries, storage); writeJson(ADJUSTMENTS_STORAGE_KEY, data.adjustments, storage);
 }
 
 export function createLocalWorker(input: Omit<Worker, "id" | "createdAt" | "updatedAt">): Worker { const now = new Date().toISOString(); return { ...input, id: id("worker"), createdAt: now, updatedAt: now }; }
+export function createLocalDepartment(input: Omit<Department, "id" | "createdAt" | "updatedAt">): Department { const now = new Date().toISOString(); return { ...input, id: id("department"), createdAt: now, updatedAt: now }; }
 export function createLocalPeriod(input: Omit<PayrollPeriod, "id" | "createdAt" | "updatedAt">): PayrollPeriod { const now = new Date().toISOString(); return { ...input, id: id("period"), createdAt: now, updatedAt: now }; }
 export function createLocalWorkEntry(input: Omit<WorkEntry, "id">): WorkEntry { return { ...input, id: id("work") }; }
 export function createLocalAssignment(input: Omit<ProjectWorkerAssignment, "id">): ProjectWorkerAssignment { return { ...input, id: id("assignment") }; }
@@ -138,10 +154,67 @@ export function calculateWorkEntryCost(entry: Pick<WorkEntry, "regularHours" | "
 
 export function payrollStatusIsConfirmed(status: string) { return status === "APPROVED" || status === "PAID"; }
 
+const PAYROLL_RUN_TRANSITIONS: Readonly<Record<PayrollRunStatus, readonly PayrollRunStatus[]>> = {
+  DRAFT: ["CALCULATED", "VOID"],
+  CALCULATED: ["APPROVED", "VOID"],
+  APPROVED: ["PAID", "VOID"],
+  PAID: [],
+  VOID: [],
+};
+
+export function canTransitionPayrollRun(from: PayrollRunStatus, to: PayrollRunStatus) {
+  return from === to || PAYROLL_RUN_TRANSITIONS[from].includes(to);
+}
+
+export function validatePayrollRunApproval(run: Pick<PayrollRun, "id" | "status">, entries: PayrollEntry[]): PayrollValidationResult {
+  const issues: string[] = [];
+  if (run.status !== "CALCULATED") issues.push("Payroll run must be CALCULATED before approval.");
+  if (!entries.length) issues.push("Payroll run approval requires at least one payroll entry.");
+
+  const workerIds = new Set<string>();
+  for (const entry of entries) {
+    if (entry.payrollRunId !== run.id) issues.push(`Payroll entry ${entry.id} belongs to a different payroll run.`);
+    if (!entry.workerId) issues.push(`Payroll entry ${entry.id} is missing a worker.`);
+    if (workerIds.has(entry.workerId)) issues.push(`Worker ${entry.workerId} appears more than once in the payroll run.`);
+    workerIds.add(entry.workerId);
+    const snapshot = entry.calculationSnapshot;
+    if (!snapshot || Array.isArray(snapshot) || typeof snapshot !== "object" || Object.keys(snapshot).length === 0) {
+      issues.push(`Payroll entry ${entry.id} requires a non-empty calculation snapshot.`);
+    }
+    for (const [field, value] of Object.entries({
+      basePay: entry.basePay,
+      regularPay: entry.regularPay,
+      overtimePay: entry.overtimePay,
+      allowances: entry.allowances,
+      grossPay: entry.grossPay,
+      deductions: entry.deductions,
+      netPay: entry.netPay,
+      projectAllocatedCost: entry.projectAllocatedCost,
+    })) {
+      if (!Number.isFinite(value) || value < 0) issues.push(`Payroll entry ${entry.id} has an invalid ${field}.`);
+    }
+  }
+  return { valid: issues.length === 0, issues };
+}
+
+export function validatePayrollAllocations(entry: Pick<PayrollEntry, "projectAllocatedCost">, allocations: PayrollProjectAllocation[]): PayrollValidationResult {
+  const issues: string[] = [];
+  const totalAmount = allocations.reduce((sum, allocation) => sum + (Number(allocation.allocationAmount) || 0), 0);
+  const totalPercentage = allocations.reduce((sum, allocation) => sum + (Number(allocation.allocationPercentage) || 0), 0);
+  if (totalPercentage > 100.01) issues.push("Payroll allocation percentages exceed 100%.");
+  if (totalAmount > (Number(entry.projectAllocatedCost) || 0) + 0.01) issues.push("Payroll allocation amounts exceed the entry project cost.");
+  for (const allocation of allocations) {
+    if (allocation.allocationPercentage !== undefined && (!Number.isFinite(allocation.allocationPercentage) || allocation.allocationPercentage < 0 || allocation.allocationPercentage > 100)) issues.push(`Allocation ${allocation.id} has a percentage outside 0–100.`);
+    if (!Number.isFinite(allocation.allocationAmount) || allocation.allocationAmount < 0) issues.push(`Allocation ${allocation.id} has an invalid amount.`);
+  }
+  return { valid: issues.length === 0, issues };
+}
+
 export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspaceData> {
   const userId = await currentUserId();
-  if (!supabase || !userId) return { workers: [], assignments: [], periods: [], runs: [], entries: [], allocations: [], workEntries: [], adjustments: [] };
-  const [workers, assignments, periods, runs, entries, allocations, workEntries, adjustments] = await Promise.all([
+  if (!supabase || !userId) return { departments: [], workers: [], assignments: [], periods: [], runs: [], entries: [], allocations: [], workEntries: [], adjustments: [] };
+  const [departments, workers, assignments, periods, runs, entries, allocations, workEntries, adjustments] = await Promise.all([
+    supabase.from("departments").select("*").is("archived_at", null).order("name"),
     supabase.from("workers").select("*").is("archived_at", null).order("last_name"),
     supabase.from("project_worker_assignments").select("*").order("start_date", { ascending: false }),
     supabase.from("payroll_periods").select("*").order("period_end", { ascending: false }),
@@ -151,8 +224,9 @@ export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspa
     supabase.from("work_entries").select("*").order("work_date", { ascending: false }),
     supabase.from("payroll_adjustments").select("*"),
   ]);
-  for (const result of [workers, assignments, periods, runs, entries, allocations, workEntries, adjustments]) if (result.error) throw result.error;
+  for (const result of [departments, workers, assignments, periods, runs, entries, allocations, workEntries, adjustments]) if (result.error) throw result.error;
   return {
+    departments: (departments.data || []).map((row) => departmentFromRow(row as Record<string, unknown>)),
     workers: (workers.data || []).map((row) => workerFromRow(row as Record<string, unknown>)),
     assignments: (assignments.data || []).map((row) => assignmentFromRow(row as Record<string, unknown>)),
     periods: (periods.data || []).map((row) => periodFromRow(row as Record<string, unknown>)),
@@ -160,14 +234,22 @@ export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspa
     entries: (entries.data || []).map((row) => entryFromRow(row as Record<string, unknown>)),
     allocations: (allocations.data || []).map((row) => allocationFromRow(row as Record<string, unknown>)),
     workEntries: (workEntries.data || []).map((row) => workEntryFromRow(row as Record<string, unknown>)),
-    adjustments: (adjustments.data || []).map((row) => ({ id: String(row.id), payrollEntryId: String(row.payroll_entry_id), type: String(row.type) as PayrollAdjustment["type"], code: text(row.code), description: text(row.description), amount: numberValue(row.amount) })),
+    adjustments: (adjustments.data || []).map((row) => adjustmentFromRow(row as Record<string, unknown>)),
   };
+}
+
+export async function saveDepartmentToSupabase(department: Department) {
+  const userId = await currentUserId();
+  if (!supabase || !userId) throw new Error("Sign in before saving departments.");
+  const { data, error } = await supabase.from("departments").upsert({ id: persistedId(department.id, "department"), user_id: userId, name: department.name.trim(), description: department.description || null, manager_worker_id: department.managerWorkerId || null, active: department.active, archived_at: department.archivedAt || null, updated_at: new Date().toISOString() }).select("*").single();
+  if (error) throw error;
+  return departmentFromRow(data as Record<string, unknown>);
 }
 
 export async function saveWorkerToSupabase(worker: Worker) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving workers.");
-  const { data, error } = await supabase.from("workers").upsert({ id: persistedId(worker.id, "worker"), user_id: userId, employee_code: worker.employeeCode, first_name: worker.firstName, middle_name: worker.middleName || null, last_name: worker.lastName, display_name: worker.displayName, employment_type: worker.employmentType, job_title: worker.jobTitle || null, department: worker.department || null, default_pay_type: worker.defaultPayType, default_rate: worker.defaultRate, active: worker.active, hire_date: worker.hireDate || null, end_date: worker.endDate || null, notes: worker.notes || null, archived_at: worker.archivedAt || null, updated_at: new Date().toISOString() }).select("*").single();
+  const { data, error } = await supabase.from("workers").upsert({ id: persistedId(worker.id, "worker"), user_id: userId, auth_user_id: worker.authUserId || null, employee_code: worker.employeeCode, first_name: worker.firstName, middle_name: worker.middleName || null, last_name: worker.lastName, display_name: worker.displayName, employment_type: worker.employmentType, employment_status: worker.employmentStatus || (worker.active ? "ACTIVE" : "INACTIVE"), job_title: worker.jobTitle || null, department: worker.department || null, department_id: worker.departmentId || null, manager_worker_id: worker.managerWorkerId || null, default_pay_type: worker.defaultPayType, default_rate: worker.defaultRate, active: worker.active, hire_date: worker.hireDate || null, end_date: worker.endDate || null, working_days: worker.workingDays || null, working_hours_start: worker.workingHoursStart || null, working_hours_end: worker.workingHoursEnd || null, notes: worker.notes || null, archived_at: worker.archivedAt || null, updated_at: new Date().toISOString() }).select("*").single();
   if (error) throw error;
   return workerFromRow(data as Record<string, unknown>);
 }
@@ -191,15 +273,15 @@ export async function savePayrollPeriodToSupabase(period: PayrollPeriod) {
 export async function saveWorkEntryToSupabase(entry: WorkEntry) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving time entries.");
-  const { data, error } = await supabase.from("work_entries").upsert({ id: persistedId(entry.id, "work"), user_id: userId, worker_id: entry.workerId, project_id: entry.projectId, work_date: entry.workDate, regular_hours: entry.regularHours ?? null, overtime_hours: entry.overtimeHours ?? null, days_worked: entry.daysWorked ?? null, rate: entry.rate, overtime_rate: entry.overtimeRate ?? null, description: entry.description || null, notes: entry.notes || null, status: entry.status, updated_at: new Date().toISOString() }).select("*").single();
+  const { data, error } = await supabase.from("work_entries").upsert({ id: persistedId(entry.id, "work"), user_id: userId, worker_id: entry.workerId, project_id: entry.projectId, period_id: entry.periodId || null, work_date: entry.workDate, regular_hours: entry.regularHours ?? null, overtime_hours: entry.overtimeHours ?? null, days_worked: entry.daysWorked ?? null, rate: entry.rate, overtime_rate: entry.overtimeRate ?? null, description: entry.description || null, notes: entry.notes || null, status: entry.status, updated_at: new Date().toISOString() }).select("*").single();
   if (error) throw error;
-  return { ...entry, id: String(data.id), status: String(data.status || entry.status) as WorkEntry["status"] };
+  return workEntryFromRow(data as Record<string, unknown>);
 }
 
 export async function savePayrollRunToSupabase(run: PayrollRun) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before creating payroll runs.");
-  const { data, error } = await supabase.from("payroll_runs").upsert({ id: persistedId(run.id, "run"), user_id: userId, period_id: run.periodId, status: run.status, approved_at: run.approvedAt || null, paid_at: run.paidAt || null, notes: run.notes || null }).select("*").single();
+  const { data, error } = await supabase.from("payroll_runs").upsert({ id: persistedId(run.id, "run"), user_id: userId, period_id: run.periodId, status: run.status, calculated_at: run.calculatedAt || null, approved_at: run.approvedAt || null, paid_at: run.paidAt || null, notes: run.notes || null }).select("*").single();
   if (error) throw error;
   return runFromRow(data as Record<string, unknown>);
 }
@@ -208,7 +290,7 @@ export async function savePayrollEntryToSupabase(entry: PayrollEntry, allocation
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving payroll entries.");
   const entryId = persistedId(entry.id, "entry");
-  const { data: entryRow, error: entryError } = await supabase.from("payroll_entries").upsert({ id: entryId, user_id: userId, payroll_run_id: entry.payrollRunId, worker_id: entry.workerId, base_pay: entry.basePay, regular_pay: entry.regularPay, overtime_pay: entry.overtimePay, allowances: entry.allowances, gross_pay: entry.grossPay, deductions: entry.deductions, net_pay: entry.netPay, project_allocated_cost: entry.projectAllocatedCost, calculation_snapshot: entry.calculationSnapshot || {} }).select("*").single();
+  const { data: entryRow, error: entryError } = await supabase.from("payroll_entries").upsert({ id: entryId, user_id: userId, payroll_run_id: entry.payrollRunId, worker_id: entry.workerId, base_pay: entry.basePay, regular_pay: entry.regularPay, overtime_pay: entry.overtimePay, allowances: entry.allowances, other_earnings: entry.otherEarnings ?? 0, gross_pay: entry.grossPay, deductions: entry.deductions, other_deductions: entry.otherDeductions ?? 0, employer_costs: entry.employerCosts ?? 0, net_pay: entry.netPay, project_allocated_cost: entry.projectAllocatedCost, calculation_snapshot: entry.calculationSnapshot || {} }).select("*").single();
   if (entryError) throw entryError;
   const { error: deleteError } = await supabase.from("payroll_project_allocations").delete().eq("payroll_entry_id", entryId).eq("user_id", userId);
   if (deleteError) throw deleteError;
@@ -216,4 +298,19 @@ export async function savePayrollEntryToSupabase(entry: PayrollEntry, allocation
   const { data: allocationRows, error: allocationError } = rows.length ? await supabase.from("payroll_project_allocations").insert(rows).select("*") : { data: [], error: null };
   if (allocationError) throw allocationError;
   return { entry: entryFromRow(entryRow as Record<string, unknown>), allocations: (allocationRows || []).map((row) => allocationFromRow(row as Record<string, unknown>)) };
+}
+
+export async function deletePayrollEntriesForRunToSupabase(runId: string) {
+  const userId = await currentUserId();
+  if (!supabase || !userId) throw new Error("Sign in before recalculating payroll.");
+  const { error } = await supabase.from("payroll_entries").delete().eq("payroll_run_id", runId).eq("user_id", userId);
+  if (error) throw error;
+}
+
+export async function savePayrollAdjustmentToSupabase(adjustment: PayrollAdjustment) {
+  const userId = await currentUserId();
+  if (!supabase || !userId) throw new Error("Sign in before saving payroll adjustments.");
+  const { data, error } = await supabase.from("payroll_adjustments").upsert({ id: persistedId(adjustment.id, "adjustment"), user_id: userId, payroll_entry_id: adjustment.payrollEntryId, type: adjustment.type, code: adjustment.code || null, description: adjustment.description || null, amount: adjustment.amount }).select("*").single();
+  if (error) throw error;
+  return adjustmentFromRow(data as Record<string, unknown>);
 }
