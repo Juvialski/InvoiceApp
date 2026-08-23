@@ -378,3 +378,202 @@ export interface ReviewEvent {
   newValue?: unknown;
   createdAt: string;
 }
+
+// Engineering project-costing domain. These records deliberately remain
+// separate from the invoice extraction model so the existing intake and
+// review workflow can evolve without making project assignment mandatory.
+export type ProjectStatus = "PLANNING" | "ACTIVE" | "ON_HOLD" | "COMPLETED" | "CANCELLED" | "ARCHIVED";
+export type AllocationType = "AMOUNT" | "PERCENTAGE";
+
+export interface Project {
+  id: string;
+  userId?: string;
+  projectCode: string;
+  projectName: string;
+  description?: string;
+  clientName?: string;
+  clientReference?: string;
+  location?: string;
+  siteAddress?: string;
+  projectManager?: string;
+  status: ProjectStatus;
+  startDate?: string;
+  targetEndDate?: string;
+  actualEndDate?: string;
+  contractValue?: number;
+  projectBudget: number;
+  currency: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+export interface InvoiceProjectAllocation {
+  id: string;
+  invoiceId: string;
+  projectId: string;
+  allocationType: AllocationType;
+  allocationPercentage?: number;
+  allocationAmount: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ExpenseStatus = "DRAFT" | "APPROVED" | "PAID" | "VOID";
+
+export interface Expense {
+  id: string;
+  userId?: string;
+  projectId?: string;
+  expenseDate: string;
+  category: string;
+  description: string;
+  payee?: string;
+  amount: number;
+  currency: string;
+  paymentMethod?: string;
+  referenceNumber?: string;
+  status: ExpenseStatus;
+  receiptSourceDocumentId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+export type EmploymentType = "REGULAR" | "PROJECT_BASED" | "CONTRACTUAL" | "DAILY" | "HOURLY" | "OTHER";
+export type PayType = "MONTHLY" | "DAILY" | "HOURLY";
+export type PayrollPeriodStatus = "DRAFT" | "OPEN" | "CALCULATED" | "APPROVED" | "PAID" | "VOID";
+export type PayrollRunStatus = "DRAFT" | "CALCULATED" | "APPROVED" | "PAID" | "VOID";
+export type WorkEntryStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "VOID";
+
+export interface Worker {
+  id: string;
+  userId?: string;
+  employeeCode: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  displayName: string;
+  employmentType: EmploymentType;
+  jobTitle?: string;
+  department?: string;
+  defaultPayType: PayType;
+  defaultRate: number;
+  active: boolean;
+  hireDate?: string;
+  endDate?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+export interface ProjectWorkerAssignment {
+  id: string;
+  workerId: string;
+  projectId: string;
+  startDate: string;
+  endDate?: string;
+  payType?: PayType;
+  rate?: number;
+  roleOnProject?: string;
+  active: boolean;
+  notes?: string;
+}
+
+export interface PayrollPeriod {
+  id: string;
+  userId?: string;
+  periodStart: string;
+  periodEnd: string;
+  payDate?: string;
+  status: PayrollPeriodStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkEntry {
+  id: string;
+  workerId: string;
+  projectId: string;
+  workDate: string;
+  regularHours?: number;
+  overtimeHours?: number;
+  daysWorked?: number;
+  rate: number;
+  overtimeRate?: number;
+  description?: string;
+  notes?: string;
+  status: WorkEntryStatus;
+}
+
+export interface PayrollRun {
+  id: string;
+  userId?: string;
+  periodId: string;
+  status: PayrollRunStatus;
+  createdAt: string;
+  approvedAt?: string;
+  paidAt?: string;
+  notes?: string;
+}
+
+export interface PayrollEntry {
+  id: string;
+  payrollRunId: string;
+  workerId: string;
+  basePay: number;
+  regularPay: number;
+  overtimePay: number;
+  allowances: number;
+  grossPay: number;
+  deductions: number;
+  netPay: number;
+  projectAllocatedCost: number;
+  calculationSnapshot?: Record<string, unknown>;
+  createdAt?: string;
+}
+
+export type PayrollAllocationSource = "TIME_ENTRY" | "MANUAL" | "DEFAULT_ASSIGNMENT";
+
+export interface PayrollProjectAllocation {
+  id: string;
+  payrollEntryId: string;
+  projectId: string;
+  allocationAmount: number;
+  allocationPercentage?: number;
+  source: PayrollAllocationSource;
+}
+
+export interface PayrollAdjustment {
+  id: string;
+  payrollEntryId: string;
+  type: "EARNING" | "DEDUCTION" | "EMPLOYER_COST";
+  code?: string;
+  description?: string;
+  amount: number;
+}
+
+export interface ProjectCostSummary {
+  projectId?: string;
+  budget: number;
+  invoiceCost: number;
+  paidInvoiceCost: number;
+  unpaidInvoiceCost: number;
+  pendingInvoiceCost: number;
+  payrollCost: number;
+  pendingPayrollCost: number;
+  otherExpenseCost: number;
+  pendingExpenseCost: number;
+  totalActualCost: number;
+  committedCost: number;
+  remainingBudget: number;
+  budgetUsedPercent: number;
+  foreignCosts: Record<string, number>;
+  unallocatedInvoiceCost: number;
+  unallocatedExpenseCost: number;
+}

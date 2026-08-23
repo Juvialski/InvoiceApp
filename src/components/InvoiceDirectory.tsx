@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { CheckCircle2, Eye, Search, Trash2, AlertTriangle, Files, Plus, Filter } from "lucide-react";
-import { InvoiceData } from "../types";
+import { InvoiceData, InvoiceProjectAllocation, Project } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 
 interface InvoiceDirectoryProps {
@@ -8,9 +8,11 @@ interface InvoiceDirectoryProps {
   onSelectInvoice: (invoice: InvoiceData) => void;
   onDeleteInvoice: (id: string) => void;
   onAddNew: () => void;
+  projects?: Project[];
+  projectAllocations?: InvoiceProjectAllocation[];
 }
 
-export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, onSelectInvoice, onDeleteInvoice, onAddNew }) => {
+export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, onSelectInvoice, onDeleteInvoice, onAddNew, projects = [], projectAllocations = [] }) => {
   const [query, setQuery] = useState("");
   const [reviewFilter, setReviewFilter] = useState("ALL");
   const [paymentFilter, setPaymentFilter] = useState("ALL");
@@ -21,8 +23,11 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
   const [duplicateFilter, setDuplicateFilter] = useState("ALL");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [projectFilter, setProjectFilter] = useState("ALL");
 
   const currencies = useMemo(() => Array.from(new Set(invoices.map((invoice) => invoice.currency).filter(Boolean))).sort(), [invoices]);
+  const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
+  const allocationsByInvoice = useMemo(() => projectAllocations.reduce<Map<string, InvoiceProjectAllocation[]>>((map, allocation) => { map.set(allocation.invoiceId, [...(map.get(allocation.invoiceId) || []), allocation]); return map; }, new Map()), [projectAllocations]);
   const filtered = useMemo(() => invoices.filter((invoice) => {
     const q = query.trim().toLowerCase();
     const haystack = [
@@ -40,6 +45,8 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
       invoice.purchaseOrderNumber,
       invoice.sourceMetadata?.sender,
       invoice.sourceMetadata?.subject,
+      invoice.projectReference,
+      ...(allocationsByInvoice.get(invoice.id) || []).flatMap((allocation) => { const project = projectById.get(allocation.projectId); return [project?.projectCode, project?.projectName]; }),
       invoice.grandTotal,
     ].join(" ").toLowerCase();
     const taxRegistration = invoice.vendor?.taxRegistration || invoice.philippineTaxDetails?.sellerRegistration || "UNKNOWN";
@@ -52,9 +59,10 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
       && (typeFilter === "ALL" || invoiceType === typeFilter)
       && (sourceFilter === "ALL" || (invoice.sourceType || "UPLOAD") === sourceFilter)
       && (duplicateFilter === "ALL" || (duplicateFilter === "DUPLICATES" ? invoice.duplicateStatus === "POSSIBLE_DUPLICATE" : invoice.duplicateStatus !== "POSSIBLE_DUPLICATE"))
+      && (projectFilter === "ALL" || (projectFilter === "UNALLOCATED" ? !(allocationsByInvoice.get(invoice.id) || []).length : (allocationsByInvoice.get(invoice.id) || []).some((allocation) => allocation.projectId === projectFilter)))
       && (!dateFrom || invoice.invoiceDate >= dateFrom)
       && (!dateTo || invoice.invoiceDate <= dateTo);
-  }), [invoices, query, reviewFilter, paymentFilter, currencyFilter, taxFilter, typeFilter, sourceFilter, duplicateFilter, dateFrom, dateTo]);
+  }), [invoices, query, reviewFilter, paymentFilter, currencyFilter, taxFilter, typeFilter, sourceFilter, duplicateFilter, projectFilter, dateFrom, dateTo, allocationsByInvoice, projectById]);
 
   return (
     <div className="space-y-4">
@@ -78,6 +86,7 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
           <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white text-xs"><option value="ALL">All invoice types</option><option value="VAT_INVOICE">VAT invoice</option><option value="NON_VAT_INVOICE">Non-VAT invoice</option><option value="SERVICE_INVOICE">Service invoice</option><option value="SALES_INVOICE">Sales invoice</option><option value="RECEIPT">Receipt</option><option value="SUPPLEMENTARY_DOCUMENT">Supplementary</option></select>
           <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white text-xs"><option value="ALL">All sources</option><option value="EMAIL">Gmail</option><option value="UPLOAD">Upload</option><option value="PASTED_TEXT">Pasted text</option><option value="SAMPLE">Demo</option></select>
           <select value={duplicateFilter} onChange={(e) => setDuplicateFilter(e.target.value)} className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white text-xs"><option value="ALL">Duplicates: all</option><option value="DUPLICATES">Potential duplicates</option><option value="UNIQUE">Unique only</option></select>
+          <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white text-xs"><option value="ALL">All projects</option><option value="UNALLOCATED">Unallocated</option>{projects.filter((project) => project.status !== "ARCHIVED").map((project) => <option key={project.id} value={project.id}>{project.projectCode} — {project.projectName}</option>)}</select>
           <p className="rounded-xl bg-slate-50 border border-slate-100 px-2.5 py-2 text-xs font-bold text-slate-600 self-stretch flex items-center">{filtered.length} shown</p>
         </div>
       </div>
@@ -86,14 +95,16 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="p-3">Vendor / invoice</th><th className="p-3">Date / project</th><th className="p-3">Amount</th><th className="p-3">Source</th><th className="p-3">Review</th><th className="p-3">Payment</th><th className="p-3 text-right">Actions</th></tr></thead>
+              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="p-3">Vendor / invoice</th><th className="p-3">Date / project</th><th className="p-3">Assigned project</th><th className="p-3">Amount</th><th className="p-3">Source</th><th className="p-3">Review</th><th className="p-3">Payment</th><th className="p-3 text-right">Actions</th></tr></thead>
               <tbody className="divide-y divide-slate-100">{filtered.map((invoice) => {
                 const display = getInvoiceDisplay(invoice);
                 const needsReview = invoice.reviewStatus === "NEEDS_REVIEW";
                 const openLabel = needsReview ? "Open review" : "Open read-only";
+                const assignedProjects = (allocationsByInvoice.get(invoice.id) || []).map((allocation) => projectById.get(allocation.projectId)).filter(Boolean) as Project[];
                 return <tr key={invoice.id} className="hover:bg-slate-50">
                   <td className="p-3 max-w-[250px]"><button onClick={() => onSelectInvoice(invoice)} className="font-black text-slate-900 hover:text-indigo-600 text-left truncate max-w-full block">{display.primaryLabel}</button><p className="text-[10px] text-slate-600 mt-0.5 truncate">{display.invoiceLabel}</p><p className="text-[10px] text-slate-500 truncate">TIN: {invoice.vendor?.taxId || "Not found"}</p>{invoice.duplicateStatus === "POSSIBLE_DUPLICATE" && <span className="mt-1 inline-flex items-center gap-1 text-[9px] font-bold text-rose-700"><AlertTriangle className="w-3 h-3" /> potential duplicate</span>}</td>
                   <td className="p-3 min-w-[150px]"><p className="font-semibold text-slate-800">{display.dateLabel}</p><p className="text-[10px] text-slate-500 mt-1 truncate">{display.projectKnown ? (display.projectReference ? `Project: ${display.projectLabel}` : `PO: ${display.projectLabel}`) : display.documentLabel}</p></td>
+                  <td className="p-3 min-w-[150px]"><p className="text-[10px] font-bold text-indigo-700 truncate">{assignedProjects.length ? assignedProjects.map((project) => project.projectCode).join(", ") : "Unallocated"}</p><p className="text-[10px] text-slate-500 truncate">{assignedProjects.length ? assignedProjects.map((project) => project.projectName).join(", ") : "Needs confirmation"}</p></td>
                   <td className="p-3 font-sans tabular-nums font-black whitespace-nowrap"><p>{display.amountLabel}</p>{display.amountLabel !== display.currencyLabel && <p className="text-[9px] uppercase font-bold text-slate-400 mt-0.5">{display.currencyLabel}</p>}</td>
                   <td className="p-3 max-w-[180px]"><span className="px-2 py-1 rounded-lg bg-slate-100 text-[10px] font-bold">{display.sourceLabel}</span><p className="text-[9px] text-slate-500 mt-1 truncate" title={display.sourceFileLabel}>{display.sourceFileLabel}</p><p className="text-[9px] text-slate-400 mt-0.5 truncate">{display.documentLabel}</p></td>
                   <td className="p-3"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-bold ${needsReview ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{needsReview ? <AlertTriangle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}{needsReview ? "Review" : "Verified"}</span></td>
