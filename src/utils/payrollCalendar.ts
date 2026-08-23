@@ -226,6 +226,46 @@ export function getLocalToday(now = new Date()): DateOnly {
 
 export const todayDateOnly = getLocalToday;
 
+export function formatPayrollPeriodLabel(period: Pick<PayrollPeriod, "periodStart" | "periodEnd">, frequency?: PayrollFrequency): string {
+  assertDateOnly(period.periodStart, "periodStart");
+  assertDateOnly(period.periodEnd, "periodEnd");
+  const startDate = utcDate(period.periodStart);
+  const endDate = utcDate(period.periodEnd);
+  const short = (value: Date) => new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", timeZone: "UTC" }).format(value);
+  const month = (value: Date) => new Intl.DateTimeFormat("en-PH", { month: "long", year: "numeric", timeZone: "UTC" }).format(value);
+  const sameDay = period.periodStart === period.periodEnd;
+  const monthEnd = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth() + 1, 0)).getUTCDate();
+  if (frequency === "MONTHLY" || (startDate.getUTCDate() === 1 && endDate.getUTCDate() === monthEnd)) return month(startDate);
+  if (sameDay || frequency === "DAILY") return short(startDate);
+  const sameMonth = startDate.getUTCFullYear() === endDate.getUTCFullYear() && startDate.getUTCMonth() === endDate.getUTCMonth();
+  const endLabel = sameMonth ? String(endDate.getUTCDate()) : short(endDate);
+  const startLabel = short(startDate);
+  return `${startLabel}–${endLabel}${startDate.getUTCFullYear() === endDate.getUTCFullYear() ? `, ${endDate.getUTCFullYear()}` : ` ${endDate.getUTCFullYear()}`}`;
+}
+
+export interface PayrollCalendarConflict {
+  periodIds: string[];
+  overlapStart: DateOnly;
+  overlapEnd: DateOnly;
+}
+
+export function findPayrollCalendarConflicts(periods: readonly CalendarPeriod[]): PayrollCalendarConflict[] {
+  const active = sortedPeriods(periods).filter((period) => period.status !== "VOID");
+  const conflicts: PayrollCalendarConflict[] = [];
+  for (let leftIndex = 0; leftIndex < active.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < active.length; rightIndex += 1) {
+      const left = active[leftIndex]!;
+      const right = active[rightIndex]!;
+      if (right.periodStart > left.periodEnd) break;
+      if (left.id === right.id || left.periodStart === right.periodStart && left.periodEnd === right.periodEnd) continue;
+      const overlapStart = left.periodStart > right.periodStart ? left.periodStart : right.periodStart;
+      const overlapEnd = left.periodEnd < right.periodEnd ? left.periodEnd : right.periodEnd;
+      if (overlapStart <= overlapEnd) conflicts.push({ periodIds: [left.id, right.id], overlapStart, overlapEnd });
+    }
+  }
+  return conflicts;
+}
+
 /** Monday is column zero; Sunday is column six. */
 export function mondayFirstWeekday(date: DateOnly): number {
   assertDateOnly(date);

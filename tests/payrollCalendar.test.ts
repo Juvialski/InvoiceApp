@@ -13,6 +13,8 @@ import {
   getRunStatus,
   getPeriodIntersection,
   mondayFirstWeekday,
+  formatPayrollPeriodLabel,
+  findPayrollCalendarConflicts,
   selectStablePayrollPeriod,
   selectStablePayrollPeriodId,
 } from "../src/utils/payrollCalendar.ts";
@@ -216,6 +218,18 @@ test("selects a canonical period ID deterministically and preserves an existing 
   assert.equal(selectStablePayrollPeriod(periods, "void-current", "2026-08-20")?.id, "current");
   assert.equal(selectStablePayrollPeriodId([period("next", "2026-09-01", "2026-09-15")], undefined, "2026-08-20"), "next");
   assert.equal(selectStablePayrollPeriodId([period("previous", "2026-07-01", "2026-07-15")], undefined, "2026-08-20"), "previous");
+});
+
+test("uses human period labels and one conflict record for overlapping active periods", () => {
+  assert.equal(formatPayrollPeriodLabel(period("weekly", "2026-08-23", "2026-08-29"), "WEEKLY"), "Aug 23–29, 2026");
+  assert.equal(formatPayrollPeriodLabel(period("semi", "2026-08-16", "2026-08-31"), "SEMI_MONTHLY"), "Aug 16–31, 2026");
+  assert.equal(formatPayrollPeriodLabel(period("monthly", "2026-08-01", "2026-08-31"), "MONTHLY"), "August 2026");
+  const conflicts = findPayrollCalendarConflicts([
+    period("p1", "2026-08-23", "2026-08-29"),
+    period("p2", "2026-08-28", "2026-09-04"),
+    period("void", "2026-08-24", "2026-08-25", undefined, "VOID"),
+  ]);
+  assert.deepEqual(conflicts.map((conflict) => [conflict.overlapStart, conflict.overlapEnd]), [["2026-08-28", "2026-08-29"]]);
 });
 
 test("uses local calendar fields for today instead of UTC date conversion", () => {

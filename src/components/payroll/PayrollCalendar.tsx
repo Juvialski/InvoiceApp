@@ -18,12 +18,15 @@ import {
 } from "lucide-react";
 import type { PayrollEntry, PayrollPeriod, PayrollRun } from "../../types";
 import type { PayrollImportBatch } from "../../lib/payrollImportPersistence";
+import { PayrollPeriodsOverview } from "./PayrollPeriodsOverview";
 import {
   buildPayrollMonthGrid,
   getImportedActivity,
   getIssueSummary,
   getLocalToday,
   selectStablePayrollPeriod,
+  findPayrollCalendarConflicts,
+  formatPayrollPeriodLabel,
   type AutomaticPayrollDraftRecord,
   type PayrollCalendarDay,
   type PayrollPeriodSlice,
@@ -173,11 +176,12 @@ function PeriodBar({
 }) {
   const period = periodForSlice(slice, periods);
   if (!period) return null;
+  if (date !== period.periodStart && date !== period.periodEnd && date !== slice.monthStart && date !== slice.monthEnd) return null;
   const tone = periodTone(period.id, periods);
   const selected = period.id === selectedPeriodId;
   const leftEdge = date === period.periodStart || date === slice.monthStart;
   const rightEdge = date === period.periodEnd || date === slice.monthEnd;
-  const shortId = period.id.length > 8 ? period.id.slice(-6) : period.id;
+  const periodLabel = formatPayrollPeriodLabel(period);
   return (
     <button
       type="button"
@@ -186,7 +190,7 @@ function PeriodBar({
       className={`group flex min-w-0 items-center gap-1 overflow-hidden text-left ${mobile ? "rounded-lg px-2 py-1.5" : `-mx-1 px-1 py-1 ${leftEdge ? "rounded-l-md" : ""} ${rightEdge ? "rounded-r-md" : ""}`} ${tone.soft} ${selected ? `ring-2 ${tone.ring} ring-inset` : ""} ${period.status === "VOID" ? "opacity-50" : ""}`}
     >
       <span className={`h-2 w-1.5 shrink-0 ${tone.bar} ${leftEdge ? "rounded-l-full" : ""}`} />
-      <span className={`truncate text-[9px] font-black ${tone.text}`}>{mobile ? `${formatDate(period.periodStart, { month: "short", day: "numeric" })} – ${formatDate(period.periodEnd, { month: "short", day: "numeric" })}` : shortId}</span>
+      <span className={`truncate text-[9px] font-black ${tone.text}`}>{periodLabel}</span>
       {!mobile && period.status !== "DRAFT" && <span className="hidden truncate text-[8px] font-semibold text-slate-500 xl:inline">{readableStatus(period.status)}</span>}
     </button>
   );
@@ -228,18 +232,10 @@ function DayCell({
       </div>
 
       <DayMarkers day={day} compact />
-      <div className="mt-1 space-y-0.5">
-        {day.periodSlices.slice(0, 3).map((slice) => (
-          <PeriodBar
-            key={slice.periodId}
-            slice={slice}
-            date={day.date}
-            periods={periods}
-            selectedPeriodId={selectedPeriodId}
-            onSelectPeriod={(period) => onSelectPeriod?.(period.id)}
-          />
-        ))}
-        {day.periodSlices.length > 3 && <p className="px-1 text-[9px] font-semibold text-slate-400">+{day.periodSlices.length - 3} more</p>}
+      <div className="mt-1">
+        {day.periodSlices.length > 1
+          ? <button type="button" onClick={() => onSelectPeriod?.(day.periodSlices[0]!.periodId)} className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-bold text-rose-700"><AlertTriangle className="h-2.5 w-2.5" /> Payroll schedule conflict</button>
+          : day.periodSlices.map((slice) => <PeriodBar key={slice.periodId} slice={slice} date={day.date} periods={periods} selectedPeriodId={selectedPeriodId} onSelectPeriod={(period) => onSelectPeriod?.(period.id)} />)}
       </div>
       {day.runStatuses.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-1">
@@ -263,7 +259,7 @@ function MobileAgenda({
   selectedPeriodId?: string;
   onSelectPeriod?: (periodId: string) => void;
 }) {
-  const eventDays = days.filter((day) => day.isCurrentMonth && (day.periodSlices.length || day.isToday || day.cutoffMarkers.length || day.payDateMarkers.length || day.issueSummary || day.importedActivity));
+  const eventDays = days.filter((day) => day.isCurrentMonth && (day.periodSlices.some((slice) => day.date === slice.period.periodStart || day.date === slice.period.periodEnd) || day.isToday || day.cutoffMarkers.length || day.payDateMarkers.length || day.issueSummary || day.importedActivity));
   if (!eventDays.length) return <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">No payroll periods or calendar activity in this month.</div>;
   return (
     <ol className="space-y-2" aria-label="Payroll calendar agenda">
@@ -384,7 +380,7 @@ function PeriodDetailPanel({
           {periodRuns.map((run) => (
             <div key={run.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 px-2.5 py-2">
               <div className="min-w-0">
-                <p className="truncate text-[10px] font-bold text-slate-700">{run.id}</p>
+                <p className="text-[10px] font-bold text-slate-700">Payroll run</p>
                 <RunStatusBadge status={run.status} />
               </div>
               {onOpenRun && <button type="button" onClick={() => onOpenRun(run, period)} className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-[10px] font-bold text-indigo-700 hover:bg-indigo-50">Open run</button>}
@@ -430,6 +426,8 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
   className = "",
 }) => {
   const today = useMemo(() => getLocalToday(), []);
+  const [view, setView] = useState<"periods" | "month">("periods");
+  const conflicts = useMemo(() => findPayrollCalendarConflicts(periods), [periods]);
   const initialCursor = useMemo(() => {
     const selected = periods.find((period) => period.id === selectedPeriodId) || periods.find((period) => period.status !== "VOID");
     return dateParts(selected?.periodStart || today);
@@ -459,17 +457,17 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Payroll calendar</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950">Periods at a glance</h2>
-          <p className="mt-1 text-xs text-slate-500">Review generated and imported periods without changing payroll history.</p>
+          <h2 className="mt-1 text-xl font-black text-slate-950">Payroll periods</h2>
+          <p className="mt-1 text-xs text-slate-500">Current and upcoming payroll stay simple; Month view is available for date-level visualization.</p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button type="button" onClick={() => setCursor((current) => addMonth(current, -1))} aria-label="Previous month" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-3.5 w-3.5" /> Previous</button>
-          <button type="button" onClick={() => setCursor(dateParts(today))} className="rounded-lg bg-indigo-600 px-2.5 py-2 text-[10px] font-bold text-white hover:bg-indigo-700">Today</button>
-          <button type="button" onClick={() => setCursor((current) => addMonth(current, 1))} aria-label="Next month" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50">Next <ArrowRight className="h-3.5 w-3.5" /></button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1" role="tablist" aria-label="Payroll calendar view"><button type="button" role="tab" aria-selected={view === "periods"} onClick={() => setView("periods")} className={`rounded-md px-3 py-1.5 text-[10px] font-bold ${view === "periods" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"}`}>Periods</button><button type="button" role="tab" aria-selected={view === "month"} onClick={() => setView("month")} className={`rounded-md px-3 py-1.5 text-[10px] font-bold ${view === "month" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"}`}>Month</button></div>
+          {view === "month" && <div className="flex items-center gap-1.5"><button type="button" onClick={() => setCursor((current) => addMonth(current, -1))} aria-label="Previous month" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50"><ArrowLeft className="h-3.5 w-3.5" /> Previous</button><button type="button" onClick={() => setCursor(dateParts(today))} className="rounded-lg bg-indigo-600 px-2.5 py-2 text-[10px] font-bold text-white hover:bg-indigo-700">Today</button><button type="button" onClick={() => setCursor((current) => addMonth(current, 1))} aria-label="Next month" className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50">Next <ArrowRight className="h-3.5 w-3.5" /></button></div>}
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
+      {conflicts.find((conflict) => conflict.overlapEnd >= today) && <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><AlertTriangle className="h-3.5 w-3.5" /><strong>Payroll schedule conflict.</strong><span>Active payroll periods overlap. Review before calculating.</span></div>}
+      {view === "month" && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
         <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-indigo-600" /><p className="text-sm font-black text-slate-900">{formatMonth(cursor)}</p>{frequencyLabel && <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold text-slate-500">{frequencyLabel}</span>}</div>
         <div className="flex flex-wrap items-center gap-2 text-[9px] font-semibold text-slate-500">
           <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> Today</span>
@@ -477,9 +475,9 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
           <span className="inline-flex items-center gap-1 text-emerald-700"><Banknote className="h-2.5 w-2.5" /> Pay date</span>
           <span className="inline-flex items-center gap-1"><TimerReset className="h-2.5 w-2.5" /> Run status</span>
         </div>
-      </div>
+      </div>}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+      {view === "periods" ? <PayrollPeriodsOverview periods={periods} runs={runs} entries={entries} importBatches={importBatches} automaticDrafts={automaticDrafts} automaticDraft={selectedDraft} selectedPeriodId={selectedId} frequencyLabel={frequencyLabel} today={today} onSelectPeriod={onSelectPeriod} onOpenOverview={onOpenOverview} /> : <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="hidden min-w-0 md:block">
           <div role="grid" aria-label={`Payroll calendar for ${formatMonth(cursor)}`} className="overflow-hidden rounded-xl border border-slate-200">
             <div className="grid grid-cols-7 bg-slate-50" role="row">
@@ -507,7 +505,7 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
           onOpenOverview={onOpenOverview}
           onOpenRun={onOpenRun}
         />
-      </div>
+      </div>}
 
       {periods.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-xs text-slate-500">No payroll periods yet. The calendar will show generated or imported periods when available.</div>}
     </section>
