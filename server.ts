@@ -33,10 +33,18 @@ const partySchema = {
   properties: {
     name: { type: Type.STRING },
     companyName: { type: Type.STRING },
+    registeredName: { type: Type.STRING, description: "Registered business name when visible" },
+    tradeName: { type: Type.STRING, description: "Business or trade name when visible" },
     taxId: { type: Type.STRING },
+    branchCode: { type: Type.STRING },
+    taxRegistration: { type: Type.STRING, description: "VAT, NON_VAT, or UNKNOWN when explicitly stated" },
     address: { type: Type.STRING },
     city: { type: Type.STRING },
+    cityMunicipality: { type: Type.STRING },
     state: { type: Type.STRING },
+    province: { type: Type.STRING },
+    barangay: { type: Type.STRING },
+    region: { type: Type.STRING },
     postalCode: { type: Type.STRING },
     country: { type: Type.STRING },
     email: { type: Type.STRING },
@@ -49,6 +57,7 @@ const invoiceSchema = {
   type: Type.OBJECT,
   properties: {
     documentType: { type: Type.STRING, description: "INVOICE, CREDIT_NOTE, RECEIPT, STATEMENT, PURCHASE_ORDER, or OTHER" },
+    invoiceSubtype: { type: Type.STRING, description: "VAT_INVOICE, NON_VAT_INVOICE, SERVICE_INVOICE, SALES_INVOICE, COMMERCIAL_INVOICE, CASH_INVOICE, CHARGE_INVOICE, CREDIT_INVOICE, or UNKNOWN when visible" },
     invoiceNumber: { type: Type.STRING },
     invoiceDate: { type: Type.STRING, description: "YYYY-MM-DD when visible" },
     dueDate: { type: Type.STRING, description: "YYYY-MM-DD when visible" },
@@ -96,6 +105,31 @@ const invoiceSchema = {
     grandTotal: { type: Type.NUMBER },
     amountPaid: { type: Type.NUMBER },
     balanceDue: { type: Type.NUMBER },
+    withholdingTaxRate: { type: Type.NUMBER, description: "Only when explicitly shown; do not infer a rate" },
+    withholdingTaxAmount: { type: Type.NUMBER, description: "EWT/CWT/withholding amount when explicitly shown" },
+    netAmountPayable: { type: Type.NUMBER, description: "Only when the source deterministically states or calculates it" },
+    philippineTaxDetails: {
+      type: Type.OBJECT,
+      properties: {
+        invoiceKind: { type: Type.STRING, description: "VAT_INVOICE, NON_VAT_INVOICE, or UNKNOWN" },
+        sellerRegistration: { type: Type.STRING, description: "VAT, NON_VAT, or UNKNOWN" },
+        vatableSales: { type: Type.NUMBER },
+        vatAmount: { type: Type.NUMBER },
+        zeroRatedSales: { type: Type.NUMBER },
+        vatExemptSales: { type: Type.NUMBER },
+        salesSubjectToPercentageTax: { type: Type.NUMBER },
+        authorityToPrintNumber: { type: Type.STRING, description: "ATP when visible" },
+        outboundCorrespondenceNumber: { type: Type.STRING, description: "OCN when visible" },
+        permitToUseNumber: { type: Type.STRING },
+        approvedSerialFrom: { type: Type.STRING },
+        approvedSerialTo: { type: Type.STRING },
+        birPermitDetailsRaw: { type: Type.STRING },
+        withholdingTaxRate: { type: Type.NUMBER },
+        withholdingTaxAmount: { type: Type.NUMBER },
+        netAmountPayable: { type: Type.NUMBER },
+        vatInclusive: { type: Type.BOOLEAN, description: "True only when the source clearly states prices/total are VAT-inclusive" },
+      },
+    },
     notes: { type: Type.STRING },
     termsAndConditions: { type: Type.STRING },
     category: { type: Type.STRING, description: "Short business/accounting category suggestion" },
@@ -119,6 +153,7 @@ const emailClassificationSchema = {
   properties: {
     isInvoiceLike: { type: Type.BOOLEAN },
     documentType: { type: Type.STRING },
+    invoiceSubtype: { type: Type.STRING },
     confidence: { type: Type.NUMBER },
     reason: { type: Type.STRING },
     suggestedVendor: { type: Type.STRING },
@@ -140,7 +175,7 @@ function deriveStatus(grandTotal: number, amountPaid: number, balanceDue: number
   if (grandTotal > 0 && balanceDue <= 0.01) return "PAID";
   if (amountPaid > 0 && balanceDue > 0.01) return "PARTIALLY_PAID";
   if (dueDate) {
-    const due = new Date(`${dueDate}T23:59:59`);
+    const due = new Date(`${dueDate}T23:59:59+08:00`);
     if (!Number.isNaN(due.getTime()) && due.getTime() < Date.now() && balanceDue > 0.01) return "OVERDUE";
   }
   return "UNPAID";
@@ -179,6 +214,21 @@ function validateExtractedInvoice(data: any, items: any[]) {
   if (!data.invoiceDate) issues.push({ id: "missing-invoice-date", severity: "warning", field: "invoiceDate", message: "Invoice date is missing." });
   if (!data.vendor?.name) issues.push({ id: "missing-vendor", severity: "warning", field: "vendor.name", message: "Vendor name is missing." });
   if (!data.currency) issues.push({ id: "missing-currency", severity: "warning", field: "currency", message: "Currency is missing." });
+
+  const phTax = data.philippineTaxDetails || {};
+  const phVatInvoice = Boolean(
+    data.invoiceSubtype === "VAT_INVOICE" ||
+    phTax.invoiceKind === "VAT_INVOICE" ||
+    phTax.sellerRegistration === "VAT" ||
+    data.vendor?.taxRegistration === "VAT"
+  );
+  if (phVatInvoice && phTax.vatableSales !== undefined && (phTax.vatAmount !== undefined || data.totalTax !== undefined)) {
+    const expectedVat = roundMoney(numeric(phTax.vatableSales) * 0.12);
+    const documentVat = phTax.vatAmount === undefined ? numeric(data.totalTax) : numeric(phTax.vatAmount);
+    if (Math.abs(expectedVat - documentVat) > 0.05) {
+      issues.push({ id: "ph-vat-rate-mismatch", severity: "warning", field: "philippineTaxDetails.vatAmount", message: "Philippine VAT does not reconcile to 12% of VATable Sales.", expected: expectedVat, actual: documentVat });
+    }
+  }
 
   return {
     status: issues.length ? "REVIEW" : "PASS",
@@ -219,12 +269,12 @@ app.post("/api/classify-email", async (req, res) => {
     const { sender = "", subject = "", body = "", attachmentNames = [], model = PRIMARY_MODEL } = req.body || {};
     if (!subject && !body && !attachmentNames.length) return res.status(400).json({ success: false, error: "Email content is required." });
     const ai = getGeminiClient();
-    const prompt = `Classify whether this email is related to an invoice or adjacent financial document. Use the email subject, sender, body, and attachment names. Do not assume an attachment is an invoice only because it is a PDF.\n\nSender: ${sender}\nSubject: ${subject}\nAttachments: ${attachmentNames.join(", ") || "None"}\n\nBody:\n${body}`;
+    const prompt = `Classify whether this email is related to an invoice or adjacent financial document. Use the email subject, sender, body, and attachment names. Do not assume an attachment is an invoice only because it is a PDF. Recognize Philippine terms including invoice, sales invoice, service invoice, VAT invoice, billing, statement of account, SOA, BIR, VAT, TIN, and amount due. Treat "Official Receipt", "SOA", and "Billing Statement" as candidate finance documents, not automatically as a principal invoice. For current Philippine workflow, an Official Receipt may be RECEIPT or SUPPLEMENTARY_DOCUMENT; preserve uncertainty and route it to human review.\n\nSender: ${sender}\nSubject: ${subject}\nAttachments: ${attachmentNames.join(", ") || "None"}\n\nBody:\n${body}`;
     const { response, modelUsed } = await generateStructured(
       ai,
       model,
       { parts: [{ text: prompt }] },
-      "You classify finance emails for an invoice operations workspace. Return conservative structured JSON.",
+      "You classify finance emails for an invoice operations workspace. Return conservative structured JSON. Never invent a legal conclusion from a title alone. Keep documentType broad and use invoiceSubtype only when the source supports it. A receipt is not automatically an invoice.",
       emailClassificationSchema
     );
     const data = JSON.parse(response.text || "{}");
@@ -263,7 +313,7 @@ app.post("/api/extract-invoice", async (req, res) => {
       text: `${emailBlock}\n${textData ? `DOCUMENT TEXT:\n${textData}` : "Analyze the attached document."}\n\nExtract the financial document into the requested structured schema.`,
     });
 
-    const systemPrompt = `You are a high-precision financial document extraction system for invoices, tax invoices, receipts, credit notes, statements, and purchase orders.
+    const systemPrompt = `You are a high-precision, internationally capable financial document extraction system for invoices, tax invoices, receipts, credit notes, statements, and purchase orders. Give special attention to Philippine invoice terminology while preserving the source's actual document type.
 Rules:
 1. Extract values that are explicitly visible in the document or email context.
 2. Never guess, estimate, or invent missing financial values, dates, invoice numbers, tax IDs, contact details, or parties.
@@ -274,7 +324,12 @@ Rules:
 7. Extract every visible line item. Preserve descriptions faithfully.
 8. confidenceScore and fieldConfidence must reflect actual uncertainty; do not default to a high score.
 9. category is only a short suggested classification (e.g. Software, Office Supplies, Professional Services, Utilities, Logistics).
-10. Return only JSON matching the schema.`;
+10. For Philippine documents recognize INVOICE, VAT INVOICE, NON-VAT INVOICE, SALES INVOICE, SERVICE INVOICE, COMMERCIAL INVOICE, CASH INVOICE, CHARGE INVOICE, CREDIT INVOICE, and Official Receipt. Keep documentType=INVOICE for invoice documents and use invoiceSubtype for the more specific label. An Official Receipt is usually RECEIPT or SUPPLEMENTARY_DOCUMENT when the source does not clearly establish an invoice; do not invent a legal conclusion.
+11. For Philippine fields look for Registered Name, Business/Trade Name, VAT REG TIN, TIN, Branch Code, Registered Business Address, invoice/serial number, transaction date, buyer registered name/TIN/address, description/nature of service, quantity, unit price/cost, amount, VATable Sales, VAT Amount, VAT on Local Sales, Zero-Rated Sales, VAT-Exempt Sales, Discount, Total Amount, ATP, OCN, Permit to Use/BIR Permit, and approved invoice serial ranges. These are optional for foreign invoices.
+12. Recognize ₱, PHP, Php, PhP, and Philippine Peso as PHP. Preserve explicit USD, US$, $, EUR, SGD, JPY, and other foreign currencies. Never infer PHP only from a Philippine address. If currency is unclear, leave currency empty and lower confidence.
+13. Keep withholding tax/EWT/CWT separate from VAT. Never subtract withholding from grandTotal unless the source explicitly provides netAmountPayable; do not infer a withholding rate.
+14. For VAT-inclusive wording, set philippineTaxDetails.vatInclusive=true only when clearly stated; otherwise leave it absent rather than guessing.
+15. Return only JSON matching the schema.`;
 
     const { response, modelUsed } = await generateStructured(
       ai,
@@ -308,6 +363,7 @@ Rules:
         discount,
         taxRate: numeric(item.taxRate),
         taxAmount: numeric(item.taxAmount),
+        taxTreatment: item.taxTreatment || "UNKNOWN",
         total,
       };
     });
@@ -326,6 +382,7 @@ Rules:
       id: randomUUID(),
       fileName: fileName || emailContext?.attachmentName || "invoice",
       documentType: extracted.documentType || "OTHER",
+      invoiceSubtype: extracted.invoiceSubtype || "UNKNOWN",
       sourceType,
       sourceMetadata: emailContext
         ? {
@@ -351,16 +408,24 @@ Rules:
       dueDate: extracted.dueDate || "",
       purchaseOrderNumber: extracted.purchaseOrderNumber || "",
       currency: extracted.currency || "",
-      currencySymbol: extracted.currencySymbol || "",
+      currencySymbol: extracted.currencySymbol || ({ PHP: "₱", USD: "$", EUR: "€", SGD: "S$", JPY: "¥", GBP: "£" } as Record<string, string>)[String(extracted.currency || "").toUpperCase()] || "",
       paymentTerms: extracted.paymentTerms || "",
       status: deriveStatus(grandTotal, amountPaid, balanceDue, extracted.dueDate),
       vendor: {
-        name: extracted.vendor?.name || "",
-        companyName: extracted.vendor?.companyName || extracted.vendor?.name || "",
+        name: extracted.vendor?.name || extracted.vendor?.registeredName || "",
+        companyName: extracted.vendor?.companyName || extracted.vendor?.registeredName || extracted.vendor?.name || "",
+        registeredName: extracted.vendor?.registeredName || "",
+        tradeName: extracted.vendor?.tradeName || "",
         taxId: extracted.vendor?.taxId || "",
+        branchCode: extracted.vendor?.branchCode || "",
+        taxRegistration: extracted.vendor?.taxRegistration || "UNKNOWN",
         address: extracted.vendor?.address || "",
         city: extracted.vendor?.city || "",
+        cityMunicipality: extracted.vendor?.cityMunicipality || "",
         state: extracted.vendor?.state || "",
+        province: extracted.vendor?.province || "",
+        barangay: extracted.vendor?.barangay || "",
+        region: extracted.vendor?.region || "",
         postalCode: extracted.vendor?.postalCode || "",
         country: extracted.vendor?.country || "",
         email: extracted.vendor?.email || "",
@@ -368,12 +433,20 @@ Rules:
         website: extracted.vendor?.website || "",
       },
       customer: {
-        name: extracted.customer?.name || "",
-        companyName: extracted.customer?.companyName || extracted.customer?.name || "",
+        name: extracted.customer?.name || extracted.customer?.registeredName || "",
+        companyName: extracted.customer?.companyName || extracted.customer?.registeredName || extracted.customer?.name || "",
+        registeredName: extracted.customer?.registeredName || "",
+        tradeName: extracted.customer?.tradeName || "",
         taxId: extracted.customer?.taxId || "",
+        branchCode: extracted.customer?.branchCode || "",
+        taxRegistration: extracted.customer?.taxRegistration || "UNKNOWN",
         address: extracted.customer?.address || "",
         city: extracted.customer?.city || "",
+        cityMunicipality: extracted.customer?.cityMunicipality || "",
         state: extracted.customer?.state || "",
+        province: extracted.customer?.province || "",
+        barangay: extracted.customer?.barangay || "",
+        region: extracted.customer?.region || "",
         postalCode: extracted.customer?.postalCode || "",
         country: extracted.customer?.country || "",
         email: extracted.customer?.email || "",
@@ -390,6 +463,10 @@ Rules:
       grandTotal,
       amountPaid,
       balanceDue,
+      withholdingTaxRate: extracted.withholdingTaxRate === undefined ? undefined : numeric(extracted.withholdingTaxRate),
+      withholdingTaxAmount: extracted.withholdingTaxAmount === undefined ? undefined : numeric(extracted.withholdingTaxAmount),
+      netAmountPayable: extracted.netAmountPayable === undefined ? undefined : numeric(extracted.netAmountPayable),
+      philippineTaxDetails: extracted.philippineTaxDetails || undefined,
       notes: extracted.notes || "",
       termsAndConditions: extracted.termsAndConditions || "",
       category: extracted.category || "",
@@ -560,7 +637,7 @@ app.post("/api/gmail/scan", async (req, res) => {
   try {
     const accessToken = getGoogleAccessToken(req);
     const maxResults = Math.max(1, Math.min(50, Number(req.body?.maxResults || 25)));
-    const query = String(req.body?.query || "newer_than:30d {subject:invoice subject:receipt subject:statement \"credit note\" \"tax invoice\" filename:pdf filename:png filename:jpg filename:jpeg}");
+    const query = String(req.body?.query || "newer_than:30d {subject:invoice subject:\"sales invoice\" subject:\"service invoice\" subject:\"VAT invoice\" subject:billing subject:SOA \"statement of account\" \"credit note\" \"tax invoice\" BIR VAT TIN \"amount due\" filename:pdf filename:png filename:jpg filename:jpeg}");
     const ids: string[] = [];
     let pageToken = "";
     let resultSizeEstimate = 0;

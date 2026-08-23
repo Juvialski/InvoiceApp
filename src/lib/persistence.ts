@@ -317,25 +317,42 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
 }
 
 function normalizedVendorName(invoice: InvoiceData) {
-  return (invoice.vendor?.companyName || invoice.vendor?.name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return (invoice.vendor?.registeredName || invoice.vendor?.companyName || invoice.vendor?.name || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function normalizedTaxId(value?: string) {
+  return (value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 async function ensureVendor(invoice: InvoiceData) {
   const client = requireSupabase();
   const userId = await requireUserId();
-  const name = (invoice.vendor?.companyName || invoice.vendor?.name || "").trim();
+  const name = (invoice.vendor?.registeredName || invoice.vendor?.companyName || invoice.vendor?.name || "").trim();
   const normalized = normalizedVendorName(invoice);
+  const taxId = (invoice.vendor?.taxId || "").trim();
   // Do not merge every uncertain extraction into a fake "Unknown vendor" row.
   if (!name || !normalized) return null;
+  if (taxId) {
+    const { data: taxMatch, error: taxMatchError } = await client
+      .from("vendors")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("tax_id", taxId)
+      .maybeSingle();
+    if (taxMatchError) throw taxMatchError;
+    if (taxMatch?.id) return taxMatch.id as string;
+  }
+  // A TIN-qualified key keeps same-named businesses with different TINs separate.
+  const normalizedKey = taxId ? `${normalized} tin ${normalizedTaxId(taxId)}` : normalized;
   const { data, error } = await client
     .from("vendors")
     .upsert({
       user_id: userId,
       name,
-      normalized_name: normalized,
+      normalized_name: normalizedKey,
       email: invoice.vendor?.email || null,
       phone: invoice.vendor?.phone || null,
-      tax_id: invoice.vendor?.taxId || null,
+      tax_id: taxId || null,
       address: invoice.vendor?.address || null,
       default_currency: invoice.currency || null,
       updated_at: new Date().toISOString(),
@@ -390,10 +407,15 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     .limit(500);
   if (duplicateError) throw duplicateError;
   const normalizedInvoiceVendor = normalizedVendorName(invoice);
+  const normalizedInvoiceTaxId = normalizedTaxId(invoice.vendor?.taxId);
   const duplicate = (possibleDuplicates || []).find((candidate: any) => {
     const candidateData = candidate.current_data || {};
     const candidateVendor = normalizedVendorName(candidateData as InvoiceData);
-    const sameVendor = Boolean((vendorId && candidate.vendor_id === vendorId) || (normalizedInvoiceVendor && candidateVendor === normalizedInvoiceVendor));
+    const candidateTaxId = normalizedTaxId(candidateData?.vendor?.taxId);
+    const sameVendor = Boolean(
+      (vendorId && candidate.vendor_id === vendorId) ||
+      (normalizedInvoiceVendor && candidateVendor === normalizedInvoiceVendor && (!normalizedInvoiceTaxId || !candidateTaxId || normalizedInvoiceTaxId === candidateTaxId))
+    );
     const sameNumber = Boolean(invoice.invoiceNumber && candidate.invoice_number && String(candidate.invoice_number).trim().toLowerCase() === invoice.invoiceNumber.trim().toLowerCase());
     const sameDate = Boolean(invoice.invoiceDate && candidate.invoice_date && String(candidate.invoice_date).slice(0, 10) === invoice.invoiceDate);
     const sameCurrency = Boolean(invoice.currency && candidate.currency && String(candidate.currency).toUpperCase() === invoice.currency.toUpperCase());
@@ -497,6 +519,12 @@ function comparableSnapshot(invoice: InvoiceData) {
     grandTotal: invoice.grandTotal,
     amountPaid: invoice.amountPaid,
     balanceDue: invoice.balanceDue,
+    invoiceSubtype: invoice.invoiceSubtype,
+    philippineTaxDetails: invoice.philippineTaxDetails,
+    withholdingTaxRate: invoice.withholdingTaxRate,
+    withholdingTaxAmount: invoice.withholdingTaxAmount,
+    netAmountPayable: invoice.netAmountPayable,
+    philippineInvoiceCompleteness: invoice.philippineInvoiceCompleteness,
     category: invoice.category,
     notes: invoice.notes,
   };

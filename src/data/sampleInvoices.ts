@@ -1,4 +1,4 @@
-import { InvoiceData } from "../types";
+import type { InvoiceData, LineItem, PartyDetails, PhilippineTaxDetails } from "../types.ts";
 
 export interface SampleInvoicePreset {
   id: string;
@@ -9,288 +9,367 @@ export interface SampleInvoicePreset {
   previewData: InvoiceData;
 }
 
+const demoNow = "2026-08-23T09:00:00+08:00";
+
+function item(id: string, itemNumber: number, description: string, quantity: number, unitPrice: number, taxTreatment = "VATABLE"): LineItem {
+  return {
+    id,
+    itemNumber,
+    description,
+    quantity,
+    unitPrice,
+    discount: 0,
+    taxRate: taxTreatment === "VATABLE" ? 12 : 0,
+    taxAmount: 0,
+    taxTreatment,
+    total: Math.round(quantity * unitPrice * 100) / 100,
+  };
+}
+
+const metroManilaVendor: PartyDetails = {
+  name: "Bayanihan Digital Solutions Corporation",
+  companyName: "Bayanihan Digital Solutions Corporation",
+  registeredName: "Bayanihan Digital Solutions Corporation",
+  tradeName: "Bayanihan Digital",
+  taxId: "009-876-543-000",
+  branchCode: "000",
+  taxRegistration: "VAT",
+  address: "18F Ayala Tower One, 6741 Ayala Avenue",
+  barangay: "Bel-Air",
+  city: "Makati City",
+  cityMunicipality: "Makati City",
+  province: "Metro Manila",
+  region: "NCR",
+  postalCode: "1226",
+  country: "Philippines",
+  email: "billing@bayanihan-digital.example",
+  phone: "+63 2 8555 0188",
+};
+
+const harborlineCustomer: PartyDetails = {
+  name: "Harborline Logistics Corporation",
+  companyName: "Harborline Logistics Corporation",
+  registeredName: "Harborline Logistics Corporation",
+  taxId: "008-765-432-000",
+  address: "12th Avenue corner 32nd Street",
+  barangay: "Fort Bonifacio",
+  city: "Taguig City",
+  cityMunicipality: "Taguig City",
+  province: "Metro Manila",
+  region: "NCR",
+  postalCode: "1634",
+  country: "Philippines",
+  email: "ap@harborline-logistics.example",
+};
+
+const phTax = (overrides: Partial<PhilippineTaxDetails>): PhilippineTaxDetails => ({
+  invoiceKind: "VAT_INVOICE",
+  sellerRegistration: "VAT",
+  zeroRatedSales: 0,
+  vatExemptSales: 0,
+  authorityToPrintNumber: "ATP-DEMO-2026-0001",
+  outboundCorrespondenceNumber: "OCN-DEMO-0001",
+  birPermitDetailsRaw: "Fictional QA permit details — not a legal document.",
+  ...overrides,
+});
+
+function baseInvoice(overrides: Partial<InvoiceData>): InvoiceData {
+  return {
+    id: "sample-base",
+    documentType: "INVOICE",
+    invoiceSubtype: "VAT_INVOICE",
+    sourceType: "SAMPLE",
+    sourceMetadata: { attachmentName: "fictional-philippine-demo.txt" },
+    processingStatus: "EXTRACTED",
+    reviewStatus: "NEEDS_REVIEW",
+    duplicateStatus: "UNIQUE",
+    invoiceNumber: "",
+    invoiceDate: "2026-08-20",
+    dueDate: "2026-09-19",
+    currency: "PHP",
+    currencySymbol: "₱",
+    paymentTerms: "Net 30",
+    status: "UNPAID",
+    vendor: metroManilaVendor,
+    customer: harborlineCustomer,
+    items: [],
+    subtotal: 0,
+    totalDiscount: 0,
+    totalTax: 0,
+    shippingFee: 0,
+    otherFees: 0,
+    grandTotal: 0,
+    amountPaid: 0,
+    balanceDue: 0,
+    extractedAt: demoNow,
+    modelUsed: "sample-data",
+    confidenceScore: 99,
+    ...overrides,
+  };
+}
+
 export const SAMPLE_INVOICES: SampleInvoicePreset[] = [
   {
-    id: "sample-tech-services",
-    name: "CloudTech Consulting Invoice",
-    category: "Professional Services",
-    description: "IT architecture consulting, cloud migration and monthly SLA support.",
-    rawText: `INVOICE #INV-2026-8894
-Date: 2026-08-15
-Due Date: 2026-09-15
-PO Number: PO-99321
-Payment Terms: Net 30
-Status: UNPAID
+    id: "sample-ph-vat-service",
+    name: "Demo A: PH VAT Service Invoice",
+    category: "IT / Professional Services",
+    description: "Fictional Metro Manila VAT invoice for managed IT and cybersecurity services.",
+    rawText: `FICTIONAL QA DATA — NOT A LEGAL DOCUMENT
+VAT INVOICE
+Registered Name: Bayanihan Digital Solutions Corporation
+Business / Trade Name: Bayanihan Digital
+Business Address: 18F Ayala Tower One, 6741 Ayala Avenue, Barangay Bel-Air, Makati City, Metro Manila 1226
+VAT REG TIN: 009-876-543-000
+Branch Code: 000
+Invoice No: SI-2026-00891
+Transaction Date: August 20, 2026
 
-FROM:
-CloudTech Solutions Inc.
-VAT/Tax ID: US-948372610
-100 Innovation Way, Suite 400
-San Francisco, CA 94105, United States
-Email: billing@cloudtechsolutions.io
-Phone: +1 (415) 555-0199
-Website: https://cloudtechsolutions.io
+BUYER / CUSTOMER
+Registered Name: Harborline Logistics Corporation
+Address: 12th Avenue corner 32nd Street, Barangay Fort Bonifacio, Taguig City, Metro Manila 1634
+TIN: 008-765-432-000
 
-BILL TO:
-Acme Global Logistics Corp.
-Tax ID: US-112233445
-742 Industrial Parkway
-Chicago, IL 60607, United States
-Attn: Finance & Accounts Payable
-Email: invoices@acmelogistics.com
-Phone: +1 (312) 555-4890
+DESCRIPTION OF SERVICE
+1. Managed cloud security and compliance review | Qty 1 | Unit Price ₱45,000.00 | Amount ₱45,000.00
+2. Infrastructure monitoring and incident response retainer | Qty 10 hours | Unit Price ₱3,000.00 | Amount ₱30,000.00
 
-ITEMS & SERVICES:
-1. [SKU: SRV-ARCH] Multi-Cloud Architecture & Security Audit | Qty: 40 hrs | Unit Price: $185.00 | Total: $7,400.00
-2. [SKU: SRV-MIGRATE] Kubernetes Cluster Migration & Workload Transition | Qty: 1 | Unit Price: $4,500.00 | Total: $4,500.00
-3. [SKU: SLA-PREM] Enterprise 24/7 Managed Infrastructure Support (August 2026) | Qty: 1 | Unit Price: $2,200.00 | Total: $2,200.00
-4. [SKU: LIC-BACKUP] Automated Backup & Disaster Recovery Licensing (10 Nodes) | Qty: 10 | Unit Price: $45.00 | Total: $450.00
-
-FINANCIAL SUMMARY:
-Subtotal: $14,550.00
-Volume Discount (5% on consulting services): -$595.00
-Sales Tax (8.25% on taxable items): $1,151.29
-Total Amount Due: $15,106.29
-Amount Paid: $0.00
-Balance Due: $15,106.29
-
-PAYMENT INSTRUCTIONS:
-Wire / ACH Transfer:
-Bank: Silicon Valley Commerce Bank
-Account Name: CloudTech Solutions Inc.
-Routing / ABA: 121000358
-Account Number: 9876543210
-SWIFT/BIC: SVCBUS33
-
-Notes: Thank you for your business. Please include Invoice #INV-2026-8894 in the wire transfer memo.`,
-    previewData: {
-      id: "sample-1",
-      invoiceNumber: "INV-2026-8894",
-      invoiceDate: "2026-08-15",
-      dueDate: "2026-09-15",
-      purchaseOrderNumber: "PO-99321",
-      currency: "USD",
-      currencySymbol: "$",
-      paymentTerms: "Net 30",
-      status: "UNPAID",
-      vendor: {
-        name: "CloudTech Solutions Inc.",
-        companyName: "CloudTech Solutions Inc.",
-        taxId: "US-948372610",
-        address: "100 Innovation Way, Suite 400",
-        city: "San Francisco",
-        state: "CA",
-        postalCode: "94105",
-        country: "United States",
-        email: "billing@cloudtechsolutions.io",
-        phone: "+1 (415) 555-0199",
-        website: "https://cloudtechsolutions.io",
-      },
-      customer: {
-        name: "Acme Global Logistics Corp.",
-        companyName: "Acme Global Logistics Corp.",
-        taxId: "US-112233445",
-        address: "742 Industrial Parkway",
-        city: "Chicago",
-        state: "IL",
-        postalCode: "60607",
-        country: "United States",
-        email: "invoices@acmelogistics.com",
-        phone: "+1 (312) 555-4890",
-      },
-      items: [
-        {
-          id: "item-1",
-          itemNumber: 1,
-          sku: "SRV-ARCH",
-          description: "Multi-Cloud Architecture & Security Audit",
-          quantity: 40,
-          unitPrice: 185.0,
-          discount: 0,
-          taxRate: 8.25,
-          taxAmount: 610.5,
-          total: 7400.0,
-        },
-        {
-          id: "item-2",
-          itemNumber: 2,
-          sku: "SRV-MIGRATE",
-          description: "Kubernetes Cluster Migration & Workload Transition",
-          quantity: 1,
-          unitPrice: 4500.0,
-          discount: 0,
-          taxRate: 8.25,
-          taxAmount: 371.25,
-          total: 4500.0,
-        },
-        {
-          id: "item-3",
-          itemNumber: 3,
-          sku: "SLA-PREM",
-          description: "Enterprise 24/7 Managed Infrastructure Support (August 2026)",
-          quantity: 1,
-          unitPrice: 2200.0,
-          discount: 0,
-          taxRate: 0,
-          taxAmount: 0,
-          total: 2200.0,
-        },
-        {
-          id: "item-4",
-          itemNumber: 4,
-          sku: "LIC-BACKUP",
-          description: "Automated Backup & Disaster Recovery Licensing (10 Nodes)",
-          quantity: 10,
-          unitPrice: 45.0,
-          discount: 0,
-          taxRate: 8.25,
-          taxAmount: 37.13,
-          total: 450.0,
-        },
-      ],
-      subtotal: 14550.0,
-      totalDiscount: 595.0,
-      taxBreakdown: [{ name: "Sales Tax (8.25%)", rate: 8.25, amount: 1151.29 }],
-      totalTax: 1151.29,
-      shippingFee: 0,
-      otherFees: 0,
-      grandTotal: 15106.29,
-      amountPaid: 0,
-      balanceDue: 15106.29,
-      notes: "Thank you for your business. Please include Invoice #INV-2026-8894 in the wire transfer memo.",
-      termsAndConditions: "Payment due within 30 days of invoice date. 1.5% monthly interest on late payments.",
-      extractedAt: new Date().toISOString(),
-      modelUsed: "gemini-3.5-flash-lite",
-      confidenceScore: 98,
-    },
+VATABLE SALES: ₱75,000.00
+VAT AMOUNT (12%): ₱9,000.00
+ZERO-RATED SALES: ₱0.00
+VAT-EXEMPT SALES: ₱0.00
+TOTAL AMOUNT: ₱84,000.00
+ATP: ATP-DEMO-2026-0001
+OCN: OCN-DEMO-0001`,
+    previewData: baseInvoice({
+      id: "sample-ph-vat-service",
+      invoiceNumber: "SI-2026-00891",
+      invoiceDate: "2026-08-20",
+      items: [item("a-1", 1, "Managed cloud security and compliance review", 1, 45000), item("a-2", 2, "Infrastructure monitoring and incident response retainer", 10, 3000)],
+      subtotal: 75000,
+      totalTax: 9000,
+      grandTotal: 84000,
+      balanceDue: 84000,
+      philippineTaxDetails: phTax({ vatableSales: 75000, vatAmount: 9000 }),
+      notes: "Fictional Metro Manila demo preset for QA. Human verification is still required.",
+    }),
   },
   {
-    id: "sample-hardware-supplies",
-    name: "Apex Office & Hardware Supplies",
-    category: "Wholesale & Physical Goods",
-    description: "Monitors, ergonomic desks, and network gear with shipping & GST.",
-    rawText: `TAX INVOICE
-Invoice No: APX-90241
-Date of Issue: 2026-08-20
-Payment Due: 2026-08-30
-Reference / PO: PO-TECH-4402
-Status: PENDING
+    id: "sample-ph-office-supplies",
+    name: "Demo B: PH Office Supplies VAT Invoice",
+    category: "Office Supplies",
+    description: "Fictional Quezon City supplier with ordinary VATable goods and PHP pricing.",
+    rawText: `FICTIONAL QA DATA — NOT A LEGAL DOCUMENT
+VAT INVOICE
+Supplier: Silangan Office Supply Hub, Inc.
+VAT REG TIN: 007-654-321-000
+Business Address: 45 EDSA, Barangay Socorro, Quezon City, Metro Manila 1109
+Invoice No: QCS-2026-01427
+Date: August 21, 2026
+Customer: Northstar Creative Studio OPC
+Buyer TIN: 010-222-333-000
 
-SUPPLIER / VENDOR:
-Apex Wholesale Distributors Ltd.
-GSTIN / Tax ID: 27AABCA1234F1Z8
-Building 14, Metro Commerce Park
-Seattle, WA 98101, United States
-Email: accounts@apexsupplies.com
-Phone: +1 (206) 555-8321
+ITEMS
+Printer ink cartridge, black | 12 | ₱2,200.00 | ₱26,400.00
+Long bond paper, 80gsm (ream) | 50 | ₱220.00 | ₱11,000.00
+Ergonomic office chair | 8 | ₱6,500.00 | ₱52,000.00
+External SSD 1TB | 6 | ₱4,200.00 | ₱25,200.00
+Network switch and installation kit | 1 | ₱18,000.00 | ₱18,000.00
 
-CUSTOMER:
-Nexus Software Studios
-Tax ID: US-884920192
-Suite 800, 500 Pine Street
-Austin, TX 78701, United States
-Contact: procurement@nexusstudios.dev
-
-ORDERED ITEMS:
-1. [SKU: MON-4K-27] UltraSharp 27" 4K IPS USB-C Monitor | Qty: 8 | Unit: $420.00 | Total: $3,360.00
-2. [SKU: DSK-ERGO-PRO] Dual-Motor Electric Standing Desk (140x70cm) | Qty: 4 | Unit: $580.00 | Total: $2,320.00
-3. [SKU: CHR-AERO] Ergonomic Mesh High-Back Task Chair | Qty: 4 | Unit: $340.00 | Total: $1,360.00
-4. [SKU: NET-CAT6A] Cat6A 10Gbps Shielded Ethernet Cable (100m spool) | Qty: 2 | Unit: $115.00 | Total: $230.00
-
-SUMMARY:
-Items Subtotal: $7,270.00
-Freight & Pallet Shipping: $180.00
-Discount Applied: -$200.00
-State Sales Tax (8.5%): $616.25
-TOTAL AMOUNT: $7,866.25
-Paid Deposit: $2,000.00
-Remaining Balance: $5,866.25
-
-Bank Account: Apex Wholesale, Chase Commercial #4829103948`,
-    previewData: {
-      id: "sample-2",
-      invoiceNumber: "APX-90241",
-      invoiceDate: "2026-08-20",
-      dueDate: "2026-08-30",
-      purchaseOrderNumber: "PO-TECH-4402",
-      currency: "USD",
-      currencySymbol: "$",
-      paymentTerms: "Net 10",
-      status: "PENDING",
+VATABLE SALES: ₱132,600.00
+VAT AMOUNT (12%): ₱15,912.00
+TOTAL: ₱148,512.00`,
+    previewData: baseInvoice({
+      id: "sample-ph-office-supplies",
+      invoiceNumber: "QCS-2026-01427",
+      invoiceDate: "2026-08-21",
+      dueDate: "2026-09-05",
       vendor: {
-        name: "Apex Wholesale Distributors Ltd.",
-        companyName: "Apex Wholesale Distributors Ltd.",
-        taxId: "27AABCA1234F1Z8",
-        address: "Building 14, Metro Commerce Park",
-        city: "Seattle",
-        state: "WA",
-        postalCode: "98101",
-        country: "United States",
-        email: "accounts@apexsupplies.com",
-        phone: "+1 (206) 555-8321",
+        name: "Silangan Office Supply Hub, Inc.",
+        companyName: "Silangan Office Supply Hub, Inc.",
+        registeredName: "Silangan Office Supply Hub, Inc.",
+        tradeName: "Silangan Office Supply Hub",
+        taxId: "007-654-321-000",
+        branchCode: "000",
+        taxRegistration: "VAT",
+        address: "45 EDSA",
+        barangay: "Socorro",
+        city: "Quezon City",
+        cityMunicipality: "Quezon City",
+        province: "Metro Manila",
+        region: "NCR",
+        postalCode: "1109",
+        country: "Philippines",
+        email: "sales@silangan-office.example",
       },
       customer: {
-        name: "Nexus Software Studios",
-        companyName: "Nexus Software Studios",
-        taxId: "US-884920192",
-        address: "Suite 800, 500 Pine Street",
-        city: "Austin",
-        state: "TX",
-        postalCode: "78701",
-        country: "United States",
-        email: "procurement@nexusstudios.dev",
+        name: "Northstar Creative Studio OPC",
+        companyName: "Northstar Creative Studio OPC",
+        registeredName: "Northstar Creative Studio OPC",
+        taxId: "010-222-333-000",
+        address: "7F One Corporate Centre",
+        barangay: "San Antonio",
+        city: "Pasig City",
+        cityMunicipality: "Pasig City",
+        province: "Metro Manila",
+        region: "NCR",
+        country: "Philippines",
       },
       items: [
-        {
-          id: "item-1",
-          itemNumber: 1,
-          sku: "MON-4K-27",
-          description: 'UltraSharp 27" 4K IPS USB-C Monitor',
-          quantity: 8,
-          unitPrice: 420.0,
-          total: 3360.0,
-        },
-        {
-          id: "item-2",
-          itemNumber: 2,
-          sku: "DSK-ERGO-PRO",
-          description: "Dual-Motor Electric Standing Desk (140x70cm)",
-          quantity: 4,
-          unitPrice: 580.0,
-          total: 2320.0,
-        },
-        {
-          id: "item-3",
-          itemNumber: 3,
-          sku: "CHR-AERO",
-          description: "Ergonomic Mesh High-Back Task Chair",
-          quantity: 4,
-          unitPrice: 340.0,
-          total: 1360.0,
-        },
-        {
-          id: "item-4",
-          itemNumber: 4,
-          sku: "NET-CAT6A",
-          description: "Cat6A 10Gbps Shielded Ethernet Cable (100m spool)",
-          quantity: 2,
-          unitPrice: 115.0,
-          total: 230.0,
-        },
+        item("b-1", 1, "Printer ink cartridge, black", 12, 2200),
+        item("b-2", 2, "Long bond paper, 80gsm (ream)", 50, 220),
+        item("b-3", 3, "Ergonomic office chair", 8, 6500),
+        item("b-4", 4, "External SSD 1TB", 6, 4200),
+        item("b-5", 5, "Network switch and installation kit", 1, 18000),
       ],
-      subtotal: 7270.0,
-      totalDiscount: 200.0,
-      taxBreakdown: [{ name: "State Sales Tax (8.5%)", rate: 8.5, amount: 616.25 }],
-      totalTax: 616.25,
-      shippingFee: 180.0,
-      otherFees: 0,
-      grandTotal: 7866.25,
-      amountPaid: 2000.0,
-      balanceDue: 5866.25,
-      notes: "Freight delivery scheduled for dock delivery.",
-      extractedAt: new Date().toISOString(),
-      modelUsed: "gemini-3.5-flash-lite",
-      confidenceScore: 97,
-    },
+      subtotal: 132600,
+      totalTax: 15912,
+      grandTotal: 148512,
+      balanceDue: 148512,
+      philippineTaxDetails: phTax({ vatableSales: 132600, vatAmount: 15912 }),
+    }),
+  },
+  {
+    id: "sample-ph-non-vat",
+    name: "Demo C: PH Non-VAT Invoice",
+    category: "Small Business Services",
+    description: "Fictional non-VAT microbusiness invoice with no automatic 12% VAT.",
+    rawText: `FICTIONAL QA DATA — NOT A LEGAL DOCUMENT
+NON-VAT INVOICE
+Registered Name: Mabini Repairs and Supplies
+Trade Name: Mabini Repairs
+TIN: 011-333-444-000
+Business Address: 22 J.P. Rizal Street, Barangay San Isidro, Antipolo City, Rizal 1870
+Invoice No: MR-2026-00318
+Date: August 22, 2026
+
+Replacement printer rollers | 10 | ₱850.00 | ₱8,500.00
+On-site printer maintenance service | 1 | ₱10,000.00 | ₱10,000.00
+
+SUBTOTAL: ₱18,500.00
+VAT: ₱0.00
+TOTAL: ₱18,500.00`,
+    previewData: baseInvoice({
+      id: "sample-ph-non-vat",
+      invoiceNumber: "MR-2026-00318",
+      invoiceDate: "2026-08-22",
+      dueDate: "2026-08-22",
+      invoiceSubtype: "NON_VAT_INVOICE",
+      vendor: {
+        name: "Mabini Repairs and Supplies",
+        companyName: "Mabini Repairs and Supplies",
+        registeredName: "Mabini Repairs and Supplies",
+        tradeName: "Mabini Repairs",
+        taxId: "011-333-444-000",
+        taxRegistration: "NON_VAT",
+        address: "22 J.P. Rizal Street",
+        barangay: "San Isidro",
+        city: "Antipolo City",
+        cityMunicipality: "Antipolo City",
+        province: "Rizal",
+        region: "IV-A",
+        postalCode: "1870",
+        country: "Philippines",
+      },
+      items: [item("c-1", 1, "Replacement printer rollers", 10, 850, "NON_VAT"), item("c-2", 2, "On-site printer maintenance service", 1, 10000, "NON_VAT")],
+      subtotal: 18500,
+      totalTax: 0,
+      grandTotal: 18500,
+      balanceDue: 18500,
+      philippineTaxDetails: { invoiceKind: "NON_VAT_INVOICE", sellerRegistration: "NON_VAT", vatAmount: 0, netAmountPayable: 18500 },
+    }),
+  },
+  {
+    id: "sample-ph-mixed-tax",
+    name: "Demo D: PH Mixed Tax Treatment",
+    category: "Mixed Tax Review",
+    description: "Fictional invoice with VATable, zero-rated and VAT-exempt sales in one document.",
+    rawText: `FICTIONAL QA DATA — NOT A LEGAL DOCUMENT
+VAT INVOICE — MIXED TAX TREATMENT
+Seller: Isla Enterprise Solutions Corporation
+VAT REG TIN: 012-444-555-000
+Address: 8F Cebu IT Park, Barangay Apas, Cebu City, Cebu 6000
+Invoice No: MIX-2026-00077
+Date: August 23, 2026
+
+VATABLE SALES: ₱50,000.00
+VAT AMOUNT: ₱6,000.00
+ZERO-RATED SALES: ₱25,000.00
+VAT-EXEMPT SALES: ₱25,000.00
+TOTAL: ₱106,000.00`,
+    previewData: baseInvoice({
+      id: "sample-ph-mixed-tax",
+      invoiceNumber: "MIX-2026-00077",
+      invoiceDate: "2026-08-23",
+      vendor: {
+        name: "Isla Enterprise Solutions Corporation",
+        companyName: "Isla Enterprise Solutions Corporation",
+        registeredName: "Isla Enterprise Solutions Corporation",
+        taxId: "012-444-555-000",
+        branchCode: "000",
+        taxRegistration: "VAT",
+        address: "8F Cebu IT Park",
+        barangay: "Apas",
+        city: "Cebu City",
+        cityMunicipality: "Cebu City",
+        province: "Cebu",
+        region: "VII",
+        postalCode: "6000",
+        country: "Philippines",
+      },
+      items: [
+        item("d-1", 1, "Domestic managed services — VATable", 1, 50000, "VATABLE"),
+        item("d-2", 2, "Export support service — zero-rated", 1, 25000, "ZERO_RATED"),
+        item("d-3", 3, "Exempt training program", 1, 25000, "VAT_EXEMPT"),
+      ],
+      subtotal: 100000,
+      totalTax: 6000,
+      grandTotal: 106000,
+      balanceDue: 106000,
+      philippineTaxDetails: phTax({ vatableSales: 50000, vatAmount: 6000, zeroRatedSales: 25000, vatExemptSales: 25000 }),
+    }),
+  },
+  {
+    id: "sample-ph-validation-issue",
+    name: "Demo E: Validation Issue",
+    category: "QA / Human Review",
+    description: "Intentional ₱50.00 document-total mismatch that must remain in NEEDS REVIEW.",
+    rawText: `FICTIONAL QA DATA — NOT A LEGAL DOCUMENT
+VAT INVOICE — DEMO: VALIDATION ISSUE
+Seller: Lakbay Operations Support Corp.
+VAT REG TIN: 013-555-666-000
+Invoice No: QA-2026-00050
+Date: August 23, 2026
+VATABLE SALES: ₱20,000.00
+VAT AMOUNT (12%): ₱2,400.00
+DOCUMENT TOTAL: ₱22,450.00
+QA NOTE: Document total does not reconcile by ₱50.00. This mismatch is intentional.`,
+    previewData: baseInvoice({
+      id: "sample-ph-validation-issue",
+      invoiceNumber: "QA-2026-00050",
+      invoiceDate: "2026-08-23",
+      vendor: {
+        name: "Lakbay Operations Support Corp.",
+        companyName: "Lakbay Operations Support Corp.",
+        registeredName: "Lakbay Operations Support Corp.",
+        taxId: "013-555-666-000",
+        branchCode: "000",
+        taxRegistration: "VAT",
+        address: "3F One Global Place",
+        barangay: "Bonifacio Global City",
+        city: "Taguig City",
+        cityMunicipality: "Taguig City",
+        province: "Metro Manila",
+        region: "NCR",
+        postalCode: "1634",
+        country: "Philippines",
+      },
+      items: [item("e-1", 1, "Operations support service", 1, 10000), item("e-2", 2, "Process documentation and training", 2, 5000)],
+      subtotal: 20000,
+      totalTax: 2400,
+      grandTotal: 22450,
+      balanceDue: 22450,
+      philippineTaxDetails: phTax({ vatableSales: 20000, vatAmount: 2400 }),
+      notes: "Demo: Validation Issue — mismatch is intentional for QA.",
+    }),
   },
 ];
