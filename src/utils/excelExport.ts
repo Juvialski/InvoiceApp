@@ -24,6 +24,7 @@ function getColumnWidths(data: (string | number | undefined)[][]) {
  */
 export function exportSingleInvoiceToExcel(invoice: InvoiceData) {
   const wb = XLSX.utils.book_new();
+  const ai = invoice.aiSnapshot;
 
   // Build 2D array for the invoice worksheet
   const rows: (string | number | undefined)[][] = [];
@@ -33,6 +34,8 @@ export function exportSingleInvoiceToExcel(invoice: InvoiceData) {
   rows.push(["Extracted with Gemini AI", "", "", "", "", "", ""]);
   rows.push(["Source:", invoice.sourceType || "UPLOAD", "", "", "Review Status:", invoice.reviewStatus || "NEEDS_REVIEW"]);
   rows.push(["Model:", invoice.modelUsed || "", "", "", "Category:", invoice.category || "Uncategorized"]);
+  rows.push(["AI Grand Total:", ai?.grandTotal as number | undefined, "", "", "Current/Verified Grand Total:", invoice.grandTotal]);
+  rows.push(["Verified At:", invoice.verifiedAt || "", "", "", "Duplicate Status:", invoice.duplicateStatus || "UNIQUE"]);
   rows.push([]);
 
   // Invoice Metadata
@@ -128,6 +131,22 @@ export function exportSingleInvoiceToExcel(invoice: InvoiceData) {
   const wsItems = XLSX.utils.json_to_sheet(rawItemsData);
   XLSX.utils.book_append_sheet(wb, wsItems, "Line Items Table");
 
+  const reviewRows = [{
+    "Invoice #": invoice.invoiceNumber,
+    "Source": invoice.sourceType || "UPLOAD",
+    "Source Document": invoice.sourceDocumentId || "",
+    "Source SHA-256": invoice.sourceSha256 || "",
+    "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
+    "Verified At": invoice.verifiedAt || "",
+    "Duplicate Status": invoice.duplicateStatus || "UNIQUE",
+    "AI Grand Total": ai?.grandTotal ?? "",
+    "Verified/Current Grand Total": invoice.grandTotal,
+    "Validation Status": invoice.validation?.status || "",
+    "Validation Issues": (invoice.validation?.issues || []).map((issue) => issue.message).join(" | "),
+    "Model Used": invoice.modelUsed || "",
+  }];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(reviewRows), "Review & Validation");
+
   // Trigger download
   const cleanInvNum = (invoice.invoiceNumber || "Invoice").replace(/[^a-zA-Z0-9-_]/g, "_");
   const fileName = `${cleanInvNum}_${invoice.invoiceDate || new Date().toISOString().slice(0, 10)}.xlsx`;
@@ -159,6 +178,8 @@ export function exportBatchInvoicesToExcel(invoices: InvoiceData[], customFileNa
     "Tax / VAT": inv.totalTax,
     "Shipping / Other": (inv.shippingFee || 0) + (inv.otherFees || 0),
     "Grand Total": inv.grandTotal,
+    "AI Grand Total": inv.aiSnapshot?.grandTotal ?? "",
+    "Verified At": inv.verifiedAt || "",
     "Amount Paid": inv.amountPaid || 0,
     "Balance Due": inv.balanceDue ?? inv.grandTotal,
     "Payment Terms": inv.paymentTerms || "",
@@ -168,11 +189,14 @@ export function exportBatchInvoicesToExcel(invoices: InvoiceData[], customFileNa
     "Source": inv.sourceType || "UPLOAD",
     "Source Email Sender": inv.sourceMetadata?.sender || "",
     "Source Email Subject": inv.sourceMetadata?.subject || "",
+    "Source Document": inv.sourceDocumentId || "",
+    "Source SHA-256": inv.sourceSha256 || "",
     "Review Status": inv.reviewStatus || "NEEDS_REVIEW",
     "Duplicate Status": inv.duplicateStatus || "UNIQUE",
     "Category": inv.category || "Uncategorized",
     "AI Confidence %": inv.confidenceScore ?? "",
     "Validation Flags": inv.validation?.issues?.length || 0,
+    "Validation Messages": (inv.validation?.issues || []).map((issue) => issue.message).join(" | "),
     "Model Used": inv.modelUsed || "",
   }));
 
@@ -196,8 +220,13 @@ export function exportBatchInvoicesToExcel(invoices: InvoiceData[], customFileNa
         "Discount": item.discount || 0,
         "Tax Rate %": item.taxRate || 0,
         "Tax Amount": item.taxAmount || 0,
-        "Line Total": item.total,
-        "Currency": inv.currency,
+      "Line Total": item.total,
+      "Currency": inv.currency,
+        "Review Status": inv.reviewStatus || "NEEDS_REVIEW",
+        "Duplicate Status": inv.duplicateStatus || "UNIQUE",
+        "AI Grand Total": inv.aiSnapshot?.grandTotal ?? "",
+        "Verified Grand Total": inv.grandTotal,
+        "Model Used": inv.modelUsed || "",
       });
     });
   });
@@ -267,6 +296,13 @@ export function exportInvoiceLineItemsToCSV(invoice: InvoiceData) {
     "Tax Rate": item.taxRate || 0,
     "Line Total": item.total,
     "Currency": invoice.currency,
+    "Review Status": invoice.reviewStatus || "NEEDS_REVIEW",
+    "Duplicate Status": invoice.duplicateStatus || "UNIQUE",
+    "AI Grand Total": invoice.aiSnapshot?.grandTotal ?? "",
+    "Verified Grand Total": invoice.grandTotal,
+    "Validation Issues": (invoice.validation?.issues || []).map((issue) => issue.message).join(" | "),
+    "Model Used": invoice.modelUsed || "",
+    "Source": invoice.sourceType || "UPLOAD",
   }));
 
   const headers = Object.keys(data[0] || {}).join(",");

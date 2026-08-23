@@ -12,16 +12,18 @@ import { Reports } from "./components/Reports";
 import { ReviewPanel } from "./components/ReviewPanel";
 import { ReviewQueue } from "./components/ReviewQueue";
 import { SourceComparison } from "./components/SourceComparison";
-import { EmailClassification, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, InvoiceData } from "./types";
+import { EmailClassification, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "./types";
 import { SAMPLE_INVOICES } from "./data/sampleInvoices";
 import { exportBatchInvoicesToExcel } from "./utils/excelExport";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, signOutWorkspace, supabase } from "./lib/supabase";
 import {
   deleteInvoiceFromSupabase,
+  ensureWorkspaceProfile,
   loadGmailSyncState,
   loadInvoicesFromSupabase,
   markEmailClassification,
+  markSourceDocumentStatus,
   persistNewInvoice,
   saveGmailMessageSource,
   saveGmailSyncState,
@@ -63,6 +65,13 @@ function isExtractableAttachment(mimeType: string, filename: string) {
   return mimeType === "application/pdf" || mimeType.startsWith("image/") || /\.(pdf|png|jpe?g|webp)$/i.test(filename);
 }
 
+function gmailQueryDate(value: string, exclusive = false) {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return value.replaceAll("-", "/");
+  if (exclusive) parsed.setUTCDate(parsed.getUTCDate() + 1);
+  return parsed.toISOString().slice(0, 10).replaceAll("-", "/");
+}
+
 export default function App() {
   const [invoices, setInvoices] = useState<InvoiceData[]>(localFallbackInvoices);
   const invoicesRef = useRef(invoices);
@@ -88,6 +97,7 @@ export default function App() {
     }
     setWorkspaceLoading(true);
     try {
+      await ensureWorkspaceProfile();
       const [storedInvoices, storedSync] = await Promise.all([loadInvoicesFromSupabase(), loadGmailSyncState()]);
       const prepared = storedInvoices.map(prepareStoredInvoice);
       invoicesRef.current = prepared;
@@ -178,10 +188,12 @@ export default function App() {
           previewUrl: storedSource.previewUrl,
           sourceDocumentId: storedSource.id,
           sourceStoragePath: storedSource.storagePath,
-          sourceMetadata: { ...(extracted.sourceMetadata || {}), sourceDocumentId: storedSource.id, sourceStoragePath: storedSource.storagePath },
+          sourceSha256: storedSource.sha256,
+          sourceMetadata: { ...(extracted.sourceMetadata || {}), sourceDocumentId: storedSource.id, sourceStoragePath: storedSource.storagePath, sourceSha256: storedSource.sha256 },
         };
       }
       const prepared = await saveExtracted(extracted, storedSource?.previewUrl || payload.previewUrl);
+      if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", prepared.documentType);
       showNotification("success", `${session ? "Saved & extracted" : "Extracted locally"} ${prepared.invoiceNumber || prepared.fileName || "invoice"} with ${prepared.modelUsed}.`);
     } catch (error: any) {
       showNotification("error", error?.message || "Invoice extraction failed.");
@@ -211,8 +223,9 @@ export default function App() {
             sourceType: "EMAIL",
             emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath },
           });
-          extracted = { ...extracted, fileSize: attachment.size, fileType: encoded.mimeType, sourceEmailId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath, previewUrl: storedSource?.previewUrl || extracted.previewUrl };
-          await saveExtracted(extracted, storedSource?.previewUrl);
+          extracted = { ...extracted, fileSize: attachment.size, fileType: encoded.mimeType, sourceEmailId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath, sourceSha256: storedSource?.sha256, previewUrl: storedSource?.previewUrl || extracted.previewUrl };
+          const saved = await saveExtracted(extracted, storedSource?.previewUrl);
+          if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", saved.documentType);
         }
       } else {
         let extracted = await extractPayload({ textData: body || subject, fileName: subject || "Email invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, emailRecordId: manualEmail?.id } });
@@ -234,7 +247,11 @@ export default function App() {
     if (!token) throw new Error("Gmail authorization is missing or expired. Reconnect Google + Gmail.");
     const response = await fetch(path, { method: body ? "POST" : "GET", headers: { ...(body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.error || "Gmail request failed.");
+    if (!response.ok || !result.success) {
+      const error: any = new Error(result.error || "Gmail request failed.");
+      error.code = result.code;
+      throw error;
+    }
     return result.data;
   };
 
@@ -257,15 +274,18 @@ export default function App() {
     return output;
   };
 
-  const handleScanGmail = async (days: number): Promise<GmailMessageCandidate[]> => {
+  const handleScanGmail = async (window: GmailScanWindow | number): Promise<GmailMessageCandidate[]> => {
     if (!session) throw new Error("Connect Google + Gmail first.");
     setProcessingCount((n) => n + 1);
     try {
-      const query = `newer_than:${days}d {subject:invoice subject:receipt subject:statement \"credit note\" \"tax invoice\" filename:pdf filename:png filename:jpg filename:jpeg}`;
+      const selectedWindow = typeof window === "number" ? { days: window } : window;
+      const range = selectedWindow.after && selectedWindow.before
+        ? `after:${gmailQueryDate(selectedWindow.after)} before:${gmailQueryDate(selectedWindow.before, true)}`
+        : `newer_than:${selectedWindow.days || 30}d`;
+      const query = `${range} {subject:invoice subject:receipt subject:statement \"credit note\" \"tax invoice\" filename:pdf filename:png filename:jpg filename:jpeg}`;
       const data = await gmailRequest("/api/gmail/scan", { query, maxResults: 30 });
       const classified = await classifyGmailCandidates(data.messages || []);
-      await saveGmailSyncState(data.historyId);
-      const nextSync = { lastHistoryId: data.historyId, lastSyncedAt: new Date().toISOString() };
+      const nextSync = await saveGmailSyncState(data.historyId, data.emailAddress);
       setSyncState(nextSync);
       showNotification("success", `Scanned Gmail and classified ${classified.length} likely finance email${classified.length === 1 ? "" : "s"}.`);
       return classified;
@@ -276,15 +296,21 @@ export default function App() {
 
   const handleSyncGmail = async (): Promise<GmailMessageCandidate[]> => {
     if (!session) throw new Error("Connect Google + Gmail first.");
-    if (!syncState.lastHistoryId) return handleScanGmail(30);
+    if (!syncState.lastHistoryId) return handleScanGmail({ days: 30 });
     setProcessingCount((n) => n + 1);
     try {
       const data = await gmailRequest("/api/gmail/history", { startHistoryId: syncState.lastHistoryId });
       const classified = await classifyGmailCandidates(data.messages || []);
-      await saveGmailSyncState(data.historyId);
-      setSyncState({ lastHistoryId: data.historyId, lastSyncedAt: new Date().toISOString() });
+      const nextSync = await saveGmailSyncState(data.historyId, data.emailAddress);
+      setSyncState(nextSync);
       showNotification("success", classified.length ? `Found ${classified.length} new/changed Gmail message${classified.length === 1 ? "" : "s"}.` : "Gmail is up to date.");
       return classified;
+    } catch (error: any) {
+      if (error?.code === "HISTORY_EXPIRED") {
+        showNotification("info", "Gmail's incremental cursor expired. Rebuilding it with a fresh 30-day scan.");
+        return handleScanGmail({ days: 30 });
+      }
+      throw error;
     } finally {
       setProcessingCount((n) => Math.max(0, n - 1));
     }
@@ -314,6 +340,7 @@ export default function App() {
             receivedAt: imported.receivedAt,
             body: imported.bodyText,
             attachmentName: attachment.filename,
+            gmailAttachmentId: attachment.attachmentId,
             emailReference: imported.id,
             gmailMessageId: imported.id,
             gmailThreadId: imported.threadId,
@@ -331,9 +358,11 @@ export default function App() {
           sourceEmailId: stored.email.id,
           sourceDocumentId: source?.id,
           sourceStoragePath: source?.storagePath,
+          sourceSha256: source?.sha256,
           previewUrl: source?.previewUrl,
         };
         await saveExtracted(extracted, source?.previewUrl);
+        if (source?.id) await markSourceDocumentStatus(source.id, "EXTRACTED", extracted.documentType);
         extractedCount += 1;
       }
 
@@ -399,6 +428,54 @@ export default function App() {
     showNotification("success", `Verified ${verified.invoiceNumber || "invoice"}. The original AI snapshot and source file remain unchanged.`);
   };
 
+  const handleReopen = async (invoice: InvoiceData) => {
+    const reopened = { ...invoice, reviewStatus: "NEEDS_REVIEW" as const, verifiedAt: undefined };
+    if (session && supabase) {
+      await updateInvoiceInSupabase(lastPersistedRef.current.get(invoice.id) || invoice, reopened, "REOPENED");
+      lastPersistedRef.current.set(invoice.id, reopened);
+    }
+    const next = invoicesRef.current.map((item) => item.id === reopened.id ? reopened : item);
+    invoicesRef.current = next;
+    setInvoices(next);
+    setSelectedInvoice((current) => current?.id === reopened.id ? reopened : current);
+    showNotification("info", `Reopened ${reopened.invoiceNumber || "invoice"} for review.`);
+  };
+
+  const handleRevertToAI = async (invoice: InvoiceData) => {
+    if (!invoice.aiSnapshot) {
+      showNotification("info", "This record does not have an immutable AI snapshot to restore.");
+      return;
+    }
+    const reverted = applyLocalChecks({
+      ...invoice,
+      ...invoice.aiSnapshot,
+      id: invoice.id,
+      fileName: invoice.fileName,
+      fileSize: invoice.fileSize,
+      fileType: invoice.fileType,
+      previewUrl: invoice.previewUrl,
+      sourceDocumentId: invoice.sourceDocumentId,
+      sourceStoragePath: invoice.sourceStoragePath,
+      sourceSha256: invoice.sourceSha256,
+      sourceEmailId: invoice.sourceEmailId,
+      sourceType: invoice.sourceType,
+      sourceMetadata: invoice.sourceMetadata,
+      extractionId: invoice.extractionId,
+      aiSnapshot: invoice.aiSnapshot,
+      reviewStatus: "NEEDS_REVIEW",
+      verifiedAt: undefined,
+    });
+    if (session && supabase) {
+      await updateInvoiceInSupabase(lastPersistedRef.current.get(invoice.id) || invoice, reverted, "REVERTED_TO_AI");
+      lastPersistedRef.current.set(invoice.id, reverted);
+    }
+    const next = invoicesRef.current.map((item) => item.id === reverted.id ? reverted : item);
+    invoicesRef.current = next;
+    setInvoices(next);
+    setSelectedInvoice((current) => current?.id === reverted.id ? reverted : current);
+    showNotification("info", `Restored ${reverted.invoiceNumber || "invoice"} to its original AI values for review.`);
+  };
+
   const handleDeleteInvoice = async (id: string) => {
     if (session && supabase) await deleteInvoiceFromSupabase(id);
     const next = invoicesRef.current.filter((invoice) => invoice.id !== id);
@@ -406,7 +483,7 @@ export default function App() {
     setInvoices(next);
     lastPersistedRef.current.delete(id);
     if (selectedInvoice?.id === id) setSelectedInvoice(null);
-    showNotification("info", "Invoice record removed. Stored source files are intentionally not auto-deleted in this feature-first build.");
+    showNotification("info", "Invoice record archived. The original source file, AI snapshot, and review history remain preserved.");
   };
 
   const openInvoice = (invoice: InvoiceData) => { setSelectedInvoice(invoice); setActiveTab("extractor"); };
@@ -432,7 +509,7 @@ export default function App() {
         {isSupabaseConfigured && !session && <div className="mb-5 p-4 rounded-2xl border border-indigo-200 bg-indigo-50 flex flex-col sm:flex-row sm:items-center gap-3 justify-between"><div className="flex gap-3"><Cloud className="w-5 h-5 text-indigo-600 shrink-0" /><div><p className="text-xs font-black text-indigo-900">Supabase is configured</p><p className="text-[11px] text-indigo-800 mt-1">Connect Google + Gmail from Gmail Inbox to sign in, grant read-only Gmail access, and load your persistent invoice workspace.</p></div></div><button onClick={() => void connectGoogleAndGmail()} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold">Connect Google + Gmail</button></div>}
 
         {activeTab === "dashboard" && <Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} />}
-        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} />}</div>}
+        {activeTab === "extractor" && <div className="space-y-5">{selectedInvoice ? <><ReviewPanel invoice={selectedInvoice} onVerify={() => void handleVerify(selectedInvoice)} onReopen={() => void handleReopen(selectedInvoice)} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} /><SourceComparison invoice={selectedInvoice} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={handleUpdateInvoice} onBack={() => setSelectedInvoice(null)} /><div className="pt-5 border-t border-slate-200"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} /></div></> : <UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} isLoading={processingCount > 0} />}</div>}
         {activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={signOutWorkspace} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoice} onVerify={(invoice) => void handleVerify(invoice)} />}
         {activeTab === "invoices" && <InvoiceDirectory invoices={invoices} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => { setSelectedInvoice(null); setActiveTab("extractor"); }} onVerify={(invoice) => void handleVerify(invoice)} />}

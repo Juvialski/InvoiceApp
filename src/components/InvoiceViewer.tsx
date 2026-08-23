@@ -122,7 +122,8 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
     const newGrandTotal =
       newSubtotal +
       (invoice.totalTax || 0) +
-      (invoice.shippingFee || 0) -
+      (invoice.shippingFee || 0) +
+      (invoice.otherFees || 0) -
       (invoice.totalDiscount || 0);
 
     onUpdateInvoice({
@@ -146,14 +147,15 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
 
   const handleFinancialUpdate = (field: string, value: number) => {
     const updated = { ...invoice, [field]: value };
-    if (field === "subtotal" || field === "totalTax" || field === "shippingFee" || field === "totalDiscount") {
+    if (field === "subtotal" || field === "totalTax" || field === "shippingFee" || field === "otherFees" || field === "totalDiscount" || field === "amountPaid") {
       const gTotal =
         (updated.subtotal || 0) +
         (updated.totalTax || 0) +
-        (updated.shippingFee || 0) -
+        (updated.shippingFee || 0) +
+        (updated.otherFees || 0) -
         (updated.totalDiscount || 0);
-      updated.grandTotal = gTotal;
-      updated.balanceDue = gTotal - (updated.amountPaid || 0);
+      updated.grandTotal = Math.max(0, gTotal);
+      updated.balanceDue = Math.max(0, gTotal - (updated.amountPaid || 0));
     }
     onUpdateInvoice(updated);
   };
@@ -191,6 +193,11 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
             <p className="text-xs text-slate-500 mt-0.5">
               Extracted via {invoice.modelUsed || "Gemini Flash Lite"} • {invoice.items.length} line items detected
             </p>
+            {isEditingHeader && <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
+              <input value={invoice.invoiceNumber || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceNumber: e.target.value })} placeholder="Invoice number" className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
+              <input type="date" value={invoice.invoiceDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, invoiceDate: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
+              <input type="date" value={invoice.dueDate || ""} onChange={(e) => onUpdateInvoice({ ...invoice, dueDate: e.target.value })} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs" />
+            </div>}
           </div>
         </div>
 
@@ -223,6 +230,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
             <Download className="w-3.5 h-3.5 text-slate-500" />
             <span>Export CSV</span>
           </button>
+          <button onClick={() => setIsEditingHeader((value) => !value)} className="flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition"><Edit2 className="w-3.5 h-3.5" /><span>{isEditingHeader ? "Done" : "Edit header"}</span></button>
         </div>
       </div>
 
@@ -245,7 +253,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
               <p className="text-[10px] text-indigo-500 uppercase font-bold tracking-wider">
                 Confidence Score
               </p>
-              <p className="text-2xl font-bold text-indigo-900 mt-0.5">99.2%</p>
+              <p className="text-2xl font-bold text-indigo-900 mt-0.5">{invoice.confidenceScore === undefined ? "—" : `${Math.round(invoice.confidenceScore)}%`}</p>
             </div>
             <div className="p-3.5 bg-emerald-50 rounded-xl">
               <p className="text-[10px] text-emerald-600 uppercase font-bold tracking-wider">
@@ -556,6 +564,10 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
             <div className="p-5 bg-slate-50/80 flex flex-wrap justify-between items-center border-t border-slate-200 gap-4">
               <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 font-medium">Discount:</span>
+                  <input type="number" step="any" value={invoice.totalDiscount || 0} onChange={(e) => handleFinancialUpdate("totalDiscount", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800" />
+                </div>
+                <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 font-medium">Tax/VAT:</span>
                   <input
                     type="number"
@@ -574,6 +586,14 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
                     onChange={(e) => handleFinancialUpdate("shippingFee", Number(e.target.value))}
                     className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800"
                   />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 font-medium">Other fees:</span>
+                  <input type="number" step="any" value={invoice.otherFees || 0} onChange={(e) => handleFinancialUpdate("otherFees", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 font-medium">Paid:</span>
+                  <input type="number" step="any" value={invoice.amountPaid || 0} onChange={(e) => handleFinancialUpdate("amountPaid", Number(e.target.value))} className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-right font-mono text-xs text-slate-800" />
                 </div>
               </div>
 

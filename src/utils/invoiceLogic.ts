@@ -102,25 +102,37 @@ export function derivePaymentStatus(invoice: Pick<InvoiceData, "grandTotal" | "a
 
 export function findPossibleDuplicate(invoice: InvoiceData, existing: InvoiceData[]): InvoiceData | undefined {
   const number = (invoice.invoiceNumber || "").trim().toLowerCase();
-  const vendor = (invoice.vendor?.name || invoice.vendor?.companyName || "").trim().toLowerCase();
+  const normalize = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const vendor = normalize(invoice.vendor?.name || invoice.vendor?.companyName || "");
+  const sourceEmail = invoice.sourceMetadata?.gmailMessageId || invoice.sourceEmailId || "";
+  const sourceAttachment = invoice.sourceMetadata?.gmailAttachmentId || "";
+  const hasFinancialFingerprint = Boolean(vendor && invoice.invoiceDate && invoice.currency && Number(invoice.grandTotal) > 0);
   return existing.find((candidate) => {
     if (candidate.id === invoice.id) return false;
-    const sameNumber = number && (candidate.invoiceNumber || "").trim().toLowerCase() === number;
-    const sameVendor = vendor && (candidate.vendor?.name || candidate.vendor?.companyName || "").trim().toLowerCase() === vendor;
+    const candidateVendor = normalize(candidate.vendor?.name || candidate.vendor?.companyName || "");
+    const sameSourceDocument = Boolean(invoice.sourceDocumentId && candidate.sourceDocumentId && invoice.sourceDocumentId === candidate.sourceDocumentId);
+    const sameSourceEmail = Boolean(sourceEmail && (candidate.sourceMetadata?.gmailMessageId || candidate.sourceEmailId) === sourceEmail && sourceAttachment && candidate.sourceMetadata?.gmailAttachmentId === sourceAttachment);
+    const sameFile = Boolean(invoice.sourceSha256 && candidate.sourceSha256 && invoice.sourceSha256 === candidate.sourceSha256);
+    const sameNumber = Boolean(number && (candidate.invoiceNumber || "").trim().toLowerCase() === number);
+    const sameVendor = Boolean(vendor && candidateVendor === vendor);
     const sameCurrency = (candidate.currency || "").toUpperCase() === (invoice.currency || "").toUpperCase();
     const sameTotal = Math.abs((Number(candidate.grandTotal) || 0) - (Number(invoice.grandTotal) || 0)) <= 0.05;
-    return sameNumber && sameVendor && sameCurrency && sameTotal;
+    const sameDate = Boolean(invoice.invoiceDate && candidate.invoiceDate && candidate.invoiceDate === invoice.invoiceDate);
+    return sameSourceDocument || sameSourceEmail || sameFile || (hasFinancialFingerprint && sameVendor && sameDate && sameCurrency && sameTotal) || (sameNumber && sameVendor && sameCurrency && sameTotal);
   });
 }
 
 export function applyLocalChecks(invoice: InvoiceData): InvoiceData {
   const validation = validateInvoice(invoice);
   const lowConfidence = invoice.confidenceScore !== undefined && invoice.confidenceScore < 90;
+  const humanVerified = invoice.reviewStatus === "VERIFIED" && Boolean(invoice.verifiedAt);
   return {
     ...invoice,
     status: derivePaymentStatus(invoice),
     validation,
-    reviewStatus: validation.status === "PASS" && !lowConfidence ? invoice.reviewStatus || "VERIFIED" : "NEEDS_REVIEW",
+    // Passing arithmetic and confidence checks only makes an extraction review-ready.
+    // Verification is a human action and must be represented by verifiedAt.
+    reviewStatus: humanVerified ? "VERIFIED" : "NEEDS_REVIEW",
   };
 }
 

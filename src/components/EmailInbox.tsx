@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AlertCircle, CheckCircle2, FileText, Inbox, Loader2, LogOut, Mail, Paperclip, RefreshCw, ScanSearch, Sparkles, UploadCloud } from "lucide-react";
-import { EmailClassification, GmailConnectionInfo, GmailMessageCandidate, InvoiceData } from "../types";
+import { EmailClassification, GmailConnectionInfo, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "../types";
 
 interface EmailInboxProps {
   invoices: InvoiceData[];
@@ -8,7 +8,7 @@ interface EmailInboxProps {
   connection: GmailConnectionInfo;
   onConnectGmail: () => Promise<void>;
   onSignOut: () => Promise<void>;
-  onScanGmail: (days: number) => Promise<GmailMessageCandidate[]>;
+  onScanGmail: (window: GmailScanWindow) => Promise<GmailMessageCandidate[]>;
   onSyncGmail: () => Promise<GmailMessageCandidate[]>;
   onImportGmailMessage: (message: GmailMessageCandidate) => Promise<number>;
   onProcessEmail: (input: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }) => Promise<EmailClassification | null>;
@@ -17,6 +17,9 @@ interface EmailInboxProps {
 
 export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, connection, onConnectGmail, onSignOut, onScanGmail, onSyncGmail, onImportGmailMessage, onProcessEmail, onOpenInvoice }) => {
   const [days, setDays] = useState(30);
+  const [scanMode, setScanMode] = useState<"days" | "custom">("days");
+  const [customAfter, setCustomAfter] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
+  const [customBefore, setCustomBefore] = useState(() => new Date().toISOString().slice(0, 10));
   const [candidates, setCandidates] = useState<GmailMessageCandidate[]>([]);
   const [gmailBusy, setGmailBusy] = useState(false);
   const [gmailError, setGmailError] = useState<string | null>(null);
@@ -34,7 +37,9 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, 
     setGmailBusy(true);
     setGmailError(null);
     try {
-      const results = incremental ? await onSyncGmail() : await onScanGmail(days);
+      if (!incremental && scanMode === "custom" && (!customAfter || !customBefore || customAfter > customBefore)) throw new Error("Choose a valid custom Gmail date range.");
+      const scanWindow: GmailScanWindow = scanMode === "custom" ? { after: customAfter, before: customBefore } : { days };
+      const results = incremental ? await onSyncGmail() : await onScanGmail(scanWindow);
       setCandidates(results);
     } catch (error: any) {
       setGmailError(error?.message || "Gmail scan failed.");
@@ -82,7 +87,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, 
 
         {!connection.configured && <div className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900"><b>Supabase setup required:</b> add <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code>, apply the included migration, then enable Google OAuth in the new Supabase project.</div>}
 
-        {connection.hasGmailToken && <div className="mt-5 pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-end gap-3"><label className="text-[10px] font-bold uppercase text-slate-500">Initial scan window<select value={days} onChange={(e) => setDays(Number(e.target.value))} className="block mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value={180}>Last 180 days</option></select></label><button onClick={() => void runScan(false)} disabled={gmailBusy} className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50">{gmailBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanSearch className="w-4 h-4" />}Scan likely invoice emails</button><p className="text-[10px] text-slate-500 sm:pb-2">Gmail search narrows candidates first; Gemini then classifies them before import.</p></div>}
+        {connection.hasGmailToken && <div className="mt-5 pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-end gap-3"><label className="text-[10px] font-bold uppercase text-slate-500">Initial scan window<select value={scanMode === "custom" ? "custom" : String(days)} onChange={(e) => { if (e.target.value === "custom") setScanMode("custom"); else { setScanMode("days"); setDays(Number(e.target.value)); } }} className="block mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800"><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option><option value="custom">Custom range</option></select></label>{scanMode === "custom" && <div className="flex items-end gap-2"><label className="text-[10px] font-bold uppercase text-slate-500">From<input type="date" value={customAfter} onChange={(e) => setCustomAfter(e.target.value)} className="block mt-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-800" /></label><label className="text-[10px] font-bold uppercase text-slate-500">To<input type="date" value={customBefore} onChange={(e) => setCustomBefore(e.target.value)} className="block mt-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs font-bold text-slate-800" /></label></div>}<button onClick={() => void runScan(false)} disabled={gmailBusy} className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50">{gmailBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanSearch className="w-4 h-4" />}Scan likely invoice emails</button><p className="text-[10px] text-slate-500 sm:pb-2">Gmail search narrows candidates first; Gemini then classifies them before import.</p></div>}
         {gmailError && <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-100 text-xs text-rose-700 flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{gmailError}</div>}
       </section>
 

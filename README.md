@@ -85,6 +85,8 @@ supabase/migrations/20260822150000_invoice_operations_foundation.sql
 
 The migration creates the persistence tables, private Storage buckets, baseline RLS ownership policies, and authenticated Data API grants.
 
+The schema includes `profiles`, `gmail_connections`, `gmail_sync_state`, `email_messages`, `source_documents`, `vendors`, `invoices`, `invoice_line_items`, `invoice_extractions`, and `invoice_review_events`. Gmail attachment rows are keyed by the source message plus stable Gmail attachment ID, and the source-document/invoice relationship is idempotent on repeat imports.
+
 ## Data model principle
 
 The original source and the AI result are deliberately separate:
@@ -98,6 +100,10 @@ Review events                           edit / verification history
 ```
 
 Human edits never rewrite `invoice_extractions` or the original stored files.
+
+New extractions always enter `NEEDS_REVIEW`; arithmetic checks do not count as human verification. Reviewers can edit the working copy, compare it with the immutable AI snapshot, revert to the AI values, verify, or reopen an invoice. Extraction snapshots and review history are append-only for the authenticated client.
+
+Removing an invoice from the directory archives the working record instead of deleting its source, extraction snapshot, or review history.
 
 ## Run locally
 

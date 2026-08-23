@@ -45,9 +45,11 @@ export interface EmailSourceMetadata {
   emailReference?: string;
   gmailMessageId?: string;
   gmailThreadId?: string;
+  gmailAttachmentId?: string;
   emailRecordId?: string;
   sourceDocumentId?: string;
   sourceStoragePath?: string;
+  sourceSha256?: string;
   rawEmailStoragePath?: string;
 }
 
@@ -85,6 +87,7 @@ export interface InvoiceData {
   previewUrl?: string;
   sourceDocumentId?: string;
   sourceStoragePath?: string;
+  sourceSha256?: string;
   sourceEmailId?: string;
   extractionId?: string;
 
@@ -133,6 +136,7 @@ export interface InvoiceData {
   validation?: ValidationSummary;
   rawJson?: string;
   verifiedAt?: string;
+  archivedAt?: string;
   exportedAt?: string;
   aiSnapshot?: Partial<InvoiceData>;
 }
@@ -165,6 +169,7 @@ export interface EmailClassification {
 export interface GmailAttachmentSummary {
   attachmentId: string;
   partId?: string;
+  attachmentIndex?: number;
   filename: string;
   mimeType: string;
   size: number;
@@ -176,6 +181,8 @@ export interface GmailMessageCandidate {
   historyId?: string;
   internalDate?: string;
   sender: string;
+  senderName?: string;
+  senderEmail?: string;
   to: string[];
   cc: string[];
   subject: string;
@@ -184,6 +191,7 @@ export interface GmailMessageCandidate {
   bodyText: string;
   bodyHtml?: string;
   labels: string[];
+  hasAttachments?: boolean;
   attachments: GmailAttachmentSummary[];
   classification?: EmailClassification;
   importStatus?: "NEW" | "CLASSIFYING" | "READY" | "IGNORED" | "IMPORTING" | "IMPORTED" | "FAILED";
@@ -208,10 +216,18 @@ export interface GmailConnectionInfo {
   lastHistoryId?: string;
 }
 
+export interface GmailScanWindow {
+  days?: number;
+  after?: string;
+  before?: string;
+}
+
 export interface StoredEmailRecord {
   id: string;
   gmailMessageId: string;
   gmailThreadId?: string;
+  senderName?: string;
+  senderEmail?: string;
   subject: string;
   sender: string;
   receivedAt?: string;
@@ -223,11 +239,16 @@ export interface StoredEmailRecord {
 export interface StoredSourceDocument {
   id: string;
   emailMessageId?: string;
+  gmailAttachmentId?: string;
+  gmailPartId?: string;
+  attachmentIndex?: number;
   filename: string;
   mimeType: string;
   size: number;
   storagePath: string;
   sha256: string;
+  processingStatus?: string;
+  documentType?: string;
   previewUrl?: string;
 }
 

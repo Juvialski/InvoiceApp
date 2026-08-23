@@ -28,6 +28,8 @@ supabase/migrations/20260822150000_invoice_operations_foundation.sql
 
 It creates:
 
+- `profiles`
+- `gmail_connections`
 - `gmail_sync_state`
 - `email_messages`
 - `source_documents`
@@ -40,6 +42,10 @@ It creates:
 - private `email-originals` Storage bucket
 
 It also enables basic per-user RLS and explicit authenticated Data API grants. This is only the baseline ownership model; a later security phase can add organizations, team roles, admin review, retention policies, etc.
+
+The migration is safe to rerun for this foundation and adds stable Gmail attachment identifiers, duplicate markers, and append-only protections for AI extraction snapshots and review history. Apply it before testing the first authenticated read or write; a fresh project will otherwise return a missing-table error from the Data API.
+
+The invoice directory uses archive semantics: removing an invoice hides the working record while keeping the original document, immutable AI extraction, and review events.
 
 ## 3. Configure Google in Supabase Auth
 
@@ -109,3 +115,5 @@ The default extraction/classification model is `gemini-3.5-flash-lite` with `gem
 The first scan stores Gmail's latest history ID in `gmail_sync_state`. **Sync new** then uses Gmail history changes instead of rescanning the whole mailbox. If Gmail reports that the history cursor is too old, the API tells the UI to perform a fresh scan.
 
 This version intentionally uses user-triggered sync rather than background Gmail push notifications. That keeps the first Supabase/Gmail release easier to test and debug. Gmail push/PubSub can be added after the core workflow is stable.
+
+The Gmail inbox supports last 7, 30, or 90 days, plus a custom date range. `Sync new` follows Gmail history pages and will rebuild the cursor with a fresh 30-day scan if Gmail reports that the saved history cursor has expired. The saved cursor is never moved backward.

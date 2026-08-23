@@ -12,6 +12,10 @@ const PORT = Number(process.env.PORT || 3000);
 const PRIMARY_MODEL = "gemini-3.5-flash-lite";
 const ACCURACY_MODEL = "gemini-3.7-flash";
 
+function selectModel(requestedModel?: unknown) {
+  return requestedModel === ACCURACY_MODEL ? ACCURACY_MODEL : PRIMARY_MODEL;
+}
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -174,6 +178,7 @@ function validateExtractedInvoice(data: any, items: any[]) {
   if (!data.invoiceNumber) issues.push({ id: "missing-invoice-number", severity: "warning", field: "invoiceNumber", message: "Invoice number is missing." });
   if (!data.invoiceDate) issues.push({ id: "missing-invoice-date", severity: "warning", field: "invoiceDate", message: "Invoice date is missing." });
   if (!data.vendor?.name) issues.push({ id: "missing-vendor", severity: "warning", field: "vendor.name", message: "Vendor name is missing." });
+  if (!data.currency) issues.push({ id: "missing-currency", severity: "warning", field: "currency", message: "Currency is missing." });
 
   return {
     status: issues.length ? "REVIEW" : "PASS",
@@ -184,8 +189,8 @@ function validateExtractedInvoice(data: any, items: any[]) {
   };
 }
 
-async function generateStructured(ai: GoogleGenAI, requestedModel: string, contents: any, systemInstruction: string, responseSchema: any) {
-  const primary = requestedModel || PRIMARY_MODEL;
+async function generateStructured(ai: GoogleGenAI, requestedModel: unknown, contents: any, systemInstruction: string, responseSchema: any) {
+  const primary = selectModel(requestedModel);
   try {
     const response = await ai.models.generateContent({
       model: primary,
@@ -313,12 +318,14 @@ Rules:
     const amountPaid = numeric(extracted.amountPaid);
     const balanceDue = extracted.balanceDue === undefined ? Math.max(0, grandTotal - amountPaid) : numeric(extracted.balanceDue);
     const confidenceScore = extracted.confidenceScore === undefined ? undefined : numeric(extracted.confidenceScore);
-    const reviewStatus = validation.status === "PASS" && (confidenceScore === undefined || confidenceScore >= 90) ? "VERIFIED" : "NEEDS_REVIEW";
+    // Passing arithmetic and confidence checks only makes the extraction review-ready.
+    // Verification is an explicit human action.
+    const reviewStatus = "NEEDS_REVIEW";
 
     const invoiceData = {
       id: randomUUID(),
       fileName: fileName || emailContext?.attachmentName || "invoice",
-      documentType: extracted.documentType || "INVOICE",
+      documentType: extracted.documentType || "OTHER",
       sourceType,
       sourceMetadata: emailContext
         ? {
@@ -327,6 +334,13 @@ Rules:
             receivedAt: emailContext.receivedAt || "",
             attachmentName: emailContext.attachmentName || fileName || "",
             emailReference: emailContext.emailReference || "",
+            gmailMessageId: emailContext.gmailMessageId || "",
+            gmailThreadId: emailContext.gmailThreadId || "",
+            gmailAttachmentId: emailContext.gmailAttachmentId || "",
+            emailRecordId: emailContext.emailRecordId || "",
+            sourceDocumentId: emailContext.sourceDocumentId || "",
+            sourceStoragePath: emailContext.sourceStoragePath || "",
+            rawEmailStoragePath: emailContext.rawEmailStoragePath || "",
           }
         : { attachmentName: fileName || "" },
       processingStatus: "EXTRACTED",
@@ -336,7 +350,7 @@ Rules:
       invoiceDate: extracted.invoiceDate || "",
       dueDate: extracted.dueDate || "",
       purchaseOrderNumber: extracted.purchaseOrderNumber || "",
-      currency: extracted.currency || "USD",
+      currency: extracted.currency || "",
       currencySymbol: extracted.currencySymbol || "",
       paymentTerms: extracted.paymentTerms || "",
       status: deriveStatus(grandTotal, amountPaid, balanceDue, extracted.dueDate),
@@ -378,7 +392,7 @@ Rules:
       balanceDue,
       notes: extracted.notes || "",
       termsAndConditions: extracted.termsAndConditions || "",
-      category: extracted.category || "Uncategorized",
+      category: extracted.category || "",
       extractedAt: new Date().toISOString(),
       modelUsed,
       confidenceScore,
@@ -450,10 +464,17 @@ function splitAddresses(value: string) {
   return value.split(",").map((item) => item.trim()).filter(Boolean);
 }
 
+function parseSender(value: string) {
+  const match = value.match(/^(.*?)\s*<([^>]+)>\s*$/);
+  if (match) return { name: match[1].replace(/^"|"$/g, "").trim(), email: match[2].trim() };
+  return { name: "", email: value.trim() };
+}
+
 function collectMimeParts(payload: any) {
   const bodyText: string[] = [];
   const bodyHtml: string[] = [];
-  const attachments: Array<{ attachmentId: string; partId?: string; filename: string; mimeType: string; size: number; inlineDataBase64?: string }> = [];
+  const attachments: Array<{ attachmentId: string; partId?: string; attachmentIndex: number; filename: string; mimeType: string; size: number; inlineDataBase64?: string }> = [];
+  let attachmentIndex = 0;
 
   const walk = (part: any) => {
     if (!part) return;
@@ -465,9 +486,14 @@ function collectMimeParts(payload: any) {
     if (!filename && body.data && mimeType === "text/html") bodyHtml.push(decodeBase64UrlText(body.data));
 
     if (filename) {
+      const currentIndex = attachmentIndex;
+      attachmentIndex += 1;
       attachments.push({
-        attachmentId: body.attachmentId || `inline-${part.partId || randomUUID()}`,
+        // Gmail's attachment id is stable. MIME part ids are the deterministic
+        // fallback for inline/file parts that do not expose one.
+        attachmentId: body.attachmentId || `inline-${part.partId || currentIndex}`,
         partId: part.partId,
+        attachmentIndex: currentIndex,
         filename,
         mimeType: part.mimeType || "application/octet-stream",
         size: Number(body.size || 0),
@@ -493,12 +519,16 @@ function summarizeGmailMessage(message: any) {
     : receivedHeader
       ? new Date(receivedHeader).toISOString()
       : new Date().toISOString();
+  const sender = headerValue(message.payload, "From");
+  const senderParts = parseSender(sender);
   return {
     id: message.id,
     threadId: message.threadId,
     historyId: message.historyId,
     internalDate: message.internalDate,
-    sender: headerValue(message.payload, "From"),
+    sender,
+    senderName: senderParts.name,
+    senderEmail: senderParts.email,
     to: splitAddresses(headerValue(message.payload, "To")),
     cc: splitAddresses(headerValue(message.payload, "Cc")),
     subject: headerValue(message.payload, "Subject"),
@@ -507,6 +537,7 @@ function summarizeGmailMessage(message: any) {
     bodyText: parsed.bodyText || message.snippet || "",
     bodyHtml: parsed.bodyHtml || "",
     labels: message.labelIds || [],
+    hasAttachments: parsed.attachments.length > 0,
     attachments: parsed.attachments.map(({ inlineDataBase64, ...attachment }) => attachment),
   };
 }
@@ -530,9 +561,18 @@ app.post("/api/gmail/scan", async (req, res) => {
     const accessToken = getGoogleAccessToken(req);
     const maxResults = Math.max(1, Math.min(50, Number(req.body?.maxResults || 25)));
     const query = String(req.body?.query || "newer_than:30d {subject:invoice subject:receipt subject:statement \"credit note\" \"tax invoice\" filename:pdf filename:png filename:jpg filename:jpeg}");
-    const params = new URLSearchParams({ maxResults: String(maxResults), q: query });
-    const list = await gmailFetch(accessToken, `messages?${params.toString()}`);
-    const ids = (list.messages || []).map((entry: any) => entry.id).filter(Boolean);
+    const ids: string[] = [];
+    let pageToken = "";
+    let resultSizeEstimate = 0;
+    do {
+      const params = new URLSearchParams({ maxResults: String(Math.min(100, maxResults - ids.length)), q: query });
+      if (pageToken) params.set("pageToken", pageToken);
+      const list = await gmailFetch(accessToken, `messages?${params.toString()}`);
+      resultSizeEstimate = Number(list.resultSizeEstimate || resultSizeEstimate);
+      ids.push(...(list.messages || []).map((entry: any) => entry.id).filter(Boolean));
+      pageToken = String(list.nextPageToken || "");
+    } while (pageToken && ids.length < maxResults);
+    ids.splice(maxResults);
     const messages: any[] = [];
     for (let i = 0; i < ids.length; i += 6) {
       const batch = ids.slice(i, i + 6);
@@ -540,7 +580,7 @@ app.post("/api/gmail/scan", async (req, res) => {
       messages.push(...loaded.map(summarizeGmailMessage));
     }
     const profile = await gmailFetch(accessToken, "profile");
-    res.json({ success: true, data: { messages, resultSizeEstimate: list.resultSizeEstimate || messages.length, historyId: profile.historyId, emailAddress: profile.emailAddress } });
+    res.json({ success: true, data: { messages, resultSizeEstimate: resultSizeEstimate || messages.length, historyId: profile.historyId, emailAddress: profile.emailAddress } });
   } catch (error: any) {
     res.status(error?.status || 500).json({ success: false, error: error?.message || "Gmail scan failed." });
   }
@@ -551,12 +591,17 @@ app.post("/api/gmail/history", async (req, res) => {
     const accessToken = getGoogleAccessToken(req);
     const startHistoryId = String(req.body?.startHistoryId || "");
     if (!startHistoryId) return res.status(400).json({ success: false, error: "No previous Gmail history ID is available. Run an initial scan first." });
-    const params = new URLSearchParams({ startHistoryId, historyTypes: "messageAdded", maxResults: "100" });
-    const history = await gmailFetch(accessToken, `history?${params.toString()}`);
     const ids = new Set<string>();
-    for (const event of history.history || []) {
-      for (const added of event.messagesAdded || []) if (added?.message?.id) ids.add(added.message.id);
-    }
+    let pageToken = "";
+    do {
+      const params = new URLSearchParams({ startHistoryId, historyTypes: "messageAdded", maxResults: "100" });
+      if (pageToken) params.set("pageToken", pageToken);
+      const history = await gmailFetch(accessToken, `history?${params.toString()}`);
+      for (const event of history.history || []) {
+        for (const added of event.messagesAdded || []) if (added?.message?.id) ids.add(added.message.id);
+      }
+      pageToken = String(history.nextPageToken || "");
+    } while (pageToken);
     const messages: any[] = [];
     const idList = Array.from(ids);
     for (let i = 0; i < idList.length; i += 6) {
@@ -590,6 +635,7 @@ app.post("/api/gmail/import", async (req, res) => {
       attachments.push({
         attachmentId: attachment.attachmentId,
         partId: attachment.partId,
+        attachmentIndex: attachment.attachmentIndex,
         filename: attachment.filename,
         mimeType: attachment.mimeType,
         size: attachment.size || (dataBase64 ? Buffer.from(dataBase64, "base64").byteLength : 0),
