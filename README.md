@@ -101,6 +101,8 @@ The schema includes `profiles`, `gmail_connections`, `gmail_sync_state`, `email_
 
 For the current payroll/workforce foundation, apply the migrations in timestamp order through supabase/migrations/20260824110000_payroll_workforce_operations.sql. That additive migration creates company-scoped attendance, leave, overtime, and holiday sources; makes work-entry project linkage conditional on labor context; adds source-revision guards; and extends maintenance protection. Run Supabase security/performance advisors after deployment. The migration must be applied before authenticated users write the new workforce tables.
 
+The payroll safety hardening migration `20260824120000_payroll_safety_hardening.sql` adds authoritative leave transition/overlap guards and invalidates affected open payroll periods when a referenced project changes payroll-relevant status. The assistant persistence migration `20260824121000_invoice_operations_assistant.sql` adds private company-scoped threads, messages, prepared-action audit events, and attachment metadata with explicit authenticated grants and RLS.
+
 ## Data model principle
 
 The original source and the AI result are deliberately separate:
@@ -182,3 +184,17 @@ The Attendance workspace supports date navigation, roster review, inline correct
 Calculated payroll runs capture a source revision and deterministic source fingerprint. Attendance, leave, overtime, work-entry, compensation, and schedule changes require recalculation before a run can be approved. Existing finalized payroll history remains read-only.
 
 Company tenancy and RBAC apply to the new payroll sources. Local/demo mode stores the same domains locally when Supabase is not configured. This remains an operational payroll foundation and is **not** a legally complete Philippine payroll engine; statutory premium, contribution, entitlement, and absence-deduction rules require explicit configured policy and are intentionally not invented.
+
+## Invoice Operations AI
+
+Invoice Operations AI is a global, company-scoped assistant drawer for answering product/workspace questions, opening supported pages, preparing controlled workforce/payroll operations, and helping route supported documents. It uses the existing Express server and `@google/genai`; it is not a freeform database chatbot.
+
+The assistant can search invoices, projects, expenses, vendors, workers, attendance, payroll periods/runs, readiness, and reports; navigate to allowlisted routes; use the current FAQ/help catalog; and start registered tours. Supported attachments are PDF, JPG/JPEG, PNG, WEBP, XLSX, CSV, and TXT. Files are treated as untrusted data. Spreadsheet/PDF/image text cannot grant permissions, create tools, run SQL, or override the assistant rules.
+
+Read and navigation tools run automatically. Prepare/preview tools return a structured preview; when that preview represents a write, the application still requires an explicit Confirm action before execution. Normal and bulk changes use the same application-enforced confirmation. Payroll approval and payment use the strongest confirmation tier and re-check the current permission, company, entity state, expiry, source revision, and idempotency before executing. Repeating a confirmation does not repeat the operation.
+
+Financial calculations remain deterministic in InvoiceApp. Gemini never computes authoritative invoice totals, project actual cost, payroll, overtime pay, allocations, or expense totals, and it cannot access Supabase directly, choose tables/columns, issue arbitrary HTTP/SQL, run shell commands, or use service-role credentials. Human review remains required wherever the existing invoice or payroll workflow requires it.
+
+Apply the assistant migrations in timestamp order, including `20260824121000_invoice_operations_assistant.sql`. The server requires `GEMINI_API_KEY`; the browser must never receive it. Assistant conversations and action audit records are private to their creator and selected company; binary attachment content is not stored in assistant message JSON.
+
+The first release intentionally does not expose payroll history deletion/reset/rebuild, destructive company administration, member/role management, service-role operations, arbitrary SQL/API requests, shell commands, or browser automation. If the model or service is unavailable, the app reports the limitation rather than claiming a workspace action succeeded.

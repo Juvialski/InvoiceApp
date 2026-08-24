@@ -4,6 +4,7 @@ import test from "node:test";
 
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 const browserClient = readFileSync(new URL("../src/lib/companyApi.ts", import.meta.url), "utf8");
+const assistantHandler = readFileSync(new URL("../src/server/assistant/assistantHandler.ts", import.meta.url), "utf8");
 
 function routeBody(path: string) {
   const start = server.indexOf(path);
@@ -25,6 +26,10 @@ test("company-specific AI and Gmail routes require a database permission check",
     assert.match(body, /authorizeCompanyRequest\(req, /);
     assert.match(body, new RegExp(`"${permission.replace(".", "\\.")}"`));
   }
+  assert.match(server, /app\.use\("\/api\/assistant"[\s\S]*createAssistantRouter\(\)/);
+  assert.match(assistantHandler, /router\.post\("\/cancel"/);
+  assert.match(server, /p_company_id: companyId/);
+  assert.match(server, /p_permission_key: permission/);
 });
 
 test("the Express API separates Supabase and Google bearer tokens", () => {

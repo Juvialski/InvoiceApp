@@ -253,6 +253,7 @@ export function buildAutomaticPayrollDraft(input: PayrollAutomationRecordInput):
     leaveRequests: (input.leaveRequests || []) as unknown as LeaveRequestRecord[],
     overtimeRequests: (input.overtimeRequests || []) as unknown as OvertimeRequestRecord[],
     holidays: (input.holidays || []) as unknown as PayrollHolidayRecord[],
+    projects: input.projects || [],
     sourceRevision: input.sourceRevision ?? input.period.sourceRevision,
     existingPayrollAllocations: input.existingAllocations?.map((allocation) => ({ id: allocation.id, amount: allocation.allocationAmount, projectId: allocation.projectId })) || [],
   });

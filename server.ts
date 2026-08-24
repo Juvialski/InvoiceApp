@@ -6,6 +6,7 @@ import { createClient, type SupabaseClient, type User } from "@supabase/supabase
 import dotenv from "dotenv";
 import { randomUUID } from "crypto";
 import type { InvoiceData } from "./src/types.ts";
+import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import {
   chooseBestExtractionCandidate,
   evaluateExtractionQuality,
@@ -101,8 +102,8 @@ async function authorizeCompanyRequest(req: express.Request, permission: Company
   }
 
   const { data: allowed, error: permissionError } = await client.rpc("has_company_permission", {
-    target_company_id: companyId,
-    required_permission_key: permission,
+    p_company_id: companyId,
+    p_permission_key: permission,
   });
   if (permissionError) {
     // Fail closed when the database authorization function is unavailable or
@@ -401,6 +402,23 @@ async function generateStructured(ai: GoogleGenAI, requestedModel: unknown, cont
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", primaryModel: PRIMARY_MODEL, accuracyModel: ACCURACY_MODEL, timestamp: new Date().toISOString() });
 });
+
+const assistantRateLimit = new Map<string, { windowStartedAt: number; count: number }>();
+app.use("/api/assistant", (req, res, next) => {
+  if (req.method !== "POST") return next();
+  const now = Date.now();
+  const address = String(req.ip || req.socket.remoteAddress || "unknown");
+  if (assistantRateLimit.size > 10_000) {
+    for (const [key, value] of assistantRateLimit) if (now - value.windowStartedAt >= 60_000) assistantRateLimit.delete(key);
+  }
+  const current = assistantRateLimit.get(address);
+  const windowStartedAt = current && now - current.windowStartedAt < 60_000 ? current.windowStartedAt : now;
+  const count = current && windowStartedAt === current.windowStartedAt ? current.count + 1 : 1;
+  assistantRateLimit.set(address, { windowStartedAt, count });
+  if (count > 30) return res.status(429).json({ success: false, error: "Invoice Operations AI is temporarily rate limited. Try again shortly.", code: "RATE_LIMITED" });
+  return next();
+});
+app.use("/api/assistant", createAssistantRouter());
 
 app.post("/api/classify-email", async (req, res) => {
   try {

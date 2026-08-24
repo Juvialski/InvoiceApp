@@ -49,7 +49,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({ runs, periods, e
     return;
 
   };
-  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-tour="payroll-runs">
     <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-black">Payroll runs</h3><p className="mt-1 text-xs text-slate-500">Review a selected period, calculate its snapshot, then approve and pay in order.</p></div><div className="flex flex-wrap gap-2">{onSaveEntry && <PayrollEntryForm runs={editableRuns} workers={workers} projects={projects} onSave={onSaveEntry} />}{onCreateRun && period && <button onClick={() => onCreateRun(period.id)} className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white"><HardHat className="mr-1 inline h-3.5 w-3.5" /> Create run</button>}</div></div>
     {message && <div className={`flex items-start gap-2 border-b px-5 py-3 text-xs ${message.tone === "error" ? "border-rose-100 bg-rose-50 text-rose-800" : "border-indigo-100 bg-indigo-50 text-indigo-800"}`}><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{message.text}</div>}
     {!period && <div className="p-10 text-center"><Clock3 className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">Select a payroll period</p><p className="mt-1 text-xs text-slate-500">Payroll history and lifecycle actions are scoped to an explicit period.</p></div>}

@@ -207,6 +207,8 @@ export interface PayrollAutomationInput {
   /** Active holiday records are fingerprinted and never create absence deductions. */
   holidays?: PayrollHolidayRecord[];
   payrollHolidays?: PayrollHolidayRecord[];
+  /** Project identity/status is a payroll source only when referenced by a source row. */
+  projects?: readonly unknown[];
   sourceRevision?: number;
   periodSourceRevision?: number;
 }
@@ -805,6 +807,7 @@ function buildPayrollDraftFromConfirmedSources(input: PayrollAutomationInput): P
     profiles: input.profiles ?? [],
     assignments: input.assignments ?? [],
     recurringComponents: input.recurringComponents ?? [],
+    projects: input.projects ?? [],
   };
   const sourceFingerprint = fingerprintPayrollSources(sourceInput);
   const sourceRevisionValue = input.sourceRevision ?? input.periodSourceRevision ?? input.period.sourceRevision;

@@ -117,6 +117,7 @@ const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({ route, ac
   return (
     <button
       type="button"
+      data-tour={`route:${route.id}`}
       role={menuItem ? "menuitem" : undefined}
       onClick={() => onSelect(route)}
       aria-label={accessibleLabel}

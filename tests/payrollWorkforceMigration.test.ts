@@ -31,3 +31,19 @@ test("workforce migration protects tenancy, RLS, finalized sources, stale approv
   assert.match(migration, /protectedDataBearingPeriods/);
   assert.doesNotMatch(migration, /realtime\./i);
 });
+
+const safetyMigration = readFileSync(
+  new URL("../supabase/migrations/20260824120000_payroll_safety_hardening.sql", import.meta.url),
+  "utf8",
+);
+
+test("payroll safety migration enforces leave lifecycle and project source freshness without touching history", () => {
+  assert.match(safetyMigration, /validate_leave_request_operation/);
+  assert.match(safetyMigration, /LEAVE_OVERLAP|Overlapping active leave/);
+  assert.match(safetyMigration, /old\.status = 'PENDING'/);
+  assert.match(safetyMigration, /old\.status = 'APPROVED'/);
+  assert.match(safetyMigration, /tg_table_name = 'projects'/);
+  assert.match(safetyMigration, /old\.status is not distinct from new\.status/);
+  assert.match(safetyMigration, /p\.status not in \('APPROVED', 'PAID', 'VOID'\)/);
+  assert.doesNotMatch(safetyMigration, /drop table/i);
+});

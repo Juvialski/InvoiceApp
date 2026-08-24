@@ -826,6 +826,22 @@ export interface LeaveValidationResult extends WorkforceValidationResult {
   leave?: LeaveRequest;
 }
 
+export type LeaveTransitionStatus = Extract<LeaveStatus, "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED">;
+
+export interface LeaveTransitionContext {
+  /** Existing request is required for transitions and omitted for a new request. */
+  existing?: LeaveRequest;
+  /** Active requests used for deterministic overlap validation. */
+  requests?: readonly LeaveRequest[];
+  /** Date ranges whose payroll source is finalized and cannot be changed. */
+  finalizedRanges?: readonly { startDate: DateOnly; endDate: DateOnly }[];
+}
+
+export interface LeaveTransitionResult extends LeaveValidationResult {
+  transition?: { from?: LeaveStatus; to: LeaveStatus };
+  overlaps: LeaveOverlap[];
+}
+
 export function validateLeaveRequest(leave: Partial<LeaveRequest>): LeaveValidationResult {
   const errors: WorkforceIssue[] = [];
   const warnings: WorkforceIssue[] = [];
@@ -904,6 +920,62 @@ export function findLeaveOverlaps(requests: readonly LeaveRequest[], candidate?:
 
 export const detectLeaveOverlaps = findLeaveOverlaps;
 
+/**
+ * Validate a leave create/update/status transition without reading storage.
+ * Approved leave is the only status that contributes to the attendance roster;
+ * rejection and cancellation are terminal and never create payable time.
+ */
+export function transitionLeaveRequest(
+  request: LeaveRequest,
+  nextStatus: LeaveStatus,
+  context: LeaveTransitionContext = {},
+): LeaveTransitionResult {
+  const errors: WorkforceIssue[] = [];
+  const warnings: WorkforceIssue[] = [];
+  const current = context.existing;
+  const candidate = { ...request, status: nextStatus };
+  const base = validateLeaveRequest(candidate);
+  appendIssues(errors, base.errors);
+  appendIssues(warnings, base.warnings);
+
+  const allowed: Record<string, readonly LeaveStatus[]> = {
+    DRAFT: ["PENDING", "CANCELLED"],
+    PENDING: ["APPROVED", "REJECTED", "CANCELLED"],
+    APPROVED: ["CANCELLED"],
+    REJECTED: [],
+    CANCELLED: [],
+  };
+  if (current && current.status !== nextStatus && !allowed[current.status]?.includes(nextStatus)) {
+    errors.push(error("INVALID_LEAVE_TRANSITION", `Leave cannot move from ${current.status} to ${nextStatus}.`, { recordId: current.id }));
+  }
+
+  const activeCandidate = ["DRAFT", "PENDING", "APPROVED"].includes(nextStatus);
+  const overlaps = activeCandidate && base.valid
+    ? findLeaveOverlaps(context.requests || [], candidate)
+    : [];
+  if (overlaps.length) {
+    errors.push(error("LEAVE_OVERLAP", `Leave overlaps an existing active request for worker ${candidate.workerId}.`, { workerId: candidate.workerId, date: overlaps[0].overlapStart }));
+  }
+
+  if (nextStatus === "APPROVED" && candidate.paid === undefined) {
+    warnings.push(warning("LEAVE_PAY_TREATMENT_UNKNOWN", "Approved leave has no explicit paid/unpaid treatment; payroll will not infer one.", { recordId: candidate.id }));
+  }
+
+  if (current?.status === "APPROVED" && nextStatus === "CANCELLED") {
+    const intersectsFinalized = (context.finalizedRanges || []).some((range) => candidate.startDate <= range.endDate && candidate.endDate >= range.startDate);
+    if (intersectsFinalized) errors.push(error("FINALIZED_LEAVE_LOCKED", "Approved leave overlapping finalized payroll cannot be cancelled.", { recordId: candidate.id }));
+  }
+
+  return {
+    ...validation(errors, warnings),
+    leave: candidate,
+    transition: { ...(current ? { from: current.status } : {}), to: nextStatus },
+    overlaps,
+  };
+}
+
+export const validateLeaveTransition = transitionLeaveRequest;
+
 export function getApprovedLeaveDates(workerId: string, startDate: DateOnly, endDate: DateOnly, leaves: readonly LeaveRequest[]): DateOnly[] {
   assertValidDateOnly(startDate, "startDate");
   assertValidDateOnly(endDate, "endDate");
@@ -935,15 +1007,13 @@ export interface AttendanceNormalizationOptions {
   defaultRecordStatus?: AttendanceRecordStatus;
   defaultAttendanceStatus?: AttendanceStatus;
   deriveMinutes?: boolean;
+  /** JSON-safe clear semantics for PATCH callers that cannot transmit undefined. */
+  clearFields?: readonly ("scheduledStart" | "scheduledEnd" | "actualTimeIn" | "actualTimeOut" | "notes")[];
 }
 
 export interface AttendanceNormalizationResult extends WorkforceValidationResult {
   record?: NormalizedAttendanceRecord;
   value?: NormalizedAttendanceRecord;
-}
-
-function definedEntries(value: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
 }
 
 function enumValue<T extends string>(value: unknown, values: Set<T>, fallback: T, field: string, issues: WorkforceIssue[]): T {
@@ -987,7 +1057,12 @@ export function normalizeAttendanceRecord(input: AttendanceRecordInput, options:
   const errors: WorkforceIssue[] = [];
   const warnings: WorkforceIssue[] = [];
   const existing = options.existing || {};
-  const raw = { ...definedEntries(existing as Record<string, unknown>), ...definedEntries(input as Record<string, unknown>) } as Partial<AttendanceRecord>;
+  // Property presence is meaningful: `{ actualTimeIn: undefined }` is an
+  // intentional clear, while an omitted property is a PATCH that preserves
+  // the existing value.  This prevents stale clock/payable values surviving
+  // a status edit.
+  const raw = { ...(existing as Record<string, unknown>), ...(input as Record<string, unknown>) } as Partial<AttendanceRecord>;
+  for (const field of options.clearFields || []) raw[field] = undefined;
   if (raw.companyId === undefined && options.companyId !== undefined) raw.companyId = options.companyId;
   if (!raw.workerId) errors.push(error("MISSING_WORKER_ID", "Attendance workerId is required.", { field: "workerId" }));
   if (!isValidDateOnly(raw.attendanceDate)) errors.push(error("INVALID_DATE_ONLY", "attendanceDate must be a valid YYYY-MM-DD date.", { field: "attendanceDate" }));
@@ -996,6 +1071,8 @@ export function normalizeAttendanceRecord(input: AttendanceRecordInput, options:
   const recordStatus = enumValue(raw.recordStatus, ATTENDANCE_RECORD_STATUSES, options.defaultRecordStatus || "DRAFT", "recordStatus", errors);
   const hasActualTimes = raw.actualTimeIn !== undefined || raw.actualTimeOut !== undefined;
   const attendanceStatus = enumValue(raw.attendanceStatus, ATTENDANCE_STATUSES, options.defaultAttendanceStatus || (hasActualTimes ? "PRESENT" : "ABSENT"), "attendanceStatus", errors);
+  const statusWasSupplied = Object.prototype.hasOwnProperty.call(input, "attendanceStatus");
+  const statusChanged = Boolean(options.existing && statusWasSupplied && input.attendanceStatus !== options.existing.attendanceStatus);
   const breakMinutes = normalizeNonNegativeMinutes(raw.breakMinutes, "breakMinutes", errors);
   const explicitMinuteFields = new Set(["scheduledMinutes", "regularMinutes", "lateMinutes", "undertimeMinutes", "overtimeMinutes"].filter((field) => Object.prototype.hasOwnProperty.call(input, field)));
   const shouldDerive = options.deriveMinutes !== false;
@@ -1016,9 +1093,33 @@ export function normalizeAttendanceRecord(input: AttendanceRecordInput, options:
   const lateMinutes = explicitMinuteFields.has("lateMinutes") ? normalizeNonNegativeMinutes(raw.lateMinutes, "lateMinutes", errors) : derived?.lateMinutes ?? normalizeNonNegativeMinutes(raw.lateMinutes, "lateMinutes", errors);
   const undertimeMinutes = explicitMinuteFields.has("undertimeMinutes") ? normalizeNonNegativeMinutes(raw.undertimeMinutes, "undertimeMinutes", errors) : derived?.undertimeMinutes ?? normalizeNonNegativeMinutes(raw.undertimeMinutes, "undertimeMinutes", errors);
   const overtimeMinutes = explicitMinuteFields.has("overtimeMinutes") ? normalizeNonNegativeMinutes(raw.overtimeMinutes, "overtimeMinutes", errors) : derived?.overtimeMinutes ?? normalizeNonNegativeMinutes(raw.overtimeMinutes, "overtimeMinutes", errors);
-  const paidDayFraction = raw.paidDayFraction === undefined
-    ? attendanceStatus === "PRESENT" || attendanceStatus === "OFFICIAL_BUSINESS" ? 1 : attendanceStatus === "PARTIAL" ? 0.5 : 0
-    : Number(raw.paidDayFraction);
+  const nonPayableStatus = attendanceStatus === "ABSENT" || attendanceStatus === "REST_DAY" || attendanceStatus === "HOLIDAY" || attendanceStatus === "ON_LEAVE";
+  const defaultPaidDayFraction = attendanceStatus === "PRESENT" || attendanceStatus === "OFFICIAL_BUSINESS" ? 1 : attendanceStatus === "PARTIAL" ? 0.5 : 0;
+  const paidDayFraction = Object.prototype.hasOwnProperty.call(input, "paidDayFraction") && raw.paidDayFraction !== undefined
+    ? Number(raw.paidDayFraction)
+    : statusChanged || !options.existing
+      ? defaultPaidDayFraction
+      : Number(options.existing.paidDayFraction ?? defaultPaidDayFraction);
+  const normalizedRegularMinutes = nonPayableStatus
+    ? 0
+    : statusChanged && !explicitMinuteFields.has("regularMinutes") && !derived
+      ? 0
+      : regularMinutes;
+  const normalizedLateMinutes = nonPayableStatus
+    ? 0
+    : statusChanged && !explicitMinuteFields.has("lateMinutes") && !derived
+      ? 0
+      : lateMinutes;
+  const normalizedUndertimeMinutes = nonPayableStatus
+    ? 0
+    : statusChanged && !explicitMinuteFields.has("undertimeMinutes") && !derived
+      ? 0
+      : undertimeMinutes;
+  const normalizedOvertimeMinutes = nonPayableStatus
+    ? 0
+    : statusChanged && !explicitMinuteFields.has("overtimeMinutes") && !derived
+      ? 0
+      : overtimeMinutes;
   if (!Number.isFinite(paidDayFraction) || paidDayFraction < 0 || paidDayFraction > 1) errors.push(error("INVALID_PAID_DAY_FRACTION", "paidDayFraction must be between 0 and 1.", { field: "paidDayFraction" }));
   const record: NormalizedAttendanceRecord = {
     id: typeof raw.id === "string" ? raw.id : undefined,
@@ -1030,12 +1131,12 @@ export function normalizeAttendanceRecord(input: AttendanceRecordInput, options:
     scheduledEnd: raw.scheduledEnd,
     scheduledMinutes,
     breakMinutes,
-    actualTimeIn: raw.actualTimeIn,
-    actualTimeOut: raw.actualTimeOut,
-    regularMinutes,
-    lateMinutes,
-    undertimeMinutes,
-    overtimeMinutes,
+    actualTimeIn: nonPayableStatus ? undefined : raw.actualTimeIn,
+    actualTimeOut: nonPayableStatus ? undefined : raw.actualTimeOut,
+    regularMinutes: normalizedRegularMinutes,
+    lateMinutes: normalizedLateMinutes,
+    undertimeMinutes: normalizedUndertimeMinutes,
+    overtimeMinutes: normalizedOvertimeMinutes,
     paidDayFraction: Number.isFinite(paidDayFraction) ? Math.max(0, Math.min(1, paidDayFraction)) : 0,
     attendanceStatus,
     recordStatus,

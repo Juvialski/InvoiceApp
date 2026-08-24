@@ -26,6 +26,8 @@ export interface PayrollSourceRevisionInput {
   profiles?: readonly unknown[];
   assignments?: readonly unknown[];
   recurringComponents?: readonly unknown[];
+  /** Project rows are reduced to payroll-relevant identity/status fields. */
+  projects?: readonly unknown[];
   [key: string]: unknown;
 }
 
@@ -120,6 +122,38 @@ function uniqueSourceArrays(input: PayrollSourceRevisionInput, keys: string[]): 
   return result;
 }
 
+function projectIdFromSource(value: unknown): string | undefined {
+  if (!isPlainRecord(value)) return undefined;
+  const candidate = value.projectId ?? value.project_id ?? value.defaultProjectId ?? value.default_project_id ?? value.id;
+  return typeof candidate === "string" && candidate.trim() ? candidate : undefined;
+}
+
+function relevantProjectSources(input: PayrollSourceRevisionInput): unknown[] {
+  const referencedIds = new Set<string>();
+  for (const key of ["workEntries", "assignments", "overtime", "overtimeRequests", "compensation", "compensationProfiles", "profiles", "recurringComponents"]) {
+    const values = input[key];
+    if (!Array.isArray(values)) continue;
+    for (const value of values) {
+      const id = projectIdFromSource(value);
+      if (id) referencedIds.add(id);
+    }
+  }
+  if (!Array.isArray(input.projects) || referencedIds.size === 0) return [];
+  return input.projects
+    .filter((project) => {
+      const id = projectIdFromSource(project);
+      return Boolean(id && referencedIds.has(id));
+    })
+    .map((project) => {
+      if (!isPlainRecord(project)) return project;
+      return {
+        id: project.id ?? project.projectId ?? project.project_id,
+        status: project.status ?? null,
+        archivedAt: project.archivedAt ?? project.archived_at ?? null,
+      };
+    });
+}
+
 /**
  * Select only the payroll source families that can change a calculated run.
  * Array order is intentionally ignored, while each record's fields are
@@ -136,6 +170,7 @@ export function normalizePayrollSourceInput(input: PayrollSourceRevisionInput): 
     holidays: uniqueSourceArrays(input, ['payrollHolidays', 'holidays']),
     workEntries: uniqueSourceArrays(input, ['workEntries']),
     compensation: uniqueSourceArrays(input, ['compensationProfiles', 'profiles', 'compensation', 'assignments', 'recurringComponents']),
+    projects: relevantProjectSources(input),
   };
 }
 

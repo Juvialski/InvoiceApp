@@ -1,0 +1,34 @@
+import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab } from "../utils/appRouting.ts";
+import { getRouteDefinition, type RouteId } from "../utils/routes.ts";
+import type { AssistantClientAction } from "./assistantTypes.ts";
+
+export const ASSISTANT_NAVIGATION_ROUTE_IDS = [
+  "dashboard",
+  "projects",
+  "extract",
+  "invoices",
+  "payroll",
+  "expenses",
+  "vendors",
+  "reports",
+  "inbox",
+  "review",
+  "settings",
+] as const satisfies readonly RouteId[];
+
+export function isAssistantRouteId(value: unknown): value is RouteId {
+  return typeof value === "string" && ASSISTANT_NAVIGATION_ROUTE_IDS.includes(value as RouteId) && Boolean(getRouteDefinition(value));
+}
+
+export function pathForAssistantAction(action: AssistantClientAction): string | null {
+  if (action.type === "OPEN_INVOICE" && action.entityId) return appPathForInvoice(action.entityId);
+  if (action.type === "OPEN_REVIEW_INVOICE" && action.entityId) return appPathForReviewInvoice(action.entityId);
+  if (action.type === "OPEN_PROJECT" && action.entityId) return appPathForProject(action.entityId);
+  if (action.type === "OPEN_PAYROLL_PERIOD") return appPathForTab("payroll");
+  if (action.type === "OPEN_ATTENDANCE_DATE") return appPathForTab("payroll");
+  if (action.type === "NAVIGATE" && action.routeId && isAssistantRouteId(action.routeId)) {
+    const route = getRouteDefinition(action.routeId);
+    return route ? route.path : null;
+  }
+  return null;
+}

@@ -122,7 +122,7 @@ export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset,
   const doneCount = queue.filter((item) => item.status === "done").length;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-tour="invoice-upload">
       <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div><h2 className="text-base font-black">Extract invoice documents</h2><p className="text-xs text-slate-500 mt-1">Upload one invoice or a full batch. Each document is extracted independently.</p></div>

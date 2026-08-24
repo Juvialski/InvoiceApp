@@ -337,6 +337,8 @@ export interface PayrollRunCalculationInput {
   workers: Worker[];
   assignments: ProjectWorkerAssignment[];
   workEntries: Array<Pick<import("../types.ts").WorkEntry, "id" | "workerId" | "projectId" | "laborContext" | "periodId" | "workDate" | "regularHours" | "overtimeHours" | "daysWorked" | "rate" | "overtimeRate" | "status">>;
+  /** Payroll-relevant project identity/status inputs used for source freshness. */
+  projects?: readonly unknown[];
   /** Confirmed daily records are the primary regular-pay source when present. */
   attendance?: PayrollAttendanceRecordLike[];
   confirmedAttendance?: PayrollAttendanceRecordLike[];
@@ -507,6 +509,7 @@ function contextForWorkEntry(entry: PayrollWorkEntry): PayrollLaborContext {
  * independently from attendance records.
  */
 export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationInput): PayrollRunCalculationResult {
+  const warnings: string[] = [];
   const allAttendance = uniqueRecords([input.confirmedAttendance, input.attendanceRecords, input.attendance]);
   const attendance = allAttendance.filter((record) => {
     const date = sourceDate(record as Record<string, unknown>);
@@ -538,6 +541,7 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
     assignments: input.assignments,
     profiles: input.profiles,
     compensationProfiles: input.compensationProfiles,
+    projects: input.projects,
   };
   const sourceFingerprint = fingerprintPayrollSources(sourceInput);
   const revisionValue = numberValue(input.sourceRevision ?? input.periodSourceRevision);
@@ -568,11 +572,10 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
       .sort((left, right) => String(sourceDate(left as Record<string, unknown>)).localeCompare(String(sourceDate(right as Record<string, unknown>))) || recordId(left, "").localeCompare(recordId(right, "")));
     if (!workerEntries.length && !workerAttendance.length && !workerExplicitOvertime.length) continue;
     if (!isValidRate(worker.defaultRate)) {
-      warningsForCalculation(input, worker);
+      warningsForCalculation(warnings, worker);
       continue;
     }
 
-    const warnings = calculationWarnings(input);
     const usesAttendance = workerAttendance.length > 0;
     const usesExplicitOvertime = workerExplicitOvertime.length > 0;
     const legacyAllocationMode = !usesAttendance && !usesExplicitOvertime;
@@ -711,7 +714,6 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
     });
   }
 
-  const warnings = calculationWarnings(input);
   for (const entry of input.workEntries) {
     if (entry.status === "APPROVED" && !entry.periodId) warnings.push("Approved work entry " + entry.id + " is not linked to a payroll period and was excluded.");
   }
@@ -726,14 +728,6 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
   };
 }
 
-function calculationWarnings(input: PayrollRunCalculationInput): string[] {
-  const existing = (input as PayrollRunCalculationInput & { __warnings?: string[] }).__warnings;
-  if (existing) return existing;
-  const warnings: string[] = [];
-  (input as PayrollRunCalculationInput & { __warnings?: string[] }).__warnings = warnings;
-  return warnings;
-}
-
-function warningsForCalculation(input: PayrollRunCalculationInput, worker: Worker) {
-  calculationWarnings(input).push((worker.displayName || worker.id) + " has no positive default rate and was not calculated.");
+function warningsForCalculation(warnings: string[], worker: Worker) {
+  warnings.push((worker.displayName || worker.id) + " has no positive default rate and was not calculated.");
 }
