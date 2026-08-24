@@ -16,7 +16,7 @@ import {
   type PayrollScheduleVersion,
   type ScheduledPayrollPeriod,
 } from "./payrollSchedule.ts";
-import { reconcileObsoleteGeneratedPayrollPeriods, retireEmptyGeneratedPayrollRuns, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
+import { isSafeToDeletePayrollPeriod, reconcileObsoleteGeneratedPayrollPeriods, retireEmptyGeneratedPayrollRuns, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
 import type { PayrollImportBatch } from "./payrollImportPersistence.ts";
 import {
   buildPayrollDraft,
@@ -159,12 +159,14 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
   const generated: ReturnType<typeof generatePayrollPeriodsAroundReference> = [];
   if (primarySchedule) {
     generated.push(...generatePayrollPeriodsAroundReference(primarySchedule, input.referenceDate, { previous, next }));
-    const currentSchedulePeriods = periods.filter((period) => period.scheduleId === primarySchedule.id);
+    const lifecycleContext = { runs: input.runs, entries: input.entries, workEntries: input.workEntries, importBatches: input.importBatches };
+    const disposableSchedulePeriodIds = new Set(periods.filter((period) => period.scheduleId === primarySchedule.id && period.status === "VOID" && isSafeToDeletePayrollPeriod(period, lifecycleContext)).map((period) => period.id));
+    const currentSchedulePeriods = periods.filter((period) => period.scheduleId === primarySchedule.id && !disposableSchedulePeriodIds.has(period.id));
     const merged = mergeGeneratedPayrollPeriods(currentSchedulePeriods.map(toScheduledPeriod), generated);
     const byId = new Map(currentSchedulePeriods.map((period) => [period.id, period]));
     const mergedPeriods = merged.map((period) => fromScheduledPeriod(period, period.id ? byId.get(period.id) : undefined));
     const mergedIds = new Set(mergedPeriods.map((period) => period.id));
-    periods = [...periods.filter((period) => period.scheduleId !== primarySchedule.id || !mergedIds.has(period.id)), ...mergedPeriods];
+    periods = [...periods.filter((period) => !disposableSchedulePeriodIds.has(period.id) && (period.scheduleId !== primarySchedule.id || !mergedIds.has(period.id))), ...mergedPeriods];
   }
 
   const desiredPeriods = generated.map((period) => fromScheduledPeriod(period));

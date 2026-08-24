@@ -74,7 +74,7 @@ test("rejects invalid fixed-frequency boundaries and period/version mismatches",
   assert.equal(validatePayrollPeriodAgainstSchedule(mismatched, [configured]).valid, false);
 });
 
-test("repair deterministically retires duplicate empty periods and runs idempotently", () => {
+test("repair deterministically deletes duplicate empty periods and runs idempotently", () => {
   const primary = period({ id: "period-a" });
   const duplicate = period({ id: "period-b", createdAt: "2026-08-02T00:00:00.000Z" });
   const runA: PayrollRun = { id: "run-a", periodId: primary.id, status: "DRAFT", createdAt: "2026-08-01T00:00:00.000Z" };
@@ -87,7 +87,7 @@ test("repair deterministically retires duplicate empty periods and runs idempote
   assert.deepEqual(again.retiredRunIds, []);
 });
 
-test("repair protects finalized and data-bearing history and reconciles stale future periods", () => {
+test("repair protects finalized and data-bearing history and deletes stale future periods", () => {
   const safeOld = period({ id: "semi-monthly", periodStart: "2026-09-01", periodEnd: "2026-09-15" });
   const protectedPeriod = period({ id: "approved", status: "APPROVED", lockedAt: "2026-09-15T00:00:00.000Z" });
   const dataPeriod = period({ id: "data-bearing" });
@@ -95,7 +95,7 @@ test("repair protects finalized and data-bearing history and reconciles stale fu
   const entry: PayrollEntry = { id: "entry", payrollRunId: dataRun.id, workerId: "worker", basePay: 100, regularPay: 100, overtimePay: 0, allowances: 0, grossPay: 100, deductions: 0, netPay: 100, projectAllocatedCost: 100 };
   const weekly = period({ id: "weekly", periodStart: "2026-09-14", periodEnd: "2026-09-20", scheduleVersionId: "weekly-v2" });
   const plan = planPayrollRepair({ schedules: [schedule()], periods: [safeOld, protectedPeriod, dataPeriod], runs: [dataRun], entries: [entry], desiredPeriods: [weekly], referenceDate: "2026-09-01" });
-  assert.equal(plan.periods.find((candidate) => candidate.id === safeOld.id)?.status, "VOID");
+  assert.equal(plan.periods.some((candidate) => candidate.id === safeOld.id), false);
   assert.equal(plan.periods.find((candidate) => candidate.id === protectedPeriod.id)?.status, "APPROVED");
   assert.equal(plan.periods.find((candidate) => candidate.id === dataPeriod.id)?.status, "DRAFT");
 });
