@@ -99,6 +99,8 @@ The migration creates the persistence tables, private Storage buckets, baseline 
 
 The schema includes `profiles`, `gmail_connections`, `gmail_sync_state`, `email_messages`, `source_documents`, `vendors`, `invoices`, `invoice_line_items`, `invoice_extractions`, and `invoice_review_events`. Gmail attachment rows are keyed by the source message plus stable Gmail attachment ID, and the source-document/invoice relationship is idempotent on repeat imports.
 
+For the current payroll/workforce foundation, apply the migrations in timestamp order through supabase/migrations/20260824110000_payroll_workforce_operations.sql. That additive migration creates company-scoped attendance, leave, overtime, and holiday sources; makes work-entry project linkage conditional on labor context; adds source-revision guards; and extends maintenance protection. Run Supabase security/performance advisors after deployment. The migration must be applied before authenticated users write the new workforce tables.
+
 ## Data model principle
 
 The original source and the AI result are deliberately separate:

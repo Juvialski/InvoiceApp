@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, Plus, RotateCcw, Save, ShieldAlert } from "lucide-react";
 import type { AttendanceRecord, AttendanceStatus, LeaveRequest, OvertimeRequest, PayrollHoliday, PayrollPeriod, Worker } from "../../types";
-import { applyAttendanceBatch, buildDailyRoster, markScheduledWorkersPresent, normalizeAttendanceRecord, resolveOvertime } from "../../lib/payrollWorkforce";
+import { buildDailyRoster, markScheduledWorkersPresent, normalizeAttendanceRecord } from "../../lib/payrollWorkforce";
 import { commitAttendanceImportPreview, parseAttendanceWorkbook, type AttendanceImportPreview } from "../../lib/attendanceImport";
 import type { WorkforceWorker } from "../../lib/payrollWorkforce";
 
