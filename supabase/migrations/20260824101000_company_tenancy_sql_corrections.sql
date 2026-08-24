@@ -1,7 +1,5 @@
 -- Small correctness follow-up for the final security contract.
 
-alter table storage.objects enable row level security;
-
 create or replace function public.claim_company_invitations()
 returns table(company_id uuid, membership_id uuid, role_key text)
 language plpgsql
