@@ -69,21 +69,24 @@ The project keeps the original AI Studio-friendly architecture:
 - React 19 + TypeScript + Vite
 - Express server in `server.ts`
 - `@google/genai` only on the server
-- `GEMINI_API_KEY` from environment secrets
+- per-company Gemini credentials encrypted by the Express server
 - `/api/*` endpoints served by the same app
 - Supabase browser client uses public project URL + publishable key
 - ZIP is packaged with project files directly at root
-- no service-role key is required in this iteration
+- no browser service-role key is required
 
-Gemini extraction and Gmail classification run through the Express server in `server.ts`, so `GEMINI_API_KEY` must be configured in the server/deployment runtime that serves `/api/*`. It must not be added as `VITE_GEMINI_API_KEY` or any other browser-exposed variable. Adding the same secret only to Supabase does not make it available to Express unless the deployment has explicitly moved model execution into an Edge Function.
+Gemini extraction, Gmail classification, and Invoice Operations AI run through the Express server. Platform owners configure a separate Gemini key for each company under Manage Companies → AI Configuration. The server encrypts the key with `AI_CREDENTIALS_MASTER_KEY`; only safe metadata such as `Configured ••••ABCD` returns to the browser. The master key and Gemini keys must never be `VITE_` variables, stored in local/session storage, logged, or returned by an API.
 
 ## Required environment variables
 
 ```env
-GEMINI_API_KEY=...
+AI_CREDENTIALS_MASTER_KEY=BASE64_OF_32_RANDOM_BYTES
+ALLOW_GLOBAL_GEMINI_FALLBACK=false
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
+
+Generate the server master key from 32 cryptographically random bytes, then base64-encode it. Store it as a deployment secret (for example in Render) and keep the value stable unless a planned credential re-encryption rotation is performed. `GEMINI_API_KEY` is retained only as an explicitly enabled local/demo transition: leave `ALLOW_GLOBAL_GEMINI_FALLBACK=false` in production so a company without a configured key fails with `AI_NOT_CONFIGURED_FOR_COMPANY` instead of consuming another company’s quota.
 
 See **`SUPABASE_GMAIL_SETUP.md`** for the full Gmail + Google OAuth + migration setup.
 
@@ -101,7 +104,7 @@ The schema includes `profiles`, `gmail_connections`, `gmail_sync_state`, `email_
 
 For the current payroll/workforce foundation, apply the migrations in timestamp order through supabase/migrations/20260824110000_payroll_workforce_operations.sql. That additive migration creates company-scoped attendance, leave, overtime, and holiday sources; makes work-entry project linkage conditional on labor context; adds source-revision guards; and extends maintenance protection. Run Supabase security/performance advisors after deployment. The migration must be applied before authenticated users write the new workforce tables.
 
-The payroll safety hardening migration `20260824120000_payroll_safety_hardening.sql` adds authoritative leave transition/overlap guards and invalidates affected open payroll periods when a referenced project changes payroll-relevant status. The assistant persistence migration `20260824121000_invoice_operations_assistant.sql` adds private company-scoped threads, messages, prepared-action audit events, and attachment metadata with explicit authenticated grants and RLS.
+The payroll safety hardening migration `20260824120000_payroll_safety_hardening.sql` adds authoritative leave transition/overlap guards and invalidates affected open payroll periods when a referenced project changes payroll-relevant status. The assistant persistence migration `20260824121000_invoice_operations_assistant.sql` adds private company-scoped threads, messages, prepared-action audit events, and attachment metadata with explicit authenticated grants and RLS. The additive `20260824122000_company_ai_credentials.sql` migration adds safe AI metadata, encrypted credential envelopes, platform-owner RPCs, RLS, and audited credential lifecycle events.
 
 ## Data model principle
 
@@ -195,6 +198,6 @@ Read and navigation tools run automatically. Prepare/preview tools return a stru
 
 Financial calculations remain deterministic in InvoiceApp. Gemini never computes authoritative invoice totals, project actual cost, payroll, overtime pay, allocations, or expense totals, and it cannot access Supabase directly, choose tables/columns, issue arbitrary HTTP/SQL, run shell commands, or use service-role credentials. Human review remains required wherever the existing invoice or payroll workflow requires it.
 
-Apply the assistant migrations in timestamp order, including `20260824121000_invoice_operations_assistant.sql`. The server requires `GEMINI_API_KEY`; the browser must never receive it. Assistant conversations and action audit records are private to their creator and selected company; binary attachment content is not stored in assistant message JSON.
+Apply the assistant and AI migrations in timestamp order, including `20260824121000_invoice_operations_assistant.sql` and `20260824122000_company_ai_credentials.sql`. Company AI requests require an active company credential in production; the primary `gemini-3.5-flash-lite` call and `gemini-3.7-flash` fallback always use the same company key. Assistant conversations and action audit records are private to their creator and selected company; binary attachment content is not stored in assistant message JSON.
 
 The first release intentionally does not expose payroll history deletion/reset/rebuild, destructive company administration, member/role management, service-role operations, arbitrary SQL/API requests, shell commands, or browser automation. If the model or service is unavailable, the app reports the limitation rather than claiming a workspace action succeeded.

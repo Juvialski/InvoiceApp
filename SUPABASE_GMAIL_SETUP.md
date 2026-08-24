@@ -90,13 +90,18 @@ https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback
 
 Use the exact callback shown by your Supabase project rather than guessing it.
 
-## 5. Gemini secret
+## 5. Gemini credentials
 
-Keep the existing server-side secret:
+Production company AI credentials are configured by a platform owner in **Manage Companies → AI Configuration**. The browser submits a new key once over HTTPS; Express encrypts it with AES-256-GCM and stores only the encrypted envelope plus safe metadata.
+
+Configure this server-only master key in the deployment:
 
 ```env
-GEMINI_API_KEY=...
+AI_CREDENTIALS_MASTER_KEY=BASE64_OF_32_RANDOM_BYTES
+ALLOW_GLOBAL_GEMINI_FALLBACK=false
 ```
+
+Generate 32 cryptographically random bytes and base64-encode them. Never use a Gemini key, Supabase key, user password, company ID, or hard-coded value as the master key. `GEMINI_API_KEY` may remain only for an explicit local/demo transition when `ALLOW_GLOBAL_GEMINI_FALLBACK=true`; it is not a production fallback.
 
 The default extraction/classification model is `gemini-3.5-flash-lite` with `gemini-3.7-flash` as fallback/accuracy mode.
 

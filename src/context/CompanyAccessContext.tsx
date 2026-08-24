@@ -3,12 +3,12 @@ import type { Session } from "@supabase/supabase-js";
 import {
   activeCompanyMembership,
   bootstrapPlatformAdmin,
-  claimCompanyInvitations,
   companyIsSelectable,
   createCompany as createCompanyApi,
   inviteCompanyMember as inviteCompanyMemberApi,
   loadCompanyAccess,
   loadCompanyAccessAudit,
+  loadCompanyInvitations,
   loadCompanyMembers,
   permissionsForCompany,
   updateCompany as updateCompanyApi,
@@ -49,6 +49,7 @@ export interface CompanyAccessContextValue {
   inviteCompanyMember: (input: InviteCompanyMemberInput) => Promise<unknown>;
   updateCompanyMember: (input: UpdateCompanyMemberInput) => Promise<unknown>;
   loadCompanyMembers: (companyId: string) => Promise<CompanyMemberSummary[]>;
+  loadCompanyInvitations: (companyId: string) => Promise<import("../lib/companyAccess.ts").CompanyInvitationSummary[]>;
   loadCompanyAccessAudit: (companyId?: string) => Promise<CompanyAccessAuditEntry[]>;
 }
 
@@ -165,15 +166,20 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     }
 
     const generation = ++loadGenerationRef.current;
-    const previousCompanyId = accessRef.current.activeCompanyId;
+    const previousSnapshot = accessRef.current;
+    const previousCompanyId = previousSnapshot.activeCompanyId;
+    const hasUsableSnapshot = Boolean(previousSnapshot.activeCompanyId && (previousSnapshot.status === "ready" || previousSnapshot.status === "refreshing"));
     setIsSwitching(true);
-    setAccessSnapshot({ ...emptyAccess("loading"), userId: session.user.id, email: session.user.email || undefined });
+    if (hasUsableSnapshot) {
+      // Metadata/access revalidation is not a workspace switch. Keep the
+      // currently authorized company and permissions visible until a valid
+      // replacement arrives.
+      setAccessSnapshot({ ...previousSnapshot, status: "refreshing", error: undefined });
+    } else {
+      setAccessSnapshot({ ...emptyAccess("loading"), userId: session.user.id, email: session.user.email || undefined });
+    }
     try {
-      // Keep the explicit claim call here as well as inside loadCompanyAccess
-      // for callers that use this context with a test adapter. The RPC is
-      // idempotent and derives the verified identity on the server.
-      await bootstrapPlatformAdmin(supabase);
-      await claimCompanyInvitations(supabase);
+      if (!hasUsableSnapshot) await bootstrapPlatformAdmin(supabase);
       const loaded = await loadCompanyAccess(supabase);
       if (generation !== loadGenerationRef.current || sessionRef.current?.user?.id !== session.user.id) return;
       const next = resolvedAccess(loaded, previousCompanyId);
@@ -181,13 +187,17 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       if (next.userId) storeCompanyId(next.userId, next.activeCompanyId);
     } catch (error) {
       if (generation !== loadGenerationRef.current) return;
-      setAccessSnapshot({
-        ...emptyAccess("error"),
-        userId: session.user.id,
-        email: session.user.email || undefined,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      clearCompanyContext();
+      if (hasUsableSnapshot && accessRef.current.activeCompanyId === previousCompanyId) {
+        setAccessSnapshot({ ...previousSnapshot, status: "ready", error: error instanceof Error ? error.message : String(error) });
+      } else {
+        setAccessSnapshot({
+          ...emptyAccess("error"),
+          userId: session.user.id,
+          email: session.user.email || undefined,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        clearCompanyContext();
+      }
     } finally {
       if (generation === loadGenerationRef.current) setIsSwitching(false);
     }
@@ -234,6 +244,26 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     setIsSwitching(false);
   }, [setAccessSnapshot]);
 
+  const mergeCompany = useCallback((company: CompanySummary) => {
+    const current = accessRef.current;
+    const companies = current.companies.some((item) => item.id === company.id)
+      ? current.companies.map((item) => item.id === company.id ? company : item)
+      : [...current.companies, company];
+    const isActive = current.activeCompanyId === company.id;
+    const accessible = company.status === "ACTIVE";
+    const nextActiveCompanyId = isActive && !accessible ? null : current.activeCompanyId;
+    const nextStatus = nextActiveCompanyId ? "ready" : (isActive ? "company-suspended" : current.status);
+    setAccessSnapshot({
+      ...current,
+      companies,
+      status: nextStatus,
+      activeCompanyId: nextActiveCompanyId,
+      permissions: nextActiveCompanyId ? permissionsForCompany(current, nextActiveCompanyId) : [],
+      error: undefined,
+    });
+    if (current.userId) storeCompanyId(current.userId, nextActiveCompanyId);
+  }, [setAccessSnapshot]);
+
   const enterGuestMode = useCallback(() => {
     if (isSupabaseConfigured) throw new Error("Browser-only mode is disabled when Supabase is configured.");
     setGuestMode(true);
@@ -250,27 +280,26 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
 
   const createCompany = useCallback(async (input: CreateCompanyInput) => {
     const result = await createCompanyApi(input);
-    await refreshAccess();
+    mergeCompany(result);
     return result;
-  }, [refreshAccess]);
+  }, [mergeCompany]);
 
   const updateCompany = useCallback(async (companyId: string, patch: Partial<Pick<CompanySummary, "name" | "companyCode" | "status" | "defaultCurrency" | "timezone">>) => {
     const result = await updateCompanyApi(companyId, patch);
-    await refreshAccess();
+    mergeCompany(result);
     return result;
-  }, [refreshAccess]);
+  }, [mergeCompany]);
 
   const inviteCompanyMember = useCallback(async (input: InviteCompanyMemberInput) => {
     const result = await inviteCompanyMemberApi(input);
-    await refreshAccess();
     return result;
-  }, [refreshAccess]);
+  }, []);
 
   const updateCompanyMember = useCallback(async (input: UpdateCompanyMemberInput) => {
     const result = await updateCompanyMemberApi(input);
-    await refreshAccess();
+    if (input.userId && input.userId === session?.user?.id) await refreshAccess();
     return result;
-  }, [refreshAccess]);
+  }, [refreshAccess, session?.user?.id]);
 
   const value = useMemo<CompanyAccessContextValue>(() => {
     const activeCompany = access.companies.find((company) => company.id === access.activeCompanyId) || null;
@@ -297,6 +326,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       inviteCompanyMember,
       updateCompanyMember,
       loadCompanyMembers,
+      loadCompanyInvitations,
       loadCompanyAccessAudit,
     };
   }, [access, authResolved, createCompany, enterGuestMode, guestMode, inviteCompanyMember, isSwitching, refreshAccess, selectCompany, session, signOut, updateCompany, updateCompanyMember]);

@@ -1,12 +1,16 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { randomUUID } from "crypto";
 import type { InvoiceData } from "./src/types.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
+import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
+import { disableCompanyAi, loadCompanyAiConfig, recordCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
+import { invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
+import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
 import {
   chooseBestExtractionCandidate,
   evaluateExtractionQuality,
@@ -20,8 +24,8 @@ dotenv.config();
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
-const PRIMARY_MODEL = "gemini-3.5-flash-lite";
-const ACCURACY_MODEL = "gemini-3.7-flash";
+const PRIMARY_MODEL = COMPANY_AI_PRIMARY_MODEL;
+const ACCURACY_MODEL = COMPANY_AI_FALLBACK_MODEL;
 type CompanyPermission =
   | "gmail.read"
   | "gmail.manage"
@@ -118,12 +122,39 @@ async function authorizeCompanyRequest(req: express.Request, permission: Company
   return { accessToken, companyId, googleAccessToken, supabase: client, user: data.user };
 }
 
+async function authenticateServerRequest(req: express.Request) {
+  const accessToken = requestBearerToken(req);
+  const client = requestSupabaseClient(accessToken);
+  const { data, error } = await client.auth.getUser(accessToken);
+  if (error || !data.user) throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid InvoiceApp session is required.");
+  return { accessToken, supabase: client, user: data.user };
+}
+
+async function authorizePlatformCompanyRequest(req: express.Request, companyId: string): Promise<CompanyRequestAuthorization> {
+  if (!UUID_PATTERN.test(companyId)) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A valid company context is required for this operation.");
+  const auth = await authenticateServerRequest(req);
+  const { data, error } = await auth.supabase.rpc("is_platform_admin");
+  if (error) throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is temporarily unavailable.");
+  if (data !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "Platform administrator access is required.");
+  return { ...auth, companyId };
+}
+
 function authorizationErrorStatus(error: unknown) {
   return error instanceof ApiAuthorizationError ? error.status : 500;
 }
 
 function authorizationErrorMessage(error: unknown, fallback: string) {
   return error instanceof ApiAuthorizationError ? error.message : fallback;
+}
+
+function apiErrorStatus(error: unknown) {
+  if (error instanceof CompanyAiError) return error.status;
+  return authorizationErrorStatus(error);
+}
+
+function apiErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof CompanyAiError) return error.message;
+  return authorizationErrorMessage(error, fallback);
 }
 const EXTRACTION_TIMEOUT_MS = 60_000;
 
@@ -133,15 +164,6 @@ function selectModel(requestedModel?: unknown) {
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-function getGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured in server environment.");
-  return new GoogleGenAI({
-    apiKey,
-    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-  });
-}
 
 const partySchema = {
   type: Type.OBJECT,
@@ -376,7 +398,9 @@ function validateExtractedInvoice(data: any, items: any[]) {
   };
 }
 
-async function generateContentWithTimeout(ai: GoogleGenAI, model: string, contents: any, config: any) {
+type GeminiClientLike = { models: { generateContent: (parameters: any) => Promise<any> } };
+
+async function generateContentWithTimeout(ai: GeminiClientLike, model: string, contents: any, config: any) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), EXTRACTION_TIMEOUT_MS);
   try {
@@ -386,14 +410,14 @@ async function generateContentWithTimeout(ai: GoogleGenAI, model: string, conten
   }
 }
 
-async function generateStructured(ai: GoogleGenAI, requestedModel: unknown, contents: any, systemInstruction: string, responseSchema: any) {
+async function generateStructured(ai: GeminiClientLike, requestedModel: unknown, contents: any, systemInstruction: string, responseSchema: any) {
   const primary = selectModel(requestedModel);
   try {
     const response = await generateContentWithTimeout(ai, primary, contents, { systemInstruction, responseMimeType: "application/json", responseSchema });
     return { response, modelUsed: primary };
   } catch (error: any) {
     if (primary === ACCURACY_MODEL) throw error;
-    console.warn(`${primary} failed; retrying with ${ACCURACY_MODEL}:`, error?.message);
+    console.warn(`${primary} failed; retrying with ${ACCURACY_MODEL}.`);
     const response = await generateContentWithTimeout(ai, ACCURACY_MODEL, contents, { systemInstruction, responseMimeType: "application/json", responseSchema });
     return { response, modelUsed: ACCURACY_MODEL };
   }
@@ -401,6 +425,71 @@ async function generateStructured(ai: GoogleGenAI, requestedModel: unknown, cont
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", primaryModel: PRIMARY_MODEL, accuracyModel: ACCURACY_MODEL, timestamp: new Date().toISOString() });
+});
+
+function platformCompanyAiPath(req: express.Request) {
+  return String(req.params.companyId || "").trim();
+}
+
+app.get("/api/platform/companies/:companyId/ai-config", async (req, res) => {
+  try {
+    const auth = await authorizePlatformCompanyRequest(req, platformCompanyAiPath(req));
+    const data = await loadCompanyAiConfig(auth.supabase, auth.companyId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI configuration could not be loaded safely.") });
+  }
+});
+
+app.put("/api/platform/companies/:companyId/ai-config/gemini", async (req, res) => {
+  try {
+    const auth = await authorizePlatformCompanyRequest(req, platformCompanyAiPath(req));
+    const apiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
+    if (!apiKey || apiKey.length > 4096) return res.status(400).json({ success: false, error: "A valid Gemini API key is required." });
+    const encrypted = encryptCompanyGeminiCredential(apiKey, auth.companyId);
+    const data = await storeCompanyAiCredential(auth.supabase, auth.companyId, encrypted, credentialLast4(apiKey));
+    invalidateCompanyAiRuntime(auth.companyId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "The Gemini credential could not be saved safely.") });
+  }
+});
+
+app.post("/api/platform/companies/:companyId/ai-config/gemini/test", async (req, res) => {
+  try {
+    const auth = await authorizePlatformCompanyRequest(req, platformCompanyAiPath(req));
+    const status = await testCompanyAiConnection({ supabase: auth.supabase, companyId: auth.companyId });
+    const data = await loadCompanyAiConfig(auth.supabase, auth.companyId);
+    // Provider outages, quota limits, and model availability are safe test
+    // results, not transport failures. The metadata carries the precise safe
+    // status without exposing provider response details.
+    return res.json({ success: true, data: { ...data, testStatus: status } });
+  } catch (error) {
+    const status = apiErrorStatus(error);
+    return res.status(status).json({ success: false, error: apiErrorMessage(error, "The Gemini connection test failed safely."), code: error instanceof CompanyAiError ? error.code : undefined });
+  }
+});
+
+app.post("/api/platform/companies/:companyId/ai-config/gemini/disable", async (req, res) => {
+  try {
+    const auth = await authorizePlatformCompanyRequest(req, platformCompanyAiPath(req));
+    const data = await disableCompanyAi(auth.supabase, auth.companyId);
+    invalidateCompanyAiRuntime(auth.companyId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI could not be disabled safely.") });
+  }
+});
+
+app.delete("/api/platform/companies/:companyId/ai-config/gemini", async (req, res) => {
+  try {
+    const auth = await authorizePlatformCompanyRequest(req, platformCompanyAiPath(req));
+    const data = await removeCompanyAiCredential(auth.supabase, auth.companyId);
+    invalidateCompanyAiRuntime(auth.companyId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "The Gemini credential could not be removed safely.") });
+  }
 });
 
 const assistantRateLimit = new Map<string, { windowStartedAt: number; count: number }>();
@@ -422,24 +511,26 @@ app.use("/api/assistant", createAssistantRouter());
 
 app.post("/api/classify-email", async (req, res) => {
   try {
-    await authorizeCompanyRequest(req, "invoices.extract");
+    const auth = await authorizeCompanyRequest(req, "invoices.extract");
     const { sender = "", subject = "", body = "", attachmentNames = [], model = PRIMARY_MODEL } = req.body || {};
     if (!subject && !body && !attachmentNames.length) return res.status(400).json({ success: false, error: "Email content is required." });
-    const ai = getGeminiClient();
     const prompt = `Classify whether this email is related to an invoice or adjacent financial document. Use the email subject, sender, body, and attachment names. Do not assume an attachment is an invoice only because it is a PDF. Recognize Philippine terms including invoice, sales invoice, service invoice, VAT invoice, billing, statement of account, SOA, BIR, VAT, TIN, and amount due. Treat "Official Receipt", "SOA", and "Billing Statement" as candidate finance documents, not automatically as a principal invoice. For current Philippine workflow, an Official Receipt may be RECEIPT or SUPPLEMENTARY_DOCUMENT; preserve uncertainty and route it to human review.\n\nSender: ${sender}\nSubject: ${subject}\nAttachments: ${attachmentNames.join(", ") || "None"}\n\nBody:\n${body}`;
-    const { response, modelUsed } = await generateStructured(
-      ai,
-      model,
-      { parts: [{ text: prompt }] },
-      "You classify finance emails for an invoice operations workspace. Return conservative structured JSON. Never invent a legal conclusion from a title alone. Keep documentType broad and use invoiceSubtype only when the source supports it. A receipt is not automatically an invoice.",
-      emailClassificationSchema
+    const { response, modelUsed } = await withCompanyAiRuntime(
+      { supabase: auth.supabase, companyId: auth.companyId },
+      (runtime) => generateStructured(
+        runtime.geminiClient,
+        model,
+        { parts: [{ text: prompt }] },
+        "You classify finance emails for an invoice operations workspace. Return conservative structured JSON. Never invent a legal conclusion from a title alone. Keep documentType broad and use invoiceSubtype only when the source supports it. A receipt is not automatically an invoice.",
+        emailClassificationSchema,
+      ),
     );
     const data = JSON.parse(response.text || "{}");
     res.json({ success: true, data, modelUsed });
   } catch (error: any) {
-    const status = authorizationErrorStatus(error);
-    if (!(error instanceof ApiAuthorizationError)) console.error("Error in /api/classify-email:", error);
-    res.status(status).json({ success: false, error: authorizationErrorMessage(error, "Email classification failed.") });
+    const status = apiErrorStatus(error);
+    if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/classify-email: request failed.");
+    res.status(status).json({ success: false, error: apiErrorMessage(error, "Email classification failed."), code: error instanceof CompanyAiError ? error.code : undefined });
   }
 });
 
@@ -609,7 +700,7 @@ Return the complete invoice schema again. Unknown source values must remain null
 app.post("/api/extract-invoice", async (req, res) => {
   const startedAt = Date.now();
   try {
-    await authorizeCompanyRequest(req, "invoices.extract");
+    const auth = await authorizeCompanyRequest(req, "invoices.extract");
     const {
       fileData,
       mimeType,
@@ -624,7 +715,8 @@ app.post("/api/extract-invoice", async (req, res) => {
       return res.status(400).json({ success: false, error: "No invoice file, text, or email content provided." });
     }
 
-    const ai = getGeminiClient();
+    let aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
+    let authenticationRetryUsed = false;
     const parts: any[] = [];
     if (fileData && mimeType) parts.push({ inlineData: { mimeType, data: fileData } });
     const emailBlock = emailContext
@@ -661,7 +753,27 @@ Rules:
     const runAttempt = async (requested: string, attemptNumber: number, contents: any, reason?: string) => {
       const attemptStarted = Date.now();
       try {
-        const response = await generateContentWithTimeout(ai, requested, contents, { systemInstruction: systemPrompt, responseMimeType: "application/json", responseSchema: invoiceSchema });
+        let response;
+        try {
+          response = await generateContentWithTimeout(aiRuntime.geminiClient, requested, contents, { systemInstruction: systemPrompt, responseMimeType: "application/json", responseSchema: invoiceSchema });
+        } catch (error) {
+          if (!authenticationRetryUsed && isCompanyAiAuthenticationError(error)) {
+            authenticationRetryUsed = true;
+            invalidateCompanyAiRuntime(auth.companyId);
+            aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId, forceRefresh: true });
+            try {
+              response = await generateContentWithTimeout(aiRuntime.geminiClient, requested, contents, { systemInstruction: systemPrompt, responseMimeType: "application/json", responseSchema: invoiceSchema });
+            } catch (retryError) {
+              if (isCompanyAiAuthenticationError(retryError)) {
+                try { await recordCompanyAiTest(auth.supabase, auth.companyId, "INVALID_CREDENTIAL"); } catch { /* preserve the safe provider error */ }
+                invalidateCompanyAiRuntime(auth.companyId);
+              }
+              throw retryError;
+            }
+          } else {
+            throw error;
+          }
+        }
         const { extracted, responseText } = parseStructuredResponse(response);
         const candidate = buildInvoiceCandidate(extracted, responseText, requested, fileName, sourceType, emailContext, sourceText);
         attempts.push({ candidate, quality: candidate.extractionQuality!, modelUsed: requested, attemptNumber });
@@ -694,7 +806,6 @@ Rules:
           responseParsed: false,
           fallbackTriggered: attemptNumber > 1,
           fallbackReason: reason || "request-or-parse-failure",
-          error: error?.message || "unknown",
         });
         throw error;
       }
@@ -718,7 +829,7 @@ Rules:
     }
 
     if (!attempts.length) {
-      console.error("Error in /api/extract-invoice:", firstFailure?.message || "No usable extraction candidate.");
+      console.error("Error in /api/extract-invoice: no usable extraction candidate.");
       return res.status(500).json({ success: false, error: "Invoice extraction failed. Please retry the document." });
     }
 
@@ -743,9 +854,9 @@ Rules:
     });
     return res.json({ success: true, data: selected.candidate });
   } catch (error: any) {
-    const status = authorizationErrorStatus(error);
-    if (!(error instanceof ApiAuthorizationError)) console.error("Error in /api/extract-invoice:", error?.message || "unknown");
-    return res.status(status).json({ success: false, error: authorizationErrorMessage(error, "Invoice extraction failed. Please retry the document.") });
+    const status = apiErrorStatus(error);
+    if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/extract-invoice: request failed.");
+    return res.status(status).json({ success: false, error: apiErrorMessage(error, "Invoice extraction failed. Please retry the document."), code: error instanceof CompanyAiError ? error.code : undefined });
   }
 });
 

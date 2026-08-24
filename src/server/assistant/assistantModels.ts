@@ -1,4 +1,4 @@
-import { GoogleGenAI, type GenerateContentConfig, type GenerateContentResponse, type GenerateContentParameters } from "@google/genai";
+import { type GenerateContentConfig, type GenerateContentResponse, type GenerateContentParameters } from "@google/genai";
 import { AssistantBackendError } from "./assistantBackendTypes.ts";
 
 export const ASSISTANT_PRIMARY_MODEL = "gemini-3.5-flash-lite";
@@ -27,13 +27,10 @@ export interface AssistantModelRunner {
   readonly fallbackUsed: boolean;
 }
 
-export function createAssistantGeminiClient(apiKey = process.env.GEMINI_API_KEY): AssistantModelClient {
-  if (!apiKey?.trim()) throw new AssistantBackendError("MODEL_UNAVAILABLE", "The assistant model is not configured.", 503);
-  return new GoogleGenAI({ apiKey: apiKey.trim(), httpOptions: { headers: { "User-Agent": "invoiceapp-assistant" } } });
-}
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message.slice(0, 240) : "model request failed";
+function errorMessage(_error: unknown) {
+  // Provider messages can contain request metadata. Keep them out of API
+  // responses; the server-side runtime classifies safe statuses separately.
+  return "model request failed";
 }
 
 async function generateWithTimeout(client: AssistantModelClient, model: string, call: AssistantModelCall, timeoutMs: number) {
@@ -65,7 +62,9 @@ export function createAssistantModelRunner(client: AssistantModelClient, options
           const response = await generateWithTimeout(client, ASSISTANT_FALLBACK_MODEL, call, timeoutMs);
           return { response, model: ASSISTANT_FALLBACK_MODEL, fallbackUsed: true };
         } catch (fallbackError) {
-          throw new AssistantBackendError("MODEL_FAILED", `The assistant model failed: ${errorMessage(fallbackError)}`, 503);
+          const normalized = new AssistantBackendError("MODEL_FAILED", `The assistant model failed: ${errorMessage(fallbackError)}`, 503);
+          (normalized as Error & { cause?: unknown }).cause = fallbackError;
+          throw normalized;
         }
       }
     },

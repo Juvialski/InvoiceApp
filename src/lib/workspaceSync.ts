@@ -1002,3 +1002,9 @@ export function createWorkspaceSyncController(options: WorkspaceSyncControllerOp
     dispose,
   };
 }
+
+// Keep the cache and instrumentation seams discoverable from the existing
+// workspace sync entry point while leaving the scheduler/controller behavior
+// above unchanged.
+export * from "./workspaceLoadCache.ts";
+export * from "./workspaceSyncInstrumentation.ts";

@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Cloud, Loader2, X } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { Header, AppTab } from "./components/Header";
-import { AccessDenied, CompanySwitcher, NoCompanyAccess, PlatformManagement } from "./components/access/AccessStates.tsx";
+import { AccessDenied, CompanySwitcher, NoCompanyAccess } from "./components/access/AccessStates.tsx";
+import { CompanyManagement } from "./components/access/CompanyManagement.tsx";
 
 import { AuthScreen } from "./components/auth";
 import { UploadZone, ExtractPayload } from "./components/UploadZone";
@@ -79,9 +80,10 @@ import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadP
 import { fingerprintPayrollSources, validatePayrollRunSourceRevision } from "./lib/payrollSourceRevision";
 import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
-import { createBrowserWorkspaceSyncEnvironment, createWorkspaceSyncController, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
+import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
 import { AssistantProvider } from "./assistant/AssistantProvider";
+import { disableCompanyGemini, loadCompanyAiConfig as loadCompanyAiConfigApi, removeCompanyGeminiKey, saveCompanyGeminiKey, testCompanyGeminiKey } from "./lib/companyAiApi.ts";
 
 function revisePayrollSourcePeriods(
   periods: PayrollPeriod[],
@@ -192,6 +194,7 @@ function textToBase64(value: string) {
 function userFacingError(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : String((error as any)?.message || "");
   if (import.meta.env.DEV && message) console.error("[InvoiceApp]", error);
+  if (/AI services have not been configured|AI services are disabled|Gemini credential configured for this company is invalid/i.test(message)) return message;
   if (/record\s+["']?new["']?\s+has no field|project_id|default_project_id|row-level security|foreign key/i.test(message)) return fallback;
   return /gemini|supabase|storage|api[_ -]?key|provider|model/i.test(message) ? fallback : (message || fallback);
 }
@@ -228,7 +231,7 @@ function InvoiceWorkspace() {
   const routeSignatureRef = useRef("");
   const [processingCount, setProcessingCount] = useState(0);
   const [notification, setNotification] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
-  const [platformManagementOpen, setPlatformManagementOpen] = useState(false);
+  const [platformManagementOpen, setPlatformManagementOpen] = useState(() => initialAppLocation().pathname === "/platform/companies");
   const {
     session,
     authResolved,
@@ -249,6 +252,7 @@ function InvoiceWorkspace() {
     inviteCompanyMember,
     updateCompanyMember,
     loadCompanyMembers,
+    loadCompanyInvitations,
     loadCompanyAccessAudit,
   } = companyAccess;
   const sessionRef = useRef<Session | null>(session);
@@ -292,6 +296,9 @@ function InvoiceWorkspace() {
   const workspaceSyncControllerRef = useRef<WorkspaceSyncController | null>(null);
   const initialWorkspaceLoadRef = useRef<Promise<void> | null>(null);
   const workspaceRefreshFailureRef = useRef<string | null>(null);
+  const workspaceLoadCacheRef = useRef(createWorkspaceLoadCache<unknown>({ maxEntries: 32, staleAfterMs: 30_000 }));
+  const workspaceInstrumentationRef = useRef(createWorkspaceSyncInstrumentation());
+  const workspaceIdentityRef = useRef<{ userId: string | null; companyId: string | null }>({ userId: null, companyId: null });
   const updateSaveState = (nextState: SaveState) => {
     saveStateRef.current = nextState;
     setSaveState(nextState);
@@ -309,6 +316,19 @@ function InvoiceWorkspace() {
   };
 
   const setActiveTab = (tab: AppTab) => navigateToPath(appPathForTab(tab));
+  const openPlatformManagement = () => {
+    setPlatformManagementOpen(true);
+    navigateToPath("/platform/companies");
+  };
+  const closePlatformManagement = () => {
+    setPlatformManagementOpen(false);
+    navigateToPath(appPathForTab("dashboard"), true);
+  };
+  const loadManagedCompanyAiConfig = useCallback((companyId: string) => loadCompanyAiConfigApi(companyId), []);
+  const saveManagedCompanyAiKey = useCallback((companyId: string, apiKey: string) => saveCompanyGeminiKey(companyId, apiKey), []);
+  const testManagedCompanyAi = useCallback((companyId: string) => testCompanyGeminiKey(companyId), []);
+  const disableManagedCompanyAi = useCallback((companyId: string) => disableCompanyGemini(companyId), []);
+  const removeManagedCompanyAi = useCallback((companyId: string) => removeCompanyGeminiKey(companyId), []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -320,6 +340,11 @@ function InvoiceWorkspace() {
     }
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  useEffect(() => {
+    if (route.pathname === "/platform/companies") setPlatformManagementOpen(true);
+    else if (platformManagementOpen) setPlatformManagementOpen(false);
+  }, [platformManagementOpen, route.pathname]);
 
   useEffect(() => {
     setActiveTabState(route.tab);
@@ -418,10 +443,23 @@ function InvoiceWorkspace() {
   const canApplyWorkspaceResult = (token: { generation: number; userId: string; companyId: string }) =>
     canApplyWorkspaceLoad(token, currentWorkspaceLoadToken());
 
-  const refreshInvoicesForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
-    const storedInvoices = await loadInvoicesFromSupabase();
+  const workspaceGroupsAllowedForPermissions = (groups: readonly WorkspaceRefreshGroup[]) => groups.filter((group) => group === "invoices"
+    ? can(PERMISSION_KEYS.invoicesRead)
+    : group === "engineering"
+      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead])
+      : group === "payroll"
+        ? can(PERMISSION_KEYS.payrollRead)
+        : group === "payroll-imports"
+          ? hasAnyPermission(permissions, [PERMISSION_KEYS.payrollImport, PERMISSION_KEYS.payrollWrite])
+          : group === "gmail"
+            ? can(PERMISSION_KEYS.gmailRead)
+            : false);
+
+  type EngineeringWorkspaceGroup = { projects: Project[]; allocations: InvoiceProjectAllocation[]; expenses: Expense[] };
+  type WorkspaceGroupData = InvoiceData[] | EngineeringWorkspaceGroup | PayrollWorkspaceData | PayrollImportWorkspaceData | { lastHistoryId?: string; lastSyncedAt?: string };
+
+  const applyInvoicesForWorkspace = (prepared: InvoiceData[], token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
-    const prepared: InvoiceData[] = (storedInvoices as InvoiceData[]).map(prepareStoredInvoice);
     const selected = selectedInvoiceRef.current;
     const selectedId = selected?.id || null;
     const localById = new Map<string, InvoiceData>(invoicesRef.current.map((invoice): [string, InvoiceData] => [invoice.id, invoice]));
@@ -462,74 +500,105 @@ function InvoiceWorkspace() {
     lastPersistedRef.current = new Map(prepared.map((invoice) => [invoice.id, invoice]));
   };
 
-  const refreshEngineeringForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
+  const loadInvoicesGroup = async () => {
+    const storedInvoices = await loadInvoicesFromSupabase();
+    return (storedInvoices as InvoiceData[]).map(prepareStoredInvoice);
+  };
+
+  const applyEngineeringForWorkspace = (data: EngineeringWorkspaceGroup, token: { generation: number; userId: string; companyId: string }) => {
+    if (!canApplyWorkspaceResult(token)) return;
+    setProjects(data.projects);
+    setInvoiceProjectAllocations(data.allocations);
+    setExpenses(data.expenses);
+  };
+
+  const loadEngineeringGroup = async (): Promise<EngineeringWorkspaceGroup> => {
     const results = await Promise.allSettled([
       can(PERMISSION_KEYS.projectsRead) ? loadProjectsFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
     ]);
-    if (!canApplyWorkspaceResult(token)) return;
     const failures: string[] = [];
-    if (results[0].status === "fulfilled") setProjects(results[0].value);
-    else failures.push("projects");
-    if (results[1].status === "fulfilled") setInvoiceProjectAllocations(results[1].value);
-    else failures.push("invoice allocations");
-    if (results[2].status === "fulfilled") setExpenses(results[2].value);
-    else failures.push("expenses");
+    const projects = results[0].status === "fulfilled" ? results[0].value : [];
+    const allocations = results[1].status === "fulfilled" ? results[1].value : [];
+    const expenses = results[2].status === "fulfilled" ? results[2].value : [];
+    if (results[0].status !== "fulfilled") failures.push("projects");
+    if (results[1].status !== "fulfilled") failures.push("invoice allocations");
+    if (results[2].status !== "fulfilled") failures.push("expenses");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
+    return { projects, allocations, expenses };
   };
 
-  const refreshPayrollForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
+  const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
+
+  const applyPayrollForWorkspace = (data: PayrollWorkspaceData, token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
-    setPayrollRefreshing(true);
-    setPayrollWorkspaceLoadState("loading");
-    try {
-      const data = await loadPayrollWorkspaceFromSupabase();
-      if (!canApplyWorkspaceResult(token)) return;
-      payrollDataRef.current = data;
-      setPayrollData(data);
-      setPayrollWorkspaceLoadState("loaded");
-    } catch (error) {
-      if (canApplyWorkspaceResult(token)) setPayrollWorkspaceLoadState("failed");
-      throw error;
-    } finally {
-      if (canApplyWorkspaceResult(token)) setPayrollRefreshing(false);
-    }
+    payrollDataRef.current = data;
+    setPayrollData(data);
+    setPayrollWorkspaceLoadState("loaded");
   };
 
-  const refreshPayrollImportsForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
-    const data = await loadPayrollImportWorkspaceFromSupabase();
+  const loadPayrollImportsGroup = async () => loadPayrollImportWorkspaceFromSupabase();
+  const applyPayrollImportsForWorkspace = (data: PayrollImportWorkspaceData, token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
     setPayrollImportData(data);
   };
 
-  const refreshGmailForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
-    const data = await loadGmailSyncState();
+  const loadGmailGroup = async () => loadGmailSyncState();
+  const applyGmailForWorkspace = (data: { lastHistoryId?: string; lastSyncedAt?: string }, token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
     setSyncState(data);
   };
 
-  const refreshWorkspaceGroups = async (groups: readonly WorkspaceRefreshGroup[], token = currentWorkspaceLoadToken()) => {
+  const loadWorkspaceGroup = async (group: WorkspaceRefreshGroup): Promise<WorkspaceGroupData> => {
+    if (group === "invoices") return loadInvoicesGroup();
+    if (group === "engineering") return loadEngineeringGroup();
+    if (group === "payroll") return loadPayrollGroup();
+    if (group === "payroll-imports") return loadPayrollImportsGroup();
+    return loadGmailGroup();
+  };
+
+  const applyWorkspaceGroup = (group: WorkspaceRefreshGroup, data: WorkspaceGroupData, token: { generation: number; userId: string; companyId: string }) => {
+    if (group === "invoices") applyInvoicesForWorkspace(data as InvoiceData[], token);
+    else if (group === "engineering") applyEngineeringForWorkspace(data as EngineeringWorkspaceGroup, token);
+    else if (group === "payroll") applyPayrollForWorkspace(data as PayrollWorkspaceData, token);
+    else if (group === "payroll-imports") applyPayrollImportsForWorkspace(data as PayrollImportWorkspaceData, token);
+    else applyGmailForWorkspace(data as { lastHistoryId?: string; lastSyncedAt?: string }, token);
+  };
+
+  const refreshWorkspaceGroup = async (group: WorkspaceRefreshGroup, token: { generation: number; userId: string; companyId: string }, options: { force?: boolean; reason?: string } = {}) => {
+    if (group === "payroll") {
+      setPayrollRefreshing(true);
+      if (!workspaceLoadCacheRef.current.get({ userId: token.userId, companyId: token.companyId, group })?.hasData) setPayrollWorkspaceLoadState("loading");
+    }
+    const request = workspaceLoadCacheRef.current.getOrLoad(
+      { userId: token.userId, companyId: token.companyId, group },
+      () => loadWorkspaceGroup(group),
+      { force: options.force },
+    );
+    workspaceInstrumentationRef.current.groupRefresh({
+      userId: token.userId,
+      companyId: token.companyId,
+      group,
+      reason: options.reason || "manual",
+      fromCache: request.fromCache,
+      revalidating: request.revalidating,
+    });
+    try {
+      const data = await request.promise;
+      if (canApplyWorkspaceResult(token)) applyWorkspaceGroup(group, data, token);
+    } catch (error) {
+      if (group === "payroll" && canApplyWorkspaceResult(token)) setPayrollWorkspaceLoadState("failed");
+      throw error;
+    } finally {
+      if (group === "payroll" && canApplyWorkspaceResult(token)) setPayrollRefreshing(false);
+    }
+  };
+
+  const refreshWorkspaceGroups = async (groups: readonly WorkspaceRefreshGroup[], token = currentWorkspaceLoadToken(), options: { force?: boolean; reason?: string } = {}) => {
     if (!token) return;
-    const allowedGroups = groups.filter((group) => group === "invoices"
-      ? can(PERMISSION_KEYS.invoicesRead)
-      : group === "engineering"
-        ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead])
-        : group === "payroll"
-          ? can(PERMISSION_KEYS.payrollRead)
-          : group === "payroll-imports"
-            ? hasAnyPermission(permissions, [PERMISSION_KEYS.payrollImport, PERMISSION_KEYS.payrollWrite])
-            : group === "gmail"
-              ? can(PERMISSION_KEYS.gmailRead)
-              : false);
-    const requested = new Set(allowedGroups);
-    const results = await Promise.allSettled([
-      requested.has("invoices") ? refreshInvoicesForWorkspace(token) : Promise.resolve(),
-      requested.has("engineering") ? refreshEngineeringForWorkspace(token) : Promise.resolve(),
-      requested.has("payroll") ? refreshPayrollForWorkspace(token) : Promise.resolve(),
-      requested.has("payroll-imports") ? refreshPayrollImportsForWorkspace(token) : Promise.resolve(),
-      requested.has("gmail") ? refreshGmailForWorkspace(token) : Promise.resolve(),
-    ]);
+    const allowedGroups = workspaceGroupsAllowedForPermissions(groups);
+    const results = await Promise.allSettled(allowedGroups.map((group) => refreshWorkspaceGroup(group, token, options)));
     const failures = results
       .filter((result): result is PromiseRejectedResult => result.status === "rejected")
       .map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason));
@@ -545,12 +614,15 @@ function InvoiceWorkspace() {
       if (canApplyWorkspaceResult(token)) setWorkspaceLoading(false);
       return;
     }
-    setWorkspaceLoading(true);
+    const allowedGroups = workspaceGroupsAllowedForPermissions(allWorkspaceRefreshGroups);
+    const hasUsableCachedWorkspace = allowedGroups.some((group) => workspaceLoadCacheRef.current.get({ userId, companyId, group })?.hasData);
+    setWorkspaceLoading(!hasUsableCachedWorkspace);
+    workspaceInstrumentationRef.current.fullLoad({ userId, companyId, generation, reason: hasUsableCachedWorkspace ? "COMPANY_CACHE" : "INITIAL_SESSION" });
     workspaceRefreshFailureRef.current = null;
     try {
       await ensureWorkspaceProfile();
       if (!canApplyWorkspaceResult(token)) return;
-      await refreshWorkspaceGroups(allWorkspaceRefreshGroups, token);
+      await refreshWorkspaceGroups(allWorkspaceRefreshGroups, token, { reason: hasUsableCachedWorkspace ? "cache-revalidate" : "initial" });
     } catch (error: any) {
       if (!canApplyWorkspaceResult(token)) return;
       setWorkspaceSyncStatus("degraded");
@@ -572,10 +644,17 @@ function InvoiceWorkspace() {
     if (!authResolved) return undefined;
     const activeSession = session;
     const userId = activeSession?.user?.id || null;
+    const previousIdentity = workspaceIdentityRef.current;
+    if (previousIdentity.userId !== userId || previousIdentity.companyId !== companyAccess.activeCompanyId) {
+      workspaceInstrumentationRef.current.authSession({ userId, companyId: companyAccess.activeCompanyId, previousCompanyId: previousIdentity.companyId, reason: "session-effect" });
+      if (previousIdentity.companyId !== companyAccess.activeCompanyId) workspaceInstrumentationRef.current.companyChange({ userId, companyId: companyAccess.activeCompanyId, previousCompanyId: previousIdentity.companyId, reason: "active-company" });
+      workspaceIdentityRef.current = { userId, companyId: companyAccess.activeCompanyId };
+    }
     if (!supabase || !activeSession || !userId) {
       workspaceSyncControllerRef.current = null;
       setWorkspaceSyncStatus("guest");
       setWorkspaceLoading(false);
+      workspaceLoadCacheRef.current.clear();
       if (!guestModeRef.current) { clearWorkspaceState(); return undefined; }
       const local = localFallbackInvoices();
       invoicesRef.current = local;
@@ -601,14 +680,15 @@ function InvoiceWorkspace() {
       return undefined;
     }
     const generation = workspaceGenerationRef.current;
+    workspaceInstrumentationRef.current.syncRecreation({ userId, companyId: activeCompanyId, generation, reason: "session-or-company" });
     const controller = createWorkspaceSyncController({
       client: supabase,
       environment: createBrowserWorkspaceSyncEnvironment(),
-      refresh: async (groups) => {
+      refresh: async (groups, context) => {
         const initialLoad = initialWorkspaceLoadRef.current;
         if (initialLoad) await initialLoad;
         const token = activeCompanyId ? { generation, userId, companyId: activeCompanyId } : null;
-        if (token && canApplyWorkspaceResult(token)) await refreshWorkspaceGroups(groups, token);
+        if (token && canApplyWorkspaceResult(token)) await refreshWorkspaceGroups(groups, token, { force: true, reason: context.reason });
       },
       onStateChange: (nextState) => {
         if (nextState.userId !== sessionRef.current?.user?.id) return;
@@ -632,7 +712,7 @@ function InvoiceWorkspace() {
       if (initialWorkspaceLoadRef.current === initialLoad) initialWorkspaceLoadRef.current = null;
       void controller.dispose();
     };
-  }, [authResolved, session?.user?.id, guestModeState, companyAccess.activeCompanyId, companyAccess.access.status]);
+  }, [authResolved, session?.user?.id, guestModeState, companyAccess.activeCompanyId]);
 
   useEffect(() => {
     invoicesRef.current = invoices;
@@ -1325,7 +1405,7 @@ function InvoiceWorkspace() {
       const result = await applyPayrollMaintenanceRpc(action, referenceDate, confirmation, token.companyId);
       if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while payroll maintenance was running.");
       payrollAutomationKeyRef.current = "";
-      await Promise.all([refreshPayrollForWorkspace(token), refreshPayrollImportsForWorkspace(token)]);
+      await refreshWorkspaceGroups(["payroll", "payroll-imports"], token, { force: true, reason: "payroll-maintenance" });
       if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while payroll maintenance was refreshing.");
       showNotification("success", maintenanceSuccessMessage(action));
       return result;
@@ -2189,6 +2269,24 @@ function InvoiceWorkspace() {
   const routePermission = route.kind === "unknown" ? null : requiredPermissionForAppTab(route.tab);
   const routeDenied = Boolean(isSupabaseConfigured && session && activeCompanyId && !isPlatformOwner && routePermission && !canAccessAppTab(route.tab, permissions));
   const workspaceRouteVisible = !routeNotFound && !routeDenied;
+  const managementView = <CompanyManagement
+    companies={companyAccess.companies}
+    activeCompanyId={companyAccess.activeCompanyId}
+    onOpenWorkspace={companyAccess.selectCompany}
+    onCreateCompany={createCompany}
+    onUpdateCompany={updateCompany}
+    onInviteCompanyMember={inviteCompanyMember}
+    onUpdateCompanyMember={updateCompanyMember}
+    onLoadCompanyMembers={loadCompanyMembers}
+    onLoadCompanyInvitations={loadCompanyInvitations}
+    onLoadAudit={loadCompanyAccessAudit}
+    onLoadAiConfig={loadManagedCompanyAiConfig}
+    onSaveAiKey={saveManagedCompanyAiKey}
+    onTestAi={testManagedCompanyAi}
+    onDisableAi={disableManagedCompanyAi}
+    onRemoveAi={removeManagedCompanyAi}
+    onClose={closePlatformManagement}
+  />;
   useEffect(() => {
     if (!routeDenied) return;
     const fallbackTab = defaultAppTabForPermissions(permissions);
@@ -2204,22 +2302,15 @@ function InvoiceWorkspace() {
   if (isSupabaseConfigured && session && companyAccess.access.status === "error") {
     return <NoCompanyAccess onSignOut={handleSignOut}><div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs leading-5 text-rose-900">We couldn’t load your company access. Refresh the page or contact the platform owner.</div></NoCompanyAccess>;
   }
+  if (isSupabaseConfigured && session && companyAccess.isPlatformOwner && platformManagementOpen) {
+    return <div className="min-h-screen bg-slate-50 text-slate-900"><Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session.user.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={openPlatformManagement} visibleRouteIds={visibleRouteIds} permissions={permissions} /><main className="mx-auto w-full max-w-[1500px] px-3 py-6 sm:px-5 lg:px-7"><button type="button" onClick={closePlatformManagement} className="mb-4 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Back to workspace</button>{managementView}</main></div>;
+  }
   if (isSupabaseConfigured && session && !companyAccess.isPlatformOwner && (companyAccess.access.status === "no-company" || companyAccess.access.status === "company-suspended")) {
     return <NoCompanyAccess onSignOut={handleSignOut} />;
   }
   if (isSupabaseConfigured && session && companyAccess.isPlatformOwner && !companyAccess.activeCompanyId) {
     return <NoCompanyAccess isPlatformOwner onSignOut={handleSignOut}>
-      <PlatformManagement
-        companies={companyAccess.companies}
-        activeCompanyId={companyAccess.activeCompanyId}
-        onSelectCompany={companyAccess.selectCompany}
-        onCreateCompany={companyAccess.createCompany}
-        onUpdateCompany={companyAccess.updateCompany}
-        onInviteCompanyMember={companyAccess.inviteCompanyMember}
-        onUpdateCompanyMember={companyAccess.updateCompanyMember}
-        onLoadCompanyMembers={companyAccess.loadCompanyMembers}
-        onLoadAudit={companyAccess.loadCompanyAccessAudit}
-      />
+      {managementView}
     </NoCompanyAccess>;
   }
   if (isSupabaseConfigured && session && companyAccess.access.status === "ready" && !companyAccess.activeCompanyId) {
@@ -2255,27 +2346,7 @@ function InvoiceWorkspace() {
       onOpenAttendanceDate={() => navigateToPath(appPathForTab("payroll"))}
     >
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session?.user?.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={() => setPlatformManagementOpen(true)} visibleRouteIds={visibleRouteIds} />
-      {platformManagementOpen && isPlatformOwner && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-3 sm:p-6">
-        <div className="mx-auto max-w-6xl rounded-3xl bg-slate-50 shadow-2xl">
-          <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
-            <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Platform management</p><p className="mt-1 text-sm font-bold text-slate-900">Companies and access</p></div>
-            <button type="button" onClick={() => setPlatformManagementOpen(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" aria-label="Close platform management"><X className="h-4 w-4" /></button>
-          </div>
-          <PlatformManagement
-            companies={companyAccess.companies}
-            activeCompanyId={activeCompanyId}
-            onSelectCompany={selectCompany}
-            onCreateCompany={createCompany}
-            onUpdateCompany={updateCompany}
-            onInviteCompanyMember={inviteCompanyMember}
-            onUpdateCompanyMember={updateCompanyMember}
-            onLoadCompanyMembers={loadCompanyMembers}
-            onLoadAudit={loadCompanyAccessAudit}
-            onClose={() => setPlatformManagementOpen(false)}
-          />
-        </div>
-      </div>}
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session?.user?.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={openPlatformManagement} visibleRouteIds={visibleRouteIds} permissions={permissions} />
       <main className="flex-1 w-full px-3 sm:px-5 lg:px-7 2xl:px-8 py-6 overflow-x-hidden">
 
         {remoteInvoiceUpdate && selectedInvoice?.id === remoteInvoiceUpdate.invoiceId && <div role="status" className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between">

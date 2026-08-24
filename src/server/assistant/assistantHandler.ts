@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
 import { compactAssistantContext } from "../../assistant/assistantContext.ts";
 import type { AssistantApiResponse, AssistantAttachmentReference, AssistantContext, AssistantPreparedAction, AssistantRequest, AssistantResponse, AssistantSuccessResponse } from "../../assistant/assistantTypes.ts";
-import { createAssistantGeminiClient, type AssistantModelClient, type AssistantModelRunner } from "./assistantModels.ts";
+import { type AssistantModelClient, type AssistantModelRunner } from "./assistantModels.ts";
 import { prepareAssistantAttachments } from "./assistantAttachments.ts";
 import { buildAssistantSystemPrompt, buildAssistantUserPrompt } from "./assistantPrompt.ts";
 import { AssistantBackendError, type AssistantActionEventRecord, type AssistantAuthContext, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
@@ -13,6 +13,8 @@ import { getAssistantToolDefinition } from "./toolRegistry.ts";
 import { requireCompanyPermissions } from "./toolAuthorization.ts";
 import { boundToolValue, toolOk } from "./toolResults.ts";
 import { isUuid, requireUuid, validateAssistantMessage, validateToolArguments } from "./toolValidation.ts";
+import { withCompanyAiRuntime } from "../ai/companyAiRuntime.ts";
+import { CompanyAiError } from "../ai/companyAiTypes.ts";
 
 const ACTION_TTL_MS = 10 * 60 * 1000;
 const UUID_HEADER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,7 +22,7 @@ const UUID_HEADER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-
 export interface AssistantHandlerOptions {
   now?: () => Date;
   createSupabaseClient?: (accessToken: string) => SupabaseClient;
-  createModelClient?: () => AssistantModelClient;
+  createModelClient?: (auth: AssistantAuthContext) => AssistantModelClient;
   createModelRunner?: (client: AssistantModelClient) => AssistantModelRunner;
 }
 
@@ -49,6 +51,12 @@ export async function authenticateAssistantRequest(req: Request, options: Assist
   if (error || !data.user) throw new AssistantBackendError("UNAUTHENTICATED", "A valid InvoiceApp session is required.", 401);
   const companyId = firstHeader(req.headers["x-company-id"]).trim();
   if (!UUID_HEADER_PATTERN.test(companyId)) throw new AssistantBackendError("COMPANY_REQUIRED", "A valid company context is required.", 400);
+  const [membership, platform] = await Promise.all([
+    supabase.rpc("is_active_company_member", { p_company_id: companyId }),
+    supabase.rpc("is_platform_admin"),
+  ]);
+  if (membership.error || platform.error) throw new AssistantBackendError("AUTHORIZATION_UNAVAILABLE", "Company authorization is temporarily unavailable.", 503);
+  if (membership.data !== true && platform.data !== true) throw new AssistantBackendError("FORBIDDEN", "You do not have access to this company.", 403);
   return { accessToken, companyId, supabase, user: data.user };
 }
 
@@ -189,6 +197,7 @@ function contextForConfirmation(auth: AssistantAuthContext, generation: number):
 
 function safeError(error: unknown) {
   if (error instanceof AssistantBackendError) return error;
+  if (error instanceof CompanyAiError) return new AssistantBackendError(error.code, error.message, error.status);
   return new AssistantBackendError("ASSISTANT_FAILED", "The assistant request failed safely.", 500);
 }
 
@@ -212,8 +221,10 @@ async function handleAssistantRequest(req: Request, res: Response, options: Assi
     await persistMessage(auth, thread.id, "user", { text: request.message, attachments: attachmentReferences });
     const modelParts = [{ text: buildAssistantUserPrompt(request.message, request.context) }, ...attachments.flatMap((attachment) => attachment.modelParts)];
     const toolContext: AssistantToolContext = { auth, context: request.context, now, prepareAction: createPrepareAction(auth, thread.id, request.context, now) };
-    const modelClient = options.createModelClient ? options.createModelClient() : createAssistantGeminiClient();
-    const result = await runAssistantLoop({ modelClient, modelRunner: options.createModelRunner ? options.createModelRunner(modelClient) : undefined, systemInstruction: buildAssistantSystemPrompt(request.context), contents: [...history, { role: "user", parts: modelParts }], toolContext });
+    const runWithClient = (modelClient: AssistantModelClient) => runAssistantLoop({ modelClient, modelRunner: options.createModelRunner ? options.createModelRunner(modelClient) : undefined, systemInstruction: buildAssistantSystemPrompt(request.context), contents: [...history, { role: "user", parts: modelParts }], toolContext });
+    const result = options.createModelClient
+      ? await runWithClient(options.createModelClient(auth))
+      : await withCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId }, (runtime) => runWithClient(runtime.geminiClient));
     await persistMessage(auth, thread.id, "assistant", { text: result.message, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions });
     const data: AssistantResponse = { threadId: thread.id, message: result.message, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions, attachments: attachmentReferences, usage: result.usage, contextGeneration: request.context.generation };
     const response: AssistantSuccessResponse = { success: true, data };

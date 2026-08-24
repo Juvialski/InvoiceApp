@@ -10,7 +10,9 @@ export const PLATFORM_UPDATE_COMPANY_RPC = "platform_update_company";
 export const PLATFORM_INVITE_MEMBER_RPC = "platform_invite_company_member";
 export const PLATFORM_UPDATE_MEMBER_RPC = "platform_update_company_member";
 export const PLATFORM_LIST_MEMBERS_RPC = "platform_list_company_members";
+export const PLATFORM_LIST_MEMBER_DIRECTORY_RPC = "platform_list_company_member_directory";
 export const PLATFORM_LIST_AUDIT_RPC = "platform_list_access_audit";
+export const PLATFORM_LIST_INVITATIONS_RPC = "platform_list_company_invitations";
 
 export type CompanyStatus = "ACTIVE" | "SUSPENDED" | "ARCHIVED" | (string & {});
 export type MembershipStatus = "ACTIVE" | "SUSPENDED" | "REVOKED" | (string & {});
@@ -39,6 +41,16 @@ export interface CompanyMemberSummary {
   updatedAt?: string;
 }
 
+export interface CompanyInvitationSummary {
+  id?: string;
+  companyId: string;
+  email?: string;
+  roleKey?: string;
+  status: InvitationStatus;
+  createdAt?: string;
+  expiresAt?: string;
+}
+
 export interface CompanyMembership {
   id?: string;
   companyId: string;
@@ -50,7 +62,7 @@ export interface CompanyMembership {
   updatedAt?: string;
 }
 
-export type CompanyAccessStatus = "loading" | "ready" | "no-company" | "company-suspended" | "error" | "signed-out" | "guest";
+export type CompanyAccessStatus = "loading" | "refreshing" | "ready" | "no-company" | "company-suspended" | "error" | "signed-out" | "guest";
 
 export interface CompanyAccessSnapshot {
   status: CompanyAccessStatus;
@@ -300,6 +312,19 @@ function memberFromRecord(value: unknown): CompanyMemberSummary {
   };
 }
 
+function invitationFromRecord(value: unknown): CompanyInvitationSummary {
+  const row = record(value);
+  return {
+    id: text(firstPresent(row, "id", "invitation_id", "invitationId")),
+    companyId: text(firstPresent(row, "company_id", "companyId")) || "",
+    email: text(firstPresent(row, "normalized_email", "email")),
+    roleKey: text(firstPresent(row, "role_key", "roleKey")),
+    status: (text(firstPresent(row, "status", "invitation_status", "invitationStatus")) || "PENDING").toUpperCase() as InvitationStatus,
+    createdAt: text(firstPresent(row, "created_at", "createdAt")),
+    expiresAt: text(firstPresent(row, "expires_at", "expiresAt")),
+  };
+}
+
 export async function createCompany(input: CreateCompanyInput, client: SupabaseClient | null = supabase): Promise<CompanySummary> {
   const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_CREATE_COMPANY_RPC, {
     p_name: input.name.trim(),
@@ -352,9 +377,15 @@ export async function updateCompanyMember(input: UpdateCompanyMemberInput, clien
 }
 
 export async function loadCompanyMembers(companyId: string, client: SupabaseClient | null = supabase): Promise<CompanyMemberSummary[]> {
-  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_MEMBERS_RPC, { p_company_id: companyId });
+  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_MEMBER_DIRECTORY_RPC, { p_company_id: companyId });
   if (error) throw error;
   return unwrapRows<unknown>(data).map(memberFromRecord).filter((member) => member.companyId === companyId || !member.companyId);
+}
+
+export async function loadCompanyInvitations(companyId: string, client: SupabaseClient | null = supabase): Promise<CompanyInvitationSummary[]> {
+  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_INVITATIONS_RPC, { p_company_id: companyId });
+  if (error) throw error;
+  return unwrapRows<unknown>(data).map(invitationFromRecord).filter((invitation) => invitation.companyId === companyId || !invitation.companyId);
 }
 
 export async function loadCompanyAccessAudit(companyId: string | undefined, client: SupabaseClient | null = supabase): Promise<CompanyAccessAuditEntry[]> {
