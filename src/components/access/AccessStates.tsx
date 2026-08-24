@@ -29,9 +29,10 @@ export interface CompanySwitcherProps {
   isPlatformOwner?: boolean;
   disabled?: boolean;
   onSelect: (companyId: string) => void | Promise<void>;
+  onOpenPlatformManagement?: () => void;
 }
 
-export function CompanySwitcher({ companies, activeCompanyId, isPlatformOwner = false, disabled = false, onSelect }: CompanySwitcherProps) {
+export function CompanySwitcher({ companies, activeCompanyId, isPlatformOwner = false, disabled = false, onSelect, onOpenPlatformManagement }: CompanySwitcherProps) {
   const [open, setOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -62,12 +63,16 @@ export function CompanySwitcher({ companies, activeCompanyId, isPlatformOwner = 
     <button ref={buttonRef} type="button" onClick={() => setOpen((value) => !value)} disabled={disabled} aria-label={activeCompany ? `Current company: ${activeCompany.name}` : "Choose a company"} aria-haspopup="listbox" aria-expanded={open} className="inline-flex max-w-[14rem] items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left text-[10px] font-bold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 sm:max-w-[18rem]">
       <Building2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" /><span className="min-w-0 truncate">{activeCompany?.name || "Choose company"}</span><ChevronDown aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition ${open ? "rotate-180" : ""}`} />
     </button>
-    {open && <div role="listbox" aria-label="Available companies" className="absolute left-0 top-[calc(100%+0.5rem)] z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
+    {open && <div role="listbox" aria-label="Available companies" className="absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10 sm:left-0 sm:right-auto">
       <div className="px-2 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{isPlatformOwner ? "Platform companies" : "Your companies"}</div>
       {companies.map((company) => <button key={company.id} type="button" role="option" aria-selected={company.id === activeCompanyId} disabled={!selectableCompanies.includes(company) || busyId !== null} onClick={() => void select(company)} className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2.5 text-left transition ${company.id === activeCompanyId ? "bg-indigo-50 text-indigo-950" : "text-slate-700 hover:bg-slate-50"} disabled:cursor-not-allowed disabled:opacity-50`}>
         <Building2 aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-600" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold">{company.name}</span><span className="mt-0.5 block truncate text-[10px] font-semibold text-slate-400">{company.companyCode || "Company workspace"}</span></span><span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${companyStatusClasses(company.status)}`}>{companyStatusLabel(company.status)}</span>{busyId === company.id && <Loader2 aria-label="Switching" className="h-3.5 w-3.5 animate-spin text-indigo-600" />}
-      </button>)}
-    </div>}
+       </button>)}
+       {isPlatformOwner && onOpenPlatformManagement && <>
+         <div className="my-1 border-t border-slate-100" />
+         <button type="button" onClick={() => { setOpen(false); onOpenPlatformManagement(); }} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2.5 text-left text-xs font-bold text-indigo-700 hover:bg-indigo-50"><ShieldCheck aria-hidden="true" className="h-4 w-4" />Manage Companies</button>
+       </>}
+     </div>}
   </div>;
 }
 

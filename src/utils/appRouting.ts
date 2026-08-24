@@ -1,12 +1,13 @@
 import type { AppTab } from "./routes.ts";
 import { getRouteForAppTab, normalizeRoutePath, resolveRoute, type RouteId } from "./routes.ts";
+import { companyManagementTabFromQuery, type CompanyManagementTab } from "./companyManagement.ts";
 
 export type ProjectWorkspaceView = "overview" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 export const PLATFORM_COMPANIES_PATH = "/platform/companies" as const;
 
 export type AppLocation =
-  | { kind: "platform-companies"; pathname: string; search: string }
+  | { kind: "platform-companies"; pathname: string; search: string; managementCompanyId?: string; managementTab?: CompanyManagementTab }
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
   | { kind: "project"; tab: "projects"; routeId: "projects"; projectId: string; view: ProjectWorkspaceView; pathname: string; search: string }
   | { kind: "invoice"; tab: "invoices"; routeId: "invoices"; invoiceId: string; returnTo?: string; pathname: string; search: string }
@@ -38,7 +39,15 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
   const from = query.get("from") || undefined;
 
   if (normalizedPath === PLATFORM_COMPANIES_PATH) {
-    return { kind: "platform-companies", pathname: normalizedPath, search: normalizedSearch };
+    const managementCompanyId = query.get("companyId")?.trim() || undefined;
+    const managementTab = companyManagementTabFromQuery(query.get("tab"));
+    return {
+      kind: "platform-companies",
+      pathname: normalizedPath,
+      search: normalizedSearch,
+      ...(managementCompanyId ? { managementCompanyId } : {}),
+      ...(managementTab !== "general" ? { managementTab } : {}),
+    };
   }
 
   if (segments[0] === "projects" && segments[1]) {
@@ -74,6 +83,14 @@ export function isKnownWorkspaceLocation(location: AppLocation): location is Exc
 
 export function appPathForTab(tab: AppTab) {
   return getRouteForAppTab(tab)?.path || "/dashboard";
+}
+
+export function appPathForPlatformCompanies(companyId?: string | null, tab?: CompanyManagementTab) {
+  const query = new URLSearchParams();
+  if (companyId?.trim()) query.set("companyId", companyId.trim());
+  if (tab && tab !== "general") query.set("tab", tab);
+  const suffix = query.toString();
+  return `${PLATFORM_COMPANIES_PATH}${suffix ? `?${suffix}` : ""}`;
 }
 
 export function appPathForProject(projectId: string, view: ProjectWorkspaceView = "overview") {

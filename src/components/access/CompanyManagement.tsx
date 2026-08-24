@@ -14,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { roleDisplayName } from "../../utils/accessControl.ts";
-import { isCurrentManagementRequest, managementResourcesForTab, type CompanyManagementRequestIdentity, type CompanyManagementTab } from "../../utils/companyManagement.ts";
+import { companyManagementTabFromQuery, isCurrentManagementRequest, managementResourcesForTab, type CompanyManagementRequestIdentity, type CompanyManagementTab } from "../../utils/companyManagement.ts";
 import { CompanyAiConfiguration } from "./CompanyAiConfiguration.tsx";
 import type { CompanyAiConfigMetadata } from "../../server/ai/companyAiTypes.ts";
 import type {
@@ -51,6 +51,8 @@ export interface CompanyManagementProps {
   activeCompanyId?: string | null;
   /** Initial management selection only. It is deliberately independent from activeCompanyId. */
   managementCompanyId?: string | null;
+  /** Initial tab from a deterministic management deep link. */
+  initialTab?: CompanyManagementTab;
   /** Preferred explicit workspace-opening callback. It is not called when a management card is selected. */
   onOpenWorkspace?: (companyId: string) => void | Promise<void>;
   /** Compatibility fallback for existing integrations; it is only called by the explicit Open workspace button. */
@@ -103,12 +105,12 @@ function displayDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-export function CompanyManagement({ companies, activeCompanyId, managementCompanyId: initialManagementCompanyId, onOpenWorkspace, onSelectCompany, onCreateCompany, onUpdateCompany, onInviteCompanyMember, onUpdateCompanyMember, onLoadCompanyMembers, onLoadCompanyInvitations, onLoadAudit, onLoadAiConfig, onSaveAiKey, onTestAi, onDisableAi, onEnableAi, onRemoveAi }: CompanyManagementProps) {
+export function CompanyManagement({ companies, activeCompanyId, managementCompanyId: initialManagementCompanyId, initialTab, onOpenWorkspace, onSelectCompany, onCreateCompany, onUpdateCompany, onInviteCompanyMember, onUpdateCompanyMember, onLoadCompanyMembers, onLoadCompanyInvitations, onLoadAudit, onLoadAiConfig, onSaveAiKey, onTestAi, onDisableAi, onEnableAi, onRemoveAi }: CompanyManagementProps) {
   const [managementCompanyId, setManagementCompanyId] = useState(() => {
     if (initialManagementCompanyId && companies.some((company) => company.id === initialManagementCompanyId)) return initialManagementCompanyId;
     return companies[0]?.id || "";
   });
-  const [activeTab, setActiveTab] = useState<CompanyManagementTab>("general");
+  const [activeTab, setActiveTab] = useState<CompanyManagementTab>(() => companyManagementTabFromQuery(initialTab));
   const [companySearch, setCompanySearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [members, setMembers] = useState<CompanyMemberSummary[]>([]);
@@ -157,6 +159,24 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
     setAuditLoading(false);
     setAiConfigLoading(false);
   };
+
+  const initialRouteSelectionRef = useRef({ companyId: initialManagementCompanyId || null, tab: initialTab || "general" as CompanyManagementTab });
+  useEffect(() => {
+    const requestedCompanyId = initialManagementCompanyId && companies.some((company) => company.id === initialManagementCompanyId)
+      ? initialManagementCompanyId
+      : companies[0]?.id || "";
+    const requestedTab = companyManagementTabFromQuery(initialTab);
+    const previous = initialRouteSelectionRef.current;
+    if (previous.companyId === (initialManagementCompanyId || null) && previous.tab === requestedTab) return;
+    initialRouteSelectionRef.current = { companyId: initialManagementCompanyId || null, tab: requestedTab };
+    if (requestedCompanyId !== managementCompanyIdRef.current) {
+      managementGenerationRef.current += 1;
+      clearManagementTargetData();
+      setManagementCompanyId(requestedCompanyId);
+    }
+    setActiveTab(requestedTab);
+    setNotice(null);
+  }, [companies, initialManagementCompanyId, initialTab]);
 
   const selectManagementCompany = (companyId: string) => {
     if (companyId === managementCompanyIdRef.current) {

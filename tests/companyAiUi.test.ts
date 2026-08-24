@@ -24,6 +24,8 @@ test("AI key UI clears plaintext state before awaiting save and has guarded acti
   assert.match(configuration, /Enable AI/);
   assert.match(configuration, /onEnable/);
   assert.match(configuration, /PROVIDER_ACCESS_DENIED/);
+  assert.match(configuration, /Save & Test/);
+  assert.match(configuration, /Configured \/ Active/);
   assert.doesNotMatch(configuration, /localStorage|sessionStorage|console\.(log|warn|error)/i);
 });
 
@@ -34,4 +36,11 @@ test("AI API trims empty keys, redacts request errors, and stores no browser cre
   assert.match(api, /enableCompanyGemini/);
   assert.doesNotMatch(api, /localStorage|sessionStorage|console\.(log|warn|error)|credential\.ciphertext/i);
   assert.doesNotMatch(app, /SUPABASE_AI_SERVER_KEY|companyAiServerSupabase/i);
+});
+
+test("company management deep links preserve local selection and do not reload the active workspace", () => {
+  assert.match(management, /initialTab\?: CompanyManagementTab/);
+  assert.match(management, /companyManagementTabFromQuery\(initialTab\)/);
+  assert.match(management, /Management selection is local to this page/);
+  assert.doesNotMatch(management, /selectManagementCompany[\s\S]{0,500}onOpenWorkspace/);
 });

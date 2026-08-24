@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { companyAiServerSupabase } from "../src/server/ai/companyAiServerSupabase.ts";
 
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 const runtime = readFileSync(new URL("../src/server/ai/companyAiRuntime.ts", import.meta.url), "utf8");
@@ -45,5 +46,23 @@ test("all production Gemini paths resolve the centralized company runtime", () =
   assert.match(runtime, /credentialVersion/);
   assert.match(runtime, /MAX_RUNTIME_CACHE_ENTRIES/);
   assert.match(runtime, /forceRefresh/);
+  assert.match(runtime, /AI_QUOTA_LIMITED/);
+  assert.match(runtime, /AI_PROVIDER_UNAVAILABLE/);
   assert.match(handler, /is_active_company_member/);
+});
+
+test("server and company configuration error messages stay distinct", () => {
+  assert.match(serverSupabase, /AI backend configuration is incomplete/);
+  assert.match(runtime, /AI is not configured for this company\. Contact the platform administrator/);
+  assert.match(runtime, /AI is disabled for this company/);
+  assert.match(runtime, /The configured Gemini API key is invalid/);
+});
+
+test("server AI resolver creates a private client only from backend configuration", () => {
+  const client = companyAiServerSupabase({ SUPABASE_URL: "https://example.supabase.co", SUPABASE_AI_SERVER_KEY: "server-only-key" } as any);
+  assert.equal(typeof client.rpc, "function");
+  assert.throws(
+    () => companyAiServerSupabase({ SUPABASE_URL: "https://example.supabase.co" } as any),
+    (error: any) => error.code === "AI_CREDENTIALS_SERVER_MISCONFIGURED" && error.message === "AI backend configuration is incomplete.",
+  );
 });

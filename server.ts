@@ -9,7 +9,7 @@ import type { InvoiceData } from "./src/types.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
 import { disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
-import { invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
+import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
 import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
 import {
   chooseBestExtractionCandidate,
@@ -839,6 +839,8 @@ Rules:
     }
 
     if (!attempts.length) {
+      const providerError = companyAiProviderError(firstFailure);
+      if (providerError) throw providerError;
       console.error("Error in /api/extract-invoice: no usable extraction candidate.");
       return res.status(500).json({ success: false, error: "Invoice extraction failed. Please retry the document." });
     }
@@ -864,9 +866,10 @@ Rules:
     });
     return res.json({ success: true, data: selected.candidate });
   } catch (error: any) {
-    const status = apiErrorStatus(error);
-    if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/extract-invoice: request failed.");
-    return res.status(status).json({ success: false, error: apiErrorMessage(error, "Invoice extraction failed. Please retry the document."), code: error instanceof CompanyAiError ? error.code : undefined });
+    const normalizedError = error instanceof CompanyAiError ? error : companyAiProviderError(error) || error;
+    const status = apiErrorStatus(normalizedError);
+    if (!(normalizedError instanceof ApiAuthorizationError) && !(normalizedError instanceof CompanyAiError)) console.error("Error in /api/extract-invoice: request failed.");
+    return res.status(status).json({ success: false, error: apiErrorMessage(normalizedError, "Invoice extraction failed. Please retry the document."), code: normalizedError instanceof CompanyAiError ? normalizedError.code : undefined });
   }
 });
 

@@ -30,19 +30,19 @@ test("tampered envelopes, company binding, and wrong keys fail closed", () => {
 
 test("master-key configuration requires exactly 32 decoded base64 bytes", () => {
   assert.deepEqual(readAiCredentialsMasterKey({ AI_CREDENTIALS_MASTER_KEY: MASTER.toString("base64") } as any), MASTER);
-  assert.throws(() => readAiCredentialsMasterKey({ AI_CREDENTIALS_MASTER_KEY: Buffer.alloc(31).toString("base64") } as any), /not configured/i);
-  assert.throws(() => readAiCredentialsMasterKey({ AI_CREDENTIALS_MASTER_KEY: "not-a-credential" } as any), /not configured/i);
+  assert.throws(() => readAiCredentialsMasterKey({ AI_CREDENTIALS_MASTER_KEY: Buffer.alloc(31).toString("base64") } as any), /AI backend configuration is incomplete/i);
+  assert.throws(() => readAiCredentialsMasterKey({ AI_CREDENTIALS_MASTER_KEY: "not-a-credential" } as any), /AI backend configuration is incomplete/i);
   const nonCanonicalPadding = `${MASTER.toString("base64").slice(0, -2)}x=`;
-  assert.throws(() => readAiCredentialsMasterKey({ AI_CREDENTIALS_MASTER_KEY: nonCanonicalPadding } as any), /not configured/i);
+  assert.throws(() => readAiCredentialsMasterKey({ AI_CREDENTIALS_MASTER_KEY: nonCanonicalPadding } as any), /AI backend configuration is incomplete/i);
 });
 
 test("explicit invalid master keys never fall back to the process environment", () => {
   const previous = process.env.AI_CREDENTIALS_MASTER_KEY;
   process.env.AI_CREDENTIALS_MASTER_KEY = MASTER.toString("base64");
   try {
-    assert.throws(() => encryptCompanyGeminiCredential("Key-A-secret-value", COMPANY_A, Buffer.alloc(0)), /not configured/i);
+    assert.throws(() => encryptCompanyGeminiCredential("Key-A-secret-value", COMPANY_A, Buffer.alloc(0)), /AI backend configuration is incomplete/i);
     const envelope = encryptCompanyGeminiCredential("Key-A-secret-value", COMPANY_A, MASTER);
-    assert.throws(() => decryptCompanyGeminiCredential(envelope, COMPANY_A, Buffer.alloc(0)), /not configured/i);
+    assert.throws(() => decryptCompanyGeminiCredential(envelope, COMPANY_A, Buffer.alloc(0)), /AI backend configuration is incomplete/i);
   } finally {
     if (previous === undefined) delete process.env.AI_CREDENTIALS_MASTER_KEY;
     else process.env.AI_CREDENTIALS_MASTER_KEY = previous;

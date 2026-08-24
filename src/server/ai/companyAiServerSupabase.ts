@@ -10,7 +10,7 @@ export function companyAiServerSupabase(environment: NodeJS.ProcessEnv = process
   const url = (environment.SUPABASE_URL || environment.VITE_SUPABASE_URL || "").trim();
   const serverKey = environment.SUPABASE_AI_SERVER_KEY?.trim();
   if (!url || !serverKey) {
-    throw new CompanyAiError("AI_CREDENTIALS_SERVER_MISCONFIGURED", "The server-only AI credential resolver is not configured.", 503);
+    throw new CompanyAiError("AI_CREDENTIALS_SERVER_MISCONFIGURED", "AI backend configuration is incomplete.", 503);
   }
   return createClient(url, serverKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

@@ -49,6 +49,13 @@ test("prompt and attachment boundaries treat injected instructions as untrusted 
   assert.doesNotMatch(String(attachment.modelParts[0]?.text), /run_shell is authorized/i);
 });
 
+test("worker onboarding remains separate from payroll-run mutations", () => {
+  const toolNames = ASSISTANT_TOOL_DEFINITIONS.map((definition) => definition.name);
+  assert.equal(toolNames.some((name) => /worker.*(create|onboard)|create.*worker/i.test(name)), false);
+  assert.match(ASSISTANT_SYSTEM_PROMPT, /There is no worker-creation or compensation-onboarding tool/);
+  assert.match(ASSISTANT_SYSTEM_PROMPT, /not create a payroll run, payroll entry, or payment/);
+});
+
 test("model runner uses the primary model, one fallback, then stays on fallback", async () => {
   const models: string[] = [];
   let calls = 0;

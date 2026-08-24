@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isCurrentManagementRequest, managementResourcesForTab } from "../src/utils/companyManagement.ts";
+import { companyManagementTabFromQuery, isCurrentManagementRequest, managementResourcesForTab } from "../src/utils/companyManagement.ts";
 
 test("company management loads only resources for the active tab", () => {
   assert.deepEqual(managementResourcesForTab("general"), []);
@@ -15,4 +15,11 @@ test("late management responses are rejected after company or generation changes
   assert.equal(isCurrentManagementRequest(request, { companyId: "company-a", generation: 1 }), true);
   assert.equal(isCurrentManagementRequest(request, { companyId: "company-b", generation: 1 }), false);
   assert.equal(isCurrentManagementRequest(request, { companyId: "company-a", generation: 2 }), false);
+});
+
+test("management deep-link tabs are allowlisted and default to General", () => {
+  assert.equal(companyManagementTabFromQuery("ai"), "ai");
+  assert.equal(companyManagementTabFromQuery("danger"), "danger");
+  assert.equal(companyManagementTabFromQuery("platform-admin"), "general");
+  assert.equal(companyManagementTabFromQuery(undefined), "general");
 });

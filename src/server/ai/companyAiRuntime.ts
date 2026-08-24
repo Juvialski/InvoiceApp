@@ -26,7 +26,7 @@ function createClient(apiKey: string) {
 
 function globalRuntime(companyId: string, environment: NodeJS.ProcessEnv = process.env): CompanyAiRuntime {
   const apiKey = environment.GEMINI_API_KEY?.trim();
-  if (!apiKey) throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI services have not been configured for this company.", 503);
+  if (!apiKey) throw new CompanyAiError("AI_CREDENTIALS_SERVER_MISCONFIGURED", "AI backend configuration is incomplete.", 503);
   return {
     companyId,
     provider: COMPANY_AI_PROVIDER,
@@ -71,12 +71,12 @@ export async function resolveCompanyAiRuntime(options: { supabase: SupabaseClien
   if (!resolution) {
     const fallback = globalFallbackRuntime(companyId, options.environment);
     if (fallback) return fallback;
-    throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI services have not been configured for this company. Ask the platform administrator to add a Gemini API key.", 503);
+    throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI is not configured for this company. Contact the platform administrator.", 503);
   }
-  if (resolution.status === "INVALID") throw new CompanyAiError("AI_CREDENTIAL_INVALID", "The Gemini credential configured for this company is invalid. Ask the platform administrator to replace it.", 503);
-  if (resolution.status === "DISABLED") throw new CompanyAiError("AI_DISABLED_FOR_COMPANY", "AI services are disabled for this company.", 503);
-  if (!resolution.credential) throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI services have not been configured for this company. Ask the platform administrator to add a Gemini API key.", 503);
-  if (!resolution.enabled) throw new CompanyAiError("AI_DISABLED_FOR_COMPANY", "AI services are disabled for this company.", 503);
+  if (resolution.status === "INVALID") throw new CompanyAiError("AI_CREDENTIAL_INVALID", "The configured Gemini API key is invalid.", 503);
+  if (resolution.status === "DISABLED") throw new CompanyAiError("AI_DISABLED_FOR_COMPANY", "AI is disabled for this company.", 503);
+  if (!resolution.credential) throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI is not configured for this company. Contact the platform administrator.", 503);
+  if (!resolution.enabled) throw new CompanyAiError("AI_DISABLED_FOR_COMPANY", "AI is disabled for this company.", 503);
 
   const envelope = resolution.credential;
   const key = runtimeCacheKey(companyId, resolution.credentialVersion);
@@ -121,6 +121,28 @@ export function classifyCompanyAiProviderError(error: unknown): CompanyAiTestSta
   return "PROVIDER_UNAVAILABLE";
 }
 
+function likelyCompanyAiProviderError(error: unknown) {
+  if (!error || error instanceof CompanyAiError) return false;
+  const name = String((error as any)?.name || "");
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
+  if (/api(?:authorization|backend)|assistantbackend|assistanttool/.test(name.toLowerCase())) return false;
+  const status = Number((error as any)?.status || (error as any)?.statusCode || 0);
+  return /apierror|google|gemini|generative|fetcherror|aborterror/.test(name.toLowerCase())
+    || isCompanyAiAuthenticationError(error)
+    || status === 429
+    || /api key|gemini|google|generative|quota|rate limit|resource exhausted|model (?:not found|unavailable)|provider|fetch failed|network|timed out|timeout|aborted|permission denied|access denied/.test(message);
+}
+
+export function companyAiProviderError(error: unknown): CompanyAiError | null {
+  if (!likelyCompanyAiProviderError(error)) return null;
+  const providerStatus = classifyCompanyAiProviderError(error);
+  if (providerStatus === "INVALID_CREDENTIAL") return new CompanyAiError("AI_CREDENTIAL_INVALID", "The configured Gemini API key is invalid.", 503);
+  if (providerStatus === "QUOTA_LIMITED") return new CompanyAiError("AI_QUOTA_LIMITED", "Gemini quota or rate limit reached.", 429);
+  if (providerStatus === "MODEL_UNAVAILABLE") return new CompanyAiError("AI_MODEL_UNAVAILABLE", "The configured Gemini model is unavailable.", 503);
+  if (providerStatus === "PROVIDER_ACCESS_DENIED") return new CompanyAiError("AI_PROVIDER_ACCESS_DENIED", "Gemini access is denied for the configured provider project.", 503);
+  return new CompanyAiError("AI_PROVIDER_UNAVAILABLE", "Gemini is temporarily unavailable.", 503);
+}
+
 export function isCompanyAiAuthenticationError(error: unknown) {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
   const status = Number((error as any)?.status || (error as any)?.statusCode || 0);
@@ -141,7 +163,7 @@ export async function withCompanyAiRuntime<T>(
   try {
     return await operation(runtime);
   } catch (error) {
-    if (!isCompanyAiAuthenticationError(error)) throw error;
+    if (!isCompanyAiAuthenticationError(error)) throw companyAiProviderError(error) || error;
     invalidateCompanyAiRuntime(options.companyId);
     runtime = await resolveCompanyAiRuntime({ ...options, forceRefresh: true });
     try {
@@ -150,8 +172,9 @@ export async function withCompanyAiRuntime<T>(
       if (isCompanyAiAuthenticationError(retryError)) {
         try { await markCompanyAiCredentialInvalid({ supabase: options.credentialSupabase, companyId: options.companyId }); } catch { /* preserve the provider failure without leaking details */ }
         invalidateCompanyAiRuntime(options.companyId);
+        throw new CompanyAiError("AI_CREDENTIAL_INVALID", "The configured Gemini API key is invalid.", 503);
       }
-      throw retryError;
+      throw companyAiProviderError(retryError) || retryError;
     }
   }
 }

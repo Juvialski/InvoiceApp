@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   appPathForInvoice,
   appPathForProject,
+  appPathForPlatformCompanies,
   appPathForReviewInvoice,
   appPathForTab,
   appTabForLocation,
@@ -48,4 +49,16 @@ test("treats platform company management as a first-class non-workspace route", 
   assert.deepEqual(location, { kind: "platform-companies", pathname: PLATFORM_COMPANIES_PATH, search: "" });
   assert.equal(appTabForLocation(location), "dashboard");
   assert.equal(isKnownWorkspaceLocation(location), false);
+});
+
+test("platform management deep links select a company and management tab without opening its workspace", () => {
+  const companyId = "00000000-0000-4000-8000-000000000001";
+  assert.equal(appPathForPlatformCompanies(companyId, "ai"), `${PLATFORM_COMPANIES_PATH}?companyId=${companyId}&tab=ai`);
+  assert.deepEqual(parseAppLocation(`${PLATFORM_COMPANIES_PATH}?companyId=${companyId}&tab=ai`), {
+    kind: "platform-companies",
+    pathname: PLATFORM_COMPANIES_PATH,
+    search: `?companyId=${companyId}&tab=ai`,
+    managementCompanyId: companyId,
+    managementTab: "ai",
+  });
 });

@@ -22,7 +22,7 @@ import { PayrollOperatingCosts } from "./components/engineering/PayrollOperating
 import { ProjectWorkspace } from "./components/projects/ProjectWorkspace";
 import { ExpensesPage } from "./components/expenses/ExpensesPage";
 import { PayrollPageV2 as PayrollPage } from "./components/payroll/PayrollPageV2";
-import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, isKnownWorkspaceLocation, parseAppLocation, PLATFORM_COMPANIES_PATH, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
+import { appPathForInvoice, appPathForPlatformCompanies, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, isKnownWorkspaceLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
@@ -194,7 +194,7 @@ function textToBase64(value: string) {
 function userFacingError(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : String((error as any)?.message || "");
   if (import.meta.env.DEV && message) console.error("[InvoiceApp]", error);
-  if (/AI services have not been configured|AI services are disabled|Gemini credential configured for this company is invalid/i.test(message)) return message;
+  if (/AI backend configuration is incomplete|AI is not configured for this company|AI is disabled for this company|configured Gemini API key is invalid|Gemini quota or rate limit reached|Gemini is temporarily unavailable|configured Gemini model is unavailable|Gemini access is denied/i.test(message)) return message;
   if (/record\s+["']?new["']?\s+has no field|project_id|default_project_id|row-level security|foreign key/i.test(message)) return fallback;
   return /gemini|supabase|storage|api[_ -]?key|provider|model/i.test(message) ? fallback : (message || fallback);
 }
@@ -331,7 +331,7 @@ function InvoiceWorkspace() {
     } else if (!platformManagementReturnPathRef.current) {
       platformManagementReturnPathRef.current = validatedWorkspaceReturnPath(workspaceReturnPath);
     }
-    navigateToPath(PLATFORM_COMPANIES_PATH);
+    navigateToPath(appPathForPlatformCompanies(activeCompanyId));
   };
   const closePlatformManagement = () => {
     const returnPath = validatedWorkspaceReturnPath(platformManagementReturnPathRef.current || workspaceReturnPath);
@@ -2289,6 +2289,8 @@ function InvoiceWorkspace() {
   const managementView = <CompanyManagement
     companies={companyAccess.companies}
     activeCompanyId={companyAccess.activeCompanyId}
+    managementCompanyId={route.kind === "platform-companies" ? route.managementCompanyId : undefined}
+    initialTab={route.kind === "platform-companies" ? route.managementTab : undefined}
     onOpenWorkspace={companyAccess.selectCompany}
     onCreateCompany={createCompany}
     onUpdateCompany={updateCompany}

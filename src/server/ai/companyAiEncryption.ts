@@ -7,7 +7,7 @@ const AUTH_TAG_BYTES = 16;
 const CREDENTIAL_AAD_PREFIX = "invoiceapp:company-ai:";
 
 function misconfiguredMasterKey(): CompanyAiError {
-  return new CompanyAiError("AI_CREDENTIALS_SERVER_MISCONFIGURED", "AI credential encryption is not configured on the server.", 503);
+  return new CompanyAiError("AI_CREDENTIALS_SERVER_MISCONFIGURED", "AI backend configuration is incomplete.", 503);
 }
 
 function normalizedCompanyId(value: string) {

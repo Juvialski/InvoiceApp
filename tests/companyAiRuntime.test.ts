@@ -3,6 +3,7 @@ import test from "node:test";
 import { encryptCompanyGeminiCredential } from "../src/server/ai/companyAiEncryption.ts";
 import {
   classifyCompanyAiProviderError,
+  companyAiProviderError,
   clearCompanyAiRuntimeCache,
   invalidateCompanyAiRuntime,
   isCompanyAiAuthenticationError,
@@ -134,6 +135,19 @@ test("provider classification invalidates only genuine credential authentication
   assert.equal(classifyCompanyAiProviderError(Object.assign(new Error("resource exhausted"), { status: 429 })), "QUOTA_LIMITED");
   assert.equal(classifyCompanyAiProviderError(Object.assign(new Error("model not found"), { status: 404 })), "MODEL_UNAVAILABLE");
   assert.equal(classifyCompanyAiProviderError(new Error("fetch failed")), "PROVIDER_UNAVAILABLE");
+});
+
+test("provider failures become distinct safe user-facing company AI errors", () => {
+  const invalid = companyAiProviderError(Object.assign(new Error("API key not valid"), { status: 403 }));
+  const quota = companyAiProviderError(Object.assign(new Error("resource exhausted"), { status: 429 }));
+  const outage = companyAiProviderError(new Error("fetch failed"));
+  assert.equal(invalid?.code, "AI_CREDENTIAL_INVALID");
+  assert.equal(invalid?.message, "The configured Gemini API key is invalid.");
+  assert.equal(quota?.code, "AI_QUOTA_LIMITED");
+  assert.equal(quota?.message, "Gemini quota or rate limit reached.");
+  assert.equal(outage?.code, "AI_PROVIDER_UNAVAILABLE");
+  assert.equal(outage?.message, "Gemini is temporarily unavailable.");
+  assert.equal(companyAiProviderError(new Error("The assistant action could not be recorded.")), null);
 });
 
 test("a disabled company rejects AI until enabled without changing its credential", async () => {
