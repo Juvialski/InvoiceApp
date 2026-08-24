@@ -4,12 +4,14 @@ import type { Expense, InvoiceData, InvoiceProjectAllocation, PayrollPeriod, Pay
 import { ProjectExpenses } from "../expenses/ProjectExpenses";
 import { ProjectInvoices } from "./ProjectInvoices";
 import { ProjectOverview } from "./ProjectOverview";
+import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 
 export type WorkspaceTab = "overview" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 interface ProjectWorkspaceProps {
   project: Project;
   summary: ProjectCostSummary;
+  dashboard?: ProjectDashboardViewData;
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
@@ -34,7 +36,7 @@ function money(value: number, currency: string) {
   catch { return `${currency} ${(value || 0).toFixed(2)}`; }
 }
 
-export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, summary, invoices, invoiceAllocations, expenses, workers = [], assignments = [], payrollAllocations = [], payrollPeriods = [], initialTab = "overview", onTabChange, onBack, onOpenInvoice, onUploadInvoice, onEditProject, onArchiveProject, onAddExpense, onOpenPayroll, onSaveInvoiceAllocations }) => {
+export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, summary, dashboard, invoices, invoiceAllocations, expenses, workers = [], assignments = [], payrollAllocations = [], payrollPeriods = [], initialTab = "overview", onTabChange, onBack, onOpenInvoice, onUploadInvoice, onEditProject, onArchiveProject, onAddExpense, onOpenPayroll, onSaveInvoiceAllocations }) => {
   const [tab, setTab] = useState<WorkspaceTab>(initialTab);
   useEffect(() => setTab(initialTab), [initialTab, project.id]);
   const selectTab = (next: WorkspaceTab) => { setTab(next); onTabChange?.(next); };
@@ -43,7 +45,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({ project, sum
   const projectPayroll = payrollAllocations.filter((allocation) => allocation.projectId === project.id);
   const tabs: Array<[WorkspaceTab, string, React.ElementType]> = [["overview", "Overview", BarChart3], ["invoices", "Invoices", FileText], ["payroll", "Payroll", HardHat], ["expenses", "Expenses", Receipt], ["people", "People", Users], ["reports", "Reports", BarChart3]];
   return <div className="space-y-5">
-    {tab === "overview" && <ProjectOverview project={project} summary={summary} onBack={onBack} onEdit={onEditProject} onArchive={onArchiveProject} />}
+    {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} onBack={onBack} onEdit={onEditProject} onArchive={onArchiveProject} onOpenTab={(next) => selectTab(next)} />}
     {tab !== "overview" && <div className="flex items-center gap-3"><button onClick={onBack} className="text-xs font-bold text-indigo-600">← Projects</button><div><p className="text-[10px] font-black uppercase tracking-wide text-indigo-600">{project.projectCode}</p><h2 className="text-xl font-black">{project.projectName}</h2></div></div>}
     <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-sm" aria-label="Project workspace sections">{tabs.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => selectTab(id)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold whitespace-nowrap ${tab === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}><Icon className="h-3.5 w-3.5" />{label}</button>)}</nav>
     {tab === "invoices" && <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} onUploadInvoice={onUploadInvoice} onSaveAllocations={onSaveInvoiceAllocations} />}

@@ -3,7 +3,6 @@ import { AlertCircle, CheckCircle2, Cloud, Loader2, X } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { Header, AppTab } from "./components/Header";
 import { AuthScreen } from "./components/auth";
-import { Dashboard } from "./components/Dashboard";
 import { UploadZone, ExtractPayload } from "./components/UploadZone";
 import { InvoiceDirectory } from "./components/InvoiceDirectory";
 import { EmailInbox } from "./components/EmailInbox";
@@ -13,7 +12,7 @@ import { ReviewQueue } from "./components/ReviewQueue";
 import { VerificationWorkspace } from "./components/VerificationWorkspace";
 import type { SaveState } from "./components/VerificationWorkspace";
 import { Settings as SettingsScreen } from "./components/Settings";
-import { EngineeringDashboard } from "./components/engineering/EngineeringDashboard";
+import { EngineeringCostOperationsDashboard } from "./components/engineering/EngineeringCostOperationsDashboard";
 import { ProjectReports } from "./components/engineering/ProjectReports";
 import { ProjectsPage } from "./components/projects/ProjectsPage";
 import { PayrollOperatingCosts } from "./components/engineering/PayrollOperatingCosts";
@@ -30,6 +29,9 @@ import { readAndCleanLocalInvoices } from "./utils/demoCleanup";
 import { enqueueSerializedSave } from "./utils/saveSequencing";
 import { currencySymbolFor, DEFAULT_CURRENCY, loadRegionalSettings, RegionalSettings, setRegionalSettings as setActiveRegionalSettings } from "./config/regional";
 import { calculateProjectCost } from "./utils/projectCosting";
+import type { DashboardActivityPeriod } from "./components/engineering/EngineeringCostOperationsDashboard";
+import { buildDashboardViewData } from "./utils/dashboardViewModel";
+import { buildProjectDashboardViewData } from "./utils/projectDashboardViewModel";
 import { calculatePayrollRunFromWorkEntries } from "./lib/payrollCalculation";
 import { buildAutomaticPayrollDraft, createDefaultPayrollSchedule, dateOnly, ensurePayrollPeriodsAndRuns, payrollDraftToRecords } from "./lib/payrollWorkflow";
 import type { PayrollSchedule } from "./lib/payrollSchedule";
@@ -64,7 +66,7 @@ import {
 } from "./lib/projects";
 import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
 import { canTransitionPayrollRun, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
-import { selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
+import { isSafeToRetirePayrollPeriod, isSafeToRetirePayrollRun, selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
 import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
@@ -166,6 +168,11 @@ export default function App() {
   const [workspaceOrigin, setWorkspaceOrigin] = useState<AppTab>("dashboard");
   const [route, setRoute] = useState<AppLocation>(initialAppLocation);
   const [activeTab, setActiveTabState] = useState<AppTab>(() => initialAppLocation().tab);
+  const [dashboardActivityPeriod, setDashboardActivityPeriod] = useState<DashboardActivityPeriod>("MONTH");
+  const [dashboardCustomStart, setDashboardCustomStart] = useState("");
+  const [dashboardCustomEnd, setDashboardCustomEnd] = useState("");
+  const [dashboardCurrency, setDashboardCurrency] = useState("");
+  const [dashboardProjectId, setDashboardProjectId] = useState("");
   const [workspaceReturnPath, setWorkspaceReturnPath] = useState<string>(appPathForTab(initialAppLocation().tab));
   const routeSignatureRef = useRef("");
   const [processingCount, setProcessingCount] = useState(0);
@@ -1065,6 +1072,51 @@ export default function App() {
     }
   };
 
+  const handleRepairPayrollData = async () => {
+    const snapshot = payrollDataRef.current;
+    const primary = selectPrimaryPayrollSchedule(snapshot.schedules);
+    if (!primary) { showNotification("info", "No payroll schedule is available to repair."); return; }
+    const ensured = ensurePayrollPeriodsAndRuns({ schedules: [primary], periods: snapshot.periods, runs: snapshot.runs, entries: snapshot.entries, workEntries: snapshot.workEntries, importBatches: payrollImportData.batches, referenceDate: dateOnly(), previous: 2, next: 2 });
+    const next = { ...snapshot, periods: ensured.periods, runs: ensured.runs };
+    payrollDataRef.current = next;
+    setPayrollData(next);
+    payrollAutomationKeyRef.current = "";
+    if (session && supabase) {
+      for (const period of ensured.periods) {
+        const previous = snapshot.periods.find((candidate) => candidate.id === period.id);
+        if (!previous || previous.status !== period.status || previous.notes !== period.notes || previous.scheduleVersionId !== period.scheduleVersionId) await savePayrollPeriodToSupabase(period);
+      }
+      for (const run of ensured.runs) {
+        const previous = snapshot.runs.find((candidate) => candidate.id === run.id);
+        if (!previous || previous.status !== run.status || previous.notes !== run.notes) await savePayrollRunToSupabase(run);
+      }
+    }
+    showNotification("success", ensured.retiredPeriodIds.length ? `Payroll repair retired ${ensured.retiredPeriodIds.length} safe generated period${ensured.retiredPeriodIds.length === 1 ? "" : "s"}.` : "Payroll repair found no safe generated records to retire.");
+  };
+
+  const handleResetPayrollSetup = async () => {
+    await handleRepairPayrollData();
+    showNotification("success", "Payroll setup was safely reconciled. Finalized history and source data were preserved.");
+  };
+
+  const handleResetAllUnapprovedPayroll = async () => {
+    const snapshot = payrollDataRef.current;
+    const repairContext = { runs: snapshot.runs, entries: snapshot.entries, workEntries: snapshot.workEntries, importBatches: payrollImportData.batches };
+    const safePeriodIds = new Set(snapshot.periods.filter((period) => isSafeToRetirePayrollPeriod(period, repairContext)).map((period) => period.id));
+
+    const safeRunIds = new Set(snapshot.runs.filter((run) => isSafeToRetirePayrollRun(run, { entries: snapshot.entries, importBatches: payrollImportData.batches, adjustments: snapshot.adjustments })).map((run) => run.id));
+    const nextPeriods = snapshot.periods.map((period) => safePeriodIds.has(period.id) ? { ...period, status: "VOID" as const, notes: [period.notes, "Retired by the explicit unapproved payroll reset."].filter(Boolean).join(" "), updatedAt: new Date().toISOString() } : period);
+    const nextRuns = snapshot.runs.map((run) => safeRunIds.has(run.id) ? { ...run, status: "VOID" as const, notes: [run.notes, "Retired by the explicit unapproved payroll reset."].filter(Boolean).join(" ") } : run);
+    const next = { ...snapshot, periods: nextPeriods, runs: nextRuns };
+    payrollDataRef.current = next;
+    setPayrollData(next);
+    if (session && supabase) {
+      for (const period of nextPeriods.filter((candidate) => safePeriodIds.has(candidate.id))) await savePayrollPeriodToSupabase(period);
+      for (const run of nextRuns.filter((candidate) => safeRunIds.has(candidate.id))) await savePayrollRunToSupabase(run);
+    }
+    const retired = safePeriodIds.size + safeRunIds.size;
+    showNotification("success", retired ? `Retired ${safePeriodIds.size} empty generated period${safePeriodIds.size === 1 ? "" : "s"} and ${safeRunIds.size} empty draft run${safeRunIds.size === 1 ? "" : "s"}. Data-bearing and finalized payroll was protected.` : "No empty unapproved payroll records were eligible. Data-bearing and finalized payroll was protected.");
+  };
   const handleSaveCompensationProfile = async (profile: WorkerCompensationProfile) => {
     try {
       const saved = session && supabase ? await saveWorkerCompensationProfileToSupabase(profile) : profile;
@@ -1826,12 +1878,19 @@ export default function App() {
     ...invoice,
     allocations: invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id),
   })), [invoices, invoiceProjectAllocations]);
-  const costPayroll = useMemo(() => payrollData.runs.map((run) => ({
-    id: run.id,
-    status: run.status,
-    allocations: payrollData.allocations.filter((allocation) => payrollData.entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)),
-    entries: payrollData.entries.filter((entry) => entry.payrollRunId === run.id),
-  })), [payrollData.runs, payrollData.allocations, payrollData.entries]);
+  const costPayroll = useMemo(() => payrollData.runs.map((run) => {
+    const period = payrollData.periods.find((candidate) => candidate.id === run.periodId);
+    const entryIds = new Set(payrollData.entries.filter((entry) => entry.payrollRunId === run.id).map((entry) => entry.id));
+    return {
+      id: run.id,
+      status: run.status,
+      currency: "PHP",
+      periodStart: period?.periodStart,
+      periodEnd: period?.periodEnd,
+      allocations: payrollData.allocations.filter((allocation) => entryIds.has(allocation.payrollEntryId)),
+      entries: payrollData.entries.filter((entry) => entry.payrollRunId === run.id),
+    };
+  }), [payrollData.runs, payrollData.periods, payrollData.allocations, payrollData.entries]);
   const projectSummaries = useMemo<Record<string, ProjectCostSummary>>(() => {
     const next: Record<string, ProjectCostSummary> = {};
     projects.forEach((project) => { next[project.id] = calculateProjectCost(project, { invoices: costInvoices, payroll: costPayroll, expenses }); });
@@ -1839,7 +1898,24 @@ export default function App() {
     next.__unallocated__ = unallocated;
     return next;
   }, [projects, costInvoices, costPayroll, expenses]);
+  const dashboardViewData = useMemo(() => buildDashboardViewData({
+    projects,
+    invoices: costInvoices,
+    expenses,
+    payroll: costPayroll,
+    periods: payrollData.periods,
+    workers: payrollData.workers,
+    payrollEntries: payrollData.entries,
+    payrollAllocations: payrollData.allocations,
+    payrollRuns: payrollData.runs,
+    activityPeriod: dashboardActivityPeriod,
+    customStart: dashboardCustomStart,
+    customEnd: dashboardCustomEnd,
+    selectedCurrency: dashboardCurrency,
+    projectId: dashboardProjectId,
+  }), [projects, costInvoices, expenses, costPayroll, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
 
+  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: costPayroll, periods: payrollData.periods }) : undefined, [selectedProject, costInvoices, expenses, costPayroll, payrollData.periods]);
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").length;
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
@@ -1890,14 +1966,14 @@ export default function App() {
         {workspaceLoading && <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" />Loading workspace…</div>}
         {routeNotFound && <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-6"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-700">Navigation error</p><h2 className="mt-1 text-lg font-black text-rose-950">Page not found</h2><p className="mt-1 text-xs text-rose-900">The requested workspace record or destination is not available.</p><button type="button" onClick={() => navigateToPath(appPathForTab("dashboard"))} className="mt-4 rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white">Return to dashboard</button></div>}
 
-        {!routeNotFound && route.kind === "tab" && activeTab === "dashboard" && <div className="space-y-6"><Dashboard invoices={invoices} onOpenInvoice={openInvoice} onNavigate={setActiveTab} /><EngineeringDashboard projects={projects} summaries={projectSummaries} invoices={invoices} expenses={expenses} onNavigate={setActiveTab} /></div>}
-        {!routeNotFound && activeTab === "projects" && (selectedProject ? <ProjectWorkspace project={selectedProject} summary={projectSummaries[selectedProject.id] || calculateProjectCost(selectedProject, { invoices: costInvoices, payroll: costPayroll, expenses })} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} payrollAllocations={payrollData.allocations} payrollPeriods={payrollData.periods} initialTab={route.kind === "project" ? route.view : "overview"} onTabChange={(tab) => { if (route.kind === "project" && selectedProject) navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView)); }} onSaveInvoiceAllocations={handleSaveInvoiceProjectAllocations} onBack={() => navigateToPath(appPathForTab("projects"))} onOpenInvoice={openInvoice} onUploadInvoice={() => { setUploadProjectContextId(selectedProject.id); setWorkspaceOrigin("projects"); setWorkspaceReturnPath(appPathForProject(selectedProject.id, "invoices")); navigateToPath(appPathForTab("extractor")); }} onEditProject={() => editProject(selectedProject)} onArchiveProject={() => void handleArchiveProject(selectedProject)} onAddExpense={() => { setExpenseFormContext(selectedProject.id); navigateToPath(appPathForTab("expenses")); }} onOpenPayroll={() => setActiveTab("payroll")} /> : <ProjectsPage projects={projects} summaries={projectSummaries} initialEditingProject={projectFormSeed} onOpenProject={openProject} onSaveProject={(project) => void handleSaveProject(project)} onArchiveProject={(project) => void handleArchiveProject(project)} />)}
+        {!routeNotFound && route.kind === "tab" && activeTab === "dashboard" && <div className="space-y-6"><EngineeringCostOperationsDashboard data={dashboardViewData} projects={projects} selectedProjectId={dashboardProjectId} onProjectChange={(projectId) => { setDashboardProjectId(projectId); const project = projects.find((candidate) => candidate.id === projectId); if (project) setDashboardCurrency(project.currency.toUpperCase()); }} onActivityPeriodChange={setDashboardActivityPeriod} onCustomRangeChange={(start, end) => { setDashboardCustomStart(start); setDashboardCustomEnd(end); }} onCurrencyChange={setDashboardCurrency} onNavigate={setActiveTab} onOpenProject={(projectId) => { const project = projects.find((candidate) => candidate.id === projectId); if (project) openProject(project); }} onOpenInvoice={openInvoice} /></div>}
+        {!routeNotFound && activeTab === "projects" && (selectedProject ? <ProjectWorkspace project={selectedProject} summary={projectSummaries[selectedProject.id] || calculateProjectCost(selectedProject, { invoices: costInvoices, payroll: costPayroll, expenses })} dashboard={projectDashboard} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} payrollAllocations={payrollData.allocations} payrollPeriods={payrollData.periods} initialTab={route.kind === "project" ? route.view : "overview"} onTabChange={(tab) => { if (route.kind === "project" && selectedProject) navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView)); }} onSaveInvoiceAllocations={handleSaveInvoiceProjectAllocations} onBack={() => navigateToPath(appPathForTab("projects"))} onOpenInvoice={openInvoice} onUploadInvoice={() => { setUploadProjectContextId(selectedProject.id); setWorkspaceOrigin("projects"); setWorkspaceReturnPath(appPathForProject(selectedProject.id, "invoices")); navigateToPath(appPathForTab("extractor")); }} onEditProject={() => editProject(selectedProject)} onArchiveProject={() => void handleArchiveProject(selectedProject)} onAddExpense={() => { setExpenseFormContext(selectedProject.id); navigateToPath(appPathForTab("expenses")); }} onOpenPayroll={() => setActiveTab("payroll")} /> : <ProjectsPage projects={projects} summaries={projectSummaries} initialEditingProject={projectFormSeed} onOpenProject={openProject} onSaveProject={(project) => void handleSaveProject(project)} onArchiveProject={(project) => void handleArchiveProject(project)} />)}
         {!routeNotFound && (route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice && <div className="space-y-5"><VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} projects={projects} invoiceProjectAllocations={invoiceProjectAllocations} preferredProjectId={uploadProjectContextId || undefined} onSaveProjectAllocations={handleSaveInvoiceProjectAllocations} /></div>}
         {!routeNotFound && route.kind === "tab" && activeTab === "extractor" && <div className="space-y-5"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div>}
         {!routeNotFound && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={handleSignOut} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
-        {!routeNotFound && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} />}
+        {!routeNotFound && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} onRepairPayrollData={() => void handleRepairPayrollData()} onResetPayrollSetup={() => void handleResetPayrollSetup()} onResetAllUnapprovedPayroll={() => void handleResetAllUnapprovedPayroll()} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "vendors" && <Vendors invoices={invoices} />}
         {!routeNotFound && route.kind === "tab" && activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><PayrollOperatingCosts runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}

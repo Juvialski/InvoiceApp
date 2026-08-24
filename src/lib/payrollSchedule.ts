@@ -98,6 +98,28 @@ export interface GeneratedPayrollPeriod {
   active: boolean;
 }
 
+/** The canonical date shape produced by a schedule version. */
+export interface PayrollPeriodShape {
+  periodStart: DateOnly;
+  periodEnd: DateOnly;
+  payDate?: DateOnly;
+}
+
+export type PayrollPeriodShapeInput = {
+  periodStart: string;
+  periodEnd: string;
+  payDate?: string;
+  scheduleId?: string;
+  scheduleVersionId?: string;
+};
+
+export interface PayrollPeriodShapeValidationResult {
+  valid: boolean;
+  issues: string[];
+  actual?: PayrollPeriodShape;
+  expected?: PayrollPeriodShape;
+}
+
 export interface ScheduledPayrollPeriod extends GeneratedPayrollPeriod {
   id?: string;
   locked?: boolean;
@@ -206,9 +228,14 @@ function versionFromSchedule(schedule: PayrollSchedule): PayrollScheduleVersion 
   };
 }
 
+/** Returns persisted versions, with the legacy schedule-level configuration represented as v1. */
+export function getPayrollScheduleVersions(schedule: PayrollSchedule): PayrollScheduleVersion[] {
+  return schedule.versions?.length ? schedule.versions.slice() : [versionFromSchedule(schedule)];
+}
+
 export function resolvePayrollScheduleVersion(schedule: PayrollSchedule, referenceDate: DateOnly): PayrollScheduleVersion {
   assertValidDateOnly(referenceDate, "referenceDate");
-  const versions = (schedule.versions?.length ? schedule.versions : [versionFromSchedule(schedule)])
+  const versions = getPayrollScheduleVersions(schedule)
     .filter((version) => version.active && compareDates(version.effectiveFrom, referenceDate) <= 0 && (!version.effectiveTo || compareDates(referenceDate, version.effectiveTo) <= 0))
     .sort((left, right) => left.version - right.version || compareDates(left.effectiveFrom, right.effectiveFrom));
   const resolved = versions.at(-1) || (schedule.versions?.find((version) => version.active) || versionFromSchedule(schedule));
@@ -252,7 +279,8 @@ function validateConfiguration(configuration: PayrollScheduleConfiguration, issu
   if (configuration.customPeriodStartDay !== undefined && (!Number.isInteger(configuration.customPeriodStartDay) || configuration.customPeriodStartDay < 1 || configuration.customPeriodStartDay > 31)) issues.push("customPeriodStartDay must be between 1 and 31.");
   if (configuration.customPeriodEndDay !== undefined && (!Number.isInteger(configuration.customPeriodEndDay) || configuration.customPeriodEndDay < 1 || configuration.customPeriodEndDay > 31)) issues.push("customPeriodEndDay must be between 1 and 31.");
   if (configuration.frequency === "BIWEEKLY" && !configuration.anchorPeriodEnd) issues.push("BIWEEKLY schedules require anchorPeriodEnd.");
-  if (configuration.frequency === "CUSTOM" && !configuration.customCutoffDay && !configuration.customPeriodLengthDays && !configuration.customPeriodEndDay) issues.push("CUSTOM schedules require a cutoff day, period length, or end day.");
+  if (configuration.frequency === "CUSTOM" && !configuration.customCutoffDay && !configuration.customPeriodLengthDays && !configuration.customPeriodStartDay && !configuration.customPeriodEndDay) issues.push("CUSTOM schedules require a cutoff day, period length, or custom period boundary.");
+  if (configuration.frequency === "CUSTOM" && (configuration.customPeriodStartDay !== undefined) !== (configuration.customPeriodEndDay !== undefined)) issues.push("CUSTOM schedules require both customPeriodStartDay and customPeriodEndDay when using explicit monthly boundaries.");
   if (configuration.customPeriodLengthDays && !configuration.anchorPeriodEnd) issues.push("Length-based CUSTOM schedules require anchorPeriodEnd.");
 }
 
@@ -302,6 +330,26 @@ function monthlyCutoffPeriod(referenceDate: DateOnly, cutoffDay: number): [DateO
   return [addDateDays(thisMonthEnd, 1), monthDate(next.year, next.month, cutoffDay)];
 }
 
+function monthlyCustomBoundaryPeriod(referenceDate: DateOnly, startDay: number, endDay: number): [DateOnly, DateOnly] {
+  const source = utcDate(referenceDate);
+  const year = source.getUTCFullYear();
+  const month = source.getUTCMonth() + 1;
+  const next = monthAfter(referenceDate, 1);
+  const currentStart = monthDate(year, month, startDay);
+  const currentEnd = startDay <= endDay ? monthDate(year, month, endDay) : monthDate(next.year, next.month, endDay);
+  if (compareDates(referenceDate, currentStart) < 0) {
+    const previous = monthAfter(referenceDate, -1);
+    const previousStart = monthDate(previous.year, previous.month, startDay);
+    const previousEnd = startDay <= endDay ? monthDate(previous.year, previous.month, endDay) : monthDate(year, month, endDay);
+    return [previousStart, previousEnd];
+  }
+  if (compareDates(referenceDate, currentEnd) <= 0) return [currentStart, currentEnd];
+  const nextStart = monthDate(next.year, next.month, startDay);
+  const following = monthAfter(nextStart, 1);
+  const nextEnd = startDay <= endDay ? monthDate(next.year, next.month, endDay) : monthDate(following.year, following.month, endDay);
+  return [nextStart, nextEnd];
+}
+
 function basePeriodFor(version: PayrollScheduleVersion, referenceDate: DateOnly): [DateOnly, DateOnly] {
   const source = utcDate(referenceDate);
   switch (version.frequency) {
@@ -317,6 +365,7 @@ function basePeriodFor(version: PayrollScheduleVersion, referenceDate: DateOnly)
     case "MONTHLY": return [monthDate(source.getUTCFullYear(), source.getUTCMonth() + 1, 1), monthDate(source.getUTCFullYear(), source.getUTCMonth() + 1, daysInMonth(source.getUTCFullYear(), source.getUTCMonth() + 1))];
     case "CUSTOM": {
       if (version.customPeriodLengthDays) return anchoredPeriod(version, referenceDate, version.customPeriodLengthDays);
+      if (version.customPeriodStartDay !== undefined && version.customPeriodEndDay !== undefined) return monthlyCustomBoundaryPeriod(referenceDate, version.customPeriodStartDay, version.customPeriodEndDay);
       return monthlyCutoffPeriod(referenceDate, version.customCutoffDay || version.customPeriodEndDay || 15);
     }
   }
@@ -325,8 +374,11 @@ function basePeriodFor(version: PayrollScheduleVersion, referenceDate: DateOnly)
 function periodForDate(version: PayrollScheduleVersion, referenceDate: DateOnly): [DateOnly, DateOnly] | undefined {
   const [rawStart, rawEnd] = basePeriodFor(version, referenceDate);
   if (compareDates(referenceDate, version.effectiveFrom) < 0) return undefined;
+  // Never persist a clipped transitional period for a fixed-frequency version.
+  if (compareDates(rawStart, version.effectiveFrom) < 0) return undefined;
   if (version.effectiveTo && compareDates(rawStart, version.effectiveTo) > 0) return undefined;
-  return [compareDates(rawStart, version.effectiveFrom) < 0 ? version.effectiveFrom : rawStart, rawEnd];
+  if (version.effectiveTo && compareDates(rawEnd, version.effectiveTo) > 0) return undefined;
+  return [rawStart, rawEnd];
 }
 
 export function calculatePayrollPayDate(periodEnd: DateOnly, rule: PayrollPayDateRule): DateOnly | undefined {
@@ -369,6 +421,45 @@ export function generatePayrollPeriod(versionOrSchedule: PayrollScheduleVersion 
   };
 }
 
+export function getCanonicalPayrollPeriodShape(version: PayrollScheduleVersion, referenceDate: DateOnly): PayrollPeriodShape | undefined {
+  const generated = generatePayrollPeriod(version, referenceDate);
+  if (!generated) return undefined;
+  return {
+    periodStart: generated.periodStart,
+    periodEnd: generated.periodEnd,
+    ...(generated.payDate === undefined ? {} : { payDate: generated.payDate }),
+  };
+}
+
+export function validatePayrollPeriodShape(period: PayrollPeriodShapeInput, version: PayrollScheduleVersion): PayrollPeriodShapeValidationResult {
+  const issues: string[] = [];
+  if (!period || typeof period !== "object") return { valid: false, issues: ["Payroll period is required."] };
+  if (!version || typeof version !== "object") return { valid: false, issues: ["Payroll schedule version is required."] };
+  if (period.scheduleId !== undefined && period.scheduleId !== version.scheduleId) issues.push("Payroll period scheduleId does not match its schedule version.");
+  if (period.scheduleVersionId !== undefined && period.scheduleVersionId !== version.id) issues.push("Payroll period scheduleVersionId does not match its schedule version.");
+  if (!isValidDateOnly(period.periodStart)) issues.push("Payroll period periodStart must be a valid date-only value.");
+  if (!isValidDateOnly(period.periodEnd)) issues.push("Payroll period periodEnd must be a valid date-only value.");
+  if (period.payDate !== undefined && !isValidDateOnly(period.payDate)) issues.push("Payroll period payDate must be a valid date-only value.");
+
+  const actual: PayrollPeriodShape | undefined = isValidDateOnly(period.periodStart) && isValidDateOnly(period.periodEnd)
+    ? { periodStart: period.periodStart, periodEnd: period.periodEnd, ...(period.payDate === undefined || !isValidDateOnly(period.payDate) ? {} : { payDate: period.payDate }) }
+    : undefined;
+  let expected: PayrollPeriodShape | undefined;
+  if (actual) {
+    try {
+      expected = getCanonicalPayrollPeriodShape(version, actual.periodStart);
+    } catch (error) {
+      issues.push(error instanceof Error ? error.message : "Payroll period shape could not be generated.");
+    }
+    if (!expected) issues.push("Payroll period is outside its schedule version's effective range.");
+    else {
+      if (actual.periodStart !== expected.periodStart || actual.periodEnd !== expected.periodEnd) issues.push("Payroll period boundaries do not match the schedule version.");
+      if (actual.payDate !== undefined && actual.payDate !== expected.payDate) issues.push("Payroll period payDate does not match its schedule version.");
+    }
+  }
+  return { valid: issues.length === 0, issues, actual, expected };
+}
+
 export function generatePayrollPeriodsAroundReference(versionOrSchedule: PayrollScheduleVersion | PayrollSchedule, referenceDate: DateOnly, options: GeneratePeriodsOptions = {}): GeneratedPayrollPeriod[] {
   assertValidDateOnly(referenceDate, "referenceDate");
   const previousCount = options.previous ?? 1;
@@ -381,7 +472,8 @@ export function generatePayrollPeriodsAroundReference(versionOrSchedule: Payroll
   const version = "scheduleId" in versionOrSchedule ? versionOrSchedule : resolvePayrollScheduleVersion(versionOrSchedule, referenceDate);
   let previousDate = addDateDays(current.periodStart, -1);
   for (let index = 0; index < previousCount; index += 1) {
-    const previous = generatePayrollPeriod(version, previousDate);
+    const previousVersion = schedule ? resolvePayrollScheduleVersion(schedule, previousDate) : version;
+    const previous = generatePayrollPeriod(previousVersion, previousDate);
     if (!previous || (schedule && previous.periodEnd < schedule.effectiveFrom)) break;
     result.unshift(previous);
     previousDate = addDateDays(previous.periodStart, -1);

@@ -3,23 +3,31 @@ import type {
   ExpenseStatus,
   InvoiceData,
   InvoiceProjectAllocation,
-  PayrollProjectAllocation,
-  Project,
   PayrollEntry,
-  ProjectCostSummary,
   PayrollPeriodStatus,
+  PayrollProjectAllocation,
   PayrollRunStatus,
+  Project,
+  ProjectCostSummary,
 } from "../types.ts";
 
 export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid"> {
   allocations?: InvoiceProjectAllocation[];
+  invoiceDate?: string;
+  dueDate?: string;
+  balanceDue?: number;
 }
+
+export type CostPayrollEntry = Pick<PayrollEntry, "id" | "grossPay" | "costContext"> & Partial<Pick<PayrollEntry, "projectAllocatedCost">>;
 
 export interface CostPayrollRecord {
   id: string;
   status: PayrollPeriodStatus | PayrollRunStatus | string;
   currency?: string;
-  entries?: Array<Pick<PayrollEntry, "id" | "grossPay" | "costContext">>;
+  periodStart?: string;
+  periodEnd?: string;
+  payDate?: string;
+  entries?: CostPayrollEntry[];
   allocations: PayrollProjectAllocation[];
 }
 
@@ -27,211 +35,489 @@ export interface ProjectCostInput {
   invoices?: CostInvoice[];
   payroll?: CostPayrollRecord[];
   expenses?: Expense[];
+  /** Used for the company/unallocated bucket, where there is no project currency. */
+  baseCurrency?: string;
 }
 
-function money(value: number | undefined | null) {
-  return Math.round((Number(value) || 0) * 100) / 100;
+export interface ProjectCostSummaryWithCurrency extends ProjectCostSummary {
+  currency: string;
+  /** Confirmed administrative/general-overhead payroll, kept outside project labor. */
+  overheadCost: number;
+  /** Unconfirmed administrative/general-overhead payroll. */
+  pendingOverheadCost: number;
+  /** Confirmed payable balance for allocated verified invoices. */
+  payableCost: number;
+  /** Confirmed payable balance for unallocated invoice residuals. */
+  unallocatedInvoicePayable: number;
+  /** Unverified invoice residuals remain unallocated, not project pending. */
+  unallocatedPendingInvoiceCost: number;
+  /** Draft/calculated payroll residuals remain unallocated, not confirmed labor. */
+  unallocatedPendingPayrollCost: number;
+  /** Draft expense amounts without a project remain unallocated and pending. */
+  unallocatedPendingExpenseCost: number;
 }
 
-function currencyOf(value?: string) {
-  return (value || "").trim().toUpperCase();
+export interface PayrollProjectAmount {
+  total: number;
+  confirmed: number;
+  pending: number;
 }
 
-export function normalizedInvoiceAllocationAmount(invoiceTotal: number, allocation: Pick<InvoiceProjectAllocation, "allocationType" | "allocationAmount" | "allocationPercentage">) {
-  if (allocation.allocationType === "PERCENTAGE") return money(invoiceTotal * (Number(allocation.allocationPercentage) || 0) / 100);
-  return money(allocation.allocationAmount);
+export interface PayrollCostBreakdown {
+  currency: string;
+  projectAmountsById: Map<string, PayrollProjectAmount>;
+  projectConfirmed: number;
+  projectPending: number;
+  overheadConfirmed: number;
+  overheadPending: number;
+  unallocatedConfirmed: number;
+  unallocatedPending: number;
+  foreignCosts: Record<string, number>;
 }
 
-export function validateInvoiceAllocations(invoiceTotal: number, allocations: Array<Pick<InvoiceProjectAllocation, "allocationType" | "allocationAmount" | "allocationPercentage">>) {
-  const total = money(allocations.reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoiceTotal, allocation), 0));
-  const exceedsBy = money(Math.max(0, total - money(invoiceTotal)));
+export class MixedCurrencyError extends Error {
+  constructor(message = "Accounting totals cannot combine different currencies.") {
+    super(message);
+    this.name = "MixedCurrencyError";
+  }
+}
+
+export function roundMoney(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.round(numeric * 100) / 100 : 0;
+}
+
+function positiveMoney(value: unknown) {
+  return roundMoney(Math.max(0, Number(value) || 0));
+}
+
+export function normalizeCurrency(value?: string) {
+  return (value || "").trim().toUpperCase() || "UNKNOWN";
+}
+
+export function normalizedInvoiceAllocationAmount(
+  invoiceTotal: number,
+  allocation: Pick<InvoiceProjectAllocation, "allocationType" | "allocationAmount" | "allocationPercentage">,
+) {
+  const total = positiveMoney(invoiceTotal);
+  if (allocation.allocationType === "PERCENTAGE") {
+    return roundMoney(total * Math.max(0, Number.isFinite(Number(allocation.allocationPercentage)) ? Number(allocation.allocationPercentage) : 0) / 100);
+  }
+  return positiveMoney(allocation.allocationAmount);
+}
+
+export function invoiceAllocationAmountsByProject(invoice: Pick<CostInvoice, "grandTotal" | "allocations">) {
+  const amounts = new Map<string, number>();
+  for (const allocation of invoice.allocations || []) {
+    if (!allocation.projectId) continue;
+    const amount = normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation);
+    if (amount <= 0) continue;
+    amounts.set(allocation.projectId, roundMoney((amounts.get(allocation.projectId) || 0) + amount));
+  }
+  return amounts;
+}
+
+export function invoiceAllocationTotal(invoice: Pick<CostInvoice, "grandTotal" | "allocations">) {
+  return roundMoney([...invoiceAllocationAmountsByProject(invoice).values()].reduce((sum, amount) => sum + amount, 0));
+}
+
+export function invoiceResidualAmount(invoice: Pick<CostInvoice, "grandTotal" | "allocations">) {
+  return roundMoney(Math.max(0, positiveMoney(invoice.grandTotal) - invoiceAllocationTotal(invoice)));
+}
+
+export function validateInvoiceAllocations(
+  invoiceTotal: number,
+  allocations: Array<Pick<InvoiceProjectAllocation, "allocationType" | "allocationAmount" | "allocationPercentage">>,
+) {
+  const total = roundMoney(allocations.reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoiceTotal, allocation), 0));
+  const exceedsBy = roundMoney(Math.max(0, total - positiveMoney(invoiceTotal)));
   return {
     valid: exceedsBy <= 0.01,
     total,
-    remaining: money(Math.max(0, money(invoiceTotal) - total)),
+    remaining: roundMoney(Math.max(0, positiveMoney(invoiceTotal) - total)),
     exceedsBy,
     message: exceedsBy > 0.01 ? `Allocation exceeds invoice total by ${exceedsBy.toFixed(2)}.` : undefined,
   };
 }
 
-function invoiceAllocationAmount(invoice: CostInvoice, projectId?: string) {
-  return (invoice.allocations || [])
-    .filter((allocation) => !projectId || allocation.projectId === projectId)
-    .reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), 0);
-}
-
-function invoicePaidAmount(invoice: CostInvoice) {
-  const total = money(invoice.grandTotal);
-  const reported = Number(invoice.amountPaid);
-  if (invoice.status === "PAID" && !Number.isFinite(reported)) return total;
-  return money(Math.min(total, Math.max(0, Number.isFinite(reported) ? reported : 0)));
-}
-
 /**
- * Allocates an invoice-level payment across the invoice's project allocations.
- * Shares use a stable largest-remainder cent allocation so their rounded sum
- * cannot exceed the invoice-level payment.
+ * Returns the amount paid at invoice level. A PAID status is only a fallback
+ * when the source does not provide either amountPaid or balanceDue.
  */
-function invoicePaidAllocationAmounts(invoice: CostInvoice) {
-  const allocations = invoice.allocations || [];
-  const projectAmounts = new Map<string, { amount: number; order: number }>();
-  allocations.forEach((allocation, order) => {
-    const amount = Math.max(0, normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation));
-    const current = projectAmounts.get(allocation.projectId);
-    projectAmounts.set(allocation.projectId, { amount: (current?.amount || 0) + amount, order: current?.order ?? order });
-  });
-  const allocationTotal = money([...projectAmounts.values()].reduce((sum, allocation) => sum + allocation.amount, 0));
-  const denominator = Math.max(money(invoice.grandTotal), allocationTotal);
-  const result = new Map<string, number>();
-  if (denominator <= 0) return result;
+export function invoicePaidAmount(invoice: Pick<CostInvoice, "grandTotal" | "amountPaid" | "status" | "balanceDue">) {
+  const total = positiveMoney(invoice.grandTotal);
+  const reportedPaid = Number(invoice.amountPaid);
+  if (Number.isFinite(reportedPaid)) return roundMoney(Math.min(total, Math.max(0, reportedPaid)));
+  const reportedBalance = Number(invoice.balanceDue);
+  if (Number.isFinite(reportedBalance)) return roundMoney(Math.max(0, total - Math.min(total, Math.max(0, reportedBalance))));
+  if (invoice.status === "PAID") return total;
+  return 0;
+}
 
-  const paidCents = Math.max(0, Math.round(invoicePaidAmount(invoice) * 100));
-  const targetCents = Math.min(paidCents, Math.floor(invoicePaidAmount(invoice) * allocationTotal / denominator * 100 + 1e-8));
-  const shares = [...projectAmounts.entries()].map(([projectId, details]) => {
-    const rawCents = invoicePaidAmount(invoice) * details.amount / denominator * 100;
+/** The invoice-level payable balance, intentionally separate from cost. */
+export function invoiceUnpaidBalance(invoice: Pick<CostInvoice, "grandTotal" | "amountPaid" | "status" | "balanceDue">) {
+  const total = positiveMoney(invoice.grandTotal);
+  const reportedBalance = Number(invoice.balanceDue);
+  if (Number.isFinite(reportedBalance)) return roundMoney(Math.min(total, Math.max(0, reportedBalance)));
+  return roundMoney(Math.max(0, total - invoicePaidAmount(invoice)));
+}
+
+export const unpaidBalance = invoiceUnpaidBalance;
+
+function invoicePaidAllocationAmounts(invoice: CostInvoice) {
+  const projectAmounts = invoiceAllocationAmountsByProject(invoice);
+  const allocationTotal = invoiceAllocationTotal(invoice);
+  const invoiceTotal = positiveMoney(invoice.grandTotal);
+  const paidTotal = invoicePaidAmount(invoice);
+  const result = new Map<string, number>();
+  if (allocationTotal <= 0 || invoiceTotal <= 0 || paidTotal <= 0) return result;
+
+  // Payment follows the confirmed allocation shares. Any unallocated invoice
+  // residual retains its own share of the invoice-level payment.
+  const paidForAllocatedPool = Math.min(paidTotal, paidTotal * Math.min(invoiceTotal, allocationTotal) / invoiceTotal);
+  const shares = [...projectAmounts.entries()].map(([projectId, amount], order) => {
+    const rawCents = paidForAllocatedPool * amount / allocationTotal * 100;
     const cents = Math.floor(rawCents + 1e-8);
-    return { projectId, order: details.order, cents, remainder: rawCents - cents };
+    return { projectId, order, cents, remainder: rawCents - cents };
   });
-  let remainingCents = targetCents - shares.reduce((sum, share) => sum + share.cents, 0);
+  let remainingCents = Math.max(0, Math.round(paidForAllocatedPool * 100) - shares.reduce((sum, share) => sum + share.cents, 0));
   shares.sort((left, right) => right.remainder - left.remainder || left.order - right.order);
   for (let index = 0; remainingCents > 0 && shares.length > 0; index += 1) {
     shares[index % shares.length].cents += 1;
     remainingCents -= 1;
   }
-  for (const share of shares) result.set(share.projectId, money(share.cents / 100));
+  for (const share of shares) result.set(share.projectId, roundMoney(share.cents / 100));
   return result;
 }
 
-function isConfirmedInvoice(invoice: CostInvoice) {
+function invoiceAllocationPayableAmount(invoice: CostInvoice, allocatedAmount: number, paidAmount: number) {
+  const total = positiveMoney(invoice.grandTotal);
+  if (allocatedAmount <= 0 || total <= 0) return 0;
+  const proportionalPayable = allocatedAmount * invoiceUnpaidBalance(invoice) / total;
+  return roundMoney(Math.min(Math.max(0, allocatedAmount - paidAmount), Math.max(0, proportionalPayable)));
+}
+
+export function isConfirmedInvoice(invoice: Pick<CostInvoice, "reviewStatus">) {
   return invoice.reviewStatus === "VERIFIED";
 }
 
-function isConfirmedPayroll(status: string) {
+export function isConfirmedPayroll(status: string) {
+  const normalized = status.toUpperCase();
+  return normalized === "APPROVED" || normalized === "PAID";
+}
+
+export function isVoidedPayroll(status: string) {
+  return status.toUpperCase() === "VOID";
+}
+
+export function isConfirmedExpense(status: ExpenseStatus) {
   return status === "APPROVED" || status === "PAID";
 }
 
-function isConfirmedExpense(status: ExpenseStatus) {
-  return status === "APPROVED" || status === "PAID";
+function payrollEntryBasis(entry: CostPayrollEntry) {
+  const projectAllocatedCost = Number(entry.projectAllocatedCost);
+  return positiveMoney(Number.isFinite(projectAllocatedCost) ? projectAllocatedCost : entry.grossPay);
+}
+
+function payrollAllocationTotalForEntry(allocations: PayrollProjectAllocation[], entryId: string) {
+  return roundMoney(allocations
+    .filter((allocation) => allocation.payrollEntryId === entryId)
+    .reduce((sum, allocation) => sum + positiveMoney(allocation.allocationAmount), 0));
 }
 
 /**
- * Central project-cost semantics used by project pages, dashboard summaries,
- * reports, and exports. Only the project's currency is added to numeric PHP
- * (or other base-currency) totals; foreign currencies are returned separately.
+ * Classifies payroll once for all consumers. Project allocations are separate
+ * from administrative/general overhead, and the entry residual is unallocated.
  */
-export function calculateProjectCost(project: Pick<Project, "id" | "projectBudget" | "currency"> | undefined, input: ProjectCostInput): ProjectCostSummary {
+export function payrollRecordCostBreakdown(record: CostPayrollRecord, baseCurrency = "PHP"): PayrollCostBreakdown {
+  const recordCurrency = normalizeCurrency(record.currency || baseCurrency);
+  const targetCurrency = normalizeCurrency(baseCurrency);
+  const confirmed = isConfirmedPayroll(record.status);
+  const voided = isVoidedPayroll(record.status);
+  const result: PayrollCostBreakdown = {
+    currency: recordCurrency,
+    projectAmountsById: new Map(),
+    projectConfirmed: 0,
+    projectPending: 0,
+    overheadConfirmed: 0,
+    overheadPending: 0,
+    unallocatedConfirmed: 0,
+    unallocatedPending: 0,
+    foreignCosts: {},
+  };
+  if (voided) return result;
+
+  const addForeign = (amount: number) => {
+    if (recordCurrency === targetCurrency || amount <= 0) return;
+    result.foreignCosts[recordCurrency] = roundMoney((result.foreignCosts[recordCurrency] || 0) + amount);
+  };
+  const addStatusAmount = (kind: "project" | "overhead" | "unallocated", amount: number) => {
+    const value = positiveMoney(amount);
+    if (!value) return;
+    if (recordCurrency !== targetCurrency) {
+      addForeign(value);
+      return;
+    }
+    if (kind === "project") {
+      if (confirmed) result.projectConfirmed = roundMoney(result.projectConfirmed + value);
+      else result.projectPending = roundMoney(result.projectPending + value);
+    } else if (kind === "overhead") {
+      if (confirmed) result.overheadConfirmed = roundMoney(result.overheadConfirmed + value);
+      else result.overheadPending = roundMoney(result.overheadPending + value);
+    } else if (confirmed) result.unallocatedConfirmed = roundMoney(result.unallocatedConfirmed + value);
+    else result.unallocatedPending = roundMoney(result.unallocatedPending + value);
+  };
+
+  const entries = record.entries || [];
+  const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+  for (const allocation of record.allocations || []) {
+    const amount = positiveMoney(allocation.allocationAmount);
+    if (!amount || !allocation.projectId) continue;
+    const entry = entriesById.get(allocation.payrollEntryId);
+    if (entry?.costContext?.type === "ADMIN_OFFICE" || entry?.costContext?.type === "GENERAL_OVERHEAD") continue;
+    const current = result.projectAmountsById.get(allocation.projectId) || { total: 0, confirmed: 0, pending: 0 };
+    current.total = roundMoney(current.total + amount);
+    if (confirmed) current.confirmed = roundMoney(current.confirmed + amount);
+    else current.pending = roundMoney(current.pending + amount);
+    result.projectAmountsById.set(allocation.projectId, current);
+    addStatusAmount("project", amount);
+  }
+
+  for (const entry of entries) {
+    const basis = payrollEntryBasis(entry);
+    if (!basis) continue;
+    const context = entry.costContext?.type;
+    if (context === "ADMIN_OFFICE" || context === "GENERAL_OVERHEAD") {
+      addStatusAmount("overhead", basis);
+      continue;
+    }
+    const allocatedAmount = payrollAllocationTotalForEntry(record.allocations || [], entry.id);
+    const residual = roundMoney(Math.max(0, basis - allocatedAmount));
+    addStatusAmount("unallocated", residual);
+  }
+
+  return result;
+}
+
+/**
+ * Central project-cost semantics. Verified invoice allocations are confirmed
+ * regardless of payment status; payment only affects the separate paid and
+ * payable fields. All numeric totals are kept in the requested currency.
+ */
+export function calculateProjectCost(
+  project: Pick<Project, "id" | "projectBudget" | "currency"> | undefined,
+  input: ProjectCostInput,
+): ProjectCostSummaryWithCurrency {
   const projectId = project?.id;
-  const baseCurrency = currencyOf(project?.currency || "PHP") || "PHP";
-  const summary: ProjectCostSummary = {
+  const baseCurrency = normalizeCurrency(project?.currency || input.baseCurrency || "PHP");
+  const summary: ProjectCostSummaryWithCurrency = {
     projectId,
-    budget: money(project?.projectBudget),
+    currency: baseCurrency,
+    budget: positiveMoney(project?.projectBudget),
     invoiceCost: 0,
     paidInvoiceCost: 0,
     unpaidInvoiceCost: 0,
-    pendingInvoiceCost: 0,
     unallocatedPayrollCost: 0,
+    pendingInvoiceCost: 0,
     payrollCost: 0,
     pendingPayrollCost: 0,
     otherExpenseCost: 0,
     pendingExpenseCost: 0,
     totalActualCost: 0,
     committedCost: 0,
-    remainingBudget: money(project?.projectBudget),
+    remainingBudget: positiveMoney(project?.projectBudget),
     budgetUsedPercent: 0,
     foreignCosts: {},
     unallocatedInvoiceCost: 0,
     unallocatedExpenseCost: 0,
+    overheadCost: 0,
+    pendingOverheadCost: 0,
+    payableCost: 0,
+    unallocatedInvoicePayable: 0,
+    unallocatedPendingInvoiceCost: 0,
+    unallocatedPendingPayrollCost: 0,
+    unallocatedPendingExpenseCost: 0,
+  };
+
+  const addForeign = (code: string, amount: number) => {
+    const value = positiveMoney(amount);
+    if (!value) return;
+    summary.foreignCosts[code] = roundMoney((summary.foreignCosts[code] || 0) + value);
   };
 
   for (const invoice of input.invoices || []) {
-    const amount = money(invoiceAllocationAmount(invoice, projectId));
-    const hasAllocation = Boolean(invoice.allocations?.length);
-    if (!projectId && !hasAllocation) {
-      if (currencyOf(invoice.currency) === baseCurrency) summary.unallocatedInvoiceCost += money(invoice.grandTotal);
-      else if (invoice.currency) summary.foreignCosts[currencyOf(invoice.currency)] = money((summary.foreignCosts[currencyOf(invoice.currency)] || 0) + money(invoice.grandTotal));
+    const invoiceCurrency = normalizeCurrency(invoice.currency);
+    const byProject = invoiceAllocationAmountsByProject(invoice);
+    const allocationTotal = invoiceAllocationTotal(invoice);
+    const allocationAmount = projectId ? byProject.get(projectId) || 0 : 0;
+    const residual = roundMoney(Math.max(0, positiveMoney(invoice.grandTotal) - allocationTotal));
+
+    if (projectId) {
+      if (!allocationAmount) continue;
+      if (invoiceCurrency !== baseCurrency) {
+        addForeign(invoiceCurrency, allocationAmount);
+        continue;
+      }
+      if (!isConfirmedInvoice(invoice)) {
+        summary.pendingInvoiceCost = roundMoney(summary.pendingInvoiceCost + allocationAmount);
+        continue;
+      }
+      const paidAmount = invoicePaidAllocationAmounts(invoice).get(projectId) || 0;
+      const payableAmount = invoiceAllocationPayableAmount(invoice, allocationAmount, paidAmount);
+      summary.invoiceCost = roundMoney(summary.invoiceCost + allocationAmount);
+      summary.paidInvoiceCost = roundMoney(summary.paidInvoiceCost + paidAmount);
+      summary.unpaidInvoiceCost = roundMoney(summary.unpaidInvoiceCost + payableAmount);
+      summary.payableCost = roundMoney(summary.payableCost + payableAmount);
+      summary.committedCost = roundMoney(summary.committedCost + payableAmount);
       continue;
     }
-    if (!projectId || amount <= 0) continue;
-    const invoiceCurrency = currencyOf(invoice.currency);
+
+    // The no-project summary is the company unallocated bucket. Only the
+    // positive residual is unallocated; allocated project amounts are not.
+    if (!residual) continue;
     if (invoiceCurrency !== baseCurrency) {
-      summary.foreignCosts[invoiceCurrency || "UNKNOWN"] = money((summary.foreignCosts[invoiceCurrency || "UNKNOWN"] || 0) + amount);
+      addForeign(invoiceCurrency, residual);
       continue;
     }
-    if (!isConfirmedInvoice(invoice)) {
-      summary.pendingInvoiceCost += amount;
-      continue;
+    if (isConfirmedInvoice(invoice)) {
+      summary.unallocatedInvoiceCost = roundMoney(summary.unallocatedInvoiceCost + residual);
+      const invoiceTotal = positiveMoney(invoice.grandTotal);
+      const payable = invoiceTotal ? roundMoney(residual * invoiceUnpaidBalance(invoice) / invoiceTotal) : 0;
+      summary.unallocatedInvoicePayable = roundMoney(summary.unallocatedInvoicePayable + payable);
+    } else {
+      summary.unallocatedPendingInvoiceCost = roundMoney(summary.unallocatedPendingInvoiceCost + residual);
     }
-    summary.invoiceCost += amount;
-    const paidAmount = invoicePaidAllocationAmounts(invoice).get(projectId) || 0;
-    const unpaidAmount = money(Math.max(0, amount - paidAmount));
-    summary.paidInvoiceCost += paidAmount;
-    summary.unpaidInvoiceCost += unpaidAmount;
-    if (unpaidAmount > 0) summary.committedCost += unpaidAmount;
   }
 
   for (const payroll of input.payroll || []) {
-    if (!projectId) {
-      for (const entry of payroll.entries || []) {
-        if (payroll.status !== "VOID" && (!entry.costContext || entry.costContext.type === "UNALLOCATED_REVIEW")) summary.unallocatedPayrollCost += money(entry.grossPay);
+    const breakdown = payrollRecordCostBreakdown(payroll, baseCurrency);
+    if (projectId) {
+      const projectAmount = breakdown.projectAmountsById.get(projectId);
+      if (projectAmount) {
+        if (breakdown.currency === baseCurrency) {
+          summary.payrollCost = roundMoney(summary.payrollCost + projectAmount.confirmed);
+          summary.pendingPayrollCost = roundMoney(summary.pendingPayrollCost + projectAmount.pending);
+        } else {
+          addForeign(breakdown.currency, projectAmount.total);
+        }
       }
       continue;
     }
-    for (const allocation of payroll.allocations || []) {
-      if (allocation.projectId !== projectId) continue;
-      const amount = money(allocation.allocationAmount);
-      if (currencyOf(payroll.currency || baseCurrency) !== baseCurrency) {
-        const key = currencyOf(payroll.currency) || "UNKNOWN";
-        summary.foreignCosts[key] = money((summary.foreignCosts[key] || 0) + amount);
-      } else if (isConfirmedPayroll(payroll.status)) summary.payrollCost += amount;
-      else if (payroll.status !== "VOID") summary.pendingPayrollCost += amount;
-    }
+    summary.unallocatedPayrollCost = roundMoney(summary.unallocatedPayrollCost + breakdown.unallocatedConfirmed);
+    summary.unallocatedPendingPayrollCost = roundMoney(summary.unallocatedPendingPayrollCost + breakdown.unallocatedPending);
+    summary.overheadCost = roundMoney(summary.overheadCost + breakdown.overheadConfirmed);
+    summary.pendingOverheadCost = roundMoney(summary.pendingOverheadCost + breakdown.overheadPending);
+    for (const [code, amount] of Object.entries(breakdown.foreignCosts)) addForeign(code, amount);
   }
 
   for (const expense of input.expenses || []) {
-    if (!projectId && !expense.projectId) {
-      if (currencyOf(expense.currency) === baseCurrency) summary.unallocatedExpenseCost += money(expense.amount);
-      else if (expense.currency) summary.foreignCosts[currencyOf(expense.currency)] = money((summary.foreignCosts[currencyOf(expense.currency)] || 0) + money(expense.amount));
+    const amount = positiveMoney(expense.amount);
+    if (!amount || expense.status === "VOID" || expense.archivedAt) continue;
+    const expenseCurrency = normalizeCurrency(expense.currency);
+    if (projectId) {
+      if (expense.projectId !== projectId) continue;
+      if (expenseCurrency !== baseCurrency) {
+        addForeign(expenseCurrency, amount);
+      } else if (isConfirmedExpense(expense.status)) {
+        summary.otherExpenseCost = roundMoney(summary.otherExpenseCost + amount);
+      } else {
+        summary.pendingExpenseCost = roundMoney(summary.pendingExpenseCost + amount);
+      }
       continue;
     }
-    if (!projectId || expense.projectId !== projectId || expense.status === "VOID" || expense.archivedAt) continue;
-    if (currencyOf(expense.currency) !== baseCurrency) {
-      const key = currencyOf(expense.currency) || "UNKNOWN";
-      summary.foreignCosts[key] = money((summary.foreignCosts[key] || 0) + money(expense.amount));
-    } else if (isConfirmedExpense(expense.status)) summary.otherExpenseCost += money(expense.amount);
-    else summary.pendingExpenseCost += money(expense.amount);
+    if (expense.projectId) continue;
+    if (expenseCurrency !== baseCurrency) {
+      addForeign(expenseCurrency, amount);
+    } else if (isConfirmedExpense(expense.status)) {
+      summary.unallocatedExpenseCost = roundMoney(summary.unallocatedExpenseCost + amount);
+    } else {
+      summary.unallocatedPendingExpenseCost = roundMoney(summary.unallocatedPendingExpenseCost + amount);
+    }
   }
 
-  summary.totalActualCost = money(summary.invoiceCost + summary.payrollCost + summary.otherExpenseCost);
-  summary.remainingBudget = money(summary.budget - summary.totalActualCost);
-  summary.budgetUsedPercent = summary.budget > 0 ? money(summary.totalActualCost / summary.budget * 100) : 0;
+  summary.totalActualCost = roundMoney(summary.invoiceCost + summary.payrollCost + summary.otherExpenseCost);
+  summary.remainingBudget = roundMoney(summary.budget - summary.totalActualCost);
+  summary.budgetUsedPercent = summary.budget > 0 ? roundMoney(summary.totalActualCost / summary.budget * 100) : 0;
   return summary;
 }
+
+export const PROJECT_HEALTH_THRESHOLD_PERCENT = 90;
 
 export function projectHealth(summary: Pick<ProjectCostSummary, "budget" | "budgetUsedPercent" | "remainingBudget">) {
   if (summary.budget <= 0) return "NO BUDGET" as const;
   if (summary.remainingBudget < 0) return "OVER BUDGET" as const;
-  if (summary.budgetUsedPercent >= 90) return "NEAR LIMIT" as const;
+  if (summary.budgetUsedPercent >= PROJECT_HEALTH_THRESHOLD_PERCENT) return "NEAR LIMIT" as const;
   return "ON BUDGET" as const;
 }
 
-export function aggregateProjectCosts(summaries: ProjectCostSummary[]) {
-  return summaries.reduce((total, summary) => ({
-    ...total,
-    budget: money(total.budget + summary.budget),
-    invoiceCost: money(total.invoiceCost + summary.invoiceCost),
-    payrollCost: money(total.payrollCost + summary.payrollCost),
-    otherExpenseCost: money(total.otherExpenseCost + summary.otherExpenseCost),
-    totalActualCost: money(total.totalActualCost + summary.totalActualCost),
-    unallocatedPayrollCost: money(total.unallocatedPayrollCost + summary.unallocatedPayrollCost),
-    pendingInvoiceCost: money(total.pendingInvoiceCost + summary.pendingInvoiceCost),
-    pendingPayrollCost: money(total.pendingPayrollCost + summary.pendingPayrollCost),
-    pendingExpenseCost: money(total.pendingExpenseCost + summary.pendingExpenseCost),
-    unallocatedInvoiceCost: money(total.unallocatedInvoiceCost + summary.unallocatedInvoiceCost),
-    unallocatedExpenseCost: money(total.unallocatedExpenseCost + summary.unallocatedExpenseCost),
-  }), {
-    budget: 0, invoiceCost: 0, payrollCost: 0, otherExpenseCost: 0, totalActualCost: 0,
-    pendingInvoiceCost: 0, pendingPayrollCost: 0, pendingExpenseCost: 0,
-    unallocatedInvoiceCost: 0, unallocatedExpenseCost: 0,
+export interface AggregatedProjectCostSummary extends Omit<ProjectCostSummaryWithCurrency, "projectId" | "currency"> {
+  projectId?: undefined;
+  currency?: string;
+}
+
+function emptyAggregate(currency?: string): AggregatedProjectCostSummary {
+  return {
+    ...(currency ? { currency } : {}),
+    budget: 0,
+    invoiceCost: 0,
+    paidInvoiceCost: 0,
+    unpaidInvoiceCost: 0,
     unallocatedPayrollCost: 0,
-  });
+    pendingInvoiceCost: 0,
+    payrollCost: 0,
+    pendingPayrollCost: 0,
+    otherExpenseCost: 0,
+    pendingExpenseCost: 0,
+    totalActualCost: 0,
+    committedCost: 0,
+    remainingBudget: 0,
+    budgetUsedPercent: 0,
+    foreignCosts: {},
+    unallocatedInvoiceCost: 0,
+    unallocatedExpenseCost: 0,
+    overheadCost: 0,
+    pendingOverheadCost: 0,
+    payableCost: 0,
+    unallocatedInvoicePayable: 0,
+    unallocatedPendingInvoiceCost: 0,
+    unallocatedPendingPayrollCost: 0,
+    unallocatedPendingExpenseCost: 0,
+  };
+}
+
+function addSummary(target: AggregatedProjectCostSummary, source: ProjectCostSummary) {
+  const numericKeys: Array<keyof Omit<ProjectCostSummaryWithCurrency, "projectId" | "currency" | "foreignCosts">> = [
+    "budget", "invoiceCost", "paidInvoiceCost", "unpaidInvoiceCost", "unallocatedPayrollCost", "pendingInvoiceCost",
+    "payrollCost", "pendingPayrollCost", "otherExpenseCost", "pendingExpenseCost", "totalActualCost", "committedCost",
+    "remainingBudget", "overheadCost", "pendingOverheadCost", "payableCost", "unallocatedInvoicePayable",
+    "unallocatedPendingInvoiceCost", "unallocatedPendingPayrollCost", "unallocatedPendingExpenseCost",
+  ];
+  for (const key of numericKeys) target[key] = roundMoney(Number(target[key] || 0) + Number((source as Partial<ProjectCostSummaryWithCurrency>)[key] || 0));
+  target.budgetUsedPercent = target.budget > 0 ? roundMoney(target.totalActualCost / target.budget * 100) : 0;
+  target.unallocatedInvoiceCost = roundMoney(target.unallocatedInvoiceCost + source.unallocatedInvoiceCost);
+  target.unallocatedExpenseCost = roundMoney(target.unallocatedExpenseCost + source.unallocatedExpenseCost);
+  for (const [code, amount] of Object.entries(source.foreignCosts || {})) target.foreignCosts[code] = roundMoney((target.foreignCosts[code] || 0) + amount);
+}
+
+function summaryCurrency(summary: ProjectCostSummary) {
+  return "currency" in summary ? normalizeCurrency((summary as ProjectCostSummaryWithCurrency).currency) : undefined;
+}
+
+export function aggregateProjectCosts(summaries: ProjectCostSummary[], targetCurrency?: string): AggregatedProjectCostSummary {
+  const currencies = [...new Set(summaries.map(summaryCurrency).filter((code): code is string => Boolean(code)))];
+  const target = targetCurrency ? normalizeCurrency(targetCurrency) : undefined;
+  if (!target && currencies.length > 1) throw new MixedCurrencyError(`Cannot aggregate ${currencies.join(", ")} into one project-cost total.`);
+  const selected = target ? summaries.filter((summary) => !summaryCurrency(summary) || summaryCurrency(summary) === target) : summaries;
+  const aggregate = emptyAggregate(target || currencies[0]);
+  for (const summary of selected) addSummary(aggregate, summary);
+  return aggregate;
+}
+
+export function aggregateProjectCostsByCurrency(summaries: ProjectCostSummary[]) {
+  const groups: Record<string, ProjectCostSummary[]> = {};
+  for (const summary of summaries) {
+    const code = summaryCurrency(summary) || "UNKNOWN";
+    (groups[code] ||= []).push(summary);
+  }
+  return Object.fromEntries(Object.entries(groups).map(([code, items]) => [code, aggregateProjectCosts(items, code)])) as Record<string, AggregatedProjectCostSummary>;
 }

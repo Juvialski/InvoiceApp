@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import type { PayrollEntry, PayrollPeriod, PayrollRun } from "../../types";
 import type { PayrollImportBatch } from "../../lib/payrollImportPersistence";
+import type { PayrollSchedule } from "../../lib/payrollSchedule";
 import { PayrollPeriodsOverview } from "./PayrollPeriodsOverview";
+import { payrollPeriodFrequencyLabel } from "../../lib/payrollIntegrity";
 import {
   buildPayrollMonthGrid,
   getImportedActivity,
@@ -54,6 +56,7 @@ export interface PayrollCalendarProps {
   onOpenOverview?: (period: PayrollPeriod) => void;
   onOpenRun?: (run: PayrollRun, period: PayrollPeriod) => void;
   frequencyLabel?: string;
+  schedules?: readonly PayrollSchedule[];
   className?: string;
 }
 
@@ -423,6 +426,7 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
   onOpenOverview,
   onOpenRun,
   frequencyLabel,
+  schedules,
   className = "",
 }) => {
   const today = useMemo(() => getLocalToday(), []);
@@ -468,7 +472,7 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
 
       {conflicts.find((conflict) => conflict.overlapEnd >= today) && <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><AlertTriangle className="h-3.5 w-3.5" /><strong>Payroll schedule conflict.</strong><span>Active payroll periods overlap. Review before calculating.</span></div>}
       {view === "month" && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
-        <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-indigo-600" /><p className="text-sm font-black text-slate-900">{formatMonth(cursor)}</p>{frequencyLabel && <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold text-slate-500">{frequencyLabel}</span>}</div>
+        <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-indigo-600" /><p className="text-sm font-black text-slate-900">{formatMonth(cursor)}</p>{frequencyLabel && !schedules && <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold text-slate-500">{frequencyLabel}</span>}</div>
         <div className="flex flex-wrap items-center gap-2 text-[9px] font-semibold text-slate-500">
           <span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-sky-500" /> Today</span>
           <span className="inline-flex items-center gap-1 text-rose-700"><Scissors className="h-2.5 w-2.5" /> Cutoff</span>
@@ -477,7 +481,7 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
         </div>
       </div>}
 
-      {view === "periods" ? <PayrollPeriodsOverview periods={periods} runs={runs} entries={entries} importBatches={importBatches} automaticDrafts={automaticDrafts} automaticDraft={selectedDraft} selectedPeriodId={selectedId} frequencyLabel={frequencyLabel} today={today} onSelectPeriod={onSelectPeriod} onOpenOverview={onOpenOverview} /> : <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+      {view === "periods" ? <PayrollPeriodsOverview periods={periods} runs={runs} entries={entries} importBatches={importBatches} automaticDrafts={automaticDrafts} automaticDraft={selectedDraft} selectedPeriodId={selectedId} frequencyLabel={frequencyLabel} schedules={schedules} today={today} onSelectPeriod={onSelectPeriod} onOpenOverview={onOpenOverview} /> : <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="hidden min-w-0 md:block">
           <div role="grid" aria-label={`Payroll calendar for ${formatMonth(cursor)}`} className="overflow-hidden rounded-xl border border-slate-200">
             <div className="grid grid-cols-7 bg-slate-50" role="row">
@@ -501,7 +505,7 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
           importBatches={importBatches}
           automaticDrafts={automaticDrafts}
           automaticDraft={selectedDraft}
-          frequencyLabel={frequencyLabel}
+          frequencyLabel={selectedPeriod ? payrollPeriodFrequencyLabel(selectedPeriod, schedules || []) : frequencyLabel}
           onOpenOverview={onOpenOverview}
           onOpenRun={onOpenRun}
         />
