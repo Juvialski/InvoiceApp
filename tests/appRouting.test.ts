@@ -5,7 +5,10 @@ import {
   appPathForProject,
   appPathForReviewInvoice,
   appPathForTab,
+  appTabForLocation,
+  isKnownWorkspaceLocation,
   parseAppLocation,
+  PLATFORM_COMPANIES_PATH,
 } from "../src/utils/appRouting.ts";
 
 test("parses project and project-subview deep links", () => {
@@ -38,4 +41,11 @@ test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForProject("project 42", "expenses"), "/projects/project%2042/expenses");
   assert.equal(appPathForInvoice("invoice/7", "/projects/project-42/invoices"), "/invoices/invoice%2F7?from=%2Fprojects%2Fproject-42%2Finvoices");
   assert.equal(appPathForReviewInvoice("invoice-7", "/inbox"), "/review?invoiceId=invoice-7&from=%2Finbox");
+});
+
+test("treats platform company management as a first-class non-workspace route", () => {
+  const location = parseAppLocation(PLATFORM_COMPANIES_PATH);
+  assert.deepEqual(location, { kind: "platform-companies", pathname: PLATFORM_COMPANIES_PATH, search: "" });
+  assert.equal(appTabForLocation(location), "dashboard");
+  assert.equal(isKnownWorkspaceLocation(location), false);
 });

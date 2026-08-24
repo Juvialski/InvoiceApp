@@ -73,7 +73,7 @@ The project keeps the original AI Studio-friendly architecture:
 - `/api/*` endpoints served by the same app
 - Supabase browser client uses public project URL + publishable key
 - ZIP is packaged with project files directly at root
-- no browser service-role key is required
+- the company AI envelope resolver uses a dedicated backend-only Supabase key
 
 Gemini extraction, Gmail classification, and Invoice Operations AI run through the Express server. Platform owners configure a separate Gemini key for each company under Manage Companies → AI Configuration. The server encrypts the key with `AI_CREDENTIALS_MASTER_KEY`; only safe metadata such as `Configured ••••ABCD` returns to the browser. The master key and Gemini keys must never be `VITE_` variables, stored in local/session storage, logged, or returned by an API.
 
@@ -81,12 +81,13 @@ Gemini extraction, Gmail classification, and Invoice Operations AI run through t
 
 ```env
 AI_CREDENTIALS_MASTER_KEY=BASE64_OF_32_RANDOM_BYTES
+SUPABASE_AI_SERVER_KEY=SUPABASE_SECRET_KEY_FOR_COMPANY_AI_ONLY
 ALLOW_GLOBAL_GEMINI_FALLBACK=false
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-Generate the server master key from 32 cryptographically random bytes, then base64-encode it. Store it as a deployment secret (for example in Render) and keep the value stable unless a planned credential re-encryption rotation is performed. `GEMINI_API_KEY` is retained only as an explicitly enabled local/demo transition: leave `ALLOW_GLOBAL_GEMINI_FALLBACK=false` in production so a company without a configured key fails with `AI_NOT_CONFIGURED_FOR_COMPANY` instead of consuming another company’s quota.
+Generate the server master key from 32 cryptographically random bytes, then base64-encode it. Store it as a deployment secret (for example in Render) and keep the value stable unless a planned credential re-encryption rotation is performed. `SUPABASE_AI_SERVER_KEY` is a separate backend-only Supabase secret/service-role-compatible key used only by the Express company AI envelope resolver; the browser and general persistence modules must never receive it. `GEMINI_API_KEY` is retained only as an explicitly enabled local/demo transition: leave `ALLOW_GLOBAL_GEMINI_FALLBACK=false` in production so a company without a configured key fails with `AI_NOT_CONFIGURED_FOR_COMPANY` instead of consuming another company’s quota.
 
 See **`SUPABASE_GMAIL_SETUP.md`** for the full Gmail + Google OAuth + migration setup.
 

@@ -3,7 +3,10 @@ import { getRouteForAppTab, normalizeRoutePath, resolveRoute, type RouteId } fro
 
 export type ProjectWorkspaceView = "overview" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
+export const PLATFORM_COMPANIES_PATH = "/platform/companies" as const;
+
 export type AppLocation =
+  | { kind: "platform-companies"; pathname: string; search: string }
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
   | { kind: "project"; tab: "projects"; routeId: "projects"; projectId: string; view: ProjectWorkspaceView; pathname: string; search: string }
   | { kind: "invoice"; tab: "invoices"; routeId: "invoices"; invoiceId: string; returnTo?: string; pathname: string; search: string }
@@ -34,6 +37,10 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
   const segments = normalizedPath.split("/").filter(Boolean).map(safeDecode);
   const from = query.get("from") || undefined;
 
+  if (normalizedPath === PLATFORM_COMPANIES_PATH) {
+    return { kind: "platform-companies", pathname: normalizedPath, search: normalizedSearch };
+  }
+
   if (segments[0] === "projects" && segments[1]) {
     const requestedView = segments[2] || query.get("view") || "overview";
     const view = PROJECT_VIEWS.has(requestedView as ProjectWorkspaceView)
@@ -55,6 +62,14 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
   }
 
   return { kind: "unknown", tab: "dashboard", routeId: null, pathname: normalizedPath, search: normalizedSearch };
+}
+
+export function appTabForLocation(location: AppLocation): AppTab {
+  return location.kind === "platform-companies" ? "dashboard" : location.tab;
+}
+
+export function isKnownWorkspaceLocation(location: AppLocation): location is Exclude<AppLocation, { kind: "platform-companies" | "unknown" }> {
+  return location.kind !== "platform-companies" && location.kind !== "unknown";
 }
 
 export function appPathForTab(tab: AppTab) {

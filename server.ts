@@ -8,7 +8,7 @@ import { randomUUID } from "crypto";
 import type { InvoiceData } from "./src/types.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
-import { disableCompanyAi, loadCompanyAiConfig, recordCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
+import { disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
 import { invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
 import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
 import {
@@ -458,12 +458,11 @@ app.put("/api/platform/companies/:companyId/ai-config/gemini", async (req, res) 
 app.post("/api/platform/companies/:companyId/ai-config/gemini/test", async (req, res) => {
   try {
     const auth = await authorizePlatformCompanyRequest(req, platformCompanyAiPath(req));
-    const status = await testCompanyAiConnection({ supabase: auth.supabase, companyId: auth.companyId });
-    const data = await loadCompanyAiConfig(auth.supabase, auth.companyId);
+    const result = await testCompanyAiConnection({ supabase: auth.supabase, companyId: auth.companyId });
     // Provider outages, quota limits, and model availability are safe test
     // results, not transport failures. The metadata carries the precise safe
     // status without exposing provider response details.
-    return res.json({ success: true, data: { ...data, testStatus: status } });
+    return res.json({ success: true, data: { ...result.metadata, testStatus: result.status } });
   } catch (error) {
     const status = apiErrorStatus(error);
     return res.status(status).json({ success: false, error: apiErrorMessage(error, "The Gemini connection test failed safely."), code: error instanceof CompanyAiError ? error.code : undefined });
@@ -478,6 +477,17 @@ app.post("/api/platform/companies/:companyId/ai-config/gemini/disable", async (r
     return res.json({ success: true, data });
   } catch (error) {
     return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI could not be disabled safely.") });
+  }
+});
+
+app.post("/api/platform/companies/:companyId/ai-config/gemini/enable", async (req, res) => {
+  try {
+    const auth = await authorizePlatformCompanyRequest(req, platformCompanyAiPath(req));
+    const data = await enableCompanyAi(auth.supabase, auth.companyId);
+    invalidateCompanyAiRuntime(auth.companyId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI could not be enabled safely.") });
   }
 });
 
@@ -765,7 +775,7 @@ Rules:
               response = await generateContentWithTimeout(aiRuntime.geminiClient, requested, contents, { systemInstruction: systemPrompt, responseMimeType: "application/json", responseSchema: invoiceSchema });
             } catch (retryError) {
               if (isCompanyAiAuthenticationError(retryError)) {
-                try { await recordCompanyAiTest(auth.supabase, auth.companyId, "INVALID_CREDENTIAL"); } catch { /* preserve the safe provider error */ }
+                try { await markCompanyAiCredentialInvalid({ companyId: auth.companyId }); } catch { /* preserve the safe provider error */ }
                 invalidateCompanyAiRuntime(auth.companyId);
               }
               throw retryError;

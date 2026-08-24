@@ -22,7 +22,7 @@ import { PayrollOperatingCosts } from "./components/engineering/PayrollOperating
 import { ProjectWorkspace } from "./components/projects/ProjectWorkspace";
 import { ExpensesPage } from "./components/expenses/ExpensesPage";
 import { PayrollPageV2 as PayrollPage } from "./components/payroll/PayrollPageV2";
-import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
+import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, isKnownWorkspaceLocation, parseAppLocation, PLATFORM_COMPANIES_PATH, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
@@ -83,7 +83,7 @@ import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, s
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
 import { AssistantProvider } from "./assistant/AssistantProvider";
-import { disableCompanyGemini, loadCompanyAiConfig as loadCompanyAiConfigApi, removeCompanyGeminiKey, saveCompanyGeminiKey, testCompanyGeminiKey } from "./lib/companyAiApi.ts";
+import { disableCompanyGemini, enableCompanyGemini, loadCompanyAiConfig as loadCompanyAiConfigApi, removeCompanyGeminiKey, saveCompanyGeminiKey, testCompanyGeminiKey } from "./lib/companyAiApi.ts";
 
 function revisePayrollSourcePeriods(
   periods: PayrollPeriod[],
@@ -221,17 +221,17 @@ function InvoiceWorkspace() {
   const [reviewCompletion, setReviewCompletion] = useState<{ verifiedCount: number; totalCount: number; newItems: number } | null>(null);
   const [workspaceOrigin, setWorkspaceOrigin] = useState<AppTab>("dashboard");
   const [route, setRoute] = useState<AppLocation>(initialAppLocation);
-  const [activeTab, setActiveTabState] = useState<AppTab>(() => initialAppLocation().tab);
+  const [activeTab, setActiveTabState] = useState<AppTab>(() => appTabForLocation(initialAppLocation()));
   const [dashboardActivityPeriod, setDashboardActivityPeriod] = useState<DashboardActivityPeriod>("MONTH");
   const [dashboardCustomStart, setDashboardCustomStart] = useState("");
   const [dashboardCustomEnd, setDashboardCustomEnd] = useState("");
   const [dashboardCurrency, setDashboardCurrency] = useState("");
   const [dashboardProjectId, setDashboardProjectId] = useState("");
-  const [workspaceReturnPath, setWorkspaceReturnPath] = useState<string>(appPathForTab(initialAppLocation().tab));
+  const [workspaceReturnPath, setWorkspaceReturnPath] = useState<string>(appPathForTab(appTabForLocation(initialAppLocation())));
   const routeSignatureRef = useRef("");
+  const platformManagementReturnPathRef = useRef<string | null>(null);
   const [processingCount, setProcessingCount] = useState(0);
   const [notification, setNotification] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
-  const [platformManagementOpen, setPlatformManagementOpen] = useState(() => initialAppLocation().pathname === "/platform/companies");
   const {
     session,
     authResolved,
@@ -316,18 +316,33 @@ function InvoiceWorkspace() {
   };
 
   const setActiveTab = (tab: AppTab) => navigateToPath(appPathForTab(tab));
+  const validatedWorkspaceReturnPath = (candidate?: string | null) => {
+    const fallback = appPathForTab(defaultAppTabForPermissions(permissions));
+    if (!activeCompanyId || !candidate) return fallback;
+    const parsed = parseAppLocation(candidate);
+    if (!isKnownWorkspaceLocation(parsed)) return fallback;
+    if (!isPlatformOwner && !canAccessAppTab(parsed.tab, permissions)) return fallback;
+    return `${parsed.pathname}${parsed.search}`;
+  };
   const openPlatformManagement = () => {
-    setPlatformManagementOpen(true);
-    navigateToPath("/platform/companies");
+    const currentPath = typeof window === "undefined" ? null : appPathFromLocation(window.location);
+    if (currentPath && parseAppLocation(currentPath).kind !== "platform-companies") {
+      platformManagementReturnPathRef.current = validatedWorkspaceReturnPath(currentPath);
+    } else if (!platformManagementReturnPathRef.current) {
+      platformManagementReturnPathRef.current = validatedWorkspaceReturnPath(workspaceReturnPath);
+    }
+    navigateToPath(PLATFORM_COMPANIES_PATH);
   };
   const closePlatformManagement = () => {
-    setPlatformManagementOpen(false);
-    navigateToPath(appPathForTab("dashboard"), true);
+    const returnPath = validatedWorkspaceReturnPath(platformManagementReturnPathRef.current || workspaceReturnPath);
+    platformManagementReturnPathRef.current = null;
+    navigateToPath(returnPath, true);
   };
   const loadManagedCompanyAiConfig = useCallback((companyId: string) => loadCompanyAiConfigApi(companyId), []);
   const saveManagedCompanyAiKey = useCallback((companyId: string, apiKey: string) => saveCompanyGeminiKey(companyId, apiKey), []);
   const testManagedCompanyAi = useCallback((companyId: string) => testCompanyGeminiKey(companyId), []);
   const disableManagedCompanyAi = useCallback((companyId: string) => disableCompanyGemini(companyId), []);
+  const enableManagedCompanyAi = useCallback((companyId: string) => enableCompanyGemini(companyId), []);
   const removeManagedCompanyAi = useCallback((companyId: string) => removeCompanyGeminiKey(companyId), []);
 
   useEffect(() => {
@@ -342,20 +357,16 @@ function InvoiceWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (route.pathname === "/platform/companies") setPlatformManagementOpen(true);
-    else if (platformManagementOpen) setPlatformManagementOpen(false);
-  }, [platformManagementOpen, route.pathname]);
-
-  useEffect(() => {
-    setActiveTabState(route.tab);
+    setActiveTabState(appTabForLocation(route));
     const signature = `${route.kind}:${route.pathname}${route.search}`;
     if (routeSignatureRef.current === signature) return;
     routeSignatureRef.current = signature;
+    if (route.kind === "platform-companies") return;
     if (route.kind === "invoice" || route.kind === "review-invoice") {
       const fallback = route.kind === "review-invoice" ? appPathForTab("review") : appPathForTab("invoices");
       const returnPath = route.returnTo || fallback;
       setWorkspaceReturnPath(returnPath);
-      setWorkspaceOrigin(parseAppLocation(returnPath).tab);
+      setWorkspaceOrigin(appTabForLocation(parseAppLocation(returnPath)));
       setReviewCompletion(null);
       if (route.kind === "invoice") setReviewSessionIds([]);
     } else if (route.kind !== "unknown") {
@@ -366,6 +377,7 @@ function InvoiceWorkspace() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !session || access.status !== "ready" || !activeCompanyId) return;
+    if (route.kind === "platform-companies") return;
     if (canAccessAppTab(route.tab, permissions)) return;
     const fallback = appPathForTab(defaultAppTabForPermissions(permissions));
     if (`${route.pathname}${route.search}` !== fallback) navigateToPath(fallback, true);
@@ -2266,8 +2278,13 @@ function InvoiceWorkspace() {
       .filter((definition) => isPlatformOwner || canAccessAppTab(definition.appTab, permissions))
       .map((definition) => definition.id);
   }, [isPlatformOwner, permissions, session]);
-  const routePermission = route.kind === "unknown" ? null : requiredPermissionForAppTab(route.tab);
-  const routeDenied = Boolean(isSupabaseConfigured && session && activeCompanyId && !isPlatformOwner && routePermission && !canAccessAppTab(route.tab, permissions));
+  const routePermission = route.kind === "platform-companies"
+    ? PERMISSION_KEYS.platformManage
+    : route.kind === "unknown" ? null : requiredPermissionForAppTab(route.tab);
+  const routeDenied = Boolean(isSupabaseConfigured && session && access.status === "ready" && (
+    (route.kind === "platform-companies" && !isPlatformOwner)
+    || (route.kind !== "platform-companies" && route.kind !== "unknown" && activeCompanyId && !isPlatformOwner && routePermission && !canAccessAppTab(route.tab, permissions))
+  ));
   const workspaceRouteVisible = !routeNotFound && !routeDenied;
   const managementView = <CompanyManagement
     companies={companyAccess.companies}
@@ -2284,11 +2301,13 @@ function InvoiceWorkspace() {
     onSaveAiKey={saveManagedCompanyAiKey}
     onTestAi={testManagedCompanyAi}
     onDisableAi={disableManagedCompanyAi}
+    onEnableAi={enableManagedCompanyAi}
     onRemoveAi={removeManagedCompanyAi}
     onClose={closePlatformManagement}
   />;
   useEffect(() => {
     if (!routeDenied) return;
+    if (route.kind === "platform-companies") return;
     const fallbackTab = defaultAppTabForPermissions(permissions);
     const fallbackPath = appPathForTab(fallbackTab);
     if (route.pathname !== fallbackPath) navigateToPath(fallbackPath, true);
@@ -2302,7 +2321,10 @@ function InvoiceWorkspace() {
   if (isSupabaseConfigured && session && companyAccess.access.status === "error") {
     return <NoCompanyAccess onSignOut={handleSignOut}><div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs leading-5 text-rose-900">We couldn’t load your company access. Refresh the page or contact the platform owner.</div></NoCompanyAccess>;
   }
-  if (isSupabaseConfigured && session && companyAccess.isPlatformOwner && platformManagementOpen) {
+  if (isSupabaseConfigured && session && route.kind === "platform-companies" && companyAccess.access.status !== "ready") {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-700"><Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />Checking platform access…</div>;
+  }
+  if (isSupabaseConfigured && session && route.kind === "platform-companies" && companyAccess.isPlatformOwner) {
     return <div className="min-h-screen bg-slate-50 text-slate-900"><Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session.user.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={openPlatformManagement} visibleRouteIds={visibleRouteIds} permissions={permissions} /><main className="mx-auto w-full max-w-[1500px] px-3 py-6 sm:px-5 lg:px-7"><button type="button" onClick={closePlatformManagement} className="mb-4 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Back to workspace</button>{managementView}</main></div>;
   }
   if (isSupabaseConfigured && session && !companyAccess.isPlatformOwner && (companyAccess.access.status === "no-company" || companyAccess.access.status === "company-suspended")) {

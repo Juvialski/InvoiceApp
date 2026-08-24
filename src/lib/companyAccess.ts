@@ -267,10 +267,20 @@ export function permissionsForCompany(snapshot: Pick<CompanyAccessSnapshot, "isP
   return membership ? [...membership.permissions] : [];
 }
 
-export function companyIsSelectable(snapshot: Pick<CompanyAccessSnapshot, "isPlatformOwner" | "companies" | "memberships">, companyId: string): boolean {
+export function canManageCompany(snapshot: Pick<CompanyAccessSnapshot, "isPlatformOwner" | "companies">, companyId: string): boolean {
   const company = snapshot.companies.find((item) => item.id === companyId);
-  if (!company) return false;
+  return Boolean(company && snapshot.isPlatformOwner);
+}
+
+export function canOpenCompanyWorkspace(snapshot: Pick<CompanyAccessSnapshot, "isPlatformOwner" | "companies" | "memberships">, companyId: string): boolean {
+  const company = snapshot.companies.find((item) => item.id === companyId);
+  if (!company || company.status.toUpperCase() !== "ACTIVE") return false;
   return snapshot.isPlatformOwner || snapshot.memberships.some((item) => item.companyId === companyId && item.status === "ACTIVE");
+}
+
+/** @deprecated Use canOpenCompanyWorkspace for workspace selection semantics. */
+export function companyIsSelectable(snapshot: Pick<CompanyAccessSnapshot, "isPlatformOwner" | "companies" | "memberships">, companyId: string): boolean {
+  return canOpenCompanyWorkspace(snapshot, companyId);
 }
 
 export async function bootstrapPlatformAdmin(client: SupabaseClient | null = supabase) {

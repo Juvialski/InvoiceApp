@@ -48,7 +48,10 @@ export function CompanySwitcher({ companies, activeCompanyId, isPlatformOwner = 
   }, [open]);
 
   if (!companies.length) return null;
-  const selectableCompanies = isPlatformOwner ? companies : companies.filter((company) => company.status === "ACTIVE");
+  // Management can show every company, but this switcher is strictly for
+  // opening a financial workspace. Inactive companies belong in Manage
+  // Companies, never in the active-workspace selector.
+  const selectableCompanies = companies.filter((company) => company.status.toUpperCase() === "ACTIVE");
   const select = async (company: CompanySummary) => {
     if (disabled || !selectableCompanies.includes(company) || company.id === activeCompanyId) { setOpen(false); return; }
     setBusyId(company.id);

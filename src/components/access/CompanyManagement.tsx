@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { roleDisplayName } from "../../utils/accessControl.ts";
+import { isCurrentManagementRequest, managementResourcesForTab, type CompanyManagementRequestIdentity, type CompanyManagementTab } from "../../utils/companyManagement.ts";
 import { CompanyAiConfiguration } from "./CompanyAiConfiguration.tsx";
 import type { CompanyAiConfigMetadata } from "../../server/ai/companyAiTypes.ts";
 import type {
@@ -28,7 +29,7 @@ import type {
   UpdateCompanyMemberInput,
 } from "../../lib/companyAccess.ts";
 
-export type CompanyManagementTab = "general" | "members" | "ai" | "activity" | "danger";
+export type { CompanyManagementRequestIdentity, CompanyManagementTab } from "../../utils/companyManagement.ts";
 
 const SUPPORTED_ROLE_KEYS = ["COMPANY_ADMIN", "FINANCE", "PAYROLL", "VIEWER"] as const;
 const TAB_DEFINITIONS: readonly { id: CompanyManagementTab; label: string }[] = [
@@ -65,6 +66,7 @@ export interface CompanyManagementProps {
   onSaveAiKey?: (companyId: string, apiKey: string) => Promise<CompanyAiConfigMetadata>;
   onTestAi?: (companyId: string) => Promise<CompanyAiConfigMetadata>;
   onDisableAi?: (companyId: string) => Promise<CompanyAiConfigMetadata>;
+  onEnableAi?: (companyId: string) => Promise<CompanyAiConfigMetadata>;
   onRemoveAi?: (companyId: string) => Promise<CompanyAiConfigMetadata>;
   onClose?: () => void;
 }
@@ -101,7 +103,7 @@ function displayDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-export function CompanyManagement({ companies, activeCompanyId, managementCompanyId: initialManagementCompanyId, onOpenWorkspace, onSelectCompany, onCreateCompany, onUpdateCompany, onInviteCompanyMember, onUpdateCompanyMember, onLoadCompanyMembers, onLoadCompanyInvitations, onLoadAudit, onLoadAiConfig, onSaveAiKey, onTestAi, onDisableAi, onRemoveAi }: CompanyManagementProps) {
+export function CompanyManagement({ companies, activeCompanyId, managementCompanyId: initialManagementCompanyId, onOpenWorkspace, onSelectCompany, onCreateCompany, onUpdateCompany, onInviteCompanyMember, onUpdateCompanyMember, onLoadCompanyMembers, onLoadCompanyInvitations, onLoadAudit, onLoadAiConfig, onSaveAiKey, onTestAi, onDisableAi, onEnableAi, onRemoveAi }: CompanyManagementProps) {
   const [managementCompanyId, setManagementCompanyId] = useState(() => {
     if (initialManagementCompanyId && companies.some((company) => company.id === initialManagementCompanyId)) return initialManagementCompanyId;
     return companies[0]?.id || "";
@@ -131,11 +133,43 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
   const [createCode, setCreateCode] = useState("");
   const [createCurrency, setCreateCurrency] = useState("PHP");
   const [createTimezone, setCreateTimezone] = useState("Asia/Manila");
+  const membersCacheRef = useRef(new Map<string, { members: CompanyMemberSummary[]; invitations: CompanyInvitationSummary[] }>());
+  const auditCacheRef = useRef(new Map<string, CompanyAccessAuditEntry[]>());
+  const aiConfigCacheRef = useRef(new Map<string, CompanyAiConfigMetadata>());
+  const managementGenerationRef = useRef(0);
 
   const selectedCompany = companies.find((company) => company.id === managementCompanyId) || null;
   const workspaceOpener = onOpenWorkspace || onSelectCompany;
   const managementCompanyIdRef = useRef(managementCompanyId);
   managementCompanyIdRef.current = managementCompanyId;
+
+  const currentManagementRequest = (): CompanyManagementRequestIdentity => ({
+    companyId: managementCompanyIdRef.current,
+    generation: managementGenerationRef.current,
+  });
+
+  const clearManagementTargetData = () => {
+    setMembers([]);
+    setInvitations([]);
+    setAudit([]);
+    setAiConfig(null);
+    setMembersLoading(false);
+    setAuditLoading(false);
+    setAiConfigLoading(false);
+  };
+
+  const selectManagementCompany = (companyId: string) => {
+    if (companyId === managementCompanyIdRef.current) {
+      setActiveTab("general");
+      setNotice(null);
+      return;
+    }
+    managementGenerationRef.current += 1;
+    clearManagementTargetData();
+    setManagementCompanyId(companyId);
+    setActiveTab("general");
+    setNotice(null);
+  };
 
   const filteredCompanies = useMemo(() => {
     const query = companySearch.trim().toLowerCase();
@@ -150,7 +184,11 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
   }, [memberSearch, members]);
 
   useEffect(() => {
-    setManagementCompanyId((current) => companies.some((company) => company.id === current) ? current : companies[0]?.id || "");
+    if (companies.some((company) => company.id === managementCompanyIdRef.current)) return;
+    managementGenerationRef.current += 1;
+    clearManagementTargetData();
+    setManagementCompanyId(companies[0]?.id || "");
+    setActiveTab("general");
   }, [companies]);
 
   useEffect(() => {
@@ -170,69 +208,90 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
   }, [selectedCompany?.companyCode, selectedCompany?.defaultCurrency, selectedCompany?.id, selectedCompany?.name, selectedCompany?.timezone]);
 
   useEffect(() => {
-    if (!managementCompanyId || !onLoadCompanyMembers) {
-      setMembers([]);
+    if (!managementResourcesForTab(activeTab).includes("members") || !managementCompanyId) return undefined;
+    const request = { companyId: managementCompanyId, generation: managementGenerationRef.current };
+    const cached = membersCacheRef.current.get(managementCompanyId);
+    if (cached) {
+      setMembers(cached.members);
+      setInvitations(cached.invitations);
       setMembersLoading(false);
       return undefined;
     }
+    if (!onLoadCompanyMembers && !onLoadCompanyInvitations) return undefined;
     let current = true;
-    setMembers([]);
     setMembersLoading(true);
-    void onLoadCompanyMembers(managementCompanyId)
-      .then((rows) => { if (current) setMembers(rows); })
-      .catch((error) => { if (current) setNotice({ kind: "error", message: errorMessage(error) }); })
-      .finally(() => { if (current) setMembersLoading(false); });
+    void Promise.all([
+      onLoadCompanyMembers ? onLoadCompanyMembers(managementCompanyId) : Promise.resolve([]),
+      onLoadCompanyInvitations ? onLoadCompanyInvitations(managementCompanyId) : Promise.resolve([]),
+    ])
+      .then(([rows, invitationRows]) => {
+        if (!current || !isCurrentManagementRequest(request, currentManagementRequest())) return;
+        const value = { members: rows, invitations: invitationRows };
+        membersCacheRef.current.set(managementCompanyId, value);
+        setMembers(value.members);
+        setInvitations(value.invitations);
+      })
+      .catch((error) => {
+        if (current && isCurrentManagementRequest(request, currentManagementRequest())) setNotice({ kind: "error", message: errorMessage(error) });
+      })
+      .finally(() => {
+        if (current && isCurrentManagementRequest(request, currentManagementRequest())) setMembersLoading(false);
+      });
     return () => { current = false; };
-  }, [managementCompanyId, onLoadCompanyMembers]);
+  }, [activeTab, managementCompanyId, onLoadCompanyInvitations, onLoadCompanyMembers]);
 
   useEffect(() => {
-    if (!managementCompanyId || !onLoadCompanyInvitations) {
-      setInvitations([]);
-      return undefined;
-    }
-    let current = true;
-    void onLoadCompanyInvitations(managementCompanyId)
-      .then((rows) => { if (current) setInvitations(rows); })
-      .catch((error) => { if (current) setNotice({ kind: "error", message: errorMessage(error) }); });
-    return () => { current = false; };
-  }, [managementCompanyId, onLoadCompanyInvitations]);
-
-  useEffect(() => {
-    if (!managementCompanyId || !onLoadAudit) {
-      setAudit([]);
+    if (!managementResourcesForTab(activeTab).includes("audit") || !managementCompanyId) return undefined;
+    const request = { companyId: managementCompanyId, generation: managementGenerationRef.current };
+    const cached = auditCacheRef.current.get(managementCompanyId);
+    if (cached) {
+      setAudit(cached);
       setAuditLoading(false);
       return undefined;
     }
+    if (!onLoadAudit) return undefined;
     let current = true;
-    setAudit([]);
     setAuditLoading(true);
     void onLoadAudit(managementCompanyId)
-      .then((rows) => { if (current) setAudit(rows); })
-      .catch((error) => { if (current) setNotice({ kind: "error", message: errorMessage(error) }); })
-      .finally(() => { if (current) setAuditLoading(false); });
+      .then((rows) => {
+        if (!current || !isCurrentManagementRequest(request, currentManagementRequest())) return;
+        auditCacheRef.current.set(managementCompanyId, rows);
+        setAudit(rows);
+      })
+      .catch((error) => { if (current && isCurrentManagementRequest(request, currentManagementRequest())) setNotice({ kind: "error", message: errorMessage(error) }); })
+      .finally(() => { if (current && isCurrentManagementRequest(request, currentManagementRequest())) setAuditLoading(false); });
     return () => { current = false; };
-  }, [managementCompanyId, onLoadAudit]);
+  }, [activeTab, managementCompanyId, onLoadAudit]);
 
   useEffect(() => {
-    if (!managementCompanyId || !onLoadAiConfig) {
-      setAiConfig(null);
+    if (!managementResourcesForTab(activeTab).includes("ai") || !managementCompanyId) return undefined;
+    const request = { companyId: managementCompanyId, generation: managementGenerationRef.current };
+    const cached = aiConfigCacheRef.current.get(managementCompanyId);
+    if (cached) {
+      setAiConfig(cached);
       setAiConfigLoading(false);
       return undefined;
     }
+    if (!onLoadAiConfig) return undefined;
     let current = true;
-    setAiConfig(null);
     setAiConfigLoading(true);
     void onLoadAiConfig(managementCompanyId)
-      .then((value) => { if (current) setAiConfig(value); })
-      .catch((error) => { if (current) setNotice({ kind: "error", message: errorMessage(error) }); })
-      .finally(() => { if (current) setAiConfigLoading(false); });
+      .then((value) => {
+        if (!current || !isCurrentManagementRequest(request, currentManagementRequest())) return;
+        aiConfigCacheRef.current.set(managementCompanyId, value);
+        setAiConfig(value);
+      })
+      .catch((error) => { if (current && isCurrentManagementRequest(request, currentManagementRequest())) setNotice({ kind: "error", message: errorMessage(error) }); })
+      .finally(() => { if (current && isCurrentManagementRequest(request, currentManagementRequest())) setAiConfigLoading(false); });
     return () => { current = false; };
-  }, [managementCompanyId, onLoadAiConfig]);
+  }, [activeTab, managementCompanyId, onLoadAiConfig]);
 
   const aiAction = async (action: ((companyId: string) => Promise<CompanyAiConfigMetadata>) | undefined) => {
     const companyId = managementCompanyId;
     if (!companyId || !selectedCompany || !action) throw new Error("AI configuration is unavailable.");
     const next = await action(companyId);
+    aiConfigCacheRef.current.set(companyId, next);
+    auditCacheRef.current.delete(companyId);
     if (managementCompanyIdRef.current === companyId) setAiConfig(next);
     return next;
   };
@@ -241,6 +300,8 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
     const companyId = managementCompanyId;
     if (!companyId || !selectedCompany || !onSaveAiKey) throw new Error("AI configuration is unavailable.");
     const next = await onSaveAiKey(companyId, apiKey);
+    aiConfigCacheRef.current.set(companyId, next);
+    auditCacheRef.current.delete(companyId);
     if (managementCompanyIdRef.current === companyId) setAiConfig(next);
     return next;
   };
@@ -272,6 +333,7 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
       setCompanyCode(updated.companyCode || "");
       setDefaultCurrency(updated.defaultCurrency || "PHP");
       setTimezone(updated.timezone || "Asia/Manila");
+      auditCacheRef.current.delete(selectedCompany.id);
     }, "General company settings saved.");
   };
 
@@ -297,18 +359,37 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
   const inviteMember = async () => {
     if (!selectedCompany || !onInviteCompanyMember) return;
     await run("invite", async () => {
-      await onInviteCompanyMember({ companyId: selectedCompany.id, email: inviteEmail.trim(), roleKey: inviteRole });
+      const companyId = selectedCompany.id;
+      await onInviteCompanyMember({ companyId, email: inviteEmail.trim(), roleKey: inviteRole });
       setInviteEmail("");
-      if (onLoadCompanyMembers) setMembers(await onLoadCompanyMembers(selectedCompany.id));
-      if (onLoadCompanyInvitations) setInvitations(await onLoadCompanyInvitations(selectedCompany.id));
+      membersCacheRef.current.delete(companyId);
+      auditCacheRef.current.delete(companyId);
+      const [nextMembers, nextInvitations] = await Promise.all([
+        onLoadCompanyMembers ? onLoadCompanyMembers(companyId) : Promise.resolve([]),
+        onLoadCompanyInvitations ? onLoadCompanyInvitations(companyId) : Promise.resolve([]),
+      ]);
+      const next = { members: nextMembers, invitations: nextInvitations };
+      membersCacheRef.current.set(companyId, next);
+      if (managementCompanyIdRef.current === companyId) {
+        setMembers(next.members);
+        setInvitations(next.invitations);
+      }
     }, "Invitation saved. The invited user must sign in with that verified email to claim access.");
   };
 
   const updateMember = async (member: CompanyMemberSummary, patch: Pick<UpdateCompanyMemberInput, "roleKey" | "status">) => {
     if (!selectedCompany || !onUpdateCompanyMember) return;
     await run(`member:${member.id || member.userId || member.email || "row"}`, async () => {
-      await onUpdateCompanyMember({ companyId: selectedCompany.id, membershipId: member.id, userId: member.userId, ...patch });
-      if (onLoadCompanyMembers) setMembers(await onLoadCompanyMembers(selectedCompany.id));
+      const companyId = selectedCompany.id;
+      await onUpdateCompanyMember({ companyId, membershipId: member.id, userId: member.userId, ...patch });
+      membersCacheRef.current.delete(companyId);
+      auditCacheRef.current.delete(companyId);
+      if (onLoadCompanyMembers) {
+        const nextMembers = await onLoadCompanyMembers(companyId);
+        const existing = membersCacheRef.current.get(companyId);
+        membersCacheRef.current.set(companyId, { members: nextMembers, invitations: existing?.invitations || invitations });
+        if (managementCompanyIdRef.current === companyId) setMembers(nextMembers);
+      }
     }, "Member access updated.");
   };
 
@@ -322,6 +403,7 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
     const nextStatus = pendingStatus;
     await run(`status:${nextStatus}`, async () => {
       await onUpdateCompany(selectedCompany.id, { status: nextStatus as CompanyStatus });
+      auditCacheRef.current.delete(selectedCompany.id);
       setPendingStatus(null);
     }, `Company status changed to ${companyStatusLabel(nextStatus)}.`);
   };
@@ -349,7 +431,7 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
           </div>
           <label className="relative mt-3 block"><Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" /><input value={companySearch} onChange={(event) => setCompanySearch(event.target.value)} placeholder="Search companies" aria-label="Search companies" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-8 pr-2.5 text-xs outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" /></label>
           <div className="mt-3 max-h-[30rem] space-y-1.5 overflow-y-auto">
-            {filteredCompanies.length ? filteredCompanies.map((company) => <button key={company.id} type="button" aria-pressed={company.id === managementCompanyId} onClick={() => { setManagementCompanyId(company.id); setActiveTab("general"); setNotice(null); }} className={`w-full rounded-xl border p-3 text-left transition ${company.id === managementCompanyId ? "border-indigo-300 bg-indigo-50" : "border-transparent hover:border-slate-200 hover:bg-slate-50"}`}>
+            {filteredCompanies.length ? filteredCompanies.map((company) => <button key={company.id} type="button" aria-pressed={company.id === managementCompanyId} onClick={() => selectManagementCompany(company.id)} className={`w-full rounded-xl border p-3 text-left transition ${company.id === managementCompanyId ? "border-indigo-300 bg-indigo-50" : "border-transparent hover:border-slate-200 hover:bg-slate-50"}`}>
               <div className="flex items-start gap-2"><Building2 className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-black text-slate-900">{company.name}</span><span className="mt-1 block truncate text-[10px] font-semibold text-slate-400">{company.companyCode || "Company workspace"}</span></span><span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${companyStatusClasses(company.status)}`}>{companyStatusLabel(company.status)}</span></div>
               {company.id === activeCompanyId && <span className="mt-2 inline-flex rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold text-indigo-700">Current workspace</span>}
             </button>) : <p className="rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs font-semibold text-slate-400">No companies match this search.</p>}
@@ -365,7 +447,8 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
         <div className="min-w-0">
           {!selectedCompany ? <div className="flex min-h-[28rem] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center"><div><Building2 className="mx-auto h-8 w-8 text-slate-300" /><h2 className="mt-3 text-sm font-black text-slate-900">Select a company to manage</h2><p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">Management selection is local to this page. Use Open workspace only when you want to change the active company.</p></div></div> : <>
             <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-lg font-black text-slate-950">{selectedCompany.name}</h2><span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${companyStatusClasses(selectedCompany.status)}`}>{companyStatusLabel(selectedCompany.status)}</span>{selectedCompany.id === activeCompanyId && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-bold text-indigo-700">Current workspace</span>}</div><p className="mt-1 text-[11px] font-semibold text-slate-400">{selectedCompany.companyCode || "Company workspace"}</p></div><button type="button" onClick={() => void openWorkspace()} disabled={!workspaceOpener || Boolean(busyAction)} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2.5 text-xs font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"><ArrowUpRight className="h-3.5 w-3.5" />{selectedCompany.id === activeCompanyId ? "Current workspace" : "Open workspace"}</button></div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-lg font-black text-slate-950">{selectedCompany.name}</h2><span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${companyStatusClasses(selectedCompany.status)}`}>{companyStatusLabel(selectedCompany.status)}</span>{selectedCompany.id === activeCompanyId && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-bold text-indigo-700">Current workspace</span>}</div><p className="mt-1 text-[11px] font-semibold text-slate-400">{selectedCompany.companyCode || "Company workspace"}</p></div><button type="button" onClick={() => void openWorkspace()} disabled={!workspaceOpener || selectedCompany.status.toUpperCase() !== "ACTIVE" || Boolean(busyAction)} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2.5 text-xs font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"><ArrowUpRight className="h-3.5 w-3.5" />{selectedCompany.id === activeCompanyId ? "Current workspace" : "Open workspace"}</button></div>
+              {selectedCompany.status.toUpperCase() !== "ACTIVE" && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[11px] leading-5 text-amber-900">{selectedCompany.status.toUpperCase() === "SUSPENDED" ? "Reactivate this company before opening its workspace." : "Archived companies cannot be opened until reactivated."}</p>}
               <div className="mt-5 flex min-w-0 gap-1 overflow-x-auto border-b border-slate-100" role="tablist" aria-label="Company management sections">{TAB_DEFINITIONS.map((tab) => <button key={tab.id} type="button" role="tab" aria-selected={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className={`shrink-0 border-b-2 px-3 pb-2.5 text-xs font-bold transition ${activeTab === tab.id ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800"}`}>{tab.label}</button>)}</div>
             </div>
 
@@ -384,11 +467,11 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
                 {invitations.filter((invitation) => invitation.status === "PENDING").length > 0 && <div className="mt-4 space-y-2"><p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Pending invitations</p>{invitations.filter((invitation) => invitation.status === "PENDING").map((invitation) => <div key={invitation.id || invitation.email} className="flex flex-col gap-2 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 p-3 sm:flex-row sm:items-center"><UserPlus className="h-4 w-4 shrink-0 text-indigo-600" /><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-indigo-950">{invitation.email || "Pending invitation"}</p><p className="mt-0.5 text-[10px] font-semibold text-indigo-700">{roleDisplayName(invitation.roleKey)} · Invited {displayDate(invitation.createdAt)}{invitation.expiresAt ? ` · Expires ${displayDate(invitation.expiresAt)}` : ""}</p></div><span className="rounded-full border border-indigo-200 bg-white px-1.5 py-0.5 text-[9px] font-bold text-indigo-700">Pending</span></div>)}</div>}
               </div>}
 
-              {activeTab === "ai" && <CompanyAiConfiguration config={aiConfig} loading={aiConfigLoading} onSaveKey={onSaveAiKey ? saveAiKey : undefined} onTest={onTestAi ? () => aiAction(onTestAi) : undefined} onDisable={onDisableAi ? () => aiAction(onDisableAi) : undefined} onRemove={onRemoveAi ? () => aiAction(onRemoveAi) : undefined} />}
+              {activeTab === "ai" && <CompanyAiConfiguration config={aiConfig} loading={aiConfigLoading} onSaveKey={onSaveAiKey ? saveAiKey : undefined} onTest={onTestAi ? () => aiAction(onTestAi) : undefined} onDisable={onDisableAi ? () => aiAction(onDisableAi) : undefined} onEnable={onEnableAi ? () => aiAction(onEnableAi) : undefined} onRemove={onRemoveAi ? () => aiAction(onRemoveAi) : undefined} />}
 
               {activeTab === "activity" && <div role="tabpanel" aria-label="Company activity"><div><h3 className="text-sm font-black text-slate-950">Activity</h3><p className="mt-1 text-xs leading-5 text-slate-500">Recent access changes for the selected management company.</p></div>{auditLoading ? <div className="mt-5 flex items-center gap-2 rounded-xl border border-dashed border-slate-200 px-3 py-5 text-xs font-semibold text-slate-500"><Loader2 className="h-4 w-4 animate-spin text-indigo-600" />Loading activity…</div> : audit.length ? <div className="mt-5 space-y-2">{audit.map((entry, index) => <div key={entry.id || `${entry.action}-${entry.createdAt || index}`} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3"><div className="flex items-start gap-2"><RefreshCw className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-600" /><div className="min-w-0"><p className="text-xs font-bold text-slate-800">{entry.action}</p><p className="mt-1 text-[10px] leading-5 text-slate-500">{entry.targetEmail ? `Target: ${entry.targetEmail}` : "Company access change"}{entry.actorEmail ? ` · By ${entry.actorEmail}` : ""} · {displayDate(entry.createdAt)}</p></div></div></div>)}</div> : <div className="mt-5 rounded-xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs font-semibold text-slate-400">{onLoadAudit ? "No access activity recorded." : "Activity loading is not available in this integration."}</div>}</div>}
 
-              {activeTab === "danger" && <div role="tabpanel" aria-label="Danger zone"><div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" /><div><h3 className="text-sm font-black text-amber-950">Status and retention</h3><p className="mt-1 text-xs leading-5 text-amber-900">Status changes are confirmed before they are submitted. Company records and financial history are retained; hard delete is not supported here.</p></div></div><div className="mt-5 space-y-2">{STATUS_ACTIONS.filter((action) => action.status !== selectedCompany.status).map((action) => <div key={action.status} className="flex flex-col gap-3 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold text-slate-800">{action.label}</p><p className="mt-1 text-[10px] leading-4 text-slate-500">{action.description}</p></div><button type="button" disabled={!onUpdateCompany || Boolean(busyAction)} onClick={() => setPendingStatus(action.status)} className={`shrink-0 rounded-lg border px-2.5 py-2 text-[10px] font-bold disabled:opacity-50 ${action.status === "ARCHIVED" ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}>{action.label}</button></div>)}</div>{pendingStatus && <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4" role="alert"><p className="text-xs font-bold text-rose-950">Confirm changing this company to {companyStatusLabel(pendingStatus)}?</p><p className="mt-1 text-[10px] leading-5 text-rose-900">This uses the existing company status operation and does not delete any records.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void confirmStatusChange()} disabled={Boolean(busyAction)} className="rounded-lg bg-rose-700 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-50">{busyAction === `status:${pendingStatus}` ? "Saving…" : "Confirm status change"}</button><button type="button" onClick={() => setPendingStatus(null)} disabled={Boolean(busyAction)} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-[10px] font-bold text-rose-800 disabled:opacity-50">Cancel</button></div></div>}</div>}
+              {activeTab === "danger" && <div role="tabpanel" aria-label="Danger zone"><div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" /><div><h3 className="text-sm font-black text-amber-950">Status and retention</h3><p className="mt-1 text-xs leading-5 text-amber-900">Status changes are confirmed before they are submitted. Company records and financial history are retained; hard delete is not supported here.</p></div></div>{selectedCompany.status.toUpperCase() === "ARCHIVED" ? <p className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-600">This company is archived. The current lifecycle does not permit direct reactivation, so it cannot be opened as a workspace.</p> : <div className="mt-5 space-y-2">{STATUS_ACTIONS.filter((action) => action.status !== selectedCompany.status).map((action) => <div key={action.status} className="flex flex-col gap-3 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold text-slate-800">{action.label}</p><p className="mt-1 text-[10px] leading-4 text-slate-500">{action.description}</p></div><button type="button" disabled={!onUpdateCompany || Boolean(busyAction)} onClick={() => setPendingStatus(action.status)} className={`shrink-0 rounded-lg border px-2.5 py-2 text-[10px] font-bold disabled:opacity-50 ${action.status === "ARCHIVED" ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-slate-200 text-slate-700 hover:bg-slate-50"}`}>{action.label}</button></div>)}</div>}{pendingStatus && <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4" role="alert"><p className="text-xs font-bold text-rose-950">Confirm changing this company to {companyStatusLabel(pendingStatus)}?</p><p className="mt-1 text-[10px] leading-5 text-rose-900">This uses the existing company status operation and does not delete any records.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => void confirmStatusChange()} disabled={Boolean(busyAction)} className="rounded-lg bg-rose-700 px-3 py-2 text-[10px] font-bold text-white disabled:opacity-50">{busyAction === `status:${pendingStatus}` ? "Saving…" : "Confirm status change"}</button><button type="button" onClick={() => setPendingStatus(null)} disabled={Boolean(busyAction)} className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-[10px] font-bold text-rose-800 disabled:opacity-50">Cancel</button></div></div>}</div>}
             </div>
           </>}
         </div>

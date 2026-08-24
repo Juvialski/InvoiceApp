@@ -1,12 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCompanyGeminiCredential, readAiCredentialsMasterKey } from "./companyAiEncryption.ts";
-import { loadCompanyAiConfig, recordCompanyAiTest, resolveCompanyAiCredential } from "./companyAiCredentials.ts";
+import { loadCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, resolveCompanyAiCredential } from "./companyAiCredentials.ts";
 import {
   COMPANY_AI_FALLBACK_MODEL,
   COMPANY_AI_PRIMARY_MODEL,
   COMPANY_AI_PROVIDER,
   CompanyAiError,
+  type CompanyAiConfigMetadata,
   type CompanyAiRuntime,
   type CompanyAiTestStatus,
 } from "./companyAiTypes.ts";
@@ -55,7 +56,7 @@ function globalFallbackRuntime(companyId: string, environment?: NodeJS.ProcessEn
   return globalRuntime(companyId, source);
 }
 
-export async function resolveCompanyAiRuntime(options: { supabase: SupabaseClient; companyId: string; now?: number; forceRefresh?: boolean; environment?: NodeJS.ProcessEnv }): Promise<CompanyAiRuntime> {
+export async function resolveCompanyAiRuntime(options: { supabase: SupabaseClient; credentialSupabase?: SupabaseClient; companyId: string; now?: number; forceRefresh?: boolean; environment?: NodeJS.ProcessEnv }): Promise<CompanyAiRuntime> {
   const companyId = typeof options.companyId === "string" ? options.companyId.trim() : "";
   if (!companyId) throw new CompanyAiError("AI_CONFIG_UNAVAILABLE", "Company AI configuration is temporarily unavailable.", 503);
   const now = options.now ?? Date.now();
@@ -66,7 +67,7 @@ export async function resolveCompanyAiRuntime(options: { supabase: SupabaseClien
     return cachedEntry[1].runtime;
   }
 
-  const resolution = await resolveCompanyAiCredential({ supabase: options.supabase, companyId });
+  const resolution = await resolveCompanyAiCredential({ supabase: options.credentialSupabase, companyId });
   if (!resolution) {
     const fallback = globalFallbackRuntime(companyId, options.environment);
     if (fallback) return fallback;
@@ -113,7 +114,8 @@ export function clearCompanyAiRuntimeCache() {
 export function classifyCompanyAiProviderError(error: unknown): CompanyAiTestStatus {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
   const status = Number((error as any)?.status || (error as any)?.statusCode || 0);
-  if (status === 401 || status === 403 || /invalid api key|api key not valid|authentication|unauthenticated|permission denied/.test(message)) return "INVALID_CREDENTIAL";
+  if (isCompanyAiAuthenticationError(error)) return "INVALID_CREDENTIAL";
+  if (status === 403 || /permission denied|access denied|not authorized|api(?: is)? not enabled|organization policy|model access/.test(message)) return "PROVIDER_ACCESS_DENIED";
   if (status === 429 || /quota|rate limit|resource exhausted/.test(message)) return "QUOTA_LIMITED";
   if (/model.*(not found|unavailable)|not found.*model|unsupported model/.test(message)) return "MODEL_UNAVAILABLE";
   return "PROVIDER_UNAVAILABLE";
@@ -123,7 +125,7 @@ export function isCompanyAiAuthenticationError(error: unknown) {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
   const status = Number((error as any)?.status || (error as any)?.statusCode || 0);
   const cause = (error as any)?.cause;
-  if (status === 401 || status === 403 || /invalid api key|api key not valid|authentication|unauthenticated|permission denied/.test(message)) return true;
+  if (status === 401 || /invalid api key|api key (?:is )?(?:not valid|invalid)|api key authentication failed|credential authentication failed|authentication failed for (?:the )?(?:gemini )?api key/.test(message)) return true;
   if (cause && cause !== error) return isCompanyAiAuthenticationError(cause);
   return false;
 }
@@ -132,7 +134,7 @@ export function isCompanyAiAuthenticationError(error: unknown) {
  * upstream authentication failure. The retry uses the same company scope and
  * never falls through to another company's or a global production key. */
 export async function withCompanyAiRuntime<T>(
-  options: { supabase: SupabaseClient; companyId: string; environment?: NodeJS.ProcessEnv },
+  options: { supabase: SupabaseClient; credentialSupabase?: SupabaseClient; companyId: string; environment?: NodeJS.ProcessEnv },
   operation: (runtime: CompanyAiRuntime) => Promise<T>,
 ): Promise<T> {
   let runtime = await resolveCompanyAiRuntime(options);
@@ -146,7 +148,7 @@ export async function withCompanyAiRuntime<T>(
       return await operation(runtime);
     } catch (retryError) {
       if (isCompanyAiAuthenticationError(retryError)) {
-        try { await recordCompanyAiTest(options.supabase, options.companyId, "INVALID_CREDENTIAL"); } catch { /* preserve the provider failure without leaking details */ }
+        try { await markCompanyAiCredentialInvalid({ supabase: options.credentialSupabase, companyId: options.companyId }); } catch { /* preserve the provider failure without leaking details */ }
         invalidateCompanyAiRuntime(options.companyId);
       }
       throw retryError;
@@ -174,9 +176,9 @@ export async function testCompanyAiRuntime(runtime: CompanyAiRuntime, options: {
 export async function testCompanyAiConnection(options: { supabase: SupabaseClient; companyId: string; environment?: NodeJS.ProcessEnv }) {
   const runtime = await resolveCompanyAiRuntime({ ...options, forceRefresh: true });
   const result = await testCompanyAiRuntime(runtime);
-  await recordCompanyAiTest(options.supabase, options.companyId, result);
+  const metadata: CompanyAiConfigMetadata = await recordCompanyAiTest(options.supabase, options.companyId, result);
   if (result === "INVALID_CREDENTIAL") invalidateCompanyAiRuntime(options.companyId);
-  return result;
+  return { status: result, metadata };
 }
 
 export async function readCompanyAiMetadata(supabase: SupabaseClient, companyId: string) {

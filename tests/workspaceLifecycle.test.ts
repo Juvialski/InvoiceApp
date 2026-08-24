@@ -27,7 +27,7 @@ test("access revalidation preserves a usable snapshot and metadata mutations avo
 test("company administration distinguishes management selection from active workspace opening", () => {
   assert.match(management, /managementCompanyId/);
   assert.match(management, /activeCompanyId/);
-  assert.match(management, /setManagementCompanyId\(company\.id\)/);
+  assert.match(management, /selectManagementCompany\(company\.id\)/);
   assert.match(management, /Open workspace/);
   assert.match(management, /onOpenWorkspace/);
 });

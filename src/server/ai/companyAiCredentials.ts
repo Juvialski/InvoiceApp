@@ -11,6 +11,7 @@ import {
   type CompanyAiTestStatus,
 } from "./companyAiTypes.ts";
 import type { EncryptedCompanyCredential } from "./companyAiEncryption.ts";
+import { companyAiServerSupabase } from "./companyAiServerSupabase.ts";
 
 function row(value: unknown): Record<string, any> {
   if (Array.isArray(value)) return row(value[0]);
@@ -52,7 +53,7 @@ function status(value: unknown, fallback: CompanyAiStatus = "NOT_CONFIGURED"): C
 }
 
 function testStatus(value: unknown): CompanyAiTestStatus {
-  return value === "SUCCESS" || value === "INVALID_CREDENTIAL" || value === "QUOTA_LIMITED" || value === "PROVIDER_UNAVAILABLE" || value === "MODEL_UNAVAILABLE" ? value : "NOT_TESTED";
+  return value === "SUCCESS" || value === "INVALID_CREDENTIAL" || value === "QUOTA_LIMITED" || value === "PROVIDER_UNAVAILABLE" || value === "PROVIDER_ACCESS_DENIED" || value === "MODEL_UNAVAILABLE" ? value : "NOT_TESTED";
 }
 
 function metadataFromRecord(value: unknown, companyId: string): CompanyAiConfigMetadata {
@@ -145,9 +146,22 @@ export async function recordCompanyAiTest(client: SupabaseClient, companyId: str
   return metadataFromRecord(data, scope);
 }
 
+export async function markCompanyAiCredentialInvalid({ supabase, companyId }: { supabase?: SupabaseClient; companyId: string }): Promise<CompanyAiConfigMetadata> {
+  const scope = companyScope(companyId);
+  const credentialClient = supabase || companyAiServerSupabase();
+  const data = await rpc(credentialClient, "server_mark_company_ai_invalid", { p_company_id: scope });
+  return metadataFromRecord(data, scope);
+}
+
 export async function disableCompanyAi(client: SupabaseClient, companyId: string): Promise<CompanyAiConfigMetadata> {
   const scope = companyScope(companyId);
   const data = await rpc(client, "platform_disable_company_ai", { p_company_id: scope });
+  return metadataFromRecord(data, scope);
+}
+
+export async function enableCompanyAi(client: SupabaseClient, companyId: string): Promise<CompanyAiConfigMetadata> {
+  const scope = companyScope(companyId);
+  const data = await rpc(client, "platform_enable_company_ai", { p_company_id: scope });
   return metadataFromRecord(data, scope);
 }
 
@@ -157,8 +171,9 @@ export async function removeCompanyAiCredential(client: SupabaseClient, companyI
   return metadataFromRecord(data, scope);
 }
 
-export async function resolveCompanyAiCredential({ supabase, companyId }: { supabase: SupabaseClient; companyId: string }): Promise<CompanyAiCredentialResolution | null> {
+export async function resolveCompanyAiCredential({ supabase, companyId }: { supabase?: SupabaseClient; companyId: string }): Promise<CompanyAiCredentialResolution | null> {
   const scope = companyScope(companyId);
-  const data = await rpc(supabase, "resolve_company_ai_credential", { p_company_id: scope });
+  const credentialClient = supabase || companyAiServerSupabase();
+  const data = await rpc(credentialClient, "resolve_company_ai_credential", { p_company_id: scope });
   return resolutionFromRecord(data, scope);
 }

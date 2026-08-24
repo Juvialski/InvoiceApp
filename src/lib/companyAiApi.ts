@@ -4,7 +4,7 @@ import type { CompanyAiConfigMetadata, CompanyAiStatus, CompanyAiTestStatus } fr
 function normalizedMetadata(value: unknown, companyId: string): CompanyAiConfigMetadata {
   const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const status = source.status === "ACTIVE" || source.status === "DISABLED" || source.status === "INVALID" || source.status === "NOT_CONFIGURED" ? source.status : "NOT_CONFIGURED" as CompanyAiStatus;
-  const testStatus = source.lastTestStatus === "SUCCESS" || source.lastTestStatus === "INVALID_CREDENTIAL" || source.lastTestStatus === "QUOTA_LIMITED" || source.lastTestStatus === "PROVIDER_UNAVAILABLE" || source.lastTestStatus === "MODEL_UNAVAILABLE" ? source.lastTestStatus : "NOT_TESTED" as CompanyAiTestStatus;
+  const testStatus = source.lastTestStatus === "SUCCESS" || source.lastTestStatus === "INVALID_CREDENTIAL" || source.lastTestStatus === "QUOTA_LIMITED" || source.lastTestStatus === "PROVIDER_UNAVAILABLE" || source.lastTestStatus === "PROVIDER_ACCESS_DENIED" || source.lastTestStatus === "MODEL_UNAVAILABLE" ? source.lastTestStatus : "NOT_TESTED" as CompanyAiTestStatus;
   return {
     companyId,
     provider: "GEMINI",
@@ -68,6 +68,10 @@ export function testCompanyGeminiKey(companyId: string) {
 
 export function disableCompanyGemini(companyId: string) {
   return requestAiConfig(companyId, aiPath(companyId, "/gemini/disable"), { method: "POST" });
+}
+
+export function enableCompanyGemini(companyId: string) {
+  return requestAiConfig(companyId, aiPath(companyId, "/gemini/enable"), { method: "POST" });
 }
 
 export function removeCompanyGeminiKey(companyId: string) {

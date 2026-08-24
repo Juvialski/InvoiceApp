@@ -3,7 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import {
   activeCompanyMembership,
   bootstrapPlatformAdmin,
-  companyIsSelectable,
+  canOpenCompanyWorkspace,
   createCompany as createCompanyApi,
   inviteCompanyMember as inviteCompanyMemberApi,
   loadCompanyAccess,
@@ -89,7 +89,7 @@ function storeCompanyId(userId: string, companyId: string | null) {
 }
 
 function chooseCompany(snapshot: CompanyAccessSnapshot, previousCompanyId: string | null) {
-  const selectable = snapshot.companies.filter((company) => companyIsSelectable(snapshot, company.id));
+  const selectable = snapshot.companies.filter((company) => canOpenCompanyWorkspace(snapshot, company.id));
   const stored = snapshot.userId ? readStoredCompanyId(snapshot.userId) : null;
   const preferred = [previousCompanyId, stored].find((candidate) => candidate && selectable.some((company) => company.id === candidate)) || null;
   if (preferred) return preferred;
@@ -114,6 +114,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   const accessRef = useRef(access);
   const sessionRef = useRef<Session | null>(null);
   const loadGenerationRef = useRef(0);
+  const selectionGenerationRef = useRef(0);
 
   const setAccessSnapshot = useCallback((next: CompanyAccessSnapshot) => {
     accessRef.current = next;
@@ -139,6 +140,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       const nextUserId = nextSession?.user?.id || null;
       if (previousUserId !== nextUserId) {
         loadGenerationRef.current += 1;
+        selectionGenerationRef.current += 1;
         setAccessSnapshot(emptyAccess(nextUserId ? "loading" : "signed-out"));
         setIsSwitching(Boolean(nextUserId));
         clearCompanyContext();
@@ -228,9 +230,13 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   }, [refreshAccess, session?.user?.id]);
 
   const selectCompany = useCallback(async (companyId: string) => {
+    const requestGeneration = ++selectionGenerationRef.current;
     const current = accessRef.current;
-    if (!companyIsSelectable(current, companyId)) throw new Error("You do not have access to that company.");
-    if (current.activeCompanyId === companyId) return;
+    if (!canOpenCompanyWorkspace(current, companyId)) throw new Error("You do not have access to that active company workspace.");
+    if (current.activeCompanyId === companyId) {
+      setIsSwitching(false);
+      return;
+    }
     setIsSwitching(true);
     // Clear the global API context before changing React state. Any in-flight
     // loader that still reaches a mutation boundary now fails closed.
@@ -238,7 +244,13 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     const loading = { ...current, status: "loading" as const, activeCompanyId: null, permissions: [] };
     setAccessSnapshot(loading);
     await Promise.resolve();
-    const next = { ...current, status: "ready" as const, activeCompanyId: companyId, permissions: permissionsForCompany(current, companyId) };
+    if (requestGeneration !== selectionGenerationRef.current) return;
+    const latest = accessRef.current;
+    if (!canOpenCompanyWorkspace(latest, companyId)) {
+      setIsSwitching(false);
+      throw new Error("That company is no longer an active workspace.");
+    }
+    const next = { ...latest, status: "ready" as const, activeCompanyId: companyId, permissions: permissionsForCompany(latest, companyId) };
     setAccessSnapshot(next);
     if (next.userId) storeCompanyId(next.userId, companyId);
     setIsSwitching(false);
@@ -250,9 +262,11 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       ? current.companies.map((item) => item.id === company.id ? company : item)
       : [...current.companies, company];
     const isActive = current.activeCompanyId === company.id;
-    const accessible = company.status === "ACTIVE";
+    const accessible = company.status.toUpperCase() === "ACTIVE";
     const nextActiveCompanyId = isActive && !accessible ? null : current.activeCompanyId;
-    const nextStatus = nextActiveCompanyId ? "ready" : (isActive ? "company-suspended" : current.status);
+    const nextStatus = nextActiveCompanyId
+      ? "ready"
+      : (isActive && company.status.toUpperCase() === "SUSPENDED" ? "company-suspended" : (isActive ? "no-company" : current.status));
     setAccessSnapshot({
       ...current,
       companies,
@@ -272,6 +286,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     loadGenerationRef.current += 1;
+    selectionGenerationRef.current += 1;
     clearCompanyContext();
     setIsSwitching(false);
     setAccessSnapshot(emptyAccess(isSupabaseConfigured ? "signed-out" : "guest"));

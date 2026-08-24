@@ -27,6 +27,7 @@ import {
   type NavigationModule,
   type NavigationRoute,
 } from "../navigation/navigationModel.ts";
+import { navigationModuleTourTarget, navigationRouteTourTarget } from "../navigation/navigationTours.ts";
 import {
   getRouteForAppTab,
   type AppTab,
@@ -122,7 +123,7 @@ const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({ route, ac
   return (
     <button
       type="button"
-      data-tour={module.id === "invoices" ? "module:invoices" : `route:${route.id}`}
+      data-tour={navigationRouteTourTarget(route.id)}
       role={menuItem ? "menuitem" : undefined}
       onClick={() => onSelect(route)}
       aria-label={accessibleLabel}
@@ -157,7 +158,7 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({ module,
   return (
     <button
       type="button"
-      data-tour={`route:${route.id}`}
+      data-tour={navigationModuleTourTarget(module.id)}
       role={menuItem ? "menuitem" : undefined}
       onClick={() => onSelect(module)}
       aria-label={accessibleLabel}

@@ -80,3 +80,17 @@ test("AI credential migration is additive, encrypted-envelope-only, and owner co
   assert.doesNotMatch(migration, /api_key\s+text|secret_key\s+text|master_key\s+text/i);
   assert.doesNotMatch(migration, /drop table/i);
 });
+
+test("AI hardening migration supports enable and closes browser envelope access", () => {
+  const migration = readFileSync(new URL("../supabase/migrations/20260824123000_company_ai_hardening.sql", import.meta.url), "utf8");
+  assert.match(migration, /platform_enable_company_ai/);
+  assert.match(migration, /COMPANY_AI_CREDENTIAL_ENABLED/);
+  assert.match(migration, /PROVIDER_ACCESS_DENIED/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /set search_path = ''/);
+  assert.match(migration, /grant execute on function public\.resolve_company_ai_credential\(uuid\) to service_role/);
+  assert.match(migration, /revoke execute on function public\.resolve_company_ai_credential\(uuid\) from public, anon, authenticated/);
+  assert.match(migration, /server_mark_company_ai_invalid/);
+  assert.match(migration, /grant execute on function public\.server_mark_company_ai_invalid\(uuid\) to service_role/);
+  assert.doesNotMatch(migration, /drop table/i);
+});

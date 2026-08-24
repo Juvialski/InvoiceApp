@@ -6,7 +6,7 @@ export const COMPANY_AI_FALLBACK_MODEL = "gemini-3.7-flash" as const;
 export const COMPANY_AI_ENCRYPTION_VERSION = 1 as const;
 
 export type CompanyAiStatus = "NOT_CONFIGURED" | "ACTIVE" | "DISABLED" | "INVALID";
-export type CompanyAiTestStatus = "SUCCESS" | "INVALID_CREDENTIAL" | "QUOTA_LIMITED" | "PROVIDER_UNAVAILABLE" | "MODEL_UNAVAILABLE" | "NOT_TESTED";
+export type CompanyAiTestStatus = "SUCCESS" | "INVALID_CREDENTIAL" | "QUOTA_LIMITED" | "PROVIDER_UNAVAILABLE" | "PROVIDER_ACCESS_DENIED" | "MODEL_UNAVAILABLE" | "NOT_TESTED";
 
 export interface CompanyAiConfigMetadata {
   companyId: string;
