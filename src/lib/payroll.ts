@@ -15,6 +15,7 @@ import type { PayrollSchedule, PayrollScheduleVersion } from "./payrollSchedule.
 import { readPayrollSchedulesFromLocal, writePayrollSchedulesToLocal } from "./payrollSchedule.ts";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./payrollAutomation.ts";
 import { supabase } from "./supabase.ts";
+import { requireActiveCompanyId } from "./companyContext.ts";
 
 const WORKERS_STORAGE_KEY = "engineering_workers";
 const ASSIGNMENTS_STORAGE_KEY = "engineering_project_worker_assignments";
@@ -295,20 +296,21 @@ export function validatePayrollAllocations(entry: Pick<PayrollEntry, "projectAll
 export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspaceData> {
   const userId = await currentUserId();
   if (!supabase || !userId) return emptyPayrollWorkspaceData();
+  const companyId = requireActiveCompanyId();
   const [departments, workers, assignments, schedules, scheduleVersions, compensationProfiles, recurringComponents, periods, runs, entries, allocations, workEntries, adjustments] = await Promise.all([
-    supabase.from("departments").select("*").is("archived_at", null).order("name"),
-    supabase.from("workers").select("*").is("archived_at", null).order("last_name"),
-    supabase.from("project_worker_assignments").select("*").order("start_date", { ascending: false }),
-    supabase.from("payroll_schedules").select("*").order("updated_at", { ascending: false }),
-    supabase.from("payroll_schedule_versions").select("*").order("version"),
-    supabase.from("worker_compensation_profiles").select("*").order("effective_from", { ascending: false }),
-    supabase.from("recurring_payroll_components").select("*").order("effective_from", { ascending: false }),
-    supabase.from("payroll_periods").select("*").order("period_end", { ascending: false }),
-    supabase.from("payroll_runs").select("*").order("created_at", { ascending: false }),
-    supabase.from("payroll_entries").select("*"),
-    supabase.from("payroll_project_allocations").select("*"),
-    supabase.from("work_entries").select("*").order("work_date", { ascending: false }),
-    supabase.from("payroll_adjustments").select("*"),
+    supabase.from("departments").select("*").eq("company_id", companyId).is("archived_at", null).order("name"),
+    supabase.from("workers").select("*").eq("company_id", companyId).is("archived_at", null).order("last_name"),
+    supabase.from("project_worker_assignments").select("*").eq("company_id", companyId).order("start_date", { ascending: false }),
+    supabase.from("payroll_schedules").select("*").eq("company_id", companyId).order("updated_at", { ascending: false }),
+    supabase.from("payroll_schedule_versions").select("*").eq("company_id", companyId).order("version"),
+    supabase.from("worker_compensation_profiles").select("*").eq("company_id", companyId).order("effective_from", { ascending: false }),
+    supabase.from("recurring_payroll_components").select("*").eq("company_id", companyId).order("effective_from", { ascending: false }),
+    supabase.from("payroll_periods").select("*").eq("company_id", companyId).order("period_end", { ascending: false }),
+    supabase.from("payroll_runs").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("payroll_entries").select("*").eq("company_id", companyId),
+    supabase.from("payroll_project_allocations").select("*").eq("company_id", companyId),
+    supabase.from("work_entries").select("*").eq("company_id", companyId).order("work_date", { ascending: false }),
+    supabase.from("payroll_adjustments").select("*").eq("company_id", companyId),
   ]);
   for (const result of [departments, workers, assignments, schedules, scheduleVersions, compensationProfiles, recurringComponents, periods, runs, entries, allocations, workEntries, adjustments]) if (result.error) throw result.error;
   return payrollWorkspaceFromRows({
@@ -435,7 +437,7 @@ export async function savePayrollEntryToSupabase(entry: PayrollEntry, allocation
   const entryId = persistedId(entry.id, "entry");
   const { data: entryRow, error: entryError } = await supabase.from("payroll_entries").upsert({ id: entryId, user_id: userId, payroll_run_id: entry.payrollRunId, worker_id: entry.workerId, base_pay: entry.basePay, regular_pay: entry.regularPay, overtime_pay: entry.overtimePay, allowances: entry.allowances, other_earnings: entry.otherEarnings ?? 0, gross_pay: entry.grossPay, deductions: entry.deductions, other_deductions: entry.otherDeductions ?? 0, employer_costs: entry.employerCosts ?? 0, net_pay: entry.netPay, project_allocated_cost: entry.projectAllocatedCost, cost_context: entry.costContext || {}, import_row_id: entry.importRowId || null, calculation_snapshot: entry.calculationSnapshot || {} }).select("*").single();
   if (entryError) throw entryError;
-  const { error: deleteError } = await supabase.from("payroll_project_allocations").delete().eq("payroll_entry_id", entryId).eq("user_id", userId);
+  const { error: deleteError } = await supabase.from("payroll_project_allocations").delete().eq("payroll_entry_id", entryId).eq("company_id", requireActiveCompanyId());
   if (deleteError) throw deleteError;
   const rows = allocations.map((allocation) => ({ id: allocation.id && !allocation.id.startsWith("local-") ? allocation.id : undefined, user_id: userId, payroll_entry_id: entryId, project_id: allocation.projectId, allocation_amount: allocation.allocationAmount, allocation_percentage: allocation.allocationPercentage ?? null, source: allocation.source }));
   const { data: allocationRows, error: allocationError } = rows.length ? await supabase.from("payroll_project_allocations").insert(rows).select("*") : { data: [], error: null };
@@ -446,7 +448,7 @@ export async function savePayrollEntryToSupabase(entry: PayrollEntry, allocation
 export async function deletePayrollEntriesForRunToSupabase(runId: string) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before recalculating payroll.");
-  const { error } = await supabase.from("payroll_entries").delete().eq("payroll_run_id", runId).eq("user_id", userId);
+  const { error } = await supabase.from("payroll_entries").delete().eq("payroll_run_id", runId).eq("company_id", requireActiveCompanyId());
   if (error) throw error;
 }
 

@@ -13,6 +13,8 @@ export interface WorkspaceLoadToken {
   generation: number;
   /** Supabase auth user whose result was requested. */
   userId: string;
+  /** Company whose records the request was allowed to read. */
+  companyId?: string;
 }
 
 /**
@@ -28,7 +30,8 @@ export function canApplyWorkspaceLoad(
     started.userId
       && current?.userId
       && started.generation === current.generation
-      && started.userId === current.userId,
+      && started.userId === current.userId
+      && (!started.companyId || (current.companyId && started.companyId === current.companyId)),
   );
 }
 

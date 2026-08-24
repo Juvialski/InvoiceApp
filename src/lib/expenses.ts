@@ -1,5 +1,6 @@
 import type { Expense, ExpenseStatus } from "../types";
 import { supabase } from "./supabase";
+import { companyScopedRow, requireActiveCompanyId } from "./companyContext";
 
 const EXPENSES_STORAGE_KEY = "engineering_expenses";
 
@@ -38,10 +39,11 @@ function fromRow(row: Record<string, unknown>): Expense {
   };
 }
 
-function toRow(expense: Expense, userId?: string) {
-  return {
+function toRow(expense: Expense, userId?: string, companyId?: string) {
+  return companyScopedRow({
     id: expense.id,
     ...(userId ? { user_id: userId } : {}),
+    ...(companyId ? { company_id: companyId } : {}),
     project_id: expense.projectId || null,
     expense_date: expense.expenseDate,
     category: expense.category.trim() || "Miscellaneous",
@@ -56,7 +58,7 @@ function toRow(expense: Expense, userId?: string) {
     notes: expense.notes || null,
     archived_at: expense.archivedAt || null,
     updated_at: new Date().toISOString(),
-  };
+  });
 }
 
 async function currentUserId() {
@@ -87,7 +89,7 @@ export function createLocalExpense(input: Omit<Expense, "id" | "createdAt" | "up
 export async function loadExpensesFromSupabase(): Promise<Expense[]> {
   const userId = await currentUserId();
   if (!supabase || !userId) return [];
-  const { data, error } = await supabase.from("expenses").select("*").is("archived_at", null).order("expense_date", { ascending: false });
+  const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("expenses").select("*").eq("company_id", companyId).is("archived_at", null).order("expense_date", { ascending: false });
   if (error) throw error;
   return (data || []).map((row) => fromRow(row as Record<string, unknown>));
 }
@@ -95,7 +97,7 @@ export async function loadExpensesFromSupabase(): Promise<Expense[]> {
 export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving expenses.");
-  const { data, error } = await supabase.from("expenses").upsert(toRow(expense, userId)).select("*").single();
+  const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("expenses").upsert(toRow(expense, userId, companyId)).select("*").single();
   if (error) throw error;
   return fromRow(data as Record<string, unknown>);
 }
@@ -103,7 +105,7 @@ export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> 
 export async function archiveExpenseInSupabase(expenseId: string): Promise<Expense> {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before archiving expenses.");
-  const { data, error } = await supabase.from("expenses").update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", expenseId).select("*").single();
+  const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("expenses").update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", expenseId).eq("company_id", companyId).select("*").single();
   if (error) throw error;
   return fromRow(data as Record<string, unknown>);
 }

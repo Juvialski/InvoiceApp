@@ -1,5 +1,6 @@
 import { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent } from "../types";
 import { supabase } from "./supabase";
+import { companyStoragePath, requireActiveCompanyId } from "./companyContext";
 
 const INVOICE_BUCKET = "invoice-originals";
 const EMAIL_BUCKET = "email-originals";
@@ -111,6 +112,7 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
   const { data, error } = await client
     .from("invoices")
     .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,created_at")
+    .eq("company_id", requireActiveCompanyId())
     .is("archived_at", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -121,6 +123,7 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
     const { data: extractions, error: extractionError } = await client
       .from("invoice_extractions")
       .select("id,invoice_id,structured_result,created_at")
+      .eq("company_id", requireActiveCompanyId())
       .in("invoice_id", invoiceIds)
       .order("created_at", { ascending: false });
     if (extractionError) throw extractionError;
@@ -159,7 +162,7 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
   const { data: existingRows, error: existingError } = await client
     .from("source_documents")
     .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,sha256,processing_status,document_type,created_at")
-    .eq("user_id", userId)
+    .eq("company_id", requireActiveCompanyId())
     .eq("sha256", hash)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -167,7 +170,7 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
   if (existingRows?.[0]) return sourceDocumentFromRow(existingRows[0]);
 
   const now = new Date();
-  const path = `${userId}/manual/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${hash.slice(0, 12)}-${crypto.randomUUID().slice(0, 8)}-${safeName(input.fileName)}`;
+  const path = `${companyStoragePath("invoices", "manual", String(now.getUTCFullYear()), String(now.getUTCMonth() + 1).padStart(2, "0"))}/${hash.slice(0, 12)}-${crypto.randomUUID().slice(0, 8)}-${safeName(input.fileName)}`;
   const { error: uploadError } = await client.storage.from(INVOICE_BUCKET).upload(path, bytes, {
     contentType: input.mimeType || "application/octet-stream",
     upsert: false,
@@ -178,6 +181,7 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
     .from("source_documents")
     .insert({
       user_id: userId,
+      company_id: requireActiveCompanyId(),
       source_type: input.sourceType || "UPLOAD",
       email_message_id: input.emailMessageId || null,
       filename: input.fileName,
@@ -202,6 +206,7 @@ export async function loadSourcePayloadForRetry(invoice: InvoiceData): Promise<O
       .from("source_documents")
       .select("id,source_type,filename,mime_type,file_size,storage_path,sha256")
       .eq("id", invoice.sourceDocumentId)
+      .eq("company_id", requireActiveCompanyId())
       .maybeSingle();
     if (rowError) throw rowError;
     if (row) {
@@ -258,7 +263,8 @@ export async function saveManualEmailRecord(input: { sender: string; subject: st
   const syntheticId = `manual-${crypto.randomUUID()}`;
   const { data, error } = await client.from("email_messages").insert({
     user_id: userId,
-    gmail_message_id: syntheticId,
+    company_id: requireActiveCompanyId(),
+      gmail_message_id: syntheticId,
     subject: input.subject || "Manual email",
     sender: input.sender || "",
     recipients: [],
@@ -284,7 +290,7 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
 
   if (message.rawBase64Url) {
     const rawBytes = base64UrlToBytes(message.rawBase64Url);
-    rawStoragePath = `${userId}/${year}/${month}/${message.id}/message.eml`;
+    rawStoragePath = `${companyStoragePath("emails", String(year), month, message.id)}/message.eml`;
     const { error } = await client.storage.from(EMAIL_BUCKET).upload(rawStoragePath, rawBytes, { contentType: "message/rfc822", upsert: true });
     if (error) throw error;
   }
@@ -293,6 +299,7 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
     .from("email_messages")
     .upsert({
       user_id: userId,
+      company_id: requireActiveCompanyId(),
       gmail_message_id: message.id,
       gmail_thread_id: message.threadId || null,
       gmail_history_id: message.historyId || undefined,
@@ -312,7 +319,7 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
       ...(rawStoragePath ? { raw_storage_path: rawStoragePath } : {}),
       processing_status: "IMPORTED",
       updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id,gmail_message_id" })
+    }, { onConflict: "company_id,gmail_message_id" })
     .select("id")
     .single();
   if (emailError) throw emailError;
@@ -324,7 +331,7 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
     const { data: existingDocument, error: existingError } = await client
       .from("source_documents")
       .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,sha256,processing_status,document_type")
-      .eq("user_id", userId)
+    .eq("company_id", requireActiveCompanyId())
       .eq("email_message_id", emailRow.id)
       .eq("gmail_attachment_id", attachmentId)
       .maybeSingle();
@@ -351,7 +358,7 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
     if (!attachment.dataBase64) throw new Error(`Gmail attachment data is missing for ${attachment.filename || attachmentId}.`);
     const bytes = decodeBase64(attachment.dataBase64);
     const hash = await sha256(bytes);
-    const storagePath = `${userId}/${year}/${month}/${message.id}/${safeName(attachmentId)}-${hash.slice(0, 12)}-${safeName(attachment.filename)}`;
+    const storagePath = `${companyStoragePath("invoices", String(year), month, message.id)}/${safeName(attachmentId)}-${hash.slice(0, 12)}-${safeName(attachment.filename)}`;
     const { error: uploadError } = await client.storage.from(INVOICE_BUCKET).upload(storagePath, bytes, {
       contentType: attachment.mimeType || "application/octet-stream",
       upsert: false,
@@ -362,7 +369,8 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
       .from("source_documents")
       .insert({
         user_id: userId,
-        email_message_id: emailRow.id,
+        company_id: requireActiveCompanyId(),
+      email_message_id: emailRow.id,
         source_type: "EMAIL",
         gmail_attachment_id: attachmentId,
         gmail_part_id: attachment.partId || null,
@@ -381,7 +389,7 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
       const { data: racedDocument, error: racedError } = await client
         .from("source_documents")
         .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,sha256,processing_status,document_type")
-        .eq("user_id", userId)
+    .eq("company_id", requireActiveCompanyId())
         .eq("email_message_id", emailRow.id)
         .eq("gmail_attachment_id", attachmentId)
         .single();
@@ -430,7 +438,7 @@ async function ensureVendor(invoice: InvoiceData) {
     const { data: taxMatch, error: taxMatchError } = await client
       .from("vendors")
       .select("id")
-      .eq("user_id", userId)
+    .eq("company_id", requireActiveCompanyId())
       .eq("tax_id", taxId)
       .maybeSingle();
     if (taxMatchError) throw taxMatchError;
@@ -442,6 +450,7 @@ async function ensureVendor(invoice: InvoiceData) {
     .from("vendors")
     .upsert({
       user_id: userId,
+      company_id: requireActiveCompanyId(),
       name,
       normalized_name: normalizedKey,
       email: invoice.vendor?.email || null,
@@ -450,7 +459,7 @@ async function ensureVendor(invoice: InvoiceData) {
       address: invoice.vendor?.address || null,
       default_currency: invoice.currency || null,
       updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id,normalized_name" })
+    }, { onConflict: "company_id,normalized_name" })
     .select("id")
     .single();
   if (error) throw error;
@@ -466,6 +475,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
       .from("invoices")
       .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at")
       .eq("source_document_id", invoice.sourceDocumentId)
+      .eq("company_id", requireActiveCompanyId())
       .maybeSingle();
     if (existingError) throw existingError;
     if (existing) {
@@ -496,7 +506,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
   const { data: possibleDuplicates, error: duplicateError } = await client
     .from("invoices")
     .select("id,current_data,invoice_number,invoice_date,currency,grand_total,vendor_id")
-    .eq("user_id", userId)
+    .eq("company_id", requireActiveCompanyId())
     .neq("id", invoice.id)
     .limit(500);
   if (duplicateError) throw duplicateError;
@@ -527,6 +537,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     .insert({
       id: invoice.id,
       user_id: userId,
+      company_id: requireActiveCompanyId(),
       source_document_id: invoice.sourceDocumentId || null,
       source_email_id: invoice.sourceEmailId || null,
       vendor_id: vendorId,
@@ -553,6 +564,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     .from("invoice_extractions")
     .insert({
       user_id: userId,
+      company_id: requireActiveCompanyId(),
       invoice_id: row.id,
       model: persistedInvoice.modelUsed || "unknown",
       raw_result: persistedInvoice.rawJson || null,
@@ -565,10 +577,11 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
   if (extractionError) throw extractionError;
 
   const saved = { ...persistedInvoice, extractionId: extraction.id, aiSnapshot: clone(aiSnapshot) };
-  const { error: updateError } = await client.from("invoices").update({ current_data: saved }).eq("id", row.id);
+  const { error: updateError } = await client.from("invoices").update({ current_data: saved }).eq("id", row.id).eq("company_id", requireActiveCompanyId());
   if (updateError) throw updateError;
 
-  const { error: eventError } = await client.from("invoice_review_events").insert({ user_id: userId, invoice_id: row.id, event_type: "AI_EXTRACTION_CREATED", new_value: { model: persistedInvoice.modelUsed, confidence: persistedInvoice.confidenceScore } });
+  const { error: eventError } = await client.from("invoice_review_events").insert({ user_id: userId, company_id: requireActiveCompanyId(),
+      invoice_id: row.id, event_type: "AI_EXTRACTION_CREATED", new_value: { model: persistedInvoice.modelUsed, confidence: persistedInvoice.confidenceScore } });
   if (eventError) throw eventError;
   return saved;
 }
@@ -583,7 +596,7 @@ export async function persistExtractionAttempt(
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
     .select("id,current_data,source_document_id,source_email_id,vendor_id,duplicate_status,duplicate_of_id")
-    .eq("id", existingInvoice.id)
+    .eq("id", existingInvoice.id).eq("company_id", requireActiveCompanyId())
     .single();
   if (existingError) throw existingError;
 
@@ -618,7 +631,7 @@ export async function persistExtractionAttempt(
   const { count: existingAttemptCount, error: countError } = await client
     .from("invoice_extractions")
     .select("id", { count: "exact", head: true })
-    .eq("invoice_id", existingRow.id);
+    .eq("invoice_id", existingRow.id).eq("company_id", requireActiveCompanyId());
   if (countError) throw countError;
   const attemptNumber = (existingAttemptCount || 0) + 1;
   const validationResult = {
@@ -632,6 +645,7 @@ export async function persistExtractionAttempt(
     .from("invoice_extractions")
     .insert({
       user_id: userId,
+      company_id: requireActiveCompanyId(),
       invoice_id: existingRow.id,
       model: candidate.modelUsed || "unknown",
       raw_result: candidate.rawJson || null,
@@ -646,7 +660,8 @@ export async function persistExtractionAttempt(
   const saved = { ...activeCandidate, extractionId: extraction.id, aiSnapshot: clone(aiSnapshot) };
   const { error: eventError } = await client.from("invoice_review_events").insert({
     user_id: userId,
-    invoice_id: existingRow.id,
+    company_id: requireActiveCompanyId(),
+      invoice_id: existingRow.id,
     event_type: "AI_REEXTRACTION_CREATED",
     previous_value: { extractionId: existingInvoice.extractionId || currentData.extractionId, attemptNumber: Math.max(1, attemptNumber - 1) },
     new_value: { extractionId: extraction.id, model: candidate.modelUsed, quality: candidate.extractionQuality || {}, attemptNumber, automatic: Boolean(metadata.automatic) },
@@ -668,7 +683,7 @@ export async function persistExtractionAttempt(
     current_data: saved,
     verified_at: null,
     updated_at: new Date().toISOString(),
-  }).eq("id", existingRow.id);
+  }).eq("id", existingRow.id).eq("company_id", requireActiveCompanyId());
   if (updateError) throw updateError;
   await replaceLineItems(existingRow.id, saved.items);
   return saved;
@@ -677,12 +692,13 @@ export async function persistExtractionAttempt(
 async function replaceLineItems(invoiceId: string, items: InvoiceData["items"]) {
   const client = requireSupabase();
   const userId = await requireUserId();
-  const { error: deleteError } = await client.from("invoice_line_items").delete().eq("invoice_id", invoiceId);
+  const { error: deleteError } = await client.from("invoice_line_items").delete().eq("invoice_id", invoiceId).eq("company_id", requireActiveCompanyId());
   if (deleteError) throw deleteError;
   if (!items.length) return;
   const rows = items.map((item, index) => ({
     user_id: userId,
-    invoice_id: invoiceId,
+    company_id: requireActiveCompanyId(),
+      invoice_id: invoiceId,
     item_index: index,
     description: item.description,
     sku: item.sku || null,
@@ -733,7 +749,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
     .select("current_data,duplicate_status,duplicate_of_id")
-    .eq("id", updated.id)
+    .eq("id", updated.id).eq("company_id", requireActiveCompanyId())
     .single();
   if (existingError) throw existingError;
   const durableAiSnapshot = existingRow?.current_data?.aiSnapshot || previous.aiSnapshot || updated.aiSnapshot;
@@ -759,7 +775,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     current_data: currentData,
     verified_at: updated.verifiedAt || null,
     updated_at: new Date().toISOString(),
-  }).eq("id", updated.id);
+  }).eq("id", updated.id).eq("company_id", requireActiveCompanyId());
   if (error) throw error;
   await replaceLineItems(updated.id, updated.items);
 
@@ -773,6 +789,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   if (fields.length || eventType !== "HUMAN_EDIT") {
     const events = (fields.length ? fields : [undefined]).map((field) => ({
       user_id: userId,
+      company_id: requireActiveCompanyId(),
       invoice_id: updated.id,
       event_type: eventType,
       field_name: field || null,
@@ -788,9 +805,10 @@ export async function deleteInvoiceFromSupabase(invoiceId: string) {
   const client = requireSupabase();
   const userId = await requireUserId();
   const archivedAt = new Date().toISOString();
-  const { error } = await client.from("invoices").update({ archived_at: archivedAt, updated_at: archivedAt }).eq("id", invoiceId).eq("user_id", userId);
+  const { error } = await client.from("invoices").update({ archived_at: archivedAt, updated_at: archivedAt }).eq("id", invoiceId).eq("company_id", requireActiveCompanyId());
   if (error) throw error;
-  const { error: eventError } = await client.from("invoice_review_events").insert({ user_id: userId, invoice_id: invoiceId, event_type: "INVOICE_ARCHIVED", new_value: { archivedAt } });
+  const { error: eventError } = await client.from("invoice_review_events").insert({ user_id: userId, company_id: requireActiveCompanyId(),
+      invoice_id: invoiceId, event_type: "INVOICE_ARCHIVED", new_value: { archivedAt } });
   if (eventError) throw eventError;
 }
 
@@ -800,7 +818,7 @@ export async function loadReviewEvents(invoiceId: string): Promise<ReviewEvent[]
   const { data, error } = await client
     .from("invoice_review_events")
     .select("id,invoice_id,event_type,field_name,previous_value,new_value,created_at")
-    .eq("invoice_id", invoiceId)
+    .eq("invoice_id", invoiceId).eq("company_id", requireActiveCompanyId())
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data || []).map((row) => ({
@@ -820,7 +838,7 @@ export async function saveGmailSyncState(historyId?: string, emailAddress?: stri
   const { data: current, error: currentError } = await client
     .from("gmail_sync_state")
     .select("last_history_id")
-    .eq("user_id", userId)
+    .eq("company_id", requireActiveCompanyId())
     .maybeSingle();
   if (currentError) throw currentError;
   const incomingIsOlder = Boolean(historyId && current?.last_history_id && compareHistoryIds(historyId, current.last_history_id) < 0);
@@ -828,7 +846,8 @@ export async function saveGmailSyncState(historyId?: string, emailAddress?: stri
   const syncedAt = new Date().toISOString();
   const { error } = await client.from("gmail_sync_state").upsert({
     user_id: userId,
-    last_history_id: durableHistoryId,
+    company_id: requireActiveCompanyId(),
+      last_history_id: durableHistoryId,
     last_synced_at: syncedAt,
     updated_at: syncedAt,
   });
@@ -837,13 +856,14 @@ export async function saveGmailSyncState(historyId?: string, emailAddress?: stri
   if (emailAddress) {
     const { error: connectionError } = await client.from("gmail_connections").upsert({
       user_id: userId,
+      company_id: requireActiveCompanyId(),
       provider: "google",
       email: emailAddress,
       scopes: ["openid", "email", "profile", "https://www.googleapis.com/auth/gmail.readonly"],
       last_history_id: durableHistoryId,
       last_synced_at: syncedAt,
       updated_at: syncedAt,
-    }, { onConflict: "user_id,provider,email" });
+    }, { onConflict: "company_id,provider,email" });
     if (connectionError) throw connectionError;
   }
   return { lastHistoryId: durableHistoryId || undefined, lastSyncedAt: syncedAt };
@@ -852,7 +872,7 @@ export async function saveGmailSyncState(historyId?: string, emailAddress?: stri
 export async function loadGmailSyncState() {
   const client = requireSupabase();
   const userId = await requireUserId();
-  const { data, error } = await client.from("gmail_sync_state").select("last_history_id,last_synced_at").eq("user_id", userId).maybeSingle();
+  const { data, error } = await client.from("gmail_sync_state").select("last_history_id,last_synced_at").eq("company_id", requireActiveCompanyId()).maybeSingle();
   if (error) throw error;
   return { lastHistoryId: data?.last_history_id || undefined, lastSyncedAt: data?.last_synced_at || undefined };
 }
@@ -860,14 +880,14 @@ export async function loadGmailSyncState() {
 export async function markEmailClassification(emailId: string, classification: unknown) {
   const client = requireSupabase();
   await requireUserId();
-  const { error } = await client.from("email_messages").update({ ai_classification: classification, processing_status: "CLASSIFIED", updated_at: new Date().toISOString() }).eq("id", emailId);
+  const { error } = await client.from("email_messages").update({ ai_classification: classification, processing_status: "CLASSIFIED", updated_at: new Date().toISOString() }).eq("id", emailId).eq("company_id", requireActiveCompanyId());
   if (error) throw error;
 }
 
 export async function markSourceDocumentStatus(sourceDocumentId: string, status: string, documentType?: string) {
   const client = requireSupabase();
   await requireUserId();
-  const { error } = await client.from("source_documents").update({ processing_status: status, ...(documentType ? { document_type: documentType } : {}) }).eq("id", sourceDocumentId);
+  const { error } = await client.from("source_documents").update({ processing_status: status, ...(documentType ? { document_type: documentType } : {}) }).eq("id", sourceDocumentId).eq("company_id", requireActiveCompanyId());
   if (error) throw error;
 }
 
@@ -891,7 +911,7 @@ export async function loadEmailSource(emailId: string): Promise<{
   const { data, error } = await client
     .from("email_messages")
     .select("id,gmail_message_id,sender,recipients,cc,subject,received_at,body_text,body_html,attachment_count,raw_storage_path")
-    .eq("id", emailId)
+    .eq("id", emailId).eq("company_id", requireActiveCompanyId())
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;

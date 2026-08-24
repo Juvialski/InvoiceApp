@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { randomUUID } from "crypto";
 import type { InvoiceData } from "./src/types.ts";
@@ -20,6 +21,109 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const PRIMARY_MODEL = "gemini-3.5-flash-lite";
 const ACCURACY_MODEL = "gemini-3.7-flash";
+type CompanyPermission =
+  | "gmail.read"
+  | "gmail.manage"
+  | "invoices.extract";
+
+interface CompanyRequestAuthorization {
+  accessToken: string;
+  companyId: string;
+  googleAccessToken?: string;
+  supabase: SupabaseClient;
+  user: User;
+}
+
+class ApiAuthorizationError extends Error {
+  status: number;
+  code: "UNAUTHENTICATED" | "COMPANY_REQUIRED" | "FORBIDDEN" | "SERVER_AUTH_UNAVAILABLE";
+
+  constructor(
+    status: number,
+    code: ApiAuthorizationError["code"],
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiAuthorizationError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function firstHeaderValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] || "" : value || "";
+}
+
+function requestBearerToken(req: express.Request) {
+  const authorization = firstHeaderValue(req.headers.authorization);
+  const match = authorization.match(/^Bearer\s+([^\s]+)$/i);
+  if (!match) {
+    throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid InvoiceApp session is required.");
+  }
+  return match[1];
+}
+
+function serverSupabaseConfiguration() {
+  const supabaseUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
+  const publishableKey = (
+    process.env.SUPABASE_PUBLISHABLE_KEY
+    || process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+    || process.env.VITE_SUPABASE_ANON_KEY
+    || ""
+  ).trim();
+  if (!supabaseUrl || !publishableKey) {
+    throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is not configured on the server.");
+  }
+  return { supabaseUrl, publishableKey };
+}
+
+function requestSupabaseClient(accessToken: string) {
+  const { supabaseUrl, publishableKey } = serverSupabaseConfiguration();
+  return createClient(supabaseUrl, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: { headers: { Authorization: "Bearer " + accessToken } },
+  });
+}
+
+async function authorizeCompanyRequest(req: express.Request, permission: CompanyPermission): Promise<CompanyRequestAuthorization> {
+  const accessToken = requestBearerToken(req);
+  const client = requestSupabaseClient(accessToken);
+  const { data, error } = await client.auth.getUser(accessToken);
+  if (error || !data.user) {
+    throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "A valid InvoiceApp session is required.");
+  }
+
+  const companyId = firstHeaderValue(req.headers["x-company-id"]).trim();
+  if (!companyId || !UUID_PATTERN.test(companyId)) {
+    throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A valid company context is required for this operation.");
+  }
+
+  const { data: allowed, error: permissionError } = await client.rpc("has_company_permission", {
+    target_company_id: companyId,
+    required_permission_key: permission,
+  });
+  if (permissionError) {
+    // Fail closed when the database authorization function is unavailable or
+    // returns an unexpected error. Never fall back to a client role/email.
+    throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is temporarily unavailable.");
+  }
+  if (allowed !== true) {
+    throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission for this company operation.");
+  }
+
+  const googleAccessToken = firstHeaderValue(req.headers["x-gmail-access-token"]).trim() || undefined;
+  return { accessToken, companyId, googleAccessToken, supabase: client, user: data.user };
+}
+
+function authorizationErrorStatus(error: unknown) {
+  return error instanceof ApiAuthorizationError ? error.status : 500;
+}
+
+function authorizationErrorMessage(error: unknown, fallback: string) {
+  return error instanceof ApiAuthorizationError ? error.message : fallback;
+}
 const EXTRACTION_TIMEOUT_MS = 60_000;
 
 function selectModel(requestedModel?: unknown) {
@@ -300,6 +404,7 @@ app.get("/api/health", (_req, res) => {
 
 app.post("/api/classify-email", async (req, res) => {
   try {
+    await authorizeCompanyRequest(req, "invoices.extract");
     const { sender = "", subject = "", body = "", attachmentNames = [], model = PRIMARY_MODEL } = req.body || {};
     if (!subject && !body && !attachmentNames.length) return res.status(400).json({ success: false, error: "Email content is required." });
     const ai = getGeminiClient();
@@ -314,8 +419,9 @@ app.post("/api/classify-email", async (req, res) => {
     const data = JSON.parse(response.text || "{}");
     res.json({ success: true, data, modelUsed });
   } catch (error: any) {
-    console.error("Error in /api/classify-email:", error);
-    res.status(500).json({ success: false, error: error?.message || "Email classification failed." });
+    const status = authorizationErrorStatus(error);
+    if (!(error instanceof ApiAuthorizationError)) console.error("Error in /api/classify-email:", error);
+    res.status(status).json({ success: false, error: authorizationErrorMessage(error, "Email classification failed.") });
   }
 });
 
@@ -485,6 +591,7 @@ Return the complete invoice schema again. Unknown source values must remain null
 app.post("/api/extract-invoice", async (req, res) => {
   const startedAt = Date.now();
   try {
+    await authorizeCompanyRequest(req, "invoices.extract");
     const {
       fileData,
       mimeType,
@@ -618,17 +725,18 @@ Rules:
     });
     return res.json({ success: true, data: selected.candidate });
   } catch (error: any) {
-    console.error("Error in /api/extract-invoice:", error?.message || "unknown");
-    return res.status(500).json({ success: false, error: "Invoice extraction failed. Please retry the document." });
+    const status = authorizationErrorStatus(error);
+    if (!(error instanceof ApiAuthorizationError)) console.error("Error in /api/extract-invoice:", error?.message || "unknown");
+    return res.status(status).json({ success: false, error: authorizationErrorMessage(error, "Invoice extraction failed. Please retry the document.") });
   }
 });
 
 
 
 function getGoogleAccessToken(req: express.Request) {
-  const header = req.headers.authorization || "";
+  const header = firstHeaderValue(req.headers["x-gmail-access-token"]);
   const match = header.match(/^Bearer\s+(.+)$/i);
-  if (!match) throw new Error("Gmail access token is missing. Reconnect Gmail and try again.");
+  if (!match) throw new ApiAuthorizationError(401, "UNAUTHENTICATED", "Gmail authorization is missing or expired.");
   return match[1];
 }
 
@@ -763,6 +871,7 @@ async function getGmailMessageFull(accessToken: string, messageId: string) {
 
 app.get("/api/gmail/profile", async (req, res) => {
   try {
+    await authorizeCompanyRequest(req, "gmail.read");
     const accessToken = getGoogleAccessToken(req);
     const profile = await gmailFetch(accessToken, "profile");
     res.json({ success: true, data: profile });
@@ -773,6 +882,7 @@ app.get("/api/gmail/profile", async (req, res) => {
 
 app.post("/api/gmail/scan", async (req, res) => {
   try {
+    await authorizeCompanyRequest(req, "gmail.read");
     const accessToken = getGoogleAccessToken(req);
     const maxResults = Math.max(1, Math.min(50, Number(req.body?.maxResults || 25)));
     const query = String(req.body?.query || "newer_than:30d {subject:invoice subject:\"sales invoice\" subject:\"service invoice\" subject:\"VAT invoice\" subject:billing subject:SOA \"statement of account\" \"credit note\" \"tax invoice\" BIR VAT TIN \"amount due\" filename:pdf filename:png filename:jpg filename:jpeg}");
@@ -803,6 +913,7 @@ app.post("/api/gmail/scan", async (req, res) => {
 
 app.post("/api/gmail/history", async (req, res) => {
   try {
+    await authorizeCompanyRequest(req, "gmail.read");
     const accessToken = getGoogleAccessToken(req);
     const startHistoryId = String(req.body?.startHistoryId || "");
     if (!startHistoryId) return res.status(400).json({ success: false, error: "No previous Gmail history ID is available. Run an initial scan first." });
@@ -834,6 +945,7 @@ app.post("/api/gmail/history", async (req, res) => {
 
 app.post("/api/gmail/import", async (req, res) => {
   try {
+    await authorizeCompanyRequest(req, "gmail.manage");
     const accessToken = getGoogleAccessToken(req);
     const messageId = String(req.body?.messageId || "");
     if (!messageId) return res.status(400).json({ success: false, error: "messageId is required." });

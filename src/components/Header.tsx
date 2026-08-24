@@ -16,6 +16,7 @@ import {
   MoreHorizontal,
   Receipt,
   Settings as SettingsIcon,
+  ShieldCheck,
   LogOut,
   UserCircle2,
 } from "lucide-react";
@@ -28,6 +29,8 @@ import {
   type RouteId,
 } from "../utils/routes";
 import type { WorkspaceSyncStatus } from "../lib/workspaceSync";
+import { CompanySwitcher } from "./access/AccessStates";
+import type { CompanySummary } from "../lib/companyAccess";
 
 export type { AppTab } from "../utils/routes";
 
@@ -40,6 +43,12 @@ interface HeaderProps {
   workspaceSyncStatus?: WorkspaceSyncStatus;
   accountEmail?: string;
   onSignOut?: () => Promise<void> | void;
+  companies?: readonly CompanySummary[];
+  activeCompanyId?: string | null;
+  isPlatformOwner?: boolean;
+  onSelectCompany?: (companyId: string) => Promise<void> | void;
+  onOpenPlatformManagement?: () => void;
+  visibleRouteIds?: readonly RouteId[];
 }
 
 const routeIcons: Record<RouteId, React.ElementType> = {
@@ -122,7 +131,7 @@ const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({ route, ac
   );
 };
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest", accountEmail, onSignOut }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest", accountEmail, onSignOut, companies = [], activeCompanyId, isPlatformOwner = false, onSelectCompany, onOpenPlatformManagement, visibleRouteIds }) => {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -132,6 +141,9 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const activeNavigation = resolveActiveRouteForAppTab(activeTab);
   const activeOverflowRoute = activeNavigation.activeOverflowRouteId ? getRouteDefinition(activeNavigation.activeOverflowRouteId) : undefined;
+  const visibleRoutes = visibleRouteIds ? ROUTE_DEFINITIONS.filter((route) => visibleRouteIds.includes(route.id)) : ROUTE_DEFINITIONS;
+  const visiblePrimaryRoutes = visibleRoutes.filter((route) => route.navigationGroup === "primary");
+  const visibleOverflowRoutes = visibleRoutes.filter((route) => route.navigationGroup === "overflow");
   const syncLabel = workspaceSyncLabel(workspaceSyncStatus as WorkspaceSyncStatus);
   const SyncIcon = workspaceSyncStatus === "synced"
     ? CheckCircle2
@@ -220,14 +232,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
           </div>
 
           <div className="flex min-w-0 flex-1 items-center gap-2 lg:justify-end">
+            {companies.length > 0 && onSelectCompany && <CompanySwitcher companies={companies} activeCompanyId={activeCompanyId} isPlatformOwner={isPlatformOwner} onSelect={onSelectCompany} />}
+            {isPlatformOwner && onOpenPlatformManagement && <button type="button" onClick={onOpenPlatformManagement} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-bold text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100" aria-label="Open platform management"><ShieldCheck aria-hidden="true" className="h-3.5 w-3.5" /><span className="hidden sm:inline">Platform</span></button>}
             <nav aria-label="Primary navigation" className="min-w-0 flex-1 rounded-xl border border-slate-200/80 bg-slate-100 p-1">
               <div className="hidden min-w-0 flex-wrap items-center justify-end gap-1 xl:flex">
-                {ROUTE_DEFINITIONS.map((route) => <NavigationRouteButton key={route.id} route={route} active={activeTab === route.appTab} invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} />)}
+                {visibleRoutes.map((route) => <NavigationRouteButton key={route.id} route={route} active={activeTab === route.appTab} invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} />)}
               </div>
 
               <div className="flex min-w-0 items-center gap-1 xl:hidden">
                 <div className="flex min-w-0 flex-1 items-center justify-start gap-1">
-                  {primaryRoutes.map((route) => <NavigationRouteButton key={route.id} route={route} compact active={activeTab === route.appTab} invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} />)}
+                  {visiblePrimaryRoutes.map((route) => <NavigationRouteButton key={route.id} route={route} compact active={activeTab === route.appTab} invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} />)}
                 </div>
                 <div className="relative shrink-0" ref={moreMenuRef}>
                   <button
@@ -248,7 +262,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
 
                   {moreOpen && <div id="header-more-menu" role="menu" aria-label="More navigation" className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl shadow-slate-900/10">
                     <div role="presentation" className="px-2.5 pb-1.5 pt-1 text-[10px] font-black uppercase tracking-wider text-slate-400">More navigation</div>
-                    {overflowRoutes.map((route) => <NavigationRouteButton key={route.id} route={route} menuItem active={activeTab === route.appTab} invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} />)}
+                    {visibleOverflowRoutes.map((route) => <NavigationRouteButton key={route.id} route={route} menuItem active={activeTab === route.appTab} invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} />)}
                   </div>}
                 </div>
               </div>

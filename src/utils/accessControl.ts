@@ -1,0 +1,138 @@
+import type { AppTab } from "./routes.ts";
+
+/**
+ * Permission keys are the only frontend authorization vocabulary.  Role names
+ * are still useful for display, but modules and mutations must ask for one of
+ * these capabilities rather than infer access from a role label.
+ */
+export const PERMISSION_KEYS = {
+  dashboardView: "dashboard.read",
+  invoicesRead: "invoices.read",
+  invoicesWrite: "invoices.manage",
+  invoicesExtract: "invoices.extract",
+  gmailRead: "gmail.read",
+  gmailManage: "gmail.manage",
+  projectsRead: "projects.read",
+  projectsWrite: "projects.manage",
+  expensesRead: "expenses.read",
+  expensesWrite: "expenses.manage",
+  payrollRead: "payroll.detail.read",
+  payrollWrite: "payroll.manage",
+  payrollImport: "payroll.import",
+  payrollAggregateRead: "payroll.summary.read",
+  payrollSensitiveRead: "payroll.detail.read",
+  reportsRead: "reports.financial.read",
+  reportsExport: "reports.financial.read",
+  settingsRead: "company.settings.read",
+  companyManage: "company.settings.manage",
+  accessManage: "company.members.read",
+  platformManage: "platform.manage",
+} as const;
+
+export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS] | (string & {});
+
+export const ALL_PERMISSION_KEYS: readonly PermissionKey[] = Object.freeze(Object.values(PERMISSION_KEYS));
+
+export const ROUTE_PERMISSION_REQUIREMENTS: Readonly<Partial<Record<AppTab, PermissionKey>>> = Object.freeze({
+  dashboard: PERMISSION_KEYS.dashboardView,
+  projects: PERMISSION_KEYS.projectsRead,
+  extractor: PERMISSION_KEYS.invoicesExtract,
+  inbox: PERMISSION_KEYS.gmailRead,
+  review: PERMISSION_KEYS.invoicesRead,
+  invoices: PERMISSION_KEYS.invoicesRead,
+  payroll: PERMISSION_KEYS.payrollRead,
+  expenses: PERMISSION_KEYS.expensesRead,
+  vendors: "vendors.read",
+  reports: PERMISSION_KEYS.reportsRead,
+  settings: PERMISSION_KEYS.settingsRead,
+});
+
+export function normalizePermissionKey(value: unknown): PermissionKey | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized ? normalized as PermissionKey : null;
+}
+
+export function normalizePermissionKeys(values: unknown): PermissionKey[] {
+  const candidates = Array.isArray(values)
+    ? values
+    : values && typeof values === "object"
+      ? Object.entries(values as Record<string, unknown>).flatMap(([key, value]) => value ? [key] : [])
+      : [];
+  return [...new Set(candidates.map(normalizePermissionKey).filter((value): value is PermissionKey => Boolean(value)))];
+}
+
+export function hasPermission(permissions: Iterable<PermissionKey> | null | undefined, required: PermissionKey | null | undefined): boolean {
+  if (!required) return true;
+  for (const permission of permissions || []) if (permission === required || permission === "*") return true;
+  return false;
+}
+
+export function hasAnyPermission(permissions: Iterable<PermissionKey> | null | undefined, required: readonly PermissionKey[]): boolean {
+  return required.some((permission) => hasPermission(permissions, permission));
+}
+
+export function requiredPermissionForAppTab(tab: AppTab): PermissionKey | null {
+  return ROUTE_PERMISSION_REQUIREMENTS[tab] || null;
+}
+
+export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, readonly PermissionKey[]>>> = Object.freeze({
+  reports: ["reports.payroll.read"],
+});
+
+export function canAccessAppTab(tab: AppTab, permissions: Iterable<PermissionKey> | null | undefined): boolean {
+  return hasPermission(permissions, requiredPermissionForAppTab(tab)) || (ROUTE_PERMISSION_ALTERNATIVES[tab] || []).some((permission) => hasPermission(permissions, permission));
+}
+
+export function permittedAppTabs(permissions: Iterable<PermissionKey> | null | undefined): AppTab[] {
+  return (Object.keys(ROUTE_PERMISSION_REQUIREMENTS) as AppTab[]).filter((tab) => canAccessAppTab(tab, permissions));
+}
+
+export function defaultAppTabForPermissions(permissions: Iterable<PermissionKey> | null | undefined): AppTab {
+  if (hasPermission(permissions, PERMISSION_KEYS.payrollSensitiveRead) && !hasAnyPermission(permissions, [
+    PERMISSION_KEYS.dashboardView,
+    PERMISSION_KEYS.invoicesRead,
+    PERMISSION_KEYS.expensesRead,
+    PERMISSION_KEYS.gmailRead,
+    PERMISSION_KEYS.reportsRead,
+  ])) return "payroll";
+  if (hasPermission(permissions, PERMISSION_KEYS.dashboardView)) return "dashboard";
+  return permittedAppTabs(permissions)[0] || "dashboard";
+}
+
+export function permissionDisplayName(permission: PermissionKey | null | undefined): string {
+  const labels: Record<string, string> = {
+    [PERMISSION_KEYS.dashboardView]: "Dashboard",
+    [PERMISSION_KEYS.invoicesRead]: "Invoices",
+    [PERMISSION_KEYS.invoicesWrite]: "Invoice editing",
+    [PERMISSION_KEYS.invoicesExtract]: "Invoice extraction",
+    [PERMISSION_KEYS.gmailRead]: "Gmail",
+    [PERMISSION_KEYS.gmailManage]: "Gmail connection management",
+    [PERMISSION_KEYS.projectsRead]: "Projects",
+    [PERMISSION_KEYS.projectsWrite]: "Project editing",
+    [PERMISSION_KEYS.expensesRead]: "Expenses",
+    [PERMISSION_KEYS.expensesWrite]: "Expense editing",
+    [PERMISSION_KEYS.payrollWrite]: "Payroll editing",
+    [PERMISSION_KEYS.payrollImport]: "Payroll imports",
+    [PERMISSION_KEYS.payrollAggregateRead]: "Payroll cost summaries",
+    [PERMISSION_KEYS.payrollSensitiveRead]: "Sensitive payroll details",
+    [PERMISSION_KEYS.reportsRead]: "Reports",
+    [PERMISSION_KEYS.settingsRead]: "Settings",
+    [PERMISSION_KEYS.companyManage]: "Company settings",
+    [PERMISSION_KEYS.accessManage]: "Access management",
+    [PERMISSION_KEYS.platformManage]: "Platform management",
+  };
+  return labels[permission || ""] || "this area";
+}
+
+export function roleDisplayName(roleKey: string | null | undefined): string {
+  const normalized = (roleKey || "").trim().toUpperCase();
+  const labels: Record<string, string> = {
+    PLATFORM_OWNER: "Platform owner",
+    COMPANY_ADMIN: "Company admin",
+    FINANCE: "Finance",
+    PAYROLL: "Payroll",
+    VIEWER: "Viewer",
+  };
+  return labels[normalized] || roleKey || "Member";
+}

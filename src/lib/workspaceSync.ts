@@ -107,8 +107,9 @@ export function refreshGroupsForTable(table: string | null | undefined): readonl
 
 export const getRefreshGroupsForTable = refreshGroupsForTable;
 
-export function workspaceSyncChannelName(userId: string): string {
-  return `${WORKSPACE_SYNC_CHANNEL_PREFIX}:${encodeURIComponent(userId)}`;
+export function workspaceSyncChannelName(userId: string, companyId?: string | null): string {
+  const companySuffix = companyId ? `:${encodeURIComponent(companyId)}` : "";
+  return `${WORKSPACE_SYNC_CHANNEL_PREFIX}:${encodeURIComponent(userId)}${companySuffix}`;
 }
 
 export interface WorkspaceSessionLike {
@@ -451,10 +452,11 @@ export interface WorkspaceTableChange {
 export interface WorkspaceSyncSubscriptionOptions {
   session?: WorkspaceSessionLike | null;
   userId?: string | null;
+  companyId?: string | null;
   client?: WorkspaceSyncClient | null;
   /** A direct channel seam is useful for tests and custom client adapters. */
   channel?: WorkspaceSyncChannel | null;
-  channelName?: string | ((userId: string) => string);
+  channelName?: string | ((userId: string, companyId: string | null) => string);
   tables?: readonly string[];
   onTableChange?: (change: WorkspaceTableChange) => void;
   onStatus?: (status: WorkspaceRealtimeSubscribeStatus, error?: Error) => void;
@@ -463,6 +465,7 @@ export interface WorkspaceSyncSubscriptionOptions {
 
 export interface WorkspaceSyncSubscription {
   userId: string | null;
+  companyId: string | null;
   channelName?: string;
   channel?: WorkspaceSyncChannel;
   isActive: () => boolean;
@@ -480,17 +483,19 @@ function asError(value: unknown): Error {
  */
 export function subscribeToWorkspaceChanges(options: WorkspaceSyncSubscriptionOptions): WorkspaceSyncSubscription {
   const userId = options.userId || getWorkspaceUserId(options.session);
+  const companyId = options.companyId?.trim() || null;
   if (!userId) {
     return {
       userId: null,
+      companyId: null,
       isActive: () => false,
       stop: async () => undefined,
     };
   }
 
   const channelName = typeof options.channelName === "function"
-    ? options.channelName(userId)
-    : options.channelName || workspaceSyncChannelName(userId);
+    ? options.channelName(userId, companyId)
+    : options.channelName || workspaceSyncChannelName(userId, companyId);
   let channel = options.channel || options.client?.channel(channelName);
   let active = Boolean(channel);
   let stopped: Promise<void> | null = null;
@@ -502,6 +507,7 @@ export function subscribeToWorkspaceChanges(options: WorkspaceSyncSubscriptionOp
     options.onError?.(error);
     return {
       userId,
+      companyId,
       channelName,
       isActive: () => false,
       stop: async () => undefined,
@@ -515,7 +521,7 @@ export function subscribeToWorkspaceChanges(options: WorkspaceSyncSubscriptionOp
 
   try {
     for (const table of tables) {
-      const filter: WorkspacePostgresChangeFilter = { event: "*", schema: "public", table, filter: `user_id=eq.${userId}` };
+      const filter: WorkspacePostgresChangeFilter = { event: "*", schema: "public", table, filter: companyId ? `company_id=eq.${companyId}` : `user_id=eq.${userId}` };
       channel.on("postgres_changes", filter, (payload) => {
         if (!active) return;
         try {
@@ -552,6 +558,7 @@ export function subscribeToWorkspaceChanges(options: WorkspaceSyncSubscriptionOp
 
   return {
     userId,
+    companyId,
     channelName,
     channel,
     isActive: () => active,
@@ -744,6 +751,7 @@ export function createWorkspaceSyncFallback(options: WorkspaceSyncFallbackOption
 export interface WorkspaceSyncState {
   status: WorkspaceSyncStatus;
   userId: string | null;
+  companyId: string | null;
   channelStatus?: WorkspaceRealtimeSubscribeStatus;
   pendingGroups: readonly WorkspaceRefreshGroup[];
   refreshing: boolean;
@@ -768,7 +776,7 @@ export interface WorkspaceSyncControllerOptions {
 }
 
 export interface WorkspaceSyncController {
-  setSession: (session: WorkspaceSessionLike | null | undefined) => Promise<void>;
+  setSession: (session: WorkspaceSessionLike | null | undefined, companyId?: string | null) => Promise<void>;
   handleSession: (session: WorkspaceSessionLike | null | undefined) => Promise<void>;
   requestRefresh: (groups: WorkspaceRefreshGroupsInput, reason?: WorkspaceSyncReason) => boolean;
   refreshAll: (reason?: WorkspaceSyncReason) => boolean;
@@ -797,6 +805,7 @@ export function createWorkspaceSyncController(options: WorkspaceSyncControllerOp
   let state: WorkspaceSyncState = {
     status: "guest",
     userId: null,
+    companyId: null,
     pendingGroups: [],
     refreshing: false,
   };
@@ -902,10 +911,11 @@ export function createWorkspaceSyncController(options: WorkspaceSyncControllerOp
   scheduler = createScheduler(0);
   fallback = createFallback();
 
-  async function setSession(nextSession: WorkspaceSessionLike | null | undefined): Promise<void> {
+  async function setSession(nextSession: WorkspaceSessionLike | null | undefined, nextCompanyId?: string | null): Promise<void> {
     if (disposed) return;
     const nextUserId = getWorkspaceUserId(nextSession);
-    if (nextUserId && nextUserId === state.userId && subscription?.isActive()) {
+    const normalizedCompanyId = nextCompanyId?.trim() || null;
+    if (nextUserId && nextUserId === state.userId && normalizedCompanyId === state.companyId && subscription?.isActive()) {
       currentSession = nextSession || null;
       return;
     }
@@ -922,14 +932,15 @@ export function createWorkspaceSyncController(options: WorkspaceSyncControllerOp
     currentSession = nextSession || null;
     if (!nextUserId) {
       currentSession = null;
-      setState({ status: "guest", userId: null, channelStatus: undefined, pendingGroups: [], refreshing: false, error: undefined });
+      setState({ status: "guest", userId: null, companyId: null, channelStatus: undefined, pendingGroups: [], refreshing: false, error: undefined });
       return;
     }
 
-    setState({ status: isOnline() ? "connecting" : "offline", userId: nextUserId, channelStatus: undefined, pendingGroups: [], refreshing: false, error: undefined });
+    setState({ status: isOnline() ? "connecting" : "offline", userId: nextUserId, companyId: normalizedCompanyId, channelStatus: undefined, pendingGroups: [], refreshing: false, error: undefined });
     subscription = subscribeToWorkspaceChanges({
       session: nextSession,
       userId: nextUserId,
+      companyId: normalizedCompanyId,
       client: options.client,
       tables,
       onTableChange: (change) => {

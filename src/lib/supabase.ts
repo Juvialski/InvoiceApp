@@ -1,3 +1,4 @@
+import { getActiveCompanyId } from "./companyContext.ts";
 import { createClient, type Session, type User } from "@supabase/supabase-js";
 
 const runtimeEnv: Record<string, string | undefined> = ((import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env || {}) as Record<string, string | undefined>;
@@ -5,6 +6,13 @@ const url = (runtimeEnv.VITE_SUPABASE_URL || "").trim();
 const publishableKey = (runtimeEnv.VITE_SUPABASE_PUBLISHABLE_KEY || runtimeEnv.VITE_SUPABASE_ANON_KEY || "").trim();
 
 export const isSupabaseConfigured = Boolean(url && publishableKey);
+function fetchWithCompanyContext(input: RequestInfo | URL, init?: RequestInit) {
+  const headers = new Headers(init?.headers || {});
+  const companyId = getActiveCompanyId();
+  if (companyId) headers.set("X-Company-Id", companyId);
+  return fetch(input, { ...init, headers });
+}
+
 
 export const supabase = isSupabaseConfigured
   ? createClient(url, publishableKey, {
@@ -13,6 +21,7 @@ export const supabase = isSupabaseConfigured
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },
+      global: { fetch: fetchWithCompanyContext },
     })
   : null;
 
@@ -166,4 +175,35 @@ export async function getWorkspaceUser(): Promise<User | null> {
   const { data, error } = await supabase.auth.getUser();
   if (error) return null;
   return data.user;
+}
+/** Return the Supabase bearer token for authenticated first-party API calls. */
+export async function getSupabaseAccessToken() {
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.getSession();
+  if (error) return null;
+  return data.session?.access_token || null;
+}
+
+export interface CompanyApiRequestOptions extends RequestInit {
+  companyId?: string | null;
+  gmailAccessToken?: string | null;
+}
+
+/**
+ * Call an InvoiceApp API route with the Supabase session as Authorization.
+ * Google/Gmail credentials use their own header and are never allowed to act
+ * as an InvoiceApp session.
+ */
+export async function fetchCompanyApi(path: string, options: CompanyApiRequestOptions = {}) {
+  const token = await getSupabaseAccessToken();
+  const companyId = (options.companyId || getActiveCompanyId() || "").trim();
+  if (!token) throw new Error("Your session is no longer active. Please sign in again.");
+  if (!companyId) throw new Error("Select a company before using this operation.");
+
+  const headers = new Headers(options.headers || {});
+  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("X-Company-Id", companyId);
+  if (options.gmailAccessToken) headers.set("X-Gmail-Access-Token", options.gmailAccessToken);
+  const { companyId: _companyId, gmailAccessToken: _gmailAccessToken, ...requestInit } = options;
+  return fetch(path, { ...requestInit, headers });
 }

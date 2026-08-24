@@ -1,5 +1,6 @@
 import type { PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun } from "../types.ts";
 import { supabase } from "./supabase.ts";
+import { companyStoragePath, requireActiveCompanyId } from "./companyContext.ts";
 
 export type PayrollImportBatchStatus = "UPLOADED" | "MAPPED" | "VALIDATED" | "COMMITTED" | "FAILED" | "VOIDED";
 export type PayrollImportRowStatus = "STAGED" | "READY" | "SKIPPED" | "COMMITTED" | "ERROR";
@@ -371,11 +372,12 @@ async function currentUserId() {
 export async function loadPayrollImportWorkspaceFromSupabase(): Promise<PayrollImportWorkspaceData> {
   const userId = await currentUserId();
   if (!supabase || !userId) return { costCenters: [], batches: [], rows: [], templates: [] };
+  const companyId = requireActiveCompanyId();
   const [costCenters, batches, rows, templates] = await Promise.all([
-    supabase.from("labor_cost_centers").select("*").is("archived_at", null).order("name"),
-    supabase.from("payroll_import_batches").select("*").order("created_at", { ascending: false }),
-    supabase.from("payroll_import_rows").select("*").order("source_sheet").order("source_row"),
-    supabase.from("payroll_import_templates").select("*").is("archived_at", null).order("name"),
+    supabase.from("labor_cost_centers").select("*").eq("company_id", companyId).is("archived_at", null).order("name"),
+    supabase.from("payroll_import_batches").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("payroll_import_rows").select("*").eq("company_id", companyId).order("source_sheet").order("source_row"),
+    supabase.from("payroll_import_templates").select("*").eq("company_id", companyId).is("archived_at", null).order("name"),
   ]);
   for (const result of [costCenters, batches, rows, templates]) if (result.error) throw result.error;
   return {
@@ -389,7 +391,7 @@ export async function loadPayrollImportWorkspaceFromSupabase(): Promise<PayrollI
 export async function findDuplicatePayrollImportBatchesFromSupabase(fileSha256: string) {
   const userId = await currentUserId();
   if (!supabase || !userId) return [];
-  const { data, error } = await supabase.from("payroll_import_batches").select("*").eq("file_sha256", normalizeSha256(fileSha256)).neq("status", "VOIDED").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("payroll_import_batches").select("*").eq("company_id", requireActiveCompanyId()).eq("file_sha256", normalizeSha256(fileSha256)).neq("status", "VOIDED").order("created_at", { ascending: false });
   if (error) throw error;
   return (data || []).map((row) => batchFromRow(row as Record<string, unknown>));
 }
@@ -399,6 +401,7 @@ export async function saveLaborCostCenterToSupabase(costCenter: LaborCostCenter)
   if (!supabase || !userId) throw new Error("Sign in before saving labor cost centers.");
   const { data, error } = await supabase.from("labor_cost_centers").upsert({
     id: persistedId(costCenter.id, "cost-center"), user_id: userId, code: costCenter.code.trim(), name: costCenter.name.trim(), cost_center_type: costCenter.type,
+    company_id: requireActiveCompanyId(),
     description: costCenter.description || null, active: costCenter.active, archived_at: costCenter.archivedAt || null, updated_at: new Date().toISOString(),
   }).select("*").single();
   if (error) throw error;
@@ -410,6 +413,7 @@ export async function savePayrollImportBatchToSupabase(batch: PayrollImportBatch
   if (!supabase || !userId) throw new Error("Sign in before saving payroll imports.");
   const { data, error } = await supabase.from("payroll_import_batches").upsert({
     id: persistedId(batch.id, "payroll-import"), user_id: userId, original_filename: batch.originalFileName, file_sha256: normalizeSha256(batch.fileSha256),
+    company_id: requireActiveCompanyId(),
     file_size: batch.fileSize ?? null, mime_type: batch.mimeType || null, storage_path: batch.storagePath, sheet_names: batch.sheetNames,
     detected_template_id: batch.detectedTemplateId || null, duplicate_of_batch_id: batch.duplicateOfBatchId || null, status: batch.status,
     mapping_snapshot: batch.mappingSnapshot, raw_metadata: batch.rawMetadata, warnings: batch.warnings, errors: batch.errors,
@@ -430,6 +434,7 @@ export async function savePayrollImportRowsToSupabase(rows: PayrollImportRow[]) 
   }
   const payload = rows.map((row) => ({
     id: persistedId(row.id, "payroll-import-row"), user_id: userId, batch_id: row.batchId, source_sheet: row.sourceSheet, source_row: row.sourceRow,
+    company_id: requireActiveCompanyId(),
     original_employee_name: row.originalEmployeeName || null, canonical_data: row.canonicalData, raw_row: row.rawRow, warnings: row.warnings, errors: row.errors,
     confidence_level: row.confidenceLevel, confidence_score: row.confidenceScore, status: row.status, worker_match_status: row.workerMatchStatus, worker_id: row.workerId || null,
     project_match_status: row.projectMatchStatus, labor_context_type: row.laborContext.type, project_id: row.laborContext.projectId || null, cost_center_id: row.laborContext.costCenterId || null,
@@ -446,6 +451,7 @@ export async function savePayrollImportTemplateToSupabase(template: PayrollImpor
   if (!supabase || !userId) throw new Error("Sign in before saving payroll import templates.");
   const { data, error } = await supabase.from("payroll_import_templates").upsert({
     id: persistedId(template.id, "payroll-import-template"), user_id: userId, name: template.name.trim(), structure_signature: template.structureSignature,
+    company_id: requireActiveCompanyId(),
     field_mappings: template.fieldMappings, header_configuration: template.headerConfiguration, metadata_mappings: template.metadataMappings, context_rules: template.contextRules,
     active: template.active, archived_at: template.archivedAt || null, updated_at: new Date().toISOString(),
   }).select("*").single();
@@ -456,7 +462,7 @@ export async function savePayrollImportTemplateToSupabase(template: PayrollImpor
 export async function uploadPayrollImportSourceToSupabase(input: { batchId: string; fileName: string; mimeType?: string; bytes: Uint8Array }) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before uploading payroll source files.");
-  const storagePath = `${userId}/${input.batchId}/${safeName(input.fileName)}`;
+  const storagePath = `${companyStoragePath("payroll-imports", input.batchId)}/${safeName(input.fileName)}`;
   const { error } = await supabase.storage.from(PAYROLL_IMPORT_BUCKET).upload(storagePath, input.bytes, { contentType: input.mimeType, upsert: false });
   if (error) throw error;
   return storagePath;
@@ -465,7 +471,7 @@ export async function uploadPayrollImportSourceToSupabase(input: { batchId: stri
 export async function createPayrollImportSourceSignedUrl(storagePath: string, expiresInSeconds = 60 * 60) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before opening payroll source files.");
-  if (!storagePath.startsWith(`${userId}/`)) throw new Error("Payroll source path is outside the current workspace.");
+  if (!storagePath.startsWith(`${companyStoragePath("payroll-imports")}/`)) throw new Error("Payroll source path is outside the current company.");
   const { data, error } = await supabase.storage.from(PAYROLL_IMPORT_BUCKET).createSignedUrl(storagePath, expiresInSeconds);
   if (error) throw error;
   return data.signedUrl;

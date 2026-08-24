@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, Cloud, Loader2, X } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { Header, AppTab } from "./components/Header";
+import { AccessDenied, CompanySwitcher, NoCompanyAccess, PlatformManagement } from "./components/access/AccessStates.tsx";
+
 import { AuthScreen } from "./components/auth";
 import { UploadZone, ExtractPayload } from "./components/UploadZone";
 import { InvoiceDirectory } from "./components/InvoiceDirectory";
@@ -20,7 +22,8 @@ import { ProjectWorkspace } from "./components/projects/ProjectWorkspace";
 import { ExpensesPage } from "./components/expenses/ExpensesPage";
 import { PayrollPageV2 as PayrollPage } from "./components/payroll/PayrollPageV2";
 import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
-import { DEFAULT_ROUTE_PATH } from "./utils/routes";
+import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
+import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
 import { exportBatchInvoicesToExcel, exportEngineeringProjectWorkbookToExcel } from "./utils/excelExport";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
@@ -34,9 +37,11 @@ import { buildDashboardViewData } from "./utils/dashboardViewModel";
 import { buildProjectDashboardViewData } from "./utils/projectDashboardViewModel";
 import { calculatePayrollRunFromWorkEntries } from "./lib/payrollCalculation";
 import { buildAutomaticPayrollDraft, createDefaultPayrollSchedule, dateOnly, ensurePayrollPeriodsAndRuns, payrollDraftToRecords } from "./lib/payrollWorkflow";
+import { useCompanyAccess } from "./context/CompanyAccessContext.tsx";
+import { companyApiRequest } from "./lib/companyApi.ts";
 import type { PayrollSchedule } from "./lib/payrollSchedule";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./lib/payrollAutomation";
-import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, signOutWorkspace, supabase } from "./lib/supabase";
+import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, supabase } from "./lib/supabase";
 import {
   deleteInvoiceFromSupabase,
   ensureWorkspaceProfile,
@@ -153,8 +158,9 @@ function initialAppLocation(): AppLocation {
   return parseAppLocation(window.location.pathname, window.location.search);
 }
 
-export default function App() {
-  const [invoices, setInvoices] = useState<InvoiceData[]>(localFallbackInvoices);
+function InvoiceWorkspace() {
+  const companyAccess = useCompanyAccess();
+  const [invoices, setInvoices] = useState<InvoiceData[]>(() => isSupabaseConfigured ? [] : localFallbackInvoices());
   const invoicesRef = useRef(invoices);
   const selectedInvoiceRef = useRef<InvoiceData | null>(null);
   const lastPersistedRef = useRef(new Map<string, InvoiceData>());
@@ -177,13 +183,35 @@ export default function App() {
   const routeSignatureRef = useRef("");
   const [processingCount, setProcessingCount] = useState(0);
   const [notification, setNotification] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const sessionRef = useRef<Session | null>(null);
-  const [authResolved, setAuthResolved] = useState(!isSupabaseConfigured);
+  const [platformManagementOpen, setPlatformManagementOpen] = useState(false);
+  const {
+    session,
+    authResolved,
+    guestMode: guestModeState,
+    access,
+    activeCompany,
+    activeCompanyId,
+    permissions,
+    isPlatformOwner,
+    isSwitching,
+    can,
+    refreshAccess,
+    selectCompany,
+    enterGuestMode,
+    signOut: signOutFromAccess,
+    createCompany,
+    updateCompany,
+    inviteCompanyMember,
+    updateCompanyMember,
+    loadCompanyMembers,
+    loadCompanyAccessAudit,
+  } = companyAccess;
+  const sessionRef = useRef<Session | null>(session);
+  sessionRef.current = session;
   const workspaceGenerationRef = useRef(0);
   const [workspaceLoading, setWorkspaceLoading] = useState(isSupabaseConfigured);
-  const [guestModeState, setGuestModeState] = useState(!isSupabaseConfigured);
-  const guestModeRef = useRef(!isSupabaseConfigured);
+  const guestModeRef = useRef(guestModeState);
+  guestModeRef.current = guestModeState;
   const [syncState, setSyncState] = useState<{ lastHistoryId?: string; lastSyncedAt?: string }>({});
   const [regionalSettings, setRegionalSettingsState] = useState<RegionalSettings>(loadRegionalSettings);
   const [saveState, setSaveState] = useState<SaveState>("saved");
@@ -193,13 +221,13 @@ export default function App() {
   const remoteInvoiceUpdatesRef = useRef(new Map<string, InvoiceData>());
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
   const savePromisesRef = useRef(new Map<string, Promise<unknown>>());
-  const [projects, setProjects] = useState<Project[]>(readProjectsFromLocal);
+  const [projects, setProjects] = useState<Project[]>(() => isSupabaseConfigured ? [] : readProjectsFromLocal());
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [projectFormSeed, setProjectFormSeed] = useState<Project | null>(null);
-  const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(readPayrollImportWorkspaceFromLocal);
-  const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(readInvoiceProjectAllocationsFromLocal);
-  const [expenses, setExpenses] = useState<Expense[]>(readExpensesFromLocal);
-  const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(readPayrollWorkspaceFromLocal);
+  const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(() => isSupabaseConfigured ? { batches: [], rows: [], templates: [] } : readPayrollImportWorkspaceFromLocal());
+  const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(() => isSupabaseConfigured ? [] : readInvoiceProjectAllocationsFromLocal());
+  const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
+  const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(() => isSupabaseConfigured ? emptyPayrollWorkspaceData() : readPayrollWorkspaceFromLocal());
   const payrollDataRef = useRef<PayrollWorkspaceData>(payrollData);
   const payrollAutomationKeyRef = useRef("");
   const payrollScheduleSignature = payrollData.schedules.map((schedule) => `${schedule.id}:${schedule.frequency}:${schedule.updatedAt || ""}`).join("|");
@@ -259,6 +287,13 @@ export default function App() {
   }, [route]);
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !session || access.status !== "ready" || !activeCompanyId) return;
+    if (canAccessAppTab(route.tab, permissions)) return;
+    const fallback = appPathForTab(defaultAppTabForPermissions(permissions));
+    if (`${route.pathname}${route.search}` !== fallback) navigateToPath(fallback, true);
+  }, [access.status, activeCompanyId, permissions, route, session]);
+
+  useEffect(() => {
     const invoiceRoute = route.kind === "invoice" || route.kind === "review-invoice" ? route : null;
     if (invoiceRoute) {
       const resolved = resolveEntityById(invoices, invoiceRoute.invoiceId);
@@ -285,7 +320,7 @@ export default function App() {
   const [uploadProjectContextId, setUploadProjectContextId] = useState<string | null>(null);
   const setGuestMode = (enabled: boolean) => {
     guestModeRef.current = enabled;
-    setGuestModeState(enabled);
+    if (enabled) enterGuestMode();
   };
 
   const clearWorkspaceState = () => {
@@ -324,13 +359,13 @@ export default function App() {
 
   const currentWorkspaceLoadToken = () => {
     const userId = sessionRef.current?.user?.id;
-    return userId ? { generation: workspaceGenerationRef.current, userId } : null;
+    return userId && activeCompanyId ? { generation: workspaceGenerationRef.current, userId, companyId: activeCompanyId } : null;
   };
 
-  const canApplyWorkspaceResult = (token: { generation: number; userId: string }) =>
+  const canApplyWorkspaceResult = (token: { generation: number; userId: string; companyId: string }) =>
     canApplyWorkspaceLoad(token, currentWorkspaceLoadToken());
 
-  const refreshInvoicesForWorkspace = async (token: { generation: number; userId: string }) => {
+  const refreshInvoicesForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
     const storedInvoices = await loadInvoicesFromSupabase();
     if (!canApplyWorkspaceResult(token)) return;
     const prepared: InvoiceData[] = (storedInvoices as InvoiceData[]).map(prepareStoredInvoice);
@@ -374,11 +409,11 @@ export default function App() {
     lastPersistedRef.current = new Map(prepared.map((invoice) => [invoice.id, invoice]));
   };
 
-  const refreshEngineeringForWorkspace = async (token: { generation: number; userId: string }) => {
+  const refreshEngineeringForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
     const results = await Promise.allSettled([
-      loadProjectsFromSupabase(),
-      loadInvoiceProjectAllocationsFromSupabase(),
-      loadExpensesFromSupabase(),
+      can(PERMISSION_KEYS.projectsRead) ? loadProjectsFromSupabase() : Promise.resolve([]),
+      can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
+      can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
     ]);
     if (!canApplyWorkspaceResult(token)) return;
     const failures: string[] = [];
@@ -391,7 +426,7 @@ export default function App() {
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
   };
 
-  const refreshPayrollForWorkspace = async (token: { generation: number; userId: string }) => {
+  const refreshPayrollForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
     setPayrollRefreshing(true);
     setPayrollWorkspaceLoadState("loading");
@@ -409,13 +444,13 @@ export default function App() {
     }
   };
 
-  const refreshPayrollImportsForWorkspace = async (token: { generation: number; userId: string }) => {
+  const refreshPayrollImportsForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
     const data = await loadPayrollImportWorkspaceFromSupabase();
     if (!canApplyWorkspaceResult(token)) return;
     setPayrollImportData(data);
   };
 
-  const refreshGmailForWorkspace = async (token: { generation: number; userId: string }) => {
+  const refreshGmailForWorkspace = async (token: { generation: number; userId: string; companyId: string }) => {
     const data = await loadGmailSyncState();
     if (!canApplyWorkspaceResult(token)) return;
     setSyncState(data);
@@ -423,7 +458,18 @@ export default function App() {
 
   const refreshWorkspaceGroups = async (groups: readonly WorkspaceRefreshGroup[], token = currentWorkspaceLoadToken()) => {
     if (!token) return;
-    const requested = new Set(groups);
+    const allowedGroups = groups.filter((group) => group === "invoices"
+      ? can(PERMISSION_KEYS.invoicesRead)
+      : group === "engineering"
+        ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead])
+        : group === "payroll"
+          ? can(PERMISSION_KEYS.payrollRead)
+          : group === "payroll-imports"
+            ? hasAnyPermission(permissions, [PERMISSION_KEYS.payrollImport, PERMISSION_KEYS.payrollWrite])
+            : group === "gmail"
+              ? can(PERMISSION_KEYS.gmailRead)
+              : false);
+    const requested = new Set(allowedGroups);
     const results = await Promise.allSettled([
       requested.has("invoices") ? refreshInvoicesForWorkspace(token) : Promise.resolve(),
       requested.has("engineering") ? refreshEngineeringForWorkspace(token) : Promise.resolve(),
@@ -440,8 +486,9 @@ export default function App() {
 
   const loadWorkspaceGuarded = async (nextSession: Session, generation: number) => {
     const userId = nextSession.user.id;
-    const token = { generation, userId };
-    if (!isSupabaseConfigured || !canApplyWorkspaceResult(token)) {
+    const companyId = activeCompanyId;
+    const token = companyId ? { generation, userId, companyId } : null;
+    if (!isSupabaseConfigured || !token || !canApplyWorkspaceResult(token)) {
       if (canApplyWorkspaceResult(token)) setWorkspaceLoading(false);
       return;
     }
@@ -466,38 +513,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!supabase) {
-      sessionRef.current = null;
-      setSession(null);
-      setAuthResolved(true);
-      return undefined;
-    }
-    let active = true;
-    const applySession = (nextSession: Session | null) => {
-      if (!active) return;
-      const previousUserId = sessionRef.current?.user?.id || null;
-      const nextUserId = nextSession?.user?.id || null;
-      if (previousUserId !== nextUserId) {
-        workspaceGenerationRef.current += 1;
-        setGuestMode(false);
-        clearWorkspaceState();
-        setWorkspaceLoading(Boolean(nextUserId));
-      } else if (!nextUserId && !guestModeRef.current) {
-        clearWorkspaceState();
-      }
-      sessionRef.current = nextSession;
-      captureGoogleProviderTokens(nextSession);
-      setSession(nextSession);
-      setAuthResolved(true);
-    };
-    void supabase.auth.getSession().then(({ data }) => applySession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => applySession(nextSession));
-    return () => {
-      active = false;
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
+    captureGoogleProviderTokens(session);
+  }, [session]);
   useEffect(() => {
     if (!authResolved) return undefined;
     const activeSession = session;
@@ -523,6 +540,13 @@ export default function App() {
       return undefined;
     }
 
+    if (supabase && activeSession && userId && !companyAccess.activeCompanyId) {
+      workspaceSyncControllerRef.current = null;
+      setWorkspaceSyncStatus("connecting");
+      clearWorkspaceState();
+      setWorkspaceLoading(companyAccess.access.status === "loading");
+      return undefined;
+    }
     const generation = workspaceGenerationRef.current;
     const controller = createWorkspaceSyncController({
       client: supabase,
@@ -530,8 +554,8 @@ export default function App() {
       refresh: async (groups) => {
         const initialLoad = initialWorkspaceLoadRef.current;
         if (initialLoad) await initialLoad;
-        const token = { generation, userId };
-        if (canApplyWorkspaceResult(token)) await refreshWorkspaceGroups(groups, token);
+        const token = activeCompanyId ? { generation, userId, companyId: activeCompanyId } : null;
+        if (token && canApplyWorkspaceResult(token)) await refreshWorkspaceGroups(groups, token);
       },
       onStateChange: (nextState) => {
         if (nextState.userId !== sessionRef.current?.user?.id) return;
@@ -548,14 +572,14 @@ export default function App() {
       () => { if (initialWorkspaceLoadRef.current === initialLoad) initialWorkspaceLoadRef.current = null; },
       () => { if (initialWorkspaceLoadRef.current === initialLoad) initialWorkspaceLoadRef.current = null; },
     );
-    void controller.setSession(activeSession);
+    void controller.setSession(activeSession, activeCompanyId);
 
     return () => {
       if (workspaceSyncControllerRef.current === controller) workspaceSyncControllerRef.current = null;
       if (initialWorkspaceLoadRef.current === initialLoad) initialWorkspaceLoadRef.current = null;
       void controller.dispose();
     };
-  }, [authResolved, session?.user?.id, guestModeState]);
+  }, [authResolved, session?.user?.id, guestModeState, companyAccess.activeCompanyId, companyAccess.access.status]);
 
   useEffect(() => {
     invoicesRef.current = invoices;
@@ -692,7 +716,7 @@ export default function App() {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 95_000);
     try {
-      const response = await fetch("/api/extract-invoice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: controller.signal });
+      const response = await companyApiRequest("/api/extract-invoice", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: controller.signal, companyId: companyAccess.activeCompanyId || "" });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.success) throw new Error(result.error || "Invoice extraction failed. Please retry the document.");
       return result.data as InvoiceData;
@@ -746,7 +770,7 @@ export default function App() {
   const handleProcessEmail = async ({ sender, subject, receivedAt, body, attachments }: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }): Promise<EmailClassification | null> => {
     setProcessingCount((n) => n + 1);
     try {
-      const classifyResponse = await fetch("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender, subject, body, attachmentNames: attachments.map((file) => file.name), model: "gemini-3.5-flash-lite" }) });
+      const classifyResponse = await companyApiRequest("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender, subject, body, attachmentNames: attachments.map((file) => file.name), model: "gemini-3.5-flash-lite" }), companyId: companyAccess.activeCompanyId || "" });
       const classifyResult = await classifyResponse.json();
       if (!classifyResponse.ok || !classifyResult.success) throw new Error(classifyResult.error || "Email classification failed.");
       const classification: EmailClassification = classifyResult.data;
@@ -791,7 +815,7 @@ export default function App() {
   const gmailRequest = async (path: string, body?: any) => {
     const token = getGoogleProviderToken();
     if (!token) throw new Error("Gmail authorization is missing or expired. Reconnect Google + Gmail.");
-    const response = await fetch(path, { method: body ? "POST" : "GET", headers: { ...(body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${token}` }, body: body ? JSON.stringify(body) : undefined });
+    const response = await companyApiRequest(path, { method: body ? "POST" : "GET", headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, companyId: companyAccess.activeCompanyId || "", googleAccessToken: token });
     const result = await response.json();
     if (!response.ok || !result.success) {
       const error: any = new Error(result.error || "Gmail request failed.");
@@ -807,7 +831,7 @@ export default function App() {
       const batch = messages.slice(i, i + 4);
       const classified = await Promise.all(batch.map(async (message) => {
         try {
-          const response = await fetch("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender: message.sender, subject: message.subject, body: message.bodyText, attachmentNames: message.attachments.map((item) => item.filename), model: "gemini-3.5-flash-lite" }) });
+          const response = await companyApiRequest("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender: message.sender, subject: message.subject, body: message.bodyText, attachmentNames: message.attachments.map((item) => item.filename), model: "gemini-3.5-flash-lite" }), companyId: companyAccess.activeCompanyId || "" });
           const result = await response.json();
           if (!response.ok || !result.success) throw new Error(result.error || "Classification failed");
           return { ...message, classification: result.data as EmailClassification, importStatus: result.data.isInvoiceLike ? "READY" as const : "IGNORED" as const };
@@ -1504,13 +1528,10 @@ export default function App() {
     sessionRef.current = null;
     setGuestMode(false);
     clearWorkspaceState();
-    setSession(null);
-
-    setAuthResolved(true);
     setWorkspaceLoading(false);
     setWorkspaceSyncStatus("guest");
     try {
-      await signOutWorkspace();
+      await signOutFromAccess();
     } catch (error) {
       showNotification("error", userFacingError(error, "Could not complete sign out. Please try again."));
     }
@@ -1934,9 +1955,53 @@ export default function App() {
   const routeNotFound = route.kind === "unknown"
     || (route.kind === "project" && !workspaceLoading && !routeProject)
     || ((route.kind === "invoice" || route.kind === "review-invoice") && !workspaceLoading && !routeInvoice);
-
+  const visibleRouteIds = useMemo<readonly RouteId[] | undefined>(() => {
+    if (!isSupabaseConfigured || !session) return undefined;
+    return ROUTE_DEFINITIONS
+      .filter((definition) => isPlatformOwner || canAccessAppTab(definition.appTab, permissions))
+      .map((definition) => definition.id);
+  }, [isPlatformOwner, permissions, session]);
+  const routePermission = route.kind === "unknown" ? null : requiredPermissionForAppTab(route.tab);
+  const routeDenied = Boolean(isSupabaseConfigured && session && activeCompanyId && !isPlatformOwner && routePermission && !canAccessAppTab(route.tab, permissions));
+  const workspaceRouteVisible = !routeNotFound && !routeDenied;
+  useEffect(() => {
+    if (!routeDenied) return;
+    const fallbackTab = defaultAppTabForPermissions(permissions);
+    const fallbackPath = appPathForTab(fallbackTab);
+    if (route.pathname !== fallbackPath) navigateToPath(fallbackPath, true);
+  }, [permissions, route.pathname, routeDenied]);
   const isResetPasswordRoute = route.pathname === "/reset-password";
+  if (routeDenied) return <AccessDenied permission={routePermission} companyName={activeCompany?.name} onReturn={() => navigateToPath(appPathForTab(defaultAppTabForPermissions(permissions)), true)} />;
   const authRedirectPath = authReturnPath();
+  if (isSupabaseConfigured && session && companyAccess.access.status === "loading") {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-700"><Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />Loading company access…</div>;
+  }
+  if (isSupabaseConfigured && session && companyAccess.access.status === "error") {
+    return <NoCompanyAccess onSignOut={handleSignOut}><div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs leading-5 text-rose-900">We couldn’t load your company access. Refresh the page or contact the platform owner.</div></NoCompanyAccess>;
+  }
+  if (isSupabaseConfigured && session && !companyAccess.isPlatformOwner && (companyAccess.access.status === "no-company" || companyAccess.access.status === "company-suspended")) {
+    return <NoCompanyAccess onSignOut={handleSignOut} />;
+  }
+  if (isSupabaseConfigured && session && companyAccess.isPlatformOwner && !companyAccess.activeCompanyId) {
+    return <NoCompanyAccess isPlatformOwner onSignOut={handleSignOut}>
+      <PlatformManagement
+        companies={companyAccess.companies}
+        activeCompanyId={companyAccess.activeCompanyId}
+        onSelectCompany={companyAccess.selectCompany}
+        onCreateCompany={companyAccess.createCompany}
+        onUpdateCompany={companyAccess.updateCompany}
+        onInviteCompanyMember={companyAccess.inviteCompanyMember}
+        onUpdateCompanyMember={companyAccess.updateCompanyMember}
+        onLoadCompanyMembers={companyAccess.loadCompanyMembers}
+        onLoadAudit={companyAccess.loadCompanyAccessAudit}
+      />
+    </NoCompanyAccess>;
+  }
+  if (isSupabaseConfigured && session && companyAccess.access.status === "ready" && !companyAccess.activeCompanyId) {
+    return <NoCompanyAccess onSignOut={handleSignOut}>
+      <div className="mt-6"><CompanySwitcher companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelect={companyAccess.selectCompany} /></div>
+    </NoCompanyAccess>;
+  }
   const emailRedirectTo = typeof window === "undefined" ? undefined : new URL(authRedirectPath, window.location.origin).toString();
   const resetRedirectTo = typeof window === "undefined" ? undefined : new URL("/reset-password", window.location.origin).toString();
   if (isSupabaseConfigured && !authResolved) {
@@ -1944,15 +2009,36 @@ export default function App() {
   }
   if (isSupabaseConfigured && (isResetPasswordRoute || (!session && !guestModeState))) {
     if (isResetPasswordRoute && session) {
-      return <AuthScreen initialMode="reset-password" resetRedirectTo={resetRedirectTo} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} />;
+      return <AuthScreen initialMode="reset-password" resetRedirectTo={resetRedirectTo} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} allowBrowserOnly={!isSupabaseConfigured} invitationRequired={isSupabaseConfigured} />;
     }
-    return <AuthScreen initialMode={isResetPasswordRoute ? "reset-password" : "sign-in"} emailRedirectTo={emailRedirectTo} resetRedirectTo={resetRedirectTo} onAuthenticated={handleAuthenticated} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} />;
+    return <AuthScreen initialMode={isResetPasswordRoute ? "reset-password" : "sign-in"} emailRedirectTo={emailRedirectTo} resetRedirectTo={resetRedirectTo} onAuthenticated={handleAuthenticated} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} allowBrowserOnly={!isSupabaseConfigured} invitationRequired={isSupabaseConfigured} />;
   }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session?.user?.email || undefined} onSignOut={handleSignOut} />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session?.user?.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={() => setPlatformManagementOpen(true)} visibleRouteIds={visibleRouteIds} />
+      {platformManagementOpen && isPlatformOwner && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-3 sm:p-6">
+        <div className="mx-auto max-w-6xl rounded-3xl bg-slate-50 shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+            <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Platform management</p><p className="mt-1 text-sm font-bold text-slate-900">Companies and access</p></div>
+            <button type="button" onClick={() => setPlatformManagementOpen(false)} className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" aria-label="Close platform management"><X className="h-4 w-4" /></button>
+          </div>
+          <PlatformManagement
+            companies={companyAccess.companies}
+            activeCompanyId={activeCompanyId}
+            onSelectCompany={selectCompany}
+            onCreateCompany={createCompany}
+            onUpdateCompany={updateCompany}
+            onInviteCompanyMember={inviteCompanyMember}
+            onUpdateCompanyMember={updateCompanyMember}
+            onLoadCompanyMembers={loadCompanyMembers}
+            onLoadAudit={loadCompanyAccessAudit}
+            onClose={() => setPlatformManagementOpen(false)}
+          />
+        </div>
+      </div>}
       <main className="flex-1 w-full px-3 sm:px-5 lg:px-7 2xl:px-8 py-6 overflow-x-hidden">
+
         {remoteInvoiceUpdate && selectedInvoice?.id === remoteInvoiceUpdate.invoiceId && <div role="status" className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between">
           <p><strong>This invoice was updated in another browser.</strong> Your local edits are protected.</p>
           <div className="flex shrink-0 gap-2">
@@ -1964,22 +2050,25 @@ export default function App() {
 
         {!isSupabaseConfigured && <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3"><Cloud className="w-5 h-5 text-amber-700 shrink-0" /><div><p className="text-xs font-black text-amber-900">Browser-only workspace</p><p className="text-[11px] text-amber-800 mt-1">Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in.</p></div></div>}
         {workspaceLoading && <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" />Loading workspace…</div>}
-        {routeNotFound && <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-6"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-700">Navigation error</p><h2 className="mt-1 text-lg font-black text-rose-950">Page not found</h2><p className="mt-1 text-xs text-rose-900">The requested workspace record or destination is not available.</p><button type="button" onClick={() => navigateToPath(appPathForTab("dashboard"))} className="mt-4 rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white">Return to dashboard</button></div>}
 
-        {!routeNotFound && route.kind === "tab" && activeTab === "dashboard" && <div className="space-y-6"><EngineeringCostOperationsDashboard data={dashboardViewData} projects={projects} selectedProjectId={dashboardProjectId} onProjectChange={(projectId) => { setDashboardProjectId(projectId); const project = projects.find((candidate) => candidate.id === projectId); if (project) setDashboardCurrency(project.currency.toUpperCase()); }} onActivityPeriodChange={setDashboardActivityPeriod} onCustomRangeChange={(start, end) => { setDashboardCustomStart(start); setDashboardCustomEnd(end); }} onCurrencyChange={setDashboardCurrency} onNavigate={setActiveTab} onOpenProject={(projectId) => { const project = projects.find((candidate) => candidate.id === projectId); if (project) openProject(project); }} onOpenInvoice={openInvoice} /></div>}
-        {!routeNotFound && activeTab === "projects" && (selectedProject ? <ProjectWorkspace project={selectedProject} summary={projectSummaries[selectedProject.id] || calculateProjectCost(selectedProject, { invoices: costInvoices, payroll: costPayroll, expenses })} dashboard={projectDashboard} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} payrollAllocations={payrollData.allocations} payrollPeriods={payrollData.periods} initialTab={route.kind === "project" ? route.view : "overview"} onTabChange={(tab) => { if (route.kind === "project" && selectedProject) navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView)); }} onSaveInvoiceAllocations={handleSaveInvoiceProjectAllocations} onBack={() => navigateToPath(appPathForTab("projects"))} onOpenInvoice={openInvoice} onUploadInvoice={() => { setUploadProjectContextId(selectedProject.id); setWorkspaceOrigin("projects"); setWorkspaceReturnPath(appPathForProject(selectedProject.id, "invoices")); navigateToPath(appPathForTab("extractor")); }} onEditProject={() => editProject(selectedProject)} onArchiveProject={() => void handleArchiveProject(selectedProject)} onAddExpense={() => { setExpenseFormContext(selectedProject.id); navigateToPath(appPathForTab("expenses")); }} onOpenPayroll={() => setActiveTab("payroll")} /> : <ProjectsPage projects={projects} summaries={projectSummaries} initialEditingProject={projectFormSeed} onOpenProject={openProject} onSaveProject={(project) => void handleSaveProject(project)} onArchiveProject={(project) => void handleArchiveProject(project)} />)}
-        {!routeNotFound && (route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice && <div className="space-y-5"><VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} projects={projects} invoiceProjectAllocations={invoiceProjectAllocations} preferredProjectId={uploadProjectContextId || undefined} onSaveProjectAllocations={handleSaveInvoiceProjectAllocations} /></div>}
-        {!routeNotFound && route.kind === "tab" && activeTab === "extractor" && <div className="space-y-5"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div>}
-        {!routeNotFound && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={handleSignOut} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
-        {!routeNotFound && route.kind === "tab" && activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
-        {!routeNotFound && route.kind === "tab" && activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
-        {!routeNotFound && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} onRepairPayrollData={() => void handleRepairPayrollData()} onResetPayrollSetup={() => void handleResetPayrollSetup()} onResetAllUnapprovedPayroll={() => void handleResetAllUnapprovedPayroll()} />}
-        {!routeNotFound && route.kind === "tab" && activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
-        {!routeNotFound && route.kind === "tab" && activeTab === "vendors" && <Vendors invoices={invoices} />}
-        {!routeNotFound && route.kind === "tab" && activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><PayrollOperatingCosts runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}
-        {!routeNotFound && route.kind === "tab" && activeTab === "settings" && <SettingsScreen settings={regionalSettings} onChange={handleRegionalSettingsChange} />}
+                {routeNotFound && <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-6"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-700">Navigation error</p><h2 className="mt-1 text-lg font-black text-rose-950">Page not found</h2><p className="mt-1 text-xs text-rose-900">The requested workspace record or destination is not available.</p><button type="button" onClick={() => navigateToPath(appPathForTab("dashboard"))} className="mt-4 rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white">Return to dashboard</button></div>}
+
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "dashboard" && <div className="space-y-6"><EngineeringCostOperationsDashboard data={dashboardViewData} projects={projects} selectedProjectId={dashboardProjectId} onProjectChange={(projectId) => { setDashboardProjectId(projectId); const project = projects.find((candidate) => candidate.id === projectId); if (project) setDashboardCurrency(project.currency.toUpperCase()); }} onActivityPeriodChange={setDashboardActivityPeriod} onCustomRangeChange={(start, end) => { setDashboardCustomStart(start); setDashboardCustomEnd(end); }} onCurrencyChange={setDashboardCurrency} onNavigate={setActiveTab} onOpenProject={(projectId) => { const project = projects.find((candidate) => candidate.id === projectId); if (project) openProject(project); }} onOpenInvoice={openInvoice} /></div>}
+        {workspaceRouteVisible && activeTab === "projects" && (selectedProject ? <ProjectWorkspace project={selectedProject} summary={projectSummaries[selectedProject.id] || calculateProjectCost(selectedProject, { invoices: costInvoices, payroll: costPayroll, expenses })} dashboard={projectDashboard} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} payrollAllocations={payrollData.allocations} payrollPeriods={payrollData.periods} initialTab={route.kind === "project" ? route.view : "overview"} onTabChange={(tab) => { if (route.kind === "project" && selectedProject) navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView)); }} onSaveInvoiceAllocations={handleSaveInvoiceProjectAllocations} onBack={() => navigateToPath(appPathForTab("projects"))} onOpenInvoice={openInvoice} onUploadInvoice={() => { setUploadProjectContextId(selectedProject.id); setWorkspaceOrigin("projects"); setWorkspaceReturnPath(appPathForProject(selectedProject.id, "invoices")); navigateToPath(appPathForTab("extractor")); }} onEditProject={() => editProject(selectedProject)} onArchiveProject={() => void handleArchiveProject(selectedProject)} onAddExpense={() => { setExpenseFormContext(selectedProject.id); navigateToPath(appPathForTab("expenses")); }} onOpenPayroll={() => setActiveTab("payroll")} /> : <ProjectsPage projects={projects} summaries={projectSummaries} initialEditingProject={projectFormSeed} onOpenProject={openProject} onSaveProject={(project) => void handleSaveProject(project)} onArchiveProject={(project) => void handleArchiveProject(project)} />)}
+        {workspaceRouteVisible && (route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice && <div className="space-y-5"><VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} projects={projects} invoiceProjectAllocations={invoiceProjectAllocations} preferredProjectId={uploadProjectContextId || undefined} onSaveProjectAllocations={handleSaveInvoiceProjectAllocations} /></div>}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "extractor" && <div className="space-y-5"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div>}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={handleSignOut} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} workEntries={payrollData.workEntries} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} onRepairPayrollData={() => void handleRepairPayrollData()} onResetPayrollSetup={() => void handleResetPayrollSetup()} onResetAllUnapprovedPayroll={() => void handleResetAllUnapprovedPayroll()} />}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "vendors" && <Vendors invoices={invoices} />}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><PayrollOperatingCosts runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "settings" && <SettingsScreen settings={regionalSettings} onChange={handleRegionalSettingsChange} />}
       </main>
       <footer className="border-t border-slate-200 py-4 bg-white text-center text-[10px] text-slate-500">Invoice Operations • Gmail read-only intake • Original sources & review history</footer>
     </div>
   );
 }
+
+export default InvoiceWorkspace;

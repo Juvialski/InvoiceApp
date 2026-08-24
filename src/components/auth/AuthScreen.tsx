@@ -44,6 +44,10 @@ export interface AuthScreenProps {
   onPasswordResetRequested?: (email: string) => void | Promise<void>;
   onPasswordUpdated?: () => void | Promise<void>;
   onContinueInBrowser?: () => void | Promise<void>;
+  /** Browser-only mode is opt-in and must never be enabled in production Supabase mode. */
+  allowBrowserOnly?: boolean;
+  /** Clarifies that an invitation is required for company access. */
+  invitationRequired?: boolean;
   onModeChange?: (mode: AuthMode) => void;
   className?: string;
 }
@@ -134,6 +138,8 @@ export function AuthScreen({
   onPasswordResetRequested,
   onPasswordUpdated,
   onContinueInBrowser,
+  allowBrowserOnly = false,
+  invitationRequired = false,
   onModeChange,
   className = "",
 }: AuthScreenProps) {
@@ -238,7 +244,7 @@ export function AuthScreen({
   };
 
   const showGoogle = (mode === "sign-in" || mode === "sign-up") && (Boolean(onGoogleSignIn) || enableGoogleAuth);
-  const showBrowserOnly = typeof window !== "undefined" && Boolean(onContinueInBrowser);
+  const showBrowserOnly = allowBrowserOnly && typeof window !== "undefined" && Boolean(onContinueInBrowser);
   const isSignupResult = mode === "sign-up" && Boolean(signupState);
   const title = mode === "sign-in"
     ? "Welcome back"
@@ -250,7 +256,9 @@ export function AuthScreen({
   const subtitle = mode === "sign-in"
     ? "Sign in to continue to your invoice workspace."
     : mode === "sign-up"
-      ? "Use your work email to create a secure workspace account."
+      ? invitationRequired
+        ? "Use the invited work email for your company account. An account alone does not grant company access."
+        : "Use your work email to create a secure workspace account."
       : mode === "forgot-password"
         ? "Enter your email and we’ll send instructions if an account matches."
         : "Set a new password for your workspace account.";
@@ -288,7 +296,7 @@ export function AuthScreen({
                   <Mail className="h-5 w-5 text-indigo-600" />
                   <h2 className="mt-3 text-lg font-black text-indigo-950">Check your email</h2>
                   <p className="mt-2 text-sm leading-6 text-indigo-900">
-                    We sent a confirmation link if the address can receive email. Confirm it, then return here to sign in.
+                    We sent a confirmation link if the address can receive email. Confirm it, then sign in with the invited email. Signing in without a company invitation does not reveal company data.
                   </p>
                 </>
               ) : (
