@@ -1,8 +1,12 @@
 import type {
+  AttendanceRecord,
+  LeaveRequest,
+  OvertimeRequest,
   PayrollEntry,
   PayrollPeriod,
   PayrollProjectAllocation,
   PayrollRun,
+  PayrollHoliday,
   Project,
   ProjectWorkerAssignment,
   Worker,
@@ -21,6 +25,10 @@ import type { PayrollImportBatch } from "./payrollImportPersistence.ts";
 import {
   buildPayrollDraft,
   type ApprovedWorkEntry,
+  type ConfirmedAttendanceRecord,
+  type LeaveRequestRecord,
+  type OvertimeRequestRecord,
+  type PayrollHolidayRecord,
   type AutomationMode,
   type PayrollAssignment,
   type PayrollDraft,
@@ -74,10 +82,15 @@ export interface PayrollAutomationRecordInput {
   profiles?: WorkerCompensationProfile[];
   recurringComponents?: RecurringPayrollComponent[];
   workEntries: WorkEntry[];
+  attendanceRecords?: AttendanceRecord[];
+  leaveRequests?: LeaveRequest[];
+  overtimeRequests?: OvertimeRequest[];
+  holidays?: PayrollHoliday[];
   projects?: Project[];
   mode?: AutomationMode;
   existingAllocations?: PayrollProjectAllocation[];
   existingEntries?: PayrollEntry[];
+  sourceRevision?: number;
 }
 
 function id(prefix: string) {
@@ -85,7 +98,7 @@ function id(prefix: string) {
 }
 
 export function dateOnly(value = new Date()): string {
-  return value.toISOString().slice(0, 10);
+  return `\${value.getFullYear()}-\${String(value.getMonth() + 1).padStart(2, "0")}-\${String(value.getDate()).padStart(2, "0")}`;
 }
 
 export function createDefaultPayrollSchedule(referenceDate = dateOnly()): PayrollScheduleDefaults {
@@ -224,18 +237,23 @@ function profileInput(profile: WorkerCompensationProfile) { return { ...profile,
 function assignmentInput(assignment: ProjectWorkerAssignment): PayrollAssignment { return { id: assignment.id, workerId: assignment.workerId, effectiveFrom: assignment.startDate, effectiveTo: assignment.endDate, rate: assignment.rate, frequency: assignment.payType, laborContext: "PROJECT", projectId: assignment.projectId }; }
 function workInput(entry: WorkEntry, projects: Project[]): ApprovedWorkEntry {
   const project = projects.find((item) => item.id === entry.projectId);
-  return { id: entry.id, workerId: entry.workerId, periodId: entry.periodId, workDate: entry.workDate, approved: entry.status === "APPROVED", hours: entry.regularHours, days: entry.daysWorked, overtimeHours: entry.overtimeHours, overtimeRate: entry.overtimeRate, projectId: entry.projectId, project: project ? { id: project.id, archived: project.status === "ARCHIVED", active: project.status !== "ARCHIVED" } : undefined, projectArchived: project?.status === "ARCHIVED" };
+  return { id: entry.id, workerId: entry.workerId, periodId: entry.periodId, workDate: entry.workDate, approved: entry.status === "APPROVED", hours: entry.regularHours, days: entry.daysWorked, overtimeHours: entry.overtimeHours, overtimeRate: entry.overtimeRate, laborContext: entry.laborContext || (entry.projectId ? "PROJECT" : "UNALLOCATED_REVIEW"), projectId: entry.projectId, project: project ? { id: project.id, archived: project.status === "ARCHIVED", active: project.status !== "ARCHIVED" } : undefined, projectArchived: project?.status === "ARCHIVED" };
 }
 
 export function buildAutomaticPayrollDraft(input: PayrollAutomationRecordInput): PayrollDraft {
   return buildPayrollDraft({
-    period: { id: input.period.id, startDate: input.period.periodStart, endDate: input.period.periodEnd },
+    period: { id: input.period.id, startDate: input.period.periodStart, endDate: input.period.periodEnd, sourceRevision: input.period.sourceRevision },
     mode: input.mode || "ASSISTED",
     workers: input.workers.map(rosterWorker),
     profiles: (input.profiles || []).map(profileInput),
     assignments: input.assignments.map(assignmentInput),
     recurringComponents: input.recurringComponents || [],
     workEntries: input.workEntries.map((entry) => workInput(entry, input.projects || [])),
+    attendanceRecords: (input.attendanceRecords || []) as unknown as ConfirmedAttendanceRecord[],
+    leaveRequests: (input.leaveRequests || []) as unknown as LeaveRequestRecord[],
+    overtimeRequests: (input.overtimeRequests || []) as unknown as OvertimeRequestRecord[],
+    holidays: (input.holidays || []) as unknown as PayrollHolidayRecord[],
+    sourceRevision: input.sourceRevision ?? input.period.sourceRevision,
     existingPayrollAllocations: input.existingAllocations?.map((allocation) => ({ id: allocation.id, amount: allocation.allocationAmount, projectId: allocation.projectId })) || [],
   });
 }
@@ -266,7 +284,7 @@ export function payrollDraftToRecords(draft: PayrollDraft, runId: string, now = 
       netPay: Math.max(0, entry.netPay),
       costContext: context ? { type: context, needsReview: context === "UNALLOCATED_REVIEW", label: context } : undefined,
       projectAllocatedCost,
-      calculationSnapshot: { ...entry.source, automationMode: draft.mode, workEntryIds: entry.workEntryIds, components: entry.components, exceptions: draft.exceptions },
+      calculationSnapshot: { ...entry.source, automationMode: draft.mode, workEntryIds: entry.workEntryIds, components: entry.components, exceptions: draft.exceptions, ...(draft.sourceFingerprint ? { sourceFingerprint: draft.sourceFingerprint } : {}), ...(draft.sourceRevision !== undefined ? { sourceRevision: draft.sourceRevision } : {}) },
       createdAt: now,
     };
   });

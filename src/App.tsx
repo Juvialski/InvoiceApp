@@ -25,6 +25,7 @@ import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathF
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
+import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollHoliday } from "./types";
 import { exportBatchInvoicesToExcel, exportEngineeringProjectWorkbookToExcel } from "./utils/excelExport";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -70,14 +71,55 @@ import {
   writeProjectsToLocal,
 } from "./lib/projects";
 import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
-import { canTransitionPayrollRun, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveDepartmentToSupabase, savePayrollEntryToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
+import { canTransitionPayrollRun, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
 import { selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
 import { applyPayrollMaintenance as applyPayrollMaintenanceRpc, localMaintenanceResult, planLocalPayrollMaintenance, previewPayrollMaintenance as previewPayrollMaintenanceRpc, type PayrollMaintenanceAction, type PayrollMaintenancePreview } from "./lib/payrollMaintenance";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
+import { fingerprintPayrollSources, validatePayrollRunSourceRevision } from "./lib/payrollSourceRevision";
 import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceSyncController, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
+
+function revisePayrollSourcePeriods(
+  periods: PayrollPeriod[],
+  options: { periodIds?: ReadonlySet<string>; startDate?: string; endDate?: string; allOpen?: boolean },
+) {
+  const startDate = options.startDate || options.endDate;
+  const endDate = options.endDate || options.startDate;
+  const changedAt = new Date().toISOString();
+  return periods.map((period) => {
+    const overlaps = Boolean(startDate && endDate && period.periodStart <= endDate! && period.periodEnd >= startDate!);
+    const affected = options.allOpen || Boolean(options.periodIds?.has(period.id)) || overlaps;
+    if (!affected || ["APPROVED", "PAID", "VOID"].includes(period.status)) return period;
+    return {
+      ...period,
+      sourceRevision: (period.sourceRevision || 0) + 1,
+      sourceRevisionUpdatedAt: changedAt,
+      updatedAt: changedAt,
+    };
+  });
+}
+
+function sourceInputForPayroll(
+  period: PayrollPeriod,
+  data: PayrollWorkspaceData,
+  projects?: Project[],
+) {
+  return {
+    period,
+    workers: data.workers,
+    attendanceRecords: data.attendanceRecords || [],
+    leaveRequests: data.leaveRequests || [],
+    overtimeRequests: data.overtimeRequests || [],
+    holidays: data.holidays || [],
+    workEntries: data.workEntries,
+    compensationProfiles: data.compensationProfiles || [],
+    assignments: data.assignments,
+    recurringComponents: data.recurringComponents || [],
+    projects: projects || [],
+  };
+}
 
 function prepareStoredInvoice(invoice: InvoiceData): InvoiceData {
   const sourceType = invoice.sourceType || (invoice.id?.startsWith("sample") ? "SAMPLE" : "UPLOAD");
@@ -1050,8 +1092,9 @@ function InvoiceWorkspace() {
 
   const handleSaveWorker = async (worker: Worker) => {
     try {
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to manage workers in this company.");
       const saved = session && supabase ? await saveWorkerToSupabase(worker) : { ...worker, updatedAt: new Date().toISOString() };
-      setPayrollData((current) => ({ ...current, workers: current.workers.some((item) => item.id === saved.id) ? current.workers.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.workers] }));
+      setPayrollData((current) => { const next = { ...current, workers: current.workers.some((item) => item.id === saved.id) ? current.workers.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.workers], periods: revisePayrollSourcePeriods(current.periods, { allOpen: true }) }; payrollDataRef.current = next; return next; });
       showNotification("success", `${saved.displayName} saved.`);
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save worker."));
@@ -1075,6 +1118,107 @@ function InvoiceWorkspace() {
       showNotification("success", "Payroll period saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save payroll period."));
+    }
+  };
+
+  const handleSaveAttendance = async (record: AttendanceRecord) => {
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to manage attendance in this company.");
+    try {
+      const period = record.periodId ? payrollDataRef.current.periods.find((item) => item.id === record.periodId) : undefined;
+      if (period && payrollDataRef.current.runs.some((run) => run.periodId === period.id && ["APPROVED", "PAID", "VOID"].includes(run.status))) throw new Error("Attendance sources for a finalized payroll period are locked.");
+      const saved = session && supabase ? await saveAttendanceRecordToSupabase(record) : record;
+      setPayrollData((current) => {
+        const next = {
+          ...current,
+          attendanceRecords: [saved, ...(current.attendanceRecords || []).filter((item) => item.id !== saved.id && !(item.workerId === saved.workerId && item.attendanceDate === saved.attendanceDate))],
+          periods: revisePayrollSourcePeriods(current.periods, { periodIds: saved.periodId ? new Set([saved.periodId]) : undefined, startDate: saved.attendanceDate, endDate: saved.attendanceDate }),
+        };
+        payrollDataRef.current = next;
+        return next;
+      });
+      showNotification("success", "Attendance saved.");
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not save attendance."));
+    }
+  };
+
+  const handleSaveAttendanceBatch = async (records: AttendanceRecord[]) => {
+    if (!records.length) return;
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to manage attendance in this company.");
+    try {
+      const lockedPeriodIds = new Set(payrollDataRef.current.runs.filter((run) => ["APPROVED", "PAID", "VOID"].includes(run.status)).map((run) => run.periodId));
+      if (records.some((record) => record.periodId && lockedPeriodIds.has(record.periodId))) throw new Error("Attendance sources for a finalized payroll period are locked.");
+      const saved = session && supabase ? await saveAttendanceRecordsToSupabase(records) : records;
+      setPayrollData((current) => {
+        const savedKeys = new Set(saved.map((record) => String(record.workerId) + ":" + record.attendanceDate));
+        const next = {
+          ...current,
+          attendanceRecords: [...saved, ...(current.attendanceRecords || []).filter((record) => !savedKeys.has(String(record.workerId) + ":" + record.attendanceDate))],
+          periods: saved.reduce((periods, record) => revisePayrollSourcePeriods(periods, { periodIds: record.periodId ? new Set([record.periodId]) : undefined, startDate: record.attendanceDate, endDate: record.attendanceDate }), current.periods),
+        };
+        payrollDataRef.current = next;
+        return next;
+      });
+      showNotification("success", String(saved.length) + " attendance record" + (saved.length === 1 ? "" : "s") + " saved.");
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not save the attendance batch."));
+    }
+  };
+
+  const handleSaveLeave = async (request: LeaveRequest) => {
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to manage leave in this company.");
+    try {
+      const locked = payrollDataRef.current.periods.some((period) => period.periodStart <= request.endDate && period.periodEnd >= request.startDate && payrollDataRef.current.runs.some((run) => run.periodId === period.id && ["APPROVED", "PAID", "VOID"].includes(run.status)));
+      if (locked) throw new Error("Leave sources overlapping a finalized payroll period are locked.");
+      const saved = session && supabase ? await saveLeaveRequestToSupabase(request) : request;
+      setPayrollData((current) => {
+        const next = {
+          ...current,
+          leaveRequests: [saved, ...(current.leaveRequests || []).filter((item) => item.id !== saved.id)],
+          periods: revisePayrollSourcePeriods(current.periods, { startDate: saved.startDate, endDate: saved.endDate }),
+        };
+        payrollDataRef.current = next;
+        return next;
+      });
+      showNotification("success", "Leave request saved.");
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not save leave request."));
+    }
+  };
+
+  const handleSaveOvertime = async (request: OvertimeRequest) => {
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to manage overtime in this company.");
+    try {
+      const period = request.periodId ? payrollDataRef.current.periods.find((item) => item.id === request.periodId) : undefined;
+      if (period && payrollDataRef.current.runs.some((run) => run.periodId === period.id && ["APPROVED", "PAID", "VOID"].includes(run.status))) throw new Error("Overtime sources for a finalized payroll period are locked.");
+      const saved = session && supabase ? await saveOvertimeRequestToSupabase(request) : request;
+      setPayrollData((current) => {
+        const next = {
+          ...current,
+          overtimeRequests: [saved, ...(current.overtimeRequests || []).filter((item) => item.id !== saved.id)],
+          periods: revisePayrollSourcePeriods(current.periods, { periodIds: saved.periodId ? new Set([saved.periodId]) : undefined, startDate: saved.overtimeDate, endDate: saved.overtimeDate }),
+        };
+        payrollDataRef.current = next;
+        return next;
+      });
+      showNotification("success", saved.status === "APPROVED" ? "Overtime approved." : "Overtime request saved.");
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not save overtime request."));
+    }
+  };
+
+  const handleSaveHoliday = async (holiday: PayrollHoliday) => {
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollWrite)) throw new Error("You do not have permission to manage holiday context in this company.");
+    try {
+      const saved = session && supabase ? await savePayrollHolidayToSupabase(holiday) : holiday;
+      setPayrollData((current) => {
+        const next = { ...current, holidays: [saved, ...(current.holidays || []).filter((item) => item.id !== saved.id && item.holidayDate !== saved.holidayDate)], periods: revisePayrollSourcePeriods(current.periods, { startDate: saved.holidayDate, endDate: saved.holidayDate }) };
+        payrollDataRef.current = next;
+        return next;
+      });
+      showNotification("success", "Holiday context saved.");
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not save holiday context."));
     }
   };
 
@@ -1110,6 +1254,9 @@ function InvoiceWorkspace() {
     allocations: payrollDataRef.current.allocations,
     adjustments: payrollDataRef.current.adjustments,
     workEntries: payrollDataRef.current.workEntries,
+    attendanceRecords: payrollDataRef.current.attendanceRecords || [],
+    leaveRequests: payrollDataRef.current.leaveRequests || [],
+    overtimeRequests: payrollDataRef.current.overtimeRequests || [],
     importData: payrollImportData,
     referenceDate,
   });
@@ -1148,7 +1295,7 @@ function InvoiceWorkspace() {
       return result;
     }
     const plan = planLocalPayrollMaintenance(localMaintenanceInput(referenceDate), action);
-    const next = { ...payrollDataRef.current, periods: plan.periods, runs: plan.runs, entries: plan.entries, allocations: plan.allocations, adjustments: plan.adjustments, workEntries: plan.workEntries };
+    const next = { ...payrollDataRef.current, periods: plan.periods, runs: plan.runs, entries: plan.entries, allocations: plan.allocations, adjustments: plan.adjustments, workEntries: plan.workEntries, attendanceRecords: plan.attendanceRecords || payrollDataRef.current.attendanceRecords || [], leaveRequests: plan.leaveRequests || payrollDataRef.current.leaveRequests || [], overtimeRequests: plan.overtimeRequests || payrollDataRef.current.overtimeRequests || [] };
     payrollDataRef.current = next;
     setPayrollData(next);
     setPayrollImportData(plan.importData);
@@ -1159,7 +1306,7 @@ function InvoiceWorkspace() {
   const handleSaveCompensationProfile = async (profile: WorkerCompensationProfile) => {
     try {
       const saved = session && supabase ? await saveWorkerCompensationProfileToSupabase(profile) : profile;
-      setPayrollData((current) => ({ ...current, compensationProfiles: [saved, ...(current.compensationProfiles || []).filter((item) => item.id !== saved.id)] }));
+      setPayrollData((current) => { const next = { ...current, compensationProfiles: [saved, ...(current.compensationProfiles || []).filter((item) => item.id !== saved.id)], periods: revisePayrollSourcePeriods(current.periods, { allOpen: true }) }; payrollDataRef.current = next; return next; });
       showNotification("success", "Effective compensation profile saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save compensation profile."));
@@ -1169,7 +1316,7 @@ function InvoiceWorkspace() {
   const handleSaveRecurringComponent = async (component: RecurringPayrollComponent) => {
     try {
       const saved = session && supabase ? await saveRecurringPayrollComponentToSupabase(component) : component;
-      setPayrollData((current) => ({ ...current, recurringComponents: [saved, ...(current.recurringComponents || []).filter((item) => item.id !== saved.id)] }));
+      setPayrollData((current) => { const next = { ...current, recurringComponents: [saved, ...(current.recurringComponents || []).filter((item) => item.id !== saved.id)], periods: revisePayrollSourcePeriods(current.periods, { allOpen: true }) }; payrollDataRef.current = next; return next; });
       showNotification("success", "Recurring payroll component saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save recurring payroll component."));
@@ -1253,7 +1400,7 @@ function InvoiceWorkspace() {
         return;
       }
       const saved = session && supabase ? await saveWorkEntryToSupabase(entry) : entry;
-      setPayrollData((current) => ({ ...current, workEntries: current.workEntries.some((item) => item.id === saved.id) ? current.workEntries.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.workEntries] }));
+      setPayrollData((current) => { const next = { ...current, workEntries: current.workEntries.some((item) => item.id === saved.id) ? current.workEntries.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.workEntries], periods: revisePayrollSourcePeriods(current.periods, { periodIds: saved.periodId ? new Set([saved.periodId]) : undefined, startDate: saved.workDate, endDate: saved.workDate }) }; payrollDataRef.current = next; return next; });
       showNotification("success", "Work entry saved. Calculate a payroll run to post labor allocation.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save work entry."));
@@ -1263,7 +1410,7 @@ function InvoiceWorkspace() {
   const handleSaveAssignment = async (assignment: ProjectWorkerAssignment) => {
     try {
       const saved = session && supabase ? await saveAssignmentToSupabase(assignment) : assignment;
-      setPayrollData((current) => ({ ...current, assignments: current.assignments.some((item) => item.id === saved.id) ? current.assignments.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.assignments] }));
+      setPayrollData((current) => { const next = { ...current, assignments: current.assignments.some((item) => item.id === saved.id) ? current.assignments.map((item) => item.id === saved.id ? saved : item) : [saved, ...current.assignments], periods: revisePayrollSourcePeriods(current.periods, { allOpen: true }) }; payrollDataRef.current = next; return next; });
       showNotification("success", "Worker assignment saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save worker assignment."));
@@ -1306,7 +1453,7 @@ function InvoiceWorkspace() {
         return;
       }
       const existingRunEntries = payrollData.entries.filter((entry) => entry.payrollRunId === run.id);
-      const hasConfiguredAutomationSources = Boolean(payrollData.workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === period.id) || (payrollData.compensationProfiles || []).length || (payrollData.recurringComponents || []).length);
+      const hasConfiguredAutomationSources = Boolean(payrollData.workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === period.id) || (payrollData.attendanceRecords || []).some((record) => record.periodId === period.id && record.recordStatus === "CONFIRMED") || (payrollData.overtimeRequests || []).some((request) => request.periodId === period.id && request.status === "APPROVED") || (payrollData.compensationProfiles || []).length || (payrollData.recurringComponents || []).length);
       const selectedSchedule = (payrollData.schedules || []).find((schedule) => schedule.active && (!period.scheduleId || schedule.id === period.scheduleId));
       const automationMode = selectedSchedule?.automationMode || "ASSISTED";
       const scheduleEnabled = Boolean(selectedSchedule && automationMode !== "MANUAL");
@@ -1320,6 +1467,11 @@ function InvoiceWorkspace() {
           profiles: payrollData.compensationProfiles || [],
           recurringComponents: payrollData.recurringComponents || [],
           workEntries: payrollData.workEntries,
+          attendanceRecords: payrollData.attendanceRecords || [],
+          leaveRequests: payrollData.leaveRequests || [],
+          overtimeRequests: payrollData.overtimeRequests || [],
+          holidays: payrollData.holidays || [],
+          sourceRevision: period.sourceRevision,
           projects,
           mode: automationMode,
           existingAllocations: payrollData.allocations.filter((allocation) => payrollData.entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)),
@@ -1346,7 +1498,7 @@ function InvoiceWorkspace() {
           savedEntries = persisted.entries;
           savedAllocations = persisted.allocations;
         }
-        const savedRun = session && supabase ? await savePayrollRunToSupabase({ ...run, status: "CALCULATED", calculatedAt: new Date().toISOString() }) : { ...run, status: "CALCULATED" as const, calculatedAt: new Date().toISOString() };
+        const savedRun = session && supabase ? await savePayrollRunToSupabase({ ...run, status: "CALCULATED", calculatedAt: new Date().toISOString(), calculatedSourceRevision: draft.sourceRevision ?? period.sourceRevision, sourceFingerprint: draft.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, projects)) }) : { ...run, status: "CALCULATED" as const, calculatedAt: new Date().toISOString(), calculatedSourceRevision: draft.sourceRevision ?? period.sourceRevision, sourceFingerprint: draft.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, projects)) };
         setPayrollData((current) => {
           const oldEntryIds = new Set(current.entries.filter((entry) => entry.payrollRunId === run.id).map((entry) => entry.id));
           const replacementEntryIds = new Set(savedEntries.map((entry) => entry.id));
@@ -1362,11 +1514,11 @@ function InvoiceWorkspace() {
         showNotification("error", `${invalidApprovedEntries.length} approved work entr${invalidApprovedEntries.length === 1 ? "y is" : "ies are"} missing a valid period/date link.`);
         return;
       }
-      const calculation = calculatePayrollRunFromWorkEntries({ runId: run.id, periodId: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, workers: payrollData.workers, assignments: payrollData.assignments, workEntries: payrollData.workEntries });
+      const calculation = calculatePayrollRunFromWorkEntries({ runId: run.id, periodId: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, workers: payrollData.workers, assignments: payrollData.assignments, workEntries: payrollData.workEntries, attendanceRecords: payrollData.attendanceRecords || [], leaveRequests: payrollData.leaveRequests || [], overtimeRequests: payrollData.overtimeRequests || [], holidays: payrollData.holidays || [], sourceRevision: period.sourceRevision });
       const existingEntries = payrollData.entries.filter((entry) => entry.payrollRunId === run.id);
       const existingAllocations = payrollData.allocations.filter((allocation) => existingEntries.some((entry) => entry.id === allocation.payrollEntryId));
       const generatedEntries: PayrollEntry[] = calculation.entries.map((entry) => ({ id: globalThis.crypto?.randomUUID?.() || `local-payroll-entry-${Date.now()}-${Math.random().toString(36).slice(2)}`, payrollRunId: run.id, workerId: entry.workerId, basePay: entry.basePay, regularPay: entry.regularPay, overtimePay: entry.overtimePay, allowances: entry.allowances, otherEarnings: 0, grossPay: entry.grossPay, deductions: entry.deductions, otherDeductions: 0, employerCosts: 0, netPay: entry.netPay, projectAllocatedCost: entry.projectAllocatedCost, calculationSnapshot: entry.calculationSnapshot, createdAt: new Date().toISOString() }));
-      const generatedAllocations: PayrollProjectAllocation[] = calculation.allocations.map((allocation) => {
+      const generatedAllocations: PayrollProjectAllocation[] = calculation.allocations.filter((allocation) => Boolean(allocation.projectId)).map((allocation) => {
         const entry = generatedEntries.find((item) => item.workerId === allocation.workerId);
         return { id: globalThis.crypto?.randomUUID?.() || `local-payroll-allocation-${Date.now()}-${Math.random().toString(36).slice(2)}`, payrollEntryId: entry?.id || "", projectId: allocation.projectId, allocationAmount: allocation.allocationAmount, allocationPercentage: allocation.allocationPercentage, source: allocation.source };
       }).filter((allocation) => allocation.payrollEntryId);
@@ -1390,7 +1542,7 @@ function InvoiceWorkspace() {
         savedAllocations = persisted.allocations;
       }
       const calculatedAt = new Date().toISOString();
-      const nextRun = { ...run, status: "CALCULATED" as const, calculatedAt };
+      const nextRun = { ...run, status: "CALCULATED" as const, calculatedAt, calculatedSourceRevision: calculation.sourceRevision ?? period.sourceRevision, sourceFingerprint: calculation.sourceFingerprint || fingerprintPayrollSources(sourceInputForPayroll(period, payrollData, projects)) };
       const savedRun = session && supabase ? await savePayrollRunToSupabase(nextRun) : nextRun;
       setPayrollData((current) => {
         const oldEntryIds = new Set(current.entries.filter((entry) => entry.payrollRunId === run.id).map((entry) => entry.id));
@@ -1413,11 +1565,18 @@ function InvoiceWorkspace() {
       }
       if (run.status === "APPROVED") {
         const approvalPeriod = payrollData.periods.find((period) => period.id === previous.periodId);
+        if (approvalPeriod) {
+          const freshness = validatePayrollRunSourceRevision({ run: previous, period: approvalPeriod, sourceInput: sourceInputForPayroll(approvalPeriod, payrollData, projects) });
+          if (!freshness.valid) {
+            showNotification("error", "Payroll sources changed after calculation. Recalculate before approval.");
+            return;
+          }
+        }
         const approvalSchedule = (payrollData.schedules || []).find((schedule) => schedule.active && (!approvalPeriod?.scheduleId || schedule.id === approvalPeriod.scheduleId));
         const approvalMode = approvalSchedule?.automationMode || "ASSISTED";
         const automationEnabled = approvalMode !== "MANUAL" && Boolean((payrollData.workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === approvalPeriod?.id) || (payrollData.compensationProfiles || []).length || (payrollData.recurringComponents || []).length || payrollData.entries.filter((entry) => entry.payrollRunId === previous.id).length === 0));
         if (approvalPeriod && automationEnabled) {
-          const draft = buildAutomaticPayrollDraft({ period: approvalPeriod, run: previous, workers: payrollData.workers, assignments: payrollData.assignments, profiles: payrollData.compensationProfiles || [], recurringComponents: payrollData.recurringComponents || [], workEntries: payrollData.workEntries, projects, mode: approvalMode });
+          const draft = buildAutomaticPayrollDraft({ period: approvalPeriod, run: previous, workers: payrollData.workers, assignments: payrollData.assignments, profiles: payrollData.compensationProfiles || [], recurringComponents: payrollData.recurringComponents || [], workEntries: payrollData.workEntries, attendanceRecords: payrollData.attendanceRecords || [], leaveRequests: payrollData.leaveRequests || [], overtimeRequests: payrollData.overtimeRequests || [], holidays: payrollData.holidays || [], projects, mode: approvalMode });
           if (draft.readiness === "BLOCKING") {
             showNotification("error", `Approval is blocked until payroll issues are resolved: ${draft.exceptions.filter((issue) => issue.severity === "BLOCKING").map((issue) => issue.message).slice(0, 3).join(" ")}`);
             return;
@@ -2075,7 +2234,7 @@ function InvoiceWorkspace() {
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={handleSignOut} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
-        {workspaceRouteVisible && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} adjustments={payrollData.adjustments} workEntries={payrollData.workEntries} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)} canManagePayrollMaintenance={payrollMaintenanceAllowed} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} onPreviewPayrollMaintenance={(action) => handlePreviewPayrollMaintenance(action)} onApplyPayrollMaintenance={(action, confirmation) => handleApplyPayrollMaintenance(action, confirmation)} />}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} adjustments={payrollData.adjustments} workEntries={payrollData.workEntries} attendanceRecords={payrollData.attendanceRecords || []} leaveRequests={payrollData.leaveRequests || []} overtimeRequests={payrollData.overtimeRequests || []} holidays={payrollData.holidays || []} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)} canManagePayrollMaintenance={payrollMaintenanceAllowed} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSaveAttendance={(record) => void handleSaveAttendance(record)} onSaveAttendanceBatch={(records) => void handleSaveAttendanceBatch(records)} onSaveLeave={(request) => void handleSaveLeave(request)} onSaveOvertime={(request) => void handleSaveOvertime(request)} onSaveHoliday={(holiday) => void handleSaveHoliday(holiday)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} onPreviewPayrollMaintenance={(action) => handlePreviewPayrollMaintenance(action)} onApplyPayrollMaintenance={(action, confirmation) => handleApplyPayrollMaintenance(action, confirmation)} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "vendors" && <Vendors invoices={invoices} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><PayrollOperatingCosts runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}

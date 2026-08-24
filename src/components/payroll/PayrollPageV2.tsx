@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, ChevronDown, CircleAlert, Clock3, HardHat, Settings2, Users, WalletCards } from "lucide-react";
-import type { PayrollAdjustment, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
+import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollAdjustment, PayrollEntry, PayrollHoliday, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
 import type { PayrollSchedule, ScheduledPayrollPeriod } from "../../lib/payrollSchedule";
 import { selectCurrentPayrollPeriod } from "../../lib/payrollSchedule";
 import { payrollPeriodFrequencyLabel, selectPrimaryPayrollSchedule } from "../../lib/payrollIntegrity";
@@ -16,6 +16,7 @@ import { PayrollScheduleSettings } from "./PayrollScheduleSettings";
 import { PayrollCalendar } from "./PayrollCalendar";
 import { PayrollProfiles } from "./PayrollProfiles";
 import { PayrollAdvancedTools } from "./PayrollAdvancedTools";
+import { AttendanceWorkspace } from "./AttendanceWorkspace";
 import type { PayrollImportBatch, PayrollImportRow, PayrollImportTemplate } from "../../lib/payrollImportPersistence";
 import type { PayrollMaintenanceAction, PayrollMaintenancePreview } from "../../lib/payrollMaintenance";
 
@@ -28,6 +29,10 @@ export interface PayrollPageV2Props {
   allocations: PayrollProjectAllocation[];
   adjustments?: PayrollAdjustment[];
   workEntries?: WorkEntry[];
+  attendanceRecords?: AttendanceRecord[];
+  leaveRequests?: LeaveRequest[];
+  overtimeRequests?: OvertimeRequest[];
+  holidays?: PayrollHoliday[];
   projects: Project[];
   schedules?: PayrollSchedule[];
   compensationProfiles?: WorkerCompensationProfile[];
@@ -37,6 +42,11 @@ export interface PayrollPageV2Props {
   onSaveWorker: (worker: Worker) => void;
   onSavePeriod: (period: PayrollPeriod) => void;
   onSaveSchedule?: (schedule: PayrollSchedule) => void | Promise<PayrollSchedule | void>;
+  onSaveAttendance?: (record: AttendanceRecord) => void;
+  onSaveAttendanceBatch?: (records: AttendanceRecord[]) => void;
+  onSaveLeave?: (request: LeaveRequest) => void;
+  onSaveOvertime?: (request: OvertimeRequest) => void;
+  onSaveHoliday?: (holiday: PayrollHoliday) => void;
   onSaveCompensationProfile?: (profile: WorkerCompensationProfile) => void;
   onSaveRecurringComponent?: (component: RecurringPayrollComponent) => void;
   onSaveAssignment?: (assignment: ProjectWorkerAssignment) => void;
@@ -56,13 +66,13 @@ export interface PayrollPageV2Props {
   onSelectedPeriodIdChange?: (periodId: string) => void;
 }
 
-type PayrollTab = "overview" | "calendar" | "workers" | "time" | "runs" | "import";
+type PayrollTab = "overview" | "calendar" | "attendance" | "workers" | "time" | "runs" | "import";
 function money(value: number) { return new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 2 }).format(value || 0); }
 function scheduledPeriod(period: PayrollPeriod): ScheduledPayrollPeriod { return { id: period.id, periodKey: `${period.scheduleId || "legacy"}:${period.periodStart}:${period.periodEnd}`, scheduleId: period.scheduleId || "legacy", scheduleVersionId: period.scheduleVersionId || "legacy", periodStart: period.periodStart, periodEnd: period.periodEnd, payDate: period.payDate, status: period.status, active: period.status !== "VOID", locked: ["APPROVED", "PAID", "VOID"].includes(period.status) }; }
 function localDateOnly() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`; }
 function periodIdForToday(periods: PayrollPeriod[], today = localDateOnly()) { return selectCurrentPayrollPeriod(periods.filter((period) => period.status !== "VOID").map(scheduledPeriod), today)?.id || periods.find((period) => period.status !== "VOID")?.id || ""; }
 
-export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignments, periods, runs, entries, allocations, adjustments = [], workEntries = [], projects, schedules = [], compensationProfiles = [], recurringComponents = [], importBatches = [], importTemplates = [], onSaveWorker, onSavePeriod, onSaveSchedule, onSaveCompensationProfile, onSaveRecurringComponent, onSaveAssignment, onSaveWorkEntry, onSavePayrollEntry, onUpdateRun, onCreateRun, onCalculateRun, onStagePayrollImport, onSavePayrollImportTemplate, onCommitPayrollImport, canManagePayrollSettings = true, canManagePayrollMaintenance = true, onPreviewPayrollMaintenance, onApplyPayrollMaintenance, selectedPeriodId: controlledSelectedPeriodId, onSelectedPeriodIdChange }) => {
+export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignments, periods, runs, entries, allocations, adjustments = [], workEntries = [], attendanceRecords = [], leaveRequests = [], overtimeRequests = [], holidays = [], projects, schedules = [], compensationProfiles = [], recurringComponents = [], importBatches = [], importTemplates = [], onSaveWorker, onSavePeriod, onSaveSchedule, onSaveCompensationProfile, onSaveRecurringComponent, onSaveAssignment, onSaveWorkEntry, onSaveAttendance, onSaveAttendanceBatch, onSaveLeave, onSaveOvertime, onSaveHoliday, onSavePayrollEntry, onUpdateRun, onCreateRun, onCalculateRun, onStagePayrollImport, onSavePayrollImportTemplate, onCommitPayrollImport, canManagePayrollSettings = true, canManagePayrollMaintenance = true, onPreviewPayrollMaintenance, onApplyPayrollMaintenance, selectedPeriodId: controlledSelectedPeriodId, onSelectedPeriodIdChange }) => {
   const [tab, setTab] = useState<PayrollTab>("overview");
   const [localSelectedPeriodId, setLocalSelectedPeriodId] = useState("");
   const selectedPeriodId = controlledSelectedPeriodId ?? localSelectedPeriodId;
@@ -81,9 +91,9 @@ export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignmen
   const selectedRun = selectedPeriodRuns.find((run) => run.status !== "VOID") || selectedPeriodRuns[0];
   const activeSchedule = selectPrimaryPayrollSchedule(schedules);
   const automationMode = activeSchedule?.automationMode || "ASSISTED";
-  const hasAutomaticSources = Boolean(workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === selectedPeriodId) || compensationProfiles.length || recurringComponents.length);
+  const hasAutomaticSources = Boolean(workEntries.some((entry) => entry.status === "APPROVED" && entry.periodId === selectedPeriodId) || attendanceRecords.some((record) => record.periodId === selectedPeriodId && record.recordStatus === "CONFIRMED") || overtimeRequests.some((request) => request.periodId === selectedPeriodId && request.status === "APPROVED") || compensationProfiles.length || recurringComponents.length);
   const automationEnabled = automationMode !== "MANUAL" && Boolean(hasAutomaticSources || (schedules.length > 0 && selectedPeriodEntries.length === 0));
-  const draft = selectedPeriod && selectedRun && automationEnabled ? buildAutomaticPayrollDraft({ period: selectedPeriod, run: selectedRun, workers, assignments, profiles: compensationProfiles, recurringComponents, workEntries, projects, mode: automationMode }) : undefined;
+  const draft = selectedPeriod && selectedRun && automationEnabled ? buildAutomaticPayrollDraft({ period: selectedPeriod, run: selectedRun, workers, assignments, profiles: compensationProfiles, recurringComponents, workEntries, attendanceRecords, leaveRequests, overtimeRequests, holidays, projects, mode: automationMode }) : undefined;
   const issues = draft?.exceptions || [];
   const blockingIssues = issues.filter((issue) => issue.severity === "BLOCKING");
   const warningIssues = issues.filter((issue) => issue.severity === "WARNING");
@@ -106,9 +116,10 @@ export const PayrollPageV2: React.FC<PayrollPageV2Props> = ({ workers, assignmen
     {selectedPeriod && issues.length > 0 && <section className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-black text-amber-950">{blockingIssues.length ? "Review issues before approval" : "A few warnings need review"}</p><p className="mt-1 text-xs text-amber-900">Correct source data or confirm the warning before the run is finalized.</p></div><button type="button" onClick={() => setTab("runs")} className="rounded-xl bg-amber-700 px-3 py-2 text-xs font-bold text-white">Review {issues.length} issue{issues.length === 1 ? "" : "s"}</button></div><div className="mt-3 grid gap-2 md:grid-cols-2">{issues.slice(0, 4).map((issue, index) => <div key={`${issue.code}-${issue.workerId || "workspace"}-${index}`} className="flex items-start gap-2 rounded-xl bg-white/80 p-3 text-xs"><CircleAlert className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${issue.severity === "BLOCKING" ? "text-rose-600" : "text-amber-600"}`} /><div><p className="font-bold text-slate-800">{issue.severity === "BLOCKING" ? "Needs attention" : "Warning"}</p><p className="mt-0.5 text-slate-600">{issue.message}</p></div></div>)}</div></section>}
     <div className="flex flex-wrap items-center gap-2">
     <button type="button" onClick={() => setTab("calendar")} className={`mb-2 rounded-lg px-3 py-2 text-xs font-bold ${tab === "calendar" ? "bg-indigo-600 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>Calendar</button>
-    <nav className="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">{([['overview', 'Overview'], ['workers', 'Workers'], ['time', `Time${selectedPeriodWorkEntries.length ? ` (${selectedPeriodWorkEntries.length})` : ""}`], ['runs', `Runs${selectedPeriodRuns.length ? ` (${selectedPeriodRuns.length})` : ""}`], ['import', 'Imports']] as Array<[PayrollTab, string]>).map(([value, label]) => <button key={value} type="button" onClick={() => setTab(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${tab === value ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>)}</nav>
+    <nav className="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">{([['overview', 'Overview'], ['attendance', 'Attendance'], ['workers', 'Workers'], ['time', `Time${selectedPeriodWorkEntries.length ? ` (${selectedPeriodWorkEntries.length})` : ""}`], ['runs', `Runs${selectedPeriodRuns.length ? ` (${selectedPeriodRuns.length})` : ""}`], ['import', 'Imports']] as Array<[PayrollTab, string]>).map(([value, label]) => <button key={value} type="button" onClick={() => setTab(value)} className={`rounded-lg px-3 py-2 text-xs font-bold ${tab === value ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>{label}</button>)}</nav>
     </div>
     {tab === "calendar" && <PayrollCalendar periods={periods} runs={runs} entries={entries} importBatches={importBatches} automaticDraft={draft} selectedPeriodId={selectedPeriodId} onSelectPeriod={(periodId) => { setSelectedPeriodId(periodId); setTab("calendar"); }} onOpenOverview={(period) => { setSelectedPeriodId(period.id); setTab("overview"); }} onOpenRun={(_, period) => { setSelectedPeriodId(period.id); setTab("runs"); }} schedules={schedules} />}
+    {tab === "attendance" && <AttendanceWorkspace workers={workers} periods={periods} selectedPeriodId={selectedPeriodId} attendanceRecords={attendanceRecords} leaveRequests={leaveRequests} overtimeRequests={overtimeRequests} holidays={holidays} onSaveAttendance={onSaveAttendance || (() => undefined)} onSaveAttendanceBatch={onSaveAttendanceBatch} onSaveLeave={onSaveLeave} onSaveOvertime={onSaveOvertime} onSaveHoliday={onSaveHoliday} />}
     {tab === "overview" && <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]"><section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Normal cycle</p><h3 className="mt-1 text-lg font-black">What needs doing</h3></div><Clock3 className="h-5 w-5 text-indigo-600" /></div><ol className="mt-4 space-y-3 text-xs"><Step done={Boolean(selectedPeriod)} label="Open the current period" /><Step done={Boolean(selectedPeriodWorkEntries.length || selectedPeriodEntries.length)} label="Import workbook or collect approved work" /><Step done={!blockingIssues.length} label="Review exceptions" /><Step done={selectedRun?.status === "CALCULATED" || selectedRun?.status === "APPROVED" || selectedRun?.status === "PAID"} label="Calculate payroll" /><Step done={selectedRun?.status === "APPROVED" || selectedRun?.status === "PAID"} label="Approve, then mark paid" /></ol><div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => setTab("import")} className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white">Import workbook</button><button type="button" onClick={() => setTab("runs")} disabled={!selectedRun} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Review payroll</button><button type="button" onClick={() => selectedRun && onCalculateRun?.(selectedRun)} disabled={!selectedRun || !onCalculateRun || Boolean(blockingIssues.length)} className="rounded-xl bg-violet-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">Calculate payroll</button></div></section><section className="space-y-4"><PayrollScheduleSettings schedule={activeSchedule} periods={periods} canManage={canManagePayrollSettings} onSave={onSaveSchedule || (() => undefined)} /><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center gap-2"><Settings2 className="h-4 w-4 text-indigo-600" /><h3 className="text-sm font-black">Automation mode</h3></div><p className="mt-2 text-xs leading-5 text-slate-600">Assisted mode is the recommended starting point. It combines work entries, effective compensation, assignments, recurring components, and safe import context. Approval and payment remain human-controlled.</p><span className="mt-3 inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-700">{automationMode} · audit snapshots on calculate</span></div><PayrollAdvancedTools schedules={schedules} periods={periods} runs={runs} entries={entries} allocations={allocations} adjustments={adjustments} workEntries={workEntries} importBatches={importBatches} canManageMaintenance={canManagePayrollMaintenance} onPreview={onPreviewPayrollMaintenance} onApply={onApplyPayrollMaintenance} /></section></div>}
     {tab === "workers" && <div className="space-y-4"><PayrollProfiles workers={workers} projects={projects} profiles={compensationProfiles} components={recurringComponents} onSaveProfile={onSaveCompensationProfile || (() => undefined)} onSaveComponent={onSaveRecurringComponent || (() => undefined)} /><WorkersTable workers={workers} onSave={onSaveWorker} />{onSaveAssignment && <ProjectAssignments assignments={assignments} workers={workers} projects={projects} onSave={onSaveAssignment} />}<PayrollPeriods periods={periods} schedules={schedules} onSave={onSavePeriod} /></div>}
     {tab === "time" && (onSaveWorkEntry ? <TimeEntries entries={workEntries} workers={workers} projects={projects} periods={periods} assignments={assignments} runs={runs} selectedPeriodId={selectedPeriodId} onSave={onSaveWorkEntry} /> : <Empty label="Time entry persistence is not available in this workspace." />)}

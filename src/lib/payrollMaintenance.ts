@@ -1,4 +1,4 @@
-import type { PayrollAdjustment, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, WorkEntry } from "../types.ts";
+import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollAdjustment, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, WorkEntry } from "../types.ts";
 import { generatePayrollPeriodsAroundReference, type PayrollSchedule } from "./payrollSchedule.ts";
 import { ensurePayrollPeriodsAndRuns, dateOnly } from "./payrollWorkflow.ts";
 import { inspectPayrollIntegrity, isPayrollPeriodDataBearing, isSafeToDeletePayrollPeriod, isSafeToDeletePayrollRun, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
@@ -44,6 +44,9 @@ export interface PayrollMaintenanceLocalInput {
   adjustments: readonly PayrollAdjustment[];
   workEntries: readonly WorkEntry[];
   importData: PayrollImportWorkspaceData;
+  attendanceRecords?: readonly AttendanceRecord[];
+  leaveRequests?: readonly LeaveRequest[];
+  overtimeRequests?: readonly OvertimeRequest[];
   referenceDate?: string;
 }
 
@@ -55,6 +58,9 @@ export interface PayrollMaintenanceLocalPlan {
   allocations: PayrollProjectAllocation[];
   adjustments: PayrollAdjustment[];
   workEntries: WorkEntry[];
+  attendanceRecords?: AttendanceRecord[];
+  leaveRequests?: LeaveRequest[];
+  overtimeRequests?: OvertimeRequest[];
   importData: PayrollImportWorkspaceData;
 }
 
@@ -154,7 +160,7 @@ function safeRebuildRunIds(runs: readonly PayrollRun[], context: Parameters<type
 }export function planLocalPayrollMaintenance(input: PayrollMaintenanceLocalInput, action: PayrollMaintenanceAction): PayrollMaintenanceLocalPlan {
   const referenceDate = input.referenceDate || dateOnly();
   const schedule = selectPrimaryPayrollSchedule(input.schedules);
-  const baseContext = { runs: input.runs, entries: input.entries, workEntries: input.workEntries, importBatches: input.importData.batches, adjustments: input.adjustments };
+  const baseContext = { runs: input.runs, entries: input.entries, workEntries: input.workEntries, attendanceRecords: input.attendanceRecords, leaveRequests: input.leaveRequests, overtimeRequests: input.overtimeRequests, importBatches: input.importData.batches, adjustments: input.adjustments };
   const report = inspectPayrollIntegrity(input.schedules, input.periods, input.runs, input.entries, input.allocations, baseContext);
   const desired = plannedPeriods(schedule, referenceDate);
   const desiredStart = desired[0]?.periodStart;
@@ -196,7 +202,7 @@ function safeRebuildRunIds(runs: readonly PayrollRun[], context: Parameters<type
     };
   }
 
-  const cleanupContext = { runs, entries, workEntries, importBatches: importData.batches, adjustments };
+  const cleanupContext = { runs, entries, workEntries, attendanceRecords: input.attendanceRecords, leaveRequests: input.leaveRequests, overtimeRequests: input.overtimeRequests, importBatches: importData.batches, adjustments };
   const disposablePeriodIds = action === "RESET_UNAPPROVED"
     ? new Set(periods.filter((period) => isSafeToDeletePayrollPeriod(period, cleanupContext) || (periodIsResettable(period, input.runs) && isSafeToDeletePayrollPeriod({ ...period, status: period.status === "CALCULATED" ? "OPEN" : period.status }, cleanupContext))).map((period) => period.id))
     : safeRebuildPeriodIds(periods, desired, baseContext);
@@ -222,7 +228,7 @@ function safeRebuildRunIds(runs: readonly PayrollRun[], context: Parameters<type
   periods = ensured.periods;
   runs = ensured.runs;
 
-  const protectedContext = { runs: input.runs, entries: input.entries, workEntries: input.workEntries, importBatches: input.importData.batches, adjustments: input.adjustments };
+  const protectedContext = { runs: input.runs, entries: input.entries, workEntries: input.workEntries, attendanceRecords: input.attendanceRecords, leaveRequests: input.leaveRequests, overtimeRequests: input.overtimeRequests, importBatches: input.importData.batches, adjustments: input.adjustments };
   const periodsToDelete = disposablePeriodIds.size;
   const runsToDelete = resettableRunIds.size + [...disposableRunIds].filter((id) => !resettableRunIds.has(id)).length;
   const entriesToDelete = targetEntryIds.size;
@@ -254,7 +260,7 @@ function safeRebuildRunIds(runs: readonly PayrollRun[], context: Parameters<type
     eligible: Boolean(schedule) && !noChanges,
     noChanges,
   };
-  return { preview, periods, runs, entries, allocations, adjustments, workEntries, importData };
+  return { preview, periods, runs, entries, allocations, adjustments, workEntries, attendanceRecords: input.attendanceRecords ? [...input.attendanceRecords] : undefined, leaveRequests: input.leaveRequests ? [...input.leaveRequests] : undefined, overtimeRequests: input.overtimeRequests ? [...input.overtimeRequests] : undefined, importData };
 }
 
 export function localMaintenanceResult(plan: PayrollMaintenanceLocalPlan): PayrollMaintenanceResult {

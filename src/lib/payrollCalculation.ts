@@ -4,6 +4,10 @@ import type {
   ProjectWorkerAssignment,
   Worker,
 } from "../types.ts";
+import {
+  fingerprintPayrollSources,
+  type PayrollSourceRevisionInput,
+} from "./payrollSourceRevision.ts";
 
 const SNAPSHOT_VERSION = "payroll-calculation-v1";
 const EPSILON = 0.01;
@@ -274,6 +278,57 @@ export function validatePayrollProjectAllocations(totalLaborCost: number, alloca
   return { valid: issues.length === 0, allocatedAmount, unallocatedAmount: round(Math.max(0, total - allocatedAmount)), allocationPercentage, issues };
 }
 
+export interface PayrollAttendanceRecordLike {
+  id?: string;
+  workerId: string;
+  periodId?: string;
+  attendanceDate?: string;
+  date?: string;
+  recordStatus?: string;
+  status?: string;
+  confirmed?: boolean;
+  regularMinutes?: number;
+  regularHours?: number;
+  paidDayFraction?: number;
+  [key: string]: unknown;
+}
+
+export interface PayrollLeaveRecordLike {
+  id?: string;
+  workerId: string;
+  periodId?: string;
+  leaveDate?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  paid?: boolean;
+  [key: string]: unknown;
+}
+
+export interface PayrollOvertimeRequestLike {
+  id?: string;
+  workerId: string;
+  periodId?: string;
+  overtimeDate?: string;
+  approvedMinutes?: number;
+  approvedHours?: number;
+  status?: string;
+  approved?: boolean;
+  overtimeRate?: number;
+  rate?: number;
+  laborContext?: PayrollLaborContext;
+  projectId?: string;
+  [key: string]: unknown;
+}
+
+export interface PayrollHolidayRecordLike {
+  id?: string;
+  holidayDate?: string;
+  date?: string;
+  active?: boolean;
+  [key: string]: unknown;
+}
+
 export interface PayrollRunCalculationInput {
   runId: string;
   periodId: string;
@@ -281,7 +336,25 @@ export interface PayrollRunCalculationInput {
   periodEnd: string;
   workers: Worker[];
   assignments: ProjectWorkerAssignment[];
-  workEntries: Array<Pick<import("../types.ts").WorkEntry, "id" | "workerId" | "projectId" | "periodId" | "workDate" | "regularHours" | "overtimeHours" | "daysWorked" | "rate" | "overtimeRate" | "status">>;
+  workEntries: Array<Pick<import("../types.ts").WorkEntry, "id" | "workerId" | "projectId" | "laborContext" | "periodId" | "workDate" | "regularHours" | "overtimeHours" | "daysWorked" | "rate" | "overtimeRate" | "status">>;
+  /** Confirmed daily records are the primary regular-pay source when present. */
+  attendance?: PayrollAttendanceRecordLike[];
+  confirmedAttendance?: PayrollAttendanceRecordLike[];
+  attendanceRecords?: PayrollAttendanceRecordLike[];
+  leave?: PayrollLeaveRecordLike[];
+  leaves?: PayrollLeaveRecordLike[];
+  leaveRequests?: PayrollLeaveRecordLike[];
+  overtime?: PayrollOvertimeRequestLike[];
+  overtimeRequests?: PayrollOvertimeRequestLike[];
+  holidays?: PayrollHolidayRecordLike[];
+  payrollHolidays?: PayrollHolidayRecordLike[];
+  /** Optional compensation aliases are fingerprinted for source freshness. */
+  profiles?: readonly unknown[];
+  compensationProfiles?: readonly unknown[];
+  overtimeRule?: { multiplier?: number; rateFor?: (workerId: string, workDate: string) => number | undefined };
+  /** Captured monotonic period revision, when the persistence layer provides one. */
+  sourceRevision?: number;
+  periodSourceRevision?: number;
 }
 
 export interface PayrollRunCalculationResult {
@@ -302,53 +375,211 @@ export interface PayrollRunCalculationResult {
     projectId: string;
     allocationAmount: number;
     allocationPercentage?: number;
+    laborContext?: "PROJECT" | "ADMIN_OFFICE" | "GENERAL_OVERHEAD" | "UNALLOCATED_REVIEW";
     source: "TIME_ENTRY";
   }>;
   warnings: string[];
   unallocatedLabor: number;
+  sourceFingerprint?: string;
+  sourceRevision?: number;
 }
 
 function localCalculationId(runId: string, workerId: string) {
-  return `payroll:${runId}:${workerId}`;
+  return "payroll:" + runId + ":" + workerId;
 }
 
-function assignmentForWorkEntry(workerId: string, projectId: string, workDate: string, assignments: ProjectWorkerAssignment[]) {
+type PayrollLaborContext = "PROJECT" | "ADMIN_OFFICE" | "GENERAL_OVERHEAD" | "UNALLOCATED_REVIEW";
+type PayrollWorkEntry = PayrollRunCalculationInput["workEntries"][number] & { laborContext?: PayrollLaborContext };
+
+interface AllocationBucket {
+  laborContext: PayrollLaborContext;
+  projectId?: string;
+  amount: number;
+  weight: number;
+  workEntryIds: string[];
+  sourceIds: string[];
+}
+
+function assignmentForWorkEntry(workerId: string, projectId: string | undefined, workDate: string, assignments: ProjectWorkerAssignment[]) {
   return assignments
-    .filter((assignment) => assignment.workerId === workerId && assignment.projectId === projectId && isAssignmentValidForWorkDate(assignment, workDate))
+    .filter((assignment) => assignment.workerId === workerId && projectId !== undefined && assignment.projectId === projectId && isAssignmentValidForWorkDate(assignment, workDate))
     .sort((left, right) => right.startDate.localeCompare(left.startDate) || left.id.localeCompare(right.id))[0];
 }
 
+function assignmentForWorkerDate(workerId: string, workDate: string, assignments: ProjectWorkerAssignment[]) {
+  return assignments
+    .filter((assignment) => assignment.workerId === workerId && isAssignmentValidForWorkDate(assignment, workDate))
+    .sort((left, right) => right.startDate.localeCompare(left.startDate) || left.id.localeCompare(right.id))[0];
+}
+
+function sourceDate(record: Record<string, unknown>): string | undefined {
+  for (const key of ["attendanceDate", "overtimeDate", "workDate", "leaveDate", "date"]) {
+    const value = record[key];
+    if (typeof value === "string" && value) return value.slice(0, 10);
+  }
+  return undefined;
+}
+
+function inRunPeriod(date: string | undefined, periodId: string | undefined, input: PayrollRunCalculationInput) {
+  return Boolean(date && date >= input.periodStart && date <= input.periodEnd && (!periodId || periodId === input.periodId));
+}
+
+function uniqueRecords<T extends { id?: string }>(groups: Array<readonly T[] | undefined>): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const group of groups) {
+    for (const record of group ?? []) {
+      const key = record.id ? "id:" + record.id : JSON.stringify(record);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(record);
+    }
+  }
+  return result;
+}
+
+function isConfirmedAttendance(record: PayrollAttendanceRecordLike): boolean {
+  const status = String(record.recordStatus ?? record.status ?? "").toUpperCase();
+  return status === "" || status === "CONFIRMED" || record.confirmed === true;
+}
+
+function isApprovedOvertime(record: PayrollOvertimeRequestLike): boolean {
+  return String(record.status ?? "").toUpperCase() === "APPROVED" || (record as Record<string, unknown>).approved === true;
+}
+
+function recordId(record: { id?: string }, fallback: string) {
+  return record.id || fallback;
+}
+
+function positiveAmount(value: unknown) {
+  const amount = numberValue(value);
+  return Number.isFinite(amount) && amount >= 0 ? amount : 0;
+}
+
+function approvedOvertimeMinutes(record: PayrollOvertimeRequestLike) {
+  const minutes = positiveAmount(record.approvedMinutes);
+  return minutes > 0 ? minutes : positiveAmount(record.approvedHours) * 60;
+}
+
+function resolveOvertimeRate(input: PayrollRunCalculationInput, workerId: string, date: string, baseRate: number, explicitRate?: number) {
+  if (explicitRate !== undefined && Number.isFinite(numberValue(explicitRate)) && numberValue(explicitRate) >= 0) return round(numberValue(explicitRate));
+  const ruleRate = input.overtimeRule?.rateFor?.(workerId, date);
+  if (ruleRate !== undefined && Number.isFinite(numberValue(ruleRate)) && numberValue(ruleRate) >= 0) return round(numberValue(ruleRate));
+  return round(baseRate * (input.overtimeRule?.multiplier ?? 1));
+}
+
+function addAllocationBucket(
+  buckets: Map<string, AllocationBucket>,
+  laborContext: PayrollLaborContext | undefined,
+  projectId: string | undefined,
+  weight: number,
+  amount: number,
+  sourceId: string,
+  workEntryId?: string,
+) {
+  const context = laborContext ?? (projectId ? "PROJECT" : "UNALLOCATED_REVIEW");
+  const normalizedProjectId = context === "PROJECT" && projectId ? projectId : undefined;
+  const key = context + ":" + (normalizedProjectId ?? "");
+  const current = buckets.get(key) ?? {
+    laborContext: context,
+    ...(normalizedProjectId ? { projectId: normalizedProjectId } : {}),
+    amount: 0,
+    weight: 0,
+    workEntryIds: [],
+    sourceIds: [],
+  };
+  current.amount += positiveAmount(amount);
+  current.weight += Math.max(0.01, positiveAmount(weight));
+  if (workEntryId && !current.workEntryIds.includes(workEntryId)) current.workEntryIds.push(workEntryId);
+  if (!current.sourceIds.includes(sourceId)) current.sourceIds.push(sourceId);
+  buckets.set(key, current);
+}
+
+function contextForWorkEntry(entry: PayrollWorkEntry): PayrollLaborContext {
+  if (entry.laborContext) return entry.laborContext;
+  return entry.projectId ? "PROJECT" : "UNALLOCATED_REVIEW";
+}
+
 /**
- * Builds a reproducible draft/calculated run from approved, period-linked work
- * entries. Time entries are the only source consumed here; unallocated
- * monthly labor remains visible instead of being silently assigned.
+ * Builds a reproducible payroll run. Confirmed attendance replaces legacy
+ * regular quantities for that worker; legacy work entries remain the fallback
+ * when no confirmed attendance exists. Project/context allocation is derived
+ * independently from attendance records.
  */
 export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationInput): PayrollRunCalculationResult {
-  const warnings: string[] = [];
+  const allAttendance = uniqueRecords([input.confirmedAttendance, input.attendanceRecords, input.attendance]);
+  const attendance = allAttendance.filter((record) => {
+    const date = sourceDate(record as Record<string, unknown>);
+    return isConfirmedAttendance(record) && inRunPeriod(date, record.periodId, input);
+  });
+  const allLeave = uniqueRecords([input.leaveRequests, input.leaves, input.leave]);
+  const allOvertime = uniqueRecords([input.overtimeRequests, input.overtime]);
+  const approvedOvertime = allOvertime.filter((record) => {
+    const date = sourceDate(record as Record<string, unknown>);
+    return isApprovedOvertime(record) && inRunPeriod(date, record.periodId, input) && approvedOvertimeMinutes(record) > 0;
+  });
+  const allHolidays = uniqueRecords([input.payrollHolidays, input.holidays]);
+
+  const sourceInput: PayrollSourceRevisionInput = {
+    period: {
+      id: input.periodId,
+      startDate: input.periodStart,
+      endDate: input.periodEnd,
+      ...(Number.isFinite(numberValue(input.sourceRevision ?? input.periodSourceRevision))
+        ? { sourceRevision: numberValue(input.sourceRevision ?? input.periodSourceRevision) }
+        : {}),
+    },
+    workers: input.workers,
+    attendance: allAttendance,
+    leave: allLeave,
+    overtime: allOvertime,
+    holidays: allHolidays,
+    workEntries: input.workEntries,
+    assignments: input.assignments,
+    profiles: input.profiles,
+    compensationProfiles: input.compensationProfiles,
+  };
+  const sourceFingerprint = fingerprintPayrollSources(sourceInput);
+  const revisionValue = numberValue(input.sourceRevision ?? input.periodSourceRevision);
+  const sourceRevision = Number.isFinite(revisionValue) ? revisionValue : undefined;
+
   const entriesByWorker = new Map<string, PayrollRunCalculationInput["workEntries"]>();
   for (const entry of input.workEntries) {
     if (entry.status !== "APPROVED") continue;
     if (entry.periodId !== input.periodId || entry.workDate < input.periodStart || entry.workDate > input.periodEnd) continue;
-    const current = entriesByWorker.get(entry.workerId) || [];
-    current.push(entry);
-    entriesByWorker.set(entry.workerId, current);
+    entriesByWorker.set(entry.workerId, [...(entriesByWorker.get(entry.workerId) ?? []), entry]);
+  }
+
+  const attendanceByWorker = new Map<string, PayrollAttendanceRecordLike[]>();
+  for (const record of attendance) attendanceByWorker.set(record.workerId, [...(attendanceByWorker.get(record.workerId) ?? []), record]);
+  for (const records of attendanceByWorker.values()) {
+    records.sort((left, right) => String(sourceDate(left as Record<string, unknown>)).localeCompare(String(sourceDate(right as Record<string, unknown>))) || recordId(left, "").localeCompare(recordId(right, "")));
   }
 
   const calculatedEntries: PayrollRunCalculationResult["entries"] = [];
   const calculatedAllocations: PayrollRunCalculationResult["allocations"] = [];
   let unallocatedLabor = 0;
 
-  for (const worker of input.workers.filter((item) => item.active).sort((left, right) => left.id.localeCompare(right.id))) {
-    const workerEntries = (entriesByWorker.get(worker.id) || []).slice().sort((left, right) => left.workDate.localeCompare(right.workDate) || left.id.localeCompare(right.id));
-    if (!workerEntries.length) continue;
+  for (const worker of input.workers.filter((item) => item.active !== false).sort((left, right) => left.id.localeCompare(right.id))) {
+    const workerEntries = (entriesByWorker.get(worker.id) ?? []).slice().sort((left, right) => left.workDate.localeCompare(right.workDate) || left.id.localeCompare(right.id));
+    const workerAttendance = (attendanceByWorker.get(worker.id) ?? []).slice();
+    const workerExplicitOvertime = approvedOvertime
+      .filter((record) => record.workerId === worker.id)
+      .sort((left, right) => String(sourceDate(left as Record<string, unknown>)).localeCompare(String(sourceDate(right as Record<string, unknown>))) || recordId(left, "").localeCompare(recordId(right, "")));
+    if (!workerEntries.length && !workerAttendance.length && !workerExplicitOvertime.length) continue;
     if (!isValidRate(worker.defaultRate)) {
-      warnings.push(`${worker.displayName || worker.id} has no positive default rate and was not calculated.`);
+      warningsForCalculation(input, worker);
       continue;
     }
 
-    const projectCosts = new Map<string, number>();
-    const projectWeights = new Map<string, number>();
+    const warnings = calculationWarnings(input);
+    const usesAttendance = workerAttendance.length > 0;
+    const usesExplicitOvertime = workerExplicitOvertime.length > 0;
+    const legacyAllocationMode = !usesAttendance && !usesExplicitOvertime;
+    const buckets = new Map<string, AllocationBucket>();
     const resolutionSnapshots: Record<string, unknown>[] = [];
+    const attendanceSourceIds: string[] = [];
+    const overtimeSourceIds: string[] = [];
     let regularPay = 0;
     let overtimePay = 0;
     let monthlyWorker = worker.defaultPayType === "MONTHLY";
@@ -360,63 +591,149 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
       const line = calculatePayroll({
         payType: resolution.payType,
         rate: resolution.rate,
-        regularHours: workEntry.regularHours,
-        daysWorked: workEntry.daysWorked,
-        overtimeHours: workEntry.overtimeHours,
-        overtimeRate: workEntry.overtimeRate,
+        regularHours: usesAttendance ? 0 : workEntry.regularHours,
+        daysWorked: usesAttendance ? 0 : workEntry.daysWorked,
+        overtimeHours: 0,
         monthlyAllocationPercentage: resolution.payType === "MONTHLY" ? 0 : undefined,
       });
-      const activityWeight = Math.max(0.01, Number(workEntry.daysWorked) || Number(workEntry.regularHours) || Number(workEntry.overtimeHours) || 1);
-      const projectLineCost = resolution.payType === "MONTHLY" ? 0 : line.regularPay + line.overtimePay;
-      projectCosts.set(workEntry.projectId, round((projectCosts.get(workEntry.projectId) || 0) + projectLineCost));
-      projectWeights.set(workEntry.projectId, (projectWeights.get(workEntry.projectId) || 0) + activityWeight);
-      regularPay += resolution.payType === "MONTHLY" ? 0 : line.regularPay;
-      overtimePay += line.overtimePay;
+      const activityWeight = Math.max(0.01, positiveAmount(workEntry.daysWorked) || positiveAmount(workEntry.regularHours) || positiveAmount(workEntry.overtimeHours) || 1);
+      const regularSourceAmount = resolution.payType === "MONTHLY" ? 0 : line.regularPay;
+      if (!usesAttendance) regularPay += regularSourceAmount;
+      const context = contextForWorkEntry(workEntry);
+      addAllocationBucket(buckets, context, workEntry.projectId, activityWeight, legacyAllocationMode ? regularSourceAmount : 0, workEntry.id, workEntry.id);
       monthlyWorker = monthlyWorker && resolution.payType === "MONTHLY";
-      resolutionSnapshots.push({ workEntryId: workEntry.id, projectId: workEntry.projectId, workDate: workEntry.workDate, ...resolution, calculated: line.calculationSnapshot });
+      resolutionSnapshots.push({ workEntryId: workEntry.id, projectId: workEntry.projectId, laborContext: context, workDate: workEntry.workDate, ...resolution, calculated: line.calculationSnapshot, source: usesAttendance ? "CONFIRMED_ATTENDANCE" : "APPROVED_WORK_ENTRY" });
     }
 
-    const basePay = monthlyWorker ? round(worker.defaultRate) : round(regularPay);
+    for (const record of workerAttendance) {
+      const date = sourceDate(record as Record<string, unknown>) || input.periodStart;
+      const assignment = assignmentForWorkerDate(worker.id, date, input.assignments);
+      const resolution = resolvePayrollRate({ worker, assignment, workDate: date });
+      const regularMinutes = record.regularMinutes !== undefined ? positiveAmount(record.regularMinutes) : positiveAmount((record as Record<string, unknown>).regularHours) * 60;
+      const paidDayFraction = positiveAmount(record.paidDayFraction);
+      const quantity = resolution.payType === "HOURLY" ? regularMinutes / 60 : resolution.payType === "DAILY" ? paidDayFraction : 0;
+      const amount = round(quantity * resolution.rate);
+      if (resolution.payType !== "MONTHLY") regularPay += amount;
+      monthlyWorker = monthlyWorker && resolution.payType === "MONTHLY";
+      const id = recordId(record, worker.id + ":" + date);
+      attendanceSourceIds.push(id);
+      resolutionSnapshots.push({ attendanceId: id, attendanceDate: date, regularMinutes, paidDayFraction, ...resolution, regularPay: amount, source: "CONFIRMED_ATTENDANCE" });
+    }
+
+    const legacyOvertimeEntries = workerEntries.filter((entry) => positiveAmount(entry.overtimeHours) > 0);
+    const explicitDates = new Set<string>();
+    for (const request of workerExplicitOvertime) {
+      const date = sourceDate(request as Record<string, unknown>);
+      if (!date) continue;
+      explicitDates.add(date);
+      const assignment = assignmentForWorkerDate(worker.id, date, input.assignments);
+      const resolution = resolvePayrollRate({ worker, assignment, workDate: date });
+      const rate = resolveOvertimeRate(input, worker.id, date, resolution.rate, request.overtimeRate ?? request.rate);
+      const minutes = approvedOvertimeMinutes(request);
+      const id = recordId(request, worker.id + ":" + date);
+      overtimeSourceIds.push(id);
+      overtimePay += minutes / 60 * rate;
+      const requestContext = request.laborContext ?? (request.projectId ? "PROJECT" : undefined);
+      if (requestContext) addAllocationBucket(buckets, requestContext, request.projectId, minutes / 60, legacyAllocationMode ? minutes / 60 * rate : 0, id);
+      resolutionSnapshots.push({ overtimeId: id, overtimeDate: date, approvedMinutes: minutes, overtimeRate: rate, overtimePay: round(minutes / 60 * rate), source: "APPROVED_OVERTIME_REQUEST" });
+    }
+
+    for (const workEntry of legacyOvertimeEntries) {
+      const date = workEntry.workDate.slice(0, 10);
+      if (explicitDates.has(date)) {
+        warnings.push("Explicit approved overtime conflicts with legacy work-entry overtime on " + workEntry.id + "; legacy overtime was excluded.");
+        continue;
+      }
+      const assignment = assignmentForWorkEntry(worker.id, workEntry.projectId, date, input.assignments);
+      const manualOverride = assignment && isValidRate(assignment.rate) ? undefined : { rate: workEntry.rate };
+      const resolution = resolvePayrollRate({ worker, assignment, workDate: date, manualOverride });
+      const rate = resolveOvertimeRate(input, worker.id, date, resolution.rate, workEntry.overtimeRate);
+      const amount = positiveAmount(workEntry.overtimeHours) * rate;
+      overtimePay += amount;
+      if (legacyAllocationMode) addAllocationBucket(buckets, contextForWorkEntry(workEntry), workEntry.projectId, positiveAmount(workEntry.overtimeHours), amount, workEntry.id, workEntry.id);
+      resolutionSnapshots.push({ workEntryId: workEntry.id, workDate: date, overtimeHours: positiveAmount(workEntry.overtimeHours), overtimeRate: rate, overtimePay: round(amount), source: "LEGACY_WORK_ENTRY_OVERTIME" });
+    }
+
+    regularPay = round(regularPay);
+    overtimePay = round(overtimePay);
+    const basePay = monthlyWorker ? round(worker.defaultRate) : regularPay;
     const grossPay = round(basePay + overtimePay);
-    const weightedProjectTotal = [...projectWeights.values()].reduce((sum, value) => sum + value, 0);
-    const projectSourceTotal = [...projectCosts.values()].reduce((sum, value) => sum + value, 0);
-    const allocationBase = monthlyWorker ? grossPay : projectSourceTotal;
-    const allocationsForWorker = [...(monthlyWorker ? projectWeights : projectCosts).entries()]
-      .filter(([, value]) => value > 0)
-      .map(([projectId, value]) => ({
-        projectId,
-        allocationAmount: round(monthlyWorker ? allocationBase * value / weightedProjectTotal : value),
-      }));
-    const projectAllocatedCost = round(allocationsForWorker.reduce((sum, allocation) => sum + allocation.allocationAmount, 0));
-    unallocatedLabor += Math.max(0, grossPay - projectAllocatedCost);
+    if (!buckets.size) addAllocationBucket(buckets, "UNALLOCATED_REVIEW", undefined, 1, legacyAllocationMode ? grossPay : 0, worker.id);
+    const totalWeight = [...buckets.values()].reduce((sum, bucket) => sum + bucket.weight, 0);
+    const sourceAllocationTotal = [...buckets.values()].reduce((sum, bucket) => sum + bucket.amount, 0);
+    const allocationBase = monthlyWorker || usesAttendance || usesExplicitOvertime ? grossPay : sourceAllocationTotal;
+    let projectAllocatedCost = 0;
+
+    for (const bucket of buckets.values()) {
+      const amount = round(monthlyWorker || usesAttendance || usesExplicitOvertime ? (totalWeight > 0 ? allocationBase * bucket.weight / totalWeight : 0) : bucket.amount);
+      const validProject = bucket.laborContext === "PROJECT" && Boolean(bucket.projectId && bucket.projectId.trim());
+      if (bucket.laborContext === "PROJECT" && !validProject) warnings.push("Project labor allocation requires a projectId for worker " + worker.id + ".");
+      const outputContext = validProject ? "PROJECT" : bucket.laborContext === "PROJECT" ? "UNALLOCATED_REVIEW" : bucket.laborContext;
+      if (validProject) projectAllocatedCost = round(projectAllocatedCost + amount);
+      const outputAllocation = {
+        workerId: worker.id,
+        ...(validProject ? { projectId: bucket.projectId } : {}),
+        allocationAmount: amount,
+        allocationPercentage: grossPay > 0 ? round(amount / grossPay * 100) : 0,
+        laborContext: outputContext,
+        source: "TIME_ENTRY" as const,
+      };
+      calculatedAllocations.push(outputAllocation as PayrollRunCalculationResult["allocations"][number]);
+    }
+    const actualUnallocated = round(Math.max(0, grossPay - projectAllocatedCost));
+    unallocatedLabor += actualUnallocated;
     calculatedEntries.push({
       workerId: worker.id,
       basePay,
       regularPay: round(monthlyWorker ? basePay : regularPay),
-      overtimePay: round(overtimePay),
+      overtimePay,
       allowances: 0,
       grossPay,
       deductions: 0,
       netPay: grossPay,
-      projectAllocatedCost,
+      projectAllocatedCost: round(projectAllocatedCost),
       calculationSnapshot: {
         version: SNAPSHOT_VERSION,
         runId: input.runId,
         periodId: input.periodId,
-        source: "APPROVED_WORK_ENTRIES",
+        source: usesAttendance ? "CONFIRMED_ATTENDANCE" : "APPROVED_WORK_ENTRIES",
         workEntryIds: workerEntries.map((entry) => entry.id),
+        attendanceIds: attendanceSourceIds,
+        overtimeIds: overtimeSourceIds,
+        leaveIds: allLeave.filter((record) => record.workerId === worker.id).map((record) => recordId(record, worker.id)),
+        holidayIds: allHolidays.map((record) => recordId(record, "holiday")),
         rateResolutions: resolutionSnapshots,
-        unallocatedLabor: round(Math.max(0, grossPay - projectAllocatedCost)),
+        overtimeSource: usesExplicitOvertime ? (legacyOvertimeEntries.length ? "APPROVED_AND_LEGACY_WITH_CONFLICT_CHECK" : "APPROVED_OVERTIME_REQUESTS") : legacyOvertimeEntries.length ? "LEGACY_WORK_ENTRIES" : "NONE",
+        sourceFingerprint,
+        ...(sourceRevision !== undefined ? { sourceRevision } : {}),
+        unallocatedLabor: actualUnallocated,
       },
     });
-    for (const allocation of allocationsForWorker) {
-      calculatedAllocations.push({ workerId: worker.id, ...allocation, allocationPercentage: grossPay > 0 ? round(allocation.allocationAmount / grossPay * 100) : 0, source: "TIME_ENTRY" });
-    }
   }
 
+  const warnings = calculationWarnings(input);
   for (const entry of input.workEntries) {
-    if (entry.status === "APPROVED" && !entry.periodId) warnings.push(`Approved work entry ${entry.id} is not linked to a payroll period and was excluded.`);
+    if (entry.status === "APPROVED" && !entry.periodId) warnings.push("Approved work entry " + entry.id + " is not linked to a payroll period and was excluded.");
   }
 
-  return { entries: calculatedEntries, allocations: calculatedAllocations, warnings, unallocatedLabor: round(unallocatedLabor) };
+  return {
+    entries: calculatedEntries,
+    allocations: calculatedAllocations,
+    warnings,
+    unallocatedLabor: round(unallocatedLabor),
+    sourceFingerprint,
+    ...(sourceRevision !== undefined ? { sourceRevision } : {}),
+  };
+}
+
+function calculationWarnings(input: PayrollRunCalculationInput): string[] {
+  const existing = (input as PayrollRunCalculationInput & { __warnings?: string[] }).__warnings;
+  if (existing) return existing;
+  const warnings: string[] = [];
+  (input as PayrollRunCalculationInput & { __warnings?: string[] }).__warnings = warnings;
+  return warnings;
+}
+
+function warningsForCalculation(input: PayrollRunCalculationInput, worker: Worker) {
+  calculationWarnings(input).push((worker.displayName || worker.id) + " has no positive default rate and was not calculated.");
 }

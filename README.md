@@ -165,3 +165,18 @@ The primary extraction/classification model remains `gemini-3.5-flash-lite`, wit
 ## Intentionally deferred
 
 This iteration focuses on product features rather than full enterprise hardening. The migration still includes private Storage and basic per-user RLS so invoice/email data is not intentionally public. A later phase can cover team permissions, retention, token storage/background refresh, organization roles, security audit, and automated Gmail push processing.
+
+## Payroll and workforce operations
+
+Payroll now keeps two related but separate sources:
+
+- **Attendance** records whether a worker was expected, present, absent, on leave, resting, on a holiday, or on official business. It stores schedule snapshots, clock times, regular minutes, lateness, undertime, and payable day fractions.
+- **Time / Labor** records where labor was allocated: a project, admin/office, general overhead, or unallocated review. A project is required only for project labor.
+- **Overtime** is requested and approved separately. Approved explicit overtime takes precedence over legacy work-entry overtime for the same worker/date; conflicts are surfaced rather than paid twice.
+- **Leave** is operational data. Approved leave appears in the attendance roster, but paid leave is never assumed unless explicitly entered.
+
+The Attendance workspace supports date navigation, roster review, inline corrections, bulk “mark scheduled workers present,” leave requests, overtime approval, and company-defined holiday context. Bulk actions are deterministic, previewable domain operations so future automation can call the same actions without writing rows directly.
+
+Calculated payroll runs capture a source revision and deterministic source fingerprint. Attendance, leave, overtime, work-entry, compensation, and schedule changes require recalculation before a run can be approved. Existing finalized payroll history remains read-only.
+
+Company tenancy and RBAC apply to the new payroll sources. Local/demo mode stores the same domains locally when Supabase is not configured. This remains an operational payroll foundation and is **not** a legally complete Philippine payroll engine; statutory premium, contribution, entitlement, and absence-deduction rules require explicit configured policy and are intentionally not invented.

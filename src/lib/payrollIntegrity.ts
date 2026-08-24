@@ -1,4 +1,4 @@
-import type { PayrollAdjustment, PayrollEntry, PayrollPeriod, PayrollRun, WorkEntry } from "../types.ts";
+import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollAdjustment, PayrollEntry, PayrollPeriod, PayrollRun, WorkEntry } from "../types.ts";
 import type { PayrollImportBatch } from "./payrollImportPersistence.ts";
 import {
   generatePayrollPeriodsAroundReference,
@@ -37,6 +37,9 @@ export interface PayrollPeriodSourceContext {
   workEntries?: readonly WorkEntry[];
   importBatches?: readonly PayrollImportBatch[];
   adjustments?: readonly PayrollAdjustment[];
+  attendanceRecords?: readonly AttendanceRecord[];
+  leaveRequests?: readonly LeaveRequest[];
+  overtimeRequests?: readonly OvertimeRequest[];
   referenceDate?: string;
 }
 
@@ -156,6 +159,9 @@ export function isPayrollPeriodDataBearing(period: PayrollPeriod, context: Payro
   const runs = context.runs || [];
   const runIds = new Set(periodRunIds(period, runs));
   const entryIds = new Set((context.entries || []).filter((entry) => runIds.has(entry.payrollRunId)).map((entry) => entry.id));
+  if ((context.attendanceRecords || []).some((record) => (record.periodId === period.id || (record.attendanceDate >= period.periodStart && record.attendanceDate <= period.periodEnd)) && record.recordStatus !== "VOID")) return true;
+  if ((context.overtimeRequests || []).some((request) => (request.periodId === period.id || (request.overtimeDate >= period.periodStart && request.overtimeDate <= period.periodEnd)))) return true;
+  if ((context.leaveRequests || []).some((request) => request.startDate <= period.periodEnd && request.endDate >= period.periodStart)) return true;
   if (entryIds.size > 0) return true;
   if ((context.workEntries || []).some((entry) => entry.periodId === period.id && entry.status !== "VOID")) return true;
   if (hasCommittedImport(period, context.importBatches || [])) return true;

@@ -11,7 +11,11 @@ begin
   ) then
     foreach table_name in array array[
       'worker_compensation_profiles',
-      'recurring_payroll_components'
+      'recurring_payroll_components',
+      'attendance_records',
+      'leave_requests',
+      'overtime_requests',
+      'payroll_holidays'
     ] loop
       if to_regclass(format('public.%I', table_name)) is not null
          and not exists (
