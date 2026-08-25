@@ -26,6 +26,25 @@ function valueLabel(value: unknown, depth = 0): string {
   return "—";
 }
 
+function previewLabel(key: string) {
+  const labels: Record<string, string> = {
+    operation: "Action",
+    firstName: "First name",
+    middleName: "Middle name",
+    lastName: "Last name",
+    displayName: "Name",
+    employeeCode: "Employee code",
+    employmentType: "Employment type",
+    employmentStatus: "Status",
+    defaultPayType: "Pay basis",
+    defaultRate: "Rate",
+    dailyRate: "Daily rate",
+    currency: "Currency",
+    writeStatus: "Write status",
+  };
+  return labels[key] || key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (value) => value.toUpperCase());
+}
+
 function clientActionLabel(action: AssistantClientAction) {
   if (action.label) return action.label;
   if (action.type === "OPEN_INVOICE") return "Open invoice";
@@ -55,19 +74,19 @@ export const AssistantActionCard: React.FC<AssistantActionCardProps> = ({ prepar
           <div className="mt-0.5 rounded-lg bg-amber-100 p-1.5 text-amber-700"><FileCheck2 aria-hidden="true" className="h-4 w-4" /></div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-black text-amber-950">{confirmationLabel(preparedAction.riskTier)}</p>
-              <span className="rounded-full border border-amber-200 bg-white/70 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-800">{riskLabel(preparedAction.riskTier)}</span>
+              <p className="text-sm font-black text-amber-950">{confirmationLabel(preparedAction.riskTier)}</p>
+              <span className="rounded-full border border-amber-200 bg-white/70 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-amber-800">{riskLabel(preparedAction.riskTier)}</span>
             </div>
-            <p className="mt-1 text-[10px] leading-4 text-amber-900">{preparedAction.toolName.replace(/[._:-]+/g, " ")}</p>
+            <p className="mt-1 text-xs leading-5 text-amber-900">{preparedAction.toolName.replace(/[._:-]+/g, " ")}</p>
             {Object.keys(preparedAction.preview).length > 0 && (
-              <dl className="mt-2 space-y-1 rounded-xl border border-amber-200/80 bg-white/60 p-2 text-[10px] text-slate-700">
-                {Object.entries(preparedAction.preview).slice(0, 8).map(([key, value]) => <div key={key} className="flex gap-2"><dt className="min-w-0 flex-1 truncate font-bold text-slate-500">{key}</dt><dd className="max-w-[65%] truncate text-right font-semibold">{valueLabel(value)}</dd></div>)}
+              <dl className="mt-2 space-y-1.5 rounded-xl border border-amber-200/80 bg-white/60 p-2.5 text-xs leading-5 text-slate-700">
+                {Object.entries(preparedAction.preview).slice(0, 8).map(([key, value]) => <div key={key} className="flex gap-2"><dt className="min-w-0 flex-1 truncate font-bold text-slate-500">{previewLabel(key)}</dt><dd className="max-w-[65%] truncate text-right font-semibold">{valueLabel(value)}</dd></div>)}
               </dl>
             )}
-            {preparedAction.status !== "PREPARED" && <p className="mt-2 text-[10px] font-bold text-slate-600">Status: {preparedAction.status.toLowerCase()}</p>}
+            {preparedAction.status !== "PREPARED" && <p className="mt-2 text-xs font-bold text-slate-600">Status: {preparedAction.status.toLowerCase()}</p>}
             {actionable && <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => onConfirm?.(preparedAction)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-700 px-3 py-2 text-[10px] font-black text-white shadow-sm transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"><Check aria-hidden="true" className="h-3.5 w-3.5" /> Confirm</button>
-              <button type="button" onClick={() => onCancel?.(preparedAction)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-2 text-[10px] font-black text-amber-900 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"><X aria-hidden="true" className="h-3.5 w-3.5" /> Cancel</button>
+              <button type="button" onClick={() => onConfirm?.(preparedAction)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-700 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"><Check aria-hidden="true" className="h-3.5 w-3.5" /> Confirm</button>
+              <button type="button" onClick={() => onCancel?.(preparedAction)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"><X aria-hidden="true" className="h-3.5 w-3.5" /> Cancel</button>
             </div>}
           </div>
         </div>
@@ -77,7 +96,7 @@ export const AssistantActionCard: React.FC<AssistantActionCardProps> = ({ prepar
 
   if (!clientAction) return null;
   return (
-    <button type="button" data-tour="assistant-action-card" onClick={() => onClientAction?.(clientAction)} disabled={busy} className="group inline-flex max-w-full items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-[10px] font-black text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50">
+    <button type="button" data-tour="assistant-action-card" onClick={() => onClientAction?.(clientAction)} disabled={busy} className="group inline-flex max-w-full items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-xs font-black text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50">
       <ArrowRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600 transition group-hover:translate-x-0.5" />
       <span className="truncate">{clientActionLabel(clientAction)}</span>
     </button>

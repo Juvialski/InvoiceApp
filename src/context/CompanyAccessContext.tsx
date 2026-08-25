@@ -115,6 +115,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef<Session | null>(null);
   const loadGenerationRef = useRef(0);
   const selectionGenerationRef = useRef(0);
+  const accessLoadRef = useRef<{ userId: string; promise: Promise<void> } | null>(null);
 
   const setAccessSnapshot = useCallback((next: CompanyAccessSnapshot) => {
     accessRef.current = next;
@@ -141,6 +142,9 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       if (previousUserId !== nextUserId) {
         loadGenerationRef.current += 1;
         selectionGenerationRef.current += 1;
+        // Do not let a request from a previous identity be reused if the
+        // same user signs in again before that request settles.
+        accessLoadRef.current = null;
         setAccessSnapshot(emptyAccess(nextUserId ? "loading" : "signed-out"));
         setIsSwitching(Boolean(nextUserId));
         clearCompanyContext();
@@ -160,14 +164,23 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   }, [setAccessSnapshot]);
 
   const refreshAccess = useCallback(async () => {
-    if (!supabase || !session?.user?.id) {
+    const activeSession = sessionRef.current;
+    const userId = activeSession?.user?.id;
+    if (!supabase || !userId) {
       setAccessSnapshot(emptyAccess(!isSupabaseConfigured ? "guest" : "signed-out"));
       clearCompanyContext();
       setIsSwitching(false);
       return;
     }
 
+    const inFlight = accessLoadRef.current;
+    if (inFlight?.userId === userId) {
+      await inFlight.promise;
+      return;
+    }
+
     const generation = ++loadGenerationRef.current;
+    const selectionGeneration = selectionGenerationRef.current;
     const previousSnapshot = accessRef.current;
     const previousCompanyId = previousSnapshot.activeCompanyId;
     const hasUsableSnapshot = Boolean(previousSnapshot.activeCompanyId && (previousSnapshot.status === "ready" || previousSnapshot.status === "refreshing"));
@@ -178,32 +191,45 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       // replacement arrives.
       setAccessSnapshot({ ...previousSnapshot, status: "refreshing", error: undefined });
     } else {
-      setAccessSnapshot({ ...emptyAccess("loading"), userId: session.user.id, email: session.user.email || undefined });
+      setAccessSnapshot({ ...emptyAccess("loading"), userId, email: activeSession.user.email || undefined });
     }
-    try {
-      if (!hasUsableSnapshot) await bootstrapPlatformAdmin(supabase);
-      const loaded = await loadCompanyAccess(supabase);
-      if (generation !== loadGenerationRef.current || sessionRef.current?.user?.id !== session.user.id) return;
-      const next = resolvedAccess(loaded, previousCompanyId);
-      setAccessSnapshot(next);
-      if (next.userId) storeCompanyId(next.userId, next.activeCompanyId);
-    } catch (error) {
-      if (generation !== loadGenerationRef.current) return;
-      if (hasUsableSnapshot && accessRef.current.activeCompanyId === previousCompanyId) {
-        setAccessSnapshot({ ...previousSnapshot, status: "ready", error: error instanceof Error ? error.message : String(error) });
-      } else {
-        setAccessSnapshot({
-          ...emptyAccess("error"),
-          userId: session.user.id,
-          email: session.user.email || undefined,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        clearCompanyContext();
+    const request = (async () => {
+      try {
+        if (!hasUsableSnapshot) await bootstrapPlatformAdmin(supabase);
+        const loaded = await loadCompanyAccess(supabase);
+        if (generation !== loadGenerationRef.current || sessionRef.current?.user?.id !== userId) return;
+        const selectionChanged = selectionGeneration !== selectionGenerationRef.current;
+        const preferredCompanyId = selectionChanged ? accessRef.current.activeCompanyId : previousCompanyId;
+        if (selectionChanged && !preferredCompanyId) return;
+        const next = resolvedAccess(loaded, preferredCompanyId);
+        setAccessSnapshot(next);
+        if (next.userId) storeCompanyId(next.userId, next.activeCompanyId);
+      } catch (error) {
+        if (generation !== loadGenerationRef.current) return;
+        const selectionChanged = selectionGeneration !== selectionGenerationRef.current;
+        const latestSnapshot = selectionChanged ? accessRef.current : previousSnapshot;
+        if (hasUsableSnapshot && latestSnapshot.activeCompanyId) {
+          setAccessSnapshot({ ...latestSnapshot, status: "ready", error: error instanceof Error ? error.message : String(error) });
+        } else {
+          setAccessSnapshot({
+            ...emptyAccess("error"),
+            userId,
+            email: activeSession.user.email || undefined,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          clearCompanyContext();
+        }
+      } finally {
+        if (generation === loadGenerationRef.current && selectionGeneration === selectionGenerationRef.current) setIsSwitching(false);
       }
+    })();
+    accessLoadRef.current = { userId, promise: request };
+    try {
+      await request;
     } finally {
-      if (generation === loadGenerationRef.current) setIsSwitching(false);
+      if (accessLoadRef.current?.promise === request) accessLoadRef.current = null;
     }
-  }, [session, setAccessSnapshot]);
+  }, [setAccessSnapshot]);
 
   useEffect(() => {
     if (!authResolved) return undefined;
@@ -227,7 +253,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [refreshAccess, session?.user?.id]);
+  }, [session?.user?.id, refreshAccess]);
 
   const selectCompany = useCallback(async (companyId: string) => {
     const requestGeneration = ++selectionGenerationRef.current;
@@ -287,6 +313,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     loadGenerationRef.current += 1;
     selectionGenerationRef.current += 1;
+    accessLoadRef.current = null;
     clearCompanyContext();
     setIsSwitching(false);
     setAccessSnapshot(emptyAccess(isSupabaseConfigured ? "signed-out" : "guest"));

@@ -103,6 +103,7 @@ export interface AssistantErrorResponse {
   success: false;
   error: string;
   code?: string;
+  reference?: string;
   contextGeneration?: number;
 }
 

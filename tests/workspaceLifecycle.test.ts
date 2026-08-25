@@ -19,9 +19,20 @@ test("normal route changes do not belong to the full workspace lifecycle effect"
 test("access revalidation preserves a usable snapshot and metadata mutations avoid refreshAccess", () => {
   assert.match(access, /hasUsableSnapshot/);
   assert.match(access, /status: "refreshing"/);
-  assert.match(access, /previousSnapshot, status: "ready"/);
+  assert.match(access, /latestSnapshot, status: "ready"/);
   assert.match(access, /const result = await updateCompanyApi\(companyId, patch\);\n    mergeCompany\(result\);/);
   assert.match(access, /const result = await inviteCompanyMemberApi\(input\);\n    return result;/);
+});
+
+test("access bootstrap is coalesced per stable user identity and is not session-object driven", () => {
+  assert.match(access, /const activeSession = sessionRef\.current;/);
+  assert.match(access, /const inFlight = accessLoadRef\.current;/);
+  assert.match(access, /if \(inFlight\?\.userId === userId\)/);
+  assert.match(access, /accessLoadRef\.current = \{ userId, promise: request \};/);
+  assert.match(access, /const selectionGeneration = selectionGenerationRef\.current;/);
+  assert.match(access, /const preferredCompanyId = selectionChanged \? accessRef\.current\.activeCompanyId : previousCompanyId;/);
+  assert.doesNotMatch(access, /const refreshAccess = useCallback\(async \(\) => \{[\s\S]*?\}, \[session, setAccessSnapshot\]\);/);
+  assert.match(access, /return \(\) => \{ void supabase\.removeChannel\(channel\); \};/);
 });
 
 test("company administration distinguishes management selection from active workspace opening", () => {

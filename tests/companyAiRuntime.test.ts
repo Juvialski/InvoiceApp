@@ -3,11 +3,14 @@ import test from "node:test";
 import { encryptCompanyGeminiCredential } from "../src/server/ai/companyAiEncryption.ts";
 import {
   classifyCompanyAiProviderError,
+  classifyCompanyAiProviderFailure,
   companyAiProviderError,
   clearCompanyAiRuntimeCache,
   invalidateCompanyAiRuntime,
+  isCompanyAiFallbackEligible,
   isCompanyAiAuthenticationError,
   resolveCompanyAiRuntime,
+  testCompanyAiRuntime,
   withCompanyAiRuntime,
 } from "../src/server/ai/companyAiRuntime.ts";
 
@@ -145,9 +148,47 @@ test("provider failures become distinct safe user-facing company AI errors", () 
   assert.equal(invalid?.message, "The configured Gemini API key is invalid.");
   assert.equal(quota?.code, "AI_QUOTA_LIMITED");
   assert.equal(quota?.message, "Gemini quota or rate limit reached.");
-  assert.equal(outage?.code, "AI_PROVIDER_UNAVAILABLE");
-  assert.equal(outage?.message, "Gemini is temporarily unavailable.");
+  assert.equal(outage?.code, "AI_NETWORK_ERROR");
+  assert.match(outage?.correlationRef || "", /^AI-[A-Z0-9-]+$/);
+  assert.equal(outage?.message, "The server could not reach Gemini.");
   assert.equal(companyAiProviderError(new Error("The assistant action could not be recorded.")), null);
+});
+
+test("provider classifications expose safe codes and fallback eligibility without raw provider details", () => {
+  const cases: Array<[unknown, string, boolean]> = [
+    [Object.assign(new Error("API key not valid"), { status: 401 }), "AI_CREDENTIAL_INVALID", false],
+    [Object.assign(new Error("resource exhausted"), { status: 429 }), "AI_QUOTA_LIMITED", false],
+    [Object.assign(new Error("permission denied"), { status: 403 }), "AI_PROVIDER_ACCESS_DENIED", false],
+    [Object.assign(new Error("model not found"), { status: 404 }), "AI_MODEL_UNAVAILABLE", true],
+    [new Error("provider returned 503"), "AI_PROVIDER_UNAVAILABLE", true],
+    [Object.assign(new Error("invalid function declaration"), { status: 400 }), "AI_REQUEST_REJECTED", false],
+    [Object.assign(new Error("request timed out"), { status: 408 }), "AI_TIMEOUT", true],
+    [new Error("ECONNRESET while reaching Gemini"), "AI_NETWORK_ERROR", true],
+  ];
+  for (const [error, code, fallback] of cases) {
+    assert.equal(classifyCompanyAiProviderFailure(error), code);
+    const normalized = companyAiProviderError(error, { assumeProviderError: true });
+    assert.equal(normalized?.code, code);
+    assert.equal(isCompanyAiFallbackEligible(normalized), fallback);
+    assert.doesNotMatch(normalized?.message || "", /secret-value|ciphertext|Bearer|stack/i);
+  }
+});
+
+test("connection health uses the company runtime primary model for a minimal request", async () => {
+  const calls: any[] = [];
+  const runtime = {
+    companyId: COMPANY_A,
+    provider: "GEMINI",
+    primaryModel: "gemini-3.5-flash-lite",
+    fallbackModel: "gemini-3.7-flash",
+    credentialVersion: 7,
+    geminiClient: { models: { generateContent: async (parameters: any) => { calls.push(parameters); return { text: "OK" }; } } },
+  } as any;
+  assert.equal(await testCompanyAiRuntime(runtime, { timeoutMs: 2_000 }), "SUCCESS");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].model, "gemini-3.5-flash-lite");
+  assert.equal(calls[0].contents[0].parts[0].text, "Reply with the single word OK.");
+  assert.equal(calls[0].config.maxOutputTokens, 8);
 });
 
 test("a disabled company rejects AI until enabled without changing its credential", async () => {

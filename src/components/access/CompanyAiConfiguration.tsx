@@ -18,12 +18,14 @@ function statusLabel(config: CompanyAiConfigMetadata | null) {
   if (!config || !config.credentialConfigured || config.status === "NOT_CONFIGURED") return "Not configured";
   if (config.status === "DISABLED") return "Configured / Disabled";
   if (config.status === "INVALID") return "Invalid credential";
-  return "Configured / Active";
+  if (config.lastTestStatus === "SUCCESS") return "Verified";
+  if (config.lastTestStatus === "NOT_TESTED") return "Configured / Active · Test required";
+  return "Configured / Active · Test failed";
 }
 
 function statusClasses(config: CompanyAiConfigMetadata | null) {
   if (!config || !config.credentialConfigured || config.status === "NOT_CONFIGURED") return "border-slate-200 bg-slate-50 text-slate-600";
-  if (config.status === "ACTIVE") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (config.status === "ACTIVE" && config.lastTestStatus === "SUCCESS") return "border-emerald-200 bg-emerald-50 text-emerald-800";
   if (config.status === "INVALID") return "border-rose-200 bg-rose-50 text-rose-800";
   return "border-amber-200 bg-amber-50 text-amber-800";
 }
@@ -41,11 +43,15 @@ function testStatusLabel(value?: CompanyAiTestStatus) {
 function testNotice(value: unknown) {
   const metadata = value && typeof value === "object" ? value as Partial<CompanyAiConfigMetadata> : {};
   if (metadata.lastTestStatus === "SUCCESS") return "Gemini connection test succeeded.";
+  const reference = metadata.lastTestReference ? ` Reference: ${metadata.lastTestReference}.` : "";
+  if (metadata.lastTestErrorCode === "AI_REQUEST_REJECTED") return `Gemini rejected the assistant request configuration.${reference}`;
+  if (metadata.lastTestErrorCode === "AI_TIMEOUT") return `The Gemini connection test timed out.${reference}`;
+  if (metadata.lastTestErrorCode === "AI_NETWORK_ERROR") return `The server could not reach Gemini.${reference}`;
   if (metadata.lastTestStatus === "INVALID_CREDENTIAL") return "Gemini rejected this credential. Replace it with a valid key.";
-  if (metadata.lastTestStatus === "QUOTA_LIMITED") return "Gemini is quota or rate limited. Check the provider account before trying again.";
-  if (metadata.lastTestStatus === "MODEL_UNAVAILABLE") return "The configured Gemini model is unavailable. Try again later or contact the platform administrator.";
-  if (metadata.lastTestStatus === "PROVIDER_ACCESS_DENIED") return "Gemini denied access to this project, model, or API. Review provider permissions without replacing the stored key.";
-  if (metadata.lastTestStatus === "PROVIDER_UNAVAILABLE") return "The Gemini provider is temporarily unavailable. Try again later.";
+  if (metadata.lastTestStatus === "QUOTA_LIMITED") return `Gemini is quota or rate limited. Check the provider account before trying again.${reference}`;
+  if (metadata.lastTestStatus === "MODEL_UNAVAILABLE") return `The configured Gemini model is unavailable. Try again later or contact the platform administrator.${reference}`;
+  if (metadata.lastTestStatus === "PROVIDER_ACCESS_DENIED") return `Gemini denied access to this project, model, or API. Review provider permissions without replacing the stored key.${reference}`;
+  if (metadata.lastTestStatus === "PROVIDER_UNAVAILABLE") return `The Gemini provider is temporarily unavailable. Try again later.${reference}`;
   return "Gemini connection test completed without a result.";
 }
 

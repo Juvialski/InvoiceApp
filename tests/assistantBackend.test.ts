@@ -4,13 +4,14 @@ import { ASSISTANT_FALLBACK_MODEL, ASSISTANT_PRIMARY_MODEL, createAssistantModel
 import { prepareAssistantAttachments } from "../src/server/assistant/assistantAttachments.ts";
 import { ASSISTANT_SYSTEM_PROMPT, promptInjectionSafeAttachmentText } from "../src/server/assistant/assistantPrompt.ts";
 import { runAssistantLoop } from "../src/server/assistant/assistantLoop.ts";
-import { ASSISTANT_TOOL_DEFINITIONS } from "../src/server/assistant/toolRegistry.ts";
+import { ASSISTANT_TOOL_DEFINITIONS, executeAssistantTool, getAssistantToolDefinition } from "../src/server/assistant/toolRegistry.ts";
 import { validateToolArguments } from "../src/server/assistant/toolValidation.ts";
 import { authenticateAssistantRequest } from "../src/server/assistant/assistantHandler.ts";
 import { requireCompanyPermissions } from "../src/server/assistant/toolAuthorization.ts";
+import { executePreparedAction } from "../src/server/assistant/assistantToolExecutors.ts";
 
 const requestedTools = [
-  "search_invoices", "get_invoice", "list_review_queue", "search_projects", "get_project", "get_project_cost_summary", "list_expenses", "get_expense_summary", "search_vendors", "get_vendor_summary", "search_workers", "get_worker", "get_attendance_day", "get_attendance_period_summary", "get_payroll_period", "get_payroll_run", "get_payroll_readiness", "get_payroll_exceptions", "get_payroll_summary", "get_current_workspace_summary", "navigate_to", "navigate_to_project", "navigate_to_invoice", "navigate_to_review_invoice", "navigate_to_payroll_period", "navigate_to_attendance_date", "search_help", "get_feature_help", "start_tour", "prepare_attendance_batch", "prepare_attendance_roster", "record_presence", "record_absence", "prepare_leave_request", "approve_leave", "reject_leave", "cancel_leave", "prepare_overtime_request", "approve_overtime", "reject_overtime", "prepare_payroll_recalculation", "create_expense_draft", "create_project_draft", "assign_invoice_to_project", "update_invoice_draft", "approve_payroll", "mark_payroll_paid",
+  "search_invoices", "get_invoice", "list_review_queue", "search_projects", "get_project", "get_project_cost_summary", "list_expenses", "get_expense_summary", "search_vendors", "get_vendor_summary", "search_workers", "get_worker", "prepare_create_worker", "get_attendance_day", "get_attendance_period_summary", "get_payroll_period", "get_payroll_run", "get_payroll_readiness", "get_payroll_exceptions", "get_payroll_summary", "get_current_workspace_summary", "navigate_to", "navigate_to_project", "navigate_to_invoice", "navigate_to_review_invoice", "navigate_to_payroll_period", "navigate_to_attendance_date", "search_help", "get_feature_help", "start_tour", "prepare_attendance_batch", "prepare_attendance_roster", "record_presence", "record_absence", "prepare_leave_request", "approve_leave", "reject_leave", "cancel_leave", "prepare_overtime_request", "approve_overtime", "reject_overtime", "prepare_payroll_recalculation", "create_expense_draft", "create_project_draft", "assign_invoice_to_project", "update_invoice_draft", "approve_payroll", "mark_payroll_paid",
 ];
 
 function loopContext() {
@@ -49,11 +50,11 @@ test("prompt and attachment boundaries treat injected instructions as untrusted 
   assert.doesNotMatch(String(attachment.modelParts[0]?.text), /run_shell is authorized/i);
 });
 
-test("worker onboarding remains separate from payroll-run mutations", () => {
+test("worker onboarding is a prepared action separate from payroll-run mutations", () => {
   const toolNames = ASSISTANT_TOOL_DEFINITIONS.map((definition) => definition.name);
-  assert.equal(toolNames.some((name) => /worker.*(create|onboard)|create.*worker/i.test(name)), false);
-  assert.match(ASSISTANT_SYSTEM_PROMPT, /There is no worker-creation or compensation-onboarding tool/);
-  assert.match(ASSISTANT_SYSTEM_PROMPT, /not create a payroll run, payroll entry, or payment/);
+  assert.ok(toolNames.includes("prepare_create_worker"));
+  assert.match(ASSISTANT_SYSTEM_PROMPT, /prepare_create_worker/);
+  assert.match(ASSISTANT_SYSTEM_PROMPT, /Preparation never writes a worker/);
 });
 
 test("model runner uses the primary model, one fallback, then stays on fallback", async () => {
@@ -65,6 +66,111 @@ test("model runner uses the primary model, one fallback, then stays on fallback"
   await runner.generate({ contents: "hello" as any, config: {} });
   assert.deepEqual(models, [ASSISTANT_PRIMARY_MODEL, ASSISTANT_FALLBACK_MODEL, ASSISTANT_FALLBACK_MODEL]);
   assert.equal(runner.fallbackUsed, true);
+});
+
+test("model runner does not spend a fallback request on credential, quota, or request failures", async () => {
+  for (const failure of [
+    Object.assign(new Error("API key not valid"), { status: 401 }),
+    Object.assign(new Error("resource exhausted"), { status: 429 }),
+    Object.assign(new Error("invalid function declaration"), { status: 400 }),
+  ]) {
+    const models: string[] = [];
+    const client = { models: { generateContent: async ({ model }: { model: string }) => { models.push(model); throw failure; } } } as any;
+    const runner = createAssistantModelRunner(client, { timeoutMs: 2_000 });
+    await assert.rejects(() => runner.generate({ contents: "hello" as any, config: {} }), (error: any) => /^AI_/.test(error.code));
+    assert.deepEqual(models, [ASSISTANT_PRIMARY_MODEL]);
+  }
+});
+
+function fakeWorkerSupabase(initialWorkers: Array<Record<string, unknown>> = []) {
+  const tables: Record<string, Array<Record<string, unknown>>> = { workers: [...initialWorkers], departments: [] };
+  const inserts: Array<Record<string, unknown>> = [];
+  const selectRows = (table: string, filters: Array<[string, unknown]>, source = tables[table] || []) => source.filter((row) => filters.every(([key, value]) => row[key] === value));
+  const builder = (table: string, insertedRows?: Array<Record<string, unknown>>) => {
+    const filters: Array<[string, unknown]> = [];
+    const query: any = {
+      select: () => query,
+      eq: (key: string, value: unknown) => { filters.push([key, value]); return query; },
+      limit: () => query,
+      maybeSingle: async () => {
+        const rows = selectRows(table, filters, insertedRows || undefined);
+        return { data: rows[0] || null, error: null };
+      },
+      single: async () => {
+        const rows = selectRows(table, filters, insertedRows || undefined);
+        return { data: rows[0] || null, error: rows[0] ? null : { message: "not found" } };
+      },
+      then: (resolve: (value: unknown) => unknown, reject: (error: unknown) => unknown) => Promise.resolve({ data: selectRows(table, filters, insertedRows || undefined), error: null }).then(resolve, reject),
+    };
+    return query;
+  };
+  return {
+    client: {
+      from: (table: string) => {
+        const query: any = builder(table);
+        query.insert = (row: Record<string, unknown>) => {
+          inserts.push(row);
+          const stored = { ...row, created_at: row.created_at || "2026-08-25T00:00:00.000Z" };
+          tables[table] = [...(tables[table] || []), stored];
+          return builder(table, [stored]);
+        };
+        return query;
+      },
+      rpc: async () => ({ data: true, error: null }),
+    } as any,
+    tables,
+    inserts,
+  };
+}
+
+test("worker creation is company-scoped, validates daily rates, and writes only after confirmation", async () => {
+  const definition = getAssistantToolDefinition("prepare_create_worker")!;
+  assert.equal(definition.riskTier, "PREPARE");
+  assert.deepEqual(definition.permissions, ["workers.manage"]);
+  assert.equal(definition.requiresConfirmation, true);
+  const normalized = validateToolArguments("prepare_create_worker", { firstName: "AL", lastName: "Matubis", defaultPayType: "DAILY", defaultRate: "500" });
+  assert.equal(normalized.defaultPayType, "DAILY");
+  assert.equal(normalized.defaultRate, 500);
+
+  const fake = fakeWorkerSupabase([{ id: "other-company-worker", company_id: "00000000-0000-4000-8000-000000000099", employee_code: "EMP-AL-MATUBIS" }]);
+  let preparedRequest: any;
+  const context = {
+    ...loopContext(),
+    auth: { ...loopContext().auth, supabase: fake.client },
+    prepareAction: async (request: any) => { preparedRequest = request; return { output: { prepared: true } }; },
+  } as any;
+  const prepared = await executeAssistantTool("prepare_create_worker", normalized, context);
+  assert.equal(fake.inserts.length, 0, "preparation must not persist a worker");
+  assert.equal(prepared.output.prepared, true);
+  assert.equal(preparedRequest.normalizedArgs.defaultPayType, "DAILY");
+  assert.equal(preparedRequest.normalizedArgs.defaultRate, 500);
+  assert.match(String(preparedRequest.normalizedArgs.employeeCode), /^EMP-AL-MATUBIS$/i);
+
+  const actionId = "00000000-0000-4000-8000-000000000123";
+  const created = await executePreparedAction(context, "prepare_create_worker", preparedRequest.normalizedArgs, actionId, preparedRequest.preview);
+  assert.equal(fake.inserts.length, 1);
+  assert.equal(fake.inserts[0]!.company_id, "00000000-0000-4000-8000-000000000001");
+  assert.equal(fake.inserts[0]!.default_pay_type, "DAILY");
+  assert.equal(fake.inserts[0]!.default_rate, 500);
+  assert.equal((created as any).worker.displayName, "AL Matubis");
+
+  await executePreparedAction(context, "prepare_create_worker", preparedRequest.normalizedArgs, actionId, preparedRequest.preview);
+  assert.equal(fake.inserts.length, 1, "repeating the same action id must not duplicate the worker");
+});
+
+test("worker creation is denied before any write without the company permission", async () => {
+  const fake = fakeWorkerSupabase();
+  fake.client.rpc = async () => ({ data: false, error: null });
+  let prepared = false;
+  const context = {
+    ...loopContext(),
+    auth: { ...loopContext().auth, supabase: fake.client },
+    prepareAction: async () => { prepared = true; return { output: {} }; },
+  } as any;
+  const result = await executeAssistantTool("prepare_create_worker", { firstName: "AL", lastName: "Matubis", defaultPayType: "DAILY", defaultRate: 500 }, context);
+  assert.equal(result.error?.code, "FORBIDDEN");
+  assert.equal(prepared, false);
+  assert.equal(fake.inserts.length, 0);
 });
 
 test("assistant loop bounds iterations and preserves Gemini function name/id matching", async () => {

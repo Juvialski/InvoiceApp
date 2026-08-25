@@ -19,6 +19,10 @@ import { CompanyAiError } from "../ai/companyAiTypes.ts";
 const ACTION_TTL_MS = 10 * 60 * 1000;
 const UUID_HEADER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function currencySymbolFor(currency: string) {
+  return ({ PHP: "₱", USD: "$", EUR: "€", SGD: "S$", JPY: "¥", GBP: "£" } as Record<string, string>)[currency] || `${currency} `;
+}
+
 export interface AssistantHandlerOptions {
   now?: () => Date;
   createSupabaseClient?: (accessToken: string) => SupabaseClient;
@@ -197,13 +201,13 @@ function contextForConfirmation(auth: AssistantAuthContext, generation: number):
 
 function safeError(error: unknown) {
   if (error instanceof AssistantBackendError) return error;
-  if (error instanceof CompanyAiError) return new AssistantBackendError(error.code, error.message, error.status);
+  if (error instanceof CompanyAiError) return new AssistantBackendError(error.code, error.message, error.status, undefined, error.correlationRef);
   return new AssistantBackendError("ASSISTANT_FAILED", "The assistant request failed safely.", 500);
 }
 
 function sendError(res: Response, error: unknown, fallback = "The assistant request failed.") {
   const normalized = safeError(error);
-  const body: AssistantApiResponse = { success: false, error: normalized.message || fallback, code: normalized.code };
+  const body: AssistantApiResponse & { reference?: string } = { success: false, error: normalized.message || fallback, code: normalized.code, ...(normalized.correlationRef ? { reference: normalized.correlationRef } : {}) };
   return res.status(normalized.status).json(body);
 }
 
@@ -251,8 +255,22 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
   const prepared: AssistantPreparedAction = { ...preparedActionFromEvent(action), status: "EXECUTED", preview: action.preview };
   const references: AssistantResponse["references"] = [];
   const requestResult = result.request && typeof result.request === "object" && !Array.isArray(result.request) ? result.request as Record<string, unknown> : undefined;
-  if (typeof requestResult?.id === "string") references.push({ type: "worker", id: String(requestResult.id), label: "Updated workforce request" });
-  return { threadId: action.thread_id || "", message: "The confirmed action completed.", references, clientActions: [], preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
+  const workerResult = result.worker && typeof result.worker === "object" && !Array.isArray(result.worker) ? result.worker as Record<string, unknown> : undefined;
+  const compensation = result.compensation && typeof result.compensation === "object" && !Array.isArray(result.compensation) ? result.compensation as Record<string, unknown> : undefined;
+  let message = "The confirmed action completed.";
+  if (action.tool_name === "prepare_create_worker" && workerResult) {
+    const name = typeof workerResult.displayName === "string" && workerResult.displayName.trim() ? workerResult.displayName.trim() : "The employee";
+    const payType = typeof compensation?.payType === "string" ? compensation.payType : "MONTHLY";
+    const rate = Number(compensation?.rate);
+    const basis = payType === "DAILY" ? "daily-paid" : payType === "HOURLY" ? "hourly-paid" : "monthly-paid";
+    const currency = typeof compensation?.currency === "string" ? compensation.currency.toUpperCase() : "PHP";
+    const rateText = Number.isFinite(rate) ? ` at ${currencySymbolFor(currency)}${rate.toFixed(2)}/${payType === "DAILY" ? "day" : payType === "HOURLY" ? "hour" : "month"}` : "";
+    message = `${name} was added as an ${workerResult.active === true ? "active" : "inactive"} ${basis} employee${rateText}.`;
+  }
+  if (typeof workerResult?.id === "string") references.push({ type: "worker", id: String(workerResult.id), label: "View employee" });
+  else if (typeof requestResult?.id === "string") references.push({ type: "worker", id: String(requestResult.id), label: "Updated workforce request" });
+  const clientActions: AssistantResponse["clientActions"] = action.tool_name === "prepare_create_worker" ? [{ type: "NAVIGATE", routeId: "payroll", label: "Open Payroll" }] : [];
+  return { threadId: action.thread_id || "", message, references, clientActions, preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
 }
 
 async function handleAssistantConfirm(req: Request, res: Response, options: AssistantHandlerOptions) {

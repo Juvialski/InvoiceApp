@@ -66,6 +66,14 @@ test("handles semi-monthly February leap years and short months", () => {
   assert.deepEqual(april && [april.periodStart, april.periodEnd], ["2027-04-16", "2027-04-30"]);
 });
 
+test("generates the 2026-08-25 semi-monthly period with its business-day pay date", () => {
+  const period = generatePayrollPeriod(version({
+    frequency: "SEMI_MONTHLY",
+    payDateRule: { type: "BUSINESS_DAYS", offsetDays: 2 },
+  }), "2026-08-25");
+  assert.deepEqual(period && [period.periodStart, period.periodEnd, period.payDate], ["2026-08-16", "2026-08-31", "2026-09-02"]);
+});
+
 test("generates monthly and practical custom cutoff periods", () => {
   const monthly = generatePayrollPeriod(version({ frequency: "MONTHLY" }), "2027-04-30");
   const customBeforeCutoff = generatePayrollPeriod(version({ frequency: "CUSTOM", customCutoffDay: 20 }), "2027-08-10");
@@ -112,6 +120,21 @@ test("schedule versions are prospective and locked history is never rewritten", 
   assert.equal(merged.length, 1);
   assert.equal(merged[0]?.id, "locked-period");
   assert.equal(merged[0]?.scheduleVersionId, "schedule-1-v1");
+});
+
+test("a version effective mid-period never generates a pre-effective period", () => {
+  const effectiveVersion = version({
+    id: "schedule-1-v2",
+    version: 2,
+    effectiveFrom: "2026-08-25",
+    frequency: "SEMI_MONTHLY",
+  });
+  assert.equal(generatePayrollPeriod(effectiveVersion, "2026-08-24"), undefined);
+  assert.equal(generatePayrollPeriod(effectiveVersion, "2026-08-25"), undefined);
+  assert.deepEqual(generatePayrollPeriod(effectiveVersion, "2026-09-01") && [
+    generatePayrollPeriod(effectiveVersion, "2026-09-01")?.periodStart,
+    generatePayrollPeriod(effectiveVersion, "2026-09-01")?.periodEnd,
+  ], ["2026-09-01", "2026-09-15"]);
 });
 
 test("period merge is idempotent and current selection prioritizes active current", () => {

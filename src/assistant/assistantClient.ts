@@ -130,13 +130,15 @@ export function parseAssistantResponse(value: unknown, fallbackContextGeneration
 export class AssistantClientError extends Error {
   readonly status?: number;
   readonly code?: string;
+  readonly reference?: string;
   readonly contextGeneration?: number;
 
-  constructor(message: string, details: { status?: number; code?: string; contextGeneration?: number } = {}) {
+  constructor(message: string, details: { status?: number; code?: string; reference?: string; contextGeneration?: number } = {}) {
     super(message);
     this.name = "AssistantClientError";
     this.status = details.status;
     this.code = details.code;
+    this.reference = details.reference;
     this.contextGeneration = details.contextGeneration;
   }
 }
@@ -155,6 +157,7 @@ function errorFromPayload(payload: unknown, status?: number) {
     return new AssistantClientError(message, {
       status,
       code: boundedString(payload.code, 80) || undefined,
+      reference: safeToken(payload.reference) || undefined,
       contextGeneration: Number.isSafeInteger(payload.contextGeneration) ? Number(payload.contextGeneration) : undefined,
     });
   }

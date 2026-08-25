@@ -3,12 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   canTransitionPayrollRun,
+  ensurePayrollWorkspacePeriodsAndRuns,
   readPayrollWorkspaceFromLocal,
   validatePayrollAllocations,
   validatePayrollRunApproval,
   writePayrollWorkspaceToLocal,
   payrollWorkspaceFromRows,
 } from "../src/lib/payroll.ts";
+import { createDefaultPayrollSchedule } from "../src/lib/payrollWorkflow.ts";
 import type { PayrollAdjustment, PayrollEntry, PayrollValidationResult, WorkEntry } from "../src/types.ts";
 
 class MemoryStorage implements Storage {
@@ -66,6 +68,37 @@ test("local payroll persistence round-trips entries, adjustments, and work-entry
   assert.deepEqual(loaded.entries, [payrollEntry]);
   assert.deepEqual(loaded.adjustments, [adjustment]);
   assert.equal(loaded.workEntries[0]?.periodId, "period-1");
+});
+
+test("local bootstrap uses the canonical zero-worker period/run generator without duplicates", () => {
+  const storage = new MemoryStorage();
+  const schedule = createDefaultPayrollSchedule("2026-08-25");
+  writePayrollWorkspaceToLocal({
+    departments: [],
+    workers: [],
+    assignments: [],
+    periods: [],
+    runs: [],
+    entries: [],
+    allocations: [],
+    workEntries: [],
+    adjustments: [],
+    schedules: [schedule],
+    compensationProfiles: [],
+    recurringComponents: [],
+  }, storage);
+
+  const first = readPayrollWorkspaceFromLocal(storage, { referenceDate: "2026-08-25", previous: 2, next: 2 });
+  assert.equal(first.periods.length, 3);
+  assert.equal(first.runs.length, 1);
+  assert.equal(first.runs[0]?.status, "DRAFT");
+  assert.equal(first.periods.find((period) => period.periodStart === "2026-08-16")?.payDate, "2026-09-02");
+
+  const planned = ensurePayrollWorkspacePeriodsAndRuns(first, { referenceDate: "2026-08-25", previous: 2, next: 2 });
+  assert.equal(planned.createdPeriods.length, 0);
+  assert.equal(planned.createdRuns.length, 0);
+  assert.deepEqual(planned.data.periods.map((period) => period.id), first.periods.map((period) => period.id));
+  assert.deepEqual(planned.data.runs.map((run) => run.id), first.runs.map((run) => run.id));
 });
 
 

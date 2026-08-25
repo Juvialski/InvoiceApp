@@ -1,9 +1,9 @@
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { canAccessAppTab, type PermissionKey } from "../utils/accessControl.ts";
+import { canAccessAppTab, PERMISSION_KEYS, type PermissionKey } from "../utils/accessControl.ts";
 import { getRouteDefinition } from "../utils/routes.ts";
 import { pathForAssistantAction } from "./assistantNavigation.ts";
 import { compactAssistantContext } from "./assistantContext.ts";
-import { cancelAssistantAction as cancelAssistantActionRequest, confirmAssistantAction as confirmAssistantActionRequest, sendAssistantMessage as sendAssistantMessageRequest } from "./assistantClient.ts";
+import { AssistantClientError, cancelAssistantAction as cancelAssistantActionRequest, confirmAssistantAction as confirmAssistantActionRequest, sendAssistantMessage as sendAssistantMessageRequest } from "./assistantClient.ts";
 import { isAssistantActionAllowed, isAssistantCompanyIdentityCurrent, sanitizeAssistantClientAction } from "./assistantActionPolicy.ts";
 import { readAssistantAttachment, validateAssistantAttachment, type AttachmentRejectionCode } from "./attachmentRouter.ts";
 import { getAssistantTour, tourTargetSelector, type AssistantTour, type AssistantTourId } from "./tourRegistry.ts";
@@ -22,6 +22,7 @@ export interface AssistantActionCallbacks {
   onOpenAttendanceDate?: (date: string | undefined, action: AssistantClientAction) => void | Promise<void>;
   onStartTour?: (tourId: AssistantTourId) => void | Promise<void>;
   onActionBlocked?: (action: AssistantClientAction, reason: string) => void;
+  onOpenAiConfiguration?: () => void | Promise<void>;
 }
 
 export interface AssistantProviderProps extends AssistantActionCallbacks {
@@ -58,6 +59,11 @@ export interface AssistantContextValue {
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
+  canRetry: boolean;
+  retryLastMessage: () => Promise<boolean>;
+  cancelRequest: () => void;
+  canOpenAiConfiguration: boolean;
+  openAiConfiguration: () => Promise<boolean>;
   pendingActions: readonly AssistantPreparedAction[];
   confirmAction: (actionId: string) => Promise<boolean>;
   cancelAction: (actionId: string) => Promise<boolean>;
@@ -102,7 +108,18 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-function errorMessage(error: unknown) {
+function errorMessage(error: unknown, canConfigureAi = false) {
+  const code = error instanceof AssistantClientError ? error.code : undefined;
+  if (code === "AI_CREDENTIAL_INVALID") return canConfigureAi ? "The configured Gemini key could not be authenticated." : "The company AI configuration needs attention. Contact your platform administrator.";
+  if (code === "AI_QUOTA_LIMITED") return "Gemini quota or rate limit has been reached.";
+  if (code === "AI_PROVIDER_ACCESS_DENIED") return "The configured Gemini project does not have access to the requested AI service.";
+  if (code === "AI_MODEL_UNAVAILABLE") return "The AI model is temporarily unavailable.";
+  if (code === "AI_PROVIDER_UNAVAILABLE") return "Invoice Operations AI could not reach Gemini.";
+  if (code === "AI_REQUEST_REJECTED") return "Gemini rejected the assistant request configuration.";
+  if (code === "AI_TIMEOUT") return "The AI request timed out.";
+  if (code === "AI_NETWORK_ERROR") return "Invoice Operations AI could not reach Gemini.";
+  if (code === "AI_NOT_CONFIGURED_FOR_COMPANY") return canConfigureAi ? "AI is not configured for this company." : "The company AI configuration needs attention. Contact your platform administrator.";
+  if (code === "AI_DISABLED_FOR_COMPANY") return canConfigureAi ? "AI is disabled for this company." : "The company AI configuration needs attention. Contact your platform administrator.";
   if (error instanceof Error && error.message) return error.message;
   return "Invoice Operations AI could not complete that request.";
 }
@@ -142,6 +159,7 @@ export function AssistantProvider({
   onOpenAttendanceDate,
   onStartTour,
   onActionBlocked,
+  onOpenAiConfiguration,
 }: AssistantProviderProps) {
   const companyId = normalizedCompanyId(currentCompanyId);
   const companyGeneration = normalizedGeneration(currentCompanyGeneration);
@@ -170,6 +188,7 @@ export function AssistantProvider({
   const [attachments, setAttachments] = useState<AssistantAttachmentDraft[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [contextGeneration, setContextGeneration] = useState(companyGeneration);
   const [activeTourId, setActiveTourId] = useState<AssistantTourId | null>(null);
@@ -181,6 +200,7 @@ export function AssistantProvider({
   const threadIdRef = useRef<string | null>(null);
   const contextGenerationRef = useRef(companyGeneration);
   const requestAbortRef = useRef<AbortController | null>(null);
+  const lastFailedMessageRef = useRef<string | null>(null);
   const previousIdentityRef = useRef(identity);
 
   const resetForCompanyChange = useCallback((nextGeneration: number) => {
@@ -197,6 +217,8 @@ export function AssistantProvider({
     setThreadId(null);
     setContextGeneration(nextGeneration);
     setError(null);
+    setCanRetry(false);
+    lastFailedMessageRef.current = null;
     setIsLoading(false);
     setActiveTourId(null);
     setActiveTourStepIndex(0);
@@ -215,6 +237,14 @@ export function AssistantProvider({
   useEffect(() => () => requestAbortRef.current?.abort(), []);
 
   const clearError = useCallback(() => setError(null), []);
+  const cancelRequest = useCallback(() => {
+    if (!requestAbortRef.current) return;
+    requestAbortRef.current.abort();
+    requestAbortRef.current = null;
+    setIsLoading(false);
+    setCanRetry(true);
+    setError("Request cancelled. You can retry the message below.");
+  }, []);
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
   const toggle = useCallback(() => setIsOpen((value) => !value), []);
@@ -287,6 +317,7 @@ export function AssistantProvider({
   }, []);
 
   const sendMessage = useCallback(async (message: string) => {
+    if (isLoading) return false;
     if (!canUseAssistant || !companyId) {
       setError("Sign in and select a company before using Invoice Operations AI.");
       setIsOpen(true);
@@ -307,6 +338,7 @@ export function AssistantProvider({
     const context = compactAssistantContext({ ...compactContext, companyId, generation: companyGeneration });
     setIsOpen(true);
     setError(null);
+    setCanRetry(false);
     setIsLoading(true);
     setMessages((current) => [...current, { id: localMessageId(messageCounterRef), role: "user", text: normalizedMessage, references: [], clientActions: [], preparedActions: [], attachments: displayAttachments, warnings: [], createdAt: nowIso() }]);
     attachmentsRef.current = [];
@@ -315,11 +347,23 @@ export function AssistantProvider({
       const response = await sendAssistantMessageRequest({ companyId, threadId: threadIdRef.current, message: normalizedMessage, context, attachments: requestAttachments, signal: controller.signal });
       if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
       appendResponse(response);
+      lastFailedMessageRef.current = null;
+      setCanRetry(false);
       return true;
     } catch (requestError) {
-      if (requestError instanceof DOMException && requestError.name === "AbortError") return false;
-      if (requestError instanceof Error && requestError.name === "AbortError") return false;
-      if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) setError(errorMessage(requestError));
+      if (requestError instanceof DOMException && requestError.name === "AbortError") {
+        lastFailedMessageRef.current = normalizedMessage;
+        setCanRetry(true);
+        return false;
+      }
+      if (requestError instanceof Error && requestError.name === "AbortError") {
+        lastFailedMessageRef.current = normalizedMessage;
+        setCanRetry(true);
+        return false;
+      }
+      lastFailedMessageRef.current = normalizedMessage;
+      setCanRetry(true);
+      if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) setError(errorMessage(requestError, permissions?.includes(PERMISSION_KEYS.platformManage) === true));
       return false;
     } finally {
       if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) {
@@ -327,7 +371,20 @@ export function AssistantProvider({
         if (requestAbortRef.current === controller) requestAbortRef.current = null;
       }
     }
-  }, [appendResponse, canUseAssistant, companyGeneration, companyId, compactContext]);
+  }, [appendResponse, canUseAssistant, companyGeneration, companyId, compactContext, isLoading, permissions]);
+
+  const retryLastMessage = useCallback(() => {
+    const message = lastFailedMessageRef.current;
+    if (!message || isLoading) return Promise.resolve(false);
+    return sendMessage(message);
+  }, [isLoading, sendMessage]);
+
+  const canOpenAiConfiguration = Boolean(onOpenAiConfiguration && permissions?.includes(PERMISSION_KEYS.platformManage));
+  const openAiConfiguration = useCallback(async () => {
+    if (!canOpenAiConfiguration || !onOpenAiConfiguration) return false;
+    await onOpenAiConfiguration();
+    return true;
+  }, [canOpenAiConfiguration, onOpenAiConfiguration]);
 
   const confirmAction = useCallback(async (actionId: string) => {
     if (!canUseAssistant || !companyId) {
@@ -361,7 +418,7 @@ export function AssistantProvider({
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") return false;
       if (requestError instanceof Error && requestError.name === "AbortError") return false;
-      if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) setError(errorMessage(requestError));
+      if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) setError(errorMessage(requestError, permissions?.includes(PERMISSION_KEYS.platformManage) === true));
       return false;
     } finally {
       if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) {
@@ -369,7 +426,7 @@ export function AssistantProvider({
         if (requestAbortRef.current === controller) requestAbortRef.current = null;
       }
     }
-  }, [canUseAssistant, companyId]);
+  }, [canUseAssistant, companyId, permissions]);
 
   const cancelAction = useCallback(async (actionId: string) => {
     if (!canUseAssistant || !companyId) {
@@ -505,6 +562,11 @@ export function AssistantProvider({
     isLoading,
     error,
     clearError,
+    canRetry,
+    retryLastMessage,
+    cancelRequest,
+    canOpenAiConfiguration,
+    openAiConfiguration,
     pendingActions,
     confirmAction,
     cancelAction,
@@ -523,7 +585,7 @@ export function AssistantProvider({
     nextTourStep,
     previousTourStep,
     endTour,
-  }), [activeTourId, activeTourStepIndex, addAttachments, attachments, attachmentRefs, canUseAssistant, cancelAction, clearError, close, confirmAction, contextGeneration, effectiveGuestMode, endTour, error, executeClientAction, isLoading, isOpen, messages, nextTourStep, open, pendingActions, previousTourStep, removeAttachment, sendMessage, startTour, threadId, toggle]);
+  }), [activeTourId, activeTourStepIndex, addAttachments, attachments, attachmentRefs, canOpenAiConfiguration, canRetry, canUseAssistant, cancelAction, cancelRequest, clearError, close, confirmAction, contextGeneration, effectiveGuestMode, endTour, error, executeClientAction, isLoading, isOpen, messages, nextTourStep, open, openAiConfiguration, pendingActions, previousTourStep, removeAttachment, retryLastMessage, sendMessage, startTour, threadId, toggle]);
 
   return <AssistantContext.Provider value={value}>{children}{renderPanel && <AssistantPanel />}</AssistantContext.Provider>;
 }

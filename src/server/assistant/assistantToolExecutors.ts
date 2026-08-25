@@ -537,6 +537,59 @@ async function assertOpenPeriod(context: AssistantToolContext, periodId: string)
   return period;
 }
 
+function employeeCodeBase(args: Record<string, unknown>) {
+  const pieces = [args.firstName, args.lastName]
+    .map((value) => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, ""))
+    .filter(Boolean);
+  const base = `EMP-${pieces.join("-") || "WORKER"}`;
+  return base.slice(0, 72).replace(/-+$/g, "") || "EMP-WORKER";
+}
+
+function uniqueEmployeeCode(args: Record<string, unknown>, rows: Row[]) {
+  const existing = new Set(rows.map((row) => text(row, "employee_code").trim().toLowerCase()).filter(Boolean));
+  const requested = typeof args.employeeCode === "string" ? args.employeeCode.trim() : "";
+  if (requested) return existing.has(requested.toLowerCase()) ? undefined : requested;
+  const base = employeeCodeBase(args);
+  if (!existing.has(base.toLowerCase())) return base;
+  for (let suffix = 2; suffix <= 9999; suffix += 1) {
+    const candidate = `${base.slice(0, Math.max(1, 76 - String(suffix).length))}-${suffix}`;
+    if (!existing.has(candidate.toLowerCase())) return candidate;
+  }
+  return undefined;
+}
+
+async function prepareWorkerCreation(context: AssistantToolContext, args: Record<string, unknown>) {
+  const workers = await getRows(companyQuery(context, "workers", "id,employee_code").limit(5000), "Workers");
+  const employeeCode = uniqueEmployeeCode(args, workers);
+  if (!employeeCode) throw new AssistantToolError("EMPLOYEE_CODE_EXISTS", "That employee code is already used in this company. Provide a different code.");
+  if (typeof args.departmentId === "string") {
+    const department = await getOne(companyQuery(context, "departments", "id,name,active,archived_at").eq("id", args.departmentId).maybeSingle(), "Department");
+    if (!department) throw new AssistantToolError("DEPARTMENT_NOT_FOUND", "The selected department is not available in this company.");
+  }
+  const displayName = [args.firstName, args.lastName].map((value) => String(value || "").trim()).filter(Boolean).join(" ");
+  const normalizedArgs = { ...args, employeeCode, displayName };
+  return context.prepareAction({
+    toolName: "prepare_create_worker",
+    riskTier: "PREPARE",
+    normalizedArgs,
+    contextGeneration: context.context.generation,
+    preview: {
+      operation: "Create employee",
+      name: displayName,
+      employeeCode,
+      employmentType: args.employmentType,
+      payBasis: args.defaultPayType,
+      rate: args.defaultRate,
+      currency: context.context.currency || "PHP",
+      active: args.active === true,
+      department: args.department || undefined,
+      statusAfterConfirmation: args.active === true ? "ACTIVE" : "INACTIVE",
+      writeStatus: "PREPARED only until confirmation",
+      revalidateOnConfirmation: true,
+    },
+  });
+}
+
 async function prepareAttendanceBatch(context: AssistantToolContext, args: Record<string, unknown>) {
   const records = args.records as Array<Record<string, unknown>>;
   const workerIds = [...new Set(records.map((record) => String(record.workerId)))];
@@ -748,6 +801,64 @@ async function executeAttendanceBatch(context: AssistantToolContext, args: Recor
   return { operation: "attendance_saved", count: Array.isArray(data) ? data.length : rows.length, records: Array.isArray(data) ? (data as Row[]).map(attendanceView) : [] };
 }
 
+async function executeWorkerCreate(context: AssistantToolContext, args: Record<string, unknown>, actionId?: string, preview: Record<string, unknown> = {}) {
+  const employeeCode = String(args.employeeCode || "").trim();
+  if (!employeeCode) throw new AssistantToolError("EMPLOYEE_CODE_REQUIRED", "The employee code could not be generated safely. Prepare the employee again with a code.");
+  const current = await getRows(companyQuery(context, "workers", "id,employee_code").limit(5000), "Current workers");
+  const duplicate = current.find((row) => text(row, "employee_code").trim().toLowerCase() === employeeCode.toLowerCase());
+  if (duplicate) {
+    if (text(duplicate, "id") !== String(actionId || "")) throw new AssistantToolError("EMPLOYEE_CODE_CHANGED", "That employee code was used before confirmation. Prepare the employee again.");
+    const existing = requireFound(await getOne(companyQuery(context, "workers", WORKER_SELECT).eq("id", String(actionId)).maybeSingle(), "Worker"), "The prepared employee already exists in this company.");
+    return { operation: "worker_created", worker: workerView(existing), compensation: { payType: text(existing, "default_pay_type"), rate: amount(existing, "default_rate"), currency: preview.currency || context.context.currency || "PHP" }, confirmedPreview: preview };
+  }
+  if (typeof args.departmentId === "string") {
+    const department = await getOne(companyQuery(context, "departments", "id,name,active,archived_at").eq("id", args.departmentId).maybeSingle(), "Department");
+    if (!department) throw new AssistantToolError("DEPARTMENT_CHANGED", "The selected department is no longer available in this company.");
+  }
+  const firstName = String(args.firstName).trim();
+  const lastName = String(args.lastName).trim();
+  const displayName = `${firstName} ${lastName}`.trim();
+  const row = {
+    id: actionId || randomUUID(),
+    user_id: context.auth.user.id,
+    company_id: context.auth.companyId,
+    auth_user_id: null,
+    employee_code: employeeCode,
+    first_name: firstName,
+    middle_name: args.middleName || null,
+    last_name: lastName,
+    display_name: displayName,
+    employment_type: args.employmentType || "OTHER",
+    employment_status: args.employmentStatus || "ACTIVE",
+    job_title: args.jobTitle || null,
+    department: args.department || null,
+    department_id: args.departmentId || null,
+    manager_worker_id: null,
+    default_pay_type: args.defaultPayType,
+    default_rate: args.defaultRate,
+    active: args.active === true,
+    hire_date: args.hireDate || null,
+    end_date: null,
+    working_days: null,
+    working_hours_start: null,
+    working_hours_end: null,
+    notes: args.notes || null,
+    archived_at: null,
+    updated_at: context.now.toISOString(),
+  };
+  const { data, error } = await db(context).from("workers").insert(row).select(WORKER_SELECT).single();
+  if (error) {
+    if (String((error as any)?.code || "") === "23505") throw new AssistantToolError("EMPLOYEE_CODE_CHANGED", "That employee code was used before confirmation. Prepare the employee again.");
+    throw new AssistantToolError("WRITE_FAILED", "The employee could not be created.");
+  }
+  return {
+    operation: "worker_created",
+    worker: workerView(data as Row),
+    compensation: { payType: args.defaultPayType, rate: args.defaultRate, currency: preview.currency || context.context.currency || "PHP" },
+    confirmedPreview: preview,
+  };
+}
+
 async function executeLeaveCreate(context: AssistantToolContext, args: Record<string, unknown>, actionId?: string) {
   const worker = await getWorker(context, String(args.workerId));
   if (!bool(worker, "active", true)) throw new AssistantToolError("WORKER_CHANGED", "The worker is no longer active.");
@@ -917,6 +1028,7 @@ async function executeInvoiceDraftUpdate(context: AssistantToolContext, args: Re
 export async function executePreparedAction(context: AssistantToolContext, toolName: string, args: Record<string, unknown>, actionId?: string, preview: Record<string, unknown> = {}) {
   switch (toolName) {
     case "prepare_attendance_batch": return executeAttendanceBatch(context, args);
+    case "prepare_create_worker": return executeWorkerCreate(context, args, actionId, preview);
     case "prepare_leave_request": return executeLeaveCreate(context, args, actionId);
     case "approve_leave":
     case "reject_leave":
@@ -967,6 +1079,7 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "search_help": return searchHelp(context, args);
     case "get_feature_help": return getFeatureHelp(context, args);
     case "start_tour": return startTour(context, args);
+    case "prepare_create_worker": return prepareWorkerCreation(context, args);
     case "prepare_attendance_batch": return prepareAttendanceBatch(context, args);
     case "prepare_attendance_roster": return prepareAttendanceRoster(context, args);
     case "record_presence":

@@ -18,6 +18,8 @@ import type {
 import type { PayrollSchedule, PayrollScheduleVersion } from "./payrollSchedule.ts";
 import { readPayrollSchedulesFromLocal, writePayrollSchedulesToLocal } from "./payrollSchedule.ts";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./payrollAutomation.ts";
+import { readPayrollImportWorkspaceFromLocal, type PayrollImportBatch } from "./payrollImportPersistence.ts";
+import { dateOnly, ensurePayrollPeriodsAndRuns } from "./payrollWorkflow.ts";
 import { supabase } from "./supabase.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
 
@@ -217,8 +219,58 @@ export interface PayrollWorkspaceRows {
   holidays?: readonly Record<string, unknown>[];
 }
 
+export interface PayrollWorkspacePeriodGenerationOptions {
+  referenceDate?: string;
+  previous?: number;
+  next?: number;
+  importBatches?: readonly PayrollImportBatch[];
+}
+
+export interface PayrollWorkspacePeriodGenerationResult {
+  data: PayrollWorkspaceData;
+  createdPeriods: PayrollPeriod[];
+  createdRuns: PayrollRun[];
+  selectedPeriodId?: string;
+  retiredPeriodIds: string[];
+  integrityIssues: string[];
+}
+
 export function emptyPayrollWorkspaceData(): PayrollWorkspaceData {
   return { departments: [], workers: [], assignments: [], schedules: [], compensationProfiles: [], recurringComponents: [], periods: [], runs: [], entries: [], allocations: [], workEntries: [], adjustments: [], attendanceRecords: [], leaveRequests: [], overtimeRequests: [], holidays: [] };
+}
+
+/**
+ * Canonical schedule orchestration for both remote and browser-only payroll.
+ * The worker roster is deliberately not part of the precondition: an empty
+ * workforce still needs a visible period/run horizon for payroll setup.
+ */
+export function ensurePayrollWorkspacePeriodsAndRuns(
+  data: PayrollWorkspaceData,
+  options: PayrollWorkspacePeriodGenerationOptions = {},
+): PayrollWorkspacePeriodGenerationResult {
+  const ensured = ensurePayrollPeriodsAndRuns({
+    schedules: data.schedules,
+    periods: data.periods,
+    runs: data.runs,
+    entries: data.entries,
+    workEntries: data.workEntries,
+    adjustments: data.adjustments,
+    attendanceRecords: data.attendanceRecords,
+    leaveRequests: data.leaveRequests,
+    overtimeRequests: data.overtimeRequests,
+    importBatches: options.importBatches,
+    referenceDate: options.referenceDate || dateOnly(),
+    previous: options.previous ?? 2,
+    next: options.next ?? 2,
+  });
+  return {
+    data: { ...data, periods: ensured.periods, runs: ensured.runs },
+    createdPeriods: ensured.createdPeriods,
+    createdRuns: ensured.createdRuns,
+    selectedPeriodId: ensured.selectedPeriodId,
+    retiredPeriodIds: ensured.retiredPeriodIds,
+    integrityIssues: ensured.integrityIssues,
+  };
 }
 
 /** Maps one complete server snapshot. Keeping this pure makes omissions visible in tests. */
@@ -258,13 +310,24 @@ function writeJson<T>(key: string, value: T[], storage: Storage | undefined) {
   try { storage?.setItem(key, JSON.stringify(value)); } catch { /* local demo storage can be full */ }
 }
 
-export function readPayrollWorkspaceFromLocal(storage: Storage | undefined = typeof localStorage === "undefined" ? undefined : localStorage): PayrollWorkspaceData {
-  return {
+export function readPayrollWorkspaceFromLocal(
+  storage: Storage | undefined = typeof localStorage === "undefined" ? undefined : localStorage,
+  options: PayrollWorkspacePeriodGenerationOptions = {},
+): PayrollWorkspaceData {
+  const data: PayrollWorkspaceData = {
     departments: localJson<Department>(DEPARTMENTS_STORAGE_KEY, storage), workers: localJson<Worker>(WORKERS_STORAGE_KEY, storage), assignments: localJson<ProjectWorkerAssignment>(ASSIGNMENTS_STORAGE_KEY, storage), periods: localJson<PayrollPeriod>(PERIODS_STORAGE_KEY, storage),
     runs: localJson<PayrollRun>(RUNS_STORAGE_KEY, storage), entries: localJson<PayrollEntry>(ENTRIES_STORAGE_KEY, storage), allocations: localJson<PayrollProjectAllocation>(ALLOCATIONS_STORAGE_KEY, storage), workEntries: localJson<WorkEntry>(WORK_ENTRIES_STORAGE_KEY, storage), adjustments: localJson<PayrollAdjustment>(ADJUSTMENTS_STORAGE_KEY, storage),
     schedules: readPayrollSchedulesFromLocal(storage), compensationProfiles: localJson<WorkerCompensationProfile>(COMPENSATION_PROFILES_STORAGE_KEY, storage), recurringComponents: localJson<RecurringPayrollComponent>(RECURRING_COMPONENTS_STORAGE_KEY, storage),
     attendanceRecords: localJson<AttendanceRecord>(ATTENDANCE_STORAGE_KEY, storage), leaveRequests: localJson<LeaveRequest>(LEAVE_STORAGE_KEY, storage), overtimeRequests: localJson<OvertimeRequest>(OVERTIME_STORAGE_KEY, storage), holidays: localJson<PayrollHoliday>(HOLIDAYS_STORAGE_KEY, storage),
   };
+  const generated = ensurePayrollWorkspacePeriodsAndRuns(data, {
+    ...options,
+    importBatches: options.importBatches || readPayrollImportWorkspaceFromLocal(storage).batches,
+  });
+  const periodChanged = generated.data.periods.some((period) => payrollPeriodNeedsPersistence(data.periods.find((candidate) => candidate.id === period.id), period));
+  const runChanged = generated.data.runs.some((run) => payrollRunNeedsPersistence(data.runs.find((candidate) => candidate.id === run.id), run));
+  if (periodChanged || runChanged) writePayrollWorkspaceToLocal(generated.data, storage);
+  return generated.data;
 }
 
 export function writePayrollWorkspaceToLocal(data: PayrollWorkspaceData, storage: Storage | undefined = typeof localStorage === "undefined" ? undefined : localStorage) {
@@ -354,6 +417,67 @@ export function validatePayrollAllocations(entry: Pick<PayrollEntry, "projectAll
   return { valid: issues.length === 0, issues };
 }
 
+function payrollPeriodNeedsPersistence(previous: PayrollPeriod | undefined, next: PayrollPeriod) {
+  if (!previous) return true;
+  return previous.periodStart !== next.periodStart
+    || previous.periodEnd !== next.periodEnd
+    || previous.payDate !== next.payDate
+    || previous.scheduleId !== next.scheduleId
+    || previous.scheduleVersionId !== next.scheduleVersionId
+    || previous.autoGenerated !== next.autoGenerated
+    || previous.lockedAt !== next.lockedAt
+    || previous.sourceRevision !== next.sourceRevision
+    || previous.sourceRevisionUpdatedAt !== next.sourceRevisionUpdatedAt
+    || previous.status !== next.status
+    || previous.notes !== next.notes;
+}
+
+function payrollRunNeedsPersistence(previous: PayrollRun | undefined, next: PayrollRun) {
+  if (!previous) return true;
+  return previous.periodId !== next.periodId
+    || previous.importBatchId !== next.importBatchId
+    || previous.status !== next.status
+    || previous.calculatedAt !== next.calculatedAt
+    || previous.calculatedSourceRevision !== next.calculatedSourceRevision
+    || previous.sourceFingerprint !== next.sourceFingerprint
+    || previous.approvedAt !== next.approvedAt
+    || previous.paidAt !== next.paidAt
+    || previous.notes !== next.notes;
+}
+
+/**
+ * Persist only the generated/changed rows produced by the canonical planner.
+ * Obsolete rows are intentionally not deleted here; maintenance owns safe
+ * retirement after it has the complete provenance context.
+ */
+async function persistGeneratedPayrollInfrastructure(
+  result: PayrollWorkspacePeriodGenerationResult,
+  previous: PayrollWorkspaceData,
+): Promise<PayrollWorkspaceData> {
+  const previousPeriods = new Map(previous.periods.map((period) => [period.id, period]));
+  const previousRuns = new Map(previous.runs.map((run) => [run.id, run]));
+  const periodIdMap = new Map<string, string>();
+  let periods = result.data.periods.slice();
+  for (const period of result.data.periods.filter((candidate) => candidate.autoGenerated)) {
+    if (!payrollPeriodNeedsPersistence(previousPeriods.get(period.id), period)) continue;
+    const saved = await savePayrollPeriodToSupabase(period);
+    periodIdMap.set(period.id, saved.id);
+    periods = periods.map((candidate) => candidate.id === period.id ? saved : candidate);
+  }
+
+  let runs = result.data.runs.map((run) => {
+    const persistedPeriodId = periodIdMap.get(run.periodId);
+    return persistedPeriodId && persistedPeriodId !== run.periodId ? { ...run, periodId: persistedPeriodId } : run;
+  });
+  for (const run of runs) {
+    const previousRun = previousRuns.get(run.id);
+    if (!payrollRunNeedsPersistence(previousRun, run)) continue;
+    const saved = await savePayrollRunToSupabase(run);
+    runs = runs.map((candidate) => candidate.id === run.id ? saved : candidate);
+  }
+  return { ...result.data, periods, runs };
+}
+
 export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspaceData> {
   const userId = await currentUserId();
   if (!supabase || !userId) return emptyPayrollWorkspaceData();
@@ -379,7 +503,7 @@ export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspa
   ]);
   const optionalWorkforceResults = new Set([attendanceRecords, leaveRequests, overtimeRequests, holidays]);
   for (const result of [departments, workers, assignments, schedules, scheduleVersions, compensationProfiles, recurringComponents, periods, runs, entries, allocations, workEntries, adjustments, attendanceRecords, leaveRequests, overtimeRequests, holidays]) if (result.error && !(optionalWorkforceResults.has(result) && /relation .* does not exist|could not find the table/i.test(result.error.message || ""))) throw result.error;
-  return payrollWorkspaceFromRows({
+  const data = payrollWorkspaceFromRows({
     departments: (departments.data || []) as Record<string, unknown>[],
     workers: (workers.data || []) as Record<string, unknown>[],
     assignments: (assignments.data || []) as Record<string, unknown>[],
@@ -398,6 +522,8 @@ export async function loadPayrollWorkspaceFromSupabase(): Promise<PayrollWorkspa
     overtimeRequests: (overtimeRequests.data || []) as Record<string, unknown>[],
     holidays: (holidays.data || []) as Record<string, unknown>[],
   });
+  const generated = ensurePayrollWorkspacePeriodsAndRuns(data);
+  return persistGeneratedPayrollInfrastructure(generated, data);
 }
 
 export async function saveAttendanceRecordToSupabase(record: AttendanceRecord) {
@@ -521,15 +647,17 @@ function defaultScheduleVersion(schedule: PayrollSchedule): PayrollScheduleVersi
 export async function savePayrollScheduleToSupabase(schedule: PayrollSchedule) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving payroll schedules.");
+  const companyId = requireActiveCompanyId();
   const scheduleId = persistedId(schedule.id, "schedule");
-  const scheduleRow = { id: scheduleId, user_id: userId, name: schedule.name || "Payroll schedule", frequency: schedule.frequency, effective_from: schedule.effectiveFrom, configuration: scheduleConfigurationForPersistence(schedule), pay_date_rule: schedule.payDateRule, auto_generate_periods: schedule.autoGeneratePeriods, auto_calculate: schedule.autoCreateRuns ?? schedule.autoCalculate, active: schedule.active, updated_at: new Date().toISOString() };
+  const scheduleRow = { id: scheduleId, user_id: userId, company_id: companyId, name: schedule.name || "Payroll schedule", frequency: schedule.frequency, effective_from: schedule.effectiveFrom, configuration: scheduleConfigurationForPersistence(schedule), pay_date_rule: schedule.payDateRule, auto_generate_periods: schedule.autoGeneratePeriods, auto_calculate: schedule.autoCreateRuns ?? schedule.autoCalculate, active: schedule.active, updated_at: new Date().toISOString() };
   const { data, error } = await supabase.from("payroll_schedules").upsert(scheduleRow).select("*").single();
   if (error) throw error;
   const sourceVersions = schedule.versions?.length ? schedule.versions : [defaultScheduleVersion({ ...schedule, id: scheduleId })];
-  const versionRows = sourceVersions.map((version) => ({ id: persistedId(version.id, "schedule-version"), schedule_id: scheduleId, version: version.version, effective_from: version.effectiveFrom, effective_to: version.effectiveTo || null, frequency: version.frequency, configuration: scheduleConfigurationForPersistence(version), pay_date_rule: version.payDateRule, auto_generate_periods: version.autoGeneratePeriods, auto_calculate: version.autoCreateRuns ?? version.autoCalculate, active: version.active, updated_at: new Date().toISOString() }));
+  const versionRows = sourceVersions.map((version) => ({ id: persistedId(version.id, "schedule-version"), schedule_id: scheduleId, company_id: companyId, version: version.version, effective_from: version.effectiveFrom, effective_to: version.effectiveTo || null, frequency: version.frequency, configuration: scheduleConfigurationForPersistence(version), pay_date_rule: version.payDateRule, auto_generate_periods: version.autoGeneratePeriods, auto_calculate: version.autoCreateRuns ?? version.autoCalculate, active: version.active, updated_at: new Date().toISOString() }));
   const { data: savedVersions, error: versionError } = await supabase.from("payroll_schedule_versions").upsert(versionRows, { onConflict: "schedule_id,version" }).select("*");
   if (versionError) throw versionError;
-  return scheduleFromRow(data as Record<string, unknown>, (savedVersions || []) as Record<string, unknown>[]);
+  const saved = scheduleFromRow(data as Record<string, unknown>, (savedVersions || []) as Record<string, unknown>[]);
+  return saved;
 }
 
 export async function saveWorkerCompensationProfileToSupabase(profile: WorkerCompensationProfile) {
@@ -550,7 +678,8 @@ export async function saveRecurringPayrollComponentToSupabase(component: Recurri
 export async function savePayrollPeriodToSupabase(period: PayrollPeriod) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving payroll periods.");
-  const { data, error } = await supabase.from("payroll_periods").upsert({ id: persistedId(period.id, "period"), user_id: userId, period_start: period.periodStart, period_end: period.periodEnd, pay_date: period.payDate || null, schedule_id: period.scheduleId || null, schedule_version_id: period.scheduleVersionId || null, auto_generated: period.autoGenerated ?? false, locked_at: period.lockedAt || null, source_revision: period.sourceRevision ?? 0, source_revision_updated_at: period.sourceRevisionUpdatedAt || null, status: period.status, notes: period.notes || null, updated_at: new Date().toISOString() }).select("*").single();
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase.from("payroll_periods").upsert({ id: persistedId(period.id, "period"), user_id: userId, company_id: companyId, period_start: period.periodStart, period_end: period.periodEnd, pay_date: period.payDate || null, schedule_id: period.scheduleId || null, schedule_version_id: period.scheduleVersionId || null, auto_generated: period.autoGenerated ?? false, locked_at: period.lockedAt || null, source_revision: period.sourceRevision ?? 0, source_revision_updated_at: period.sourceRevisionUpdatedAt || null, status: period.status, notes: period.notes || null, updated_at: new Date().toISOString() }).select("*").single();
   if (error) throw error;
   return periodFromRow(data as Record<string, unknown>);
 }
@@ -566,7 +695,8 @@ export async function saveWorkEntryToSupabase(entry: WorkEntry) {
 export async function savePayrollRunToSupabase(run: PayrollRun) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before creating payroll runs.");
-  const { data, error } = await supabase.from("payroll_runs").upsert({ id: persistedId(run.id, "run"), user_id: userId, period_id: run.periodId, import_batch_id: run.importBatchId || null, status: run.status, calculated_at: run.calculatedAt || null, calculated_source_revision: run.calculatedSourceRevision ?? null, source_fingerprint: run.sourceFingerprint || null, approved_at: run.approvedAt || null, paid_at: run.paidAt || null, notes: run.notes || null }).select("*").single();
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase.from("payroll_runs").upsert({ id: persistedId(run.id, "run"), user_id: userId, company_id: companyId, period_id: run.periodId, import_batch_id: run.importBatchId || null, status: run.status, calculated_at: run.calculatedAt || null, calculated_source_revision: run.calculatedSourceRevision ?? null, source_fingerprint: run.sourceFingerprint || null, approved_at: run.approvedAt || null, paid_at: run.paidAt || null, notes: run.notes || null }).select("*").single();
   if (error) throw error;
   return runFromRow(data as Record<string, unknown>);
 }

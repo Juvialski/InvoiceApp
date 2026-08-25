@@ -9,7 +9,7 @@ import type { InvoiceData } from "./src/types.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
 import { disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
-import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
+import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, isCompanyAiFallbackEligible, logCompanyAiFailure, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
 import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
 import {
   chooseBestExtractionCandidate,
@@ -156,6 +156,11 @@ function apiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof CompanyAiError) return error.message;
   return authorizationErrorMessage(error, fallback);
 }
+
+function apiAiErrorDetails(error: unknown) {
+  return error instanceof CompanyAiError ? { code: error.code, reference: error.correlationRef } : {};
+}
+
 const EXTRACTION_TIMEOUT_MS = 60_000;
 
 function selectModel(requestedModel?: unknown) {
@@ -405,6 +410,13 @@ async function generateContentWithTimeout(ai: GeminiClientLike, model: string, c
   const timeout = setTimeout(() => controller.abort(), EXTRACTION_TIMEOUT_MS);
   try {
     return await ai.models.generateContent({ model, contents, config: { ...config, abortSignal: controller.signal } });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeoutError = new Error("AI request timed out.");
+      Object.assign(timeoutError, { name: "CompanyAiTimeoutError", companyAiTimeout: true });
+      throw timeoutError;
+    }
+    throw error;
   } finally {
     clearTimeout(timeout);
   }
@@ -416,10 +428,14 @@ async function generateStructured(ai: GeminiClientLike, requestedModel: unknown,
     const response = await generateContentWithTimeout(ai, primary, contents, { systemInstruction, responseMimeType: "application/json", responseSchema });
     return { response, modelUsed: primary };
   } catch (error: any) {
-    if (primary === ACCURACY_MODEL) throw error;
-    console.warn(`${primary} failed; retrying with ${ACCURACY_MODEL}.`);
-    const response = await generateContentWithTimeout(ai, ACCURACY_MODEL, contents, { systemInstruction, responseMimeType: "application/json", responseSchema });
-    return { response, modelUsed: ACCURACY_MODEL };
+    const normalized = companyAiProviderError(error, { assumeProviderError: true, model: primary, stage: "primary" }) || error;
+    if (primary === ACCURACY_MODEL || !isCompanyAiFallbackEligible(normalized)) throw normalized;
+    try {
+      const response = await generateContentWithTimeout(ai, ACCURACY_MODEL, contents, { systemInstruction, responseMimeType: "application/json", responseSchema });
+      return { response, modelUsed: ACCURACY_MODEL };
+    } catch (fallbackError) {
+      throw companyAiProviderError(fallbackError, { assumeProviderError: true, model: ACCURACY_MODEL, stage: "fallback" }) || fallbackError;
+    }
   }
 }
 
@@ -437,7 +453,7 @@ app.get("/api/platform/companies/:companyId/ai-config", async (req, res) => {
     const data = await loadCompanyAiConfig(auth.supabase, auth.companyId);
     return res.json({ success: true, data });
   } catch (error) {
-    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI configuration could not be loaded safely.") });
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI configuration could not be loaded safely."), ...apiAiErrorDetails(error) });
   }
 });
 
@@ -451,7 +467,7 @@ app.put("/api/platform/companies/:companyId/ai-config/gemini", async (req, res) 
     invalidateCompanyAiRuntime(auth.companyId);
     return res.json({ success: true, data });
   } catch (error) {
-    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "The Gemini credential could not be saved safely.") });
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "The Gemini credential could not be saved safely."), ...apiAiErrorDetails(error) });
   }
 });
 
@@ -462,10 +478,10 @@ app.post("/api/platform/companies/:companyId/ai-config/gemini/test", async (req,
     // Provider outages, quota limits, and model availability are safe test
     // results, not transport failures. The metadata carries the precise safe
     // status without exposing provider response details.
-    return res.json({ success: true, data: { ...result.metadata, testStatus: result.status } });
+    return res.json({ success: true, data: { ...result.metadata, testStatus: result.status, ...(result.errorCode ? { testErrorCode: result.errorCode } : {}), ...(result.reference ? { reference: result.reference } : {}) } });
   } catch (error) {
     const status = apiErrorStatus(error);
-    return res.status(status).json({ success: false, error: apiErrorMessage(error, "The Gemini connection test failed safely."), code: error instanceof CompanyAiError ? error.code : undefined });
+    return res.status(status).json({ success: false, error: apiErrorMessage(error, "The Gemini connection test failed safely."), ...apiAiErrorDetails(error) });
   }
 });
 
@@ -476,7 +492,7 @@ app.post("/api/platform/companies/:companyId/ai-config/gemini/disable", async (r
     invalidateCompanyAiRuntime(auth.companyId);
     return res.json({ success: true, data });
   } catch (error) {
-    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI could not be disabled safely.") });
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI could not be disabled safely."), ...apiAiErrorDetails(error) });
   }
 });
 
@@ -487,7 +503,7 @@ app.post("/api/platform/companies/:companyId/ai-config/gemini/enable", async (re
     invalidateCompanyAiRuntime(auth.companyId);
     return res.json({ success: true, data });
   } catch (error) {
-    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI could not be enabled safely.") });
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "AI could not be enabled safely."), ...apiAiErrorDetails(error) });
   }
 });
 
@@ -498,7 +514,7 @@ app.delete("/api/platform/companies/:companyId/ai-config/gemini", async (req, re
     invalidateCompanyAiRuntime(auth.companyId);
     return res.json({ success: true, data });
   } catch (error) {
-    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "The Gemini credential could not be removed safely.") });
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "The Gemini credential could not be removed safely."), ...apiAiErrorDetails(error) });
   }
 });
 
@@ -540,7 +556,7 @@ app.post("/api/classify-email", async (req, res) => {
   } catch (error: any) {
     const status = apiErrorStatus(error);
     if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/classify-email: request failed.");
-    res.status(status).json({ success: false, error: apiErrorMessage(error, "Email classification failed."), code: error instanceof CompanyAiError ? error.code : undefined });
+    res.status(status).json({ success: false, error: apiErrorMessage(error, "Email classification failed."), ...apiAiErrorDetails(error) });
   }
 });
 
@@ -709,8 +725,10 @@ Return the complete invoice schema again. Unknown source values must remain null
 
 app.post("/api/extract-invoice", async (req, res) => {
   const startedAt = Date.now();
+  let extractionCompanyId: string | undefined;
   try {
     const auth = await authorizeCompanyRequest(req, "invoices.extract");
+    extractionCompanyId = auth.companyId;
     const {
       fileData,
       mimeType,
@@ -828,7 +846,9 @@ Rules:
     }
 
     const first = attempts[0];
-    if (shouldRunAutomaticRetry(firstModel, first?.quality)) {
+    const firstProviderError = firstFailure ? companyAiProviderError(firstFailure) : null;
+    const providerRetryAllowed = !firstProviderError || isCompanyAiFallbackEligible(firstProviderError);
+    if (providerRetryAllowed && shouldRunAutomaticRetry(firstModel, first?.quality)) {
       const reason = first ? `quality:${retryFocusForQuality(first.quality).join(",")}` : "request-or-parse-failure";
       const retryContents = { parts: [...parts, { text: enhancedRetryInstruction(first?.quality || evaluateExtractionQuality({}, sourceText)) }] };
       try {
@@ -868,8 +888,9 @@ Rules:
   } catch (error: any) {
     const normalizedError = error instanceof CompanyAiError ? error : companyAiProviderError(error) || error;
     const status = apiErrorStatus(normalizedError);
+    if (normalizedError instanceof CompanyAiError) logCompanyAiFailure(normalizedError, { companyId: extractionCompanyId, stage: "invoice-extraction" });
     if (!(normalizedError instanceof ApiAuthorizationError) && !(normalizedError instanceof CompanyAiError)) console.error("Error in /api/extract-invoice: request failed.");
-    return res.status(status).json({ success: false, error: apiErrorMessage(normalizedError, "Invoice extraction failed. Please retry the document."), code: normalizedError instanceof CompanyAiError ? normalizedError.code : undefined });
+    return res.status(status).json({ success: false, error: apiErrorMessage(normalizedError, "Invoice extraction failed. Please retry the document."), ...apiAiErrorDetails(normalizedError) });
   }
 });
 

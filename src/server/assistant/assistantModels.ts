@@ -1,8 +1,10 @@
 import { type GenerateContentConfig, type GenerateContentResponse, type GenerateContentParameters } from "@google/genai";
+import { companyAiProviderError, isCompanyAiFallbackEligible } from "../ai/companyAiRuntime.ts";
+import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL } from "../ai/companyAiTypes.ts";
 import { AssistantBackendError } from "./assistantBackendTypes.ts";
 
-export const ASSISTANT_PRIMARY_MODEL = "gemini-3.5-flash-lite";
-export const ASSISTANT_FALLBACK_MODEL = "gemini-3.7-flash";
+export const ASSISTANT_PRIMARY_MODEL = COMPANY_AI_PRIMARY_MODEL;
+export const ASSISTANT_FALLBACK_MODEL = COMPANY_AI_FALLBACK_MODEL;
 export const ASSISTANT_MODEL_TIMEOUT_MS = 30_000;
 
 export interface AssistantModelClient {
@@ -27,20 +29,26 @@ export interface AssistantModelRunner {
   readonly fallbackUsed: boolean;
 }
 
-function errorMessage(_error: unknown) {
-  // Provider messages can contain request metadata. Keep them out of API
-  // responses; the server-side runtime classifies safe statuses separately.
-  return "model request failed";
-}
-
 async function generateWithTimeout(client: AssistantModelClient, model: string, call: AssistantModelCall, timeoutMs: number) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await client.models.generateContent({ model, contents: call.contents, config: { ...call.config, abortSignal: controller.signal } });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const timeoutError = new Error("AI request timed out.");
+      Object.assign(timeoutError, { name: "CompanyAiTimeoutError", companyAiTimeout: true });
+      throw timeoutError;
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
+}
+
+function normalizeModelError(error: unknown, model: string, stage: string) {
+  return companyAiProviderError(error, { assumeProviderError: true, model, stage })
+    || new AssistantBackendError("MODEL_FAILED", "The assistant model failed safely.", 503);
 }
 
 export function createAssistantModelRunner(client: AssistantModelClient, options: { timeoutMs?: number } = {}): AssistantModelRunner {
@@ -56,15 +64,14 @@ export function createAssistantModelRunner(client: AssistantModelClient, options
         const response = await generateWithTimeout(client, model, call, timeoutMs);
         return { response, model, fallbackUsed: hasUsedFallback };
       } catch (primaryError) {
-        if (hasUsedFallback) throw new AssistantBackendError("MODEL_FAILED", `The assistant model failed: ${errorMessage(primaryError)}`, 503);
+        const normalizedPrimary = normalizeModelError(primaryError, model, hasUsedFallback ? "fallback" : "primary");
+        if (hasUsedFallback || !isCompanyAiFallbackEligible(normalizedPrimary)) throw normalizedPrimary;
         hasUsedFallback = true;
         try {
           const response = await generateWithTimeout(client, ASSISTANT_FALLBACK_MODEL, call, timeoutMs);
           return { response, model: ASSISTANT_FALLBACK_MODEL, fallbackUsed: true };
         } catch (fallbackError) {
-          const normalized = new AssistantBackendError("MODEL_FAILED", `The assistant model failed: ${errorMessage(fallbackError)}`, 503);
-          (normalized as Error & { cause?: unknown }).cause = fallbackError;
-          throw normalized;
+          throw normalizeModelError(fallbackError, ASSISTANT_FALLBACK_MODEL, "fallback");
         }
       }
     },

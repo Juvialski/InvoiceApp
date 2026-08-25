@@ -62,13 +62,15 @@ export class AssistantBackendError extends Error {
   readonly code: string;
   readonly status: number;
   readonly details?: Record<string, unknown>;
+  readonly correlationRef?: string;
 
-  constructor(code: string, message: string, status = 400, details?: Record<string, unknown>) {
+  constructor(code: string, message: string, status = 400, details?: Record<string, unknown>, correlationRef?: string) {
     super(message);
     this.name = "AssistantBackendError";
     this.code = code;
     this.status = status;
     this.details = details;
+    this.correlationRef = correlationRef;
   }
 }
 

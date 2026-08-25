@@ -17,6 +17,8 @@ function normalizedMetadata(value: unknown, companyId: string): CompanyAiConfigM
     status,
     lastTestedAt: typeof source.lastTestedAt === "string" ? source.lastTestedAt : undefined,
     lastTestStatus: testStatus,
+    lastTestErrorCode: typeof source.testErrorCode === "string" ? source.testErrorCode : undefined,
+    lastTestReference: typeof source.reference === "string" ? source.reference : undefined,
     updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : undefined,
   };
 }

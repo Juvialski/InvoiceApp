@@ -220,6 +220,36 @@ test("stops the old user channel before creating the new user channel", async ()
   await controller.dispose();
 });
 
+test("does not recreate a realtime channel for an ordinary same-scope session update", async () => {
+  let created = 0;
+  let removed = 0;
+  const channel = createFakeChannel("same-scope");
+  const controller = createWorkspaceSyncController({
+    client: {
+      channel() {
+        created += 1;
+        return channel;
+      },
+      removeChannel() {
+        removed += 1;
+        return Promise.resolve();
+      },
+    },
+    refresh: () => undefined,
+  });
+
+  await controller.setSession({ user: { id: "user-a" } }, "company-a");
+  await controller.setSession({ user: { id: "user-a" } }, "company-a");
+  assert.equal(created, 1);
+  assert.equal(removed, 0);
+
+  await controller.setSession({ user: { id: "user-a" } }, "company-b");
+  assert.equal(created, 2);
+  assert.equal(removed, 1);
+  await controller.dispose();
+  assert.equal(removed, 2);
+});
+
 test("StrictMode-like fallback setup and cleanup leaves one active listener", () => {
   const timers = createFakeTimers();
   const fake = createFakeEnvironment();

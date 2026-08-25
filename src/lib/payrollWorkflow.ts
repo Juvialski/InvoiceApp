@@ -2,6 +2,7 @@ import type {
   AttendanceRecord,
   LeaveRequest,
   OvertimeRequest,
+  PayrollAdjustment,
   PayrollEntry,
   PayrollPeriod,
   PayrollProjectAllocation,
@@ -20,7 +21,7 @@ import {
   type PayrollScheduleVersion,
   type ScheduledPayrollPeriod,
 } from "./payrollSchedule.ts";
-import { isSafeToDeletePayrollPeriod, reconcileObsoleteGeneratedPayrollPeriods, retireEmptyGeneratedPayrollRuns, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
+import { isPayrollPeriodDataBearing, isSafeToDeletePayrollPeriod, reconcileObsoleteGeneratedPayrollPeriods, retireEmptyGeneratedPayrollRuns, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
 import type { PayrollImportBatch } from "./payrollImportPersistence.ts";
 import {
   buildPayrollDraft,
@@ -54,15 +55,20 @@ export interface PayrollScheduleDefaults {
 }
 
 export interface EnsurePayrollWorkflowInput {
-  schedules: PayrollSchedule[];
-  periods: PayrollPeriod[];
-  runs: PayrollRun[];
+  schedules: readonly PayrollSchedule[];
+  periods: readonly PayrollPeriod[];
+  runs: readonly PayrollRun[];
   referenceDate: string;
   previous?: number;
   next?: number;
-  entries?: PayrollEntry[];
-  workEntries?: WorkEntry[];
-  importBatches?: PayrollImportBatch[];
+  entries?: readonly PayrollEntry[];
+  workEntries?: readonly WorkEntry[];
+  importBatches?: readonly PayrollImportBatch[];
+  adjustments?: readonly PayrollAdjustment[];
+  attendanceRecords?: readonly AttendanceRecord[];
+  leaveRequests?: readonly LeaveRequest[];
+  overtimeRequests?: readonly OvertimeRequest[];
+  holidays?: readonly PayrollHoliday[];
 }
 
 export interface EnsurePayrollWorkflowResult {
@@ -70,6 +76,7 @@ export interface EnsurePayrollWorkflowResult {
   runs: PayrollRun[];
   createdPeriods: PayrollPeriod[];
   createdRuns: PayrollRun[];
+  selectedPeriodId?: string;
   retiredPeriodIds: string[];
   integrityIssues: string[];
 }
@@ -101,13 +108,22 @@ export function dateOnly(value = new Date()): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 }
 
+function defaultSemiMonthlyEffectiveFrom(referenceDate: string) {
+  // A newly created default schedule starts at the current full cutoff, not
+  // in the middle of an already-defined period. User-edited versions retain
+  // their explicit effectiveFrom and are still prevented from backfilling.
+  const day = Number(referenceDate.slice(8, 10));
+  return `${referenceDate.slice(0, 8)}${day <= 15 ? "01" : "16"}`;
+}
+
 export function createDefaultPayrollSchedule(referenceDate = dateOnly()): PayrollScheduleDefaults {
   const scheduleId = id("schedule");
   const versionId = id("schedule-version");
+  const effectiveFrom = defaultSemiMonthlyEffectiveFrom(referenceDate);
   return {
     id: scheduleId,
     name: "Standard semi-monthly payroll",
-    effectiveFrom: referenceDate,
+    effectiveFrom,
     frequency: "SEMI_MONTHLY",
     firstCutoffDay: 15,
     secondCutoffDay: 0,
@@ -118,11 +134,11 @@ export function createDefaultPayrollSchedule(referenceDate = dateOnly()): Payrol
     autoSelectCurrentPeriod: true,
     automationMode: "ASSISTED",
     active: true,
-    versions: [{ id: versionId, scheduleId, version: 1, effectiveFrom: referenceDate, frequency: "SEMI_MONTHLY", customCutoffDay: 15, payDateRule: { type: "BUSINESS_DAYS", offsetDays: 2 }, autoGeneratePeriods: true, autoCalculate: false, autoCreateRuns: true, autoSelectCurrentPeriod: true, automationMode: "ASSISTED", active: true }],
+    versions: [{ id: versionId, scheduleId, version: 1, effectiveFrom, frequency: "SEMI_MONTHLY", customCutoffDay: 15, payDateRule: { type: "BUSINESS_DAYS", offsetDays: 2 }, autoGeneratePeriods: true, autoCalculate: false, autoCreateRuns: true, autoSelectCurrentPeriod: true, automationMode: "ASSISTED", active: true }],
   };
 }
 
-function toScheduledPeriod(period: PayrollPeriod): ScheduledPayrollPeriod {
+function toScheduledPeriod(period: PayrollPeriod, context: Parameters<typeof isPayrollPeriodDataBearing>[1] = {}): ScheduledPayrollPeriod {
   return {
     id: period.id,
     periodKey: `${period.scheduleId || "legacy"}:${period.periodStart}:${period.periodEnd}`,
@@ -133,7 +149,10 @@ function toScheduledPeriod(period: PayrollPeriod): ScheduledPayrollPeriod {
     payDate: period.payDate,
     status: period.status as PayrollPeriod["status"],
     active: period.status !== "VOID",
-    locked: Boolean(period.lockedAt) || ["APPROVED", "PAID", "VOID"].includes(period.status),
+    // Data-bearing periods are protected from prospective version replacement
+    // even when their current status is still OPEN. Finalized status/lock
+    // protection remains unchanged.
+    locked: Boolean(period.lockedAt) || ["APPROVED", "PAID", "VOID"].includes(period.status) || isPayrollPeriodDataBearing(period, context),
     notes: period.notes,
     createdAt: period.createdAt,
     updatedAt: period.updatedAt,
@@ -172,10 +191,19 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
   const generated: ReturnType<typeof generatePayrollPeriodsAroundReference> = [];
   if (primarySchedule) {
     generated.push(...generatePayrollPeriodsAroundReference(primarySchedule, input.referenceDate, { previous, next }));
-    const lifecycleContext = { runs: input.runs, entries: input.entries, workEntries: input.workEntries, importBatches: input.importBatches };
+    const lifecycleContext = {
+      runs: input.runs,
+      entries: input.entries,
+      workEntries: input.workEntries,
+      importBatches: input.importBatches,
+      adjustments: input.adjustments,
+      attendanceRecords: input.attendanceRecords,
+      leaveRequests: input.leaveRequests,
+      overtimeRequests: input.overtimeRequests,
+    };
     const disposableSchedulePeriodIds = new Set(periods.filter((period) => period.scheduleId === primarySchedule.id && period.status === "VOID" && isSafeToDeletePayrollPeriod(period, lifecycleContext)).map((period) => period.id));
     const currentSchedulePeriods = periods.filter((period) => period.scheduleId === primarySchedule.id && !disposableSchedulePeriodIds.has(period.id));
-    const merged = mergeGeneratedPayrollPeriods(currentSchedulePeriods.map(toScheduledPeriod), generated);
+    const merged = mergeGeneratedPayrollPeriods(currentSchedulePeriods.map((period) => toScheduledPeriod(period, lifecycleContext)), generated);
     const byId = new Map(currentSchedulePeriods.map((period) => [period.id, period]));
     const mergedPeriods = merged.map((period) => fromScheduledPeriod(period, period.id ? byId.get(period.id) : undefined));
     const mergedIds = new Set(mergedPeriods.map((period) => period.id));
@@ -191,11 +219,15 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
     entries: input.entries,
     workEntries: input.workEntries,
     importBatches: input.importBatches,
+    adjustments: input.adjustments,
+    attendanceRecords: input.attendanceRecords,
+    leaveRequests: input.leaveRequests,
+    overtimeRequests: input.overtimeRequests,
   });
   periods = reconciliation.periods;
 
   const currentCandidates = primarySchedule
-    ? periods.filter((period) => period.scheduleId === primarySchedule.id && period.status !== "VOID").map(toScheduledPeriod)
+    ? periods.filter((period) => period.scheduleId === primarySchedule.id && period.status !== "VOID").map((period) => toScheduledPeriod(period, { runs: input.runs, entries: input.entries, workEntries: input.workEntries, importBatches: input.importBatches, adjustments: input.adjustments, attendanceRecords: input.attendanceRecords, leaveRequests: input.leaveRequests, overtimeRequests: input.overtimeRequests }))
     : [];
   const current = selectCurrentPayrollPeriod(currentCandidates, input.referenceDate);
   if (current) {
@@ -224,6 +256,7 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
     runs,
     createdPeriods,
     createdRuns,
+    selectedPeriodId: primarySchedule?.autoSelectCurrentPeriod === false ? undefined : current?.id,
     retiredPeriodIds: reconciliation.retiredPeriodIds,
     integrityIssues: reconciliation.issues.map((issue) => issue.message),
   };

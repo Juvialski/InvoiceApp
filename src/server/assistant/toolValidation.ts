@@ -62,6 +62,11 @@ function requiredNumber(value: unknown, label: string, options: { min?: number; 
   return result;
 }
 
+function requiredWorkerRate(value: unknown) {
+  const normalized = typeof value === "string" && /^\s*\d+(?:\.\d+)?\s*$/.test(value) ? Number(value) : value;
+  return requiredNumber(normalized, "defaultRate", { min: 0, max: 1_000_000_000 });
+}
+
 export function boundedLimit(value: unknown, fallback = 20): number {
   const parsed = value === undefined ? fallback : optionalNumber(value, "limit", { min: 1, max: MAX_SEARCH_LIMIT, integer: true });
   return parsed ?? fallback;
@@ -100,6 +105,28 @@ export function validateToolArguments(toolName: string, input: unknown): Record<
       return { projectId: args.projectId ? requireUuid(args.projectId, "projectId") : undefined, from: optionalDateOnly(args.from, "from"), to: optionalDateOnly(args.to, "to"), currency: args.currency ? boundedText(args.currency, "currency", 8)!.toUpperCase() : undefined };
     case "get_vendor_summary": return { vendorId: requireUuid(args.vendorId, "vendorId") };
     case "get_worker": return { workerId: requireUuid(args.workerId, "workerId") };
+    case "prepare_create_worker": {
+      const employmentStatus = enumValue(args.employmentStatus || "ACTIVE", "employmentStatus", ["ACTIVE", "INACTIVE", "ONBOARDING", "OFFBOARDED"] as const)!;
+      const active = args.active === undefined ? employmentStatus === "ACTIVE" : args.active;
+      if (typeof active !== "boolean") throw new AssistantToolError("INVALID_ARGUMENT", "active must be boolean.");
+      if (active !== (employmentStatus === "ACTIVE")) throw new AssistantToolError("INVALID_ARGUMENT", "active must match employmentStatus.");
+      return {
+        firstName: boundedText(args.firstName, "firstName", 100),
+        middleName: boundedText(args.middleName, "middleName", 100, false),
+        lastName: boundedText(args.lastName, "lastName", 100),
+        employeeCode: boundedText(args.employeeCode, "employeeCode", 80, false),
+        employmentType: enumValue(args.employmentType || "OTHER", "employmentType", ["REGULAR", "PROJECT_BASED", "CONTRACTUAL", "DAILY", "HOURLY", "OTHER"] as const)!,
+        employmentStatus,
+        jobTitle: boundedText(args.jobTitle, "jobTitle", 160, false),
+        departmentId: args.departmentId ? requireUuid(args.departmentId, "departmentId") : undefined,
+        department: boundedText(args.department, "department", 160, false),
+        defaultPayType: enumValue(args.defaultPayType, "defaultPayType", ["MONTHLY", "DAILY", "HOURLY"] as const)!,
+        defaultRate: requiredWorkerRate(args.defaultRate),
+        active,
+        hireDate: optionalDateOnly(args.hireDate, "hireDate"),
+        notes: boundedText(args.notes, "notes", 500, false),
+      };
+    }
     case "get_attendance_day": return { date: requireDateOnly(args.date, "date"), workerId: args.workerId ? requireUuid(args.workerId, "workerId") : undefined };
     case "get_attendance_period_summary": return { periodId: args.periodId ? requireUuid(args.periodId, "periodId") : undefined, from: optionalDateOnly(args.from, "from"), to: optionalDateOnly(args.to, "to") };
     case "get_payroll_period": return { periodId: requireUuid(args.periodId, "periodId") };
