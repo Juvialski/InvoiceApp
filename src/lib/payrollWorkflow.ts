@@ -238,14 +238,10 @@ export function analyzePayrollScheduleBootstrapCompatibility(
     overtimeRequests: context.overtimeRequests,
   };
 
-  // Helper for date comparison (ISO dates compare lexicographically)
-  const dateBefore = (a: string, b: string) => a < b;
-  const dateAfterOrEqual = (a: string, b: string) => a >= b;
-
   // 1. No data-bearing period exists before the corrected boundary
   const hasEarlierDataBearingPeriod = context.periods.some((period) => {
     if (period.scheduleId !== schedule.id) return false;
-    if (dateAfterOrEqual(period.periodEnd, correctedEffectiveFrom)) return false;
+    if (period.periodEnd >= correctedEffectiveFrom) return false;
     return isPayrollPeriodDataBearing(period, lifecycleContext);
   });
   if (hasEarlierDataBearingPeriod) {
@@ -262,12 +258,16 @@ export function analyzePayrollScheduleBootstrapCompatibility(
     return { schedule, repaired: false, reason: "Finalized period exists at current effective boundary; cannot backdate." };
   }
 
-  // 3. No worker/payroll source records would be reinterpreted
-  const hasSourceRecordsBeforeCorrected = context.workEntries.some((entry) => {
-    if (entry.periodId) return false; // Only unattached entries could be reinterpreted
-    return dateAfterOrEqual(entry.workDate, correctedEffectiveFrom) && dateBefore(entry.workDate, schedule.effectiveFrom);
-  });
-  if (hasSourceRecordsBeforeCorrected) {
+  // 3. No worker/payroll source records would be reinterpreted. Any source
+  // row dated inside the backdated window [corrected, original) would be
+  // absorbed into the newly generated period, so repair is refused.
+  const inBackdatedWindow = (date: string) => date >= finalCorrectedEffectiveFrom && date < schedule.effectiveFrom;
+  const hasSourceRecordsInWindow =
+    context.workEntries.some((entry) => !entry.periodId && entry.status !== "VOID" && inBackdatedWindow(entry.workDate)) ||
+    (context.attendanceRecords || []).some((record) => record.recordStatus !== "VOID" && inBackdatedWindow(record.attendanceDate)) ||
+    (context.overtimeRequests || []).some((request) => inBackdatedWindow(request.overtimeDate)) ||
+    (context.leaveRequests || []).some((request) => request.startDate < schedule.effectiveFrom && request.endDate >= finalCorrectedEffectiveFrom);
+  if (hasSourceRecordsInWindow) {
     return { schedule, repaired: false, reason: "Source records exist in the backdated window; cannot backdate." };
   }
 

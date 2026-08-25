@@ -3,15 +3,14 @@ import assert from "node:assert/strict";
 import {
   analyzePayrollScheduleBootstrapCompatibility,
   createDefaultPayrollSchedule,
-  dateOnly,
+  ensurePayrollPeriodsAndRuns,
 } from "../src/lib/payrollWorkflow.ts";
 import {
   generatePayrollPeriodsAroundReference,
   type PayrollSchedule,
 } from "../src/lib/payrollSchedule.ts";
-import type { PayrollPeriod, PayrollRun, PayrollEntry, WorkEntry } from "../src/types.ts";
+import type { PayrollPeriod, PayrollRun, PayrollEntry, WorkEntry, PayrollAdjustment, AttendanceRecord, LeaveRequest, OvertimeRequest } from "../src/types.ts";
 import type { PayrollImportBatch } from "../src/lib/payrollImportPersistence.ts";
-import type { PayrollAdjustment, AttendanceRecord, LeaveRequest, OvertimeRequest } from "../src/types.ts";
 
 function legacyDefaultSchedule(overrides: Partial<PayrollSchedule> = {}): PayrollSchedule {
   return {
@@ -111,7 +110,54 @@ test("legacy default schedule repair enables period generation", () => {
   const generated = generatePayrollPeriodsAroundReference(result.schedule, "2026-08-25", { previous: 2, next: 2 });
   assert.ok(generated.length > 0, "Should generate periods after repair");
   const currentPeriod = generated.find(p => p.periodStart <= "2026-08-25" && p.periodEnd >= "2026-08-25");
-  assert.deepEqual(currentPeriod && [currentPeriod.periodStart, currentPeriod.periodEnd], ["2026-08-16", "2026-08-31"]);
+  assert.deepEqual(currentPeriod && [currentPeriod.periodStart, currentPeriod.periodEnd, currentPeriod.payDate], ["2026-08-16", "2026-08-31", "2026-09-02"]);
+});
+
+test("repaired schedule produces the current period and exactly one draft run through ensurePayrollPeriodsAndRuns", () => {
+  const schedule = legacyDefaultSchedule();
+  const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", emptyContext());
+  assert.equal(result.repaired, true);
+
+  const ensured = ensurePayrollPeriodsAndRuns({
+    schedules: [result.schedule],
+    periods: [],
+    runs: [],
+    entries: [],
+    workEntries: [],
+    referenceDate: "2026-08-25",
+    previous: 2,
+    next: 2,
+  });
+  const current = ensured.periods.find((period) => period.periodStart === "2026-08-16" && period.periodEnd === "2026-08-31");
+  assert.ok(current, "Aug 16-31 period must exist after repair");
+  assert.equal(current.payDate, "2026-09-02");
+  // The schedule became effective on Aug 16, so no pre-effective periods
+  // exist; ensure returns the horizon newest-first.
+  assert.deepEqual(ensured.periods.map((period) => `${period.periodStart}:${period.periodEnd}`), [
+    "2026-09-16:2026-09-30",
+    "2026-09-01:2026-09-15",
+    "2026-08-16:2026-08-31",
+  ]);
+  assert.equal(ensured.runs.length, 1);
+  assert.equal(ensured.runs[0]?.status, "DRAFT");
+  assert.equal(ensured.selectedPeriodId, current.id);
+});
+
+test("uncorrected user-authored mid-period schedule generates zero periods through ensurePayrollPeriodsAndRuns", () => {
+  const schedule = legacyDefaultSchedule({ name: "Custom payroll schedule" });
+  const ensured = ensurePayrollPeriodsAndRuns({
+    schedules: [schedule],
+    periods: [],
+    runs: [],
+    entries: [],
+    workEntries: [],
+    referenceDate: "2026-08-25",
+    previous: 2,
+    next: 2,
+  });
+  assert.equal(ensured.periods.length, 0);
+  assert.equal(ensured.runs.length, 0);
+  assert.equal(ensured.selectedPeriodId, undefined);
 });
 
 test("already corrected schedule is not repaired again", () => {
@@ -212,6 +258,61 @@ test("schedule with work entries in backdated window is not repaired", () => {
   const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", context);
   assert.equal(result.repaired, false);
   assert.match(result.reason, /Source records exist in the backdated window/);
+});
+
+test("schedule with attendance records in backdated window is not repaired", () => {
+  const schedule = legacyDefaultSchedule();
+  const context = emptyContext();
+  context.attendanceRecords.push({
+    id: "att-1",
+    workerId: "worker-1",
+    attendanceDate: "2026-08-17",
+    recordStatus: "CONFIRMED",
+  } as AttendanceRecord);
+
+  const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", context);
+  assert.equal(result.repaired, false);
+  assert.match(result.reason, /Source records exist in the backdated window/);
+});
+
+test("schedule with overtime requests in backdated window is not repaired", () => {
+  const schedule = legacyDefaultSchedule();
+  const context = emptyContext();
+  context.overtimeRequests.push({
+    id: "ot-1",
+    workerId: "worker-1",
+    overtimeDate: "2026-08-20",
+  } as OvertimeRequest);
+
+  const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", context);
+  assert.equal(result.repaired, false);
+  assert.match(result.reason, /Source records exist in the backdated window/);
+});
+
+test("schedule with leave overlapping backdated window is not repaired", () => {
+  const schedule = legacyDefaultSchedule();
+  const context = emptyContext();
+  context.leaveRequests.push({
+    id: "leave-1",
+    workerId: "worker-1",
+    startDate: "2026-08-14",
+    endDate: "2026-08-18",
+  } as LeaveRequest);
+
+  const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", context);
+  assert.equal(result.repaired, false);
+  assert.match(result.reason, /Source records exist in the backdated window/);
+});
+
+test("void or period-linked source records outside the window do not block repair", () => {
+  const schedule = legacyDefaultSchedule();
+  const context = emptyContext();
+  context.workEntries.push({ id: "work-linked", workerId: "w1", workDate: "2026-08-20", status: "APPROVED", periodId: "some-period" } as WorkEntry);
+  context.workEntries.push({ id: "work-void", workerId: "w1", workDate: "2026-08-21", status: "VOID" } as WorkEntry);
+  context.attendanceRecords.push({ id: "att-old", workerId: "w1", attendanceDate: "2026-07-02", recordStatus: "CONFIRMED" } as AttendanceRecord);
+
+  const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", context);
+  assert.equal(result.repaired, true);
 });
 
 test("schedule with inconsistent version effectiveFrom is not repaired", () => {

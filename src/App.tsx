@@ -295,6 +295,7 @@ function InvoiceWorkspace() {
   const [payrollGenerationRetry, setPayrollGenerationRetry] = useState(0);
   const payrollBootstrapInFlightRef = useRef<Promise<void> | null>(null);
   const payrollBootstrapPersistedUsersRef = useRef(new Set<string>());
+  const payrollRepairInFlightRef = useRef<Promise<void> | null>(null);
   const [workspaceSyncStatus, setWorkspaceSyncStatus] = useState<WorkspaceSyncStatus>(isSupabaseConfigured ? "connecting" : "guest");
   const workspaceSyncControllerRef = useRef<WorkspaceSyncController | null>(null);
   const initialWorkspaceLoadRef = useRef<Promise<void> | null>(null);
@@ -437,6 +438,7 @@ function InvoiceWorkspace() {
     payrollDataRef.current = emptyPayrollData;
     payrollAutomationKeyRef.current = "";
     payrollBootstrapInFlightRef.current = null;
+    payrollRepairInFlightRef.current = null;
     setPayrollWorkspaceLoadState(isSupabaseConfigured ? "loading" : "idle");
     setPayrollPeriodPreparationState(isSupabaseConfigured ? "PREPARING" : "READY");
     setPayrollRefreshing(false);
@@ -825,57 +827,78 @@ function InvoiceWorkspace() {
       payrollAutomationKeyRef.current = `seed:${schedules[0]!.id}`;
       return;
     }
-const activeSchedule = selectPrimaryPayrollSchedule(snapshot.schedules);
+    const activeSchedule = selectPrimaryPayrollSchedule(snapshot.schedules);
     if (!activeSchedule) {
       setPayrollPeriodPreparationState("NO_SCHEDULE");
       return;
     }
 
-    // Check for legacy default schedule compatibility and repair if safe
+    // Legacy default schedules seeded by older releases can carry a
+    // mid-period effectiveFrom, which blocks all period generation. Analyze
+    // and self-heal BEFORE generating so persisted periods reference a
+    // schedule/version whose effectiveFrom is the canonical boundary.
     const today = dateOnly();
-    let scheduleForGeneration = activeSchedule;
-    if (userId && supabase) {
-      const compatibility = analyzePayrollScheduleBootstrapCompatibility(activeSchedule, today, {
-        periods: snapshot.periods,
-        runs: snapshot.runs,
-        entries: snapshot.entries,
-        workEntries: snapshot.workEntries,
-        importBatches: payrollImportData.batches,
-        adjustments: snapshot.adjustments,
-        attendanceRecords: snapshot.attendanceRecords,
-        leaveRequests: snapshot.leaveRequests,
-        overtimeRequests: snapshot.overtimeRequests,
-      });
-      if (compatibility.repaired) {
-        scheduleForGeneration = compatibility.schedule;
-        // Persist the corrected schedule immediately so generated periods reference the correct version
-        void (async () => {
+    const compatibility = analyzePayrollScheduleBootstrapCompatibility(activeSchedule, today, {
+      periods: snapshot.periods,
+      runs: snapshot.runs,
+      entries: snapshot.entries,
+      workEntries: snapshot.workEntries,
+      importBatches: payrollImportData.batches,
+      adjustments: snapshot.adjustments,
+      attendanceRecords: snapshot.attendanceRecords,
+      leaveRequests: snapshot.leaveRequests,
+      overtimeRequests: snapshot.overtimeRequests,
+    });
+    let base = snapshot;
+    if (compatibility.repaired) {
+      if (userId && supabase) {
+        // The corrected schedule must be persisted before periods are
+        // generated; generating first would race this write and could
+        // clobber or duplicate the freshly created calendar rows.
+        if (payrollRepairInFlightRef.current) return;
+        const token = currentWorkspaceLoadToken();
+        if (!token || token.generation !== workspaceGenerationRef.current || token.userId !== userId) return;
+        setPayrollPeriodPreparationState("PREPARING");
+        const repair = (async () => {
           try {
             const saved = await savePayrollScheduleToSupabase(compatibility.schedule);
-            scheduleForGeneration = saved;
-            // Update local snapshot with corrected schedule
-            const correctedSchedules = snapshot.schedules.map((s) => (s.id === activeSchedule.id ? saved : s));
-            const correctedSnapshot = { ...snapshot, schedules: correctedSchedules };
-            payrollDataRef.current = correctedSnapshot;
-            setPayrollData(correctedSnapshot);
+            if (!canApplyWorkspaceResult(token)) return;
+            const fresh = payrollDataRef.current;
+            const next = { ...fresh, schedules: fresh.schedules.map((schedule) => (schedule.id === saved.id ? saved : schedule)) };
+            payrollDataRef.current = next;
+            setPayrollData(next);
+            payrollAutomationKeyRef.current = "";
+            setPayrollGenerationRetry((value) => value + 1);
           } catch (error) {
-            showNotification("info", userFacingError(error, "Schedule repaired locally but could not be persisted; periods will reference local correction."));
+            if (canApplyWorkspaceResult(token)) {
+              setPayrollPeriodPreparationState("FAILED");
+              showNotification("error", userFacingError(error, "Could not apply the payroll schedule compatibility repair."));
+            }
+          } finally {
+            if (payrollRepairInFlightRef.current === repair) payrollRepairInFlightRef.current = null;
           }
         })();
+        payrollRepairInFlightRef.current = repair;
+        return;
       }
+      // Guest/local workspace: apply the correction synchronously (the guest
+      // storage effect persists it) and continue generating below.
+      base = { ...snapshot, schedules: snapshot.schedules.map((schedule) => (schedule.id === compatibility.schedule.id ? compatibility.schedule : schedule)) };
+      payrollDataRef.current = base;
+      setPayrollData(base);
     }
-    const key = `${session?.user?.id || "guest"}:${today}:${scheduleForGeneration.id}:${snapshot.periods.length}:${snapshot.runs.length}`;
+    const key = `${session?.user?.id || "guest"}:${today}:${activeSchedule.id}:${base.periods.length}:${base.runs.length}`;
     if (payrollAutomationKeyRef.current === key) return;
     payrollAutomationKeyRef.current = key;
     setPayrollPeriodPreparationState("PREPARING");
     let ensured: ReturnType<typeof ensurePayrollPeriodsAndRuns>;
     try {
       ensured = ensurePayrollPeriodsAndRuns({
-        schedules: [scheduleForGeneration],
-        periods: snapshot.periods,
-        runs: snapshot.runs,
-        entries: snapshot.entries,
-        workEntries: snapshot.workEntries,
+        schedules: [compatibility.repaired ? compatibility.schedule : activeSchedule],
+        periods: base.periods,
+        runs: base.runs,
+        entries: base.entries,
+        workEntries: base.workEntries,
         importBatches: payrollImportData.batches,
         referenceDate: today,
         previous: 2,
@@ -886,27 +909,27 @@ const activeSchedule = selectPrimaryPayrollSchedule(snapshot.schedules);
       showNotification("error", userFacingError(error, "Payroll periods could not be prepared."));
       return;
     }
-    const periodChanged = ensured.periods.length !== snapshot.periods.length || ensured.periods.some((period) => {
-      const previous = snapshot.periods.find((item) => item.id === period.id);
+    const periodChanged = ensured.periods.length !== base.periods.length || ensured.periods.some((period) => {
+      const previous = base.periods.find((item) => item.id === period.id);
       return !previous || previous.status !== period.status || previous.payDate !== period.payDate || previous.scheduleId !== period.scheduleId || previous.scheduleVersionId !== period.scheduleVersionId || previous.lockedAt !== period.lockedAt || previous.notes !== period.notes;
     });
     const runChanged = ensured.runs.some((run) => {
-      const previous = snapshot.runs.find((item) => item.id === run.id);
+      const previous = base.runs.find((item) => item.id === run.id);
       return !previous || previous.status !== run.status || previous.notes !== run.notes;
     });
     if (!periodChanged && !runChanged) {
       setPayrollPeriodPreparationState("READY");
       return;
     }
-    const next = { ...snapshot, periods: ensured.periods, runs: ensured.runs };
+    const next = { ...base, periods: ensured.periods, runs: ensured.runs };
     payrollDataRef.current = next;
     setPayrollData(next);
     setPayrollPeriodPreparationState("READY");
     if (session && supabase) {
       void (async () => {
         try {
-          for (const period of ensured.periods.filter((item) => item.autoGenerated && (!snapshot.periods.some((old) => old.id === item.id && old.status === period.status && old.payDate === period.payDate && old.scheduleVersionId === period.scheduleVersionId && old.lockedAt === period.lockedAt)))) await savePayrollPeriodToSupabase(period);
-          for (const run of ensured.runs.filter((item) => !snapshot.runs.some((old) => old.id === item.id && old.status === item.status && old.notes === item.notes))) await savePayrollRunToSupabase(run);
+          for (const period of ensured.periods.filter((item) => item.autoGenerated && (!base.periods.some((old) => old.id === item.id && old.status === item.status && old.payDate === item.payDate && old.scheduleVersionId === item.scheduleVersionId && old.lockedAt === item.lockedAt)))) await savePayrollPeriodToSupabase(period);
+          for (const run of ensured.runs.filter((item) => !base.runs.some((old) => old.id === item.id && old.status === item.status && old.notes === item.notes))) await savePayrollRunToSupabase(run);
         } catch (error) {
           showNotification("info", userFacingError(error, "Generated payroll periods are available locally; apply the latest payroll migration to sync them."));
         }
