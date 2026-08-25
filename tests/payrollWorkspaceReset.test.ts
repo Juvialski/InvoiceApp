@@ -93,3 +93,41 @@ test("migration contract: authenticated, permissioned, company-scoped destructiv
   }
   assert.match(String(PERMISSION_KEYS.payrollSettings), /payroll\.settings/);
 });
+
+test("migration contract: audit-event allowlist only grows", () => {
+  const allowlist = MIGRATION.match(/company_audit_events_event_type_check check \(event_type in \(([\s\S]*?)\)\);/)?.[1] ?? "";
+  const events = [...allowlist.matchAll(/'([A-Z_]+)'/g)].map((match) => match[1]);
+  // This list must stay a superset of every event accepted by the tenancy,
+  // maintenance, and company-AI migrations; narrowing it violates existing
+  // audit rows (SQLSTATE 23514) on databases that already recorded them.
+  for (const event of [
+    "COMPANY_CREATED", "COMPANY_UPDATED", "COMPANY_SUSPENDED", "COMPANY_ARCHIVED", "COMPANY_REACTIVATED",
+    "USER_INVITED", "INVITE_REVOKED", "INVITE_ACCEPTED",
+    "MEMBER_ROLE_CHANGED", "MEMBER_SUSPENDED", "MEMBER_REACTIVATED", "MEMBER_REVOKED",
+    "PAYROLL_REPAIR_APPLIED", "PAYROLL_CALENDAR_REBUILT", "PAYROLL_UNAPPROVED_RESET",
+    "COMPANY_AI_CREDENTIAL_CONFIGURED", "COMPANY_AI_CREDENTIAL_ROTATED",
+    "COMPANY_AI_CREDENTIAL_TESTED", "COMPANY_AI_CREDENTIAL_ENABLED",
+    "COMPANY_AI_CREDENTIAL_DISABLED", "COMPANY_AI_CREDENTIAL_REMOVED",
+  ]) {
+    assert.ok(events.includes(event), `audit-event allowlist dropped ${event}`);
+  }
+});
+
+test("migration contract: apply deletes every domain table the preview counts", () => {
+  const countedTables = [...MIGRATION.matchAll(/'([a-z_]+)', \(select count\(\*\) from public\.([a-z_]+) t where t\.company_id = p_company_id\)/g)]
+    .filter((match) => match[1] === match[2])
+    .map((match) => match[2]);
+  assert.ok(countedTables.includes("payroll_import_templates"), "preview must count import templates");
+  // Schedule versions disappear by cascading with their parent schedule.
+  const cascadedTables = new Set(["payroll_schedule_versions"]);
+  for (const table of countedTables) {
+    if (!cascadedTables.has(table)) {
+      assert.match(MIGRATION, new RegExp(`delete from public\\.${table}\\b`), `preview counts ${table} but apply never deletes it`);
+    }
+  }
+  // Batches are removed before their detected_template_id parent template.
+  const batchesDelete = MIGRATION.indexOf("delete from public.payroll_import_batches");
+  const templatesDelete = MIGRATION.indexOf("delete from public.payroll_import_templates");
+  assert.ok(batchesDelete !== -1, "apply must delete import batches");
+  assert.ok(templatesDelete > batchesDelete, "import templates must be deleted after their referencing batches");
+});

@@ -15,6 +15,10 @@
 -- The application recreates one canonical default schedule and calendar
 -- afterwards using its own domain code; no schedule logic lives here.
 
+-- The audit-event allowlist must only ever GROW: this list is the complete
+-- superset of every event accepted by migrations 105000, 122000, and 123000,
+-- plus PAYROLL_WORKSPACE_RESET. Narrowing it would violate existing rows
+-- (SQLSTATE 23514) on any database that already recorded AI credential events.
 alter table public.company_audit_events
   drop constraint if exists company_audit_events_event_type_check;
 alter table public.company_audit_events
@@ -23,6 +27,9 @@ alter table public.company_audit_events
     'USER_INVITED', 'INVITE_REVOKED', 'INVITE_ACCEPTED',
     'MEMBER_ROLE_CHANGED', 'MEMBER_SUSPENDED', 'MEMBER_REACTIVATED', 'MEMBER_REVOKED',
     'PAYROLL_REPAIR_APPLIED', 'PAYROLL_CALENDAR_REBUILT', 'PAYROLL_UNAPPROVED_RESET',
+    'COMPANY_AI_CREDENTIAL_CONFIGURED', 'COMPANY_AI_CREDENTIAL_ROTATED',
+    'COMPANY_AI_CREDENTIAL_TESTED', 'COMPANY_AI_CREDENTIAL_ENABLED',
+    'COMPANY_AI_CREDENTIAL_DISABLED', 'COMPANY_AI_CREDENTIAL_REMOVED',
     'PAYROLL_WORKSPACE_RESET'
   ));
 
@@ -142,6 +149,11 @@ begin
 
   v_counts := private.payroll_workspace_reset_counts(p_company_id);
 
+  -- Flush any trigger events queued by statements that ran earlier in this
+  -- transaction before taking AccessExclusiveLocks; Postgres refuses
+  -- ALTER TABLE on a table with pending trigger events.
+  execute 'SET CONSTRAINTS ALL IMMEDIATE';
+
   -- Explicit destructive recovery may remove finalized rows, so the domain
   -- lifecycle guards are suspended for exactly this transaction scope.
   alter table public.payroll_periods disable trigger scheduled_payroll_period_mutation_guard;
@@ -161,7 +173,13 @@ begin
   delete from public.payroll_import_rows pir where pir.company_id = p_company_id;
   delete from public.payroll_entries e where e.company_id = p_company_id;
   delete from public.payroll_runs r where r.company_id = p_company_id;
+  -- Batches must go before their detected_template_id parent; the template FK
+  -- is ON DELETE SET NULL, but removing batches first keeps template deletion
+  -- a pure company-scoped delete with no cross-table side effects.
   delete from public.payroll_import_batches b where b.company_id = p_company_id;
+  -- Templates are part of the payroll/import domain: preview counts them, so
+  -- apply must delete them too (full factory reset, matching the preview).
+  delete from public.payroll_import_templates t where t.company_id = p_company_id;
   delete from public.work_entries w where w.company_id = p_company_id;
   delete from public.attendance_records a where a.company_id = p_company_id;
   delete from public.overtime_requests o where o.company_id = p_company_id;
