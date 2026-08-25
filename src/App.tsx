@@ -39,7 +39,7 @@ import { buildDashboardViewData } from "./utils/dashboardViewModel";
 import { buildProjectDashboardViewData } from "./utils/projectDashboardViewModel";
 import { calculatePayrollRunFromWorkEntries } from "./lib/payrollCalculation";
 import { transitionLeaveRequest } from "./lib/payrollWorkforce";
-import { buildAutomaticPayrollDraft, createDefaultPayrollSchedule, dateOnly, ensurePayrollPeriodsAndRuns, payrollDraftToRecords } from "./lib/payrollWorkflow";
+import { buildAutomaticPayrollDraft, createDefaultPayrollSchedule, dateOnly, ensurePayrollPeriodsAndRuns, payrollDraftToRecords, analyzePayrollScheduleBootstrapCompatibility } from "./lib/payrollWorkflow";
 import { useCompanyAccess } from "./context/CompanyAccessContext.tsx";
 import { companyApiRequest } from "./lib/companyApi.ts";
 import type { PayrollSchedule } from "./lib/payrollSchedule";
@@ -825,20 +825,53 @@ function InvoiceWorkspace() {
       payrollAutomationKeyRef.current = `seed:${schedules[0]!.id}`;
       return;
     }
-    const activeSchedule = selectPrimaryPayrollSchedule(snapshot.schedules);
+const activeSchedule = selectPrimaryPayrollSchedule(snapshot.schedules);
     if (!activeSchedule) {
       setPayrollPeriodPreparationState("NO_SCHEDULE");
       return;
     }
+
+    // Check for legacy default schedule compatibility and repair if safe
     const today = dateOnly();
-    const key = `${session?.user?.id || "guest"}:${today}:${activeSchedule.id}:${snapshot.periods.length}:${snapshot.runs.length}`;
+    let scheduleForGeneration = activeSchedule;
+    if (userId && supabase) {
+      const compatibility = analyzePayrollScheduleBootstrapCompatibility(activeSchedule, today, {
+        periods: snapshot.periods,
+        runs: snapshot.runs,
+        entries: snapshot.entries,
+        workEntries: snapshot.workEntries,
+        importBatches: payrollImportData.batches,
+        adjustments: snapshot.adjustments,
+        attendanceRecords: snapshot.attendanceRecords,
+        leaveRequests: snapshot.leaveRequests,
+        overtimeRequests: snapshot.overtimeRequests,
+      });
+      if (compatibility.repaired) {
+        scheduleForGeneration = compatibility.schedule;
+        // Persist the corrected schedule immediately so generated periods reference the correct version
+        void (async () => {
+          try {
+            const saved = await savePayrollScheduleToSupabase(compatibility.schedule);
+            scheduleForGeneration = saved;
+            // Update local snapshot with corrected schedule
+            const correctedSchedules = snapshot.schedules.map((s) => (s.id === activeSchedule.id ? saved : s));
+            const correctedSnapshot = { ...snapshot, schedules: correctedSchedules };
+            payrollDataRef.current = correctedSnapshot;
+            setPayrollData(correctedSnapshot);
+          } catch (error) {
+            showNotification("info", userFacingError(error, "Schedule repaired locally but could not be persisted; periods will reference local correction."));
+          }
+        })();
+      }
+    }
+    const key = `${session?.user?.id || "guest"}:${today}:${scheduleForGeneration.id}:${snapshot.periods.length}:${snapshot.runs.length}`;
     if (payrollAutomationKeyRef.current === key) return;
     payrollAutomationKeyRef.current = key;
     setPayrollPeriodPreparationState("PREPARING");
     let ensured: ReturnType<typeof ensurePayrollPeriodsAndRuns>;
     try {
       ensured = ensurePayrollPeriodsAndRuns({
-        schedules: [activeSchedule],
+        schedules: [scheduleForGeneration],
         periods: snapshot.periods,
         runs: snapshot.runs,
         entries: snapshot.entries,

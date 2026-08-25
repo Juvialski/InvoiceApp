@@ -15,8 +15,10 @@ import type {
 } from "../types.ts";
 import {
   generatePayrollPeriodsAroundReference,
+  generatePayrollPeriod,
   mergeGeneratedPayrollPeriods,
   selectCurrentPayrollPeriod,
+  getPayrollScheduleVersions,
   type PayrollSchedule,
   type PayrollScheduleVersion,
   type ScheduledPayrollPeriod,
@@ -135,6 +137,161 @@ export function createDefaultPayrollSchedule(referenceDate = dateOnly()): Payrol
     automationMode: "ASSISTED",
     active: true,
     versions: [{ id: versionId, scheduleId, version: 1, effectiveFrom, frequency: "SEMI_MONTHLY", customCutoffDay: 15, payDateRule: { type: "BUSINESS_DAYS", offsetDays: 2 }, autoGeneratePeriods: true, autoCalculate: false, autoCreateRuns: true, autoSelectCurrentPeriod: true, automationMode: "ASSISTED", active: true }],
+  };
+}
+
+export interface PayrollScheduleCompatibilityResult {
+  schedule: PayrollSchedule;
+  repaired: boolean;
+  reason: string;
+}
+
+/**
+ * Analyzes a payroll schedule for legacy default bootstrap compatibility.
+ *
+ * InvoiceApp versions before the payroll automation fix created default
+ * semi-monthly schedules with effectiveFrom set to the reference date
+ * (e.g., 2026-08-25) instead of the period start (2026-08-16). This
+ * prevented period generation because the domain engine refuses to
+ * emit partial periods before a version's effectiveFrom.
+ *
+ * This helper detects that specific legacy pattern and returns a
+ * corrected schedule when it is safe to do so. User-authored schedules
+ * with intentional mid-period effective dates are never modified.
+ */
+export function analyzePayrollScheduleBootstrapCompatibility(
+  schedule: PayrollSchedule,
+  referenceDate: string,
+  context: {
+    periods: readonly PayrollPeriod[];
+    runs: readonly PayrollRun[];
+    entries: readonly PayrollEntry[];
+    workEntries: readonly WorkEntry[];
+    importBatches?: readonly PayrollImportBatch[];
+    adjustments?: readonly PayrollAdjustment[];
+    attendanceRecords?: readonly AttendanceRecord[];
+    leaveRequests?: readonly LeaveRequest[];
+    overtimeRequests?: readonly OvertimeRequest[];
+  },
+): PayrollScheduleCompatibilityResult {
+  // Only consider active schedules that auto-generate periods
+  if (!schedule.active || !schedule.autoGeneratePeriods) {
+    return { schedule, repaired: false, reason: "Schedule is not active or does not auto-generate periods." };
+  }
+
+  // Only the standard semi-monthly default created by InvoiceApp is eligible
+  const isStandardDefault =
+    schedule.name === "Standard semi-monthly payroll" &&
+    schedule.frequency === "SEMI_MONTHLY" &&
+    schedule.payDateRule?.type === "BUSINESS_DAYS" &&
+    schedule.payDateRule?.offsetDays === 2 &&
+    schedule.autoCreateRuns === true &&
+    schedule.automationMode === "ASSISTED";
+
+  if (!isStandardDefault) {
+    return { schedule, repaired: false, reason: "Schedule does not match the InvoiceApp standard default profile." };
+  }
+
+  // A legacy default has effectiveFrom on a mid-period date (not 1st or 16th)
+  const scheduleDay = Number(schedule.effectiveFrom.slice(8, 10));
+  const isMidPeriodEffective = scheduleDay !== 1 && scheduleDay !== 16;
+  if (!isMidPeriodEffective) {
+    return { schedule, repaired: false, reason: "Schedule effectiveFrom is already at a period boundary." };
+  }
+
+  // The active version must also have the same mid-period effectiveFrom
+  const versions = getPayrollScheduleVersions(schedule);
+  const activeVersion = versions.find((v) => v.active && v.version === 1);
+  if (!activeVersion) {
+    return { schedule, repaired: false, reason: "No active initial version found." };
+  }
+  const versionDay = Number(activeVersion.effectiveFrom.slice(8, 10));
+  if (versionDay !== scheduleDay) {
+    return { schedule, repaired: false, reason: "Schedule and version effectiveFrom dates are inconsistent." };
+  }
+
+  // The canonical period for the reference date using a synthetic version
+  // with the corrected period-boundary effectiveFrom. The actual version
+  // has a mid-period effectiveFrom which prevents generation, so we
+  // compute what the period would be if effectiveFrom were at the boundary.
+  const correctedEffectiveFrom = `${referenceDate.slice(0, 8)}${scheduleDay <= 15 ? "01" : "16"}`;
+  const syntheticVersion: PayrollScheduleVersion = {
+    ...activeVersion,
+    effectiveFrom: correctedEffectiveFrom,
+  };
+  const canonicalPeriod = generatePayrollPeriod(syntheticVersion, referenceDate);
+  if (!canonicalPeriod) {
+    return { schedule, repaired: false, reason: "Cannot determine canonical period for reference date." };
+  }
+  // Use the synthetic period's start as the corrected effectiveFrom
+  const finalCorrectedEffectiveFrom = canonicalPeriod.periodStart;
+
+  // Safety checks: no protected data would be affected by backdating
+  const lifecycleContext = {
+    runs: context.runs,
+    entries: context.entries,
+    workEntries: context.workEntries,
+    importBatches: context.importBatches,
+    adjustments: context.adjustments,
+    attendanceRecords: context.attendanceRecords,
+    leaveRequests: context.leaveRequests,
+    overtimeRequests: context.overtimeRequests,
+  };
+
+  // Helper for date comparison (ISO dates compare lexicographically)
+  const dateBefore = (a: string, b: string) => a < b;
+  const dateAfterOrEqual = (a: string, b: string) => a >= b;
+
+  // 1. No data-bearing period exists before the corrected boundary
+  const hasEarlierDataBearingPeriod = context.periods.some((period) => {
+    if (period.scheduleId !== schedule.id) return false;
+    if (dateAfterOrEqual(period.periodEnd, correctedEffectiveFrom)) return false;
+    return isPayrollPeriodDataBearing(period, lifecycleContext);
+  });
+  if (hasEarlierDataBearingPeriod) {
+    return { schedule, repaired: false, reason: "Earlier data-bearing periods exist; cannot backdate." };
+  }
+
+  // 2. No finalized/paid/approved periods depend on the current effectiveFrom
+  const hasFinalizedPeriodAtCurrentBoundary = context.periods.some((period) => {
+    if (period.scheduleId !== schedule.id) return false;
+    if (period.periodStart !== schedule.effectiveFrom) return false;
+    return ["APPROVED", "PAID"].includes(period.status) || Boolean(period.lockedAt);
+  });
+  if (hasFinalizedPeriodAtCurrentBoundary) {
+    return { schedule, repaired: false, reason: "Finalized period exists at current effective boundary; cannot backdate." };
+  }
+
+  // 3. No worker/payroll source records would be reinterpreted
+  const hasSourceRecordsBeforeCorrected = context.workEntries.some((entry) => {
+    if (entry.periodId) return false; // Only unattached entries could be reinterpreted
+    return dateAfterOrEqual(entry.workDate, correctedEffectiveFrom) && dateBefore(entry.workDate, schedule.effectiveFrom);
+  });
+  if (hasSourceRecordsBeforeCorrected) {
+    return { schedule, repaired: false, reason: "Source records exist in the backdated window; cannot backdate." };
+  }
+
+  // 4. Current generated horizon is empty because effectiveFrom falls inside the canonical period
+  const currentGenerated = generatePayrollPeriodsAroundReference(schedule, referenceDate, { previous: 2, next: 2 });
+  if (currentGenerated.length > 0) {
+    return { schedule, repaired: false, reason: "Periods already generate correctly; no repair needed." };
+  }
+
+  // All safety checks passed: construct corrected schedule
+  const correctedSchedule: PayrollSchedule = {
+    ...schedule,
+    effectiveFrom: correctedEffectiveFrom,
+    versions: schedule.versions?.map((version) =>
+      version.version === 1 && version.effectiveFrom === schedule.effectiveFrom
+        ? { ...version, effectiveFrom: correctedEffectiveFrom }
+        : version
+    ) || [],
+  };
+
+  return {
+    schedule: correctedSchedule,
+    repaired: true,
+    reason: `Legacy default schedule repaired: effectiveFrom ${schedule.effectiveFrom} → ${correctedEffectiveFrom}`,
   };
 }
 
