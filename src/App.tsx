@@ -75,7 +75,7 @@ import {
 import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
 import { canTransitionPayrollRun, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
 import { selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
-import { applyPayrollMaintenance as applyPayrollMaintenanceRpc, localMaintenanceResult, planLocalPayrollMaintenance, previewPayrollMaintenance as previewPayrollMaintenanceRpc, type PayrollMaintenanceAction, type PayrollMaintenancePreview } from "./lib/payrollMaintenance";
+  import { applyPayrollMaintenance as applyPayrollMaintenanceRpc, applyPayrollWorkspaceReset as applyPayrollWorkspaceResetRpc, localMaintenanceResult, planLocalPayrollMaintenance, previewPayrollMaintenance as previewPayrollMaintenanceRpc, previewPayrollWorkspaceReset as previewPayrollWorkspaceResetRpc, assertPayrollWorkspaceResetConfirmation, type PayrollMaintenanceAction, type PayrollMaintenancePreview, type PayrollWorkspaceResetPreview } from "./lib/payrollMaintenance";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
 import { fingerprintPayrollSources, validatePayrollRunSourceRevision } from "./lib/payrollSourceRevision";
 import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
@@ -200,7 +200,7 @@ function userFacingError(error: unknown, fallback: string) {
 }
 
 type PayrollWorkspaceLoadState = "idle" | "loading" | "loaded" | "failed";
-type PayrollPeriodPreparationState = "NO_SCHEDULE" | "PREPARING" | "READY" | "FAILED";
+type PayrollPeriodPreparationState = "NO_SCHEDULE" | "PREPARING" | "SYNCING" | "READY" | "FAILED";
 
 function initialAppLocation(): AppLocation {
   if (typeof window === "undefined") return parseAppLocation(DEFAULT_ROUTE_PATH);
@@ -296,6 +296,7 @@ function InvoiceWorkspace() {
   const payrollBootstrapInFlightRef = useRef<Promise<void> | null>(null);
   const payrollBootstrapPersistedUsersRef = useRef(new Set<string>());
   const payrollRepairInFlightRef = useRef<Promise<void> | null>(null);
+  const payrollCalendarPersistInFlightRef = useRef<Promise<void> | null>(null);
   const [workspaceSyncStatus, setWorkspaceSyncStatus] = useState<WorkspaceSyncStatus>(isSupabaseConfigured ? "connecting" : "guest");
   const workspaceSyncControllerRef = useRef<WorkspaceSyncController | null>(null);
   const initialWorkspaceLoadRef = useRef<Promise<void> | null>(null);
@@ -439,6 +440,7 @@ function InvoiceWorkspace() {
     payrollAutomationKeyRef.current = "";
     payrollBootstrapInFlightRef.current = null;
     payrollRepairInFlightRef.current = null;
+    payrollCalendarPersistInFlightRef.current = null;
     setPayrollWorkspaceLoadState(isSupabaseConfigured ? "loading" : "idle");
     setPayrollPeriodPreparationState(isSupabaseConfigured ? "PREPARING" : "READY");
     setPayrollRefreshing(false);
@@ -453,6 +455,7 @@ function InvoiceWorkspace() {
 
   const retryPayrollPeriodPreparation = () => {
     payrollAutomationKeyRef.current = "";
+    payrollCalendarPersistInFlightRef.current = null;
     setPayrollPeriodPreparationState("PREPARING");
     setPayrollWorkspaceLoadState((state) => state === "failed" ? "loaded" : state);
     setPayrollGenerationRetry((value) => value + 1);
@@ -888,7 +891,7 @@ function InvoiceWorkspace() {
       setPayrollData(base);
     }
     const key = `${session?.user?.id || "guest"}:${today}:${activeSchedule.id}:${base.periods.length}:${base.runs.length}`;
-    if (payrollAutomationKeyRef.current === key) return;
+    if (payrollCalendarPersistInFlightRef.current || payrollAutomationKeyRef.current === key) return;
     payrollAutomationKeyRef.current = key;
     setPayrollPeriodPreparationState("PREPARING");
     let ensured: ReturnType<typeof ensurePayrollPeriodsAndRuns>;
@@ -921,20 +924,42 @@ function InvoiceWorkspace() {
       setPayrollPeriodPreparationState("READY");
       return;
     }
-    const next = { ...base, periods: ensured.periods, runs: ensured.runs };
-    payrollDataRef.current = next;
-    setPayrollData(next);
-    setPayrollPeriodPreparationState("READY");
-    if (session && supabase) {
-      void (async () => {
-        try {
-          for (const period of ensured.periods.filter((item) => item.autoGenerated && (!base.periods.some((old) => old.id === item.id && old.status === item.status && old.payDate === item.payDate && old.scheduleVersionId === item.scheduleVersionId && old.lockedAt === item.lockedAt)))) await savePayrollPeriodToSupabase(period);
-          for (const run of ensured.runs.filter((item) => !base.runs.some((old) => old.id === item.id && old.status === item.status && old.notes === item.notes))) await savePayrollRunToSupabase(run);
-        } catch (error) {
-          showNotification("info", userFacingError(error, "Generated payroll periods are available locally; apply the latest payroll migration to sync them."));
-        }
-      })();
+    // Guest/local workspaces persist through the local storage effect, so the
+    // generated rows are already durable once state is applied. Authenticated
+    // workspaces must not report READY before Supabase holds the calendar.
+    if (!(session && supabase)) {
+      const next = { ...base, periods: ensured.periods, runs: ensured.runs };
+      payrollDataRef.current = next;
+      setPayrollData(next);
+      setPayrollPeriodPreparationState("READY");
+      return;
     }
+    const token = currentWorkspaceLoadToken();
+    if (!token || token.generation !== workspaceGenerationRef.current || token.userId !== userId) return;
+    setPayrollPeriodPreparationState("SYNCING");
+    // Persist BEFORE applying locally: a failed write leaves the snapshot
+    // untouched so Retry recomputes exactly the same missing rows instead of
+    // mistaking optimistic in-memory periods for durable accounting data.
+    const persistCalendar = (async () => {
+      try {
+        for (const period of ensured.periods.filter((item) => item.autoGenerated && (!base.periods.some((old) => old.id === item.id && old.status === item.status && old.payDate === item.payDate && old.scheduleVersionId === item.scheduleVersionId && old.lockedAt === item.lockedAt)))) await savePayrollPeriodToSupabase(period);
+        for (const run of ensured.runs.filter((item) => !base.runs.some((old) => old.id === item.id && old.status === item.status && old.notes === item.notes))) await savePayrollRunToSupabase(run);
+        if (!canApplyWorkspaceResult(token)) return;
+        // READY means reloaded from Supabase, never merely generated in memory.
+        await refreshWorkspaceGroups(["payroll"], token, { force: true, reason: "payroll-calendar-persisted" });
+        if (canApplyWorkspaceResult(token)) setPayrollPeriodPreparationState("READY");
+      } catch (error) {
+        payrollAutomationKeyRef.current = "";
+        if (canApplyWorkspaceResult(token)) {
+          setPayrollPeriodPreparationState("FAILED");
+          setPayrollWorkspaceLoadState("failed");
+          showNotification("error", userFacingError(error, "Generated payroll periods could not be persisted to Supabase."));
+        }
+      } finally {
+        if (payrollCalendarPersistInFlightRef.current === persistCalendar) payrollCalendarPersistInFlightRef.current = null;
+      }
+    })();
+    payrollCalendarPersistInFlightRef.current = persistCalendar;
   }, [activeTab, authResolved, workspaceLoading, payrollRefreshing, payrollWorkspaceLoadState, payrollGenerationRetry, session?.user?.id, payrollData.periods.length, payrollData.runs.length, payrollScheduleSignature, payrollImportData.batches.length]);
   useEffect(() => {
     if (activeTab !== "extractor") setUploadProjectContextId(null);
@@ -1536,6 +1561,44 @@ function InvoiceWorkspace() {
     payrollAutomationKeyRef.current = "";
     if (!plan.preview.noChanges) showNotification("success", maintenanceSuccessMessage(action));
     return localMaintenanceResult(plan);
+  };
+
+  const handlePreviewPayrollWorkspaceReset = async (): Promise<PayrollWorkspaceResetPreview> => {
+    assertPayrollMaintenancePermission();
+    if (!(session && supabase)) throw new Error("The payroll factory reset requires a connected company workspace.");
+    const token = currentWorkspaceLoadToken();
+    if (!token) throw new Error("Select a company before previewing the payroll factory reset.");
+    const result = await previewPayrollWorkspaceResetRpc(dateOnly(), token.companyId);
+    if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while the reset preview was loading.");
+    return result;
+  };
+
+  const handleApplyPayrollWorkspaceReset = async (confirmation?: string): Promise<PayrollWorkspaceResetPreview & { applied: boolean }> => {
+    assertPayrollMaintenancePermission();
+    assertPayrollWorkspaceResetConfirmation(confirmation);
+    if (!(session && supabase)) throw new Error("The payroll factory reset requires a connected company workspace.");
+    const token = currentWorkspaceLoadToken();
+    if (!token) throw new Error("Select a company before applying the payroll factory reset.");
+    try {
+      const result = await applyPayrollWorkspaceResetRpc(confirmation, dateOnly(), token.companyId);
+      if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while the payroll factory reset was running.");
+      // The workspace is intentionally empty here. Clear every bootstrap
+      // marker so the canonical default schedule is recreated from scratch,
+      // then reload from Supabase before declaring success.
+      payrollAutomationKeyRef.current = "";
+      payrollBootstrapPersistedUsersRef.current.delete(token.userId);
+      payrollBootstrapInFlightRef.current = null;
+      payrollRepairInFlightRef.current = null;
+      setPayrollPeriodPreparationState("PREPARING");
+      await refreshWorkspaceGroups(["payroll", "payroll-imports"], token, { force: true, reason: "payroll-workspace-reset" });
+      if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while the payroll factory reset was refreshing.");
+      showNotification("success", "Payroll workspace was reset for this company. A clean standard schedule is being prepared.");
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof Error && /changed while/.test(error.message)) throw error;
+      showNotification("error", userFacingError(error, "The payroll factory reset failed and nothing was changed."));
+      throw error;
+    }
   };
   const handleSaveCompensationProfile = async (profile: WorkerCompensationProfile) => {
     try {
@@ -2501,7 +2564,7 @@ function InvoiceWorkspace() {
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={handleSignOut} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
-        {workspaceRouteVisible && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} adjustments={payrollData.adjustments} workEntries={payrollData.workEntries} attendanceRecords={payrollData.attendanceRecords || []} leaveRequests={payrollData.leaveRequests || []} overtimeRequests={payrollData.overtimeRequests || []} holidays={payrollData.holidays || []} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} periodPreparationState={payrollPeriodPreparationState} onRetryPeriodPreparation={retryPayrollPeriodPreparation} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)} canManagePayrollMaintenance={payrollMaintenanceAllowed} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSaveAttendance={(record) => void handleSaveAttendance(record)} onSaveAttendanceBatch={(records) => void handleSaveAttendanceBatch(records)} onSaveLeave={(request) => void handleSaveLeave(request)} onSaveOvertime={(request) => void handleSaveOvertime(request)} onSaveHoliday={(holiday) => void handleSaveHoliday(holiday)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} onPreviewPayrollMaintenance={(action) => handlePreviewPayrollMaintenance(action)} onApplyPayrollMaintenance={(action, confirmation) => handleApplyPayrollMaintenance(action, confirmation)} />}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} adjustments={payrollData.adjustments} workEntries={payrollData.workEntries} attendanceRecords={payrollData.attendanceRecords || []} leaveRequests={payrollData.leaveRequests || []} overtimeRequests={payrollData.overtimeRequests || []} holidays={payrollData.holidays || []} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} periodPreparationState={payrollPeriodPreparationState} onRetryPeriodPreparation={retryPayrollPeriodPreparation} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)} canManagePayrollMaintenance={payrollMaintenanceAllowed} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSaveAttendance={(record) => void handleSaveAttendance(record)} onSaveAttendanceBatch={(records) => void handleSaveAttendanceBatch(records)} onSaveLeave={(request) => void handleSaveLeave(request)} onSaveOvertime={(request) => void handleSaveOvertime(request)} onSaveHoliday={(holiday) => void handleSaveHoliday(holiday)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} onPreviewPayrollMaintenance={(action) => handlePreviewPayrollMaintenance(action)} onApplyPayrollMaintenance={(action, confirmation) => handleApplyPayrollMaintenance(action, confirmation)} onPreviewFactoryReset={() => handlePreviewPayrollWorkspaceReset()} onApplyFactoryReset={(confirmation) => handleApplyPayrollWorkspaceReset(confirmation)} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "vendors" && <Vendors invoices={invoices} />}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><PayrollOperatingCosts runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}

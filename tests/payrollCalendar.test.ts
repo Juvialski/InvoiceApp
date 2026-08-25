@@ -12,6 +12,7 @@ import {
   getPayrollPeriodSlices,
   getRunStatus,
   getPeriodIntersection,
+  isActiveCalendarPeriod,
   mondayFirstWeekday,
   formatPayrollPeriodLabel,
   findPayrollCalendarConflicts,
@@ -238,4 +239,40 @@ test("uses local calendar fields for today instead of UTC date conversion", () =
 
   assert.equal(getLocalToday(localMidnight), expected);
   assert.equal(getLocalToday(new Date(2028, 1, 29, 23, 59, 59, 999)), "2028-02-29");
+});
+
+test("VOID legacy periods never drive active month-calendar semantics", () => {
+  const active = period("active-current", "2026-08-16", "2026-08-31", "2026-09-02", "OPEN");
+  // Reproduces the corrupted workspace: dozens of overlapping retired rows.
+  const voidLegions = Array.from({ length: 47 }, (_, index) =>
+    period(`void-${index}`, "2026-08-01", "2026-08-31", "2026-09-01", "VOID"));
+  const periods = [active, ...voidLegions];
+
+  assert.equal(isActiveCalendarPeriod(active), true);
+  assert.equal(isActiveCalendarPeriod(voidLegions[0]!), false);
+
+  const grid = buildPayrollMonthGrid(2026, 8, { today: "2026-08-25", fixedWeeks: false, periods });
+  const day = grid.days.find((candidate) => candidate.date === "2026-08-25")!;
+  assert.deepEqual(day.periodIds, ["active-current"]);
+  assert.deepEqual(day.periodSlices.map((slice) => slice.periodId), ["active-current"]);
+  assert.equal(day.cutoffMarkers.every((marker) => marker.periodId === "active-current"), true);
+  assert.equal(day.payDateMarkers.length, 0);
+
+  const cutoffDay = grid.days.find((candidate) => candidate.date === "2026-08-31")!;
+  assert.deepEqual(cutoffDay.cutoffMarkers.map((marker) => marker.periodId), ["active-current"]);
+  assert.deepEqual(grid.days.find((candidate) => candidate.date === "2026-08-16")!.periodIds, ["active-current"]);
+
+  // VOID-only days show nothing at all.
+  const beforeSchedule = buildPayrollMonthGrid(2026, 7, { today: "2026-07-20", fixedWeeks: false });
+  assert.equal(beforeSchedule.days.filter((candidate) => candidate.isCurrentMonth).every((candidate) => candidate.periodIds.length === 0 && candidate.cutoffMarkers.length === 0 && candidate.payDateMarkers.length === 0), true);
+
+  assert.equal(findPayrollCalendarConflicts(periods).length, 0);
+  assert.deepEqual(getPayrollPeriodSlices(periods, 2026, 8).map((slice) => slice.periodId), ["active-current"]);
+  assert.deepEqual(getCutoffMarkers(periods, { year: 2026, month: 8 }).map((marker) => marker.periodId), ["active-current"]);
+  assert.deepEqual(getPayDateMarkers([...periods, period("active-sep-pay", "2026-09-01", "2026-09-15", "2026-08-20", "DRAFT")], { year: 2026, month: 8 }).map((marker) => marker.date), ["2026-08-20"]);
+
+  // An overlapping ACTIVE duplicate still renders and still conflicts.
+  const activeDuplicate = period("active-overlap", "2026-08-20", "2026-09-05", undefined, "DRAFT");
+  assert.deepEqual(buildPayrollMonthGrid(2026, 8, { today: "2026-08-25", fixedWeeks: false, periods: [active, activeDuplicate] }).days.find((candidate) => candidate.date === "2026-08-25")!.periodIds.sort(), ["active-current", "active-overlap"]);
+  assert.equal(findPayrollCalendarConflicts([active, activeDuplicate]).length, 1);
 });

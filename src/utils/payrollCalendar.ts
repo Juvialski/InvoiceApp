@@ -243,6 +243,15 @@ export function formatPayrollPeriodLabel(period: Pick<PayrollPeriod, "periodStar
   return `${startLabel}–${endLabel}${startDate.getUTCFullYear() === endDate.getUTCFullYear() ? `, ${endDate.getUTCFullYear()}` : ` ${endDate.getUTCFullYear()}`}`;
 }
 
+/**
+ * Active calendar semantics: VOID periods are retired history. They must not
+ * drive day counts, slices, markers, conflicts, or selection on the active
+ * calendar, while explicit history surfaces may still list them.
+ */
+export function isActiveCalendarPeriod(period: CalendarPeriod): boolean {
+  return period.status !== "VOID";
+}
+
 export interface PayrollCalendarConflict {
   periodIds: string[];
   overlapStart: DateOnly;
@@ -250,7 +259,7 @@ export interface PayrollCalendarConflict {
 }
 
 export function findPayrollCalendarConflicts(periods: readonly CalendarPeriod[]): PayrollCalendarConflict[] {
-  const active = sortedPeriods(periods).filter((period) => period.status !== "VOID");
+  const active = sortedPeriods(periods).filter(isActiveCalendarPeriod);
   const conflicts: PayrollCalendarConflict[] = [];
   for (let leftIndex = 0; leftIndex < active.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < active.length; rightIndex += 1) {
@@ -290,7 +299,7 @@ export function getPeriodIntersection(period: CalendarPeriod, month: { year: num
 }
 
 export function getPayrollPeriodSlices(periods: readonly CalendarPeriod[], year: number, month: number): PayrollPeriodSlice[] {
-  return sortedPeriods(periods).flatMap((period) => { const slice = getPeriodIntersection(period, { year, month }); return slice ? [slice] : []; });
+  return sortedPeriods(periods).filter(isActiveCalendarPeriod).flatMap((period) => { const slice = getPeriodIntersection(period, { year, month }); return slice ? [slice] : []; });
 }
 
 export const periodSlicesForMonth = getPayrollPeriodSlices;
@@ -298,7 +307,7 @@ export const intersectPayrollPeriod = getPeriodIntersection;
 
 export function getCutoffMarkers(periods: readonly CalendarPeriod[], month?: { year: number; month: number }): PayrollCutoffMarker[] {
   const bounds = month ? monthBounds(month.year, month.month) : undefined;
-  return sortedPeriods(periods).flatMap((period) => {
+  return sortedPeriods(periods).filter(isActiveCalendarPeriod).flatMap((period) => {
     const markers: PayrollCutoffMarker[] = [{ date: period.periodEnd, periodId: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, kind: "PERIOD_END" }];
     return bounds ? markers.filter((marker) => marker.date >= bounds.start && marker.date <= bounds.end) : markers;
   });
@@ -308,7 +317,7 @@ export const getPayrollCutoffMarkers = getCutoffMarkers;
 
 export function getPayDateMarkers(periods: readonly CalendarPeriod[], month?: { year: number; month: number }): PayrollPayDateMarker[] {
   const bounds = month ? monthBounds(month.year, month.month) : undefined;
-  return sortedPeriods(periods).flatMap((period) => period.payDate ? [{ date: period.payDate, periodId: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, kind: "PAY_DATE" as const }] : []).filter((marker) => !bounds || (marker.date >= bounds.start && marker.date <= bounds.end));
+  return sortedPeriods(periods).filter(isActiveCalendarPeriod).flatMap((period) => period.payDate ? [{ date: period.payDate, periodId: period.id, periodStart: period.periodStart, periodEnd: period.periodEnd, kind: "PAY_DATE" as const }] : []).filter((marker) => !bounds || (marker.date >= bounds.start && marker.date <= bounds.end));
 }
 
 export const getPayrollPayDateMarkers = getPayDateMarkers;
@@ -399,7 +408,7 @@ function dayRecord(date: DateOnly, monthStart: DateOnly, monthEnd: DateOnly, per
 /** Generates a Monday-first grid from actual payroll period records. */
 export function buildPayrollMonthGrid(year: number, month: number, options: PayrollMonthGridOptions = {}): PayrollMonthGrid {
   const bounds = monthBounds(year, month);
-  const periods = sortedPeriods(options.periods || []);
+  const periods = sortedPeriods(options.periods || []).filter(isActiveCalendarPeriod);
   const today = dateOnly(options.today);
   const leading = mondayFirstWeekday(bounds.start);
   const trailing = 6 - mondayFirstWeekday(bounds.end);

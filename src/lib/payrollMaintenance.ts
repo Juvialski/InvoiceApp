@@ -10,6 +10,32 @@ export const PAYROLL_MAINTENANCE_ACTIONS = ["REPAIR", "REBUILD_CALENDAR", "RESET
 export type PayrollMaintenanceAction = (typeof PAYROLL_MAINTENANCE_ACTIONS)[number];
 export const RESET_UNAPPROVED_CONFIRMATION = "RESET UNAPPROVED PAYROLL";
 
+/**
+ * Full payroll/workforce domain reset for one company. Deliberately separate
+ * from PayrollMaintenanceAction: this is a recovery tool, not routine
+ * maintenance, and requires its own exact confirmation phrase.
+ */
+export const PAYROLL_WORKSPACE_RESET_CONFIRMATION = "RESET PAYROLL WORKSPACE";
+
+export interface PayrollWorkspaceResetPreview {
+  referenceDate: string;
+  counts: Record<string, number>;
+  totalRows: number;
+  eligible: boolean;
+}
+
+export class PayrollWorkspaceResetConfirmationError extends Error {
+  constructor() {
+    super(`Type ${PAYROLL_WORKSPACE_RESET_CONFIRMATION} to confirm the payroll workspace reset`);
+    this.name = "PayrollWorkspaceResetConfirmationError";
+  }
+}
+
+/** Case-sensitive gate; the destructive RPC re-checks the same phrase. */
+export function assertPayrollWorkspaceResetConfirmation(confirmation?: string) {
+  if (confirmation !== PAYROLL_WORKSPACE_RESET_CONFIRMATION) throw new PayrollWorkspaceResetConfirmationError();
+}
+
 export interface PayrollMaintenancePreview {
   action: PayrollMaintenanceAction;
   scheduleFrequency?: string;
@@ -331,6 +357,50 @@ export async function applyPayrollMaintenance(action: PayrollMaintenanceAction, 
   });
   if (error) throw error;
   return { ...payrollMaintenancePreviewFromResult(data), applied: true };
+}
+
+function resetCountsFromResult(value: unknown): Record<string, number> {
+  const source = objectResult(value).counts;
+  const counts: Record<string, number> = {};
+  if (source && typeof source === "object" && !Array.isArray(source)) {
+    for (const [table, count] of Object.entries(source as Record<string, unknown>)) counts[table] = numberValue(count);
+  }
+  return counts;
+}
+
+export function payrollWorkspaceResetPreviewFromResult(value: unknown): PayrollWorkspaceResetPreview {
+  const result = objectResult(value);
+  const counts = resetCountsFromResult(result);
+  return {
+    referenceDate: typeof result.referenceDate === "string" ? result.referenceDate : dateOnly(),
+    counts,
+    totalRows: Object.values(counts).reduce((sum, count) => sum + count, 0),
+    eligible: result.eligible !== false,
+  };
+}
+
+export async function previewPayrollWorkspaceReset(referenceDate = dateOnly(), companyId?: string): Promise<PayrollWorkspaceResetPreview> {
+  if (!supabase) throw new Error("The payroll factory reset requires a connected company workspace.");
+  const { data, error } = await supabase.rpc("preview_payroll_workspace_reset", {
+    p_company_id: companyId ?? requireActiveCompanyId(),
+    p_reference_date: referenceDate,
+  });
+  if (error) throw error;
+  return payrollWorkspaceResetPreviewFromResult(data);
+}
+
+export async function applyPayrollWorkspaceReset(confirmation: string | undefined, referenceDate = dateOnly(), companyId?: string): Promise<PayrollWorkspaceResetPreview & { applied: boolean }> {
+  // Refuse before touching any workspace context so a wrong phrase can never
+  // escalate into a data access or network call.
+  assertPayrollWorkspaceResetConfirmation(confirmation);
+  if (!supabase) throw new Error("The payroll factory reset requires a connected company workspace.");
+  const { data, error } = await supabase.rpc("apply_payroll_workspace_reset", {
+    p_company_id: companyId ?? requireActiveCompanyId(),
+    p_reference_date: referenceDate,
+    p_confirmation: confirmation || null,
+  });
+  if (error) throw error;
+  return { ...payrollWorkspaceResetPreviewFromResult(data), applied: true };
 }
 
 export { actionLabel };

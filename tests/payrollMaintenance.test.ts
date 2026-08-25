@@ -134,8 +134,8 @@ test("frontend modal, permissions, and migration contract cover the maintenance 
   const modal = readFileSync(new URL("../src/components/payroll/PayrollAdvancedTools.tsx", import.meta.url), "utf8");
   const migration = readFileSync(new URL("../supabase/migrations/20260824105000_payroll_maintenance_rpcs.sql", import.meta.url), "utf8");
   const access = readFileSync(new URL("../src/utils/accessControl.ts", import.meta.url), "utf8");
-  assert.match(modal, /const \[actionMode, setActionMode\] = useState<PayrollMaintenanceAction \| null>/);
-  assert.match(modal, /actionMode !== null/);
+  assert.match(modal, /const \[toolMode, setToolMode\] = useState<PayrollAdvancedTool \| null>/);
+  assert.match(modal, /toolMode !== null/);
   assert.doesNotMatch(modal, /previewMode/);
   assert.match(modal, /RESET UNAPPROVED PAYROLL/);
   assert.match(modal, /previewRequestRef/);
