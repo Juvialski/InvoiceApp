@@ -1579,9 +1579,13 @@ function InvoiceWorkspace() {
     if (!(session && supabase)) throw new Error("The payroll factory reset requires a connected company workspace.");
     const token = currentWorkspaceLoadToken();
     if (!token) throw new Error("Select a company before applying the payroll factory reset.");
+    // Once the server confirms the reset, failure messages must never claim
+    // that "nothing was changed": only the post-reset reload may still fail.
+    let appliedOnServer = false;
     try {
       const result = await applyPayrollWorkspaceResetRpc(confirmation, dateOnly(), token.companyId);
       if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while the payroll factory reset was running.");
+      appliedOnServer = true;
       // The workspace is intentionally empty here. Clear every bootstrap
       // marker so the canonical default schedule is recreated from scratch,
       // then reload from Supabase before declaring success.
@@ -1596,7 +1600,9 @@ function InvoiceWorkspace() {
       return result;
     } catch (error: unknown) {
       if (error instanceof Error && /changed while/.test(error.message)) throw error;
-      showNotification("error", userFacingError(error, "The payroll factory reset failed and nothing was changed."));
+      showNotification("error", appliedOnServer
+        ? userFacingError(error, "The payroll workspace was reset on the server, but reloading the clean workspace failed. Retry preparing the payroll calendar to continue.")
+        : userFacingError(error, "The payroll factory reset failed and nothing was changed."));
       throw error;
     }
   };
