@@ -20,7 +20,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ops-table tbody tr { transition: background-color 120ms ease; }
 .ops-table tbody tr:hover { background: #f8fafc; }
 .ops-table td, .ops-table th { vertical-align: middle; }
+.ops-table { font-size: 0.875rem; line-height: 1.35rem; }
+.ops-table thead { font-size: 0.75rem; line-height: 1.1rem; }
 .ops-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+
+/* The first operations-workspace pass used micro-type as a default. Keep
+   metadata compact while making meaningful labels readable at a glance. */
+.text-\[9px\] { font-size: 0.6875rem !important; line-height: 1rem !important; }
+.text-\[10px\] { font-size: 0.75rem !important; line-height: 1.1rem !important; }
+.text-\[11px\] { font-size: 0.8125rem !important; line-height: 1.25rem !important; }
+.text-xs { font-size: 0.8125rem !important; line-height: 1.25rem !important; }
+.font-black { font-weight: 750 !important; }
 
 .verification-field-highlight {
   outline: 3px solid rgb(56 189 248 / 0.55);
@@ -34,6 +44,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   20% { box-shadow: 0 0 0 5px rgb(56 189 248 / 0.18); }
 }
 
-.field-label { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; }
-.field-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #fff; padding: 0.6rem 0.75rem; font-size: 0.75rem; color: #1e293b; }
+.field-label { display: block; font-size: 0.8125rem; line-height: 1.15rem; font-weight: 700; color: #475569; }
+.field-input { width: 100%; min-height: 2.625rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #fff; padding: 0.625rem 0.8rem; font-size: 0.875rem; line-height: 1.25rem; color: #1e293b; }
 .field-input:focus { outline: 2px solid rgba(99, 102, 241, 0.2); border-color: #818cf8; }

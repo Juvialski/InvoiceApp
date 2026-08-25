@@ -174,23 +174,6 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({ module,
   );
 };
 
-function pageContext(activeTab: AppTab) {
-  const contexts: Record<AppTab, { title: string; subtitle: string }> = {
-    dashboard: { title: "Executive dashboard", subtitle: "Company cost position and operational exceptions" },
-    projects: { title: "Projects", subtitle: "Project cost, supplier, labor, and expense context" },
-    extractor: { title: "Upload and extract", subtitle: "Bring source documents into the review workflow" },
-    inbox: { title: "Gmail inbox", subtitle: "Read-only invoice intake and import candidates" },
-    review: { title: "Review queue", subtitle: "Human verification for extracted records" },
-    invoices: { title: "Invoices", subtitle: "Search, allocate, and manage supplier records" },
-    payroll: { title: "Payroll and labor", subtitle: "Periods, work, approvals, and protected history" },
-    expenses: { title: "Expenses", subtitle: "Direct project costs and supporting receipts" },
-    vendors: { title: "Vendors", subtitle: "Supplier directory and invoice context" },
-    reports: { title: "Reports", subtitle: "Operational summaries with currency-safe totals" },
-    settings: { title: "Workspace settings", subtitle: "Regional preferences and company configuration" },
-  };
-  return contexts[activeTab];
-}
-
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest", accountEmail, onSignOut, companies = [], activeCompanyId, isPlatformOwner = false, onSelectCompany, onOpenPlatformManagement, visibleRouteIds, permissions }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [invoicesExpanded, setInvoicesExpanded] = useState(() => ["invoices", "extractor", "inbox", "review", "vendors"].includes(activeTab));
@@ -221,7 +204,11 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
     ? "Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in."
     : syncLabel;
   const accountHasActions = Boolean(accountEmail || onSignOut || navigation.settingsRoute || (isPlatformOwner && onOpenPlatformManagement));
-  const context = pageContext(activeTab);
+  const routeContext = activeModule
+    ? activeRouteId && activeRouteId !== activeModule.defaultRouteId
+      ? `${activeModule.label} / ${activeRoute?.label || "Workspace"}`
+      : activeModule.label
+    : activeRoute?.label || "Workspace";
 
   useEffect(() => {
     setMobileOpen(false);
@@ -319,18 +306,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
       </aside>
 
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur lg:ml-[17rem]">
-        <div className="flex min-h-16 items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
           <button type="button" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen}><Menu className="h-4 w-4" /></button>
           <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-indigo-600">Invoice Operations <span className="text-slate-300">/</span> {activeModule?.label || "Workspace"}</p>
-            <h1 className="truncate text-base font-black tracking-tight text-slate-950 sm:text-lg">{context.title}</h1>
-            <p className="hidden truncate text-[11px] font-medium text-slate-500 sm:block">{context.subtitle}</p>
+            <p className="truncate text-sm font-semibold text-slate-600 sm:text-base"><span className="font-bold text-slate-900">Invoice Operations</span><span className="mx-1.5 text-slate-300">/</span>{routeContext}</p>
           </div>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 pb-0.5">
-            <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[10px] font-bold ${syncStatus === "guest" ? "border-amber-200 bg-amber-50 text-amber-800" : syncStatus === "offline" || syncStatus === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`} title={syncTitle} aria-label={syncTitle}><SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} /><span className="hidden md:inline">{syncLabel}</span></div>
-            {invoicesCount > 0 && <button type="button" onClick={onBatchExportExcel} className="hidden items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-bold text-white shadow-sm hover:bg-indigo-700 sm:inline-flex"><Download aria-hidden="true" className="h-3.5 w-3.5" /> Export</button>}
+            <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold ${syncStatus === "guest" ? "border-amber-200 bg-amber-50 text-amber-800" : syncStatus === "offline" || syncStatus === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`} title={syncTitle} aria-label={syncTitle}><SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} /><span className="hidden md:inline">{syncLabel}</span></div>
+            {invoicesCount > 0 && <button type="button" onClick={onBatchExportExcel} className="hidden items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:inline-flex"><Download aria-hidden="true" className="h-3.5 w-3.5" /> Export</button>}
             {accountHasActions && <div className="relative shrink-0" ref={accountMenuRef}>
-              <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"} aria-expanded={accountOpen} aria-controls="header-account-menu" className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-bold text-slate-700 shadow-sm hover:border-indigo-200 hover:text-indigo-700"><UserCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" /><span className="hidden max-w-[9rem] truncate sm:inline">{accountEmail || "Account"}</span></button>
+              <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"} aria-expanded={accountOpen} aria-controls="header-account-menu" className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-indigo-200 hover:text-indigo-700"><UserCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" /><span className="hidden max-w-[9rem] truncate sm:inline">{accountEmail || "Account"}</span></button>
               {accountOpen && <div id="header-account-menu" role="menu" aria-label="Account menu" className="absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
                 {accountEmail && <p className="truncate px-2 py-1.5 text-[10px] font-bold text-slate-500">{accountEmail}</p>}
                 <p className="px-2 pb-1.5 text-[10px] font-semibold text-slate-400">Account / Workspace</p>

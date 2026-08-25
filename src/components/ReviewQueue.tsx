@@ -39,7 +39,7 @@ function reasonBadges(invoice: InvoiceData) {
 
 export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, onOpenInvoice, onStartReview }) => {
   const queue = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW"), [invoices]);
-  if (!queue.length) return <EmptyState icon={CheckCircle2} title="Review queue is clear" description="New Gmail and uploaded invoices with uncertainty or validation issues will appear here." />;
+  if (!queue.length) return <div className="space-y-5"><PageHeader eyebrow="Human verification" title="Review queue" description="Review the original source alongside the extraction, correct anything needed, then verify the record." /><EmptyState icon={CheckCircle2} title="Review queue is clear" description="New Gmail and uploaded invoices with uncertainty or validation issues will appear here." /></div>;
 
   return <div className="space-y-5">
     <PageHeader eyebrow="Human verification" title="Review queue" description="Review the original source alongside the extraction, correct anything needed, then verify the record." actions={<><span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900"><AlertTriangle className="h-3.5 w-3.5" /> {queue.length} awaiting action</span>{onStartReview && <button type="button" onClick={() => onStartReview(queue)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><FileSearch className="h-3.5 w-3.5" /> Start review</button>}</>} />
