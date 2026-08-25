@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { PayrollPeriodStatus, PayrollRunStatus } from "../src/types.ts";
 import type { PayrollImportBatch } from "../src/lib/payrollImportPersistence.ts";
 import {
@@ -275,4 +276,17 @@ test("VOID legacy periods never drive active month-calendar semantics", () => {
   const activeDuplicate = period("active-overlap", "2026-08-20", "2026-09-05", undefined, "DRAFT");
   assert.deepEqual(buildPayrollMonthGrid(2026, 8, { today: "2026-08-25", fixedWeeks: false, periods: [active, activeDuplicate] }).days.find((candidate) => candidate.date === "2026-08-25")!.periodIds.sort(), ["active-current", "active-overlap"]);
   assert.equal(findPayrollCalendarConflicts([active, activeDuplicate]).length, 1);
+});
+
+test("payroll page preparation banner keeps READY silent and treats WAITING_FOR_BOUNDARY as a distinct retryable alert", () => {
+  const page = readFileSync(new URL("../src/components/payroll/PayrollPageV2.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /periodPreparationState\?: "NO_SCHEDULE" \| "PREPARING" \| "SYNCING" \| "READY" \| "FAILED" \| "WAITING_FOR_BOUNDARY"/);
+  assert.match(page, /!selectedPeriod && periodPreparationState !== "READY" && </);
+  assert.match(page, /periodPreparationState === "FAILED" \|\| periodPreparationState === "WAITING_FOR_BOUNDARY" \? "alert" : "status"/);
+  assert.match(page, /Payroll calendar is waiting for a valid period/);
+  assert.match(page, /did not produce any payroll period yet/);
+  assert.match(page, /Open Payroll Schedule settings/);
+  const waitingRetry = page.match(/\(periodPreparationState === "FAILED" \|\| periodPreparationState === "WAITING_FOR_BOUNDARY"\) && onRetryPeriodPreparation/);
+  assert.ok(waitingRetry, "FAILED and WAITING_FOR_BOUNDARY must both wire the Retry button to onRetryPeriodPreparation");
 });

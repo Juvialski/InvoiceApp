@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   calculatePayrollPayDate,
+  findFirstGeneratablePayrollPeriod,
   generatePayrollPeriod,
   generatePayrollPeriodsAroundReference,
   mergeGeneratedPayrollPeriods,
@@ -11,6 +12,8 @@ import {
   type PayrollSchedule,
   type PayrollScheduleVersion,
 } from "../src/lib/payrollSchedule.ts";
+import { ensurePayrollPeriodsAndRuns } from "../src/lib/payrollWorkflow.ts";
+import type { PayrollEntry, PayrollPeriod, PayrollRun } from "../src/types.ts";
 
 function schedule(overrides: Partial<PayrollSchedule> = {}): PayrollSchedule {
   return {
@@ -38,6 +41,35 @@ function version(overrides: Partial<PayrollScheduleVersion> = {}): PayrollSchedu
     active: true,
     ...overrides,
   };
+}
+
+/** Mirrors the user-reported broken state: weekly schedule saved mid-cycle. */
+function weeklyUserSchedule(overrides: Partial<PayrollSchedule> = {}): PayrollSchedule {
+  return {
+    id: "schedule-1",
+    name: "Weekly payroll",
+    effectiveFrom: "2026-08-25",
+    frequency: "WEEKLY",
+    weekEndDay: 0,
+    payDateRule: { type: "BUSINESS_DAYS", offsetDays: 0 },
+    autoGeneratePeriods: true,
+    autoCalculate: false,
+    autoCreateRuns: true,
+    autoSelectCurrentPeriod: true,
+    automationMode: "AUTOMATED",
+    active: true,
+    ...overrides,
+  };
+}
+
+function weekdayOf(date: string): number {
+  return new Date(`${date}T00:00:00Z`).getUTCDay();
+}
+
+function daysInclusive(start: string, end: string): number {
+  const [startYear, startMonth, startDay] = start.split("-").map(Number);
+  const [endYear, endMonth, endDay] = end.split("-").map(Number);
+  return ((Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay)) / 86_400_000) + 1;
 }
 
 test("generates daily and anchored weekly periods around a reference date", () => {
@@ -149,4 +181,329 @@ test("period merge is idempotent and current selection prioritizes active curren
     { ...once[2]!, status: "DRAFT" },
   ], "2027-05-15");
   assert.equal(selected?.periodStart, "2027-05-01");
+});
+
+test("a weekly schedule saved mid-cycle continues from the first complete period instead of an empty horizon", () => {
+  const horizon = generatePayrollPeriodsAroundReference(weeklyUserSchedule(), "2026-08-25", { previous: 2, next: 2 });
+  assert.equal(horizon.length, 3, "the horizon must not collapse to empty when effectiveFrom falls mid-cycle");
+  assert.deepEqual(horizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-08-31", "2026-09-06"],
+    ["2026-09-07", "2026-09-13"],
+    ["2026-09-14", "2026-09-20"],
+  ]);
+  for (const period of horizon) {
+    assert.notEqual(period.periodStart, "2026-08-25", "no clipped period may start on the mid-cycle effectiveFrom date");
+    assert.equal(period.periodStart >= period.periodEnd, false);
+  }
+});
+
+test("no clipped transitional period is emitted inside the rejected cycle", () => {
+  const horizon = generatePayrollPeriodsAroundReference(weeklyUserSchedule(), "2026-08-25", { previous: 2, next: 2 });
+  assert.equal(horizon.some((period) => period.periodStart === "2026-08-25"), false);
+  assert.equal(horizon.some((period) => period.periodStart === "2026-08-24" && period.periodEnd === "2026-08-30"), false);
+  assert.equal(horizon.some((period) => period.periodStart < "2026-08-31"), false);
+});
+
+test("a mid-cycle effectiveFrom one day later still yields the same first complete week", () => {
+  const shifted = weeklyUserSchedule({ effectiveFrom: "2026-08-26" });
+  const horizon = generatePayrollPeriodsAroundReference(shifted, "2026-08-25", { previous: 2, next: 2 });
+  assert.equal(horizon.length, 3);
+  assert.deepEqual(horizon[0] && [horizon[0].periodStart, horizon[0].periodEnd], ["2026-08-31", "2026-09-06"]);
+  const found = findFirstGeneratablePayrollPeriod(shifted, "2026-08-25");
+  assert.deepEqual(found && [found.periodStart, found.periodEnd], ["2026-08-31", "2026-09-06"]);
+});
+
+test("generated periods carry the legacy schedule-level version identity", () => {
+  const horizon = generatePayrollPeriodsAroundReference(weeklyUserSchedule(), "2026-08-25", { previous: 2, next: 2 });
+  for (const period of horizon) {
+    assert.equal(period.scheduleId, "schedule-1");
+    assert.equal(period.scheduleVersionId, "schedule-1:v1", "legacy schedule-level config maps to ${scheduleId}:v1");
+    assert.equal(period.status, "DRAFT");
+    assert.equal(period.active, true);
+    assert.match(period.periodKey, /^schedule-1:schedule-1:v1:/);
+  }
+});
+
+test("findFirstGeneratablePayrollPeriod returns the first complete week directly for both mid-cycle variants", () => {
+  for (const effectiveFrom of ["2026-08-25", "2026-08-26"] as const) {
+    const found = findFirstGeneratablePayrollPeriod(weeklyUserSchedule({ effectiveFrom }), "2026-08-25");
+    assert.ok(found, `expected a first generatable period for effectiveFrom ${effectiveFrom}`);
+    assert.equal(found!.periodStart, "2026-08-31");
+    assert.equal(found!.periodEnd, "2026-09-06");
+    assert.equal(found!.scheduleVersionId, "schedule-1:v1");
+  }
+});
+
+test("weekly Friday-ending schedules skip the partial cycle and align to Friday ends", () => {
+  const friday = weeklyUserSchedule({ weekEndDay: 5 });
+  const horizon = generatePayrollPeriodsAroundReference(friday, "2026-08-25", { previous: 2, next: 3 });
+  assert.ok(horizon.length >= 3);
+  assert.deepEqual(horizon[0] && [horizon[0].periodStart, horizon[0].periodEnd], ["2026-08-29", "2026-09-04"], "the first complete cycle must end on the Friday after the mid-cycle effectiveFrom");
+  for (const period of horizon) {
+    assert.equal(daysInclusive(period.periodStart, period.periodEnd), 7);
+    assert.equal(weekdayOf(period.periodEnd), 5);
+  }
+});
+
+test("an effectiveFrom exactly on a valid period start generates the complete current week without skipping", () => {
+  // 2026-08-24 is a Monday and a Sunday-ending weekly boundary.
+  const aligned = weeklyUserSchedule({ effectiveFrom: "2026-08-24" });
+  const horizon = generatePayrollPeriodsAroundReference(aligned, "2026-08-25", { previous: 2, next: 2 });
+  assert.deepEqual(horizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-08-24", "2026-08-30"],
+    ["2026-08-31", "2026-09-06"],
+    ["2026-09-07", "2026-09-13"],
+  ]);
+  const found = findFirstGeneratablePayrollPeriod(aligned, "2026-08-25");
+  assert.deepEqual(found && [found.periodStart, found.periodEnd], ["2026-08-24", "2026-08-30"]);
+});
+
+test("semi-monthly schedules saved mid-cycle never emit the clipped half-month", () => {
+  const semiMonthly = weeklyUserSchedule({ frequency: "SEMI_MONTHLY", weekEndDay: undefined });
+  const horizon = generatePayrollPeriodsAroundReference(semiMonthly, "2026-08-25", { previous: 2, next: 2 });
+  assert.deepEqual(horizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-09-01", "2026-09-15"],
+    ["2026-09-16", "2026-09-30"],
+    ["2026-10-01", "2026-10-15"],
+  ]);
+  assert.equal(horizon.some((period) => period.periodStart === "2026-08-16" && period.periodEnd === "2026-08-31"), false);
+});
+
+test("monthly schedules saved mid-cycle never emit a partial August", () => {
+  const monthly = weeklyUserSchedule({ frequency: "MONTHLY", weekEndDay: undefined });
+  const horizon = generatePayrollPeriodsAroundReference(monthly, "2026-08-25", { previous: 2, next: 2 });
+  assert.deepEqual(horizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-09-01", "2026-09-30"],
+    ["2026-10-01", "2026-10-31"],
+    ["2026-11-01", "2026-11-30"],
+  ]);
+  assert.equal(horizon.some((period) => period.periodEnd === "2026-08-31"), false, "no partial August period may be generated");
+});
+
+test("biweekly anchored schedules skip the incomplete anchored cycle and stay on the anchor weekday", () => {
+  const biweekly = weeklyUserSchedule({
+    frequency: "BIWEEKLY",
+    anchorPeriodEnd: "2026-08-16",
+    effectiveFrom: "2026-08-20",
+    weekEndDay: undefined,
+  });
+  const horizon = generatePayrollPeriodsAroundReference(biweekly, "2026-08-25", { previous: 2, next: 2 });
+  assert.deepEqual(horizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-08-31", "2026-09-13"],
+    ["2026-09-14", "2026-09-27"],
+    ["2026-09-28", "2026-10-11"],
+  ]);
+  assert.equal(horizon.some((period) => period.periodEnd === "2026-08-30"), false, "the anchored cycle containing the mid-cycle effectiveFrom is incomplete and must be skipped");
+
+  const found = findFirstGeneratablePayrollPeriod(biweekly, "2026-08-25")!;
+  assert.deepEqual([found.periodStart, found.periodEnd], ["2026-08-31", "2026-09-13"]);
+
+  for (let index = 0; index < horizon.length; index += 1) {
+    const period = horizon[index]!;
+    assert.equal(weekdayOf(period.periodEnd), weekdayOf("2026-08-16"), "every anchored cycle ends on the anchor weekday");
+    if (index > 0) assert.equal(daysInclusive(horizon[index - 1]!.periodEnd, period.periodEnd), 15, "consecutive biweekly cycles are exactly 14 days apart");
+  }
+});
+
+test("length-based custom schedules skip the partial cycle and keep complete fixed-length cycles", () => {
+  const customLength = weeklyUserSchedule({
+    frequency: "CUSTOM",
+    customPeriodLengthDays: 10,
+    anchorPeriodEnd: "2026-08-16",
+    effectiveFrom: "2026-08-20",
+    weekEndDay: undefined,
+  });
+  const horizon = generatePayrollPeriodsAroundReference(customLength, "2026-08-25", { previous: 2, next: 2 });
+  assert.deepEqual(horizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-08-27", "2026-09-05"],
+    ["2026-09-06", "2026-09-15"],
+    ["2026-09-16", "2026-09-25"],
+  ]);
+  for (const period of horizon) assert.equal(daysInclusive(period.periodStart, period.periodEnd), 10);
+
+  const customCutoff = weeklyUserSchedule({ frequency: "CUSTOM", customCutoffDay: 20, weekEndDay: undefined });
+  const cutoffHorizon = generatePayrollPeriodsAroundReference(customCutoff, "2026-08-25", { previous: 2, next: 2 });
+  assert.deepEqual(cutoffHorizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-09-21", "2026-10-20"],
+    ["2026-10-21", "2026-11-20"],
+    ["2026-11-21", "2026-12-20"],
+  ]);
+  assert.equal(cutoffHorizon.some((period) => period.periodStart === "2026-08-21"), false, "the cutoff cycle already in progress must not be emitted as a partial");
+});
+
+test("daily schedules generate single-day periods from the effectiveFrom onward", () => {
+  const sameDay = weeklyUserSchedule({ frequency: "DAILY", weekEndDay: undefined });
+  const horizon = generatePayrollPeriodsAroundReference(sameDay, "2026-08-25", { previous: 2, next: 2 });
+  assert.deepEqual(horizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-08-25", "2026-08-25"],
+    ["2026-08-26", "2026-08-26"],
+    ["2026-08-27", "2026-08-27"],
+  ]);
+
+  const future = weeklyUserSchedule({ frequency: "DAILY", effectiveFrom: "2026-09-01", weekEndDay: undefined });
+  const futureHorizon = generatePayrollPeriodsAroundReference(future, "2026-08-25", { previous: 2, next: 2 });
+  assert.deepEqual(futureHorizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-09-01", "2026-09-01"],
+    ["2026-09-02", "2026-09-02"],
+    ["2026-09-03", "2026-09-03"],
+  ]);
+  assert.equal(futureHorizon.some((period) => period.periodStart < "2026-09-01"), false, "nothing may be generated before a future effectiveFrom");
+});
+
+test("version effectiveTo bounds the horizon and stops the forward search", () => {
+  const boundedVersion = version({
+    id: "schedule-1-v1",
+    version: 1,
+    effectiveFrom: "2026-08-25",
+    effectiveTo: "2026-09-30",
+    frequency: "WEEKLY",
+    weekEndDay: 0,
+    payDateRule: { type: "BUSINESS_DAYS", offsetDays: 0 },
+  });
+  const boundedSchedule = weeklyUserSchedule({ versions: [boundedVersion] });
+
+  assert.deepEqual(generatePayrollPeriodsAroundReference(boundedSchedule, "2026-08-25", { previous: 2, next: 4 }).map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-08-31", "2026-09-06"],
+    ["2026-09-07", "2026-09-13"],
+    ["2026-09-14", "2026-09-20"],
+    ["2026-09-21", "2026-09-27"],
+  ], "the horizon stops at the last complete cycle inside effectiveTo");
+  assert.deepEqual(generatePayrollPeriodsAroundReference(boundedVersion, "2026-08-25", { previous: 2, next: 4 }).map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-08-31", "2026-09-06"],
+    ["2026-09-07", "2026-09-13"],
+    ["2026-09-14", "2026-09-20"],
+    ["2026-09-21", "2026-09-27"],
+  ]);
+
+  assert.equal(findFirstGeneratablePayrollPeriod(boundedSchedule, "2026-10-05"), undefined, "past effectiveTo with no other versions there is nothing left to generate");
+});
+
+test("previous chains never reach before a mid-cycle effectiveFrom", () => {
+  const horizon = generatePayrollPeriodsAroundReference(weeklyUserSchedule(), "2026-08-25", { previous: 2, next: 2 });
+  for (const period of horizon) {
+    assert.ok(period.periodStart >= "2026-08-25", `no emitted period may start before the schedule effectiveFrom, got ${period.periodStart}`);
+  }
+});
+
+test("forward search crosses a closed version boundary into the next schedule version", () => {
+  const closedVersion: PayrollScheduleVersion = {
+    ...version({ id: "schedule-1-v1", version: 1, effectiveFrom: "2026-08-25", frequency: "WEEKLY", weekEndDay: 0 }),
+    effectiveTo: "2026-08-30",
+  };
+  const openVersion = version({ id: "schedule-1-v2", version: 2, effectiveFrom: "2026-08-31", frequency: "WEEKLY", weekEndDay: 0 });
+  const chained = weeklyUserSchedule({ versions: [closedVersion, openVersion] });
+
+  const horizon = generatePayrollPeriodsAroundReference(chained, "2026-08-25", { previous: 2, next: 2 });
+  assert.equal(horizon.length, 3, "crossing a closed version must continue with the next version, not collapse to empty");
+  assert.deepEqual(horizon.map((period) => [period.periodStart, period.periodEnd]), [
+    ["2026-08-31", "2026-09-06"],
+    ["2026-09-07", "2026-09-13"],
+    ["2026-09-14", "2026-09-20"],
+  ]);
+  for (const period of horizon) {
+    assert.equal(period.scheduleVersionId, "schedule-1-v2", "periods after the closed boundary must reference the applicable version");
+  }
+
+  const first = findFirstGeneratablePayrollPeriod(chained, "2026-08-25");
+  assert.equal(first?.scheduleVersionId, "schedule-1-v2");
+  assert.deepEqual(first && [first.periodStart, first.periodEnd], ["2026-08-31", "2026-09-06"]);
+});
+
+test("boundary-equal version re-link preserves period identity so runs stay linked", () => {
+  const closedVersion: PayrollScheduleVersion = {
+    ...version({ id: "schedule-1-v1", version: 1, effectiveFrom: "2026-08-25", frequency: "WEEKLY", weekEndDay: 0 }),
+    effectiveTo: "2026-08-30",
+  };
+  const openVersion = version({ id: "schedule-1-v2", version: 2, effectiveFrom: "2026-08-31", frequency: "WEEKLY", weekEndDay: 0 });
+  const chained = weeklyUserSchedule({ versions: [closedVersion, openVersion] });
+
+  const stalePeriod: PayrollPeriod = {
+    id: "period-1",
+    periodStart: "2026-08-31",
+    periodEnd: "2026-09-06",
+    scheduleId: "schedule-1",
+    scheduleVersionId: "schedule-1-v1",
+    status: "OPEN",
+    autoGenerated: true,
+    createdAt: "2026-08-25T00:00:00.000Z",
+    updatedAt: "2026-08-25T00:00:00.000Z",
+  };
+  const run: PayrollRun = { id: "run-1", periodId: "period-1", status: "DRAFT", createdAt: "2026-08-25T00:00:00.000Z" };
+
+  const ensured = ensurePayrollPeriodsAndRuns({
+    schedules: [chained],
+    periods: [stalePeriod],
+    runs: [run],
+    entries: [],
+    workEntries: [],
+    referenceDate: "2026-08-25",
+    previous: 2,
+    next: 2,
+  });
+
+  const relinked = ensured.periods.filter((period) => period.periodStart === "2026-08-31" && period.periodEnd === "2026-09-06");
+  assert.equal(relinked.length, 1, "no duplicate boundary may appear after the version re-link");
+  assert.equal(relinked[0]?.id, "period-1", "the re-linked period keeps its identity");
+  assert.equal(relinked[0]?.scheduleVersionId, "schedule-1-v2");
+  assert.equal(ensured.runs.filter((run) => run.periodId === "period-1").length, 1, "the existing run must survive the re-link without duplication or orphaning");
+  const runPeriodIds = ensured.runs.map((run) => run.periodId).sort();
+  assert.equal(new Set(runPeriodIds).size, runPeriodIds.length, "no period may hold more than one run");
+
+  const second = ensurePayrollPeriodsAndRuns({
+    schedules: [chained],
+    periods: ensured.periods,
+    runs: ensured.runs,
+    entries: [],
+    workEntries: [],
+    referenceDate: "2026-08-25",
+    previous: 2,
+    next: 2,
+  });
+  assert.deepEqual(second.periods.map((period) => [period.id, period.periodStart, period.periodEnd, period.scheduleVersionId]), ensured.periods.map((period) => [period.id, period.periodStart, period.periodEnd, period.scheduleVersionId]));
+  assert.deepEqual(second.runs.map((run) => [run.id, run.periodId, run.status]), ensured.runs.map((run) => [run.id, run.periodId, run.status]));
+});
+
+test("a data-bearing OPEN period is re-linked to the governing version without losing data", () => {
+  const closedVersion: PayrollScheduleVersion = {
+    ...version({ id: "schedule-1-v1", version: 1, effectiveFrom: "2026-08-25", frequency: "WEEKLY", weekEndDay: 0 }),
+    effectiveTo: "2026-08-30",
+  };
+  const openVersion = version({ id: "schedule-1-v2", version: 2, effectiveFrom: "2026-08-31", frequency: "WEEKLY", weekEndDay: 0 });
+  const chained = weeklyUserSchedule({ versions: [closedVersion, openVersion] });
+
+  const dataPeriod: PayrollPeriod = {
+    id: "period-data",
+    periodStart: "2026-09-14",
+    periodEnd: "2026-09-20",
+    scheduleId: "schedule-1",
+    scheduleVersionId: "schedule-1-v1",
+    status: "OPEN",
+    autoGenerated: true,
+    notes: "Reviewer flagged overtime for this week.",
+    createdAt: "2026-08-25T00:00:00.000Z",
+    updatedAt: "2026-08-25T00:00:00.000Z",
+  };
+  const dataRun: PayrollRun = { id: "run-data", periodId: "period-data", status: "DRAFT", createdAt: "2026-08-25T00:00:00.000Z" };
+  const dataEntry: PayrollEntry = { id: "entry-1", payrollRunId: "run-data", workerId: "worker-1", basePay: 0, regularPay: 800, overtimePay: 0, allowances: 0, grossPay: 800, deductions: 0, netPay: 800, projectAllocatedCost: 0, createdAt: "2026-08-26T00:00:00.000Z" };
+
+  const result = ensurePayrollPeriodsAndRuns({
+    schedules: [chained],
+    periods: [dataPeriod],
+    runs: [dataRun],
+    entries: [dataEntry],
+    workEntries: [],
+    referenceDate: "2026-08-25",
+    previous: 2,
+    next: 2,
+  });
+
+  const kept = result.periods.find((period) => period.id === "period-data");
+  assert.ok(kept, "the data-bearing period must survive");
+  assert.equal(kept!.status, "OPEN");
+  assert.equal(kept!.periodStart, "2026-09-14");
+  assert.equal(kept!.periodEnd, "2026-09-20");
+  assert.equal(kept!.scheduleVersionId, "schedule-1-v2", "the period must reference the version that governs its dates");
+  assert.equal(result.runs.some((run) => run.id === "run-data" && run.periodId === "period-data"), true, "the data run stays linked");
+  const boundaryKeys = result.periods.map((period) => `${period.periodStart}:${period.periodEnd}`);
+  assert.equal(new Set(boundaryKeys).size, boundaryKeys.length, "no duplicate boundaries may be created");
 });

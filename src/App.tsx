@@ -200,7 +200,7 @@ function userFacingError(error: unknown, fallback: string) {
 }
 
 type PayrollWorkspaceLoadState = "idle" | "loading" | "loaded" | "failed";
-type PayrollPeriodPreparationState = "NO_SCHEDULE" | "PREPARING" | "SYNCING" | "READY" | "FAILED";
+type PayrollPeriodPreparationState = "NO_SCHEDULE" | "PREPARING" | "SYNCING" | "READY" | "WAITING_FOR_BOUNDARY" | "FAILED";
 
 function initialAppLocation(): AppLocation {
   if (typeof window === "undefined") return parseAppLocation(DEFAULT_ROUTE_PATH);
@@ -920,6 +920,13 @@ function InvoiceWorkspace() {
       const previous = base.runs.find((item) => item.id === run.id);
       return !previous || previous.status !== run.status || previous.notes !== run.notes;
     });
+    // An automatic schedule that generated zero usable periods must never be
+    // reported as READY: the calendar would stay silently empty ("No period
+    // yet") while the page claims preparation succeeded.
+    if (!ensured.periods.length && base.periods.length === 0 && activeSchedule.autoGeneratePeriods) {
+      setPayrollPeriodPreparationState("WAITING_FOR_BOUNDARY");
+      return;
+    }
     if (!periodChanged && !runChanged) {
       setPayrollPeriodPreparationState("READY");
       return;
@@ -1493,6 +1500,9 @@ function InvoiceWorkspace() {
       });
       payrollAutomationKeyRef.current = "";
       setPayrollWorkspaceLoadState("loaded");
+      // Deterministically restart calendar preparation after a schedule save
+      // instead of relying on incidental state changes such as updatedAt.
+      setPayrollGenerationRetry((value) => value + 1);
       showNotification("success", "Payroll schedule saved. Future periods will use the saved version; locked history remains unchanged.");
       return saved;
     } catch (error: any) {

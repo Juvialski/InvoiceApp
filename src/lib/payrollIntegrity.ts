@@ -125,9 +125,9 @@ function statusRank(status: string) {
 function unique<T>(items: readonly T[]) { return [...new Set(items)]; }
 
 /**
- * Older releases wrote maintenance messages into business notes. They are
- * recognized only so a harmless legacy tombstone can be cleaned up; new
- * maintenance code never writes these strings.
+ * System-written notes are recognized so harmless generated infrastructure
+ * (retirement tombstones and empty auto-created draft runs) can be cleaned up
+ * or re-linked without treating it as payroll data.
  */
 export function isSystemMaintenanceNote(value: string | undefined) {
   const normalized = value?.trim();
@@ -137,6 +137,7 @@ export function isSystemMaintenanceNote(value: string | undefined) {
     "Retired during payroll integrity repair.",
     "Retired during prospective payroll schedule reconciliation.",
     "Retired with an empty obsolete generated payroll period.",
+    "Auto-created draft run for the current payroll period.",
     "Retired by the explicit unapproved payroll reset.",
   ].includes(normalized);
 }

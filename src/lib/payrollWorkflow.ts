@@ -310,6 +310,7 @@ function toScheduledPeriod(period: PayrollPeriod, context: Parameters<typeof isP
     // even when their current status is still OPEN. Finalized status/lock
     // protection remains unchanged.
     locked: Boolean(period.lockedAt) || ["APPROVED", "PAID", "VOID"].includes(period.status) || isPayrollPeriodDataBearing(period, context),
+    hardLocked: Boolean(period.lockedAt) || ["APPROVED", "PAID", "VOID"].includes(period.status),
     notes: period.notes,
     createdAt: period.createdAt,
     updatedAt: period.updatedAt,
