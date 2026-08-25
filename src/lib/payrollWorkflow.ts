@@ -98,7 +98,7 @@ function id(prefix: string) {
 }
 
 export function dateOnly(value = new Date()): string {
-  return `\${value.getFullYear()}-\${String(value.getMonth() + 1).padStart(2, "0")}-\${String(value.getDate()).padStart(2, "0")}`;
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 }
 
 export function createDefaultPayrollSchedule(referenceDate = dateOnly()): PayrollScheduleDefaults {

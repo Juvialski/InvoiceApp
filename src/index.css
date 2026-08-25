@@ -1,5 +1,27 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f8fafc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html { min-width: 320px; background: #f8fafc; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #f8fafc; color: #0f172a; }
+button, input, select, textarea { font: inherit; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+.ops-table th { white-space: nowrap; font-weight: 800; }
+.ops-table tbody tr { transition: background-color 120ms ease; }
+.ops-table tbody tr:hover { background: #f8fafc; }
+.ops-table td, .ops-table th { vertical-align: middle; }
+.ops-scrollbar { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+
 .verification-field-highlight {
   outline: 3px solid rgb(56 189 248 / 0.55);
   outline-offset: 3px;

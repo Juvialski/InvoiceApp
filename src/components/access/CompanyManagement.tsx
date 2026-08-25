@@ -434,7 +434,7 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
   };
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm sm:p-6" aria-label="Company management">
+    <section className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-6" aria-label="Company management">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Platform management</p>
@@ -443,7 +443,7 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(15rem,0.34fr)_minmax(0,1fr)]">
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(15rem,0.34fr)_minmax(0,1fr)]">
         <aside className="rounded-2xl border border-slate-200 bg-white p-3" aria-label="Company list">
           <div className="flex items-center justify-between gap-2 px-1">
             <div><h2 className="text-xs font-black text-slate-900">Companies</h2><p className="mt-0.5 text-[10px] font-semibold text-slate-400">{companies.length} available</p></div>

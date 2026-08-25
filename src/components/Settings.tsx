@@ -1,6 +1,7 @@
 import React from "react";
 import { CheckCircle2, Clock3, Globe2, MapPin, RotateCcw } from "lucide-react";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE, RegionalSettings } from "../config/regional";
+import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 
 interface SettingsProps {
   settings: RegionalSettings;
@@ -14,16 +15,13 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange }) => {
     && settings.timezone === DEFAULT_TIMEZONE;
 
   return (
-    <div className="space-y-5 max-w-3xl">
-      <div>
-        <h2 className="text-xl font-black">Operational settings</h2>
-        <p className="text-xs text-slate-500 mt-1">This deployment uses a fixed Philippines operating profile for consistent dates, currency formatting, and VAT review.</p>
-      </div>
+    <div className="max-w-4xl space-y-5">
+      <PageHeader eyebrow="Workspace configuration" title="Operational settings" description="This deployment uses a fixed Philippines operating profile for consistent dates, currency formatting, and VAT review." />
 
-      <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0"><Globe2 className="w-5 h-5" /></div>
-          <div><h3 className="text-sm font-black">Deployment profile</h3><p className="text-[11px] text-slate-500 mt-1">These values are locked for this workspace. Imported invoices retain their detected source currency and dates.</p></div>
+          <div><SectionHeader title="Deployment profile" description="These values are locked for this workspace. Imported invoices retain their detected source currency and dates." /></div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3 mt-5">
@@ -41,7 +39,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange }) => {
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <p className={`inline-flex items-center gap-1.5 text-[10px] font-semibold ${isDeploymentProfile ? "text-emerald-700" : "text-amber-700"}`}>
             {isDeploymentProfile ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Clock3 className="w-3.5 h-3.5" />}
-            {isDeploymentProfile ? "Deployment profile active" : "Legacy regional preferences detected"}
+            {isDeploymentProfile ? <StatusBadge tone="success">Deployment profile active</StatusBadge> : <StatusBadge tone="warning">Legacy regional preferences detected</StatusBadge>}
           </p>
           {!isDeploymentProfile && <button type="button" onClick={() => onChange({ country: DEFAULT_COUNTRY, locale: DEFAULT_LOCALE, currency: DEFAULT_CURRENCY, timezone: DEFAULT_TIMEZONE })} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-50"><RotateCcw className="w-3 h-3" />Restore deployment defaults</button>}
         </div>

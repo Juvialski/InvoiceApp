@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import { AlertTriangle, CheckCircle2, FileSearch } from "lucide-react";
-import { InvoiceData } from "../types";
+import type { InvoiceData } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
+import { EmptyState, PageHeader, StatusBadge } from "./ui/OperationsUI";
 
 interface ReviewQueueProps {
   invoices: InvoiceData[];
@@ -14,28 +15,13 @@ function reasonBadges(invoice: InvoiceData) {
   const criticalMissing = invoice.extractionQuality?.criticalMissing || [];
   const display = getInvoiceDisplay(invoice);
   const badges: string[] = [];
-  const add = (label: string) => {
-    if (label && !badges.includes(label)) badges.push(label);
-  };
-
+  const add = (label: string) => { if (label && !badges.includes(label)) badges.push(label); };
   if (invoice.duplicateStatus === "POSSIBLE_DUPLICATE") add("Potential duplicate");
   if (!display.vendorKnown) add("Missing vendor");
   if (!display.currencyKnown) add("Missing currency");
   if (!display.amountKnown) add("Missing amount");
-
-  const criticalLabels: Record<string, string> = {
-    "missing-document-type": "Missing document type",
-    "missing-invoice-number": "Missing invoice number",
-    "missing-invoice-date": "Missing invoice date",
-    "missing-vendor": "Missing vendor",
-    "missing-customer": "Missing customer",
-    "missing-currency": "Missing currency",
-    "missing-line-items": "Missing line items",
-    "missing-grand-total": "Missing amount",
-    "missing-vat-amount": "Missing VAT amount",
-  };
+  const criticalLabels: Record<string, string> = { "missing-document-type": "Missing document type", "missing-invoice-number": "Missing invoice number", "missing-invoice-date": "Missing invoice date", "missing-vendor": "Missing vendor", "missing-customer": "Missing customer", "missing-currency": "Missing currency", "missing-line-items": "Missing line items", "missing-grand-total": "Missing amount", "missing-vat-amount": "Missing VAT amount" };
   criticalMissing.forEach((reason) => add(criticalLabels[reason] || "Extraction needs review"));
-
   for (const issue of issues) {
     const message = `${issue.id} ${issue.field} ${issue.message}`.toLowerCase();
     if (message.includes("currency")) add("Missing currency");
@@ -44,10 +30,7 @@ function reasonBadges(invoice: InvoiceData) {
     else if (message.includes("invoice date")) add("Missing invoice date");
     else if (message.includes("vat")) add("VAT mismatch");
     else if (message.includes("line") || message.includes("subtotal") || message.includes("grand total") || message.includes("balance") || message.includes("reconcil")) add("Math mismatch");
-    else {
-      const fieldLabel = issue.field.split(".").pop()?.replaceAll("_", " ").replace(/([a-z])([A-Z])/g, "$1 $2");
-      add(fieldLabel ? `${fieldLabel.charAt(0).toUpperCase()}${fieldLabel.slice(1)} check` : "Validation review");
-    }
+    else { const fieldLabel = issue.field.split(".").pop()?.replaceAll("_", " ").replace(/([a-z])([A-Z])/g, "$1 $2"); add(fieldLabel ? `${fieldLabel.charAt(0).toUpperCase()}${fieldLabel.slice(1)} check` : "Validation review"); }
   }
   if (invoice.confidenceScore !== undefined && invoice.confidenceScore < 90) add("Low confidence");
   if (!badges.length) add("Extraction needs review");
@@ -56,34 +39,17 @@ function reasonBadges(invoice: InvoiceData) {
 
 export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, onOpenInvoice, onStartReview }) => {
   const queue = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW"), [invoices]);
+  if (!queue.length) return <EmptyState icon={CheckCircle2} title="Review queue is clear" description="New Gmail and uploaded invoices with uncertainty or validation issues will appear here." />;
 
-  if (!queue.length) {
-    return <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-sm"><CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" /><h2 className="mt-3 text-lg font-black">No invoices need review.</h2><p className="text-xs text-slate-500 mt-1">New Gmail and uploaded invoices with uncertainty or validation issues will appear here.</p></div>;
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4"><div><h2 className="text-xl font-black">Human verification queue</h2><p className="text-xs text-slate-500 mt-1">Original documents stay immutable. Review the AI extraction, correct anything needed, then verify.</p></div><div className="flex items-center gap-2"><span className="text-xs font-black px-3 py-1.5 rounded-full bg-amber-100 text-amber-800">{queue.length} need review</span>{onStartReview && <button onClick={() => onStartReview(queue)} className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700">Start Review</button>}</div></div>
-      <div className="grid gap-3">
-        {queue.map((invoice) => {
-          const display = getInvoiceDisplay(invoice);
-          const reasons = reasonBadges(invoice);
-          return <div key={invoice.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col lg:flex-row lg:items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0"><FileSearch className="w-5 h-5" /></div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap"><h3 className="text-sm font-black text-slate-900 truncate">{display.primaryLabel}</h3><span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">Needs review</span></div>
-              <p className="text-xs text-slate-600 font-sans tabular-nums mt-1 truncate">{display.invoiceLabel} • {display.dateLabel}</p>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[11px] text-slate-600">
-                <span className="font-sans tabular-nums font-semibold">{display.amountLabel}</span>
-                {display.projectKnown && <span className="truncate">{display.projectReference ? `Project: ${display.projectLabel}` : `PO: ${display.projectLabel}`}</span>}
-              </div>
-              <p className="text-[10px] text-slate-400 mt-1 truncate">Source: {display.sourceLabel} • {display.sourceFileLabel}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-amber-700" />{reasons.map((reason) => <span key={reason} className="text-[9px] font-black px-2 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-100">{reason}</span>)}</div>
-            </div>
-            <div className="flex gap-2"><button onClick={() => onOpenInvoice(invoice)} className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold inline-flex items-center gap-1.5 hover:bg-indigo-700"><FileSearch className="w-3.5 h-3.5" />Open &amp; Review</button></div>
-          </div>;
-        })}
-      </div>
-    </div>
-  );
+  return <div className="space-y-5">
+    <PageHeader eyebrow="Human verification" title="Review queue" description="Review the original source alongside the extraction, correct anything needed, then verify the record." actions={<><span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900"><AlertTriangle className="h-3.5 w-3.5" /> {queue.length} awaiting action</span>{onStartReview && <button type="button" onClick={() => onStartReview(queue)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><FileSearch className="h-3.5 w-3.5" /> Start review</button>}</>} />
+    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Invoices awaiting review">
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Next records to verify</p></div>
+      <div className="divide-y divide-slate-100">{queue.map((invoice) => {
+        const display = getInvoiceDisplay(invoice);
+        const reasons = reasonBadges(invoice);
+        return <article key={invoice.id} className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50 lg:flex-row lg:items-center lg:px-5"><div className="flex min-w-0 flex-1 items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700"><FileSearch className="h-4 w-4" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-sm font-black text-slate-900">{display.primaryLabel}</h2><StatusBadge tone="warning" icon={AlertTriangle}>Needs review</StatusBadge></div><p className="mt-1 truncate text-[10px] text-slate-600">{display.invoiceLabel} · {display.dateLabel}</p><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600"><span className="font-sans font-bold tabular-nums">{display.amountLabel}</span>{display.projectKnown && <span className="truncate">{display.projectReference ? `Project: ${display.projectLabel}` : `PO: ${display.projectLabel}`}</span>}<span className="truncate text-slate-400">{display.sourceLabel} · {display.sourceFileLabel}</span></div><div className="mt-2 flex flex-wrap gap-1.5">{reasons.map((reason) => <span key={reason}><StatusBadge tone={reason === "Potential duplicate" ? "danger" : "warning"}>{reason}</StatusBadge></span>)}</div></div></div><button type="button" onClick={() => onOpenInvoice(invoice)} className="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 lg:self-center"><FileSearch className="h-3.5 w-3.5" /> Open &amp; review</button></article>;
+      })}</div>
+    </section>
+  </div>;
 };

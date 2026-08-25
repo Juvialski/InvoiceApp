@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, FileText, Inbox, Loader2, LogOut, Mail, Pape
 import { EmailClassification, GmailConnectionInfo, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "../types";
 import { formatDateTime } from "../config/regional";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
+import { PageHeader, StatusBadge } from "./ui/OperationsUI";
 
 interface EmailInboxProps {
   invoices: InvoiceData[];
@@ -73,14 +74,14 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, 
   };
 
   return (
-    <div className="space-y-6">
-      <div><h2 className="text-xl font-black text-slate-900">Gmail invoice inbox</h2><p className="text-xs text-slate-500 mt-1">Connect an authorized mailbox, scan likely invoice messages, keep source context linked to each document, and send them for review.</p></div>
+    <div className="space-y-5">
+      <PageHeader eyebrow="Operational intake" title="Gmail inbox" description="Connect an authorized mailbox, scan likely invoice messages, keep source context linked to each document, and send candidates for review." />
 
-      <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${connection.hasGmailToken ? "bg-emerald-50 text-emerald-600" : "bg-indigo-50 text-indigo-600"}`}><Mail className="w-5 h-5" /></div>
-            <div><div className="flex items-center gap-2 flex-wrap"><h3 className="text-sm font-black">{connection.hasGmailToken ? "Gmail connected" : "Connect Gmail"}</h3>{connection.hasGmailToken && <span className="text-[9px] uppercase font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">read-only</span>}</div><p className="text-xs text-slate-500 mt-1">{connection.email || "Each user authorizes their own mailbox. Entering an email address alone never grants access."}</p>{connection.lastSyncedAt && <p className="text-[10px] text-slate-400 mt-1">Last sync: {formatDateTime(connection.lastSyncedAt)}</p>}</div>
+            <div><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-black">{connection.hasGmailToken ? "Gmail connected" : "Connect Gmail"}</h3><StatusBadge tone={connection.hasGmailToken ? "success" : "warning"}>{connection.hasGmailToken ? "Read-only" : "Action required"}</StatusBadge></div><p className="mt-1 text-xs text-slate-500">{connection.email || "Each user authorizes their own mailbox. Entering an email address alone never grants access."}</p>{connection.lastSyncedAt && <p className="mt-1 text-[10px] text-slate-400">Last sync: {formatDateTime(connection.lastSyncedAt)}</p>}</div>
           </div>
           <div className="flex flex-wrap gap-2">
             {!connection.hasGmailToken ? <button disabled={!connection.configured || !connection.signedIn} onClick={() => void onConnectGmail()} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-2"><Mail className="w-4 h-4" />Connect Google + Gmail</button> : <><button onClick={() => void runScan(true)} disabled={gmailBusy} className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${gmailBusy ? "animate-spin" : ""}`} />Sync new</button><button onClick={() => void onSignOut()} className="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold inline-flex items-center gap-2"><LogOut className="w-3.5 h-3.5" />Sign out</button></>}
