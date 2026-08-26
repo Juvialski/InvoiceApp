@@ -19,13 +19,13 @@ select has_table('public', 'financial_import_batches', 'public.financial_import_
 select has_table('public', 'financial_transaction_matches', 'public.financial_transaction_matches exists');
 
 -- 2. Row Level Security active on sensitive tables
-select row_level_security_is_active('public', 'companies', 'companies RLS active');
-select row_level_security_is_active('public', 'company_members', 'company_members RLS active');
-select row_level_security_is_active('public', 'company_audit_events', 'company_audit_events RLS active');
-select row_level_security_is_active('public', 'company_ai_credentials', 'company_ai_credentials RLS active');
-select row_level_security_is_active('public', 'financial_accounts', 'financial_accounts RLS active');
-select row_level_security_is_active('public', 'financial_transactions', 'financial_transactions RLS active');
-select row_level_security_is_active('public', 'financial_transaction_matches', 'financial_transaction_matches RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''companies'' and c.relrowsecurity = true', 'companies RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''company_members'' and c.relrowsecurity = true', 'company_members RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''company_audit_events'' and c.relrowsecurity = true', 'company_audit_events RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''company_ai_credentials'' and c.relrowsecurity = true', 'company_ai_credentials RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''financial_accounts'' and c.relrowsecurity = true', 'financial_accounts RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''financial_transactions'' and c.relrowsecurity = true', 'financial_transactions RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''financial_transaction_matches'' and c.relrowsecurity = true', 'financial_transaction_matches RLS active');
 
 -- 3. Key domain RPC functions exist
 select has_function('public', 'commit_financial_import', 'public.commit_financial_import exists');
