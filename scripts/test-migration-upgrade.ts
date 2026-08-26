@@ -96,9 +96,12 @@ export async function runUpgradeTests(options: { dbUrl?: string; throwOnUnreacha
       console.log(`  1. Resetting database schema to clean state...`);
       await client.query(`
         drop schema if exists public cascade;
+        drop schema if exists private cascade;
         create schema public;
+        create schema private;
         grant usage, create on schema public to public, anon, authenticated, service_role, postgres;
         grant all on all tables in schema public to postgres, service_role, authenticated, anon;
+        grant usage, create on schema private to postgres, service_role;
       `);
 
       // Ensure auth/storage bootstrap only if running on standalone postgres without Supabase
