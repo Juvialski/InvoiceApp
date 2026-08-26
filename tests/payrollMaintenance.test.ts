@@ -84,6 +84,108 @@ test("one maintenance action produces a real preview and weekly rebuild replaces
   assert.equal(second.preview.runsToCreate, 0);
 });
 
+test("REPAIR is conservative, idempotent, and preserves valid canonical weekly periods around mid-cycle reference date", () => {
+  const schedule = { ...weeklySchedule(), effectiveFrom: "2026-08-31" };
+  // Canonical periods around reference date 2026-08-26 with effectiveFrom: 2026-08-31:
+  // 1. 2026-08-31 – 2026-09-06
+  // 2. 2026-09-07 – 2026-09-13
+  // 3. 2026-09-14 – 2026-09-20
+  const p1 = period({ id: "p-1", periodStart: "2026-08-31", periodEnd: "2026-09-06", status: "DRAFT" });
+  const p2 = period({ id: "p-2", periodStart: "2026-09-07", periodEnd: "2026-09-13", status: "DRAFT" });
+  const p3 = period({ id: "p-3", periodStart: "2026-09-14", periodEnd: "2026-09-20", status: "DRAFT" });
+
+  const plan1 = planLocalPayrollMaintenance({
+    schedules: [schedule],
+    periods: [p1, p2, p3],
+    runs: [],
+    entries: [],
+    allocations: [],
+    adjustments: [],
+    workEntries: [],
+    importData: imports(),
+    referenceDate: "2026-08-26",
+  }, "REPAIR");
+
+  // Must report no changes needed and NOT delete valid periods
+  assert.equal(plan1.preview.periodsToDelete, 0);
+  assert.equal(plan1.preview.periodsToCreate, 0);
+  assert.equal(plan1.preview.noChanges, true);
+  assert.equal(plan1.periods.length, 3);
+  assert.ok(plan1.periods.some((p) => p.periodStart === "2026-08-31" && p.periodEnd === "2026-09-06"));
+  assert.ok(plan1.periods.some((p) => p.periodStart === "2026-09-07" && p.periodEnd === "2026-09-13"));
+  assert.ok(plan1.periods.some((p) => p.periodStart === "2026-09-14" && p.periodEnd === "2026-09-20"));
+
+  // Idempotency: running REPAIR 5 times in succession maintains identical state
+  let currentPeriods = plan1.periods;
+  for (let i = 0; i < 5; i++) {
+    const repeatPlan = planLocalPayrollMaintenance({
+      schedules: [schedule],
+      periods: currentPeriods,
+      runs: [],
+      entries: [],
+      allocations: [],
+      adjustments: [],
+      workEntries: [],
+      importData: imports(),
+      referenceDate: "2026-08-26",
+    }, "REPAIR");
+    assert.equal(repeatPlan.preview.periodsToDelete, 0);
+    assert.equal(repeatPlan.preview.periodsToCreate, 0);
+    assert.equal(repeatPlan.periods.length, 3);
+    currentPeriods = repeatPlan.periods;
+  }
+});
+
+test("REPAIR converges to restore missing canonical periods without destroying existing periods", () => {
+  const schedule = { ...weeklySchedule(), effectiveFrom: "2026-08-31" };
+  // Only Sep 14–20 exists; Aug 31–Sep 6 and Sep 7–13 are missing
+  const p3 = period({ id: "p-3", periodStart: "2026-09-14", periodEnd: "2026-09-20", status: "DRAFT" });
+
+  const plan = planLocalPayrollMaintenance({
+    schedules: [schedule],
+    periods: [p3],
+    runs: [],
+    entries: [],
+    allocations: [],
+    adjustments: [],
+    workEntries: [],
+    importData: imports(),
+    referenceDate: "2026-08-26",
+  }, "REPAIR");
+
+  assert.equal(plan.preview.periodsToDelete, 0);
+  assert.equal(plan.preview.periodsToCreate, 2);
+  assert.equal(plan.periods.length, 3);
+  assert.ok(plan.periods.some((p) => p.periodStart === "2026-08-31" && p.periodEnd === "2026-09-06"));
+  assert.ok(plan.periods.some((p) => p.periodStart === "2026-09-07" && p.periodEnd === "2026-09-13"));
+  assert.ok(plan.periods.some((p) => p.periodStart === "2026-09-14" && p.periodEnd === "2026-09-20" && p.id === "p-3"));
+});
+
+test("REPAIR removes duplicate disposable periods and re-links version metadata safely", () => {
+  const schedule = { ...weeklySchedule(), effectiveFrom: "2026-08-31" };
+  const p1a = period({ id: "p-1a", periodStart: "2026-08-31", periodEnd: "2026-09-06", scheduleVersionId: "old-version", status: "DRAFT", createdAt: "2026-08-20T00:00:00.000Z" });
+  const p1b = period({ id: "p-1b", periodStart: "2026-08-31", periodEnd: "2026-09-06", scheduleVersionId: "old-version", status: "DRAFT", createdAt: "2026-08-21T00:00:00.000Z" });
+  const p2 = period({ id: "p-2", periodStart: "2026-09-07", periodEnd: "2026-09-13", scheduleVersionId: "old-version", status: "DRAFT" });
+  const p3 = period({ id: "p-3", periodStart: "2026-09-14", periodEnd: "2026-09-20", scheduleVersionId: "old-version", status: "DRAFT" });
+
+  const plan = planLocalPayrollMaintenance({
+    schedules: [schedule],
+    periods: [p1a, p1b, p2, p3],
+    runs: [],
+    entries: [],
+    allocations: [],
+    adjustments: [],
+    workEntries: [],
+    importData: imports(),
+    referenceDate: "2026-08-26",
+  }, "REPAIR");
+
+  assert.equal(plan.preview.periodsToDelete, 1); // Only the duplicate p1b removed
+  assert.equal(plan.periods.length, 3);
+  assert.ok(plan.periods.some((p) => p.id === "p-1a" && p.periodStart === "2026-08-31"));
+  assert.ok(!plan.periods.some((p) => p.id === "p-1b"));
+});
+
 test("empty generated VOID tombstones are disposable but meaningful VOID history remains protected", () => {
   const empty = period({ id: "empty-tombstone", status: "VOID", notes: undefined });
   const meaningful = period({ id: "meaningful-void", status: "VOID", notes: "Historical correction approved by finance." });

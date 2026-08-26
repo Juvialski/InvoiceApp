@@ -244,6 +244,57 @@ export function formatPayrollPeriodLabel(period: Pick<PayrollPeriod, "periodStar
   return `${startLabel}–${endLabel}${startDate.getUTCFullYear() === endDate.getUTCFullYear() ? `, ${endDate.getUTCFullYear()}` : ` ${endDate.getUTCFullYear()}`}`;
 }
 
+export function readableStatus(status?: string): string {
+  return status ? status.replaceAll("_", " ").toLowerCase().replace(/(^|\s)\w/g, (letter) => letter.toUpperCase()) : "No run";
+}
+
+export type PayrollPeriodDisplayStatus = "Scheduled" | "Draft" | "Open" | "Calculated" | "Approved" | "Paid" | "Void" | string;
+
+export function getPayrollPeriodDisplayState(
+  period: Pick<PayrollPeriod, "id" | "periodStart" | "periodEnd" | "status">,
+  runs: readonly Pick<PayrollRun, "id" | "periodId" | "status">[] = [],
+  today: string = getLocalToday()
+): PayrollPeriodDisplayStatus {
+  const periodStatusUpper = String(period.status || "").toUpperCase();
+  if (periodStatusUpper === "VOID") return "Void";
+  if (periodStatusUpper === "PAID") return "Paid";
+  if (periodStatusUpper === "APPROVED") return "Approved";
+
+  const periodRuns = runs.filter((r) => r.periodId === period.id && String(r.status || "").toUpperCase() !== "VOID");
+  if (periodRuns.some((r) => String(r.status || "").toUpperCase() === "PAID")) return "Paid";
+  if (periodRuns.some((r) => String(r.status || "").toUpperCase() === "APPROVED")) return "Approved";
+  if (periodRuns.some((r) => String(r.status || "").toUpperCase() === "CALCULATED")) return "Calculated";
+
+  // Future period with no run or draft run -> Scheduled
+  if (period.periodStart > today && (!periodRuns.length || periodRuns.every((r) => String(r.status || "").toUpperCase() === "DRAFT"))) {
+    return "Scheduled";
+  }
+
+  // Active / current period containing today
+  if (period.periodStart <= today && period.periodEnd >= today) {
+    if (periodRuns.some((r) => String(r.status || "").toUpperCase() === "DRAFT") || periodStatusUpper === "DRAFT" || periodStatusUpper === "OPEN") {
+      return periodStatusUpper === "OPEN" ? "Open" : "Draft";
+    }
+  }
+
+  if (periodRuns.some((r) => String(r.status || "").toUpperCase() === "DRAFT")) return "Draft";
+  if (periodStatusUpper === "OPEN") return "Open";
+  if (periodStatusUpper === "DRAFT") return "Draft";
+
+  return readableStatus(period.status);
+}
+
+export function getPayrollPeriodDisplayClass(statusText: string): string {
+  const normalized = String(statusText || "").toUpperCase();
+  if (normalized === "PAID") return "bg-indigo-50 text-indigo-700";
+  if (normalized === "APPROVED") return "bg-emerald-50 text-emerald-700";
+  if (normalized === "CALCULATED") return "bg-violet-50 text-violet-700";
+  if (normalized === "SCHEDULED") return "bg-slate-100 text-slate-600";
+  if (normalized === "VOID") return "bg-slate-100 text-slate-500";
+  if (normalized === "OPEN") return "bg-amber-50 text-amber-800";
+  return "bg-amber-50 text-amber-800";
+}
+
 /**
  * Active calendar semantics: VOID periods are retired history. They must not
  * drive day counts, slices, markers, conflicts, or selection on the active
@@ -267,7 +318,7 @@ export function findPayrollCalendarConflicts(periods: readonly CalendarPeriod[])
       const left = active[leftIndex]!;
       const right = active[rightIndex]!;
       if (right.periodStart > left.periodEnd) break;
-      if (left.id === right.id || left.periodStart === right.periodStart && left.periodEnd === right.periodEnd) continue;
+      if (left.id === right.id || (left.periodStart === right.periodStart && left.periodEnd === right.periodEnd)) continue;
       const overlapStart = left.periodStart > right.periodStart ? left.periodStart : right.periodStart;
       const overlapEnd = left.periodEnd < right.periodEnd ? left.periodEnd : right.periodEnd;
       if (overlapStart <= overlapEnd) conflicts.push({ periodIds: [left.id, right.id], overlapStart, overlapEnd });

@@ -29,6 +29,8 @@ import {
   selectStablePayrollPeriod,
   findPayrollCalendarConflicts,
   formatPayrollPeriodLabel,
+  getPayrollPeriodDisplayState,
+  getPayrollPeriodDisplayClass,
   type AutomaticPayrollDraftRecord,
   type PayrollCalendarDay,
   type PayrollPeriodSlice,
@@ -165,6 +167,8 @@ function PeriodBar({
   slice,
   date,
   periods,
+  runs = [],
+  today,
   selectedPeriodId,
   onSelectPeriod,
   mobile = false,
@@ -173,28 +177,71 @@ function PeriodBar({
   slice: PayrollPeriodSlice;
   date: string;
   periods: readonly PayrollPeriod[];
+  runs?: readonly PayrollRun[];
+  today?: string;
   selectedPeriodId?: string;
   onSelectPeriod?: (period: PayrollPeriod) => void;
   mobile?: boolean;
 }) {
   const period = periodForSlice(slice, periods);
   if (!period) return null;
-  if (date !== period.periodStart && date !== period.periodEnd && date !== slice.monthStart && date !== slice.monthEnd) return null;
   const tone = periodTone(period.id, periods);
   const selected = period.id === selectedPeriodId;
   const leftEdge = date === period.periodStart || date === slice.monthStart;
   const rightEdge = date === period.periodEnd || date === slice.monthEnd;
   const periodLabel = formatPayrollPeriodLabel(period);
+  const displayState = getPayrollPeriodDisplayState(period, runs, today);
+
+  if (mobile) {
+    return (
+      <button
+        type="button"
+        onClick={() => onSelectPeriod?.(period)}
+        aria-label={`Select payroll period ${formatDate(period.periodStart)} to ${formatDate(period.periodEnd)}, status ${displayState}`}
+        className={`group flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg px-2.5 py-2 text-left ${tone.soft} ${selected ? `ring-2 ${tone.ring} ring-inset` : ""} ${period.status === "VOID" ? "opacity-50" : ""}`}
+      >
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-full`} />
+          <span className={`truncate text-xs font-black ${tone.text}`}>{periodLabel}</span>
+        </div>
+        <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-black ${getPayrollPeriodDisplayClass(displayState)}`}>{displayState}</span>
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={() => onSelectPeriod?.(period)}
-      aria-label={`Select payroll period ${formatDate(period.periodStart)} to ${formatDate(period.periodEnd)}, status ${readableStatus(period.status)}`}
-      className={`group flex min-w-0 items-center gap-1 overflow-hidden text-left ${mobile ? "rounded-lg px-2 py-1.5" : `-mx-1 px-1 py-1 ${leftEdge ? "rounded-l-md" : ""} ${rightEdge ? "rounded-r-md" : ""}`} ${tone.soft} ${selected ? `ring-2 ${tone.ring} ring-inset` : ""} ${period.status === "VOID" ? "opacity-50" : ""}`}
+      aria-label={`Select payroll period ${formatDate(period.periodStart)} to ${formatDate(period.periodEnd)}, status ${displayState}`}
+      className={`group flex h-6 min-w-0 items-center overflow-hidden text-left transition-all ${
+        leftEdge && rightEdge
+          ? "rounded-md px-1.5 mx-0"
+          : leftEdge
+          ? "rounded-l-md -mr-1.5 ml-0 pl-1.5 pr-0.5"
+          : rightEdge
+          ? "rounded-r-md -ml-1.5 mr-0 pr-1.5 pl-0.5"
+          : "-mx-1.5 px-0.5"
+      } ${tone.soft} ${selected ? `ring-2 ${tone.ring} ring-inset z-10 relative` : ""} ${period.status === "VOID" ? "opacity-50" : ""}`}
     >
-      <span className={`h-2 w-1.5 shrink-0 ${tone.bar} ${leftEdge ? "rounded-l-full" : ""}`} />
-      <span className={`truncate text-[9px] font-black ${tone.text}`}>{periodLabel}</span>
-      {!mobile && period.status !== "DRAFT" && <span className="hidden truncate text-[8px] font-semibold text-slate-500 xl:inline">{readableStatus(period.status)}</span>}
+      {leftEdge ? (
+        <div className="flex min-w-0 items-center gap-1">
+          <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-l-full`} />
+          <span className={`truncate text-[9px] font-black ${tone.text}`}>{periodLabel}</span>
+          {displayState !== "Draft" && displayState !== "Scheduled" && (
+            <span className="hidden truncate text-[8px] font-bold text-slate-500 xl:inline">{displayState}</span>
+          )}
+        </div>
+      ) : rightEdge ? (
+        <div className="flex w-full items-center justify-between gap-0.5">
+          <span className={`h-1.5 flex-1 rounded-sm opacity-35 ${tone.bar}`} />
+          <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-r-full`} />
+        </div>
+      ) : (
+        <div className="flex w-full items-center">
+          <span className={`h-1.5 w-full rounded-sm opacity-35 ${tone.bar}`} />
+        </div>
+      )}
     </button>
   );
 }
@@ -202,12 +249,16 @@ function PeriodBar({
 function DayCell({
   day,
   periods,
+  runs = [],
+  today,
   selectedPeriodId,
   onSelectPeriod,
 }: {
   key?: React.Key;
   day: PayrollCalendarDay;
   periods: readonly PayrollPeriod[];
+  runs?: readonly PayrollRun[];
+  today?: string;
   selectedPeriodId?: string;
   onSelectPeriod?: (periodId: string) => void;
 }) {
@@ -235,15 +286,26 @@ function DayCell({
       </div>
 
       <DayMarkers day={day} compact />
-      <div className="mt-1">
+      <div className="mt-1 space-y-0.5">
         {day.periodSlices.length > 1
           ? <button type="button" onClick={() => onSelectPeriod?.(day.periodSlices[0]!.periodId)} className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-1.5 py-0.5 text-[9px] font-bold text-rose-700"><AlertTriangle className="h-2.5 w-2.5" /> Payroll schedule conflict</button>
-          : day.periodSlices.map((slice) => <PeriodBar key={slice.periodId} slice={slice} date={day.date} periods={periods} selectedPeriodId={selectedPeriodId} onSelectPeriod={(period) => onSelectPeriod?.(period.id)} />)}
+          : day.periodSlices.map((slice) => (
+              <PeriodBar
+                key={slice.periodId}
+                slice={slice}
+                date={day.date}
+                periods={periods}
+                runs={runs}
+                today={today}
+                selectedPeriodId={selectedPeriodId}
+                onSelectPeriod={(period) => onSelectPeriod?.(period.id)}
+              />
+            ))}
       </div>
       {day.runStatuses.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-1">
           {day.runStatuses.slice(0, 2).map((run) => <RunStatusBadge key={run.runId || `${run.periodId}-status`} status={run.status} compact />)}
-          {day.runStatuses.length > 2 && <span className="text-[9px] font-bold text-slate-400">+{day.runStatuses.length - 2}</span>}
+          {day.runStatuses.length > 2 && <span className="text-[9px] font-bold text-slate-400">+${day.runStatuses.length - 2}</span>}
         </div>
       )}
       <IssueImportIndicators day={day} />
@@ -254,11 +316,15 @@ function DayCell({
 function MobileAgenda({
   days,
   periods,
+  runs = [],
+  today,
   selectedPeriodId,
   onSelectPeriod,
 }: {
   days: PayrollCalendarDay[];
   periods: readonly PayrollPeriod[];
+  runs?: readonly PayrollRun[];
+  today?: string;
   selectedPeriodId?: string;
   onSelectPeriod?: (periodId: string) => void;
 }) {
@@ -282,6 +348,8 @@ function MobileAgenda({
                 slice={slice}
                 date={day.date}
                 periods={periods}
+                runs={runs}
+                today={today}
                 selectedPeriodId={selectedPeriodId}
                 onSelectPeriod={(period) => onSelectPeriod?.(period.id)}
                 mobile
@@ -308,6 +376,7 @@ function PeriodDetailPanel({
   automaticDrafts,
   automaticDraft,
   frequencyLabel,
+  today,
   onOpenOverview,
   onOpenRun,
 }: {
@@ -319,6 +388,7 @@ function PeriodDetailPanel({
   automaticDrafts: readonly AutomaticPayrollDraftRecord[];
   automaticDraft?: AutomaticPayrollDraftRecord;
   frequencyLabel?: string;
+  today?: string;
   onOpenOverview?: (period: PayrollPeriod) => void;
   onOpenRun?: (run: PayrollRun, period: PayrollPeriod) => void;
 }) {
@@ -341,6 +411,8 @@ function PeriodDetailPanel({
   const issueSummary = getIssueSummary(period, { periods, runs, entries, automaticDrafts, automaticDraft, importBatches });
   const importedActivity = getImportedActivity(period, importBatches, periods);
   const locked = isLocked(period, runs);
+  const displayState = getPayrollPeriodDisplayState(period, runs, today);
+
   return (
     <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="payroll-calendar-detail-title">
       <div className="flex items-start justify-between gap-3">
@@ -349,7 +421,7 @@ function PeriodDetailPanel({
           <h3 id="payroll-calendar-detail-title" className="mt-1 text-base font-black text-slate-950">{formatDate(period.periodStart)} – {formatDate(period.periodEnd)}</h3>
           <p className="mt-1 text-[10px] text-slate-500">{frequencyLabel ? `${frequencyLabel} · ` : ""}Pay date {period.payDate ? formatDate(period.payDate) : "not set"}</p>
         </div>
-        <span className={`rounded-full px-2 py-1 text-[9px] font-black ${period.status === "VOID" ? "bg-slate-100 text-slate-500" : period.status === "PAID" ? "bg-indigo-50 text-indigo-700" : period.status === "APPROVED" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{readableStatus(period.status)}</span>
+        <span className={`rounded-full px-2 py-1 text-[9px] font-black ${getPayrollPeriodDisplayClass(displayState)}`}>{displayState}</span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-[10px]">
@@ -491,13 +563,13 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
               {DAY_LABELS.map((label) => <div key={label} role="columnheader" className="border-b border-slate-200 px-2 py-2 text-center text-[9px] font-black uppercase tracking-wide text-slate-500">{label}</div>)}
             </div>
             <div className="grid grid-cols-7">
-              {grid.days.map((day) => <DayCell key={day.date} day={day} periods={periods} selectedPeriodId={selectedId} onSelectPeriod={onSelectPeriod} />)}
+              {grid.days.map((day) => <DayCell key={day.date} day={day} periods={periods} runs={runs} today={today} selectedPeriodId={selectedId} onSelectPeriod={onSelectPeriod} />)}
             </div>
           </div>
         </div>
 
         <div className="md:hidden">
-          <MobileAgenda days={grid.days} periods={periods} selectedPeriodId={selectedId} onSelectPeriod={onSelectPeriod} />
+          <MobileAgenda days={grid.days} periods={periods} runs={runs} today={today} selectedPeriodId={selectedId} onSelectPeriod={onSelectPeriod} />
         </div>
 
         <PeriodDetailPanel
@@ -509,6 +581,7 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
           automaticDrafts={automaticDrafts}
           automaticDraft={selectedDraft}
           frequencyLabel={selectedPeriod ? payrollPeriodFrequencyLabel(selectedPeriod, schedules || []) : frequencyLabel}
+          today={today}
           onOpenOverview={onOpenOverview}
           onOpenRun={onOpenRun}
         />

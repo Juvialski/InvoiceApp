@@ -152,23 +152,73 @@ function batchIdsToReopen(
   )).map((batch) => batch.id));
 }
 
-function periodBoundary(period: Pick<PayrollPeriod, "scheduleId" | "scheduleVersionId" | "periodStart" | "periodEnd">) {
-  return `${period.scheduleId || "legacy"}:${period.scheduleVersionId || "legacy"}:${period.periodStart}:${period.periodEnd}`;
+function calendarBoundary(period: Pick<PayrollPeriod, "scheduleId" | "periodStart" | "periodEnd">) {
+  return `${period.scheduleId || "legacy"}:${period.periodStart}:${period.periodEnd}`;
+}
+
+function safeRepairPeriodIds(periods: readonly PayrollPeriod[], desired: readonly PayrollPeriod[], context: Parameters<typeof isSafeToDeletePayrollPeriod>[1]) {
+  const groups = new Map<string, PayrollPeriod[]>();
+  for (const period of periods) {
+    if (period.status !== "VOID") {
+      const key = calendarBoundary(period);
+      groups.set(key, [...(groups.get(key) || []), period]);
+    }
+  }
+
+  const removable = new Set<string>();
+
+  // 1. Remove disposable empty VOID tombstones
+  for (const period of periods) {
+    if (period.status === "VOID" && isSafeToDeletePayrollPeriod(period, context)) {
+      removable.add(period.id);
+    }
+  }
+
+  // 2. For duplicate active periods with identical boundary (scheduleId, periodStart, periodEnd),
+  // keep the best one (protected > oldest) and remove disposable duplicates.
+  for (const rows of groups.values()) {
+    if (rows.length < 2) continue;
+    const keeper = rows.slice().sort((left, right) =>
+      Number(!isSafeToDeletePayrollPeriod(left, context)) - Number(!isSafeToDeletePayrollPeriod(right, context))
+      || (left.createdAt || "").localeCompare(right.createdAt || "")
+      || left.id.localeCompare(right.id)
+    )[0]!;
+    for (const row of rows) {
+      if (row.id !== keeper.id && isSafeToDeletePayrollPeriod(row, context)) {
+        removable.add(row.id);
+      }
+    }
+  }
+
+  return removable;
 }
 
 function safeRebuildPeriodIds(periods: readonly PayrollPeriod[], desired: readonly PayrollPeriod[], context: Parameters<typeof isSafeToDeletePayrollPeriod>[1]) {
-  const desiredKeys = new Set(desired.map(periodBoundary));
+  const desiredBoundaries = new Set(desired.map(calendarBoundary));
   const groups = new Map<string, PayrollPeriod[]>();
-  for (const period of periods) groups.set(periodBoundary(period), [...(groups.get(periodBoundary(period)) || []), period]);
+  for (const period of periods) {
+    const key = calendarBoundary(period);
+    groups.set(key, [...(groups.get(key) || []), period]);
+  }
   const removable = new Set<string>();
   for (const period of periods) {
     if (!isSafeToDeletePayrollPeriod(period, context)) continue;
-    if (period.status === "VOID" || !desiredKeys.has(periodBoundary(period))) removable.add(period.id);
+    if (period.status === "VOID" || !desiredBoundaries.has(calendarBoundary(period))) {
+      removable.add(period.id);
+    }
   }
   for (const rows of groups.values()) {
     if (rows.length < 2) continue;
-    const keeper = rows.slice().sort((left, right) => Number(!isSafeToDeletePayrollPeriod(left, context)) - Number(!isSafeToDeletePayrollPeriod(right, context)) || (left.createdAt || "").localeCompare(right.createdAt || "") || left.id.localeCompare(right.id))[0]!;
-    for (const row of rows) if (row.id !== keeper.id && isSafeToDeletePayrollPeriod(row, context)) removable.add(row.id);
+    const keeper = rows.slice().sort((left, right) =>
+      Number(!isSafeToDeletePayrollPeriod(left, context)) - Number(!isSafeToDeletePayrollPeriod(right, context))
+      || (left.createdAt || "").localeCompare(right.createdAt || "")
+      || left.id.localeCompare(right.id)
+    )[0]!;
+    for (const row of rows) {
+      if (row.id !== keeper.id && isSafeToDeletePayrollPeriod(row, context)) {
+        removable.add(row.id);
+      }
+    }
   }
   return removable;
 }
@@ -183,7 +233,9 @@ function safeRebuildRunIds(runs: readonly PayrollRun[], context: Parameters<type
     else if (candidates.length > 1) candidates.slice(1).forEach((run) => removable.add(run.id));
   }
   return removable;
-}export function planLocalPayrollMaintenance(input: PayrollMaintenanceLocalInput, action: PayrollMaintenanceAction): PayrollMaintenanceLocalPlan {
+}
+
+export function planLocalPayrollMaintenance(input: PayrollMaintenanceLocalInput, action: PayrollMaintenanceAction): PayrollMaintenanceLocalPlan {
   const referenceDate = input.referenceDate || dateOnly();
   const schedule = selectPrimaryPayrollSchedule(input.schedules);
   const baseContext = { runs: input.runs, entries: input.entries, workEntries: input.workEntries, attendanceRecords: input.attendanceRecords, leaveRequests: input.leaveRequests, overtimeRequests: input.overtimeRequests, importBatches: input.importData.batches, adjustments: input.adjustments };
@@ -231,6 +283,8 @@ function safeRebuildRunIds(runs: readonly PayrollRun[], context: Parameters<type
   const cleanupContext = { runs, entries, workEntries, attendanceRecords: input.attendanceRecords, leaveRequests: input.leaveRequests, overtimeRequests: input.overtimeRequests, importBatches: importData.batches, adjustments };
   const disposablePeriodIds = action === "RESET_UNAPPROVED"
     ? new Set(periods.filter((period) => isSafeToDeletePayrollPeriod(period, cleanupContext) || (periodIsResettable(period, input.runs) && isSafeToDeletePayrollPeriod({ ...period, status: period.status === "CALCULATED" ? "OPEN" : period.status }, cleanupContext))).map((period) => period.id))
+    : action === "REPAIR"
+    ? safeRepairPeriodIds(periods, desired, baseContext)
     : safeRebuildPeriodIds(periods, desired, baseContext);
   const disposableRunIds = action === "RESET_UNAPPROVED"
     ? new Set(runs.filter((run) => disposablePeriodIds.has(run.periodId) && isSafeToDeletePayrollRun(run, cleanupContext)).map((run) => run.id))
@@ -239,6 +293,26 @@ function safeRebuildRunIds(runs: readonly PayrollRun[], context: Parameters<type
   periods = periods.filter((period) => !disposablePeriodIds.has(period.id));
   const removedPeriodIds = new Set(disposablePeriodIds);
   workEntries = workEntries.map((entry) => removedPeriodIds.has(entry.periodId || "") ? { ...entry, periodId: undefined } : entry);
+
+  // In REPAIR mode, re-link metadata (version ID, payDate) in place for matching disposable periods
+  if (action === "REPAIR" && schedule) {
+    const desiredMap = new Map<string, PayrollPeriod>();
+    for (const d of desired) desiredMap.set(calendarBoundary(d), d);
+    periods = periods.map((p) => {
+      if (p.status === "VOID") return p;
+      const match = desiredMap.get(calendarBoundary(p));
+      if (match && isSafeToDeletePayrollPeriod(p, cleanupContext)) {
+        if (p.scheduleVersionId !== match.scheduleVersionId || (match.payDate && p.payDate !== match.payDate)) {
+          return {
+            ...p,
+            scheduleVersionId: match.scheduleVersionId || p.scheduleVersionId,
+            payDate: match.payDate || p.payDate,
+          };
+        }
+      }
+      return p;
+    });
+  }
 
   const ensured = ensurePayrollPeriodsAndRuns({
     schedules: schedule ? [schedule] : [],
@@ -257,6 +331,18 @@ function safeRebuildRunIds(runs: readonly PayrollRun[], context: Parameters<type
   });
   periods = ensured.periods;
   runs = ensured.runs;
+
+  // SAFETY INVARIANT VALIDATION:
+  // After Repair or Calendar Rebuild on an auto-generating schedule, verify that every expected
+  // canonical period boundary exists in the resulting periods list.
+  if ((action === "REPAIR" || action === "REBUILD_CALENDAR") && schedule && schedule.autoGeneratePeriods) {
+    const activeBoundaries = new Set(periods.filter((p) => p.status !== "VOID" && p.scheduleId === schedule.id).map(calendarBoundary));
+    for (const d of desired) {
+      if (!activeBoundaries.has(calendarBoundary(d))) {
+        throw new Error(`Payroll maintenance safety invariant failure: canonical period ${d.periodStart} – ${d.periodEnd} is missing after ${action}.`);
+      }
+    }
+  }
 
   const protectedContext = { runs: input.runs, entries: input.entries, workEntries: input.workEntries, attendanceRecords: input.attendanceRecords, leaveRequests: input.leaveRequests, overtimeRequests: input.overtimeRequests, importBatches: input.importData.batches, adjustments: input.adjustments };
   const periodsToDelete = disposablePeriodIds.size;
@@ -298,65 +384,36 @@ export function localMaintenanceResult(plan: PayrollMaintenanceLocalPlan): Payro
 }
 
 function objectResult(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (Array.isArray(value) && value[0] && typeof value[0] === "object") return value[0] as Record<string, unknown>;
-  return {};
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }
 
-function actionValue(value: unknown): PayrollMaintenanceAction {
-  return PAYROLL_MAINTENANCE_ACTIONS.includes(value as PayrollMaintenanceAction) ? value as PayrollMaintenanceAction : "REPAIR";
-}
-
-export function payrollMaintenancePreviewFromResult(value: unknown): PayrollMaintenancePreview {
-  const result = objectResult(value);
-  const action = actionValue(result.action);
+export function payrollMaintenancePreviewFromResult(raw: unknown): PayrollMaintenancePreview {
+  const data = objectResult(raw);
+  const action = (data.action as PayrollMaintenanceAction) || "REPAIR";
   return {
     action,
-    scheduleFrequency: typeof result.scheduleFrequency === "string" ? result.scheduleFrequency : undefined,
-    scheduleName: typeof result.scheduleName === "string" ? result.scheduleName : undefined,
-    referenceDate: typeof result.referenceDate === "string" ? result.referenceDate : dateOnly(),
-    rebuildStart: typeof result.rebuildStart === "string" ? result.rebuildStart : undefined,
-    rebuildEnd: typeof result.rebuildEnd === "string" ? result.rebuildEnd : undefined,
-    periodsToDelete: numberValue(result.periodsToDelete),
-    runsToDelete: numberValue(result.runsToDelete),
-    entriesToDelete: numberValue(result.entriesToDelete),
-    allocationsToDelete: numberValue(result.allocationsToDelete),
-    adjustmentsToDelete: numberValue(result.adjustmentsToDelete),
-    importBatchesToReopen: numberValue(result.importBatchesToReopen),
-    importRowsToReopen: numberValue(result.importRowsToReopen),
-    periodsToCreate: numberValue(result.periodsToCreate),
-    runsToCreate: numberValue(result.runsToCreate),
-    protectedApprovedRuns: numberValue(result.protectedApprovedRuns),
-    protectedPaidRuns: numberValue(result.protectedPaidRuns),
-    protectedLockedPeriods: numberValue(result.protectedLockedPeriods),
-    protectedDataBearingPeriods: numberValue(result.protectedDataBearingPeriods),
-    manualReviewIssues: numberValue(result.manualReviewIssues),
-    eligible: result.eligible !== false,
-    noChanges: result.noChanges === true,
+    scheduleFrequency: typeof data.scheduleFrequency === "string" ? data.scheduleFrequency : undefined,
+    scheduleName: typeof data.scheduleName === "string" ? data.scheduleName : undefined,
+    referenceDate: typeof data.referenceDate === "string" ? data.referenceDate : dateOnly(),
+    rebuildStart: typeof data.rebuildStart === "string" ? data.rebuildStart : undefined,
+    rebuildEnd: typeof data.rebuildEnd === "string" ? data.rebuildEnd : undefined,
+    periodsToDelete: numberValue(data.periodsToDelete),
+    runsToDelete: numberValue(data.runsToDelete),
+    entriesToDelete: numberValue(data.entriesToDelete),
+    allocationsToDelete: numberValue(data.allocationsToDelete),
+    adjustmentsToDelete: numberValue(data.adjustmentsToDelete),
+    importBatchesToReopen: numberValue(data.importBatchesToReopen),
+    importRowsToReopen: numberValue(data.importRowsToReopen),
+    periodsToCreate: numberValue(data.periodsToCreate),
+    runsToCreate: numberValue(data.runsToCreate),
+    protectedApprovedRuns: numberValue(data.protectedApprovedRuns),
+    protectedPaidRuns: numberValue(data.protectedPaidRuns),
+    protectedLockedPeriods: numberValue(data.protectedLockedPeriods),
+    protectedDataBearingPeriods: numberValue(data.protectedDataBearingPeriods),
+    manualReviewIssues: numberValue(data.manualReviewIssues),
+    eligible: Boolean(data.eligible),
+    noChanges: Boolean(data.noChanges),
   };
-}
-
-export async function previewPayrollMaintenance(action: PayrollMaintenanceAction, referenceDate = dateOnly(), companyId = requireActiveCompanyId()): Promise<PayrollMaintenancePreview> {
-  if (!supabase) throw new Error("Payroll maintenance requires a connected company workspace.");
-  const { data, error } = await supabase.rpc("preview_payroll_maintenance", {
-    p_company_id: companyId,
-    p_action: action,
-    p_reference_date: referenceDate,
-  });
-  if (error) throw error;
-  return payrollMaintenancePreviewFromResult(data);
-}
-
-export async function applyPayrollMaintenance(action: PayrollMaintenanceAction, referenceDate = dateOnly(), confirmation?: string, companyId = requireActiveCompanyId()): Promise<PayrollMaintenanceResult> {
-  if (!supabase) throw new Error("Payroll maintenance requires a connected company workspace.");
-  const { data, error } = await supabase.rpc("apply_payroll_maintenance", {
-    p_company_id: companyId,
-    p_action: action,
-    p_reference_date: referenceDate,
-    p_confirmation: confirmation || null,
-  });
-  if (error) throw error;
-  return { ...payrollMaintenancePreviewFromResult(data), applied: true };
 }
 
 function resetCountsFromResult(value: unknown): Record<string, number> {
@@ -379,6 +436,28 @@ export function payrollWorkspaceResetPreviewFromResult(value: unknown): PayrollW
   };
 }
 
+export async function previewPayrollMaintenance(action: PayrollMaintenanceAction, referenceDate = dateOnly(), companyId?: string): Promise<PayrollMaintenancePreview> {
+  const { data, error } = await supabase.rpc("preview_payroll_maintenance", {
+    p_company_id: companyId ?? requireActiveCompanyId(),
+    p_action: action,
+    p_reference_date: referenceDate,
+  });
+  if (error) throw error;
+  return payrollMaintenancePreviewFromResult(data);
+}
+
+export async function applyPayrollMaintenance(action: PayrollMaintenanceAction, referenceDate = dateOnly(), confirmation?: string, companyId?: string): Promise<PayrollMaintenanceResult> {
+  const { data, error } = await supabase.rpc("apply_payroll_maintenance", {
+    p_company_id: companyId ?? requireActiveCompanyId(),
+    p_action: action,
+    p_reference_date: referenceDate,
+    p_confirmation: confirmation || null,
+  });
+  if (error) throw error;
+  const preview = payrollMaintenancePreviewFromResult(data);
+  return { ...preview, applied: true };
+}
+
 export async function previewPayrollWorkspaceReset(referenceDate = dateOnly(), companyId?: string): Promise<PayrollWorkspaceResetPreview> {
   if (!supabase) throw new Error("The payroll factory reset requires a connected company workspace.");
   const { data, error } = await supabase.rpc("preview_payroll_workspace_reset", {
@@ -390,8 +469,6 @@ export async function previewPayrollWorkspaceReset(referenceDate = dateOnly(), c
 }
 
 export async function applyPayrollWorkspaceReset(confirmation: string | undefined, referenceDate = dateOnly(), companyId?: string): Promise<PayrollWorkspaceResetPreview & { applied: boolean }> {
-  // Refuse before touching any workspace context so a wrong phrase can never
-  // escalate into a data access or network call.
   assertPayrollWorkspaceResetConfirmation(confirmation);
   if (!supabase) throw new Error("The payroll factory reset requires a connected company workspace.");
   const { data, error } = await supabase.rpc("apply_payroll_workspace_reset", {
@@ -402,5 +479,10 @@ export async function applyPayrollWorkspaceReset(confirmation: string | undefine
   if (error) throw error;
   return { ...payrollWorkspaceResetPreviewFromResult(data), applied: true };
 }
+
+export const previewRemotePayrollMaintenance = previewPayrollMaintenance;
+export const applyRemotePayrollMaintenance = applyPayrollMaintenance;
+export const previewRemotePayrollWorkspaceReset = previewPayrollWorkspaceReset;
+export const applyRemotePayrollWorkspaceReset = applyPayrollWorkspaceReset;
 
 export { actionLabel };
