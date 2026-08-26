@@ -512,6 +512,41 @@ async function getPayrollReadiness(context: AssistantToolContext, args: Record<s
   return toolOk({ period: periodView(period), run: run ? runView(run) : undefined, sourceCounts: { confirmedAttendance: attendance.filter((row) => text(row, "record_status") === "CONFIRMED").length, activeLeave: leave.filter((row) => ["DRAFT", "PENDING", "APPROVED"].includes(text(row, "status"))).length, approvedOvertime: overtime.filter((row) => text(row, "status") === "APPROVED").length, approvedWorkEntries: workEntries.filter((row) => text(row, "status") === "APPROVED").length, payrollEntries: entries.length }, blockers, readyForApproval: blockers.length === 0 && Boolean(run && text(run, "status") === "CALCULATED"), authoritativeCalculation: false });
 }
 
+function workspaceToday(context: AssistantToolContext) {
+  const timezone = context.context.companyTimezone || "Asia/Manila";
+  try {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(context.now);
+  } catch {
+    return context.now.toISOString().slice(0, 10);
+  }
+}
+
+async function listPayrollPeriods(context: AssistantToolContext, args: Record<string, unknown>) {
+  const today = workspaceToday(context);
+  const timezone = context.context.companyTimezone || "Asia/Manila";
+  const limit = Number(args.limit || 50);
+  let query = userCompanyQuery(context, "payroll_periods", PERIOD_SELECT).neq("status", "VOID").order("period_start", { ascending: true }).limit(limit);
+  if (typeof args.status === "string") query = query.eq("status", args.status);
+  if (typeof args.from === "string") query = query.gte("period_start", args.from);
+  if (typeof args.to === "string") query = query.lte("period_end", args.to);
+  const rows = await getRows(query, "Payroll periods");
+  const current = rows
+    .filter((row) => text(row, "period_start") <= today && text(row, "period_end") >= today)
+    .sort((left, right) => text(right, "period_end").localeCompare(text(left, "period_end")) || text(right, "period_start").localeCompare(text(left, "period_start")))[0];
+  const next = rows
+    .filter((row) => text(row, "period_start") > today)
+    .sort((left, right) => text(left, "period_start").localeCompare(text(right, "period_start")) || text(left, "period_end").localeCompare(text(right, "period_end")))[0];
+  const relationship = (row: Row) => row === current ? "CURRENT" : row === next ? "NEXT" : text(row, "period_start") > today && text(row, "status") === "DRAFT" ? "SCHEDULED" : "OTHER";
+  return toolOk({
+    referenceDate: today,
+    timezone,
+    currentPeriod: current ? periodView(current) : null,
+    nextPeriod: next ? periodView(next) : null,
+    periods: rows.map((row) => ({ ...periodView(row), relationship: relationship(row) })),
+    semantics: "Current means the persisted period boundaries contain the workspace date. A future DRAFT period is scheduled, not current or open.",
+  }, { references: rows.slice(0, 20).map((row) => reference("payroll_period", text(row, "id"), `${text(row, "period_start")} – ${text(row, "period_end")}`)) });
+}
+
 async function countRows(context: AssistantToolContext, table: string) {
   const { count, error } = await db(context).from(table).select("id", { count: "exact", head: true }).eq("company_id", context.auth.companyId);
   return error ? undefined : count ?? 0;
@@ -681,46 +716,7 @@ async function executeProcessAttachedInvoice(context: AssistantToolContext, args
       return { operation: "invoice_already_processed", invoice: invoiceView(existing), invoiceId: text(existing, "id") };
     }
   }
-  const id = actionId || randomUUID();
-  const existingById = await getOne(userCompanyQuery(context, "invoices", INVOICE_SELECT).eq("id", id).maybeSingle(), "Existing invoice by id");
-  if (existingById) {
-    return { operation: "invoice_already_processed", invoice: invoiceView(existingById), invoiceId: text(existingById, "id") };
-  }
-  const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const today = new Date().toISOString().slice(0, 10);
-  const row = {
-    id,
-    user_id: context.auth.user.id,
-    company_id: context.auth.companyId,
-    invoice_number: invoiceNumber,
-    invoice_date: today,
-    due_date: today,
-    currency: "PHP",
-    grand_total: 0,
-    payment_status: "UNPAID",
-    review_status: "NEEDS_REVIEW",
-    duplicate_status: "UNIQUE",
-    document_type: "INVOICE",
-    source_sha256: sha256 || null,
-    current_data: {
-      id,
-      invoiceNumber,
-      invoiceDate: today,
-      dueDate: today,
-      currency: "PHP",
-      grandTotal: 0,
-      reviewStatus: "NEEDS_REVIEW",
-      paymentStatus: "UNPAID",
-      documentType: "INVOICE",
-      fileName,
-      items: [],
-    },
-    created_at: context.now.toISOString(),
-    updated_at: context.now.toISOString(),
-  };
-  const { data, error } = await db(context).from("invoices").insert(row).select(INVOICE_SELECT).single();
-  if (error) throw new AssistantToolError("WRITE_FAILED", "The attached invoice could not be saved to the review queue.");
-  return { operation: "invoice_extracted_and_queued", invoice: invoiceView(data as Row), invoiceId: id };
+  throw new AssistantToolError("ATTACHED_INVOICE_PIPELINE_REQUIRED", `The attached invoice ${fileName} must be processed through the InvoiceApp review pipeline before confirmation can complete.`);
 }
 
 const HELP_TOPICS: Record<string, { title: string; summary: string; routeId?: string }> = {
@@ -1326,6 +1322,7 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "get_payroll_readiness": return getPayrollReadiness(context, args);
     case "get_payroll_exceptions": return getPayrollReadiness(context, args);
     case "get_payroll_summary": return getPayrollReadiness(context, args);
+    case "list_payroll_periods": return listPayrollPeriods(context, args);
     case "get_current_workspace_summary": return getCurrentWorkspaceSummary(context);
     case "get_cash_summary": return getCashSummary(context, args);
     case "list_financial_accounts": return listFinancialAccounts(context, args);

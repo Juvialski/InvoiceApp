@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 import { ASSISTANT_FALLBACK_MODEL, ASSISTANT_PRIMARY_MODEL, createAssistantModelRunner } from "../src/server/assistant/assistantModels.ts";
 import { prepareAssistantAttachments } from "../src/server/assistant/assistantAttachments.ts";
@@ -6,12 +7,12 @@ import { ASSISTANT_SYSTEM_PROMPT, promptInjectionSafeAttachmentText } from "../s
 import { runAssistantLoop } from "../src/server/assistant/assistantLoop.ts";
 import { ASSISTANT_TOOL_DEFINITIONS, executeAssistantTool, getAssistantToolDefinition } from "../src/server/assistant/toolRegistry.ts";
 import { validateToolArguments } from "../src/server/assistant/toolValidation.ts";
-import { authenticateAssistantRequest } from "../src/server/assistant/assistantHandler.ts";
+import { authenticateAssistantRequest, createPrepareAction } from "../src/server/assistant/assistantHandler.ts";
 import { requireCompanyPermissions } from "../src/server/assistant/toolAuthorization.ts";
-import { executePreparedAction } from "../src/server/assistant/assistantToolExecutors.ts";
+import { executePreparedAction, executeRegisteredTool } from "../src/server/assistant/assistantToolExecutors.ts";
 
 const requestedTools = [
-  "search_invoices", "get_invoice", "list_review_queue", "search_projects", "get_project", "get_project_cost_summary", "list_expenses", "get_expense_summary", "search_vendors", "get_vendor_summary", "search_workers", "get_worker", "prepare_create_worker", "get_attendance_day", "get_attendance_period_summary", "get_payroll_period", "get_payroll_run", "get_payroll_readiness", "get_payroll_exceptions", "get_payroll_summary", "get_current_workspace_summary", "navigate_to", "navigate_to_project", "navigate_to_invoice", "navigate_to_review_invoice", "navigate_to_payroll_period", "navigate_to_attendance_date", "search_help", "get_feature_help", "start_tour", "prepare_attendance_batch", "prepare_attendance_roster", "record_presence", "record_absence", "prepare_leave_request", "approve_leave", "reject_leave", "cancel_leave", "prepare_overtime_request", "approve_overtime", "reject_overtime", "prepare_payroll_recalculation", "create_expense_draft", "create_project_draft", "assign_invoice_to_project", "update_invoice_draft", "approve_payroll", "mark_payroll_paid",
+  "search_invoices", "get_invoice", "list_review_queue", "search_projects", "get_project", "get_project_cost_summary", "list_expenses", "get_expense_summary", "search_vendors", "get_vendor_summary", "search_workers", "get_worker", "prepare_create_worker", "get_attendance_day", "get_attendance_period_summary", "get_payroll_period", "get_payroll_run", "get_payroll_readiness", "get_payroll_exceptions", "get_payroll_summary", "list_payroll_periods", "get_current_workspace_summary", "get_cash_summary", "list_financial_accounts", "get_financial_account", "list_financial_transactions", "get_cash_reconciliation_summary", "navigate_to", "navigate_to_project", "navigate_to_invoice", "navigate_to_review_invoice", "navigate_to_payroll_period", "navigate_to_attendance_date", "search_help", "get_feature_help", "start_tour", "prepare_process_attached_invoice", "prepare_attendance_batch", "prepare_attendance_roster", "record_presence", "record_absence", "prepare_leave_request", "approve_leave", "reject_leave", "cancel_leave", "prepare_overtime_request", "approve_overtime", "reject_overtime", "cancel_overtime", "prepare_payroll_recalculation", "create_expense_draft", "create_project_draft", "assign_invoice_to_project", "update_invoice_draft", "approve_payroll", "mark_payroll_paid",
 ];
 
 function loopContext() {
@@ -25,6 +26,7 @@ function loopContext() {
 
 test("Wave 1 registry contains only the requested allowlisted tools", () => {
   const names = ASSISTANT_TOOL_DEFINITIONS.map((definition) => definition.name);
+  assert.deepEqual(names, requestedTools);
   for (const name of requestedTools) assert.ok(names.includes(name), name);
   assert.equal(new Set(names).size, names.length);
   assert.equal(names.includes("execute_sql"), false);
@@ -171,6 +173,98 @@ test("worker creation is denied before any write without the company permission"
   assert.equal(result.error?.code, "FORBIDDEN");
   assert.equal(prepared, false);
   assert.equal(fake.inserts.length, 0);
+});
+
+function fakeActionSupabase(initial: Record<string, unknown>[]) {
+  const events = [...initial];
+  return {
+    client: {
+      from(table: string) {
+        if (table !== "assistant_action_events") throw new Error(`Unexpected table ${table}`);
+        let filters: Array<[string, unknown]> = [];
+        let mutationRows: Record<string, unknown>[] | undefined;
+        const matching = () => events.filter((event) => filters.every(([key, value]) => event[key] === value));
+        const query: any = {
+          select: () => query,
+          eq: (key: string, value: unknown) => { filters = [...filters, [key, value]]; return query; },
+          update: (patch: Record<string, unknown>) => {
+            mutationRows = matching().map((event) => Object.assign(event, patch));
+            return query;
+          },
+          insert: (row: Record<string, unknown>) => {
+            const inserted = { id: `action-${events.length + 1}`, ...row };
+            events.push(inserted);
+            mutationRows = [inserted];
+            return query;
+          },
+          maybeSingle: async () => ({ data: matching()[0] || null, error: null }),
+          single: async () => ({ data: mutationRows?.[0] || matching()[0] || null, error: null }),
+          then: (resolve: (value: unknown) => unknown, reject: (error: unknown) => unknown) => Promise.resolve({ data: mutationRows || matching(), error: null }).then(resolve, reject),
+        };
+        return query;
+      },
+    } as any,
+    events,
+  };
+}
+
+test("expired prepared actions are expired before an identical request is retried", async () => {
+  const argsHash = createHash("sha256").update(JSON.stringify({ args: { amount: 1250 }, companyId: "00000000-0000-0000-0000-000000000001", generation: 4, toolName: "create_expense_draft", userId: "00000000-0000-0000-0000-000000000002" })).digest("hex");
+  const fake = fakeActionSupabase([{
+    id: "action-old",
+    company_id: "00000000-0000-0000-0000-000000000001",
+    user_id: "00000000-0000-0000-0000-000000000002",
+    idempotency_key: `assistant:${argsHash}`,
+    status: "PREPARED",
+    expires_at: "2026-08-25T23:59:00.000Z",
+  }]);
+  const auth = { companyId: "00000000-0000-0000-0000-000000000001", user: { id: "00000000-0000-0000-0000-000000000002" }, supabase: fake.client } as any;
+  const prepare = createPrepareAction(auth, "thread-1", { companyId: auth.companyId, generation: 4 } as any, new Date("2026-08-26T00:00:00.000Z"));
+  const result = await prepare({ toolName: "create_expense_draft", riskTier: "NORMAL_MUTATION", normalizedArgs: { amount: 1250 }, preview: { amount: 1250 }, contextGeneration: 4 });
+  assert.equal(result.preparedAction?.status, "PREPARED");
+  assert.equal(fake.events[0]?.status, "EXPIRED");
+  assert.equal(fake.events.length, 2);
+  assert.match(String(fake.events[1]?.idempotency_key), /:retry:/);
+});
+
+function fakePayrollPeriodSupabase(periods: Array<Record<string, unknown>>) {
+  return {
+    from(table: string) {
+      if (table !== "payroll_periods") throw new Error(`Unexpected table ${table}`);
+      let rows = [...periods];
+      const query: any = {
+        select: () => query,
+        eq: (key: string, value: unknown) => { rows = rows.filter((row) => row[key] === value); return query; },
+        neq: (key: string, value: unknown) => { rows = rows.filter((row) => row[key] !== value); return query; },
+        gte: (key: string, value: unknown) => { rows = rows.filter((row) => String(row[key]) >= String(value)); return query; },
+        lte: (key: string, value: unknown) => { rows = rows.filter((row) => String(row[key]) <= String(value)); return query; },
+        order: (key: string, options?: { ascending?: boolean }) => { rows.sort((left, right) => String(left[key]).localeCompare(String(right[key])) * (options?.ascending === false ? -1 : 1)); return query; },
+        limit: (count: number) => { rows = rows.slice(0, count); return query; },
+        then: (resolve: (value: unknown) => unknown, reject: (error: unknown) => unknown) => Promise.resolve({ data: rows, error: null }).then(resolve, reject),
+      };
+      return query;
+    },
+  } as any;
+}
+
+test("payroll period discovery uses the workspace timezone and keeps future drafts scheduled", async () => {
+  const companyId = "00000000-0000-0000-0000-000000000001";
+  const context = {
+    ...loopContext(),
+    auth: { ...loopContext().auth, companyId, supabase: fakePayrollPeriodSupabase([
+      { id: "period-next", company_id: companyId, period_start: "2026-08-31", period_end: "2026-09-06", status: "DRAFT", source_revision: 1 },
+      { id: "period-later", company_id: companyId, period_start: "2026-09-07", period_end: "2026-09-13", status: "DRAFT", source_revision: 1 },
+    ]) },
+    context: { companyId, companyTimezone: "Asia/Manila", generation: 3 },
+    now: new Date("2026-08-26T15:00:00.000Z"),
+  } as any;
+  const result = await executeRegisteredTool("list_payroll_periods", {}, context);
+  const output = result.output as any;
+  assert.equal(output.referenceDate, "2026-08-26");
+  assert.equal(output.currentPeriod, null);
+  assert.equal(output.nextPeriod.startDate, "2026-08-31");
+  assert.equal(output.periods[0].relationship, "NEXT");
+  assert.equal(output.periods[1].relationship, "SCHEDULED");
 });
 
 test("assistant loop bounds iterations and preserves Gemini function name/id matching", async () => {

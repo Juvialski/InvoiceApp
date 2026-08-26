@@ -7,7 +7,7 @@ import { AssistantClientError, cancelAssistantAction as cancelAssistantActionReq
 import { isAssistantActionAllowed, isAssistantCompanyIdentityCurrent, sanitizeAssistantClientAction } from "./assistantActionPolicy.ts";
 import { readAssistantAttachment, validateAssistantAttachment, type AttachmentRejectionCode } from "./attachmentRouter.ts";
 import { getAssistantTour, tourTargetSelector, type AssistantTour, type AssistantTourId } from "./tourRegistry.ts";
-import type { AssistantContext, AssistantAttachmentReference, AssistantClientAction, AssistantPreparedAction } from "./assistantTypes.ts";
+import type { AssistantAttachmentInput, AssistantContext, AssistantAttachmentReference, AssistantClientAction, AssistantPreparedAction } from "./assistantTypes.ts";
 import type { AssistantAttachmentDraft, AssistantConversationMessage } from "./assistantUiTypes.ts";
 import { AssistantPanel } from "./AssistantPanel.tsx";
 
@@ -21,6 +21,7 @@ export interface AssistantActionCallbacks {
   onOpenPayrollPeriod?: (periodId: string | undefined, action: AssistantClientAction) => void | Promise<void>;
   onOpenAttendanceDate?: (date: string | undefined, action: AssistantClientAction) => void | Promise<void>;
   onStartTour?: (tourId: AssistantTourId) => void | Promise<void>;
+  onProcessAttachedInvoice?: (attachment: AssistantAttachmentInput, action: AssistantPreparedAction) => void | Promise<void>;
   onActionBlocked?: (action: AssistantClientAction, reason: string) => void;
   onOpenAiConfiguration?: () => void | Promise<void>;
 }
@@ -158,6 +159,7 @@ export function AssistantProvider({
   onOpenPayrollPeriod,
   onOpenAttendanceDate,
   onStartTour,
+  onProcessAttachedInvoice,
   onActionBlocked,
   onOpenAiConfiguration,
 }: AssistantProviderProps) {
@@ -178,8 +180,9 @@ export function AssistantProvider({
     onOpenPayrollPeriod: onOpenPayrollPeriod || actionCallbacks?.onOpenPayrollPeriod,
     onOpenAttendanceDate: onOpenAttendanceDate || actionCallbacks?.onOpenAttendanceDate,
     onStartTour: onStartTour || actionCallbacks?.onStartTour,
+    onProcessAttachedInvoice: onProcessAttachedInvoice || actionCallbacks?.onProcessAttachedInvoice,
     onActionBlocked: onActionBlocked || actionCallbacks?.onActionBlocked,
-  }), [actionCallbacks, onActionBlocked, onNavigate, onOpenAttendanceDate, onOpenInvoice, onOpenPayrollPeriod, onOpenProject, onOpenReviewInvoice, onStartTour]);
+  }), [actionCallbacks, onActionBlocked, onNavigate, onOpenAttendanceDate, onOpenInvoice, onOpenPayrollPeriod, onOpenProject, onOpenReviewInvoice, onProcessAttachedInvoice, onStartTour]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<AssistantConversationMessage[]>([]);
@@ -200,6 +203,7 @@ export function AssistantProvider({
   const threadIdRef = useRef<string | null>(null);
   const contextGenerationRef = useRef(companyGeneration);
   const requestAbortRef = useRef<AbortController | null>(null);
+  const attachedInvoicePayloadsRef = useRef(new Map<string, AssistantAttachmentInput>());
   const lastFailedMessageRef = useRef<string | null>(null);
   const previousIdentityRef = useRef(identity);
 
@@ -219,6 +223,7 @@ export function AssistantProvider({
     setError(null);
     setCanRetry(false);
     lastFailedMessageRef.current = null;
+    attachedInvoicePayloadsRef.current.clear();
     setIsLoading(false);
     setActiveTourId(null);
     setActiveTourStepIndex(0);
@@ -293,7 +298,7 @@ export function AssistantProvider({
     setAttachments(next);
   }, []);
 
-  const appendResponse = useCallback((response: Awaited<ReturnType<typeof sendAssistantMessageRequest>>) => {
+  const appendResponse = useCallback((response: Awaited<ReturnType<typeof sendAssistantMessageRequest>>, sentAttachments: readonly AssistantAttachmentInput[] = []) => {
     threadIdRef.current = response.threadId;
     contextGenerationRef.current = response.contextGeneration;
     setThreadId(response.threadId);
@@ -302,6 +307,12 @@ export function AssistantProvider({
     pendingActionsRef.current = nextPending;
     setPendingActions(nextPending);
     setAttachmentRefs(response.attachments);
+    for (const action of response.preparedActions) {
+      if (action.toolName !== "prepare_process_attached_invoice") continue;
+      const fileName = typeof action.preview.fileName === "string" ? action.preview.fileName.toLowerCase() : "";
+      const attachment = sentAttachments.find((candidate) => candidate.fileName.toLowerCase() === fileName);
+      if (attachment) attachedInvoicePayloadsRef.current.set(action.id, attachment);
+    }
     const warnings = response.attachments.map((attachment) => attachment.warning).filter((warning): warning is string => Boolean(warning));
     setMessages((current) => [...current, {
       id: localMessageId(messageCounterRef),
@@ -346,7 +357,7 @@ export function AssistantProvider({
     try {
       const response = await sendAssistantMessageRequest({ companyId, threadId: threadIdRef.current, message: normalizedMessage, context, attachments: requestAttachments, signal: controller.signal });
       if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
-      appendResponse(response);
+      appendResponse(response, localAttachments);
       lastFailedMessageRef.current = null;
       setCanRetry(false);
       return true;
@@ -403,6 +414,14 @@ export function AssistantProvider({
     setError(null);
     setIsLoading(true);
     try {
+      if (pending.toolName === "prepare_process_attached_invoice" && callbacks.onProcessAttachedInvoice) {
+        const attachment = attachedInvoicePayloadsRef.current.get(actionId);
+        if (!attachment?.dataBase64 || !attachment.mimeType || !attachment.fileName) {
+          setError("The original invoice attachment is no longer available. Attach it again and prepare the action again.");
+          return false;
+        }
+        await callbacks.onProcessAttachedInvoice(attachment, pending);
+      }
       const response = await confirmAssistantActionRequest({ companyId, actionId, contextGeneration: contextGenerationRef.current, signal: controller.signal });
       if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
       threadIdRef.current = response.threadId;
@@ -413,6 +432,7 @@ export function AssistantProvider({
       pendingActionsRef.current = responsePending;
       setPendingActions(responsePending);
       setAttachmentRefs(response.attachments);
+      attachedInvoicePayloadsRef.current.delete(actionId);
       setMessages((current) => [...current, { id: localMessageId(messageCounterRef), role: "assistant", text: response.message, references: response.references, clientActions: response.clientActions, preparedActions: response.preparedActions, attachments: response.attachments, warnings: response.attachments.map((attachment) => attachment.warning).filter((warning): warning is string => Boolean(warning)), createdAt: nowIso() }]);
       return true;
     } catch (requestError) {
@@ -443,6 +463,7 @@ export function AssistantProvider({
       const response = await cancelAssistantActionRequest({ companyId, actionId, contextGeneration: contextGenerationRef.current });
       if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
       pendingActionsRef.current = pendingActionsRef.current.filter((action) => action.id !== actionId);
+      attachedInvoicePayloadsRef.current.delete(actionId);
       setPendingActions(pendingActionsRef.current);
       setMessages((current) => [...current, { id: localMessageId(messageCounterRef), role: "assistant", text: response.message, references: response.references, clientActions: response.clientActions, preparedActions: response.preparedActions, attachments: response.attachments, warnings: [], createdAt: nowIso() }]);
       return true;

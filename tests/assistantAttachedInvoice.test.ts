@@ -105,8 +105,18 @@ test("prepare_process_attached_invoice prepares action with preview and attachme
   assert.equal((result.preparedAction.preview as any).reviewStatusAfterConfirmation, "NEEDS_REVIEW");
 });
 
-test("executePreparedAction for attached invoice inserts unverified draft into review queue and is idempotent", async () => {
+test("attached invoice confirmation fails closed until the existing extraction pipeline persists an invoice", async () => {
   const supabase = createMockSupabase([], []);
+  const context = mockContext(supabase);
+
+  await assert.rejects(() => executePreparedAction(context, "prepare_process_attached_invoice", {
+    fileName: "acme-supplier-invoice.pdf",
+    sha256: "unique-sha-999",
+  }, "act-inv-100"), /review pipeline/i);
+});
+
+test("attached invoice confirmation reuses an invoice already persisted by the extraction pipeline", async () => {
+  const supabase = createMockSupabase([{ id: "act-inv-100", company_id: "cmp-100", source_sha256: "unique-sha-999", invoice_number: "INV-2026-001", invoice_date: "2026-08-26", due_date: "2026-09-25", currency: "PHP", grand_total: 1250, payment_status: "UNPAID", review_status: "NEEDS_REVIEW", duplicate_status: "UNIQUE", document_type: "INVOICE", current_data: { invoiceNumber: "INV-2026-001", grandTotal: 1250 } }], []);
   const context = mockContext(supabase);
 
   const result1: any = await executePreparedAction(context, "prepare_process_attached_invoice", {
@@ -114,7 +124,7 @@ test("executePreparedAction for attached invoice inserts unverified draft into r
     sha256: "unique-sha-999",
   }, "act-inv-100");
 
-  assert.equal(result1.operation, "invoice_extracted_and_queued");
+  assert.equal(result1.operation, "invoice_already_processed");
   assert.equal(result1.invoiceId, "act-inv-100");
   assert.equal(result1.invoice.reviewStatus, "NEEDS_REVIEW");
   assert.equal(result1.invoice.paymentStatus, "UNPAID");

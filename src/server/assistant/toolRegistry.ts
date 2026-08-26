@@ -81,6 +81,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   read("get_payroll_readiness", "Check persisted payroll source freshness, status, and blockers without calculating a run.", ["payroll.detail.read"], { periodId: uuid }, ["periodId"]),
   read("get_payroll_exceptions", "Return the current deterministic payroll blockers and warnings for a period.", ["payroll.detail.read"], { periodId: uuid }, ["periodId"]),
   read("get_payroll_summary", "Return a bounded payroll period summary without calculating authoritative figures in the model.", ["payroll.summary.read"], { periodId: uuid }, ["periodId"]),
+  read("list_payroll_periods", "List bounded company payroll periods and identify current and next using the workspace timezone. Future DRAFT periods remain scheduled and are never described as current.", ["payroll.summary.read"], { status: { type: "string" }, from: date, to: date, limit }),
   read("get_current_workspace_summary", "Return a small company workspace summary using only permitted aggregate reads.", ["dashboard.read"]),
   read("get_cash_summary", "Return a company cash and bank summary with account balances grouped by currency, reconciliation status, and balance freshness.", ["cash.summary.read"], { currency: { type: "string" } }),
   read("list_financial_accounts", "List active financial bank and e-wallet accounts with masked identifiers and latest balances.", ["cash.summary.read"], { currency: { type: "string" }, accountType: { type: "string", enum: ["BANK", "EWALLET", "CASH"] }, limit }),

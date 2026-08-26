@@ -2761,6 +2761,11 @@ function InvoiceWorkspace() {
       onOpenProject={(projectId) => { const project = projects.find((item) => item.id === projectId); if (project) openProject(project); else navigateToPath(appPathForProject(projectId)); }}
       onOpenPayrollPeriod={() => navigateToPath(appPathForTab("payroll"))}
       onOpenAttendanceDate={() => navigateToPath(appPathForTab("payroll"))}
+      onProcessAttachedInvoice={async (attachment) => {
+        if (!attachment.dataBase64 || !attachment.mimeType || !attachment.fileName) throw new Error("The original invoice attachment is no longer available. Attach it again.");
+        const saved = await handleExtract({ fileData: attachment.dataBase64, mimeType: attachment.mimeType, fileName: attachment.fileName, model: "gemini-3.5-flash-lite", sourceType: "UPLOAD" });
+        openInvoiceForReview(saved, activeTab);
+      }}
     >
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session?.user?.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={openPlatformManagement} visibleRouteIds={visibleRouteIds} permissions={permissions} />

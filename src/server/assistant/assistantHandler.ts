@@ -171,17 +171,19 @@ async function persistAttachmentRefs(auth: AssistantAuthContext, threadId: strin
   });
 }
 
-function createPrepareAction(auth: AssistantAuthContext, threadId: string, context: AssistantContext, now: Date) {
+export function createPrepareAction(auth: AssistantAuthContext, threadId: string, context: AssistantContext, now: Date) {
   return async (request: Parameters<AssistantToolContext["prepareAction"]>[0]): Promise<ToolExecutionResult> => {
     const client = auth.supabase as any;
     const argsHash = actionHash(auth, request.toolName, request.normalizedArgs, request.contextGeneration);
     let idempotencyKey = `assistant:${argsHash}`;
     const existingResult = await client.from("assistant_action_events").select("*").eq("company_id", auth.companyId).eq("user_id", auth.user.id).eq("idempotency_key", idempotencyKey).maybeSingle();
     if (existingResult.error) throw new AssistantBackendError("ASSISTANT_PERSISTENCE_UNAVAILABLE", "Prepared actions are temporarily unavailable.", 503);
-    if (existingResult.data && ["PREPARED", "CONFIRMED", "EXECUTED"].includes(String(existingResult.data.status))) return preparedResult(existingResult.data as AssistantActionEventRecord);
     if (existingResult.data && String(existingResult.data.status) === "PREPARED" && new Date(String(existingResult.data.expires_at)).getTime() <= now.getTime()) {
-      await client.from("assistant_action_events").update({ status: "EXPIRED", updated_at: now.toISOString() }).eq("id", String(existingResult.data.id)).eq("status", "PREPARED");
+      const expired = await client.from("assistant_action_events").update({ status: "EXPIRED", updated_at: now.toISOString() }).eq("id", String(existingResult.data.id)).eq("status", "PREPARED");
+      if (expired.error) throw new AssistantBackendError("ASSISTANT_PERSISTENCE_UNAVAILABLE", "Prepared actions are temporarily unavailable.", 503);
+      existingResult.data.status = "EXPIRED";
     }
+    if (existingResult.data && ["PREPARED", "CONFIRMED", "EXECUTED"].includes(String(existingResult.data.status))) return preparedResult(existingResult.data as AssistantActionEventRecord);
     if (existingResult.data && ["EXPIRED", "FAILED", "CANCELLED"].includes(String(existingResult.data.status))) idempotencyKey = `${idempotencyKey}:retry:${now.getTime()}`;
     const expiresAt = new Date(now.getTime() + ACTION_TTL_MS).toISOString();
     const preview = { ...request.preview, contextGeneration: request.contextGeneration, expiresAt };
