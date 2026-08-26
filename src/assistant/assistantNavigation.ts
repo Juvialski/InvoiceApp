@@ -17,7 +17,7 @@ export const ASSISTANT_NAVIGATION_ROUTE_IDS = [
 ] as const satisfies readonly RouteId[];
 
 export function isAssistantRouteId(value: unknown): value is RouteId {
-  return typeof value === "string" && ASSISTANT_NAVIGATION_ROUTE_IDS.includes(value as RouteId) && Boolean(getRouteDefinition(value));
+  return typeof value === "string" && (ASSISTANT_NAVIGATION_ROUTE_IDS as readonly RouteId[]).includes(value as RouteId) && Boolean(getRouteDefinition(value));
 }
 
 export function pathForAssistantAction(action: AssistantClientAction): string | null {

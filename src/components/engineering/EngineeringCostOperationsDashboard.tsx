@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AlertTriangle,
+  ArrowDownLeft,
   ArrowUpRight,
   BarChart3,
   BriefcaseBusiness,
@@ -10,6 +11,7 @@ import {
   Clock3,
   FileWarning,
   HardHat,
+  Landmark,
   Mail,
   Receipt,
   RotateCcw,
@@ -33,6 +35,7 @@ import {
 } from "recharts";
 import type { AppTab } from "../../utils/routes";
 import type { InvoiceData } from "../../types";
+import type { CashDashboardPosition } from "../../lib/cashBanking.ts";
 import { MetricCard as OperationsMetricCard, PageHeader, SectionHeader, StatusBadge } from "../ui/OperationsUI";
 
 export type DashboardActivityPeriod = "MONTH" | "QUARTER" | "YEAR" | "CUSTOM";
@@ -79,7 +82,7 @@ export interface DashboardAttentionItem {
   label: string;
   detail: string;
   count?: number;
-  action: "review" | "invoices" | "projects" | "payroll" | "expenses";
+  action: "review" | "invoices" | "projects" | "payroll" | "expenses" | "cash";
   projectId?: string;
 }
 
@@ -125,6 +128,7 @@ export interface DashboardViewData {
   };
   attention: DashboardAttentionItem[];
   invoiceOperations: DashboardInvoiceOperations;
+  cashPosition?: CashDashboardPosition;
 }
 
 export interface EngineeringCostOperationsDashboardProps {
@@ -229,6 +233,27 @@ export const EngineeringCostOperationsDashboard: React.FC<EngineeringCostOperati
       <OperationsMetricCard label="Overdue invoices" value={data.invoiceOperations.overdueCount} detail="Payment status requires action" icon={AlertTriangle} tone={data.invoiceOperations.overdueCount ? "danger" : "success"} emphasis />
     </section>
 
+    {data.cashPosition && <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Cash position">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+        <SectionHeader title="Cash position" description="Actual liquidity from company accounts and posted statements. Internal transfers are excluded from operating flow." icon={Landmark} action={<button type="button" onClick={() => onNavigate("cash")} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-black text-indigo-800 hover:bg-indigo-100">View Cash &amp; Banking <ArrowUpRight className="h-3 w-3" /></button>} />
+      </div>
+      {!data.cashPosition.hasAccounts ? <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-center"><WalletCards className="mx-auto h-7 w-7 text-slate-300" /><p className="mt-2 text-sm font-black text-slate-800">No cash accounts connected</p><p className="mt-1 text-xs leading-5 text-slate-500">Add a bank or GCash account to see the company’s actual cash position.</p><button type="button" onClick={() => onNavigate("cash")} className="mt-4 rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-black text-white hover:bg-indigo-700">Add account</button></div> : <>
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+          <CashMetric label="Available cash" value={cashMoney(data.cashPosition.totalAvailableCash, data.selectedCurrency)} tone="success" />
+          <CashMetric label="Bank accounts" value={cashMoney(data.cashPosition.bankAccounts, data.selectedCurrency)} />
+          <CashMetric label="GCash / e-wallets" value={cashMoney(data.cashPosition.ewallets, data.selectedCurrency)} />
+          <CashMetric label="Money in" value={cashMoney(data.cashPosition.moneyIn, data.selectedCurrency)} detail={data.activityLabel} />
+          <CashMetric label="Money out" value={cashMoney(data.cashPosition.moneyOut, data.selectedCurrency)} detail={data.activityLabel} />
+          <CashMetric label="Net cash flow" value={`${data.cashPosition.netCashFlow >= 0 ? "+" : "−"}${cashMoney(Math.abs(data.cashPosition.netCashFlow), data.selectedCurrency)}`} tone={data.cashPosition.netCashFlow >= 0 ? "success" : "warning"} detail={data.activityLabel} />
+          <CashMetric label="Needs reconciliation" value={String(data.cashPosition.needsReconciliation)} tone={data.cashPosition.needsReconciliation ? "warning" : "success"} />
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {data.cashPosition.accounts.slice(0, 6).map((summary) => <div key={summary.account.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-black text-slate-900">{summary.account.displayName}</p><p className="mt-0.5 truncate text-[10px] text-slate-500">{summary.account.maskedIdentifier || summary.account.institutionName} · {summary.account.accountType === "EWALLET" ? "GCash / e-wallet" : summary.account.accountType === "BANK" ? "Bank account" : "Cash"}</p></div><StatusBadge tone={summary.source === "PROVIDER" ? "success" : summary.source === "CALCULATED" ? "neutral" : "info"}>{summary.source === "PROVIDER" ? "Provider" : summary.source === "CALCULATED" ? "Calculated" : summary.source === "STATEMENT" ? "Statement" : "Manual"}</StatusBadge></div><p className="mt-3 text-lg font-black tabular-nums text-slate-950">{cashMoney(summary.availableBalance ?? summary.ledgerBalance, data.selectedCurrency)}</p>{summary.balanceDifference !== undefined && <p className="mt-1 break-words text-[10px] font-semibold text-amber-700">Book balance differs by {cashMoney(Math.abs(summary.balanceDifference), data.selectedCurrency)}.</p>}{summary.pendingBalance !== undefined && summary.pendingBalance > 0 && <p className="mt-1 text-[10px] font-semibold text-amber-700">{cashMoney(summary.pendingBalance, data.selectedCurrency)} pending</p>}<p className="mt-2 break-words text-[10px] text-slate-500">{summary.freshnessLabel}</p><p className="mt-1 text-[10px] font-semibold text-slate-600">{summary.unresolvedCount ? `${summary.unresolvedCount} need review` : "Fully reconciled"}</p></div>)}
+        </div>
+        {(data.cashPosition.pendingIn > 0 || data.cashPosition.pendingOut > 0 || data.cashPosition.alerts.length > 0) && <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] text-amber-950"><span className="font-black">Cash signals</span>{data.cashPosition.pendingIn > 0 && <span className="inline-flex items-center gap-1"><ArrowDownLeft className="h-3 w-3" />{cashMoney(data.cashPosition.pendingIn, data.selectedCurrency)} pending in</span>}{data.cashPosition.pendingOut > 0 && <span>{cashMoney(data.cashPosition.pendingOut, data.selectedCurrency)} pending out</span>}{data.cashPosition.alerts.length > 0 && <span>{data.cashPosition.alerts.length} account signal{data.cashPosition.alerts.length === 1 ? "" : "s"}</span>}</div>}
+      </>}
+    </section>}
+
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Supporting dashboard metrics">
       <OperationsMetricCard label="Active projects" value={data.activeProjects} detail="Current project register" icon={BriefcaseBusiness} tone="info" />
       <OperationsMetricCard label="Total project budget" value={money(data.totalProjectBudget, data.selectedCurrency)} detail="Lifetime position" icon={WalletCards} tone="info" />
@@ -285,4 +310,14 @@ export const EngineeringCostOperationsDashboard: React.FC<EngineeringCostOperati
 
 function SummaryValue({ label, value }: { label: string; value: string }) {
   return <div className="rounded-xl bg-slate-50 p-2.5"><p className="text-[9px] uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 break-words text-xs font-black tabular-nums text-slate-900">{value}</p></div>;
+}
+
+function cashMoney(value: number, currency: string) {
+  try { return new Intl.NumberFormat("en-PH", { style: "currency", currency: currency || "PHP", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number.isFinite(value) ? value : 0); }
+  catch { return `${currency || "PHP"} ${(Number.isFinite(value) ? value : 0).toFixed(2)}`; }
+}
+
+function CashMetric({ label, value, detail, tone = "neutral" }: { label: string; value: string; detail?: string; tone?: "neutral" | "success" | "warning" }) {
+  const toneClass = tone === "success" ? "border-emerald-200 bg-emerald-50/50" : tone === "warning" ? "border-amber-200 bg-amber-50/50" : "border-slate-100 bg-slate-50";
+  return <div className={`min-w-0 rounded-xl border p-3 ${toneClass}`}><p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 break-words text-sm font-black tabular-nums text-slate-950 sm:text-base">{value}</p>{detail && <p className="mt-1 text-[9px] text-slate-500">{detail}</p>}</div>;
 }

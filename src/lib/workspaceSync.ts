@@ -9,6 +9,7 @@
 
 export const WORKSPACE_REFRESH_GROUPS = [
   "invoices",
+  "cash",
   "engineering",
   "payroll",
   "payroll-imports",
@@ -30,6 +31,13 @@ export const WORKSPACE_REFRESH_TABLES: Readonly<Record<WorkspaceRefreshGroup, re
   invoices: Object.freeze([
     "invoices",
     "invoice_extractions",
+  ]),
+  cash: Object.freeze([
+    "financial_accounts",
+    "financial_balance_snapshots",
+    "financial_transactions",
+    "financial_import_batches",
+    "financial_transaction_matches",
   ]),
   engineering: Object.freeze([
     "projects",
@@ -74,6 +82,11 @@ export const WORKSPACE_REFRESH_TABLES: Readonly<Record<WorkspaceRefreshGroup, re
 export const WORKSPACE_TABLE_REFRESH_GROUPS: Readonly<Record<string, readonly WorkspaceRefreshGroup[]>> = Object.freeze({
   invoices: ["invoices"],
   invoice_extractions: ["invoices"],
+  financial_accounts: ["cash"],
+  financial_balance_snapshots: ["cash"],
+  financial_transactions: ["cash"],
+  financial_import_batches: ["cash"],
+  financial_transaction_matches: ["cash"],
   invoice_project_allocations: ["invoices", "engineering"],
   projects: ["engineering"],
   expenses: ["engineering"],

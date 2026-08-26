@@ -12,6 +12,7 @@ import {
 
 export type PrimaryModuleId =
   | "dashboard"
+  | "cash"
   | "invoices"
   | "projects"
   | "expenses"
@@ -62,6 +63,7 @@ const INVOICE_CONTEXTUAL_LABELS: Readonly<Partial<Record<RouteId, string>>> = Ob
  */
 export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.freeze([
   { id: "dashboard", label: "Dashboard", routeIds: ["dashboard"], defaultRouteId: "dashboard" },
+  { id: "cash", label: "Cash & Banking", routeIds: ["cash"], defaultRouteId: "cash" },
   { id: "invoices", label: "Invoices", routeIds: ["extract", "inbox", "review", "invoices", "vendors"], defaultRouteId: "invoices" },
   { id: "projects", label: "Projects", routeIds: ["projects"], defaultRouteId: "projects" },
   { id: "expenses", label: "Expenses", routeIds: ["expenses"], defaultRouteId: "expenses" },

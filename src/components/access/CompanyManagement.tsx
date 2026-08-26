@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { roleDisplayName } from "../../utils/accessControl.ts";
+import { safeErrorMessage } from "../../utils/errorNormalization.ts";
 import { companyManagementTabFromQuery, isCurrentManagementRequest, managementResourcesForTab, type CompanyManagementRequestIdentity, type CompanyManagementTab } from "../../utils/companyManagement.ts";
 import { CompanyAiConfiguration } from "./CompanyAiConfiguration.tsx";
 import type { CompanyAiConfigMetadata } from "../../server/ai/companyAiTypes.ts";
@@ -96,7 +97,7 @@ function membershipStatusClasses(status: MembershipStatus) {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
+  return safeErrorMessage(error, "The company change could not be saved. Please try again.");
 }
 
 function displayDate(value?: string) {
@@ -334,7 +335,8 @@ export function CompanyManagement({ companies, activeCompanyId, managementCompan
       await action();
       setNotice({ kind: "success", message: successMessage });
     } catch (error) {
-      setNotice({ kind: "error", message: errorMessage(error) });
+      const prefix = actionKey === "general" ? "Company settings could not be saved: " : "";
+      setNotice({ kind: "error", message: `${prefix}${errorMessage(error)}` });
     } finally {
       setBusyAction(null);
     }

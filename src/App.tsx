@@ -21,6 +21,7 @@ import { ProjectsPage } from "./components/projects/ProjectsPage";
 import { PayrollOperatingCosts } from "./components/engineering/PayrollOperatingCosts";
 import { ProjectWorkspace } from "./components/projects/ProjectWorkspace";
 import { ExpensesPage } from "./components/expenses/ExpensesPage";
+import { CashBankingPage } from "./components/CashBankingPage";
 import { PayrollPageV2 as PayrollPage } from "./components/payroll/PayrollPageV2";
 import { appPathForInvoice, appPathForPlatformCompanies, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, isKnownWorkspaceLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
@@ -83,6 +84,33 @@ import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, s
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
 import { AssistantProvider } from "./assistant/AssistantProvider";
+import { safeErrorMessage } from "./utils/errorNormalization.ts";
+import {
+  commitStatementPreviewToWorkspace,
+  createFinancialMatch,
+  financialId,
+  reconciliationStatusForTransaction,
+  type CashBankingWorkspaceData,
+  type FinancialAccount,
+  type FinancialBalanceSnapshot,
+  type FinancialReconciliationCandidate,
+  type FinancialTransaction,
+  type FinancialTransactionMatch,
+  type StatementPreview,
+} from "./lib/cashBanking.ts";
+import {
+  confirmFinancialTransferToSupabase,
+  commitFinancialImportToSupabase,
+  deactivateFinancialAccountInSupabase,
+  emptyCashBankingWorkspaceData,
+  loadCashBankingWorkspaceFromSupabase,
+  readCashBankingWorkspaceFromLocal,
+  saveFinancialAccountToSupabase,
+  saveFinancialBalanceSnapshotToSupabase,
+  saveFinancialTransactionMatchToSupabase,
+  saveFinancialTransactionToSupabase,
+  writeCashBankingWorkspaceToLocal,
+} from "./lib/cashBankingPersistence.ts";
 import { disableCompanyGemini, enableCompanyGemini, loadCompanyAiConfig as loadCompanyAiConfigApi, removeCompanyGeminiKey, saveCompanyGeminiKey, testCompanyGeminiKey } from "./lib/companyAiApi.ts";
 
 function revisePayrollSourcePeriods(
@@ -192,7 +220,7 @@ function textToBase64(value: string) {
 }
 
 function userFacingError(error: unknown, fallback: string) {
-  const message = error instanceof Error ? error.message : String((error as any)?.message || "");
+  const message = safeErrorMessage(error, fallback);
   if (import.meta.env.DEV && message) console.error("[InvoiceApp]", error);
   if (/AI backend configuration is incomplete|AI is not configured for this company|AI is disabled for this company|configured Gemini API key is invalid|Gemini quota or rate limit reached|Gemini is temporarily unavailable|configured Gemini model is unavailable|Gemini access is denied|configured Gemini project does not have access|The server could not reach Gemini|Gemini rejected the assistant request configuration|The AI request timed out/i.test(message)) return message;
   if (/record\s+["']?new["']?\s+has no field|project_id|default_project_id|row-level security|foreign key/i.test(message)) return fallback;
@@ -287,6 +315,8 @@ function InvoiceWorkspace() {
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
   const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(() => isSupabaseConfigured ? emptyPayrollWorkspaceData() : readPayrollWorkspaceFromLocal());
   const payrollDataRef = useRef<PayrollWorkspaceData>(payrollData);
+  const [cashData, setCashData] = useState<CashBankingWorkspaceData>(() => isSupabaseConfigured ? emptyCashBankingWorkspaceData() : readCashBankingWorkspaceFromLocal());
+  const cashDataRef = useRef<CashBankingWorkspaceData>(cashData);
   const payrollAutomationKeyRef = useRef("");
   const payrollScheduleSignature = payrollData.schedules.map((schedule) => `${schedule.id}:${schedule.frequency}:${schedule.updatedAt || ""}`).join("|");
   const [payrollWorkspaceLoadState, setPayrollWorkspaceLoadState] = useState<PayrollWorkspaceLoadState>(isSupabaseConfigured ? "loading" : "loaded");
@@ -433,6 +463,9 @@ function InvoiceWorkspace() {
     setProjectFormSeed(null);
     setInvoiceProjectAllocations([]);
     setExpenses([]);
+    const emptyCashData = emptyCashBankingWorkspaceData();
+    setCashData(emptyCashData);
+    cashDataRef.current = emptyCashData;
     setPayrollImportData({ batches: [], rows: [], templates: [] });
     const emptyPayrollData = emptyPayrollWorkspaceData();
     setPayrollData(emptyPayrollData);
@@ -461,7 +494,7 @@ function InvoiceWorkspace() {
     setPayrollGenerationRetry((value) => value + 1);
   };
 
-  const allWorkspaceRefreshGroups: readonly WorkspaceRefreshGroup[] = ["invoices", "engineering", "payroll", "payroll-imports", "gmail"];
+  const allWorkspaceRefreshGroups: readonly WorkspaceRefreshGroup[] = ["invoices", "cash", "engineering", "payroll", "payroll-imports", "gmail"];
 
   const currentWorkspaceLoadToken = () => {
     const userId = sessionRef.current?.user?.id;
@@ -473,6 +506,8 @@ function InvoiceWorkspace() {
 
   const workspaceGroupsAllowedForPermissions = (groups: readonly WorkspaceRefreshGroup[]) => groups.filter((group) => group === "invoices"
     ? can(PERMISSION_KEYS.invoicesRead)
+    : group === "cash"
+      ? hasAnyPermission(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashTransactionsRead, PERMISSION_KEYS.cashImport, PERMISSION_KEYS.cashReconcile])
     : group === "engineering"
       ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead])
       : group === "payroll"
@@ -484,7 +519,7 @@ function InvoiceWorkspace() {
             : false);
 
   type EngineeringWorkspaceGroup = { projects: Project[]; allocations: InvoiceProjectAllocation[]; expenses: Expense[] };
-  type WorkspaceGroupData = InvoiceData[] | EngineeringWorkspaceGroup | PayrollWorkspaceData | PayrollImportWorkspaceData | { lastHistoryId?: string; lastSyncedAt?: string };
+  type WorkspaceGroupData = InvoiceData[] | EngineeringWorkspaceGroup | PayrollWorkspaceData | PayrollImportWorkspaceData | CashBankingWorkspaceData | { lastHistoryId?: string; lastSyncedAt?: string };
 
   const applyInvoicesForWorkspace = (prepared: InvoiceData[], token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
@@ -573,6 +608,13 @@ function InvoiceWorkspace() {
     setPayrollImportData(data);
   };
 
+  const loadCashGroup = async () => loadCashBankingWorkspaceFromSupabase();
+  const applyCashForWorkspace = (data: CashBankingWorkspaceData, token: { generation: number; userId: string; companyId: string }) => {
+    if (!canApplyWorkspaceResult(token)) return;
+    cashDataRef.current = data;
+    setCashData(data);
+  };
+
   const loadGmailGroup = async () => loadGmailSyncState();
   const applyGmailForWorkspace = (data: { lastHistoryId?: string; lastSyncedAt?: string }, token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
@@ -582,6 +624,7 @@ function InvoiceWorkspace() {
   const loadWorkspaceGroup = async (group: WorkspaceRefreshGroup): Promise<WorkspaceGroupData> => {
     if (group === "invoices") return loadInvoicesGroup();
     if (group === "engineering") return loadEngineeringGroup();
+    if (group === "cash") return loadCashGroup();
     if (group === "payroll") return loadPayrollGroup();
     if (group === "payroll-imports") return loadPayrollImportsGroup();
     return loadGmailGroup();
@@ -590,6 +633,7 @@ function InvoiceWorkspace() {
   const applyWorkspaceGroup = (group: WorkspaceRefreshGroup, data: WorkspaceGroupData, token: { generation: number; userId: string; companyId: string }) => {
     if (group === "invoices") applyInvoicesForWorkspace(data as InvoiceData[], token);
     else if (group === "engineering") applyEngineeringForWorkspace(data as EngineeringWorkspaceGroup, token);
+    else if (group === "cash") applyCashForWorkspace(data as CashBankingWorkspaceData, token);
     else if (group === "payroll") applyPayrollForWorkspace(data as PayrollWorkspaceData, token);
     else if (group === "payroll-imports") applyPayrollImportsForWorkspace(data as PayrollImportWorkspaceData, token);
     else applyGmailForWorkspace(data as { lastHistoryId?: string; lastSyncedAt?: string }, token);
@@ -693,6 +737,9 @@ function InvoiceWorkspace() {
       setProjects(readProjectsFromLocal());
       setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
       setExpenses(readExpensesFromLocal());
+      const localCash = readCashBankingWorkspaceFromLocal();
+      cashDataRef.current = localCash;
+      setCashData(localCash);
       const localPayroll = readPayrollWorkspaceFromLocal();
       payrollDataRef.current = localPayroll;
       setPayrollData(localPayroll);
@@ -757,12 +804,98 @@ function InvoiceWorkspace() {
       writePayrollImportWorkspaceToLocal(payrollImportData);
       writeExpensesToLocal(expenses);
       writePayrollWorkspaceToLocal(payrollData);
+      writeCashBankingWorkspaceToLocal(cashData);
     }
-  }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, session, authResolved, guestModeState]);
+  }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, cashData, session, authResolved, guestModeState]);
 
   useEffect(() => {
     payrollDataRef.current = payrollData;
   }, [payrollData]);
+
+  useEffect(() => {
+    cashDataRef.current = cashData;
+  }, [cashData]);
+
+  const applyCashWorkspace = (next: CashBankingWorkspaceData) => {
+    cashDataRef.current = next;
+    setCashData(next);
+  };
+
+  const handleSaveFinancialAccount = async (account: FinancialAccount) => {
+    if (session && supabase) {
+      const saved = await saveFinancialAccountToSupabase(account);
+      applyCashWorkspace({ ...cashDataRef.current, accounts: [...cashDataRef.current.accounts.filter((item) => item.id !== account.id && item.id !== saved.id), saved] });
+      return saved;
+    }
+    applyCashWorkspace({ ...cashDataRef.current, accounts: [...cashDataRef.current.accounts.filter((item) => item.id !== account.id), account] });
+    return account;
+  };
+
+  const handleDeactivateFinancialAccount = async (account: FinancialAccount) => {
+    if (session && supabase) {
+      const saved = await deactivateFinancialAccountInSupabase(account.id);
+      applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === saved.id ? saved : item) });
+      return;
+    }
+    applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === account.id ? { ...item, active: false, updatedAt: new Date().toISOString() } : item) });
+  };
+
+  const handleSaveFinancialSnapshot = async (snapshot: FinancialBalanceSnapshot) => {
+    if (session && supabase) {
+      const saved = await saveFinancialBalanceSnapshotToSupabase(snapshot);
+      applyCashWorkspace({ ...cashDataRef.current, snapshots: [saved, ...cashDataRef.current.snapshots.filter((item) => item.id !== saved.id)] });
+      return;
+    }
+    applyCashWorkspace({ ...cashDataRef.current, snapshots: [snapshot, ...cashDataRef.current.snapshots.filter((item) => item.id !== snapshot.id)] });
+  };
+
+  const handleSaveFinancialTransaction = async (transaction: FinancialTransaction) => {
+    if (session && supabase) {
+      const saved = await saveFinancialTransactionToSupabase(transaction);
+      applyCashWorkspace({ ...cashDataRef.current, transactions: [saved, ...cashDataRef.current.transactions.filter((item) => item.id !== transaction.id && item.id !== saved.id)] });
+      return;
+    }
+    applyCashWorkspace({ ...cashDataRef.current, transactions: [transaction, ...cashDataRef.current.transactions.filter((item) => item.id !== transaction.id)] });
+  };
+
+  const handleCommitFinancialImport = async (preview: StatementPreview, account: FinancialAccount) => {
+    if (session && supabase) {
+      await commitFinancialImportToSupabase(preview, account);
+      const token = currentWorkspaceLoadToken();
+      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-import" });
+      return;
+    }
+    applyCashWorkspace(commitStatementPreviewToWorkspace(cashDataRef.current, preview, account));
+  };
+
+  const handleSaveFinancialMatch = async (match: FinancialTransactionMatch, transaction: FinancialTransaction) => {
+    if (session && supabase) {
+      const savedMatch = await saveFinancialTransactionMatchToSupabase(match);
+      const savedTransaction = await saveFinancialTransactionToSupabase(transaction);
+      applyCashWorkspace({ ...cashDataRef.current, matches: [savedMatch, ...cashDataRef.current.matches.filter((item) => item.id !== match.id && item.id !== savedMatch.id)], transactions: [savedTransaction, ...cashDataRef.current.transactions.filter((item) => item.id !== transaction.id && item.id !== savedTransaction.id)] });
+      return;
+    }
+    const nextMatches = [...cashDataRef.current.matches.filter((item) => item.id !== match.id), match];
+    applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? transaction : item) });
+  };
+
+  const handleIgnoreFinancialTransaction = (transaction: FinancialTransaction) => handleSaveFinancialTransaction(transaction);
+
+  const handleConfirmFinancialTransfer = async (left: FinancialTransaction, right: FinancialTransaction) => {
+    if (session && supabase) {
+      await confirmFinancialTransferToSupabase(left.id, right.id, Math.min(left.amount, right.amount));
+      const token = currentWorkspaceLoadToken();
+      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-transfer-confirmed" });
+      return;
+    }
+    const transferGroupId = financialId("transfer");
+    const leftNext = { ...left, transferGroupId, reconciliationStatus: "MATCHED" as const, updatedAt: new Date().toISOString() };
+    const rightNext = { ...right, transferGroupId, reconciliationStatus: "MATCHED" as const, updatedAt: new Date().toISOString() };
+    const amount = Math.min(left.amount, right.amount);
+    const leftMatch = createFinancialMatch({ companyId: left.companyId, transactionId: left.id, targetType: "TRANSFER", targetId: right.id, matchedAmount: amount, status: "CONFIRMED", confirmedAt: new Date().toISOString(), notes: "Confirmed internal transfer" });
+    const rightMatch = createFinancialMatch({ companyId: right.companyId, transactionId: right.id, targetType: "TRANSFER", targetId: left.id, matchedAmount: amount, status: "CONFIRMED", confirmedAt: new Date().toISOString(), notes: "Confirmed internal transfer" });
+    applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === left.id ? leftNext : item.id === right.id ? rightNext : item), matches: [...cashDataRef.current.matches, leftMatch, rightMatch] });
+  };
 
   useEffect(() => {
     if (!authResolved || activeTab !== "payroll" || workspaceLoading || payrollRefreshing) return;
@@ -2444,6 +2577,8 @@ function InvoiceWorkspace() {
   const leaveWorkspace = reviewSessionIds.length ? exitReview : exitStandaloneWorkspace;
   const workspaceOriginLabel = workspaceOrigin === "dashboard"
     ? "Dashboard"
+    : workspaceOrigin === "cash"
+      ? "Cash & Banking"
     : workspaceOrigin === "projects"
       ? "Projects"
     : workspaceOrigin === "inbox"
@@ -2487,6 +2622,11 @@ function InvoiceWorkspace() {
     next.__unallocated__ = unallocated;
     return next;
   }, [projects, costInvoices, costPayroll, expenses]);
+  const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
+    ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
+    ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
+    ...payrollData.runs.filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: payrollData.entries.filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: payrollData.periods.find((period) => period.id === run.periodId)?.payDate || payrollData.periods.find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment" })),
+  ].filter((candidate) => candidate.amount > 0), [expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods]);
   const dashboardViewData = useMemo(() => buildDashboardViewData({
     projects,
     invoices: costInvoices,
@@ -2497,12 +2637,13 @@ function InvoiceWorkspace() {
     payrollEntries: payrollData.entries,
     payrollAllocations: payrollData.allocations,
     payrollRuns: payrollData.runs,
+    cash: !isSupabaseConfigured || can(PERMISSION_KEYS.cashSummaryRead) ? cashData : undefined,
     activityPeriod: dashboardActivityPeriod,
     customStart: dashboardCustomStart,
     customEnd: dashboardCustomEnd,
     selectedCurrency: dashboardCurrency,
     projectId: dashboardProjectId,
-  }), [projects, costInvoices, expenses, costPayroll, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
+  }), [projects, costInvoices, expenses, costPayroll, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
 
   const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: costPayroll, periods: payrollData.periods }) : undefined, [selectedProject, costInvoices, expenses, costPayroll, payrollData.periods]);
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").length;
@@ -2640,6 +2781,7 @@ function InvoiceWorkspace() {
                 {routeNotFound && <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-6"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-700">Navigation error</p><h2 className="mt-1 text-lg font-black text-rose-950">Page not found</h2><p className="mt-1 text-xs text-rose-900">The requested workspace record or destination is not available.</p><button type="button" onClick={() => navigateToPath(appPathForTab("dashboard"))} className="mt-4 rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white">Return to dashboard</button></div>}
 
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "dashboard" && <div className="space-y-6"><EngineeringCostOperationsDashboard data={dashboardViewData} projects={projects} selectedProjectId={dashboardProjectId} onProjectChange={(projectId) => { setDashboardProjectId(projectId); const project = projects.find((candidate) => candidate.id === projectId); if (project) setDashboardCurrency(project.currency.toUpperCase()); }} onActivityPeriodChange={setDashboardActivityPeriod} onCustomRangeChange={(start, end) => { setDashboardCustomStart(start); setDashboardCustomEnd(end); }} onCurrencyChange={setDashboardCurrency} onNavigate={setActiveTab} onOpenProject={(projectId) => { const project = projects.find((candidate) => candidate.id === projectId); if (project) openProject(project); }} onOpenInvoice={openInvoice} /></div>}
+        {workspaceRouteVisible && route.kind === "tab" && activeTab === "cash" && <CashBankingPage data={cashData} onSaveAccount={handleSaveFinancialAccount} onDeactivateAccount={handleDeactivateFinancialAccount} onSaveSnapshot={handleSaveFinancialSnapshot} onSaveTransaction={handleSaveFinancialTransaction} onCommitImport={handleCommitFinancialImport} onSaveMatch={handleSaveFinancialMatch} onIgnoreTransaction={handleIgnoreFinancialTransaction} onConfirmTransfer={handleConfirmFinancialTransfer} reconciliationCandidates={cashReconciliationCandidates} canManageAccounts={!isSupabaseConfigured || can(PERMISSION_KEYS.cashAccountsManage)} canManageTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)} canImport={!isSupabaseConfigured || can(PERMISSION_KEYS.cashImport)} canReconcile={!isSupabaseConfigured || can(PERMISSION_KEYS.cashReconcile)} onOpenDashboard={() => setActiveTab("dashboard")} />}
         {workspaceRouteVisible && activeTab === "projects" && (selectedProject ? <ProjectWorkspace project={selectedProject} summary={projectSummaries[selectedProject.id] || calculateProjectCost(selectedProject, { invoices: costInvoices, payroll: costPayroll, expenses })} dashboard={projectDashboard} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} payrollAllocations={payrollData.allocations} payrollPeriods={payrollData.periods} initialTab={route.kind === "project" ? route.view : "overview"} onTabChange={(tab) => { if (route.kind === "project" && selectedProject) navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView)); }} onSaveInvoiceAllocations={handleSaveInvoiceProjectAllocations} onBack={() => navigateToPath(appPathForTab("projects"))} onOpenInvoice={openInvoice} onUploadInvoice={() => { setUploadProjectContextId(selectedProject.id); setWorkspaceOrigin("projects"); setWorkspaceReturnPath(appPathForProject(selectedProject.id, "invoices")); navigateToPath(appPathForTab("extractor")); }} onEditProject={() => editProject(selectedProject)} onArchiveProject={() => void handleArchiveProject(selectedProject)} onAddExpense={() => { setExpenseFormContext(selectedProject.id); navigateToPath(appPathForTab("expenses")); }} onOpenPayroll={() => setActiveTab("payroll")} /> : <ProjectsPage projects={projects} summaries={projectSummaries} initialEditingProject={projectFormSeed} onOpenProject={openProject} onSaveProject={(project) => void handleSaveProject(project)} onArchiveProject={(project) => void handleArchiveProject(project)} />)}
         {workspaceRouteVisible && (route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice && <div className="space-y-5"><VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} projects={projects} invoiceProjectAllocations={invoiceProjectAllocations} preferredProjectId={uploadProjectContextId || undefined} onSaveProjectAllocations={handleSaveInvoiceProjectAllocations} /></div>}
         {workspaceRouteVisible && route.kind === "tab" && activeTab === "extractor" && <div className="space-y-5"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div>}

@@ -8,9 +8,10 @@ import {
 } from "../src/navigation/navigationModel.ts";
 import { PERMISSION_KEYS } from "../src/utils/accessControl.ts";
 
-test("exposes six primary modules while keeping settings outside the module row", () => {
+test("exposes Cash & Banking as a primary module while keeping settings outside the module row", () => {
   assert.deepEqual(NAVIGATION_MODULES.map((module) => module.id), [
     "dashboard",
+    "cash",
     "invoices",
     "projects",
     "expenses",

@@ -7,6 +7,13 @@ import type { AppTab } from "./routes.ts";
  */
 export const PERMISSION_KEYS = {
   dashboardView: "dashboard.read",
+  cashSummaryRead: "cash.summary.read",
+  cashTransactionsRead: "cash.transactions.read",
+  cashAccountsManage: "cash.accounts.manage",
+  cashTransactionsManage: "cash.transactions.manage",
+  cashImport: "cash.import",
+  cashReconcile: "cash.reconcile",
+  cashConnectionsManage: "cash.connections.manage",
   invoicesRead: "invoices.read",
   invoicesWrite: "invoices.manage",
   invoicesExtract: "invoices.extract",
@@ -40,6 +47,7 @@ export const ALL_PERMISSION_KEYS: readonly PermissionKey[] = Object.freeze(Objec
 
 export const ROUTE_PERMISSION_REQUIREMENTS: Readonly<Partial<Record<AppTab, PermissionKey>>> = Object.freeze({
   dashboard: PERMISSION_KEYS.dashboardView,
+  cash: PERMISSION_KEYS.cashSummaryRead,
   projects: PERMISSION_KEYS.projectsRead,
   extractor: PERMISSION_KEYS.invoicesExtract,
   inbox: PERMISSION_KEYS.gmailRead,
@@ -96,6 +104,7 @@ export function permittedAppTabs(permissions: Iterable<PermissionKey> | null | u
 export function defaultAppTabForPermissions(permissions: Iterable<PermissionKey> | null | undefined): AppTab {
   if (hasPermission(permissions, PERMISSION_KEYS.payrollSensitiveRead) && !hasAnyPermission(permissions, [
     PERMISSION_KEYS.dashboardView,
+    PERMISSION_KEYS.cashSummaryRead,
     PERMISSION_KEYS.invoicesRead,
     PERMISSION_KEYS.expensesRead,
     PERMISSION_KEYS.gmailRead,
@@ -108,6 +117,13 @@ export function defaultAppTabForPermissions(permissions: Iterable<PermissionKey>
 export function permissionDisplayName(permission: PermissionKey | null | undefined): string {
   const labels: Record<string, string> = {
     [PERMISSION_KEYS.dashboardView]: "Dashboard",
+    [PERMISSION_KEYS.cashSummaryRead]: "Cash & Banking",
+    [PERMISSION_KEYS.cashTransactionsRead]: "Cash transactions",
+    [PERMISSION_KEYS.cashAccountsManage]: "Cash account management",
+    [PERMISSION_KEYS.cashTransactionsManage]: "Manual cash transactions",
+    [PERMISSION_KEYS.cashImport]: "Cash statement import",
+    [PERMISSION_KEYS.cashReconcile]: "Cash reconciliation",
+    [PERMISSION_KEYS.cashConnectionsManage]: "Cash connections",
     [PERMISSION_KEYS.invoicesRead]: "Invoices",
     [PERMISSION_KEYS.invoicesWrite]: "Invoice editing",
     [PERMISSION_KEYS.invoicesExtract]: "Invoice extraction",

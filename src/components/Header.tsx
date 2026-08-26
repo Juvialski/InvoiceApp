@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   UserCircle2,
   WifiOff,
+  WalletCards,
   X,
 } from "lucide-react";
 import {
@@ -59,6 +60,7 @@ interface HeaderProps {
 
 const routeIcons: Record<RouteId, React.ElementType> = {
   dashboard: BarChart3,
+  cash: WalletCards,
   projects: BriefcaseBusiness,
   extract: FilePlus2,
   invoices: Files,

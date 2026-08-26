@@ -15,6 +15,7 @@ import {
 test("defines one predictable canonical route for every application destination", () => {
   assert.deepEqual(ROUTE_DEFINITIONS.map((route) => route.id), [
     "dashboard",
+    "cash",
     "projects",
     "extract",
     "invoices",
@@ -29,6 +30,7 @@ test("defines one predictable canonical route for every application destination"
   assert.equal(new Set(ROUTE_DEFINITIONS.map((route) => route.path)).size, ROUTE_DEFINITIONS.length);
   assert.equal(getRouteForAppTab("extractor")?.id, "extract");
   assert.equal(getRouteForAppTab("inbox")?.path, "/inbox");
+  assert.equal(getRouteForAppTab("cash")?.path, "/cash");
 });
 
 test("normalizes paths and resolves root and legacy extract aliases", () => {
@@ -57,4 +59,5 @@ test("resolves active route state and marks overflow destinations through More",
   assert.equal(review.canonicalPath, "/review");
   assert.equal(getCanonicalRoutePath("/"), "/dashboard");
   assert.equal(getCanonicalRoutePath("/unknown"), "/unknown");
+  assert.equal(resolveRoute("/cash").appTab, "cash");
 });

@@ -26,6 +26,7 @@ import {
 import { clearCompanyContext, getActiveCompanyId, setActiveCompanyId } from "../lib/companyContext.ts";
 import { isSupabaseConfigured, signOutWorkspace, supabase } from "../lib/supabase.ts";
 import { hasPermission, type PermissionKey } from "../utils/accessControl.ts";
+import { safeErrorMessage } from "../utils/errorNormalization.ts";
 
 export interface CompanyAccessContextValue {
   session: Session | null;
@@ -209,13 +210,13 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
         const selectionChanged = selectionGeneration !== selectionGenerationRef.current;
         const latestSnapshot = selectionChanged ? accessRef.current : previousSnapshot;
         if (hasUsableSnapshot && latestSnapshot.activeCompanyId) {
-          setAccessSnapshot({ ...latestSnapshot, status: "ready", error: error instanceof Error ? error.message : String(error) });
+          setAccessSnapshot({ ...latestSnapshot, status: "ready", error: safeErrorMessage(error, "Company access could not be refreshed.") });
         } else {
           setAccessSnapshot({
             ...emptyAccess("error"),
             userId,
             email: activeSession.user.email || undefined,
-            error: error instanceof Error ? error.message : String(error),
+            error: safeErrorMessage(error, "Company access could not be loaded."),
           });
           clearCompanyContext();
         }
