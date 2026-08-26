@@ -79,6 +79,12 @@ Protect:
 
 Migrations should be additive, backfilled, and preserve financial meaning whenever possible.
 
+## Applied migration immutability
+
+Once a migration has successfully reached a shared or protected Supabase environment (such as production main or staging), do not edit it in place. Always resolve schema corrections, index updates, or data fixes with a new additive migration.
+
+Exception: A migration that has never successfully applied anywhere and is currently the failing unapplied deployment blocker may be corrected in place only after confirming that the failed transaction rolled back completely and no partial objects remain.
+
 ## Validation
 
 Before declaring implementation complete, run the relevant validation available in the repository. Normally include:
@@ -87,6 +93,7 @@ Before declaring implementation complete, run the relevant validation available 
 npm test
 npm run lint
 npm run build
+npm run test:migrations
 ```
 
 Do not claim a command passed if it was not run successfully. If a validation command cannot be run because of environment restrictions, state that clearly.
@@ -164,6 +171,36 @@ This section contains the exact verified commands and procedures for this Window
   npm.cmd run build
   ```
   (Runs `vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs`)
+- **Database Migration Validation**:
+  ```text
+  npm.cmd run test:migrations
+  ```
+  Runs Phase 1 static invariants (naming safety, monotonic timestamp order, grow-only check constraint allowlists) and attempts Phase 2 live database replay/upgrades if local Supabase or PostgreSQL is available.
+
+### Database migration testing procedures
+
+1. **Local Pre-push Migration Test**:
+   ```powershell
+   npm.cmd run test:migrations
+   ```
+2. **Local Supabase Startup (Requires Docker)**:
+   ```powershell
+   npx.cmd supabase start
+   ```
+3. **Clean Migration Replay / Reset**:
+   ```powershell
+   npx.cmd supabase db reset
+   ```
+4. **Database Schema & Invariants Assertions (pgTAP)**:
+   ```powershell
+   npx.cmd supabase test db
+   ```
+5. **Upgrade-Path Suite with Historical Seed Rows**:
+   ```powershell
+   npx.cmd tsx scripts/test-migration-upgrade.ts
+   ```
+6. **Required GitHub Actions Check**:
+   - `Database Migrations & Upgrade Suite` (defined in `.github/workflows/database-tests.yml`). This check should be marked as **REQUIRED** in repository branch protection for `main`.
 
 ### Known command pitfalls
 

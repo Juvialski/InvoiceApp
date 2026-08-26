@@ -1,0 +1,144 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
+
+const MIGRATIONS_DIR = new URL("../supabase/migrations", import.meta.url);
+
+test("migration naming and ordering safety: timestamps are valid, unique, and strictly monotonically increasing", () => {
+  const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql"));
+  assert.ok(files.length >= 30, `Expected at least 30 migration files, found ${files.length}`);
+
+  const migrationRegex = /^(\d{14})_([a-z0-9_]+)\.sql$/;
+  const timestamps: string[] = [];
+
+  for (const file of files) {
+    const match = file.match(migrationRegex);
+    assert.ok(
+      match,
+      `Migration file "${file}" violates naming convention: must be YYYYMMDDHHMMSS_<description>.sql`
+    );
+
+    const [, timestamp] = match;
+    timestamps.push(timestamp);
+  }
+
+  // Check unique timestamps (no collision)
+  const uniqueTimestamps = new Set(timestamps);
+  assert.equal(
+    uniqueTimestamps.size,
+    timestamps.length,
+    `Found duplicate migration timestamps among migration files!`
+  );
+
+  // Check strictly monotonically increasing order
+  const sortedFiles = [...files].sort();
+  for (let i = 0; i < files.length; i++) {
+    assert.equal(
+      files[i],
+      sortedFiles[i],
+      `Migration file order mismatch at index ${i}: "${files[i]}" vs expected "${sortedFiles[i]}"`
+    );
+  }
+
+  for (let i = 1; i < timestamps.length; i++) {
+    assert.ok(
+      timestamps[i] > timestamps[i - 1],
+      `Migration timestamps must be strictly monotonically increasing: ${timestamps[i]} is not > ${timestamps[i - 1]} (${files[i]})`
+    );
+  }
+});
+
+test("migration invariant: company_audit_events allowlist only ever grows across the entire chain", () => {
+  const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
+
+  let previousAllowlist: string[] = [];
+  let previousMigration = "";
+  let migrationsWithConstraintCount = 0;
+
+  for (const file of files) {
+    const content = readFileSync(new URL(`../supabase/migrations/${file}`, MIGRATIONS_DIR), "utf8");
+    const match = content.match(
+      /company_audit_events[\s\S]*?(?:check \(event_type in|add constraint company_audit_events_event_type_check check \(event_type in)\s*\(([\s\S]*?)\)\)/i
+    );
+    if (!match) continue;
+
+    migrationsWithConstraintCount++;
+    const currentAllowlist = [...match[1].matchAll(/'([A-Z_]+)'/g)].map((m) => m[1]);
+    const currentSet = new Set(currentAllowlist);
+
+    if (previousAllowlist.length > 0) {
+      for (const event of previousAllowlist) {
+        assert.ok(
+          currentSet.has(event),
+          `Migration ${file} dropped previously supported audit event '${event}' established by ${previousMigration}`
+        );
+      }
+    }
+
+    previousAllowlist = currentAllowlist;
+    previousMigration = file;
+  }
+
+  assert.ok(
+    migrationsWithConstraintCount >= 5,
+    `Expected at least 5 migrations defining or extending company_audit_events check constraint, found ${migrationsWithConstraintCount}`
+  );
+});
+
+test("migration invariant: latest migration contains the authoritative superset of all 33 audit event types", () => {
+  const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
+  const latestFile = files[files.length - 1]; // or the latest file that defines the constraint
+  
+  // Find the most recent migration defining the constraint
+  let latestConstraintMigration = "";
+  let latestAllowlist: string[] = [];
+
+  for (const file of files) {
+    const content = readFileSync(new URL(`../supabase/migrations/${file}`, MIGRATIONS_DIR), "utf8");
+    const match = content.match(
+      /company_audit_events[\s\S]*?(?:check \(event_type in|add constraint company_audit_events_event_type_check check \(event_type in)\s*\(([\s\S]*?)\)\)/i
+    );
+    if (match) {
+      latestConstraintMigration = file;
+      latestAllowlist = [...match[1].matchAll(/'([A-Z_]+)'/g)].map((m) => m[1]);
+    }
+  }
+
+  const latestSet = new Set(latestAllowlist);
+
+  const expectedCategories: Record<string, string[]> = {
+    "Company Tenancy & Member Access": [
+      "COMPANY_CREATED", "COMPANY_UPDATED", "COMPANY_SUSPENDED", "COMPANY_ARCHIVED", "COMPANY_REACTIVATED",
+      "USER_INVITED", "INVITE_REVOKED", "INVITE_ACCEPTED",
+      "MEMBER_ROLE_CHANGED", "MEMBER_SUSPENDED", "MEMBER_REACTIVATED", "MEMBER_REVOKED"
+    ],
+    "Payroll Maintenance & Factory Reset": [
+      "PAYROLL_REPAIR_APPLIED", "PAYROLL_CALENDAR_REBUILT", "PAYROLL_UNAPPROVED_RESET", "PAYROLL_WORKSPACE_RESET"
+    ],
+    "Company AI Credentials & Hardening": [
+      "COMPANY_AI_CREDENTIAL_CONFIGURED", "COMPANY_AI_CREDENTIAL_ROTATED",
+      "COMPANY_AI_CREDENTIAL_TESTED", "COMPANY_AI_CREDENTIAL_ENABLED",
+      "COMPANY_AI_CREDENTIAL_DISABLED", "COMPANY_AI_CREDENTIAL_REMOVED"
+    ],
+    "Cash & Banking Operations": [
+      "CASH_ACCOUNT_CREATED", "CASH_ACCOUNT_UPDATED", "CASH_ACCOUNT_DEACTIVATED",
+      "CASH_BALANCE_SNAPSHOT_RECORDED", "CASH_STATEMENT_IMPORTED", "CASH_STATEMENT_REJECTED",
+      "CASH_TRANSACTION_CREATED", "CASH_TRANSACTION_UPDATED",
+      "CASH_RECONCILIATION_CONFIRMED", "CASH_RECONCILIATION_REMOVED", "CASH_TRANSFER_MATCHED"
+    ]
+  };
+
+  let totalExpected = 0;
+  for (const [category, events] of Object.entries(expectedCategories)) {
+    for (const event of events) {
+      totalExpected++;
+      assert.ok(
+        latestSet.has(event),
+        `Latest constraint in ${latestConstraintMigration} is missing ${category} event: '${event}'`
+      );
+    }
+  }
+
+  assert.equal(totalExpected, 33, "Authoritative set must comprise exactly 33 events");
+  assert.equal(latestSet.size, 33, `Latest allowlist has ${latestSet.size} unique events, expected 33`);
+});

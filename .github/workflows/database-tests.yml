@@ -1,0 +1,92 @@
+name: Database Migration & Invariant Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/database-tests.yml'
+      - 'package*.json'
+      - 'tsconfig.json'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/database-tests.yml'
+      - 'package*.json'
+      - 'tsconfig.json'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  database-migrations:
+    name: Database Migrations & Upgrade Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Step 1 - Static Migration Invariants & Naming Safety
+        run: node --test --experimental-strip-types tests/migrationInvariants.test.ts tests/cashBankingMigration.test.ts
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start isolated local Supabase
+        run: supabase start
+
+      - name: Step 2 - Clean Database Migration Replay (Reset)
+        run: supabase db reset
+
+      - name: Step 3 - Database Schema Assertions (pgTAP)
+        run: supabase test db
+
+      - name: Step 4 - Upgrade-Path Migration Suite with Historical Data
+        run: npx tsx scripts/test-migration-upgrade.ts --require-db
+
+      - name: Stop Supabase containers
+        if: always()
+        run: supabase stop
+
+  application-tests:
+    name: Application Tests, Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint and Typecheck
+        run: npm run lint
+
+      - name: Node Native Test Suite
+        run: npm test
+
+      - name: Production Bundle Build
+        run: npm run build

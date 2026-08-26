@@ -1,0 +1,6 @@
+{
+  "id": "01_audit_events_upgrade",
+  "name": "Historical Audit Events Pre-Cash Upgrade Path",
+  "description": "Verifies that representative pre-Cash payroll and company-AI audit rows survive applying the Cash & Banking migration (20260826120000) and later migrations without constraint violations.",
+  "boundaryMigration": "20260826110000_payroll_maintenance_canonical_repair.sql"
+}
