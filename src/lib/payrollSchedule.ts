@@ -131,6 +131,15 @@ export interface ScheduledPayrollPeriod extends GeneratedPayrollPeriod {
   updatedAt?: string;
 }
 
+export interface PayrollPeriodSelectionCandidate {
+  id?: string;
+  periodStart: DateOnly;
+  periodEnd: DateOnly;
+  status: string;
+  active?: boolean;
+  scheduleVersionId?: string;
+}
+
 export interface PayrollScheduleValidationResult {
   valid: boolean;
   issues: string[];
@@ -236,13 +245,21 @@ export function getPayrollScheduleVersions(schedule: PayrollSchedule): PayrollSc
   return schedule.versions?.length ? schedule.versions.slice() : [versionFromSchedule(schedule)];
 }
 
-export function resolvePayrollScheduleVersion(schedule: PayrollSchedule, referenceDate: DateOnly): PayrollScheduleVersion {
+function activeScheduleVersions(schedule: PayrollSchedule): PayrollScheduleVersion[] {
+  return getPayrollScheduleVersions(schedule)
+    .filter((version) => version.active && version.scheduleId === schedule.id && isValidDateOnly(version.effectiveFrom) && (!version.effectiveTo || isValidDateOnly(version.effectiveTo)))
+    .sort((left, right) => compareDates(left.effectiveFrom, right.effectiveFrom) || left.version - right.version || left.id.localeCompare(right.id));
+}
+
+function nextActiveScheduleVersion(schedule: PayrollSchedule, referenceDate: DateOnly): PayrollScheduleVersion | undefined {
+  return activeScheduleVersions(schedule).find((version) => compareDates(version.effectiveFrom, referenceDate) > 0);
+}
+
+export function resolvePayrollScheduleVersion(schedule: PayrollSchedule, referenceDate: DateOnly): PayrollScheduleVersion | undefined {
   assertValidDateOnly(referenceDate, "referenceDate");
-  const versions = getPayrollScheduleVersions(schedule)
-    .filter((version) => version.active && compareDates(version.effectiveFrom, referenceDate) <= 0 && (!version.effectiveTo || compareDates(referenceDate, version.effectiveTo) <= 0))
-    .sort((left, right) => left.version - right.version || compareDates(left.effectiveFrom, right.effectiveFrom));
-  const resolved = versions.at(-1) || (schedule.versions?.find((version) => version.active) || versionFromSchedule(schedule));
-  return resolved.scheduleId === schedule.id ? resolved : { ...resolved, scheduleId: schedule.id };
+  return activeScheduleVersions(schedule)
+    .filter((version) => compareDates(version.effectiveFrom, referenceDate) <= 0 && (!version.effectiveTo || compareDates(referenceDate, version.effectiveTo) <= 0))
+    .at(-1);
 }
 
 function assertValidDateOnly(value: unknown, label: string): asserts value is DateOnly {
@@ -268,6 +285,7 @@ function validateVersion(version: PayrollScheduleVersion, schedule: PayrollSched
   if (!isValidDateOnly(version.effectiveFrom)) issues.push(`Schedule version ${version.id || "(unknown)"} has an invalid effectiveFrom.`);
   if (version.effectiveTo && !isValidDateOnly(version.effectiveTo)) issues.push(`Schedule version ${version.id || "(unknown)"} has an invalid effectiveTo.`);
   if (version.effectiveTo && compareDates(version.effectiveTo, version.effectiveFrom) < 0) issues.push(`Schedule version ${version.id || "(unknown)"} ends before it starts.`);
+  if (schedule && version.scheduleId !== schedule.id) issues.push(`Schedule version ${version.id || "(unknown)"} belongs to a different schedule.`);
   if (schedule && compareDates(version.effectiveFrom, schedule.effectiveFrom) < 0) issues.push(`Schedule version ${version.id || "(unknown)"} predates its schedule.`);
   validateConfiguration(version, issues);
   validatePayDateRule(version.payDateRule, issues);
@@ -304,6 +322,22 @@ export function validatePayrollSchedule(schedule: PayrollSchedule): PayrollSched
     const next = ordered[index + 1];
     if (next && version.effectiveTo && compareDates(version.effectiveTo, next.effectiveFrom) >= 0) issues.push(`Schedule versions ${version.version} and ${next.version} overlap.`);
   });
+  const activeOrdered = ordered.filter((version) => version.active && isValidDateOnly(version.effectiveFrom));
+  if (activeOrdered[0] && isValidDateOnly(schedule.effectiveFrom) && compareDates(activeOrdered[0].effectiveFrom, schedule.effectiveFrom) > 0) {
+    issues.push(`Active schedule versions do not cover the period from ${schedule.effectiveFrom} through ${addDateDays(activeOrdered[0].effectiveFrom, -1)}.`);
+  }
+  for (let index = 0; index < activeOrdered.length - 1; index += 1) {
+    const version = activeOrdered[index]!;
+    const next = activeOrdered[index + 1]!;
+    if (!version.effectiveTo) {
+      issues.push(`Schedule version ${version.version} has no effectiveTo before version ${next.version}; their active ranges overlap.`);
+      continue;
+    }
+    if (!isValidDateOnly(version.effectiveTo)) continue;
+    if (compareDates(addDateDays(version.effectiveTo, 1), next.effectiveFrom) < 0) {
+      issues.push(`Schedule versions ${version.version} and ${next.version} leave an uncovered date gap.`);
+    }
+  }
   return { valid: issues.length === 0, issues };
 }
 
@@ -409,6 +443,7 @@ export function calculatePayrollPayDate(periodEnd: DateOnly, rule: PayrollPayDat
 export function generatePayrollPeriod(versionOrSchedule: PayrollScheduleVersion | PayrollSchedule, referenceDate: DateOnly): GeneratedPayrollPeriod | undefined {
   assertValidDateOnly(referenceDate, "referenceDate");
   const version = "scheduleId" in versionOrSchedule ? versionOrSchedule : resolvePayrollScheduleVersion(versionOrSchedule, referenceDate);
+  if (!version) return undefined;
   const period = periodForDate(version, referenceDate);
   if (!period) return undefined;
   const [periodStart, periodEnd] = period;
@@ -440,10 +475,21 @@ export function findFirstGeneratablePayrollPeriod(versionOrSchedule: PayrollSche
   assertValidDateOnly(referenceDate, "referenceDate");
   const direct = generatePayrollPeriod(versionOrSchedule, referenceDate);
   if (direct) return direct;
-  const schedule = "scheduleId" in versionOrSchedule ? versionOrSchedule : undefined;
+  const schedule = "scheduleId" in versionOrSchedule ? undefined : versionOrSchedule;
   let cursor = referenceDate;
   for (let step = 0; step < FORWARD_SEARCH_MAX_STEPS; step += 1) {
     const version = schedule ? resolvePayrollScheduleVersion(schedule, cursor) : versionOrSchedule as PayrollScheduleVersion;
+    if (!version) {
+      // A date before the first active version can advance to that version's
+      // effective boundary. A gap after an already-ended version is different:
+      // stop instead of using an out-of-range fallback or silently jumping over
+      // canonical periods that have no governing version.
+      const nextVersion = nextActiveScheduleVersion(schedule!, cursor);
+      const priorVersion = activeScheduleVersions(schedule!).filter((candidate) => compareDates(candidate.effectiveFrom, cursor) < 0).at(-1);
+      if (!nextVersion || (priorVersion?.effectiveTo && compareDates(priorVersion.effectiveTo, cursor) < 0)) return undefined;
+      cursor = nextVersion.effectiveFrom;
+      continue;
+    }
     let rawStart: DateOnly;
     let rawEnd: DateOnly;
     try {
@@ -461,6 +507,7 @@ export function findFirstGeneratablePayrollPeriod(versionOrSchedule: PayrollSche
     // must continue with whichever version applies at the next boundary instead
     // of abandoning the search.
     const nextVersion = schedule ? resolvePayrollScheduleVersion(schedule, nextCursor) : version;
+    if (!nextVersion) return undefined;
     if (nextVersion.effectiveTo && compareDates(nextCursor, nextVersion.effectiveTo) > 0) return undefined;
     cursor = nextCursor;
   }
@@ -523,6 +570,7 @@ export function generatePayrollPeriodsAroundReference(versionOrSchedule: Payroll
   let previousDate = addDateDays(current.periodStart, -1);
   for (let index = 0; index < previousCount; index += 1) {
     const previousVersion = schedule ? resolvePayrollScheduleVersion(schedule, previousDate) : version;
+    if (!previousVersion) break;
     const previous = generatePayrollPeriod(previousVersion, previousDate);
     if (!previous || (schedule && previous.periodEnd < schedule.effectiveFrom)) break;
     result.unshift(previous);
@@ -531,6 +579,7 @@ export function generatePayrollPeriodsAroundReference(versionOrSchedule: Payroll
   let nextDate = addDateDays(current.periodEnd, 1);
   for (let index = 0; index < nextCount; index += 1) {
     const nextVersion = schedule ? resolvePayrollScheduleVersion(schedule, nextDate) : version;
+    if (!nextVersion) break;
     const next = generatePayrollPeriod(nextVersion, nextDate);
     if (!next || (nextVersion.effectiveTo && compareDates(next.periodStart, nextVersion.effectiveTo) > 0)) break;
     result.push(next);
@@ -585,6 +634,13 @@ export function mergeGeneratedPayrollPeriods(existing: ScheduledPayrollPeriod[],
         if (current.id !== undefined) merged.id = current.id;
         rows[exactIndex] = merged;
       }
+    } else if (rows.some(isHardLockedPeriod) && rows.every((row) => row.status === "VOID") && rows.some((row) => row.scheduleVersionId !== candidate.scheduleVersionId)) {
+      // A locked VOID row is an immutable tombstone, not an active calendar
+      // boundary. If a later schedule version governs the same recurrence
+      // boundary, preserve the tombstone and add the new version's generated
+      // period beside it. This is how a reset-era VOID row can no longer block
+      // recovery of a valid future period without rewriting history.
+      rows.push({ ...candidate });
     } else if (rows.some(isHardLockedPeriod)) {
       // Finalized history wins: the candidate is dropped entirely.
     } else if (rows.some(isLockedPeriod)) {
@@ -612,19 +668,61 @@ export function mergeGeneratedPayrollPeriods(existing: ScheduledPayrollPeriod[],
 
 export const mergePayrollPeriods = mergeGeneratedPayrollPeriods;
 
-function unpaidOrOpen(period: ScheduledPayrollPeriod) {
-  return period.active !== false && period.status !== "VOID" && period.status !== "PAID";
+function eligiblePeriods<T extends PayrollPeriodSelectionCandidate>(periods: readonly T[]) {
+  return periods.filter((period) => period.active !== false && period.status !== "VOID");
 }
 
-export function selectCurrentPayrollPeriod(periods: ScheduledPayrollPeriod[], referenceDate: DateOnly): ScheduledPayrollPeriod | undefined {
+function currentPeriodOrder(left: PayrollPeriodSelectionCandidate, right: PayrollPeriodSelectionCandidate) {
+  return compareDates(right.periodEnd, left.periodEnd)
+    || compareDates(right.periodStart, left.periodStart)
+    || (right.scheduleVersionId || "").localeCompare(left.scheduleVersionId || "")
+    || (left.id || "").localeCompare(right.id || "");
+}
+
+function upcomingPeriodOrder(left: PayrollPeriodSelectionCandidate, right: PayrollPeriodSelectionCandidate) {
+  return compareDates(left.periodStart, right.periodStart)
+    || compareDates(left.periodEnd, right.periodEnd)
+    || (left.scheduleVersionId || "").localeCompare(right.scheduleVersionId || "")
+    || (left.id || "").localeCompare(right.id || "");
+}
+
+function previousPeriodOrder(left: PayrollPeriodSelectionCandidate, right: PayrollPeriodSelectionCandidate) {
+  return compareDates(right.periodEnd, left.periodEnd)
+    || compareDates(right.periodStart, left.periodStart)
+    || (right.scheduleVersionId || "").localeCompare(left.scheduleVersionId || "")
+    || (left.id || "").localeCompare(right.id || "");
+}
+
+/** Returns the eligible period whose boundaries contain referenceDate, if any. */
+export function selectActualPayrollPeriod<T extends PayrollPeriodSelectionCandidate>(periods: readonly T[], referenceDate: DateOnly): T | undefined {
   assertValidDateOnly(referenceDate, "referenceDate");
-  const eligible = periods.filter((period) => period.active !== false && period.status !== "VOID");
-  const current = eligible.filter((period) => period.periodStart <= referenceDate && period.periodEnd >= referenceDate).sort((left, right) => compareDates(right.periodEnd, left.periodEnd) || (right.scheduleVersionId || "").localeCompare(left.scheduleVersionId || ""));
-  if (current[0]) return current[0];
-  const open = eligible.filter(unpaidOrOpen).sort((left, right) => compareDates(right.periodEnd, left.periodEnd));
-  if (open[0]) return open[0];
-  return eligible.filter((period) => period.periodStart >= referenceDate).sort((left, right) => compareDates(left.periodStart, right.periodStart))[0]
-    || eligible.sort((left, right) => Math.abs(daysBetweenDates(left.periodEnd, referenceDate)) - Math.abs(daysBetweenDates(right.periodEnd, referenceDate)))[0];
+  return eligiblePeriods(periods)
+    .filter((period) => period.periodStart <= referenceDate && period.periodEnd >= referenceDate)
+    .sort(currentPeriodOrder)[0];
+}
+
+/** Returns the eligible future period with the earliest periodStart. */
+export function selectNearestUpcomingPayrollPeriod<T extends PayrollPeriodSelectionCandidate>(periods: readonly T[], referenceDate: DateOnly): T | undefined {
+  assertValidDateOnly(referenceDate, "referenceDate");
+  return eligiblePeriods(periods)
+    .filter((period) => period.periodStart > referenceDate)
+    .sort(upcomingPeriodOrder)[0];
+}
+
+/** Returns the most recent eligible period that ended before referenceDate. */
+export function selectPreviousPayrollPeriod<T extends PayrollPeriodSelectionCandidate>(periods: readonly T[], referenceDate: DateOnly): T | undefined {
+  assertValidDateOnly(referenceDate, "referenceDate");
+  return eligiblePeriods(periods)
+    .filter((period) => period.periodEnd < referenceDate)
+    .sort(previousPeriodOrder)[0];
+}
+
+/** Selects actual current, then nearest upcoming, then most recent previous. */
+export function selectCurrentPayrollPeriod<T extends PayrollPeriodSelectionCandidate>(periods: readonly T[], referenceDate: DateOnly): T | undefined {
+  assertValidDateOnly(referenceDate, "referenceDate");
+  return selectActualPayrollPeriod(periods, referenceDate)
+    || selectNearestUpcomingPayrollPeriod(periods, referenceDate)
+    || selectPreviousPayrollPeriod(periods, referenceDate);
 }
 
 export const selectCurrentPeriod = selectCurrentPayrollPeriod;

@@ -121,7 +121,7 @@ test("unrepaired legacy default schedule still enables period generation", () =>
   assert.deepEqual([firstComplete.periodStart, firstComplete.periodEnd, firstComplete.payDate], ["2026-09-01", "2026-09-15", "2026-09-17"]);
 });
 
-test("the unrepaired legacy default schedule produces the full horizon and exactly one draft run through ensurePayrollPeriodsAndRuns", () => {
+test("the unrepaired legacy default schedule produces the full horizon without a future current-period run", () => {
   const schedule = legacyDefaultSchedule();
   const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", emptyContext());
   assert.equal(result.repaired, false);
@@ -143,8 +143,7 @@ test("the unrepaired legacy default schedule produces the full horizon and exact
     "2026-09-16:2026-09-30",
     "2026-09-01:2026-09-15",
   ]);
-  assert.equal(ensured.runs.length, 1);
-  assert.equal(ensured.runs[0]?.status, "DRAFT");
+  assert.equal(ensured.runs.length, 0, "a future-only horizon must not receive a current-period run");
   const selected = ensured.periods.find((period) => period.id === ensured.selectedPeriodId);
   assert.ok(selected, "a current period must be selected");
 });
@@ -170,8 +169,7 @@ test("user-authored mid-period schedule generates the future horizon instead of 
     "2026-09-16:2026-09-30",
     "2026-10-01:2026-10-15",
   ]);
-  assert.equal(ensured.runs.length, 1);
-  assert.equal(ensured.runs[0]?.status, "DRAFT");
+  assert.equal(ensured.runs.length, 0, "a future-only horizon must not receive a current-period run");
   assert.notEqual(ensured.selectedPeriodId, undefined);
 });
 

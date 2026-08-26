@@ -13,6 +13,7 @@
 
 import type { PayrollEntry, PayrollPeriod, PayrollRun } from "../types.ts";
 import type { PayrollImportBatch } from "../lib/payrollImportPersistence.ts";
+import { selectCurrentPayrollPeriod } from "../lib/payrollSchedule.ts";
 
 export type DateOnly = string;
 export type PayrollFrequency = "DAILY" | "WEEKLY" | "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY" | "CUSTOM";
@@ -429,9 +430,7 @@ export function selectStablePayrollPeriod(periods: readonly CalendarPeriod[], se
   const selected = selectedPeriodId ? eligible.find((period) => period.id === selectedPeriodId) : undefined;
   if (selected) return selected;
   const currentDate = dateOnly(today);
-  const current = eligible.filter((period) => period.periodStart <= currentDate && period.periodEnd >= currentDate)[0];
-  if (current) return current;
-  return eligible.filter((period) => period.periodStart > currentDate)[0] || eligible.filter((period) => period.periodEnd < currentDate).at(-1);
+  return selectCurrentPayrollPeriod(eligible, currentDate);
 }
 
 export function selectStablePayrollPeriodId(periods: readonly CalendarPeriod[], selectedPeriodId?: string, today?: DateOnly | Date) {

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import type { PayrollEntry, PayrollPeriod, PayrollRun } from "../../types";
 import type { PayrollImportBatch } from "../../lib/payrollImportPersistence";
-import type { PayrollSchedule } from "../../lib/payrollSchedule";
+import { selectActualPayrollPeriod, selectNearestUpcomingPayrollPeriod, type PayrollSchedule } from "../../lib/payrollSchedule";
 import { PayrollPeriodsOverview } from "./PayrollPeriodsOverview";
 import { payrollPeriodFrequencyLabel } from "../../lib/payrollIntegrity";
 import {
@@ -432,13 +432,15 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
   const today = useMemo(() => getLocalToday(), []);
   const [view, setView] = useState<"periods" | "month">("periods");
   const conflicts = useMemo(() => findPayrollCalendarConflicts(periods), [periods]);
+  const actualCurrentPeriod = useMemo(() => selectActualPayrollPeriod(periods, today), [periods, today]);
+  const nextUpcomingPeriod = useMemo(() => selectNearestUpcomingPayrollPeriod(periods, today), [periods, today]);
   const initialCursor = useMemo(() => {
-    const selected = periods.find((period) => period.id === selectedPeriodId) || periods.find((period) => period.status !== "VOID");
+    const selected = selectStablePayrollPeriod(periods, selectedPeriodId, today);
     return dateParts(selected?.periodStart || today);
-  }, []);
+  }, [periods, selectedPeriodId, today]);
   const [cursor, setCursor] = useState(initialCursor);
   const selectedPeriod = useMemo(() => {
-    const explicitlySelected = selectedPeriodId ? periods.find((period) => period.id === selectedPeriodId) : undefined;
+    const explicitlySelected = selectedPeriodId ? periods.find((period) => period.id === selectedPeriodId && period.status !== "VOID") : undefined;
     if (explicitlySelected) return explicitlySelected;
     const stable = selectStablePayrollPeriod(periods, undefined, today);
     return stable ? periods.find((period) => period.id === stable.id) : undefined;
@@ -471,6 +473,7 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
       </header>
 
       {conflicts.find((conflict) => conflict.overlapEnd >= today) && <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900"><AlertTriangle className="h-3.5 w-3.5" /><strong>Payroll schedule conflict.</strong><span>Active payroll periods overlap. Review before calculating.</span></div>}
+      {view === "month" && !actualCurrentPeriod && <div role="status" className="rounded-xl border border-sky-200 bg-sky-50/70 px-3 py-2 text-xs text-sky-950"><strong>No active period today.</strong>{nextUpcomingPeriod ? <> Next: {formatDate(nextUpcomingPeriod.periodStart)} – {formatDate(nextUpcomingPeriod.periodEnd)}.</> : " No upcoming payroll period is scheduled."}</div>}
       {view === "month" && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/70 px-3 py-2">
         <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-indigo-600" /><p className="text-sm font-black text-slate-900">{formatMonth(cursor)}</p>{frequencyLabel && !schedules && <span className="rounded-full bg-white px-2 py-1 text-[9px] font-bold text-slate-500">{frequencyLabel}</span>}</div>
         <div className="flex flex-wrap items-center gap-2 text-[9px] font-semibold text-slate-500">

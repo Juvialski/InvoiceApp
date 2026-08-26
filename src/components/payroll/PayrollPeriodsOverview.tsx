@@ -2,6 +2,7 @@ import React from "react";
 import type { PayrollEntry, PayrollPeriod, PayrollRun } from "../../types";
 import type { PayrollImportBatch } from "../../lib/payrollImportPersistence";
 import type { PayrollSchedule } from "../../lib/payrollSchedule";
+import { selectActualPayrollPeriod, selectNearestUpcomingPayrollPeriod } from "../../lib/payrollSchedule";
 import { formatPayrollPeriodLabel, getIssueSummary, type AutomaticPayrollDraftRecord, type PayrollFrequency } from "../../utils/payrollCalendar";
 import { payrollPeriodFrequencyLabel } from "../../lib/payrollIntegrity";
 
@@ -32,8 +33,10 @@ function shortDate(value?: string) {
 
 function status(period: PayrollPeriod, runs: readonly PayrollRun[], today: string) {
   const run = runs.find((candidate) => candidate.periodId === period.id && candidate.status !== "VOID");
+  // A draft run on a future period is preparation state, not an active
+  // payroll period. Keep the date relationship visible in the period list.
+  if (period.periodStart > today && (!run || run.status === "DRAFT")) return "Scheduled";
   if (run) return run.status === "DRAFT" ? "Draft" : run.status.replaceAll("_", " ");
-  if (period.periodStart > today) return "Scheduled";
   return period.status === "OPEN" || period.status === "DRAFT" ? "Draft" : period.status.replaceAll("_", " ");
 }
 
@@ -78,12 +81,14 @@ const PeriodCard: React.FC<{
 
 export const PayrollPeriodsOverview: React.FC<PayrollPeriodsOverviewProps> = ({ periods, runs, entries, importBatches, automaticDrafts, automaticDraft, selectedPeriodId, frequencyLabel, schedules, today, onSelectPeriod, onOpenOverview }) => {
   const eligible = periods.filter((period) => period.status !== "VOID").slice().sort((left, right) => right.periodStart.localeCompare(left.periodStart));
-  const current = eligible.find((period) => period.periodStart <= today && period.periodEnd >= today);
+  const current = selectActualPayrollPeriod(eligible, today);
+  const next = selectNearestUpcomingPayrollPeriod(eligible, today);
   const upcoming = eligible.filter((period) => period.periodStart > today).sort((left, right) => left.periodStart.localeCompare(right.periodStart)).slice(0, 6);
   const recent = eligible.filter((period) => period.periodEnd < today).sort((left, right) => right.periodEnd.localeCompare(left.periodEnd)).slice(0, 4);
   const shown = new Set<string>();
   const sections = [{ label: "Current", rows: current ? [current] : [] }, { label: "Upcoming", rows: upcoming }, { label: "Recent", rows: recent }];
   return <div className="space-y-5" aria-label="Payroll periods">
+    {!current && <div role="status" className="rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs text-sky-950"><p className="font-black">No active period today</p><p className="mt-1">{next ? <>Next: <strong>{formatPayrollPeriodLabel(next, frequency(schedules ? payrollPeriodFrequencyLabel(next, schedules) : frequencyLabel))}</strong>.</> : "There is no upcoming payroll period in the current calendar."}</p></div>}
     {sections.map((section) => {
       const rows = section.rows.filter((period) => !shown.has(period.id) && (shown.add(period.id), true));
       if (!rows.length) return null;

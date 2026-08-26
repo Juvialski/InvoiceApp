@@ -168,14 +168,13 @@ test("keeps data-bearing prospective history when a schedule version changes", (
 test("a weekly mid-cycle bootstrap produces a bounded horizon and is idempotent", () => {
   const schedule = weeklyUserSchedule();
   const first = ensurePayrollPeriodsAndRuns({ schedules: [schedule], periods: [], runs: [], entries: [], workEntries: [], referenceDate: "2026-08-25", previous: 2, next: 2 });
-  assert.equal(first.createdRuns.length, 1);
+  assert.equal(first.createdRuns.length, 0, "no current period exists while the first complete week is still in the future");
   assert.deepEqual(first.periods.map((period) => [period.periodStart, period.periodEnd]).slice().sort(), [
     ["2026-08-31", "2026-09-06"],
     ["2026-09-07", "2026-09-13"],
     ["2026-09-14", "2026-09-20"],
   ]);
-  assert.ok(first.runs.length >= 1 && first.runs.every((run) => run.status === "DRAFT"));
-  assert.ok(first.periods.some((period) => period.id === first.runs[0]?.periodId), "the auto draft run must attach to a generated period");
+  assert.equal(first.runs.length, 0);
 
   const second = ensurePayrollPeriodsAndRuns({ schedules: [schedule], periods: first.periods, runs: first.runs, entries: [], workEntries: [], referenceDate: "2026-08-25", previous: 2, next: 2 });
   assert.equal(second.createdPeriods.length, 0);
@@ -276,7 +275,6 @@ test("generates the mid-cycle weekly horizon without any workers in the input at
     ["2026-09-07", "2026-09-13"],
     ["2026-09-14", "2026-09-20"],
   ]);
-  assert.equal(result.createdRuns.length, 1);
-  assert.equal(result.runs[0]?.status, "DRAFT");
-  assert.ok(result.periods.some((period) => period.id === result.runs[0]?.periodId));
+  assert.equal(result.createdRuns.length, 0, "automatic draft runs wait for an actual current period");
+  assert.equal(result.runs.length, 0);
 });

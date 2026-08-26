@@ -290,3 +290,14 @@ test("payroll page preparation banner keeps READY silent and treats WAITING_FOR_
   const waitingRetry = page.match(/\(periodPreparationState === "FAILED" \|\| periodPreparationState === "WAITING_FOR_BOUNDARY"\) && onRetryPeriodPreparation/);
   assert.ok(waitingRetry, "FAILED and WAITING_FOR_BOUNDARY must both wire the Retry button to onRetryPeriodPreparation");
 });
+
+test("calendar views use the nearest stable selection and expose no-active-period semantics", () => {
+  const calendar = readFileSync(new URL("../src/components/payroll/PayrollCalendar.tsx", import.meta.url), "utf8");
+  const periodsOverview = readFileSync(new URL("../src/components/payroll/PayrollPeriodsOverview.tsx", import.meta.url), "utf8");
+  assert.match(calendar, /selectStablePayrollPeriod\(periods, selectedPeriodId, today\)/);
+  assert.match(calendar, /No active period today/);
+  assert.match(calendar, /Next:/);
+  assert.match(periodsOverview, /No active period today/);
+  assert.match(periodsOverview, /formatPayrollPeriodLabel\(next/);
+  assert.match(periodsOverview, /period\.periodStart > today/);
+});

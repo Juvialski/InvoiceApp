@@ -1,6 +1,7 @@
 import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollAdjustment, PayrollEntry, PayrollPeriod, PayrollRun, WorkEntry } from "../types.ts";
 import type { PayrollImportBatch } from "./payrollImportPersistence.ts";
 import {
+  addDateDays,
   generatePayrollPeriodsAroundReference,
   getPayrollScheduleVersions,
   validatePayrollPeriodShape,
@@ -17,6 +18,7 @@ export type PayrollIntegrityIssueCode =
   | "ORPHAN_RUN"
   | "PERIOD_VERSION_MISSING"
   | "SCHEDULE_VERSION_CONFLICT"
+  | "SCHEDULE_VERSION_GAP"
   | "PERIOD_SHAPE_INVALID"
   | "STALE_AUTO_GENERATED_PERIOD"
   | "ORPHAN_ENTRY"
@@ -50,6 +52,14 @@ export interface PayrollPeriodOverlap {
   locked: boolean;
 }
 
+export interface PayrollScheduleVersionGap {
+  scheduleId: string;
+  gapStart: string;
+  gapEnd: string;
+  precedingVersionId?: string;
+  followingVersionId?: string;
+}
+
 export interface PayrollIntegrityReport {
   activeScheduleCount: number;
   overlappingPeriods: PayrollPeriodOverlap[];
@@ -60,6 +70,7 @@ export interface PayrollIntegrityReport {
   staleGeneratedPeriods: string[];
   missingVersions: string[];
   mismatchedVersions: string[];
+  scheduleVersionGaps: PayrollScheduleVersionGap[];
   invalidShapes: string[];
   orphanEntries: string[];
   orphanAllocations: string[];
@@ -236,6 +247,17 @@ function scheduleVersionMaps(schedules: readonly PayrollSchedule[]) {
   return { schedulesById, versionsById };
 }
 
+function desiredGeneratedBoundaries(schedules: readonly PayrollSchedule[], context: PayrollPeriodSourceContext) {
+  if (!context.referenceDate) return undefined;
+  const primary = selectPrimaryPayrollSchedule(schedules.filter((schedule) => schedule.active && schedule.autoGeneratePeriods));
+  if (!primary) return undefined;
+  try {
+    return new Set(generatePayrollPeriodsAroundReference(primary, context.referenceDate, { previous: 2, next: 2 }).map(boundaryKey));
+  } catch {
+    return undefined;
+  }
+}
+
 export function resolvePayrollPeriodScheduleVersion(period: Pick<PayrollPeriod, "scheduleId" | "scheduleVersionId" | "periodStart">, schedules: readonly PayrollSchedule[]) {
   const { schedulesById, versionsById } = scheduleVersionMaps(schedules);
   if (!period.scheduleId || !period.scheduleVersionId) return undefined;
@@ -251,6 +273,121 @@ export function payrollPeriodFrequencyLabel(period: Pick<PayrollPeriod, "schedul
   const frequency = payrollPeriodFrequency(period, schedules);
   if (!frequency) return period.scheduleId || period.scheduleVersionId ? "Legacy payroll period" : "Payroll period";
   return frequency.replaceAll("_", " ");
+}
+
+/**
+ * Finds uncovered date ranges between active schedule versions. A version
+ * chain with an explicit end before the next version starts is a real calendar
+ * gap; generated periods must not silently jump over that range. The result is
+ * diagnostic only: repair code must still choose a safe, schedule-authorized
+ * reconciliation before creating rows.
+ */
+export function findPayrollScheduleVersionGaps(schedule: PayrollSchedule): PayrollScheduleVersionGap[] {
+  const versions = getPayrollScheduleVersions(schedule)
+    .filter((version) => version.active)
+    .slice()
+    .sort((left, right) => left.effectiveFrom.localeCompare(right.effectiveFrom) || left.version - right.version || left.id.localeCompare(right.id));
+  if (!versions.length) return [];
+
+  const gaps: PayrollScheduleVersionGap[] = [];
+  const addGap = (gapStart: string, gapEnd: string, precedingVersionId?: string, followingVersionId?: string) => {
+    if (gapStart <= gapEnd) gaps.push({ scheduleId: schedule.id, gapStart, gapEnd, precedingVersionId, followingVersionId });
+  };
+
+  try {
+    const first = versions[0]!;
+    if (schedule.effectiveFrom < first.effectiveFrom) addGap(schedule.effectiveFrom, addDateDays(first.effectiveFrom, -1), undefined, first.id);
+    for (let index = 1; index < versions.length; index += 1) {
+      const preceding = versions[index - 1]!;
+      const following = versions[index]!;
+      if (!preceding.effectiveTo) continue;
+      addGap(addDateDays(preceding.effectiveTo, 1), addDateDays(following.effectiveFrom, -1), preceding.id, following.id);
+    }
+  } catch {
+    // Invalid date fields are reported by validatePayrollSchedule; avoid
+    // masking that diagnostic with a secondary gap-calculation exception.
+  }
+  return gaps;
+}
+
+export interface PayrollScheduleVersionContinuityRepairResult {
+  schedule: PayrollSchedule;
+  repaired: boolean;
+  repairedGaps: PayrollScheduleVersionGap[];
+  unresolvedGaps: PayrollScheduleVersionGap[];
+}
+
+function scheduleVersionRecurrenceSignature(version: PayrollScheduleVersion) {
+  return JSON.stringify({
+    frequency: version.frequency,
+    weekEndDay: version.weekEndDay ?? null,
+    anchorPeriodEnd: version.anchorPeriodEnd ?? null,
+    customCutoffDay: version.customCutoffDay ?? null,
+    customPeriodLengthDays: version.customPeriodLengthDays ?? null,
+    customPeriodStartDay: version.customPeriodStartDay ?? null,
+    customPeriodEndDay: version.customPeriodEndDay ?? null,
+    payDateRule: version.payDateRule,
+    autoGeneratePeriods: version.autoGeneratePeriods,
+    autoCalculate: version.autoCalculate,
+    autoCreateRuns: version.autoCreateRuns ?? null,
+    autoSelectCurrentPeriod: version.autoSelectCurrentPeriod ?? null,
+    automationMode: version.automationMode ?? null,
+  });
+}
+
+function gapHasProtectedData(schedule: PayrollSchedule, gap: PayrollScheduleVersionGap, context: PayrollPeriodSourceContext & { periods?: readonly PayrollPeriod[] }) {
+  const gapRange = { periodStart: gap.gapStart, periodEnd: gap.gapEnd };
+  if ((context.periods || []).some((period) => period.scheduleId === schedule.id && overlaps(period, gapRange) && (
+    period.autoGenerated !== true
+    || isPayrollPeriodLocked(period)
+    || isPayrollPeriodDataBearing(period, context)
+  ))) return true;
+  if ((context.workEntries || []).some((entry) => entry.status !== "VOID" && entry.workDate >= gap.gapStart && entry.workDate <= gap.gapEnd)) return true;
+  if ((context.attendanceRecords || []).some((record) => record.recordStatus !== "VOID" && record.attendanceDate >= gap.gapStart && record.attendanceDate <= gap.gapEnd)) return true;
+  if ((context.overtimeRequests || []).some((request) => request.overtimeDate >= gap.gapStart && request.overtimeDate <= gap.gapEnd)) return true;
+  if ((context.leaveRequests || []).some((request) => request.startDate <= gap.gapEnd && request.endDate >= gap.gapStart)) return true;
+  return false;
+}
+
+/**
+ * Repairs only future, configuration-equivalent version gaps that are clearly
+ * accidental in an automatic schedule. The effectiveTo extension is additive
+ * schedule metadata; protected history, source rows, and intentional
+ * configuration changes are left for manual review.
+ */
+export function repairFuturePayrollScheduleVersionGaps(
+  schedule: PayrollSchedule,
+  referenceDate: string,
+  context: PayrollPeriodSourceContext & { periods?: readonly PayrollPeriod[] } = {},
+): PayrollScheduleVersionContinuityRepairResult {
+  const gaps = findPayrollScheduleVersionGaps(schedule);
+  if (!gaps.length || !schedule.autoGeneratePeriods) return { schedule, repaired: false, repairedGaps: [], unresolvedGaps: gaps };
+
+  const versions = getPayrollScheduleVersions(schedule);
+  const repairedGaps: PayrollScheduleVersionGap[] = [];
+  const unresolvedGaps: PayrollScheduleVersionGap[] = [];
+  let nextVersions = versions.slice();
+  for (const gap of gaps) {
+    const preceding = gap.precedingVersionId ? nextVersions.find((version) => version.id === gap.precedingVersionId) : undefined;
+    const following = gap.followingVersionId ? nextVersions.find((version) => version.id === gap.followingVersionId) : undefined;
+    const canRepair = Boolean(
+      preceding
+      && following
+      && gap.gapStart >= referenceDate
+      && scheduleVersionRecurrenceSignature(preceding) === scheduleVersionRecurrenceSignature(following)
+      && !gapHasProtectedData(schedule, gap, context),
+    );
+    if (!canRepair) {
+      unresolvedGaps.push(gap);
+      continue;
+    }
+    nextVersions = nextVersions.map((version) => version.id === preceding!.id ? { ...version, effectiveTo: gap.gapEnd } : version);
+    repairedGaps.push(gap);
+  }
+
+  if (!repairedGaps.length) return { schedule, repaired: false, repairedGaps, unresolvedGaps };
+  const repairedSchedule: PayrollSchedule = { ...schedule, versions: nextVersions };
+  return { schedule: repairedSchedule, repaired: true, repairedGaps, unresolvedGaps };
 }
 
 export function validatePayrollPeriodAgainstSchedule(period: PayrollPeriod, schedules: readonly PayrollSchedule[]) {
@@ -325,11 +462,17 @@ export function inspectPayrollIntegrity(
   const { schedulesById, versionsById } = scheduleVersionMaps(schedules);
   const missingVersions = periods.filter((period) => period.scheduleId && period.scheduleVersionId && !versionsById.has(period.scheduleVersionId)).map((period) => period.id);
   const mismatchedVersions = periods.filter((period) => period.scheduleId && period.scheduleVersionId && versionsById.has(period.scheduleVersionId) && (versionsById.get(period.scheduleVersionId)?.scheduleId !== period.scheduleId || !schedulesById.has(period.scheduleId))).map((period) => period.id);
+  const scheduleVersionGaps = schedules.filter((schedule) => schedule.active).flatMap(findPayrollScheduleVersionGaps);
   const invalidShapes = periods.filter((period) => period.status !== "VOID" && period.scheduleId && period.scheduleVersionId && !validatePayrollPeriodAgainstSchedule(period, schedules).valid).map((period) => period.id);
   const orphanRuns = runs.filter((run) => !periodIds.has(run.periodId)).map((run) => run.id);
   const orphanEntries = entries.filter((entry) => !runIds.has(entry.payrollRunId)).map((entry) => entry.id);
   const orphanAllocations = allocations.filter((allocation) => !entryIds.has(allocation.payrollEntryId)).map((allocation) => allocation.id);
-  const staleGeneratedPeriods = periods.filter((period) => period.autoGenerated && period.status !== "VOID" && !isPayrollPeriodDataBearing(period, context)).map((period) => period.id);
+  const desiredBoundaries = desiredGeneratedBoundaries(schedules, context);
+  const staleGeneratedPeriods = periods.filter((period) => {
+    if (!period.autoGenerated || period.status === "VOID" || isPayrollPeriodDataBearing(period, context)) return false;
+    if (desiredBoundaries) return period.periodEnd >= (context.referenceDate || "") && !desiredBoundaries.has(boundaryKey(period));
+    return !period.scheduleId || !period.scheduleVersionId;
+  }).map((period) => period.id);
   const multipleRuns = [...runsByPeriod.entries()].filter(([, rows]) => rows.length > 1).map(([periodId]) => [periodId]);
   const duplicateEmptyRuns = [...runsByPeriod.entries()].filter(([, rows]) => rows.filter((run) => isSafeToRetirePayrollRun(run, context)).length > 1).map(([periodId]) => [periodId]);
   const issues: PayrollIntegrityIssue[] = [];
@@ -341,11 +484,12 @@ export function inspectPayrollIntegrity(
   for (const periodId of orphanRuns) issues.push({ code: "ORPHAN_RUN", message: "A payroll run is not linked to a payroll period.", periodIds: [periodId], safeToRepair: false });
   for (const periodId of missingVersions) issues.push({ code: "PERIOD_VERSION_MISSING", message: "A payroll period references a missing schedule version and needs manual review.", periodIds: [periodId], safeToRepair: false });
   for (const periodId of mismatchedVersions) issues.push({ code: "SCHEDULE_VERSION_CONFLICT", message: "A payroll period is linked to the wrong schedule version and needs manual review.", periodIds: [periodId], safeToRepair: false });
+  for (const gap of scheduleVersionGaps) issues.push({ code: "SCHEDULE_VERSION_GAP", message: `The active payroll schedule has no version covering ${gap.gapStart} through ${gap.gapEnd}; review the recurrence before rebuilding the calendar.`, scheduleIds: [gap.scheduleId], safeToRepair: false });
   for (const periodId of invalidShapes) issues.push({ code: "PERIOD_SHAPE_INVALID", message: "A payroll period does not match the frequency of its own schedule version.", periodIds: [periodId], safeToRepair: false });
   for (const periodId of staleGeneratedPeriods) issues.push({ code: "STALE_AUTO_GENERATED_PERIOD", message: "An empty generated payroll period may be outdated after a schedule change.", periodIds: [periodId], safeToRepair: true });
   for (const entryId of orphanEntries) issues.push({ code: "ORPHAN_ENTRY", message: "A payroll entry is not linked to a payroll run.", periodIds: [entryId], safeToRepair: false });
   for (const allocationId of orphanAllocations) issues.push({ code: "ORPHAN_ALLOCATION", message: "A payroll allocation is not linked to a payroll entry.", periodIds: [allocationId], safeToRepair: false });
-  return { activeScheduleCount: activeSchedules.length, overlappingPeriods, duplicateBoundaries, multipleRuns, duplicateEmptyRuns, orphanRuns, staleGeneratedPeriods, missingVersions, mismatchedVersions, invalidShapes, orphanEntries, orphanAllocations, issues };
+  return { activeScheduleCount: activeSchedules.length, overlappingPeriods, duplicateBoundaries, multipleRuns, duplicateEmptyRuns, orphanRuns, staleGeneratedPeriods, missingVersions, mismatchedVersions, scheduleVersionGaps, invalidShapes, orphanEntries, orphanAllocations, issues };
 }
 
 function deterministicKeeper(rows: readonly PayrollPeriod[], context: PayrollPeriodSourceContext) {

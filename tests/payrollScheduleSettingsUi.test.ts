@@ -35,6 +35,19 @@ test("recommendation asks the domain for the first generatable period and report
   assert.match(settingsSource, /\{recommendationDiagnostic\}/);
 });
 
+test("next-period recommendation ignores a stale lone future row", () => {
+  assert.match(settingsSource, /Existing generated periods are an observation/);
+  assert.match(settingsSource, /findFirstGeneratablePayrollPeriod\(recommendationCandidate\(editing, recommendationDate\), recommendationDate\)/);
+  assert.match(settingsSource, /not from an existing generated period/);
+  assert.doesNotMatch(settingsSource, /const upcoming = periods\.filter/);
+});
+
+test("inserting a repaired earlier boundary closes it before a stored future version", () => {
+  assert.match(settingsSource, /const followingVersion = versions/);
+  assert.match(settingsSource, /effectiveTo: addDateDays\(followingVersion\.effectiveFrom, -1\)/);
+  assert.match(settingsSource, /Bound the inserted version before that future version/);
+});
+
 test("one shared candidate builder feeds both the preview memo and the submit path", () => {
   assert.match(settingsSource, /function buildCandidateSchedule\(/);
   const callSites = settingsSource.match(/buildCandidateSchedule\(editing, schedule, effectiveMode, chosenDate, recommendedStart, today\)/g) || [];
@@ -61,6 +74,15 @@ test("payroll page keeps the boundary-waiting preparation state wired to retry",
   assert.match(pageSource, /waiting for a valid period/);
   assert.match(pageSource, /Open Payroll Schedule settings/);
   assert.match(pageSource, /\(periodPreparationState === "FAILED" \|\| periodPreparationState === "WAITING_FOR_BOUNDARY"\) && onRetryPeriodPreparation/);
+});
+
+test("payroll page distinguishes no active period from the selected next period", () => {
+  assert.match(pageSource, /selectStablePayrollPeriod/);
+  assert.match(pageSource, /actualCurrentPeriod/);
+  assert.match(pageSource, /No active period/);
+  assert.match(pageSource, /Next:/);
+  assert.match(pageSource, /periodJumpLabel/);
+  assert.doesNotMatch(pageSource, /selectCurrentPayrollPeriod/);
 });
 
 test("weekly sunday schedules skip the incomplete cycle and start at the next complete week", () => {

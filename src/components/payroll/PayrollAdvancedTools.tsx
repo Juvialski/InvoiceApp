@@ -35,6 +35,7 @@ const ACTION_CONFIGURATION: Record<PayrollAdvancedTool, ActionConfiguration> = O
 });
 
 function plural(count: number, singular: string, pluralLabel = `${singular}s`) { return `${count} ${count === 1 ? singular : pluralLabel}`; }
+function localDateOnly() { const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`; }
 function plainError(error: unknown, phase: "preview" | "apply") {
   const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message || "");
   if (/permission|authorized|company|membership|suspended|revoked/i.test(message)) return "You do not have permission to manage payroll maintenance in this company.";
@@ -76,7 +77,8 @@ export const PayrollAdvancedTools: React.FC<PayrollAdvancedToolsProps> = ({ sche
   const [applyError, setApplyError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const previewRequestRef = useRef(0);
-  const context = useMemo(() => ({ runs, entries, workEntries, importBatches, adjustments }), [runs, entries, workEntries, importBatches, adjustments]);
+  const referenceDate = localDateOnly();
+  const context = useMemo(() => ({ runs, entries, workEntries, importBatches, adjustments, referenceDate }), [runs, entries, workEntries, importBatches, adjustments, referenceDate]);
   const report = useMemo(() => inspectPayrollIntegrity(schedules, periods, runs, entries, allocations, context), [schedules, periods, runs, entries, allocations, context]);
   const fixablePeriodCount = useMemo(() => periods.filter((period) => isSafeToDeletePayrollPeriod(period, context)).length, [periods, context]);
   const fixableRunCount = useMemo(() => runs.filter((run) => isSafeToDeletePayrollRun(run, context)).length, [runs, context]);

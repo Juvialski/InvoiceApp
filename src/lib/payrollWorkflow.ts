@@ -17,13 +17,14 @@ import {
   generatePayrollPeriodsAroundReference,
   generatePayrollPeriod,
   mergeGeneratedPayrollPeriods,
+  selectActualPayrollPeriod,
   selectCurrentPayrollPeriod,
   getPayrollScheduleVersions,
   type PayrollSchedule,
   type PayrollScheduleVersion,
   type ScheduledPayrollPeriod,
 } from "./payrollSchedule.ts";
-import { isPayrollPeriodDataBearing, isSafeToDeletePayrollPeriod, reconcileObsoleteGeneratedPayrollPeriods, retireEmptyGeneratedPayrollRuns, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
+import { isPayrollPeriodDataBearing, isSafeToDeletePayrollPeriod, isSafeToDeletePayrollRun, reconcileObsoleteGeneratedPayrollPeriods, repairFuturePayrollScheduleVersionGaps, retireEmptyGeneratedPayrollRuns, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
 import type { PayrollImportBatch } from "./payrollImportPersistence.ts";
 import {
   buildPayrollDraft,
@@ -78,8 +79,11 @@ export interface EnsurePayrollWorkflowResult {
   runs: PayrollRun[];
   createdPeriods: PayrollPeriod[];
   createdRuns: PayrollRun[];
+  /** Present only when a safe future schedule-version continuity repair was applied. */
+  schedules?: PayrollSchedule[];
   selectedPeriodId?: string;
   retiredPeriodIds: string[];
+  retiredRunIds: string[];
   integrityIssues: string[];
 }
 
@@ -105,6 +109,8 @@ export interface PayrollAutomationRecordInput {
 function id(prefix: string) {
   return globalThis.crypto?.randomUUID?.() || `local-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
+
+const AUTO_CREATED_DRAFT_RUN_NOTE = "Auto-created draft run for the current payroll period.";
 
 export function dateOnly(value = new Date()): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
@@ -344,12 +350,10 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
   const previous = input.previous ?? 2;
   const next = input.next ?? 2;
   const initialPeriods = [...input.periods];
-  const primarySchedule = selectPrimaryPayrollSchedule(input.schedules.filter((schedule) => schedule.active && schedule.autoGeneratePeriods));
-  let periods = [...input.periods];
-  const generated: ReturnType<typeof generatePayrollPeriodsAroundReference> = [];
-  if (primarySchedule) {
-    generated.push(...generatePayrollPeriodsAroundReference(primarySchedule, input.referenceDate, { previous, next }));
-    const lifecycleContext = {
+  const initialPrimarySchedule = selectPrimaryPayrollSchedule(input.schedules.filter((schedule) => schedule.active && schedule.autoGeneratePeriods));
+  const continuity = initialPrimarySchedule
+    ? repairFuturePayrollScheduleVersionGaps(initialPrimarySchedule, input.referenceDate, {
+      periods: input.periods,
       runs: input.runs,
       entries: input.entries,
       workEntries: input.workEntries,
@@ -358,7 +362,26 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
       attendanceRecords: input.attendanceRecords,
       leaveRequests: input.leaveRequests,
       overtimeRequests: input.overtimeRequests,
-    };
+    })
+    : undefined;
+  const primarySchedule = continuity?.schedule || initialPrimarySchedule;
+  const repairedSchedules = continuity?.repaired
+    ? input.schedules.map((schedule) => schedule.id === primarySchedule?.id ? primarySchedule : schedule)
+    : undefined;
+  const lifecycleContext = {
+    runs: input.runs,
+    entries: input.entries,
+    workEntries: input.workEntries,
+    importBatches: input.importBatches,
+    adjustments: input.adjustments,
+    attendanceRecords: input.attendanceRecords,
+    leaveRequests: input.leaveRequests,
+    overtimeRequests: input.overtimeRequests,
+  };
+  let periods = [...input.periods];
+  const generated: ReturnType<typeof generatePayrollPeriodsAroundReference> = [];
+  if (primarySchedule) {
+    generated.push(...generatePayrollPeriodsAroundReference(primarySchedule, input.referenceDate, { previous, next }));
     const disposableSchedulePeriodIds = new Set(periods.filter((period) => period.scheduleId === primarySchedule.id && period.status === "VOID" && isSafeToDeletePayrollPeriod(period, lifecycleContext)).map((period) => period.id));
     const currentSchedulePeriods = periods.filter((period) => period.scheduleId === primarySchedule.id && !disposableSchedulePeriodIds.has(period.id));
     const merged = mergeGeneratedPayrollPeriods(currentSchedulePeriods.map((period) => toScheduledPeriod(period, lifecycleContext)), generated);
@@ -384,24 +407,50 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
   });
   periods = reconciliation.periods;
 
+  // A previous selector bug could have opened a harmless future generated
+  // period. Reset only such disposable infrastructure; an OPEN row carrying
+  // business data, a lock, or a non-system note remains untouched for review.
+  if (primarySchedule) {
+    periods = periods.map((period) => period.scheduleId === primarySchedule.id
+      && period.periodStart > input.referenceDate
+      && period.status === "OPEN"
+      && isSafeToDeletePayrollPeriod(period, lifecycleContext)
+      ? { ...period, status: "DRAFT", updatedAt: new Date().toISOString() }
+      : period);
+  }
+
   const currentCandidates = primarySchedule
     ? periods.filter((period) => period.scheduleId === primarySchedule.id && period.status !== "VOID").map((period) => toScheduledPeriod(period, { runs: input.runs, entries: input.entries, workEntries: input.workEntries, importBatches: input.importBatches, adjustments: input.adjustments, attendanceRecords: input.attendanceRecords, leaveRequests: input.leaveRequests, overtimeRequests: input.overtimeRequests }))
     : [];
-  const current = selectCurrentPayrollPeriod(currentCandidates, input.referenceDate);
-  if (current) {
-    const currentPeriod = periods.find((period) => period.id === current.id);
+  const selected = selectCurrentPayrollPeriod(currentCandidates, input.referenceDate);
+  const actualCurrent = selectActualPayrollPeriod(currentCandidates, input.referenceDate);
+  if (actualCurrent) {
+    const currentPeriod = periods.find((period) => period.id === actualCurrent.id);
     if (currentPeriod && currentPeriod.status === "DRAFT") {
       const opened = { ...currentPeriod, status: "OPEN" as const, updatedAt: new Date().toISOString() };
       periods = periods.map((period) => period.id === opened.id ? opened : period);
     }
   }
 
-  let runs = retireEmptyGeneratedPayrollRuns(input.runs, reconciliation.retiredPeriodIds, input.entries || []);
+  const futureSystemRunPeriodIds = new Set(primarySchedule
+    ? periods.filter((period) => period.scheduleId === primarySchedule.id
+      && period.periodStart > input.referenceDate
+      && period.status !== "VOID"
+      && input.runs.some((run) => run.periodId === period.id && run.notes?.trim() === AUTO_CREATED_DRAFT_RUN_NOTE)).map((period) => period.id)
+    : []);
+  const voidPeriodIdsWithDisposableRuns = new Set(periods
+    .filter((period) => period.status === "VOID" && input.runs.some((run) => run.periodId === period.id && isSafeToDeletePayrollRun(run, lifecycleContext)))
+    .map((period) => period.id));
+  const disposableRunPeriodIds = new Set([...reconciliation.retiredPeriodIds, ...futureSystemRunPeriodIds, ...voidPeriodIdsWithDisposableRuns]);
+  let runs = retireEmptyGeneratedPayrollRuns(input.runs, [...disposableRunPeriodIds], input.entries || []);
+  const retainedRunIds = new Set(runs.map((run) => run.id));
+  const retiredRunIds = input.runs.filter((run) => !retainedRunIds.has(run.id)).map((run) => run.id);
   const createdRuns: PayrollRun[] = [];
-  if (primarySchedule && current) {
+  if (primarySchedule && actualCurrent) {
     const autoCreateRuns = Boolean(primarySchedule.autoCreateRuns ?? primarySchedule.autoCalculate);
-    if (autoCreateRuns && !runs.some((run) => run.periodId === current.id)) {
-      createdRuns.push({ id: id("run"), periodId: current.id, status: "DRAFT", createdAt: new Date().toISOString(), notes: "Auto-created draft run for the current payroll period." });
+    const finalized = ["APPROVED", "PAID", "VOID"].includes(actualCurrent.status);
+    if (autoCreateRuns && !finalized && !runs.some((run) => run.periodId === actualCurrent.id)) {
+      createdRuns.push({ id: id("run"), periodId: actualCurrent.id, status: "DRAFT", createdAt: new Date().toISOString(), notes: AUTO_CREATED_DRAFT_RUN_NOTE });
     }
   }
   runs = [...createdRuns, ...runs];
@@ -414,9 +463,14 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
     runs,
     createdPeriods,
     createdRuns,
-    selectedPeriodId: primarySchedule?.autoSelectCurrentPeriod === false ? undefined : current?.id,
+    schedules: repairedSchedules,
+    selectedPeriodId: primarySchedule?.autoSelectCurrentPeriod === false ? undefined : selected?.id,
     retiredPeriodIds: reconciliation.retiredPeriodIds,
-    integrityIssues: reconciliation.issues.map((issue) => issue.message),
+    retiredRunIds,
+    integrityIssues: [
+      ...reconciliation.issues.map((issue) => issue.message),
+      ...(continuity?.unresolvedGaps || []).map((gap) => `The active payroll schedule has no version covering ${gap.gapStart} through ${gap.gapEnd}; review the recurrence before rebuilding the calendar.`),
+    ],
   };
 }
 
