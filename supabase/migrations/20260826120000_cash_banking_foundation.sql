@@ -155,13 +155,24 @@ create index if not exists financial_transaction_matches_target_idx on public.fi
 
 -- The company audit catalog is append-only. Extend its allowlist without
 -- changing any previously recorded financial or access history.
+-- The audit-event allowlist must only ever GROW: this list is the complete
+-- superset of every event accepted by prior tenancy, payroll, and company-AI
+-- migrations, plus the new CASH_* events. Narrowing it violates existing rows
+-- (SQLSTATE 23514) on any database that already recorded historical payroll or
+-- AI credential events.
 alter table public.company_audit_events drop constraint if exists company_audit_events_event_type_check;
 alter table public.company_audit_events add constraint company_audit_events_event_type_check check (event_type in (
   'COMPANY_CREATED', 'COMPANY_UPDATED', 'COMPANY_SUSPENDED', 'COMPANY_ARCHIVED', 'COMPANY_REACTIVATED',
-  'USER_INVITED', 'INVITE_REVOKED', 'INVITE_ACCEPTED', 'MEMBER_ROLE_CHANGED', 'MEMBER_SUSPENDED',
-  'MEMBER_REACTIVATED', 'MEMBER_REVOKED', 'CASH_ACCOUNT_CREATED', 'CASH_ACCOUNT_UPDATED',
-  'CASH_ACCOUNT_DEACTIVATED', 'CASH_BALANCE_SNAPSHOT_RECORDED', 'CASH_STATEMENT_IMPORTED',
-  'CASH_STATEMENT_REJECTED', 'CASH_TRANSACTION_CREATED', 'CASH_TRANSACTION_UPDATED',
+  'USER_INVITED', 'INVITE_REVOKED', 'INVITE_ACCEPTED',
+  'MEMBER_ROLE_CHANGED', 'MEMBER_SUSPENDED', 'MEMBER_REACTIVATED', 'MEMBER_REVOKED',
+  'PAYROLL_REPAIR_APPLIED', 'PAYROLL_CALENDAR_REBUILT', 'PAYROLL_UNAPPROVED_RESET',
+  'COMPANY_AI_CREDENTIAL_CONFIGURED', 'COMPANY_AI_CREDENTIAL_ROTATED',
+  'COMPANY_AI_CREDENTIAL_TESTED', 'COMPANY_AI_CREDENTIAL_ENABLED',
+  'COMPANY_AI_CREDENTIAL_DISABLED', 'COMPANY_AI_CREDENTIAL_REMOVED',
+  'PAYROLL_WORKSPACE_RESET',
+  'CASH_ACCOUNT_CREATED', 'CASH_ACCOUNT_UPDATED', 'CASH_ACCOUNT_DEACTIVATED',
+  'CASH_BALANCE_SNAPSHOT_RECORDED', 'CASH_STATEMENT_IMPORTED', 'CASH_STATEMENT_REJECTED',
+  'CASH_TRANSACTION_CREATED', 'CASH_TRANSACTION_UPDATED',
   'CASH_RECONCILIATION_CONFIRMED', 'CASH_RECONCILIATION_REMOVED', 'CASH_TRANSFER_MATCHED'
 ));
 
