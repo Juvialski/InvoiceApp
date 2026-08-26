@@ -1,4 +1,4 @@
-﻿# ENGORYX Platform Architecture
+# ENGORYX Platform Architecture
 
 Engoryx is an integrated engineering operations platform designed for architecture, engineering, and construction (AEC) firms, general contractors, specialty subcontractors, and project management organizations.
 
@@ -76,7 +76,7 @@ The platform evolution is structured into nine sequential, backward-compatible p
 | Phase | Module / Domain | Status | Key Deliverables |
 | :--- | :--- | :--- | :--- |
 | **Phase 0** | **Rebrand & Core Foundation** | **Active** | Engoryx branding, multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant. |
-| **Phase 1** | **Engineering Documents & Field Workflows** | Planned | High-resolution blueprint viewer (PDF.js + Konva), RFIs, Submittals, Daily Site Logs with weather & heavy equipment tracking. |
+| **Phase 1** | **Engineering Documents & Field Workflows** | In Progress | **Phase 1A (Active)**: Blueprint viewer (PDF.js + Konva), immutable revision lineage, normalized redline markups.<br>**Phase 1B (Planned)**: RFIs & Submittals.<br>**Phase 1C (Planned)**: Daily Site Logs & Weather. |
 | **Phase 2** | **Project Scheduling & Gantt** | Planned | Interactive Gantt charts (Frappe Gantt), task dependency networks, critical path method (CPM), milestone progress tracking. |
 | **Phase 3** | **Field Capture & Barcode Asset Tagging** | Planned | Camera-based barcode/QR scanner (ZXing-js), equipment check-in/out, tool tracking, site material delivery validation. |
 | **Phase 4** | **Spatial & Site Operations (BIM & GIS)** | Future | Browser-native 3D CAD/BIM model viewer (Online3DViewer/web-ifc), GIS site boundary mapping (MapLibre + Turf), Drone orthomosaic overlay (OpenDroneMap). |

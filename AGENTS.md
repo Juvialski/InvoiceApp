@@ -113,8 +113,22 @@ For substantial implementation tasks, report:
 - Build result.
 - Remaining manual or deployment steps.
 - Whether remote push succeeded or requires manual handoff.
+- Confirmation line: `Background commands/processes started by this run remaining: 0`
 
 If subagents were used, also report the number of subagents, Luna model and tier, visible reasoning level, and confirmation that no non-Luna subagent was created.
+
+## Background process and command cleanup
+
+All background processes, dev servers, watchers, subagents, and long-running shell commands launched during a task run MUST be explicitly tracked and terminated before completing the task.
+
+### Cleanup protocol:
+1. **Agent lifecycle tracking**: Every subagent and lead agent must track all background processes (dev servers, test runners, ports, timers, daemon tasks) initiated during its execution.
+2. **Subagent cleanup**: Subagents must terminate their own background processes, tasks, and file watchers before going idle or sending their completion report.
+3. **Lead final sweep**: Before declaring implementation complete and providing the final handoff report, the lead agent must perform a final sweep (e.g. via `manage_task(Action: 'list')` and port inspection) to guarantee that no orphaned background tasks remain running.
+4. **Mandatory confirmation line**: Every implementation handoff report must include the exact confirmation line:
+   ```text
+   Background commands/processes started by this run remaining: 0
+   ```
 
 ## Verified local execution / agent runbook
 

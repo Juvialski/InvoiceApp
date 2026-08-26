@@ -39,6 +39,10 @@ export const PERMISSION_KEYS = {
   companyManage: "company.settings.manage",
   accessManage: "company.members.read",
   platformManage: "platform.manage",
+  engineeringDocumentsRead: "engineering.documents.read",
+  engineeringDocumentsCreate: "engineering.documents.create",
+  engineeringDocumentsUpdate: "engineering.documents.update",
+  engineeringDocumentsManage: "engineering.documents.manage",
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS] | (string & {});

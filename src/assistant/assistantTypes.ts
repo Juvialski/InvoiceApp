@@ -46,9 +46,10 @@ export interface AssistantAttachmentReference {
 }
 
 export interface AssistantClientAction {
-  type: "NAVIGATE" | "OPEN_INVOICE" | "OPEN_PROJECT" | "OPEN_REVIEW_INVOICE" | "START_TOUR" | "OPEN_PAYROLL_PERIOD" | "OPEN_ATTENDANCE_DATE";
+  type: "NAVIGATE" | "OPEN_INVOICE" | "OPEN_PROJECT" | "OPEN_PROJECT_DOCUMENTS" | "OPEN_REVIEW_INVOICE" | "START_TOUR" | "OPEN_PAYROLL_PERIOD" | "OPEN_ATTENDANCE_DATE";
   routeId?: string;
   entityId?: string;
+  view?: string;
   date?: string;
   tourId?: string;
   label?: string;
@@ -64,7 +65,7 @@ export interface AssistantPreparedAction {
 }
 
 export interface AssistantReference {
-  type: "invoice" | "project" | "worker" | "payroll_period" | "payroll_run" | "attendance" | "report" | "help";
+  type: "invoice" | "project" | "worker" | "payroll_period" | "payroll_run" | "attendance" | "report" | "help" | "document";
   id?: string;
   label: string;
 }

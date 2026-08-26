@@ -15,6 +15,24 @@ test("help search returns only current InvoiceApp features with deterministic ra
   assert.equal(searchHelpCatalog("made-up CRM integration").length, 0);
 });
 
+test("help search resolves engineering documents and blueprint topics", () => {
+  const docMatches = searchHelpCatalog("blueprint drawings");
+  assert.equal(docMatches[0]?.id, "engineering-documents");
+  assert.equal(helpEntryPath(docMatches[0]!), "/projects");
+
+  const revMatches = searchHelpCatalog("blueprint revisions");
+  assert.equal(revMatches[0]?.id, "blueprint-revisions");
+  assert.match(revMatches[0]!.details, /immutable/i);
+
+  const markupMatches = searchHelpCatalog("redline annotations");
+  assert.equal(markupMatches[0]?.id, "redline-annotations");
+  assert.match(markupMatches[0]!.details, /\[0\.0, 1\.0\]/);
+
+  const disciplineMatches = searchHelpCatalog("structural discipline");
+  assert.equal(disciplineMatches[0]?.id, "drawing-disciplines");
+  assert.match(disciplineMatches[0]!.details, /STRUCTURAL/);
+});
+
 test("unknown help questions stay honest instead of inventing a feature", () => {
   const response = getHelpResponse("custom CRM sync");
   assert.equal(response.kind, "unknown");
@@ -22,5 +40,5 @@ test("unknown help questions stay honest instead of inventing a feature", () => 
     assert.match(response.message, /don’t have a verified (Engoryx|InvoiceApp) help answer/i);
     assert.doesNotMatch(response.message, /CRM sync is available/i);
   }
-  assert.match(unknownHelpResponse("something else"), /settings/i);
+  assert.match(unknownHelpResponse("something else"), /Engineering Documents and blueprints/i);
 });

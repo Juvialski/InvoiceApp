@@ -19,7 +19,8 @@ async function main() {
   console.log("▶ Phase 1: Static Migration Invariants & Naming Safety");
   const testFiles = [
     path.join(ROOT, "tests", "migrationInvariants.test.ts"),
-    path.join(ROOT, "tests", "cashBankingMigration.test.ts")
+    path.join(ROOT, "tests", "cashBankingMigration.test.ts"),
+    path.join(ROOT, "tests", "engineeringDocumentsMigration.test.ts")
   ];
 
   const nodeCmd = "node";

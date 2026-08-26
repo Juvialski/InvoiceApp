@@ -11,6 +11,7 @@ import {
   parseAppLocation,
   PLATFORM_COMPANIES_PATH,
 } from "../src/utils/appRouting.ts";
+import { pathForAssistantAction } from "../src/assistant/assistantNavigation.ts";
 
 test("parses project and project-subview deep links", () => {
   assert.deepEqual(parseAppLocation("/projects/project-42/invoices"), {
@@ -22,7 +23,17 @@ test("parses project and project-subview deep links", () => {
     pathname: "/projects/project-42/invoices",
     search: "",
   });
-  const payroll = parseAppLocation("/projects/project-42", "?view=payroll"); assert.equal(payroll.kind, "project"); if (payroll.kind === "project") assert.equal(payroll.view, "payroll");
+  const payroll = parseAppLocation("/projects/project-42", "?view=payroll");
+  assert.equal(payroll.kind, "project");
+  if (payroll.kind === "project") assert.equal(payroll.view, "payroll");
+
+  const documents = parseAppLocation("/projects/project-42/documents", "?docId=doc-99&revId=rev-3");
+  assert.equal(documents.kind, "project");
+  if (documents.kind === "project") {
+    assert.equal(documents.view, "documents");
+    assert.equal(documents.documentId, "doc-99");
+    assert.equal(documents.revisionId, "rev-3");
+  }
 });
 
 test("parses invoice and review-session URLs with safe return paths", () => {
@@ -40,6 +51,7 @@ test("parses invoice and review-session URLs with safe return paths", () => {
 test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForTab("payroll"), "/payroll");
   assert.equal(appPathForProject("project 42", "expenses"), "/projects/project%2042/expenses");
+  assert.equal(appPathForProject("project 42", "documents", { docId: "doc-1", revId: "rev-2" }), "/projects/project%2042/documents?docId=doc-1&revId=rev-2");
   assert.equal(appPathForInvoice("invoice/7", "/projects/project-42/invoices"), "/invoices/invoice%2F7?from=%2Fprojects%2Fproject-42%2Finvoices");
   assert.equal(appPathForReviewInvoice("invoice-7", "/inbox"), "/review?invoiceId=invoice-7&from=%2Finbox");
 });
@@ -61,4 +73,10 @@ test("platform management deep links select a company and management tab without
     managementCompanyId: companyId,
     managementTab: "ai",
   });
+});
+
+test("assistant navigation generates correct routes for project documents and views", () => {
+  assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT_DOCUMENTS", entityId: "proj-101" }), "/projects/proj-101/documents");
+  assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT", entityId: "proj-101", view: "documents" }), "/projects/proj-101/documents");
+  assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT", entityId: "proj-101" }), "/projects/proj-101");
 });

@@ -8,6 +8,10 @@ export type HelpEntryId =
   | "invoice-review"
   | "cash-banking"
   | "project-costing"
+  | "engineering-documents"
+  | "blueprint-revisions"
+  | "redline-annotations"
+  | "drawing-disciplines"
   | "expenses"
   | "attendance-overtime"
   | "payroll-readiness"
@@ -57,6 +61,38 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     details: "Projects show the cost picture for each project. Reports can compare budget, confirmed cost, pending commitments, and remaining budget.",
     routeId: "projects",
     keywords: ["project", "cost", "costing", "budget", "allocation", "actual", "supplier"],
+  },
+  {
+    id: "engineering-documents",
+    title: "Engineering Documents & Blueprints",
+    summary: "Manage architectural, structural, civil, MEP, and spec sheets with multi-page vector viewing and immutable revision history.",
+    details: `${BRAND.productName} provides centralized engineering document control and high-performance blueprint viewing. Drawings, spec sheets, and calculation reports are organized by project and discipline with strict company-level multi-tenancy.`,
+    routeId: "projects",
+    keywords: ["drawing", "drawings", "blueprint", "blueprints", "document", "documents", "spec", "specification", "engineering", "sheet", "pdf", "cad", "discipline", "viewer"],
+  },
+  {
+    id: "blueprint-revisions",
+    title: "Blueprint Revisions and Lineage",
+    summary: "Track document revisions, upload updated sheets, and preserve immutable revision history.",
+    details: "Every drawing revision is immutable once uploaded. The assistant enforces non-destructive invariants: revisions cannot be deleted or destructively altered, ensuring full contractual lineage and audit history.",
+    routeId: "projects",
+    keywords: ["revision", "revisions", "version", "rev", "lineage", "immutable", "upload", "history", "superseded", "issue", "ifc"],
+  },
+  {
+    id: "redline-annotations",
+    title: "Redline Annotations and Markups",
+    summary: "Add layered vector markup clouds, callouts, measurements, and text annotations to drawings.",
+    details: "Redline annotations operate in normalized page coordinate space [0.0, 1.0], guaranteeing pixel-perfect rendering across zoom levels and high-DPI displays. Annotations support revision-specific markup layers, open/resolved statuses, and physical scale measurements.",
+    routeId: "projects",
+    keywords: ["redline", "redlines", "annotation", "annotations", "markup", "markups", "cloud", "callout", "measurement", "scale", "konva", "canvas"],
+  },
+  {
+    id: "drawing-disciplines",
+    title: "Drawing Discipline Filtering",
+    summary: "Filter and organize documents by Architectural, Structural, Civil, MEP, Geotechnical, and General Engineering disciplines.",
+    details: "Engineering documents are categorized by standardized AEC disciplines: Architectural (ARCHITECTURAL), Structural (STRUCTURAL), Civil (CIVIL), Mechanical (MECHANICAL), Electrical (ELECTRICAL), Plumbing (PLUMBING), Fire Protection (FIRE_PROTECTION), and Geotechnical (GEOTECHNICAL).",
+    routeId: "projects",
+    keywords: ["discipline", "disciplines", "architectural", "structural", "civil", "mechanical", "electrical", "plumbing", "mep", "filter", "category"],
   },
   {
     id: "expenses",
@@ -160,7 +196,7 @@ export function helpEntryPath(entry: HelpCatalogEntry) {
 
 export function unknownHelpResponse(query: string) {
   const label = query.trim() ? ` for “${query.trim().slice(0, 80)}”` : "";
-  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
+  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Engineering Documents and blueprints, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
 }
 
 export type HelpResponse =

@@ -1,29 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Cloud, Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { Header, AppTab } from "./components/Header";
 import { AccessDenied, CompanySwitcher, NoCompanyAccess } from "./components/access/AccessStates.tsx";
 import { CompanyManagement } from "./components/access/CompanyManagement.tsx";
-
 import { AuthScreen } from "./components/auth";
 import { BRAND, formatPageTitle } from "./config/brand";
-import { UploadZone, ExtractPayload } from "./components/UploadZone";
-import { InvoiceDirectory } from "./components/InvoiceDirectory";
-import { EmailInbox } from "./components/EmailInbox";
-import { Vendors } from "./components/Vendors";
-import { Reports } from "./components/Reports";
-import { ReviewQueue } from "./components/ReviewQueue";
-import { VerificationWorkspace } from "./components/VerificationWorkspace";
+import type { ExtractPayload } from "./components/UploadZone";
 import type { SaveState } from "./components/VerificationWorkspace";
-import { Settings as SettingsScreen } from "./components/Settings";
-import { EngineeringCostOperationsDashboard } from "./components/engineering/EngineeringCostOperationsDashboard";
-import { ProjectReports } from "./components/engineering/ProjectReports";
-import { ProjectsPage } from "./components/projects/ProjectsPage";
-import { PayrollOperatingCosts } from "./components/engineering/PayrollOperatingCosts";
-import { ProjectWorkspace } from "./components/projects/ProjectWorkspace";
-import { ExpensesPage } from "./components/expenses/ExpensesPage";
-import { CashBankingPage } from "./components/CashBankingPage";
-import { PayrollPageV2 as PayrollPage } from "./components/payroll/PayrollPageV2";
+import { AppShell } from "./app/AppShell";
+import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForInvoice, appPathForPlatformCompanies, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, isKnownWorkspaceLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
@@ -2772,40 +2758,173 @@ function InvoiceWorkspace() {
         openInvoiceForReview(saved, activeTab);
       }}
     >
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-        <Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session?.user?.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={openPlatformManagement} visibleRouteIds={visibleRouteIds} permissions={permissions} />
-        <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-5 sm:px-6 lg:ml-[17rem] lg:px-8 2xl:px-10">
-
-          {remoteInvoiceUpdate && selectedInvoice?.id === remoteInvoiceUpdate.invoiceId && <div role="status" className="mb-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-xs text-amber-950 sm:flex-row sm:items-center sm:justify-between">
-            <p><strong>This invoice was updated in another browser.</strong> Your local edits are protected.</p>
-            <div className="flex shrink-0 gap-2">
-              <button type="button" onClick={reloadLatestRemoteInvoice} disabled={saveState === "saving"} className="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-50">Reload latest</button>
-              <button type="button" onClick={keepEditingRemoteInvoice} className="rounded-lg bg-amber-700 px-2.5 py-1.5 text-[10px] font-bold text-white">Keep editing</button>
-            </div>
-          </div>}
-          {notification && <div role={notification.type === "error" ? "alert" : "status"} className={`mb-5 p-3.5 rounded-2xl text-xs flex items-center justify-between shadow-sm border ${notification.type === "success" ? "bg-emerald-50 text-emerald-900 border-emerald-200" : notification.type === "error" ? "bg-rose-50 text-rose-900 border-rose-200" : "bg-white text-slate-800 border-slate-200"}`}><div className="flex items-center gap-2.5">{notification.type === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-rose-600" />}<span className="font-semibold">{notification.message}</span></div><button type="button" aria-label="Dismiss notification" onClick={() => setNotification(null)}><X className="w-3.5 h-3.5" /></button></div>}
-
-          {!isSupabaseConfigured && <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3"><Cloud className="w-5 h-5 text-amber-700 shrink-0" /><div><p className="text-xs font-black text-amber-900">Browser-only workspace</p><p className="text-[11px] text-amber-800 mt-1">Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in.</p></div></div>}
-          {workspaceLoading && <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin text-indigo-600" />Loading workspace…</div>}
-
-          {routeNotFound && <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-6"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-700">Navigation error</p><h2 className="mt-1 text-lg font-black text-rose-950">Page not found</h2><p className="mt-1 text-xs text-rose-900">The requested workspace record or destination is not available.</p><button type="button" onClick={() => navigateToPath(appPathForTab("dashboard"))} className="mt-4 rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white">Return to dashboard</button></div>}
-
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "dashboard" && <div className="space-y-6"><EngineeringCostOperationsDashboard data={dashboardViewData} projects={projects} selectedProjectId={dashboardProjectId} onProjectChange={(projectId) => { setDashboardProjectId(projectId); const project = projects.find((candidate) => candidate.id === projectId); if (project) setDashboardCurrency(project.currency.toUpperCase()); }} onActivityPeriodChange={setDashboardActivityPeriod} onCustomRangeChange={(start, end) => { setDashboardCustomStart(start); setDashboardCustomEnd(end); }} onCurrencyChange={setDashboardCurrency} onNavigate={setActiveTab} onOpenProject={(projectId) => { const project = projects.find((candidate) => candidate.id === projectId); if (project) openProject(project); }} onOpenInvoice={openInvoice} /></div>}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "cash" && <CashBankingPage data={cashData} onSaveAccount={handleSaveFinancialAccount} onDeactivateAccount={handleDeactivateFinancialAccount} onSaveSnapshot={handleSaveFinancialSnapshot} onSaveTransaction={handleSaveFinancialTransaction} onCommitImport={handleCommitFinancialImport} onSaveMatch={handleSaveFinancialMatch} onIgnoreTransaction={handleIgnoreFinancialTransaction} onConfirmTransfer={handleConfirmFinancialTransfer} reconciliationCandidates={cashReconciliationCandidates} canManageAccounts={!isSupabaseConfigured || can(PERMISSION_KEYS.cashAccountsManage)} canManageTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)} canImport={!isSupabaseConfigured || can(PERMISSION_KEYS.cashImport)} canReconcile={!isSupabaseConfigured || can(PERMISSION_KEYS.cashReconcile)} onOpenDashboard={() => setActiveTab("dashboard")} />}
-          {workspaceRouteVisible && activeTab === "projects" && (selectedProject ? <ProjectWorkspace project={selectedProject} summary={projectSummaries[selectedProject.id] || calculateProjectCost(selectedProject, { invoices: costInvoices, payroll: costPayroll, expenses })} dashboard={projectDashboard} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} payrollAllocations={payrollData.allocations} payrollPeriods={payrollData.periods} initialTab={route.kind === "project" ? route.view : "overview"} onTabChange={(tab) => { if (route.kind === "project" && selectedProject) navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView)); }} onSaveInvoiceAllocations={handleSaveInvoiceProjectAllocations} onBack={() => navigateToPath(appPathForTab("projects"))} onOpenInvoice={openInvoice} onUploadInvoice={() => { setUploadProjectContextId(selectedProject.id); setWorkspaceOrigin("projects"); setWorkspaceReturnPath(appPathForProject(selectedProject.id, "invoices")); navigateToPath(appPathForTab("extractor")); }} onEditProject={() => editProject(selectedProject)} onArchiveProject={() => void handleArchiveProject(selectedProject)} onAddExpense={() => { setExpenseFormContext(selectedProject.id); navigateToPath(appPathForTab("expenses")); }} onOpenPayroll={() => setActiveTab("payroll")} /> : <ProjectsPage projects={projects} summaries={projectSummaries} initialEditingProject={projectFormSeed} onOpenProject={openProject} onSaveProject={(project) => void handleSaveProject(project)} onArchiveProject={(project) => void handleArchiveProject(project)} />)}
-          {workspaceRouteVisible && (route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice && <div className="space-y-5"><VerificationWorkspace invoice={selectedInvoice} queue={reviewQueue} queueIndex={reviewIndex} saveState={saveState} completion={reviewCompletion} isRetrying={retryingInvoiceId === selectedInvoice.id} onRetryExtraction={() => handleRetryExtraction(selectedInvoice)} onUpdateInvoice={handleUpdateInvoice} onBack={leaveWorkspace} backLabel={workspaceOriginLabel} onPrevious={() => moveReview("previous")} onNext={() => moveReview("next")} onSave={saveCurrentReview} onVerifyAndNext={verifyAndNext} onReopen={() => handleReopen(selectedInvoice)} onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)} onReturnToDashboard={() => resetWorkspaceSelection("dashboard")} onViewVerified={() => resetWorkspaceSelection("invoices")} onRevertToAI={() => void handleRevertToAI(selectedInvoice)} onRevertField={(path) => void handleRevertField(selectedInvoice, path)} projects={projects} invoiceProjectAllocations={invoiceProjectAllocations} preferredProjectId={uploadProjectContextId || undefined} onSaveProjectAllocations={handleSaveInvoiceProjectAllocations} /></div>}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "extractor" && <div className="space-y-5"><UploadZone onExtract={handleExtract} onLoadPreset={(invoice) => void handleLoadPreset(invoice)} onBatchComplete={handleBatchComplete} isLoading={processingCount > 0} /></div>}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "inbox" && <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection} onConnectGmail={connectGoogleAndGmail} onSignOut={handleSignOut} onScanGmail={handleScanGmail} onSyncGmail={handleSyncGmail} onImportGmailMessage={handleImportGmailMessage} onProcessEmail={handleProcessEmail} onOpenInvoice={openInvoice} />}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "review" && <ReviewQueue invoices={invoices} onOpenInvoice={openInvoiceForReview} onStartReview={(queue) => startReview(queue, undefined, "review")} />}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "invoices" && <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={openInvoice} onDeleteInvoice={(id) => void handleDeleteInvoice(id)} onAddNew={() => resetWorkspaceSelection("extractor")} />}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "payroll" && <PayrollPage workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} adjustments={payrollData.adjustments} workEntries={payrollData.workEntries} attendanceRecords={payrollData.attendanceRecords || []} leaveRequests={payrollData.leaveRequests || []} overtimeRequests={payrollData.overtimeRequests || []} holidays={payrollData.holidays || []} projects={projects} schedules={payrollData.schedules || []} compensationProfiles={payrollData.compensationProfiles || []} recurringComponents={payrollData.recurringComponents || []} importBatches={payrollImportData.batches} importTemplates={payrollImportData.templates} periodPreparationState={payrollPeriodPreparationState} onRetryPeriodPreparation={retryPayrollPeriodPreparation} onSaveWorker={(worker) => void handleSaveWorker(worker)} onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)} onSavePeriod={(period) => void handleSavePayrollPeriod(period)} onSaveSchedule={(schedule) => void handleSavePayrollSchedule(schedule)} canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)} canManagePayrollMaintenance={payrollMaintenanceAllowed} onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)} onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)} onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)} onSaveAttendance={(record) => void handleSaveAttendance(record)} onSaveAttendanceBatch={(records) => void handleSaveAttendanceBatch(records)} onSaveLeave={(request) => void handleSaveLeave(request)} onSaveOvertime={(request) => void handleSaveOvertime(request)} onSaveHoliday={(holiday) => void handleSaveHoliday(holiday)} onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)} onUpdateRun={(run) => void handleUpdatePayrollRun(run)} onCreateRun={handleCreatePayrollRun} onCalculateRun={(run) => void handleCalculatePayrollRun(run)} onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)} onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)} onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)} onPreviewPayrollMaintenance={(action) => handlePreviewPayrollMaintenance(action)} onApplyPayrollMaintenance={(action, confirmation) => handleApplyPayrollMaintenance(action, confirmation)} onPreviewFactoryReset={() => handlePreviewPayrollWorkspaceReset()} onApplyFactoryReset={(confirmation) => handleApplyPayrollWorkspaceReset(confirmation)} />}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "expenses" && <ExpensesPage expenses={expenses} projects={projects} initialProjectId={expenseFormContext || undefined} onSave={(expense) => void handleSaveExpense(expense)} onArchive={(expense) => void handleArchiveExpense(expense)} />}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "vendors" && <Vendors invoices={invoices} />}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "reports" && <div className="space-y-6"><Reports invoices={invoices} /><PayrollOperatingCosts runs={payrollData.runs} entries={payrollData.entries} allocations={payrollData.allocations} /><ProjectReports projects={projects} invoices={invoices} invoiceAllocations={invoiceProjectAllocations} expenses={expenses} workers={payrollData.workers} assignments={payrollData.assignments} periods={payrollData.periods} runs={payrollData.runs} entries={payrollData.entries} payrollAllocations={payrollData.allocations} onExport={() => exportEngineeringProjectWorkbookToExcel({ projects, invoices, invoiceAllocations: invoiceProjectAllocations, expenses, workers: payrollData.workers, assignments: payrollData.assignments, periods: payrollData.periods, runs: payrollData.runs, entries: payrollData.entries, payrollAllocations: payrollData.allocations })} /></div>}
-          {workspaceRouteVisible && route.kind === "tab" && activeTab === "settings" && <SettingsScreen settings={regionalSettings} onChange={handleRegionalSettingsChange} />}
-        </main>
-        <footer className="border-t border-slate-200 bg-white py-4 text-center text-[10px] text-slate-500 lg:ml-[17rem]">{BRAND.footerText}</footer>
-      </div>
+      <AppShell
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        invoicesCount={invoices.length}
+        reviewCount={reviewCount}
+        onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)}
+        workspaceSyncStatus={workspaceSyncStatus}
+        accountEmail={session?.user?.email || undefined}
+        onSignOut={handleSignOut}
+        companies={companyAccess.companies}
+        activeCompanyId={companyAccess.activeCompanyId}
+        isPlatformOwner={companyAccess.isPlatformOwner}
+        onSelectCompany={companyAccess.selectCompany}
+        onOpenPlatformManagement={openPlatformManagement}
+        visibleRouteIds={visibleRouteIds}
+        permissions={permissions}
+        remoteInvoiceUpdate={remoteInvoiceUpdate}
+        selectedInvoiceId={selectedInvoice?.id}
+        onReloadLatestRemoteInvoice={reloadLatestRemoteInvoice}
+        onKeepEditingRemoteInvoice={keepEditingRemoteInvoice}
+        isSavingRemoteInvoice={saveState === "saving"}
+        notification={notification}
+        onDismissNotification={() => setNotification(null)}
+        isSupabaseConfigured={isSupabaseConfigured}
+        workspaceLoading={workspaceLoading}
+        routeNotFound={routeNotFound}
+        onReturnToDashboard={() => navigateToPath(appPathForTab("dashboard"))}
+      >
+        <AppRouter
+          route={route}
+          activeTab={activeTab}
+          workspaceRouteVisible={workspaceRouteVisible}
+          dashboardData={dashboardViewData}
+          dashboardProjectId={dashboardProjectId}
+          onDashboardProjectChange={(projectId) => {
+            setDashboardProjectId(projectId);
+            const project = projects.find((candidate) => candidate.id === projectId);
+            if (project) setDashboardCurrency(project.currency.toUpperCase());
+          }}
+          onDashboardActivityPeriodChange={setDashboardActivityPeriod}
+          onDashboardCustomRangeChange={(start, end) => {
+            setDashboardCustomStart(start);
+            setDashboardCustomEnd(end);
+          }}
+          onDashboardCurrencyChange={setDashboardCurrency}
+          onNavigateTab={setActiveTab}
+          projects={projects}
+          selectedProject={selectedProject}
+          projectSummaries={projectSummaries}
+          projectDashboard={projectDashboard}
+          projectFormSeed={projectFormSeed}
+          onOpenProject={openProject}
+          onSaveProject={(project) => void handleSaveProject(project)}
+          onArchiveProject={(project) => void handleArchiveProject(project)}
+          onEditProject={() => { if (selectedProject) editProject(selectedProject); }}
+          onProjectTabChange={(tab) => {
+            if (route.kind === "project" && selectedProject) {
+              navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView));
+            }
+          }}
+          onProjectBack={() => navigateToPath(appPathForTab("projects"))}
+          onProjectUploadInvoice={() => {
+            if (selectedProject) {
+              setUploadProjectContextId(selectedProject.id);
+              setWorkspaceOrigin("projects");
+              setWorkspaceReturnPath(appPathForProject(selectedProject.id, "invoices"));
+              navigateToPath(appPathForTab("extractor"));
+            }
+          }}
+          onProjectAddExpense={() => {
+            if (selectedProject) {
+              setExpenseFormContext(selectedProject.id);
+              navigateToPath(appPathForTab("expenses"));
+            }
+          }}
+          onProjectOpenPayroll={() => setActiveTab("payroll")}
+          onSaveInvoiceProjectAllocations={handleSaveInvoiceProjectAllocations}
+          cashData={cashData}
+          onSaveFinancialAccount={handleSaveFinancialAccount}
+          onDeactivateFinancialAccount={handleDeactivateFinancialAccount}
+          onSaveFinancialSnapshot={handleSaveFinancialSnapshot}
+          onSaveFinancialTransaction={handleSaveFinancialTransaction}
+          onCommitFinancialImport={handleCommitFinancialImport}
+          onSaveFinancialMatch={handleSaveFinancialMatch}
+          onIgnoreFinancialTransaction={handleIgnoreFinancialTransaction}
+          onConfirmFinancialTransfer={handleConfirmFinancialTransfer}
+          cashReconciliationCandidates={cashReconciliationCandidates}
+          canManageFinancialAccounts={!isSupabaseConfigured || can(PERMISSION_KEYS.cashAccountsManage)}
+          canManageFinancialTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)}
+          canImportFinancialStatements={!isSupabaseConfigured || can(PERMISSION_KEYS.cashImport)}
+          canReconcileFinancialTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashReconcile)}
+          onOpenDashboardFromCash={() => setActiveTab("dashboard")}
+          invoices={invoices}
+          selectedInvoice={selectedInvoice}
+          reviewQueue={reviewQueue}
+          reviewIndex={reviewIndex}
+          saveState={saveState}
+          reviewCompletion={reviewCompletion}
+          retryingInvoiceId={retryingInvoiceId}
+          onRetryExtraction={(invoice) => handleRetryExtraction(invoice)}
+          onUpdateInvoice={handleUpdateInvoice}
+          onLeaveVerificationWorkspace={leaveWorkspace}
+          workspaceOriginLabel={workspaceOriginLabel}
+          onMoveReview={moveReview}
+          onSaveCurrentReview={saveCurrentReview}
+          onVerifyAndNext={verifyAndNext}
+          onReopenInvoice={(invoice) => handleReopen(invoice)}
+          onContinueReviewWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)}
+          onReturnToDashboardFromVerification={() => resetWorkspaceSelection("dashboard")}
+          onViewVerifiedInvoices={() => resetWorkspaceSelection("invoices")}
+          onRevertToAI={(invoice) => void handleRevertToAI(invoice)}
+          onRevertField={(invoice, path) => void handleRevertField(invoice, path)}
+          invoiceProjectAllocations={invoiceProjectAllocations}
+          preferredProjectId={uploadProjectContextId || undefined}
+          onExtract={handleExtract}
+          onLoadPreset={(invoice) => void handleLoadPreset(invoice)}
+          onBatchComplete={handleBatchComplete}
+          isExtracting={processingCount > 0}
+          gmailConnection={gmailConnection}
+          onConnectGmail={connectGoogleAndGmail}
+          onSignOut={handleSignOut}
+          onScanGmail={handleScanGmail}
+          onSyncGmail={handleSyncGmail}
+          onImportGmailMessage={handleImportGmailMessage}
+          onProcessEmail={handleProcessEmail}
+          onOpenInvoice={openInvoice}
+          onOpenInvoiceForReview={openInvoiceForReview}
+          onStartReviewQueue={(queue) => startReview(queue, undefined, "review")}
+          onDeleteInvoice={(id) => void handleDeleteInvoice(id)}
+          onAddNewInvoice={() => resetWorkspaceSelection("extractor")}
+          payrollData={payrollData}
+          payrollImportData={payrollImportData}
+          payrollPeriodPreparationState={payrollPeriodPreparationState}
+          onRetryPeriodPreparation={retryPayrollPeriodPreparation}
+          onSaveWorker={(worker) => void handleSaveWorker(worker)}
+          onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)}
+          onSavePayrollPeriod={(period) => void handleSavePayrollPeriod(period)}
+          onSavePayrollSchedule={(schedule) => void handleSavePayrollSchedule(schedule)}
+          canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)}
+          canManagePayrollMaintenance={payrollMaintenanceAllowed}
+          onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)}
+          onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)}
+          onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)}
+          onSaveAttendance={(record) => void handleSaveAttendance(record)}
+          onSaveAttendanceBatch={(records) => void handleSaveAttendanceBatch(records)}
+          onSaveLeave={(request) => void handleSaveLeave(request)}
+          onSaveOvertime={(request) => void handleSaveOvertime(request)}
+          onSaveHoliday={(holiday) => void handleSaveHoliday(holiday)}
+          onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)}
+          onUpdatePayrollRun={(run) => void handleUpdatePayrollRun(run)}
+          onCreatePayrollRun={handleCreatePayrollRun}
+          onCalculatePayrollRun={(run) => void handleCalculatePayrollRun(run)}
+          onStagePayrollImport={(batch, rows, bytes) => void handleStagePayrollImport(batch, rows, bytes)}
+          onSavePayrollImportTemplate={(template) => void handleSavePayrollImportTemplate(template)}
+          onCommitPayrollImport={(staged, periodStart, periodEnd, payDate) => void handleCommitPayrollImport(staged, periodStart, periodEnd, payDate)}
+          onPreviewPayrollMaintenance={(action) => handlePreviewPayrollMaintenance(action)}
+          onApplyPayrollMaintenance={(action, confirmation) => handleApplyPayrollMaintenance(action, confirmation)}
+          onPreviewFactoryReset={() => handlePreviewPayrollWorkspaceReset()}
+          onApplyFactoryReset={(confirmation) => handleApplyPayrollWorkspaceReset(confirmation)}
+          expenses={expenses}
+          expenseFormContext={expenseFormContext}
+          onSaveExpense={(expense) => void handleSaveExpense(expense)}
+          onArchiveExpense={(expense) => void handleArchiveExpense(expense)}
+          regionalSettings={regionalSettings}
+          onRegionalSettingsChange={handleRegionalSettingsChange}
+        />
+      </AppShell>
     </AssistantProvider>
   );
 }

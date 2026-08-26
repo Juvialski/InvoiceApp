@@ -17,7 +17,8 @@ export type PrimaryModuleId =
   | "projects"
   | "expenses"
   | "payroll"
-  | "reports";
+  | "reports"
+  | "engineering-documents";
 
 export interface NavigationFilter {
   /** Omit for an unauthenticated/browser-only workspace with no filtering. */

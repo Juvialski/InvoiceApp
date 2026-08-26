@@ -7,6 +7,7 @@ export const ASSISTANT_TOUR_IDS = [
   "first-invoice",
   "gmail-import",
   "projects-costing",
+  "engineering-documents",
   "payroll-basics",
   "attendance-overtime",
   "payroll-run",
@@ -108,6 +109,15 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
     steps: [
       routeStep("project-workspace", "Open Projects", "Projects keep budgets, supplier invoices, payroll allocations, and direct expenses together.", "projects"),
       routeStep("project-reports", "Review project reports", "Use Reports for a cross-project view of budget and actual cost.", "reports"),
+    ],
+  },
+  "engineering-documents": {
+    id: "engineering-documents",
+    title: "Engineering Documents & Blueprints",
+    summary: "Explore drawing sets, multi-page blueprint viewing, revision lineage, and redline annotations.",
+    steps: [
+      routeStep("eng-docs-project", "Open Project Documents", "Access drawings and spec sheets directly from any project workspace.", "projects"),
+      routeStep("eng-docs-viewer", "Blueprint Viewer & Markups", "Inspect high-resolution drawings, filter by discipline, and collaborate with redline annotations.", "projects"),
     ],
   },
   "payroll-basics": {

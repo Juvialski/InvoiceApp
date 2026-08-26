@@ -1,0 +1,593 @@
+import React from "react";
+import type { AppLocation } from "../../utils/appRouting";
+import type { AppTab } from "../../utils/routes";
+import { DashboardRoute } from "./DashboardRoute";
+import { CashBankingRoute } from "./CashBankingRoute";
+import { ProjectsRoute } from "./ProjectsRoute";
+import { InvoicesRoute } from "./InvoicesRoute";
+import { PayrollRoute } from "./PayrollRoute";
+import { ExpensesRoute } from "./ExpensesRoute";
+import { ReportsRoute } from "./ReportsRoute";
+import { SettingsRoute } from "./SettingsRoute";
+import { PlatformCompaniesRoute, type PlatformCompaniesRouteProps } from "./PlatformCompaniesRoute";
+import type {
+  DashboardActivityPeriod,
+  DashboardViewData,
+} from "../../components/engineering/EngineeringCostOperationsDashboard";
+import type {
+  AttendanceRecord,
+  Expense,
+  GmailConnectionInfo,
+  GmailImportedMessage,
+  GmailMessageCandidate,
+  GmailScanWindow,
+  InvoiceData,
+  InvoiceProjectAllocation,
+  LeaveRequest,
+  OvertimeRequest,
+  PayrollEntry,
+  PayrollHoliday,
+  PayrollPeriod,
+  PayrollProjectAllocation,
+  PayrollRun,
+  Project,
+  ProjectCostSummary,
+  ProjectWorkerAssignment,
+  WorkEntry,
+  Worker,
+} from "../../types";
+import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
+import type { WorkspaceTab } from "../../components/projects/ProjectWorkspace";
+import type { SaveState } from "../../components/VerificationWorkspace";
+import type { ExtractPayload } from "../../components/UploadZone";
+import type {
+  CashBankingWorkspaceData,
+  FinancialAccount,
+  FinancialBalanceSnapshot,
+  FinancialReconciliationCandidate,
+  FinancialTransaction,
+  FinancialTransactionMatch,
+  StatementPreview,
+} from "../../lib/cashBanking";
+import type { PayrollWorkspaceData } from "../../lib/payroll";
+import type {
+  PayrollImportBatch,
+  PayrollImportRow,
+  PayrollImportTemplate,
+  PayrollImportWorkspaceData,
+} from "../../lib/payrollImportPersistence";
+import type { StagedPayrollImport } from "../../lib/payrollImportWorkflow";
+import type { PayrollSchedule } from "../../lib/payrollSchedule";
+import type {
+  RecurringPayrollComponent,
+  WorkerCompensationProfile,
+} from "../../lib/payrollAutomation";
+import type {
+  PayrollMaintenanceAction,
+  PayrollMaintenancePreview,
+  PayrollWorkspaceResetPreview,
+} from "../../lib/payrollMaintenance";
+import type { RegionalSettings } from "../../config/regional";
+
+export interface AppRouterProps {
+  // Navigation State
+  route: AppLocation;
+  activeTab: AppTab;
+  workspaceRouteVisible?: boolean;
+
+  // Dashboard Data & Handlers
+  dashboardData: DashboardViewData;
+  dashboardProjectId?: string;
+  onDashboardProjectChange?: (projectId?: string) => void;
+  onDashboardActivityPeriodChange?: (period: DashboardActivityPeriod) => void;
+  onDashboardCustomRangeChange?: (start: string, end: string) => void;
+  onDashboardCurrencyChange?: (currency: string) => void;
+  onNavigateTab?: (tab: AppTab) => void;
+
+  // Projects Data & Handlers
+  projects: Project[];
+  selectedProject?: Project | null;
+  projectSummaries: Record<string, ProjectCostSummary>;
+  projectDashboard?: ProjectDashboardViewData;
+  projectFormSeed?: Project | null;
+  onOpenProject: (project: Project) => void;
+  onSaveProject: (project: Project) => Promise<void> | void;
+  onArchiveProject: (project: Project) => Promise<void> | void;
+  onEditProject?: () => void;
+  onProjectTabChange?: (tab: WorkspaceTab) => void;
+  onProjectBack?: () => void;
+  onProjectUploadInvoice?: () => void;
+  onProjectAddExpense?: () => void;
+  onProjectOpenPayroll?: () => void;
+
+  // Invoices Data & Handlers
+  invoices: InvoiceData[];
+  selectedInvoice?: InvoiceData | null;
+  invoiceProjectAllocations: InvoiceProjectAllocation[];
+  onSaveInvoiceProjectAllocations: (
+    invoice: InvoiceData,
+    allocations: InvoiceProjectAllocation[],
+  ) => Promise<void>;
+  reviewQueue?: InvoiceData[];
+  reviewIndex?: number;
+  saveState?: SaveState;
+  reviewCompletion?: { verifiedCount: number; totalCount: number; newItems: number } | null;
+  retryingInvoiceId?: string | null;
+  workspaceOriginLabel?: string;
+  uploadProjectContextId?: string | null;
+  processingCount?: number;
+  gmailConnection?: GmailConnectionInfo;
+  onRetryExtraction?: (invoice: InvoiceData) => Promise<InvoiceData | null>;
+  onUpdateInvoice?: (invoice: InvoiceData) => void;
+  onInvoiceBack?: () => void | Promise<void>;
+  onReviewPrevious?: () => Promise<boolean>;
+  onReviewNext?: () => Promise<boolean>;
+  onReviewSave?: () => Promise<boolean>;
+  onVerifyAndNext?: () => Promise<boolean>;
+  onReopenInvoice?: (invoice: InvoiceData) => Promise<void>;
+  onContinueWithNewItems?: () => void;
+  onReturnToDashboard?: () => void;
+  onViewVerified?: () => void;
+  onRevertToAI?: (invoice: InvoiceData) => void;
+  onRevertField?: (invoice: InvoiceData, path: string) => void;
+  onSelectInvoice?: (invoice: InvoiceData) => void;
+  onOpenInvoiceForReview?: (invoice: InvoiceData) => void;
+  onStartReview?: (queue?: InvoiceData[]) => void;
+  onDeleteInvoice?: (id: string) => void;
+  onAddNewInvoice?: () => void;
+  onExtractInvoice?: (payload: ExtractPayload) => Promise<InvoiceData>;
+  onLoadInvoicePreset?: (invoice: InvoiceData) => void;
+  onBatchExtractComplete?: (
+    successful: InvoiceData[],
+    failed: Array<{ name: string; error: string }>,
+  ) => void;
+  onConnectGmail?: () => Promise<void> | void;
+  onSignOut?: () => Promise<void> | void;
+  onScanGmail?: (window: GmailScanWindow) => Promise<GmailMessageCandidate[]>;
+  onSyncGmail?: () => Promise<GmailImportedMessage[]>;
+  onImportGmailMessage?: (messageId: string) => Promise<GmailImportedMessage>;
+  onProcessEmail?: (messageId: string) => Promise<InvoiceData>;
+
+  // Cash & Banking Data & Handlers
+  cashData: CashBankingWorkspaceData;
+  cashReconciliationCandidates?: readonly FinancialReconciliationCandidate[];
+  canManageCashAccounts?: boolean;
+  canManageCashTransactions?: boolean;
+  canCashImport?: boolean;
+  canCashReconcile?: boolean;
+  onSaveFinancialAccount?: (account: FinancialAccount) => Promise<FinancialAccount | void> | FinancialAccount | void;
+  onDeactivateFinancialAccount?: (account: FinancialAccount) => Promise<void> | void;
+  onSaveFinancialSnapshot?: (snapshot: FinancialBalanceSnapshot) => Promise<void> | void;
+  onSaveFinancialTransaction?: (transaction: FinancialTransaction) => Promise<void> | void;
+  onCommitFinancialImport?: (preview: StatementPreview, account: FinancialAccount) => Promise<void> | void;
+  onSaveFinancialMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
+  onIgnoreFinancialTransaction?: (transaction: FinancialTransaction) => Promise<void> | void;
+  onConfirmFinancialTransfer?: (left: FinancialTransaction, right: FinancialTransaction) => Promise<void> | void;
+  onOpenCashDashboard?: () => void;
+
+  // Payroll Data & Handlers
+  payrollData: PayrollWorkspaceData;
+  payrollImportData?: PayrollImportWorkspaceData;
+  payrollPeriodPreparationState?:
+    | "NO_SCHEDULE"
+    | "PREPARING"
+    | "SYNCING"
+    | "READY"
+    | "FAILED"
+    | "WAITING_FOR_BOUNDARY";
+  onRetryPayrollPeriodPreparation?: () => void;
+  canManagePayrollSettings?: boolean;
+  canManagePayrollMaintenance?: boolean;
+  onSavePayrollWorker?: (worker: Worker) => void;
+  onSavePayrollAssignment?: (assignment: ProjectWorkerAssignment) => void;
+  onSavePayrollPeriod?: (period: PayrollPeriod) => void;
+  onSavePayrollSchedule?: (schedule: PayrollSchedule) => void | Promise<PayrollSchedule | void>;
+  onSaveWorkerCompensationProfile?: (profile: WorkerCompensationProfile) => void;
+  onSaveRecurringPayrollComponent?: (component: RecurringPayrollComponent) => void;
+  onSavePayrollWorkEntry?: (entry: WorkEntry) => void;
+  onSavePayrollAttendance?: (record: AttendanceRecord) => void;
+  onSavePayrollAttendanceBatch?: (records: AttendanceRecord[]) => void;
+  onSavePayrollLeave?: (request: LeaveRequest) => void;
+  onSavePayrollOvertime?: (request: OvertimeRequest) => void;
+  onSavePayrollHoliday?: (holiday: PayrollHoliday) => void;
+  onSavePayrollEntry?: (entry: PayrollEntry, allocations: PayrollProjectAllocation[]) => void;
+  onUpdatePayrollRun?: (run: PayrollRun) => void;
+  onCreatePayrollRun?: (periodId: string) => void;
+  onCalculatePayrollRun?: (run: PayrollRun) => void;
+  onStagePayrollImport?: (batch: PayrollImportBatch, rows: PayrollImportRow[], bytes: Uint8Array) => void;
+  onSavePayrollImportTemplate?: (template: PayrollImportTemplate) => void;
+  onCommitPayrollImport?: (
+    staged: StagedPayrollImport,
+    periodStart: string,
+    periodEnd: string,
+    payDate?: string,
+  ) => void;
+  onPreviewPayrollMaintenance?: (action: PayrollMaintenanceAction) => Promise<PayrollMaintenancePreview>;
+  onApplyPayrollMaintenance?: (
+    action: PayrollMaintenanceAction,
+    confirmation?: string,
+  ) => Promise<unknown>;
+  onPreviewFactoryReset?: () => Promise<PayrollWorkspaceResetPreview>;
+  onApplyFactoryReset?: (confirmation: string) => Promise<unknown>;
+
+  // Expenses Data & Handlers
+  expenses: Expense[];
+  expenseFormContext?: string | null;
+  onSaveExpense?: (expense: Expense) => void;
+  onArchiveExpense?: (expense: Expense) => void;
+
+  // Reports
+  onExportReportsWorkbook?: () => void;
+
+  // Settings
+  regionalSettings: RegionalSettings;
+  onRegionalSettingsChange?: (settings: RegionalSettings) => void;
+
+  // Platform Companies
+  platformCompaniesProps?: PlatformCompaniesRouteProps;
+}
+
+export const AppRouter: React.FC<AppRouterProps> = ({
+  route,
+  activeTab,
+  workspaceRouteVisible = true,
+  dashboardData,
+  dashboardProjectId,
+  onDashboardProjectChange,
+  onDashboardActivityPeriodChange = () => {},
+  onDashboardCustomRangeChange,
+  onDashboardCurrencyChange = () => {},
+  onNavigateTab = (_tab: AppTab) => {},
+  projects,
+  selectedProject,
+  projectSummaries,
+  projectDashboard,
+  projectFormSeed,
+  onOpenProject,
+  onSaveProject,
+  onArchiveProject,
+  onEditProject,
+  onProjectTabChange,
+  onProjectBack = () => {},
+  onProjectUploadInvoice = () => {},
+  onProjectAddExpense,
+  onProjectOpenPayroll,
+  invoices,
+  selectedInvoice,
+  invoiceProjectAllocations,
+  onSaveInvoiceProjectAllocations,
+  reviewQueue = [],
+  reviewIndex = -1,
+  saveState = "saved",
+  reviewCompletion = null,
+  retryingInvoiceId = null,
+  workspaceOriginLabel,
+  uploadProjectContextId,
+  processingCount = 0,
+  gmailConnection,
+  onRetryExtraction,
+  onUpdateInvoice,
+  onInvoiceBack,
+  onReviewPrevious,
+  onReviewNext,
+  onReviewSave,
+  onVerifyAndNext,
+  onReopenInvoice,
+  onContinueWithNewItems,
+  onReturnToDashboard,
+  onViewVerified,
+  onRevertToAI,
+  onRevertField,
+  onSelectInvoice,
+  onOpenInvoiceForReview,
+  onStartReview,
+  onDeleteInvoice,
+  onAddNewInvoice,
+  onExtractInvoice,
+  onLoadInvoicePreset,
+  onBatchExtractComplete,
+  onConnectGmail,
+  onSignOut,
+  onScanGmail,
+  onSyncGmail,
+  onImportGmailMessage,
+  onProcessEmail,
+  cashData,
+  cashReconciliationCandidates = [],
+  canManageCashAccounts = true,
+  canManageCashTransactions = true,
+  canCashImport = true,
+  canCashReconcile = true,
+  onSaveFinancialAccount = () => {},
+  onDeactivateFinancialAccount,
+  onSaveFinancialSnapshot,
+  onSaveFinancialTransaction = () => {},
+  onCommitFinancialImport,
+  onSaveFinancialMatch,
+  onIgnoreFinancialTransaction,
+  onConfirmFinancialTransfer,
+  onOpenCashDashboard,
+  payrollData,
+  payrollImportData = { batches: [], templates: [] },
+  payrollPeriodPreparationState,
+  onRetryPayrollPeriodPreparation,
+  canManagePayrollSettings = true,
+  canManagePayrollMaintenance = true,
+  onSavePayrollWorker = () => {},
+  onSavePayrollAssignment = () => {},
+  onSavePayrollPeriod = () => {},
+  onSavePayrollSchedule,
+  onSaveWorkerCompensationProfile,
+  onSaveRecurringPayrollComponent,
+  onSavePayrollWorkEntry = () => {},
+  onSavePayrollAttendance,
+  onSavePayrollAttendanceBatch,
+  onSavePayrollLeave,
+  onSavePayrollOvertime,
+  onSavePayrollHoliday,
+  onSavePayrollEntry = () => {},
+  onUpdatePayrollRun,
+  onCreatePayrollRun,
+  onCalculatePayrollRun,
+  onStagePayrollImport,
+  onSavePayrollImportTemplate,
+  onCommitPayrollImport,
+  onPreviewPayrollMaintenance,
+  onApplyPayrollMaintenance,
+  onPreviewFactoryReset,
+  onApplyFactoryReset,
+  expenses,
+  expenseFormContext,
+  onSaveExpense = () => {},
+  onArchiveExpense = () => {},
+  onExportReportsWorkbook,
+  regionalSettings,
+  onRegionalSettingsChange = () => {},
+  platformCompaniesProps,
+}) => {
+  if (route.kind === "platform-companies" && platformCompaniesProps) {
+    return <PlatformCompaniesRoute {...platformCompaniesProps} />;
+  }
+
+  if (!workspaceRouteVisible) {
+    return null;
+  }
+
+  // 1. Single Invoice Verification / Review Workspace Mode
+  if ((route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice) {
+    return (
+      <InvoicesRoute
+        selectedInvoice={selectedInvoice}
+        invoices={invoices}
+        projects={projects}
+        invoiceProjectAllocations={invoiceProjectAllocations}
+        preferredProjectId={uploadProjectContextId || undefined}
+        reviewQueue={reviewQueue}
+        reviewIndex={reviewIndex}
+        saveState={saveState}
+        reviewCompletion={reviewCompletion}
+        retryingInvoiceId={retryingInvoiceId}
+        workspaceOriginLabel={workspaceOriginLabel}
+        onRetryExtraction={onRetryExtraction}
+        onUpdateInvoice={onUpdateInvoice}
+        onBack={onInvoiceBack}
+        onPrevious={onReviewPrevious}
+        onNext={onReviewNext}
+        onSave={onReviewSave}
+        onVerifyAndNext={onVerifyAndNext}
+        onReopen={onReopenInvoice}
+        onContinueWithNewItems={onContinueWithNewItems}
+        onReturnToDashboard={onReturnToDashboard}
+        onViewVerified={onViewVerified}
+        onRevertToAI={onRevertToAI}
+        onRevertField={onRevertField}
+        onSaveProjectAllocations={onSaveInvoiceProjectAllocations}
+      />
+    );
+  }
+
+  // 2. Projects Route (Tab or Project Workspace)
+  if (route.kind === "project" || activeTab === "projects") {
+    return (
+      <ProjectsRoute
+        projects={projects}
+        selectedProject={selectedProject}
+        summaries={projectSummaries}
+        projectDashboard={projectDashboard}
+        invoices={invoices}
+        invoiceAllocations={invoiceProjectAllocations}
+        expenses={expenses}
+        workers={payrollData.workers}
+        assignments={payrollData.assignments}
+        payrollAllocations={payrollData.allocations}
+        payrollPeriods={payrollData.periods}
+        projectFormSeed={projectFormSeed}
+        initialTab={route.kind === "project" ? route.view : "overview"}
+        initialDocumentId={route.kind === "project" ? route.documentId : undefined}
+        initialRevisionId={route.kind === "project" ? route.revisionId : undefined}
+        onTabChange={onProjectTabChange}
+        onOpenProject={onOpenProject}
+        onSaveProject={onSaveProject}
+        onArchiveProject={onArchiveProject}
+        onEditProject={onEditProject}
+        onSaveInvoiceAllocations={onSaveInvoiceProjectAllocations}
+        onBack={onProjectBack}
+        onOpenInvoice={(invoice) => onSelectInvoice?.(invoice)}
+        onUploadInvoice={onProjectUploadInvoice}
+        onAddExpense={onProjectAddExpense}
+        onOpenPayroll={onProjectOpenPayroll}
+      />
+    );
+  }
+
+  // 3. Dashboard Route
+  if (route.kind === "tab" && activeTab === "dashboard") {
+    return (
+      <DashboardRoute
+        data={dashboardData}
+        projects={projects}
+        selectedProjectId={dashboardProjectId}
+        onProjectChange={onDashboardProjectChange}
+        onActivityPeriodChange={onDashboardActivityPeriodChange}
+        onCustomRangeChange={onDashboardCustomRangeChange}
+        onCurrencyChange={onDashboardCurrencyChange}
+        onNavigate={onNavigateTab}
+        onOpenProject={(projectId) => {
+          const project = projects.find((p) => p.id === projectId);
+          if (project) onOpenProject(project);
+        }}
+        onOpenInvoice={(invoice) => onSelectInvoice?.(invoice)}
+      />
+    );
+  }
+
+  // 4. Cash & Banking Route
+  if (route.kind === "tab" && activeTab === "cash") {
+    return (
+      <CashBankingRoute
+        data={cashData}
+        onSaveAccount={onSaveFinancialAccount}
+        onDeactivateAccount={onDeactivateFinancialAccount}
+        onSaveSnapshot={onSaveFinancialSnapshot}
+        onSaveTransaction={onSaveFinancialTransaction}
+        onCommitImport={onCommitFinancialImport}
+        onSaveMatch={onSaveFinancialMatch}
+        onIgnoreTransaction={onIgnoreFinancialTransaction}
+        onConfirmTransfer={onConfirmFinancialTransfer}
+        reconciliationCandidates={cashReconciliationCandidates}
+        canManageAccounts={canManageCashAccounts}
+        canManageTransactions={canManageCashTransactions}
+        canImport={canCashImport}
+        canReconcile={canCashReconcile}
+        onOpenDashboard={onOpenCashDashboard || (onNavigateTab ? () => onNavigateTab("dashboard") : undefined)}
+      />
+    );
+  }
+
+  // 5. Invoices and Related Tabs
+  if (
+    route.kind === "tab" &&
+    ["extractor", "inbox", "review", "invoices", "vendors"].includes(activeTab)
+  ) {
+    return (
+      <InvoicesRoute
+        activeSubTab={activeTab}
+        invoices={invoices}
+        projects={projects}
+        invoiceProjectAllocations={invoiceProjectAllocations}
+        preferredProjectId={uploadProjectContextId || undefined}
+        reviewQueue={reviewQueue}
+        processingCount={processingCount}
+        gmailConnection={gmailConnection}
+        onSelectInvoice={onSelectInvoice}
+        onOpenInvoiceForReview={onOpenInvoiceForReview}
+        onStartReview={onStartReview}
+        onDeleteInvoice={onDeleteInvoice}
+        onAddNew={onAddNewInvoice}
+        onExtract={onExtractInvoice}
+        onLoadPreset={onLoadInvoicePreset}
+        onBatchComplete={onBatchExtractComplete}
+        onConnectGmail={onConnectGmail}
+        onSignOut={onSignOut}
+        onScanGmail={onScanGmail}
+        onSyncGmail={onSyncGmail}
+        onImportGmailMessage={onImportGmailMessage}
+        onProcessEmail={onProcessEmail}
+      />
+    );
+  }
+
+  // 6. Payroll Route
+  if (route.kind === "tab" && activeTab === "payroll") {
+    return (
+      <PayrollRoute
+        workers={payrollData.workers}
+        assignments={payrollData.assignments}
+        periods={payrollData.periods}
+        runs={payrollData.runs}
+        entries={payrollData.entries}
+        allocations={payrollData.allocations}
+        adjustments={payrollData.adjustments}
+        workEntries={payrollData.workEntries}
+        attendanceRecords={payrollData.attendanceRecords || []}
+        leaveRequests={payrollData.leaveRequests || []}
+        overtimeRequests={payrollData.overtimeRequests || []}
+        holidays={payrollData.holidays || []}
+        projects={projects}
+        schedules={payrollData.schedules || []}
+        compensationProfiles={payrollData.compensationProfiles || []}
+        recurringComponents={payrollData.recurringComponents || []}
+        importBatches={payrollImportData.batches}
+        importTemplates={payrollImportData.templates}
+        periodPreparationState={payrollPeriodPreparationState}
+        onRetryPeriodPreparation={onRetryPayrollPeriodPreparation}
+        onSaveWorker={onSavePayrollWorker}
+        onSaveAssignment={onSavePayrollAssignment}
+        onSavePeriod={onSavePayrollPeriod}
+        onSaveSchedule={onSavePayrollSchedule}
+        canManagePayrollSettings={canManagePayrollSettings}
+        canManagePayrollMaintenance={canManagePayrollMaintenance}
+        onSaveCompensationProfile={onSaveWorkerCompensationProfile}
+        onSaveRecurringComponent={onSaveRecurringPayrollComponent}
+        onSaveWorkEntry={onSavePayrollWorkEntry}
+        onSaveAttendance={onSavePayrollAttendance}
+        onSaveAttendanceBatch={onSavePayrollAttendanceBatch}
+        onSaveLeave={onSavePayrollLeave}
+        onSaveOvertime={onSavePayrollOvertime}
+        onSaveHoliday={onSavePayrollHoliday}
+        onSavePayrollEntry={onSavePayrollEntry}
+        onUpdateRun={onUpdatePayrollRun}
+        onCreateRun={onCreatePayrollRun}
+        onCalculateRun={onCalculatePayrollRun}
+        onStagePayrollImport={onStagePayrollImport}
+        onSavePayrollImportTemplate={onSavePayrollImportTemplate}
+        onCommitPayrollImport={onCommitPayrollImport}
+        onPreviewPayrollMaintenance={onPreviewPayrollMaintenance}
+        onApplyPayrollMaintenance={onApplyPayrollMaintenance}
+        onPreviewFactoryReset={onPreviewFactoryReset}
+        onApplyFactoryReset={onApplyFactoryReset}
+      />
+    );
+  }
+
+  // 7. Expenses Route
+  if (route.kind === "tab" && activeTab === "expenses") {
+    return (
+      <ExpensesRoute
+        expenses={expenses}
+        projects={projects}
+        initialProjectId={expenseFormContext || undefined}
+        onSave={onSaveExpense}
+        onArchive={onArchiveExpense}
+      />
+    );
+  }
+
+  // 8. Reports Route
+  if (route.kind === "tab" && activeTab === "reports") {
+    return (
+      <ReportsRoute
+        projects={projects}
+        invoices={invoices}
+        invoiceAllocations={invoiceProjectAllocations}
+        expenses={expenses}
+        workers={payrollData.workers}
+        assignments={payrollData.assignments}
+        periods={payrollData.periods}
+        runs={payrollData.runs}
+        entries={payrollData.entries}
+        payrollAllocations={payrollData.allocations}
+        onExport={onExportReportsWorkbook}
+      />
+    );
+  }
+
+  // 9. Settings Route
+  if (route.kind === "tab" && activeTab === "settings") {
+    return <SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} />;
+  }
+
+  return null;
+};
+
+export default AppRouter;

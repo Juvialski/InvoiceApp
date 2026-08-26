@@ -1,4 +1,4 @@
-﻿import type { EngoryxFeatureDefinition } from './types.ts';
+import type { EngoryxFeatureDefinition } from './types.ts';
 
 export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Object.freeze([
   // Phase 0: Core Foundation (Active)
@@ -97,16 +97,19 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     documentationRef: 'docs/ENGORYX_PLATFORM_ARCHITECTURE.md',
   },
 
-  // Phase 1: Engineering Documents and Field Workflows (Planned)
+  // Phase 1: Engineering Documents and Field Workflows (In Progress - Phase 1A Active)
   {
     id: 'eng-drawings-viewer',
     name: 'Engineering Drawings and Spec Sheets',
     description: 'High-performance multi-page blueprint viewer with layered redlining, annotations, and revision comparison.',
     category: 'engineering',
     phase: 1,
-    status: 'PLANNED',
+    status: 'ACTIVE',
+    moduleId: 'engineering-documents',
+    routeId: 'projects',
+    requiredPermissions: ['engineering.documents.read'],
     openSourceCandidates: ['Mozilla PDF.js', 'Konva.js / React-Konva'],
-    documentationRef: 'docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md',
+    documentationRef: 'docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md',
   },
   {
     id: 'eng-rfis-submittals',

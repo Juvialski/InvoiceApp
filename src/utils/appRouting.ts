@@ -2,19 +2,19 @@ import type { AppTab } from "./routes.ts";
 import { getRouteForAppTab, normalizeRoutePath, resolveRoute, type RouteId } from "./routes.ts";
 import { companyManagementTabFromQuery, type CompanyManagementTab } from "./companyManagement.ts";
 
-export type ProjectWorkspaceView = "overview" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type ProjectWorkspaceView = "overview" | "invoices" | "payroll" | "expenses" | "people" | "reports" | "documents";
 
 export const PLATFORM_COMPANIES_PATH = "/platform/companies" as const;
 
 export type AppLocation =
   | { kind: "platform-companies"; pathname: string; search: string; managementCompanyId?: string; managementTab?: CompanyManagementTab }
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
-  | { kind: "project"; tab: "projects"; routeId: "projects"; projectId: string; view: ProjectWorkspaceView; pathname: string; search: string }
+  | { kind: "project"; tab: "projects"; routeId: "projects"; projectId: string; view: ProjectWorkspaceView; pathname: string; search: string; documentId?: string; revisionId?: string }
   | { kind: "invoice"; tab: "invoices"; routeId: "invoices"; invoiceId: string; returnTo?: string; pathname: string; search: string }
   | { kind: "review-invoice"; tab: "review"; routeId: "review"; invoiceId: string; returnTo?: string; pathname: string; search: string }
   | { kind: "unknown"; tab: AppTab; routeId: null; pathname: string; search: string };
 
-const PROJECT_VIEWS = new Set<ProjectWorkspaceView>(["overview", "invoices", "payroll", "expenses", "people", "reports"]);
+const PROJECT_VIEWS = new Set<ProjectWorkspaceView>(["overview", "invoices", "payroll", "expenses", "people", "reports", "documents"]);
 
 function safeDecode(value: string) {
   try { return decodeURIComponent(value); } catch { return value; }
@@ -49,13 +49,24 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
       ...(managementTab !== "general" ? { managementTab } : {}),
     };
   }
-
   if (segments[0] === "projects" && segments[1]) {
     const requestedView = segments[2] || query.get("view") || "overview";
     const view = PROJECT_VIEWS.has(requestedView as ProjectWorkspaceView)
       ? requestedView as ProjectWorkspaceView
       : "overview";
-    return { kind: "project", tab: "projects", routeId: "projects", projectId: segments[1], view, pathname: normalizedPath, search: normalizedSearch };
+    const documentId = query.get("docId")?.trim() || undefined;
+    const revisionId = query.get("revId")?.trim() || undefined;
+    return {
+      kind: "project",
+      tab: "projects",
+      routeId: "projects",
+      projectId: segments[1],
+      view,
+      pathname: normalizedPath,
+      search: normalizedSearch,
+      ...(documentId ? { documentId } : {}),
+      ...(revisionId ? { revisionId } : {}),
+    };
   }
 
   if (segments[0] === "invoices" && segments[1]) {
@@ -93,9 +104,17 @@ export function appPathForPlatformCompanies(companyId?: string | null, tab?: Com
   return `${PLATFORM_COMPANIES_PATH}${suffix ? `?${suffix}` : ""}`;
 }
 
-export function appPathForProject(projectId: string, view: ProjectWorkspaceView = "overview") {
+export function appPathForProject(
+  projectId: string,
+  view: ProjectWorkspaceView = "overview",
+  options?: { docId?: string; revId?: string }
+) {
   const suffix = view === "overview" ? "" : `/${view}`;
-  return `/projects/${encodeSegment(projectId)}${suffix}`;
+  const query = new URLSearchParams();
+  if (options?.docId?.trim()) query.set("docId", options.docId.trim());
+  if (options?.revId?.trim()) query.set("revId", options.revId.trim());
+  const queryString = query.toString();
+  return `/projects/${encodeSegment(projectId)}${suffix}${queryString ? `?${queryString}` : ""}`;
 }
 
 export function appPathForInvoice(invoiceId: string, returnTo?: string) {

@@ -1,9 +1,10 @@
-﻿# ENGORYX — Engineering Operations Platform
+# ENGORYX — Engineering Operations Platform
 
 Engoryx is an integrated engineering operations platform for architecture, engineering, and construction (AEC) firms, contractors, and project teams. It unifies project costing, cash & banking operations, supplier invoice extraction & verification, workforce management, engineering payroll, direct expenses, and comprehensive reporting under a secure multi-tenant architecture.
 
 For technical architecture and open-source roadmap details, see:
 - [Engoryx Platform Architecture](docs/ENGORYX_PLATFORM_ARCHITECTURE.md)
+- [Engoryx Phase 1A: Engineering Documents & Blueprint Viewer](docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md)
 - [Engoryx Open-Source Integrations Evaluation](docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md)
 
 ---
@@ -14,17 +15,21 @@ For technical architecture and open-source roadmap details, see:
 2. **Cash & Banking**: Multi-account ledger, statement imports, balance freshness tracking, and transaction reconciliation against invoices, payroll, and expenses.
 3. **Invoices & AI Extraction**: Multimodal invoice extraction with Gemini 3.5 Flash-Lite / 3.7 Flash, human verification queue, editable line items, and vendor directory.
 4. **Project Workspaces**: Detailed project tracking combining budgets, confirmed supplier invoices, approved payroll allocations, and direct site expenses.
-5. **Direct Expenses**: Project disbursement tracking for fuel, transport, equipment rentals, permits, and miscellaneous site costs.
-6. **Workforce & Payroll**: Attendance rosters, overtime approvals, leave management, compensation profiles, recurring runs, and project labor cost allocation.
-7. **Operational Reports**: Consolidated project cost reports, payroll operating cost summaries, and full multi-sheet Excel workbook exports.
-8. **Engoryx Assistant**: Guarded operations assistant for natural language navigation, data queries, and multi-step action preparation with mandatory confirmation gates.
+5. **Engineering Documents & Drawings (Phase 1A)**: Multi-page blueprint viewer (PDF.js + Konva), immutable revision lineage, normalized vector redlines, and discipline filtering.
+6. **Direct Expenses**: Project disbursement tracking for fuel, transport, equipment rentals, permits, and miscellaneous site costs.
+7. **Workforce & Payroll**: Attendance rosters, overtime approvals, leave management, compensation profiles, recurring runs, and project labor cost allocation.
+8. **Operational Reports**: Consolidated project cost reports, payroll operating cost summaries, and full multi-sheet Excel workbook exports.
+9. **Engoryx Assistant**: Guarded operations assistant for natural language navigation, data queries, and multi-step action preparation with mandatory confirmation gates.
 
 ---
 
 ## 2. Phased Engineering Platform Roadmap
 
 - **Phase 0 (Active)**: Engoryx Core Foundation, Multi-Tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant.
-- **Phase 1 (Planned)**: Engineering Drawings & Blueprint Viewer (PDF.js + Konva), RFIs, Submittal Packages, Daily Site Logs with weather & heavy equipment tracking.
+- **Phase 1 (In Progress)**:
+  - **Phase 1A (Active)**: Engineering Drawings & Blueprint Viewer (PDF.js + Konva), immutable revisions, normalized redlines.
+  - **Phase 1B (Planned)**: RFIs and Technical Submittals with Engineer-of-Record workflows.
+  - **Phase 1C (Planned)**: Daily Site Logs with weather tracking, crew headcount, and heavy equipment tracking.
 - **Phase 2 (Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking.
 - **Phase 3 (Planned)**: Field Capture & Barcode/QR Scanning (ZXing-js) for equipment check-in/out, tool tracking, and material delivery verification.
 - **Phase 4 (Future)**: 3D CAD & BIM Model Inspection (Online3DViewer / web-ifc), GIS Site Boundaries & Drone Survey Orthomosaics (MapLibre + Turf + OpenDroneMap).

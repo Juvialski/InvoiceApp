@@ -24,7 +24,11 @@ export function isAssistantRouteId(value: unknown): value is RouteId {
 export function pathForAssistantAction(action: AssistantClientAction): string | null {
   if (action.type === "OPEN_INVOICE" && action.entityId) return appPathForInvoice(action.entityId);
   if (action.type === "OPEN_REVIEW_INVOICE" && action.entityId) return appPathForReviewInvoice(action.entityId);
-  if (action.type === "OPEN_PROJECT" && action.entityId) return appPathForProject(action.entityId);
+  if (action.type === "OPEN_PROJECT_DOCUMENTS" && action.entityId) return appPathForProject(action.entityId, "documents");
+  if (action.type === "OPEN_PROJECT" && action.entityId) {
+    if (action.view === "documents") return appPathForProject(action.entityId, "documents");
+    return appPathForProject(action.entityId);
+  }
   if (action.type === "OPEN_PAYROLL_PERIOD") return appPathForTab("payroll");
   if (action.type === "OPEN_ATTENDANCE_DATE") return appPathForTab("payroll");
   if (action.type === "NAVIGATE" && action.routeId && isAssistantRouteId(action.routeId)) {

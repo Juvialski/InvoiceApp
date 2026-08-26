@@ -1,4 +1,4 @@
-﻿import test from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { BRAND, formatBreadcrumb, formatPageTitle } from '../src/config/brand.ts';
@@ -49,9 +49,10 @@ test('feature registry covers all operational and roadmap engineering phases', (
   assert.ok(activeFeatures.some((f) => f.id === 'core-dashboard'));
   assert.ok(activeFeatures.some((f) => f.id === 'core-projects'));
   assert.ok(activeFeatures.some((f) => f.id === 'core-cash-banking'));
+  assert.ok(activeFeatures.some((f) => f.id === 'eng-drawings-viewer'));
 
   const plannedFeatures = getFeaturesByStatus('PLANNED');
-  assert.ok(plannedFeatures.some((f) => f.id === 'eng-drawings-viewer'));
+  assert.ok(plannedFeatures.some((f) => f.id === 'eng-rfis-submittals'));
   assert.ok(plannedFeatures.some((f) => f.id === 'eng-schedule-gantt'));
 
   const drawingsFeature = getFeatureById('eng-drawings-viewer');

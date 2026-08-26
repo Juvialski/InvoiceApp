@@ -16,6 +16,7 @@ test("tour registry contains the stable Wave 1 tour set and valid targets", () =
     "first-invoice",
     "gmail-import",
     "projects-costing",
+    "engineering-documents",
     "payroll-basics",
     "attendance-overtime",
     "payroll-run",
