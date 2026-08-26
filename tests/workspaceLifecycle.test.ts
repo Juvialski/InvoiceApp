@@ -7,7 +7,7 @@ const access = readFileSync(new URL("../src/context/CompanyAccessContext.tsx", i
 const management = readFileSync(new URL("../src/components/access/CompanyManagement.tsx", import.meta.url), "utf8");
 
 test("normal route changes do not belong to the full workspace lifecycle effect", () => {
-  const effect = app.match(/useEffect\(\(\) => \{\n    if \(!authResolved\)[\s\S]*?\n  \}, \[[^\]]+\]\);/);
+  const effect = app.match(/useEffect\(\(\) => \{\r?\n    if \(!authResolved\)[\s\S]*?\r?\n  \}, \[[^\]]+\]\);/);
   assert.ok(effect, "workspace lifecycle effect should remain discoverable");
   assert.doesNotMatch(effect![0], /activeTab/);
   assert.doesNotMatch(effect![0], /route\.pathname/);
@@ -20,8 +20,8 @@ test("access revalidation preserves a usable snapshot and metadata mutations avo
   assert.match(access, /hasUsableSnapshot/);
   assert.match(access, /status: "refreshing"/);
   assert.match(access, /latestSnapshot, status: "ready"/);
-  assert.match(access, /const result = await updateCompanyApi\(companyId, patch\);\n    mergeCompany\(result\);/);
-  assert.match(access, /const result = await inviteCompanyMemberApi\(input\);\n    return result;/);
+  assert.match(access, /const result = await updateCompanyApi\(companyId, patch\);\r?\n\s+mergeCompany\(result\);/);
+  assert.match(access, /const result = await inviteCompanyMemberApi\(input\);\r?\n\s+return result;/);
 });
 
 test("access bootstrap is coalesced per stable user identity and is not session-object driven", () => {

@@ -109,3 +109,87 @@ For substantial implementation tasks, report:
 
 If subagents were used, also report the number of subagents, Luna model and tier, visible reasoning level, and confirmation that no non-Luna subagent was created.
 
+## Verified local execution / agent runbook
+
+This section contains the exact verified commands and procedures for this Windows PowerShell environment. Future agents MUST use these commands FIRST to avoid failing on PowerShell script execution policies.
+
+### Environment
+
+- **OS / Shell**: Windows 11 / PowerShell (`pwsh` / `powershell.exe`).
+- **Executable Resolution**: Plain `npm` and `npx` resolve to `npm.ps1` and `npx.ps1`, which fail with `PSSecurityException: UnauthorizedAccess` because PowerShell script execution is restricted.
+- **Mandatory Suffix**: Always use `npm.cmd` and `npx.cmd` in PowerShell tool commands (e.g., `npm.cmd test`, `npx.cmd tsx server.ts`).
+
+### Development server
+
+- **Working Directory**: `c:\Users\Al\Documents\InvoiceApp`
+- **Command**: `npx.cmd tsx server.ts` (or `npm.cmd run dev`)
+- **Execution Mode**: Run as a daemon / background support process (`IsDaemon: true`, `WaitMsBeforeAsync: 3000`).
+- **Port**: Default is `3000` (from `PORT || 3000`), listening on `http://0.0.0.0:3000`.
+- **Readiness Check**: Verify server readiness with `fetch("http://localhost:3000/")` or checking for the startup message `Sales Invoice Workspace running at http://0.0.0.0:3000`.
+- **Reuse Existing Server**: Before spawning a new dev server, check if port 3000 is already active or if a background task is running.
+
+### Tests
+
+- **Full Suite**:
+  ```text
+  npm.cmd test
+  ```
+  or directly via Node:
+  ```text
+  node --test --experimental-strip-types tests/*.test.ts
+  ```
+- **Targeted Test (Single File)**:
+  ```text
+  node --test --experimental-strip-types tests/<test-file-name>.test.ts
+  ```
+  Example:
+  ```text
+  node --test --experimental-strip-types tests/cashBanking.test.ts
+  ```
+- **Targeted Pattern (Glob)**:
+  ```text
+  node --test --experimental-strip-types tests/payroll*.test.ts
+  ```
+- *Note*: This repository uses the Node.js native test runner (`node:test`). Do not supply Jest or Vitest flags (such as `--run`, `--watch=false`, or `-t`).
+
+### Validation
+
+- **Lint / Typecheck**:
+  ```text
+  npm.cmd run lint
+  ```
+  (Runs `tsc --noEmit`)
+- **Build**:
+  ```text
+  npm.cmd run build
+  ```
+  (Runs `vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs`)
+
+### Known command pitfalls
+
+1. **`npm: PSSecurityException`**: Plain `npm` calls `npm.ps1`. Always use `npm.cmd`.
+2. **`npx: PSSecurityException`**: Plain `npx` calls `npx.ps1`. Always use `npx.cmd`.
+3. **Line Endings in Regex**: On Windows, files may be checked out with CRLF (`\r\n`). Tests inspecting source files should use `\r?\n` or `\s+` rather than raw `\n`.
+4. **Dev Server is Long-Running**: Do not treat dev server processes as failed simply because they do not exit immediately; launch them with `IsDaemon: true`.
+
+## Anti-retry guidance
+
+Never retry an unchanged failed command blindly.
+
+After any command fails:
+1. Read the actual error message and exit code.
+2. Identify whether the cause is command syntax, executable resolution (e.g. `.cmd` missing), shell behavior, working directory, environment, process lifecycle, port/readiness, or source code.
+3. Make one informed, targeted retry.
+
+## Repository learning rule
+
+`AGENTS.md` is the repository's persistent operational memory.
+
+If a future agent discovers that a documented execution command or procedure is obsolete:
+1. Verify the replacement command successfully;
+2. Determine why the old instruction no longer applies;
+3. Update `AGENTS.md` in the same implementation session;
+4. Mention the update in the final handoff report.
+
+Do not persist transient sandbox, network, provider, or one-off failures as permanent repository rules.
+

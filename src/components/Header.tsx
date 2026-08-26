@@ -311,7 +311,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
         <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
           <button type="button" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen}><Menu className="h-4 w-4" /></button>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-slate-600 sm:text-base"><span className="font-bold text-slate-900">Invoice Operations</span><span className="mx-1.5 text-slate-300">/</span>{routeContext}</p>
+            <p className="truncate text-sm font-semibold text-slate-600 sm:text-base">
+              <span className="hidden sm:inline"><span className="font-bold text-slate-900">Invoice Operations</span><span className="mx-1.5 text-slate-300">/</span></span>
+              <span className="font-bold text-slate-900 sm:font-normal">{routeContext}</span>
+            </p>
           </div>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 pb-0.5">
             <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold ${syncStatus === "guest" ? "border-amber-200 bg-amber-50 text-amber-800" : syncStatus === "offline" || syncStatus === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`} title={syncTitle} aria-label={syncTitle}><SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} /><span className="hidden md:inline">{syncLabel}</span></div>
