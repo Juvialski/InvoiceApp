@@ -97,12 +97,13 @@ export async function runUpgradeTests(options: { dbUrl?: string; throwOnUnreacha
       await client.query(`
         drop schema if exists public cascade;
         create schema public;
-        grant usage on schema public to public, anon, authenticated, service_role;
-        grant all on all tables in schema public to postgres, service_role;
+        grant usage, create on schema public to public, anon, authenticated, service_role, postgres;
+        grant all on all tables in schema public to postgres, service_role, authenticated, anon;
       `);
 
-      // Ensure auth/storage bootstrap if running on standalone postgres
-      if (existsSync(BOOTSTRAP_SQL)) {
+      // Ensure auth/storage bootstrap only if running on standalone postgres without Supabase
+      const authExists = await client.query(`select to_regclass('auth.users') as exists;`);
+      if (!authExists.rows[0]?.exists && existsSync(BOOTSTRAP_SQL)) {
         const bootstrapContent = readFileSync(BOOTSTRAP_SQL, "utf8");
         await client.query(bootstrapContent);
       }
