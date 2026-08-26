@@ -11,13 +11,111 @@ import {
   type EngineeringDocumentsWorkspaceData,
   type EngineeringDocumentType,
 } from "./engineeringDocuments.ts";
-import { companyScopedRow, requireActiveCompanyId } from "./companyContext.ts";
+import { getActiveCompanyId, requireActiveCompanyId } from "./companyContext.ts";
 import { supabase } from "./supabase.ts";
 
 export const ENGINEERING_WORKSPACE_STORAGE_KEY = "invoice_engineering_documents_workspace_v1";
 export const ENGINEERING_DOCUMENTS_BUCKET = "engineering-documents";
+export const ENGINEERING_DOCUMENT_MAX_FILE_BYTES = 50 * 1024 * 1024;
+
+const PDF_SIGNATURE = "%PDF-";
 
 type Row = Record<string, unknown>;
+
+export interface PreparedEngineeringPdf {
+  bytes: Uint8Array;
+  fileName: string;
+  contentType: "application/pdf";
+  fileSizeBytes: number;
+  fileFingerprint: string;
+}
+
+function safeFileName(fileName: string): string {
+  const normalized = fileName.trim().split(/[\\/]/).pop() || "drawing.pdf";
+  return normalized.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 180) || "drawing.pdf";
+}
+
+async function bytesFromFile(file: Blob | ArrayBuffer | Uint8Array | File): Promise<Uint8Array> {
+  if (file instanceof Uint8Array) return new Uint8Array(file);
+  if (file instanceof ArrayBuffer) return new Uint8Array(file);
+  if (typeof Blob !== "undefined" && file instanceof Blob) return new Uint8Array(await file.arrayBuffer());
+  if ("arrayBuffer" in file && typeof file.arrayBuffer === "function") {
+    return new Uint8Array(await file.arrayBuffer());
+  }
+  throw new Error("The selected engineering file could not be read.");
+}
+
+export async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error("This browser cannot calculate a SHA-256 file fingerprint.");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes as BufferSource);
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function calculateEngineeringFileFingerprint(file: Blob | ArrayBuffer | Uint8Array | File): Promise<string> {
+  return `sha256:${await sha256Hex(await bytesFromFile(file))}`;
+}
+
+export async function prepareEngineeringPdf(
+  file: Blob | ArrayBuffer | Uint8Array | File,
+  options: { fileName?: string; contentType?: string } = {},
+): Promise<PreparedEngineeringPdf> {
+  const bytes = await bytesFromFile(file);
+  const fileName = safeFileName(options.fileName || ("name" in file ? String(file.name || "drawing.pdf") : "drawing.pdf"));
+  const contentType = String(options.contentType || ("type" in file ? file.type : "") || "application/pdf").toLowerCase();
+
+  if (bytes.byteLength <= 0) throw new Error("Select a non-empty PDF file.");
+  if (bytes.byteLength > ENGINEERING_DOCUMENT_MAX_FILE_BYTES) {
+    throw new Error(`Engineering PDF files must be ${Math.round(ENGINEERING_DOCUMENT_MAX_FILE_BYTES / (1024 * 1024))} MB or smaller.`);
+  }
+  const signature = new TextDecoder().decode(bytes.slice(0, PDF_SIGNATURE.length));
+  if (!fileName.toLowerCase().endsWith(".pdf") && contentType !== "application/pdf") {
+    throw new Error("Engineering document uploads must be PDF files.");
+  }
+  if (signature !== PDF_SIGNATURE) throw new Error("The selected file is not a valid PDF source.");
+
+  return {
+    bytes,
+    fileName,
+    contentType: "application/pdf",
+    fileSizeBytes: bytes.byteLength,
+    fileFingerprint: `sha256:${await sha256Hex(bytes)}`,
+  };
+}
+
+export function getEngineeringDocumentStoragePath(companyId: string, documentId: string, revisionId: string, fileName: string): string {
+  const normalizedCompanyId = companyId.trim();
+  const normalizedDocumentId = documentId.trim();
+  const normalizedRevisionId = revisionId.trim();
+  if (!normalizedCompanyId || !normalizedDocumentId || !normalizedRevisionId) throw new Error("Company, document, and revision IDs are required for Storage uploads.");
+  return `companies/${normalizedCompanyId}/documents/${normalizedDocumentId}/revisions/${normalizedRevisionId}/${safeFileName(fileName)}`;
+}
+
+export function isEngineeringDocumentStoragePathForRevision(
+  filePath: string,
+  companyId: string,
+  documentId: string,
+  revisionId: string,
+): boolean {
+  const parts = filePath.split("/");
+  return parts.length === 7
+    && parts[0] === "companies"
+    && parts[1] === companyId
+    && parts[2] === "documents"
+    && parts[3] === documentId
+    && parts[4] === "revisions"
+    && parts[5] === revisionId
+    && Boolean(parts[6]);
+}
+
+function parseEngineeringRpcResult(value: unknown): { document: EngineeringDocument; revision: EngineeringDocumentRevision } {
+  if (!value || typeof value !== "object") throw new Error("Engineering document persistence returned an invalid result.");
+  const result = value as Record<string, unknown>;
+  if (!result.document || !result.revision) throw new Error("Engineering document persistence did not return the committed document and revision.");
+  return {
+    document: documentFromRow(result.document as Row),
+    revision: revisionFromRow(result.revision as Row),
+  };
+}
 
 function text(value: unknown): string | undefined {
   return value === null || value === undefined || value === "" ? undefined : String(value);
@@ -154,7 +252,8 @@ export function writeEngineeringDocumentsWorkspaceToLocal(
 
 async function currentUserId(): Promise<string | null> {
   if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
   return data.user?.id || null;
 }
 
@@ -164,30 +263,30 @@ function requireRemoteUser(userId: string | null): string {
 }
 
 function resolveCompanyId(companyId?: string): string {
-  return companyId || requireActiveCompanyId();
+  const activeCompanyId = getActiveCompanyId();
+  const resolved = companyId?.trim() || activeCompanyId || requireActiveCompanyId();
+  if (activeCompanyId && activeCompanyId !== resolved) throw new Error("The selected company context changed. Reload the engineering workspace and retry.");
+  return resolved;
 }
 
 export async function loadEngineeringDocumentsWorkspaceFromSupabase(
   explicitCompanyId?: string
 ): Promise<EngineeringDocumentsWorkspaceData> {
-  const userId = await currentUserId();
-  if (!supabase || !userId) {
-    return readEngineeringDocumentsWorkspaceFromLocal();
-  }
+  const userId = requireRemoteUser(await currentUserId());
   const companyId = resolveCompanyId(explicitCompanyId);
 
   const [docsResult, revsResult, annsResult] = await Promise.all([
-    supabase
+    supabase!
       .from("engineering_documents")
       .select("*")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false }),
-    supabase
+    supabase!
       .from("engineering_document_revisions")
       .select("*")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false }),
-    supabase
+    supabase!
       .from("drawing_annotations")
       .select("*")
       .eq("company_id", companyId)
@@ -204,47 +303,8 @@ export async function loadEngineeringDocumentsWorkspaceFromSupabase(
     annotations: (annsResult.data || []).map((r) => annotationFromRow(r as Row)),
   };
 
-  writeEngineeringDocumentsWorkspaceToLocal(data);
+  void userId;
   return data;
-}
-
-function documentRow(doc: EngineeringDocument, userId: string, companyId: string) {
-  return companyScopedRow({
-    id: persistedId(doc.id, "doc"),
-    company_id: companyId,
-    project_id: doc.projectId || null,
-    document_number: doc.documentNumber.trim(),
-    title: doc.title.trim(),
-    description: doc.description || null,
-    discipline: doc.discipline,
-    document_type: doc.documentType,
-    status: doc.status,
-    current_revision_id: doc.currentRevisionId || null,
-    current_revision_number: doc.currentRevisionNumber || "0",
-    tags: doc.tags || [],
-    metadata: doc.metadata || {},
-    created_by_user_id: doc.createdByUserId || userId,
-    updated_at: new Date().toISOString(),
-    archived_at: doc.archivedAt || null,
-  });
-}
-
-export async function saveEngineeringDocumentToSupabase(
-  doc: EngineeringDocument,
-  explicitCompanyId?: string
-): Promise<EngineeringDocument> {
-  const userId = requireRemoteUser(await currentUserId());
-  const companyId = resolveCompanyId(explicitCompanyId);
-
-  const row = documentRow(doc, userId, companyId);
-  const { data, error } = await supabase!
-    .from("engineering_documents")
-    .upsert(row)
-    .select("*")
-    .single();
-
-  if (error) throw error;
-  return documentFromRow(data as Row);
 }
 
 export async function archiveEngineeringDocumentInSupabase(
@@ -272,60 +332,74 @@ export async function archiveEngineeringDocumentInSupabase(
   return documentFromRow(data as Row);
 }
 
-function revisionRow(revision: EngineeringDocumentRevision, userId: string, companyId: string) {
-  return companyScopedRow({
-    id: persistedId(revision.id, "rev"),
-    company_id: companyId,
-    document_id: revision.documentId,
-    revision_number: revision.revisionNumber.trim(),
-    revision_label: revision.revisionLabel || null,
-    file_name: revision.fileName.trim(),
-    file_path: revision.filePath.trim(),
-    file_size_bytes: revision.fileSizeBytes,
-    file_type: revision.fileType.trim(),
-    file_fingerprint: revision.fileFingerprint.trim(),
-    page_count: revision.pageCount ?? null,
-    sheet_size: revision.sheetSize || null,
-    scale: revision.scale || null,
-    change_summary: revision.changeSummary || null,
-    status: revision.status,
-    created_by_user_id: revision.createdByUserId || userId,
-    updated_at: new Date().toISOString(),
-  });
-}
-
-export async function saveEngineeringRevisionToSupabase(
+export async function createEngineeringDocumentWithRevisionInSupabase(
+  document: EngineeringDocument,
   revision: EngineeringDocumentRevision,
-  explicitCompanyId?: string
-): Promise<EngineeringDocumentRevision> {
+  explicitCompanyId?: string,
+): Promise<{ document: EngineeringDocument; revision: EngineeringDocumentRevision }> {
   const userId = requireRemoteUser(await currentUserId());
   const companyId = resolveCompanyId(explicitCompanyId);
-
-  const row = revisionRow(revision, userId, companyId);
-  const { data, error } = await supabase!
-    .from("engineering_document_revisions")
-    .upsert(row)
-    .select("*")
-    .single();
-
+  const { data, error } = await supabase!.rpc("create_engineering_document_with_revision", {
+    p_company_id: companyId,
+    p_document_id: document.id,
+    p_revision_id: revision.id,
+    p_project_id: document.projectId || null,
+    p_document_number: document.documentNumber,
+    p_title: document.title,
+    p_description: document.description || null,
+    p_discipline: document.discipline,
+    p_document_type: document.documentType,
+    p_tags: document.tags || [],
+    p_metadata: document.metadata || {},
+    p_revision_number: revision.revisionNumber,
+    p_revision_label: revision.revisionLabel || null,
+    p_file_name: revision.fileName,
+    p_file_path: revision.filePath,
+    p_file_size_bytes: revision.fileSizeBytes,
+    p_file_type: revision.fileType,
+    p_file_fingerprint: revision.fileFingerprint,
+    p_page_count: revision.pageCount ?? null,
+    p_sheet_size: revision.sheetSize || null,
+    p_scale: revision.scale || null,
+    p_change_summary: revision.changeSummary || null,
+  });
   if (error) throw error;
+  void userId;
+  return parseEngineeringRpcResult(data);
+}
 
-  // Also update document current_revision if this revision is the latest
-  await supabase!
-    .from("engineering_documents")
-    .update({
-      current_revision_id: data.id,
-      current_revision_number: data.revision_number,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", revision.documentId)
-    .eq("company_id", companyId);
-
-  return revisionFromRow(data as Row);
+export async function createEngineeringRevisionInSupabase(
+  documentId: string,
+  revision: EngineeringDocumentRevision,
+  explicitCompanyId?: string,
+): Promise<{ document: EngineeringDocument; revision: EngineeringDocumentRevision }> {
+  const userId = requireRemoteUser(await currentUserId());
+  const companyId = resolveCompanyId(explicitCompanyId);
+  const { data, error } = await supabase!.rpc("create_engineering_revision", {
+    p_company_id: companyId,
+    p_document_id: documentId,
+    p_revision_id: revision.id,
+    p_revision_number: revision.revisionNumber,
+    p_revision_label: revision.revisionLabel || null,
+    p_file_name: revision.fileName,
+    p_file_path: revision.filePath,
+    p_file_size_bytes: revision.fileSizeBytes,
+    p_file_type: revision.fileType,
+    p_file_fingerprint: revision.fileFingerprint,
+    p_page_count: revision.pageCount ?? null,
+    p_sheet_size: revision.sheetSize || null,
+    p_scale: revision.scale || null,
+    p_change_summary: revision.changeSummary || null,
+    p_document_status: "UNDER_REVIEW",
+    p_revision_status: revision.status,
+  });
+  if (error) throw error;
+  void userId;
+  return parseEngineeringRpcResult(data);
 }
 
 function annotationRow(annotation: DrawingAnnotation, userId: string, companyId: string) {
-  return companyScopedRow({
+  return {
     id: persistedId(annotation.id, "ann"),
     company_id: companyId,
     document_id: annotation.documentId,
@@ -342,42 +416,31 @@ function annotationRow(annotation: DrawingAnnotation, userId: string, companyId:
     resolved_at: annotation.resolvedAt || null,
     created_by_user_id: annotation.createdByUserId || userId,
     updated_at: new Date().toISOString(),
-  });
+  };
 }
 
-export async function saveDrawingAnnotationToSupabase(
-  annotation: DrawingAnnotation,
-  explicitCompanyId?: string
-): Promise<DrawingAnnotation> {
+/**
+ * Persist a complete revision annotation snapshot in one upsert.  Deleted
+ * annotations are represented by status=DELETED so the historical redline
+ * record remains auditable; callers never need a partial delete loop.
+ */
+export async function saveDrawingAnnotationsBatchToSupabase(
+  annotations: DrawingAnnotation[],
+  explicitCompanyId?: string,
+): Promise<DrawingAnnotation[]> {
+  if (annotations.length === 0) return [];
   const userId = requireRemoteUser(await currentUserId());
   const companyId = resolveCompanyId(explicitCompanyId);
-
-  const row = annotationRow(annotation, userId, companyId);
+  const rows = annotations.map((annotation) => annotationRow(annotation, userId, companyId));
   const { data, error } = await supabase!
     .from("drawing_annotations")
-    .upsert(row)
-    .select("*")
-    .single();
-
+    .upsert(rows, { onConflict: "id" })
+    .select("*");
   if (error) throw error;
-  return annotationFromRow(data as Row);
-}
-
-export async function deleteDrawingAnnotationInSupabase(
-  annotationId: string,
-  explicitCompanyId?: string
-): Promise<void> {
-  const userId = requireRemoteUser(await currentUserId());
-  const companyId = resolveCompanyId(explicitCompanyId);
-
-  const { error } = await supabase!
-    .from("drawing_annotations")
-    .delete()
-    .eq("id", annotationId)
-    .eq("company_id", companyId);
-
-  if (error) throw error;
-  void userId;
+  if (!data || data.length !== rows.length) {
+    throw new Error("The server did not confirm every engineering annotation mutation.");
+  }
+  return data.map((row) => annotationFromRow(row as Row));
 }
 
 export async function uploadEngineeringDocumentFile(
@@ -390,21 +453,22 @@ export async function uploadEngineeringDocumentFile(
     contentType?: string;
   }
 ): Promise<{ path: string; fullPath: string }> {
-  if (!supabase) throw new Error("Supabase is not configured.");
-  const sanitizedFileName = options.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `companies/${options.companyId}/${options.documentId}/${options.revisionId}_${sanitizedFileName}`;
+  requireRemoteUser(await currentUserId());
+  const companyId = resolveCompanyId(options.companyId);
+  const prepared = await prepareEngineeringPdf(file, { fileName: options.fileName, contentType: options.contentType });
+  const storagePath = getEngineeringDocumentStoragePath(companyId, options.documentId, options.revisionId, options.fileName);
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await supabase!.storage
     .from(ENGINEERING_DOCUMENTS_BUCKET)
-    .upload(storagePath, file, {
-      contentType: options.contentType || "application/pdf",
-      upsert: true,
+    .upload(storagePath, prepared.bytes, {
+      contentType: prepared.contentType,
+      upsert: false,
     });
 
   if (error) throw error;
   return {
     path: storagePath,
-    fullPath: data.fullPath,
+    fullPath: data?.fullPath || storagePath,
   };
 }
 
@@ -413,20 +477,34 @@ export async function getEngineeringDocumentFileUrl(
   explicitCompanyId?: string,
   expiresInSeconds = 3600
 ): Promise<string> {
-  if (!supabase) throw new Error("Supabase is not configured.");
-  void explicitCompanyId;
+  requireRemoteUser(await currentUserId());
+  const companyId = resolveCompanyId(explicitCompanyId);
+  const pathParts = filePath.split("/");
+  if (pathParts.length !== 7 || pathParts[0] !== "companies" || pathParts[1] !== companyId || pathParts[2] !== "documents" || pathParts[4] !== "revisions" || !pathParts[6]) {
+    throw new Error("The engineering revision source is outside the active company.");
+  }
 
-  const { data, error } = await supabase.storage
+  const { data, error } = await supabase!.storage
     .from(ENGINEERING_DOCUMENTS_BUCKET)
-    .createSignedUrl(filePath, expiresInSeconds);
+    .createSignedUrl(filePath, Math.max(60, Math.min(expiresInSeconds, 3600)));
 
   if (error) throw error;
+  if (!data?.signedUrl) throw new Error("The engineering revision source did not produce a signed URL.");
   return data.signedUrl;
 }
 
-export async function deleteEngineeringDocumentFile(filePath: string): Promise<void> {
-  if (!supabase) throw new Error("Supabase is not configured.");
-  const { error } = await supabase.storage
+/**
+ * Best-effort compensation for an upload that has not been linked to a
+ * committed database revision.  This is intentionally not exposed as a normal
+ * document action and is called only after the atomic metadata RPC fails.
+ */
+export async function compensateUnprovenancedEngineeringDocumentUpload(filePath: string, explicitCompanyId?: string): Promise<void> {
+  requireRemoteUser(await currentUserId());
+  const companyId = resolveCompanyId(explicitCompanyId);
+  if (filePath.split("/")[0] !== "companies" || filePath.split("/")[1] !== companyId) {
+    throw new Error("Refusing to compensate an engineering upload outside the active company.");
+  }
+  const { error } = await supabase!.storage
     .from(ENGINEERING_DOCUMENTS_BUCKET)
     .remove([filePath]);
 

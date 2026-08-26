@@ -2737,6 +2737,12 @@ function InvoiceWorkspace() {
     return <AuthScreen initialMode={isResetPasswordRoute ? "reset-password" : "sign-in"} emailRedirectTo={emailRedirectTo} resetRedirectTo={resetRedirectTo} onAuthenticated={handleAuthenticated} onPasswordUpdated={handlePasswordUpdated} onContinueInBrowser={handleContinueInBrowser} allowBrowserOnly={!isSupabaseConfigured} invitationRequired={isSupabaseConfigured} />;
   }
 
+  const engineeringDocumentsGuestMode = !isSupabaseConfigured || guestModeState;
+  const engineeringDocumentsCanRead = engineeringDocumentsGuestMode || isPlatformOwner || can(PERMISSION_KEYS.engineeringDocumentsRead);
+  const engineeringDocumentsCanCreate = engineeringDocumentsGuestMode || isPlatformOwner || can(PERMISSION_KEYS.engineeringDocumentsCreate);
+  const engineeringDocumentsCanAnnotate = engineeringDocumentsGuestMode || isPlatformOwner || can(PERMISSION_KEYS.engineeringDocumentsUpdate);
+  const engineeringDocumentsCanManage = engineeringDocumentsGuestMode || isPlatformOwner || can(PERMISSION_KEYS.engineeringDocumentsManage);
+
   return (
     <AssistantProvider
       currentCompanyId={activeCompanyId}
@@ -2805,6 +2811,12 @@ function InvoiceWorkspace() {
           onDashboardCurrencyChange={setDashboardCurrency}
           onNavigateTab={setActiveTab}
           projects={projects}
+          companyId={activeCompanyId || undefined}
+          engineeringDocumentsCanRead={engineeringDocumentsCanRead}
+          engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
+          engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
+          engineeringDocumentsCanManage={engineeringDocumentsCanManage}
+          engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
           selectedProject={selectedProject}
           projectSummaries={projectSummaries}
           projectDashboard={projectDashboard}

@@ -43,8 +43,12 @@ import {
 } from "../src/lib/engineeringDocuments.ts";
 import {
   annotationFromRow,
+  calculateEngineeringFileFingerprint,
   documentFromRow,
   emptyEngineeringDocumentsWorkspaceData,
+  getEngineeringDocumentStoragePath,
+  isEngineeringDocumentStoragePathForRevision,
+  prepareEngineeringPdf,
   readEngineeringDocumentsWorkspaceFromLocal,
   revisionFromRow,
   writeEngineeringDocumentsWorkspaceToLocal,
@@ -286,6 +290,12 @@ test("document lifecycle helpers: create, update, archive, and filter", () => {
       documentType: "DRAWING",
       projectId: "proj-456",
     }),
+    createEngineeringDocument({
+      documentNumber: "GEN-001",
+      title: "Company Shared Reference",
+      discipline: "GENERAL_ENGINEERING",
+      documentType: "SPECIFICATION",
+    }),
   ];
 
   const structDocs = filterDocumentsByDiscipline(docs, "STRUCTURAL");
@@ -295,6 +305,8 @@ test("document lifecycle helpers: create, update, archive, and filter", () => {
   const projDocs = filterDocumentsByProject(docs, "proj-123");
   assert.equal(projDocs.length, 1);
   assert.equal(projDocs[0].documentNumber, "STR-001");
+  assert.equal(filterDocumentsByProject(docs, "proj-456").some((item) => item.documentNumber === "GEN-001"), false);
+  assert.equal(filterDocumentsByProject(docs, "proj-456", { includeUnassigned: true }).some((item) => item.documentNumber === "GEN-001"), true);
 });
 
 test("drawing annotation lifecycle helpers: create, update, and soft delete", () => {
@@ -433,4 +445,31 @@ test("localStorage workspace serialization and deserialization works correctly",
   assert.equal(loaded.documents.length, initial.documents.length);
   assert.equal(loaded.revisions.length, initial.revisions.length);
   assert.equal(loaded.annotations.length, initial.annotations.length);
+});
+
+test("engineering PDF fingerprints are deterministic SHA-256 digests over file bytes", async () => {
+  const bytes = new TextEncoder().encode("%PDF-1.7\nfixture bytes\n");
+  const sameBytes = await calculateEngineeringFileFingerprint(bytes);
+  const sameBytesAgain = await calculateEngineeringFileFingerprint(new Uint8Array(bytes));
+  const differentBytes = await calculateEngineeringFileFingerprint(new TextEncoder().encode("%PDF-1.7\nother bytes\n"));
+
+  assert.match(sameBytes, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(sameBytes, sameBytesAgain);
+  assert.notEqual(sameBytes, differentBytes);
+});
+
+test("engineering PDF preparation validates the real PDF signature and preserves exact size", async () => {
+  const prepared = await prepareEngineeringPdf(new TextEncoder().encode("%PDF-1.7\ncontent"), { fileName: "source drawing.pdf", contentType: "application/pdf" });
+  assert.equal(prepared.fileName, "source_drawing.pdf");
+  assert.equal(prepared.fileSizeBytes, prepared.bytes.byteLength);
+  assert.equal(prepared.contentType, "application/pdf");
+  await assert.rejects(() => prepareEngineeringPdf(new TextEncoder().encode("not a pdf"), { fileName: "drawing.pdf" }), /valid PDF/i);
+});
+
+test("revision Storage paths are immutable and bound to company/document/revision identifiers", () => {
+  const path = getEngineeringDocumentStoragePath("company-a", "document-a", "revision-a", "A-101 Rev A.pdf");
+  assert.equal(path, "companies/company-a/documents/document-a/revisions/revision-a/A-101_Rev_A.pdf");
+  assert.equal(isEngineeringDocumentStoragePathForRevision(path, "company-a", "document-a", "revision-a"), true);
+  assert.equal(isEngineeringDocumentStoragePathForRevision(path, "company-a", "document-b", "revision-a"), false);
+  assert.equal(isEngineeringDocumentStoragePathForRevision(path, "company-a", "document-a", "revision-b"), false);
 });

@@ -31,6 +31,11 @@ export interface ProjectsRouteProps {
   initialDocumentId?: string;
   initialRevisionId?: string;
   companyId?: string;
+  engineeringDocumentsCanRead?: boolean;
+  engineeringDocumentsCanCreate?: boolean;
+  engineeringDocumentsCanAnnotate?: boolean;
+  engineeringDocumentsCanManage?: boolean;
+  engineeringDocumentsGuestMode?: boolean;
   onTabChange?: (tab: WorkspaceTab) => void;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
@@ -61,6 +66,11 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   initialDocumentId,
   initialRevisionId,
   companyId,
+  engineeringDocumentsCanRead,
+  engineeringDocumentsCanCreate,
+  engineeringDocumentsCanAnnotate,
+  engineeringDocumentsCanManage,
+  engineeringDocumentsGuestMode,
   onTabChange,
   onOpenProject,
   onSaveProject,
@@ -102,6 +112,11 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         initialDocumentId={initialDocumentId}
         initialRevisionId={initialRevisionId}
         companyId={companyId}
+        engineeringDocumentsCanRead={engineeringDocumentsCanRead}
+        engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
+        engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
+        engineeringDocumentsCanManage={engineeringDocumentsCanManage}
+        engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
         onTabChange={onTabChange}
         onSaveInvoiceAllocations={onSaveInvoiceAllocations}
         onBack={onBack}

@@ -90,6 +90,12 @@ export interface AppRouterProps {
   projectSummaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
   projectFormSeed?: Project | null;
+  companyId?: string;
+  engineeringDocumentsCanRead?: boolean;
+  engineeringDocumentsCanCreate?: boolean;
+  engineeringDocumentsCanAnnotate?: boolean;
+  engineeringDocumentsCanManage?: boolean;
+  engineeringDocumentsGuestMode?: boolean;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
   onArchiveProject: (project: Project) => Promise<void> | void;
@@ -243,6 +249,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   projectSummaries,
   projectDashboard,
   projectFormSeed,
+  companyId,
+  engineeringDocumentsCanRead = true,
+  engineeringDocumentsCanCreate = true,
+  engineeringDocumentsCanAnnotate = true,
+  engineeringDocumentsCanManage = true,
+  engineeringDocumentsGuestMode = false,
   onOpenProject,
   onSaveProject,
   onArchiveProject,
@@ -405,6 +417,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         initialTab={route.kind === "project" ? route.view : "overview"}
         initialDocumentId={route.kind === "project" ? route.documentId : undefined}
         initialRevisionId={route.kind === "project" ? route.revisionId : undefined}
+        companyId={companyId}
+        engineeringDocumentsCanRead={engineeringDocumentsCanRead}
+        engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
+        engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
+        engineeringDocumentsCanManage={engineeringDocumentsCanManage}
+        engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
         onTabChange={onProjectTabChange}
         onOpenProject={onOpenProject}
         onSaveProject={onSaveProject}

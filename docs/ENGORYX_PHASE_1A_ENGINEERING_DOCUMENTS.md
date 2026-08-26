@@ -1,61 +1,59 @@
-# ENGORYX — Phase 1A: Engineering Documents & Blueprint Viewer
+# Engoryx — Phase 1A: Engineering Documents and Blueprint Viewer
 
-Engoryx Phase 1A delivers centralized engineering document management, multi-page blueprint viewing, immutable revision tracking, and interactive layered redline markups for architecture, engineering, and construction (AEC) projects.
+Phase 1A provides company-scoped engineering document control for project workspaces: real PDF source uploads, private revision storage, append-only revision provenance, revision-scoped redlines, and deep links into the viewer.
 
----
+## Scope and implementation status
 
-## 1. Executive Summary
+The Phase 1A implementation is an active hardening milestone. The route-layer extraction is complete, but the deeper domain-controller extraction remains technical debt: `AppShell`, `AppRouter`, and route containers exist while `src/App.tsx` still owns substantial cross-domain state and actions.
 
-Phase 1A-establishes the core technical document foundation for Engoryx, enabling project teams to organize, inspect, and annotate engineering drawings and technical spec sheets:
+Phase 1B (RFIs and technical submittals) and Phase 1C (daily site logs, weather, crews, and equipment) remain **PLANNED**.
 
-- **Centralized Document Control**: Multi-discipline drawing registers categorized by standard AEC disciplines (Architectural, Structural, Civil, Mechanical, Electrical, Plumbing, Fire Protection, Geotechnical, General Engineering).
-- **High-Performance Blueprint Viewer**: Multi-page PDF vector rendering via Mozilla PDF.js coupled with an interactive annotation stage via Konva.js.
-- **Normalized Coordinate Space**: Resolution-independent redline annotations ($0.0 - 1.0$ page space) ensuring markups scale seamlessly across high-DPI desktop screens, tablets, and mobile devices.
-- **Strict Multi-Tenancy & RBAC**: PostgreSQL Row-Level Security (RLS) policies and company tenant boundaries protecting all document assets.
-- **Private Storage Bucket**: Secure, authenticated file storage (`engineering-documents`) enforcing company isolation at the storage path level.
-- **Immutable Revision History**: Strict append-only revision records guaranteeing historical and contractual non-repudiation.
+## Real PDF persistence flow
 
----
+In an authenticated company workspace, creating a document or uploading a revision:
 
-## 2. Database Schema & Data Invariants
+1. validates the PDF signature, extension/type, size, and non-empty content;
+2. generates document/revision identifiers and calculates `sha256:<64 lowercase hex characters>` over the exact file bytes;
+3. uploads the source to the private `engineering-documents` bucket with `upsert: false`;
+4. commits the document/revision metadata and current-revision relationship through an atomic database RPC; and
+5. updates the UI only after the Storage upload and metadata transaction are confirmed.
 
-Phase 1A introduces three core relational tables defined in `supabase/migrations/20260826130000_engineering_documents_foundation.sql`:
+The Storage and database systems cannot share one transaction. If the metadata RPC fails after upload, the client makes a narrowly-scoped best-effort compensation attempt for the unprovenanced object and reports the failure; it never presents the document as saved. A failed authenticated operation does not fall back to a local-only company document. The unsaved form remains available for retry.
 
-- `public.engineering_documents`: Represents document metadata company-wide, spanning disciplines, document types, project associations, tags, current revision, and audit trails.
-- `public.engineering_document_revisions`: Represents immutable revision sheets, file fingerprints (SHA-256), sheet sizes, scales, page counts, and review statuses.
-- `public.drawing_annotations`: Represents interactive redline markups (clouds, rectangles, arrows, callouts, measurements, text) stored with normalized geometry, styles, and statuses.
+Guest/browser-only mode is deliberately separate. It may use local storage and explicitly labeled sample drawings. Sample data is not evidence of authenticated Storage, RLS, or database persistence.
 
----
+## Database and Storage invariants
 
-## 3. Multi-Tenancy & RBAC Controls
+The foundation migration is `supabase/migrations/20260826130000_engineering_documents_foundation.sql`. The additive hardening migration is `supabase/migrations/20260826140000_engineering_documents_hardening.sql`.
 
-Access control is governed by granular permissions:
+- `engineering_documents.current_revision_id` must reference a revision belonging to the same company and document.
+- `engineering_document_revisions` is append-only after insertion. Normal authenticated users have no update or delete capability for revision rows.
+- Revision source paths are bound to `companies/<company_id>/documents/<document_id>/revisions/<revision_id>/<file_name>`.
+- New revision sources must be PDFs with a normalized SHA-256 fingerprint.
+- The `engineering-documents` bucket remains private. Read access uses short-lived signed URLs; signed URLs are presentation-layer values and are never stored in the database.
+- Normal Storage update and delete policies for revision source objects are removed. Archiving a document does not delete its revisions or source files.
+- Annotations are revision-scoped. Deletes are represented as `status = DELETED` so redline history can remain auditable.
 
-- `engineering.documents.read`: Read company documents, revisions, and annotations.
-- `engineering.documents.create`: Create documents and upload new revisions.
-- `engineering.documents.update`: Update metadata and manage annotations.
-- `engineering.documents.manage`: Full administrative control including archiving.
+## Viewer behavior
 
----
+The viewer resolves a private `revision.filePath` through `getEngineeringDocumentFileUrl`, then gives the ephemeral signed URL to PDF.js. It reports loading, missing-source, authorization, expired/missing-object, and malformed-PDF failures instead of silently rendering a synthetic blueprint. Explicit guest sample records are marked `SAMPLE`.
 
-## 4. Private Supabase Storage Architecture
+Annotations use normalized page coordinates. The Konva overlay applies the current zoom exactly once to page-space geometry while pointer input is converted back to page coordinates before normalization. The viewer supports page navigation, 50–500% zoom, fit page, fit width, resize, touch pinch zoom, and revision-scoped annotation reloads.
 
-- **Bucket IDe*: `engineering-documents` (`public: false`).
-- **Path Structure**: `companies/<company_id>/projects/<project_id>/documents/<document_id>/<revision_number>_<filename>` or `companies/<company_id>/...b
-- **Storage RLS**: Enforces permissions via `private.storage_company_id(name)` and `has_company_permission`.
+Annotation saves are debounced and persisted as one complete revision snapshot. The visible states are `Unsaved`, `Saving`, `Saved`, and `Retry Save`. A save is marked `Saved` only after the callback or remote batch upsert confirms every intended mutation. Local edits are retained on failure, retry is explicit, and generation/request checks prevent late responses from older saves changing the state of newer edits. Dirty annotations are saved successfully before a revision switch or viewer close; a failed save prevents the switch/close.
 
----
+Drawing scale and sheet-size fields are source metadata only. No dimensional measurement tool is exposed until PDF calibration and crop/media-box validation are implemented; a text value such as `1:100` is not treated as trustworthy physical calibration.
 
-## 5. Normalized Coordinate System & Viewer Architecture
+## Project and permission boundaries
 
-- **Coordinate Normalization**: All annotation points, rectangles, and bounding boxes are normalized to $[0.0, 1.0]$ in page space, guaranteeing pixel-perfect rendering across all viewport resolutions, zoom levels, and device DOPs.
-- **Viewer Stack**: Mozilla PDF.js vector background rendering + Konva.js interactive markup layer.
-- **Deep Linking**: Fully integrated with app routing at `/projects/:projectId/documents` with query parameters (`?docId=...&revId=...&page=...`).
+The project Documents tab shows only documents whose `projectId` equals the current project. Unassigned company documents are not silently presented as project-owned documents.
 
----
+The UI receives independent capabilities for read, create/upload, annotation update, and manage/archive actions. RLS and Storage policies remain the security boundary; the controls only reflect the same capability model for readers, creators, updaters, and managers.
 
-## 6. Roadmap for Phase 1B and Phase 1C
-Phase 1 continues with sursquent deliverables:
+## Lazy loading
 
-- **Phase 1B (Planned)**: RFIs (Requests for Information) and Technical Submittal packages with Engineer-of-Record (EOR) approval flows.
-- **Phase 1C (Planned)**: Daily Site Logs, Weather Tracking, Crew Headcounts, and Heavy Equipment utilization.
+`ProjectDocuments` lazy-loads `BlueprintViewer`, keeping PDF.js and Konva in the viewer chunk rather than the ordinary application route chunk. Build output must be checked to confirm the heavy viewer dependencies remain outside the initial bundle.
+
+## Verification boundary
+
+Static/unit validation covers fingerprints, immutable paths, save sequencing, revision filtering, route contracts, permissions, and migration contracts. A connected authenticated Supabase environment is still required to prove live RLS, Storage object existence, signed URL authorization, database RPC execution, and the complete real-PDF browser walkthrough.

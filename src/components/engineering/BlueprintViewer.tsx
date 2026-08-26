@@ -41,11 +41,11 @@ import type {
 } from "../../lib/engineeringDocuments.ts";
 import {
   calculateBoundingBox,
-  calculatePhysicalMeasurement,
   compareRevisionNumbers,
   createDrawingAnnotation,
   deleteDrawingAnnotation,
   engineeringId,
+  formatRevisionNumber,
   fromNormalizedPoint,
   fromNormalizedPoints,
   fromNormalizedRect,
@@ -55,11 +55,12 @@ import {
   updateDrawingAnnotation,
 } from "../../lib/engineeringDocuments.ts";
 import {
-  saveDrawingAnnotationToSupabase,
-  deleteDrawingAnnotationInSupabase,
+  getEngineeringDocumentFileUrl,
+  saveDrawingAnnotationsBatchToSupabase,
   writeEngineeringDocumentsWorkspaceToLocal,
   readEngineeringDocumentsWorkspaceFromLocal,
 } from "../../lib/engineeringDocumentsPersistence.ts";
+import { annotationSaveResultStatus, type AnnotationSaveToken } from "../../lib/engineeringAnnotationSave.ts";
 
 // Setup PDF.js worker
 if (typeof window !== "undefined") {
@@ -93,8 +94,11 @@ export interface BlueprintViewerProps {
   revisions: EngineeringDocumentRevision[];
   currentRevisionId?: string;
   initialAnnotations?: DrawingAnnotation[];
+  allAnnotations?: DrawingAnnotation[];
   companyId?: string;
   readOnly?: boolean;
+  canAnnotate?: boolean;
+  guestMode?: boolean;
   onSaveAnnotations?: (annotations: DrawingAnnotation[]) => Promise<void> | void;
   onRevisionChange?: (revisionId: string) => void;
   onClose?: () => void;
@@ -453,7 +457,7 @@ function renderBlueprintFallback(
   ctx.fillText("CURRENT REVISION", tbX + 150, tbY + 93);
   ctx.fillStyle = "#22c55e";
   ctx.font = "bold 12px monospace";
-  ctx.fillText(rev?.revisionNumber ? `REV ${rev.revisionNumber}` : `REV ${doc.currentRevisionNumber}`, tbX + 150, tbY + 110);
+  ctx.fillText(rev?.revisionNumber ? formatRevisionNumber(rev.revisionNumber).toUpperCase() : formatRevisionNumber(doc.currentRevisionNumber).toUpperCase(), tbX + 150, tbY + 110);
 
   ctx.fillStyle = "#64748b";
   ctx.font = "8px sans-serif";
@@ -493,20 +497,23 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
   revisions = [],
   currentRevisionId: initialRevisionId,
   initialAnnotations = [],
+  allAnnotations,
   companyId,
   readOnly = false,
+  canAnnotate = true,
+  guestMode = false,
   onSaveAnnotations,
   onRevisionChange,
   onClose,
 }) => {
+  const effectiveReadOnly = readOnly || !canAnnotate;
   // Sort revisions
   const sortedRevisions = useMemo(() => {
     return [...revisions].sort((a, b) => compareRevisionNumbers(a.revisionNumber, b.revisionNumber));
   }, [revisions]);
 
-  const [selectedRevisionId, setSelectedRevisionId] = useState<string>(
-    initialRevisionId || doc.currentRevisionId || sortedRevisions[0]?.id || ""
-  );
+  const initialSelectedRevisionId = initialRevisionId || doc.currentRevisionId || sortedRevisions[0]?.id || "";
+  const [selectedRevisionId, setSelectedRevisionId] = useState<string>(initialSelectedRevisionId);
 
   const currentRevision = useMemo(() => {
     return sortedRevisions.find((r) => r.id === selectedRevisionId) || sortedRevisions[0];
@@ -527,10 +534,15 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
 
   // Annotations & History State
-  const [annotations, setAnnotations] = useState<DrawingAnnotation[]>(initialAnnotations);
+  const [annotations, setAnnotations] = useState<DrawingAnnotation[]>(() => {
+    const source = allAnnotations || initialAnnotations;
+    return source.filter((annotation) => annotation.revisionId === initialSelectedRevisionId);
+  });
   const [undoStack, setUndoStack] = useState<DrawingAnnotation[][]>([]);
   const [redoStack, setRedoStack] = useState<DrawingAnnotation[][]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("saved");
+  const [contentState, setContentState] = useState<"loading" | "ready" | "sample" | "error">("loading");
+  const [contentError, setContentError] = useState<string | null>(null);
 
   // Text / Callout Modal Input
   const [pendingTextPrompt, setPendingTextPrompt] = useState<{
@@ -557,61 +569,111 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
   const activeFreehandPointsRef = useRef<number[]>([]);
   const touchStartDistRef = useRef<number | null>(null);
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pdfLoadRequestRef = useRef(0);
+  const lastLoadedRevisionRef = useRef(initialSelectedRevisionId);
+  const annotationGenerationRef = useRef(0);
+  const saveRequestIdRef = useRef(0);
+  const latestSaveTokenRef = useRef<AnnotationSaveToken>({ generation: 0, requestId: 0 });
+
+  const annotationsForRevision = useCallback((revisionId: string) => {
+    return (allAnnotations || initialAnnotations).filter((annotation) => annotation.revisionId === revisionId);
+  }, [allAnnotations, initialAnnotations]);
 
   // Page annotations filter
   const pageAnnotations = useMemo(() => {
     return annotations.filter((a) => a.pageNumber === pageNumber && a.status !== "DELETED");
   }, [annotations, pageNumber]);
 
-  // Load PDF or Fallback Rendering
+  // Load a private PDF through a short-lived signed URL.  Synthetic drawings
+  // are limited to explicit guest/sample records and never mask a production
+  // Storage, authorization, or malformed-PDF failure.
   const loadDocumentContent = useCallback(async () => {
     if (!pdfCanvasRef.current) return;
     const canvas = pdfCanvasRef.current;
+    const requestId = ++pdfLoadRequestRef.current;
+    const filePath = currentRevision?.filePath?.trim() || "";
+    const isSample = guestMode && (!filePath || filePath.startsWith("sample/") || filePath.startsWith("mock/"));
+    const isDirectUrl = /^(https?:|blob:|data:)/i.test(filePath);
+    const isPrivateStoragePath = filePath.startsWith("companies/");
 
-    // Check if revision has a real PDF file URL or blob
-    const filePath = currentRevision?.filePath;
-    const isRealPdf = filePath && (filePath.startsWith("http") || filePath.startsWith("blob:") || filePath.startsWith("data:"));
-
-    if (isRealPdf) {
-      try {
-        const loadingTask = pdfjsLib.getDocument({ url: filePath });
-        const pdf = await loadingTask.promise;
-        setTotalPages(pdf.numPages || 1);
-
-        const page = await pdf.getPage(Math.min(pageNumber, pdf.numPages));
-        const viewport = page.getViewport({ scale: 1.0 });
-        const dpr = window.devicePixelRatio || 1;
-
-        canvas.width = Math.floor(viewport.width * dpr);
-        canvas.height = Math.floor(viewport.height * dpr);
-        canvas.style.width = `${viewport.width}px`;
-        canvas.style.height = `${viewport.height}px`;
-
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.scale(dpr, dpr);
-          await page.render({
-            canvasContext: ctx,
-            viewport,
-          }).promise;
-        }
-
-        setPageSize({ width: viewport.width, height: viewport.height });
-        return;
-      } catch (pdfErr) {
-        console.warn("Could not load PDF directly, rendering vector CAD blueprint template:", pdfErr);
-      }
+    setContentState("loading");
+    setContentError(null);
+    const initialContext = canvas.getContext("2d");
+    initialContext?.setTransform(1, 0, 0, 1, 0, 0);
+    initialContext?.clearRect(0, 0, canvas.width, canvas.height);
+    if (isSample) {
+      setTotalPages(1);
+      setPageSize({ width: 1200, height: 850 });
+      renderBlueprintFallback(canvas, doc, currentRevision);
+      if (requestId === pdfLoadRequestRef.current) setContentState("sample");
+      return;
     }
 
-    // Default vector CAD blueprint fallback
-    setTotalPages(1);
-    setPageSize({ width: 1200, height: 850 });
-    renderBlueprintFallback(canvas, doc, currentRevision);
-  }, [currentRevision, doc, pageNumber]);
+    if (!isDirectUrl && !isPrivateStoragePath) {
+      if (requestId === pdfLoadRequestRef.current) {
+        setContentState("error");
+        setContentError("This revision has no usable private PDF source. It was not replaced with a sample drawing.");
+      }
+      return;
+    }
+
+    try {
+      const fileUrl = isPrivateStoragePath
+        ? await getEngineeringDocumentFileUrl(filePath, companyId, 300)
+        : filePath;
+      if (requestId !== pdfLoadRequestRef.current) return;
+
+      const loadingTask = pdfjsLib.getDocument({ url: fileUrl });
+      const pdf = await loadingTask.promise;
+      if (requestId !== pdfLoadRequestRef.current) return;
+      const resolvedPageNumber = Math.min(pageNumber, Math.max(1, pdf.numPages));
+      if (resolvedPageNumber !== pageNumber) setPageNumber(resolvedPageNumber);
+      setTotalPages(pdf.numPages || 1);
+
+      const page = await pdf.getPage(resolvedPageNumber);
+      if (requestId !== pdfLoadRequestRef.current) return;
+      const viewport = page.getViewport({ scale: 1.0 });
+      const dpr = window.devicePixelRatio || 1;
+
+      canvas.width = Math.floor(viewport.width * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("The browser could not create a PDF canvas.");
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(dpr, dpr);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      if (requestId !== pdfLoadRequestRef.current) return;
+
+      setPageSize({ width: viewport.width, height: viewport.height });
+      setContentState("ready");
+    } catch (pdfErr) {
+      if (requestId !== pdfLoadRequestRef.current) return;
+      setContentState("error");
+      setContentError(`The original PDF could not be loaded. ${pdfErr instanceof Error ? pdfErr.message : "Check the private source, session, and file integrity."}`);
+    }
+  }, [companyId, currentRevision, doc, guestMode, pageNumber]);
 
   useEffect(() => {
     loadDocumentContent();
   }, [loadDocumentContent]);
+
+  useEffect(() => {
+    if (lastLoadedRevisionRef.current === selectedRevisionId) return;
+    lastLoadedRevisionRef.current = selectedRevisionId;
+    setAnnotations(annotationsForRevision(selectedRevisionId));
+    setUndoStack([]);
+    setRedoStack([]);
+    setSelectedAnnotationId(null);
+    setPageNumber(1);
+    setSaveStatus("saved");
+    annotationGenerationRef.current += 1;
+    saveRequestIdRef.current += 1;
+    latestSaveTokenRef.current = { generation: annotationGenerationRef.current, requestId: saveRequestIdRef.current };
+  }, [annotationsForRevision, selectedRevisionId]);
 
   // Initialize Konva Stage
   useEffect(() => {
@@ -645,6 +707,9 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       stage.add(annotationLayer);
       stage.add(drawLayer);
 
+      annotationLayer.scale({ x: zoom, y: zoom });
+      drawLayer.scale({ x: zoom, y: zoom });
+
       stageRef.current = stage;
       annotationLayerRef.current = annotationLayer;
       drawLayerRef.current = drawLayer;
@@ -653,6 +718,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       const stage = stageRef.current;
       stage.width(width);
       stage.height(height);
+      stage.scale({ x: 1, y: 1 });
       annotationLayerRef.current?.scale({ x: zoom, y: zoom });
       drawLayerRef.current?.scale({ x: zoom, y: zoom });
       annotationLayerRef.current?.batchDraw();
@@ -675,6 +741,8 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
     setUndoStack((prev) => [...prev, annotations]);
     setRedoStack([]);
     setAnnotations(newAnnotations);
+    annotationGenerationRef.current += 1;
+    latestSaveTokenRef.current = { generation: annotationGenerationRef.current, requestId: saveRequestIdRef.current };
     setSaveStatus("unsaved");
   }, [annotations]);
 
@@ -686,6 +754,8 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
     setUndoStack((prev) => prev.slice(0, prev.length - 1));
     setAnnotations(previous);
     setSelectedAnnotationId(null);
+    annotationGenerationRef.current += 1;
+    latestSaveTokenRef.current = { generation: annotationGenerationRef.current, requestId: saveRequestIdRef.current };
     setSaveStatus("unsaved");
   }, [annotations, undoStack]);
 
@@ -697,12 +767,14 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
     setRedoStack((prev) => prev.slice(0, prev.length - 1));
     setAnnotations(next);
     setSelectedAnnotationId(null);
+    annotationGenerationRef.current += 1;
+    latestSaveTokenRef.current = { generation: annotationGenerationRef.current, requestId: saveRequestIdRef.current };
     setSaveStatus("unsaved");
   }, [annotations, redoStack]);
 
   // Delete Selected Annotation
   const handleDeleteSelected = useCallback(() => {
-    if (!selectedAnnotationId || readOnly) return;
+    if (!selectedAnnotationId || effectiveReadOnly) return;
     const updated = annotations.map((ann) => {
       if (ann.id === selectedAnnotationId) {
         return deleteDrawingAnnotation(ann);
@@ -711,48 +783,59 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
     });
     pushStateToHistory(updated);
     setSelectedAnnotationId(null);
-  }, [annotations, pushStateToHistory, readOnly, selectedAnnotationId]);
+  }, [annotations, effectiveReadOnly, pushStateToHistory, selectedAnnotationId]);
 
   // Save Annotations
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (effectiveReadOnly) return false;
+    const token: AnnotationSaveToken = {
+      generation: annotationGenerationRef.current,
+      requestId: saveRequestIdRef.current + 1,
+    };
+    saveRequestIdRef.current = token.requestId;
+    latestSaveTokenRef.current = token;
+    const snapshot = annotations;
     setSaveStatus("saving");
     try {
       if (onSaveAnnotations) {
-        await onSaveAnnotations(annotations);
+        await onSaveAnnotations(snapshot);
       } else {
-        // Persist to local & Supabase
-        const currentData = readEngineeringDocumentsWorkspaceFromLocal();
-        const otherAnnotations = currentData.annotations.filter(
-          (a) => a.documentId !== doc.id || a.revisionId !== (currentRevision?.id || "")
-        );
-        writeEngineeringDocumentsWorkspaceToLocal({
-          ...currentData,
-          annotations: [...otherAnnotations, ...annotations],
-        });
-
-        // Supabase async sync
-        for (const ann of annotations) {
-          try {
-            if (ann.status === "DELETED") {
-              await deleteDrawingAnnotationInSupabase(ann.id, companyId);
-            } else {
-              await saveDrawingAnnotationToSupabase(ann, companyId);
-            }
-          } catch {
-            // Best effort remote sync
-          }
+        if (guestMode) {
+          const currentData = readEngineeringDocumentsWorkspaceFromLocal();
+          const otherAnnotations = currentData.annotations.filter(
+            (annotation) => annotation.documentId !== doc.id || annotation.revisionId !== (currentRevision?.id || "")
+          );
+          writeEngineeringDocumentsWorkspaceToLocal({ ...currentData, annotations: [...otherAnnotations, ...snapshot] });
+        } else {
+          await saveDrawingAnnotationsBatchToSupabase(snapshot, companyId);
         }
       }
-      setSaveStatus("saved");
-    } catch (err) {
-      console.error("Failed to save annotations:", err);
-      setSaveStatus("error");
+      const resultStatus = annotationSaveResultStatus(latestSaveTokenRef.current, token, true);
+      if (resultStatus) setSaveStatus(resultStatus);
+      return resultStatus === "saved";
+    } catch {
+      const resultStatus = annotationSaveResultStatus(latestSaveTokenRef.current, token, false);
+      if (resultStatus) setSaveStatus(resultStatus);
+      return false;
     }
-  }, [annotations, companyId, currentRevision?.id, doc.id, onSaveAnnotations]);
+  }, [annotations, companyId, currentRevision?.id, doc.id, effectiveReadOnly, guestMode, onSaveAnnotations]);
+
+  const handleRevisionSelect = useCallback(async (nextRevisionId: string) => {
+    if (!nextRevisionId || nextRevisionId === selectedRevisionId || saveStatus === "saving") return;
+    if (saveStatus !== "saved" && !(await handleSave())) return;
+    setSelectedRevisionId(nextRevisionId);
+    onRevisionChange?.(nextRevisionId);
+  }, [handleSave, onRevisionChange, saveStatus, selectedRevisionId]);
+
+  const handleClose = useCallback(async () => {
+    if (saveStatus === "saving") return;
+    if (saveStatus !== "saved" && !(await handleSave())) return;
+    onClose?.();
+  }, [handleSave, onClose, saveStatus]);
 
   // Autosave Debounce Effect
   useEffect(() => {
-    if (saveStatus === "unsaved" && !readOnly) {
+    if (saveStatus === "unsaved" && !effectiveReadOnly) {
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
       autosaveTimeoutRef.current = setTimeout(() => {
         handleSave();
@@ -761,7 +844,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
     return () => {
       if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current);
     };
-  }, [handleSave, readOnly, saveStatus]);
+  }, [effectiveReadOnly, handleSave, saveStatus]);
 
   // Keyboard Shortcuts (Delete, Undo, Redo)
   useEffect(() => {
@@ -810,7 +893,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       const strokeColor = ann.style.strokeColor || "#ef4444";
       const strokeWidth = ann.style.strokeWidth || 2;
       const isSelected = ann.id === selectedAnnotationId;
-      const isSelectTool = tool === "select" && !readOnly;
+      const isSelectTool = tool === "select" && !effectiveReadOnly;
 
       if (ann.annotationType === "RECTANGLE" && ann.geometry.rect) {
         const rectPx = fromNormalizedRect(ann.geometry.rect, pageSize);
@@ -1100,7 +1183,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       }
     });
 
-    if (selectedNode && tool === "select" && !readOnly) {
+    if (selectedNode && tool === "select" && !effectiveReadOnly) {
       transformer.nodes([selectedNode]);
     } else {
       transformer.nodes([]);
@@ -1113,7 +1196,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
     pageSize,
     pageAnnotations,
     pushStateToHistory,
-    readOnly,
+    effectiveReadOnly,
     selectedAnnotationId,
     tool,
   ]);
@@ -1121,7 +1204,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
   // Stage Mouse / Touch Events for Drawing
   const handleStageMouseDown = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-      if (readOnly || tool === "select" || tool === "pan" || tool === "delete") {
+      if (effectiveReadOnly || tool === "select" || tool === "pan" || tool === "delete") {
         if (tool === "select" && e.target === stageRef.current) {
           setSelectedAnnotationId(null);
         }
@@ -1149,7 +1232,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
         isDrawingRef.current = false;
       }
     },
-    [pageSize, readOnly, tool, zoom]
+    [effectiveReadOnly, pageSize, tool, zoom]
   );
 
   const handleStageMouseMove = useCallback(() => {
@@ -1525,44 +1608,43 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       }`}
     >
       {/* 1. Header Metadata & Revision Bar */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-4 py-2.5 backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-3 py-2.5 backdrop-blur-md sm:px-4">
+        <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30">
             <Compass className="h-5 w-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <span className="font-mono text-xs font-black text-blue-400">{doc.documentNumber}</span>
               <span className="rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-300 border border-slate-700">
                 {doc.discipline}
               </span>
-              <h2 className="text-sm font-black text-white truncate max-w-[280px] sm:max-w-md">{doc.title}</h2>
+              {contentState === "sample" && <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black text-amber-300">SAMPLE</span>}
+              <h2 className="min-w-0 max-w-[45vw] truncate text-sm font-black text-white sm:max-w-md">{doc.title}</h2>
             </div>
-            <p className="text-[11px] text-slate-400 flex items-center gap-2">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 break-all text-[11px] text-slate-400">
               <span>{currentRevision?.fileName || "Drawing"}</span>
               <span>•</span>
-              <span>{currentRevision?.scale || "Scale 1:100"}</span>
+              <span>{currentRevision?.scale || "Scale metadata not verified"}</span>
               <span>•</span>
-              <span>{currentRevision?.sheetSize || "A1"}</span>
+              <span>{currentRevision?.sheetSize || "Sheet size not verified"}</span>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap sm:gap-3">
           {/* Revision Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-800/80 rounded-xl px-2.5 py-1 border border-slate-700">
+          <div className="flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-2.5 py-1">
             <Layers className="h-3.5 w-3.5 text-slate-400" />
             <select
               value={selectedRevisionId}
-              onChange={(e) => {
-                setSelectedRevisionId(e.target.value);
-                onRevisionChange?.(e.target.value);
-              }}
-              className="bg-transparent text-xs font-bold text-slate-200 outline-none cursor-pointer pr-2"
+              onChange={(e) => { void handleRevisionSelect(e.target.value); }}
+              disabled={saveStatus === "saving"}
+              className="max-w-[12rem] bg-transparent pr-2 text-xs font-bold text-slate-200 outline-none cursor-pointer sm:max-w-none"
             >
               {sortedRevisions.map((rev) => (
                 <option key={rev.id} value={rev.id} className="bg-slate-900 text-slate-200">
-                  Rev {rev.revisionNumber} {rev.revisionLabel ? `(${rev.revisionLabel})` : ""}
+                  {formatRevisionNumber(rev.revisionNumber)} {rev.revisionLabel ? `(${rev.revisionLabel})` : ""}
                 </option>
               ))}
             </select>
@@ -1601,10 +1683,10 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
           </div>
 
           {/* Manual Save Button */}
-          {!readOnly && (
+          {!effectiveReadOnly && (
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => { void handleSave(); }}
               disabled={saveStatus === "saving"}
               className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
             >
@@ -1626,7 +1708,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
           {onClose && (
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => { void handleClose(); }}
               className="rounded-xl bg-slate-800 hover:bg-rose-900/60 p-2 text-slate-300 hover:text-rose-200 transition"
               title="Close viewer"
             >
@@ -1637,9 +1719,9 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       </header>
 
       {/* 2. Main Redline Tools & Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-900/60 px-4 py-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-900/60 px-3 py-2 sm:px-4">
         {/* Drawing Tools */}
-        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+        <div className="flex min-w-0 max-w-full flex-1 items-center gap-1 overflow-x-auto py-0.5">
           {[
             { id: "select", label: "Select / Move", icon: MousePointer },
             { id: "pan", label: "Pan Hand", icon: Hand },
@@ -1653,7 +1735,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
             <button
               key={id}
               type="button"
-              disabled={readOnly && id !== "select" && id !== "pan"}
+              disabled={effectiveReadOnly && id !== "select" && id !== "pan"}
               onClick={() => {
                 setTool(id as BlueprintTool);
                 setIsPanMode(id === "pan");
@@ -1674,7 +1756,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
           {/* Delete Selected Tool */}
           <button
             type="button"
-            disabled={!selectedAnnotationId || readOnly}
+            disabled={!selectedAnnotationId || effectiveReadOnly}
             onClick={handleDeleteSelected}
             className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-950/40 disabled:opacity-20 transition"
             title="Delete selected annotation (Del)"
@@ -1685,12 +1767,12 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
         </div>
 
         {/* Undo / Redo & Styling Palette */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
           {/* History Controls */}
           <div className="flex items-center gap-1 border-r border-slate-800 pr-2">
             <button
               type="button"
-              disabled={undoStack.length === 0 || readOnly}
+              disabled={undoStack.length === 0 || effectiveReadOnly}
               onClick={handleUndo}
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-25 transition"
               title="Undo (Ctrl+Z)"
@@ -1699,7 +1781,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
             </button>
             <button
               type="button"
-              disabled={redoStack.length === 0 || readOnly}
+              disabled={redoStack.length === 0 || effectiveReadOnly}
               onClick={handleRedo}
               className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:opacity-25 transition"
               title="Redo (Ctrl+Y)"
@@ -1714,7 +1796,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
               <button
                 key={c.value}
                 type="button"
-                disabled={readOnly}
+                disabled={effectiveReadOnly}
                 onClick={() => setActiveColor(c.value)}
                 className={`h-5 w-5 rounded-full transition ${c.bg} ${
                   activeColor === c.value
@@ -1732,7 +1814,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
               <button
                 key={sw}
                 type="button"
-                disabled={readOnly}
+                disabled={effectiveReadOnly}
                 onClick={() => setActiveStrokeWidth(sw)}
                 className={`flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold transition ${
                   activeStrokeWidth === sw
@@ -1788,6 +1870,21 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
             onMouseMove={handleStageMouseMove}
             onMouseUp={handleStageMouseUp}
           />
+          {contentState === "loading" && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/75 text-xs font-bold text-slate-200">
+              Loading private PDF source…
+            </div>
+          )}
+          {contentState === "error" && (
+            <div role="alert" className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/95 p-6 text-center">
+              <div className="max-w-lg">
+                <AlertCircle className="mx-auto h-8 w-8 text-rose-400" />
+                <p className="mt-3 text-sm font-black text-white">Original PDF unavailable</p>
+                <p className="mt-2 text-xs leading-5 text-slate-300">{contentError || "The private revision source could not be opened."}</p>
+                <button type="button" onClick={() => { void loadDocumentContent(); }} className="mt-4 rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">Retry source</button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Text Prompt Modal Input */}

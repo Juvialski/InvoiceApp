@@ -427,6 +427,12 @@ export function compareRevisionNumbers(a: string, b: string): number {
   return normA.localeCompare(normB, undefined, { numeric: true, sensitivity: "base" });
 }
 
+export function formatRevisionNumber(value: string): string {
+  const normalized = (value || "").trim();
+  if (!normalized) return "Rev";
+  return /^rev(?:ision)?\.?\s/i.test(normalized) ? normalized : `Rev ${normalized}`;
+}
+
 export function sortRevisions(revisions: EngineeringDocumentRevision[]): EngineeringDocumentRevision[] {
   return [...revisions].sort((a, b) => {
     const revCompare = compareRevisionNumbers(a.revisionNumber, b.revisionNumber);
@@ -471,6 +477,7 @@ export function createEngineeringDocument(
 
 export function createEngineeringDocumentRevision(
   input: {
+    id?: string;
     documentId: string;
     revisionNumber: string;
     fileName: string;
@@ -490,7 +497,7 @@ export function createEngineeringDocumentRevision(
 ): EngineeringDocumentRevision {
   const now = new Date().toISOString();
   return {
-    id: engineeringId("rev"),
+    id: input.id || engineeringId("rev"),
     companyId: input.companyId,
     documentId: input.documentId,
     revisionNumber: input.revisionNumber.trim(),
@@ -602,10 +609,11 @@ export function filterDocumentsByDiscipline(
 
 export function filterDocumentsByProject(
   documents: EngineeringDocument[],
-  projectId: string | null | undefined
+  projectId: string | null | undefined,
+  options: { includeUnassigned?: boolean } = {},
 ): EngineeringDocument[] {
-  if (!projectId) return documents;
-  return documents.filter((d) => d.projectId === projectId);
+  if (!projectId) return options.includeUnassigned ? documents.filter((d) => !d.projectId) : [];
+  return documents.filter((d) => d.projectId === projectId || (options.includeUnassigned === true && !d.projectId));
 }
 
 export function createInitialEngineeringDocumentsWorkspaceData(): EngineeringDocumentsWorkspaceData {

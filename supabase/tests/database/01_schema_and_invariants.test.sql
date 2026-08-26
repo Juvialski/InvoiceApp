@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(38);
 
 -- 1. Core tables exist across all domains
 select has_table('public', 'companies', 'public.companies exists');
@@ -17,6 +17,9 @@ select has_table('public', 'financial_balance_snapshots', 'public.financial_bala
 select has_table('public', 'financial_transactions', 'public.financial_transactions exists');
 select has_table('public', 'financial_import_batches', 'public.financial_import_batches exists');
 select has_table('public', 'financial_transaction_matches', 'public.financial_transaction_matches exists');
+select has_table('public', 'engineering_documents', 'public.engineering_documents exists');
+select has_table('public', 'engineering_document_revisions', 'public.engineering_document_revisions exists');
+select has_table('public', 'drawing_annotations', 'public.drawing_annotations exists');
 
 -- 2. Row Level Security active on sensitive tables
 select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''companies'' and c.relrowsecurity = true', 'companies RLS active');
@@ -26,11 +29,16 @@ select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.rel
 select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''financial_accounts'' and c.relrowsecurity = true', 'financial_accounts RLS active');
 select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''financial_transactions'' and c.relrowsecurity = true', 'financial_transactions RLS active');
 select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''financial_transaction_matches'' and c.relrowsecurity = true', 'financial_transaction_matches RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''engineering_documents'' and c.relrowsecurity = true', 'engineering_documents RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''engineering_document_revisions'' and c.relrowsecurity = true', 'engineering_document_revisions RLS active');
+select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''drawing_annotations'' and c.relrowsecurity = true', 'drawing_annotations RLS active');
 
 -- 3. Key domain RPC functions exist
 select has_function('public', 'commit_financial_import', 'public.commit_financial_import exists');
 select has_function('public', 'confirm_financial_transfer', 'public.confirm_financial_transfer exists');
 select has_function('public', 'platform_update_company', 'public.platform_update_company exists');
+select has_function('public', 'create_engineering_document_with_revision', 'public.create_engineering_document_with_revision exists');
+select has_function('private', 'validate_engineering_current_revision', 'private.validate_engineering_current_revision exists');
 select has_function('private', 'write_company_audit', 'private.write_company_audit exists');
 
 -- 4. Check constraints exist

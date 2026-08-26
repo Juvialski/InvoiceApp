@@ -4,6 +4,8 @@ import { readFileSync, readdirSync } from "node:fs";
 
 const migrationUrl = new URL("../supabase/migrations/20260826130000_engineering_documents_foundation.sql", import.meta.url);
 const sql = readFileSync(migrationUrl, "utf8");
+const hardeningUrl = new URL("../supabase/migrations/20260826140000_engineering_documents_hardening.sql", import.meta.url);
+const hardeningSql = readFileSync(hardeningUrl, "utf8");
 
 test("engineering documents migration defines additive tables, check constraints, and RLS", () => {
   for (const table of ["engineering_documents", "engineering_document_revisions", "drawing_annotations"]) {
@@ -51,10 +53,37 @@ test("storage bucket and company-scoped storage policies are created", () => {
   assert.match(sql, /insert into storage\.buckets \(id, name, public\)\s+values \('engineering-documents', 'engineering-documents', false\)/);
   assert.match(sql, /create policy "company engineering documents read" on storage\.objects/);
   assert.match(sql, /create policy "company engineering documents insert" on storage\.objects/);
-  assert.match(sql, /create policy "company engineering documents update" on storage\.objects/);
-  assert.match(sql, /create policy "company engineering documents delete" on storage\.objects/);
   assert.match(sql, /bucket_id = 'engineering-documents'/);
   assert.match(sql, /private\.storage_company_id\(name\) is not null/);
+});
+
+test("hardening enforces current-revision ownership and append-only source provenance", () => {
+  assert.match(hardeningSql, /create or replace function private\.validate_engineering_current_revision/);
+  assert.match(hardeningSql, /v_revision\.company_id is distinct from new\.company_id/);
+  assert.match(hardeningSql, /v_revision\.document_id is distinct from new\.id/);
+  assert.match(hardeningSql, /create trigger engineering_document_revisions_append_only[\s\S]*before update or delete/);
+  assert.match(hardeningSql, /create trigger engineering_document_revisions_source[\s\S]*before insert/);
+  assert.match(hardeningSql, /sha256:\[0-9a-f\]\{64\}/);
+  assert.match(hardeningSql, /companies\/%s\/documents\/%s\/revisions\/%s/);
+});
+
+test("hardening removes normal revision-source Storage mutation capability", () => {
+  assert.match(hardeningSql, /drop policy if exists "company engineering documents update" on storage\.objects/);
+  assert.match(hardeningSql, /drop policy if exists "company engineering documents delete" on storage\.objects/);
+  assert.doesNotMatch(hardeningSql, /create policy "company engineering documents update" on storage\.objects/);
+  assert.doesNotMatch(hardeningSql, /create policy "company engineering documents delete" on storage\.objects/);
+  assert.match(hardeningSql, /revoke update, delete on table public\.engineering_document_revisions from authenticated/);
+});
+
+test("hardening exposes authenticated atomic metadata RPCs only", () => {
+  assert.match(hardeningSql, /create or replace function public\.create_engineering_document_with_revision/);
+  assert.match(hardeningSql, /create or replace function public\.create_engineering_revision/);
+  assert.match(hardeningSql, /security definer\s+set search_path = ''/i);
+  assert.match(hardeningSql, /engineering\.documents\.create/);
+  assert.match(hardeningSql, /from storage\.objects o[\s\S]*o\.bucket_id = 'engineering-documents'[\s\S]*o\.name = p_file_path/);
+  assert.match(hardeningSql, /revoke execute on function public\.create_engineering_document_with_revision/);
+  assert.match(hardeningSql, /grant execute on function public\.create_engineering_document_with_revision[\s\S]*to authenticated/);
+  assert.match(hardeningSql, /grant execute on function public\.create_engineering_revision[\s\S]*to authenticated/);
 });
 
 test("realtime publication includes engineering documents tables", () => {

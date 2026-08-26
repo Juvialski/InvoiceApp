@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Compass,
   FileText,
@@ -39,27 +39,39 @@ import {
   compareRevisionNumbers,
   createEngineeringDocument,
   createEngineeringDocumentRevision,
+  engineeringId,
   filterDocumentsByDiscipline,
   filterDocumentsByProject,
+  formatRevisionNumber,
   sortRevisions,
 } from "../../lib/engineeringDocuments.ts";
 import {
   archiveEngineeringDocumentInSupabase,
+  compensateUnprovenancedEngineeringDocumentUpload,
+  createEngineeringDocumentWithRevisionInSupabase,
+  createEngineeringRevisionInSupabase,
+  getEngineeringDocumentStoragePath,
   loadEngineeringDocumentsWorkspaceFromSupabase,
+  prepareEngineeringPdf,
   readEngineeringDocumentsWorkspaceFromLocal,
-  saveEngineeringDocumentToSupabase,
-  saveEngineeringRevisionToSupabase,
+  saveDrawingAnnotationsBatchToSupabase,
   uploadEngineeringDocumentFile,
   writeEngineeringDocumentsWorkspaceToLocal,
 } from "../../lib/engineeringDocumentsPersistence.ts";
-import { BlueprintViewer } from "./BlueprintViewer";
 import type { Project } from "../../types";
+
+const BlueprintViewer = lazy(() => import("./BlueprintViewer").then((module) => ({ default: module.BlueprintViewer })));
 
 export interface ProjectDocumentsProps {
   project: Project;
   companyId?: string;
   initialDocumentId?: string;
   initialRevisionId?: string;
+  canRead?: boolean;
+  canCreate?: boolean;
+  canAnnotate?: boolean;
+  canManage?: boolean;
+  guestMode?: boolean;
   readOnly?: boolean;
 }
 
@@ -93,18 +105,33 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.trim() ? error.message : fallback;
+}
+
 export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   project,
   companyId,
   initialDocumentId,
   initialRevisionId,
+  canRead = true,
+  canCreate = true,
+  canAnnotate = true,
+  canManage = true,
+  guestMode = false,
   readOnly = false,
 }) => {
+  const effectiveCanCreate = canCreate && !readOnly;
+  const effectiveCanAnnotate = canAnnotate && !readOnly;
+  const effectiveCanManage = canManage && !readOnly;
+
   // Master Workspace Data
   const [documents, setDocuments] = useState<EngineeringDocument[]>([]);
   const [revisions, setRevisions] = useState<EngineeringDocumentRevision[]>([]);
   const [annotations, setAnnotations] = useState<DrawingAnnotation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   // Filters & Views
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
@@ -132,10 +159,11 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   const [newDocDescription, setNewDocDescription] = useState("");
   const [newDocInitialRev, setNewDocInitialRev] = useState("Rev 0");
   const [newDocRevLabel, setNewDocRevLabel] = useState("Initial Issue");
-  const [newDocScale, setNewDocScale] = useState("1:100");
-  const [newDocSheetSize, setNewDocSheetSize] = useState("A1");
+  const [newDocScale, setNewDocScale] = useState("");
+  const [newDocSheetSize, setNewDocSheetSize] = useState("");
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
   const [isSubmittingNewDoc, setIsSubmittingNewDoc] = useState(false);
+  const [newDocError, setNewDocError] = useState<string | null>(null);
 
   // Form State: New Revision
   const [revCode, setRevCode] = useState("");
@@ -143,14 +171,24 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   const [revChangeSummary, setRevChangeSummary] = useState("");
   const [revFile, setRevFile] = useState<File | null>(null);
   const [isSubmittingRev, setIsSubmittingRev] = useState(false);
+  const [revError, setRevError] = useState<string | null>(null);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const guestObjectUrlsRef = useRef(new Set<string>());
 
   // Initial Load
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
       setIsLoading(true);
+      setLoadError(null);
+      if (!canRead) {
+        if (isMounted) setIsLoading(false);
+        return;
+      }
       try {
-        const data = await loadEngineeringDocumentsWorkspaceFromSupabase(companyId);
+        const data = guestMode
+          ? readEngineeringDocumentsWorkspaceFromLocal()
+          : await loadEngineeringDocumentsWorkspaceFromSupabase(companyId);
         if (isMounted) {
           setDocuments(data.documents);
           setRevisions(data.revisions);
@@ -160,18 +198,20 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
           if (initialDocumentId) {
             const found = data.documents.find((d) => d.id === initialDocumentId);
             if (found) {
+              const requestedRevision = initialRevisionId && data.revisions.some((revision) => revision.id === initialRevisionId && revision.documentId === found.id)
+                ? initialRevisionId
+                : found.currentRevisionId;
               setActiveViewerDoc(found);
-              setActiveViewerRevId(initialRevisionId || found.currentRevisionId);
+              setActiveViewerRevId(requestedRevision);
             }
           }
         }
       } catch (err) {
-        console.warn("Failed to load documents from remote, using local cache:", err);
         if (isMounted) {
-          const local = readEngineeringDocumentsWorkspaceFromLocal();
-          setDocuments(local.documents);
-          setRevisions(local.revisions);
-          setAnnotations(local.annotations);
+          setLoadError(errorMessage(err, "Engineering documents could not be loaded. Retry the workspace request."));
+          setDocuments([]);
+          setRevisions([]);
+          setAnnotations([]);
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -181,11 +221,16 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [companyId, initialDocumentId, initialRevisionId]);
+  }, [canRead, companyId, guestMode, initialDocumentId, initialRevisionId, loadAttempt]);
+
+  useEffect(() => () => {
+    for (const url of guestObjectUrlsRef.current) URL.revokeObjectURL(url);
+    guestObjectUrlsRef.current.clear();
+  }, []);
 
   // Filtered Project Documents
   const projectDocs = useMemo(() => {
-    let result = documents.filter((d) => !d.projectId || d.projectId === project.id);
+    let result = filterDocumentsByProject(documents, project.id);
     if (!showArchived) {
       result = result.filter((d) => d.status !== "ARCHIVED");
     }
@@ -210,7 +255,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
   // Statistics KPI
   const stats = useMemo(() => {
-    const all = documents.filter((d) => !d.projectId || d.projectId === project.id);
+    const all = filterDocumentsByProject(documents, project.id);
     const drawings = all.filter((d) => d.documentType === "DRAWING");
     const specs = all.filter((d) => d.documentType === "SPECIFICATION" || d.documentType === "REPORT");
     const underReview = all.filter((d) => d.status === "UNDER_REVIEW");
@@ -238,19 +283,44 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     [annotations]
   );
 
+  const handleViewerSaveAnnotations = useCallback(async (nextAnnotations: DrawingAnnotation[]) => {
+    const revisionId = nextAnnotations[0]?.revisionId || activeViewerRevId || activeViewerDoc?.currentRevisionId;
+    if (!revisionId || !activeViewerDoc) throw new Error("The active engineering revision is no longer available. Reopen the document and retry.");
+
+    const persisted = guestMode
+      ? nextAnnotations
+      : await saveDrawingAnnotationsBatchToSupabase(nextAnnotations, companyId);
+    setAnnotations((current) => [
+      ...current.filter((annotation) => !(annotation.documentId === activeViewerDoc.id && annotation.revisionId === revisionId)),
+      ...persisted,
+    ]);
+    if (guestMode) {
+      const localData = readEngineeringDocumentsWorkspaceFromLocal();
+      writeEngineeringDocumentsWorkspaceToLocal({
+        ...localData,
+        annotations: [
+          ...localData.annotations.filter((annotation) => !(annotation.documentId === activeViewerDoc.id && annotation.revisionId === revisionId)),
+          ...persisted,
+        ],
+      });
+    }
+  }, [activeViewerDoc, activeViewerRevId, companyId, guestMode]);
+
   // Handle Create New Document
   const handleCreateDocument = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDocNumber.trim() || !newDocTitle.trim()) return;
+    setNewDocError(null);
+    if (!newDocNumber.trim() || !newDocTitle.trim()) {
+      setNewDocError("Document number and title are required.");
+      return;
+    }
+    if (!guestMode && !newDocFile) {
+      setNewDocError("Select the source PDF before creating an authenticated engineering document.");
+      return;
+    }
 
     setIsSubmittingNewDoc(true);
     try {
-      let filePath = `mock/${newDocNumber}_${newDocInitialRev}.pdf`;
-      let fileSizeBytes = newDocFile ? newDocFile.size : 1500000;
-      let fileType = newDocFile ? newDocFile.type : "application/pdf";
-      let fileFingerprint = `fp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
-      // Create Document
       const createdDoc = createEngineeringDocument({
         documentNumber: newDocNumber,
         title: newDocTitle,
@@ -260,13 +330,34 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
         projectId: project.id,
         companyId,
       });
+      const revisionId = engineeringId("rev");
+      let fileName = `${newDocNumber}_${newDocInitialRev}.pdf`;
+      let filePath = `sample/${createdDoc.id}/${revisionId}.pdf`;
+      let fileSizeBytes = 0;
+      let fileType = "application/pdf";
+      let fileFingerprint = "sample:unverified";
+      let preparedPdf: Awaited<ReturnType<typeof prepareEngineeringPdf>> | null = null;
 
-      // Create Initial Revision
+      if (newDocFile) {
+        preparedPdf = await prepareEngineeringPdf(newDocFile, { fileName: newDocFile.name, contentType: newDocFile.type });
+        fileName = preparedPdf.fileName;
+        fileSizeBytes = preparedPdf.fileSizeBytes;
+        fileType = preparedPdf.contentType;
+        fileFingerprint = preparedPdf.fileFingerprint;
+        if (guestMode) {
+          filePath = URL.createObjectURL(newDocFile);
+          guestObjectUrlsRef.current.add(filePath);
+        } else {
+          filePath = getEngineeringDocumentStoragePath(companyId || "", createdDoc.id, revisionId, preparedPdf.fileName);
+        }
+      }
+
       const createdRev = createEngineeringDocumentRevision({
+        id: revisionId,
         documentId: createdDoc.id,
         revisionNumber: newDocInitialRev,
         revisionLabel: newDocRevLabel,
-        fileName: newDocFile ? newDocFile.name : `${newDocNumber}_${newDocInitialRev}.pdf`,
+        fileName,
         filePath,
         fileSizeBytes,
         fileType,
@@ -280,35 +371,50 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       createdDoc.currentRevisionId = createdRev.id;
       createdDoc.currentRevisionNumber = createdRev.revisionNumber;
 
-      // Persist to Remote & Local
-      try {
-        await saveEngineeringDocumentToSupabase(createdDoc, companyId);
-        await saveEngineeringRevisionToSupabase(createdRev, companyId);
-      } catch (err) {
-        console.warn("Saving to Supabase failed, persisting locally:", err);
+      let persistedDoc = createdDoc;
+      let persistedRev = createdRev;
+      if (guestMode) {
+        // Guest mode is explicitly browser-only.  A selected file uses a
+        // session-scoped object URL; no remote save is implied.
+        const updatedDocs = [createdDoc, ...documents];
+        const updatedRevs = [createdRev, ...revisions];
+        setDocuments(updatedDocs);
+        setRevisions(updatedRevs);
+        const localData = readEngineeringDocumentsWorkspaceFromLocal();
+        writeEngineeringDocumentsWorkspaceToLocal({ ...localData, documents: updatedDocs, revisions: updatedRevs });
+      } else {
+        if (!preparedPdf) throw new Error("A validated PDF is required for an authenticated engineering document.");
+        const uploaded = await uploadEngineeringDocumentFile(preparedPdf.bytes, {
+          companyId: companyId || "",
+          documentId: createdDoc.id,
+          revisionId: createdRev.id,
+          fileName: preparedPdf.fileName,
+          contentType: preparedPdf.contentType,
+        });
+        try {
+          const committed = await createEngineeringDocumentWithRevisionInSupabase(createdDoc, { ...createdRev, filePath: uploaded.path }, companyId);
+          persistedDoc = committed.document;
+          persistedRev = committed.revision;
+        } catch (err) {
+          try {
+            await compensateUnprovenancedEngineeringDocumentUpload(uploaded.path, companyId);
+          } catch (cleanupError) {
+            throw new Error(`${errorMessage(err, "The engineering document metadata transaction failed.")} Storage cleanup also failed: ${errorMessage(cleanupError, "the uploaded object may require administrative cleanup")}`);
+          }
+          throw err;
+        }
+        setDocuments((current) => [persistedDoc, ...current]);
+        setRevisions((current) => [persistedRev, ...current]);
       }
 
-      const updatedDocs = [createdDoc, ...documents];
-      const updatedRevs = [createdRev, ...revisions];
-
-      setDocuments(updatedDocs);
-      setRevisions(updatedRevs);
-
-      const localData = readEngineeringDocumentsWorkspaceFromLocal();
-      writeEngineeringDocumentsWorkspaceToLocal({
-        ...localData,
-        documents: updatedDocs,
-        revisions: updatedRevs,
-      });
-
-      // Reset form and close modal
       setIsNewDocModalOpen(false);
       setNewDocNumber("");
       setNewDocTitle("");
       setNewDocDescription("");
       setNewDocFile(null);
+      setNewDocError(null);
     } catch (err) {
-      console.error("Error creating document:", err);
+      setNewDocError(errorMessage(err, "The engineering document was not created. Your form values remain available for retry."));
     } finally {
       setIsSubmittingNewDoc(false);
     }
@@ -317,21 +423,50 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   // Handle Upload New Revision
   const handleUploadRevision = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!modalTargetDoc || !revCode.trim()) return;
+    setRevError(null);
+    if (!modalTargetDoc || !revCode.trim()) {
+      setRevError("A revision code is required.");
+      return;
+    }
+    if (!guestMode && !revFile) {
+      setRevError("Select the source PDF before uploading an authenticated revision.");
+      return;
+    }
+    if (revisions.some((revision) => revision.documentId === modalTargetDoc.id && revision.revisionNumber.trim().toUpperCase() === revCode.trim().toUpperCase())) {
+      setRevError("That revision code already exists. Create a new revision instead of replacing the historical source.");
+      return;
+    }
 
     setIsSubmittingRev(true);
     try {
-      let filePath = `mock/${modalTargetDoc.documentNumber}_${revCode}.pdf`;
-      let fileSizeBytes = revFile ? revFile.size : 2000000;
-      let fileType = revFile ? revFile.type : "application/pdf";
-      let fileFingerprint = `fp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const revisionId = engineeringId("rev");
+      let fileName = `${modalTargetDoc.documentNumber}_${revCode}.pdf`;
+      let filePath = `sample/${modalTargetDoc.id}/${revisionId}.pdf`;
+      let fileSizeBytes = 0;
+      let fileType = "application/pdf";
+      let fileFingerprint = "sample:unverified";
+      let preparedPdf: Awaited<ReturnType<typeof prepareEngineeringPdf>> | null = null;
+      if (revFile) {
+        preparedPdf = await prepareEngineeringPdf(revFile, { fileName: revFile.name, contentType: revFile.type });
+        fileName = preparedPdf.fileName;
+        fileSizeBytes = preparedPdf.fileSizeBytes;
+        fileType = preparedPdf.contentType;
+        fileFingerprint = preparedPdf.fileFingerprint;
+        if (guestMode) {
+          filePath = URL.createObjectURL(revFile);
+          guestObjectUrlsRef.current.add(filePath);
+        } else {
+          filePath = getEngineeringDocumentStoragePath(companyId || "", modalTargetDoc.id, revisionId, preparedPdf.fileName);
+        }
+      }
 
       const createdRev = createEngineeringDocumentRevision({
+        id: revisionId,
         documentId: modalTargetDoc.id,
         revisionNumber: revCode,
         revisionLabel: revLabel,
         changeSummary: revChangeSummary,
-        fileName: revFile ? revFile.name : `${modalTargetDoc.documentNumber}_${revCode}.pdf`,
+        fileName,
         filePath,
         fileSizeBytes,
         fileType,
@@ -340,7 +475,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
         companyId,
       });
 
-      const updatedDoc: EngineeringDocument = {
+      const guestUpdatedDoc: EngineeringDocument = {
         ...modalTargetDoc,
         currentRevisionId: createdRev.id,
         currentRevisionNumber: createdRev.revisionNumber,
@@ -348,25 +483,35 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
         updatedAt: new Date().toISOString(),
       };
 
-      try {
-        await saveEngineeringRevisionToSupabase(createdRev, companyId);
-        await saveEngineeringDocumentToSupabase(updatedDoc, companyId);
-      } catch (err) {
-        console.warn("Saving revision to Supabase failed, storing locally:", err);
+      if (guestMode) {
+        const updatedRevs = [createdRev, ...revisions];
+        const updatedDocs = documents.map((d) => (d.id === modalTargetDoc.id ? guestUpdatedDoc : d));
+        setRevisions(updatedRevs);
+        setDocuments(updatedDocs);
+        const localData = readEngineeringDocumentsWorkspaceFromLocal();
+        writeEngineeringDocumentsWorkspaceToLocal({ ...localData, documents: updatedDocs, revisions: updatedRevs });
+      } else {
+        if (!preparedPdf) throw new Error("A validated PDF is required for an authenticated revision.");
+        const uploaded = await uploadEngineeringDocumentFile(preparedPdf.bytes, {
+          companyId: companyId || "",
+          documentId: modalTargetDoc.id,
+          revisionId: createdRev.id,
+          fileName: preparedPdf.fileName,
+          contentType: preparedPdf.contentType,
+        });
+        try {
+          const committed = await createEngineeringRevisionInSupabase(modalTargetDoc.id, { ...createdRev, filePath: uploaded.path }, companyId);
+          setRevisions((current) => [committed.revision, ...current]);
+          setDocuments((current) => current.map((doc) => doc.id === modalTargetDoc.id ? committed.document : doc));
+        } catch (err) {
+          try {
+            await compensateUnprovenancedEngineeringDocumentUpload(uploaded.path, companyId);
+          } catch (cleanupError) {
+            throw new Error(`${errorMessage(err, "The engineering revision metadata transaction failed.")} Storage cleanup also failed: ${errorMessage(cleanupError, "the uploaded object may require administrative cleanup")}`);
+          }
+          throw err;
+        }
       }
-
-      const updatedRevs = [createdRev, ...revisions];
-      const updatedDocs = documents.map((d) => (d.id === modalTargetDoc.id ? updatedDoc : d));
-
-      setRevisions(updatedRevs);
-      setDocuments(updatedDocs);
-
-      const localData = readEngineeringDocumentsWorkspaceFromLocal();
-      writeEngineeringDocumentsWorkspaceToLocal({
-        ...localData,
-        documents: updatedDocs,
-        revisions: updatedRevs,
-      });
 
       setIsUploadRevModalOpen(false);
       setRevCode("");
@@ -374,8 +519,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       setRevChangeSummary("");
       setRevFile(null);
       setModalTargetDoc(null);
+      setRevError(null);
     } catch (err) {
-      console.error("Error creating revision:", err);
+      setRevError(errorMessage(err, "The engineering revision was not saved. Your form values remain available for retry."));
     } finally {
       setIsSubmittingRev(false);
     }
@@ -383,29 +529,23 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
   // Handle Archive Document
   const handleArchive = async () => {
-    if (!modalTargetDoc) return;
+    if (!modalTargetDoc || !effectiveCanManage) return;
+    setArchiveError(null);
     try {
-      try {
-        await archiveEngineeringDocumentInSupabase(modalTargetDoc.id, companyId);
-      } catch (err) {
-        console.warn("Archiving in Supabase failed, archiving locally:", err);
+      if (guestMode) {
+        const updatedDocs = documents.map((d) => d.id === modalTargetDoc.id ? { ...d, status: "ARCHIVED" as DocumentStatus, archivedAt: new Date().toISOString() } : d);
+        setDocuments(updatedDocs);
+        const localData = readEngineeringDocumentsWorkspaceFromLocal();
+        writeEngineeringDocumentsWorkspaceToLocal({ ...localData, documents: updatedDocs });
+      } else {
+        const archived = await archiveEngineeringDocumentInSupabase(modalTargetDoc.id, companyId);
+        setDocuments((current) => current.map((doc) => doc.id === archived.id ? archived : doc));
       }
-
-      const updatedDocs = documents.map((d) =>
-        d.id === modalTargetDoc.id ? { ...d, status: "ARCHIVED" as DocumentStatus, archivedAt: new Date().toISOString() } : d
-      );
-
-      setDocuments(updatedDocs);
-      const localData = readEngineeringDocumentsWorkspaceFromLocal();
-      writeEngineeringDocumentsWorkspaceToLocal({
-        ...localData,
-        documents: updatedDocs,
-      });
 
       setIsArchiveModalOpen(false);
       setModalTargetDoc(null);
     } catch (err) {
-      console.error("Error archiving document:", err);
+      setArchiveError(errorMessage(err, "The document was not archived. Revision files remain unchanged; retry when the company service is available."));
     }
   };
 
@@ -459,8 +599,26 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     }
   };
 
+  if (!canRead) {
+    return (
+      <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-900">
+        <p className="font-black">Engineering documents are not available for this account.</p>
+        <p className="mt-1 text-xs leading-5">Your company role does not include engineering document read access.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {loadError && (
+        <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="font-black">Engineering documents could not be loaded.</p>
+            <p className="mt-1 break-words">{loadError}</p>
+          </div>
+          <button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)} className="shrink-0 rounded-lg border border-rose-300 bg-white px-3 py-2 text-[10px] font-black text-rose-800 hover:bg-rose-100">Retry load</button>
+        </div>
+      )}
       {/* 1. Header & KPI Metric Summary Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
@@ -554,7 +712,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
             </div>
 
             {/* New Document Action Button */}
-            {!readOnly && (
+            {effectiveCanCreate && (
               <button
                 type="button"
                 onClick={() => setIsNewDocModalOpen(true)}
@@ -601,7 +759,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               ? "No drawings match your search query."
               : "Upload architectural drawings, structural layouts, and engineering specifications."}
           </p>
-          {!readOnly && !searchQuery && (
+          {effectiveCanCreate && !searchQuery && (
             <button
               type="button"
               onClick={() => setIsNewDocModalOpen(true)}
@@ -617,7 +775,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
           {projectDocs.map((doc) => {
             const docRevs = getDocRevisions(doc.id);
             const currentRev = docRevs.find((r) => r.id === doc.currentRevisionId) || docRevs[docRevs.length - 1];
-            const docAnns = getDocAnnotations(doc.id, currentRev?.id);
+            const docAnns = getDocAnnotations(doc.id, currentRev?.id).filter((annotation) => annotation.status !== "DELETED");
 
             return (
               <div
@@ -637,10 +795,10 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
                   <div className="relative z-10 flex items-center justify-between text-[11px] text-slate-300">
                     <span className="rounded-md bg-slate-800/80 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-200 border border-slate-700">
-                      Rev {currentRev?.revisionNumber || doc.currentRevisionNumber}
+                      {formatRevisionNumber(currentRev?.revisionNumber || doc.currentRevisionNumber)}
                     </span>
                     <span className="font-mono text-[10px] text-slate-400">
-                      {currentRev?.scale || "1:100"} • {currentRev?.sheetSize || "A1"}
+                      {currentRev?.scale || "Scale metadata not verified"} • {currentRev?.sheetSize || "Sheet size not verified"}
                     </span>
                   </div>
                 </div>
@@ -695,9 +853,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     <History className="h-3.5 w-3.5 text-slate-500" />
                   </button>
 
-                  {!readOnly && (
-                    <>
-                      <button
+                  {effectiveCanCreate && <button
                         type="button"
                         onClick={() => {
                           setModalTargetDoc(doc);
@@ -707,9 +863,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                         title="Upload New Revision"
                       >
                         <Upload className="h-3.5 w-3.5 text-slate-500" />
-                      </button>
+                      </button>}
 
-                      <button
+                  {effectiveCanManage && <button
                         type="button"
                         onClick={() => {
                           setModalTargetDoc(doc);
@@ -719,9 +875,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                         title="Archive Document"
                       >
                         <Archive className="h-3.5 w-3.5 text-slate-400 hover:text-rose-600" />
-                      </button>
-                    </>
-                  )}
+                      </button>}
                 </div>
               </div>
             );
@@ -755,7 +909,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     <td className="px-4 py-3">{getDisciplineBadge(doc.discipline)}</td>
                     <td className="px-4 py-3 text-slate-500 uppercase text-[10px] font-bold">{doc.documentType}</td>
                     <td className="px-4 py-3 font-mono font-bold">
-                      Rev {currentRev?.revisionNumber || doc.currentRevisionNumber}
+                      {formatRevisionNumber(currentRev?.revisionNumber || doc.currentRevisionNumber)}
                     </td>
                     <td className="px-4 py-3">{getStatusBadge(doc.status)}</td>
                     <td className="px-4 py-3 text-slate-400">
@@ -780,9 +934,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                       >
                         <History className="h-3.5 w-3.5" />
                       </button>
-                      {!readOnly && (
-                        <>
-                          <button
+                      {effectiveCanCreate && <button
                             type="button"
                             onClick={() => {
                               setModalTargetDoc(doc);
@@ -792,8 +944,8 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                             title="Upload New Revision"
                           >
                             <Upload className="h-3.5 w-3.5" />
-                          </button>
-                          <button
+                          </button>}
+                      {effectiveCanManage && <button
                             type="button"
                             onClick={() => {
                               setModalTargetDoc(doc);
@@ -803,9 +955,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                             title="Archive"
                           >
                             <Archive className="h-3.5 w-3.5" />
-                          </button>
-                        </>
-                      )}
+                          </button>}
                     </td>
                   </tr>
                 );
@@ -910,7 +1060,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     type="text"
                     value={newDocScale}
                     onChange={(e) => setNewDocScale(e.target.value)}
-                    placeholder="1:100"
+                    placeholder="Optional source metadata; not calibrated"
                     className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -921,7 +1071,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     type="text"
                     value={newDocSheetSize}
                     onChange={(e) => setNewDocSheetSize(e.target.value)}
-                    placeholder="A1 or 24x36"
+                    placeholder="Optional source sheet size"
                     className="mt-1 w-full rounded-xl border border-slate-200 p-2.5 text-xs text-slate-800 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -939,19 +1089,22 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-extrabold text-slate-700">PDF Drawing File (Optional)</label>
+                <label className="block text-[11px] font-extrabold text-slate-700">PDF Drawing File {guestMode ? "(Optional guest sample)" : "*"}</label>
                 <div className="mt-1 flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 p-4 text-center hover:border-blue-400 transition">
                   <input
                     type="file"
+                    required={!guestMode}
                     accept=".pdf,application/pdf"
                     onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
                     className="text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-bold file:text-blue-700"
                   />
                 </div>
                 <p className="mt-1 text-[10px] text-slate-400">
-                  If no PDF is uploaded, an interactive CAD blueprint template will be generated.
+                  {guestMode ? "Guest mode may use an explicitly labeled sample drawing when no source is selected." : "The original PDF is uploaded to private Storage before the revision metadata is committed."}
                 </p>
               </div>
+
+              {newDocError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{newDocError}</div>}
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
@@ -1028,16 +1181,19 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-extrabold text-slate-700">Replacement PDF File</label>
+                <label className="block text-[11px] font-extrabold text-slate-700">Revision PDF {guestMode ? "(Optional guest sample)" : "*"}</label>
                 <div className="mt-1 flex items-center justify-center rounded-xl border-2 border-dashed border-slate-200 p-4 text-center">
                   <input
                     type="file"
+                    required={!guestMode}
                     accept=".pdf,application/pdf"
                     onChange={(e) => setRevFile(e.target.files?.[0] || null)}
                     className="text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-xs file:font-bold file:text-blue-700"
                   />
                 </div>
               </div>
+
+              {revError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{revError}</div>}
 
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
@@ -1089,7 +1245,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="rounded-md bg-blue-100 px-2 py-0.5 font-mono text-xs font-black text-blue-700">
-                        Rev {rev.revisionNumber}
+                        {formatRevisionNumber(rev.revisionNumber)}
                       </span>
                       {rev.revisionLabel && (
                         <span className="text-xs font-bold text-slate-800">{rev.revisionLabel}</span>
@@ -1104,7 +1260,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     )}
 
                     <p className="text-[10px] text-slate-400">
-                      {rev.fileName} • {formatBytes(rev.fileSizeBytes)} • {rev.scale || "1:100"} ({rev.sheetSize || "A1"})
+                      {rev.fileName} • {formatBytes(rev.fileSizeBytes)} • {rev.scale || "Scale metadata not verified"} ({rev.sheetSize || "Sheet size not verified"})
                     </p>
                   </div>
 
@@ -1145,11 +1301,13 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               <h3 className="text-base font-black text-slate-900">Archive Engineering Document</h3>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 leading-relaxed">
               Are you sure you want to archive{" "}
               <strong className="font-bold text-slate-900">{modalTargetDoc.documentNumber}: {modalTargetDoc.title}</strong>?
               Archived documents can still be viewed in historical records but will no longer appear in the active drawing set.
-            </p>
+              </p>
+
+              {archiveError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{archiveError}</div>}
 
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
               <button
@@ -1175,16 +1333,21 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       {activeViewerDoc && (
         <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 p-3 sm:p-6 backdrop-blur-md">
           <div className="relative flex-1 rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
-            <BlueprintViewer
-              document={activeViewerDoc}
-              revisions={getDocRevisions(activeViewerDoc.id)}
-              currentRevisionId={activeViewerRevId}
-              initialAnnotations={getDocAnnotations(activeViewerDoc.id, activeViewerRevId)}
-              companyId={companyId}
-              readOnly={readOnly}
-              onClose={() => setActiveViewerDoc(null)}
-              onRevisionChange={(newRevId) => setActiveViewerRevId(newRevId)}
-            />
+            <Suspense fallback={<div className="flex h-full items-center justify-center bg-slate-950 text-xs font-bold text-slate-300">Loading the PDF viewer…</div>}>
+              <BlueprintViewer
+                document={activeViewerDoc}
+                revisions={getDocRevisions(activeViewerDoc.id)}
+                currentRevisionId={activeViewerRevId}
+                initialAnnotations={getDocAnnotations(activeViewerDoc.id, activeViewerRevId)}
+                companyId={companyId}
+                canAnnotate={effectiveCanAnnotate}
+                guestMode={guestMode}
+                onClose={() => setActiveViewerDoc(null)}
+                onRevisionChange={(newRevId) => setActiveViewerRevId(newRevId)}
+                allAnnotations={getDocAnnotations(activeViewerDoc.id)}
+                onSaveAnnotations={handleViewerSaveAnnotations}
+              />
+            </Suspense>
           </div>
         </div>
       )}

@@ -35,6 +35,11 @@ interface ProjectWorkspaceProps {
   initialDocumentId?: string;
   initialRevisionId?: string;
   companyId?: string;
+  engineeringDocumentsCanRead?: boolean;
+  engineeringDocumentsCanCreate?: boolean;
+  engineeringDocumentsCanAnnotate?: boolean;
+  engineeringDocumentsCanManage?: boolean;
+  engineeringDocumentsGuestMode?: boolean;
   onTabChange?: (tab: WorkspaceTab) => void;
   onBack: () => void;
   onOpenInvoice: (invoice: InvoiceData) => void;
@@ -69,6 +74,11 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   initialDocumentId,
   initialRevisionId,
   companyId,
+  engineeringDocumentsCanRead = true,
+  engineeringDocumentsCanCreate = true,
+  engineeringDocumentsCanAnnotate = true,
+  engineeringDocumentsCanManage = true,
+  engineeringDocumentsGuestMode = false,
   onTabChange,
   onBack,
   onOpenInvoice,
@@ -154,6 +164,11 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           companyId={companyId}
           initialDocumentId={initialDocumentId}
           initialRevisionId={initialRevisionId}
+          canRead={engineeringDocumentsCanRead}
+          canCreate={engineeringDocumentsCanCreate}
+          canAnnotate={engineeringDocumentsCanAnnotate}
+          canManage={engineeringDocumentsCanManage}
+          guestMode={engineeringDocumentsGuestMode}
         />
       )}
 
