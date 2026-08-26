@@ -209,7 +209,7 @@ export const EngineeringCostOperationsDashboard: React.FC<EngineeringCostOperati
     <PageHeader
       eyebrow="Operations overview"
       title="Executive Dashboard"
-      description={`Company cost position, supplier obligations, labor, and direct expenses. Activity is scoped to ${data.activityLabel.toLowerCase()}; lifetime project position remains separate.`}
+      description={`Company cost position, supplier obligations, labor, and direct expenses. Activity is scoped to ${data.activityLabel}; lifetime project position remains separate.`}
       actions={<>
         <button type="button" onClick={() => onNavigate("extractor")} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-bold text-white shadow-sm hover:bg-indigo-700"><Receipt className="h-3.5 w-3.5" /> Upload invoice</button>
         <button type="button" onClick={() => onNavigate("review")} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-900 hover:bg-amber-100"><AlertTriangle className="h-3.5 w-3.5" /> Review queue{data.invoiceOperations.needsReviewCount ? ` (${data.invoiceOperations.needsReviewCount})` : ""}</button>
