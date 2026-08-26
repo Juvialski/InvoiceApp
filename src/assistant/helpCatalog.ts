@@ -1,6 +1,7 @@
 import { appPathForTab } from "../utils/appRouting.ts";
 import type { RouteId } from "../utils/routes.ts";
 import type { AssistantReference } from "./assistantTypes.ts";
+import { BRAND } from "../config/brand.ts";
 
 export type HelpEntryId =
   | "invoice-extraction"
@@ -16,12 +17,12 @@ export type HelpEntryId =
   | "settings";
 
 export interface HelpCatalogEntry {
-  id: HelpEntryId;
-  title: string;
-  summary: string;
-  details: string;
-  routeId: RouteId;
-  keywords: readonly string[];
+  readonly id: HelpEntryId;
+  readonly title: string;
+  readonly summary: string;
+  readonly details: string;
+  readonly routeId: RouteId;
+  readonly keywords: readonly string[];
 }
 
 export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
@@ -29,7 +30,7 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     id: "invoice-extraction",
     title: "Invoice extraction",
     summary: "Upload PDF or supported image invoices and review the extracted fields.",
-    details: "InvoiceApp extracts invoice details, keeps the source context, and sends uncertain results to review before they become trusted records.",
+    details: `${BRAND.productName} extracts invoice details, keeps the source context, and sends uncertain results to review before they become trusted records.`,
     routeId: "extract",
     keywords: ["invoice", "extract", "upload", "pdf", "image", "ocr", "capture"],
   },
@@ -100,7 +101,7 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
   {
     id: "gmail-import",
     title: "Gmail read-only import",
-    summary: "Scan Gmail read-only messages and choose invoice sources to bring into InvoiceApp.",
+    summary: `Scan Gmail read-only messages and choose invoice sources to bring into ${BRAND.productName}.`,
     details: "Gmail intake is read-only. It helps find messages and attachments for invoice processing; it does not send or modify Gmail messages.",
     routeId: "inbox",
     keywords: ["gmail", "email", "inbox", "read-only", "readonly", "import", "message"],
@@ -159,7 +160,7 @@ export function helpEntryPath(entry: HelpCatalogEntry) {
 
 export function unknownHelpResponse(query: string) {
   const label = query.trim() ? ` for “${query.trim().slice(0, 80)}”` : "";
-  return `I don’t have a verified InvoiceApp help answer${label} yet. I can help with Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
+  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
 }
 
 export type HelpResponse =

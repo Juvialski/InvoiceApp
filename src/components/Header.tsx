@@ -36,6 +36,7 @@ import type { PermissionKey } from "../utils/accessControl.ts";
 import type { WorkspaceSyncStatus } from "../lib/workspaceSync";
 import { CompanySwitcher } from "./access/AccessStates";
 import type { CompanySummary } from "../lib/companyAccess";
+import { BRAND } from "../config/brand.ts";
 
 export type { AppTab } from "../utils/routes";
 
@@ -276,7 +277,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
           <div className="flex min-w-0 items-center gap-3">
             <div aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white shadow-lg shadow-indigo-950/30"><Files className="h-4 w-4" /></div>
-            <div className="min-w-0"><p className="truncate text-sm font-black tracking-tight text-white">Invoice Operations</p><p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">Cost control workspace</p></div>
+            <div className="min-w-0"><p className="truncate text-sm font-black tracking-tight text-white">{BRAND.productName}</p><p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">{BRAND.tagline}</p></div>
           </div>
           <button type="button" onClick={() => setMobileOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Close navigation"><X className="h-4 w-4" /></button>
         </div>
@@ -312,7 +313,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
           <button type="button" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen}><Menu className="h-4 w-4" /></button>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-600 sm:text-base">
-              <span className="hidden sm:inline"><span className="font-bold text-slate-900">Invoice Operations</span><span className="mx-1.5 text-slate-300">/</span></span>
+              <span className="hidden sm:inline"><span className="font-bold text-slate-900">{BRAND.productName}</span><span className="mx-1.5 text-slate-300">/</span></span>
               <span className="font-bold text-slate-900 sm:font-normal">{routeContext}</span>
             </p>
           </div>

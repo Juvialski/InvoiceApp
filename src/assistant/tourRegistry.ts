@@ -1,4 +1,5 @@
 import { getRouteDefinition, type RouteId } from "../utils/routes.ts";
+import { BRAND } from "../config/brand.ts";
 
 export const ASSISTANT_TOUR_IDS = [
   "invoiceapp-overview",
@@ -63,13 +64,13 @@ const routeStep = (id: string, title: string, body: string, routeId: RouteId): A
 export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = Object.freeze({
   "invoiceapp-overview": {
     id: "invoiceapp-overview",
-    title: "InvoiceApp overview",
+    title: `${BRAND.productName} overview`,
     summary: "See how invoices, projects, payroll, Gmail intake, and reports fit together.",
     steps: [
       routeStep("overview-dashboard", "Start at the dashboard", "Use the dashboard for the current cost and operations picture.", "dashboard"),
       routeStep("overview-invoices", "Work with invoices", "Extract new invoices, review AI results, and keep verified invoice records together.", "invoices"),
       routeStep("overview-reports", "Finish with reports", "Reports bring invoice, project, expense, and payroll information together for review.", "reports"),
-      assistantStep("overview-assistant", "Ask for help", "Open InvoiceApp Assistant whenever you need a verified feature explanation or a safe navigation shortcut.", "assistant-panel"),
+      assistantStep("overview-assistant", "Ask for help", `Open ${BRAND.assistantName} whenever you need a verified feature explanation or a safe navigation shortcut.`, "assistant-panel"),
     ],
   },
   "cash-banking": {
@@ -148,10 +149,10 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
   },
   "assistant-basics": {
     id: "assistant-basics",
-    title: "Use InvoiceApp Assistant",
+    title: `Use ${BRAND.assistantName}`,
     summary: "Ask questions, attach bounded source files, and confirm actions deliberately.",
     steps: [
-      assistantStep("assistant-panel", "Open the assistant", "This drawer is your workspace for verified InvoiceApp help and safe navigation.", "assistant-panel"),
+      assistantStep("assistant-panel", "Open the assistant", `This drawer is your workspace for verified ${BRAND.productName} help and safe navigation.`, "assistant-panel"),
       assistantStep("assistant-composer", "Ask a focused question", "Describe the invoice, project, expense, attendance, payroll, report, Gmail, or settings task you need.", "assistant-composer"),
       assistantStep("assistant-attach", "Attach source context", "Attach only supported PDF, image, spreadsheet, CSV, or text files within the size limits.", "assistant-attach"),
       assistantStep("assistant-send", "Review before acting", "The assistant can show references and prepared actions; financial changes always remain confirmation-gated.", "assistant-send"),

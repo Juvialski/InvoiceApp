@@ -19,7 +19,7 @@ test("unknown help questions stay honest instead of inventing a feature", () => 
   const response = getHelpResponse("custom CRM sync");
   assert.equal(response.kind, "unknown");
   if (response.kind === "unknown") {
-    assert.match(response.message, /don’t have a verified InvoiceApp help answer/i);
+    assert.match(response.message, /don’t have a verified (Engoryx|InvoiceApp) help answer/i);
     assert.doesNotMatch(response.message, /CRM sync is available/i);
   }
   assert.match(unknownHelpResponse("something else"), /settings/i);

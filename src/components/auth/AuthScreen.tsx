@@ -20,6 +20,7 @@ import {
   signUpWithEmail,
   updatePassword,
 } from "../../lib/supabase";
+import { BRAND } from "../../config/brand";
 
 export type AuthMode = "sign-in" | "sign-up" | "forgot-password" | "reset-password";
 export type SignupState = "confirmation-required" | "immediate-session";
@@ -254,7 +255,7 @@ export function AuthScreen({
         ? "Reset your password"
         : "Choose a new password";
   const subtitle = mode === "sign-in"
-    ? "Sign in to continue to your invoice workspace."
+    ? `Sign in to continue to your ${BRAND.productName} workspace.`
     : mode === "sign-up"
       ? invitationRequired
         ? "Use the invited work email for your company account. An account alone does not grant company access."
@@ -272,7 +273,7 @@ export function AuthScreen({
               <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
                 <LockKeyhole className="h-5 w-5" />
               </div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">Invoice Operations</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">{BRAND.displayUppercase}</p>
               <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{title}</h1>
               <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">{subtitle}</p>
             </div>

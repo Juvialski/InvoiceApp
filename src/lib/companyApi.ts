@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { BRAND } from "../config/brand";
 
 export interface CompanyApiRequestOptions extends RequestInit {
   companyId: string;
@@ -13,10 +14,10 @@ export interface CompanyApiRequestOptions extends RequestInit {
  * carried in its own header and is never used as the InvoiceApp bearer token.
  */
 export async function companyApiRequest(path: string, options: CompanyApiRequestOptions) {
-  if (!supabase) throw new Error("Sign in to Invoice Operations before using this service.");
+  if (!supabase) throw new Error(`Sign in to ${BRAND.productName} before using this service.`);
   const { data, error } = await supabase.auth.getSession();
   if (error || !data.session?.access_token) {
-    throw new Error("Your InvoiceApp session has expired. Sign in again.");
+    throw new Error(`Your ${BRAND.productName} session has expired. Sign in again.`);
   }
   if (!options.companyId) throw new Error("Select a company before continuing.");
 
