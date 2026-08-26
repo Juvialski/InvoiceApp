@@ -2,6 +2,7 @@ import { getRouteDefinition, type RouteId } from "../utils/routes.ts";
 
 export const ASSISTANT_TOUR_IDS = [
   "invoiceapp-overview",
+  "cash-banking",
   "first-invoice",
   "gmail-import",
   "projects-costing",
@@ -27,6 +28,7 @@ export type AssistantDataTourTarget = (typeof ASSISTANT_DATA_TOUR_TARGETS)[numbe
 
 export const ROUTE_TOUR_TARGETS = [
   "route:dashboard",
+  "route:cash",
   "route:projects",
   "route:extract",
   "route:invoices",
@@ -67,7 +69,16 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
       routeStep("overview-dashboard", "Start at the dashboard", "Use the dashboard for the current cost and operations picture.", "dashboard"),
       routeStep("overview-invoices", "Work with invoices", "Extract new invoices, review AI results, and keep verified invoice records together.", "invoices"),
       routeStep("overview-reports", "Finish with reports", "Reports bring invoice, project, expense, and payroll information together for review.", "reports"),
-      assistantStep("overview-assistant", "Ask for help", "Open Invoice Operations AI whenever you need a verified feature explanation or a safe navigation shortcut.", "assistant-panel"),
+      assistantStep("overview-assistant", "Ask for help", "Open InvoiceApp Assistant whenever you need a verified feature explanation or a safe navigation shortcut.", "assistant-panel"),
+    ],
+  },
+  "cash-banking": {
+    id: "cash-banking",
+    title: "Explore Cash & Banking",
+    summary: "Understand financial accounts, balances, transactions, and reconciliation.",
+    steps: [
+      routeStep("cash-overview", "Open Cash & Banking", "Cash & Banking is the central place to monitor bank accounts, e-wallets, and petty cash.", "cash"),
+      routeStep("cash-reconciliation", "Reconciliation and freshness", "Review balances, import bank statements, and match transactions with confidence.", "cash"),
     ],
   },
   "first-invoice": {
@@ -137,7 +148,7 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
   },
   "assistant-basics": {
     id: "assistant-basics",
-    title: "Use Invoice Operations AI",
+    title: "Use InvoiceApp Assistant",
     summary: "Ask questions, attach bounded source files, and confirm actions deliberately.",
     steps: [
       assistantStep("assistant-panel", "Open the assistant", "This drawer is your workspace for verified InvoiceApp help and safe navigation.", "assistant-panel"),

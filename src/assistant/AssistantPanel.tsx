@@ -36,15 +36,15 @@ export const AssistantPanel: React.FC = () => {
   const tourStep = tour?.steps[activeTourStepIndex];
 
   if (!isOpen) {
-    return <button type="button" data-tour="assistant-launcher" onClick={open} aria-label="Open Invoice Operations AI" title="Open Invoice Operations AI" className="fixed bottom-4 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-xl shadow-indigo-300 transition hover:-translate-y-0.5 hover:bg-indigo-700 sm:bottom-6 sm:right-6"><Sparkles aria-hidden="true" className="h-5 w-5" /></button>;
+    return <button type="button" data-tour="assistant-launcher" onClick={open} aria-label="Open InvoiceApp Assistant" title="Open InvoiceApp Assistant" className="fixed bottom-4 right-4 z-40 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-xl shadow-indigo-300 transition hover:-translate-y-0.5 hover:bg-indigo-700 sm:bottom-6 sm:right-6"><Sparkles aria-hidden="true" className="h-5 w-5" /></button>;
   }
 
   return (
     <>
-      <button type="button" aria-label="Close Invoice Operations AI" onClick={close} className="fixed inset-0 z-40 bg-slate-950/25 sm:bg-transparent" />
-      <aside data-tour="assistant-panel" role="dialog" aria-modal="true" aria-label="Invoice Operations AI" className="fixed inset-y-0 right-0 z-50 flex h-dvh w-full flex-col border-l border-slate-200 bg-slate-50 shadow-2xl sm:w-[min(100vw,30rem)]">
+      <button type="button" aria-label="Close InvoiceApp Assistant" onClick={close} className="fixed inset-0 z-40 bg-slate-950/25 sm:bg-transparent" />
+      <aside data-tour="assistant-panel" role="dialog" aria-modal="true" aria-label="InvoiceApp Assistant" className="fixed inset-y-0 right-0 z-50 flex h-dvh w-full flex-col border-l border-slate-200 bg-slate-50 shadow-2xl sm:w-[min(100vw,30rem)]">
         <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3.5 sm:px-5">
-          <div className="flex min-w-0 items-center gap-2.5"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><Bot aria-hidden="true" className="h-5 w-5" /></div><div className="min-w-0"><p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Invoice Operations</p><h2 className="truncate text-sm font-black text-slate-950">AI workspace</h2></div></div>
+          <div className="flex min-w-0 items-center gap-2.5"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"><Bot aria-hidden="true" className="h-5 w-5" /></div><div className="min-w-0"><p className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">InvoiceApp</p><h2 className="truncate text-sm font-black text-slate-950">AI Assistant</h2></div></div>
           <button type="button" onClick={close} aria-label="Close assistant" className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"><X aria-hidden="true" className="h-4 w-4" /></button>
         </header>
 

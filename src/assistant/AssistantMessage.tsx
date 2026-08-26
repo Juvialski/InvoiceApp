@@ -16,7 +16,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({ message, bus
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   return (
-    <article className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`} aria-label={isUser ? "You" : "Invoice Operations AI"}>
+    <article className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`} aria-label={isUser ? "You" : "InvoiceApp Assistant"}>
       <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${isUser ? "bg-slate-200 text-slate-600" : isSystem ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
         {isUser ? <UserRound aria-hidden="true" className="h-3.5 w-3.5" /> : isSystem ? <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5" /> : <Bot aria-hidden="true" className="h-3.5 w-3.5" />}
       </div>

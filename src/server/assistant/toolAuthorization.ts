@@ -29,6 +29,7 @@ export async function requireCompanyPermissions(context: ToolAuthorizationContex
 
 const ROUTE_PERMISSIONS: Record<string, string> = {
   dashboard: "dashboard.read",
+  cash: "cash.summary.read",
   projects: "projects.read",
   extract: "invoices.read",
   invoices: "invoices.read",

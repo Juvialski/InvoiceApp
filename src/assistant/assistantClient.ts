@@ -98,10 +98,10 @@ function sanitizePreparedAction(value: unknown): AssistantPreparedAction | null 
 
 export function parseAssistantResponse(value: unknown, fallbackContextGeneration = 0): AssistantResponse {
   const envelope = isRecord(value) && value.success === true && isRecord(value.data) ? value.data : value;
-  if (!isRecord(envelope)) throw new Error("Invoice Operations AI returned an invalid response.");
+  if (!isRecord(envelope)) throw new Error("InvoiceApp Assistant returned an invalid response.");
   const threadId = safeToken(envelope.threadId);
   const message = boundedString(envelope.message, MAX_MESSAGE_LENGTH);
-  if (!threadId || !message) throw new Error("Invoice Operations AI returned an incomplete response.");
+  if (!threadId || !message) throw new Error("InvoiceApp Assistant returned an incomplete response.");
   const contextGeneration = Number(envelope.contextGeneration);
   const references = Array.isArray(envelope.references) ? envelope.references.map(sanitizeReference).filter((item): item is AssistantReference => Boolean(item)) : [];
   const clientActions = Array.isArray(envelope.clientActions) ? envelope.clientActions.map(sanitizeAssistantClientAction).filter((item): item is NonNullable<ReturnType<typeof sanitizeAssistantClientAction>> => Boolean(item)) : [];
@@ -153,7 +153,7 @@ async function responsePayload(response: Response): Promise<unknown> {
 
 function errorFromPayload(payload: unknown, status?: number) {
   if (isRecord(payload) && payload.success === false) {
-    const message = boundedString(payload.error, 500) || "Invoice Operations AI could not complete that request.";
+    const message = boundedString(payload.error, 500) || "InvoiceApp Assistant could not complete that request.";
     return new AssistantClientError(message, {
       status,
       code: boundedString(payload.code, 80) || undefined,
@@ -161,7 +161,7 @@ function errorFromPayload(payload: unknown, status?: number) {
       contextGeneration: Number.isSafeInteger(payload.contextGeneration) ? Number(payload.contextGeneration) : undefined,
     });
   }
-  return new AssistantClientError(status ? `Invoice Operations AI request failed (${status}).` : "Invoice Operations AI request failed.", { status });
+  return new AssistantClientError(status ? `InvoiceApp Assistant request failed (${status}).` : "InvoiceApp Assistant request failed.", { status });
 }
 
 async function postAssistant(path: string, companyId: string, body: AssistantRequest | AssistantConfirmRequest, signal?: AbortSignal) {
@@ -213,7 +213,7 @@ export interface SendAssistantMessageOptions {
 
 export async function sendAssistantMessage(options: SendAssistantMessageOptions): Promise<AssistantResponse> {
   const companyId = (options.companyId || "").trim();
-  if (!companyId) throw new AssistantClientError("Sign in and select a company before using Invoice Operations AI.", { code: "COMPANY_REQUIRED" });
+  if (!companyId) throw new AssistantClientError("Sign in and select a company before using InvoiceApp Assistant.", { code: "COMPANY_REQUIRED" });
   const message = options.message.trim().slice(0, MAX_MESSAGE_LENGTH);
   if (!message) throw new AssistantClientError("Ask a question or attach a file before sending.", { code: "MESSAGE_REQUIRED" });
   const context = compactAssistantContext({ ...options.context, companyId });

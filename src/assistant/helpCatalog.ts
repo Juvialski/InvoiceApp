@@ -5,6 +5,7 @@ import type { AssistantReference } from "./assistantTypes.ts";
 export type HelpEntryId =
   | "invoice-extraction"
   | "invoice-review"
+  | "cash-banking"
   | "project-costing"
   | "expenses"
   | "attendance-overtime"
@@ -39,6 +40,14 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     details: "Use the Review Queue to inspect AI results, compare source values, correct fields, and mark invoices verified when they are ready.",
     routeId: "review",
     keywords: ["invoice", "review", "verify", "queue", "source", "confidence"],
+  },
+  {
+    id: "cash-banking",
+    title: "Cash & Banking",
+    summary: "Monitor bank accounts, e-wallets, statement imports, transactions, and reconciliation.",
+    details: "Cash & Banking tracks financial accounts (such as BDO, BPI, GCash, or petty cash), statement imports, transaction ledgers, balance freshness, and reconciliation against invoices, payroll, and expenses.",
+    routeId: "cash",
+    keywords: ["cash", "bank", "banking", "account", "balance", "statement", "import", "reconcile", "reconciliation", "gcash", "transfer", "ledger", "freshness"],
   },
   {
     id: "project-costing",
@@ -150,7 +159,7 @@ export function helpEntryPath(entry: HelpCatalogEntry) {
 
 export function unknownHelpResponse(query: string) {
   const label = query.trim() ? ` for “${query.trim().slice(0, 80)}”` : "";
-  return `I don’t have a verified InvoiceApp help answer${label} yet. I can help with invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
+  return `I don’t have a verified InvoiceApp help answer${label} yet. I can help with Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
 }
 
 export type HelpResponse =

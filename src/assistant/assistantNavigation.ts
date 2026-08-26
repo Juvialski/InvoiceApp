@@ -4,6 +4,7 @@ import type { AssistantClientAction } from "./assistantTypes.ts";
 
 export const ASSISTANT_NAVIGATION_ROUTE_IDS = [
   "dashboard",
+  "cash",
   "projects",
   "extract",
   "invoices",

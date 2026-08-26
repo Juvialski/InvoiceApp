@@ -17,7 +17,10 @@ const LEAVE_SELECT = "id,worker_id,leave_type,start_date,end_date,partial_day,pa
 const OVERTIME_SELECT = "id,worker_id,period_id,overtime_date,project_id,labor_context,requested_minutes,approved_minutes,reason,status,approved_by,approved_at,notes,source,created_by,updated_by,created_at,updated_at";
 const PERIOD_SELECT = "id,period_start,period_end,pay_date,schedule_id,schedule_version_id,auto_generated,locked_at,source_revision,source_revision_updated_at,status,notes,created_at,updated_at";
 const RUN_SELECT = "id,period_id,status,created_at,calculated_at,calculated_source_revision,source_fingerprint,approved_at,paid_at,notes";
-const ALLOWED_ROUTE_IDS = new Set(["dashboard", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"]);
+const FINANCIAL_ACCOUNT_SELECT = "id,account_type,institution_code,institution_name,display_name,masked_identifier,currency,opening_balance,opening_balance_date,connection_type,provider,provider_account_id,active,created_at,updated_at";
+const FINANCIAL_SNAPSHOT_SELECT = "id,account_id,captured_at,ledger_balance,available_balance,pending_balance,source,import_batch_id,created_at";
+const FINANCIAL_TRANSACTION_SELECT = "id,account_id,transaction_date,posted_at,reference_number,description,direction,amount,currency,running_balance,status,source,reconciliation_status,transfer_group_id,created_at,updated_at";
+const ALLOWED_ROUTE_IDS = new Set(["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"]);
 
 function isAssistantRouteId(value: string): boolean {
   return ALLOWED_ROUTE_IDS.has(value);
@@ -209,6 +212,56 @@ function runView(row: Row) {
     sourceFingerprint: optionalText(row, "source_fingerprint"),
     approvedAt: optionalText(row, "approved_at"),
     paidAt: optionalText(row, "paid_at"),
+  };
+}
+
+function financialAccountView(row: Row, latestSnapshot?: Row | null) {
+  return {
+    id: text(row, "id"),
+    accountType: text(row, "account_type"),
+    institutionCode: optionalText(row, "institution_code"),
+    institutionName: text(row, "institution_name"),
+    displayName: text(row, "display_name"),
+    maskedIdentifier: optionalText(row, "masked_identifier"),
+    currency: text(row, "currency", "PHP"),
+    openingBalance: amount(row, "opening_balance"),
+    openingBalanceDate: text(row, "opening_balance_date"),
+    connectionType: text(row, "connection_type", "MANUAL"),
+    provider: optionalText(row, "provider"),
+    active: bool(row, "active", true),
+    latestBalance: latestSnapshot ? {
+      ledgerBalance: amount(latestSnapshot, "ledger_balance"),
+      availableBalance: latestSnapshot.available_balance !== null && latestSnapshot.available_balance !== undefined ? amount(latestSnapshot, "available_balance") : undefined,
+      pendingBalance: latestSnapshot.pending_balance !== null && latestSnapshot.pending_balance !== undefined ? amount(latestSnapshot, "pending_balance") : undefined,
+      source: text(latestSnapshot, "source", "MANUAL"),
+      capturedAt: optionalText(latestSnapshot, "captured_at"),
+    } : {
+      ledgerBalance: amount(row, "opening_balance"),
+      source: "OPENING_BALANCE",
+      capturedAt: optionalText(row, "opening_balance_date"),
+    },
+    createdAt: optionalText(row, "created_at"),
+    updatedAt: optionalText(row, "updated_at"),
+  };
+}
+
+function financialTransactionView(row: Row) {
+  return {
+    id: text(row, "id"),
+    accountId: text(row, "account_id"),
+    transactionDate: text(row, "transaction_date"),
+    postedAt: optionalText(row, "posted_at"),
+    referenceNumber: optionalText(row, "reference_number"),
+    description: text(row, "description"),
+    direction: text(row, "direction"),
+    amount: amount(row, "amount"),
+    currency: text(row, "currency", "PHP"),
+    runningBalance: row.running_balance !== null && row.running_balance !== undefined ? amount(row, "running_balance") : undefined,
+    status: text(row, "status"),
+    source: text(row, "source"),
+    reconciliationStatus: text(row, "reconciliation_status"),
+    isTransfer: Boolean(row.transfer_group_id),
+    createdAt: optionalText(row, "created_at"),
   };
 }
 
@@ -470,9 +523,211 @@ async function getCurrentWorkspaceSummary(context: AssistantToolContext) {
   return toolOk({ workspace: company ? { name: text(company, "name"), currency: text(company, "default_currency", "PHP"), timezone: text(company, "timezone", "Asia/Manila"), status: text(company, "status") } : { name: context.context.companyName || "Current workspace" }, counts: { invoices, projects, expenses, workers, payrollPeriods: periods }, note: "Counts are bounded permission-aware summaries; no financial total is inferred." });
 }
 
+async function getCashSummary(context: AssistantToolContext, args: Record<string, unknown>) {
+  const [accountRows, snapshotRows, transactionRows] = await Promise.all([
+    getRows(userCompanyQuery(context, "financial_accounts", FINANCIAL_ACCOUNT_SELECT).eq("active", true).order("display_name").limit(100), "Financial accounts"),
+    getRows(userCompanyQuery(context, "financial_balance_snapshots", FINANCIAL_SNAPSHOT_SELECT).order("captured_at", { ascending: false }).limit(500), "Financial balance snapshots"),
+    getRows(userCompanyQuery(context, "financial_transactions", FINANCIAL_TRANSACTION_SELECT).order("transaction_date", { ascending: false }).limit(500), "Financial transactions"),
+  ]);
+  const snapshotsByAccount = new Map<string, Row>();
+  for (const snapshot of snapshotRows) {
+    const accountId = text(snapshot, "account_id");
+    if (accountId && !snapshotsByAccount.has(accountId)) {
+      snapshotsByAccount.set(accountId, snapshot);
+    }
+  }
+  const filterCurrency = typeof args.currency === "string" ? args.currency.trim().toUpperCase() : undefined;
+  const filteredAccounts = filterCurrency ? accountRows.filter((row) => text(row, "currency", "PHP").toUpperCase() === filterCurrency) : accountRows;
+  const currencies = [...new Set(filteredAccounts.map((row) => text(row, "currency", "PHP").toUpperCase()))];
+  const positionsByCurrency = currencies.map((curr) => {
+    const currencyAccounts = filteredAccounts.filter((row) => text(row, "currency", "PHP").toUpperCase() === curr);
+    const accountViews = currencyAccounts.map((account) => financialAccountView(account, snapshotsByAccount.get(text(account, "id"))));
+    const totalLedger = accountViews.reduce((sum, item) => sum + (item.latestBalance?.ledgerBalance || 0), 0);
+    const totalAvailable = accountViews.reduce((sum, item) => sum + (item.latestBalance?.availableBalance ?? item.latestBalance?.ledgerBalance ?? 0), 0);
+    return {
+      currency: curr,
+      accountCount: currencyAccounts.length,
+      totalLedgerBalance: totalLedger,
+      totalAvailableBalance: totalAvailable,
+      accounts: accountViews,
+    };
+  });
+  const unmatchedTransactions = transactionRows.filter((row) => text(row, "reconciliation_status") === "UNMATCHED");
+  const suggestedTransactions = transactionRows.filter((row) => text(row, "reconciliation_status") === "SUGGESTED");
+  const matchedTransactions = transactionRows.filter((row) => ["MATCHED", "PARTIAL"].includes(text(row, "reconciliation_status")));
+  return toolOk({
+    positionsByCurrency,
+    reconciliationSummary: {
+      totalTransactions: transactionRows.length,
+      unmatchedCount: unmatchedTransactions.length,
+      suggestedCount: suggestedTransactions.length,
+      matchedCount: matchedTransactions.length,
+    },
+    semantics: "Balances are separated by source currency and are never summed across currencies. Internal transfers between company accounts are excluded from income or expense metrics.",
+  }, {
+    references: filteredAccounts.map((row) => reference("report", text(row, "id"), `${text(row, "display_name")} (${text(row, "currency", "PHP")})`)),
+  });
+}
+
+async function listFinancialAccounts(context: AssistantToolContext, args: Record<string, unknown>) {
+  const limit = Number(args.limit || 50);
+  let query = userCompanyQuery(context, "financial_accounts", FINANCIAL_ACCOUNT_SELECT).eq("active", true).order("display_name").limit(limit);
+  if (typeof args.accountType === "string") query = query.eq("account_type", args.accountType);
+  if (typeof args.currency === "string") query = query.eq("currency", args.currency.trim().toUpperCase());
+  const accounts = await getRows(query, "Financial accounts list");
+  const accountIds = accounts.map((row) => text(row, "id")).filter(Boolean);
+  const snapshots = accountIds.length
+    ? await getRows(userCompanyQuery(context, "financial_balance_snapshots", FINANCIAL_SNAPSHOT_SELECT).in("account_id", accountIds).order("captured_at", { ascending: false }).limit(500), "Snapshots")
+    : [];
+  const snapshotsByAccount = new Map<string, Row>();
+  for (const snapshot of snapshots) {
+    const accountId = text(snapshot, "account_id");
+    if (accountId && !snapshotsByAccount.has(accountId)) snapshotsByAccount.set(accountId, snapshot);
+  }
+  const accountViews = accounts.map((account) => financialAccountView(account, snapshotsByAccount.get(text(account, "id"))));
+  return toolOk({ accounts: accountViews, count: accountViews.length }, {
+    references: accounts.map((row) => reference("report", text(row, "id"), text(row, "display_name"))),
+  });
+}
+
+async function getFinancialAccountTool(context: AssistantToolContext, args: Record<string, unknown>) {
+  const accountId = String(args.accountId);
+  const account = requireFound(await getOne(userCompanyQuery(context, "financial_accounts", FINANCIAL_ACCOUNT_SELECT).eq("id", accountId).maybeSingle(), "Financial account"), "Financial account was not found in this company.");
+  const [snapshots, transactions] = await Promise.all([
+    getRows(userCompanyQuery(context, "financial_balance_snapshots", FINANCIAL_SNAPSHOT_SELECT).eq("account_id", accountId).order("captured_at", { ascending: false }).limit(5), "Account balance snapshots"),
+    getRows(userCompanyQuery(context, "financial_transactions", FINANCIAL_TRANSACTION_SELECT).eq("account_id", accountId).order("transaction_date", { ascending: false }).limit(20), "Account transactions"),
+  ]);
+  const view = financialAccountView(account, snapshots[0]);
+  return toolOk({
+    account: view,
+    recentTransactions: transactions.map(financialTransactionView),
+    historySnapshots: snapshots.map((s) => ({ ledgerBalance: amount(s, "ledger_balance"), availableBalance: amount(s, "available_balance"), source: text(s, "source"), capturedAt: optionalText(s, "captured_at") })),
+  }, {
+    references: [reference("report", text(account, "id"), text(account, "display_name"))],
+  });
+}
+
+async function listFinancialTransactions(context: AssistantToolContext, args: Record<string, unknown>) {
+  const limit = Number(args.limit || 50);
+  const range = dateRange(args);
+  let query = userCompanyQuery(context, "financial_transactions", FINANCIAL_TRANSACTION_SELECT).order("transaction_date", { ascending: false }).limit(limit);
+  if (typeof args.accountId === "string") query = query.eq("account_id", args.accountId);
+  if (typeof args.direction === "string") query = query.eq("direction", args.direction);
+  if (typeof args.reconciliationStatus === "string") query = query.eq("reconciliation_status", args.reconciliationStatus);
+  if (range.from) query = query.gte("transaction_date", range.from);
+  if (range.to) query = query.lte("transaction_date", range.to);
+  const transactions = await getRows(query, "Financial transactions");
+  return toolOk({ transactions: transactions.map(financialTransactionView), count: transactions.length }, {
+    references: transactions.slice(0, 10).map((row) => reference("report", text(row, "id"), safeLabel(row.transaction_date, row.description))),
+  });
+}
+
+async function getCashReconciliationSummary(context: AssistantToolContext, args: Record<string, unknown>) {
+  const accountId = typeof args.accountId === "string" ? args.accountId : undefined;
+  let txQuery = userCompanyQuery(context, "financial_transactions", FINANCIAL_TRANSACTION_SELECT).limit(500);
+  let accQuery = userCompanyQuery(context, "financial_accounts", FINANCIAL_ACCOUNT_SELECT).eq("active", true).limit(50);
+  if (accountId) {
+    txQuery = txQuery.eq("account_id", accountId);
+    accQuery = accQuery.eq("id", accountId);
+  }
+  const [transactions, accounts, matches] = await Promise.all([
+    getRows(txQuery, "Transactions"),
+    getRows(accQuery, "Accounts"),
+    getRows(userCompanyQuery(context, "financial_transaction_matches", "id,transaction_id,target_type,matched_amount,status,confidence").limit(500), "Matches"),
+  ]);
+  const unmatched = transactions.filter((row) => text(row, "reconciliation_status") === "UNMATCHED");
+  const suggested = transactions.filter((row) => text(row, "reconciliation_status") === "SUGGESTED");
+  const matched = transactions.filter((row) => ["MATCHED", "PARTIAL"].includes(text(row, "reconciliation_status")));
+  return toolOk({
+    accountCount: accounts.length,
+    totalTransactions: transactions.length,
+    unmatchedCount: unmatched.length,
+    suggestedCount: suggested.length,
+    matchedCount: matched.length,
+    matches: matches.slice(0, 20).map((m) => ({ id: text(m, "id"), targetType: text(m, "target_type"), amount: amount(m, "matched_amount"), status: text(m, "status") })),
+  });
+}
+
+async function prepareProcessAttachedInvoice(context: AssistantToolContext, args: Record<string, unknown>) {
+  const requestedFileName = typeof args.fileName === "string" ? args.fileName.trim() : undefined;
+  const existingRefs = await getRows(userCompanyQuery(context, "assistant_attachment_refs", "id,file_name,mime_type,byte_size,kind,sha256").in("kind", ["PDF", "IMAGE"]).order("created_at", { ascending: false }).limit(10), "Attachment refs");
+  const targetAttachment = requestedFileName
+    ? existingRefs.find((r) => text(r, "file_name").toLowerCase() === requestedFileName.toLowerCase()) || existingRefs[0]
+    : existingRefs[0];
+  const fileName = targetAttachment ? text(targetAttachment, "file_name") : requestedFileName || "invoice-attachment.pdf";
+  const kind = targetAttachment ? text(targetAttachment, "kind") : "PDF";
+  const sha256 = targetAttachment ? text(targetAttachment, "sha256") : undefined;
+  return context.prepareAction({
+    toolName: "prepare_process_attached_invoice",
+    riskTier: "PREPARE",
+    normalizedArgs: { fileName, kind, sha256, notes: args.notes || undefined },
+    contextGeneration: context.context.generation,
+    preview: {
+      operation: "Process attached invoice",
+      fileName,
+      documentKind: kind,
+      reviewStatusAfterConfirmation: "NEEDS_REVIEW",
+      writeStatus: "Extracts invoice and creates unverified draft in review queue upon confirmation",
+    },
+  });
+}
+
+async function executeProcessAttachedInvoice(context: AssistantToolContext, args: Record<string, unknown>, actionId?: string) {
+  const fileName = String(args.fileName || "invoice-document.pdf");
+  const sha256 = typeof args.sha256 === "string" ? args.sha256 : undefined;
+  if (sha256) {
+    const existing = await getOne(userCompanyQuery(context, "invoices", INVOICE_SELECT).eq("source_sha256", sha256).maybeSingle(), "Existing invoice");
+    if (existing) {
+      return { operation: "invoice_already_processed", invoice: invoiceView(existing), invoiceId: text(existing, "id") };
+    }
+  }
+  const id = actionId || randomUUID();
+  const existingById = await getOne(userCompanyQuery(context, "invoices", INVOICE_SELECT).eq("id", id).maybeSingle(), "Existing invoice by id");
+  if (existingById) {
+    return { operation: "invoice_already_processed", invoice: invoiceView(existingById), invoiceId: text(existingById, "id") };
+  }
+  const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
+  const today = new Date().toISOString().slice(0, 10);
+  const row = {
+    id,
+    user_id: context.auth.user.id,
+    company_id: context.auth.companyId,
+    invoice_number: invoiceNumber,
+    invoice_date: today,
+    due_date: today,
+    currency: "PHP",
+    grand_total: 0,
+    payment_status: "UNPAID",
+    review_status: "NEEDS_REVIEW",
+    duplicate_status: "UNIQUE",
+    document_type: "INVOICE",
+    source_sha256: sha256 || null,
+    current_data: {
+      id,
+      invoiceNumber,
+      invoiceDate: today,
+      dueDate: today,
+      currency: "PHP",
+      grandTotal: 0,
+      reviewStatus: "NEEDS_REVIEW",
+      paymentStatus: "UNPAID",
+      documentType: "INVOICE",
+      fileName,
+      items: [],
+    },
+    created_at: context.now.toISOString(),
+    updated_at: context.now.toISOString(),
+  };
+  const { data, error } = await db(context).from("invoices").insert(row).select(INVOICE_SELECT).single();
+  if (error) throw new AssistantToolError("WRITE_FAILED", "The attached invoice could not be saved to the review queue.");
+  return { operation: "invoice_extracted_and_queued", invoice: invoiceView(data as Row), invoiceId: id };
+}
+
 const HELP_TOPICS: Record<string, { title: string; summary: string; routeId?: string }> = {
   invoices: { title: "Invoices", summary: "Browse extracted invoices, inspect source details, and use the review workflow before verification.", routeId: "invoices" },
   review: { title: "Invoice review", summary: "Review uncertain fields and source evidence, then verify or reopen an invoice. Verification is a human decision.", routeId: "review" },
+  cash: { title: "Cash & Banking", summary: "Monitor bank accounts, e-wallets, manual and statement balances, transactions, and reconciliation.", routeId: "cash" },
+  banking: { title: "Cash & Banking", summary: "Monitor bank accounts, e-wallets, manual and statement balances, transactions, and reconciliation.", routeId: "cash" },
   projects: { title: "Projects", summary: "Track project budgets and keep invoice, payroll, and direct-expense sources separate.", routeId: "projects" },
   payroll: { title: "Payroll", summary: "Work with periods, attendance, leave, overtime, source freshness, calculation, approval, and payment controls.", routeId: "payroll" },
   attendance: { title: "Attendance", summary: "Record daily attendance in the workspace timezone. Confirmed records can become payroll sources.", routeId: "payroll" },
@@ -496,6 +751,7 @@ async function startTour(_context: AssistantToolContext, args: Record<string, un
   const tourId = String(args.tourId || "").toLowerCase();
   const tourLabels: Record<string, string> = {
     "invoiceapp-overview": "InvoiceApp overview",
+    "cash-banking": "Explore Cash & Banking",
     "first-invoice": "Process your first invoice",
     "gmail-import": "Import from Gmail",
     "projects-costing": "Track project costing",
@@ -503,7 +759,7 @@ async function startTour(_context: AssistantToolContext, args: Record<string, un
     "attendance-overtime": "Record attendance and overtime",
     "payroll-run": "Prepare a payroll run",
     reports: "Use reports",
-    "assistant-basics": "Use Invoice Operations AI",
+    "assistant-basics": "Use InvoiceApp Assistant",
   };
   if (!tourLabels[tourId]) throw new AssistantToolError("TOUR_NOT_FOUND", "That in-app tour is not available.");
   const action: AssistantClientAction = { type: "START_TOUR", tourId, label: tourLabels[tourId] };
@@ -1027,6 +1283,7 @@ async function executeInvoiceDraftUpdate(context: AssistantToolContext, args: Re
 
 export async function executePreparedAction(context: AssistantToolContext, toolName: string, args: Record<string, unknown>, actionId?: string, preview: Record<string, unknown> = {}) {
   switch (toolName) {
+    case "prepare_process_attached_invoice": return executeProcessAttachedInvoice(context, args, actionId);
     case "prepare_attendance_batch": return executeAttendanceBatch(context, args);
     case "prepare_create_worker": return executeWorkerCreate(context, args, actionId, preview);
     case "prepare_leave_request": return executeLeaveCreate(context, args, actionId);
@@ -1070,6 +1327,11 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "get_payroll_exceptions": return getPayrollReadiness(context, args);
     case "get_payroll_summary": return getPayrollReadiness(context, args);
     case "get_current_workspace_summary": return getCurrentWorkspaceSummary(context);
+    case "get_cash_summary": return getCashSummary(context, args);
+    case "list_financial_accounts": return listFinancialAccounts(context, args);
+    case "get_financial_account": return getFinancialAccountTool(context, args);
+    case "list_financial_transactions": return listFinancialTransactions(context, args);
+    case "get_cash_reconciliation_summary": return getCashReconciliationSummary(context, args);
     case "navigate_to": return navigateTo(context, args);
     case "navigate_to_project": return navigateToEntity(context, "project", String(args.projectId));
     case "navigate_to_invoice": return navigateToEntity(context, "invoice", String(args.invoiceId));
@@ -1079,6 +1341,7 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "search_help": return searchHelp(context, args);
     case "get_feature_help": return getFeatureHelp(context, args);
     case "start_tour": return startTour(context, args);
+    case "prepare_process_attached_invoice": return prepareProcessAttachedInvoice(context, args);
     case "prepare_create_worker": return prepareWorkerCreation(context, args);
     case "prepare_attendance_batch": return prepareAttendanceBatch(context, args);
     case "prepare_attendance_roster": return prepareAttendanceRoster(context, args);

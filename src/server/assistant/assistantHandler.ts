@@ -137,7 +137,7 @@ async function loadThread(auth: AssistantAuthContext, threadId: string | undefin
     await client.from("assistant_threads").update({ context, updated_at: new Date().toISOString() }).eq("id", threadId).eq("company_id", auth.companyId).eq("user_id", auth.user.id);
     return thread.data as { id: string };
   }
-  const created = await client.from("assistant_threads").insert({ company_id: auth.companyId, user_id: auth.user.id, title: "Invoice Operations AI", context }).select("id").single();
+  const created = await client.from("assistant_threads").insert({ company_id: auth.companyId, user_id: auth.user.id, title: "InvoiceApp Assistant", context }).select("id").single();
   if (created.error || !created.data?.id) throw new AssistantBackendError("THREAD_UNAVAILABLE", "The assistant thread could not be created.", 503);
   return created.data as { id: string };
 }
@@ -254,6 +254,7 @@ async function claimAction(auth: AssistantAuthContext, action: AssistantActionEv
 function confirmationResponse(auth: AssistantAuthContext, action: AssistantActionEventRecord, result: Record<string, unknown>, generation: number): AssistantResponse {
   const prepared: AssistantPreparedAction = { ...preparedActionFromEvent(action), status: "EXECUTED", preview: action.preview };
   const references: AssistantResponse["references"] = [];
+  const clientActions: AssistantResponse["clientActions"] = [];
   const requestResult = result.request && typeof result.request === "object" && !Array.isArray(result.request) ? result.request as Record<string, unknown> : undefined;
   const workerResult = result.worker && typeof result.worker === "object" && !Array.isArray(result.worker) ? result.worker as Record<string, unknown> : undefined;
   const compensation = result.compensation && typeof result.compensation === "object" && !Array.isArray(result.compensation) ? result.compensation as Record<string, unknown> : undefined;
@@ -266,10 +267,18 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
     const currency = typeof compensation?.currency === "string" ? compensation.currency.toUpperCase() : "PHP";
     const rateText = Number.isFinite(rate) ? ` at ${currencySymbolFor(currency)}${rate.toFixed(2)}/${payType === "DAILY" ? "day" : payType === "HOURLY" ? "hour" : "month"}` : "";
     message = `${name} was added as an ${workerResult.active === true ? "active" : "inactive"} ${basis} employee${rateText}.`;
+    clientActions.push({ type: "NAVIGATE", routeId: "payroll", label: "Open Payroll" });
+  }
+  if (action.tool_name === "prepare_process_attached_invoice") {
+    const invoiceId = typeof result.invoiceId === "string" ? result.invoiceId : undefined;
+    message = "The attached invoice was extracted and queued for review.";
+    if (invoiceId) {
+      references.push({ type: "invoice", id: invoiceId, label: "Review invoice" });
+      clientActions.push({ type: "OPEN_REVIEW_INVOICE", entityId: invoiceId, label: "Open in Review Queue" });
+    }
   }
   if (typeof workerResult?.id === "string") references.push({ type: "worker", id: String(workerResult.id), label: "View employee" });
   else if (typeof requestResult?.id === "string") references.push({ type: "worker", id: String(requestResult.id), label: "Updated workforce request" });
-  const clientActions: AssistantResponse["clientActions"] = action.tool_name === "prepare_create_worker" ? [{ type: "NAVIGATE", routeId: "payroll", label: "Open Payroll" }] : [];
   return { threadId: action.thread_id || "", message, references, clientActions, preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
 }
 
