@@ -34,7 +34,10 @@ select has_function('public', 'platform_update_company', 'public.platform_update
 select has_function('private', 'write_company_audit', 'private.write_company_audit exists');
 
 -- 4. Check constraints exist
-select has_check('public', 'company_audit_events', 'company_audit_events_event_type_check', 'company_audit_events_event_type_check exists');
+select isnt_empty(
+  'select 1 from pg_constraint where conrelid = ''public.company_audit_events''::regclass and conname = ''company_audit_events_event_type_check''',
+  'company_audit_events_event_type_check exists'
+);
 
 -- 5. Permission catalog entries exist
 select isnt_empty(
