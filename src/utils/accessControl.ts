@@ -1,7 +1,7 @@
 import type { AppTab } from "./routes.ts";
 
 /**
- * Permission keys are the only frontend authorization vocabulary.  Role names
+ * Permission keys are the only frontend authorization vocabulary. Role names
  * are still useful for display, but modules and mutations must ask for one of
  * these capabilities rather than infer access from a role label.
  */
@@ -43,6 +43,14 @@ export const PERMISSION_KEYS = {
   engineeringDocumentsCreate: "engineering.documents.create",
   engineeringDocumentsUpdate: "engineering.documents.update",
   engineeringDocumentsManage: "engineering.documents.manage",
+  engineeringRfisRead: "engineering.rfis.read",
+  engineeringRfisCreate: "engineering.rfis.create",
+  engineeringRfisRespond: "engineering.rfis.respond",
+  engineeringRfisManage: "engineering.rfis.manage",
+  engineeringSubmittalsRead: "engineering.submittals.read",
+  engineeringSubmittalsCreate: "engineering.submittals.create",
+  engineeringSubmittalsReview: "engineering.submittals.review",
+  engineeringSubmittalsManage: "engineering.submittals.manage",
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS] | (string & {});
@@ -155,6 +163,14 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.engineeringDocumentsCreate]: "Engineering document uploads",
     [PERMISSION_KEYS.engineeringDocumentsUpdate]: "Engineering annotations",
     [PERMISSION_KEYS.engineeringDocumentsManage]: "Engineering document management",
+    [PERMISSION_KEYS.engineeringRfisRead]: "RFI register viewing",
+    [PERMISSION_KEYS.engineeringRfisCreate]: "RFI creation and opening",
+    [PERMISSION_KEYS.engineeringRfisRespond]: "RFI formal responses",
+    [PERMISSION_KEYS.engineeringRfisManage]: "RFI closure and voiding",
+    [PERMISSION_KEYS.engineeringSubmittalsRead]: "Technical submittal viewing",
+    [PERMISSION_KEYS.engineeringSubmittalsCreate]: "Technical submittal submission",
+    [PERMISSION_KEYS.engineeringSubmittalsReview]: "Technical submittal review",
+    [PERMISSION_KEYS.engineeringSubmittalsManage]: "Technical submittal closure and voiding",
   };
   return labels[permission || ""] || "this area";
 }
