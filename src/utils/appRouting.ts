@@ -148,7 +148,7 @@ export function appPathForCashTransaction(transactionId: string, fromTargetType?
   const query = new URLSearchParams({ transactionId });
   if (fromTargetType?.trim()) query.set("fromTargetType", fromTargetType.trim());
   if (fromTargetId?.trim()) query.set("fromTargetId", fromTargetId.trim());
-  return `/cash-banking?${query.toString()}`;
+  return `/cash?${query.toString()}`;
 }
 
 /** Stable payroll deep link without inventing a second payroll routing system. */
