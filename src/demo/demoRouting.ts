@@ -4,7 +4,7 @@ import type { AppTab } from "../utils/routes.ts";
 export type DemoLocation =
   | { kind: "landing" }
   | { kind: "assistant" }
-  | { kind: "documents"; projectId?: string }
+  | { kind: "documents" }
   | { kind: "app"; appLocation: AppLocation };
 
 export const DEMO_ROOT_PATH = "/demo" as const;
@@ -18,15 +18,6 @@ export function parseDemoLocation(pathname: string, search = ""): DemoLocation {
   const suffix = clean.slice(DEMO_APP_ROOT_PATH.length) || "/dashboard";
   if (suffix === "/assistant") return { kind: "assistant" };
   if (suffix === "/documents") return { kind: "documents" };
-
-  const projectDocumentMatch = suffix.match(/^\/projects\/([^/]+)\/documents$/);
-  if (projectDocumentMatch) {
-    try {
-      return { kind: "documents", projectId: decodeURIComponent(projectDocumentMatch[1]) };
-    } catch {
-      return { kind: "documents", projectId: projectDocumentMatch[1] };
-    }
-  }
 
   return { kind: "app", appLocation: parseAppLocation(suffix, search) };
 }
@@ -58,5 +49,5 @@ export function demoAssistantPath(): string {
 }
 
 export function demoDocumentsPath(projectId?: string): string {
-  return projectId ? `${DEMO_APP_ROOT_PATH}/projects/${encodeURIComponent(projectId)}/documents` : `${DEMO_APP_ROOT_PATH}/documents`;
+  return projectId ? demoPathForProject(projectId, "documents") : `${DEMO_APP_ROOT_PATH}/documents`;
 }
