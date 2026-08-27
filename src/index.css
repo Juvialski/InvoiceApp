@@ -1,6 +1,7 @@
 @layer reset, theme, base, astryx-base, astryx-theme, components, utilities;
 @import "tailwindcss";
 @import "@astryxdesign/core/astryx.css";
+@import "./ui/engoryx.css";
 
 :root {
   color-scheme: light;

@@ -1,15 +1,8 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import type { AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
-import { CashBankingRoute } from "./CashBankingRoute";
-import { ProjectsRoute } from "./ProjectsRoute";
-import { InvoicesRoute } from "./InvoicesRoute";
-import { PayrollRoute } from "./PayrollRoute";
-import { ExpensesRoute } from "./ExpensesRoute";
-import { ReportsRoute } from "./ReportsRoute";
-import { SettingsRoute } from "./SettingsRoute";
-import { PlatformCompaniesRoute, type PlatformCompaniesRouteProps } from "./PlatformCompaniesRoute";
+import type { PlatformCompaniesRouteProps } from "./PlatformCompaniesRoute";
 import type {
   DashboardActivityPeriod,
   DashboardViewData,
@@ -68,6 +61,25 @@ import type {
   PayrollWorkspaceResetPreview,
 } from "../../lib/payrollMaintenance";
 import type { RegionalSettings } from "../../config/regional";
+
+const CashBankingRoute = lazy(() => import("./CashBankingRoute"));
+const ProjectsRoute = lazy(() => import("./ProjectsRoute").then(({ ProjectsRoute }) => ({ default: ProjectsRoute })));
+const InvoicesRoute = lazy(() => import("./InvoicesRoute"));
+const PayrollRoute = lazy(() => import("./PayrollRoute"));
+const ExpensesRoute = lazy(() => import("./ExpensesRoute"));
+const ReportsRoute = lazy(() => import("./ReportsRoute"));
+const SettingsRoute = lazy(() => import("./SettingsRoute"));
+const PlatformCompaniesRoute = lazy(() => import("./PlatformCompaniesRoute"));
+
+const lazyRouteFallback = (
+  <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-600">
+    Loading workspace page…
+  </div>
+);
+
+function lazyRoute(element: React.ReactNode): React.JSX.Element {
+  return <Suspense fallback={lazyRouteFallback}>{element}</Suspense>;
+}
 
 export interface AppRouterProps {
   // Navigation State
@@ -358,7 +370,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   platformCompaniesProps,
 }) => {
   if (route.kind === "platform-companies" && platformCompaniesProps) {
-    return <PlatformCompaniesRoute {...platformCompaniesProps} />;
+    return lazyRoute(<PlatformCompaniesRoute {...platformCompaniesProps} />);
   }
 
   if (!workspaceRouteVisible) {
@@ -367,7 +379,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 1. Single Invoice Verification / Review Workspace Mode
   if ((route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice) {
-    return (
+    return lazyRoute(
       <InvoicesRoute
         selectedInvoice={selectedInvoice}
         invoices={invoices}
@@ -400,7 +412,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 2. Projects Route (Tab or Project Workspace)
   if (route.kind === "project" || activeTab === "projects") {
-    return (
+    return lazyRoute(
       <ProjectsRoute
         projects={projects}
         selectedProject={selectedProject}
@@ -461,7 +473,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 4. Cash & Banking Route
   if (route.kind === "tab" && activeTab === "cash") {
-    return (
+    return lazyRoute(
       <CashBankingRoute
         data={cashData}
         onSaveAccount={onSaveFinancialAccount}
@@ -487,7 +499,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     route.kind === "tab" &&
     ["extractor", "inbox", "review", "invoices", "vendors"].includes(activeTab)
   ) {
-    return (
+    return lazyRoute(
       <InvoicesRoute
         activeSubTab={activeTab}
         invoices={invoices}
@@ -517,7 +529,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 6. Payroll Route
   if (route.kind === "tab" && activeTab === "payroll") {
-    return (
+    return lazyRoute(
       <PayrollRoute
         workers={payrollData.workers}
         assignments={payrollData.assignments}
@@ -570,7 +582,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 7. Expenses Route
   if (route.kind === "tab" && activeTab === "expenses") {
-    return (
+    return lazyRoute(
       <ExpensesRoute
         expenses={expenses}
         projects={projects}
@@ -583,7 +595,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 8. Reports Route
   if (route.kind === "tab" && activeTab === "reports") {
-    return (
+    return lazyRoute(
       <ReportsRoute
         projects={projects}
         invoices={invoices}
@@ -602,7 +614,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 9. Settings Route
   if (route.kind === "tab" && activeTab === "settings") {
-    return <SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} />;
+    return lazyRoute(<SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} />);
   }
 
   return null;

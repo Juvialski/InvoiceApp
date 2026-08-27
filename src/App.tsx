@@ -15,7 +15,6 @@ import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/rou
 import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollHoliday } from "./types";
-import { exportBatchInvoicesToExcel, exportEngineeringProjectWorkbookToExcel } from "./utils/excelExport";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
 import { readAndCleanLocalInvoices } from "./utils/demoCleanup";
@@ -62,7 +61,7 @@ import { isSafeToDeletePayrollPeriod, isSafeToDeletePayrollRun, selectPrimaryPay
   import { applyPayrollMaintenance as applyPayrollMaintenanceRpc, applyPayrollWorkspaceReset as applyPayrollWorkspaceResetRpc, localMaintenanceResult, planLocalPayrollMaintenance, previewPayrollMaintenance as previewPayrollMaintenanceRpc, previewPayrollWorkspaceReset as previewPayrollWorkspaceResetRpc, assertPayrollWorkspaceResetConfirmation, type PayrollMaintenanceAction, type PayrollMaintenancePreview, type PayrollWorkspaceResetPreview } from "./lib/payrollMaintenance";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
 import { fingerprintPayrollSources, validatePayrollRunSourceRevision } from "./lib/payrollSourceRevision";
-import { buildDraftPayrollFromImport, type StagedPayrollImport } from "./lib/payrollImportWorkflow";
+import type { StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
@@ -429,6 +428,15 @@ function InvoiceWorkspace() {
     setNotification({ type, message });
     const duration = type === "success" ? 3500 : type === "info" ? 9000 : 0;
     if (duration > 0) window.setTimeout(() => setNotification((current) => current?.message === message ? null : current), duration);
+  };
+
+  const handleBatchExportExcel = async () => {
+    try {
+      const { exportBatchInvoicesToExcel } = await import("./utils/excelExport.ts");
+      exportBatchInvoicesToExcel(invoicesRef.current);
+    } catch (error: unknown) {
+      showNotification("error", userFacingError(error, "Could not export invoices to Excel."));
+    }
   };
 
   const projectController = useProjectController({
@@ -1831,6 +1839,7 @@ function InvoiceWorkspace() {
     try {
       if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollImport)) throw new Error("You do not have permission to commit payroll imports in this company.");
       const sourceBatch = payrollImportData.batches.find((item) => item.id === staged.batch.id) || staged.batch;
+      const { buildDraftPayrollFromImport } = await import("./lib/payrollImportWorkflow.ts");
       const draft = buildDraftPayrollFromImport({ batch: sourceBatch, rows: staged.rows, periodStart, periodEnd, payDate });
       let savedPeriod = draft.period;
       let savedRun = draft.run;
@@ -2665,7 +2674,7 @@ function InvoiceWorkspace() {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-700"><Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />Checking platform access…</div>;
   }
   if (isSupabaseConfigured && session && route.kind === "platform-companies" && companyAccess.isPlatformOwner) {
-    return <div className="min-h-screen bg-slate-50 text-slate-900"><Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session.user.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={openPlatformManagement} visibleRouteIds={visibleRouteIds} permissions={permissions} /><main className="px-4 py-5 sm:px-6 lg:ml-[17rem] lg:px-8"><button type="button" onClick={closePlatformManagement} className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Back to workspace</button>{managementView}</main></div>;
+    return <div className="min-h-screen bg-slate-50 text-slate-900"><Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => { void handleBatchExportExcel(); }} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session.user.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={openPlatformManagement} visibleRouteIds={visibleRouteIds} permissions={permissions} /><main className="px-4 py-5 sm:px-6 lg:ml-[17rem] lg:px-8"><button type="button" onClick={closePlatformManagement} className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Back to workspace</button>{managementView}</main></div>;
   }
   if (isSupabaseConfigured && session && !companyAccess.isPlatformOwner && (companyAccess.access.status === "no-company" || companyAccess.access.status === "company-suspended")) {
     return <NoCompanyAccess onSignOut={handleSignOut} />;
@@ -2724,7 +2733,7 @@ function InvoiceWorkspace() {
         setActiveTab={setActiveTab}
         invoicesCount={invoices.length}
         reviewCount={reviewCount}
-        onBatchExportExcel={() => exportBatchInvoicesToExcel(invoices)}
+        onBatchExportExcel={() => { void handleBatchExportExcel(); }}
         workspaceSyncStatus={workspaceSyncStatus}
         accountEmail={session?.user?.email || undefined}
         onSignOut={handleSignOut}

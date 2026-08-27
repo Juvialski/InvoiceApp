@@ -1,6 +1,6 @@
 import React, { type ComponentProps, type ReactNode } from "react";
 import { Theme } from "@astryxdesign/core/theme";
-import { engoryxTheme } from "./engoryxTheme";
+import { engoryxTheme } from "./engoryx";
 
 type AstryxThemeMode = NonNullable<ComponentProps<typeof Theme>["mode"]>;
 
