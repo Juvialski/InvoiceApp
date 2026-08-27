@@ -1,0 +1,72 @@
+name: Demo Visual QA
+
+on:
+  push:
+    branches:
+      - feat/client-demo-workspace
+    paths:
+      - "src/demo/**"
+      - "src/main.tsx"
+      - "src/app/applicationMode.ts"
+      - "public/demo/**"
+      - "scripts/demo-visual-qa.mjs"
+      - ".github/workflows/demo-visual-qa.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/demo/**"
+      - "src/main.tsx"
+      - "src/app/applicationMode.ts"
+      - "public/demo/**"
+      - "scripts/demo-visual-qa.mjs"
+      - ".github/workflows/demo-visual-qa.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-demo-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build production bundle
+        run: npm run build
+      - name: Install Playwright for QA only
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start static preview
+        run: |
+          nohup npx vite preview --host 127.0.0.1 --port 4173 > /tmp/engoryx-demo-preview.log 2>&1 &
+          echo $! > /tmp/engoryx-demo-preview.pid
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/demo > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/engoryx-demo-preview.log
+          exit 1
+      - name: Capture demo routes
+        run: node scripts/demo-visual-qa.mjs
+      - name: Upload visual QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-visual-qa
+          path: artifacts/demo-visual-qa
+          if-no-files-found: error
+          retention-days: 14
+      - name: Stop preview server
+        if: always()
+        run: |
+          if [ -f /tmp/engoryx-demo-preview.pid ]; then kill "$(cat /tmp/engoryx-demo-preview.pid)" 2>/dev/null || true; fi
+          cat /tmp/engoryx-demo-preview.log 2>/dev/null || true
