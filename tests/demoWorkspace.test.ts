@@ -4,7 +4,7 @@ import { applicationModeForPath, isDemoApplicationPath } from "../src/app/applic
 import { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";
 import { DEMO_COMPANY_ID } from "../src/demo/demoTypes.ts";
 import { executePreparedAssistantAction, prepareAddWorkerAction, reduceDemoWorkspace, resetDemoWorkspace } from "../src/demo/demoState.ts";
-import { parseDemoLocation } from "../src/demo/demoRouting.ts";
+import { demoPathForProject, parseDemoLocation } from "../src/demo/demoRouting.ts";
 
 const ANCHOR = "2026-08-27";
 
@@ -23,6 +23,7 @@ test("demo company identity is fixed and outside production company selection", 
   const location = parseDemoLocation("/demo/app/dashboard", "?companyId=real-company-uuid");
   assert.equal(location.kind, "app");
   assert.equal(data.company.id, DEMO_COMPANY_ID);
+  assert.equal(demoPathForProject("demo-project-warehouse", "site-logs", { siteLogId: "demo-site-log-wh-today" }), "/demo/app/projects/demo-project-warehouse/site-logs?siteLogId=demo-site-log-wh-today");
 });
 
 test("project and invoice allocation relationships are valid", () => {
@@ -99,6 +100,20 @@ test("engineering documents reference valid projects and revisions are immutable
   const revHistory = data.engineering.revisions.filter((revision) => revision.documentId === "demo-document-wh-struct");
   assert.deepEqual(revHistory.map((revision) => revision.revisionNumber), ["Rev 0", "Rev 1"]);
   assert.notEqual(revHistory[0].id, revHistory[1].id);
+});
+
+test("daily Site Log fixtures cover field conditions and stay project-scoped", () => {
+  const data = workspace();
+  const projectIds = new Set(data.projects.map((project) => project.id));
+  const logIds = new Set(data.siteLogs.logs.map((log) => log.id));
+  assert.ok(data.siteLogs.logs.length >= 8);
+  assert.ok(data.siteLogs.logs.some((log) => log.status === "DRAFT" && log.siteDate === ANCHOR));
+  assert.ok(data.siteLogs.logs.some((log) => log.status === "FINALIZED"));
+  assert.ok(data.siteLogs.weather.some((weather) => weather.condition === "RAIN"));
+  assert.ok(data.siteLogs.equipment.some((equipment) => (equipment.idleHours || 0) > 0));
+  assert.ok(data.siteLogs.safety.length > 0);
+  for (const log of data.siteLogs.logs) assert.ok(projectIds.has(log.projectId));
+  for (const row of [...data.siteLogs.weather, ...data.siteLogs.crew, ...data.siteLogs.equipment, ...data.siteLogs.safety, ...data.siteLogs.events]) assert.ok(logIds.has(row.siteLogId));
 });
 
 test("reset restores pristine deterministic demo data", () => {

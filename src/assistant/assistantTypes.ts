@@ -20,6 +20,7 @@ export interface AssistantContext {
   selectedRfiId?: string;
   selectedSubmittalId?: string;
   selectedSubmittalRoundId?: string;
+  selectedSiteLogId?: string;
   selectedPayrollPeriodId?: string;
   selectedPayrollRunId?: string;
   attendanceDate?: string;
@@ -49,7 +50,7 @@ export interface AssistantAttachmentReference {
 }
 
 export interface AssistantClientAction {
-  type: "NAVIGATE" | "OPEN_INVOICE" | "OPEN_PROJECT" | "OPEN_PROJECT_DOCUMENTS" | "OPEN_RFI" | "OPEN_SUBMITTAL" | "OPEN_REVIEW_INVOICE" | "START_TOUR" | "OPEN_PAYROLL_PERIOD" | "OPEN_ATTENDANCE_DATE";
+  type: "NAVIGATE" | "OPEN_INVOICE" | "OPEN_PROJECT" | "OPEN_PROJECT_DOCUMENTS" | "OPEN_RFI" | "OPEN_SUBMITTAL" | "OPEN_SITE_LOG" | "OPEN_REVIEW_INVOICE" | "START_TOUR" | "OPEN_PAYROLL_PERIOD" | "OPEN_ATTENDANCE_DATE";
   routeId?: string;
   entityId?: string;
   projectId?: string;

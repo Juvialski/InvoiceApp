@@ -19,6 +19,12 @@ const scenarios = [
   { name: "10-dashboard-1366", path: "/demo/app/dashboard", width: 1366, height: 768 },
   { name: "11-dashboard-768", path: "/demo/app/dashboard", width: 768, height: 1024 },
   { name: "12-mobile-navigation-390", path: "/demo/app/dashboard", width: 390, height: 844, action: "mobile-nav" },
+  { name: "13-site-logs-1440", path: "/demo/app/projects/demo-project-warehouse/site-logs", width: 1440, height: 1000 },
+  { name: "14-site-logs-768", path: "/demo/app/projects/demo-project-warehouse/site-logs", width: 768, height: 1024 },
+  { name: "15-site-logs-mobile-390", path: "/demo/app/projects/demo-project-warehouse/site-logs", width: 390, height: 844 },
+  { name: "16-project-documents-1440", path: "/demo/app/projects/demo-project-warehouse/documents", width: 1440, height: 1000 },
+  { name: "17-project-overview-768", path: "/demo/app/projects/demo-project-warehouse", width: 768, height: 1024 },
+  { name: "18-project-documents-mobile-390", path: "/demo/app/projects/demo-project-warehouse/documents", width: 390, height: 844 },
 ];
 
 const browser = await chromium.launch({ headless: true });

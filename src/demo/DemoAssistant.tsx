@@ -5,6 +5,7 @@ import { buildDemoProjectSummaries } from "./demoSelectors.ts";
 import { useDemoWorkspace } from "./DemoWorkspaceProvider.tsx";
 import { demoPathForProject, demoPathForTab } from "./demoRouting.ts";
 import { DEMO_PROJECT_IDS } from "./data/projects.ts";
+import { addDemoDays } from "./data/demoDates.ts";
 
 const SUGGESTED_PROMPTS = [
   "Which projects are over budget?",
@@ -13,6 +14,9 @@ const SUGGESTED_PROMPTS = [
   "Which project has the highest labor cost?",
   "Take me to the Laguna Solar project.",
   "Show the outstanding invoices for the warehouse project.",
+  "Show site logs with safety incidents",
+  "Which projects had rain delays this week?",
+  "How many workers were reported on the warehouse yesterday?",
   "Add an employee named Alex Santos at ₱500 per hour.",
 ] as const;
 
@@ -63,6 +67,30 @@ export function DemoAssistant({ onNavigate }: { onNavigate: (path: string) => vo
       const outstanding = data.invoices.filter((invoice) => invoiceIds.has(invoice.id) && (invoice.balanceDue || 0) > 0);
       const total = outstanding.reduce((sum, invoice) => sum + (invoice.balanceDue || 0), 0);
       return `${outstanding.length} warehouse invoices have an outstanding balance totaling ${formatMoney(total, "PHP")}. Open Invoices to review the overdue electrical bill and current supplier commitments.`;
+    }
+    if (normalized.includes("site log") || normalized.includes("daily log") || normalized.includes("site happened") || normalized.includes("rain delay")) {
+      const logs = data.siteLogs.logs;
+      if (normalized.includes("safety")) {
+        const safetyLogs = logs.filter((log) => data.siteLogs.safety.some((row) => row.siteLogId === log.id));
+        return `${safetyLogs.length} demo Site Logs include safety observations. The latest is ${safetyLogs[0]?.siteDate || "not available"}; open Projects to inspect the project-scoped field record.`;
+      }
+      if (normalized.includes("rain")) {
+        const rainLogIds = new Set(data.siteLogs.weather.filter((row) => row.condition === "RAIN" || row.condition === "STORM").map((row) => row.siteLogId));
+        const projectNames = data.projects.filter((project) => logs.some((log) => log.projectId === project.id && rainLogIds.has(log.id))).map((project) => project.projectName);
+        return projectNames.length ? `${projectNames.join(", ")} had rain-affected demo Site Logs this week. These are field observations only; no payroll attendance was changed.` : "No rain-affected demo Site Logs were found.";
+      }
+      const warehouseLog = logs.find((log) => log.projectId === DEMO_PROJECT_IDS.warehouse && log.siteDate === addDemoDays(data.anchorDate, -1)) || logs.find((log) => log.projectId === DEMO_PROJECT_IDS.warehouse);
+      if (warehouseLog && (normalized.includes("open") || normalized.includes("take me") || normalized.includes("show"))) {
+        onNavigate(demoPathForProject(DEMO_PROJECT_IDS.warehouse, "site-logs", { siteLogId: warehouseLog.id }));
+        return `Opening the warehouse Site Log for ${warehouseLog.siteDate}. Weather, crew, equipment, delays, safety, and lifecycle history are available there.`;
+      }
+      return `${logs.length} Daily Site Logs are available across Meridian's projects, including a current draft, rain-affected days, equipment downtime, concrete work, safety observations, and finalized history.`;
+    }
+    if (normalized.includes("how many") && normalized.includes("worker") && normalized.includes("warehouse") && normalized.includes("yesterday")) {
+      const date = addDemoDays(data.anchorDate, -1);
+      const log = data.siteLogs.logs.find((item) => item.projectId === DEMO_PROJECT_IDS.warehouse && item.siteDate === date);
+      const count = log ? data.siteLogs.crew.filter((row) => row.siteLogId === log.id).reduce((sum, row) => sum + row.headcount, 0) : 0;
+      return log ? `${count} workers were reported on the warehouse project on ${date}. This is an operational headcount observation, not a payroll attendance record.` : `No warehouse Site Log was found for ${date}.`;
     }
     if (normalized.includes("add") && normalized.includes("alex santos") && normalized.includes("500")) {
       const action = prepareAddWorker({ firstName: "Alex", lastName: "Santos", rate: 500, jobTitle: "Field Engineer" });

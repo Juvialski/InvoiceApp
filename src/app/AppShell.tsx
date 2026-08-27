@@ -253,14 +253,17 @@ export const AppShell: React.FC<AppShellProps> = ({
         )}
 
         {!isSupabaseConfigured && (
-          <div className="mb-5 p-4 rounded-2xl border border-amber-200 bg-amber-50 flex gap-3">
+          <div className="mb-5 flex flex-col items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:flex-row">
             <Cloud className="w-5 h-5 text-amber-700 shrink-0" />
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-black text-amber-900">Browser-only workspace</p>
               <p className="text-[11px] text-amber-800 mt-1">
                 Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in.
               </p>
             </div>
+            <a href="/demo" className="shrink-0 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 hover:bg-amber-100">
+              Try the demo
+            </a>
           </div>
         )}
 

@@ -15,7 +15,7 @@ import { DemoTour } from "./DemoTour.tsx";
 import { useDemoWorkspace } from "./DemoWorkspaceProvider.tsx";
 import { buildDemoDashboard, buildDemoProjectDashboard, buildDemoProjectSummaries } from "./demoSelectors.ts";
 import { DEMO_COMPANY_ID } from "./demoTypes.ts";
-import { demoAssistantPath, demoDocumentsPath, demoPathForInvoice, demoPathForProject, demoPathForTab, parseDemoLocation, type DemoLocation } from "./demoRouting.ts";
+import { demoAssistantPath, demoDocumentsPath, demoPathForInvoice, demoPathForProject, demoPathForTab, type DemoLocation } from "./demoRouting.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "invoices", "payroll", "expenses", "reports"] as const;
 
@@ -76,7 +76,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const content = location.kind === "assistant"
     ? <DemoAssistant onNavigate={onNavigate} />
     : location.kind === "documents"
-      ? <DemoEngineeringDocuments projectId={location.projectId} />
+      ? <DemoEngineeringDocuments />
       : appLocation
         ? (
           <AppRouter
@@ -99,10 +99,14 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             engineeringDocumentsCanAnnotate={false}
             engineeringDocumentsCanManage={false}
             engineeringDocumentsGuestMode={true}
+            projectDocumentsContent={selectedProject ? <DemoEngineeringDocuments projectId={selectedProject.id} /> : undefined}
+            dailySiteLogsData={data.siteLogs}
+            onDailySiteLogsDataChange={(value) => dispatch({ type: "SAVE_DAILY_SITE_LOGS", value })}
+            pathForSiteLog={(siteLogId) => selectedProject ? demoPathForProject(selectedProject.id, "site-logs", siteLogId ? { siteLogId } : undefined) : demoPathForTab("projects")}
             onOpenProject={openProject}
             onSaveProject={(project) => dispatch({ type: "SAVE_PROJECT", value: project })}
             onArchiveProject={(project) => dispatch({ type: "ARCHIVE_PROJECT", value: project })}
-            onProjectTabChange={(tab) => tab === "documents" ? onNavigate(demoDocumentsPath(selectedProject?.id)) : openProjectView(tab)}
+            onProjectTabChange={openProjectView}
             onProjectBack={() => onNavigate(demoPathForTab("projects"))}
             onProjectUploadInvoice={() => onNavigate(demoPathForTab("invoices"))}
             onProjectAddExpense={() => onNavigate(demoPathForTab("expenses"))}

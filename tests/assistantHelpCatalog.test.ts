@@ -33,6 +33,13 @@ test("help search resolves engineering documents and blueprint topics", () => {
   assert.match(disciplineMatches[0]!.details, /STRUCTURAL/);
 });
 
+test("help search resolves Daily Site Logs and preserves the payroll boundary", () => {
+  const matches = searchHelpCatalog("daily site logs weather crew");
+  assert.equal(matches[0]?.id, "daily-site-logs");
+  assert.equal(helpEntryPath(matches[0]!), "/projects");
+  assert.match(matches[0]!.details, /never create payroll attendance/i);
+});
+
 test("unknown help questions stay honest instead of inventing a feature", () => {
   const response = getHelpResponse("custom CRM sync");
   assert.equal(response.kind, "unknown");

@@ -13,6 +13,7 @@ import type {
   Worker,
 } from "../../types";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
+import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 
 export interface ProjectsRouteProps {
   projects: Project[];
@@ -33,6 +34,8 @@ export interface ProjectsRouteProps {
   initialRfiId?: string;
   initialSubmittalId?: string;
   initialSubmittalRoundId?: string;
+  initialSiteLogId?: string;
+  pathForSiteLog?: (siteLogId?: string) => string;
   companyId?: string;
   engineeringDocumentsCanRead?: boolean;
   engineeringDocumentsCanCreate?: boolean;
@@ -47,6 +50,9 @@ export interface ProjectsRouteProps {
   engineeringSubmittalsCanReview?: boolean;
   engineeringSubmittalsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  projectDocumentsContent?: React.ReactNode;
+  dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+  onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onTabChange?: (tab: WorkspaceTab) => void;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
@@ -79,6 +85,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   initialRfiId,
   initialSubmittalId,
   initialSubmittalRoundId,
+  initialSiteLogId,
+  pathForSiteLog,
   companyId,
   engineeringDocumentsCanRead,
   engineeringDocumentsCanCreate,
@@ -93,6 +101,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   engineeringSubmittalsCanReview,
   engineeringSubmittalsCanManage,
   engineeringDocumentsGuestMode,
+  projectDocumentsContent,
+  dailySiteLogsData,
+  onDailySiteLogsDataChange,
   onTabChange,
   onOpenProject,
   onSaveProject,
@@ -109,6 +120,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   const linkedRfiId = initialRfiId || query?.get("rfiId")?.trim() || undefined;
   const linkedSubmittalId = initialSubmittalId || query?.get("submittalId")?.trim() || undefined;
   const linkedRoundId = initialSubmittalRoundId || query?.get("roundId")?.trim() || undefined;
+  const linkedSiteLogId = initialSiteLogId || query?.get("siteLogId")?.trim() || undefined;
 
   if (selectedProject) {
     const summary = summaries[selectedProject.id] || ({
@@ -139,6 +151,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         initialRfiId={linkedRfiId}
         initialSubmittalId={linkedSubmittalId}
         initialSubmittalRoundId={linkedRoundId}
+        initialSiteLogId={linkedSiteLogId}
+        pathForSiteLog={pathForSiteLog}
         companyId={companyId}
         engineeringDocumentsCanRead={engineeringDocumentsCanRead}
         engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
@@ -153,6 +167,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         engineeringSubmittalsCanReview={engineeringSubmittalsCanReview}
         engineeringSubmittalsCanManage={engineeringSubmittalsCanManage}
         engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
+        projectDocumentsContent={projectDocumentsContent}
+        dailySiteLogsData={dailySiteLogsData}
+        onDailySiteLogsDataChange={onDailySiteLogsDataChange}
         onTabChange={onTabChange}
         onSaveInvoiceAllocations={onSaveInvoiceAllocations}
         onBack={onBack}

@@ -51,15 +51,19 @@ test('feature registry covers all operational and roadmap engineering phases', (
   assert.ok(activeFeatures.some((f) => f.id === 'core-cash-banking'));
   assert.ok(activeFeatures.some((f) => f.id === 'eng-drawings-viewer'));
   assert.ok(activeFeatures.some((f) => f.id === 'eng-rfis-submittals'));
+  assert.ok(activeFeatures.some((f) => f.id === 'eng-daily-site-logs'));
 
   const plannedFeatures = getFeaturesByStatus('PLANNED');
-  assert.ok(plannedFeatures.some((f) => f.id === 'eng-daily-site-logs'));
   assert.ok(plannedFeatures.some((f) => f.id === 'eng-schedule-gantt'));
   assert.equal(plannedFeatures.some((f) => f.id === 'eng-rfis-submittals'), false);
 
   const coordinationFeature = getFeatureById('eng-rfis-submittals');
   assert.equal(coordinationFeature?.status, 'ACTIVE');
   assert.equal(coordinationFeature?.documentationRef, 'docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md');
+
+  const dailySiteLogsFeature = getFeatureById('eng-daily-site-logs');
+  assert.equal(dailySiteLogsFeature?.status, 'ACTIVE');
+  assert.equal(dailySiteLogsFeature?.documentationRef, 'docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md');
 
   const drawingsFeature = getFeatureById('eng-drawings-viewer');
   assert.ok(drawingsFeature);

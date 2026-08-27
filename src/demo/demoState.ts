@@ -1,5 +1,6 @@
 import type { FinancialAccount, FinancialBalanceSnapshot, FinancialTransaction } from "../lib/cashBanking.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
+import type { EngineeringDailySiteLogsWorkspaceData } from "../lib/dailySiteLogs.ts";
 import type {
   AttendanceRecord,
   Expense,
@@ -40,7 +41,8 @@ export type DemoWorkspaceMutation =
   | { type: "UPDATE_PAYROLL_RUN"; value: PayrollRun }
   | { type: "SAVE_FINANCIAL_ACCOUNT"; value: FinancialAccount }
   | { type: "SAVE_FINANCIAL_SNAPSHOT"; value: FinancialBalanceSnapshot }
-  | { type: "SAVE_FINANCIAL_TRANSACTION"; value: FinancialTransaction };
+  | { type: "SAVE_FINANCIAL_TRANSACTION"; value: FinancialTransaction }
+  | { type: "SAVE_DAILY_SITE_LOGS"; value: EngineeringDailySiteLogsWorkspaceData };
 
 function upsert<T extends { id: string }>(items: readonly T[], value: T): T[] {
   const found = items.some((item) => item.id === value.id);
@@ -94,6 +96,8 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, cash: { ...state.cash, snapshots: upsert(state.cash.snapshots, mutation.value) } };
     case "SAVE_FINANCIAL_TRANSACTION":
       return { ...state, cash: { ...state.cash, transactions: upsert(state.cash.transactions, mutation.value) } };
+    case "SAVE_DAILY_SITE_LOGS":
+      return { ...state, siteLogs: mutation.value };
     default:
       return state;
   }
@@ -111,7 +115,7 @@ export function isSafeStoredDemoWorkspace(value: unknown, expectedAnchorDate: st
     && candidate.company?.id === DEMO_COMPANY_ID
     && Array.isArray(candidate.projects)
     && Array.isArray(candidate.invoices)
-    && Boolean(candidate.payroll && candidate.cash && candidate.engineering);
+    && Boolean(candidate.payroll && candidate.cash && candidate.engineering && candidate.siteLogs);
 }
 
 export function prepareAddWorkerAction(

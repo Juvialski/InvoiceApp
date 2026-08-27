@@ -410,6 +410,15 @@ export function AuthScreen({
                   <button type="button" onClick={() => switchMode("sign-in")} className="text-indigo-600 hover:text-indigo-800">Back to sign in</button>
                 )}
               </div>
+
+              {mode === "sign-in" && (
+                <div className="mt-5 flex flex-col items-center gap-1.5 rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-center" data-demo-entry="auth">
+                  <span className="text-[11px] font-semibold text-slate-600">Want to explore before signing in?</span>
+                  <a href="/demo" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-indigo-200 bg-white px-3.5 py-2 text-xs font-black text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
+                    Try the Engoryx demo
+                  </a>
+                </div>
+              )}
             </>
           )}
         </div>

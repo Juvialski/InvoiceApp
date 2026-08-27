@@ -1,5 +1,5 @@
 import React from "react";
-import { Bot, Building2, ChevronRight, FileCheck2, FileStack, Gauge, HardHat, Landmark, Presentation, X } from "lucide-react";
+import { Bot, Building2, ChevronRight, ClipboardList, FileCheck2, FileStack, Gauge, HardHat, Landmark, Presentation, X } from "lucide-react";
 
 export interface DemoTourStop {
   id: string;
@@ -16,6 +16,7 @@ export const DEMO_TOUR_STOPS: DemoTourStop[] = [
   { id: "cash", label: "Cash & Banking", detail: "Explore operating cash, payroll funding, and reconciliation-ready transactions.", path: "/demo/app/cash", icon: Landmark },
   { id: "payroll", label: "Workforce & Payroll", detail: "See workers, attendance, overtime, leave, and weekly payroll history.", path: "/demo/app/payroll", icon: HardHat },
   { id: "documents", label: "Engineering Documents", detail: "Inspect project documents and immutable Rev 0 / Rev 1 history.", path: "/demo/app/documents", icon: FileStack },
+  { id: "site-logs", label: "Daily Site Logs", detail: "Review weather, field progress, crew observations, equipment downtime, safety, and formal history.", path: "/demo/app/projects/demo-project-warehouse/site-logs", icon: ClipboardList },
   { id: "assistant", label: "AI Assistant", detail: "Ask operational questions or prepare a sandboxed employee action for confirmation.", path: "/demo/app/assistant", icon: Bot },
 ];
 
