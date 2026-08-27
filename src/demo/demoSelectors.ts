@@ -29,6 +29,24 @@ export function demoCostPayroll(data: DemoWorkspaceData): CostPayrollRecord[] {
   });
 }
 
+function demoDashboardPayroll(data: DemoWorkspaceData) {
+  return data.payroll.runs.map((run) => {
+    const period = data.payroll.periods.find((item) => item.id === run.periodId);
+    const entries = data.payroll.entries.filter((entry) => entry.payrollRunId === run.id);
+    const entryIds = new Set(entries.map((entry) => entry.id));
+    return {
+      ...run,
+      currency: "PHP",
+      periodId: run.periodId,
+      periodStart: period?.periodStart,
+      periodEnd: period?.periodEnd,
+      payDate: period?.payDate,
+      entries,
+      allocations: data.payroll.allocations.filter((allocation) => entryIds.has(allocation.payrollEntryId)),
+    };
+  });
+}
+
 export function buildDemoProjectSummaries(data: DemoWorkspaceData): Record<string, ProjectCostSummary> {
   const invoices = demoCostInvoices(data);
   const payroll = demoCostPayroll(data);
@@ -36,12 +54,11 @@ export function buildDemoProjectSummaries(data: DemoWorkspaceData): Record<strin
 }
 
 export function buildDemoDashboard(data: DemoWorkspaceData, options?: { activityPeriod?: DashboardActivityPeriod; selectedProjectId?: string; selectedCurrency?: string; customStart?: string; customEnd?: string }): DashboardViewData {
-  const payroll = demoCostPayroll(data);
   return buildDashboardViewData({
     projects: data.projects,
     invoices: data.invoices.map((invoice) => ({ ...invoice, allocations: data.invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id) })),
     expenses: data.expenses,
-    payroll,
+    payroll: demoDashboardPayroll(data),
     periods: data.payroll.periods,
     workers: data.payroll.workers,
     payrollEntries: data.payroll.entries,
