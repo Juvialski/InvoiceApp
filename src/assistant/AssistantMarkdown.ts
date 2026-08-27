@@ -38,11 +38,11 @@ export function safeAssistantUrl(value: string) {
 }
 
 const markdownComponents: Components = {
-  p: ({ children }) => React.createElement("p", { className: "m-0" }, children),
+  p: ({ children }) => React.createElement("p", { className: "my-2 first:mt-0 last:mb-0" }, children),
   strong: ({ children }) => React.createElement("strong", { className: "font-extrabold text-slate-950" }, children),
   em: ({ children }) => React.createElement("em", { className: "italic" }, children),
-  ul: ({ children }) => React.createElement("ul", { className: "my-1.5 list-disc space-y-1 pl-5" }, children),
-  ol: ({ children }) => React.createElement("ol", { className: "my-1.5 list-decimal space-y-1 pl-5" }, children),
+  ul: ({ children }) => React.createElement("ul", { className: "my-2 list-disc space-y-1 pl-5" }, children),
+  ol: ({ children }) => React.createElement("ol", { className: "my-2 list-decimal space-y-1 pl-5" }, children),
   li: ({ children }) => React.createElement("li", { className: "break-words pl-0.5" }, children),
   blockquote: ({ children }) => React.createElement("blockquote", { className: "my-2 border-l-2 border-indigo-200 bg-indigo-50/60 px-3 py-1.5 text-slate-600" }, children),
   code: ({ className, children }) => React.createElement("code", { className: className ? "block min-w-max font-mono text-[0.78rem] leading-5 text-slate-100" : "rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[0.82em] text-indigo-800" }, children),
@@ -61,9 +61,9 @@ const markdownComponents: Components = {
   table: ({ children }) => React.createElement("div", { className: "my-2 max-w-full overflow-x-auto rounded-lg border border-slate-200" }, React.createElement("table", { className: "min-w-full text-left text-xs" }, children)),
   th: ({ children }) => React.createElement("th", { className: "border-b border-slate-200 bg-slate-50 px-2.5 py-1.5 font-extrabold text-slate-600" }, children),
   td: ({ children }) => React.createElement("td", { className: "border-b border-slate-100 px-2.5 py-1.5 align-top" }, children),
-  h1: ({ children }) => React.createElement("h1", { className: "m-0 text-base font-black text-slate-950" }, children),
-  h2: ({ children }) => React.createElement("h2", { className: "m-0 text-sm font-black text-slate-950" }, children),
-  h3: ({ children }) => React.createElement("h3", { className: "m-0 text-sm font-extrabold text-slate-950" }, children),
+  h1: ({ children }) => React.createElement("h1", { className: "mb-2 mt-3 first:mt-0 text-base font-black text-slate-950" }, children),
+  h2: ({ children }) => React.createElement("h2", { className: "mb-2 mt-3 first:mt-0 text-sm font-black text-slate-950" }, children),
+  h3: ({ children }) => React.createElement("h3", { className: "mb-1.5 mt-2.5 first:mt-0 text-sm font-extrabold text-slate-950" }, children),
   hr: () => React.createElement("hr", { className: "my-2 border-slate-200" }),
   img: () => null,
 };
@@ -74,7 +74,7 @@ export interface AssistantMarkdownProps {
 
 export const AssistantMarkdown: React.FC<AssistantMarkdownProps> = ({ text }) => React.createElement(
   "div",
-  { className: "min-w-0 max-w-full break-words whitespace-pre-wrap [overflow-wrap:anywhere]" },
+  { className: "min-w-0 max-w-full break-words [overflow-wrap:anywhere]" },
   React.createElement(ReactMarkdown, {
     remarkPlugins: [remarkGfm],
     skipHtml: true,
