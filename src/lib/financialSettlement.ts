@@ -41,6 +41,7 @@ export interface FinancialSettlementSummary {
   outstanding: number;
   settlementState: InvoiceSettlementState | PayrollSettlementState;
   legacyPaidWithoutBankLink?: boolean;
+  historyRedacted?: boolean;
   history: FinancialSettlementHistoryItem[];
 }
 
