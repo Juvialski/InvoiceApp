@@ -7,9 +7,27 @@ import { createDemoExpenses, createDemoCashBanking } from "./financial.ts";
 import { createDemoPayroll } from "./workforcePayroll.ts";
 import { createDemoEngineeringDocuments } from "./engineeringDocuments.ts";
 
+const DEMO_OVERTIME_QUEUE_STATUSES = ["PENDING", "PENDING", "REJECTED", "CANCELLED", "PENDING"] as const;
+
 export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoWorkspaceData {
   const projectData = createDemoProjects(anchorDate);
   const invoiceData = createDemoInvoices(anchorDate);
+  const payroll = createDemoPayroll(anchorDate);
+
+  // The public demo deliberately keeps explicit OT requests in the human-review
+  // queue because the production domain does not assume a statutory multiplier.
+  // Approved overtime cost is still demonstrated through approved work entries,
+  // which carry an explicit overtime rate and therefore exercise the real payroll
+  // calculation path without manufacturing an unsupported rule.
+  payroll.overtimeRequests = (payroll.overtimeRequests || []).map((request, index) => ({
+    ...request,
+    status: DEMO_OVERTIME_QUEUE_STATUSES[index] || "PENDING",
+    approvedMinutes: 0,
+    approvedBy: undefined,
+    approvedAt: undefined,
+    notes: request.notes || "Demo approval queue item — overtime is not costed until explicitly approved with an applicable rate.",
+  }));
+
   return {
     version: 1,
     anchorDate,
@@ -31,7 +49,7 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     invoiceAllocations: invoiceData.allocations,
     expenses: createDemoExpenses(anchorDate),
     cash: createDemoCashBanking(anchorDate),
-    payroll: createDemoPayroll(anchorDate),
+    payroll,
     engineering: createDemoEngineeringDocuments(anchorDate),
   };
 }

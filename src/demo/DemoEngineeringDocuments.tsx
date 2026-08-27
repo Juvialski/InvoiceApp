@@ -15,7 +15,8 @@ export function DemoEngineeringDocuments({ projectId }: { projectId?: string }) 
   const [previewOpen, setPreviewOpen] = useState(false);
   const project = projectId ? data.projects.find((item) => item.id === projectId) : undefined;
   const documents = useMemo(() => data.engineering.documents.filter((document) => !projectId || document.projectId === projectId), [data.engineering.documents, projectId]);
-  const selected = documents.find((document) => document.id === selectedDocumentId) || documents[0];
+  const previewableDocument = useMemo(() => documents.find((document) => Boolean(document.metadata?.demoAsset)), [documents]);
+  const selected = documents.find((document) => document.id === selectedDocumentId) || previewableDocument || documents[0];
   const revisions = selected ? data.engineering.revisions.filter((revision) => revision.documentId === selected.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt)) : [];
   const selectedProject = selected ? data.projects.find((item) => item.id === selected.projectId) : undefined;
   const asset = selected?.metadata?.demoAsset as string | undefined;
