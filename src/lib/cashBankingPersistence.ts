@@ -295,25 +295,27 @@ export async function saveFinancialTransactionToSupabase(transaction: FinancialT
 }
 
 export async function saveFinancialTransactionMatchToSupabase(match: FinancialTransactionMatch): Promise<FinancialTransactionMatch> {
-  const userId = requireRemoteUser(await currentUserId());
+  requireRemoteUser(await currentUserId());
   const companyId = requireActiveCompanyId();
-  const { data, error } = await supabase!.from("financial_transaction_matches").upsert(companyScopedRow({
-    id: persistedId(match.id, "match"),
-    company_id: companyId,
-    created_by_user_id: match.createdByUserId || userId,
-    transaction_id: match.transactionId,
-    target_type: match.targetType,
-    target_id: match.targetId || null,
-    matched_amount: match.matchedAmount,
-    status: match.status,
-    confidence: match.confidence ?? null,
-    confirmed_by_user_id: match.confirmedByUserId || (match.status === "CONFIRMED" ? userId : null),
-    confirmed_at: match.confirmedAt || (match.status === "CONFIRMED" ? new Date().toISOString() : null),
-    notes: match.notes || null,
-    updated_at: new Date().toISOString(),
-  })).select("*").single();
+  if (match.status !== "CONFIRMED") {
+    throw new Error("Only confirmed settlements are persisted. Suggestions remain non-authoritative until a finance user confirms them.");
+  }
+  if (!match.targetId || !["INVOICE", "PAYROLL", "EXPENSE"].includes(match.targetType)) {
+    throw new Error("Invoice, payroll, and expense settlement confirmations must use the guarded settlement operation. Transfers use their dedicated operation.");
+  }
+  const { data, error } = await supabase!.rpc("confirm_financial_settlement", {
+    p_company_id: companyId,
+    p_transaction_id: match.transactionId,
+    p_target_type: match.targetType,
+    p_target_id: match.targetId,
+    p_matched_amount: match.matchedAmount,
+    p_match_id: persistedId(match.id, "match"),
+    p_confidence: match.confidence ?? null,
+    p_notes: match.notes || null,
+    p_confirmation_source: "RECONCILIATION_UI",
+  });
   if (error) throw error;
-  return matchFromRow(data as Row);
+  return matchFromRow((data || {}) as Row);
 }
 
 export interface FinancialImportCommitResult {

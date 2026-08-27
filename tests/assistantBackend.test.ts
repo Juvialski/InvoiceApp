@@ -15,6 +15,7 @@ const requestedTools = [
   "search_invoices", "get_invoice", "list_review_queue", "search_projects", "get_project", "get_project_cost_summary", "list_expenses", "get_expense_summary", "search_vendors", "get_vendor_summary", "search_workers", "get_worker", "prepare_create_worker", "get_attendance_day", "get_attendance_period_summary", "get_payroll_period", "get_payroll_run", "get_payroll_readiness", "get_payroll_exceptions", "get_payroll_summary", "list_payroll_periods", "get_current_workspace_summary", "get_cash_summary", "list_financial_accounts", "get_financial_account", "list_financial_transactions", "get_cash_reconciliation_summary",
   "search_rfis", "get_rfi", "search_submittals", "get_submittal", "navigate_to_rfi", "navigate_to_submittal", "prepare_create_rfi", "prepare_respond_rfi", "prepare_close_rfi", "prepare_create_submittal", "prepare_submit_submittal", "prepare_review_submittal", "prepare_resubmit_submittal",
   "search_site_logs", "get_site_log", "navigate_to_site_log", "prepare_create_site_log", "prepare_update_site_log", "prepare_submit_site_log", "prepare_finalize_site_log", "prepare_void_site_log",
+  "get_invoice_settlement", "get_payroll_settlement", "list_open_invoice_settlements", "get_financial_transaction_settlements", "navigate_to_financial_transaction", "navigate_to_payroll_run", "prepare_match_transaction_to_invoice", "prepare_match_transaction_to_payroll", "prepare_split_transaction_allocation", "prepare_reverse_financial_settlement",
   "navigate_to", "navigate_to_project", "navigate_to_invoice", "navigate_to_review_invoice", "navigate_to_payroll_period", "navigate_to_attendance_date", "search_help", "get_feature_help", "start_tour", "prepare_process_attached_invoice", "prepare_attendance_batch", "prepare_attendance_roster", "record_presence", "record_absence", "prepare_leave_request", "approve_leave", "reject_leave", "cancel_leave", "prepare_overtime_request", "approve_overtime", "reject_overtime", "cancel_overtime", "prepare_payroll_recalculation", "create_expense_draft", "create_project_draft", "assign_invoice_to_project", "update_invoice_draft", "approve_payroll", "mark_payroll_paid",
 ];
 
@@ -27,7 +28,7 @@ function loopContext() {
   } as any;
 }
 
-test("Phase 1B and Phase 1C registries contain only the requested allowlisted tools", () => {
+test("Assistant registry contains only the requested allowlisted tools through financial settlement integration", () => {
   const names = ASSISTANT_TOOL_DEFINITIONS.map((definition) => definition.name);
   assert.deepEqual(names, requestedTools);
   for (const name of requestedTools) assert.ok(names.includes(name), name);

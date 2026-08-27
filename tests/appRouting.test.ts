@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   appPathForInvoice,
+  appPathForPayrollRun,
   appPathForProject,
   appPathForPlatformCompanies,
   appPathForReviewInvoice,
@@ -9,9 +11,12 @@ import {
   appTabForLocation,
   isKnownWorkspaceLocation,
   parseAppLocation,
+  payrollRunIdFromSearch,
   PLATFORM_COMPANIES_PATH,
 } from "../src/utils/appRouting.ts";
 import { pathForAssistantAction } from "../src/assistant/assistantNavigation.ts";
+
+const payrollRouteSource = readFileSync(new URL("../src/app/routes/PayrollRoute.tsx", import.meta.url), "utf8");
 
 test("parses project and project-subview deep links", () => {
   assert.deepEqual(parseAppLocation("/projects/project-42/invoices"), {
@@ -61,6 +66,15 @@ test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForProject("project 42", "site-logs", { siteLogId: "log-7" }), "/projects/project%2042/site-logs?siteLogId=log-7");
   assert.equal(appPathForInvoice("invoice/7", "/projects/project-42/invoices"), "/invoices/invoice%2F7?from=%2Fprojects%2Fproject-42%2Finvoices");
   assert.equal(appPathForReviewInvoice("invoice-7", "/inbox"), "/review?invoiceId=invoice-7&from=%2Finbox");
+});
+
+test("payroll run links keep the canonical payroll route and target the exact run", () => {
+  assert.equal(appPathForPayrollRun("run-42", "/cash"), "/payroll?runId=run-42&from=%2Fcash");
+  assert.equal(payrollRunIdFromSearch("?runId=run-42&from=%2Fcash"), "run-42");
+  assert.equal(pathForAssistantAction({ type: "OPEN_PAYROLL_RUN", entityId: "run-42" }), "/payroll?runId=run-42");
+  assert.match(payrollRouteSource, /payrollRunIdFromSearch\(search\)/);
+  assert.match(payrollRouteSource, /runs=\{\[requestedRun\]\}/);
+  assert.match(payrollRouteSource, /selectedPeriodId=\{requestedPeriod\.id\}/);
 });
 
 test("treats platform company management as a first-class non-workspace route", () => {

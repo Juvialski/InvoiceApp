@@ -191,7 +191,7 @@ test("connection health uses the company runtime primary model for an assistant-
   assert.equal(calls[0].contents[0].parts[0].text, "Reply with the single word OK.");
   assert.equal(calls[0].config.maxOutputTokens, 8);
   assert.equal(calls[0].config.toolConfig.functionCallingConfig.mode, "NONE");
-  assert.equal(ASSISTANT_TOOL_DEFINITIONS.length, 77);
+  assert.equal(ASSISTANT_TOOL_DEFINITIONS.length, 87);
   assert.equal(calls[0].config.tools[0].functionDeclarations.length, ASSISTANT_TOOL_DEFINITIONS.length);
   assert.ok(calls[0].config.tools[0].functionDeclarations.every((declaration: any) => declaration.parameters && !declaration.parametersJsonSchema));
   assert.doesNotMatch(JSON.stringify(calls[0].config.tools), /additionalProperties/);

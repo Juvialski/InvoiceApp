@@ -143,6 +143,29 @@ export function appPathForReviewInvoice(invoiceId: string, returnTo?: string) {
   return `/review?${query.toString()}`;
 }
 
+/** Stable financial deep link. Cash remains one canonical route; transactionId selects context. */
+export function appPathForCashTransaction(transactionId: string, fromTargetType?: string, fromTargetId?: string) {
+  const query = new URLSearchParams({ transactionId });
+  if (fromTargetType?.trim()) query.set("fromTargetType", fromTargetType.trim());
+  if (fromTargetId?.trim()) query.set("fromTargetId", fromTargetId.trim());
+  return `/cash?${query.toString()}`;
+}
+
+/** Stable payroll deep link without inventing a second payroll routing system. */
+export function appPathForPayrollRun(payrollRunId: string, returnTo?: string) {
+  const query = new URLSearchParams({ runId: payrollRunId });
+  if (returnTo) query.set("from", returnTo);
+  return `/payroll?${query.toString()}`;
+}
+
+export function financialTransactionIdFromSearch(search: string) {
+  return new URLSearchParams(search.startsWith("?") ? search : `?${search}`).get("transactionId")?.trim() || undefined;
+}
+
+export function payrollRunIdFromSearch(search: string) {
+  return new URLSearchParams(search.startsWith("?") ? search : `?${search}`).get("runId")?.trim() || undefined;
+}
+
 export function appPathFromLocation(location: Pick<Location, "pathname" | "search">) {
   return `${normalizeRoutePath(location.pathname)}${location.search || ""}`;
 }

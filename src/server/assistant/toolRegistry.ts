@@ -19,6 +19,12 @@ import {
   isDailySiteLogsTool,
   validateDailySiteLogsToolArguments,
 } from "./dailySiteLogsAssistant.ts";
+import {
+  FINANCIAL_SETTLEMENT_TOOL_DEFINITIONS,
+  executeFinancialSettlementTool,
+  isFinancialSettlementTool,
+  validateFinancialSettlementToolArguments,
+} from "./financialSettlementAssistant.ts";
 
 type JsonSchema = Record<string, unknown>;
 type PermissionResolver = string[] | ((args: Record<string, unknown>) => string[]);
@@ -104,6 +110,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
 
   ...ENGINEERING_COORDINATION_TOOL_DEFINITIONS,
   ...DAILY_SITE_LOGS_TOOL_DEFINITIONS,
+  ...FINANCIAL_SETTLEMENT_TOOL_DEFINITIONS,
 
   navigation("navigate_to", "Navigate to an allowlisted InvoiceApp route.", (args) => [routePermission(args.routeId)], { routeId: { type: "string", enum: ["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"] } }, ["routeId"]),
   navigation("navigate_to_project", "Open a company project in the app.", ["projects.read"], { projectId: uuid }, ["projectId"]),
@@ -154,6 +161,7 @@ function permissionsFor(definition: AssistantToolDefinition, args: Record<string
 export function validateAssistantToolArguments(name: string, rawArgs: unknown): Record<string, unknown> {
   if (isEngineeringCoordinationTool(name)) return validateEngineeringCoordinationToolArguments(name, rawArgs);
   if (isDailySiteLogsTool(name)) return validateDailySiteLogsToolArguments(name, rawArgs);
+  if (isFinancialSettlementTool(name)) return validateFinancialSettlementToolArguments(name, rawArgs);
   return validateToolArguments(name, rawArgs);
 }
 
@@ -173,7 +181,9 @@ export async function executeAssistantTool(name: string, rawArgs: unknown, conte
       ? await executeEngineeringCoordinationTool(name, args, context)
       : isDailySiteLogsTool(name)
         ? await executeDailySiteLogsTool(name, args, context)
-        : await executeRegisteredTool(name, args, context);
+        : isFinancialSettlementTool(name)
+          ? await executeFinancialSettlementTool(name, args, context)
+          : await executeRegisteredTool(name, args, context);
     return boundToolResult(result);
   } catch (error) {
     if (error instanceof AssistantBackendError) return toolError(error.code, error.message);

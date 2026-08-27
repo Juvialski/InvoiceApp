@@ -1,4 +1,4 @@
-import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab } from "../utils/appRouting.ts";
+import { appPathForCashTransaction, appPathForInvoice, appPathForPayrollRun, appPathForProject, appPathForReviewInvoice, appPathForTab } from "../utils/appRouting.ts";
 import { getRouteDefinition, type RouteId } from "../utils/routes.ts";
 import type { AssistantClientAction } from "./assistantTypes.ts";
 
@@ -24,6 +24,8 @@ export function isAssistantRouteId(value: unknown): value is RouteId {
 export function pathForAssistantAction(action: AssistantClientAction): string | null {
   if (action.type === "OPEN_INVOICE" && action.entityId) return appPathForInvoice(action.entityId);
   if (action.type === "OPEN_REVIEW_INVOICE" && action.entityId) return appPathForReviewInvoice(action.entityId);
+  if (action.type === "OPEN_FINANCIAL_TRANSACTION" && action.entityId) return appPathForCashTransaction(action.entityId);
+  if (action.type === "OPEN_PAYROLL_RUN" && action.entityId) return appPathForPayrollRun(action.entityId);
   if (action.type === "OPEN_PROJECT_DOCUMENTS" && action.entityId) return appPathForProject(action.entityId, "documents");
   if (action.type === "OPEN_RFI" && action.entityId && action.projectId) return appPathForProject(action.projectId, "rfis", { rfiId: action.entityId });
   if (action.type === "OPEN_SUBMITTAL" && action.entityId && action.projectId) return appPathForProject(action.projectId, "submittals", { submittalId: action.entityId, roundId: action.roundId });
