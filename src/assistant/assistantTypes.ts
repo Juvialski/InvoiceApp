@@ -90,6 +90,7 @@ export interface AssistantResponse {
 
 export interface AssistantRequest {
   threadId?: string;
+  requestId?: string;
   message: string;
   context: AssistantContext;
   attachments?: AssistantAttachmentInput[];
@@ -105,6 +106,7 @@ export interface AssistantErrorResponse {
   error: string;
   code?: string;
   reference?: string;
+  threadId?: string;
   contextGeneration?: number;
 }
 

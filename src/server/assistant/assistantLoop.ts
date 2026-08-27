@@ -35,28 +35,49 @@ interface NormalizedFunctionCall {
   name: string;
   id: string;
   args: unknown;
+  thoughtSignature?: string;
 }
 
-function responseFunctionCalls(response: unknown): unknown[] {
+interface RawFunctionCallPart {
+  call: unknown;
+  thoughtSignature?: string;
+}
+
+function responseFunctionCalls(response: unknown): RawFunctionCallPart[] {
   const candidate = response as { functionCalls?: unknown; candidates?: Array<{ content?: { parts?: unknown[] } }> };
-  if (Array.isArray(candidate?.functionCalls)) return candidate.functionCalls;
   const parts = candidate?.candidates?.[0]?.content?.parts;
-  if (!Array.isArray(parts)) return [];
-  return parts.map((part) => (part && typeof part === "object" ? (part as Record<string, unknown>).functionCall : undefined)).filter(Boolean);
+  if (Array.isArray(parts)) {
+    const calls = parts.flatMap((part) => {
+      if (!part || typeof part !== "object") return [];
+      const source = part as Record<string, unknown>;
+      const call = source.functionCall;
+      if (!call || typeof call !== "object") return [];
+      // Gemini 3 validates this opaque value positionally. Preserve it byte
+      // for byte as returned; trimming or normalizing it breaks the next turn.
+      const thoughtSignature = typeof source.thoughtSignature === "string" && source.thoughtSignature.length > 0 ? source.thoughtSignature : undefined;
+      return [{ call, ...(thoughtSignature ? { thoughtSignature } : {}) }];
+    });
+    if (calls.length) return calls;
+  }
+  if (Array.isArray(candidate?.functionCalls)) return candidate.functionCalls.map((call) => ({ call }));
+  return [];
 }
 
-function normalizeFunctionCall(value: unknown, iteration: number, index: number): NormalizedFunctionCall {
-  const call = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-  const name = typeof call.name === "string" ? call.name.trim() : "";
-  const id = typeof call.id === "string" && call.id.trim() ? call.id.trim().slice(0, 160) : `assistant-${iteration}-${index}`;
+function normalizeFunctionCall(value: RawFunctionCallPart, iteration: number, index: number): NormalizedFunctionCall {
+  const call = value.call && typeof value.call === "object" && !Array.isArray(value.call) ? value.call as Record<string, unknown> : {};
+  const name = typeof call.name === "string" ? call.name : "";
+  const id = typeof call.id === "string" && call.id.length > 0 ? call.id : `assistant-${iteration}-${index}`;
   const args = call.args === undefined ? {} : call.args;
-  return { name, id, args };
+  return { name, id, args, ...(value.thoughtSignature ? { thoughtSignature: value.thoughtSignature } : {}) };
 }
 
 function modelFunctionCallContent(calls: NormalizedFunctionCall[]) {
   return {
     role: "model",
-    parts: calls.map((call) => ({ functionCall: { name: call.name || "unknown_tool", id: call.id, args: call.args && typeof call.args === "object" && !Array.isArray(call.args) ? call.args : {} } })),
+    parts: calls.map((call) => ({
+      ...(call.thoughtSignature ? { thoughtSignature: call.thoughtSignature } : {}),
+      functionCall: { name: call.name || "unknown_tool", id: call.id, args: call.args && typeof call.args === "object" && !Array.isArray(call.args) ? call.args : {} },
+    })),
   };
 }
 
@@ -82,6 +103,7 @@ export async function runAssistantLoop(input: AssistantLoopInput): Promise<Assis
   let iterations = 0;
   let functionCalls = 0;
   let model: string | undefined;
+  const toolDeclarations = assistantFunctionDeclarations();
 
   while (iterations < ASSISTANT_MAX_ITERATIONS) {
     iterations += 1;
@@ -89,7 +111,7 @@ export async function runAssistantLoop(input: AssistantLoopInput): Promise<Assis
       contents: contents as any,
       config: {
         systemInstruction: input.systemInstruction,
-        tools: [{ functionDeclarations: assistantFunctionDeclarations() }] as any,
+        tools: [{ functionDeclarations: toolDeclarations }],
         maxOutputTokens: 900,
       },
     });

@@ -46,8 +46,23 @@ async function generateWithTimeout(client: AssistantModelClient, model: string, 
   }
 }
 
-function normalizeModelError(error: unknown, model: string, stage: string) {
-  return companyAiProviderError(error, { assumeProviderError: true, model, stage })
+function toolDeclarationCount(call: AssistantModelCall) {
+  const tools = call.config.tools;
+  if (!Array.isArray(tools)) return 0;
+  return tools.reduce((count, tool) => {
+    const declarations = tool && typeof tool === "object" ? (tool as { functionDeclarations?: unknown }).functionDeclarations : undefined;
+    return count + (Array.isArray(declarations) ? declarations.length : 0);
+  }, 0);
+}
+
+function normalizeModelError(error: unknown, model: string, stage: string, call: AssistantModelCall) {
+  const declarations = toolDeclarationCount(call);
+  return companyAiProviderError(error, {
+    assumeProviderError: true,
+    model,
+    stage,
+    diagnostics: { requestKind: "assistant", toolDeclarationCount: declarations },
+  })
     || new AssistantBackendError("MODEL_FAILED", "The assistant model failed safely.", 503);
 }
 
@@ -64,14 +79,14 @@ export function createAssistantModelRunner(client: AssistantModelClient, options
         const response = await generateWithTimeout(client, model, call, timeoutMs);
         return { response, model, fallbackUsed: hasUsedFallback };
       } catch (primaryError) {
-        const normalizedPrimary = normalizeModelError(primaryError, model, hasUsedFallback ? "fallback" : "primary");
+        const normalizedPrimary = normalizeModelError(primaryError, model, hasUsedFallback ? "assistant-fallback" : "assistant-primary", call);
         if (hasUsedFallback || !isCompanyAiFallbackEligible(normalizedPrimary)) throw normalizedPrimary;
         hasUsedFallback = true;
         try {
           const response = await generateWithTimeout(client, ASSISTANT_FALLBACK_MODEL, call, timeoutMs);
           return { response, model: ASSISTANT_FALLBACK_MODEL, fallbackUsed: true };
         } catch (fallbackError) {
-          throw normalizeModelError(fallbackError, ASSISTANT_FALLBACK_MODEL, "fallback");
+          throw normalizeModelError(fallbackError, ASSISTANT_FALLBACK_MODEL, "assistant-fallback", call);
         }
       }
     },
