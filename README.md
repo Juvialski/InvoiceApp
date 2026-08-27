@@ -1,48 +1,70 @@
 # ENGORYX — Engineering Operations Platform
 
-Engoryx is an integrated engineering operations platform for architecture, engineering, and construction (AEC) firms, contractors, and project teams. It unifies project costing, cash & banking operations, supplier invoice extraction & verification, workforce management, engineering payroll, direct expenses, and comprehensive reporting under a secure multi-tenant architecture.
+Engoryx is an integrated engineering operations platform for architecture, engineering, and construction (AEC) firms, contractors, and project teams. It unifies project costing, cash & banking operations, supplier invoice extraction & verification, workforce management, engineering payroll, direct expenses, engineering document control, field workflows, financial settlement evidence, and comprehensive reporting under a secure multi-tenant architecture.
 
-For technical architecture and open-source roadmap details, see:
+For technical architecture and roadmap details, see:
 - [Engoryx Platform Architecture](docs/ENGORYX_PLATFORM_ARCHITECTURE.md)
 - [Engoryx Phase 1A: Engineering Documents & Blueprint Viewer](docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md)
+- [Engoryx Phase 1B: RFIs & Technical Submittals](docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md)
 - [Engoryx Phase 1C: Daily Site Logs & Weather Tracking](docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md)
+- [Engoryx Financial Settlement Integration](docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md)
+- [Engoryx Engineering QA & Agent Context Infrastructure](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md)
 - [Engoryx Open-Source Integrations Evaluation](docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md)
 - [Engoryx UI Foundation & Astryx Pilot](docs/ENGORYX_UI_FOUNDATION.md)
 
 ---
 
-## 1. Core Modules
+## 1. Current Project Status
 
-1. **Operations Dashboard**: Central executive and project cost overview with multi-currency conversions and real-time KPI metrics.
-2. **Cash & Banking**: Multi-account ledger, statement imports, balance freshness tracking, and transaction reconciliation against invoices, payroll, and expenses.
-3. **Invoices & AI Extraction**: Multimodal invoice extraction with Gemini 3.5 Flash-Lite / 3.7 Flash, human verification queue, editable line items, and vendor directory.
-4. **Project Workspaces**: Detailed project tracking combining budgets, confirmed supplier invoices, approved payroll allocations, and direct site expenses.
-5. **Engineering Documents & Drawings (Phase 1A)**: Multi-page blueprint viewer (PDF.js + Konva), immutable revision lineage, normalized vector redlines, and discipline filtering.
-6. **Direct Expenses**: Project disbursement tracking for fuel, transport, equipment rentals, permits, and miscellaneous site costs.
-7. **Workforce & Payroll**: Attendance rosters, overtime approvals, leave management, compensation profiles, recurring runs, and project labor cost allocation.
-8. **Operational Reports**: Consolidated project cost reports, payroll operating cost summaries, and full multi-sheet Excel workbook exports.
-9. **Engoryx Assistant**: Guarded operations assistant for natural language navigation, data queries, and multi-step action preparation with mandatory confirmation gates.
+Roadmap snapshot as of **2026-08-28**:
+
+- **Phase 0 core operations are established**: multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Workforce & Payroll, Reports, and the guarded Engoryx Assistant are active platform foundations.
+- **Phase 1 is functionally complete on `main`**:
+  - **Phase 1A**: Engineering Drawings & Blueprint Viewer, immutable revision lineage, and normalized redlines.
+  - **Phase 1B**: RFIs and Technical Submittals with guarded lifecycle/history and document-revision linking.
+  - **Phase 1C**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal field-record history.
+- **Financial Settlement Integration is complete**: Cash & Banking can provide guarded settlement evidence for supplier invoices, payroll runs, and supported expenses while keeping project-cost and payroll-source semantics separate.
+- **The next customer-facing product phase is Phase 2: Project Scheduling & Gantt.**
+- **The next engineering-infrastructure priority is Automated QA & Agent Context**, using n8n as an orchestration layer around GitHub Actions, Playwright/browser evidence, AI-assisted defect review, persistent QA findings, and bounded context retrieval for future coding-agent runs. This infrastructure track does not renumber the customer-facing product roadmap.
 
 ---
 
-## 2. Phased Engineering Platform Roadmap
+## 2. Core Modules
 
-- **Phase 0 (Active)**: Engoryx Core Foundation, Multi-Tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, plus a bounded Astryx UI-foundation pilot for shared application controls and patterns.
-- **Phase 1 (In Progress)**:
-  - **Phase 1A (Active)**: Engineering Drawings & Blueprint Viewer (PDF.js + Konva), immutable revisions, normalized redlines.
-  - **Phase 1B (Active)**: RFIs and Technical Submittals with Engineer-of-Record workflows.
-  - **Phase 1C (Active)**: Daily Site Logs with weather tracking, crew headcount, equipment usage, delays, safety observations, and formal field-record history.
-- **Phase 2 (Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking.
+1. **Operations Dashboard**: Central executive and project cost overview with multi-currency conversions and real-time KPI metrics.
+2. **Cash & Banking**: Multi-account ledger, statement imports, balance freshness tracking, transaction reconciliation, and settlement evidence against invoices, payroll, and supported expenses.
+3. **Invoices & AI Extraction**: Multimodal invoice extraction with Gemini models, human verification queue, editable line items, vendor directory, and authoritative settlement presentation.
+4. **Project Workspaces**: Detailed project tracking combining budgets, confirmed supplier invoices, approved payroll allocations, direct site expenses, engineering documents, RFIs/Submittals, and Daily Site Logs.
+5. **Engineering Documents & Drawings (Phase 1A)**: Multi-page blueprint viewer (PDF.js + Konva), immutable revision lineage, normalized vector redlines, and discipline filtering.
+6. **Engineering Coordination (Phase 1B)**: Project-scoped RFIs and Technical Submittals with guarded lifecycle transitions, formal history, immutable document-revision references, and Assistant integration.
+7. **Daily Site Logs (Phase 1C)**: Project-scoped daily field records for weather/site conditions, crew, equipment, delays, safety observations, and formal submission/finalization history.
+8. **Direct Expenses**: Project disbursement tracking for fuel, transport, equipment rentals, permits, and miscellaneous site costs.
+9. **Workforce & Payroll**: Attendance rosters, overtime approvals, leave management, compensation profiles, recurring runs, project labor cost allocation, and payroll disbursement evidence.
+10. **Operational Reports**: Consolidated project cost reports, payroll operating cost summaries, and full multi-sheet Excel workbook exports.
+11. **Engoryx Assistant**: Guarded operations assistant for natural language navigation, data queries, and multi-step action preparation with mandatory confirmation gates.
+
+---
+
+## 3. Phased Engineering Platform Roadmap
+
+- **Phase 0 (Established / Active)**: Engoryx Core Foundation, Multi-Tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, and the bounded Astryx UI-foundation pilot.
+- **Phase 1 (Complete / Active in product)**:
+  - **Phase 1A (Complete)**: Engineering Drawings & Blueprint Viewer (PDF.js + Konva), immutable revisions, normalized redlines.
+  - **Phase 1B (Complete)**: RFIs and Technical Submittals with Engineer-of-Record-style coordination workflows and immutable document-revision references.
+  - **Phase 1C (Complete)**: Daily Site Logs with weather/site conditions, crew headcount, equipment usage, delays, safety observations, and formal field-record history.
+- **Cross-Domain Financial Settlement (Complete)**: Guarded settlement integration across Cash & Banking, supplier invoices, payroll, supported expenses, and Assistant workflows. Settlement remains evidence of payment/disbursement and does not create project cost.
+- **Engineering Infrastructure Track (Planned — immediate priority)**: Automated QA & Agent Context. n8n orchestrates existing GitHub Actions, Playwright/browser evidence, AI-assisted visual/semantic defect review, persistent structured findings, GitHub reporting, and bounded feature-scoped context retrieval for future agents. See [the dedicated plan](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
+- **Phase 2 (Next Product Phase / Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking, and project schedule health.
 - **Phase 3 (Planned)**: Field Capture & Barcode/QR Scanning (ZXing-js) for equipment check-in/out, tool tracking, and material delivery verification.
 - **Phase 4 (Future)**: 3D CAD & BIM Model Inspection (Online3DViewer / web-ifc), GIS Site Boundaries & Drone Survey Orthomosaics (MapLibre + Turf + OpenDroneMap).
-- **Phase 5 (Future)**: Procurement, Material Requisition Orders (MRO), and 3-way PO matching.
+- **Phase 5 (Future)**: Procurement, Material Requisition Orders (MRO), BOQ/vendor workflows, and 3-way PO matching.
 - **Phase 6 (Future)**: Subcontractor Portal & Self-Hosted Digital Signatures (Documenso).
 - **Phase 7 (Future)**: Advanced Document Intelligence & Complex Layout Parsing (Docling).
 - **Phase 8 (Future)**: Field SMS & Emergency Weather Broadcasts (httpSMS).
 
 ---
 
-## 3. Development & Local Runbook
+## 4. Development & Local Runbook
 
 ### Prerequisites & Windows PowerShell Notes
 When executing in Windows PowerShell, always invoke `npm.cmd` and `npx.cmd` to adhere to script execution policies (see AGENTS.md).
@@ -73,7 +95,7 @@ npm.cmd run test:migrations
 
 ---
 
-## 4. Required Environment Variables
+## 5. Required Environment Variables
 
 ```env
 AI_CREDENTIALS_MASTER_KEY=BASE64_OF_32_RANDOM_BYTES
@@ -85,9 +107,10 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 ---
 
-## 5. Security, Tenancy & Financial Invariants
+## 6. Security, Tenancy & Financial Invariants
 
 - **Multi-Tenancy**: All records are strictly company-isolated via PostgreSQL Row-Level Security (RLS).
 - **Financial Immutability**: Historical financial transactions, approved payroll runs, and verified invoice baselines are append-only.
+- **Settlement Separation**: Confirmed cash settlement is evidence of payment/disbursement and does not independently create project cost or rewrite payroll-source history.
 - **Controlled AI Actions**: AI operations produce previews only (PREPARED); write operations require explicit human confirmation.
-- **Philippines-First Context**: Complies with official BIR/EOPT invoice guidance ([BIR RR No. 7-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%207-%202024.pdf), [RMC No. 77-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%2077-2024.pdf)).
+- **Philippines-First Context**: Complies with official BIR/EOPT invoice guidance ([BIR RR No. 7-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%207-%202024.pdf), [RMC No. 77-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%2077-%202024.pdf)).
