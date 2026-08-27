@@ -40,7 +40,7 @@ test('index.html, metadata.json, and package.json are synchronized with Engoryx 
 
 test('feature registry covers all operational and roadmap engineering phases', () => {
   assert.ok(ENGORYX_FEATURE_REGISTRY.length >= 8);
-  
+
   const phase0 = getFeaturesByPhase(0);
   assert.ok(phase0.length >= 7);
   assert.ok(phase0.every((f) => f.status === 'ACTIVE'));
@@ -50,10 +50,16 @@ test('feature registry covers all operational and roadmap engineering phases', (
   assert.ok(activeFeatures.some((f) => f.id === 'core-projects'));
   assert.ok(activeFeatures.some((f) => f.id === 'core-cash-banking'));
   assert.ok(activeFeatures.some((f) => f.id === 'eng-drawings-viewer'));
+  assert.ok(activeFeatures.some((f) => f.id === 'eng-rfis-submittals'));
 
   const plannedFeatures = getFeaturesByStatus('PLANNED');
-  assert.ok(plannedFeatures.some((f) => f.id === 'eng-rfis-submittals'));
+  assert.ok(plannedFeatures.some((f) => f.id === 'eng-daily-site-logs'));
   assert.ok(plannedFeatures.some((f) => f.id === 'eng-schedule-gantt'));
+  assert.equal(plannedFeatures.some((f) => f.id === 'eng-rfis-submittals'), false);
+
+  const coordinationFeature = getFeatureById('eng-rfis-submittals');
+  assert.equal(coordinationFeature?.status, 'ACTIVE');
+  assert.equal(coordinationFeature?.documentationRef, 'docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md');
 
   const drawingsFeature = getFeatureById('eng-drawings-viewer');
   assert.ok(drawingsFeature);
