@@ -2,7 +2,7 @@ import type { AppTab } from "./routes.ts";
 import { getRouteForAppTab, normalizeRoutePath, resolveRoute, type RouteId } from "./routes.ts";
 import { companyManagementTabFromQuery, type CompanyManagementTab } from "./companyManagement.ts";
 
-export type ProjectWorkspaceView = "overview" | "documents" | "rfis" | "submittals" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type ProjectWorkspaceView = "overview" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 export const PLATFORM_COMPANIES_PATH = "/platform/companies" as const;
 
@@ -11,13 +11,13 @@ export type AppLocation =
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
   | {
       kind: "project"; tab: "projects"; routeId: "projects"; projectId: string; view: ProjectWorkspaceView; pathname: string; search: string;
-      documentId?: string; revisionId?: string; rfiId?: string; submittalId?: string; roundId?: string;
+      documentId?: string; revisionId?: string; rfiId?: string; submittalId?: string; roundId?: string; siteLogId?: string;
     }
   | { kind: "invoice"; tab: "invoices"; routeId: "invoices"; invoiceId: string; returnTo?: string; pathname: string; search: string }
   | { kind: "review-invoice"; tab: "review"; routeId: "review"; invoiceId: string; returnTo?: string; pathname: string; search: string }
   | { kind: "unknown"; tab: AppTab; routeId: null; pathname: string; search: string };
 
-const PROJECT_VIEWS = new Set<ProjectWorkspaceView>(["overview", "documents", "rfis", "submittals", "invoices", "payroll", "expenses", "people", "reports"]);
+const PROJECT_VIEWS = new Set<ProjectWorkspaceView>(["overview", "documents", "rfis", "submittals", "site-logs", "invoices", "payroll", "expenses", "people", "reports"]);
 
 function safeDecode(value: string) {
   try { return decodeURIComponent(value); } catch { return value; }
@@ -62,6 +62,7 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
     const rfiId = query.get("rfiId")?.trim() || undefined;
     const submittalId = query.get("submittalId")?.trim() || undefined;
     const roundId = query.get("roundId")?.trim() || undefined;
+    const siteLogId = query.get("siteLogId")?.trim() || undefined;
     return {
       kind: "project",
       tab: "projects",
@@ -75,6 +76,7 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
       ...(rfiId ? { rfiId } : {}),
       ...(submittalId ? { submittalId } : {}),
       ...(roundId ? { roundId } : {}),
+      ...(siteLogId ? { siteLogId } : {}),
     };
   }
 
@@ -116,7 +118,7 @@ export function appPathForPlatformCompanies(companyId?: string | null, tab?: Com
 export function appPathForProject(
   projectId: string,
   view: ProjectWorkspaceView = "overview",
-  options?: { docId?: string; revId?: string; rfiId?: string; submittalId?: string; roundId?: string }
+  options?: { docId?: string; revId?: string; rfiId?: string; submittalId?: string; roundId?: string; siteLogId?: string }
 ) {
   const suffix = view === "overview" ? "" : `/${view}`;
   const query = new URLSearchParams();
@@ -125,6 +127,7 @@ export function appPathForProject(
   if (options?.rfiId?.trim()) query.set("rfiId", options.rfiId.trim());
   if (options?.submittalId?.trim()) query.set("submittalId", options.submittalId.trim());
   if (options?.roundId?.trim()) query.set("roundId", options.roundId.trim());
+  if (options?.siteLogId?.trim()) query.set("siteLogId", options.siteLogId.trim());
   const queryString = query.toString();
   return `/projects/${encodeSegment(projectId)}${suffix}${queryString ? `?${queryString}` : ""}`;
 }

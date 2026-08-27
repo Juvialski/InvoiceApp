@@ -34,6 +34,12 @@ test("parses project and project-subview deep links", () => {
     assert.equal(documents.documentId, "doc-99");
     assert.equal(documents.revisionId, "rev-3");
   }
+  const siteLogs = parseAppLocation("/projects/project-42/site-logs", "?siteLogId=log-77");
+  assert.equal(siteLogs.kind, "project");
+  if (siteLogs.kind === "project") {
+    assert.equal(siteLogs.view, "site-logs");
+    assert.equal(siteLogs.siteLogId, "log-77");
+  }
 });
 
 test("parses invoice and review-session URLs with safe return paths", () => {
@@ -52,6 +58,7 @@ test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForTab("payroll"), "/payroll");
   assert.equal(appPathForProject("project 42", "expenses"), "/projects/project%2042/expenses");
   assert.equal(appPathForProject("project 42", "documents", { docId: "doc-1", revId: "rev-2" }), "/projects/project%2042/documents?docId=doc-1&revId=rev-2");
+  assert.equal(appPathForProject("project 42", "site-logs", { siteLogId: "log-7" }), "/projects/project%2042/site-logs?siteLogId=log-7");
   assert.equal(appPathForInvoice("invoice/7", "/projects/project-42/invoices"), "/invoices/invoice%2F7?from=%2Fprojects%2Fproject-42%2Finvoices");
   assert.equal(appPathForReviewInvoice("invoice-7", "/inbox"), "/review?invoiceId=invoice-7&from=%2Finbox");
 });

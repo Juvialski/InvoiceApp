@@ -19,11 +19,13 @@ import { ProjectOverview } from "./ProjectOverview";
 import { ProjectDocuments } from "../engineering/ProjectDocuments";
 import { ProjectRfis } from "../engineering/ProjectRfis";
 import { ProjectSubmittals } from "../engineering/ProjectSubmittals";
+import { ProjectSiteLogs } from "../engineering/ProjectSiteLogs";
 import { useEngineeringCoordinationAccess } from "../../features/engineering/useEngineeringCoordinationAccess";
+import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import { PageHeader } from "../ui/OperationsUI";
 
-export type WorkspaceTab = "overview" | "documents" | "rfis" | "submittals" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type WorkspaceTab = "overview" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -42,6 +44,8 @@ interface ProjectWorkspaceProps {
   initialRfiId?: string;
   initialSubmittalId?: string;
   initialSubmittalRoundId?: string;
+  initialSiteLogId?: string;
+  pathForSiteLog?: (siteLogId?: string) => string;
   companyId?: string;
   engineeringDocumentsCanRead?: boolean;
   engineeringDocumentsCanCreate?: boolean;
@@ -56,6 +60,8 @@ interface ProjectWorkspaceProps {
   engineeringSubmittalsCanReview?: boolean;
   engineeringSubmittalsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+  onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onTabChange?: (tab: WorkspaceTab) => void;
   onBack: () => void;
   onOpenInvoice: (invoice: InvoiceData) => void;
@@ -92,6 +98,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   initialRfiId,
   initialSubmittalId,
   initialSubmittalRoundId,
+  initialSiteLogId,
+  pathForSiteLog,
   companyId,
   engineeringDocumentsCanRead = true,
   engineeringDocumentsCanCreate = true,
@@ -106,6 +114,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   engineeringSubmittalsCanReview,
   engineeringSubmittalsCanManage,
   engineeringDocumentsGuestMode = false,
+  dailySiteLogsData,
+  onDailySiteLogsDataChange,
   onTabChange,
   onBack,
   onOpenInvoice,
@@ -144,6 +154,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     ["documents", "Documents", Compass],
     ["rfis", "RFIs", FileQuestion],
     ["submittals", "Submittals", ClipboardCheck],
+    ["site-logs", "Site Logs", HardHat],
     ["invoices", "Invoices", FileText],
     ["payroll", "Payroll", HardHat],
     ["expenses", "Expenses", Receipt],
@@ -169,7 +180,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         <PageHeader
           eyebrow={project.projectCode}
           title={project.projectName}
-          description="Project workspace sections keep engineering drawings, RFIs, technical submittals, supplier, labor, and expense records in one operational context."
+          description="Project workspace sections keep engineering drawings, RFIs, technical submittals, daily field records, supplier, labor, and expense records in one operational context."
           actions={<Button variant="secondary" label="← Projects" onClick={onBack} />}
         />
       )}
@@ -235,6 +246,27 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
             canManage={phase1bAccess.submittalsManage}
             canReadDocuments={engineeringDocumentsCanRead}
             guestMode={engineeringDocumentsGuestMode}
+          />
+        )
+      )}
+
+      {tab === "site-logs" && (
+        coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? (
+          <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div>
+        ) : (
+          <ProjectSiteLogs
+            project={project}
+            companyId={companyId}
+            initialSiteLogId={initialSiteLogId}
+            pathForSiteLog={pathForSiteLog}
+            canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead}
+            canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate}
+            canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate}
+            canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit}
+            canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage}
+            guestMode={engineeringDocumentsGuestMode}
+            controlledData={dailySiteLogsData}
+            onControlledDataChange={onDailySiteLogsDataChange}
           />
         )
       )}

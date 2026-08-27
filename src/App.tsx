@@ -2721,7 +2721,7 @@ function InvoiceWorkspace() {
       isAuthenticated={Boolean(isSupabaseConfigured && session)}
       guestMode={guestModeState}
       permissions={permissions}
-      compactContext={{ route: route.pathname, companyName: activeCompany?.name, companyTimezone: activeCompany?.timezone || regionalSettings.timezone, currency: activeCompany?.defaultCurrency || regionalSettings.currency, locale: regionalSettings.locale, selectedInvoiceId: selectedInvoice?.id || undefined, selectedProjectId: selectedProject?.id || undefined }}
+       compactContext={{ route: route.pathname, companyName: activeCompany?.name, companyTimezone: activeCompany?.timezone || regionalSettings.timezone, currency: activeCompany?.defaultCurrency || regionalSettings.currency, locale: regionalSettings.locale, selectedInvoiceId: selectedInvoice?.id || undefined, selectedProjectId: selectedProject?.id || undefined, selectedSiteLogId: route.kind === "project" ? route.siteLogId : undefined }}
       onNavigate={(path) => navigateToPath(path)}
       onOpenAiConfiguration={() => { if (isPlatformOwner) openPlatformManagement(); }}
       onOpenInvoice={(invoiceId) => { const invoice = invoicesRef.current.find((item) => item.id === invoiceId); if (invoice) openInvoice(invoice); else navigateToPath(appPathForInvoice(invoiceId)); }}

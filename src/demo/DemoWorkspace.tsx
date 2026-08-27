@@ -99,6 +99,9 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             engineeringDocumentsCanAnnotate={false}
             engineeringDocumentsCanManage={false}
             engineeringDocumentsGuestMode={true}
+            dailySiteLogsData={data.siteLogs}
+            onDailySiteLogsDataChange={(value) => dispatch({ type: "SAVE_DAILY_SITE_LOGS", value })}
+            pathForSiteLog={(siteLogId) => selectedProject ? demoPathForProject(selectedProject.id, "site-logs", siteLogId ? { siteLogId } : undefined) : demoPathForTab("projects")}
             onOpenProject={openProject}
             onSaveProject={(project) => dispatch({ type: "SAVE_PROJECT", value: project })}
             onArchiveProject={(project) => dispatch({ type: "ARCHIVE_PROJECT", value: project })}

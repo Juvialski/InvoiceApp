@@ -17,6 +17,7 @@ export function compactAssistantContext(context: AssistantContext): AssistantCon
     companyTimezone: context.companyTimezone?.slice(0, 80),
     selectedInvoiceId: context.selectedInvoiceId,
     selectedProjectId: context.selectedProjectId,
+    selectedSiteLogId: context.selectedSiteLogId,
     selectedPayrollPeriodId: context.selectedPayrollPeriodId,
     selectedPayrollRunId: context.selectedPayrollRunId,
     attendanceDate: context.attendanceDate,

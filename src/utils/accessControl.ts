@@ -51,6 +51,11 @@ export const PERMISSION_KEYS = {
   engineeringSubmittalsCreate: "engineering.submittals.create",
   engineeringSubmittalsReview: "engineering.submittals.review",
   engineeringSubmittalsManage: "engineering.submittals.manage",
+  engineeringSiteLogsRead: "engineering.site_logs.read",
+  engineeringSiteLogsCreate: "engineering.site_logs.create",
+  engineeringSiteLogsUpdate: "engineering.site_logs.update",
+  engineeringSiteLogsSubmit: "engineering.site_logs.submit",
+  engineeringSiteLogsManage: "engineering.site_logs.manage",
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS] | (string & {});
@@ -171,6 +176,11 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.engineeringSubmittalsCreate]: "Technical submittal submission",
     [PERMISSION_KEYS.engineeringSubmittalsReview]: "Technical submittal review",
     [PERMISSION_KEYS.engineeringSubmittalsManage]: "Technical submittal closure and voiding",
+    [PERMISSION_KEYS.engineeringSiteLogsRead]: "Daily Site Log viewing",
+    [PERMISSION_KEYS.engineeringSiteLogsCreate]: "Daily Site Log creation",
+    [PERMISSION_KEYS.engineeringSiteLogsUpdate]: "Daily Site Log draft editing",
+    [PERMISSION_KEYS.engineeringSiteLogsSubmit]: "Daily Site Log submission",
+    [PERMISSION_KEYS.engineeringSiteLogsManage]: "Daily Site Log finalization and voiding",
   };
   return labels[permission || ""] || "this area";
 }

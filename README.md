@@ -5,6 +5,7 @@ Engoryx is an integrated engineering operations platform for architecture, engin
 For technical architecture and open-source roadmap details, see:
 - [Engoryx Platform Architecture](docs/ENGORYX_PLATFORM_ARCHITECTURE.md)
 - [Engoryx Phase 1A: Engineering Documents & Blueprint Viewer](docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md)
+- [Engoryx Phase 1C: Daily Site Logs & Weather Tracking](docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md)
 - [Engoryx Open-Source Integrations Evaluation](docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md)
 - [Engoryx UI Foundation & Astryx Pilot](docs/ENGORYX_UI_FOUNDATION.md)
 
@@ -29,8 +30,8 @@ For technical architecture and open-source roadmap details, see:
 - **Phase 0 (Active)**: Engoryx Core Foundation, Multi-Tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, plus a bounded Astryx UI-foundation pilot for shared application controls and patterns.
 - **Phase 1 (In Progress)**:
   - **Phase 1A (Active)**: Engineering Drawings & Blueprint Viewer (PDF.js + Konva), immutable revisions, normalized redlines.
-  - **Phase 1B (Planned)**: RFIs and Technical Submittals with Engineer-of-Record workflows.
-  - **Phase 1C (Planned)**: Daily Site Logs with weather tracking, crew headcount, and heavy equipment tracking.
+  - **Phase 1B (Active)**: RFIs and Technical Submittals with Engineer-of-Record workflows.
+  - **Phase 1C (Active)**: Daily Site Logs with weather tracking, crew headcount, equipment usage, delays, safety observations, and formal field-record history.
 - **Phase 2 (Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking.
 - **Phase 3 (Planned)**: Field Capture & Barcode/QR Scanning (ZXing-js) for equipment check-in/out, tool tracking, and material delivery verification.
 - **Phase 4 (Future)**: 3D CAD & BIM Model Inspection (Online3DViewer / web-ifc), GIS Site Boundaries & Drone Survey Orthomosaics (MapLibre + Turf + OpenDroneMap).

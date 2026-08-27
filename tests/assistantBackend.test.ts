@@ -5,7 +5,7 @@ import { ASSISTANT_FALLBACK_MODEL, ASSISTANT_PRIMARY_MODEL, createAssistantModel
 import { prepareAssistantAttachments } from "../src/server/assistant/assistantAttachments.ts";
 import { ASSISTANT_SYSTEM_PROMPT, promptInjectionSafeAttachmentText } from "../src/server/assistant/assistantPrompt.ts";
 import { runAssistantLoop } from "../src/server/assistant/assistantLoop.ts";
-import { ASSISTANT_TOOL_DEFINITIONS, executeAssistantTool, getAssistantToolDefinition } from "../src/server/assistant/toolRegistry.ts";
+import { ASSISTANT_TOOL_DEFINITIONS, executeAssistantTool, getAssistantToolDefinition, validateAssistantToolArguments } from "../src/server/assistant/toolRegistry.ts";
 import { validateToolArguments } from "../src/server/assistant/toolValidation.ts";
 import { authenticateAssistantRequest, createPrepareAction } from "../src/server/assistant/assistantHandler.ts";
 import { requireCompanyPermissions } from "../src/server/assistant/toolAuthorization.ts";
@@ -14,6 +14,7 @@ import { executePreparedAction, executeRegisteredTool } from "../src/server/assi
 const requestedTools = [
   "search_invoices", "get_invoice", "list_review_queue", "search_projects", "get_project", "get_project_cost_summary", "list_expenses", "get_expense_summary", "search_vendors", "get_vendor_summary", "search_workers", "get_worker", "prepare_create_worker", "get_attendance_day", "get_attendance_period_summary", "get_payroll_period", "get_payroll_run", "get_payroll_readiness", "get_payroll_exceptions", "get_payroll_summary", "list_payroll_periods", "get_current_workspace_summary", "get_cash_summary", "list_financial_accounts", "get_financial_account", "list_financial_transactions", "get_cash_reconciliation_summary",
   "search_rfis", "get_rfi", "search_submittals", "get_submittal", "navigate_to_rfi", "navigate_to_submittal", "prepare_create_rfi", "prepare_respond_rfi", "prepare_close_rfi", "prepare_create_submittal", "prepare_submit_submittal", "prepare_review_submittal", "prepare_resubmit_submittal",
+  "search_site_logs", "get_site_log", "navigate_to_site_log", "prepare_create_site_log", "prepare_update_site_log", "prepare_submit_site_log", "prepare_finalize_site_log", "prepare_void_site_log",
   "navigate_to", "navigate_to_project", "navigate_to_invoice", "navigate_to_review_invoice", "navigate_to_payroll_period", "navigate_to_attendance_date", "search_help", "get_feature_help", "start_tour", "prepare_process_attached_invoice", "prepare_attendance_batch", "prepare_attendance_roster", "record_presence", "record_absence", "prepare_leave_request", "approve_leave", "reject_leave", "cancel_leave", "prepare_overtime_request", "approve_overtime", "reject_overtime", "cancel_overtime", "prepare_payroll_recalculation", "create_expense_draft", "create_project_draft", "assign_invoice_to_project", "update_invoice_draft", "approve_payroll", "mark_payroll_paid",
 ];
 
@@ -26,7 +27,7 @@ function loopContext() {
   } as any;
 }
 
-test("Phase 1B registry contains only the requested allowlisted tools", () => {
+test("Phase 1B and Phase 1C registries contain only the requested allowlisted tools", () => {
   const names = ASSISTANT_TOOL_DEFINITIONS.map((definition) => definition.name);
   assert.deepEqual(names, requestedTools);
   for (const name of requestedTools) assert.ok(names.includes(name), name);
@@ -41,6 +42,10 @@ test("tool validation rejects malformed identifiers and bounds prepared records"
   assert.throws(() => validateToolArguments("get_attendance_day", { date: "2026-02-30" }), /YYYY-MM-DD/i);
   assert.throws(() => validateToolArguments("prepare_attendance_batch", { records: [] }), /records must contain/i);
   assert.deepEqual(validateToolArguments("prepare_leave_request", { workerId: "00000000-0000-4000-8000-000000000010", leaveType: "Vacation", startDate: "2026-08-24", endDate: "2026-08-25" }).partialDay, "FULL");
+  const siteLog = validateAssistantToolArguments("prepare_create_site_log", { projectId: "00000000-0000-4000-8000-000000000010", siteDate: "2026-08-27", workSummary: "Concrete pour", weather: { condition: "CLEAR", temperatureUnit: "C" }, crew: [{ crewLabel: "Concrete crew", headcount: 12 }] });
+  assert.equal(siteLog.siteDate, "2026-08-27");
+  assert.equal((siteLog.crew as Array<Record<string, unknown>>)[0]?.headcount, 12);
+  assert.throws(() => validateAssistantToolArguments("prepare_submit_site_log", { siteLogId: "not-an-id" }), /valid identifier/i);
 });
 
 test("prompt and attachment boundaries treat injected instructions as untrusted data", () => {

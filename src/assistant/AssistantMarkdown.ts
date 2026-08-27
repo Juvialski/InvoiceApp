@@ -38,7 +38,7 @@ export function safeAssistantUrl(value: string) {
 }
 
 const markdownComponents: Components = {
-  p: ({ children }) => React.createElement("p", { className: "my-2 first:mt-0 last:mb-0" }, children),
+  p: ({ children }) => React.createElement("p", { className: "my-2 text-slate-700 first:mt-0 last:mb-0" }, children),
   strong: ({ children }) => React.createElement("strong", { className: "font-extrabold text-slate-950" }, children),
   em: ({ children }) => React.createElement("em", { className: "italic" }, children),
   ul: ({ children }) => React.createElement("ul", { className: "my-2 list-disc space-y-1 pl-5" }, children),

@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowRight, Banknote, Bot, Building2, FileCheck2, FileStack, HardHat, PlayCircle } from "lucide-react";
+import { ArrowRight, Banknote, Bot, Building2, ClipboardList, FileCheck2, FileStack, HardHat, PlayCircle } from "lucide-react";
 import { BRAND } from "../config/brand.ts";
 
 const CAPABILITIES = [
@@ -8,6 +8,7 @@ const CAPABILITIES = [
   [Banknote, "Cash & Banking", "Operating cash, payroll funding, bank activity, and reconciliation."],
   [Building2, "Workforce & Payroll", "Workers, attendance, overtime, leave, payroll periods, and labor cost."],
   [FileStack, "Engineering Documents", "Disciplined project document and immutable revision history."],
+  [ClipboardList, "Daily Site Logs", "Weather, field progress, crew observations, equipment, delays, and safety history."],
   [Bot, "AI Assistant", "Operational questions, navigation, and confirmed sandbox actions."],
 ] as const;
 

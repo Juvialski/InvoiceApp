@@ -7,6 +7,7 @@ import { createDemoExpenses, createDemoCashBanking } from "./financial.ts";
 import { createDemoPayroll } from "./workforcePayroll.ts";
 import { createDemoEngineeringDocuments } from "./engineeringDocuments.ts";
 import { createDemoEngineeringCoordination } from "./engineeringCoordination.ts";
+import { createDemoDailySiteLogs } from "./dailySiteLogs.ts";
 
 const DEMO_OVERTIME_QUEUE_STATUSES = ["PENDING", "PENDING", "REJECTED", "CANCELLED", "PENDING"] as const;
 
@@ -53,5 +54,6 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     payroll,
     engineering: createDemoEngineeringDocuments(anchorDate),
     coordination: createDemoEngineeringCoordination(anchorDate),
+    siteLogs: createDemoDailySiteLogs(anchorDate),
   };
 }

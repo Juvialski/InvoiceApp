@@ -50,6 +50,7 @@ function clientActionLabel(action: AssistantClientAction) {
   if (action.type === "OPEN_INVOICE") return "Open invoice";
   if (action.type === "OPEN_REVIEW_INVOICE") return "Review invoice";
   if (action.type === "OPEN_PROJECT") return "Open project";
+  if (action.type === "OPEN_SITE_LOG") return "Open Site Log";
   if (action.type === "OPEN_PAYROLL_PERIOD") return "Open payroll";
   if (action.type === "OPEN_ATTENDANCE_DATE") return "Open attendance";
   if (action.type === "START_TOUR") return "Start guided tour";

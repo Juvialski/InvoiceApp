@@ -83,7 +83,7 @@ test("migration invariant: company_audit_events allowlist only ever grows across
   );
 });
 
-test("migration invariant: latest migration contains the authoritative superset of all 51 audit event types", () => {
+test("migration invariant: latest migration contains the authoritative superset of all 56 audit event types", () => {
   const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
   let latestConstraintMigration = "";
   let latestAllowlist: string[] = [];
@@ -129,6 +129,10 @@ test("migration invariant: latest migration contains the authoritative superset 
       "ENGINEERING_RFI_CREATED", "ENGINEERING_RFI_OPENED", "ENGINEERING_RFI_RESPONDED", "ENGINEERING_RFI_CLOSED", "ENGINEERING_RFI_VOIDED",
       "ENGINEERING_SUBMITTAL_CREATED", "ENGINEERING_SUBMITTAL_SUBMITTED", "ENGINEERING_SUBMITTAL_REVIEW_STARTED", "ENGINEERING_SUBMITTAL_REVIEWED",
       "ENGINEERING_SUBMITTAL_RESUBMITTED", "ENGINEERING_SUBMITTAL_CLOSED", "ENGINEERING_SUBMITTAL_VOIDED"
+    ],
+    "Daily Site Logs (Phase 1C)": [
+      "ENGINEERING_DAILY_SITE_LOG_CREATED", "ENGINEERING_DAILY_SITE_LOG_UPDATED",
+      "ENGINEERING_DAILY_SITE_LOG_SUBMITTED", "ENGINEERING_DAILY_SITE_LOG_FINALIZED", "ENGINEERING_DAILY_SITE_LOG_VOIDED"
     ]
   };
 
@@ -143,6 +147,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 51, "Authoritative set must comprise exactly 51 events through Phase 1B");
-  assert.equal(latestSet.size, 51, `Latest allowlist has ${latestSet.size} unique events, expected 51`);
+  assert.equal(totalExpected, 56, "Authoritative set must comprise exactly 56 events through Phase 1C");
+  assert.equal(latestSet.size, 56, `Latest allowlist has ${latestSet.size} unique events, expected 56`);
 });

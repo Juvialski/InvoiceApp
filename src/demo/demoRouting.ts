@@ -41,8 +41,8 @@ export function demoPathForTab(tab: AppTab): string {
   return demoPathForAppPath(appPathForTab(tab));
 }
 
-export function demoPathForProject(projectId: string, view: ProjectWorkspaceView = "overview"): string {
-  return demoPathForAppPath(appPathForProject(projectId, view));
+export function demoPathForProject(projectId: string, view: ProjectWorkspaceView = "overview", options?: Parameters<typeof appPathForProject>[2]): string {
+  return demoPathForAppPath(appPathForProject(projectId, view, options));
 }
 
 export function demoPathForInvoice(invoiceId: string, returnTo?: string): string {

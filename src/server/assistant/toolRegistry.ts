@@ -13,6 +13,12 @@ import {
   isEngineeringCoordinationTool,
   validateEngineeringCoordinationToolArguments,
 } from "./engineeringCoordinationAssistant.ts";
+import {
+  DAILY_SITE_LOGS_TOOL_DEFINITIONS,
+  executeDailySiteLogsTool,
+  isDailySiteLogsTool,
+  validateDailySiteLogsToolArguments,
+} from "./dailySiteLogsAssistant.ts";
 
 type JsonSchema = Record<string, unknown>;
 type PermissionResolver = string[] | ((args: Record<string, unknown>) => string[]);
@@ -97,6 +103,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   read("get_cash_reconciliation_summary", "Return a reconciliation summary across financial accounts, matched transactions, and pending items.", ["cash.summary.read", "cash.transactions.read"], { accountId: uuid }),
 
   ...ENGINEERING_COORDINATION_TOOL_DEFINITIONS,
+  ...DAILY_SITE_LOGS_TOOL_DEFINITIONS,
 
   navigation("navigate_to", "Navigate to an allowlisted InvoiceApp route.", (args) => [routePermission(args.routeId)], { routeId: { type: "string", enum: ["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"] } }, ["routeId"]),
   navigation("navigate_to_project", "Open a company project in the app.", ["projects.read"], { projectId: uuid }, ["projectId"]),
@@ -145,7 +152,9 @@ function permissionsFor(definition: AssistantToolDefinition, args: Record<string
 }
 
 export function validateAssistantToolArguments(name: string, rawArgs: unknown): Record<string, unknown> {
-  return isEngineeringCoordinationTool(name) ? validateEngineeringCoordinationToolArguments(name, rawArgs) : validateToolArguments(name, rawArgs);
+  if (isEngineeringCoordinationTool(name)) return validateEngineeringCoordinationToolArguments(name, rawArgs);
+  if (isDailySiteLogsTool(name)) return validateDailySiteLogsToolArguments(name, rawArgs);
+  return validateToolArguments(name, rawArgs);
 }
 
 export async function executeAssistantTool(name: string, rawArgs: unknown, context: AssistantToolContext): Promise<ToolExecutionResult> {
@@ -162,7 +171,9 @@ export async function executeAssistantTool(name: string, rawArgs: unknown, conte
   try {
     const result = isEngineeringCoordinationTool(name)
       ? await executeEngineeringCoordinationTool(name, args, context)
-      : await executeRegisteredTool(name, args, context);
+      : isDailySiteLogsTool(name)
+        ? await executeDailySiteLogsTool(name, args, context)
+        : await executeRegisteredTool(name, args, context);
     return boundToolResult(result);
   } catch (error) {
     if (error instanceof AssistantBackendError) return toolError(error.code, error.message);

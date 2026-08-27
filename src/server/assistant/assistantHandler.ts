@@ -10,6 +10,7 @@ import { AssistantBackendError, type AssistantActionEventRecord, type AssistantA
 import { runAssistantLoop } from "./assistantLoop.ts";
 import { executePreparedAction } from "./assistantToolExecutors.ts";
 import { executePreparedEngineeringCoordinationAction, isEngineeringCoordinationTool } from "./engineeringCoordinationAssistant.ts";
+import { executePreparedDailySiteLogsAction, isDailySiteLogsTool } from "./dailySiteLogsAssistant.ts";
 import { getAssistantToolDefinition, validateAssistantToolArguments } from "./toolRegistry.ts";
 import { requireCompanyPermissions } from "./toolAuthorization.ts";
 import { boundToolValue, toolOk } from "./toolResults.ts";
@@ -82,6 +83,7 @@ function requestContext(body: Record<string, unknown>, companyId: string): Assis
     companyTimezone: typeof raw.companyTimezone === "string" ? raw.companyTimezone : undefined,
     selectedInvoiceId: typeof raw.selectedInvoiceId === "string" && isUuid(raw.selectedInvoiceId) ? raw.selectedInvoiceId : undefined,
     selectedProjectId: typeof raw.selectedProjectId === "string" && isUuid(raw.selectedProjectId) ? raw.selectedProjectId : undefined,
+    selectedSiteLogId: typeof raw.selectedSiteLogId === "string" && isUuid(raw.selectedSiteLogId) ? raw.selectedSiteLogId : undefined,
     selectedPayrollPeriodId: typeof raw.selectedPayrollPeriodId === "string" && isUuid(raw.selectedPayrollPeriodId) ? raw.selectedPayrollPeriodId : undefined,
     selectedPayrollRunId: typeof raw.selectedPayrollRunId === "string" && isUuid(raw.selectedPayrollRunId) ? raw.selectedPayrollRunId : undefined,
     attendanceDate: typeof raw.attendanceDate === "string" ? raw.attendanceDate : undefined,
@@ -292,6 +294,19 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
       clientActions.push({ type: "OPEN_REVIEW_INVOICE", entityId: invoiceId, label: "Open in Review Queue" });
     }
   }
+  if (isDailySiteLogsTool(action.tool_name)) {
+    const logResult = result.log && typeof result.log === "object" && !Array.isArray(result.log) ? result.log as Record<string, unknown> : undefined;
+    const siteLogId = typeof logResult?.id === "string" ? logResult.id : typeof action.normalized_args.siteLogId === "string" ? action.normalized_args.siteLogId : typeof action.normalized_args.dailySiteLogId === "string" ? action.normalized_args.dailySiteLogId : undefined;
+    const projectId = typeof logResult?.project_id === "string" ? logResult.project_id : typeof action.normalized_args.projectId === "string" ? action.normalized_args.projectId : undefined;
+    const reportNumber = typeof logResult?.report_number === "string" ? logResult.report_number : typeof action.preview.reportNumber === "string" ? action.preview.reportNumber : "Daily Site Log";
+    const siteDate = typeof logResult?.site_date === "string" ? logResult.site_date : typeof action.preview.siteDate === "string" ? action.preview.siteDate : "";
+    const operation = action.tool_name.includes("finalize") ? "finalized" : action.tool_name.includes("submit") ? "submitted" : action.tool_name.includes("void") ? "voided" : action.tool_name.includes("update") ? "updated" : "draft saved";
+    message = `${reportNumber}${siteDate ? ` for ${siteDate}` : ""} was ${operation}.`;
+    if (siteLogId && projectId) {
+      references.push({ type: "report", id: siteLogId, label: `${reportNumber} · ${siteDate || "Site Log"}` });
+      clientActions.push({ type: "OPEN_SITE_LOG", entityId: siteLogId, projectId, label: "Open Site Log" });
+    }
+  }
   if (typeof workerResult?.id === "string") references.push({ type: "worker", id: String(workerResult.id), label: "View employee" });
   else if (typeof requestResult?.id === "string") references.push({ type: "worker", id: String(requestResult.id), label: "Updated workforce request" });
   return { threadId: action.thread_id || "", message, references, clientActions, preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
@@ -333,7 +348,9 @@ async function handleAssistantConfirm(req: Request, res: Response, options: Assi
     try {
       result = isEngineeringCoordinationTool(action.tool_name)
         ? await executePreparedEngineeringCoordinationAction(toolContext, action.tool_name, args)
-        : await executePreparedAction(toolContext, action.tool_name, args, action.id, action.preview);
+        : isDailySiteLogsTool(action.tool_name)
+          ? await executePreparedDailySiteLogsAction(toolContext, action.tool_name, args)
+          : await executePreparedAction(toolContext, action.tool_name, args, action.id, action.preview);
     } catch (error) {
       const normalized = safeError(error);
       await (auth.supabase as any).from("assistant_action_events").update({ status: "FAILED", error_summary: { code: normalized.code, message: normalized.message }, updated_at: now.toISOString() }).eq("id", action.id).eq("status", "CONFIRMED");

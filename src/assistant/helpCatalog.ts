@@ -9,6 +9,7 @@ export type HelpEntryId =
   | "cash-banking"
   | "project-costing"
   | "engineering-documents"
+  | "daily-site-logs"
   | "blueprint-revisions"
   | "redline-annotations"
   | "drawing-disciplines"
@@ -69,6 +70,14 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     details: `${BRAND.productName} provides centralized engineering document control and high-performance blueprint viewing. Drawings, spec sheets, and calculation reports are organized by project and discipline with strict company-level multi-tenancy.`,
     routeId: "projects",
     keywords: ["drawing", "drawings", "blueprint", "blueprints", "document", "documents", "spec", "specification", "engineering", "sheet", "pdf", "cad", "discipline", "viewer"],
+  },
+  {
+    id: "daily-site-logs",
+    title: "Daily Site Logs",
+    summary: "Record project-scoped field conditions, work progress, crew observations, equipment, delays, safety, and formal history.",
+    details: "Daily Site Logs describe what happened on site. Crew and headcount are operational observations only; they never create payroll attendance, timesheets, overtime, or payroll changes.",
+    routeId: "projects",
+    keywords: ["site", "sites", "log", "logs", "daily", "weather", "crew", "headcount", "equipment", "downtime", "delay", "safety", "field", "progress"],
   },
   {
     id: "blueprint-revisions",
@@ -196,7 +205,7 @@ export function helpEntryPath(entry: HelpCatalogEntry) {
 
 export function unknownHelpResponse(query: string) {
   const label = query.trim() ? ` for “${query.trim().slice(0, 80)}”` : "";
-  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Engineering Documents and blueprints, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
+  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Engineering Documents and blueprints, Daily Site Logs, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
 }
 
 export type HelpResponse =

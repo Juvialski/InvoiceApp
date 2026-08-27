@@ -728,6 +728,8 @@ const HELP_TOPICS: Record<string, { title: string; summary: string; routeId?: st
   payroll: { title: "Payroll", summary: "Work with periods, attendance, leave, overtime, source freshness, calculation, approval, and payment controls.", routeId: "payroll" },
   attendance: { title: "Attendance", summary: "Record daily attendance in the workspace timezone. Confirmed records can become payroll sources.", routeId: "payroll" },
   expenses: { title: "Expenses", summary: "Record direct expenses separately from supplier invoices and preserve currency on each source.", routeId: "expenses" },
+  "site-logs": { title: "Daily Site Logs", summary: "Record project-scoped field observations for weather, crew presence, equipment, progress, delays, safety, and formal history. Crew headcount does not change payroll attendance.", routeId: "projects" },
+  "daily site logs": { title: "Daily Site Logs", summary: "Record project-scoped field observations for weather, crew presence, equipment, progress, delays, safety, and formal history. Crew headcount does not change payroll attendance.", routeId: "projects" },
 };
 
 async function searchHelp(_context: AssistantToolContext, args: Record<string, unknown>) {

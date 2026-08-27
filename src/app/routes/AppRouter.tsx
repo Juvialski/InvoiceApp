@@ -31,6 +31,7 @@ import type {
 } from "../../types";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import type { WorkspaceTab } from "../../components/projects/ProjectWorkspace";
+import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
 import type {
@@ -108,6 +109,9 @@ export interface AppRouterProps {
   engineeringDocumentsCanAnnotate?: boolean;
   engineeringDocumentsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+  onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
+  pathForSiteLog?: (siteLogId?: string) => string;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
   onArchiveProject: (project: Project) => Promise<void> | void;
@@ -267,6 +271,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   engineeringDocumentsCanAnnotate = true,
   engineeringDocumentsCanManage = true,
   engineeringDocumentsGuestMode = false,
+  dailySiteLogsData,
+  onDailySiteLogsDataChange,
+  pathForSiteLog,
   onOpenProject,
   onSaveProject,
   onArchiveProject,
@@ -429,12 +436,16 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         initialTab={route.kind === "project" ? route.view : "overview"}
         initialDocumentId={route.kind === "project" ? route.documentId : undefined}
         initialRevisionId={route.kind === "project" ? route.revisionId : undefined}
+        initialSiteLogId={route.kind === "project" ? route.siteLogId : undefined}
         companyId={companyId}
         engineeringDocumentsCanRead={engineeringDocumentsCanRead}
         engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
         engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
         engineeringDocumentsCanManage={engineeringDocumentsCanManage}
         engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
+        dailySiteLogsData={dailySiteLogsData}
+        onDailySiteLogsDataChange={onDailySiteLogsDataChange}
+        pathForSiteLog={pathForSiteLog}
         onTabChange={onProjectTabChange}
         onOpenProject={onOpenProject}
         onSaveProject={onSaveProject}

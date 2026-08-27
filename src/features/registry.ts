@@ -129,8 +129,11 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     description: 'Daily construction logs tracking site weather conditions, crew headcounts, heavy equipment usage, and safety incidents.',
     category: 'field',
     phase: 1,
-    status: 'PLANNED',
-    documentationRef: 'docs/ENGORYX_PLATFORM_ARCHITECTURE.md',
+    status: 'ACTIVE',
+    moduleId: 'projects',
+    routeId: 'projects',
+    requiredPermissions: ['projects.read', 'engineering.site_logs.read'],
+    documentationRef: 'docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md',
   },
 
   // Phase 2: Scheduling and Critical Path (Planned)
