@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BarChart3, Compass, FileText, HardHat, Receipt, Users } from "lucide-react";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
 import type {
   Expense,
   InvoiceData,
@@ -131,13 +133,11 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           title={project.projectName}
           description="Project workspace sections keep engineering drawings, specifications, supplier, labor, and expense records in one operational context."
           actions={
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              label="← Projects"
               onClick={onBack}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-            >
-              ← Projects
-            </button>
+            />
           }
         />
       )}
@@ -188,16 +188,18 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       )}
 
       {tab === "payroll" && (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5">
             <div>
               <h3 className="text-sm font-black">Project payroll</h3>
               <p className="mt-1 text-xs text-slate-500">Approved and paid payroll allocations feed labor cost.</p>
             </div>
             {onOpenPayroll && (
-              <button onClick={onOpenPayroll} className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white">
-                Open payroll
-              </button>
+              <Button
+                variant="primary"
+                label="Open payroll"
+                onClick={onOpenPayroll}
+              />
             )}
           </div>
           {projectPayroll.length ? (
@@ -222,11 +224,11 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
               <p className="mt-1 text-xs text-slate-500">Approve a payroll run with a project allocation to populate this view.</p>
             </div>
           )}
-        </section>
+        </Card>
       )}
 
       {tab === "people" && (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
           <div className="border-b border-slate-100 p-5">
             <h3 className="text-sm font-black">Project people</h3>
             <p className="mt-1 text-xs text-slate-500">Workers can move between projects over time.</p>
@@ -255,12 +257,12 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
               <p className="mt-1 text-xs text-slate-500">Use Payroll to add a project assignment.</p>
             </div>
           )}
-        </section>
+        </Card>
       )}
 
       {tab === "reports" && (
         <section className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Card className="p-5 shadow-sm" elevation="low">
             <h3 className="text-sm font-black">Project cost summary</h3>
             <div className="mt-4 space-y-3">
               {[
@@ -276,15 +278,16 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                 </div>
               ))}
             </div>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          </Card>
+          <Card className="p-5 shadow-sm" elevation="low">
             <h3 className="text-sm font-black">Operational notes</h3>
             <p className="mt-4 whitespace-pre-wrap text-xs text-slate-600">
               {project.notes || project.description || "No project notes yet."}
             </p>
-          </div>
+          </Card>
         </section>
       )}
     </div>
   );
 };
+

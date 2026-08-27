@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@astryxdesign/core/astryx.css";
 
 :root {
   color-scheme: light;

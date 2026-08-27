@@ -1,5 +1,8 @@
 import React from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Mail, Receipt, WalletCards } from "lucide-react";
+import { Button } from "@astryxdesign/core/Button";
+import { Badge } from "@astryxdesign/core/Badge";
+import { Card } from "@astryxdesign/core/Card";
 import { InvoiceData } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { formatMoney, totalVatByCurrency, totalsByCurrency } from "../utils/invoiceLogic";
@@ -39,10 +42,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-indigo-200">Invoice Overview</p>
             <p className="text-xs text-slate-300 mt-1">Keep intake moving and resolve the next review item.</p>
           </div>
-          <div className="flex flex-wrap gap-2 shrink-0">
-            <button onClick={() => onNavigate("extractor")} className="px-3.5 py-2 rounded-xl bg-white text-slate-950 text-xs font-bold">Upload invoice</button>
-            <button onClick={() => onNavigate("review")} className="px-3.5 py-2 rounded-xl bg-amber-400 text-amber-950 text-xs font-black">Review {needsReview.length}</button>
-            <button onClick={() => onNavigate("inbox")} className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center gap-2"><Mail className="w-3.5 h-3.5" /> Process email</button>
+          <div className="flex flex-wrap gap-2 shrink-0 items-center">
+            <button
+              type="button"
+              onClick={() => onNavigate("extractor")}
+              className="px-3.5 py-2 rounded-xl bg-white text-slate-950 text-xs font-bold shadow-sm hover:bg-slate-100 transition"
+            >
+              Upload invoice
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate("review")}
+              className="px-3.5 py-2 rounded-xl bg-amber-400 text-amber-950 text-xs font-black shadow-sm hover:bg-amber-300 transition"
+            >
+              Review {needsReview.length}
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate("inbox")}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center gap-2 transition"
+            >
+              <Mail className="w-3.5 h-3.5" /> Process email
+            </button>
           </div>
         </div>
       </section>
@@ -56,16 +77,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
           { label: "Needs Review", value: needsReview.length, icon: AlertTriangle, tone: "text-orange-700 bg-orange-50" },
           { label: "Verified", value: verified.length, icon: CheckCircle2, tone: "text-emerald-700 bg-emerald-50" },
         ].map(({ label, value, icon: Icon, tone }) => (
-          <div key={label} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm min-w-0">
+          <Card key={label} className="p-4 shadow-sm min-w-0" elevation="low">
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tone}`}><Icon className="w-4 h-4" /></div>
             <p className="text-lg sm:text-xl font-black font-sans tabular-nums text-slate-900 mt-4 break-words">{value}</p>
             <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{label}</p>
-          </div>
+          </Card>
         ))}
       </section>
 
       <section className="grid lg:grid-cols-2 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <Card className="p-5 shadow-sm" elevation="low">
           <div className="flex items-center gap-2 mb-4"><WalletCards className="w-4 h-4 text-indigo-600" /><h3 className="font-bold text-sm">Currency breakdown</h3></div>
           {Object.keys(totals).length ? <div className="space-y-3">
             {Object.entries(totals).map(([currency, value]) => (
@@ -76,9 +97,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
             ))}
           </div> : <p className="text-xs text-slate-500">Extract an invoice to populate totals.</p>}
           {foreignEntries.length > 0 && <p className="text-[10px] text-slate-400 mt-4">Foreign currencies are shown separately and are not converted or summed into PHP.</p>}
-        </div>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <Card className="p-5 shadow-sm" elevation="low">
           <div className="flex items-center gap-2 mb-4"><Receipt className="w-4 h-4 text-violet-600" /><h3 className="font-bold text-sm">Philippine VAT Summary</h3></div>
           <div className="grid grid-cols-2 gap-2">
             {[
@@ -91,23 +112,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
             ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3"><p className="text-[9px] uppercase font-bold text-slate-500">{label}</p><p className="text-sm font-black font-sans tabular-nums mt-1 break-words">{value}</p></div>)}
           </div>
           <p className="text-[10px] text-slate-400 mt-4">Review summary only — this does not produce an official BIR tax return.</p>
-        </div>
+        </Card>
       </section>
 
-      <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+      <Card className="p-5 shadow-sm" elevation="low">
         <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-sm">Recent activity</h3><button onClick={() => onNavigate("invoices")} className="text-xs font-bold text-indigo-600">View all</button></div>
         {latest.length ? <div className="space-y-2">{latest.map((invoice) => {
           const display = getInvoiceDisplay(invoice);
           return <button key={invoice.id} onClick={() => onOpenInvoice(invoice)} className="w-full text-left flex items-center justify-between gap-3 rounded-xl p-3 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap"><p className="text-xs font-bold text-slate-900 truncate">{display.primaryLabel}</p><span className={`text-[9px] font-bold uppercase ${invoice.reviewStatus === "NEEDS_REVIEW" ? "text-amber-700" : "text-emerald-700"}`}>{invoice.reviewStatus === "NEEDS_REVIEW" ? "Review" : "Verified"}</span></div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-xs font-bold text-slate-900 truncate">{display.primaryLabel}</p>
+                <Badge
+                  variant={invoice.reviewStatus === "NEEDS_REVIEW" ? "warning" : "success"}
+                  label={invoice.reviewStatus === "NEEDS_REVIEW" ? "Review" : "Verified"}
+                />
+              </div>
               <p className="text-[11px] text-slate-600 truncate">{display.invoiceLabel} • {display.dateLabel}</p>
               <p className="text-[10px] text-slate-400 truncate">{display.sourceLabel}{display.projectKnown ? ` • ${display.projectLabel}` : ""} • {display.sourceFileLabel}</p>
             </div>
             <div className="text-right shrink-0"><p className="text-xs font-black font-sans tabular-nums">{display.amountLabel}</p>{display.amountLabel !== display.currencyLabel && <p className="text-[9px] font-semibold text-slate-400 uppercase">{display.currencyLabel}</p>}</div>
           </button>;
         })}</div> : <p className="text-xs text-slate-500">No invoice activity yet.</p>}
-      </section>
+      </Card>
     </div>
   );
 };
+
