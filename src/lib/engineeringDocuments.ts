@@ -398,8 +398,35 @@ export function engineeringId(prefix = "eng"): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
-  const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
-  return `${prefix}-${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
+  // Authenticated document/RPC identifiers must remain valid database UUIDs
+  // even in browsers that do not expose randomUUID().  The prefix is kept in
+  // the API for local callers, but UUID storage is the compatibility boundary.
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) bytes[index] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+/**
+ * Revision labels are user-facing metadata, so callers may enter `1`, `Rev
+ * 1`, or `Revision 1`.  This helper gives validation a deterministic semantic
+ * comparison without rewriting the historical label stored for a revision.
+ */
+export function normalizedRevisionNumber(value: string): string {
+  return (value || "").trim().toUpperCase().replace(/^REV(?:ISION)?\.?\s*/, "").trim();
+}
+
+export function revisionNumbersEqual(a: string, b: string): boolean {
+  const normalizedA = normalizedRevisionNumber(a);
+  const normalizedB = normalizedRevisionNumber(b);
+  if (!normalizedA || !normalizedB) return false;
+  return normalizedA === normalizedB || compareRevisionNumbers(a, b) === 0;
 }
 
 export function compareRevisionNumbers(a: string, b: string): number {

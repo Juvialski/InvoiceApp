@@ -99,7 +99,7 @@ export interface BlueprintViewerProps {
   readOnly?: boolean;
   canAnnotate?: boolean;
   guestMode?: boolean;
-  onSaveAnnotations?: (annotations: DrawingAnnotation[]) => Promise<void> | void;
+  onSaveAnnotations?: (annotations: DrawingAnnotation[], revisionId?: string) => Promise<void> | void;
   onRevisionChange?: (revisionId: string) => void;
   onClose?: () => void;
 }
@@ -512,11 +512,11 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
     return [...revisions].sort((a, b) => compareRevisionNumbers(a.revisionNumber, b.revisionNumber));
   }, [revisions]);
 
-  const initialSelectedRevisionId = initialRevisionId || doc.currentRevisionId || sortedRevisions[0]?.id || "";
+  const initialSelectedRevisionId = initialRevisionId || doc.currentRevisionId || "";
   const [selectedRevisionId, setSelectedRevisionId] = useState<string>(initialSelectedRevisionId);
 
   const currentRevision = useMemo(() => {
-    return sortedRevisions.find((r) => r.id === selectedRevisionId) || sortedRevisions[0];
+    return sortedRevisions.find((r) => r.id === selectedRevisionId);
   }, [sortedRevisions, selectedRevisionId]);
 
   // Page & Viewport State
@@ -570,10 +570,22 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
   const touchStartDistRef = useRef<number | null>(null);
   const autosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pdfLoadRequestRef = useRef(0);
+  const pdfLoadingTaskRef = useRef<{ destroy: () => Promise<void> | void } | null>(null);
+  const pdfDocumentRef = useRef<{ destroy: () => Promise<void> | void } | null>(null);
   const lastLoadedRevisionRef = useRef(initialSelectedRevisionId);
   const annotationGenerationRef = useRef(0);
   const saveRequestIdRef = useRef(0);
   const latestSaveTokenRef = useRef<AnnotationSaveToken>({ generation: 0, requestId: 0 });
+
+  const disposePdfResources = useCallback(() => {
+    pdfLoadRequestRef.current += 1;
+    const loadingTask = pdfLoadingTaskRef.current;
+    pdfLoadingTaskRef.current = null;
+    if (loadingTask) void loadingTask.destroy();
+    const pdf = pdfDocumentRef.current;
+    pdfDocumentRef.current = null;
+    if (pdf) void pdf.destroy();
+  }, []);
 
   const annotationsForRevision = useCallback((revisionId: string) => {
     return (allAnnotations || initialAnnotations).filter((annotation) => annotation.revisionId === revisionId);
@@ -590,11 +602,12 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
   const loadDocumentContent = useCallback(async () => {
     if (!pdfCanvasRef.current) return;
     const canvas = pdfCanvasRef.current;
+    disposePdfResources();
     const requestId = ++pdfLoadRequestRef.current;
     const filePath = currentRevision?.filePath?.trim() || "";
     const isSample = guestMode && (!filePath || filePath.startsWith("sample/") || filePath.startsWith("mock/"));
-    const isDirectUrl = /^(https?:|blob:|data:)/i.test(filePath);
-    const isPrivateStoragePath = filePath.startsWith("companies/");
+    const isGuestDirectUrl = guestMode && /^(blob:|data:)/i.test(filePath);
+    const isPrivateStoragePath = !guestMode && filePath.startsWith("companies/");
 
     setContentState("loading");
     setContentError(null);
@@ -609,7 +622,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       return;
     }
 
-    if (!isDirectUrl && !isPrivateStoragePath) {
+    if (!isGuestDirectUrl && !isPrivateStoragePath) {
       if (requestId === pdfLoadRequestRef.current) {
         setContentState("error");
         setContentError("This revision has no usable private PDF source. It was not replaced with a sample drawing.");
@@ -617,15 +630,23 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       return;
     }
 
+    let loadingTask: { promise: Promise<any>; destroy: () => Promise<void> | void } | null = null;
+    let pdf: { numPages: number; getPage: (pageNumber: number) => Promise<any>; destroy: () => Promise<void> | void } | null = null;
     try {
       const fileUrl = isPrivateStoragePath
-        ? await getEngineeringDocumentFileUrl(filePath, companyId, 300)
+        ? await getEngineeringDocumentFileUrl(filePath, companyId, doc.id, currentRevision?.id, 300)
         : filePath;
       if (requestId !== pdfLoadRequestRef.current) return;
 
-      const loadingTask = pdfjsLib.getDocument({ url: fileUrl });
-      const pdf = await loadingTask.promise;
-      if (requestId !== pdfLoadRequestRef.current) return;
+      loadingTask = pdfjsLib.getDocument({ url: fileUrl });
+      pdfLoadingTaskRef.current = loadingTask;
+      pdf = await loadingTask.promise;
+      if (requestId !== pdfLoadRequestRef.current) {
+        void pdf.destroy();
+        return;
+      }
+      pdfLoadingTaskRef.current = null;
+      pdfDocumentRef.current = pdf;
       const resolvedPageNumber = Math.min(pageNumber, Math.max(1, pdf.numPages));
       if (resolvedPageNumber !== pageNumber) setPageNumber(resolvedPageNumber);
       setTotalPages(pdf.numPages || 1);
@@ -654,12 +675,15 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
       if (requestId !== pdfLoadRequestRef.current) return;
       setContentState("error");
       setContentError(`The original PDF could not be loaded. ${pdfErr instanceof Error ? pdfErr.message : "Check the private source, session, and file integrity."}`);
+    } finally {
+      if (loadingTask && pdfLoadingTaskRef.current === loadingTask) pdfLoadingTaskRef.current = null;
     }
-  }, [companyId, currentRevision, doc, guestMode, pageNumber]);
+  }, [companyId, currentRevision, disposePdfResources, doc, guestMode, pageNumber]);
 
   useEffect(() => {
     loadDocumentContent();
-  }, [loadDocumentContent]);
+    return () => disposePdfResources();
+  }, [disposePdfResources, loadDocumentContent]);
 
   useEffect(() => {
     if (lastLoadedRevisionRef.current === selectedRevisionId) return;
@@ -798,7 +822,7 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
     setSaveStatus("saving");
     try {
       if (onSaveAnnotations) {
-        await onSaveAnnotations(snapshot);
+        await onSaveAnnotations(snapshot, currentRevision?.id);
       } else {
         if (guestMode) {
           const currentData = readEngineeringDocumentsWorkspaceFromLocal();
@@ -822,10 +846,17 @@ export const BlueprintViewer: React.FC<BlueprintViewerProps> = ({
 
   const handleRevisionSelect = useCallback(async (nextRevisionId: string) => {
     if (!nextRevisionId || nextRevisionId === selectedRevisionId || saveStatus === "saving") return;
+    if (!sortedRevisions.some((revision) => revision.id === nextRevisionId)) return;
     if (saveStatus !== "saved" && !(await handleSave())) return;
     setSelectedRevisionId(nextRevisionId);
     onRevisionChange?.(nextRevisionId);
-  }, [handleSave, onRevisionChange, saveStatus, selectedRevisionId]);
+  }, [handleSave, onRevisionChange, saveStatus, selectedRevisionId, sortedRevisions]);
+
+  useEffect(() => {
+    if (!initialRevisionId || initialRevisionId === selectedRevisionId) return;
+    if (!sortedRevisions.some((revision) => revision.id === initialRevisionId)) return;
+    void handleRevisionSelect(initialRevisionId);
+  }, [handleRevisionSelect, initialRevisionId, selectedRevisionId, sortedRevisions]);
 
   const handleClose = useCallback(async () => {
     if (saveStatus === "saving") return;

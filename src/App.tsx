@@ -50,15 +50,11 @@ import {
   updateInvoiceInSupabase,
 } from "./lib/persistence";
 import {
-  archiveProjectInSupabase,
   loadInvoiceProjectAllocationsFromSupabase,
   loadProjectsFromSupabase,
   readInvoiceProjectAllocationsFromLocal,
-  readProjectsFromLocal,
   replaceInvoiceProjectAllocationsOnSupabase,
-  saveProjectToSupabase,
   writeInvoiceProjectAllocationsToLocal,
-  writeProjectsToLocal,
 } from "./lib/projects";
 import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
 import { canTransitionPayrollRun, deletePayrollPeriodToSupabase, deletePayrollRunToSupabase, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
@@ -99,6 +95,7 @@ import {
   writeCashBankingWorkspaceToLocal,
 } from "./lib/cashBankingPersistence.ts";
 import { disableCompanyGemini, enableCompanyGemini, loadCompanyAiConfig as loadCompanyAiConfigApi, removeCompanyGeminiKey, saveCompanyGeminiKey, testCompanyGeminiKey } from "./lib/companyAiApi.ts";
+import { useProjectController } from "./features/projects/useProjectController.ts";
 
 function revisePayrollSourcePeriods(
   periods: PayrollPeriod[],
@@ -294,9 +291,6 @@ function InvoiceWorkspace() {
   const remoteInvoiceUpdatesRef = useRef(new Map<string, InvoiceData>());
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
   const savePromisesRef = useRef(new Map<string, Promise<unknown>>());
-  const [projects, setProjects] = useState<Project[]>(() => isSupabaseConfigured ? [] : readProjectsFromLocal());
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [projectFormSeed, setProjectFormSeed] = useState<Project | null>(null);
   const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(() => isSupabaseConfigured ? { batches: [], rows: [], templates: [] } : readPayrollImportWorkspaceFromLocal());
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(() => isSupabaseConfigured ? [] : readInvoiceProjectAllocationsFromLocal());
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
@@ -424,20 +418,42 @@ function InvoiceWorkspace() {
     setReviewSessionIds([]);
   }, [route, invoices, reviewSessionIds.length, workspaceLoading]);
 
-  useEffect(() => {
-    if (route.kind !== "project") {
-      setSelectedProject(null);
-      return;
-    }
-    setSelectedProject(resolveEntityById(projects, route.projectId));
-  }, [route, projects]);
-
   const [expenseFormContext, setExpenseFormContext] = useState<string | null>(null);
   const [uploadProjectContextId, setUploadProjectContextId] = useState<string | null>(null);
   const setGuestMode = (enabled: boolean) => {
     guestModeRef.current = enabled;
     if (enabled) enterGuestMode();
   };
+
+  const showNotification = (type: "success" | "error" | "info", message: string) => {
+    setNotification({ type, message });
+    const duration = type === "success" ? 3500 : type === "info" ? 9000 : 0;
+    if (duration > 0) window.setTimeout(() => setNotification((current) => current?.message === message ? null : current), duration);
+  };
+
+  const projectController = useProjectController({
+    authenticated: Boolean(session && supabase && !guestModeState),
+    persistGuestWorkspace: shouldPersistGuestWorkspace(authResolved, session?.user?.id) && guestModeState,
+    routeProjectId: route.kind === "project" ? route.projectId : undefined,
+    navigateToPath,
+    projectPath: (projectId) => appPathForProject(projectId),
+    projectsPath: () => appPathForTab("projects"),
+    onPayrollRelevantChange: () => {
+      setPayrollData((current) => {
+        const next = { ...current, periods: revisePayrollSourcePeriods(current.periods, { allOpen: true }) };
+        payrollDataRef.current = next;
+        return next;
+      });
+    },
+    onSuccess: (message) => showNotification("success", message),
+    onError: (error, fallback) => showNotification("error", userFacingError(error, fallback)),
+    remoteWorkspaceConfigured: isSupabaseConfigured,
+  });
+  const {
+    projects,
+    selectedProject,
+    projectFormSeed,
+  } = projectController;
 
   const clearWorkspaceState = () => {
     invoicesRef.current = [];
@@ -449,9 +465,7 @@ function InvoiceWorkspace() {
     remoteInvoiceRemovedRef.current.clear();
     remoteInvoiceUpdatesRef.current.clear();
     setRemoteInvoiceUpdate(null);
-    setProjects([]);
-    setSelectedProject(null);
-    setProjectFormSeed(null);
+    projectController.reset();
     setInvoiceProjectAllocations([]);
     setExpenses([]);
     const emptyCashData = emptyCashBankingWorkspaceData();
@@ -469,12 +483,6 @@ function InvoiceWorkspace() {
     setPayrollPeriodPreparationState(isSupabaseConfigured ? "PREPARING" : "READY");
     setPayrollRefreshing(false);
     setSyncState({});
-  };
-
-  const showNotification = (type: "success" | "error" | "info", message: string) => {
-    setNotification({ type, message });
-    const duration = type === "success" ? 3500 : type === "info" ? 9000 : 0;
-    if (duration > 0) window.setTimeout(() => setNotification((current) => current?.message === message ? null : current), duration);
   };
 
   const retryPayrollPeriodPreparation = () => {
@@ -561,7 +569,7 @@ function InvoiceWorkspace() {
 
   const applyEngineeringForWorkspace = (data: EngineeringWorkspaceGroup, token: { generation: number; userId: string; companyId: string }) => {
     if (!canApplyWorkspaceResult(token)) return;
-    setProjects(data.projects);
+    projectController.applyProjects(data.projects);
     setInvoiceProjectAllocations(data.allocations);
     setExpenses(data.expenses);
   };
@@ -725,7 +733,6 @@ function InvoiceWorkspace() {
       setInvoices(local);
       setPayrollImportData(readPayrollImportWorkspaceFromLocal());
       setSyncState({});
-      setProjects(readProjectsFromLocal());
       setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
       setExpenses(readExpensesFromLocal());
       const localCash = readCashBankingWorkspaceFromLocal();
@@ -790,14 +797,13 @@ function InvoiceWorkspace() {
 
   useEffect(() => {
     if (shouldPersistGuestWorkspace(authResolved, session?.user?.id) && guestModeState) {
-      writeProjectsToLocal(projects);
       writeInvoiceProjectAllocationsToLocal(invoiceProjectAllocations);
       writePayrollImportWorkspaceToLocal(payrollImportData);
       writeExpensesToLocal(expenses);
       writePayrollWorkspaceToLocal(payrollData);
       writeCashBankingWorkspaceToLocal(cashData);
     }
-  }, [projects, invoiceProjectAllocations, expenses, payrollData, payrollImportData, cashData, session, authResolved, guestModeState]);
+  }, [invoiceProjectAllocations, expenses, payrollData, payrollImportData, cashData, session, authResolved, guestModeState]);
 
   useEffect(() => {
     payrollDataRef.current = payrollData;
@@ -1461,45 +1467,6 @@ function InvoiceWorkspace() {
     showNotification("info", `${preset.invoiceNumber || "Sample preset"} is available for QA only and was not added to invoice records.`);
   };
 
-  const handleSaveProject = async (project: Project) => {
-    try {
-      const previous = projects.find((item) => item.id === project.id);
-      const payrollRelevantChange = Boolean(previous && (previous.status !== project.status || Boolean(previous.archivedAt) !== Boolean(project.archivedAt)));
-      const saved = session && supabase ? await saveProjectToSupabase(project) : { ...project, updatedAt: new Date().toISOString() };
-      setProjects((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]);
-      setSelectedProject((current) => current?.id === saved.id ? saved : current);
-      if (payrollRelevantChange) {
-        setPayrollData((current) => {
-          const next = { ...current, periods: revisePayrollSourcePeriods(current.periods, { allOpen: true }) };
-          payrollDataRef.current = next;
-          return next;
-        });
-      }
-      setProjectFormSeed(null);
-      showNotification("success", `${saved.projectCode} saved.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not save project. Your draft remains available."));
-    }
-  };
-
-  const handleArchiveProject = async (project: Project) => {
-    try {
-      const archived = session && supabase
-        ? await archiveProjectInSupabase(project.id)
-        : { ...project, status: "ARCHIVED" as const, archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-      setProjects((current) => current.map((item) => item.id === archived.id ? archived : item));
-      setSelectedProject((current) => current?.id === archived.id ? archived : current);
-      setPayrollData((current) => {
-        const next = { ...current, periods: revisePayrollSourcePeriods(current.periods, { allOpen: true }) };
-        payrollDataRef.current = next;
-        return next;
-      });
-      showNotification("info", `${project.projectCode} archived. Historical allocations remain visible.`);
-    } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not archive project."));
-    }
-  };
-
   const handleSaveInvoiceProjectAllocations = async (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => {
     try {
       const saved = session && supabase
@@ -2136,18 +2103,6 @@ function InvoiceWorkspace() {
     }
   };
 
-  const openProject = (project: Project) => {
-    setSelectedProject(project);
-    setProjectFormSeed(null);
-    navigateToPath(appPathForProject(project.id));
-  };
-
-  const editProject = (project: Project) => {
-    setProjectFormSeed(project);
-    setSelectedProject(null);
-    navigateToPath(appPathForTab("projects"));
-  };
-
   const persistInvoice = async (invoice: InvoiceData, eventType = "HUMAN_EDIT", revision = editRevisionRef.current.get(invoice.id) || 0) => {
     if (!session || !supabase) {
       try {
@@ -2755,7 +2710,7 @@ function InvoiceWorkspace() {
       onOpenAiConfiguration={() => { if (isPlatformOwner) openPlatformManagement(); }}
       onOpenInvoice={(invoiceId) => { const invoice = invoicesRef.current.find((item) => item.id === invoiceId); if (invoice) openInvoice(invoice); else navigateToPath(appPathForInvoice(invoiceId)); }}
       onOpenReviewInvoice={(invoiceId) => { const invoice = invoicesRef.current.find((item) => item.id === invoiceId); if (invoice) openInvoiceForReview(invoice, activeTab); else navigateToPath(appPathForReviewInvoice(invoiceId, appPathForTab(activeTab))); }}
-      onOpenProject={(projectId) => { const project = projects.find((item) => item.id === projectId); if (project) openProject(project); else navigateToPath(appPathForProject(projectId)); }}
+      onOpenProject={(projectId) => { const project = projects.find((item) => item.id === projectId); if (project) projectController.openProject(project); else navigateToPath(appPathForProject(projectId)); }}
       onOpenPayrollPeriod={() => navigateToPath(appPathForTab("payroll"))}
       onOpenAttendanceDate={() => navigateToPath(appPathForTab("payroll"))}
       onProcessAttachedInvoice={async (attachment) => {
@@ -2821,10 +2776,10 @@ function InvoiceWorkspace() {
           projectSummaries={projectSummaries}
           projectDashboard={projectDashboard}
           projectFormSeed={projectFormSeed}
-          onOpenProject={openProject}
-          onSaveProject={(project) => void handleSaveProject(project)}
-          onArchiveProject={(project) => void handleArchiveProject(project)}
-          onEditProject={() => { if (selectedProject) editProject(selectedProject); }}
+          onOpenProject={projectController.openProject}
+          onSaveProject={(project) => void projectController.saveProject(project)}
+          onArchiveProject={(project) => void projectController.archiveProject(project)}
+          onEditProject={() => { if (selectedProject) projectController.editProject(selectedProject); }}
           onProjectTabChange={(tab) => {
             if (route.kind === "project" && selectedProject) {
               navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView));

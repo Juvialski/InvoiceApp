@@ -24,7 +24,7 @@ Guest/browser-only mode is deliberately separate. It may use local storage and e
 
 ## Database and Storage invariants
 
-The foundation migration is `supabase/migrations/20260826130000_engineering_documents_foundation.sql`. The additive hardening migration is `supabase/migrations/20260826140000_engineering_documents_hardening.sql`.
+The foundation migration is `supabase/migrations/20260826130000_engineering_documents_foundation.sql`. The additive hardening migrations are `supabase/migrations/20260826140000_engineering_documents_hardening.sql`, `supabase/migrations/20260826234440_engineering_documents_annotation_immutability.sql`, `supabase/migrations/20260826235525_engineering_documents_source_validation.sql`, and `supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql`.
 
 - `engineering_documents.current_revision_id` must reference a revision belonging to the same company and document.
 - `engineering_document_revisions` is append-only after insertion. Normal authenticated users have no update or delete capability for revision rows.
@@ -32,7 +32,7 @@ The foundation migration is `supabase/migrations/20260826130000_engineering_docu
 - New revision sources must be PDFs with a normalized SHA-256 fingerprint.
 - The `engineering-documents` bucket remains private. Read access uses short-lived signed URLs; signed URLs are presentation-layer values and are never stored in the database.
 - Normal Storage update and delete policies for revision source objects are removed. Archiving a document does not delete its revisions or source files.
-- Annotations are revision-scoped. Deletes are represented as `status = DELETED` so redline history can remain auditable.
+- Annotations are revision-scoped. Application deletes are denied and UI deletes are represented as `status = DELETED` so redline history remains auditable.
 
 ## Viewer behavior
 

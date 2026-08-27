@@ -4,22 +4,27 @@ import { readFileSync } from "node:fs";
 
 const persistence = readFileSync(new URL("../src/lib/engineeringDocumentsPersistence.ts", import.meta.url), "utf8");
 const projectDocuments = readFileSync(new URL("../src/components/engineering/ProjectDocuments.tsx", import.meta.url), "utf8");
+const controller = readFileSync(new URL("../src/features/engineering/useEngineeringDocumentsController.ts", import.meta.url), "utf8");
 const viewer = readFileSync(new URL("../src/components/engineering/BlueprintViewer.tsx", import.meta.url), "utf8");
 const appRouter = readFileSync(new URL("../src/app/routes/AppRouter.tsx", import.meta.url), "utf8");
 
 test("authenticated engineering persistence does not fall back to local cache", () => {
   assert.match(persistence, /requireRemoteUser\(await currentUserId\(\)\)/);
   assert.doesNotMatch(persistence, /if \(!supabase \|\| !userId\)\s*\{\s*return readEngineeringDocumentsWorkspaceFromLocal/);
-  assert.match(projectDocuments, /guestMode\s*\?\s*readEngineeringDocumentsWorkspaceFromLocal\(\)\s*:\s*await loadEngineeringDocumentsWorkspaceFromSupabase/);
-  assert.match(projectDocuments, /setLoadError\(errorMessage\(err/);
+  assert.match(controller, /guestMode\s*\?\s*readEngineeringDocumentsWorkspaceFromLocal\(\)\s*:\s*await loadEngineeringDocumentsWorkspaceFromSupabase/);
+  assert.match(controller, /setLoadError\(errorMessage\(error/);
 });
 
 test("upload and viewer contracts preserve immutable private source behavior", () => {
   assert.match(persistence, /upsert:\s*false/);
-  assert.match(persistence, /createSignedUrl\(filePath/);
+  assert.match(persistence, /createSignedUrl\(normalizedFilePath/);
   assert.match(persistence, /compensateUnprovenancedEngineeringDocumentUpload/);
   assert.doesNotMatch(persistence, /export async function deleteEngineeringDocumentFile/);
   assert.match(viewer, /getEngineeringDocumentFileUrl\(filePath, companyId/);
+  assert.match(viewer, /getEngineeringDocumentFileUrl\(filePath, companyId, doc\.id, currentRevision\?\.id, 300\)/);
+  assert.match(viewer, /const isGuestDirectUrl = guestMode && \/\^\(blob:\|data:\)\/i/);
+  assert.doesNotMatch(viewer, /const isDirectUrl = \/\^\(https\?:\|blob:\|data:\)\/i/);
+  assert.match(persistence, /isEngineeringDocumentStoragePathForRevision\(normalizedFilePath, companyId, expectedDocumentId, expectedRevisionId\)/);
   assert.match(viewer, /Original PDF unavailable/);
   assert.match(viewer, /contentState === "sample"/);
   assert.match(viewer, /saveDrawingAnnotationsBatchToSupabase/);
@@ -42,4 +47,6 @@ test("viewer switches revision-scoped annotations only after dirty-save success"
   assert.match(viewer, /if \(saveStatus !== "saved" && !\(await handleSave\(\)\)\) return/);
   assert.match(viewer, /setAnnotations\(annotationsForRevision\(selectedRevisionId\)\)/);
   assert.match(viewer, /annotationSaveResultStatus/);
+  assert.match(viewer, /onSaveAnnotations\(snapshot, currentRevision\?\.id\)/);
+  assert.match(controller, /filterDocumentsByProject\(documents, project\.id\)/);
 });

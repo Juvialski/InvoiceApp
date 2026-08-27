@@ -123,6 +123,14 @@ src/
     └── brand.ts                    # Central canonical branding constants & helpers
 `
 
+Phase 1A production closure now applies this incrementally: project selection,
+project persistence, archive lifecycle, and guest project storage are owned by
+`src/features/projects/useProjectController.ts`; engineering document loading,
+project isolation, PDF/revision persistence, compensation, archive, and
+annotation snapshots are owned by
+`src/features/engineering/useEngineeringDocumentsController.ts`. `App.tsx`
+continues to own cross-domain workspace refresh and payroll invalidation wiring.
+
 ### Step-by-Step Refactoring Protocol
 
 1. **Step 1: Extract Route Containers**:

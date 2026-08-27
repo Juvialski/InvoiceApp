@@ -151,6 +151,10 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.companyManage]: "Company settings",
     [PERMISSION_KEYS.accessManage]: "Access management",
     [PERMISSION_KEYS.platformManage]: "Platform management",
+    [PERMISSION_KEYS.engineeringDocumentsRead]: "Engineering document viewing",
+    [PERMISSION_KEYS.engineeringDocumentsCreate]: "Engineering document uploads",
+    [PERMISSION_KEYS.engineeringDocumentsUpdate]: "Engineering annotations",
+    [PERMISSION_KEYS.engineeringDocumentsManage]: "Engineering document management",
   };
   return labels[permission || ""] || "this area";
 }

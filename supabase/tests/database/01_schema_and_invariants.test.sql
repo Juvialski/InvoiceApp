@@ -1,5 +1,5 @@
 begin;
-select plan(38);
+select plan(40);
 
 -- 1. Core tables exist across all domains
 select has_table('public', 'companies', 'public.companies exists');
@@ -57,7 +57,17 @@ select isnt_empty(
   'cash.reconcile permission exists'
 );
 
--- 6. Audit allowlist includes all 33 event types
+-- 6. Phase 1A redline history is append-only for application roles
+select isnt_empty(
+  'select 1 from pg_trigger where tgname = ''drawing_annotations_append_only'' and not tgisinternal',
+  'drawing annotation append-only trigger exists'
+);
+select is_empty(
+  'select 1 from information_schema.role_table_grants where table_schema = ''public'' and table_name = ''drawing_annotations'' and grantee = ''authenticated'' and privilege_type = ''DELETE''',
+  'authenticated cannot physically delete drawing annotations'
+);
+
+-- 7. Audit allowlist includes all 33 event types
 select results_eq(
   $$
     select count(*)::bigint from unnest(array[
