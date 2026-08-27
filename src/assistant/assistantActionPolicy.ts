@@ -1,4 +1,4 @@
-import { canAccessAppTab } from "../utils/accessControl.ts";
+import { canAccessAppTab, hasPermission, PERMISSION_KEYS } from "../utils/accessControl.ts";
 import { getRouteDefinition, type RouteId } from "../utils/routes.ts";
 import { pathForAssistantAction, isAssistantRouteId } from "./assistantNavigation.ts";
 import type { AssistantClientAction } from "./assistantTypes.ts";
@@ -28,7 +28,15 @@ export function sanitizeAssistantClientAction(value: unknown): AssistantClientAc
   }
   if (type === "OPEN_INVOICE" || type === "OPEN_PROJECT" || type === "OPEN_REVIEW_INVOICE") {
     const entityId = safeToken(candidate.entityId);
-    return entityId ? { type, entityId, ...(label ? { label } : {}) } : null;
+    const view = type === "OPEN_PROJECT" && typeof candidate.view === "string" && ["overview", "documents", "rfis", "submittals"].includes(candidate.view) ? candidate.view : undefined;
+    return entityId ? { type, entityId, ...(view ? { view } : {}), ...(label ? { label } : {}) } : null;
+  }
+  if (type === "OPEN_RFI" || type === "OPEN_SUBMITTAL") {
+    const entityId = safeToken(candidate.entityId);
+    const projectId = safeToken(candidate.projectId);
+    const roundId = candidate.roundId === undefined ? undefined : safeToken(candidate.roundId);
+    if (!entityId || !projectId || (candidate.roundId !== undefined && !roundId)) return null;
+    return { type, entityId, projectId, ...(roundId ? { roundId } : {}), ...(label ? { label } : {}) };
   }
   if (type === "OPEN_PAYROLL_PERIOD") {
     const entityId = candidate.entityId === undefined ? undefined : safeToken(candidate.entityId);
@@ -55,7 +63,7 @@ export function assistantRouteIdForAction(action: AssistantClientAction): RouteI
   if (action.type === "NAVIGATE") return isAssistantRouteId(action.routeId) ? action.routeId : null;
   if (action.type === "OPEN_INVOICE") return "invoices";
   if (action.type === "OPEN_REVIEW_INVOICE") return "review";
-  if (action.type === "OPEN_PROJECT") return "projects";
+  if (action.type === "OPEN_PROJECT" || action.type === "OPEN_RFI" || action.type === "OPEN_SUBMITTAL") return "projects";
   if (action.type === "OPEN_PAYROLL_PERIOD" || action.type === "OPEN_ATTENDANCE_DATE") return "payroll";
   return null;
 }
@@ -70,6 +78,8 @@ export function isAssistantActionAllowed(action: unknown, permissions?: Iterable
   if (safeAction.type === "START_TOUR") return true;
   if (!pathForAssistantAction(safeAction)) return false;
   if (permissions === undefined || permissions === null) return true;
+  if (safeAction.type === "OPEN_RFI" && !hasPermission(permissions, PERMISSION_KEYS.engineeringRfisRead)) return false;
+  if (safeAction.type === "OPEN_SUBMITTAL" && !hasPermission(permissions, PERMISSION_KEYS.engineeringSubmittalsRead)) return false;
   const routeId = assistantRouteIdForAction(safeAction);
   const route = routeId ? getRouteDefinition(routeId) : undefined;
   return Boolean(route && canAccessAppTab(route.appTab, permissions));
