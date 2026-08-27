@@ -301,3 +301,23 @@ test("calendar views use the nearest stable selection and expose no-active-perio
   assert.match(periodsOverview, /formatPayrollPeriodLabel\(next/);
   assert.match(periodsOverview, /period\.periodStart > today/);
 });
+
+test("desktop period bars render continuous connected ribbon across all days with full-width geometry", () => {
+  const calendar = readFileSync(new URL("../src/components/payroll/PayrollCalendar.tsx", import.meta.url), "utf8");
+
+  // Verify gridStart and gridEnd are wired through DayCell to PeriodBar
+  assert.match(calendar, /gridStart=\{grid\.gridStart\}/);
+  assert.match(calendar, /gridEnd=\{grid\.gridEnd\}/);
+
+  // Verify segment start and end checks use actual period bounds and grid edges instead of slice.monthStart/monthEnd
+  assert.match(calendar, /isSegmentStart\s*=\s*date === period\.periodStart\s*\|\|\s*\(Boolean\(gridStart\)\s*&&\s*date === gridStart\s*&&\s*period\.periodStart < gridStart!?\)/);
+  assert.match(calendar, /isSegmentEnd\s*=\s*date === period\.periodEnd\s*\|\|\s*\(Boolean\(gridEnd\)\s*&&\s*date === gridEnd\s*&&\s*period\.periodEnd > gridEnd!?\)/);
+
+  // Verify full-width segment geometry classes
+  assert.match(calendar, /w-\[calc\(100%\+0\.375rem\)\] rounded-l-md/);
+  assert.match(calendar, /w-\[calc\(100%\+0\.375rem\)\] rounded-r-md/);
+  assert.match(calendar, /w-\[calc\(100%\+0\.75rem\)\] -mx-1\.5 px-0 rounded-none/);
+});
+
+
+
