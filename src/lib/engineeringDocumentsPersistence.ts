@@ -61,14 +61,15 @@ export async function prepareEngineeringPdf(
 ): Promise<PreparedEngineeringPdf> {
   const bytes = await bytesFromFile(file);
   const fileName = safeFileName(options.fileName || ("name" in file ? String(file.name || "drawing.pdf") : "drawing.pdf"));
-  const contentType = String(options.contentType || ("type" in file ? file.type : "") || "application/pdf").toLowerCase();
+  const suppliedContentType = options.contentType || ("type" in file ? file.type : "");
+  const contentType = String(suppliedContentType || "").trim().toLowerCase();
 
   if (bytes.byteLength <= 0) throw new Error("Select a non-empty PDF file.");
   if (bytes.byteLength > ENGINEERING_DOCUMENT_MAX_FILE_BYTES) {
     throw new Error(`Engineering PDF files must be ${Math.round(ENGINEERING_DOCUMENT_MAX_FILE_BYTES / (1024 * 1024))} MB or smaller.`);
   }
   const signature = new TextDecoder().decode(bytes.slice(0, PDF_SIGNATURE.length));
-  if (!fileName.toLowerCase().endsWith(".pdf") && contentType !== "application/pdf") {
+  if (!fileName.toLowerCase().endsWith(".pdf") || (contentType && contentType !== "application/pdf")) {
     throw new Error("Engineering document uploads must be PDF files.");
   }
   if (signature !== PDF_SIGNATURE) throw new Error("The selected file is not a valid PDF source.");
@@ -96,24 +97,36 @@ export function isEngineeringDocumentStoragePathForRevision(
   documentId: string,
   revisionId: string,
 ): boolean {
-  const parts = filePath.split("/");
+  const parts = filePath.trim().split("/");
+  const normalizedCompanyId = companyId.trim();
+  const normalizedDocumentId = documentId.trim();
+  const normalizedRevisionId = revisionId.trim();
   return parts.length === 7
     && parts[0] === "companies"
-    && parts[1] === companyId
+    && parts[1] === normalizedCompanyId
     && parts[2] === "documents"
-    && parts[3] === documentId
+    && parts[3] === normalizedDocumentId
     && parts[4] === "revisions"
-    && parts[5] === revisionId
-    && Boolean(parts[6]);
+    && parts[5] === normalizedRevisionId
+    && Boolean(normalizedCompanyId && normalizedDocumentId && normalizedRevisionId)
+    && /^[a-zA-Z0-9._-]+\.pdf$/i.test(parts[6]);
 }
 
-function parseEngineeringRpcResult(value: unknown): { document: EngineeringDocument; revision: EngineeringDocumentRevision } {
+function parseEngineeringRpcResult(value: unknown, expectedCompanyId?: string): { document: EngineeringDocument; revision: EngineeringDocumentRevision } {
   if (!value || typeof value !== "object") throw new Error("Engineering document persistence returned an invalid result.");
   const result = value as Record<string, unknown>;
   if (!result.document || !result.revision) throw new Error("Engineering document persistence did not return the committed document and revision.");
+  const document = documentFromRow(result.document as Row);
+  const revision = revisionFromRow(result.revision as Row);
+  const normalizedExpectedCompanyId = expectedCompanyId?.trim().toLowerCase();
+  const documentCompanyId = document.companyId?.trim().toLowerCase();
+  const revisionCompanyId = revision.companyId?.trim().toLowerCase();
+  if (revision.documentId !== document.id || document.currentRevisionId !== revision.id || (normalizedExpectedCompanyId && (documentCompanyId !== normalizedExpectedCompanyId || revisionCompanyId !== normalizedExpectedCompanyId))) {
+    throw new Error("Engineering document persistence returned a mismatched document revision.");
+  }
   return {
-    document: documentFromRow(result.document as Row),
-    revision: revisionFromRow(result.revision as Row),
+    document,
+    revision,
   };
 }
 
@@ -365,7 +378,7 @@ export async function createEngineeringDocumentWithRevisionInSupabase(
   });
   if (error) throw error;
   void userId;
-  return parseEngineeringRpcResult(data);
+  return parseEngineeringRpcResult(data, companyId);
 }
 
 export async function createEngineeringRevisionInSupabase(
@@ -395,7 +408,7 @@ export async function createEngineeringRevisionInSupabase(
   });
   if (error) throw error;
   void userId;
-  return parseEngineeringRpcResult(data);
+  return parseEngineeringRpcResult(data, companyId);
 }
 
 function annotationRow(annotation: DrawingAnnotation, userId: string, companyId: string) {
@@ -475,18 +488,20 @@ export async function uploadEngineeringDocumentFile(
 export async function getEngineeringDocumentFileUrl(
   filePath: string,
   explicitCompanyId?: string,
+  expectedDocumentId?: string,
+  expectedRevisionId?: string,
   expiresInSeconds = 3600
 ): Promise<string> {
   requireRemoteUser(await currentUserId());
   const companyId = resolveCompanyId(explicitCompanyId);
-  const pathParts = filePath.split("/");
-  if (pathParts.length !== 7 || pathParts[0] !== "companies" || pathParts[1] !== companyId || pathParts[2] !== "documents" || pathParts[4] !== "revisions" || !pathParts[6]) {
+  const normalizedFilePath = filePath.trim();
+  if (!expectedDocumentId || !expectedRevisionId || !isEngineeringDocumentStoragePathForRevision(normalizedFilePath, companyId, expectedDocumentId, expectedRevisionId)) {
     throw new Error("The engineering revision source is outside the active company.");
   }
 
   const { data, error } = await supabase!.storage
     .from(ENGINEERING_DOCUMENTS_BUCKET)
-    .createSignedUrl(filePath, Math.max(60, Math.min(expiresInSeconds, 3600)));
+    .createSignedUrl(normalizedFilePath, Math.max(60, Math.min(expiresInSeconds, 3600)));
 
   if (error) throw error;
   if (!data?.signedUrl) throw new Error("The engineering revision source did not produce a signed URL.");
@@ -498,15 +513,21 @@ export async function getEngineeringDocumentFileUrl(
  * committed database revision.  This is intentionally not exposed as a normal
  * document action and is called only after the atomic metadata RPC fails.
  */
-export async function compensateUnprovenancedEngineeringDocumentUpload(filePath: string, explicitCompanyId?: string): Promise<void> {
+export async function compensateUnprovenancedEngineeringDocumentUpload(
+  filePath: string,
+  expectedDocumentId: string,
+  expectedRevisionId: string,
+  explicitCompanyId?: string,
+): Promise<void> {
   requireRemoteUser(await currentUserId());
   const companyId = resolveCompanyId(explicitCompanyId);
-  if (filePath.split("/")[0] !== "companies" || filePath.split("/")[1] !== companyId) {
+  const normalizedFilePath = filePath.trim();
+  if (!isEngineeringDocumentStoragePathForRevision(normalizedFilePath, companyId, expectedDocumentId, expectedRevisionId)) {
     throw new Error("Refusing to compensate an engineering upload outside the active company.");
   }
   const { error } = await supabase!.storage
     .from(ENGINEERING_DOCUMENTS_BUCKET)
-    .remove([filePath]);
+    .remove([normalizedFilePath]);
 
   if (error) throw error;
 }

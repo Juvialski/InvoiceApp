@@ -6,6 +6,12 @@ const migrationUrl = new URL("../supabase/migrations/20260826130000_engineering_
 const sql = readFileSync(migrationUrl, "utf8");
 const hardeningUrl = new URL("../supabase/migrations/20260826140000_engineering_documents_hardening.sql", import.meta.url);
 const hardeningSql = readFileSync(hardeningUrl, "utf8");
+const annotationImmutabilityUrl = new URL("../supabase/migrations/20260826234440_engineering_documents_annotation_immutability.sql", import.meta.url);
+const annotationImmutabilitySql = readFileSync(annotationImmutabilityUrl, "utf8");
+const sourceValidationUrl = new URL("../supabase/migrations/20260826235525_engineering_documents_source_validation.sql", import.meta.url);
+const sourceValidationSql = readFileSync(sourceValidationUrl, "utf8");
+const storagePathPolicyUrl = new URL("../supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql", import.meta.url);
+const storagePathPolicySql = readFileSync(storagePathPolicyUrl, "utf8");
 
 test("engineering documents migration defines additive tables, check constraints, and RLS", () => {
   for (const table of ["engineering_documents", "engineering_document_revisions", "drawing_annotations"]) {
@@ -84,6 +90,30 @@ test("hardening exposes authenticated atomic metadata RPCs only", () => {
   assert.match(hardeningSql, /revoke execute on function public\.create_engineering_document_with_revision/);
   assert.match(hardeningSql, /grant execute on function public\.create_engineering_document_with_revision[\s\S]*to authenticated/);
   assert.match(hardeningSql, /grant execute on function public\.create_engineering_revision[\s\S]*to authenticated/);
+});
+
+test("annotation hardening removes physical delete and preserves audit history", () => {
+  assert.match(annotationImmutabilitySql, /drop policy if exists drawing_annotations_company_delete on public\.drawing_annotations/);
+  assert.match(annotationImmutabilitySql, /revoke delete on table public\.drawing_annotations from authenticated/);
+  assert.match(annotationImmutabilitySql, /create trigger drawing_annotations_append_only[\s\S]*before delete/);
+  assert.match(annotationImmutabilitySql, /mark them DELETED instead/);
+});
+
+test("source validation hardening mirrors the authenticated PDF contract", () => {
+  assert.match(sourceValidationSql, /create or replace function private\.validate_engineering_revision_source/);
+  assert.match(sourceValidationSql, /lower\(btrim\(new\.file_type\)\) <> 'application\/pdf'/);
+  assert.match(sourceValidationSql, /lower\(btrim\(new\.file_name\)\) !~ '\\\.pdf\$'/);
+  assert.match(sourceValidationSql, /new\.file_size_bytes <= 0 or new\.file_size_bytes > 52428800/);
+  assert.match(sourceValidationSql, /split_part\(new\.file_path, '\/', 7\) <> btrim\(new\.file_name\)/);
+});
+
+test("Storage insert policy accepts only immutable revision PDF paths", () => {
+  assert.match(storagePathPolicySql, /drop policy if exists "company engineering documents insert" on storage\.objects/);
+  assert.match(storagePathPolicySql, /create policy "company engineering documents insert" on storage\.objects/);
+  assert.match(storagePathPolicySql, /name ~\* '\^companies\/\[0-9a-f\]\{8\}/);
+  assert.match(storagePathPolicySql, /\/documents\/\[0-9a-f\]\{8\}/);
+  assert.match(storagePathPolicySql, /\/revisions\/\[0-9a-f\]\{8\}/);
+  assert.match(storagePathPolicySql, /\[A-Za-z0-9\._-\]\+\\\.pdf\$'/);
 });
 
 test("realtime publication includes engineering documents tables", () => {

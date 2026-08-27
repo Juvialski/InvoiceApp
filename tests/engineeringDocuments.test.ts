@@ -23,6 +23,7 @@ import {
   normalizedRectToScreen,
   normalizedToScreen,
   parseEngineeringScale,
+  revisionNumbersEqual,
   screenRectToNormalized,
   screenToCanvasPoint,
   screenToNormalized,
@@ -241,6 +242,9 @@ test("revision number comparison and sorting handle versions, letters, and numbe
   assert.equal(sorted[0].revisionNumber, "Rev 1");
   assert.equal(sorted[1].revisionNumber, "Rev 2");
   assert.equal(sorted[2].revisionNumber, "Rev 10");
+  assert.equal(revisionNumbersEqual("Rev 1", "1"), true);
+  assert.equal(revisionNumbersEqual("Revision B", "B"), true);
+  assert.equal(revisionNumbersEqual("Rev 1", "Rev 2"), false);
 });
 
 test("document lifecycle helpers: create, update, archive, and filter", () => {
@@ -464,6 +468,8 @@ test("engineering PDF preparation validates the real PDF signature and preserves
   assert.equal(prepared.fileSizeBytes, prepared.bytes.byteLength);
   assert.equal(prepared.contentType, "application/pdf");
   await assert.rejects(() => prepareEngineeringPdf(new TextEncoder().encode("not a pdf"), { fileName: "drawing.pdf" }), /valid PDF/i);
+  await assert.rejects(() => prepareEngineeringPdf(new TextEncoder().encode("%PDF-1.7\ncontent"), { fileName: "drawing.txt", contentType: "application/pdf" }), /PDF files/i);
+  await assert.rejects(() => prepareEngineeringPdf(new TextEncoder().encode("%PDF-1.7\ncontent"), { fileName: "drawing.pdf", contentType: "image/png" }), /PDF files/i);
 });
 
 test("revision Storage paths are immutable and bound to company/document/revision identifiers", () => {
@@ -472,4 +478,6 @@ test("revision Storage paths are immutable and bound to company/document/revisio
   assert.equal(isEngineeringDocumentStoragePathForRevision(path, "company-a", "document-a", "revision-a"), true);
   assert.equal(isEngineeringDocumentStoragePathForRevision(path, "company-a", "document-b", "revision-a"), false);
   assert.equal(isEngineeringDocumentStoragePathForRevision(path, "company-a", "document-a", "revision-b"), false);
+  assert.equal(isEngineeringDocumentStoragePathForRevision(path.replace(/\.pdf$/, ".txt"), "company-a", "document-a", "revision-a"), false);
+  assert.equal(isEngineeringDocumentStoragePathForRevision("companies/company-a/documents/document-a/revisions/revision-a/file.pdf", "company-a", "document-a", "revision-a"), true);
 });
