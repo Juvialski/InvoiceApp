@@ -5,6 +5,7 @@ import { EmailInbox } from "../../components/EmailInbox";
 import { ReviewQueue } from "../../components/ReviewQueue";
 import { InvoiceDirectory } from "../../components/InvoiceDirectory";
 import { Vendors } from "../../components/Vendors";
+import { FinancialSettlementCard } from "../../components/FinancialSettlementCard.tsx";
 import type {
   EmailClassification,
   GmailConnectionInfo,
@@ -17,11 +18,8 @@ import type {
 import type { AppTab } from "../../utils/routes";
 
 export interface InvoicesRouteProps {
-  // Mode selection
   selectedInvoice?: InvoiceData | null;
   activeSubTab?: AppTab | "invoices" | "extractor" | "inbox" | "review" | "vendors";
-
-  // Data
   invoices: InvoiceData[];
   projects?: Project[];
   invoiceProjectAllocations?: InvoiceProjectAllocation[];
@@ -34,8 +32,6 @@ export interface InvoicesRouteProps {
   workspaceOriginLabel?: string;
   processingCount?: number;
   gmailConnection?: GmailConnectionInfo;
-
-  // Handlers for VerificationWorkspace
   onRetryExtraction?: (invoice: InvoiceData) => Promise<InvoiceData | null>;
   onUpdateInvoice?: (invoice: InvoiceData) => void;
   onBack?: () => void | Promise<void>;
@@ -50,8 +46,6 @@ export interface InvoicesRouteProps {
   onRevertToAI?: (invoice: InvoiceData) => void;
   onRevertField?: (invoice: InvoiceData, path: string) => void;
   onSaveProjectAllocations?: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
-
-  // Handlers for Directory, Review, Extractor, Inbox
   onSelectInvoice?: (invoice: InvoiceData) => void;
   onOpenInvoiceForReview?: (invoice: InvoiceData) => void;
   onStartReview?: (queue?: InvoiceData[]) => void;
@@ -102,32 +96,21 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onStartReview = () => {},
   onDeleteInvoice = () => {},
   onAddNew = () => {},
-  onExtract = async () => {
-    throw new Error("Extractor handler not configured.");
-  },
+  onExtract = async () => { throw new Error("Extractor handler not configured."); },
   onLoadPreset,
   onBatchComplete,
   onConnectGmail = () => {},
   onSignOut,
   onScanGmail = async () => [],
   onSyncGmail = async () => [],
-  onImportGmailMessage = async () => {
-    throw new Error("Gmail import handler not configured.");
-  },
-  onProcessEmail = async () => {
-    throw new Error("Process email handler not configured.");
-  },
+  onImportGmailMessage = async () => { throw new Error("Gmail import handler not configured."); },
+  onProcessEmail = async () => { throw new Error("Process email handler not configured."); },
 }) => {
-  // 1. If an invoice is currently open for review/viewing, render VerificationWorkspace
   if (selectedInvoice) {
-    const handleReopenCallback = async () => {
-      if (onReopen) {
-        await onReopen(selectedInvoice);
-      }
-    };
-
+    const handleReopenCallback = async () => { if (onReopen) await onReopen(selectedInvoice); };
     return (
       <div className="space-y-5">
+        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact />
         <VerificationWorkspace
           invoice={selectedInvoice}
           queue={reviewQueue}
@@ -157,68 +140,14 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
       </div>
     );
   }
-
-  // 2. Render specific subtab
-  if (activeSubTab === "extractor") {
-    return (
-      <div className="space-y-5">
-        <UploadZone
-          onExtract={onExtract}
-          onLoadPreset={onLoadPreset}
-          onBatchComplete={onBatchComplete}
-          isLoading={processingCount > 0}
-        />
-      </div>
-    );
-  }
-
+  if (activeSubTab === "extractor") return <div className="space-y-5"><UploadZone onExtract={onExtract} onLoadPreset={onLoadPreset} onBatchComplete={onBatchComplete} isLoading={processingCount > 0} /></div>;
   if (activeSubTab === "inbox") {
-    const fallbackConnection: GmailConnectionInfo = {
-      configured: false,
-      signedIn: false,
-      hasGmailToken: false,
-    };
-    return (
-      <EmailInbox
-        invoices={invoices}
-        isProcessing={processingCount > 0}
-        connection={gmailConnection || fallbackConnection}
-        onConnectGmail={onConnectGmail}
-        onSignOut={onSignOut}
-        onScanGmail={onScanGmail}
-        onSyncGmail={onSyncGmail}
-        onImportGmailMessage={onImportGmailMessage}
-        onProcessEmail={onProcessEmail}
-        onOpenInvoice={onSelectInvoice}
-      />
-    );
+    const fallbackConnection: GmailConnectionInfo = { configured: false, signedIn: false, hasGmailToken: false };
+    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection || fallbackConnection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} />;
   }
-
-  if (activeSubTab === "review") {
-    return (
-      <ReviewQueue
-        invoices={invoices}
-        onOpenInvoice={onOpenInvoiceForReview}
-        onStartReview={onStartReview}
-      />
-    );
-  }
-
-  if (activeSubTab === "vendors") {
-    return <Vendors invoices={invoices} />;
-  }
-
-  // Default: Directory
-  return (
-    <InvoiceDirectory
-      invoices={invoices}
-      projects={projects}
-      projectAllocations={invoiceProjectAllocations}
-      onSelectInvoice={onSelectInvoice}
-      onDeleteInvoice={onDeleteInvoice}
-      onAddNew={onAddNew}
-    />
-  );
+  if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={onStartReview} />;
+  if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
+  return <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onDeleteInvoice={onDeleteInvoice} onAddNew={onAddNew} />;
 };
 
 export default InvoicesRoute;
