@@ -32,8 +32,8 @@ Engoryx unifies financial operations, workforce management, document control, fi
    - Core field capture flows support offline queuing with monotonic client sequence timestamps and automatic reconciliation upon reconnect where an explicit synchronization contract exists.
 
 5. **Verification Before Automation**:
-   - Deterministic tests, database invariants, and browser evidence remain authoritative for engineering verification.
-   - AI-assisted QA may classify or prioritize defects but does not replace CI pass/fail semantics or silently mutate production state.
+   - Deterministic tests, database invariants, browser evidence, and repository-native workflow contracts remain authoritative for engineering verification.
+   - Visual workflow maps and AI-assisted QA may improve understanding or prioritize defects but do not replace CI pass/fail semantics or silently mutate production state.
 
 ---
 
@@ -85,7 +85,7 @@ The current `main` baseline has moved beyond the original Phase 1 planning state
 - **Phase 1C is complete**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal submission/finalization history.
 - **Financial Settlement Integration is complete** across Cash & Banking, supplier invoices, payroll, supported expense compatibility, demo fixtures, and Assistant workflows. Settlement is authoritative payment/disbursement evidence but remains separate from project-cost and payroll-source semantics.
 - **Next customer-facing product phase:** Phase 2 — Project Scheduling & Gantt.
-- **Next engineering-infrastructure priority:** Automated QA & Agent Context, planned before or alongside Phase 2. This track does not renumber the product roadmap.
+- **Next engineering-infrastructure priority:** Workflow Map, QA & Agent Context, planned before or alongside Phase 2. This track does not renumber the product roadmap and does not require a hosted orchestration service.
 
 ### Customer-facing product roadmap
 
@@ -104,21 +104,22 @@ The customer-facing platform evolution remains structured into sequential, backw
 | **Phase 7** | **Document Intelligence & Advanced Parsing** | Future | Deep document layout analysis, multi-column contract parsing, CAD title-block OCR (Docling + Tesseract). |
 | **Phase 8** | **Field Communications & SMS** | Future | Direct Android SMS dispatch (httpSMS), shift notifications, emergency weather alerts, automated worker reminders. |
 
-### Engineering infrastructure track — Automated QA & Agent Context
+### Engineering infrastructure track — Workflow Map, QA & Agent Context
 
 This is a cross-cutting development track rather than a customer-facing Engoryx phase. Its planned architecture is documented in [ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md](ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
 
-The intended stack is:
+The intended stack is deliberately repository-native:
 
-- **GitHub Actions** for authoritative deterministic verification;
-- **Playwright/browser QA** for route interaction, responsive sweeps, screenshots, console/page errors, failed requests, and visual evidence;
-- **n8n** as the orchestration layer for triggers, artifact collection, AI review, deduplication, persistence, and reporting;
-- **AI-assisted defect analysis** for bounded visual/semantic classification, never as a replacement for deterministic CI;
-- **Supabase or equivalent structured storage** for detailed QA finding history;
-- **GitHub Issues and repository documentation** for durable actionable defects, architecture decisions, and regression constraints;
-- **bounded feature-scoped context packets** for future coding-agent runs so agents receive relevant prior defects and invariants without loading an unbounded chat/history dump.
+- **one versioned machine-readable workflow graph** covering important routes, states, actions, guards, cross-domain relationships, and selected test references;
+- **Mermaid and/or React Flow/xyflow rendering** for a visual workflow canvas with domain grouping, pan/zoom, filtering, and clickable context;
+- **deterministic graph validation** for broken node/edge references, selected route/lifecycle inconsistencies, missing high-risk guard metadata, and orphaned workflow paths;
+- **existing Playwright/browser QA** for rendered route interaction, responsive sweeps, screenshots, console/page errors, failed requests, and optional evidence attached to workflow nodes;
+- **GitHub Issues, PRs, tests, and repository documentation** for durable defect/history context;
+- **bounded feature-scoped context packets** for future coding-agent runs so agents receive the relevant workflow, invariants, files, and tests without loading an unbounded project history.
 
-The rollout should proceed incrementally: structured browser evidence -> orchestration -> AI-assisted review -> persistent findings/deduplication -> concise GitHub reporting -> bounded agent-context retrieval.
+No n8n or paid workflow-orchestration service is required. External repository-visualization tools may be used for exploration, but the Engoryx workflow graph remains the curated source for product-specific business semantics.
+
+The rollout should proceed incrementally: canonical workflow graph -> visual workflow canvas -> graph consistency validation -> browser evidence overlay -> bounded agent-context generation.
 
 ---
 
@@ -197,7 +198,8 @@ moved into route/controller boundaries.
 - Formal engineering records preserve lifecycle history instead of rewriting prior submitted/finalized state.
 - Financial settlement reversals are additive and preserve original confirmation provenance.
 
-### Development QA provenance
-- Automated QA findings must retain the commit/branch, route, viewport, evidence reference, first/last detection time, status, and related issue/PR when available.
+### Development workflow-map provenance
+- Workflow nodes and edges use stable identifiers and link back to live routes/files/tests where practical.
 - Generated agent-context summaries are advisory snapshots and never replace live inspection of current `main`, current CI, and the actual source tree.
-- Sensitive production financial, payroll, banking, or document data must not be copied into external AI QA workflows without an explicit approved redaction and data-handling boundary.
+- Sensitive production financial, payroll, banking, document, or employee data must not be embedded in the workflow graph or generated context.
+- Browser evidence attached to workflow nodes must distinguish demo/test evidence from authenticated production behavior.
