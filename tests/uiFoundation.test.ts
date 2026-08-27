@@ -60,6 +60,10 @@ test("CSS Cascade: index.css imports @astryxdesign/core/astryx.css safely", () =
     cssContent.includes('@import "tailwindcss"'),
     "src/index.css must retain tailwindcss import"
   );
+  assert.ok(
+    cssContent.includes('@import "./ui/engoryx.css"'),
+    "src/index.css must import the generated Engoryx theme CSS"
+  );
 });
 
 test("Architecture invariant: BlueprintViewer remains strictly lazy-loaded and not in core UI bundle", () => {
@@ -77,5 +81,46 @@ test("Architecture invariant: BlueprintViewer remains strictly lazy-loaded and n
     !uiIndexContent.includes("pdfjs"),
     "src/ui/index.ts must never import pdfjs"
   );
+});
+
+test("Astryx dependency placement keeps CLI tooling out of runtime dependencies", () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf-8")) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
+  assert.equal(packageJson.dependencies?.["@astryxdesign/cli"], undefined);
+  assert.equal(packageJson.devDependencies?.["@astryxdesign/cli"], "^0.5.0");
+  assert.equal(packageJson.dependencies?.["@astryxdesign/core"], "^0.5.0");
+});
+
+test("Engoryx uses the CLI-built theme artifact in production paths", () => {
+  const builtTheme = fs.readFileSync(path.resolve(process.cwd(), "src/ui/engoryx.js"), "utf-8");
+  const provider = fs.readFileSync(path.resolve(process.cwd(), "src/ui/EngoryxThemeProvider.tsx"), "utf-8");
+  assert.match(builtTheme, /__built:\s*true/);
+  assert.match(provider, /from ["']\.\/engoryx["']/);
+  assert.doesNotMatch(provider, /from ["']\.\/engoryxTheme["']/);
+});
+
+test("Application root owns the only Astryx theme provider and optional routes stay lazy", () => {
+  const mainContent = fs.readFileSync(path.resolve(process.cwd(), "src/main.tsx"), "utf-8");
+  assert.equal((mainContent.match(/EngoryxThemeProvider/g) || []).length, 4, "root provider should have one import, opening tag, closing tag, and import-path reference");
+  assert.doesNotMatch(fs.readFileSync(path.resolve(process.cwd(), "src/App.tsx"), "utf-8"), /EngoryxThemeProvider/);
+
+  const routerContent = fs.readFileSync(path.resolve(process.cwd(), "src/app/routes/AppRouter.tsx"), "utf-8");
+  for (const route of ["CashBankingRoute", "InvoicesRoute", "PayrollRoute", "ExpensesRoute", "ReportsRoute", "SettingsRoute", "PlatformCompaniesRoute"]) {
+    assert.match(routerContent, new RegExp(`const ${route} = lazy\\(\\(\\) => import\\(\\"\\./${route}\\"\\)\\)`));
+  }
+  assert.match(routerContent, /const ProjectsRoute = lazy\(\(\) => import\("\.\/ProjectsRoute"\)\.then\(\(\{ ProjectsRoute \}\) => \(\{ default: ProjectsRoute \}\)\)\)/);
+});
+
+test("User-triggered spreadsheet code is isolated from the core entry path", () => {
+  const appContent = fs.readFileSync(path.resolve(process.cwd(), "src/App.tsx"), "utf-8");
+  assert.doesNotMatch(appContent, /import\s+\{[^}]*exportBatchInvoicesToExcel/);
+  assert.doesNotMatch(appContent, /import\s+\{[^}]*buildDraftPayrollFromImport/);
+
+  const cashCoreContent = fs.readFileSync(path.resolve(process.cwd(), "src/lib/cashBanking.ts"), "utf-8");
+  const cashImportContent = fs.readFileSync(path.resolve(process.cwd(), "src/lib/cashBankingImport.ts"), "utf-8");
+  assert.doesNotMatch(cashCoreContent, /from ["']xlsx["']/);
+  assert.match(cashImportContent, /from ["']xlsx["']/);
 });
 

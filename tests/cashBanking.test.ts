@@ -12,7 +12,6 @@ import {
   createFinancialMatch,
   createFinancialTransaction,
   findInternalTransferSuggestions,
-  parseStatementFile,
   reconciliationStatusForTransaction,
   resolveFinancialBalance,
   suggestFinancialMatches,
@@ -20,6 +19,7 @@ import {
   type CashBankingWorkspaceData,
   type FinancialTransaction,
 } from "../src/lib/cashBanking.ts";
+import { parseStatementFile } from "../src/lib/cashBankingImport.ts";
 
 const now = "2026-08-26T00:00:00.000Z";
 

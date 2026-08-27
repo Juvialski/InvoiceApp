@@ -24,7 +24,6 @@ import {
   financialId,
   findInternalTransferSuggestions,
   parseFinancialAmount,
-  parseStatementFile,
   reconciliationStatusForTransaction,
   suggestFinancialMatches,
   normalizeMaskedFinancialIdentifier,
@@ -40,6 +39,7 @@ import {
   type StatementColumnMapping,
   type StatementPreview,
 } from "../lib/cashBanking.ts";
+import { parseStatementFile } from "../lib/cashBankingImport.ts";
 import { EmptyState, MetricCard, Notice, PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI.tsx";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
 
