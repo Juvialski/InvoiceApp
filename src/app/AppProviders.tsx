@@ -1,7 +1,6 @@
 import React, { useMemo, type ReactNode } from "react";
 import { CompanyAccessProvider, useCompanyAccess } from "../context/CompanyAccessContext.tsx";
 import { AssistantProvider, type AssistantProviderProps } from "../assistant/AssistantProvider.tsx";
-import { EngoryxThemeProvider } from "../ui/EngoryxThemeProvider.tsx";
 import { isSupabaseConfigured } from "../lib/supabase.ts";
 
 export interface AppProvidersProps {
@@ -43,19 +42,16 @@ export const AppProviders: React.FC<AppProvidersProps> = ({
   enableAssistant = true,
 }) => {
   return (
-    <EngoryxThemeProvider>
-      <CompanyAccessProvider>
-        {enableAssistant ? (
-          <AssistantProviderBridge assistantProps={assistantProps}>
-            {children}
-          </AssistantProviderBridge>
-        ) : (
-          children
-        )}
-      </CompanyAccessProvider>
-    </EngoryxThemeProvider>
+    <CompanyAccessProvider>
+      {enableAssistant ? (
+        <AssistantProviderBridge assistantProps={assistantProps}>
+          {children}
+        </AssistantProviderBridge>
+      ) : (
+        children
+      )}
+    </CompanyAccessProvider>
   );
 };
 
 export default AppProviders;
-
