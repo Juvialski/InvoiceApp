@@ -406,7 +406,7 @@ begin
     v_crew_label := nullif(btrim(v_item->>'crew_label'), '');
     v_contractor_label := nullif(btrim(v_item->>'contractor_label'), '');
     if v_trade is null and v_crew_label is null and v_contractor_label is null then
-      raise exception 'Crew row % needs a trade, crew, or contractor label' using errcode = '22023', detail = v_index::text;
+      raise exception 'Crew row % needs a trade, crew, or contractor label', v_index using errcode = '22023', detail = v_index::text;
     end if;
     insert into public.engineering_daily_site_log_crew(
       id, company_id, site_log_id, trade, crew_label, contractor_label, headcount,
