@@ -1,0 +1,34 @@
+name: Phase 1B Native Test Diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tests/assistantActionPolicy.test.ts'
+      - 'tests/assistantBackend.test.ts'
+      - 'tests/assistantGeminiCompatibility.test.ts'
+      - 'tests/companyAiRuntime.test.ts'
+      - 'src/assistant/**'
+      - 'src/server/assistant/**'
+      - '.github/workflows/phase1b-diagnostics.yml'
+
+jobs:
+  native-test-file:
+    name: Native test — ${{ matrix.test_file }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test_file:
+          - tests/assistantActionPolicy.test.ts
+          - tests/assistantBackend.test.ts
+          - tests/assistantGeminiCompatibility.test.ts
+          - tests/companyAiRuntime.test.ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node --test --experimental-strip-types ${{ matrix.test_file }}
