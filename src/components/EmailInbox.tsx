@@ -9,8 +9,8 @@ interface EmailInboxProps {
   invoices: InvoiceData[];
   isProcessing: boolean;
   connection: GmailConnectionInfo;
-  onConnectGmail: () => Promise<void>;
-  onSignOut: () => Promise<void>;
+  onConnectGmail: () => Promise<void> | void;
+  onSignOut: () => Promise<void> | void;
   onScanGmail: (window: GmailScanWindow) => Promise<GmailMessageCandidate[]>;
   onSyncGmail: () => Promise<GmailMessageCandidate[]>;
   onImportGmailMessage: (message: GmailMessageCandidate) => Promise<number>;

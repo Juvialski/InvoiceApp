@@ -290,7 +290,6 @@ export interface PayrollAttendanceRecordLike {
   regularMinutes?: number;
   regularHours?: number;
   paidDayFraction?: number;
-  [key: string]: unknown;
 }
 
 export interface PayrollLeaveRecordLike {
@@ -302,7 +301,6 @@ export interface PayrollLeaveRecordLike {
   endDate?: string;
   status?: string;
   paid?: boolean;
-  [key: string]: unknown;
 }
 
 export interface PayrollOvertimeRequestLike {
@@ -318,7 +316,6 @@ export interface PayrollOvertimeRequestLike {
   rate?: number;
   laborContext?: PayrollLaborContext;
   projectId?: string;
-  [key: string]: unknown;
 }
 
 export interface PayrollHolidayRecordLike {
@@ -326,7 +323,6 @@ export interface PayrollHolidayRecordLike {
   holidayDate?: string;
   date?: string;
   active?: boolean;
-  [key: string]: unknown;
 }
 
 export interface PayrollRunCalculationInput {
@@ -422,6 +418,10 @@ function sourceDate(record: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+function sourceRecord(value: object): Record<string, unknown> {
+  return value as Record<string, unknown>;
+}
+
 function inRunPeriod(date: string | undefined, periodId: string | undefined, input: PayrollRunCalculationInput) {
   return Boolean(date && date >= input.periodStart && date <= input.periodEnd && (!periodId || periodId === input.periodId));
 }
@@ -446,7 +446,7 @@ function isConfirmedAttendance(record: PayrollAttendanceRecordLike): boolean {
 }
 
 function isApprovedOvertime(record: PayrollOvertimeRequestLike): boolean {
-  return String(record.status ?? "").toUpperCase() === "APPROVED" || (record as Record<string, unknown>).approved === true;
+  return String(record.status ?? "").toUpperCase() === "APPROVED" || sourceRecord(record).approved === true;
 }
 
 function recordId(record: { id?: string }, fallback: string) {
@@ -512,13 +512,13 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
   const warnings: string[] = [];
   const allAttendance = uniqueRecords([input.confirmedAttendance, input.attendanceRecords, input.attendance]);
   const attendance = allAttendance.filter((record) => {
-    const date = sourceDate(record as Record<string, unknown>);
+    const date = sourceDate(sourceRecord(record));
     return isConfirmedAttendance(record) && inRunPeriod(date, record.periodId, input);
   });
   const allLeave = uniqueRecords([input.leaveRequests, input.leaves, input.leave]);
   const allOvertime = uniqueRecords([input.overtimeRequests, input.overtime]);
   const approvedOvertime = allOvertime.filter((record) => {
-    const date = sourceDate(record as Record<string, unknown>);
+    const date = sourceDate(sourceRecord(record));
     return isApprovedOvertime(record) && inRunPeriod(date, record.periodId, input) && approvedOvertimeMinutes(record) > 0;
   });
   const allHolidays = uniqueRecords([input.payrollHolidays, input.holidays]);
@@ -557,7 +557,7 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
   const attendanceByWorker = new Map<string, PayrollAttendanceRecordLike[]>();
   for (const record of attendance) attendanceByWorker.set(record.workerId, [...(attendanceByWorker.get(record.workerId) ?? []), record]);
   for (const records of attendanceByWorker.values()) {
-    records.sort((left, right) => String(sourceDate(left as Record<string, unknown>)).localeCompare(String(sourceDate(right as Record<string, unknown>))) || recordId(left, "").localeCompare(recordId(right, "")));
+    records.sort((left, right) => String(sourceDate(sourceRecord(left))).localeCompare(String(sourceDate(sourceRecord(right)))) || recordId(left, "").localeCompare(recordId(right, "")));
   }
 
   const calculatedEntries: PayrollRunCalculationResult["entries"] = [];
@@ -569,7 +569,7 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
     const workerAttendance = (attendanceByWorker.get(worker.id) ?? []).slice();
     const workerExplicitOvertime = approvedOvertime
       .filter((record) => record.workerId === worker.id)
-      .sort((left, right) => String(sourceDate(left as Record<string, unknown>)).localeCompare(String(sourceDate(right as Record<string, unknown>))) || recordId(left, "").localeCompare(recordId(right, "")));
+      .sort((left, right) => String(sourceDate(sourceRecord(left))).localeCompare(String(sourceDate(sourceRecord(right)))) || recordId(left, "").localeCompare(recordId(right, "")));
     if (!workerEntries.length && !workerAttendance.length && !workerExplicitOvertime.length) continue;
     if (!isValidRate(worker.defaultRate)) {
       warningsForCalculation(warnings, worker);
@@ -609,10 +609,10 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
     }
 
     for (const record of workerAttendance) {
-      const date = sourceDate(record as Record<string, unknown>) || input.periodStart;
+      const date = sourceDate(sourceRecord(record)) || input.periodStart;
       const assignment = assignmentForWorkerDate(worker.id, date, input.assignments);
       const resolution = resolvePayrollRate({ worker, assignment, workDate: date });
-      const regularMinutes = record.regularMinutes !== undefined ? positiveAmount(record.regularMinutes) : positiveAmount((record as Record<string, unknown>).regularHours) * 60;
+      const regularMinutes = record.regularMinutes !== undefined ? positiveAmount(record.regularMinutes) : positiveAmount(sourceRecord(record).regularHours) * 60;
       const paidDayFraction = positiveAmount(record.paidDayFraction);
       const quantity = resolution.payType === "HOURLY" ? regularMinutes / 60 : resolution.payType === "DAILY" ? paidDayFraction : 0;
       const amount = round(quantity * resolution.rate);
@@ -626,7 +626,7 @@ export function calculatePayrollRunFromWorkEntries(input: PayrollRunCalculationI
     const legacyOvertimeEntries = workerEntries.filter((entry) => positiveAmount(entry.overtimeHours) > 0);
     const explicitDates = new Set<string>();
     for (const request of workerExplicitOvertime) {
-      const date = sourceDate(request as Record<string, unknown>);
+      const date = sourceDate(sourceRecord(request));
       if (!date) continue;
       explicitDates.add(date);
       const assignment = assignmentForWorkerDate(worker.id, date, input.assignments);

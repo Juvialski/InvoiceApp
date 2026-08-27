@@ -14,7 +14,7 @@ import { appPathForInvoice, appPathForPlatformCompanies, appPathForProject, appP
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
-import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollHoliday } from "./types";
+import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
 import { readAndCleanLocalInvoices } from "./utils/demoCleanup";
@@ -218,6 +218,10 @@ function initialAppLocation(): AppLocation {
   return parseAppLocation(window.location.pathname, window.location.search);
 }
 
+function extractionSourceType(value: SourceType | undefined): ExtractPayload["sourceType"] {
+  return value === "UPLOAD" || value === "PASTED_TEXT" || value === "EMAIL" ? value : undefined;
+}
+
 function InvoiceWorkspace() {
   const companyAccess = useCompanyAccess();
   const [invoices, setInvoices] = useState<InvoiceData[]>(() => isSupabaseConfigured ? [] : localFallbackInvoices());
@@ -290,7 +294,7 @@ function InvoiceWorkspace() {
   const remoteInvoiceUpdatesRef = useRef(new Map<string, InvoiceData>());
   const [retryingInvoiceId, setRetryingInvoiceId] = useState<string | null>(null);
   const savePromisesRef = useRef(new Map<string, Promise<unknown>>());
-  const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(() => isSupabaseConfigured ? { batches: [], rows: [], templates: [] } : readPayrollImportWorkspaceFromLocal());
+  const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(() => isSupabaseConfigured ? { costCenters: [], batches: [], rows: [], templates: [] } : readPayrollImportWorkspaceFromLocal());
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(() => isSupabaseConfigured ? [] : readInvoiceProjectAllocationsFromLocal());
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
   const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(() => isSupabaseConfigured ? emptyPayrollWorkspaceData() : readPayrollWorkspaceFromLocal());
@@ -479,7 +483,7 @@ function InvoiceWorkspace() {
     const emptyCashData = emptyCashBankingWorkspaceData();
     setCashData(emptyCashData);
     cashDataRef.current = emptyCashData;
-    setPayrollImportData({ batches: [], rows: [], templates: [] });
+    setPayrollImportData({ costCenters: [], batches: [], rows: [], templates: [] });
     const emptyPayrollData = emptyPayrollWorkspaceData();
     setPayrollData(emptyPayrollData);
     payrollDataRef.current = emptyPayrollData;
@@ -2298,10 +2302,13 @@ function InvoiceWorkspace() {
     setProcessingCount((n) => n + 1);
     try {
       let sourcePayload = sourcePayloadsRef.current.get(invoice.id);
-      if (!sourcePayload && session && supabase) sourcePayload = (await loadSourcePayloadForRetry(invoice)) || undefined;
+      if (!sourcePayload && session && supabase) {
+        const storedPayload = await loadSourcePayloadForRetry(invoice);
+        if (storedPayload) sourcePayload = { ...storedPayload, sourceType: extractionSourceType(storedPayload.sourceType) };
+      }
       if (!sourcePayload && invoice.previewUrl?.startsWith("data:")) {
         const match = invoice.previewUrl.match(/^data:([^;,]+);base64,(.+)$/);
-        if (match) sourcePayload = { fileData: match[2], mimeType: match[1], fileName: invoice.fileName || "invoice", sourceType: invoice.sourceType || "UPLOAD" };
+        if (match) sourcePayload = { fileData: match[2], mimeType: match[1], fileName: invoice.fileName || "invoice", sourceType: extractionSourceType(invoice.sourceType) || "UPLOAD" };
       }
       if (!sourcePayload) throw new Error("The original source is unavailable for retry.");
 
@@ -2746,9 +2753,9 @@ function InvoiceWorkspace() {
         permissions={permissions}
         remoteInvoiceUpdate={remoteInvoiceUpdate}
         selectedInvoiceId={selectedInvoice?.id}
-        onReloadLatestRemoteInvoice={reloadLatestRemoteInvoice}
+        onReloadRemoteInvoice={reloadLatestRemoteInvoice}
         onKeepEditingRemoteInvoice={keepEditingRemoteInvoice}
-        isSavingRemoteInvoice={saveState === "saving"}
+        saveState={saveState}
         notification={notification}
         onDismissNotification={() => setNotification(null)}
         isSupabaseConfigured={isSupabaseConfigured}
@@ -2821,11 +2828,11 @@ function InvoiceWorkspace() {
           onIgnoreFinancialTransaction={handleIgnoreFinancialTransaction}
           onConfirmFinancialTransfer={handleConfirmFinancialTransfer}
           cashReconciliationCandidates={cashReconciliationCandidates}
-          canManageFinancialAccounts={!isSupabaseConfigured || can(PERMISSION_KEYS.cashAccountsManage)}
-          canManageFinancialTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)}
-          canImportFinancialStatements={!isSupabaseConfigured || can(PERMISSION_KEYS.cashImport)}
-          canReconcileFinancialTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashReconcile)}
-          onOpenDashboardFromCash={() => setActiveTab("dashboard")}
+          canManageCashAccounts={!isSupabaseConfigured || can(PERMISSION_KEYS.cashAccountsManage)}
+          canManageCashTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)}
+          canCashImport={!isSupabaseConfigured || can(PERMISSION_KEYS.cashImport)}
+          canCashReconcile={!isSupabaseConfigured || can(PERMISSION_KEYS.cashReconcile)}
+          onOpenCashDashboard={() => setActiveTab("dashboard")}
           invoices={invoices}
           selectedInvoice={selectedInvoice}
           reviewQueue={reviewQueue}
@@ -2835,23 +2842,24 @@ function InvoiceWorkspace() {
           retryingInvoiceId={retryingInvoiceId}
           onRetryExtraction={(invoice) => handleRetryExtraction(invoice)}
           onUpdateInvoice={handleUpdateInvoice}
-          onLeaveVerificationWorkspace={leaveWorkspace}
+          onInvoiceBack={leaveWorkspace}
           workspaceOriginLabel={workspaceOriginLabel}
-          onMoveReview={moveReview}
-          onSaveCurrentReview={saveCurrentReview}
+          onReviewPrevious={() => moveReview("previous")}
+          onReviewNext={() => moveReview("next")}
+          onReviewSave={saveCurrentReview}
           onVerifyAndNext={verifyAndNext}
           onReopenInvoice={(invoice) => handleReopen(invoice)}
-          onContinueReviewWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)}
-          onReturnToDashboardFromVerification={() => resetWorkspaceSelection("dashboard")}
-          onViewVerifiedInvoices={() => resetWorkspaceSelection("invoices")}
+          onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)}
+          onReturnToDashboard={() => resetWorkspaceSelection("dashboard")}
+          onViewVerified={() => resetWorkspaceSelection("invoices")}
           onRevertToAI={(invoice) => void handleRevertToAI(invoice)}
           onRevertField={(invoice, path) => void handleRevertField(invoice, path)}
           invoiceProjectAllocations={invoiceProjectAllocations}
-          preferredProjectId={uploadProjectContextId || undefined}
-          onExtract={handleExtract}
-          onLoadPreset={(invoice) => void handleLoadPreset(invoice)}
-          onBatchComplete={handleBatchComplete}
-          isExtracting={processingCount > 0}
+          uploadProjectContextId={uploadProjectContextId}
+          onExtractInvoice={handleExtract}
+          onLoadInvoicePreset={(invoice) => void handleLoadPreset(invoice)}
+          onBatchExtractComplete={handleBatchComplete}
+          processingCount={processingCount}
           gmailConnection={gmailConnection}
           onConnectGmail={connectGoogleAndGmail}
           onSignOut={handleSignOut}
@@ -2859,29 +2867,29 @@ function InvoiceWorkspace() {
           onSyncGmail={handleSyncGmail}
           onImportGmailMessage={handleImportGmailMessage}
           onProcessEmail={handleProcessEmail}
-          onOpenInvoice={openInvoice}
+          onSelectInvoice={openInvoice}
           onOpenInvoiceForReview={openInvoiceForReview}
-          onStartReviewQueue={(queue) => startReview(queue, undefined, "review")}
+          onStartReview={(queue) => startReview(queue, undefined, "review")}
           onDeleteInvoice={(id) => void handleDeleteInvoice(id)}
           onAddNewInvoice={() => resetWorkspaceSelection("extractor")}
           payrollData={payrollData}
           payrollImportData={payrollImportData}
           payrollPeriodPreparationState={payrollPeriodPreparationState}
-          onRetryPeriodPreparation={retryPayrollPeriodPreparation}
-          onSaveWorker={(worker) => void handleSaveWorker(worker)}
-          onSaveAssignment={(assignment) => void handleSaveAssignment(assignment)}
+          onRetryPayrollPeriodPreparation={retryPayrollPeriodPreparation}
+          onSavePayrollWorker={(worker) => void handleSaveWorker(worker)}
+          onSavePayrollAssignment={(assignment) => void handleSaveAssignment(assignment)}
           onSavePayrollPeriod={(period) => void handleSavePayrollPeriod(period)}
           onSavePayrollSchedule={(schedule) => void handleSavePayrollSchedule(schedule)}
           canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)}
           canManagePayrollMaintenance={payrollMaintenanceAllowed}
-          onSaveCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)}
-          onSaveRecurringComponent={(component) => void handleSaveRecurringComponent(component)}
-          onSaveWorkEntry={(entry) => void handleSaveWorkEntry(entry)}
-          onSaveAttendance={(record) => void handleSaveAttendance(record)}
-          onSaveAttendanceBatch={(records) => void handleSaveAttendanceBatch(records)}
-          onSaveLeave={(request) => void handleSaveLeave(request)}
-          onSaveOvertime={(request) => void handleSaveOvertime(request)}
-          onSaveHoliday={(holiday) => void handleSaveHoliday(holiday)}
+          onSaveWorkerCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)}
+          onSaveRecurringPayrollComponent={(component) => void handleSaveRecurringComponent(component)}
+          onSavePayrollWorkEntry={(entry) => void handleSaveWorkEntry(entry)}
+          onSavePayrollAttendance={(record) => void handleSaveAttendance(record)}
+          onSavePayrollAttendanceBatch={(records) => void handleSaveAttendanceBatch(records)}
+          onSavePayrollLeave={(request) => void handleSaveLeave(request)}
+          onSavePayrollOvertime={(request) => void handleSaveOvertime(request)}
+          onSavePayrollHoliday={(holiday) => void handleSaveHoliday(holiday)}
           onSavePayrollEntry={(entry, allocations) => void handleSavePayrollEntry(entry, allocations)}
           onUpdatePayrollRun={(run) => void handleUpdatePayrollRun(run)}
           onCreatePayrollRun={handleCreatePayrollRun}

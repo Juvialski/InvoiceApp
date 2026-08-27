@@ -29,17 +29,7 @@ export interface ErrorBoundaryState {
   error: Error | null;
 }
 
-const ReactComponent = React.Component as unknown as {
-  new (props: ErrorBoundaryProps): {
-    props: ErrorBoundaryProps;
-    state: ErrorBoundaryState;
-    setState(state: Partial<ErrorBoundaryState> | ((prevState: ErrorBoundaryState) => Partial<ErrorBoundaryState>)): void;
-    render(): ReactNode;
-    componentDidCatch?(error: Error, errorInfo: unknown): void;
-  };
-};
-
-export class AppErrorBoundary extends ReactComponent {
+export class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {
     hasError: false,
     error: null,

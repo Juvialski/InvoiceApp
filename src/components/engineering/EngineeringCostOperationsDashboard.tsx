@@ -33,6 +33,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { TooltipContentProps } from "recharts";
 import { Card } from "@astryxdesign/core/Card";
 import type { AppTab } from "../../utils/routes";
 import type { InvoiceData } from "../../types";
@@ -136,6 +137,8 @@ export interface DashboardViewData {
 export interface EngineeringCostOperationsDashboardProps {
   data: DashboardViewData;
   projects: readonly { id: string; projectCode: string; projectName: string }[];
+  selectedProjectId?: string;
+  onProjectChange?: (projectId?: string) => void;
   onActivityPeriodChange: (period: DashboardActivityPeriod) => void;
   onCustomRangeChange?: (start: string, end: string) => void;
   onCurrencyChange: (currency: string) => void;
@@ -190,9 +193,9 @@ function chartMoney(value: unknown, currency: string) {
 }
 
 function renderTooltip(currency: string, labels: Record<string, string> = {}) {
-  return ({ active, payload, label }: { active?: boolean; payload?: Array<{ name?: string; value?: number; color?: string }>; label?: string | number }) => {
+  return ({ active, payload, label }: TooltipContentProps) => {
     if (!active || !payload?.length) return null;
-    return <div className="rounded-xl border border-slate-200 bg-white p-3 text-[10px] shadow-xl"><p className="mb-2 font-black text-slate-900">{label}</p>{payload.map((item) => <p key={`${item.name}-${item.value}`} className="flex items-center justify-between gap-5 text-slate-600"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color || "#64748b" }} />{labels[item.name || ""] || item.name}</span><span className="font-black tabular-nums text-slate-900">{chartMoney(item.value, currency)}</span></p>)}</div>;
+    return <div className="rounded-xl border border-slate-200 bg-white p-3 text-[10px] shadow-xl"><p className="mb-2 font-black text-slate-900">{label}</p>{payload.map((item) => { const name = item.name === undefined ? "" : String(item.name); return <p key={`${name}-${item.value}`} className="flex items-center justify-between gap-5 text-slate-600"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color || "#64748b" }} />{labels[name] || name}</span><span className="font-black tabular-nums text-slate-900">{chartMoney(item.value, currency)}</span></p>; })}</div>;
   };
 }
 
