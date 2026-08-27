@@ -118,7 +118,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     category: 'engineering',
     phase: 1,
     status: 'ACTIVE',
-    moduleId: 'engineering-coordination',
+    moduleId: 'projects',
     routeId: 'projects',
     requiredPermissions: ['engineering.rfis.read', 'engineering.submittals.read'],
     documentationRef: 'docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md',
