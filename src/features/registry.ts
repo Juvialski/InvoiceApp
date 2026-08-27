@@ -97,7 +97,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     documentationRef: 'docs/ENGORYX_PLATFORM_ARCHITECTURE.md',
   },
 
-  // Phase 1: Engineering Documents and Field Workflows (In Progress - Phase 1A Active)
+  // Phase 1: Engineering Documents and Field Workflows (In Progress)
   {
     id: 'eng-drawings-viewer',
     name: 'Engineering Drawings and Spec Sheets',
@@ -117,8 +117,11 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     description: 'Request for Information (RFI) lifecycle, engineer-of-record reviews, submittal packages, and formal approvals.',
     category: 'engineering',
     phase: 1,
-    status: 'PLANNED',
-    documentationRef: 'docs/ENGORYX_PLATFORM_ARCHITECTURE.md',
+    status: 'ACTIVE',
+    moduleId: 'projects',
+    routeId: 'projects',
+    requiredPermissions: ['engineering.rfis.read', 'engineering.submittals.read'],
+    documentationRef: 'docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md',
   },
   {
     id: 'eng-daily-site-logs',
