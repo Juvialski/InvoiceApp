@@ -8,7 +8,7 @@ For technical architecture and roadmap details, see:
 - [Engoryx Phase 1B: RFIs & Technical Submittals](docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md)
 - [Engoryx Phase 1C: Daily Site Logs & Weather Tracking](docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md)
 - [Engoryx Financial Settlement Integration](docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md)
-- [Engoryx Engineering QA & Agent Context Infrastructure](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md)
+- [Engoryx Workflow Map, QA & Agent Context Infrastructure](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md)
 - [Engoryx Open-Source Integrations Evaluation](docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md)
 - [Engoryx UI Foundation & Astryx Pilot](docs/ENGORYX_UI_FOUNDATION.md)
 
@@ -25,7 +25,7 @@ Roadmap snapshot as of **2026-08-28**:
   - **Phase 1C**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal field-record history.
 - **Financial Settlement Integration is complete**: Cash & Banking can provide guarded settlement evidence for supplier invoices, payroll runs, and supported expenses while keeping project-cost and payroll-source semantics separate.
 - **The next customer-facing product phase is Phase 2: Project Scheduling & Gantt.**
-- **The next engineering-infrastructure priority is Automated QA & Agent Context**, using n8n as an orchestration layer around GitHub Actions, Playwright/browser evidence, AI-assisted defect review, persistent QA findings, and bounded context retrieval for future coding-agent runs. This infrastructure track does not renumber the customer-facing product roadmap.
+- **The next engineering-infrastructure priority is Workflow Map, QA & Agent Context**: a repository-native visual and machine-readable map of Engoryx routes, lifecycles, guarded actions, data relationships, and high-value tests. It is intended to improve agent understanding and targeted defect discovery without requiring a hosted workflow-orchestration service.
 
 ---
 
@@ -53,7 +53,7 @@ Roadmap snapshot as of **2026-08-28**:
   - **Phase 1B (Complete)**: RFIs and Technical Submittals with Engineer-of-Record-style coordination workflows and immutable document-revision references.
   - **Phase 1C (Complete)**: Daily Site Logs with weather/site conditions, crew headcount, equipment usage, delays, safety observations, and formal field-record history.
 - **Cross-Domain Financial Settlement (Complete)**: Guarded settlement integration across Cash & Banking, supplier invoices, payroll, supported expenses, and Assistant workflows. Settlement remains evidence of payment/disbursement and does not create project cost.
-- **Engineering Infrastructure Track (Planned — immediate priority)**: Automated QA & Agent Context. n8n orchestrates existing GitHub Actions, Playwright/browser evidence, AI-assisted visual/semantic defect review, persistent structured findings, GitHub reporting, and bounded feature-scoped context retrieval for future agents. See [the dedicated plan](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
+- **Engineering Infrastructure Track (Planned — immediate priority)**: Workflow Map, QA & Agent Context. Build one versioned machine-readable graph of major Engoryx workflows, render it visually with Mermaid and/or React Flow/xyflow, validate important graph/route/lifecycle relationships, connect browser evidence where useful, and generate bounded feature-scoped context for future agents. No n8n or paid orchestration service is required. See [the dedicated plan](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
 - **Phase 2 (Next Product Phase / Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking, and project schedule health.
 - **Phase 3 (Planned)**: Field Capture & Barcode/QR Scanning (ZXing-js) for equipment check-in/out, tool tracking, and material delivery verification.
 - **Phase 4 (Future)**: 3D CAD & BIM Model Inspection (Online3DViewer / web-ifc), GIS Site Boundaries & Drone Survey Orthomosaics (MapLibre + Turf + OpenDroneMap).
