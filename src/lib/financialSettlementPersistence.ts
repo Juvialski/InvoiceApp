@@ -50,6 +50,7 @@ function summaryFromRpc(value: unknown): FinancialSettlementSummary {
     outstanding: numberValue(row.outstanding),
     settlementState: String(row.settlementState || "UNPAID") as FinancialSettlementSummary["settlementState"],
     legacyPaidWithoutBankLink: Boolean(row.legacyPaidWithoutBankLink),
+    historyRedacted: Boolean(row.historyRedacted),
     history,
   };
 }
