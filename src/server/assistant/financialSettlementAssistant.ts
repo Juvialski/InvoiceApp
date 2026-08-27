@@ -3,11 +3,13 @@ import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
 import { AssistantBackendError, AssistantToolError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { boundedLimit, boundedText, enumValue, optionalNumber, plainObject, requireUuid } from "./toolValidation.ts";
 
+type PermissionResolver = string[] | ((args: Record<string, unknown>) => string[]);
+
 export interface FinancialSettlementToolDefinition {
   name: string;
   description: string;
   riskTier: AssistantRiskTier;
-  permissions: string[];
+  permissions: PermissionResolver;
   parametersJsonSchema: Record<string, unknown>;
   requiresConfirmation: boolean;
 }
@@ -19,13 +21,13 @@ const targetTypeSchema = { type: "string", enum: ["INVOICE", "PAYROLL"] };
 function schema(properties: Record<string, unknown>, required: string[] = []) {
   return { type: "object", properties, required, additionalProperties: false };
 }
-function read(name: string, description: string, permissions: string[], properties: Record<string, unknown> = {}, required: string[] = []): FinancialSettlementToolDefinition {
+function read(name: string, description: string, permissions: PermissionResolver, properties: Record<string, unknown> = {}, required: string[] = []): FinancialSettlementToolDefinition {
   return { name, description, permissions, riskTier: "READ", parametersJsonSchema: schema(properties, required), requiresConfirmation: false };
 }
-function navigation(name: string, description: string, permissions: string[], properties: Record<string, unknown>, required: string[]): FinancialSettlementToolDefinition {
+function navigation(name: string, description: string, permissions: PermissionResolver, properties: Record<string, unknown>, required: string[]): FinancialSettlementToolDefinition {
   return { name, description, permissions, riskTier: "NAVIGATION", parametersJsonSchema: schema(properties, required), requiresConfirmation: false };
 }
-function prepare(name: string, description: string, permissions: string[], properties: Record<string, unknown>, required: string[]): FinancialSettlementToolDefinition {
+function prepare(name: string, description: string, permissions: PermissionResolver, properties: Record<string, unknown>, required: string[]): FinancialSettlementToolDefinition {
   return { name, description, permissions, riskTier: "PREPARE", parametersJsonSchema: schema(properties, required), requiresConfirmation: true };
 }
 
@@ -41,6 +43,16 @@ const allocationSchema = {
   additionalProperties: false,
 };
 
+function splitPermissions(args: Record<string, unknown>) {
+  const allocations = Array.isArray(args.allocations) ? args.allocations : [];
+  const targetTypes = new Set(allocations.flatMap((item) => item && typeof item === "object" && !Array.isArray(item) ? [String((item as Record<string, unknown>).targetType || "")] : []));
+  return [
+    "cash.reconcile",
+    ...(targetTypes.has("INVOICE") ? ["invoices.manage"] : []),
+    ...(targetTypes.has("PAYROLL") ? ["payroll.approve"] : []),
+  ];
+}
+
 export const FINANCIAL_SETTLEMENT_TOOL_DEFINITIONS: readonly FinancialSettlementToolDefinition[] = Object.freeze([
   read("get_invoice_settlement", "Return the authoritative cash-settlement summary and linked payment evidence for one supplier invoice. Document-reported payment remains separately identified.", ["invoices.read", "cash.transactions.read"], { invoiceId: uuid }, ["invoiceId"]),
   read("get_payroll_settlement", "Return employee-net-pay disbursement status and linked cash evidence for one payroll run without changing payroll cost or attendance.", ["payroll.summary.read", "cash.transactions.read"], { runId: uuid }, ["runId"]),
@@ -50,7 +62,7 @@ export const FINANCIAL_SETTLEMENT_TOOL_DEFINITIONS: readonly FinancialSettlement
   navigation("navigate_to_payroll_run", "Open a specific payroll run.", ["payroll.summary.read"], { runId: uuid }, ["runId"]),
   prepare("prepare_match_transaction_to_invoice", "Prepare a supplier-invoice cash settlement. Human confirmation is required and project cost is not changed.", ["cash.reconcile", "invoices.manage"], { transactionId: uuid, invoiceId: uuid, amount: { type: "number", exclusiveMinimum: 0, maximum: 1_000_000_000 }, notes: { type: "string" } }, ["transactionId", "invoiceId", "amount"]),
   prepare("prepare_match_transaction_to_payroll", "Prepare a payroll-run employee-net-pay disbursement link. Human confirmation is required and payroll sources/costs are not changed.", ["cash.reconcile", "payroll.approve"], { transactionId: uuid, runId: uuid, amount: { type: "number", exclusiveMinimum: 0, maximum: 1_000_000_000 }, notes: { type: "string" } }, ["transactionId", "runId", "amount"]),
-  prepare("prepare_split_transaction_allocation", "Prepare one posted debit split across multiple invoice/payroll obligations. The confirmed batch executes atomically.", ["cash.reconcile", "invoices.manage", "payroll.approve"], { transactionId: uuid, allocations: { type: "array", minItems: 2, maxItems: 20, items: allocationSchema } }, ["transactionId", "allocations"]),
+  prepare("prepare_split_transaction_allocation", "Prepare one posted debit split across multiple invoice/payroll obligations. The confirmed batch executes atomically.", splitPermissions, { transactionId: uuid, allocations: { type: "array", minItems: 2, maxItems: 20, items: allocationSchema } }, ["transactionId", "allocations"]),
   prepare("prepare_reverse_financial_settlement", "Prepare reversal of a confirmed financial settlement while preserving the original history. Human confirmation and a reason are required.", ["cash.reconcile"], { matchId: uuid, reason: { type: "string" } }, ["matchId", "reason"]),
 ]);
 
@@ -65,6 +77,10 @@ function requiredMoney(value: unknown, label: string) {
   return Math.round(amount * 100) / 100;
 }
 
+function preparedMatchId(value: unknown, label: string) {
+  return value ? requireUuid(value, label) : randomUUID();
+}
+
 export function validateFinancialSettlementToolArguments(toolName: string, input: unknown): Record<string, unknown> {
   const args = plainObject(input);
   switch (toolName) {
@@ -74,8 +90,8 @@ export function validateFinancialSettlementToolArguments(toolName: string, input
     case "list_open_invoice_settlements": return { query: boundedText(args.query, "query", 200, false), limit: boundedLimit(args.limit, 20) };
     case "get_financial_transaction_settlements":
     case "navigate_to_financial_transaction": return { transactionId: requireUuid(args.transactionId, "transactionId") };
-    case "prepare_match_transaction_to_invoice": return { transactionId: requireUuid(args.transactionId, "transactionId"), invoiceId: requireUuid(args.invoiceId, "invoiceId"), amount: requiredMoney(args.amount, "amount"), notes: boundedText(args.notes, "notes", 500, false), matchId: randomUUID() };
-    case "prepare_match_transaction_to_payroll": return { transactionId: requireUuid(args.transactionId, "transactionId"), runId: requireUuid(args.runId, "runId"), amount: requiredMoney(args.amount, "amount"), notes: boundedText(args.notes, "notes", 500, false), matchId: randomUUID() };
+    case "prepare_match_transaction_to_invoice": return { transactionId: requireUuid(args.transactionId, "transactionId"), invoiceId: requireUuid(args.invoiceId, "invoiceId"), amount: requiredMoney(args.amount, "amount"), notes: boundedText(args.notes, "notes", 500, false), matchId: preparedMatchId(args.matchId, "matchId") };
+    case "prepare_match_transaction_to_payroll": return { transactionId: requireUuid(args.transactionId, "transactionId"), runId: requireUuid(args.runId, "runId"), amount: requiredMoney(args.amount, "amount"), notes: boundedText(args.notes, "notes", 500, false), matchId: preparedMatchId(args.matchId, "matchId") };
     case "prepare_split_transaction_allocation": {
       if (!Array.isArray(args.allocations) || args.allocations.length < 2 || args.allocations.length > 20) throw new AssistantToolError("INVALID_BATCH", "allocations must contain 2 to 20 settlement rows.");
       const allocations = args.allocations.map((value, index) => {
@@ -85,7 +101,7 @@ export function validateFinancialSettlementToolArguments(toolName: string, input
           targetId: requireUuid(row.targetId, `allocations[${index}].targetId`),
           amount: requiredMoney(row.amount, `allocations[${index}].amount`),
           notes: boundedText(row.notes, `allocations[${index}].notes`, 500, false),
-          matchId: randomUUID(),
+          matchId: preparedMatchId(row.matchId, `allocations[${index}].matchId`),
         };
       });
       const seen = new Set<string>();
