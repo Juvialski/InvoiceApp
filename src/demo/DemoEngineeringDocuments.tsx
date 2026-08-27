@@ -27,7 +27,11 @@ export function DemoEngineeringDocuments({ projectId }: { projectId?: string }) 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Engineering Documents • Demo source adapter</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{project ? `${project.projectName} Documents` : "Engineering Document Register"}</h1>
+            {project ? (
+              <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">Engineering Document Register</h2>
+            ) : (
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Engineering Document Register</h1>
+            )}
             <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">Fictional project drawings and document revisions are served from the isolated demo bundle. Production Storage URLs and signed asset paths are never requested here.</p>
           </div>
           <span className="inline-flex items-center gap-1.5 self-start rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700"><ShieldCheck className="h-3.5 w-3.5" /> Sample assets only</span>
