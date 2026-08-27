@@ -83,7 +83,7 @@ test("migration invariant: company_audit_events allowlist only ever grows across
   );
 });
 
-test("migration invariant: latest migration contains the authoritative superset of all 56 audit event types", () => {
+test("migration invariant: latest migration contains the authoritative superset of all 58 audit event types", () => {
   const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
   let latestConstraintMigration = "";
   let latestAllowlist: string[] = [];
@@ -119,7 +119,8 @@ test("migration invariant: latest migration contains the authoritative superset 
       "CASH_ACCOUNT_CREATED", "CASH_ACCOUNT_UPDATED", "CASH_ACCOUNT_DEACTIVATED",
       "CASH_BALANCE_SNAPSHOT_RECORDED", "CASH_STATEMENT_IMPORTED", "CASH_STATEMENT_REJECTED",
       "CASH_TRANSACTION_CREATED", "CASH_TRANSACTION_UPDATED",
-      "CASH_RECONCILIATION_CONFIRMED", "CASH_RECONCILIATION_REMOVED", "CASH_TRANSFER_MATCHED"
+      "CASH_RECONCILIATION_CONFIRMED", "CASH_RECONCILIATION_REMOVED", "CASH_TRANSFER_MATCHED",
+      "CASH_SETTLEMENT_CONFIRMED", "CASH_SETTLEMENT_REVERSED"
     ],
     "Engineering Documents": [
       "ENGINEERING_DOCUMENT_CREATED", "ENGINEERING_DOCUMENT_UPDATED", "ENGINEERING_DOCUMENT_ARCHIVED",
@@ -147,6 +148,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 56, "Authoritative set must comprise exactly 56 events through Phase 1C");
-  assert.equal(latestSet.size, 56, `Latest allowlist has ${latestSet.size} unique events, expected 56`);
+  assert.equal(totalExpected, 58, "Authoritative set must comprise exactly 58 events through financial settlement integration");
+  assert.equal(latestSet.size, 58, `Latest allowlist has ${latestSet.size} unique events, expected 58`);
 });
