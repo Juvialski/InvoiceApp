@@ -5,7 +5,6 @@ import {
   createDraftRfi,
   createDraftSubmittal,
   createResubmissionRound,
-  engineeringId,
   reviewSubmittalRound,
   transitionRfi,
   transitionSubmittal,
@@ -17,7 +16,7 @@ import {
   type RfiResponseType,
   type SubmittalDecision,
 } from "../../lib/engineeringCoordination.ts";
-import type { DisciplineType } from "../../lib/engineeringDocuments.ts";
+import { engineeringId, type DisciplineType } from "../../lib/engineeringDocuments.ts";
 import {
   closeRfiRpc,
   closeSubmittalRpc,
