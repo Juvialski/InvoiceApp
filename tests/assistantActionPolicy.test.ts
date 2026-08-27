@@ -24,8 +24,8 @@ test("Phase 1B assistant actions preserve project-scoped RFI and Submittal deep 
   const submittal = sanitizeAssistantClientAction({ type: "OPEN_SUBMITTAL", entityId: "submittal-9", projectId: "project-7", roundId: "round-2" });
   assert.deepEqual(rfi, { type: "OPEN_RFI", entityId: "rfi-42", projectId: "project-7", label: "Open RFI" });
   assert.deepEqual(submittal, { type: "OPEN_SUBMITTAL", entityId: "submittal-9", projectId: "project-7", roundId: "round-2" });
-  assert.equal(pathForAssistantAction(rfi!), "/projects/project-7/rfis?rfi=rfi-42");
-  assert.equal(pathForAssistantAction(submittal!), "/projects/project-7/submittals?submittal=submittal-9&round=round-2");
+  assert.equal(pathForAssistantAction(rfi!), "/projects/project-7/rfis?rfiId=rfi-42");
+  assert.equal(pathForAssistantAction(submittal!), "/projects/project-7/submittals?submittalId=submittal-9&roundId=round-2");
   assert.equal(isAssistantActionAllowed(rfi, ["projects.read", "engineering.rfis.read"]), true);
   assert.equal(isAssistantActionAllowed(rfi, ["projects.read"]), false);
   assert.equal(isAssistantActionAllowed(submittal, ["projects.read", "engineering.submittals.read"]), true);
