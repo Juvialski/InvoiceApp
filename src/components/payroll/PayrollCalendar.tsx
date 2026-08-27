@@ -169,6 +169,8 @@ function PeriodBar({
   periods,
   runs = [],
   today,
+  gridStart,
+  gridEnd,
   selectedPeriodId,
   onSelectPeriod,
   mobile = false,
@@ -179,6 +181,8 @@ function PeriodBar({
   periods: readonly PayrollPeriod[];
   runs?: readonly PayrollRun[];
   today?: string;
+  gridStart?: string;
+  gridEnd?: string;
   selectedPeriodId?: string;
   onSelectPeriod?: (period: PayrollPeriod) => void;
   mobile?: boolean;
@@ -187,8 +191,8 @@ function PeriodBar({
   if (!period) return null;
   const tone = periodTone(period.id, periods);
   const selected = period.id === selectedPeriodId;
-  const leftEdge = date === period.periodStart || date === slice.monthStart;
-  const rightEdge = date === period.periodEnd || date === slice.monthEnd;
+  const isSegmentStart = date === period.periodStart || (Boolean(gridStart) && date === gridStart && period.periodStart < gridStart!);
+  const isSegmentEnd = date === period.periodEnd || (Boolean(gridEnd) && date === gridEnd && period.periodEnd > gridEnd!);
   const periodLabel = formatPayrollPeriodLabel(period);
   const displayState = getPayrollPeriodDisplayState(period, runs, today);
 
@@ -198,7 +202,7 @@ function PeriodBar({
         type="button"
         onClick={() => onSelectPeriod?.(period)}
         aria-label={`Select payroll period ${formatDate(period.periodStart)} to ${formatDate(period.periodEnd)}, status ${displayState}`}
-        className={`group flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg px-2.5 py-2 text-left ${tone.soft} ${selected ? `ring-2 ${tone.ring} ring-inset` : ""} ${period.status === "VOID" ? "opacity-50" : ""}`}
+        className={`group flex w-full min-w-0 items-center justify-between gap-2 overflow-hidden rounded-lg px-2.5 py-2 text-left ${tone.soft} ${selected ? `ring-2 ${tone.ring} ring-inset` : ""} ${period.status === "VOID" ? "opacity-50" : ""}`}
       >
         <div className="flex min-w-0 items-center gap-1.5">
           <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-full`} />
@@ -209,37 +213,41 @@ function PeriodBar({
     );
   }
 
+  const segmentClasses = isSegmentStart && isSegmentEnd
+    ? "w-full rounded-md px-1.5 mx-0"
+    : isSegmentStart
+    ? "w-[calc(100%+0.375rem)] rounded-l-md -mr-1.5 ml-0 pl-1.5 pr-0"
+    : isSegmentEnd
+    ? "w-[calc(100%+0.375rem)] rounded-r-md -ml-1.5 mr-0 pr-1.5 pl-0"
+    : "w-[calc(100%+0.75rem)] -mx-1.5 px-0 rounded-none";
+
   return (
     <button
       type="button"
       onClick={() => onSelectPeriod?.(period)}
+      title={`${periodLabel} · ${displayState}`}
       aria-label={`Select payroll period ${formatDate(period.periodStart)} to ${formatDate(period.periodEnd)}, status ${displayState}`}
-      className={`group flex h-6 min-w-0 items-center overflow-hidden text-left transition-all ${
-        leftEdge && rightEdge
-          ? "rounded-md px-1.5 mx-0"
-          : leftEdge
-          ? "rounded-l-md -mr-1.5 ml-0 pl-1.5 pr-0.5"
-          : rightEdge
-          ? "rounded-r-md -ml-1.5 mr-0 pr-1.5 pl-0.5"
-          : "-mx-1.5 px-0.5"
-      } ${tone.soft} ${selected ? `ring-2 ${tone.ring} ring-inset z-10 relative` : ""} ${period.status === "VOID" ? "opacity-50" : ""}`}
+      className={`group flex h-5 min-w-0 items-center overflow-hidden text-left transition-all ${segmentClasses} ${tone.soft} ${selected ? `ring-2 ${tone.ring} ring-inset z-10 relative` : ""} ${period.status === "VOID" ? "opacity-50" : ""}`}
     >
-      {leftEdge ? (
-        <div className="flex min-w-0 items-center gap-1">
-          <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-l-full`} />
-          <span className={`truncate text-[9px] font-black ${tone.text}`}>{periodLabel}</span>
-          {displayState !== "Draft" && displayState !== "Scheduled" && (
-            <span className="hidden truncate text-[8px] font-bold text-slate-500 xl:inline">{displayState}</span>
-          )}
-        </div>
-      ) : rightEdge ? (
+      {isSegmentStart && isSegmentEnd ? (
         <div className="flex w-full items-center justify-between gap-0.5">
-          <span className={`h-1.5 flex-1 rounded-sm opacity-35 ${tone.bar}`} />
+          <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-l-full`} />
+          <span className={`h-1.5 flex-1 rounded-sm opacity-40 ${tone.bar}`} />
+          <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-r-full`} />
+        </div>
+      ) : isSegmentStart ? (
+        <div className="flex w-full items-center gap-0.5">
+          <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-l-full`} />
+          <span className={`h-1.5 flex-1 rounded-sm opacity-40 ${tone.bar}`} />
+        </div>
+      ) : isSegmentEnd ? (
+        <div className="flex w-full items-center justify-between gap-0.5">
+          <span className={`h-1.5 flex-1 rounded-sm opacity-40 ${tone.bar}`} />
           <span className={`h-2.5 w-1.5 shrink-0 ${tone.bar} rounded-r-full`} />
         </div>
       ) : (
         <div className="flex w-full items-center">
-          <span className={`h-1.5 w-full rounded-sm opacity-35 ${tone.bar}`} />
+          <span className={`h-1.5 w-full rounded-sm opacity-40 ${tone.bar}`} />
         </div>
       )}
     </button>
@@ -251,6 +259,8 @@ function DayCell({
   periods,
   runs = [],
   today,
+  gridStart,
+  gridEnd,
   selectedPeriodId,
   onSelectPeriod,
 }: {
@@ -259,6 +269,8 @@ function DayCell({
   periods: readonly PayrollPeriod[];
   runs?: readonly PayrollRun[];
   today?: string;
+  gridStart?: string;
+  gridEnd?: string;
   selectedPeriodId?: string;
   onSelectPeriod?: (periodId: string) => void;
 }) {
@@ -297,6 +309,8 @@ function DayCell({
                 periods={periods}
                 runs={runs}
                 today={today}
+                gridStart={gridStart}
+                gridEnd={gridEnd}
                 selectedPeriodId={selectedPeriodId}
                 onSelectPeriod={(period) => onSelectPeriod?.(period.id)}
               />
@@ -563,7 +577,7 @@ export const PayrollCalendar: React.FC<PayrollCalendarProps> = ({
               {DAY_LABELS.map((label) => <div key={label} role="columnheader" className="border-b border-slate-200 px-2 py-2 text-center text-[9px] font-black uppercase tracking-wide text-slate-500">{label}</div>)}
             </div>
             <div className="grid grid-cols-7">
-              {grid.days.map((day) => <DayCell key={day.date} day={day} periods={periods} runs={runs} today={today} selectedPeriodId={selectedId} onSelectPeriod={onSelectPeriod} />)}
+              {grid.days.map((day) => <DayCell key={day.date} day={day} periods={periods} runs={runs} today={today} gridStart={grid.gridStart} gridEnd={grid.gridEnd} selectedPeriodId={selectedId} onSelectPeriod={onSelectPeriod} />)}
             </div>
           </div>
         </div>
