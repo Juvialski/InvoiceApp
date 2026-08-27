@@ -36,7 +36,7 @@ test("Phase 1C assistant actions preserve project-scoped Daily Site Log deep lin
   const action = sanitizeAssistantClientAction({ type: "OPEN_SITE_LOG", entityId: "site-log-42", projectId: "project-7", label: "Open Site Log" });
   assert.deepEqual(action, { type: "OPEN_SITE_LOG", entityId: "site-log-42", projectId: "project-7", label: "Open Site Log" });
   assert.equal(pathForAssistantAction(action!), "/projects/project-7/site-logs?siteLogId=site-log-42");
-  assert.equal(isAssistantActionAllowed(action, ["projects.read", "engineering.site_logs.read"]), true);
+  assert.equal(isAssistantActionAllowed(action, ["projects.read", "engineering.sitelogs.read"]), true);
   assert.equal(isAssistantActionAllowed(action, ["projects.read"]), false);
 });
 

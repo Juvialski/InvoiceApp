@@ -69,13 +69,13 @@ Safety entries are concise site-log observations and actions. They support a pra
 
 ## RBAC and database security
 
-The capability vocabulary is:
+The capability vocabulary uses `engineering.sitelogs.*` because the existing permission-key constraint permits lowercase alphanumeric segments only:
 
-- `engineering.site_logs.read`
-- `engineering.site_logs.create`
-- `engineering.site_logs.update`
-- `engineering.site_logs.submit`
-- `engineering.site_logs.manage`
+- `engineering.sitelogs.read`
+- `engineering.sitelogs.create`
+- `engineering.sitelogs.update`
+- `engineering.sitelogs.submit`
+- `engineering.sitelogs.manage`
 
 Company admins receive the complete catalog. Existing Finance, Payroll, and Viewer roles receive read access only, preserving the existing read-only pattern. Other mutation permissions must be assigned explicitly.
 

@@ -51,11 +51,11 @@ export const PERMISSION_KEYS = {
   engineeringSubmittalsCreate: "engineering.submittals.create",
   engineeringSubmittalsReview: "engineering.submittals.review",
   engineeringSubmittalsManage: "engineering.submittals.manage",
-  engineeringSiteLogsRead: "engineering.site_logs.read",
-  engineeringSiteLogsCreate: "engineering.site_logs.create",
-  engineeringSiteLogsUpdate: "engineering.site_logs.update",
-  engineeringSiteLogsSubmit: "engineering.site_logs.submit",
-  engineeringSiteLogsManage: "engineering.site_logs.manage",
+  engineeringSiteLogsRead: "engineering.sitelogs.read",
+  engineeringSiteLogsCreate: "engineering.sitelogs.create",
+  engineeringSiteLogsUpdate: "engineering.sitelogs.update",
+  engineeringSiteLogsSubmit: "engineering.sitelogs.submit",
+  engineeringSiteLogsManage: "engineering.sitelogs.manage",
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS] | (string & {});

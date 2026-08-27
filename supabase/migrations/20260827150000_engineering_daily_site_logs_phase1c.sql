@@ -4,34 +4,34 @@
 
 insert into public.company_permission_catalog (permission_key, description)
 values
-  ('engineering.site_logs.read', 'Read company project Daily Site Logs, field conditions, and lifecycle history.'),
-  ('engineering.site_logs.create', 'Create project Daily Site Log drafts.'),
-  ('engineering.site_logs.update', 'Edit project Daily Site Log drafts and their observational child rows.'),
-  ('engineering.site_logs.submit', 'Submit a complete Daily Site Log for formal review.'),
-  ('engineering.site_logs.manage', 'Finalize or void project Daily Site Logs.')
+  ('engineering.sitelogs.read', 'Read company project Daily Site Logs, field conditions, and lifecycle history.'),
+  ('engineering.sitelogs.create', 'Create project Daily Site Log drafts.'),
+  ('engineering.sitelogs.update', 'Edit project Daily Site Log drafts and their observational child rows.'),
+  ('engineering.sitelogs.submit', 'Submit a complete Daily Site Log for formal review.'),
+  ('engineering.sitelogs.manage', 'Finalize or void project Daily Site Logs.')
 on conflict (permission_key) do update set description = excluded.description;
 
 insert into public.company_role_permissions (role_key, permission_key)
 select 'COMPANY_ADMIN', permission_key
 from public.company_permission_catalog
-where permission_key like 'engineering.site_logs.%'
+where permission_key like 'engineering.sitelogs.%'
 on conflict do nothing;
 
 insert into public.company_role_permissions (role_key, permission_key)
 values
-  ('FINANCE', 'engineering.site_logs.read'),
-  ('PAYROLL', 'engineering.site_logs.read'),
-  ('VIEWER', 'engineering.site_logs.read')
+  ('FINANCE', 'engineering.sitelogs.read'),
+  ('PAYROLL', 'engineering.sitelogs.read'),
+  ('VIEWER', 'engineering.sitelogs.read')
 on conflict do nothing;
 
 insert into private.company_tenant_policy_catalog (table_name, read_permission, write_permission, allow_insert, allow_update, allow_delete)
 values
-  ('engineering_daily_site_logs', 'engineering.site_logs.read', 'engineering.site_logs.update', true, true, false),
-  ('engineering_daily_site_log_weather', 'engineering.site_logs.read', 'engineering.site_logs.update', true, true, true),
-  ('engineering_daily_site_log_crew', 'engineering.site_logs.read', 'engineering.site_logs.update', true, true, true),
-  ('engineering_daily_site_log_equipment', 'engineering.site_logs.read', 'engineering.site_logs.update', true, true, true),
-  ('engineering_daily_site_log_safety', 'engineering.site_logs.read', 'engineering.site_logs.update', true, true, true),
-  ('engineering_daily_site_log_events', 'engineering.site_logs.read', 'engineering.site_logs.manage', false, false, false)
+  ('engineering_daily_site_logs', 'engineering.sitelogs.read', 'engineering.sitelogs.update', true, true, false),
+  ('engineering_daily_site_log_weather', 'engineering.sitelogs.read', 'engineering.sitelogs.update', true, true, true),
+  ('engineering_daily_site_log_crew', 'engineering.sitelogs.read', 'engineering.sitelogs.update', true, true, true),
+  ('engineering_daily_site_log_equipment', 'engineering.sitelogs.read', 'engineering.sitelogs.update', true, true, true),
+  ('engineering_daily_site_log_safety', 'engineering.sitelogs.read', 'engineering.sitelogs.update', true, true, true),
+  ('engineering_daily_site_log_events', 'engineering.sitelogs.read', 'engineering.sitelogs.manage', false, false, false)
 on conflict (table_name) do update set
   read_permission = excluded.read_permission,
   write_permission = excluded.write_permission,
@@ -539,22 +539,22 @@ grant select on public.engineering_daily_site_logs,
 
 create policy engineering_daily_site_logs_read on public.engineering_daily_site_logs
 for select to authenticated
-using ((select private.has_company_permission(company_id, 'engineering.site_logs.read')));
+using ((select private.has_company_permission(company_id, 'engineering.sitelogs.read')));
 create policy engineering_daily_site_log_weather_read on public.engineering_daily_site_log_weather
 for select to authenticated
-using ((select private.has_company_permission(company_id, 'engineering.site_logs.read')));
+using ((select private.has_company_permission(company_id, 'engineering.sitelogs.read')));
 create policy engineering_daily_site_log_crew_read on public.engineering_daily_site_log_crew
 for select to authenticated
-using ((select private.has_company_permission(company_id, 'engineering.site_logs.read')));
+using ((select private.has_company_permission(company_id, 'engineering.sitelogs.read')));
 create policy engineering_daily_site_log_equipment_read on public.engineering_daily_site_log_equipment
 for select to authenticated
-using ((select private.has_company_permission(company_id, 'engineering.site_logs.read')));
+using ((select private.has_company_permission(company_id, 'engineering.sitelogs.read')));
 create policy engineering_daily_site_log_safety_read on public.engineering_daily_site_log_safety
 for select to authenticated
-using ((select private.has_company_permission(company_id, 'engineering.site_logs.read')));
+using ((select private.has_company_permission(company_id, 'engineering.sitelogs.read')));
 create policy engineering_daily_site_log_events_read on public.engineering_daily_site_log_events
 for select to authenticated
-using ((select private.has_company_permission(company_id, 'engineering.site_logs.read')));
+using ((select private.has_company_permission(company_id, 'engineering.sitelogs.read')));
 
 create or replace function public.create_engineering_daily_site_log(
   p_company_id uuid,
@@ -581,7 +581,7 @@ declare
   v_row public.engineering_daily_site_logs;
   v_report_number text;
 begin
-  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.site_logs.create');
+  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.sitelogs.create');
   perform private.assert_daily_site_log_project(p_company_id, p_project_id);
   if p_site_date is null then raise exception 'Site date is required' using errcode = '22023'; end if;
   v_report_number := coalesce(nullif(btrim(p_report_number), ''), 'DSL-' || to_char(p_site_date, 'YYYYMMDD'));
@@ -637,7 +637,7 @@ declare
   v_row public.engineering_daily_site_logs;
   v_report_number text;
 begin
-  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.site_logs.update');
+  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.sitelogs.update');
   perform private.assert_daily_site_log_project(p_company_id, p_project_id);
   select * into v_row from public.engineering_daily_site_logs l
   where l.id = p_daily_site_log_id and l.company_id = p_company_id
@@ -678,7 +678,7 @@ declare
   v_actor uuid;
   v_row public.engineering_daily_site_logs;
 begin
-  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.site_logs.submit');
+  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.sitelogs.submit');
   select * into v_row from public.engineering_daily_site_logs l
   where l.id = p_daily_site_log_id and l.company_id = p_company_id
   for update;
@@ -703,7 +703,7 @@ declare
   v_actor uuid;
   v_row public.engineering_daily_site_logs;
 begin
-  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.site_logs.manage');
+  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.sitelogs.manage');
   select * into v_row from public.engineering_daily_site_logs l
   where l.id = p_daily_site_log_id and l.company_id = p_company_id
   for update;
@@ -729,7 +729,7 @@ declare
   v_row public.engineering_daily_site_logs;
   v_from_status text;
 begin
-  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.site_logs.manage');
+  v_actor := private.daily_site_log_actor(p_company_id, 'engineering.sitelogs.manage');
   if p_reason is null or btrim(p_reason) = '' then raise exception 'Void reason is required' using errcode = '22023'; end if;
   select * into v_row from public.engineering_daily_site_logs l
   where l.id = p_daily_site_log_id and l.company_id = p_company_id

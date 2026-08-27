@@ -77,14 +77,14 @@ const aggregateProperties = {
 };
 
 export const DAILY_SITE_LOGS_TOOL_DEFINITIONS: readonly DailySiteLogsToolDefinition[] = Object.freeze([
-  read("search_site_logs", "Search the current company Daily Site Log register by project, date, status, weather, safety, or field text.", ["engineering.site_logs.read"], { projectId: uuid, from: date, to: date, status: { type: "string", enum: ["DRAFT", "SUBMITTED", "FINALIZED", "VOID"] }, weatherCondition: { type: "string" }, hasSafety: { type: "boolean" }, query: { type: "string" }, limit }),
-  read("get_site_log", "Get one company Daily Site Log with weather, crew, equipment, safety, and lifecycle history.", ["engineering.site_logs.read"], { siteLogId: uuid }, ["siteLogId"]),
-  navigation("navigate_to_site_log", "Open a verified company Daily Site Log in its project workspace.", ["engineering.site_logs.read", "projects.read"], { siteLogId: uuid }, ["siteLogId"]),
-  prepare("prepare_create_site_log", "Prepare a project Daily Site Log draft. Confirmation is required before persistence.", ["engineering.site_logs.create"], aggregateProperties, ["projectId", "siteDate"]),
-  prepare("prepare_update_site_log", "Prepare an update to a project Daily Site Log draft. Submitted and finalized history remains protected.", ["engineering.site_logs.update"], { siteLogId: uuid, ...aggregateProperties }, ["siteLogId", "projectId", "siteDate"]),
-  prepare("prepare_submit_site_log", "Prepare formal submission of a complete Daily Site Log. Confirmation is required.", ["engineering.site_logs.submit"], { siteLogId: uuid }, ["siteLogId"]),
-  prepare("prepare_finalize_site_log", "Prepare finalization of a submitted Daily Site Log. Confirmation is required; the record is not silently rewritten.", ["engineering.site_logs.manage"], { siteLogId: uuid }, ["siteLogId"]),
-  prepare("prepare_void_site_log", "Prepare guarded voiding of an unfinalized Daily Site Log. A reason is required.", ["engineering.site_logs.manage"], { siteLogId: uuid, reason: { type: "string" } }, ["siteLogId", "reason"]),
+  read("search_site_logs", "Search the current company Daily Site Log register by project, date, status, weather, safety, or field text.", ["engineering.sitelogs.read"], { projectId: uuid, from: date, to: date, status: { type: "string", enum: ["DRAFT", "SUBMITTED", "FINALIZED", "VOID"] }, weatherCondition: { type: "string" }, hasSafety: { type: "boolean" }, query: { type: "string" }, limit }),
+  read("get_site_log", "Get one company Daily Site Log with weather, crew, equipment, safety, and lifecycle history.", ["engineering.sitelogs.read"], { siteLogId: uuid }, ["siteLogId"]),
+  navigation("navigate_to_site_log", "Open a verified company Daily Site Log in its project workspace.", ["engineering.sitelogs.read", "projects.read"], { siteLogId: uuid }, ["siteLogId"]),
+  prepare("prepare_create_site_log", "Prepare a project Daily Site Log draft. Confirmation is required before persistence.", ["engineering.sitelogs.create"], aggregateProperties, ["projectId", "siteDate"]),
+  prepare("prepare_update_site_log", "Prepare an update to a project Daily Site Log draft. Submitted and finalized history remains protected.", ["engineering.sitelogs.update"], { siteLogId: uuid, ...aggregateProperties }, ["siteLogId", "projectId", "siteDate"]),
+  prepare("prepare_submit_site_log", "Prepare formal submission of a complete Daily Site Log. Confirmation is required.", ["engineering.sitelogs.submit"], { siteLogId: uuid }, ["siteLogId"]),
+  prepare("prepare_finalize_site_log", "Prepare finalization of a submitted Daily Site Log. Confirmation is required; the record is not silently rewritten.", ["engineering.sitelogs.manage"], { siteLogId: uuid }, ["siteLogId"]),
+  prepare("prepare_void_site_log", "Prepare guarded voiding of an unfinalized Daily Site Log. A reason is required.", ["engineering.sitelogs.manage"], { siteLogId: uuid, reason: { type: "string" } }, ["siteLogId", "reason"]),
 ]);
 
 const TOOL_NAMES = new Set(DAILY_SITE_LOGS_TOOL_DEFINITIONS.map((item) => item.name));

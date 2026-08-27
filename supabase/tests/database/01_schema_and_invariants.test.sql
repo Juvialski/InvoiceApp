@@ -74,8 +74,8 @@ select isnt_empty(
   'cash.reconcile permission exists'
 );
 select isnt_empty(
-  'select 1 from public.company_permission_catalog where permission_key = ''engineering.site_logs.read''',
-  'engineering.site_logs.read permission exists'
+  'select 1 from public.company_permission_catalog where permission_key = ''engineering.sitelogs.read''',
+  'engineering.sitelogs.read permission exists'
 );
 
 -- 6. Phase 1A redline history is append-only for application roles

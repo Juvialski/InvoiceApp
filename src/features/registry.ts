@@ -132,7 +132,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     status: 'ACTIVE',
     moduleId: 'projects',
     routeId: 'projects',
-    requiredPermissions: ['projects.read', 'engineering.site_logs.read'],
+    requiredPermissions: ['projects.read', 'engineering.sitelogs.read'],
     documentationRef: 'docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md',
   },
 
