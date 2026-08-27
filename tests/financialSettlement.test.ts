@@ -16,7 +16,7 @@ import {
 } from "../src/lib/financialSettlement.ts";
 import { appPathForCashTransaction, appPathForInvoice, appPathForPayrollRun, financialTransactionIdFromSearch, payrollRunIdFromSearch } from "../src/utils/appRouting.ts";
 import { calculateProjectCost, type CostPayrollRecord } from "../src/utils/projectCosting.ts";
-import type { InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollProjectAllocation, PayrollRun, Project } from "../src/types.ts";
+import type { InvoiceProjectAllocation, PayrollEntry, PayrollProjectAllocation, PayrollRun, Project } from "../src/types.ts";
 
 function transaction(overrides: Partial<FinancialTransaction> = {}): FinancialTransaction {
   return {
@@ -35,21 +35,21 @@ function reversed(id: string, transactionId: string, amount: number): FinancialS
 }
 
 test("invoice payable basis only trusts explicit net-payable semantics", () => {
-  assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000 }), { amount: 100_000, source: "GROSS_DOCUMENT_AMOUNT" });
-  assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000, netAmountPayable: 95_000 }), { amount: 95_000, source: "EXPLICIT_NET_PAYABLE" });
-  assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000, philippineTaxDetails: { netAmountPayable: 40_000 } }), { amount: 100_000, source: "GROSS_DOCUMENT_AMOUNT" });
-  assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000, philippineTaxDetails: { netAmountPayable: 95_000, withholdingTaxAmount: 5_000 } }), { amount: 95_000, source: "EXPLICIT_NET_PAYABLE" });
+  assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000 } as any), { amount: 100_000, source: "GROSS_DOCUMENT_AMOUNT" });
+  assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000, netAmountPayable: 95_000 } as any), { amount: 95_000, source: "EXPLICIT_NET_PAYABLE" });
+  assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000, philippineTaxDetails: { netAmountPayable: 40_000 } } as any), { amount: 100_000, source: "GROSS_DOCUMENT_AMOUNT" });
+  assert.deepEqual(invoiceCashPayableBasis({ grandTotal: 100_000, philippineTaxDetails: { netAmountPayable: 95_000, withholdingTaxAmount: 5_000 } } as any), { amount: 95_000, source: "EXPLICIT_NET_PAYABLE" });
 });
 
 test("invoice settlement never blindly adds document paid and bank paid", () => {
   const invoice = { id: "inv", currency: "PHP", grandTotal: 100_000, amountPaid: 60_000, dueDate: "2026-09-01", reviewStatus: "VERIFIED" as const };
-  const partial = deriveInvoiceSettlementSummary(invoice, [confirmed("m1", "tx-1", 40_000)]);
+  const partial = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 40_000)]);
   assert.equal(partial.documentReportedPaid, 60_000);
   assert.equal(partial.reconciledCashPaid, 40_000);
-  assert.equal(partial.effectiveSettled, 40_000);
-  assert.equal(partial.outstanding, 60_000);
+  assert.equal(partial.effectiveSettled, 60_000);
+  assert.equal(partial.outstanding, 40_000);
   assert.equal(partial.settlementState, "PARTIALLY_PAID");
-  const paid = deriveInvoiceSettlementSummary(invoice, [confirmed("m1", "tx-1", 40_000), confirmed("m2", "tx-2", 60_000)]);
+  const paid = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 40_000), confirmed("m2", "tx-2", 60_000)]);
   assert.equal(paid.effectiveSettled, 100_000);
   assert.equal(paid.outstanding, 0);
   assert.equal(paid.settlementState, "PAID");
@@ -57,7 +57,7 @@ test("invoice settlement never blindly adds document paid and bank paid", () => 
 
 test("invoice reversal restores outstanding and overdue semantics", () => {
   const invoice = { id: "inv", currency: "PHP", grandTotal: 100_000, amountPaid: 0, dueDate: "2026-08-01", reviewStatus: "VERIFIED" as const };
-  const summary = deriveInvoiceSettlementSummary(invoice, [confirmed("m1", "tx-1", 30_000), reversed("m2", "tx-2", 70_000)]);
+  const summary = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 30_000), reversed("m2", "tx-2", 70_000)]);
   assert.equal(summary.reconciledCashPaid, 30_000);
   assert.equal(summary.outstanding, 70_000);
   assert.equal(summary.settlementState, "OVERDUE");
@@ -103,6 +103,7 @@ test("client settlement validation rejects wrong direction, lifecycle and curren
   const candidates = [
     { targetType: "PAYROLL" as const, targetId: "draft", label: "Draft", currency: "PHP", settlementBasis: 100, settledAmount: 0, outstandingAmount: 100, lifecycleStatus: "DRAFT" },
     { targetType: "PAYROLL" as const, targetId: "approved", label: "Approved", currency: "PHP", settlementBasis: 100, settledAmount: 0, outstandingAmount: 100, lifecycleStatus: "APPROVED" },
+    { targetType: "INVOICE" as const, targetId: "review", label: "Unverified invoice", currency: "PHP", settlementBasis: 100, settledAmount: 0, outstandingAmount: 100, lifecycleStatus: "NEEDS_REVIEW" },
     { targetType: "INVOICE" as const, targetId: "paid", label: "Paid invoice", currency: "PHP", settlementBasis: 100, settledAmount: 100, outstandingAmount: 0, lifecycleStatus: "VERIFIED" },
   ];
   assert.deepEqual(eligibleSettlementCandidates(transaction(), candidates).map((row) => row.targetId), ["approved"]);
@@ -140,6 +141,7 @@ test("financial settlement deep links use canonical routes and parse stable quer
 test("settlement migration is additive, guarded, auditable and not a costing source", () => {
   const migration = readFileSync("supabase/migrations/20260827210000_financial_settlement_integration.sql", "utf8");
   const hardening = readFileSync("supabase/migrations/20260827211000_financial_settlement_payable_basis_hardening.sql", "utf8");
+  const summaryHardening = readFileSync("supabase/migrations/20260827212000_financial_settlement_summary_hardening.sql", "utf8");
   assert.match(migration, /create or replace function public\.confirm_financial_settlement/);
   assert.match(migration, /create or replace function public\.reverse_financial_settlement/);
   assert.match(migration, /security definer[\s\S]*set search_path = ''/i);
@@ -156,5 +158,6 @@ test("settlement migration is additive, guarded, auditable and not a costing sou
   assert.match(migration, /revoke insert, update, delete on table public\.financial_transaction_matches from authenticated/);
   assert.match(migration, /revoke all on function public\.confirm_financial_settlement[^;]+from public, anon/);
   assert.match(hardening, /withholdingTaxAmount/);
+  assert.match(summaryHardening, /greatest\(v_document_paid,v_cash_paid\)/);
   assert.doesNotMatch(migration, /project_cost|project_actual|totalActualCost/i);
 });
