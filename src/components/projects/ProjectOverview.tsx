@@ -47,6 +47,7 @@ interface ProjectOverviewProps {
   onEdit?: () => void;
   onArchive?: () => void;
   onOpenTab?: (tab: ProjectOverviewTab) => void;
+  hideHeader?: boolean;
 }
 
 function money(value: number, currency: string) {
@@ -122,6 +123,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   onEdit,
   onArchive,
   onOpenTab,
+  hideHeader = false,
 }) => {
   const dashboard = suppliedDashboard || fallbackDashboard(summary);
   const compositionTotal = dashboard.composition.invoices + dashboard.composition.payroll + dashboard.composition.expenses;
@@ -151,46 +153,48 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="rounded-lg border border-slate-200 bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
-              aria-label="Back to projects"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-          )}
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">
-              {project.projectCode || "Project reference missing"}
-            </p>
-            <h2 className="truncate text-xl font-black text-slate-950 sm:text-2xl">
-              {project.projectName || "Unnamed project"}
-            </h2>
+      {!hideHeader && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="rounded-lg border border-slate-200 bg-white p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
+                aria-label="Back to projects"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">
+                {project.projectCode || "Project reference missing"}
+              </p>
+              <h2 className="truncate text-xl font-black text-slate-950 sm:text-2xl">
+                {project.projectName || "Unnamed project"}
+              </h2>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge tone={statusTone(project.status)}>{project.status.replaceAll("_", " ")}</StatusBadge>
+            {onEdit && (
+              <Button
+                variant="secondary"
+                label="Edit"
+                icon={<Pencil className="h-3.5 w-3.5" />}
+                onClick={onEdit}
+              />
+            )}
+            {onArchive && project.status !== "ARCHIVED" && (
+              <Button
+                variant="destructive"
+                label="Archive"
+                onClick={onArchive}
+              />
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <StatusBadge tone={statusTone(project.status)}>{project.status.replaceAll("_", " ")}</StatusBadge>
-          {onEdit && (
-            <Button
-              variant="secondary"
-              label="Edit"
-              icon={<Pencil className="h-3.5 w-3.5" />}
-              onClick={onEdit}
-            />
-          )}
-          {onArchive && project.status !== "ARCHIVED" && (
-            <Button
-              variant="destructive"
-              label="Archive"
-              onClick={onArchive}
-            />
-          )}
-        </div>
-      </div>
+      )}
 
       <section className="rounded-2xl bg-slate-950 p-5 text-white shadow-lg">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
@@ -446,4 +450,3 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
     </div>
   );
 };
-
