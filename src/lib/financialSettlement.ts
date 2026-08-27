@@ -104,6 +104,7 @@ export function remainingTransactionAmount(transaction: Pick<FinancialTransactio
 export function deriveInvoiceSettlementSummary(
   invoice: Pick<InvoiceData, "id" | "currency" | "grandTotal" | "netAmountPayable" | "withholdingTaxAmount" | "philippineTaxDetails" | "amountPaid" | "dueDate" | "reviewStatus">,
   history: readonly FinancialSettlementHistoryItem[],
+  today = new Date().toISOString().slice(0, 10),
 ): FinancialSettlementSummary {
   const basis = invoiceCashPayableBasis(invoice);
   const bankPaid = Math.min(basis.amount, confirmedSettlementTotal(history));
@@ -115,7 +116,12 @@ export function deriveInvoiceSettlementSummary(
   const effective = Math.max(bankPaid, documentPaid);
   const outstanding = money(Math.max(0, basis.amount - effective));
   const rawStatus = derivePaymentStatus({ grandTotal: basis.amount, amountPaid: effective, balanceDue: outstanding, dueDate: invoice.dueDate });
-  const status: InvoiceSettlementState = rawStatus === "PAID" || rawStatus === "PARTIALLY_PAID" || rawStatus === "OVERDUE" ? rawStatus : "UNPAID";
+  // Settlement reporting treats any still-outstanding payable past its due date
+  // as overdue, including partially paid invoices. This mirrors the canonical
+  // SQL settlement summary, while the legacy document payment status remains
+  // available separately on the invoice itself.
+  const overdue = outstanding > 0.005 && Boolean(invoice.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(invoice.dueDate) && invoice.dueDate < today);
+  const status: InvoiceSettlementState = overdue ? "OVERDUE" : rawStatus === "PAID" || rawStatus === "PARTIALLY_PAID" || rawStatus === "OVERDUE" ? rawStatus : "UNPAID";
   return {
     targetType: "INVOICE",
     targetId: invoice.id,
