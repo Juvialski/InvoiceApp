@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { DAILY_SITE_LOGS_STORAGE_KEY, writeDailySiteLogsToLocal } from "../lib/dailySiteLogsPersistence.ts";
 import { ENGINEERING_COORDINATION_STORAGE_KEY, writeEngineeringCoordinationToLocal } from "../lib/engineeringCoordinationPersistence.ts";
 import type { DemoPreparedAssistantAction, DemoWorkspaceData } from "./demoTypes.ts";
 import { DEMO_STORAGE_KEY } from "./demoTypes.ts";
@@ -14,6 +15,7 @@ import {
 } from "./demoState.ts";
 
 const DEMO_COORDINATION_ANCHOR_KEY = "engoryx:client-demo:coordination-anchor:v1";
+const DEMO_DAILY_LOGS_ANCHOR_KEY = "engoryx:client-demo:daily-site-logs-anchor:v1";
 
 interface DemoWorkspaceContextValue {
   data: DemoWorkspaceData;
@@ -35,7 +37,8 @@ function readInitialWorkspace(anchorDate: string): DemoWorkspaceData {
       const raw = window.sessionStorage.getItem(DEMO_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
-        if (isSafeStoredDemoWorkspace(parsed, anchorDate) && Boolean((parsed as DemoWorkspaceData).coordination)) return parsed as DemoWorkspaceData;
+        const stored = parsed as DemoWorkspaceData;
+        if (isSafeStoredDemoWorkspace(parsed, anchorDate) && Boolean(stored.coordination) && Boolean(stored.dailySiteLogs)) return stored;
       }
     } catch {
       // A blocked or corrupt session store must never prevent the public demo.
@@ -44,17 +47,23 @@ function readInitialWorkspace(anchorDate: string): DemoWorkspaceData {
   return createDemoWorkspace(anchorDate);
 }
 
-function seedCoordinationIfNeeded(data: DemoWorkspaceData, force = false) {
+function seedEngineeringIfNeeded(data: DemoWorkspaceData, force = false) {
   if (typeof window === "undefined") return;
   try {
-    const anchor = window.localStorage.getItem(DEMO_COORDINATION_ANCHOR_KEY);
+    const coordinationAnchor = window.localStorage.getItem(DEMO_COORDINATION_ANCHOR_KEY);
     const hasCoordination = Boolean(window.localStorage.getItem(ENGINEERING_COORDINATION_STORAGE_KEY));
-    if (force || anchor !== data.anchorDate || !hasCoordination) {
+    if (force || coordinationAnchor !== data.anchorDate || !hasCoordination) {
       writeEngineeringCoordinationToLocal(data.coordination, window.localStorage);
       window.localStorage.setItem(DEMO_COORDINATION_ANCHOR_KEY, data.anchorDate);
     }
+    const dailyLogsAnchor = window.localStorage.getItem(DEMO_DAILY_LOGS_ANCHOR_KEY);
+    const hasDailyLogs = Boolean(window.localStorage.getItem(DAILY_SITE_LOGS_STORAGE_KEY));
+    if (force || dailyLogsAnchor !== data.anchorDate || !hasDailyLogs) {
+      writeDailySiteLogsToLocal(data.dailySiteLogs, window.localStorage);
+      window.localStorage.setItem(DEMO_DAILY_LOGS_ANCHOR_KEY, data.anchorDate);
+    }
   } catch {
-    // Demo coordination remains best-effort browser state and never falls back to production persistence.
+    // Demo engineering state remains browser-only and never falls back to production persistence.
   }
 }
 
@@ -65,7 +74,7 @@ export function DemoWorkspaceProvider({ children }: { children: ReactNode }) {
   const [tourOpen, setTourOpen] = useState(false);
 
   useEffect(() => {
-    seedCoordinationIfNeeded(data);
+    seedEngineeringIfNeeded(data);
   }, [data.anchorDate]);
 
   useEffect(() => {
@@ -85,7 +94,7 @@ export function DemoWorkspaceProvider({ children }: { children: ReactNode }) {
     setData(restored);
     setPreparedAction(null);
     setTourOpen(false);
-    seedCoordinationIfNeeded(restored, true);
+    seedEngineeringIfNeeded(restored, true);
     try { window.sessionStorage.removeItem(DEMO_STORAGE_KEY); } catch { /* optional session persistence */ }
   }, [anchorDate]);
 
