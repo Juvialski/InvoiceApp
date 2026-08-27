@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ENGINEERING_COORDINATION_STORAGE_KEY, writeEngineeringCoordinationToLocal } from "../lib/engineeringCoordinationPersistence.ts";
 import type { DemoPreparedAssistantAction, DemoWorkspaceData } from "./demoTypes.ts";
 import { DEMO_STORAGE_KEY } from "./demoTypes.ts";
 import { createDemoWorkspace } from "./data/createDemoWorkspace.ts";
@@ -11,6 +12,8 @@ import {
   resetDemoWorkspace,
   type DemoWorkspaceMutation,
 } from "./demoState.ts";
+
+const DEMO_COORDINATION_ANCHOR_KEY = "engoryx:client-demo:coordination-anchor:v1";
 
 interface DemoWorkspaceContextValue {
   data: DemoWorkspaceData;
@@ -32,7 +35,7 @@ function readInitialWorkspace(anchorDate: string): DemoWorkspaceData {
       const raw = window.sessionStorage.getItem(DEMO_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
-        if (isSafeStoredDemoWorkspace(parsed, anchorDate)) return parsed;
+        if (isSafeStoredDemoWorkspace(parsed, anchorDate) && Boolean((parsed as DemoWorkspaceData).coordination)) return parsed as DemoWorkspaceData;
       }
     } catch {
       // A blocked or corrupt session store must never prevent the public demo.
@@ -41,11 +44,29 @@ function readInitialWorkspace(anchorDate: string): DemoWorkspaceData {
   return createDemoWorkspace(anchorDate);
 }
 
+function seedCoordinationIfNeeded(data: DemoWorkspaceData, force = false) {
+  if (typeof window === "undefined") return;
+  try {
+    const anchor = window.localStorage.getItem(DEMO_COORDINATION_ANCHOR_KEY);
+    const hasCoordination = Boolean(window.localStorage.getItem(ENGINEERING_COORDINATION_STORAGE_KEY));
+    if (force || anchor !== data.anchorDate || !hasCoordination) {
+      writeEngineeringCoordinationToLocal(data.coordination, window.localStorage);
+      window.localStorage.setItem(DEMO_COORDINATION_ANCHOR_KEY, data.anchorDate);
+    }
+  } catch {
+    // Demo coordination remains best-effort browser state and never falls back to production persistence.
+  }
+}
+
 export function DemoWorkspaceProvider({ children }: { children: ReactNode }) {
   const anchorDate = useMemo(() => defaultDemoAnchorDate(), []);
   const [data, setData] = useState<DemoWorkspaceData>(() => readInitialWorkspace(anchorDate));
   const [preparedAction, setPreparedAction] = useState<DemoPreparedAssistantAction | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
+
+  useEffect(() => {
+    seedCoordinationIfNeeded(data);
+  }, [data.anchorDate]);
 
   useEffect(() => {
     try {
@@ -60,9 +81,11 @@ export function DemoWorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const reset = useCallback(() => {
-    setData(resetDemoWorkspace(anchorDate));
+    const restored = resetDemoWorkspace(anchorDate);
+    setData(restored);
     setPreparedAction(null);
     setTourOpen(false);
+    seedCoordinationIfNeeded(restored, true);
     try { window.sessionStorage.removeItem(DEMO_STORAGE_KEY); } catch { /* optional session persistence */ }
   }, [anchorDate]);
 
