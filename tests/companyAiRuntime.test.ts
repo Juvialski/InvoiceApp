@@ -174,7 +174,7 @@ test("provider classifications expose safe codes and fallback eligibility withou
   }
 });
 
-test("connection health uses the company runtime primary model for a minimal request", async () => {
+test("connection health uses the company runtime primary model for an assistant-compatible request", async () => {
   const calls: any[] = [];
   const runtime = {
     companyId: COMPANY_A,
@@ -189,6 +189,10 @@ test("connection health uses the company runtime primary model for a minimal req
   assert.equal(calls[0].model, "gemini-3.5-flash-lite");
   assert.equal(calls[0].contents[0].parts[0].text, "Reply with the single word OK.");
   assert.equal(calls[0].config.maxOutputTokens, 8);
+  assert.equal(calls[0].config.toolConfig.functionCallingConfig.mode, "NONE");
+  assert.equal(calls[0].config.tools[0].functionDeclarations.length, 56);
+  assert.ok(calls[0].config.tools[0].functionDeclarations.every((declaration: any) => declaration.parameters && !declaration.parametersJsonSchema));
+  assert.doesNotMatch(JSON.stringify(calls[0].config.tools), /additionalProperties/);
 });
 
 test("a disabled company rejects AI until enabled without changing its credential", async () => {
