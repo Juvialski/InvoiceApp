@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart3, ClipboardCheck, Compass, FileQuestion, FileText, HardHat, Receipt, Users } from "lucide-react";
+import { BarChart3, ClipboardCheck, ClipboardList, Compass, FileQuestion, FileText, HardHat, Receipt, Users } from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type {
@@ -23,7 +23,7 @@ import { ProjectSiteLogs } from "../engineering/ProjectSiteLogs";
 import { useEngineeringCoordinationAccess } from "../../features/engineering/useEngineeringCoordinationAccess";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
-import { PageHeader } from "../ui/OperationsUI";
+import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 
 export type WorkspaceTab = "overview" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
@@ -60,6 +60,7 @@ interface ProjectWorkspaceProps {
   engineeringSubmittalsCanReview?: boolean;
   engineeringSubmittalsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  projectDocumentsContent?: React.ReactNode;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onTabChange?: (tab: WorkspaceTab) => void;
@@ -79,6 +80,16 @@ function money(value: number, currency: string) {
   } catch {
     return `${currency} ${(value || 0).toFixed(2)}`;
   }
+}
+
+function projectStatusTone(status: string): StatusTone {
+  return status === "ACTIVE" || status === "IN_PROGRESS"
+    ? "success"
+    : status === "ARCHIVED" || status === "CANCELLED"
+      ? "neutral"
+      : status === "ON_HOLD"
+        ? "warning"
+        : "info";
 }
 
 export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
@@ -114,6 +125,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   engineeringSubmittalsCanReview,
   engineeringSubmittalsCanManage,
   engineeringDocumentsGuestMode = false,
+  projectDocumentsContent,
   dailySiteLogsData,
   onDailySiteLogsDataChange,
   onTabChange,
@@ -154,7 +166,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     ["documents", "Documents", Compass],
     ["rfis", "RFIs", FileQuestion],
     ["submittals", "Submittals", ClipboardCheck],
-    ["site-logs", "Site Logs", HardHat],
+    ["site-logs", "Site Logs", ClipboardList],
     ["invoices", "Invoices", FileText],
     ["payroll", "Payroll", HardHat],
     ["expenses", "Expenses", Receipt],
@@ -164,26 +176,19 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
   return (
     <div className="space-y-5">
-      {tab === "overview" && (
-        <ProjectOverview
-          project={project}
-          summary={summary}
-          dashboard={dashboard}
-          onBack={onBack}
-          onEdit={onEditProject}
-          onArchive={onArchiveProject}
-          onOpenTab={(next) => selectTab(next as WorkspaceTab)}
-        />
-      )}
-
-      {tab !== "overview" && (
-        <PageHeader
-          eyebrow={project.projectCode}
-          title={project.projectName}
-          description="Project workspace sections keep engineering drawings, RFIs, technical submittals, daily field records, supplier, labor, and expense records in one operational context."
-          actions={<Button variant="secondary" label="← Projects" onClick={onBack} />}
-        />
-      )}
+      <PageHeader
+        eyebrow={project.projectCode || "Project reference missing"}
+        title={project.projectName || "Unnamed project"}
+        description="Project workspace sections keep engineering drawings, RFIs, technical submittals, daily field records, supplier, labor, and expense records in one operational context."
+        actions={(
+          <>
+            <Button variant="secondary" label="← Projects" onClick={onBack} />
+            <StatusBadge tone={projectStatusTone(project.status)}>{project.status.replaceAll("_", " ")}</StatusBadge>
+            <Button variant="secondary" label="Edit" onClick={onEditProject} />
+            {project.status !== "ARCHIVED" && <Button variant="destructive" label="Archive" onClick={onArchiveProject} />}
+          </>
+        )}
+      />
 
       <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1" aria-label="Project workspace sections">
         {tabs.map(([id, tabLabel, Icon]) => (
@@ -199,18 +204,30 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         ))}
       </nav>
 
-      {tab === "documents" && (
-        <ProjectDocuments
+      {tab === "overview" && (
+        <ProjectOverview
           project={project}
-          companyId={companyId}
-          initialDocumentId={initialDocumentId}
-          initialRevisionId={initialRevisionId}
-          canRead={engineeringDocumentsCanRead}
-          canCreate={engineeringDocumentsCanCreate}
-          canAnnotate={engineeringDocumentsCanAnnotate}
-          canManage={engineeringDocumentsCanManage}
-          guestMode={engineeringDocumentsGuestMode}
+          summary={summary}
+          dashboard={dashboard}
+          hideHeader
+          onOpenTab={(next) => selectTab(next as WorkspaceTab)}
         />
+      )}
+
+      {tab === "documents" && (
+        projectDocumentsContent ?? (
+          <ProjectDocuments
+            project={project}
+            companyId={companyId}
+            initialDocumentId={initialDocumentId}
+            initialRevisionId={initialRevisionId}
+            canRead={engineeringDocumentsCanRead}
+            canCreate={engineeringDocumentsCanCreate}
+            canAnnotate={engineeringDocumentsCanAnnotate}
+            canManage={engineeringDocumentsCanManage}
+            guestMode={engineeringDocumentsGuestMode}
+          />
+        )
       )}
 
       {tab === "rfis" && (
@@ -301,7 +318,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                 <div key={allocation.id} className="flex items-center justify-between gap-3 px-5 py-4">
                   <div>
                     <p className="text-xs font-bold">Payroll allocation</p>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="mt-1 text-[10px] text-slate-500">
                       {payrollPeriods[0] ? `${payrollPeriods[0].periodStart} – ${payrollPeriods[0].periodEnd}` : "Current period"} • {allocation.source.replaceAll("_", " ")}
                     </p>
                   </div>
