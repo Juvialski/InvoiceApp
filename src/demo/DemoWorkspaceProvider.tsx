@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { DAILY_SITE_LOGS_STORAGE_KEY, writeDailySiteLogsToLocal } from "../lib/dailySiteLogsPersistence.ts";
 import { ENGINEERING_COORDINATION_STORAGE_KEY, writeEngineeringCoordinationToLocal } from "../lib/engineeringCoordinationPersistence.ts";
 import type { DemoPreparedAssistantAction, DemoWorkspaceData } from "./demoTypes.ts";
 import { DEMO_STORAGE_KEY } from "./demoTypes.ts";
@@ -14,6 +15,7 @@ import {
 } from "./demoState.ts";
 
 const DEMO_COORDINATION_ANCHOR_KEY = "engoryx:client-demo:coordination-anchor:v1";
+const DEMO_DAILY_SITE_LOGS_ANCHOR_KEY = "engoryx:client-demo:daily-site-logs-anchor:v1";
 
 interface DemoWorkspaceContextValue {
   data: DemoWorkspaceData;
@@ -52,6 +54,12 @@ function seedCoordinationIfNeeded(data: DemoWorkspaceData, force = false) {
     if (force || anchor !== data.anchorDate || !hasCoordination) {
       writeEngineeringCoordinationToLocal(data.coordination, window.localStorage);
       window.localStorage.setItem(DEMO_COORDINATION_ANCHOR_KEY, data.anchorDate);
+    }
+    const dailyLogsAnchor = window.localStorage.getItem(DEMO_DAILY_SITE_LOGS_ANCHOR_KEY);
+    const hasDailyLogs = Boolean(window.localStorage.getItem(DAILY_SITE_LOGS_STORAGE_KEY));
+    if (force || dailyLogsAnchor !== data.anchorDate || !hasDailyLogs) {
+      writeDailySiteLogsToLocal(data.siteLogs, window.localStorage);
+      window.localStorage.setItem(DEMO_DAILY_SITE_LOGS_ANCHOR_KEY, data.anchorDate);
     }
   } catch {
     // Demo coordination remains best-effort browser state and never falls back to production persistence.
