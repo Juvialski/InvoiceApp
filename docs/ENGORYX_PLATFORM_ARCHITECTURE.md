@@ -29,7 +29,11 @@ Engoryx unifies financial operations, workforce management, document control, fi
 
 4. **Progressive Web & Field Readiness**:
    - The platform is designed for responsive performance across desktop workstations (1440px+), field tablets (768px-1024px), and mobile smartphones (375px-430px).
-   - Core field capture flows support offline queuing with monotonic client sequence timestamps and automatic reconciliation upon reconnect.
+   - Core field capture flows support offline queuing with monotonic client sequence timestamps and automatic reconciliation upon reconnect where an explicit synchronization contract exists.
+
+5. **Verification Before Automation**:
+   - Deterministic tests, database invariants, and browser evidence remain authoritative for engineering verification.
+   - AI-assisted QA may classify or prioritize defects but does not replace CI pass/fail semantics or silently mutate production state.
 
 ---
 
@@ -37,7 +41,7 @@ Engoryx unifies financial operations, workforce management, document control, fi
 
 The Project is the central organizing aggregate in Engoryx. All cost, labor, documents, field records, and engineering artifacts roll up to the project workspace.
 
-`
+```
 +-------------------------------------------------------------------------------+
 |                               ENGORYX PROJECT                                 |
 |                                                                               |
@@ -56,44 +60,75 @@ The Project is the central organizing aggregate in Engoryx. All cost, labor, doc
 |  | * Progress Baselines| | * Vendor PO Matching| | * Cut/Fill Calculations |  |
 |  +--------------------+  +--------------------+  +-------------------------+  |
 +-------------------------------------------------------------------------------+
-`
+```
 
 ### Core Project Aggregates
 
 - **Overview & Health**: High-level KPI metrics (contract value, committed costs, actual spend, gross margin, labor variance, schedule slippage).
-- **Cost & Cash Accounting**: Direct mapping of supplier invoice allocations, direct site disbursements, and approved payroll labor.
+- **Cost & Cash Accounting**: Direct mapping of supplier invoice allocations, direct site disbursements, approved payroll labor, and separate settlement evidence from Cash & Banking.
 - **Crew & Labor Allocations**: Worker assignments, hourly/daily cost attribution, equipment operator allocations, and productivity tracking.
 - **Document Hub**: Centralized version-controlled blueprint repository, drawing sheet revisions, layered annotations, and approval registers.
-- **Field Engineering Workflows**: RFIs with engineer-of-record threads, material submittals with sample logs, and daily weather/equipment logs.
+- **Field Engineering Workflows**: RFIs with formal response history, technical submittal rounds/reviews, and daily weather/equipment/site logs.
 - **Scheduling & Milestones**: Gantt timelines linked to milestone billings and labor allocation horizons.
 
 ---
 
 ## 3. Phased Implementation Roadmap
 
-The platform evolution is structured into nine sequential, backward-compatible phases:
+### Current status snapshot — 2026-08-28
+
+The current `main` baseline has moved beyond the original Phase 1 planning state:
+
+- **Phase 0 core operations are established and active** across multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Workforce & Payroll, Reports, and the guarded Engoryx Assistant.
+- **Phase 1A is complete**: Engineering Documents & Blueprint Viewer with immutable revision lineage and normalized redlines.
+- **Phase 1B is complete**: project-scoped RFIs and Technical Submittals with guarded lifecycle/history and immutable engineering-document revision references.
+- **Phase 1C is complete**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal submission/finalization history.
+- **Financial Settlement Integration is complete** across Cash & Banking, supplier invoices, payroll, supported expense compatibility, demo fixtures, and Assistant workflows. Settlement is authoritative payment/disbursement evidence but remains separate from project-cost and payroll-source semantics.
+- **Next customer-facing product phase:** Phase 2 — Project Scheduling & Gantt.
+- **Next engineering-infrastructure priority:** Automated QA & Agent Context, planned before or alongside Phase 2. This track does not renumber the product roadmap.
+
+### Customer-facing product roadmap
+
+The customer-facing platform evolution remains structured into sequential, backward-compatible phases:
 
 | Phase | Module / Domain | Status | Key Deliverables |
 | :--- | :--- | :--- | :--- |
-| **Phase 0** | **Rebrand & Core Foundation** | **Active** | Engoryx branding, multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant. |
-| **Phase 1** | **Engineering Documents & Field Workflows** | In Progress | **Phase 1A (Active)**: Blueprint viewer (PDF.js + Konva), immutable revision lineage, normalized redline markups.<br>**Phase 1B (Active)**: RFIs & Submittals.<br>**Phase 1C (Active)**: Daily Site Logs & Weather, project-scoped field observations, equipment, delays, safety, and formal history. |
-| **Phase 2** | **Project Scheduling & Gantt** | Planned | Interactive Gantt charts (Frappe Gantt), task dependency networks, critical path method (CPM), milestone progress tracking. |
+| **Phase 0** | **Rebrand & Core Foundation** | **Established / Active** | Engoryx branding, multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, plus the bounded Astryx UI foundation. |
+| **Phase 1** | **Engineering Documents & Field Workflows** | **Complete / Active in product** | **Phase 1A (Complete)**: Blueprint viewer (PDF.js + Konva), immutable revision lineage, normalized redline markups.<br>**Phase 1B (Complete)**: RFIs & Technical Submittals with guarded lifecycle/history and document-revision linking.<br>**Phase 1C (Complete)**: Daily Site Logs & Weather, project-scoped field observations, equipment, delays, safety, and formal history. |
+| **Cross-Domain Settlement** | **Financial Settlement Integration** | **Complete** | Guarded Cash & Banking settlement evidence for supplier invoices, payroll runs, and supported expenses; partial/split settlement, reversals, deep links, demo fixtures, and Assistant PREPARE/confirm/execute flows while preserving project-cost semantics. |
+| **Phase 2** | **Project Scheduling & Gantt** | **Next / Planned** | Interactive Gantt charts (Frappe Gantt), task dependency networks, critical path method (CPM), milestone progress tracking, baseline-versus-actual schedule health, and project-scoped schedule navigation. |
 | **Phase 3** | **Field Capture & Barcode Asset Tagging** | Planned | Camera-based barcode/QR scanner (ZXing-js), equipment check-in/out, tool tracking, site material delivery validation. |
 | **Phase 4** | **Spatial & Site Operations (BIM & GIS)** | Future | Browser-native 3D CAD/BIM model viewer (Online3DViewer/web-ifc), GIS site boundary mapping (MapLibre + Turf), Drone orthomosaic overlay (OpenDroneMap). |
 | **Phase 5** | **Procurement & Material Requisitions** | Future | Bill of Quantities (BOQ) matching, Material Requisition Orders (MRO), 3-way PO matching, vendor quote comparisons. |
 | **Phase 6** | **Subcontractor & Client Portal** | Future | Subcontractor portal, contract issuance, lien waiver tracking, digital document signing (Documenso). |
-| **Phase 7** | **Document Intelligence & Advanced Parsing**| Future | Deep document layout analysis, multi-column contract parsing, CAD title-block OCR (Docling + Tesseract). |
+| **Phase 7** | **Document Intelligence & Advanced Parsing** | Future | Deep document layout analysis, multi-column contract parsing, CAD title-block OCR (Docling + Tesseract). |
 | **Phase 8** | **Field Communications & SMS** | Future | Direct Android SMS dispatch (httpSMS), shift notifications, emergency weather alerts, automated worker reminders. |
+
+### Engineering infrastructure track — Automated QA & Agent Context
+
+This is a cross-cutting development track rather than a customer-facing Engoryx phase. Its planned architecture is documented in [ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md](ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
+
+The intended stack is:
+
+- **GitHub Actions** for authoritative deterministic verification;
+- **Playwright/browser QA** for route interaction, responsive sweeps, screenshots, console/page errors, failed requests, and visual evidence;
+- **n8n** as the orchestration layer for triggers, artifact collection, AI review, deduplication, persistence, and reporting;
+- **AI-assisted defect analysis** for bounded visual/semantic classification, never as a replacement for deterministic CI;
+- **Supabase or equivalent structured storage** for detailed QA finding history;
+- **GitHub Issues and repository documentation** for durable actionable defects, architecture decisions, and regression constraints;
+- **bounded feature-scoped context packets** for future coding-agent runs so agents receive relevant prior defects and invariants without loading an unbounded chat/history dump.
+
+The rollout should proceed incrementally: structured browser evidence -> orchestration -> AI-assisted review -> persistent findings/deduplication -> concise GitHub reporting -> bounded agent-context retrieval.
 
 ---
 
 ## 4. App.tsx Decomposition Strategy
 
-To maintain high code quality and testability while preserving single-page reactivity, App.tsx (~2,800 lines) will be systematically decomposed into focused layer controllers and route routers.
+To maintain high code quality and testability while preserving single-page reactivity, App.tsx will be systematically decomposed into focused layer controllers and route routers as the application evolves.
 
 ### Target Architecture
 
-`
+```
 src/
 ├── app/
 │   ├── App.tsx                     # Slim root container (<150 lines)
@@ -115,21 +150,24 @@ src/
 │   ├── cash/                       # Cash & banking domain components
 │   ├── invoices/                   # Invoice extraction & verification components
 │   ├── projects/                   # Project workspace & cost allocation components
+│   ├── engineering/                # Documents, RFIs/Submittals, Site Logs
 │   ├── payroll/                    # Payroll workflow, calendar, and run components
 │   ├── expenses/                   # Direct expense forms & lists
 │   ├── reports/                    # Operational & financial reports
 │   └── assistant/                  # Guarded operations assistant
 └── config/
     └── brand.ts                    # Central canonical branding constants & helpers
-`
+```
 
-Phase 1A production closure now applies this incrementally: project selection,
+Phase 1 production closure applies this incrementally: project selection,
 project persistence, archive lifecycle, and guest project storage are owned by
 `src/features/projects/useProjectController.ts`; engineering document loading,
 project isolation, PDF/revision persistence, compensation, archive, and
 annotation snapshots are owned by
-`src/features/engineering/useEngineeringDocumentsController.ts`. `App.tsx`
-continues to own cross-domain workspace refresh and payroll invalidation wiring.
+`src/features/engineering/useEngineeringDocumentsController.ts`. Phase 1B and
+1C continue the engineering-feature boundary instead of expanding `App.tsx`.
+`App.tsx` continues to own only cross-domain integration that has not yet been
+moved into route/controller boundaries.
 
 ### Step-by-Step Refactoring Protocol
 
@@ -139,10 +177,10 @@ continues to own cross-domain workspace refresh and payroll invalidation wiring.
 
 2. **Step 2: Consolidate Shared Action Handlers**:
    - Group mutation handlers into custom hooks (useInvoiceActions(), usePayrollActions(), useProjectActions()).
-   - Enforce optimistic updates with rollback on network failure.
+   - Enforce optimistic updates with rollback on network failure only where the underlying domain permits optimistic behavior.
 
 3. **Step 3: Preserve Navigation and Deep Link Integrity**:
-   - Ensure all URL parameters (?tab=..., /projects/:id, /invoices/:id/review) continue to map 1:1 with canonical src/utils/routes.ts definitions.
+   - Ensure all URL parameters and project/document/financial deep links continue to map 1:1 with canonical route helpers.
 
 ---
 
@@ -150,9 +188,16 @@ continues to own cross-domain workspace refresh and payroll invalidation wiring.
 
 ### Database Security Model
 - Every table containing operational or financial data requires company_id uuid not null references companies(id).
-- RLS policies must strictly use p_company_id = auth.current_company_id() or has_company_permission(company_id, permission_key).
+- RLS policies must strictly use company-scoped permission checks and fail closed.
 - Platform admins access cross-company tools only through explicit administrative RPCs (is_platform_admin()).
 
 ### Auditing & Provenance
-- All mutations record created_by, created_at, updated_by, updated_at.
-- Staged imports (bank statements, payroll workbooks, invoices) retain raw source payloads, file hashes, and parser metadata for non-repudiation.
+- All mutations record actor/time lineage appropriate to the domain.
+- Staged imports (bank statements, payroll workbooks, invoices) retain raw source payloads, file hashes, and parser metadata for non-repudiation where the existing domain contract requires it.
+- Formal engineering records preserve lifecycle history instead of rewriting prior submitted/finalized state.
+- Financial settlement reversals are additive and preserve original confirmation provenance.
+
+### Development QA provenance
+- Automated QA findings must retain the commit/branch, route, viewport, evidence reference, first/last detection time, status, and related issue/PR when available.
+- Generated agent-context summaries are advisory snapshots and never replace live inspection of current `main`, current CI, and the actual source tree.
+- Sensitive production financial, payroll, banking, or document data must not be copied into external AI QA workflows without an explicit approved redaction and data-handling boundary.
