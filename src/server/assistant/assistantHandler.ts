@@ -9,10 +9,11 @@ import { buildAssistantSystemPrompt, buildAssistantUserPrompt } from "./assistan
 import { AssistantBackendError, type AssistantActionEventRecord, type AssistantAuthContext, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { runAssistantLoop } from "./assistantLoop.ts";
 import { executePreparedAction } from "./assistantToolExecutors.ts";
-import { getAssistantToolDefinition } from "./toolRegistry.ts";
+import { executePreparedEngineeringCoordinationAction, isEngineeringCoordinationTool } from "./engineeringCoordinationAssistant.ts";
+import { getAssistantToolDefinition, validateAssistantToolArguments } from "./toolRegistry.ts";
 import { requireCompanyPermissions } from "./toolAuthorization.ts";
 import { boundToolValue, toolOk } from "./toolResults.ts";
-import { isUuid, requireUuid, validateAssistantMessage, validateToolArguments } from "./toolValidation.ts";
+import { isUuid, requireUuid, validateAssistantMessage } from "./toolValidation.ts";
 import { withCompanyAiRuntime } from "../ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../ai/companyAiTypes.ts";
 
@@ -306,7 +307,7 @@ async function handleAssistantConfirm(req: Request, res: Response, options: Assi
     const action = await loadActionEvent(auth, actionId);
     const definition = getAssistantToolDefinition(action.tool_name);
     if (!definition) throw new AssistantBackendError("UNKNOWN_TOOL", "That prepared operation is no longer available.", 409);
-    const args = validateToolArguments(action.tool_name, action.normalized_args);
+    const args = validateAssistantToolArguments(action.tool_name, action.normalized_args);
     const permissions = typeof definition.permissions === "function" ? definition.permissions(args) : definition.permissions;
     await requireCompanyPermissions({ supabase: auth.supabase, companyId: auth.companyId, userId: auth.user.id, context: contextForConfirmation(auth, contextGeneration) }, permissions);
     if (Number(action.preview.contextGeneration) !== contextGeneration) throw new AssistantBackendError("CONTEXT_CONFLICT", "The assistant context changed. Prepare the action again.", 409);
@@ -330,7 +331,9 @@ async function handleAssistantConfirm(req: Request, res: Response, options: Assi
     const toolContext: AssistantToolContext = { auth, context: contextForConfirmation(auth, contextGeneration), now, prepareAction: async () => { throw new AssistantBackendError("NESTED_PREPARE", "Nested preparation is not allowed during confirmation.", 409); } };
     let result: Record<string, unknown>;
     try {
-      result = await executePreparedAction(toolContext, action.tool_name, args, action.id, action.preview);
+      result = isEngineeringCoordinationTool(action.tool_name)
+        ? await executePreparedEngineeringCoordinationAction(toolContext, action.tool_name, args)
+        : await executePreparedAction(toolContext, action.tool_name, args, action.id, action.preview);
     } catch (error) {
       const normalized = safeError(error);
       await (auth.supabase as any).from("assistant_action_events").update({ status: "FAILED", error_summary: { code: normalized.code, message: normalized.message }, updated_at: now.toISOString() }).eq("id", action.id).eq("status", "CONFIRMED");
