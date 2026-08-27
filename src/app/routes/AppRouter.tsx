@@ -109,6 +109,7 @@ export interface AppRouterProps {
   engineeringDocumentsCanAnnotate?: boolean;
   engineeringDocumentsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  projectDocumentsContent?: React.ReactNode;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   pathForSiteLog?: (siteLogId?: string) => string;
@@ -271,6 +272,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   engineeringDocumentsCanAnnotate = true,
   engineeringDocumentsCanManage = true,
   engineeringDocumentsGuestMode = false,
+  projectDocumentsContent,
   dailySiteLogsData,
   onDailySiteLogsDataChange,
   pathForSiteLog,
@@ -443,6 +445,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
         engineeringDocumentsCanManage={engineeringDocumentsCanManage}
         engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
+        projectDocumentsContent={projectDocumentsContent}
         dailySiteLogsData={dailySiteLogsData}
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
         pathForSiteLog={pathForSiteLog}
