@@ -6,6 +6,7 @@ For technical architecture and open-source roadmap details, see:
 - [Engoryx Platform Architecture](docs/ENGORYX_PLATFORM_ARCHITECTURE.md)
 - [Engoryx Phase 1A: Engineering Documents & Blueprint Viewer](docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md)
 - [Engoryx Open-Source Integrations Evaluation](docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md)
+- [Engoryx UI Foundation & Astryx Pilot](docs/ENGORYX_UI_FOUNDATION.md)
 
 ---
 
@@ -25,7 +26,7 @@ For technical architecture and open-source roadmap details, see:
 
 ## 2. Phased Engineering Platform Roadmap
 
-- **Phase 0 (Active)**: Engoryx Core Foundation, Multi-Tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant.
+- **Phase 0 (Active)**: Engoryx Core Foundation, Multi-Tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, plus a bounded Astryx UI-foundation pilot for shared application controls and patterns.
 - **Phase 1 (In Progress)**:
   - **Phase 1A (Active)**: Engineering Drawings & Blueprint Viewer (PDF.js + Konva), immutable revisions, normalized redlines.
   - **Phase 1B (Planned)**: RFIs and Technical Submittals with Engineer-of-Record workflows.
@@ -43,21 +44,19 @@ For technical architecture and open-source roadmap details, see:
 ## 3. Development & Local Runbook
 
 ### Prerequisites & Windows PowerShell Notes
-When executing in Windows PowerShell, always invoke 
-pm.cmd and 
-px.cmd to adhere to script execution policies (see AGENTS.md).
+When executing in Windows PowerShell, always invoke `npm.cmd` and `npx.cmd` to adhere to script execution policies (see AGENTS.md).
 
-`ash
+```bash
 # Install dependencies
 npm.cmd install
 
 # Start development server (Port 3000)
 npm.cmd run dev
-`
+```
 
 ### Full Validation Suite
 
-`ash
+```bash
 # Run unit & domain tests (Node native test runner)
 npm.cmd test
 
@@ -69,19 +68,19 @@ npm.cmd run build
 
 # Validate database migrations
 npm.cmd run test:migrations
-`
+```
 
 ---
 
 ## 4. Required Environment Variables
 
-`env
+```env
 AI_CREDENTIALS_MASTER_KEY=BASE64_OF_32_RANDOM_BYTES
 SUPABASE_AI_SERVER_KEY=SUPABASE_SECRET_KEY_FOR_COMPANY_AI_ONLY
 ALLOW_GLOBAL_GEMINI_FALLBACK=false
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-`
+```
 
 ---
 
