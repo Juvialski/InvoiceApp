@@ -19,6 +19,7 @@ import { ProjectOverview } from "./ProjectOverview";
 import { ProjectDocuments } from "../engineering/ProjectDocuments";
 import { ProjectRfis } from "../engineering/ProjectRfis";
 import { ProjectSubmittals } from "../engineering/ProjectSubmittals";
+import { useEngineeringCoordinationAccess } from "../../features/engineering/useEngineeringCoordinationAccess";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import { PageHeader } from "../ui/OperationsUI";
 
@@ -96,14 +97,14 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   engineeringDocumentsCanCreate = true,
   engineeringDocumentsCanAnnotate = true,
   engineeringDocumentsCanManage = true,
-  engineeringRfisCanRead = true,
-  engineeringRfisCanCreate = true,
-  engineeringRfisCanRespond = true,
-  engineeringRfisCanManage = true,
-  engineeringSubmittalsCanRead = true,
-  engineeringSubmittalsCanCreate = true,
-  engineeringSubmittalsCanReview = true,
-  engineeringSubmittalsCanManage = true,
+  engineeringRfisCanRead,
+  engineeringRfisCanCreate,
+  engineeringRfisCanRespond,
+  engineeringRfisCanManage,
+  engineeringSubmittalsCanRead,
+  engineeringSubmittalsCanCreate,
+  engineeringSubmittalsCanReview,
+  engineeringSubmittalsCanManage,
   engineeringDocumentsGuestMode = false,
   onTabChange,
   onBack,
@@ -117,6 +118,17 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 }) => {
   const [tab, setTab] = useState<WorkspaceTab>(initialTab);
   useEffect(() => setTab(initialTab), [initialTab, project.id]);
+  const coordinationAccess = useEngineeringCoordinationAccess(companyId, engineeringDocumentsGuestMode);
+  const phase1bAccess = {
+    rfisRead: engineeringRfisCanRead ?? coordinationAccess.rfisRead,
+    rfisCreate: engineeringRfisCanCreate ?? coordinationAccess.rfisCreate,
+    rfisRespond: engineeringRfisCanRespond ?? coordinationAccess.rfisRespond,
+    rfisManage: engineeringRfisCanManage ?? coordinationAccess.rfisManage,
+    submittalsRead: engineeringSubmittalsCanRead ?? coordinationAccess.submittalsRead,
+    submittalsCreate: engineeringSubmittalsCanCreate ?? coordinationAccess.submittalsCreate,
+    submittalsReview: engineeringSubmittalsCanReview ?? coordinationAccess.submittalsReview,
+    submittalsManage: engineeringSubmittalsCanManage ?? coordinationAccess.submittalsManage,
+  };
 
   const selectTab = (next: WorkspaceTab) => {
     setTab(next);
@@ -191,32 +203,40 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       )}
 
       {tab === "rfis" && (
-        <ProjectRfis
-          project={project}
-          companyId={companyId}
-          initialRfiId={initialRfiId}
-          canRead={engineeringRfisCanRead}
-          canCreate={engineeringRfisCanCreate}
-          canRespond={engineeringRfisCanRespond}
-          canManage={engineeringRfisCanManage}
-          canReadDocuments={engineeringDocumentsCanRead}
-          guestMode={engineeringDocumentsGuestMode}
-        />
+        coordinationAccess.loading && engineeringRfisCanRead === undefined ? (
+          <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking RFI access…</div>
+        ) : (
+          <ProjectRfis
+            project={project}
+            companyId={companyId}
+            initialRfiId={initialRfiId}
+            canRead={phase1bAccess.rfisRead}
+            canCreate={phase1bAccess.rfisCreate}
+            canRespond={phase1bAccess.rfisRespond}
+            canManage={phase1bAccess.rfisManage}
+            canReadDocuments={engineeringDocumentsCanRead}
+            guestMode={engineeringDocumentsGuestMode}
+          />
+        )
       )}
 
       {tab === "submittals" && (
-        <ProjectSubmittals
-          project={project}
-          companyId={companyId}
-          initialSubmittalId={initialSubmittalId}
-          initialRoundId={initialSubmittalRoundId}
-          canRead={engineeringSubmittalsCanRead}
-          canCreate={engineeringSubmittalsCanCreate}
-          canReview={engineeringSubmittalsCanReview}
-          canManage={engineeringSubmittalsCanManage}
-          canReadDocuments={engineeringDocumentsCanRead}
-          guestMode={engineeringDocumentsGuestMode}
-        />
+        coordinationAccess.loading && engineeringSubmittalsCanRead === undefined ? (
+          <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking submittal access…</div>
+        ) : (
+          <ProjectSubmittals
+            project={project}
+            companyId={companyId}
+            initialSubmittalId={initialSubmittalId}
+            initialRoundId={initialSubmittalRoundId}
+            canRead={phase1bAccess.submittalsRead}
+            canCreate={phase1bAccess.submittalsCreate}
+            canReview={phase1bAccess.submittalsReview}
+            canManage={phase1bAccess.submittalsManage}
+            canReadDocuments={engineeringDocumentsCanRead}
+            guestMode={engineeringDocumentsGuestMode}
+          />
+        )
       )}
 
       {tab === "invoices" && (
