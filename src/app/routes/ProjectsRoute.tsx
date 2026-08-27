@@ -50,6 +50,7 @@ export interface ProjectsRouteProps {
   engineeringSubmittalsCanReview?: boolean;
   engineeringSubmittalsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  projectDocumentsContent?: React.ReactNode;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onTabChange?: (tab: WorkspaceTab) => void;
@@ -100,6 +101,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   engineeringSubmittalsCanReview,
   engineeringSubmittalsCanManage,
   engineeringDocumentsGuestMode,
+  projectDocumentsContent,
   dailySiteLogsData,
   onDailySiteLogsDataChange,
   onTabChange,
@@ -165,6 +167,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         engineeringSubmittalsCanReview={engineeringSubmittalsCanReview}
         engineeringSubmittalsCanManage={engineeringSubmittalsCanManage}
         engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
+        projectDocumentsContent={projectDocumentsContent}
         dailySiteLogsData={dailySiteLogsData}
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
         onTabChange={onTabChange}
