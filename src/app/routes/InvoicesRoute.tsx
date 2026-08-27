@@ -6,6 +6,7 @@ import { ReviewQueue } from "../../components/ReviewQueue";
 import { InvoiceDirectory } from "../../components/InvoiceDirectory";
 import { Vendors } from "../../components/Vendors";
 import { FinancialSettlementCard } from "../../components/FinancialSettlementCard.tsx";
+import { InvoiceSettlementDirectoryPanel } from "../../components/InvoiceSettlementDirectoryPanel.tsx";
 import type {
   EmailClassification,
   GmailConnectionInfo,
@@ -147,7 +148,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={onStartReview} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
-  return <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onDeleteInvoice={onDeleteInvoice} onAddNew={onAddNew} />;
+  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} /><InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onDeleteInvoice={onDeleteInvoice} onAddNew={onAddNew} /></div>;
 };
 
 export default InvoicesRoute;
