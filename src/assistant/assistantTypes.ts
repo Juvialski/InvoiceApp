@@ -17,6 +17,9 @@ export interface AssistantContext {
   companyTimezone?: string;
   selectedInvoiceId?: string;
   selectedProjectId?: string;
+  selectedRfiId?: string;
+  selectedSubmittalId?: string;
+  selectedSubmittalRoundId?: string;
   selectedPayrollPeriodId?: string;
   selectedPayrollRunId?: string;
   attendanceDate?: string;
@@ -46,9 +49,11 @@ export interface AssistantAttachmentReference {
 }
 
 export interface AssistantClientAction {
-  type: "NAVIGATE" | "OPEN_INVOICE" | "OPEN_PROJECT" | "OPEN_PROJECT_DOCUMENTS" | "OPEN_REVIEW_INVOICE" | "START_TOUR" | "OPEN_PAYROLL_PERIOD" | "OPEN_ATTENDANCE_DATE";
+  type: "NAVIGATE" | "OPEN_INVOICE" | "OPEN_PROJECT" | "OPEN_PROJECT_DOCUMENTS" | "OPEN_RFI" | "OPEN_SUBMITTAL" | "OPEN_REVIEW_INVOICE" | "START_TOUR" | "OPEN_PAYROLL_PERIOD" | "OPEN_ATTENDANCE_DATE";
   routeId?: string;
   entityId?: string;
+  projectId?: string;
+  roundId?: string;
   view?: string;
   date?: string;
   tourId?: string;
@@ -65,7 +70,7 @@ export interface AssistantPreparedAction {
 }
 
 export interface AssistantReference {
-  type: "invoice" | "project" | "worker" | "payroll_period" | "payroll_run" | "attendance" | "report" | "help" | "document";
+  type: "invoice" | "project" | "rfi" | "submittal" | "worker" | "payroll_period" | "payroll_run" | "attendance" | "report" | "help" | "document";
   id?: string;
   label: string;
 }
