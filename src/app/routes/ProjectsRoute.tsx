@@ -105,6 +105,11 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onAddExpense,
   onOpenPayroll,
 }) => {
+  const query = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
+  const linkedRfiId = initialRfiId || query?.get("rfiId")?.trim() || undefined;
+  const linkedSubmittalId = initialSubmittalId || query?.get("submittalId")?.trim() || undefined;
+  const linkedRoundId = initialSubmittalRoundId || query?.get("roundId")?.trim() || undefined;
+
   if (selectedProject) {
     const summary = summaries[selectedProject.id] || ({
       budget: selectedProject.projectBudget,
@@ -131,9 +136,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         initialTab={initialTab}
         initialDocumentId={initialDocumentId}
         initialRevisionId={initialRevisionId}
-        initialRfiId={initialRfiId}
-        initialSubmittalId={initialSubmittalId}
-        initialSubmittalRoundId={initialSubmittalRoundId}
+        initialRfiId={linkedRfiId}
+        initialSubmittalId={linkedSubmittalId}
+        initialSubmittalRoundId={linkedRoundId}
         companyId={companyId}
         engineeringDocumentsCanRead={engineeringDocumentsCanRead}
         engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
