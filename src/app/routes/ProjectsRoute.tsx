@@ -30,11 +30,22 @@ export interface ProjectsRouteProps {
   initialTab?: WorkspaceTab;
   initialDocumentId?: string;
   initialRevisionId?: string;
+  initialRfiId?: string;
+  initialSubmittalId?: string;
+  initialSubmittalRoundId?: string;
   companyId?: string;
   engineeringDocumentsCanRead?: boolean;
   engineeringDocumentsCanCreate?: boolean;
   engineeringDocumentsCanAnnotate?: boolean;
   engineeringDocumentsCanManage?: boolean;
+  engineeringRfisCanRead?: boolean;
+  engineeringRfisCanCreate?: boolean;
+  engineeringRfisCanRespond?: boolean;
+  engineeringRfisCanManage?: boolean;
+  engineeringSubmittalsCanRead?: boolean;
+  engineeringSubmittalsCanCreate?: boolean;
+  engineeringSubmittalsCanReview?: boolean;
+  engineeringSubmittalsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
   onTabChange?: (tab: WorkspaceTab) => void;
   onOpenProject: (project: Project) => void;
@@ -65,11 +76,22 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   initialTab = "overview",
   initialDocumentId,
   initialRevisionId,
+  initialRfiId,
+  initialSubmittalId,
+  initialSubmittalRoundId,
   companyId,
   engineeringDocumentsCanRead,
   engineeringDocumentsCanCreate,
   engineeringDocumentsCanAnnotate,
   engineeringDocumentsCanManage,
+  engineeringRfisCanRead,
+  engineeringRfisCanCreate,
+  engineeringRfisCanRespond,
+  engineeringRfisCanManage,
+  engineeringSubmittalsCanRead,
+  engineeringSubmittalsCanCreate,
+  engineeringSubmittalsCanReview,
+  engineeringSubmittalsCanManage,
   engineeringDocumentsGuestMode,
   onTabChange,
   onOpenProject,
@@ -84,17 +106,15 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onOpenPayroll,
 }) => {
   if (selectedProject) {
-    const summary =
-      summaries[selectedProject.id] ||
-      ({
-        budget: selectedProject.projectBudget,
-        totalActualCost: 0,
-        remainingBudget: selectedProject.projectBudget,
-        budgetUsedPercent: 0,
-        invoiceCost: 0,
-        payrollCost: 0,
-        otherExpenseCost: 0,
-      } as ProjectCostSummary);
+    const summary = summaries[selectedProject.id] || ({
+      budget: selectedProject.projectBudget,
+      totalActualCost: 0,
+      remainingBudget: selectedProject.projectBudget,
+      budgetUsedPercent: 0,
+      invoiceCost: 0,
+      payrollCost: 0,
+      otherExpenseCost: 0,
+    } as ProjectCostSummary);
 
     return (
       <ProjectWorkspace
@@ -111,11 +131,22 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         initialTab={initialTab}
         initialDocumentId={initialDocumentId}
         initialRevisionId={initialRevisionId}
+        initialRfiId={initialRfiId}
+        initialSubmittalId={initialSubmittalId}
+        initialSubmittalRoundId={initialSubmittalRoundId}
         companyId={companyId}
         engineeringDocumentsCanRead={engineeringDocumentsCanRead}
         engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
         engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
         engineeringDocumentsCanManage={engineeringDocumentsCanManage}
+        engineeringRfisCanRead={engineeringRfisCanRead}
+        engineeringRfisCanCreate={engineeringRfisCanCreate}
+        engineeringRfisCanRespond={engineeringRfisCanRespond}
+        engineeringRfisCanManage={engineeringRfisCanManage}
+        engineeringSubmittalsCanRead={engineeringSubmittalsCanRead}
+        engineeringSubmittalsCanCreate={engineeringSubmittalsCanCreate}
+        engineeringSubmittalsCanReview={engineeringSubmittalsCanReview}
+        engineeringSubmittalsCanManage={engineeringSubmittalsCanManage}
         engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
         onTabChange={onTabChange}
         onSaveInvoiceAllocations={onSaveInvoiceAllocations}
