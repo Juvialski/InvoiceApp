@@ -4,6 +4,7 @@ import { defaultDemoAnchorDate } from "./demoDates.ts";
 import { createDemoProjects } from "./projects.ts";
 import { createDemoInvoices } from "./invoices.ts";
 import { createDemoExpenses, createDemoCashBanking } from "./financial.ts";
+import { enrichDemoCashWithSettlements } from "./settlements.ts";
 import { createDemoPayroll } from "./workforcePayroll.ts";
 import { createDemoEngineeringDocuments } from "./engineeringDocuments.ts";
 import { createDemoEngineeringCoordination } from "./engineeringCoordination.ts";
@@ -50,7 +51,7 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     invoices: invoiceData.invoices,
     invoiceAllocations: invoiceData.allocations,
     expenses: createDemoExpenses(anchorDate),
-    cash: createDemoCashBanking(anchorDate),
+    cash: enrichDemoCashWithSettlements(createDemoCashBanking(anchorDate), anchorDate),
     payroll,
     engineering: createDemoEngineeringDocuments(anchorDate),
     coordination: createDemoEngineeringCoordination(anchorDate),
