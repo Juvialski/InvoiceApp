@@ -20,8 +20,8 @@ const rfiStatus = { type: "string", enum: ["DRAFT", "OPEN", "ANSWERED", "CLOSED"
 const submittalStatus = { type: "string", enum: ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED", "CLOSED", "VOID"] };
 const revisionIds = { type: "array", maxItems: 20, items: uuid, description: "Immutable engineering_document_revision IDs from the same company and project." };
 
-function schema(properties: Record<string, unknown>, required: string[] = {}) {
-  return { type: "object", properties, required: Array.isArray(required) ? required : [], additionalProperties: false };
+function schema(properties: Record<string, unknown>, required: string[] = []) {
+  return { type: "object", properties, required, additionalProperties: false };
 }
 function read(name: string, description: string, permissions: string[], properties: Record<string, unknown> = {}, required: string[] = []): EngineeringCoordinationToolDefinition {
   return { name, description, permissions, riskTier: "READ", parametersJsonSchema: schema(properties, required), requiresConfirmation: false };
@@ -30,7 +30,7 @@ function navigation(name: string, description: string, permissions: string[], pr
   return { name, description, permissions, riskTier: "NAVIGATION", parametersJsonSchema: schema(properties, required), requiresConfirmation: false };
 }
 function prepare(name: string, description: string, permissions: string[], properties: Record<string, unknown>, required: string[]): EngineeringCoordinationToolDefinition {
-  return { name, description, permissions, riskTier: "PREPARE", parametersJsonSchema: schema(properties, required), requiresConfirmation: false };
+  return { name, description, permissions, riskTier: "PREPARE", parametersJsonSchema: schema(properties, required), requiresConfirmation: true };
 }
 
 export const ENGINEERING_COORDINATION_TOOL_DEFINITIONS: readonly EngineeringCoordinationToolDefinition[] = Object.freeze([
