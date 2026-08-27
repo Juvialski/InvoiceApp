@@ -51,10 +51,14 @@ export const PERMISSION_KEYS = {
   engineeringSubmittalsCreate: "engineering.submittals.create",
   engineeringSubmittalsReview: "engineering.submittals.review",
   engineeringSubmittalsManage: "engineering.submittals.manage",
+  engineeringDailyLogsRead: "engineering.daily_logs.read",
+  engineeringDailyLogsCreate: "engineering.daily_logs.create",
+  engineeringDailyLogsSubmit: "engineering.daily_logs.submit",
+  engineeringDailyLogsReview: "engineering.daily_logs.review",
+  engineeringDailyLogsManage: "engineering.daily_logs.manage",
 } as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[keyof typeof PERMISSION_KEYS] | (string & {});
-
 export const ALL_PERMISSION_KEYS: readonly PermissionKey[] = Object.freeze(Object.values(PERMISSION_KEYS));
 
 export const ROUTE_PERMISSION_REQUIREMENTS: Readonly<Partial<Record<AppTab, PermissionKey>>> = Object.freeze({
@@ -101,9 +105,7 @@ export function requiredPermissionForAppTab(tab: AppTab): PermissionKey | null {
   return ROUTE_PERMISSION_REQUIREMENTS[tab] || null;
 }
 
-export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, readonly PermissionKey[]>>> = Object.freeze({
-  reports: ["reports.payroll.read"],
-});
+export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, readonly PermissionKey[]>>> = Object.freeze({ reports: ["reports.payroll.read"] });
 
 export function canAccessAppTab(tab: AppTab, permissions: Iterable<PermissionKey> | null | undefined): boolean {
   return hasPermission(permissions, requiredPermissionForAppTab(tab)) || (ROUTE_PERMISSION_ALTERNATIVES[tab] || []).some((permission) => hasPermission(permissions, permission));
@@ -114,14 +116,7 @@ export function permittedAppTabs(permissions: Iterable<PermissionKey> | null | u
 }
 
 export function defaultAppTabForPermissions(permissions: Iterable<PermissionKey> | null | undefined): AppTab {
-  if (hasPermission(permissions, PERMISSION_KEYS.payrollSensitiveRead) && !hasAnyPermission(permissions, [
-    PERMISSION_KEYS.dashboardView,
-    PERMISSION_KEYS.cashSummaryRead,
-    PERMISSION_KEYS.invoicesRead,
-    PERMISSION_KEYS.expensesRead,
-    PERMISSION_KEYS.gmailRead,
-    PERMISSION_KEYS.reportsRead,
-  ])) return "payroll";
+  if (hasPermission(permissions, PERMISSION_KEYS.payrollSensitiveRead) && !hasAnyPermission(permissions, [PERMISSION_KEYS.dashboardView, PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.gmailRead, PERMISSION_KEYS.reportsRead])) return "payroll";
   if (hasPermission(permissions, PERMISSION_KEYS.dashboardView)) return "dashboard";
   return permittedAppTabs(permissions)[0] || "dashboard";
 }
@@ -171,18 +166,17 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.engineeringSubmittalsCreate]: "Technical submittal submission",
     [PERMISSION_KEYS.engineeringSubmittalsReview]: "Technical submittal review",
     [PERMISSION_KEYS.engineeringSubmittalsManage]: "Technical submittal closure and voiding",
+    [PERMISSION_KEYS.engineeringDailyLogsRead]: "Daily Site Log viewing",
+    [PERMISSION_KEYS.engineeringDailyLogsCreate]: "Daily Site Log drafting",
+    [PERMISSION_KEYS.engineeringDailyLogsSubmit]: "Daily Site Log submission",
+    [PERMISSION_KEYS.engineeringDailyLogsReview]: "Daily Site Log review",
+    [PERMISSION_KEYS.engineeringDailyLogsManage]: "Daily Site Log amendments and voiding",
   };
   return labels[permission || ""] || "this area";
 }
 
 export function roleDisplayName(roleKey: string | null | undefined): string {
   const normalized = (roleKey || "").trim().toUpperCase();
-  const labels: Record<string, string> = {
-    PLATFORM_OWNER: "Platform owner",
-    COMPANY_ADMIN: "Company admin",
-    FINANCE: "Finance",
-    PAYROLL: "Payroll",
-    VIEWER: "Viewer",
-  };
+  const labels: Record<string, string> = { PLATFORM_OWNER: "Platform owner", COMPANY_ADMIN: "Company admin", FINANCE: "Finance", PAYROLL: "Payroll", VIEWER: "Viewer" };
   return labels[normalized] || roleKey || "Member";
 }
