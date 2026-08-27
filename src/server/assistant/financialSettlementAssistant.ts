@@ -16,6 +16,7 @@ export interface FinancialSettlementToolDefinition {
 
 const uuid = { type: "string", description: "Identifier supplied by a prior tool result or current Engoryx context." };
 const limit = { type: "integer", minimum: 1, maximum: 50 };
+const amountSchema = { type: "number", minimum: 0.01, maximum: 1_000_000_000 };
 const targetTypeSchema = { type: "string", enum: ["INVOICE", "PAYROLL"] };
 
 function schema(properties: Record<string, unknown>, required: string[] = []) {
@@ -36,7 +37,7 @@ const allocationSchema = {
   properties: {
     targetType: targetTypeSchema,
     targetId: uuid,
-    amount: { type: "number", exclusiveMinimum: 0, maximum: 1_000_000_000 },
+    amount: amountSchema,
     notes: { type: "string" },
   },
   required: ["targetType", "targetId", "amount"],
@@ -60,8 +61,8 @@ export const FINANCIAL_SETTLEMENT_TOOL_DEFINITIONS: readonly FinancialSettlement
   read("get_financial_transaction_settlements", "Show confirmed or reversed settlement links for one cash transaction, including who/when provenance available to the current company.", ["cash.transactions.read", "cash.reconcile"], { transactionId: uuid }, ["transactionId"]),
   navigation("navigate_to_financial_transaction", "Open a specific Cash & Banking transaction in the reconciliation workspace.", ["cash.transactions.read"], { transactionId: uuid }, ["transactionId"]),
   navigation("navigate_to_payroll_run", "Open a specific payroll run.", ["payroll.summary.read"], { runId: uuid }, ["runId"]),
-  prepare("prepare_match_transaction_to_invoice", "Prepare a supplier-invoice cash settlement. Human confirmation is required and project cost is not changed.", ["cash.reconcile", "invoices.manage"], { transactionId: uuid, invoiceId: uuid, amount: { type: "number", exclusiveMinimum: 0, maximum: 1_000_000_000 }, notes: { type: "string" } }, ["transactionId", "invoiceId", "amount"]),
-  prepare("prepare_match_transaction_to_payroll", "Prepare a payroll-run employee-net-pay disbursement link. Human confirmation is required and payroll sources/costs are not changed.", ["cash.reconcile", "payroll.approve"], { transactionId: uuid, runId: uuid, amount: { type: "number", exclusiveMinimum: 0, maximum: 1_000_000_000 }, notes: { type: "string" } }, ["transactionId", "runId", "amount"]),
+  prepare("prepare_match_transaction_to_invoice", "Prepare a supplier-invoice cash settlement. Human confirmation is required and project cost is not changed.", ["cash.reconcile", "invoices.manage"], { transactionId: uuid, invoiceId: uuid, amount: amountSchema, notes: { type: "string" } }, ["transactionId", "invoiceId", "amount"]),
+  prepare("prepare_match_transaction_to_payroll", "Prepare a payroll-run employee-net-pay disbursement link. Human confirmation is required and payroll sources/costs are not changed.", ["cash.reconcile", "payroll.approve"], { transactionId: uuid, runId: uuid, amount: amountSchema, notes: { type: "string" } }, ["transactionId", "runId", "amount"]),
   prepare("prepare_split_transaction_allocation", "Prepare one posted debit split across multiple invoice/payroll obligations. The confirmed batch executes atomically.", splitPermissions, { transactionId: uuid, allocations: { type: "array", minItems: 2, maxItems: 20, items: allocationSchema } }, ["transactionId", "allocations"]),
   prepare("prepare_reverse_financial_settlement", "Prepare reversal of a confirmed financial settlement while preserving the original history. Human confirmation and a reason are required.", ["cash.reconcile"], { matchId: uuid, reason: { type: "string" } }, ["matchId", "reason"]),
 ]);
