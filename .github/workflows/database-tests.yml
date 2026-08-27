@@ -64,7 +64,10 @@ jobs:
 
       - name: Stop Supabase containers
         if: always()
-        run: supabase stop
+        run: |
+          if command -v supabase >/dev/null 2>&1; then
+            supabase stop
+          fi
 
   application-tests:
     name: Application Tests, Lint & Build
