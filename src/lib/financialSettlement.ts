@@ -107,10 +107,11 @@ export function deriveInvoiceSettlementSummary(
   const basis = invoiceCashPayableBasis(invoice);
   const bankPaid = Math.min(basis.amount, confirmedSettlementTotal(history));
   const documentPaid = Math.min(basis.amount, Math.max(0, money(invoice.amountPaid)));
-  // Never add document-reported and bank-confirmed paid values. Once a bank
-  // match exists it is the operational settlement evidence; the document value
-  // remains visible only as separately identified source evidence.
-  const effective = bankPaid > 0 ? bankPaid : documentPaid;
+  // Extracted/manual payment evidence may describe the same cash payment later
+  // linked from the bank. Never add the two blindly; the greater evidenced
+  // amount is a conservative operational total that cannot decrease when a
+  // first reconciliation is linked.
+  const effective = Math.max(bankPaid, documentPaid);
   const outstanding = money(Math.max(0, basis.amount - effective));
   const rawStatus = derivePaymentStatus({ grandTotal: basis.amount, amountPaid: effective, balanceDue: outstanding, dueDate: invoice.dueDate });
   const status: InvoiceSettlementState = rawStatus === "PAID" || rawStatus === "PARTIALLY_PAID" || rawStatus === "OVERDUE" ? rawStatus : "UNPAID";
@@ -173,6 +174,6 @@ export function eligibleSettlementCandidates(transaction: FinancialTransaction, 
   return candidates.filter((candidate) =>
     candidate.outstandingAmount > 0.005 &&
     candidate.currency.toUpperCase() === transaction.currency.toUpperCase() &&
-    (candidate.targetType === "INVOICE" || ["APPROVED", "PAID"].includes(candidate.lifecycleStatus || ""))
+    (candidate.targetType === "INVOICE" ? candidate.lifecycleStatus === "VERIFIED" : ["APPROVED", "PAID"].includes(candidate.lifecycleStatus || ""))
   );
 }
