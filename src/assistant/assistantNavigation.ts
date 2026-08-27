@@ -25,8 +25,12 @@ export function pathForAssistantAction(action: AssistantClientAction): string | 
   if (action.type === "OPEN_INVOICE" && action.entityId) return appPathForInvoice(action.entityId);
   if (action.type === "OPEN_REVIEW_INVOICE" && action.entityId) return appPathForReviewInvoice(action.entityId);
   if (action.type === "OPEN_PROJECT_DOCUMENTS" && action.entityId) return appPathForProject(action.entityId, "documents");
+  if (action.type === "OPEN_RFI" && action.entityId && action.projectId) return appPathForProject(action.projectId, "rfis", { rfiId: action.entityId });
+  if (action.type === "OPEN_SUBMITTAL" && action.entityId && action.projectId) return appPathForProject(action.projectId, "submittals", { submittalId: action.entityId, roundId: action.roundId });
   if (action.type === "OPEN_PROJECT" && action.entityId) {
     if (action.view === "documents") return appPathForProject(action.entityId, "documents");
+    if (action.view === "rfis") return appPathForProject(action.entityId, "rfis");
+    if (action.view === "submittals") return appPathForProject(action.entityId, "submittals");
     return appPathForProject(action.entityId);
   }
   if (action.type === "OPEN_PAYROLL_PERIOD") return appPathForTab("payroll");
