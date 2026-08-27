@@ -9,9 +9,9 @@ import type {
 } from "../../components/engineering/EngineeringCostOperationsDashboard";
 import type {
   AttendanceRecord,
+  EmailClassification,
   Expense,
   GmailConnectionInfo,
-  GmailImportedMessage,
   GmailMessageCandidate,
   GmailScanWindow,
   InvoiceData,
@@ -162,9 +162,9 @@ export interface AppRouterProps {
   onConnectGmail?: () => Promise<void> | void;
   onSignOut?: () => Promise<void> | void;
   onScanGmail?: (window: GmailScanWindow) => Promise<GmailMessageCandidate[]>;
-  onSyncGmail?: () => Promise<GmailImportedMessage[]>;
-  onImportGmailMessage?: (messageId: string) => Promise<GmailImportedMessage>;
-  onProcessEmail?: (messageId: string) => Promise<InvoiceData>;
+  onSyncGmail?: () => Promise<GmailMessageCandidate[]>;
+  onImportGmailMessage?: (message: GmailMessageCandidate) => Promise<number>;
+  onProcessEmail?: (input: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }) => Promise<EmailClassification | null>;
 
   // Cash & Banking Data & Handlers
   cashData: CashBankingWorkspaceData;
@@ -332,7 +332,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onConfirmFinancialTransfer,
   onOpenCashDashboard,
   payrollData,
-  payrollImportData = { batches: [], templates: [] },
+  payrollImportData = { costCenters: [], batches: [], rows: [], templates: [] },
   payrollPeriodPreparationState,
   onRetryPayrollPeriodPreparation,
   canManagePayrollSettings = true,

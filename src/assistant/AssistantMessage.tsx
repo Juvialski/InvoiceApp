@@ -5,6 +5,11 @@ import type { AssistantConversationMessage } from "./assistantUiTypes.ts";
 import { AssistantActionCard } from "./AssistantActionCard.tsx";
 import { BRAND } from "../config/brand.ts";
 
+const LazyAssistantMessageContent = React.lazy(async () => {
+  const module = await import("./AssistantMessageContent.ts");
+  return { default: module.AssistantMessageContent };
+});
+
 export interface AssistantMessageProps {
   message: AssistantConversationMessage;
   busy?: boolean;
@@ -23,7 +28,13 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({ message, bus
       </div>
       <div className={`min-w-0 max-w-[88%] ${isUser ? "items-end" : "items-start"}`}>
         <div className={`rounded-2xl px-3.5 py-3 text-sm leading-6 ${isUser ? "rounded-tr-md bg-slate-900 text-white" : isSystem ? "rounded-tl-md border border-amber-200 bg-amber-50 text-amber-950" : "rounded-tl-md border border-slate-200 bg-white text-slate-700 shadow-sm"}`}>
-          <p className="whitespace-pre-wrap break-words">{message.text}</p>
+          {message.role === "assistant" ? (
+            <React.Suspense fallback={<p className="break-words text-slate-500" aria-live="polite">Formatting response…</p>}>
+              <LazyAssistantMessageContent role="assistant" text={message.text} />
+            </React.Suspense>
+          ) : (
+            <p className="whitespace-pre-wrap break-words">{message.text}</p>
+          )}
           {message.warnings.length > 0 && <div className="mt-2 space-y-1.5 border-t border-amber-200/80 pt-2">{message.warnings.map((warning) => <p key={warning} className="flex items-start gap-1.5 text-xs leading-5 text-amber-800"><AlertTriangle aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0" />{warning}</p>)}</div>}
           {message.attachments.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5 border-t border-slate-100 pt-2">{message.attachments.map((attachment) => <span key={attachment.id} className="inline-flex max-w-full items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600"><FileText aria-hidden="true" className="h-3 w-3 shrink-0" /><span className="truncate">{attachment.fileName}</span></span>)}</div>}
         </div>

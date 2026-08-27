@@ -1,5 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
+import { FunctionCallingConfigMode, GoogleGenAI } from "@google/genai";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assistantFunctionDeclarations } from "../assistant/toolRegistry.ts";
 import { decryptCompanyGeminiCredential, readAiCredentialsMasterKey } from "./companyAiEncryption.ts";
 import { loadCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, resolveCompanyAiCredential } from "./companyAiCredentials.ts";
 import {
@@ -211,11 +212,11 @@ export function isCompanyAiCredentialFailure(error: unknown) {
     : isCompanyAiAuthenticationError(error);
 }
 
-export function companyAiProviderError(error: unknown, options: { assumeProviderError?: boolean; model?: string; stage?: string } = {}): CompanyAiError | null {
+export function companyAiProviderError(error: unknown, options: { assumeProviderError?: boolean; model?: string; stage?: string; diagnostics?: Record<string, string | number | boolean | null> } = {}): CompanyAiError | null {
   if (!options.assumeProviderError && !likelyCompanyAiProviderError(error)) return null;
   if (error instanceof CompanyAiError) return error;
   const code = classifyCompanyAiProviderFailure(error);
-  const diagnostics: Record<string, string | number> = { classification: code };
+  const diagnostics: Record<string, string | number | boolean | null> = { classification: code, ...(options.diagnostics || {}) };
   const status = providerHttpStatus(error);
   if (status) diagnostics.httpStatus = status;
   if (options.model) diagnostics.model = options.model;
@@ -299,7 +300,13 @@ async function testCompanyAiRuntimeRequest(runtime: CompanyAiRuntime, timeoutMs:
     await runtime.geminiClient.models.generateContent({
       model: runtime.primaryModel,
       contents: [{ parts: [{ text: "Reply with the single word OK." }] }],
-      config: { responseMimeType: "text/plain", maxOutputTokens: 8, abortSignal: controller.signal },
+      config: {
+        systemInstruction: "This is a non-mutating assistant compatibility probe. Reply with the single word OK and do not call the supplied read-only probe tools.",
+        maxOutputTokens: 8,
+        tools: [{ functionDeclarations: assistantFunctionDeclarations() }],
+        toolConfig: { functionCallingConfig: { mode: FunctionCallingConfigMode.NONE } },
+        abortSignal: controller.signal,
+      },
     });
   } catch (error) {
     if (controller.signal.aborted) {

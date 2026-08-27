@@ -132,14 +132,16 @@ export class AssistantClientError extends Error {
   readonly status?: number;
   readonly code?: string;
   readonly reference?: string;
+  readonly threadId?: string;
   readonly contextGeneration?: number;
 
-  constructor(message: string, details: { status?: number; code?: string; reference?: string; contextGeneration?: number } = {}) {
+  constructor(message: string, details: { status?: number; code?: string; reference?: string; threadId?: string; contextGeneration?: number } = {}) {
     super(message);
     this.name = "AssistantClientError";
     this.status = details.status;
     this.code = details.code;
     this.reference = details.reference;
+    this.threadId = details.threadId;
     this.contextGeneration = details.contextGeneration;
   }
 }
@@ -159,6 +161,7 @@ function errorFromPayload(payload: unknown, status?: number) {
       status,
       code: boundedString(payload.code, 80) || undefined,
       reference: safeToken(payload.reference) || undefined,
+      threadId: safeToken(payload.threadId) || undefined,
       contextGeneration: Number.isSafeInteger(payload.contextGeneration) ? Number(payload.contextGeneration) : undefined,
     });
   }
@@ -206,6 +209,7 @@ function compactAttachmentInputs(attachments: readonly AssistantAttachmentInput[
 export interface SendAssistantMessageOptions {
   companyId: string | null | undefined;
   threadId?: string | null;
+  requestId?: string;
   message: string;
   context: Parameters<typeof compactAssistantContext>[0];
   attachments?: readonly AssistantAttachmentInput[];
@@ -221,6 +225,7 @@ export async function sendAssistantMessage(options: SendAssistantMessageOptions)
   const compactAttachments = compactAttachmentInputs(options.attachments);
   const body: AssistantRequest = {
     ...(options.threadId && SAFE_TOKEN.test(options.threadId) ? { threadId: options.threadId } : {}),
+    ...(options.requestId && SAFE_TOKEN.test(options.requestId) ? { requestId: options.requestId } : {}),
     message,
     context,
     ...(compactAttachments ? { attachments: compactAttachments } : {}),

@@ -6,8 +6,8 @@ import { ReviewQueue } from "../../components/ReviewQueue";
 import { InvoiceDirectory } from "../../components/InvoiceDirectory";
 import { Vendors } from "../../components/Vendors";
 import type {
+  EmailClassification,
   GmailConnectionInfo,
-  GmailImportedMessage,
   GmailMessageCandidate,
   GmailScanWindow,
   InvoiceData,
@@ -63,9 +63,9 @@ export interface InvoicesRouteProps {
   onConnectGmail?: () => Promise<void> | void;
   onSignOut?: () => Promise<void> | void;
   onScanGmail?: (window: GmailScanWindow) => Promise<GmailMessageCandidate[]>;
-  onSyncGmail?: () => Promise<GmailImportedMessage[]>;
-  onImportGmailMessage?: (messageId: string) => Promise<GmailImportedMessage>;
-  onProcessEmail?: (messageId: string) => Promise<InvoiceData>;
+  onSyncGmail?: () => Promise<GmailMessageCandidate[]>;
+  onImportGmailMessage?: (message: GmailMessageCandidate) => Promise<number>;
+  onProcessEmail?: (input: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }) => Promise<EmailClassification | null>;
 }
 
 export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({

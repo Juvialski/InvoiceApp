@@ -57,7 +57,7 @@ export interface AssistantContextValue {
   close: () => void;
   toggle: () => void;
   messages: readonly AssistantConversationMessage[];
-  sendMessage: (message: string) => Promise<boolean>;
+  sendMessage: (message: string, options?: { requestId?: string; isRetry?: boolean; attachments?: readonly AssistantAttachmentInput[] }) => Promise<boolean>;
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
@@ -110,18 +110,27 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function localRequestId(counter: React.MutableRefObject<number>) {
+  counter.current += 1;
+  return `assistant-request-${Date.now().toString(36)}-${counter.current}`;
+}
+
 function errorMessage(error: unknown, canConfigureAi = false) {
   const code = error instanceof AssistantClientError ? error.code : undefined;
-  if (code === "AI_CREDENTIAL_INVALID") return canConfigureAi ? "The configured Gemini key could not be authenticated." : "The company AI configuration needs attention. Contact your platform administrator.";
-  if (code === "AI_QUOTA_LIMITED") return "Gemini quota or rate limit has been reached.";
-  if (code === "AI_PROVIDER_ACCESS_DENIED") return "The configured Gemini project does not have access to the requested AI service.";
-  if (code === "AI_MODEL_UNAVAILABLE") return "The AI model is temporarily unavailable.";
-  if (code === "AI_PROVIDER_UNAVAILABLE") return `${BRAND.assistantName} could not reach Gemini.`;
-  if (code === "AI_REQUEST_REJECTED") return "Gemini rejected the assistant request configuration.";
-  if (code === "AI_TIMEOUT") return "The AI request timed out.";
-  if (code === "AI_NETWORK_ERROR") return `${BRAND.assistantName} could not reach Gemini.`;
-  if (code === "AI_NOT_CONFIGURED_FOR_COMPANY") return canConfigureAi ? "AI is not configured for this company." : "The company AI configuration needs attention. Contact your platform administrator.";
-  if (code === "AI_DISABLED_FOR_COMPANY") return canConfigureAi ? "AI is disabled for this company." : "The company AI configuration needs attention. Contact your platform administrator.";
+  const withReference = (message: string) => {
+    const reference = error instanceof AssistantClientError ? error.reference : undefined;
+    return reference ? `${message} Reference: ${reference}.` : message;
+  };
+  if (code === "AI_CREDENTIAL_INVALID") return withReference(canConfigureAi ? "The configured Gemini key could not be authenticated." : "The company AI configuration needs attention. Contact your platform administrator.");
+  if (code === "AI_QUOTA_LIMITED") return withReference("Gemini quota or rate limit has been reached.");
+  if (code === "AI_PROVIDER_ACCESS_DENIED") return withReference("The configured Gemini project does not have access to the requested AI service.");
+  if (code === "AI_MODEL_UNAVAILABLE") return withReference("The AI model is temporarily unavailable.");
+  if (code === "AI_PROVIDER_UNAVAILABLE") return withReference(`${BRAND.assistantName} could not reach Gemini.`);
+  if (code === "AI_REQUEST_REJECTED") return withReference("Gemini rejected the assistant request configuration.");
+  if (code === "AI_TIMEOUT") return withReference("The AI request timed out.");
+  if (code === "AI_NETWORK_ERROR") return withReference(`${BRAND.assistantName} could not reach Gemini.`);
+  if (code === "AI_NOT_CONFIGURED_FOR_COMPANY") return withReference(canConfigureAi ? "AI is not configured for this company." : "The company AI configuration needs attention. Contact your platform administrator.");
+  if (code === "AI_DISABLED_FOR_COMPANY") return withReference(canConfigureAi ? "AI is disabled for this company." : "The company AI configuration needs attention. Contact your platform administrator.");
   if (error instanceof Error && error.message) return error.message;
   return `${BRAND.assistantName} could not complete that request.`;
 }
@@ -198,6 +207,7 @@ export function AssistantProvider({
   const [activeTourId, setActiveTourId] = useState<AssistantTourId | null>(null);
   const [activeTourStepIndex, setActiveTourStepIndex] = useState(0);
   const messageCounterRef = useRef(0);
+  const requestCounterRef = useRef(0);
   const attachmentCounterRef = useRef(0);
   const attachmentsRef = useRef<AssistantAttachmentDraft[]>([]);
   const pendingActionsRef = useRef<AssistantPreparedAction[]>([]);
@@ -205,7 +215,7 @@ export function AssistantProvider({
   const contextGenerationRef = useRef(companyGeneration);
   const requestAbortRef = useRef<AbortController | null>(null);
   const attachedInvoicePayloadsRef = useRef(new Map<string, AssistantAttachmentInput>());
-  const lastFailedMessageRef = useRef<string | null>(null);
+  const lastFailedRequestRef = useRef<{ message: string; requestId: string; attachments: AssistantAttachmentInput[] } | null>(null);
   const previousIdentityRef = useRef(identity);
 
   const resetForCompanyChange = useCallback((nextGeneration: number) => {
@@ -223,7 +233,7 @@ export function AssistantProvider({
     setContextGeneration(nextGeneration);
     setError(null);
     setCanRetry(false);
-    lastFailedMessageRef.current = null;
+    lastFailedRequestRef.current = null;
     attachedInvoicePayloadsRef.current.clear();
     setIsLoading(false);
     setActiveTourId(null);
@@ -328,7 +338,7 @@ export function AssistantProvider({
     }]);
   }, []);
 
-  const sendMessage = useCallback(async (message: string) => {
+  const sendMessage = useCallback(async (message: string, options: { requestId?: string; isRetry?: boolean; attachments?: readonly AssistantAttachmentInput[] } = {}) => {
     if (isLoading) return false;
     if (!canUseAssistant || !companyId) {
       setError(`Sign in and select a company before using ${BRAND.assistantName}.`);
@@ -342,7 +352,10 @@ export function AssistantProvider({
     }
     const started = identityRef.current;
     const localAttachments = attachmentsRef.current;
-    const requestAttachments = localAttachments.map(({ id, kind: _kind, routeHint: _routeHint, warning: _warning, ...input }) => input);
+    const requestAttachments = options.attachments
+      ? [...options.attachments]
+      : localAttachments.map(({ id, kind: _kind, routeHint: _routeHint, warning: _warning, ...input }) => input);
+    const requestId = options.requestId || localRequestId(requestCounterRef);
     const displayAttachments = localAttachments.map(({ id, fileName, mimeType, size, kind, warning }) => ({ id, fileName, mimeType, size, kind, ...(warning ? { warning } : {}) }));
     const controller = new AbortController();
     requestAbortRef.current?.abort();
@@ -352,28 +365,32 @@ export function AssistantProvider({
     setError(null);
     setCanRetry(false);
     setIsLoading(true);
-    setMessages((current) => [...current, { id: localMessageId(messageCounterRef), role: "user", text: normalizedMessage, references: [], clientActions: [], preparedActions: [], attachments: displayAttachments, warnings: [], createdAt: nowIso() }]);
+    if (!options.isRetry) setMessages((current) => [...current, { id: localMessageId(messageCounterRef), role: "user", text: normalizedMessage, references: [], clientActions: [], preparedActions: [], attachments: displayAttachments, warnings: [], createdAt: nowIso() }]);
     attachmentsRef.current = [];
     setAttachments([]);
     try {
-      const response = await sendAssistantMessageRequest({ companyId, threadId: threadIdRef.current, message: normalizedMessage, context, attachments: requestAttachments, signal: controller.signal });
+      const response = await sendAssistantMessageRequest({ companyId, threadId: threadIdRef.current, requestId, message: normalizedMessage, context, attachments: requestAttachments, signal: controller.signal });
       if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
-      appendResponse(response, localAttachments);
-      lastFailedMessageRef.current = null;
+      appendResponse(response, requestAttachments);
+      lastFailedRequestRef.current = null;
       setCanRetry(false);
       return true;
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {
-        lastFailedMessageRef.current = normalizedMessage;
+        lastFailedRequestRef.current = { message: normalizedMessage, requestId, attachments: requestAttachments };
         setCanRetry(true);
         return false;
       }
       if (requestError instanceof Error && requestError.name === "AbortError") {
-        lastFailedMessageRef.current = normalizedMessage;
+        lastFailedRequestRef.current = { message: normalizedMessage, requestId, attachments: requestAttachments };
         setCanRetry(true);
         return false;
       }
-      lastFailedMessageRef.current = normalizedMessage;
+      if (requestError instanceof AssistantClientError && requestError.threadId) {
+        threadIdRef.current = requestError.threadId;
+        setThreadId(requestError.threadId);
+      }
+      lastFailedRequestRef.current = { message: normalizedMessage, requestId, attachments: requestAttachments };
       setCanRetry(true);
       if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) setError(errorMessage(requestError, permissions?.includes(PERMISSION_KEYS.platformManage) === true));
       return false;
@@ -386,9 +403,9 @@ export function AssistantProvider({
   }, [appendResponse, canUseAssistant, companyGeneration, companyId, compactContext, isLoading, permissions]);
 
   const retryLastMessage = useCallback(() => {
-    const message = lastFailedMessageRef.current;
-    if (!message || isLoading) return Promise.resolve(false);
-    return sendMessage(message);
+    const failed = lastFailedRequestRef.current;
+    if (!failed || isLoading) return Promise.resolve(false);
+    return sendMessage(failed.message, { requestId: failed.requestId, isRetry: true, attachments: failed.attachments });
   }, [isLoading, sendMessage]);
 
   const canOpenAiConfiguration = Boolean(onOpenAiConfiguration && permissions?.includes(PERMISSION_KEYS.platformManage));
@@ -536,7 +553,7 @@ export function AssistantProvider({
       return false;
     };
     if (!safeAction || !isAssistantActionAllowed(safeAction, permissions)) return blocked("That assistant action is not available in this workspace.");
-    if (safeAction.type === "START_TOUR") return startTour(safeAction.tourId!);
+    if (safeAction.type === "START_TOUR") return startTour(safeAction.tourId as AssistantTourId);
     const path = pathForAssistantAction(safeAction);
     if (!path) return blocked("That assistant destination is not recognized.");
     const routeId = routeIdForClientAction(safeAction);

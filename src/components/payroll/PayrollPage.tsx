@@ -8,6 +8,7 @@ import { TimeEntries } from "./TimeEntries";
 import { ProjectAssignments } from "./ProjectAssignments";
 import { PayrollImportWorkflow } from "./PayrollImportWorkflow";
 import type { PayrollImportBatch, PayrollImportRow, PayrollImportTemplate } from "../../lib/payrollImportPersistence";
+import type { StagedPayrollImport } from "../../lib/payrollImportWorkflow";
 
 export interface PayrollPageProps {
   workers: Worker[];
@@ -29,6 +30,7 @@ export interface PayrollPageProps {
   importTemplates?: PayrollImportTemplate[];
   onStagePayrollImport?: (batch: PayrollImportBatch, rows: PayrollImportRow[], bytes: Uint8Array) => void;
   onSavePayrollImportTemplate?: (template: PayrollImportTemplate) => void;
+  onCommitPayrollImport?: (staged: StagedPayrollImport, periodStart: string, periodEnd: string, payDate?: string) => void;
   onCreateRun?: (periodId: string) => void;
   /** Lead-owned calculation/persistence bridge. */
   onCalculateRun?: (run: PayrollRun) => void;

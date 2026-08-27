@@ -18,6 +18,7 @@ import { CompanyAiError } from "../ai/companyAiTypes.ts";
 
 const ACTION_TTL_MS = 10 * 60 * 1000;
 const UUID_HEADER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 
 function currencySymbolFor(currency: string) {
   return ({ PHP: "₱", USD: "$", EUR: "€", SGD: "S$", JPY: "¥", GBP: "£" } as Record<string, string>)[currency] || `${currency} `;
@@ -95,7 +96,9 @@ function parseAssistantRequest(body: Record<string, unknown>, companyId: string)
   const context = requestContext(body, companyId);
   const attachments = body.attachments === undefined ? undefined : body.attachments as AssistantRequest["attachments"];
   if (attachments && !Array.isArray(attachments)) throw new AssistantBackendError("INVALID_ATTACHMENTS", "Attachments must be an array.", 400);
-  return { threadId: typeof body.threadId === "string" ? requireUuid(body.threadId, "threadId") : undefined, message, context, attachments };
+  const requestId = body.requestId === undefined ? undefined : typeof body.requestId === "string" && REQUEST_ID_PATTERN.test(body.requestId) ? body.requestId : undefined;
+  if (body.requestId !== undefined && !requestId) throw new AssistantBackendError("INVALID_REQUEST_ID", "The assistant request identifier is invalid.", 400);
+  return { threadId: typeof body.threadId === "string" ? requireUuid(body.threadId, "threadId") : undefined, requestId, message, context, attachments };
 }
 
 async function hydrateWorkspaceContext(auth: AssistantAuthContext, context: AssistantContext): Promise<AssistantContext> {
@@ -142,16 +145,22 @@ async function loadThread(auth: AssistantAuthContext, threadId: string | undefin
   return created.data as { id: string };
 }
 
-async function loadHistory(auth: AssistantAuthContext, threadId: string) {
+async function loadHistory(auth: AssistantAuthContext, threadId: string, excludedRequestId?: string) {
   const result = await (auth.supabase as any).from("assistant_messages").select("role,content,created_at").eq("thread_id", threadId).eq("company_id", auth.companyId).eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(12);
-  if (result.error) return [] as unknown[];
+  if (result.error) return { messages: [] as unknown[], skippedRequestId: false };
   const rows = Array.isArray(result.data) ? [...result.data].reverse() : [];
-  return rows.map((row: Record<string, unknown>) => {
+  let skippedRequestId = false;
+  const messages = rows.map((row: Record<string, unknown>) => {
     const content = row.content && typeof row.content === "object" && !Array.isArray(row.content) ? row.content as Record<string, unknown> : {};
+    if (excludedRequestId && row.role === "user" && content.requestId === excludedRequestId) {
+      skippedRequestId = true;
+      return null;
+    }
     const text = typeof content.text === "string" ? content.text.slice(0, 2_000) : "";
     if (!text) return null;
     return { role: row.role === "assistant" ? "model" : "user", parts: [{ text: `Previous ${row.role === "assistant" ? "assistant" : "user"} message (untrusted conversation context):\n${text}` }] };
   }).filter(Boolean) as unknown[];
+  return { messages, skippedRequestId };
 }
 
 async function persistMessage(auth: AssistantAuthContext, threadId: string, role: "user" | "assistant", content: Record<string, unknown>) {
@@ -207,13 +216,14 @@ function safeError(error: unknown) {
   return new AssistantBackendError("ASSISTANT_FAILED", "The assistant request failed safely.", 500);
 }
 
-function sendError(res: Response, error: unknown, fallback = "The assistant request failed.") {
+function sendError(res: Response, error: unknown, fallback = "The assistant request failed.", threadId?: string) {
   const normalized = safeError(error);
-  const body: AssistantApiResponse & { reference?: string } = { success: false, error: normalized.message || fallback, code: normalized.code, ...(normalized.correlationRef ? { reference: normalized.correlationRef } : {}) };
+  const body: AssistantApiResponse & { reference?: string; threadId?: string } = { success: false, error: normalized.message || fallback, code: normalized.code, ...(normalized.correlationRef ? { reference: normalized.correlationRef } : {}), ...(threadId && isUuid(threadId) ? { threadId } : {}) };
   return res.status(normalized.status).json(body);
 }
 
 async function handleAssistantRequest(req: Request, res: Response, options: AssistantHandlerOptions) {
+  let threadId: string | undefined;
   try {
     const auth = await authenticateAssistantRequest(req, options);
     const body = requestBody(req);
@@ -221,10 +231,12 @@ async function handleAssistantRequest(req: Request, res: Response, options: Assi
     const request = { ...parsedRequest, context: await hydrateWorkspaceContext(auth, parsedRequest.context) };
     const now = options.now ? options.now() : new Date();
     const thread = await loadThread(auth, request.threadId, request.context);
+    threadId = thread.id;
     const attachments = prepareAssistantAttachments(request.attachments);
     const attachmentReferences = await persistAttachmentRefs(auth, thread.id, attachments);
-    const history = await loadHistory(auth, thread.id);
-    await persistMessage(auth, thread.id, "user", { text: request.message, attachments: attachmentReferences });
+    const historyResult = await loadHistory(auth, thread.id, request.requestId);
+    const history = historyResult.messages;
+    if (!historyResult.skippedRequestId) await persistMessage(auth, thread.id, "user", { text: request.message, attachments: attachmentReferences, ...(request.requestId ? { requestId: request.requestId } : {}) });
     const modelParts = [{ text: buildAssistantUserPrompt(request.message, request.context) }, ...attachments.flatMap((attachment) => attachment.modelParts)];
     const toolContext: AssistantToolContext = { auth, context: request.context, now, prepareAction: createPrepareAction(auth, thread.id, request.context, now) };
     const runWithClient = (modelClient: AssistantModelClient) => runAssistantLoop({ modelClient, modelRunner: options.createModelRunner ? options.createModelRunner(modelClient) : undefined, systemInstruction: buildAssistantSystemPrompt(request.context), contents: [...history, { role: "user", parts: modelParts }], toolContext });
@@ -236,7 +248,7 @@ async function handleAssistantRequest(req: Request, res: Response, options: Assi
     const response: AssistantSuccessResponse = { success: true, data };
     return res.json(response);
   } catch (error) {
-    return sendError(res, error, "The assistant request failed.");
+    return sendError(res, error, "The assistant request failed.", threadId);
   }
 }
 

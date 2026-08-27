@@ -2,6 +2,7 @@ import type { FunctionDeclaration } from "@google/genai";
 import { requiresAssistantConfirmation } from "../../assistant/confirmationPolicy.ts";
 import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
 import { AssistantBackendError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
+import { normalizeAssistantFunctionDeclarations } from "./assistantGeminiSchemas.ts";
 import { boundToolResult, toolError } from "./toolResults.ts";
 import { validateToolArguments } from "./toolValidation.ts";
 import { requireCompanyPermissions, routePermission } from "./toolAuthorization.ts";
@@ -128,11 +129,7 @@ export function getAssistantToolDefinition(name: string) {
 }
 
 export function assistantFunctionDeclarations(): FunctionDeclaration[] {
-  return ASSISTANT_TOOL_DEFINITIONS.map((definition) => ({
-    name: definition.name,
-    description: definition.description,
-    parametersJsonSchema: definition.parametersJsonSchema,
-  }));
+  return normalizeAssistantFunctionDeclarations(ASSISTANT_TOOL_DEFINITIONS);
 }
 
 function permissionsFor(definition: AssistantToolDefinition, args: Record<string, unknown>) {
