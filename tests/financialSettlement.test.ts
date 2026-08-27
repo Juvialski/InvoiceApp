@@ -18,6 +18,8 @@ import { appPathForCashTransaction, appPathForInvoice, appPathForPayrollRun, fin
 import { calculateProjectCost, type CostPayrollRecord } from "../src/utils/projectCosting.ts";
 import type { InvoiceProjectAllocation, PayrollEntry, PayrollProjectAllocation, PayrollRun, Project } from "../src/types.ts";
 
+const REFERENCE_DATE = "2026-08-27";
+
 function transaction(overrides: Partial<FinancialTransaction> = {}): FinancialTransaction {
   return {
     id: "tx-1", accountId: "account-1", transactionDate: "2026-08-27", description: "Supplier payment", direction: "DEBIT",
@@ -43,13 +45,13 @@ test("invoice payable basis only trusts explicit net-payable semantics", () => {
 
 test("invoice settlement never blindly adds document paid and bank paid", () => {
   const invoice = { id: "inv", currency: "PHP", grandTotal: 100_000, amountPaid: 60_000, dueDate: "2026-09-01", reviewStatus: "VERIFIED" as const };
-  const partial = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 40_000)]);
+  const partial = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 40_000)], REFERENCE_DATE);
   assert.equal(partial.documentReportedPaid, 60_000);
   assert.equal(partial.reconciledCashPaid, 40_000);
   assert.equal(partial.effectiveSettled, 60_000);
   assert.equal(partial.outstanding, 40_000);
   assert.equal(partial.settlementState, "PARTIALLY_PAID");
-  const paid = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 40_000), confirmed("m2", "tx-2", 60_000)]);
+  const paid = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 40_000), confirmed("m2", "tx-2", 60_000)], REFERENCE_DATE);
   assert.equal(paid.effectiveSettled, 100_000);
   assert.equal(paid.outstanding, 0);
   assert.equal(paid.settlementState, "PAID");
@@ -57,7 +59,7 @@ test("invoice settlement never blindly adds document paid and bank paid", () => 
 
 test("invoice reversal restores outstanding and overdue semantics", () => {
   const invoice = { id: "inv", currency: "PHP", grandTotal: 100_000, amountPaid: 0, dueDate: "2026-08-01", reviewStatus: "VERIFIED" as const };
-  const summary = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 30_000), reversed("m2", "tx-2", 70_000)]);
+  const summary = deriveInvoiceSettlementSummary(invoice as any, [confirmed("m1", "tx-1", 30_000), reversed("m2", "tx-2", 70_000)], REFERENCE_DATE);
   assert.equal(summary.reconciledCashPaid, 30_000);
   assert.equal(summary.outstanding, 70_000);
   assert.equal(summary.settlementState, "OVERDUE");
@@ -117,7 +119,7 @@ test("bank settlement does not change verified invoice or approved payroll proje
   const payrollAllocation: PayrollProjectAllocation = { id: "pa", payrollEntryId: payrollEntry.id, projectId: project.id, allocationAmount: 50_000, source: "MANUAL" };
   const payroll: CostPayrollRecord = { id: "run", status: "APPROVED", currency: "PHP", entries: [payrollEntry], allocations: [payrollAllocation] };
   const before = calculateProjectCost(project, { invoices: [invoice], payroll: [payroll], expenses: [] });
-  deriveInvoiceSettlementSummary({ ...invoice, dueDate: "2026-09-01" }, [confirmed("im", "bank-invoice", 100_000)]);
+  deriveInvoiceSettlementSummary({ ...invoice, dueDate: "2026-09-01" }, [confirmed("im", "bank-invoice", 100_000)], REFERENCE_DATE);
   derivePayrollSettlementSummary({ id: "run", status: "APPROVED" } as PayrollRun, [payrollEntry], [confirmed("pm", "bank-payroll", 45_000)]);
   const after = calculateProjectCost(project, { invoices: [invoice], payroll: [payroll], expenses: [] });
   assert.equal(before.totalActualCost, 150_000);
