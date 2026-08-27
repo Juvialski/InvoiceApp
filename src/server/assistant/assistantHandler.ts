@@ -11,6 +11,7 @@ import { runAssistantLoop } from "./assistantLoop.ts";
 import { executePreparedAction } from "./assistantToolExecutors.ts";
 import { executePreparedEngineeringCoordinationAction, isEngineeringCoordinationTool } from "./engineeringCoordinationAssistant.ts";
 import { executePreparedDailySiteLogsAction, isDailySiteLogsTool } from "./dailySiteLogsAssistant.ts";
+import { executePreparedFinancialSettlementAction, isFinancialSettlementTool } from "./financialSettlementAssistant.ts";
 import { getAssistantToolDefinition, validateAssistantToolArguments } from "./toolRegistry.ts";
 import { requireCompanyPermissions } from "./toolAuthorization.ts";
 import { boundToolValue, toolOk } from "./toolResults.ts";
@@ -307,6 +308,26 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
       clientActions.push({ type: "OPEN_SITE_LOG", entityId: siteLogId, projectId, label: "Open Site Log" });
     }
   }
+  if (isFinancialSettlementTool(action.tool_name)) {
+    const matchResult = result.match && typeof result.match === "object" && !Array.isArray(result.match) ? result.match as Record<string, unknown> : undefined;
+    const transactionId = typeof result.transactionId === "string" ? result.transactionId : typeof matchResult?.transaction_id === "string" ? matchResult.transaction_id : typeof action.normalized_args.transactionId === "string" ? action.normalized_args.transactionId : undefined;
+    const targetType = typeof result.targetType === "string" ? result.targetType : typeof matchResult?.target_type === "string" ? matchResult.target_type : typeof action.normalized_args.targetType === "string" ? action.normalized_args.targetType : undefined;
+    const targetId = typeof result.targetId === "string" ? result.targetId : typeof matchResult?.target_id === "string" ? matchResult.target_id : typeof action.normalized_args.targetId === "string" ? action.normalized_args.targetId : undefined;
+    if (action.tool_name === "prepare_reverse_financial_settlement") message = "The financial settlement link was reversed. The original confirmation remains in audit history, and project cost was not changed.";
+    else if (action.tool_name === "prepare_split_transaction_allocation") message = "The reviewed split settlement was confirmed atomically. Cash evidence was linked without creating additional project cost.";
+    else message = "The reviewed financial settlement was confirmed. Cash evidence was linked without changing invoice or payroll project cost.";
+    if (transactionId) {
+      references.push({ type: "report", id: transactionId, label: "Cash transaction" });
+      clientActions.push({ type: "OPEN_FINANCIAL_TRANSACTION", entityId: transactionId, label: "Open transaction" });
+    }
+    if (targetType === "INVOICE" && targetId) {
+      references.push({ type: "invoice", id: targetId, label: "Supplier invoice" });
+      clientActions.push({ type: "OPEN_INVOICE", entityId: targetId, label: "Open invoice" });
+    } else if (targetType === "PAYROLL" && targetId) {
+      references.push({ type: "payroll_run", id: targetId, label: "Payroll run" });
+      clientActions.push({ type: "OPEN_PAYROLL_RUN", entityId: targetId, label: "Open payroll run" });
+    }
+  }
   if (typeof workerResult?.id === "string") references.push({ type: "worker", id: String(workerResult.id), label: "View employee" });
   else if (typeof requestResult?.id === "string") references.push({ type: "worker", id: String(requestResult.id), label: "Updated workforce request" });
   return { threadId: action.thread_id || "", message, references, clientActions, preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
@@ -350,7 +371,9 @@ async function handleAssistantConfirm(req: Request, res: Response, options: Assi
         ? await executePreparedEngineeringCoordinationAction(toolContext, action.tool_name, args)
         : isDailySiteLogsTool(action.tool_name)
           ? await executePreparedDailySiteLogsAction(toolContext, action.tool_name, args)
-          : await executePreparedAction(toolContext, action.tool_name, args, action.id, action.preview);
+          : isFinancialSettlementTool(action.tool_name)
+            ? await executePreparedFinancialSettlementAction(toolContext, action.tool_name, args)
+            : await executePreparedAction(toolContext, action.tool_name, args, action.id, action.preview);
     } catch (error) {
       const normalized = safeError(error);
       await (auth.supabase as any).from("assistant_action_events").update({ status: "FAILED", error_summary: { code: normalized.code, message: normalized.message }, updated_at: now.toISOString() }).eq("id", action.id).eq("status", "CONFIRMED");
