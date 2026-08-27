@@ -17,7 +17,7 @@ import { ASSISTANT_TOOL_DEFINITIONS, assistantFunctionDeclarations } from "../sr
 import { companyAiProviderError, classifyCompanyAiProviderFailure } from "../src/server/ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../src/server/ai/companyAiTypes.ts";
 
-const EXPECTED_PHASE1C_TOOL_COUNT = 77;
+const EXPECTED_ASSISTANT_TOOL_COUNT = 87;
 
 async function captureGeminiRequest(request: Parameters<GoogleGenAI["models"]["generateContent"]>[0]) {
   const originalFetch = globalThis.fetch;
@@ -37,7 +37,7 @@ async function captureGeminiRequest(request: Parameters<GoogleGenAI["models"]["g
 }
 
 test("assistant schemas audit every declaration and use the Gemini parameters contract", () => {
-  assert.equal(ASSISTANT_TOOL_DEFINITIONS.length, EXPECTED_PHASE1C_TOOL_COUNT);
+  assert.equal(ASSISTANT_TOOL_DEFINITIONS.length, EXPECTED_ASSISTANT_TOOL_COUNT);
   const audit = assistantToolSchemaAudit(ASSISTANT_TOOL_DEFINITIONS);
   assert.equal(audit.declarationCount, ASSISTANT_TOOL_DEFINITIONS.length);
   const declarations = assistantFunctionDeclarations();
@@ -62,6 +62,10 @@ test("assistant schemas audit every declaration and use the Gemini parameters co
   const reviewSubmittal = declarations.find((declaration) => declaration.name === "prepare_review_submittal")!;
   assert.deepEqual(reviewSubmittal.parameters?.required, ["submittalId", "decision", "reviewComments"]);
   assert.deepEqual(reviewSubmittal.parameters?.properties?.decision?.enum, ["APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED"]);
+
+  const settlement = declarations.find((declaration) => declaration.name === "prepare_match_transaction_to_invoice")!;
+  assert.equal(settlement.parameters?.properties?.amount?.minimum, 0.01);
+  assert.equal(settlement.parameters?.properties?.amount?.maximum, 1_000_000_000);
 });
 
 test("unsupported schema fields fail with the declaration index and path instead of being cast away", () => {
@@ -161,11 +165,11 @@ test("provider request rejection diagnostics stay classified and secret-free", (
     assumeProviderError: true,
     model: ASSISTANT_PRIMARY_MODEL,
     stage: "assistant-primary",
-    diagnostics: { requestKind: "assistant", toolDeclarationCount: EXPECTED_PHASE1C_TOOL_COUNT },
+    diagnostics: { requestKind: "assistant", toolDeclarationCount: EXPECTED_ASSISTANT_TOOL_COUNT },
   });
   assert.equal(normalized?.code, "AI_REQUEST_REJECTED");
   assert.equal(normalized?.diagnostics?.httpStatus, 400);
-  assert.equal(normalized?.diagnostics?.toolDeclarationCount, EXPECTED_PHASE1C_TOOL_COUNT);
+  assert.equal(normalized?.diagnostics?.toolDeclarationCount, EXPECTED_ASSISTANT_TOOL_COUNT);
   assert.doesNotMatch(normalized?.message || "", /secret-key|unsupported tool schema/i);
 });
 
