@@ -33,6 +33,13 @@ export interface SaveDailySiteLogInput {
 }
 
 function message(error: unknown, fallback: string) { return error instanceof Error && error.message.trim() ? error.message : fallback; }
+function persistenceUuid() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (token) => {
+    const random = Math.floor(Math.random() * 16);
+    return (token === "x" ? random : (random & 0x3) | 0x8).toString(16);
+  });
+}
 
 function mergeNewLog(current: DailySiteLogsWorkspaceData, created: DailySiteLogsWorkspaceData): DailySiteLogsWorkspaceData {
   return {
@@ -83,7 +90,7 @@ export function useDailySiteLogsController({ project, companyId, canRead, guestM
 
   const saveDraft = useCallback(async (input: SaveDailySiteLogInput) => {
     const existing = input.id ? data.logs.find((item) => item.id === input.id) : undefined;
-    const id = existing?.id || input.id || dailySiteLogId();
+    const id = existing?.id || input.id || (guestMode ? dailySiteLogId() : persistenceUuid());
     const shiftCode = input.shiftCode || existing?.shiftCode || "DAY";
     const sequenceNo = input.sequenceNo || existing?.sequenceNo || 1;
     if (!guestMode) {
@@ -120,7 +127,7 @@ export function useDailySiteLogsController({ project, companyId, canRead, guestM
   }, [companyId, data, guestMode, persistLocal, reload]);
 
   const amend = useCallback(async (log: DailySiteLog, amendmentText: string) => {
-    const amendmentId = dailySiteLogId("amendment");
+    const amendmentId = guestMode ? dailySiteLogId("amendment") : persistenceUuid();
     if (!guestMode) { await amendDailySiteLogRpc(log.id, amendmentId, amendmentText, companyId); await reload(); return; }
     persistLocal(appendDailySiteLogAmendment(data, log, amendmentText, { id: amendmentId, companyId }));
   }, [companyId, data, guestMode, persistLocal, reload]);
