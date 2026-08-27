@@ -1,0 +1,71 @@
+import React from "react";
+import type { IconRegistry } from "@astryxdesign/core/Icon";
+import {
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Calendar,
+  Check,
+  CheckCheck,
+  CheckCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Clock,
+  Columns,
+  Copy,
+  ExternalLink,
+  EyeOff,
+  Filter,
+  Info,
+  Menu,
+  Mic,
+  MoreHorizontal,
+  Search,
+  Square,
+  Wrench,
+  X,
+  XCircle,
+} from "lucide-react";
+
+const iconProps = {
+  size: "1em",
+  "aria-hidden": true as const,
+};
+
+export const engoryxIconRegistry: IconRegistry = {
+  close: React.createElement(X, iconProps),
+  chevronDown: React.createElement(ChevronDown, iconProps),
+  chevronLeft: React.createElement(ChevronLeft, iconProps),
+  chevronRight: React.createElement(ChevronRight, iconProps),
+  chevronsLeft: React.createElement(ChevronsLeft, iconProps),
+  chevronsRight: React.createElement(ChevronsRight, iconProps),
+  check: React.createElement(Check, iconProps),
+  success: React.createElement(CheckCircle, iconProps),
+  error: React.createElement(XCircle, iconProps),
+  warning: React.createElement(AlertTriangle, iconProps),
+  info: React.createElement(Info, iconProps),
+  calendar: React.createElement(Calendar, iconProps),
+  clock: React.createElement(Clock, iconProps),
+  externalLink: React.createElement(ExternalLink, iconProps),
+  menu: React.createElement(Menu, iconProps),
+  moreHorizontal: React.createElement(MoreHorizontal, iconProps),
+  search: React.createElement(Search, iconProps),
+  arrowUp: React.createElement(ArrowUp, iconProps),
+  arrowDown: React.createElement(ArrowDown, iconProps),
+  arrowsUpDown: React.createElement(ArrowUpDown, iconProps),
+  funnel: React.createElement(Filter, iconProps),
+  eyeSlash: React.createElement(EyeOff, iconProps),
+  viewColumns: React.createElement(Columns, iconProps),
+  copy: React.createElement(Copy, iconProps),
+  checkDouble: React.createElement(CheckCheck, iconProps),
+  wrench: React.createElement(Wrench, iconProps),
+  stop: React.createElement(Square, iconProps),
+  microphone: React.createElement(Mic, iconProps),
+};
+
+export default engoryxIconRegistry;
+
