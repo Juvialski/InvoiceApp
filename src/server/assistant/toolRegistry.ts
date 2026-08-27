@@ -7,6 +7,12 @@ import { boundToolResult, toolError } from "./toolResults.ts";
 import { validateToolArguments } from "./toolValidation.ts";
 import { requireCompanyPermissions, routePermission } from "./toolAuthorization.ts";
 import { executeRegisteredTool } from "./assistantToolExecutors.ts";
+import {
+  ENGINEERING_COORDINATION_TOOL_DEFINITIONS,
+  executeEngineeringCoordinationTool,
+  isEngineeringCoordinationTool,
+  validateEngineeringCoordinationToolArguments,
+} from "./engineeringCoordinationAssistant.ts";
 
 type JsonSchema = Record<string, unknown>;
 type PermissionResolver = string[] | ((args: Record<string, unknown>) => string[]);
@@ -90,6 +96,8 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   read("list_financial_transactions", "List company bank and e-wallet transactions with date, direction, and reconciliation filters.", ["cash.transactions.read"], { accountId: uuid, from: date, to: date, direction: { type: "string", enum: ["CREDIT", "DEBIT"] }, reconciliationStatus: { type: "string" }, limit }),
   read("get_cash_reconciliation_summary", "Return a reconciliation summary across financial accounts, matched transactions, and pending items.", ["cash.summary.read", "cash.transactions.read"], { accountId: uuid }),
 
+  ...ENGINEERING_COORDINATION_TOOL_DEFINITIONS,
+
   navigation("navigate_to", "Navigate to an allowlisted InvoiceApp route.", (args) => [routePermission(args.routeId)], { routeId: { type: "string", enum: ["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"] } }, ["routeId"]),
   navigation("navigate_to_project", "Open a company project in the app.", ["projects.read"], { projectId: uuid }, ["projectId"]),
   navigation("navigate_to_invoice", "Open a company invoice in the app.", ["invoices.read"], { invoiceId: uuid }, ["invoiceId"]),
@@ -136,19 +144,26 @@ function permissionsFor(definition: AssistantToolDefinition, args: Record<string
   return typeof definition.permissions === "function" ? definition.permissions(args) : definition.permissions;
 }
 
+export function validateAssistantToolArguments(name: string, rawArgs: unknown): Record<string, unknown> {
+  return isEngineeringCoordinationTool(name) ? validateEngineeringCoordinationToolArguments(name, rawArgs) : validateToolArguments(name, rawArgs);
+}
+
 export async function executeAssistantTool(name: string, rawArgs: unknown, context: AssistantToolContext): Promise<ToolExecutionResult> {
   const definition = getAssistantToolDefinition(name);
   if (!definition) return toolError("UNKNOWN_TOOL", "That operation is not available in InvoiceApp.");
   let args: Record<string, unknown>;
   try {
-    args = validateToolArguments(name, rawArgs);
+    args = validateAssistantToolArguments(name, rawArgs);
     await requireCompanyPermissions({ supabase: context.auth.supabase, companyId: context.auth.companyId, userId: context.auth.user.id, context: context.context }, permissionsFor(definition, args));
   } catch (error) {
     if (error instanceof AssistantBackendError) return toolError(error.code, error.message);
     return toolError("TOOL_VALIDATION_FAILED", "The operation arguments could not be validated.");
   }
   try {
-    return boundToolResult(await executeRegisteredTool(name, args, context));
+    const result = isEngineeringCoordinationTool(name)
+      ? await executeEngineeringCoordinationTool(name, args, context)
+      : await executeRegisteredTool(name, args, context);
+    return boundToolResult(result);
   } catch (error) {
     if (error instanceof AssistantBackendError) return toolError(error.code, error.message);
     return toolError("TOOL_FAILED", "The operation could not be completed safely.");

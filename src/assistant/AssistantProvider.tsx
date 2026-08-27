@@ -147,7 +147,7 @@ function routeIdForClientAction(action: AssistantClientAction) {
   if (action.type === "NAVIGATE") return action.routeId;
   if (action.type === "OPEN_INVOICE") return "invoices";
   if (action.type === "OPEN_REVIEW_INVOICE") return "review";
-  if (action.type === "OPEN_PROJECT") return "projects";
+  if (action.type === "OPEN_PROJECT" || action.type === "OPEN_RFI" || action.type === "OPEN_SUBMITTAL") return "projects";
   if (action.type === "OPEN_PAYROLL_PERIOD" || action.type === "OPEN_ATTENDANCE_DATE") return "payroll";
   return null;
 }
@@ -464,7 +464,7 @@ export function AssistantProvider({
         if (requestAbortRef.current === controller) requestAbortRef.current = null;
       }
     }
-  }, [canUseAssistant, companyId, permissions]);
+  }, [canUseAssistant, callbacks, companyId, permissions]);
 
   const cancelAction = useCallback(async (actionId: string) => {
     if (!canUseAssistant || !companyId) {
@@ -570,6 +570,9 @@ export function AssistantProvider({
       } else if (safeAction.type === "OPEN_PROJECT" && safeAction.entityId) {
         if (callbacks.onOpenProject) await callbacks.onOpenProject(safeAction.entityId, safeAction);
         else if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
+        else defaultNavigate(path);
+      } else if ((safeAction.type === "OPEN_RFI" || safeAction.type === "OPEN_SUBMITTAL") && safeAction.entityId && safeAction.projectId) {
+        if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
         else defaultNavigate(path);
       } else if (safeAction.type === "OPEN_REVIEW_INVOICE" && safeAction.entityId) {
         if (callbacks.onOpenReviewInvoice) await callbacks.onOpenReviewInvoice(safeAction.entityId, safeAction);

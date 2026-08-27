@@ -17,6 +17,8 @@ import { ASSISTANT_TOOL_DEFINITIONS, assistantFunctionDeclarations } from "../sr
 import { companyAiProviderError, classifyCompanyAiProviderFailure } from "../src/server/ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../src/server/ai/companyAiTypes.ts";
 
+const EXPECTED_PHASE1B_TOOL_COUNT = 69;
+
 async function captureGeminiRequest(request: Parameters<GoogleGenAI["models"]["generateContent"]>[0]) {
   const originalFetch = globalThis.fetch;
   let captured: Record<string, unknown> | undefined;
@@ -35,10 +37,11 @@ async function captureGeminiRequest(request: Parameters<GoogleGenAI["models"]["g
 }
 
 test("assistant schemas audit every declaration and use the Gemini parameters contract", () => {
+  assert.equal(ASSISTANT_TOOL_DEFINITIONS.length, EXPECTED_PHASE1B_TOOL_COUNT);
   const audit = assistantToolSchemaAudit(ASSISTANT_TOOL_DEFINITIONS);
-  assert.equal(audit.declarationCount, 56);
+  assert.equal(audit.declarationCount, ASSISTANT_TOOL_DEFINITIONS.length);
   const declarations = assistantFunctionDeclarations();
-  assert.equal(declarations.length, 56);
+  assert.equal(declarations.length, ASSISTANT_TOOL_DEFINITIONS.length);
   assert.ok(declarations.every((declaration) => declaration.parameters));
   assert.ok(declarations.every((declaration) => !("parametersJsonSchema" in declaration)));
   assert.doesNotMatch(JSON.stringify(declarations), /additionalProperties/);
@@ -55,6 +58,10 @@ test("assistant schemas audit every declaration and use the Gemini parameters co
   assert.equal(records?.maxItems, "50");
   assert.equal(records?.items?.type, Type.OBJECT);
   assert.deepEqual(records?.items?.required, ["workerId", "attendanceDate"]);
+
+  const reviewSubmittal = declarations.find((declaration) => declaration.name === "prepare_review_submittal")!;
+  assert.deepEqual(reviewSubmittal.parameters?.required, ["submittalId", "decision", "reviewComments"]);
+  assert.deepEqual(reviewSubmittal.parameters?.properties?.decision?.enum, ["APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED"]);
 });
 
 test("unsupported schema fields fail with the declaration index and path instead of being cast away", () => {
@@ -105,7 +112,7 @@ test("the SDK request uses typed parameters for minimal and full assistant probe
     config: { systemInstruction: "safe", tools: [{ functionDeclarations: assistantFunctionDeclarations() }], maxOutputTokens: 900 },
   });
   const declarations = (full.tools as any[])[0].functionDeclarations as Array<Record<string, unknown>>;
-  assert.equal(declarations.length, 56);
+  assert.equal(declarations.length, ASSISTANT_TOOL_DEFINITIONS.length);
   assert.ok(declarations.every((declaration) => declaration.parameters && !("parametersJsonSchema" in declaration)));
   assert.doesNotMatch(JSON.stringify(full), /additionalProperties/);
 });
@@ -154,11 +161,11 @@ test("provider request rejection diagnostics stay classified and secret-free", (
     assumeProviderError: true,
     model: ASSISTANT_PRIMARY_MODEL,
     stage: "assistant-primary",
-    diagnostics: { requestKind: "assistant", toolDeclarationCount: 56 },
+    diagnostics: { requestKind: "assistant", toolDeclarationCount: EXPECTED_PHASE1B_TOOL_COUNT },
   });
   assert.equal(normalized?.code, "AI_REQUEST_REJECTED");
   assert.equal(normalized?.diagnostics?.httpStatus, 400);
-  assert.equal(normalized?.diagnostics?.toolDeclarationCount, 56);
+  assert.equal(normalized?.diagnostics?.toolDeclarationCount, EXPECTED_PHASE1B_TOOL_COUNT);
   assert.doesNotMatch(normalized?.message || "", /secret-key|unsupported tool schema/i);
 });
 

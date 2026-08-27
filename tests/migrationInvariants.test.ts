@@ -22,7 +22,6 @@ test("migration naming and ordering safety: timestamps are valid, unique, and st
     timestamps.push(timestamp);
   }
 
-  // Check unique timestamps (no collision)
   const uniqueTimestamps = new Set(timestamps);
   assert.equal(
     uniqueTimestamps.size,
@@ -30,7 +29,6 @@ test("migration naming and ordering safety: timestamps are valid, unique, and st
     `Found duplicate migration timestamps among migration files!`
   );
 
-  // Check strictly monotonically increasing order
   const sortedFiles = [...files].sort();
   for (let i = 0; i < files.length; i++) {
     assert.equal(
@@ -85,11 +83,8 @@ test("migration invariant: company_audit_events allowlist only ever grows across
   );
 });
 
-test("migration invariant: latest migration contains the authoritative superset of all 39 audit event types", () => {
+test("migration invariant: latest migration contains the authoritative superset of all 51 audit event types", () => {
   const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
-  const latestFile = files[files.length - 1]; // or the latest file that defines the constraint
-  
-  // Find the most recent migration defining the constraint
   let latestConstraintMigration = "";
   let latestAllowlist: string[] = [];
 
@@ -129,6 +124,11 @@ test("migration invariant: latest migration contains the authoritative superset 
     "Engineering Documents": [
       "ENGINEERING_DOCUMENT_CREATED", "ENGINEERING_DOCUMENT_UPDATED", "ENGINEERING_DOCUMENT_ARCHIVED",
       "ENGINEERING_REVISION_UPLOADED", "ENGINEERING_ANNOTATION_SAVED", "ENGINEERING_ANNOTATION_DELETED"
+    ],
+    "Engineering Coordination (Phase 1B)": [
+      "ENGINEERING_RFI_CREATED", "ENGINEERING_RFI_OPENED", "ENGINEERING_RFI_RESPONDED", "ENGINEERING_RFI_CLOSED", "ENGINEERING_RFI_VOIDED",
+      "ENGINEERING_SUBMITTAL_CREATED", "ENGINEERING_SUBMITTAL_SUBMITTED", "ENGINEERING_SUBMITTAL_REVIEW_STARTED", "ENGINEERING_SUBMITTAL_REVIEWED",
+      "ENGINEERING_SUBMITTAL_RESUBMITTED", "ENGINEERING_SUBMITTAL_CLOSED", "ENGINEERING_SUBMITTAL_VOIDED"
     ]
   };
 
@@ -143,6 +143,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 39, "Authoritative set must comprise exactly 39 events");
-  assert.equal(latestSet.size, 39, `Latest allowlist has ${latestSet.size} unique events, expected 39`);
+  assert.equal(totalExpected, 51, "Authoritative set must comprise exactly 51 events through Phase 1B");
+  assert.equal(latestSet.size, 51, `Latest allowlist has ${latestSet.size} unique events, expected 51`);
 });

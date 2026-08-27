@@ -1,4 +1,5 @@
 import type { CashBankingWorkspaceData } from "../lib/cashBanking.ts";
+import type { EngineeringCoordinationWorkspaceData } from "../lib/engineeringCoordination.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../lib/engineeringDocuments.ts";
 import type { PayrollWorkspaceData } from "../lib/payroll.ts";
 import type { Expense, InvoiceData, InvoiceProjectAllocation, Project } from "../types.ts";
@@ -36,6 +37,7 @@ export interface DemoWorkspaceData {
   cash: CashBankingWorkspaceData;
   payroll: PayrollWorkspaceData;
   engineering: EngineeringDocumentsWorkspaceData;
+  coordination: EngineeringCoordinationWorkspaceData;
 }
 
 export type DemoAssistantActionKind = "ADD_WORKER";
