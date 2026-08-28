@@ -125,24 +125,26 @@ values
   ((select period_calculated from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), date '2026-02-16', date '2026-02-28', 'CALCULATED', null),
   ((select period_void from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), date '2026-03-01', date '2026-03-15', 'VOID', null);
 
+-- Production requires all payroll runs to begin in DRAFT. Seed the rows through
+-- the real lifecycle rather than bypassing the transition guard in this fixture.
 insert into public.payroll_runs (id, user_id, company_id, period_id, status)
 values
-  ((select run_approved from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_approved from project_labor_test_ids), 'APPROVED'),
-  ((select run_paid from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_paid from project_labor_test_ids), 'PAID'),
+  ((select run_approved from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_approved from project_labor_test_ids), 'DRAFT'),
+  ((select run_paid from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_paid from project_labor_test_ids), 'DRAFT'),
   ((select run_draft from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_draft from project_labor_test_ids), 'DRAFT'),
-  ((select run_calculated from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_calculated from project_labor_test_ids), 'CALCULATED'),
-  ((select run_void from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_void from project_labor_test_ids), 'VOID');
+  ((select run_calculated from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_calculated from project_labor_test_ids), 'DRAFT'),
+  ((select run_void from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select period_void from project_labor_test_ids), 'DRAFT');
 
-insert into public.payroll_entries (id, user_id, company_id, payroll_run_id, worker_id, gross_pay, net_pay, project_allocated_cost, cost_context)
+insert into public.payroll_entries (id, user_id, company_id, payroll_run_id, worker_id, gross_pay, net_pay, project_allocated_cost, calculation_snapshot, cost_context)
 values
-  ((select entry_approved from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_id from project_labor_test_ids), 100, 70, 100, '{}'::jsonb),
-  ((select entry_paid from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_paid from project_labor_test_ids), (select worker_two from project_labor_test_ids), 50, 30, 50, '{}'::jsonb),
-  ((select entry_draft from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_draft from project_labor_test_ids), (select worker_id from project_labor_test_ids), 25, 20, 25, '{}'::jsonb),
-  ((select entry_calculated from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_calculated from project_labor_test_ids), (select worker_two from project_labor_test_ids), 10, 8, 10, '{}'::jsonb),
-  ((select entry_void from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_void from project_labor_test_ids), (select worker_id from project_labor_test_ids), 999, 900, 999, '{}'::jsonb),
-  ((select entry_overhead from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_two from project_labor_test_ids), 500, 400, 500, '{"type":"ADMIN_OFFICE"}'::jsonb),
-  ((select entry_zero from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_id from project_labor_test_ids), 0, 0, 0, '{}'::jsonb),
-  ((select entry_usd from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_two from project_labor_test_ids), 20, 15, 20, '{}'::jsonb);
+  ((select entry_approved from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_id from project_labor_test_ids), 100, 70, 100, '{"fixture":true}'::jsonb, '{}'::jsonb),
+  ((select entry_paid from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_paid from project_labor_test_ids), (select worker_two from project_labor_test_ids), 50, 30, 50, '{"fixture":true}'::jsonb, '{}'::jsonb),
+  ((select entry_draft from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_draft from project_labor_test_ids), (select worker_id from project_labor_test_ids), 25, 20, 25, '{"fixture":true}'::jsonb, '{}'::jsonb),
+  ((select entry_calculated from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_calculated from project_labor_test_ids), (select worker_two from project_labor_test_ids), 10, 8, 10, '{"fixture":true}'::jsonb, '{}'::jsonb),
+  ((select entry_void from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_void from project_labor_test_ids), (select worker_id from project_labor_test_ids), 999, 900, 999, '{"fixture":true}'::jsonb, '{}'::jsonb),
+  ((select entry_overhead from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_two from project_labor_test_ids), 500, 400, 500, '{"fixture":true}'::jsonb, '{"type":"ADMIN_OFFICE"}'::jsonb),
+  ((select entry_zero from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_id from project_labor_test_ids), 0, 0, 0, '{"fixture":true}'::jsonb, '{}'::jsonb),
+  ((select entry_usd from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_two from project_labor_test_ids), 20, 15, 20, '{"fixture":true}'::jsonb, '{}'::jsonb);
 
 insert into public.payroll_project_allocations (id, user_id, company_id, payroll_entry_id, project_id, allocation_amount, allocation_percentage, source)
 values
@@ -154,6 +156,26 @@ values
   (gen_random_uuid(), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select entry_overhead from project_labor_test_ids), (select project_main from project_labor_test_ids), 500, 100, 'MANUAL'),
   (gen_random_uuid(), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select entry_zero from project_labor_test_ids), (select project_zero from project_labor_test_ids), 0, 100, 'MANUAL'),
   (gen_random_uuid(), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select entry_usd from project_labor_test_ids), (select project_usd from project_labor_test_ids), 20, 100, 'MANUAL');
+
+update public.payroll_runs
+set status = 'CALCULATED'
+where id in (
+  (select run_approved from project_labor_test_ids),
+  (select run_paid from project_labor_test_ids),
+  (select run_calculated from project_labor_test_ids)
+);
+update public.payroll_runs
+set status = 'APPROVED'
+where id in (
+  (select run_approved from project_labor_test_ids),
+  (select run_paid from project_labor_test_ids)
+);
+update public.payroll_runs
+set status = 'PAID'
+where id = (select run_paid from project_labor_test_ids);
+update public.payroll_runs
+set status = 'VOID'
+where id = (select run_void from project_labor_test_ids);
 
 -- Finance can read the aggregate but cannot read payroll detail rows.
 set local role authenticated;
