@@ -20,6 +20,7 @@ const projectWorkspace = readFileSync(new URL("../src/components/projects/Projec
 const projectOverview = readFileSync(new URL("../src/components/projects/ProjectOverview.tsx", import.meta.url), "utf8");
 const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");
 const settlementCard = readFileSync(new URL("../src/components/FinancialSettlementCard.tsx", import.meta.url), "utf8");
+const assistantMessage = readFileSync(new URL("../src/assistant/AssistantMessage.tsx", import.meta.url), "utf8");
 const companyAccess = readFileSync(new URL("../src/context/CompanyAccessContext.tsx", import.meta.url), "utf8");
 
 const COMPANY_ADMIN = new Set<PermissionKey>(Object.values(PERMISSION_KEYS) as PermissionKey[]);
@@ -115,13 +116,15 @@ test("route authorization is canonical for Assistant navigation and supports alt
   assert.equal(canAccessAppTab("payroll", VIEWER), false);
 });
 
-test("Assistant entity navigation cannot bypass the real payroll route permission", () => {
+test("Assistant entity navigation cannot bypass or visibly advertise a forbidden route", () => {
   const payrollPeriod = sanitizeAssistantClientAction({ type: "OPEN_PAYROLL_PERIOD", entityId: "period-1", label: "Open payroll" });
   assert.ok(payrollPeriod);
   assert.equal(isAssistantActionAllowed(payrollPeriod, FINANCE), false);
   assert.equal(isAssistantActionAllowed(payrollPeriod, VIEWER), false);
   assert.equal(isAssistantActionAllowed(payrollPeriod, PAYROLL), true);
   assert.equal(sanitizeAssistantClientAction({ type: "NAVIGATE", routeId: "unknown-route" }), null);
+  assert.match(assistantMessage, /message\.clientActions\.filter\(\(action\) => isAssistantActionAllowed\(action, permissions\)\)/);
+  assert.match(assistantMessage, /visibleClientActions\.map/);
 });
 
 test("Assistant project cost summary fails closed when any contributing source is unreadable", async () => {
