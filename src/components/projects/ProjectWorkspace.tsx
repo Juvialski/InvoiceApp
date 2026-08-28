@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart3, ClipboardCheck, ClipboardList, Compass, FileQuestion, FileText, HardHat, Receipt, Users } from "lucide-react";
+import { AlertTriangle, BarChart3, ClipboardCheck, ClipboardList, Compass, FileQuestion, FileText, HardHat, Receipt, Users } from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type {
@@ -23,6 +23,8 @@ import { ProjectSiteLogs } from "../engineering/ProjectSiteLogs";
 import { useEngineeringCoordinationAccess } from "../../features/engineering/useEngineeringCoordinationAccess";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
+import { hasAnyPermission, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import { useAppPermissions } from "../../app/AppPermissionContext.tsx";
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 
 export type WorkspaceTab = "overview" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
@@ -138,8 +140,23 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onOpenPayroll,
   onSaveInvoiceAllocations,
 }) => {
+  const permissions = useAppPermissions();
+  const canManageProject = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
+  const canReadInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesRead);
+  const canExtractInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesExtract);
+  const canReadPayroll = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
+  const canReadExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesRead);
+  const canManageExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesWrite);
+  const canReadWorkers = hasPermission(permissions, PERMISSION_KEYS.workersRead);
+  const canReadReports = hasAnyPermission(permissions, [PERMISSION_KEYS.reportsRead, PERMISSION_KEYS.reportsPayrollRead]);
+  const costDataComplete = canReadInvoices && canReadPayroll && canReadExpenses;
+  const hiddenCostSources = [
+    !canReadInvoices ? "supplier invoices" : null,
+    !canReadPayroll ? "payroll detail" : null,
+    !canReadExpenses ? "direct expenses" : null,
+  ].filter((value): value is string => Boolean(value));
+
   const [tab, setTab] = useState<WorkspaceTab>(initialTab);
-  useEffect(() => setTab(initialTab), [initialTab, project.id]);
   const coordinationAccess = useEngineeringCoordinationAccess(companyId, engineeringDocumentsGuestMode);
   const phase1bAccess = {
     rfisRead: engineeringRfisCanRead ?? coordinationAccess.rfisRead,
@@ -152,7 +169,30 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     submittalsManage: engineeringSubmittalsCanManage ?? coordinationAccess.submittalsManage,
   };
 
+  const tabs: Array<[WorkspaceTab, string, React.ElementType]> = [
+    ["overview", "Overview", BarChart3],
+    ["documents", "Documents", Compass],
+    ["rfis", "RFIs", FileQuestion],
+    ["submittals", "Submittals", ClipboardCheck],
+    ["site-logs", "Site Logs", ClipboardList],
+    ...(canReadInvoices ? [["invoices", "Invoices", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadPayroll ? [["payroll", "Payroll", HardHat] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadExpenses ? [["expenses", "Expenses", Receipt] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadWorkers ? [["people", "People", Users] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadReports ? [["reports", "Reports", BarChart3] as [WorkspaceTab, string, React.ElementType]] : []),
+  ];
+  const visibleTabIds = useMemo(() => new Set(tabs.map(([id]) => id)), [canReadExpenses, canReadInvoices, canReadPayroll, canReadReports, canReadWorkers]);
+
+  useEffect(() => {
+    if (visibleTabIds.has(initialTab)) setTab(initialTab);
+    else {
+      setTab("overview");
+      onTabChange?.("overview");
+    }
+  }, [initialTab, onTabChange, project.id, visibleTabIds]);
+
   const selectTab = (next: WorkspaceTab) => {
+    if (!visibleTabIds.has(next)) return;
     setTab(next);
     onTabChange?.(next);
   };
@@ -160,19 +200,6 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const projectExpenses = useMemo(() => expenses.filter((expense) => expense.projectId === project.id), [expenses, project.id]);
   const projectAssignments = assignments.filter((assignment) => assignment.projectId === project.id && assignment.active);
   const projectPayroll = payrollAllocations.filter((allocation) => allocation.projectId === project.id);
-
-  const tabs: Array<[WorkspaceTab, string, React.ElementType]> = [
-    ["overview", "Overview", BarChart3],
-    ["documents", "Documents", Compass],
-    ["rfis", "RFIs", FileQuestion],
-    ["submittals", "Submittals", ClipboardCheck],
-    ["site-logs", "Site Logs", ClipboardList],
-    ["invoices", "Invoices", FileText],
-    ["payroll", "Payroll", HardHat],
-    ["expenses", "Expenses", Receipt],
-    ["people", "People", Users],
-    ["reports", "Reports", BarChart3],
-  ];
 
   return (
     <div className="space-y-5">
@@ -184,11 +211,18 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           <>
             <Button variant="secondary" label="← Projects" onClick={onBack} />
             <StatusBadge tone={projectStatusTone(project.status)}>{project.status.replaceAll("_", " ")}</StatusBadge>
-            <Button variant="secondary" label="Edit" onClick={onEditProject} />
-            {project.status !== "ARCHIVED" && <Button variant="destructive" label="Archive" onClick={onArchiveProject} />}
+            {canManageProject && <Button variant="secondary" label="Edit" onClick={onEditProject} />}
+            {canManageProject && project.status !== "ARCHIVED" && <Button variant="destructive" label="Archive" onClick={onArchiveProject} />}
           </>
         )}
       />
+
+      {!costDataComplete && (
+        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-5 text-amber-950">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <div><strong>Partial cost visibility.</strong> Financial totals on this project are based only on data your role can read and exclude {hiddenCostSources.join(", ")}. They must not be treated as the complete company cost position.</div>
+        </div>
+      )}
 
       <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1" aria-label="Project workspace sections">
         {tabs.map(([id, tabLabel, Icon]) => (
@@ -288,22 +322,22 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         )
       )}
 
-      {tab === "invoices" && (
+      {tab === "invoices" && canReadInvoices && (
         <ProjectInvoices
           project={project}
           invoices={invoices}
           allocations={invoiceAllocations}
           onOpenInvoice={onOpenInvoice}
-          onUploadInvoice={onUploadInvoice}
-          onSaveAllocations={onSaveInvoiceAllocations}
+          onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined}
+          onSaveAllocations={canManageProject ? onSaveInvoiceAllocations : undefined}
         />
       )}
 
-      {tab === "expenses" && (
-        <ProjectExpenses projectId={project.id} currency={project.currency} expenses={projectExpenses} onAdd={onAddExpense} />
+      {tab === "expenses" && canReadExpenses && (
+        <ProjectExpenses projectId={project.id} currency={project.currency} expenses={projectExpenses} onAdd={canManageExpenses ? onAddExpense : undefined} />
       )}
 
-      {tab === "payroll" && (
+      {tab === "payroll" && canReadPayroll && (
         <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
           <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5">
             <div>
@@ -336,7 +370,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         </Card>
       )}
 
-      {tab === "people" && (
+      {tab === "people" && canReadWorkers && (
         <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
           <div className="border-b border-slate-100 p-5">
             <h3 className="text-sm font-black">Project people</h3>
@@ -367,17 +401,18 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         </Card>
       )}
 
-      {tab === "reports" && (
+      {tab === "reports" && canReadReports && (
         <section className="grid gap-4 md:grid-cols-2">
           <Card className="p-5 shadow-sm" elevation="low">
-            <h3 className="text-sm font-black">Project cost summary</h3>
+            <h3 className="text-sm font-black">{costDataComplete ? "Project cost summary" : "Visible project cost summary"}</h3>
+            {!costDataComplete && <p className="mt-1 text-[10px] leading-4 text-amber-700">This report excludes cost sources your role cannot read.</p>}
             <div className="mt-4 space-y-3">
               {[
                 ["Invoice cost", summary.invoiceCost],
                 ["Payroll cost", summary.payrollCost],
                 ["Other expenses", summary.otherExpenseCost],
-                ["Actual cost", summary.totalActualCost],
-                ["Remaining budget", summary.remainingBudget],
+                [costDataComplete ? "Actual cost" : "Visible actual cost", summary.totalActualCost],
+                [costDataComplete ? "Remaining budget" : "Visible-data budget balance", summary.remainingBudget],
               ].map(([itemLabel, value]) => (
                 <div key={String(itemLabel)} className="flex items-center justify-between gap-3 text-xs">
                   <span className="font-semibold text-slate-600">{itemLabel}</span>
