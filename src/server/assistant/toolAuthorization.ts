@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AssistantContext } from "../../assistant/assistantTypes.ts";
+import { PERMISSION_KEYS, permissionOptionsForAppTab } from "../../utils/accessControl.ts";
+import { getRouteDefinition } from "../../utils/routes.ts";
 import { AssistantBackendError } from "./assistantBackendTypes.ts";
 
 export interface ToolAuthorizationContext {
@@ -18,30 +20,33 @@ export async function hasCompanyPermission(supabase: SupabaseClient, companyId: 
   return data === true;
 }
 
+async function hasPermissionRequirement(context: ToolAuthorizationContext, requirement: string): Promise<boolean> {
+  const options = [...new Set(requirement.split("|").map((value) => value.trim()).filter(Boolean))];
+  if (!options.length) return true;
+  for (const permission of options) {
+    if (await hasCompanyPermission(context.supabase, context.companyId, permission)) return true;
+  }
+  return false;
+}
+
+/**
+ * Each array item is an all-of requirement. Within one item, `a|b` means any
+ * one of the listed permissions may authorize that requirement. This keeps
+ * route alternatives aligned without weakening multi-permission tool checks.
+ */
 export async function requireCompanyPermissions(context: ToolAuthorizationContext, permissions: readonly string[]) {
   const unique = [...new Set(permissions.filter(Boolean))];
-  for (const permission of unique) {
-    if (!(await hasCompanyPermission(context.supabase, context.companyId, permission))) {
-      throw new AssistantBackendError("FORBIDDEN", "You do not have permission for that workspace operation.", 403, { permission });
+  for (const requirement of unique) {
+    if (!(await hasPermissionRequirement(context, requirement))) {
+      throw new AssistantBackendError("FORBIDDEN", "You do not have permission for that workspace operation.", 403, { permission: requirement });
     }
   }
 }
 
-const ROUTE_PERMISSIONS: Record<string, string> = {
-  dashboard: "dashboard.read",
-  cash: "cash.summary.read",
-  projects: "projects.read",
-  extract: "invoices.read",
-  invoices: "invoices.read",
-  payroll: "payroll.summary.read",
-  expenses: "expenses.read",
-  vendors: "vendors.read",
-  reports: "reports.financial.read",
-  inbox: "gmail.read",
-  review: "invoices.read",
-  settings: "company.settings.read",
-};
-
-export function routePermission(routeId: unknown) {
-  return typeof routeId === "string" ? ROUTE_PERMISSIONS[routeId] || "dashboard.read" : "dashboard.read";
+export function routePermission(routeId: unknown): string {
+  if (typeof routeId !== "string") return PERMISSION_KEYS.dashboardView;
+  const route = getRouteDefinition(routeId);
+  if (!route) return PERMISSION_KEYS.dashboardView;
+  const options = permissionOptionsForAppTab(route.appTab);
+  return options.length ? options.join("|") : PERMISSION_KEYS.dashboardView;
 }
