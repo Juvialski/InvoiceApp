@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AssistantContext } from "../../assistant/assistantTypes.ts";
-import { permissionOptionsForAppTab } from "../../utils/accessControl.ts";
+import { PERMISSION_KEYS, permissionOptionsForAppTab } from "../../utils/accessControl.ts";
 import { getRouteDefinition } from "../../utils/routes.ts";
 import { AssistantBackendError } from "./assistantBackendTypes.ts";
 
@@ -9,6 +9,31 @@ export interface ToolAuthorizationContext {
   companyId: string;
   userId: string;
   context: AssistantContext;
+}
+
+const PROJECT_COST_ASSISTANT_BASE_REQUIREMENTS = Object.freeze([
+  PERMISSION_KEYS.projectsRead,
+  PERMISSION_KEYS.reportsRead,
+] as const);
+
+/**
+ * `get_project_cost_summary` currently reads invoice, expense, and payroll
+ * allocation tables directly. Until a cost-only labor aggregate RPC exists,
+ * fail closed unless the caller can read every contributing source domain.
+ * This prevents RLS-filtered empty arrays from being reported as real zeroes
+ * without granting Finance/Viewer individual payroll-detail access.
+ */
+function integrityRequirements(permissions: readonly string[]): string[] {
+  const unique = [...new Set(permissions.filter(Boolean))];
+  const isProjectCostSummary = unique.length === PROJECT_COST_ASSISTANT_BASE_REQUIREMENTS.length
+    && PROJECT_COST_ASSISTANT_BASE_REQUIREMENTS.every((permission) => unique.includes(permission));
+  if (!isProjectCostSummary) return unique;
+  return [...new Set([
+    ...unique,
+    PERMISSION_KEYS.invoicesRead,
+    PERMISSION_KEYS.expensesRead,
+    PERMISSION_KEYS.payrollSensitiveRead,
+  ])];
 }
 
 export async function hasCompanyPermission(supabase: SupabaseClient, companyId: string, permission: string): Promise<boolean> {
@@ -35,7 +60,7 @@ async function hasPermissionRequirement(context: ToolAuthorizationContext, requi
  * route alternatives aligned without weakening multi-permission tool checks.
  */
 export async function requireCompanyPermissions(context: ToolAuthorizationContext, permissions: readonly string[]) {
-  const unique = [...new Set(permissions.filter(Boolean))];
+  const unique = integrityRequirements(permissions);
   for (const requirement of unique) {
     if (!(await hasPermissionRequirement(context, requirement))) {
       throw new AssistantBackendError("FORBIDDEN", "You do not have permission for that workspace operation.", 403, { permission: requirement });
