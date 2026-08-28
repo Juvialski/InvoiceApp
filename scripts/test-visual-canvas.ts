@@ -1,6 +1,5 @@
 import { createRequire } from "node:module";
-import { spawn, type ChildProcess } from "node:child_process";
-import net from "node:net";
+import type { ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { DEMO_QA_SCENARIOS } from "./qa/demoScenarios.ts";
@@ -9,11 +8,12 @@ import {
   createQaManifest,
   createScenarioEvidence,
 } from "./qa/structuredEvidence.ts";
+import {
+  startDevServer,
+  terminateChildServer,
+} from "./qa/devServerLifecycle.ts";
 
-// Playwright remains an optional QA-only dependency, matching the existing demo QA lane.
-// Resolve it at runtime so normal TypeScript validation does not require it to be installed.
 const require = createRequire(import.meta.url);
-const { chromium } = require("playwright");
 
 const BASE_URL = "http://localhost:3000";
 const OUTPUT_DIR = path.resolve("artifacts/workflow-canvas-qa");
@@ -114,108 +114,6 @@ async function prepareFixtures() {
   await fs.writeFile(path.join(FIXTURES_DIR, "partial-manifest.json"), JSON.stringify(partialManifest, null, 2), "utf8");
 }
 
-async function isPortInUse(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.once("error", (err: any) => {
-      if (err.code === "EADDRINUSE") resolve(true);
-      else resolve(false);
-    });
-    server.once("listening", () => {
-      server.once("close", () => resolve(false)).close();
-    });
-    server.listen(port);
-  });
-}
-
-async function isServerReady(url: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${url}/workflow-map`);
-    return res.status === 200;
-  } catch {
-    return false;
-  }
-}
-
-async function startDevServer(): Promise<ChildProcess> {
-  // Safety rule: Do not silently reuse an existing server on port 3000
-  const portUsed = await isPortInUse(3000);
-  const serverResponding = await isServerReady(BASE_URL);
-  if (portUsed || serverResponding) {
-    throw new Error(
-      `Port 3000 is already occupied before test run. To prevent testing against stale code or terminating unrelated processes, please stop the existing process on port 3000 before running visual QA.`
-    );
-  }
-
-  console.log(`[Dev Server] Spawning clean server on ${BASE_URL}...`);
-  const isWin = process.platform === "win32";
-  const cmd = isWin ? "npx.cmd" : "npx";
-  const child = spawn(cmd, ["tsx", "server.ts"], {
-    stdio: "ignore",
-    detached: false,
-    shell: isWin,
-    env: { ...process.env, PORT: "3000" },
-  });
-
-  const startTime = Date.now();
-  while (Date.now() - startTime < 30000) {
-    await new Promise((r) => setTimeout(r, 600));
-    if (await isServerReady(BASE_URL)) {
-      console.log(`[Dev Server] Server started successfully and ready at ${BASE_URL}`);
-      return child;
-    }
-  }
-
-  await terminateChildServer(child);
-  throw new Error(`Timeout waiting for dev server to start at ${BASE_URL}`);
-}
-
-async function terminateChildServer(child: ChildProcess | null): Promise<void> {
-  if (!child || !child.pid) return;
-
-  console.log(`[Dev Server] Terminating owned dev server (PID: ${child.pid})...`);
-  const isWin = process.platform === "win32";
-
-  if (isWin) {
-    await new Promise<void>((resolve) => {
-      const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
-      killer.on("close", () => resolve());
-      killer.on("error", () => resolve());
-    });
-  } else {
-    try {
-      child.kill("SIGTERM");
-      let exited = false;
-      const start = Date.now();
-      while (Date.now() - start < 3000) {
-        try {
-          // Check if process still exists
-          process.kill(child.pid, 0);
-          await new Promise((r) => setTimeout(r, 200));
-        } catch {
-          exited = true;
-          break;
-        }
-      }
-      if (!exited) {
-        child.kill("SIGKILL");
-      }
-    } catch {}
-  }
-
-  // Bounded polling loop to guarantee port 3000 is completely released
-  const releaseStart = Date.now();
-  while (Date.now() - releaseStart < 5000) {
-    const portBusy = await isPortInUse(3000);
-    const serverActive = await isServerReady(BASE_URL);
-    if (!portBusy && !serverActive) {
-      console.log("[Dev Server] Verified port 3000 is completely freed.");
-      return;
-    }
-    await new Promise((r) => setTimeout(r, 200));
-  }
-}
-
 async function runVisualValidation() {
   await prepareFixtures();
 
@@ -234,13 +132,16 @@ async function runVisualValidation() {
   process.on("SIGTERM", () => handleSignal("SIGTERM"));
 
   try {
-    serverProcess = await startDevServer();
+    serverProcess = await startDevServer({ port: 3000, baseUrl: BASE_URL, startupPath: "/workflow-map" });
 
     // Controlled failure mode support for automated cleanup proof
     if (process.argv.includes("--test-controlled-failure")) {
       console.log("[Proof Mode] Triggering controlled failure after starting dev server...");
       throw new Error("Controlled test-only failure triggered for cleanup proof");
     }
+
+    // Playwright is resolved dynamically only when browser testing executes
+    const { chromium } = require("playwright");
 
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext();
@@ -431,7 +332,7 @@ async function runVisualValidation() {
       await browser.close().catch(() => {});
     }
     if (serverProcess) {
-      await terminateChildServer(serverProcess);
+      await terminateChildServer(serverProcess, { port: 3000, baseUrl: BASE_URL, startupPath: "/workflow-map" });
     }
   }
 
