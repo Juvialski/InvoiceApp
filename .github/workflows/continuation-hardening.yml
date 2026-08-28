@@ -1,0 +1,71 @@
+name: Continuation hardening validation
+
+on:
+  push:
+    branches:
+      - refactor/single-company-deployment
+
+permissions:
+  contents: read
+
+jobs:
+  app-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Workflow map check
+        run: npm run workflow-map:check
+      - name: Workflow map consistency
+        run: npm run workflow-map:consistency
+      - name: Workflow map tests
+        run: npm run test:workflow-map
+      - name: Full tests
+        run: npm test
+      - name: TypeScript lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start preview
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/engoryx-preview.log 2>&1 &
+          echo $! > /tmp/engoryx-preview.pid
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/demo >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/engoryx-preview.log
+          exit 1
+      - name: Demo QA
+        env:
+          BASE_URL: http://127.0.0.1:4173
+        run: npm run qa:demo
+
+  migration-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.76.8
+      - run: npm ci
+      - name: Start local Supabase
+        run: supabase db start
+      - name: Reset migration chain
+        run: supabase db reset
+      - name: Migration tests
+        run: npm run test:migrations
+      - name: Upgrade-path tests
+        run: npm run test:migrations:upgrade
