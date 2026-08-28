@@ -19,7 +19,17 @@ jobs:
           node-version: 22
           cache: npm
       - name: Apply reconstructed continuation patch
-        run: python3 scripts/continuation-hardening-patch.py
+        run: |
+          if ! python3 scripts/continuation-hardening-patch.py > /tmp/continuation-patch.log 2>&1; then
+            cp /tmp/continuation-patch.log continuation-patch-error.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add continuation-patch-error.txt
+            git commit -m "chore: capture continuation patch failure [skip ci]"
+            git push
+            cat /tmp/continuation-patch.log
+            exit 1
+          fi
       - name: Install and refresh lockfile
         run: npm install
       - name: Regenerate workflow map
