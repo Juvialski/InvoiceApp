@@ -1,90 +1,110 @@
-# Company tenancy and database RBAC
+# Company boundary and database RBAC
 
-The database security workstream moves business-data authorization from `user_id` ownership to:
+## Deployment tenancy model
 
-`company_id` + active company membership + company permission.
+One deployed Engoryx instance serves exactly one client company.
 
-`user_id` remains in existing domain rows for actor/legacy lineage and compatibility. It is not used as the tenant read boundary. `profiles` remains user identity data.
+Different client companies use separate application deployments, separate Supabase projects/databases, separate Storage, separate environment/secrets, and separate user populations. A client deployment has no product workflow for selecting or switching among unrelated companies.
 
-## Ordered migrations
+Within that deployment, authorization remains:
 
-The migrations are intentionally additive and ordered:
+`deployment company_id` + active company membership + company permission.
 
-1. `20260824090000_company_tenancy_rbac_foundation.sql` creates companies, memberships, invitations, role/permission catalogs, platform-admin tables, private authorization helpers, and the seeded `al.matubis17@gmail.com` allowlist.
-2. `20260824091000_company_tenancy_backfill.sql` captures preservation baselines, adds `company_id` to every persisted tenant table, creates one deterministic legacy company per persisted owner, creates a `COMPANY_ADMIN` membership, backfills company ownership, enforces non-null/FK ownership, and replaces user-scoped unique indexes.
-3. `20260824092000_company_tenancy_integrity.sql` adds company-boundary transition triggers, same-company relationship checks, company-scoped payroll schedule uniqueness, and preserves payroll/invoice immutability guards.
-4. `20260824093000_company_tenancy_rls_and_admin_rpcs.sql` replaces user-only RLS with permission policies and adds audited platform/invitation RPCs.
-5. `20260824094000_company_tenancy_rpc_rewrites.sql` makes invoice allocation and payroll import/rebuild RPCs company-scoped.
-6. `20260824095000_company_tenancy_storage_and_verification.sql` adds company-path Storage policies, legacy read compatibility, Realtime publication coverage, and `verify_company_tenancy()`.
-7. `20260824100000_company_tenancy_security_contract.sql` exposes the lead/server contract names and reasserts final public-schema grants/policies.
-8. `20260824101000_company_tenancy_sql_corrections.sql` hardens Storage RLS and corrects invitation claiming's conflict-update alias.
-9. `20260824102000_company_tenancy_final_grants.sql` reasserts the narrow RPC grants and revokes.
+`company_id` remains on operational rows and Storage paths as a defense-in-depth boundary. This preserves explicit RLS scoping, auditability, backup/restore clarity, migration compatibility, and protection against accidental cross-company identifiers without requiring a destructive schema rewrite.
 
-No migration in this workstream deletes tenant rows or Storage objects. The migration records numeric baselines for invoice totals, expenses, project budgets, finalized payroll counts/amounts, extraction/review history, source-document counts, and import-row counts. The verification RPC compares current values to those baselines.
+`user_id` remains on existing domain rows for actor/legacy lineage and compatibility. It is not the company read boundary. `profiles` remains user identity data.
 
-## Stable RPC contract
+## Deployment company source of truth
 
-All public RPCs are executable by `authenticated` only; `public`/`anon` execution is revoked. Security-definer functions use `set search_path = ''` and schema-qualified references.
+`20260828150000_single_company_deployment.sql` adds the singleton `public.deployment_configuration` table. Its `company_id` is the authoritative company identity for the Supabase project.
 
-Access/context:
+Upgrade behavior is deliberately fail closed:
 
-- `is_platform_admin()`
-- `is_active_company_member(company_id uuid)`
-- `has_company_permission(company_id uuid, permission_key text)`
-- `get_my_company_access()`
-- `bootstrap_platform_admin()`
-- `claim_company_invitations()`
+- if the configuration table is empty and exactly one ACTIVE company exists, the migration configures that company automatically;
+- if no active company exists, no arbitrary company is created or selected;
+- if multiple active companies exist, no row is selected and authenticated application bootstrap fails with an explicit ambiguous-deployment diagnostic;
+- client/model/request-supplied company IDs may confirm the configured company but cannot choose another one.
 
-Platform management:
+`public.get_deployment_company_id()` is the authenticated runtime resolver. `private.resolve_transition_company()` remains for backward-compatible persistence/RPC code, but it now resolves only the deployment company and rejects a mismatched `X-Company-Id` header.
 
-- `platform_create_company(name, company_code, default_currency, timezone)`
-- `platform_update_company(company_id, name, company_code, default_currency, timezone)`
-- `platform_suspend_company(company_id)`
-- `platform_archive_company(company_id)`
-- `platform_reactivate_company(company_id)`
-- `platform_invite_company_member(company_id, email, role_key, expires_at)`
-- `platform_update_company_member(membership_id, role_key, status)`
-- `platform_list_company_members(company_id)`
-- `platform_list_access_audit(company_id)`
+The browser compatibility module `src/lib/companyContext.ts` still exposes historical `activeCompanyId` function names because many repositories use them. Their meaning is now “resolved deployment company.” Replacing one non-null company with another non-null company at runtime throws instead of switching.
 
-The lower-level `create_company`, `update_company`, `suspend_company`, `archive_company`, `reactivate_company`, `invite_company_member`, and membership RPCs remain as implementation-compatible aliases. All platform mutations check `private.is_platform_admin()` internally. No RPC trusts a caller-supplied `user_id` or email as actor identity.
+## Ordered tenancy migrations
 
-## Roles
+The original tenancy migrations remain additive and data-preserving:
 
-The catalog seeds `COMPANY_ADMIN`, `FINANCE`, `PAYROLL`, and `VIEWER`. Platform ownership is separate and is not assignable as a company role.
+1. `20260824090000_company_tenancy_rbac_foundation.sql` creates companies, memberships, invitations, role/permission catalogs, platform-admin maintenance tables, and private authorization helpers.
+2. `20260824091000_company_tenancy_backfill.sql` captures preservation baselines, adds `company_id` to persisted company data, creates deterministic legacy companies/memberships, backfills ownership, and replaces user-scoped unique indexes.
+3. `20260824092000_company_tenancy_integrity.sql` adds company-boundary triggers and relationship checks while preserving payroll/invoice immutability guards.
+4. `20260824093000_company_tenancy_rls_and_admin_rpcs.sql` replaces user-only RLS with permission policies and introduces audited access RPCs.
+5. `20260824094000_company_tenancy_rpc_rewrites.sql` company-scopes invoice allocation and payroll import/rebuild RPCs.
+6. `20260824095000_company_tenancy_storage_and_verification.sql` adds company-path Storage policies, legacy read compatibility, Realtime coverage, and `verify_company_tenancy()`.
+7. `20260824100000_company_tenancy_security_contract.sql` exposes stable server contract names and reasserts grants/policies.
+8. `20260824101000_company_tenancy_sql_corrections.sql` corrects invitation claiming and Storage details.
+9. Later compatibility migrations align lead/server RPC shapes and domain additions.
+10. `20260828150000_single_company_deployment.sql` converts application semantics to one configured deployment company, removes platform-owner business-data override, binds invitations/member administration to that company, and disables authenticated creation of additional companies.
+11. `20260828151000_single_company_access_guards.sql` prevents membership/invitation retargeting, prevents creating another company after deployment configuration, and prevents demoting/revoking/suspending the last active `COMPANY_ADMIN`.
 
-- `COMPANY_ADMIN`: all company permissions, including members/settings.
-- `FINANCE`: invoices/extraction/review, projects, vendors, expenses, financial reports, Gmail read metadata, and payroll aggregate summaries; no payroll detail or compensation.
-- `PAYROLL`: payroll/workforce/compensation/import/settings/approval/reporting and minimal project references; no invoice, expense, vendor, or Gmail management permissions.
-- `VIEWER`: read-only financial/project surfaces and aggregate payroll summaries; no writes or payroll detail.
+No single-company migration deletes business rows, historical companies, or Storage objects. Historical extra-company rows on an upgraded database remain preserved but are inaccessible through ordinary client-deployment authorization once a deployment company is configured. They should be exported/split deliberately if a legacy multi-company database is ever converted into separate client deployments.
 
-Company suspension/archival makes business-data permissions false even for active memberships. Suspended/revoked members can still see their own membership metadata through `get_my_company_access()`/membership RLS, not business data.
+## Runtime authorization contract
 
-## Transition behavior
+All public application RPCs remain `authenticated`-only with `public`/`anon` execution revoked where applicable. Security-definer functions use an empty `search_path` and schema-qualified references.
 
-Existing code that inserts a tenant row without `company_id` can continue only when the authenticated user has exactly one active company. The `private.enforce_company_row_boundary()` trigger derives that company; zero or multiple active companies fail closed and require explicit `company_id`. `payroll_schedule_versions` derives the company from its schedule.
+Runtime bootstrap:
 
-Current application persistence sends the selected company explicitly for Gmail and invoice-source storage. Gmail message upserts use the company-scoped conflict key `company_id,gmail_message_id`; Gmail sync-state reads/writes filter and persist `company_id`; source-document lookups include `company_id`; and invoice/email Storage paths are built with `companyStoragePath(...)` under the active company prefix. Multi-company safety therefore no longer depends on the old user-only Gmail conflict target or user-folder writes.
+- `get_deployment_company_id()` resolves the configured company or raises an explicit configuration error.
+- `get_my_company_access()` returns only that deployment company and the current user's membership/permissions in it. It does not project global platform-owner state into the client app.
+- `claim_company_invitations()` claims only invitations for the deployment company.
+- `has_company_permission(company_id, permission_key)` succeeds only when `company_id` is the configured deployment company and the authenticated user has an ACTIVE membership/role permission in an ACTIVE company.
 
-New Storage paths are:
+The old selected-company header remains a compatibility transport for Express endpoints, but it is not a selection mechanism. Browser `companyApiRequest()` replaces it with the resolved deployment-company ID and rejects a mismatched caller-supplied ID before sending a request. Database permission helpers independently reject a different company ID, so frontend hiding is not the security boundary.
 
-- `companies/<company-id>/...` for invoice originals
-- `companies/<company-id>/...` for email originals
-- `companies/<company-id>/...` for payroll import sources
+## Roles and access management
 
-Legacy `<legacy-user-id>/...` objects remain readable only through `companies.legacy_owner_user_id` plus the caller's current company permission. Legacy inserts/updates/deletes are not allowed, and no object metadata is rewritten.
+Seeded company roles remain:
 
-## Deployment and verification
+- `COMPANY_ADMIN`: broad company operations plus settings/access administration.
+- `FINANCE`: invoice/extraction/review, projects, vendors, expenses, financial reports, Gmail read metadata, and payroll aggregate summaries; no payroll detail/compensation.
+- `PAYROLL`: payroll/workforce/compensation/import/settings/approval/reporting and minimal project references; no supplier invoice/expense/vendor/Gmail access unless separately granted.
+- `VIEWER`: read-only permitted financial/project surfaces and payroll aggregate summaries; no writes or payroll detail.
 
-The tenancy migrations are designed to be tested through the repository migration test harness and then applied through the normal deployment process. Production safety still depends on applying the full ordered migration set and verifying the live database, not on frontend capability hiding alone.
+`company.members.read` allows permitted access-directory/audit reading. `company.members.manage` is the mutation permission added by the single-company conversion and is granted to `COMPANY_ADMIN`.
 
-Before deployment:
+Company administrators manage members under the Settings surface for the deployment company. Invitation creation, role changes, suspension/reactivation, and revocation are authorized again at the database RPC layer using `company.members.manage`; the administrator does not choose a company. Database triggers prevent removing the last active Company Admin.
 
-1. Apply the ordered migrations to a disposable/staging Supabase project first.
-2. Verify the migration preflight has no ambiguous company mappings or uniqueness collisions.
-3. Call `bootstrap_platform_admin()` while signed in as the verified platform-owner account.
-4. Call `select * from public.verify_company_tenancy();` as the bootstrapped platform admin and require every row to be `passed = true`.
-5. Verify the application uses the selected `company_id` for persistence/server callers and clears active capability state during company switching.
-6. Run the cross-company RLS/Storage/API matrix with two companies and at least one user in each role.
+Platform-owner maintenance tables/RPC names remain for migration compatibility and internal maintenance history, but ordinary client deployments do not expose global cross-company navigation or platform-owner business-data access. A future global operator console, if needed, should be a separate internal deployment/tool rather than a tenant picker inside a client Engoryx instance.
 
-Frontend capability presentation is a usability and truthfulness layer only. RLS and permission-checking RPCs remain authoritative for company isolation and mutation authorization.
+## Persistence, Storage, Gmail, and Assistant boundaries
+
+Production writes continue to use `company_id` through `companyScopedRow(...)`, company-scoped RPCs, or explicit same-company foreign-key checks.
+
+Storage remains prefixed:
+
+- `companies/<company-id>/...` for invoice/email originals and attachments;
+- the same company prefix for payroll/import and engineering artifacts where those domains persist files.
+
+Existing Storage RLS resolves the company prefix and calls company permission helpers; because those helpers now require the deployment company, a historical/foreign company path is denied even if supplied manually.
+
+Gmail connections, sync state, imported messages, source documents, and conflict keys remain company-scoped. There is no Gmail company selector. Clearing/re-resolving authenticated company access also clears the browser persistence context before another request can be issued.
+
+The Engoryx Assistant runs with the same deployment company and current permission set as the rest of the application. `companyApiRequest()` rejects a mismatched company target, server/database permission checks remain authoritative, canonical route authorization remains unchanged, and the integrity hardening for payroll-detail redaction, incomplete aggregates, read-only invoice behavior, Gmail read/manage separation, project nested routes, and mutation confirmation remains in force.
+
+## Demo isolation
+
+Single-company production resolution does not turn demo fixtures into production company data. Browser-only/demo mode remains separate from Supabase-backed authenticated mode, and production company context is unavailable until authenticated deployment access resolves. Demo identifiers must still never be sent to production RPCs or Storage paths.
+
+## Provisioning and verification
+
+For a new client, follow [`SINGLE_COMPANY_DEPLOYMENT.md`](SINGLE_COMPANY_DEPLOYMENT.md). The important sequence is:
+
+1. create a separate Supabase project and application deployment;
+2. apply all migrations;
+3. create exactly one client company and set `deployment_configuration.company_id` using an administrative/service-role provisioning step;
+4. create the initial `COMPANY_ADMIN` membership;
+5. configure secrets and deploy the client service;
+6. run RLS/Storage/role smoke tests before inviting remaining users.
+
+Production verification should include `verify_company_tenancy()` where supported, the repository migration test suites, role-specific route tests, wrong-company header/RPC probes, Storage-prefix probes, invitation/member administration, logout/login stale-context checks, and explicit validation that the deployment has exactly one configured company.
+
+Frontend presentation is a usability/truthfulness layer. PostgreSQL RLS, permission RPCs, company-boundary triggers, immutable domain rules, and server authorization remain authoritative.
