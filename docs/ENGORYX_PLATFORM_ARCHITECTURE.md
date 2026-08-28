@@ -1,205 +1,221 @@
 # ENGORYX Platform Architecture
 
-Engoryx is an integrated engineering operations platform designed for architecture, engineering, and construction (AEC) firms, general contractors, specialty subcontractors, and project management organizations.
+Engoryx is an integrated engineering operations platform for architecture, engineering, and construction (AEC) firms, general contractors, specialty subcontractors, and project management organizations.
 
-This document outlines the architectural blueprint, data model invariants, modular feature roadmap, and code decomposition strategy for the Engoryx platform.
-
----
-
-## 1. Executive Overview & Design Principles
-
-Engoryx unifies financial operations, workforce management, document control, field engineering, and spatial visualization under a unified multi-tenant architecture.
-
-### Architectural Invariants
-
-1. **Financial Immutability & Audit Trail**:
-   - Financial ledger entries, approved payroll runs, paid invoices, and posted bank transactions are append-only.
-   - Adjustments, voiding, and corrections are made via additive offsetting entries with explicit reasons and user attribution.
-   - Multi-currency conversions preserve the original invoice/account currency, exchange rate snapshot timestamp, and target converted amount.
-
-2. **Strict Multi-Tenancy & RBAC Isolation**:
-   - All tenant data belongs to a specific company_id enforced via PostgreSQL Row-Level Security (RLS) policies and indexed company_id foreign keys.
-   - Company membership permissions (has_company_permission(p_company_id, p_permission_key)) fail closed.
-   - Service-role bypass is forbidden on browser clients and restricted to explicit administrative migration/cron scripts.
-
-3. **Guarded Multi-Step AI Operations**:
-   - AI capabilities (such as invoice extraction, email classification, and Engoryx Assistant) are strictly assistive and non-destructive.
-   - Mutations initiated via natural language tools create a PREPARED preview with deterministic validation.
-   - Changes require explicit user review and interactive confirmation before execution.
-
-4. **Progressive Web & Field Readiness**:
-   - The platform is designed for responsive performance across desktop workstations (1440px+), field tablets (768px-1024px), and mobile smartphones (375px-430px).
-   - Core field capture flows support offline queuing with monotonic client sequence timestamps and automatic reconciliation upon reconnect where an explicit synchronization contract exists.
-
-5. **Verification Before Automation**:
-   - Deterministic tests, database invariants, browser evidence, and repository-native workflow contracts remain authoritative for engineering verification.
-   - Visual workflow maps and AI-assisted QA may improve understanding or prioritize defects but do not replace CI pass/fail semantics or silently mutate production state.
+This document describes the current architectural invariants, project workspace model, roadmap boundaries, and code-organization direction.
 
 ---
 
-## 2. Project Workspace Model
+## 1. Executive overview and design principles
 
-The Project is the central organizing aggregate in Engoryx. All cost, labor, documents, field records, and engineering artifacts roll up to the project workspace.
+Engoryx unifies financial operations, workforce management, document control, field engineering, and guarded AI assistance inside an isolated client deployment.
 
-```
-+-------------------------------------------------------------------------------+
-|                               ENGORYX PROJECT                                 |
-|                                                                               |
-|  +--------------------+  +--------------------+  +-------------------------+  |
-|  |     FINANCIALS     |  |     WORKFORCE      |  |       DOCUMENTS         |  |
-|  | * Budget & Baseline|  | * Active Crew      |  | * Drawings & Blueprints |  |
-|  | * Supplier Invoices|  | * Site Attendance  |  | * Technical RFIs        |  |
-|  | * Direct Expenses  |  | * Overtime Records |  | * Submittal Packages    |  |
-|  | * Cash Banking     |  | * Cost Allocations |  | * Daily Site Logs       |  |
-|  +--------------------+  +--------------------+  +-------------------------+  |
-|                                                                               |
-|  +--------------------+  +--------------------+  +-------------------------+  |
-|  |     SCHEDULING     |  |     MATERIALS      |  |    SPATIAL & FIELD      |  |
-|  | * Interactive Gantt|  | * Requisitions/MRO |  | * 3D CAD & BIM Models   |  |
-|  | * Milestones & CPM |  | * QR/Barcode Assets|  | * GIS Drone Orthomosaics|  |
-|  | * Progress Baselines| | * Vendor PO Matching| | * Cut/Fill Calculations |  |
-|  +--------------------+  +--------------------+  +-------------------------+  |
-+-------------------------------------------------------------------------------+
+### Deployment topology
+
+The production tenancy model is intentionally simple:
+
+```text
+Engoryx deployment
+  -> one Supabase project/database/Storage
+  -> one deployment_configuration.company_id
+  -> one client company
+  -> many company users
+  -> membership role + permission set
+  -> permitted Engoryx workflows
 ```
 
-### Core Project Aggregates
+It is **not**:
 
-- **Overview & Health**: High-level KPI metrics (contract value, committed costs, actual spend, gross margin, labor variance, schedule slippage).
-- **Cost & Cash Accounting**: Direct mapping of supplier invoice allocations, direct site disbursements, approved payroll labor, and separate settlement evidence from Cash & Banking.
-- **Crew & Labor Allocations**: Worker assignments, hourly/daily cost attribution, equipment operator allocations, and productivity tracking.
-- **Document Hub**: Centralized version-controlled blueprint repository, drawing sheet revisions, layered annotations, and approval registers.
-- **Field Engineering Workflows**: RFIs with formal response history, technical submittal rounds/reviews, and daily weather/equipment/site logs.
-- **Scheduling & Milestones**: Gantt timelines linked to milestone billings and labor allocation horizons.
+```text
+user -> choose arbitrary company -> switch tenant -> shared client database
+```
+
+Different client companies receive separate application deployments and separate Supabase projects. The source repository is reusable across deployments; company identity is provisioned in each target database rather than hardcoded into the application bundle.
+
+Operational rows still retain `company_id`. Single-company application semantics do not remove database company boundaries: RLS, Storage prefixes, foreign-key relationship checks, import/export provenance, and audit history continue to use the configured deployment company as defense in depth.
+
+### Architectural invariants
+
+1. **Deployment isolation and RBAC**
+   - A production deployment represents exactly one client company.
+   - `public.deployment_configuration.company_id` is the deployment-company source of truth.
+   - Users must have an ACTIVE membership in that company and the required permission for the operation.
+   - Browser state, URLs, request headers, Assistant arguments, and stale local state cannot select another company.
+   - PostgreSQL RLS/RPC authorization remains authoritative; frontend visibility is only a truthfulness/usability layer.
+
+2. **Financial immutability and audit trail**
+   - Verified invoice baselines, immutable extraction/review history, approved/paid payroll history, formal engineering history, and posted settlement evidence retain their domain-specific immutability rules.
+   - Corrections use the existing additive/reversal mechanisms where required rather than rewriting historical meaning.
+   - Original currencies remain separate; authoritative aggregates must not silently combine unrelated currencies.
+
+3. **Guarded multi-step AI operations**
+   - The Engoryx Assistant operates within the deployment company and current user's permissions.
+   - Model/client-provided company IDs are untrusted and cannot override deployment context.
+   - Natural-language mutations remain PREPARED/previewed and require explicit confirmation before execution.
+   - Canonical route permissions, payroll-sensitive redaction, incomplete aggregate semantics, and deterministic server/database authorization remain authoritative.
+
+4. **Demo isolation**
+   - `/demo` and demo fixtures do not become authenticated production company state.
+   - Demo reset and demo Assistant behavior remain sandboxed from production RPCs/Storage.
+
+5. **Progressive web and field readiness**
+   - The platform targets desktop workstations, field tablets, and mobile devices.
+   - Offline or queued behavior is enabled only where a domain has an explicit reconciliation contract.
+
+6. **Verification before automation**
+   - Deterministic tests, migration replay, database invariants, browser evidence when available, and repository workflow contracts are authoritative engineering evidence.
+   - Green CI is necessary but not sufficient for authorization/financial correctness; adversarial role and persisted-data review remains required for critical changes.
+
+See also:
+
+- [`company-tenancy-rbac-database.md`](company-tenancy-rbac-database.md)
+- [`SINGLE_COMPANY_DEPLOYMENT.md`](SINGLE_COMPANY_DEPLOYMENT.md)
+- [`ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md`](ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md)
 
 ---
 
-## 3. Phased Implementation Roadmap
+## 2. Project workspace model
 
-### Current status snapshot - 2026-08-28
+The Project remains the central organizing aggregate. Cost, labor, documents, field records, and engineering artifacts roll up to a project while retaining their own source-of-truth semantics.
 
-The current `main` baseline has moved beyond the original Phase 1 planning state:
+```text
+ENGORYX PROJECT
 
-- **Phase 0 core operations are established and active** across multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Workforce & Payroll, Reports, and the guarded Engoryx Assistant.
+Financials                 Workforce                  Engineering
+- Budget / baseline        - Worker assignments       - Documents / drawings
+- Supplier invoices        - Attendance/work entries  - Revisions / redlines
+- Direct expenses          - Overtime / leave         - RFIs
+- Cash settlement evidence - Payroll allocations      - Technical submittals
+                                                      - Daily Site Logs
+```
+
+### Core project aggregates
+
+- **Overview and health**: permission-aware project KPIs. Combined financial position is withheld when the current role cannot read every contributing source.
+- **Cost and cash accounting**: supplier invoice allocations, direct project expenses, and approved payroll labor are cost sources; Cash & Banking settlement is payment/disbursement evidence and must not create or duplicate project cost.
+- **Crew and labor allocations**: workforce assignments, effective-dated compensation sources, payroll entries, and project labor allocation.
+- **Document hub**: engineering documents, immutable revision lineage, and normalized annotations.
+- **Engineering coordination**: RFIs, Technical Submittals, and Daily Site Logs with guarded lifecycle/history and project-scoped references.
+- **Scheduling and milestones**: Phase 2 remains planned and is not implemented by the tenancy conversion.
+
+---
+
+## 3. Current status and roadmap
+
+### Current status snapshot — 2026-08-28
+
+- **Phase 0 core operations are established** across deployment-scoped company RBAC, Cash & Banking, Invoices, Projects, Expenses, Workforce & Payroll, Reports, and the guarded Engoryx Assistant.
 - **Phase 1A is complete**: Engineering Documents & Blueprint Viewer with immutable revision lineage and normalized redlines.
 - **Phase 1B is complete**: project-scoped RFIs and Technical Submittals with guarded lifecycle/history and immutable engineering-document revision references.
 - **Phase 1C is complete**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal submission/finalization history.
-- **Financial Settlement Integration is complete** across Cash & Banking, supplier invoices, payroll, supported expense compatibility, demo fixtures, and Assistant workflows. Settlement is authoritative payment/disbursement evidence but remains separate from project-cost and payroll-source semantics.
-- **Next customer-facing product phase:** Phase 2 - Project Scheduling & Gantt.
-- **Engineering-infrastructure status:** QA-1 Structured Browser Evidence and WM-1 through WM-5 are implemented. The repository-native workflow-map, consistency validation, browser evidence overlay, and bounded agent-context track is complete for the current roadmap. This track does not renumber the product roadmap.
+- **Financial Settlement Integration is complete** across Cash & Banking, supplier invoices, payroll, supported expenses, and Assistant workflows. Settlement remains payment/disbursement evidence and does not replace project-cost or payroll-source semantics.
+- **Single-company deployment architecture is the production tenancy direction**: one client company per deployment/Supabase project, while `company_id` remains a database defense boundary.
+- **Next customer-facing product phase:** Phase 2 Project Scheduling & Gantt. The tenancy/hardening work does not implement it.
+- **Engineering infrastructure:** QA-1 Structured Browser Evidence and WM-1 through WM-5 are repository infrastructure, not customer-facing roadmap phases.
 
-### Customer-facing product roadmap
+### Customer-facing roadmap
 
-The customer-facing platform evolution remains structured into sequential, backward-compatible phases:
-
-| Phase | Module / Domain | Status | Key Deliverables |
+| Phase | Module / domain | Status | Key deliverables |
 | :--- | :--- | :--- | :--- |
-| **Phase 0** | **Rebrand & Core Foundation** | **Established / Active** | Engoryx branding, multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, plus the bounded Astryx UI foundation. |
-| **Phase 1** | **Engineering Documents & Field Workflows** | **Complete / Active in product** | **Phase 1A (Complete)**: Blueprint viewer (PDF.js + Konva), immutable revisions, normalized redline markups.<br>**Phase 1B (Complete)**: RFIs & Technical Submittals with guarded lifecycle/history and document-revision linking.<br>**Phase 1C (Complete)**: Daily Site Logs & Weather, project-scoped field observations, equipment, delays, safety, and formal history. |
-| **Cross-Domain Settlement** | **Financial Settlement Integration** | **Complete** | Guarded Cash & Banking settlement evidence for supplier invoices, payroll runs, and supported expenses; partial/split settlement, reversals, deep links, demo fixtures, and Assistant PREPARE/confirm/execute flows while preserving project-cost semantics. |
-| **Phase 2** | **Project Scheduling & Gantt** | **Next / Planned** | Interactive Gantt charts (Frappe Gantt), task dependency networks, critical path method (CPM), milestone progress tracking, baseline-versus-actual schedule health, and project-scoped schedule navigation. |
-| **Phase 3** | **Field Capture & Barcode Asset Tagging** | Planned | Camera-based barcode/QR scanner (ZXing-js), equipment check-in/out, tool tracking, site material delivery validation. |
-| **Phase 4** | **Spatial & Site Operations (BIM & GIS)** | Future | Browser-native 3D CAD/BIM model viewer (Online3DViewer/web-ifc), GIS site boundary mapping (MapLibre + Turf), Drone orthomosaic overlay (OpenDroneMap). |
-| **Phase 5** | **Procurement & Material Requisitions** | Future | Bill of Quantities (BOQ) matching, Material Requisition Orders (MRO), 3-way PO matching, vendor quote comparisons. |
-| **Phase 6** | **Subcontractor & Client Portal** | Future | Subcontractor portal, contract issuance, lien waiver tracking, digital document signing (Documenso). |
-| **Phase 7** | **Document Intelligence & Advanced Parsing** | Future | Deep document layout analysis, multi-column contract parsing, CAD title-block OCR (Docling + Tesseract). |
-| **Phase 8** | **Field Communications & SMS** | Future | Direct Android SMS dispatch (httpSMS), shift notifications, emergency weather alerts, automated worker reminders. |
+| Phase 0 | Core Foundation | Established / Active | Engoryx branding, deployment-scoped RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, Assistant. |
+| Phase 1 | Engineering Documents & Field Workflows | Complete / Active | Phase 1A documents/drawings, Phase 1B RFIs/Submittals, Phase 1C Daily Site Logs. |
+| Cross-domain settlement | Financial Settlement Integration | Complete | Settlement evidence, partial/split settlement, reversals, deep links, demo fixtures, Assistant confirmation flows. |
+| Phase 2 | Project Scheduling & Gantt | Next / Planned | Interactive Gantt, dependencies, CPM, milestones, baseline-vs-actual schedule health. |
+| Phase 3 | Field Capture & Barcode Asset Tagging | Planned | Equipment/tool/material scanning workflows. |
+| Phase 4 | Spatial & Site Operations | Future | BIM/CAD/GIS/drone-oriented inspection and spatial workflows. |
+| Phase 5 | Procurement & Material Requisitions | Future | BOQ/MRO/PO and vendor workflows. |
+| Phase 6 | Subcontractor & Client Portal | Future | External collaboration and signing workflows. |
+| Phase 7 | Advanced Document Intelligence | Future | Complex layout/document parsing. |
+| Phase 8 | Field Communications | Future | Field notification/broadcast workflows. |
 
-### Engineering infrastructure track - Workflow Map, QA & Agent Context
+### Engineering infrastructure track
 
-This is a cross-cutting development track rather than a customer-facing Engoryx phase. Its architecture is documented in [ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md](ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
+The canonical workflow graph remains `scripts/workflow-map/graph.ts`, with generated outputs under `docs/architecture/`. It maps routes, lifecycles, guards, permission relationships, high-risk invariants, and selected QA/test evidence.
 
-The stack is deliberately repository-native:
+The existing `company-rbac-is-authoritative` invariant remains valid: client visibility is never a substitute for database authorization. For the deployment model, read that invariant together with the single-company database/runtime contract documented here and in `company-tenancy-rbac-database.md`:
 
-- **one versioned machine-readable workflow graph** covering important routes, states, actions, guards, cross-domain relationships, and selected test references;
-- **Mermaid and React Flow/xyflow rendering** for a visual workflow canvas with domain grouping, pan/zoom, filtering, and clickable context;
-- **deterministic graph validation** for broken node/edge references, selected route/lifecycle inconsistencies, missing high-risk guard metadata, and orphaned workflow paths;
-- **existing Playwright/browser QA** for rendered route interaction, responsive sweeps, screenshots, console/page errors, failed requests, and evidence attached to workflow nodes;
-- **GitHub Issues, PRs, tests, and repository documentation** for durable defect/history context;
-- **bounded feature-scoped context packets** for future coding-agent runs so agents receive the relevant workflow, invariants, files, and tests without loading an unbounded project history.
+```text
+deployment -> configured company -> active membership -> permission -> workflow
+```
 
-No external paid workflow-orchestration service is required. External repository-visualization tools may be used for exploration, but the Engoryx workflow graph remains the curated source for product-specific business semantics.
-
-The rollout is complete through **WM-5**: WM-1 canonical workflow graph, WM-2 visual workflow canvas, WM-3 graph consistency validation, WM-4 browser evidence overlay, and WM-5 bounded agent-context generation are implemented. Later enhancements are optional and do not renumber the customer-facing roadmap.
+Generated workflow-map files must not be hand-edited. If the canonical graph is changed, regenerate and validate the outputs in the same change.
 
 ---
 
-## 4. App.tsx Decomposition Strategy
+## 4. Application decomposition strategy
 
-To maintain high code quality and testability while preserving single-page reactivity, App.tsx will be systematically decomposed into focused layer controllers and route routers as the application evolves.
+`App.tsx` remains a conflict-heavy integration surface and should continue moving toward focused route/controllers without changing protected business semantics merely for code-size goals.
 
-### Target Architecture
+Target ownership:
 
-```
+```text
 src/
 ├── app/
-│   ├── App.tsx                     # Slim root container (<150 lines)
-│   ├── AppProviders.tsx            # Context provider stack (Auth, Tenancy, Brand, Assistant)
-│   ├── AppShell.tsx                # Layout shell, Sidebar, Header, Breadcrumbs, ErrorBoundaries
+│   ├── AppProviders.tsx
+│   ├── AppShell.tsx
 │   └── routes/
-│       ├── AppRouter.tsx           # Route matching & dynamic view switching
-│       ├── DashboardRoute.tsx      # Dashboard lifecycle & data container
-│       ├── CashBankingRoute.tsx    # Cash & banking state coordinator
-│       ├── ProjectsRoute.tsx       # Project directory & workspace coordinator
-│       ├── InvoicesRoute.tsx       # Invoice extraction, review, and directory
-│       ├── PayrollRoute.tsx        # Payroll & workforce state coordinator
-│       ├── ExpensesRoute.tsx       # Direct expense management
-│       └── ReportsRoute.tsx        # Financial & project report generation
+├── context/
+│   └── CompanyAccessContext.tsx    # deployment company + membership/permission bootstrap
 ├── features/
-│   ├── types.ts                    # Feature metadata & lifecycle contracts
-│   ├── registry.ts                 # Feature registry and capability mapping
-│   ├── dashboard/                  # Dashboard presentation & calculators
-│   ├── cash/                       # Cash & banking domain components
-│   ├── invoices/                   # Invoice extraction & verification components
-│   ├── projects/                   # Project workspace & cost allocation components
-│   ├── engineering/                # Documents, RFIs/Submittals, Site Logs
-│   ├── payroll/                    # Payroll workflow, calendar, and run components
-│   ├── expenses/                   # Direct expense forms & lists
-│   ├── reports/                    # Operational & financial reports
-│   └── assistant/                  # Guarded operations assistant
-└── config/
-    └── brand.ts                    # Central canonical branding constants & helpers
+│   ├── cash/
+│   ├── invoices/
+│   ├── projects/
+│   ├── engineering/
+│   ├── payroll/
+│   ├── expenses/
+│   ├── reports/
+│   └── assistant/
+└── lib/
+    ├── companyContext.ts            # compatibility persistence context; deployment company semantics
+    └── deploymentCompany.ts         # deployment identity validation/resolution
 ```
 
-Phase 1 production closure applies this incrementally: project selection,
-project persistence, archive lifecycle, and guest project storage are owned by
-`src/features/projects/useProjectController.ts`; engineering document loading,
-project isolation, PDF/revision persistence, compensation, archive, and
-annotation snapshots are owned by
-`src/features/engineering/useEngineeringDocumentsController.ts`. Phase 1B and
-1C continue the engineering-feature boundary instead of expanding `App.tsx`.
-`App.tsx` continues to own only cross-domain integration that has not yet been
-moved into route/controller boundaries.
+### Refactoring protocol
 
-### Step-by-Step Refactoring Protocol
-
-1. **Step 1: Extract Route Containers**:
-   - Move tab-specific state machines (e.g. cashData, payrollData, invoiceProjectAllocations) into dedicated route wrappers (src/app/routes/*Route.tsx).
-   - Leave core routing and notification bus in AppShell.
-
-2. **Step 2: Consolidate Shared Action Handlers**:
-   - Group mutation handlers into custom hooks (useInvoiceActions(), usePayrollActions(), useProjectActions()).
-   - Enforce optimistic updates with rollback on network failure only where the underlying domain permits optimistic behavior.
-
-3. **Step 3: Preserve Navigation and Deep Link Integrity**:
-   - Ensure all URL parameters and project/document/financial deep links continue to map 1:1 with canonical route helpers.
+1. Extract route-specific state machines into route/controller boundaries.
+2. Consolidate shared mutation handlers without weakening deterministic validation or rollback/error behavior.
+3. Preserve canonical routing/deep links and permission checks.
+4. Keep company/deployment identity outside domain components; repositories consume the already-resolved deployment context.
+5. Do not replace explicit `company_id` persistence/RLS boundaries with frontend assumptions.
 
 ---
 
-## 5. Security, Tenancy & Audit Invariants
+## 5. Security, company boundary, and audit invariants
 
-### Database Security Model
-- Every table containing operational or financial data requires company_id uuid not null references companies(id).
-- RLS policies must strictly use company-scoped permission checks and fail closed.
-- Platform admins access cross-company tools only through explicit administrative RPCs (is_platform_admin()).
+### Database security model
 
-### Auditing & Provenance
-- All mutations record actor/time lineage appropriate to the domain.
-- Staged imports (bank statements, payroll workbooks, invoices) retain raw source payloads, file hashes, and parser metadata for non-repudiation where the existing domain contract requires it.
-- Formal engineering records preserve lifecycle history instead of rewriting prior submitted/finalized state.
-- Financial settlement reversals are additive and preserve original confirmation provenance.
+- Operational/financial tables keep `company_id uuid not null references companies(id)` where the current domain contract uses company scoping.
+- `deployment_configuration` must resolve exactly one deployment company at runtime.
+- `has_company_permission(company_id, permission_key)` fails unless the target is the configured deployment company and the authenticated user has an active membership and permission.
+- Company-prefixed Storage paths remain `companies/<company-id>/...` and are checked through company permissions.
+- Invitation/member administration is deployment-scoped. `COMPANY_ADMIN` receives the explicit access-management permission; the last active Company Admin cannot be removed/demoted/suspended.
+- An old platform-owner mechanism may remain for explicit internal maintenance compatibility, but it is not a client role, is not shown in ordinary client navigation, and does not bypass business-data company permission checks.
+- A fleet-wide operator console, if later required, belongs in a separate internal deployment/tool rather than in client tenant-switching UI.
+
+### Authorization presentation
+
+- Forbidden controls should be hidden/disabled before users hit inevitable RLS rejection.
+- Unauthorized, load-error, deleted-record, and true-empty states are distinct.
+- Deep links, browser back/forward, refresh, logout/login, and permission loss must re-run canonical authorization rather than trust stale UI state.
+
+### Auditing and provenance
+
+- Mutations record actor/time lineage appropriate to the domain.
+- Staged imports retain source/provenance metadata required by their domain.
+- Formal engineering records preserve lifecycle history.
+- Financial settlement reversals preserve original settlement provenance and do not rewrite accounting cost.
+
+### Assistant and server boundaries
+
+- The Assistant receives the resolved deployment-company context and current permission set.
+- Client/model company IDs are untrusted; browser API helpers and database authorization independently reject a different company.
+- Unknown Assistant routes fail closed and route navigation uses canonical route permissions.
+- Sensitive payroll detail and incomplete project-cost semantics follow the deterministic application authorization rules.
+- Mutation confirmation remains mandatory where the current Assistant contract requires it.
 
 ### Development workflow-map provenance
-- Workflow nodes and edges use stable identifiers and link back to live routes/files/tests where practical.
-- Generated agent-context summaries are advisory snapshots and never replace live inspection of current `main`, current CI, and the actual source tree.
-- Sensitive production financial, payroll, banking, document, or employee data must not be embedded in the workflow graph or generated context.
-- Browser evidence attached to workflow nodes must distinguish demo/test evidence from authenticated production behavior.
+
+- Workflow nodes/edges link back to live routes/files/tests where practical.
+- Bounded context packets are advisory snapshots and never replace live source/CI inspection.
+- Sensitive production financial, payroll, banking, document, employee, credential, or client-secret data must not be embedded in the workflow graph or generated context.
+- Browser evidence must distinguish demo/test evidence from authenticated production behavior.
