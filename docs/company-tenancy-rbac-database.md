@@ -64,7 +64,9 @@ Company suspension/archival makes business-data permissions false even for activ
 
 Existing code that inserts a tenant row without `company_id` can continue only when the authenticated user has exactly one active company. The `private.enforce_company_row_boundary()` trigger derives that company; zero or multiple active companies fail closed and require explicit `company_id`. `payroll_schedule_versions` derives the company from its schedule.
 
-New application code should always send the selected company explicitly. The old `user_id`-based Gmail message upsert conflict target and old user-folder Storage writes must be updated before multi-company users are enabled. New Storage paths are:
+Current application persistence sends the selected company explicitly for Gmail and invoice-source storage. Gmail message upserts use the company-scoped conflict key `company_id,gmail_message_id`; Gmail sync-state reads/writes filter and persist `company_id`; source-document lookups include `company_id`; and invoice/email Storage paths are built with `companyStoragePath(...)` under the active company prefix. Multi-company safety therefore no longer depends on the old user-only Gmail conflict target or user-folder writes.
+
+New Storage paths are:
 
 - `companies/<company-id>/...` for invoice originals
 - `companies/<company-id>/...` for email originals
@@ -74,15 +76,15 @@ Legacy `<legacy-user-id>/...` objects remain readable only through `companies.le
 
 ## Deployment and verification
 
-The Supabase CLI was not available in this workspace and no live/test Supabase database was connected. The migration files were not applied by this workstream.
+The tenancy migrations are designed to be tested through the repository migration test harness and then applied through the normal deployment process. Production safety still depends on applying the full ordered migration set and verifying the live database, not on frontend capability hiding alone.
 
 Before deployment:
 
 1. Apply the ordered migrations to a disposable/staging Supabase project first.
 2. Verify the migration preflight has no ambiguous company mappings or uniqueness collisions.
-3. Call `bootstrap_platform_admin()` while signed in as the verified `al.matubis17@gmail.com` account.
+3. Call `bootstrap_platform_admin()` while signed in as the verified platform-owner account.
 4. Call `select * from public.verify_company_tenancy();` as the bootstrapped platform admin and require every row to be `passed = true`.
-5. Update the lead's persistence/server callers to use `company_id`, `get_my_company_access()`, `claim_company_invitations()`, and the `platform_*` contract before applying to production.
+5. Verify the application uses the selected `company_id` for persistence/server callers and clears active capability state during company switching.
 6. Run the cross-company RLS/Storage/API matrix with two companies and at least one user in each role.
 
-The existing frontend/server changes in the shared worktree are outside this database workstream; this document does not claim those paths are fully integrated.
+Frontend capability presentation is a usability and truthfulness layer only. RLS and permission-checking RPCs remain authoritative for company isolation and mutation authorization.
