@@ -7,6 +7,7 @@ import type { CompanySummary } from "../lib/companyAccess";
 import type { WorkspaceSyncStatus } from "../lib/workspaceSync";
 import type { PermissionKey } from "../utils/accessControl";
 import type { RouteId } from "../utils/routes";
+import type { DataCompleteness, ProjectCostSource } from "../utils/dataCompleteness.ts";
 import { AppPermissionProvider } from "./AppPermissionContext.tsx";
 
 export interface ShellNotification {
@@ -115,6 +116,7 @@ export interface AppShellProps {
   activeCompanyId?: string | null;
   visibleRouteIds?: readonly RouteId[];
   permissions?: readonly PermissionKey[];
+  projectCostCompleteness?: DataCompleteness<ProjectCostSource>;
 
   // Notification banners
   notification?: ShellNotification | null;
@@ -153,6 +155,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   activeCompanyId,
   visibleRouteIds,
   permissions = [],
+  projectCostCompleteness,
   notification,
   onDismissNotification,
   remoteInvoiceUpdate,
@@ -167,7 +170,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   footerText = BRAND.footerText,
 }) => {
   return (
-    <AppPermissionProvider permissions={permissions}>
+    <AppPermissionProvider permissions={permissions} projectCostCompleteness={projectCostCompleteness}>
       <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
         <Header
           activeTab={activeTab}

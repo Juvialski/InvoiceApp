@@ -91,7 +91,7 @@ Financials                 Workforce                  Engineering
 
 ### Core project aggregates
 
-- **Overview and health**: permission-aware project KPIs. Combined financial position is withheld when the current role cannot read every contributing source.
+- **Overview and health**: permission-aware project KPIs. Combined financial position is withheld when the current role cannot read every contributing source; Finance/Viewer may satisfy the labor source through the guarded project-level aggregate without payroll detail.
 - **Cost and cash accounting**: supplier invoice allocations, direct project expenses, and approved payroll labor are cost sources; Cash & Banking settlement is payment/disbursement evidence and must not create or duplicate project cost.
 - **Crew and labor allocations**: workforce assignments, effective-dated compensation sources, payroll entries, and project labor allocation.
 - **Document hub**: engineering documents, immutable revision lineage, and normalized annotations.
@@ -210,7 +210,7 @@ src/
 - The Assistant receives the resolved deployment-company context and current permission set.
 - Client/model company IDs are untrusted; browser API helpers and database authorization independently reject a different company.
 - Unknown Assistant routes fail closed and route navigation uses canonical route permissions.
-- Sensitive payroll detail and incomplete project-cost semantics follow the deterministic application authorization rules.
+- Sensitive payroll detail and incomplete project-cost semantics follow the deterministic application authorization rules. The Assistant project-cost tool uses the same guarded project labor aggregate and never widens payroll-detail access.
 - Mutation confirmation remains mandatory where the current Assistant contract requires it.
 
 ### Development workflow-map provenance

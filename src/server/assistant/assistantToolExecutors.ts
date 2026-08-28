@@ -319,36 +319,61 @@ async function getProjectCostSummary(context: AssistantToolContext, args: Record
   const project = await getProject(context, projectId);
   const allocations = await getRows(userCompanyQuery(context, "invoice_project_allocations", "invoice_id,allocation_amount,currency").eq("project_id", projectId).limit(500), "Project invoice allocations");
   const invoiceIds = allocations.map((row) => text(row, "invoice_id")).filter(Boolean);
-  const invoices = invoiceIds.length ? await getRows(userCompanyQuery(context, "invoices", "id,review_status,payment_status,invoice_date,currency").in("id", invoiceIds).limit(500), "Project invoices") : [];
+  const invoices = invoiceIds.length ? await getRows(userCompanyQuery(context, "invoices", "id,review_status,payment_status,invoice_date,currency,archived_at").in("id", invoiceIds).is("archived_at", null).limit(500), "Project invoices") : [];
   const invoiceById = new Map(invoices.map((row) => [text(row, "id"), row]));
+  if (new Set(invoiceIds).size !== invoiceById.size) throw new AssistantToolError("DATA_UNAVAILABLE", "The project invoice-cost source is incomplete.");
   const expenses = await getRows(userCompanyQuery(context, "expenses", "id,amount,currency,status,expense_date").eq("project_id", projectId).is("archived_at", null).limit(500), "Project expenses");
-  const payrollAllocations = await getRows(userCompanyQuery(context, "payroll_project_allocations", "id,payroll_entry_id,allocation_amount,project_id").eq("project_id", projectId).limit(500), "Project payroll allocations");
-  const entryIds = payrollAllocations.map((row) => text(row, "payroll_entry_id")).filter(Boolean);
-  const entries = entryIds.length ? await getRows(userCompanyQuery(context, "payroll_entries", "id,payroll_run_id,project_allocated_cost").in("id", entryIds).limit(500), "Project payroll entries") : [];
-  const runIds = entries.map((row) => text(row, "payroll_run_id")).filter(Boolean);
-  const runs = runIds.length ? await getRows(userCompanyQuery(context, "payroll_runs", "id,status,period_id").in("id", runIds).limit(500), "Project payroll runs") : [];
-  const runById = new Map(runs.map((row) => [text(row, "id"), row]));
-  const invoiceConfirmed = allocations.filter((allocation) => invoiceById.get(text(allocation, "invoice_id"))?.review_status === "VERIFIED");
-  const invoicePending = allocations.filter((allocation) => invoiceById.get(text(allocation, "invoice_id"))?.review_status !== "VERIFIED");
-  const expenseConfirmed = expenses.filter((row) => ["APPROVED", "PAID"].includes(text(row, "status")));
-  const expensePending = expenses.filter((row) => text(row, "status") === "DRAFT");
-  const payrollStatus = (allocation: Row) => {
-    const entry = entries.find((candidate) => text(candidate, "id") === text(allocation, "payroll_entry_id"));
-    const run = entry ? runById.get(text(entry, "payroll_run_id")) : undefined;
-    return run ? text(run, "status") : "";
+  const aggregateResult = await db(context).rpc("get_project_labor_cost_aggregate", { p_project_ids: [projectId] });
+  if (aggregateResult.error) throw new AssistantToolError("DATA_UNAVAILABLE", "The project labor-cost aggregate is temporarily unavailable.");
+  const aggregateRow = Array.isArray(aggregateResult.data) && aggregateResult.data.length === 1 ? aggregateResult.data[0] as Row : null;
+  if (!aggregateRow || text(aggregateRow, "project_id") !== projectId) throw new AssistantToolError("DATA_UNAVAILABLE", "The project labor-cost aggregate returned an incomplete result.");
+  const aggregateCurrency = text(aggregateRow, "currency", "UNKNOWN").toUpperCase();
+  const aggregateStatus = text(aggregateRow, "aggregate_status", "INCOMPLETE");
+  if (!/^[A-Z]{3}$/.test(aggregateCurrency) || !["AVAILABLE", "ZERO", "CURRENCY_CONFLICT"].includes(aggregateStatus)) throw new AssistantToolError("DATA_UNAVAILABLE", "The project labor-cost aggregate returned an invalid result.");
+  const payrollConfirmed = amount(aggregateRow, "confirmed_labor_cost");
+  const payrollPending = amount(aggregateRow, "pending_labor_cost");
+  const totalsByCurrency = new Map<string, { invoiceConfirmed: number; invoicePending: number; expenseConfirmed: number; expensePending: number; payrollConfirmed: number; payrollPending: number }>();
+  const bucket = (currency: string) => {
+    const code = currency.trim().toUpperCase() || "UNKNOWN";
+    const current = totalsByCurrency.get(code) || { invoiceConfirmed: 0, invoicePending: 0, expenseConfirmed: 0, expensePending: 0, payrollConfirmed: 0, payrollPending: 0 };
+    totalsByCurrency.set(code, current);
+    return current;
   };
-  const payrollConfirmed = payrollAllocations.filter((allocation) => ["APPROVED", "PAID"].includes(payrollStatus(allocation)));
-  const payrollPending = payrollAllocations.filter((allocation) => !["APPROVED", "PAID", "VOID"].includes(payrollStatus(allocation)));
-  const sum = (rows: Row[], key: string) => rows.reduce((total, row) => total + amount(row, key), 0);
+  for (const allocation of allocations) {
+    const invoice = invoiceById.get(text(allocation, "invoice_id"));
+    if (!invoice) continue;
+    const current = bucket(text(invoice, "currency", "UNKNOWN"));
+    if (text(invoice, "review_status") === "VERIFIED") current.invoiceConfirmed += amount(allocation, "allocation_amount");
+    else current.invoicePending += amount(allocation, "allocation_amount");
+  }
+  for (const expense of expenses) {
+    const current = bucket(text(expense, "currency", "UNKNOWN"));
+    if (["APPROVED", "PAID"].includes(text(expense, "status"))) current.expenseConfirmed += amount(expense, "amount");
+    else if (text(expense, "status") === "DRAFT") current.expensePending += amount(expense, "amount");
+  }
+  const laborBucket = bucket(aggregateCurrency);
+  laborBucket.payrollConfirmed += payrollConfirmed;
+  laborBucket.payrollPending += payrollPending;
+  const byCurrency = [...totalsByCurrency.entries()].map(([currency, values]) => ({
+    currency,
+    invoiceConfirmed: values.invoiceConfirmed,
+    invoicePending: values.invoicePending,
+    expenseConfirmed: values.expenseConfirmed,
+    expensePending: values.expensePending,
+    payrollConfirmed: values.payrollConfirmed,
+    payrollPending: values.payrollPending,
+  }));
+  const projectCurrency = text(project, "currency", "UNKNOWN").toUpperCase();
   return toolOk({
-    project: { id: text(project, "id"), code: text(project, "project_code"), name: text(project, "project_name"), budget: amount(project, "project_budget"), currency: text(project, "currency", "PHP") },
+    project: { id: text(project, "id"), code: text(project, "project_code"), name: text(project, "project_name"), budget: amount(project, "project_budget"), currency: projectCurrency },
     sourceTotals: {
-      invoiceConfirmed: sum(invoiceConfirmed, "allocation_amount"), invoicePending: sum(invoicePending, "allocation_amount"),
-      expenseConfirmed: sum(expenseConfirmed, "amount"), expensePending: sum(expensePending, "amount"),
-      payrollConfirmed: sum(payrollConfirmed, "allocation_amount"), payrollPending: sum(payrollPending, "allocation_amount"),
+      byCurrency,
+      currencyStatus: byCurrency.length <= 1 && byCurrency[0]?.currency === projectCurrency ? "COMBINABLE" : "NON_COMBINABLE",
     },
-    semantics: "Persisted source totals only. Foreign currencies remain separate and this is not an authoritative accounting or tax calculation.",
-    truncated: allocations.length >= 500 || expenses.length >= 500 || payrollAllocations.length >= 500,
+    laborAggregate: { currency: aggregateCurrency, confirmedLaborCost: payrollConfirmed, pendingLaborCost: payrollPending, status: aggregateStatus },
+    privacy: "Project-level labor totals only; employee identity, payroll detail, attendance, rates, deductions, net pay, and allocation rows are not returned.",
+    semantics: "Project labor uses persisted payroll_project_allocations.allocation_amount through the guarded aggregate. Net pay and cash settlement are not project labor cost. Source currencies remain separate and no FX conversion is applied.",
+    truncated: allocations.length >= 500 || expenses.length >= 500,
   }, { references: [reference("project", projectId, safeLabel(project.project_code, project.project_name))] });
 }
 

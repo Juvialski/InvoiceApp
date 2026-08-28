@@ -6,7 +6,8 @@ import type { Project, ProjectCostSummary, ProjectStatus } from "../../types";
 import { createLocalProject } from "../../lib/projects";
 import { projectSearchMatches } from "../../utils/projectMatching";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
-import { useAppPermissions } from "../../app/AppPermissionContext.tsx";
+import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
+import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { EmptyState, MetricCard, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 
 interface ProjectsPageProps {
@@ -62,12 +63,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 }) => {
   const permissions = useAppPermissions();
   const canManage = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
-  const hiddenCostSources = [
-    !hasPermission(permissions, PERMISSION_KEYS.invoicesRead) ? "supplier invoices" : null,
-    !hasPermission(permissions, PERMISSION_KEYS.payrollRead) ? "payroll detail" : null,
-    !hasPermission(permissions, PERMISSION_KEYS.expensesRead) ? "direct expenses" : null,
-  ].filter((value): value is string => Boolean(value));
-  const costDataComplete = hiddenCostSources.length === 0;
+  const completeness = useProjectCostCompleteness();
+  const hiddenCostSources = projectCostMissingSourceLabels(completeness);
+  const costDataComplete = completeness.complete;
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"ALL" | ProjectStatus>("ALL");
   const [editing, setEditing] = useState<Project | null>(null);
@@ -92,7 +90,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     <div className="space-y-5">
       <PageHeader eyebrow="Engineering operations" title="Projects" description="Projects are the cost context for supplier invoices, labor, and direct expenses." actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditing(blankProject())} /> : undefined} />
 
-      {!costDataComplete && <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-5 text-amber-950"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div><strong>Partial cost visibility.</strong> Recorded-cost and remaining-budget figures below exclude {hiddenCostSources.join(", ")} because your role cannot read those source records.</div></div>}
+      {!costDataComplete && <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-5 text-amber-950"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div><strong>Partial cost visibility.</strong> Recorded-cost and remaining-budget figures below exclude {hiddenCostSources.join(", ")} because those sources are unavailable or incomplete.</div></div>}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Project register summary">
         <MetricCard label="All projects" value={projects.length} icon={BriefcaseBusiness} tone="info" />

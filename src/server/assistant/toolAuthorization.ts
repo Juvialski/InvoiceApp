@@ -17,11 +17,10 @@ const PROJECT_COST_ASSISTANT_BASE_REQUIREMENTS = Object.freeze([
 ] as const);
 
 /**
- * `get_project_cost_summary` currently reads invoice, expense, and payroll
- * allocation tables directly. Until a cost-only labor aggregate RPC exists,
- * fail closed unless the caller can read every contributing source domain.
- * This prevents RLS-filtered empty arrays from being reported as real zeroes
- * without granting Finance/Viewer individual payroll-detail access.
+ * The project-cost tool reads invoice/expense detail plus the guarded
+ * project-level labor aggregate. Payroll detail is deliberately not required
+ * for this answer; the aggregate RPC repeats its own company/permission
+ * checks before returning any labor total.
  */
 function integrityRequirements(permissions: readonly string[]): string[] {
   const unique = [...new Set(permissions.filter(Boolean))];
@@ -32,7 +31,7 @@ function integrityRequirements(permissions: readonly string[]): string[] {
     ...unique,
     PERMISSION_KEYS.invoicesRead,
     PERMISSION_KEYS.expensesRead,
-    PERMISSION_KEYS.payrollSensitiveRead,
+    PERMISSION_KEYS.payrollAggregateRead,
   ])];
 }
 

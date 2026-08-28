@@ -25,7 +25,8 @@ import { useEngineeringCoordinationAccess } from "../../features/engineering/use
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import { hasAnyPermission, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
-import { useAppPermissions } from "../../app/AppPermissionContext.tsx";
+import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
+import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 
 export type WorkspaceTab = "overview" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
@@ -150,12 +151,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const canManageExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesWrite);
   const canReadWorkers = hasPermission(permissions, PERMISSION_KEYS.workersRead);
   const canReadReports = hasAnyPermission(permissions, [PERMISSION_KEYS.reportsRead, PERMISSION_KEYS.reportsPayrollRead]);
-  const costDataComplete = canReadInvoices && canReadPayroll && canReadExpenses;
-  const hiddenCostSources = [
-    !canReadInvoices ? "supplier invoices" : null,
-    !canReadPayroll ? "payroll detail" : null,
-    !canReadExpenses ? "direct expenses" : null,
-  ].filter((value): value is string => Boolean(value));
+  const completeness = useProjectCostCompleteness();
+  const costDataComplete = completeness.complete;
+  const hiddenCostSources = projectCostMissingSourceLabels(completeness);
 
   const [tab, setTab] = useState<WorkspaceTab>(initialTab);
   const coordinationAccess = useEngineeringCoordinationAccess(companyId, engineeringDocumentsGuestMode);
@@ -221,7 +219,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       {!costDataComplete && (
         <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-5 text-amber-950">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-          <div><strong>Partial cost visibility.</strong> Financial totals on this project are based only on data your role can read and exclude {hiddenCostSources.join(", ")}. They must not be treated as the complete company cost position.</div>
+          <div><strong>Partial cost visibility.</strong> Financial totals on this project are based only on available authoritative sources and exclude {hiddenCostSources.join(", ")}. They must not be treated as the complete company cost position.</div>
         </div>
       )}
 
@@ -253,7 +251,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
       {tab === "people" && canReadWorkers && <Card className="overflow-hidden p-0 shadow-sm" elevation="low"><div className="border-b border-slate-100 p-5"><h3 className="text-sm font-black">Project people</h3><p className="mt-1 text-xs text-slate-500">Workers can move between projects over time.</p></div>{projectAssignments.length ? <div className="divide-y divide-slate-100">{projectAssignments.map((assignment) => { const worker = workers.find((item) => item.id === assignment.workerId); return <div key={assignment.id} className="flex items-center justify-between gap-3 px-5 py-4"><div><p className="text-xs font-black">{worker?.displayName || "Worker"}</p><p className="mt-1 text-[10px] text-slate-500">{assignment.roleOnProject || worker?.jobTitle || "Role not set"} • since {assignment.startDate}</p></div><span className="text-[10px] font-bold text-emerald-700">{assignment.active ? "Active" : "Inactive"}</span></div>; })}</div> : <div className="p-10 text-center"><Users className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">No workers assigned to this project.</p><p className="mt-1 text-xs text-slate-500">Use Payroll to add a project assignment.</p></div>}</Card>}
 
-      {tab === "reports" && canReadReports && <section className="grid gap-4 md:grid-cols-2"><Card className="p-5 shadow-sm" elevation="low"><h3 className="text-sm font-black">{costDataComplete ? "Project cost summary" : "Visible project cost summary"}</h3>{!costDataComplete && <p className="mt-1 text-[10px] leading-4 text-amber-700">This report excludes cost sources your role cannot read.</p>}<div className="mt-4 space-y-3">{[["Invoice cost", summary.invoiceCost], ["Payroll cost", summary.payrollCost], ["Other expenses", summary.otherExpenseCost], [costDataComplete ? "Actual cost" : "Visible actual cost", summary.totalActualCost], [costDataComplete ? "Remaining budget" : "Visible-data budget balance", summary.remainingBudget]].map(([itemLabel, value]) => <div key={String(itemLabel)} className="flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-600">{itemLabel}</span><span className="font-black tabular-nums">{money(Number(value), project.currency)}</span></div>)}</div></Card><Card className="p-5 shadow-sm" elevation="low"><h3 className="text-sm font-black">Operational notes</h3><p className="mt-4 whitespace-pre-wrap text-xs text-slate-600">{project.notes || project.description || "No project notes yet."}</p></Card></section>}
+      {tab === "reports" && canReadReports && <section className="grid gap-4 md:grid-cols-2"><Card className="p-5 shadow-sm" elevation="low"><h3 className="text-sm font-black">{costDataComplete ? "Project cost summary" : "Visible project cost summary"}</h3>{!costDataComplete && <p className="mt-1 text-[10px] leading-4 text-amber-700">This report excludes unavailable, incomplete, or non-combinable cost sources.</p>}<div className="mt-4 space-y-3">{[["Invoice cost", summary.invoiceCost], ["Payroll cost", summary.payrollCost], ["Other expenses", summary.otherExpenseCost], [costDataComplete ? "Actual cost" : "Visible actual cost", summary.totalActualCost], [costDataComplete ? "Remaining budget" : "Visible-data budget balance", summary.remainingBudget]].map(([itemLabel, value]) => <div key={String(itemLabel)} className="flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-600">{itemLabel}</span><span className="font-black tabular-nums">{money(Number(value), project.currency)}</span></div>)}</div></Card><Card className="p-5 shadow-sm" elevation="low"><h3 className="text-sm font-black">Operational notes</h3><p className="mt-4 whitespace-pre-wrap text-xs text-slate-600">{project.notes || project.description || "No project notes yet."}</p></Card></section>}
     </div>
   );
 };

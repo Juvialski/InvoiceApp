@@ -19,7 +19,7 @@ Frontend capability hiding is not a security boundary. PostgreSQL RLS and guarde
 Cross-domain project cost requires three source domains:
 
 1. supplier invoices (`invoices.read`)
-2. project labor detail (`payroll.detail.read`)
+2. project labor, supplied by payroll detail (`payroll.detail.read`) or the safe project labor aggregate (`payroll.summary.read`)
 3. direct expenses (`expenses.read`)
 
 `src/utils/dataCompleteness.ts` formalizes the reusable completeness state with:
@@ -29,16 +29,17 @@ Cross-domain project cost requires three source domains:
 - `requiredSources`
 - `visibleSources`
 - `missingSources`
+- `sourceStates` (`detail`, `aggregate`, `unavailable`, `incomplete`, or `currency-conflict`)
 - `reason`
 
 A mathematically valid total is not an authoritative company/project total when one of its required sources is unavailable.
 
 Current hardening behavior:
 
-- The Dashboard withholds combined project-cost, utilization, trend, remaining-budget, and company-cost metrics when project-cost source visibility is incomplete.
-- The Projects directory and Project workspace explicitly label locally calculated values as visible/partial where those views remain useful.
-- Combined Project Reports and their export are suppressed when required source domains are incomplete.
-- The Assistant project-cost summary fails closed unless all contributing source domains are readable. This prevents RLS-filtered empty arrays from becoming false zero-cost assertions.
+- The Dashboard withholds combined project-cost, utilization, trend, remaining-budget, and company-cost metrics when project-cost source visibility is incomplete. When the safe aggregate is available, lifetime project rows and composition include its project labor total; payroll-period trend, overhead, and unallocated payroll detail remain explicitly restricted.
+- The Projects directory and Project workspace use the same completeness result. Finance and Viewer can receive authoritative project-cost summaries when the aggregate load succeeds without receiving payroll detail.
+- Combined Project Reports and their export use the project-level labor aggregate for Finance/Viewer. The payroll report tab and workbook sheet contain project/currency totals only when payroll detail is not permitted.
+- The Assistant project-cost summary requires `payroll.summary.read` and calls the guarded aggregate RPC. It never queries payroll detail to calculate the answer, and it fails closed when the aggregate is unavailable or incomplete.
 
 No hardening rule grants Finance or Viewer access to individual payroll detail.
 
@@ -50,7 +51,7 @@ Receives the intended full company capability set. Cross-domain cost views are c
 
 ### FINANCE
 
-Can work with projects, supplier invoices, expenses, financial reports, and Gmail read surfaces according to the role matrix. Payroll aggregate visibility does not imply payroll-detail visibility. Combined project cost is therefore withheld unless a future safe server aggregate can supply labor cost without employee detail.
+Can work with projects, supplier invoices, expenses, financial reports, and Gmail read surfaces according to the role matrix. The safe project labor aggregate supplies project-level confirmed/pending labor cost through `payroll.summary.read`; this does not grant payroll-detail, compensation, attendance, deduction, net-pay, or employee access.
 
 ### PAYROLL
 
@@ -59,6 +60,8 @@ Can work with detailed payroll/workforce and project references. Supplier invoic
 ### VIEWER
 
 Read-only financial/project surfaces remain inspectable. Create, save, verify, archive, delete, Gmail-management, and settlement-reversal controls are not presented without their corresponding permission. Invoice review is an inspection experience rather than a fake verification workflow.
+
+Viewer receives the same project-level labor aggregate as Finance when `payroll.summary.read` is present. Viewer does not receive payroll entries, allocations, worker identities, rates, attendance, deductions, or net pay.
 
 ## Read-only and redacted behavior
 
@@ -96,8 +99,24 @@ This hardening does not change accounting semantics:
 - archived/void and immutable-history rules remain domain-specific
 - currencies are not combined through an implicit FX conversion
 
-## Intentionally deferred architecture
+## Implemented safe project labor aggregate
 
-A safe server-side project labor aggregate remains the preferred follow-up for Finance/Viewer. Such an RPC should expose project-level labor cost only, never employee payroll rows, and must enforce company isolation, an aggregate-level permission, currency separation, lifecycle handling, and archived/void rules.
+The forward migration `20260828153000_project_labor_cost_aggregate.sql` adds the authenticated-only RPC:
 
-Until that RPC exists, Engoryx favors truthful incomplete-data behavior over broader access or authoritative-looking partial totals.
+`public.get_project_labor_cost_aggregate(p_project_ids uuid[])`
+
+It returns one row per requested project with only:
+
+- `project_id`
+- `currency`
+- `confirmed_labor_cost`
+- `pending_labor_cost`
+- `aggregate_status` (`AVAILABLE`, `ZERO`, or `CURRENCY_CONFLICT`)
+
+The RPC derives the company from `deployment_configuration`, validates the deployment header only as a matching assertion, requires an active membership plus `projects.read` and `payroll.summary.read`, and rejects missing/foreign projects, malformed input, suspended users, missing deployment configuration, and source/company integrity mismatches. It is `SECURITY DEFINER` with an empty `search_path`; execution is revoked from `PUBLIC`, `anon`, and the default authenticated grant is re-added explicitly.
+
+The aggregate sums the canonical `payroll_project_allocations.allocation_amount`. `APPROVED` and `PAID` runs are confirmed; `DRAFT` and `CALCULATED` runs are pending; `VOID` runs are excluded. Explicit `ADMIN_OFFICE` and `GENERAL_OVERHEAD` contexts are excluded from project labor. Gross pay, net pay, worker identity, employee IDs, attendance, overtime, deductions, rates, and individual allocation rows are never returned. No mutation or historical payroll rewrite occurs. The current payroll run schema has no separate `POSTED`, `REVERSED`, or `SUPERSEDED` states; if those lifecycle states are introduced later, their inclusion/exclusion rules must be added to this RPC before use.
+
+The current payroll schema has no currency column on payroll runs or project allocations. Therefore the RPC reports the deployment company's `default_currency` as the payroll allocation currency. A project whose currency differs receives `CURRENCY_CONFLICT`; application composition keeps the amount separate as a foreign amount and marks the project-cost source `currency-conflict`. No FX conversion is performed. `ZERO` is an authoritative no-row/zero-allocation result and is distinct from an unavailable or incomplete RPC load.
+
+The aggregate is consumed by the Dashboard project-cost view, Projects/project Overview, combined Reports and export, and the Assistant `get_project_cost_summary` tool. Payroll-detail views continue to use the existing detail permission and are not broadened. If the RPC is unavailable, invalid, incomplete, or currency-incompatible, the shared completeness helper withholds combined totals rather than converting the result to zero.

@@ -76,7 +76,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   read("list_review_queue", "List invoices that require human review.", ["invoices.read"], { limit }),
   read("search_projects", "Search company projects by name, code, client, or status.", ["projects.read"], { query: { type: "string" }, status: { type: "string" }, limit }),
   read("get_project", "Get one company project.", ["projects.read"], { projectId: uuid }, ["projectId"]),
-  read("get_project_cost_summary", "Return bounded source-cost totals for one project without claiming accounting authority.", ["projects.read", "reports.financial.read"], { projectId: uuid }, ["projectId"]),
+  read("get_project_cost_summary", "Return bounded source-cost totals for one project using the authorized project labor aggregate; never return payroll detail.", ["projects.read", "reports.financial.read"], { projectId: uuid }, ["projectId"]),
   read("list_expenses", "List bounded company expenses with optional project, date, and status filters.", ["expenses.read"], { projectId: uuid, status: { type: "string" }, from: date, to: date, query: { type: "string" }, limit }),
   read("get_expense_summary", "Return bounded source expense totals for a date range or project.", ["expenses.read", "reports.financial.read"], { projectId: uuid, from: date, to: date, currency: { type: "string" } }),
   read("search_vendors", "Search company vendors by name or contact fields.", ["vendors.read"], { query: { type: "string" }, limit }),

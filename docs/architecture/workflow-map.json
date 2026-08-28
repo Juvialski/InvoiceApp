@@ -108,6 +108,25 @@
       ]
     },
     {
+      "id": "project-labor-aggregate-preserves-payroll-privacy",
+      "label": "Project labor aggregate preserves payroll privacy",
+      "description": "Finance and Viewer may receive confirmed/pending project labor totals through the guarded payroll.summary.read aggregate without receiving employee identity, payroll entries, rates, attendance, deductions, net pay, or allocation rows.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/utils/projectLaborCostAggregate.ts",
+        "src/utils/dataCompleteness.ts",
+        "src/lib/projects.ts",
+        "src/server/assistant/assistantToolExecutors.ts",
+        "src/server/assistant/toolAuthorization.ts",
+        "supabase/migrations/20260828153000_project_labor_cost_aggregate.sql",
+        "docs/ENGORYX_INTEGRITY_HARDENING.md"
+      ],
+      "testRefs": [
+        "tests/projectLaborCostAggregate.test.ts",
+        "tests/projectLaborCostAggregateMigration.test.ts"
+      ]
+    },
+    {
       "id": "site-log-observation-is-not-payroll-attendance",
       "label": "Site Log crew observation is not payroll attendance",
       "description": "Crew and headcount rows describe field presence observed by the site team; they never directly create or alter authoritative payroll attendance, timesheets, overtime, or runs.",
@@ -1362,18 +1381,26 @@
       "description": "Actual project cost is composed from verified invoice allocations, approved/paid payroll allocations, and approved/paid direct expenses with currency boundaries preserved.",
       "fileRefs": [
         "src/utils/projectCosting.ts",
+        "src/utils/projectLaborCostAggregate.ts",
         "src/utils/projectDashboardViewModel.ts",
         "src/App.tsx",
         "docs/engineering-project-costing-plan.md"
       ],
       "testRefs": [
         "tests/projectCostingHardening.test.ts",
+        "tests/projectLaborCostAggregate.test.ts",
         "tests/accountingStatistics.test.ts",
         "tests/financialSettlement.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "payroll.summary.read",
+        "reports.financial.read"
       ],
       "invariantIds": [
         "invoice-project-cost-independent-from-settlement",
         "payroll-labor-cost-independent-from-net-pay-settlement",
+        "project-labor-aggregate-preserves-payroll-privacy",
         "reports-are-derived-surfaces"
       ],
       "tags": [
@@ -3843,18 +3870,54 @@
       "description": "Confirmed labor cost used by project costing from approved/paid payroll allocations, separate from employee net pay.",
       "fileRefs": [
         "src/utils/projectCosting.ts",
+        "src/utils/projectLaborCostAggregate.ts",
         "src/utils/projectDashboardViewModel.ts",
+        "supabase/migrations/20260828153000_project_labor_cost_aggregate.sql",
         "docs/payroll-workforce-hardening.md"
       ],
       "testRefs": [
         "tests/engineeringProjectCosting.test.ts",
+        "tests/projectLaborCostAggregate.test.ts",
         "tests/financialSettlement.test.ts"
       ],
+      "permissionKeys": [
+        "payroll.summary.read",
+        "projects.read"
+      ],
       "invariantIds": [
-        "payroll-labor-cost-independent-from-net-pay-settlement"
+        "payroll-labor-cost-independent-from-net-pay-settlement",
+        "project-labor-aggregate-preserves-payroll-privacy"
       ],
       "tags": [
         "authoritative-cost-source"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "project-labor-aggregate-rpc",
+      "label": "Safe project labor aggregate RPC",
+      "domain": "projects",
+      "type": "external-boundary",
+      "scope": "company-and-project",
+      "description": "Authenticated SECURITY DEFINER read boundary that derives deployment company and active membership, requires projects.read plus payroll.summary.read, validates requested projects, and returns project-level confirmed/pending labor totals only.",
+      "fileRefs": [
+        "src/lib/projects.ts",
+        "src/utils/projectLaborCostAggregate.ts",
+        "supabase/migrations/20260828153000_project_labor_cost_aggregate.sql",
+        "docs/ENGORYX_INTEGRITY_HARDENING.md"
+      ],
+      "testRefs": [
+        "tests/projectLaborCostAggregate.test.ts",
+        "tests/projectLaborCostAggregateMigration.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "payroll.summary.read"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "project-labor-aggregate-preserves-payroll-privacy",
+        "payroll-labor-cost-independent-from-net-pay-settlement"
       ]
     },
     {
@@ -6150,6 +6213,54 @@
       ]
     },
     {
+      "id": "labor-allocation-to-safe-aggregate",
+      "source": "payroll-project-labor-allocation",
+      "target": "project-labor-aggregate-rpc",
+      "type": "reads",
+      "kind": "external-boundary",
+      "label": "server-side project sum",
+      "permissionKeys": [
+        "payroll.summary.read",
+        "projects.read"
+      ],
+      "invariantIds": [
+        "project-labor-aggregate-preserves-payroll-privacy"
+      ]
+    },
+    {
+      "id": "safe-aggregate-to-project-cost",
+      "source": "project-labor-aggregate-rpc",
+      "target": "project-cost-aggregation",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "privacy-preserving labor source",
+      "permissionKeys": [
+        "payroll.summary.read",
+        "projects.read"
+      ],
+      "invariantIds": [
+        "project-labor-aggregate-preserves-payroll-privacy",
+        "payroll-labor-cost-independent-from-net-pay-settlement"
+      ]
+    },
+    {
+      "id": "safe-aggregate-to-assistant-read-tool",
+      "source": "project-labor-aggregate-rpc",
+      "target": "assistant-authorized-read-tool",
+      "type": "feeds",
+      "kind": "read-flow",
+      "label": "safe project-cost answer",
+      "permissionKeys": [
+        "payroll.summary.read",
+        "projects.read",
+        "reports.financial.read"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "project-labor-aggregate-preserves-payroll-privacy"
+      ]
+    },
+    {
       "id": "entry-to-net-pay",
       "source": "payroll-entry-snapshot",
       "target": "payroll-net-pay-basis",
@@ -6465,6 +6576,7 @@
         "route-projects",
         "project-workspace",
         "project-cost-aggregation",
+        "project-labor-aggregate-rpc",
         "route-invoices",
         "invoice-state-verified",
         "invoice-project-allocation",
@@ -6498,6 +6610,7 @@
         "project-aggregate",
         "project-overview",
         "project-cost-aggregation",
+        "project-labor-aggregate-rpc",
         "route-project-documents",
         "engineering-documents-screen",
         "engineering-document",
@@ -6614,6 +6727,7 @@
         "payroll-project-allocation",
         "payroll-project-labor-allocation",
         "payroll-project-labor-cost",
+        "project-labor-aggregate-rpc",
         "payroll-net-pay-basis",
         "payroll-source-freshness-guard",
         "payroll-history-immutability",
