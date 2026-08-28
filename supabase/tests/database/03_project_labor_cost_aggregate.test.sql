@@ -76,8 +76,8 @@ select
   '60000000-0000-4000-8000-000000000007'::uuid as entry_zero,
   '60000000-0000-4000-8000-000000000008'::uuid as entry_usd;
 
-insert into auth.users (id, email, encrypted_password, confirmed_at, created_at, updated_at)
-select id, email, 'x', now(), now(), now()
+insert into auth.users (id, email, encrypted_password, created_at, updated_at)
+select id, email, 'x', now(), now()
 from (values
   ((select admin_user from project_labor_test_ids), 'aggregate-admin@test.local'),
   ((select finance_user from project_labor_test_ids), 'aggregate-finance@test.local'),
