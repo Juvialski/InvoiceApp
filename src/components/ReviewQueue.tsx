@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { AlertTriangle, CheckCircle2, FileSearch } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Eye, FileSearch } from "lucide-react";
 import type { InvoiceData } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { EmptyState, PageHeader, StatusBadge } from "./ui/OperationsUI";
@@ -8,6 +8,7 @@ interface ReviewQueueProps {
   invoices: InvoiceData[];
   onOpenInvoice: (invoice: InvoiceData) => void;
   onStartReview?: (queue: InvoiceData[]) => void;
+  readOnly?: boolean;
 }
 
 function reasonBadges(invoice: InvoiceData) {
@@ -37,18 +38,22 @@ function reasonBadges(invoice: InvoiceData) {
   return badges.slice(0, 3);
 }
 
-export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, onOpenInvoice, onStartReview }) => {
+export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, onOpenInvoice, onStartReview, readOnly = false }) => {
   const queue = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW"), [invoices]);
-  if (!queue.length) return <div className="space-y-5"><PageHeader eyebrow="Human verification" title="Review queue" description="Review the original source alongside the extraction, correct anything needed, then verify the record." /><EmptyState icon={CheckCircle2} title="Review queue is clear" description="New Gmail and uploaded invoices with uncertainty or validation issues will appear here." /></div>;
+  const description = readOnly
+    ? "Inspect invoices that are awaiting verification. Your role can read these records but cannot edit or verify them."
+    : "Review the original source alongside the extraction, correct anything needed, then verify the record.";
+  if (!queue.length) return <div className="space-y-5"><PageHeader eyebrow="Human verification" title="Review queue" description={description} /><EmptyState icon={CheckCircle2} title="Review queue is clear" description="New Gmail and uploaded invoices with uncertainty or validation issues will appear here." /></div>;
 
   return <div className="space-y-5">
-    <PageHeader eyebrow="Human verification" title="Review queue" description="Review the original source alongside the extraction, correct anything needed, then verify the record." actions={<><span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900"><AlertTriangle className="h-3.5 w-3.5" /> {queue.length} awaiting action</span>{onStartReview && <button type="button" onClick={() => onStartReview(queue)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><FileSearch className="h-3.5 w-3.5" /> Start review</button>}</>} />
+    <PageHeader eyebrow="Human verification" title="Review queue" description={description} actions={<><span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-900"><AlertTriangle className="h-3.5 w-3.5" /> {queue.length} awaiting action</span>{!readOnly && onStartReview && <button type="button" onClick={() => onStartReview(queue)} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><FileSearch className="h-3.5 w-3.5" /> Start review</button>}</>} />
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Invoices awaiting review">
-      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Next records to verify</p></div>
+      <div className="border-b border-slate-200 bg-slate-50 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{readOnly ? "Records awaiting verification" : "Next records to verify"}</p></div>
       <div className="divide-y divide-slate-100">{queue.map((invoice) => {
         const display = getInvoiceDisplay(invoice);
         const reasons = reasonBadges(invoice);
-        return <article key={invoice.id} className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50 lg:flex-row lg:items-center lg:px-5"><div className="flex min-w-0 flex-1 items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700"><FileSearch className="h-4 w-4" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-sm font-black text-slate-900">{display.primaryLabel}</h2><StatusBadge tone="warning" icon={AlertTriangle}>Needs review</StatusBadge></div><p className="mt-1 truncate text-[10px] text-slate-600">{display.invoiceLabel} · {display.dateLabel}</p><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600"><span className="font-sans font-bold tabular-nums">{display.amountLabel}</span>{display.projectKnown && <span className="truncate">{display.projectReference ? `Project: ${display.projectLabel}` : `PO: ${display.projectLabel}`}</span>}<span className="truncate text-slate-400">{display.sourceLabel} · {display.sourceFileLabel}</span></div><div className="mt-2 flex flex-wrap gap-1.5">{reasons.map((reason) => <span key={reason}><StatusBadge tone={reason === "Potential duplicate" ? "danger" : "warning"}>{reason}</StatusBadge></span>)}</div></div></div><button type="button" onClick={() => onOpenInvoice(invoice)} className="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 lg:self-center"><FileSearch className="h-3.5 w-3.5" /> Open &amp; review</button></article>;
+        const ActionIcon = readOnly ? Eye : FileSearch;
+        return <article key={invoice.id} className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50 lg:flex-row lg:items-center lg:px-5"><div className="flex min-w-0 flex-1 items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700"><FileSearch className="h-4 w-4" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-sm font-black text-slate-900">{display.primaryLabel}</h2><StatusBadge tone="warning" icon={AlertTriangle}>Needs review</StatusBadge></div><p className="mt-1 truncate text-[10px] text-slate-600">{display.invoiceLabel} · {display.dateLabel}</p><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600"><span className="font-sans font-bold tabular-nums">{display.amountLabel}</span>{display.projectKnown && <span className="truncate">{display.projectReference ? `Project: ${display.projectLabel}` : `PO: ${display.projectLabel}`}</span>}<span className="truncate text-slate-400">{display.sourceLabel} · {display.sourceFileLabel}</span></div><div className="mt-2 flex flex-wrap gap-1.5">{reasons.map((reason) => <span key={reason}><StatusBadge tone={reason === "Potential duplicate" ? "danger" : "warning"}>{reason}</StatusBadge></span>)}</div></div></div><button type="button" onClick={() => onOpenInvoice(invoice)} className="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 lg:self-center"><ActionIcon className="h-3.5 w-3.5" /> {readOnly ? "Inspect" : "Open & review"}</button></article>;
       })}</div>
     </section>
   </div>;
