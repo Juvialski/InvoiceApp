@@ -36,6 +36,17 @@ const openMobileNavigation: QaScenarioAction = async (page) => {
   return [{ id: "mobile-navigation-visible", passed: count > 0, details: `close-navigation controls: ${count}` } satisfies QaAssertion];
 };
 
+function assertHeading(name: string, assertionId: string): QaScenarioAction {
+  return async (page) => {
+    const count = await page.getByRole("heading", { name, exact: true }).count();
+    return [{ id: assertionId, passed: count > 0, details: `matching headings: ${count}` } satisfies QaAssertion];
+  };
+}
+
+const verifyExtractorScreen = assertHeading("Extract invoice documents", "invoice-extractor-visible");
+const verifyGmailInboxScreen = assertHeading("Gmail inbox", "gmail-inbox-visible");
+const verifyVendorsScreen = assertHeading("Vendors", "vendor-directory-visible");
+
 const verifyFeatureStatusRoadmap: QaScenarioAction = async (page) => {
   const panelCount = await page.locator('[aria-label="Product feature status"]').count();
   const comingSoonCount = await page.locator('text=Coming soon').count();
@@ -74,12 +85,12 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "cash-banking", route: route("cash", "/cash"), path: "/demo/app/cash", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "cash-banking", route: route("cash-settlement", "/cash?transactionId=:transactionId"), path: "/demo/app/cash?transactionId=demo-transaction-split-01", interactionState: "cash settlement workspace opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "cash-banking", route: route("cash", "/cash"), path: "/demo/app/cash", interactionState: "base route loaded", viewport: QA_VIEWPORTS.tablet }),
-  defineQaScenario({ feature: "invoice-extraction", route: route("extract", "/extract"), path: "/demo/app/extract", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
-  defineQaScenario({ feature: "gmail-inbox", route: route("inbox", "/inbox"), path: "/demo/app/inbox", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "invoice-extraction", route: route("extract", "/extract"), path: "/demo/app/extract", interactionState: "extractor screen rendered", viewport: QA_VIEWPORTS.desktop, action: verifyExtractorScreen }),
+  defineQaScenario({ feature: "gmail-inbox", route: route("inbox", "/inbox"), path: "/demo/app/inbox", interactionState: "Gmail screen rendered in disconnected demo state", viewport: QA_VIEWPORTS.desktop, action: verifyGmailInboxScreen }),
   defineQaScenario({ feature: "invoices", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "invoices", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-01", interactionState: "invoice detail opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "invoice review opened", viewport: QA_VIEWPORTS.desktop }),
-  defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor directory rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorsScreen }),
   defineQaScenario({ feature: "payroll", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "payroll", route: route("payroll-run", "/payroll?runId=:runId"), path: "/demo/app/payroll?runId=demo-payroll-run-9", interactionState: "payroll run opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "expenses", route: route("expenses", "/expenses"), path: "/demo/app/expenses", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
