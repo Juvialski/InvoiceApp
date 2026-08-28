@@ -1,6 +1,11 @@
-import { chromium } from "playwright";
+import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import path from "node:path";
+
+// Playwright remains an optional QA-only dependency, matching the existing demo QA lane.
+// Resolve it at runtime so normal TypeScript validation does not require it to be installed.
+const require = createRequire(import.meta.url);
+const { chromium } = require("playwright");
 
 const BASE_URL = "http://localhost:3000";
 const OUTPUT_DIR = path.resolve("artifacts/workflow-canvas-qa");
@@ -38,10 +43,10 @@ async function runVisualValidation() {
 
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
-    page.on("console", (msg) => {
+    page.on("console", (msg: { type(): string; text(): string }) => {
       if (msg.type() === "error") consoleErrors.push(msg.text());
     });
-    page.on("pageerror", (err) => {
+    page.on("pageerror", (err: unknown) => {
       pageErrors.push(String(err));
     });
 
@@ -92,6 +97,7 @@ async function runVisualValidation() {
 
       const matchingItems = await page.locator("div:has-text('Matching Nodes')").count();
       console.log(`  - Search autocomplete popup visible: ${matchingItems > 0 ? "✅ YES" : "❌ NO"}`);
+      if (matchingItems === 0) totalErrors++;
 
       const searchScreenshot = path.join(OUTPUT_DIR, "desktop-1440-search-autocomplete.png");
       await page.screenshot({ path: searchScreenshot });
@@ -110,7 +116,8 @@ async function runVisualValidation() {
     }
 
     if (consoleErrors.length > 0) {
-      console.warn(`  ⚠️ Console errors logged for ${vp.name}:`, consoleErrors);
+      console.error(`  ❌ Console errors logged for ${vp.name}:`, consoleErrors);
+      totalErrors += consoleErrors.length;
     }
     if (pageErrors.length > 0) {
       console.error(`  ❌ Page errors logged for ${vp.name}:`, pageErrors);
