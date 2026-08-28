@@ -156,6 +156,7 @@ export function renderWorkflowMapMarkdown(graph: WorkflowGraph): string {
     `- Generate: \`npm.cmd run workflow-map:generate\``,
     `- Check for drift: \`npm.cmd run workflow-map:check\``,
     `- Check source-contract consistency: \`npm.cmd run workflow-map:consistency\``,
+    `- Generate bounded agent context: \`npm.cmd run workflow-map:context -- --query \"<task keywords>\"\``,
     `- Machine-readable graph: \`${WORKFLOW_MAP_JSON_PATH}\``,
     `- Canonical source: \`${graph.canonicalSource}\``,
     "",
@@ -218,13 +219,13 @@ export function renderWorkflowMapMarkdown(graph: WorkflowGraph): string {
   lines.push(
     "## QA-1 linkage seam",
     "",
-    "Nodes carry stable `qaScenarioIds` only where the mapping to the declarative catalog in `scripts/qa/demoScenarios.ts` is deterministic and useful. WM-1 does not read CI artifacts or dynamically attach `artifacts/demo-visual-qa/manifest.json`; WM-4 may consume those records later while preserving the distinction between isolated demo evidence and authenticated production behavior.",
+    "Nodes carry stable `qaScenarioIds` only where the mapping to the declarative catalog in `scripts/qa/demoScenarios.ts` is deterministic and useful. WM-1 does not read CI artifacts or dynamically attach `artifacts/demo-visual-qa/manifest.json`; WM-4 consumes those records in a derived overlay while preserving the distinction between isolated demo evidence and authenticated production behavior.",
     "",
     "## Maintenance rule",
     "",
     "When a future product change introduces or materially changes a workflow, lifecycle, route, guard, permission, cross-domain relationship, or high-risk invariant, update `scripts/workflow-map/graph.ts` in the same implementation PR and regenerate both committed outputs. Trivial CSS and internal refactors that do not change workflow meaning do not require graph edits.",
     "",
-    "WM-3 Graph Consistency Validation compares this advisory graph with selected authoritative source contracts. WM-4 Browser Evidence Overlay is the next infrastructure stage. The map remains read-only and does not add a customer-facing editor, external orchestrator, or new financial/payroll behavior.",
+    "WM-3 Graph Consistency Validation compares this advisory graph with selected authoritative source contracts. WM-4 Browser Evidence Overlay and WM-5 Bounded Agent Context Generation are implemented repository-local infrastructure stages; the map remains read-only and does not add a customer-facing editor, external orchestrator, or new financial/payroll behavior.",
     "",
   );
   return lines.join("\n");
