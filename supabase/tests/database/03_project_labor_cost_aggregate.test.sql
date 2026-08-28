@@ -78,6 +78,8 @@ select
   '60000000-0000-4000-8000-000000000007'::uuid as entry_zero,
   '60000000-0000-4000-8000-000000000008'::uuid as entry_usd;
 
+grant select on project_labor_test_ids to authenticated;
+
 insert into auth.users (id, email, encrypted_password, created_at, updated_at)
 select id, email, 'x', now(), now()
 from (values
