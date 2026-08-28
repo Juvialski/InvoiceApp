@@ -4,14 +4,14 @@
 
 This is a **development infrastructure track**, not a customer-facing Engoryx product module. Its purpose is to give humans and coding agents a fast visual and machine-readable understanding of how Engoryx works across routes, domain workflows, guarded transitions, data boundaries, and important cross-module links.
 
-The primary goal is a repository-native workflow map that can be rendered as an interactive node graph similar to a visual workflow editor while remaining useful to agents as plain structured data. The same map can later support targeted QA and defect discovery without requiring a hosted orchestration service.
+The primary goal is a repository-native workflow map that can be rendered as an interactive node graph similar to a visual workflow editor while remaining useful to agents as plain structured data. The same map can support targeted QA and defect discovery without requiring a hosted orchestration service.
 
 ## Status and sequencing
 
-- **Status:** Planned.
+- **Status:** Structured browser evidence is implemented. The next immediate stage is **WM-1: Canonical Workflow Graph**, using GitDiagram as an exploratory aid plus direct code/document inspection before committing the authoritative graph.
 - **Priority:** Immediate engineering-infrastructure work, before or alongside Product Phase 2.
 - **Product roadmap effect:** This track does **not** renumber the Engoryx customer-facing phases. Product Phase 2 remains Project Scheduling & Gantt.
-- **Hosting requirement:** None. The first useful version must work from the repository and existing CI/local tooling without n8n or another paid automation service.
+- **Hosting requirement:** None. The first useful version must work from the repository and existing CI/local tooling without a paid automation service.
 - **Implementation rule:** The workflow map is documentation and QA infrastructure. It must not become a second source of business truth that silently drifts from the actual code.
 
 ## Current project baseline
@@ -131,7 +131,70 @@ The human-facing view should resemble a workflow canvas:
 
 A repository-native renderer may use **Mermaid** for low-maintenance documentation and/or **React Flow / xyflow** for a richer interactive developer view. The visualization must consume the canonical graph contract instead of maintaining its own duplicated relationships.
 
-External tools such as GitDiagram or repository-wiki generators may be useful for quick architecture exploration, but they are not authoritative because they infer structure and may miss Engoryx business semantics.
+External tools such as GitDiagram or repository-wiki generators are useful for quick architecture exploration, but they are not authoritative because they infer structure and may miss Engoryx business semantics. For WM-1, GitDiagram should be used as an initial map to accelerate discovery, then the graph must be corrected against current routes, domain code, lifecycle guards, permissions, tests, and documented invariants before it becomes repository context.
+
+## Structured browser evidence — implemented foundation
+
+Structured browser evidence is implemented in the existing Chromium demo visual-QA lane. It is a producer-only evidence contract: it does not require external credentials, Supabase, production authentication, or a remote QA service.
+
+### Local command and artifact layout
+
+For a local run, build the app, install the QA-only browser package, install Chromium, start the existing preview in one terminal, then run:
+
+```text
+npm.cmd run build
+npm.cmd install --no-save --package-lock=false playwright@1.55.0
+npx.cmd playwright install chromium
+# terminal 1
+npx.cmd vite preview --host 127.0.0.1 --port 4173
+# terminal 2
+npm.cmd run qa:demo
+```
+
+The runner uses the isolated `/demo` application mode and writes to:
+
+```text
+artifacts/demo-visual-qa/
+├── manifest.json
+├── screenshots/
+│   └── <stable-scenario-id>.png
+└── logs/qa.log
+```
+
+The generated directory is ignored by Git. `DEMO_QA_BASE_URL` and `DEMO_QA_OUTPUT_DIR` may override the preview URL and output directory for local/CI use. The runner opens a fresh browser context for every scenario so demo session state and interactions cannot leak between evidence records.
+
+### Manifest contract
+
+`manifest.json` has `schemaVersion: 1` and contains:
+
+- `run`: `commitSha`, `branch`, `timestamp`, `trigger`, and `appMode: "demo"`;
+- `summary`: route, viewport, interaction, screenshot, console, page-error, failed-request, overflow, navigation-failure, ignored-evidence, and failed-scenario counts;
+- `scenarios`: stable `scenarioId`, feature, route ID/canonical path, requested and final paths, interaction state, viewport dimensions, screenshot path, normalized console/page/network evidence, overflow dimensions/tolerance, navigation result, deterministic assertions, duration, timestamp, status, and bounded failure reasons; and
+- `artifacts`: relative manifest, screenshot-directory, and log paths so a later consumer can collect the complete run without understanding Playwright.
+
+Browser messages are whitespace-normalized and bounded. Request evidence keeps only the endpoint path, method, resource type, status/classification, and a bounded failure message; request bodies, headers, cookies, HTML, arbitrary browser history, and request query data are not persisted. Safe navigation parameters in the tested route path remain available for state analysis, while credential-shaped fragments are redacted before persistence.
+
+The default failure policy has no ignored patterns. If a genuinely benign browser condition needs to be allowed later, it must be added as a narrow, reviewable regex pattern in the scenario definition and remains visible in the normalized evidence with `ignored: true`.
+
+### Scenario coverage
+
+The declarative scenario catalog currently covers the isolated Meridian demo across desktop (`1440px`), laptop (`1366px`), tablet (`768px`), and mobile (`390px`) viewports, including:
+
+- Dashboard, mobile navigation, and Demo Tour;
+- Projects directory, selected project, Project Overview, Project Documents, and the deterministic demo drawing preview used by the guest document adapter;
+- Engineering Documents, RFIs and RFI detail, Technical Submittals and round detail, and Daily Site Logs/register/detail;
+- Cash & Banking, a settlement allocation deep link, Invoices, invoice detail, and invoice review;
+- Payroll, a payroll-run deep link, Expenses, Reports, and the Assistant.
+
+The stateful scenarios use only safe local interactions (navigation, opening a viewer, opening the Demo Tour, and opening mobile navigation). They do not confirm financial, payroll, engineering, or workforce mutations.
+
+### CI behavior
+
+The existing `Demo Visual QA` workflow remains authoritative for browser evidence. It builds the production bundle, installs Playwright only for this QA job, starts the Vite preview, runs `npm run qa:demo`, uploads `artifacts/demo-visual-qa` even when the runner fails, and then stops the preview. The job fails for deterministic failures: navigation/load failure, uncaught page error, non-ignored console error, non-ignored failed request, required no-overflow violation, failed deterministic assertion, interaction failure, or screenshot failure.
+
+Visual attractiveness or semantic UX quality is not a deterministic pass/fail rule in this stage. Screenshot review and future workflow-map evidence overlays may surface those issues separately.
+
+Structured browser evidence does not replace unit/domain tests, lint/typecheck, production build, migration validation, pgTAP, or security checks.
 
 ## Agent context contract
 
@@ -194,7 +257,7 @@ These checks should fail only on deterministic contract violations. A workflow g
 
 ## Browser QA relationship
 
-Existing Playwright/browser QA remains useful and independent.
+The structured-evidence producer is implemented now; a later workflow-map stage may attach its manifest records to graph nodes or paths.
 
 A later enhancement may attach browser evidence to workflow nodes or paths:
 
@@ -212,9 +275,11 @@ This creates a useful bridge between architecture understanding and actual rende
 
 ## Proposed implementation stages
 
-### Stage WM-1: Canonical workflow graph
+### Stage WM-1: Canonical workflow graph — next
 
 Create the versioned machine-readable graph contract and document the most important existing Engoryx flows: Projects, Engineering Documents, RFIs, Submittals, Site Logs, Invoices, Cash/Settlement, Expenses, Workforce/Payroll, Reports, and the guarded Assistant.
+
+Use GitDiagram as an exploratory starting point, not as the source of truth. Review its inferred map against the actual current repository, then encode the curated graph in repository-native structured data with stable IDs, routes, file/test references, lifecycle metadata, guards, and high-risk invariants.
 
 ### Stage WM-2: Visual workflow canvas
 
@@ -226,11 +291,13 @@ Add deterministic tests that validate node/edge integrity, known route reference
 
 ### Stage WM-4: Browser evidence overlay
 
-Connect existing Playwright/browser QA results to relevant workflow nodes/scenarios so agents can see which paths have runtime evidence and where failures occurred.
+Connect the implemented structured Playwright/browser manifest to relevant workflow nodes/scenarios so agents can see which paths have runtime evidence and where failures occurred.
 
 ### Stage WM-5: Bounded agent context generation
 
 Generate compact feature-scoped context from the graph plus live repository metadata. Do not maintain an unlimited agent-memory database and do not copy chat transcripts into the repository.
+
+At WM-5, update `AGENTS.md` so substantial implementation/debugging runs automatically read the canonical workflow map and the relevant domain context before editing code. The map remains advisory context; agents must still inspect current `main`, current CI, and the actual source.
 
 ## Context persistence
 
@@ -258,7 +325,7 @@ Do not introduce Supabase or another database solely to store workflow/agent con
 
 This track does not:
 
-- require n8n or another workflow-automation subscription;
+- require a hosted workflow-automation subscription;
 - replace GitHub Actions;
 - replace deterministic tests with diagrams;
 - automatically infer every business rule from source code;
@@ -268,15 +335,17 @@ This track does not:
 - automatically let an agent fix every issue it finds;
 - change the customer-facing Engoryx phase numbering.
 
-## Acceptance criteria
+## Overall track acceptance criteria
 
-The first useful version is complete when:
+Structured browser evidence is complete. The workflow-map track is complete when:
 
 - Engoryx's major product workflows are represented in one versioned machine-readable graph;
 - the graph has a clear human-readable visual rendering;
 - nodes link back to useful routes/files/tests where practical;
 - domain filtering makes a large graph understandable;
 - deterministic checks catch broken graph references and selected workflow-contract inconsistencies;
+- browser evidence can be associated with the relevant workflow nodes/scenarios;
 - an agent can receive a compact feature-scoped workflow/context brief without reading the entire history of the project;
+- substantial future agents are instructed to load the relevant workflow context automatically;
 - the system works locally and in the repository without a paid orchestration service;
 - existing CI remains authoritative and unchanged in meaning.

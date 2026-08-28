@@ -9,7 +9,9 @@ on:
       - "src/main.tsx"
       - "src/app/applicationMode.ts"
       - "public/demo/**"
-      - "scripts/demo-visual-qa.mjs"
+      - "package.json"
+      - "scripts/demo-visual-qa.ts"
+      - "scripts/qa/**"
       - ".github/workflows/demo-visual-qa.yml"
   pull_request:
     branches:
@@ -19,7 +21,9 @@ on:
       - "src/main.tsx"
       - "src/app/applicationMode.ts"
       - "public/demo/**"
-      - "scripts/demo-visual-qa.mjs"
+      - "package.json"
+      - "scripts/demo-visual-qa.ts"
+      - "scripts/qa/**"
       - ".github/workflows/demo-visual-qa.yml"
 
 permissions:
@@ -55,8 +59,8 @@ jobs:
           done
           cat /tmp/engoryx-demo-preview.log
           exit 1
-      - name: Capture demo routes
-        run: node scripts/demo-visual-qa.mjs
+      - name: Capture structured demo evidence
+        run: npm run qa:demo
       - name: Upload visual QA evidence
         if: always()
         uses: actions/upload-artifact@v4

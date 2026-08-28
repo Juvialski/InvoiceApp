@@ -9,6 +9,7 @@
     "start": "node dist/server.cjs",
     "lint": "tsc --noEmit",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "qa:demo": "tsx scripts/demo-visual-qa.ts",
     "test:migrations": "tsx scripts/test-migrations.ts",
     "test:migrations:upgrade": "tsx scripts/test-migration-upgrade.ts",
     "astryx": "astryx",
