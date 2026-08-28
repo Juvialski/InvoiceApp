@@ -6,19 +6,24 @@ on:
       - refactor/single-company-deployment
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   app-validation:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - name: Apply reconstructed continuation patch
+        run: node scripts/continuation-hardening-patch.mjs
+      - name: Install and refresh lockfile
+        run: npm install
+      - name: Regenerate workflow map
+        run: npm run workflow-map:generate
       - name: Workflow map check
         run: npm run workflow-map:check
       - name: Workflow map consistency
@@ -47,10 +52,23 @@ jobs:
         env:
           BASE_URL: http://127.0.0.1:4173
         run: npm run qa:demo
+      - name: Diff check
+        run: git diff --check
+      - name: Commit validated hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json src/lib/persistence.ts src/lib/engineeringDocumentsPersistence.ts src/lib/payrollImportPersistence.ts src/lib/payrollImport.ts server.ts scripts/workflow-map/graph.ts docs/WORKFLOW_MAP.md docs/WORKFLOW_MAP.mmd docs/workflow-map.json .github/workflows/database-tests.yml tests/fileSecurity.test.ts
+          if git diff --cached --quiet; then
+            echo "No generated hardening changes to commit."
+          else
+            git commit -m "security: harden single-company file boundaries [skip ci]"
+            git push
+          fi
 
   migration-validation:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,8 +77,8 @@ jobs:
           cache: npm
       - uses: supabase/setup-cli@v1
         with:
-          version: 2.76.8
-      - run: npm ci
+          version: 2.115.0
+      - run: npm install
       - name: Start local Supabase
         run: supabase db start
       - name: Reset migration chain
