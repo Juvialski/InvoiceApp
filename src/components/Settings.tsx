@@ -8,9 +8,10 @@ import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.
 interface SettingsProps {
   settings: RegionalSettings;
   onChange: (settings: RegionalSettings) => void;
+  showDeploymentAccessManagement?: boolean;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ settings, onChange }) => {
+export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDeploymentAccessManagement = true }) => {
   const isDeploymentProfile = settings.country === DEFAULT_COUNTRY
     && settings.locale === DEFAULT_LOCALE
     && settings.currency === DEFAULT_CURRENCY
@@ -47,7 +48,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange }) => {
         </div>
       </section>
 
-      <DeploymentAccessManagement />
+      {showDeploymentAccessManagement && <DeploymentAccessManagement />}
       <FeatureStatusOverview />
     </div>
   );

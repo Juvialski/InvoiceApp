@@ -170,6 +170,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onSaveExpense={(expense: Expense) => dispatch({ type: "SAVE_EXPENSE", value: expense })}
             onArchiveExpense={(expense: Expense) => dispatch({ type: "ARCHIVE_EXPENSE", value: expense })}
             regionalSettings={DEFAULT_REGIONAL_SETTINGS}
+            showDeploymentAccessManagement={false}
           />
         )
         : <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">This route is not part of the public demo. <button type="button" className="ml-1 font-black text-indigo-600" onClick={() => onNavigate(demoPathForTab("dashboard"))}>Return to Dashboard</button></div>;

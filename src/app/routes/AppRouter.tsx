@@ -245,6 +245,7 @@ export interface AppRouterProps {
   // Settings
   regionalSettings: RegionalSettings;
   onRegionalSettingsChange?: (settings: RegionalSettings) => void;
+  showDeploymentAccessManagement?: boolean;
 
   // Platform Companies
   platformCompaniesProps?: PlatformCompaniesRouteProps;
@@ -376,6 +377,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onExportReportsWorkbook,
   regionalSettings,
   onRegionalSettingsChange = () => {},
+  showDeploymentAccessManagement = true,
   platformCompaniesProps,
 }) => {
   if (route.kind === "platform-companies" && platformCompaniesProps) {
@@ -628,7 +630,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 9. Settings Route
   if (route.kind === "tab" && activeTab === "settings") {
-    return lazyRoute(<SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} />);
+    return lazyRoute(<SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} showDeploymentAccessManagement={showDeploymentAccessManagement} />);
   }
 
   return null;

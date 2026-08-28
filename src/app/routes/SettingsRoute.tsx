@@ -5,10 +5,11 @@ import type { RegionalSettings } from "../../config/regional";
 export interface SettingsRouteProps {
   settings: RegionalSettings;
   onChange: (settings: RegionalSettings) => void;
+  showDeploymentAccessManagement?: boolean;
 }
 
-export const SettingsRoute: React.FC<SettingsRouteProps> = ({ settings, onChange }) => {
-  return <SettingsScreen settings={settings} onChange={onChange} />;
+export const SettingsRoute: React.FC<SettingsRouteProps> = ({ settings, onChange, showDeploymentAccessManagement }) => {
+  return <SettingsScreen settings={settings} onChange={onChange} showDeploymentAccessManagement={showDeploymentAccessManagement} />;
 };
 
 export default SettingsRoute;
