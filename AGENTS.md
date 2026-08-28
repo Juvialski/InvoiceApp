@@ -183,12 +183,13 @@ Never overwrite newer work because a prompt references an older commit or prior 
 Before substantial implementation, debugging, or architecture work:
 
 1. inspect current `main` and current CI;
-2. read `docs/architecture/APP_WORKFLOW_MAP.md`;
-3. inspect `docs/architecture/workflow-map.json`;
-4. identify the affected workflow/domain;
-5. inspect neighboring graph nodes and high-risk invariants;
-6. inspect the actual source implementation, guards, permissions, and relevant tests;
-7. treat the workflow map as advisory context, never as a replacement for source inspection.
+2. use `docs/architecture/APP_WORKFLOW_MAP.md` for orientation;
+3. identify the affected domain/workflow;
+4. search/filter `docs/architecture/workflow-map.json` for that workflow and its neighboring nodes;
+5. inspect relevant guards, permissions, invariants, routes, files, and tests;
+6. inspect the actual source implementation;
+7. load the complete graph only for genuinely broad or cross-domain architecture work;
+8. treat the workflow map as advisory context, never as a replacement for source inspection.
 
 When a change materially alters a mapped workflow, lifecycle, route, guard, permission, cross-domain relationship, or high-risk invariant, update `scripts/workflow-map/graph.ts` and regenerate both committed outputs in the same PR. Trivial CSS and internal refactors that do not change workflow meaning do not require graph edits.
 

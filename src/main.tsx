@@ -7,13 +7,16 @@ import './index.css';
 
 const ProductionApp = lazy(() => import('./App.tsx'));
 const DemoRoot = lazy(() => import('./demo/DemoRoot.tsx'));
+const WorkflowMapRoot = lazy(() => import('./workflow-map/WorkflowMapRoot.tsx'));
 
 function Root() {
-  const mode = applicationModeForPath(window.location.pathname);
+  const mode = applicationModeForPath(window.location.pathname, window.location.search);
   return (
     <EngoryxThemeProvider>
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-600">Loading Engoryx…</div>}>
-        {mode === 'demo' ? (
+        {mode === 'workflow-map' ? (
+          <WorkflowMapRoot />
+        ) : mode === 'demo' ? (
           <DemoRoot />
         ) : (
           <CompanyAccessProvider>
