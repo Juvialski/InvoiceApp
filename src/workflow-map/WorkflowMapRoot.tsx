@@ -13,10 +13,23 @@ import { WorkflowDetailsPanel } from "./WorkflowDetailsPanel.tsx";
 import { WorkflowInvariantsModal } from "./WorkflowInvariantsModal.tsx";
 import { WorkflowStatusBar } from "./WorkflowStatusBar.tsx";
 
+function relevantPresetForNode(nodeId: string): string {
+  const curated = WORKFLOW_GRAPH.diagrams.find((diagram) => diagram.nodeIds.includes(nodeId));
+  if (curated) return curated.id;
+
+  const node = WORKFLOW_GRAPH.nodes.find((candidate) => candidate.id === nodeId);
+  return node ? `domain-${node.domain}` : DEFAULT_FILTER.presetId;
+}
+
 export default function WorkflowMapRoot() {
   const [filter, setFilter] = useState<WorkflowCanvasFilter>(() => {
     const urlState = parseWorkflowMapUrlState(window.location.search);
-    return { ...DEFAULT_FILTER, ...urlState };
+    const selectedNodeId = urlState.selectedNodeId ?? DEFAULT_FILTER.selectedNodeId;
+    const presetId =
+      urlState.presetId ??
+      (selectedNodeId ? relevantPresetForNode(selectedNodeId) : DEFAULT_FILTER.presetId);
+
+    return { ...DEFAULT_FILTER, ...urlState, presetId };
   });
 
   const [invariantsModalOpen, setInvariantsModalOpen] = useState(false);
@@ -55,6 +68,10 @@ export default function WorkflowMapRoot() {
   const handleSelectSearchNode = useCallback((nodeId: string) => {
     setFilter((prev) => ({
       ...prev,
+      presetId: relevantPresetForNode(nodeId),
+      selectedDomains: [],
+      selectedNodeTypes: [],
+      filterInvariantOnly: false,
       selectedNodeId: nodeId,
       focusNeighborhood: false,
       searchQuery: "",
