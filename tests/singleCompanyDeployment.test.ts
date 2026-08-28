@@ -111,7 +111,7 @@ test("company access management is surfaced under deployment settings and remain
   const settings = readFileSync(new URL("../src/components/Settings.tsx", import.meta.url), "utf8");
   const management = readFileSync(new URL("../src/components/access/DeploymentAccessManagement.tsx", import.meta.url), "utf8");
   assert.match(settings, /DeploymentAccessManagement/);
-  assert.match(management, /company\.members\.manage/);
+  assert.match(management, /PERMISSION_KEYS\.accessManage/);
   assert.match(management, /companyAccess\.can/);
   assert.doesNotMatch(management, /activeMembership\?\.roleKey|roleKey === "COMPANY_ADMIN"/);
   assert.match(management, /companyAccess\.inviteCompanyMember/);

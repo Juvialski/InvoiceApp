@@ -663,9 +663,9 @@ function readWorkbook(input: ArrayBuffer | Uint8Array | string, format: PayrollW
   try {
     if (typeof input === "string") {
       if (format !== "csv" && format !== "unknown") throw new PayrollImportError("UNSUPPORTED_FORMAT", "String input is supported only for CSV payroll files.");
-      return XLSX.read(input, { type: "string", cellDates: true, cellFormula: true, cellText: true });
+      return XLSX.read(input, { type: "string", cellDates: true, cellFormula: false, cellText: true });
     }
-    return XLSX.read(input, { type: "array", cellDates: true, cellFormula: true, cellText: true });
+    return XLSX.read(input, { type: "array", cellDates: true, cellFormula: false, cellText: true });
   } catch (error) {
     if (error instanceof PayrollImportError) throw error;
     throw new PayrollImportError("MALFORMED_WORKBOOK", "The payroll workbook could not be read. Confirm that it is a valid, non-encrypted spreadsheet.");

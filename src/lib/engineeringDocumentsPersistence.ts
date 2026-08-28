@@ -12,6 +12,7 @@ import {
   type EngineeringDocumentType,
 } from "./engineeringDocuments.ts";
 import { getActiveCompanyId, requireActiveCompanyId } from "./companyContext.ts";
+import { safeStorageSegment } from "./fileSecurity.ts";
 import { supabase } from "./supabase.ts";
 
 export const ENGINEERING_WORKSPACE_STORAGE_KEY = "invoice_engineering_documents_workspace_v1";
@@ -84,10 +85,9 @@ export async function prepareEngineeringPdf(
 }
 
 export function getEngineeringDocumentStoragePath(companyId: string, documentId: string, revisionId: string, fileName: string): string {
-  const normalizedCompanyId = companyId.trim();
-  const normalizedDocumentId = documentId.trim();
-  const normalizedRevisionId = revisionId.trim();
-  if (!normalizedCompanyId || !normalizedDocumentId || !normalizedRevisionId) throw new Error("Company, document, and revision IDs are required for Storage uploads.");
+  const normalizedCompanyId = safeStorageSegment(companyId, "Company ID");
+  const normalizedDocumentId = safeStorageSegment(documentId, "Engineering document ID");
+  const normalizedRevisionId = safeStorageSegment(revisionId, "Engineering revision ID");
   return `companies/${normalizedCompanyId}/documents/${normalizedDocumentId}/revisions/${normalizedRevisionId}/${safeFileName(fileName)}`;
 }
 
@@ -98,9 +98,16 @@ export function isEngineeringDocumentStoragePathForRevision(
   revisionId: string,
 ): boolean {
   const parts = filePath.trim().split("/");
-  const normalizedCompanyId = companyId.trim();
-  const normalizedDocumentId = documentId.trim();
-  const normalizedRevisionId = revisionId.trim();
+  let normalizedCompanyId: string;
+  let normalizedDocumentId: string;
+  let normalizedRevisionId: string;
+  try {
+    normalizedCompanyId = safeStorageSegment(companyId, "Company ID");
+    normalizedDocumentId = safeStorageSegment(documentId, "Engineering document ID");
+    normalizedRevisionId = safeStorageSegment(revisionId, "Engineering revision ID");
+  } catch {
+    return false;
+  }
   return parts.length === 7
     && parts[0] === "companies"
     && parts[1] === normalizedCompanyId

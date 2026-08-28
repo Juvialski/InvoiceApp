@@ -43,7 +43,8 @@ test("the Express API separates Supabase and Google bearer tokens", () => {
 test("browser API helper sends the selected company and Supabase session", () => {
   assert.match(browserClient, /supabase\.auth\.getSession\(\)/);
   assert.match(browserClient, /headers\.set\("Authorization", `Bearer \$\{data\.session\.access_token\}`\)/);
-  assert.match(browserClient, /headers\.set\("X-Company-Id", options\.companyId\)/);
+  assert.match(browserClient, /assertDeploymentCompanyId\(deploymentCompanyId, options\.companyId/);
+  assert.match(browserClient, /headers\.set\("X-Company-Id", deploymentCompanyId\)/);
   assert.match(browserClient, /X-Gmail-Access-Token/);
 });
 

@@ -1,6 +1,7 @@
 import { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent } from "../types";
 import { supabase } from "./supabase";
 import { companyStoragePath, requireActiveCompanyId } from "./companyContext";
+import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity";
 
 const INVOICE_BUCKET = "invoice-originals";
 const EMAIL_BUCKET = "email-originals";
@@ -77,6 +78,28 @@ async function signedUrl(bucket: string, storagePath?: string | null) {
   const client = requireSupabase();
   const { data } = await client.storage.from(bucket).createSignedUrl(storagePath, 60 * 60);
   return data?.signedUrl || undefined;
+}
+
+function storageErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "message" in error) return String((error as { message?: unknown }).message || "unknown error");
+  return String(error || "unknown error");
+}
+
+async function cleanupUploadedObject(bucket: string, storagePath: string, originalError: unknown): Promise<never> {
+  const client = requireSupabase();
+  const { error: cleanupError } = await client.storage.from(bucket).remove([storagePath]);
+  if (cleanupError) {
+    throw new Error(`Persistence failed (${storageErrorMessage(originalError)}), and the uploaded object could not be cleaned up (${storageErrorMessage(cleanupError)}).`);
+  }
+  throw originalError;
+}
+
+async function storageTokenForOpaqueId(value: string, label: string) {
+  const normalized = String(value || "").trim();
+  if (!normalized) throw new Error(`${label} is required.`);
+  const digest = await sha256(new TextEncoder().encode(normalized));
+  const prefix = safeName(normalized).slice(0, 32) || "id";
+  return `${prefix}-${digest.slice(0, 16)}`;
 }
 
 function encodeBase64(bytes: Uint8Array) {
@@ -156,13 +179,15 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
 export async function saveManualSourceDocument(input: { fileData: string; mimeType: string; fileName: string; emailMessageId?: string; sourceType?: "UPLOAD" | "EMAIL" }): Promise<StoredSourceDocument> {
   const client = requireSupabase();
   const userId = await requireUserId();
+  const companyId = requireActiveCompanyId();
   const bytes = decodeBase64(input.fileData);
+  validateInvoiceDocumentBytes(bytes, input.mimeType, input.fileName);
   const hash = await sha256(bytes);
 
   const { data: existingRows, error: existingError } = await client
     .from("source_documents")
     .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,sha256,processing_status,document_type,created_at")
-    .eq("company_id", requireActiveCompanyId())
+    .eq("company_id", companyId)
     .eq("sha256", hash)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -170,9 +195,9 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
   if (existingRows?.[0]) return sourceDocumentFromRow(existingRows[0]);
 
   const now = new Date();
-  const path = `${companyStoragePath("invoices", "manual", String(now.getUTCFullYear()), String(now.getUTCMonth() + 1).padStart(2, "0"))}/${hash.slice(0, 12)}-${crypto.randomUUID().slice(0, 8)}-${safeName(input.fileName)}`;
-  const { error: uploadError } = await client.storage.from(INVOICE_BUCKET).upload(path, bytes, {
-    contentType: input.mimeType || "application/octet-stream",
+  const storagePath = `${companyStoragePath("invoices", "manual", String(now.getUTCFullYear()), String(now.getUTCMonth() + 1).padStart(2, "0"))}/${hash.slice(0, 12)}-${crypto.randomUUID().slice(0, 8)}-${safeName(input.fileName)}`;
+  const { error: uploadError } = await client.storage.from(INVOICE_BUCKET).upload(storagePath, bytes, {
+    contentType: input.mimeType,
     upsert: false,
   });
   if (uploadError) throw uploadError;
@@ -181,21 +206,21 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
     .from("source_documents")
     .insert({
       user_id: userId,
-      company_id: requireActiveCompanyId(),
+      company_id: companyId,
       source_type: input.sourceType || "UPLOAD",
       email_message_id: input.emailMessageId || null,
       filename: input.fileName,
       mime_type: input.mimeType,
       file_size: bytes.byteLength,
-      storage_path: path,
+      storage_path: storagePath,
       sha256: hash,
       processing_status: "STORED",
     })
     .select("id")
     .single();
-  if (error) throw error;
+  if (error) return cleanupUploadedObject(INVOICE_BUCKET, storagePath, error);
 
-  return { id: data.id, emailMessageId: input.emailMessageId, filename: input.fileName, mimeType: input.mimeType, size: bytes.byteLength, storagePath: path, sha256: hash, processingStatus: "STORED", previewUrl: await signedUrl(INVOICE_BUCKET, path) };
+  return { id: data.id, emailMessageId: input.emailMessageId, filename: input.fileName, mimeType: input.mimeType, size: bytes.byteLength, storagePath, sha256: hash, processingStatus: "STORED", previewUrl: await signedUrl(INVOICE_BUCKET, storagePath) };
 }
 
 export async function loadSourcePayloadForRetry(invoice: InvoiceData): Promise<OriginalSourcePayload | null> {
@@ -283,23 +308,42 @@ export async function saveManualEmailRecord(input: { sender: string; subject: st
 export async function saveGmailMessageSource(message: GmailImportedMessage): Promise<{ email: StoredEmailRecord; documents: StoredSourceDocument[] }> {
   const client = requireSupabase();
   const userId = await requireUserId();
+  const companyId = requireActiveCompanyId();
+  const messageStorageToken = await storageTokenForOpaqueId(message.id, "Gmail message ID");
+  const attachments = message.attachments || [];
+  validateGmailAttachmentEnvelope(attachments);
   const received = message.receivedAt ? new Date(message.receivedAt) : new Date();
   const year = received.getUTCFullYear();
   const month = String(received.getUTCMonth() + 1).padStart(2, "0");
   let rawStoragePath: string | undefined;
+  let rawWasCreated = false;
+
+  const { data: previousEmail, error: previousEmailError } = await client
+    .from("email_messages")
+    .select("id,raw_storage_path")
+    .eq("company_id", companyId)
+    .eq("gmail_message_id", message.id)
+    .maybeSingle();
+  if (previousEmailError) throw previousEmailError;
 
   if (message.rawBase64Url) {
-    const rawBytes = base64UrlToBytes(message.rawBase64Url);
-    rawStoragePath = `${companyStoragePath("emails", String(year), month, message.id)}/message.eml`;
-    const { error } = await client.storage.from(EMAIL_BUCKET).upload(rawStoragePath, rawBytes, { contentType: "message/rfc822", upsert: true });
-    if (error) throw error;
+    if (previousEmail?.raw_storage_path) {
+      rawStoragePath = previousEmail.raw_storage_path;
+    } else {
+      const rawBytes = base64UrlToBytes(message.rawBase64Url);
+      validateGmailRawMessage(rawBytes);
+      rawStoragePath = `${companyStoragePath("emails", String(year), month, messageStorageToken)}/message.eml`;
+      const { error } = await client.storage.from(EMAIL_BUCKET).upload(rawStoragePath, rawBytes, { contentType: "message/rfc822", upsert: false });
+      if (error) throw error;
+      rawWasCreated = true;
+    }
   }
 
   const { data: emailRow, error: emailError } = await client
     .from("email_messages")
     .upsert({
       user_id: userId,
-      company_id: requireActiveCompanyId(),
+      company_id: companyId,
       gmail_message_id: message.id,
       gmail_thread_id: message.threadId || null,
       gmail_history_id: message.historyId || undefined,
@@ -314,24 +358,29 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
       body_html: message.bodyHtml || "",
       snippet: message.snippet || "",
       labels: message.labels || [],
-      has_attachments: Boolean(message.attachments?.length),
-      attachment_count: message.attachments?.length || 0,
+      has_attachments: Boolean(attachments.length),
+      attachment_count: attachments.length,
       ...(rawStoragePath ? { raw_storage_path: rawStoragePath } : {}),
       processing_status: "IMPORTED",
       updated_at: new Date().toISOString(),
     }, { onConflict: "company_id,gmail_message_id" })
     .select("id")
     .single();
-  if (emailError) throw emailError;
+  if (emailError) {
+    if (rawWasCreated && rawStoragePath) return cleanupUploadedObject(EMAIL_BUCKET, rawStoragePath, emailError);
+    throw emailError;
+  }
 
   const documents: StoredSourceDocument[] = [];
-  for (let index = 0; index < (message.attachments || []).length; index += 1) {
-    const attachment = message.attachments[index];
-    const attachmentId = attachment.attachmentId || attachment.partId || `part-${index}`;
+  let actualAttachmentBytes = 0;
+  for (let index = 0; index < attachments.length; index += 1) {
+    const attachment: NonNullable<GmailImportedMessage["attachments"]>[number] = attachments[index];
+    const attachmentId: string = attachment.attachmentId || attachment.partId || `part-${index}`;
+    const attachmentStorageToken: string = await storageTokenForOpaqueId(attachmentId, "Gmail attachment ID");
     const { data: existingDocument, error: existingError } = await client
       .from("source_documents")
       .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,sha256,processing_status,document_type")
-    .eq("company_id", requireActiveCompanyId())
+      .eq("company_id", companyId)
       .eq("email_message_id", emailRow.id)
       .eq("gmail_attachment_id", attachmentId)
       .maybeSingle();
@@ -357,10 +406,13 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
 
     if (!attachment.dataBase64) throw new Error(`Gmail attachment data is missing for ${attachment.filename || attachmentId}.`);
     const bytes = decodeBase64(attachment.dataBase64);
+    validateGmailAttachmentBytes(bytes, attachment.mimeType, attachment.filename);
+    actualAttachmentBytes += bytes.byteLength;
+    if (actualAttachmentBytes > MAX_GMAIL_ATTACHMENT_TOTAL_BYTES) throw new Error("Gmail attachment payload exceeds the 25 MB aggregate limit.");
     const hash = await sha256(bytes);
-    const storagePath = `${companyStoragePath("invoices", String(year), month, message.id)}/${safeName(attachmentId)}-${hash.slice(0, 12)}-${safeName(attachment.filename)}`;
+    const storagePath = `${companyStoragePath("invoices", String(year), month, messageStorageToken)}/${attachmentStorageToken}-${hash.slice(0, 12)}-${safeName(attachment.filename)}`;
     const { error: uploadError } = await client.storage.from(INVOICE_BUCKET).upload(storagePath, bytes, {
-      contentType: attachment.mimeType || "application/octet-stream",
+      contentType: attachment.mimeType,
       upsert: false,
     });
     if (uploadError) throw uploadError;
@@ -369,8 +421,8 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
       .from("source_documents")
       .insert({
         user_id: userId,
-        company_id: requireActiveCompanyId(),
-      email_message_id: emailRow.id,
+        company_id: companyId,
+        email_message_id: emailRow.id,
         source_type: "EMAIL",
         gmail_attachment_id: attachmentId,
         gmail_part_id: attachment.partId || null,
@@ -385,11 +437,13 @@ export async function saveGmailMessageSource(message: GmailImportedMessage): Pro
       .select("id")
       .single();
     if (error) {
+      const { error: cleanupError } = await client.storage.from(INVOICE_BUCKET).remove([storagePath]);
+      if (cleanupError) throw new Error(`Gmail attachment persistence failed (${storageErrorMessage(error)}), and Storage cleanup also failed (${storageErrorMessage(cleanupError)}).`);
       if (error.code !== "23505") throw error;
       const { data: racedDocument, error: racedError } = await client
         .from("source_documents")
         .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,sha256,processing_status,document_type")
-    .eq("company_id", requireActiveCompanyId())
+        .eq("company_id", companyId)
         .eq("email_message_id", emailRow.id)
         .eq("gmail_attachment_id", attachmentId)
         .single();
@@ -918,6 +972,7 @@ export async function loadEmailSource(emailId: string): Promise<{
   const { data: sourceRows, error: sourceError } = await client
     .from("source_documents")
     .select("id,filename,mime_type,storage_path")
+    .eq("company_id", requireActiveCompanyId())
     .eq("email_message_id", emailId)
     .order("attachment_index", { ascending: true });
   if (sourceError) throw sourceError;

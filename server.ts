@@ -105,6 +105,14 @@ async function authorizeCompanyRequest(req: express.Request, permission: Company
     throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A valid company context is required for this operation.");
   }
 
+  const { data: deploymentCompanyId, error: deploymentError } = await client.rpc("get_deployment_company_id");
+  if (deploymentError || typeof deploymentCompanyId !== "string" || !UUID_PATTERN.test(deploymentCompanyId)) {
+    throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Deployment company authorization is temporarily unavailable.");
+  }
+  if (deploymentCompanyId !== companyId) {
+    throw new ApiAuthorizationError(403, "FORBIDDEN", "This request cannot target another Engoryx deployment company.");
+  }
+
   const { data: allowed, error: permissionError } = await client.rpc("has_company_permission", {
     p_company_id: companyId,
     p_permission_key: permission,
@@ -133,6 +141,10 @@ async function authenticateServerRequest(req: express.Request) {
 async function authorizePlatformCompanyRequest(req: express.Request, companyId: string): Promise<CompanyRequestAuthorization> {
   if (!UUID_PATTERN.test(companyId)) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A valid company context is required for this operation.");
   const auth = await authenticateServerRequest(req);
+  const { data: deploymentCompanyId, error: deploymentError } = await auth.supabase.rpc("get_deployment_company_id");
+  if (deploymentError || deploymentCompanyId !== companyId) {
+    throw new ApiAuthorizationError(deploymentError ? 503 : 403, deploymentError ? "SERVER_AUTH_UNAVAILABLE" : "FORBIDDEN", deploymentError ? "Deployment company authorization is temporarily unavailable." : "Platform maintenance cannot target another Engoryx deployment company.");
+  }
   const { data, error } = await auth.supabase.rpc("is_platform_admin");
   if (error) throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is temporarily unavailable.");
   if (data !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "Platform administrator access is required.");
@@ -167,8 +179,11 @@ function selectModel(requestedModel?: unknown) {
   return requestedModel === ACCURACY_MODEL ? ACCURACY_MODEL : PRIMARY_MODEL;
 }
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+// Binary sources are validated before Storage persistence. Keep the global
+// JSON ceiling large enough for the documented 10 MB invoice source after
+// base64 expansion, while rejecting the previous unrestricted 50 MB envelope.
+app.use(express.json({ limit: "16mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 const partySchema = {
   type: Type.OBJECT,

@@ -215,7 +215,7 @@ function retrySupabase() {
   };
   const client = {
     auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
-    rpc: async () => ({ data: true, error: null }),
+    rpc: async (name: string) => ({ data: name === "get_deployment_company_id" ? companyId : true, error: null }),
     from: (table: string) => {
       const query: any = queryFor(table);
       query.insert = (input: Record<string, unknown> | Array<Record<string, unknown>>) => {
