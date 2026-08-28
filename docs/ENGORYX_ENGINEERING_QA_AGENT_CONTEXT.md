@@ -8,7 +8,7 @@ The primary goal is a repository-native workflow map that can be rendered as an 
 
 ## Status and sequencing
 
-- **Status:** **QA-1 Structured Browser Evidence is IMPLEMENTED. WM-1 Canonical Workflow Graph is IMPLEMENTED. WM-2 Visual Workflow Canvas is IMPLEMENTED. WM-3 Graph Consistency Validation is IMPLEMENTED. WM-4 Browser Evidence Overlay is NEXT / PLANNED. WM-5 Bounded Agent Context Generation remains PLANNED.**
+- **Status:** **QA-1 Structured Browser Evidence and WM-1 through WM-5 are IMPLEMENTED.** The workflow-map infrastructure track is complete through WM-5; later enhancements are optional and do not renumber the customer-facing Engoryx roadmap.
 - **Priority:** Immediate engineering-infrastructure work, before or alongside Product Phase 2.
 - **Product roadmap effect:** This track does **not** renumber the Engoryx customer-facing phases. Product Phase 2 remains Project Scheduling & Gantt.
 - **Hosting requirement:** None. The first useful version must work from the repository and existing CI/local tooling without a paid automation service.
@@ -20,8 +20,8 @@ The primary goal is a repository-native workflow map that can be rendered as an 
 | WM-1 — Canonical Workflow Graph | IMPLEMENTED |
 | WM-2 — Visual Workflow Canvas | IMPLEMENTED |
 | WM-3 — Graph Consistency Validation | IMPLEMENTED |
-| WM-4 — Browser Evidence Overlay | NEXT / PLANNED |
-| WM-5 — Bounded Agent Context Generation | PLANNED |
+| WM-4 — Browser Evidence Overlay | IMPLEMENTED |
+| WM-5 — Bounded Agent Context Generation | IMPLEMENTED |
 
 ## Current project baseline
 
@@ -38,6 +38,8 @@ The committed outputs are generated from that source:
 
 - `docs/architecture/workflow-map.json` — machine-readable graph for agents and deterministic checks;
 - `docs/architecture/APP_WORKFLOW_MAP.md` — generated route/source/test index plus Mermaid diagrams for the whole platform, Projects + Engineering, Invoice + Cash Settlement, Workforce + Payroll, and Assistant guarded mutations.
+
+WM-5 generates disposable feature-scoped packets on demand from the same graph; it does not create a second graph or a persistent context database.
 
 Run `npm.cmd run workflow-map:generate` after a graph change, `npm.cmd run workflow-map:check` to fail on generated-output drift, and `npm.cmd run workflow-map:consistency` to compare selected graph metadata with authoritative source contracts. These commands are repository-local and do not require GitDiagram, Supabase, a database, Gemini, a browser, or production credentials.
 
@@ -214,7 +216,18 @@ Generated context is advisory. Every agent still starts by checking current `mai
 
 ### Current repository startup contract
 
-WM-1 adds the stable instruction to `AGENTS.md`: before substantial implementation, debugging, or architecture work, read `docs/architecture/APP_WORKFLOW_MAP.md` and `docs/architecture/workflow-map.json`, identify the affected workflow/domain, inspect neighboring nodes and invariants, and then verify the actual source, guards, permissions, and tests. High-risk mapped domains require explicit inspection of their invariants and neighboring flows.
+WM-5 adds the stable startup path to `AGENTS.md`: after verifying current `main` and CI and identifying the target task/domain, substantial feature-scoped work should run `npm.cmd run workflow-map:context` with an actual node, domain plus task query, route, source file, or changed-file selector. Use the bounded packet for orientation, then inspect the actual referenced source, guards, permissions, invariants, routes, and tests. Do not load the complete graph first when the packet is sufficient; use the full generated map for genuinely broad or cross-domain architecture work. High-risk mapped domains still require explicit source and live validation.
+
+Useful commands:
+
+```text
+npm.cmd run workflow-map:context -- --node payroll-period
+npm.cmd run workflow-map:context -- --domain engineering --query "RFI detail"
+npm.cmd run workflow-map:context -- --route payroll --format json
+npm.cmd run workflow-map:context -- --changed --budget 8000
+```
+
+The packet includes the current HEAD/branch/dirty status and changed paths, selected seeds and bounded neighbors, lifecycle relationships, protected invariants, guards, permissions, confirmation requirements, routes, source/test references, QA scenario IDs, and changed-file mappings. Markdown is the primary agent-facing format; JSON carries the same bounded structure. Output defaults to stdout and should remain disposable rather than being committed.
 
 ## Defect discovery from the graph
 
@@ -306,11 +319,13 @@ Key components:
    - Full pure mapping test suite in `tests/workflowMapEvidence.test.ts` (18 unit tests).
    - End-to-end multi-viewport browser QA harness in `scripts/test-visual-canvas.ts` (`npm.cmd run test:visual`).
 
-### Stage WM-5: Bounded agent context generation — NEXT / PLANNED
+### Stage WM-5: Bounded agent context generation — IMPLEMENTED
 
-Generate compact feature-scoped context from the graph plus live repository metadata. Do not maintain an unlimited agent-memory database and do not copy chat transcripts into the repository.
+WM-5 is a repository-local deterministic context generator. Run `npm.cmd run workflow-map:context -- [selectors] [options]`; it reads the canonical graph, selects exact or lexical seed nodes, expands a one-hop neighborhood by default, allows at most two hops when requested, prioritizes guards/permissions/confirmations and high-risk invariants, and bounds both the selected content and rendered output by character budget. The default budget is 10,000 characters with a hard ceiling of 20,000.
 
-WM-5 may later generate smaller feature-scoped packets from the same graph. The map remains advisory context; agents must still inspect current `main`, current CI, and the actual source.
+The pure engine lives in `scripts/workflow-map/context.ts`, the injectable Git-only provenance adapter in `scripts/workflow-map/repositoryContext.ts`, and the stdout/file CLI in `scripts/workflow-map/context-cli.ts`. The adapter captures only HEAD SHA, branch, dirty state, and changed paths; it does not read source contents, environment variables, remotes, commit metadata, credentials, or network state. Broad and unknown selectors fail clearly. Truncation is explicit and reports omitted categories while preserving selected seeds and relevant protected invariants whenever the requested budget can support them.
+
+WM-5 has deterministic focused coverage in `tests/workflowMapContext.test.ts` for selectors, routes/files/changed paths, bounded traversal, protected-boundary prioritization, deduplication, broad/unknown handling, output stability, JSON schema, budget/truncation behavior, injected Git metadata, and the no-source-ingestion boundary.
 
 ## Context persistence
 
@@ -350,7 +365,7 @@ This track does not:
 
 ## Overall track acceptance criteria
 
-QA-1 and WM-1 through WM-3 are complete. The remaining workflow-map track stages are complete when:
+QA-1 and WM-1 through WM-5 are complete. The workflow-map infrastructure track is complete through WM-5 when:
 
 - Engoryx's major product workflows are represented in one versioned machine-readable graph;
 - the graph has a clear human-readable visual rendering;
@@ -360,5 +375,6 @@ QA-1 and WM-1 through WM-3 are complete. The remaining workflow-map track stages
 - browser evidence can be associated with the relevant workflow nodes/scenarios;
 - an agent can receive a compact feature-scoped workflow/context brief without reading the entire history of the project;
 - substantial future agents are instructed to load the relevant workflow context automatically;
+- bounded packets include safe current repository provenance, deterministic truncation reporting, and equivalent Markdown/JSON representations;
 - the system works locally and in the repository without a paid orchestration service;
 - existing CI remains authoritative and unchanged in meaning.

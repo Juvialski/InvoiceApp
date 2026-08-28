@@ -75,7 +75,7 @@ The Project is the central organizing aggregate in Engoryx. All cost, labor, doc
 
 ## 3. Phased Implementation Roadmap
 
-### Current status snapshot — 2026-08-28
+### Current status snapshot - 2026-08-28
 
 The current `main` baseline has moved beyond the original Phase 1 planning state:
 
@@ -84,8 +84,8 @@ The current `main` baseline has moved beyond the original Phase 1 planning state
 - **Phase 1B is complete**: project-scoped RFIs and Technical Submittals with guarded lifecycle/history and immutable engineering-document revision references.
 - **Phase 1C is complete**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal submission/finalization history.
 - **Financial Settlement Integration is complete** across Cash & Banking, supplier invoices, payroll, supported expense compatibility, demo fixtures, and Assistant workflows. Settlement is authoritative payment/disbursement evidence but remains separate from project-cost and payroll-source semantics.
-- **Next customer-facing product phase:** Phase 2 — Project Scheduling & Gantt.
-- **Engineering-infrastructure status:** QA-1 Structured Browser Evidence and WM-1 Canonical Workflow Graph are implemented; WM-2 Visual Workflow Canvas is next. This track does not renumber the product roadmap and runs from repository code and existing CI/local tooling.
+- **Next customer-facing product phase:** Phase 2 - Project Scheduling & Gantt.
+- **Engineering-infrastructure status:** QA-1 Structured Browser Evidence and WM-1 through WM-5 are implemented. The repository-native workflow-map, consistency validation, browser evidence overlay, and bounded agent-context track is complete for the current roadmap. This track does not renumber the product roadmap.
 
 ### Customer-facing product roadmap
 
@@ -94,7 +94,7 @@ The customer-facing platform evolution remains structured into sequential, backw
 | Phase | Module / Domain | Status | Key Deliverables |
 | :--- | :--- | :--- | :--- |
 | **Phase 0** | **Rebrand & Core Foundation** | **Established / Active** | Engoryx branding, multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, plus the bounded Astryx UI foundation. |
-| **Phase 1** | **Engineering Documents & Field Workflows** | **Complete / Active in product** | **Phase 1A (Complete)**: Blueprint viewer (PDF.js + Konva), immutable revision lineage, normalized redline markups.<br>**Phase 1B (Complete)**: RFIs & Technical Submittals with guarded lifecycle/history and document-revision linking.<br>**Phase 1C (Complete)**: Daily Site Logs & Weather, project-scoped field observations, equipment, delays, safety, and formal history. |
+| **Phase 1** | **Engineering Documents & Field Workflows** | **Complete / Active in product** | **Phase 1A (Complete)**: Blueprint viewer (PDF.js + Konva), immutable revisions, normalized redline markups.<br>**Phase 1B (Complete)**: RFIs & Technical Submittals with guarded lifecycle/history and document-revision linking.<br>**Phase 1C (Complete)**: Daily Site Logs & Weather, project-scoped field observations, equipment, delays, safety, and formal history. |
 | **Cross-Domain Settlement** | **Financial Settlement Integration** | **Complete** | Guarded Cash & Banking settlement evidence for supplier invoices, payroll runs, and supported expenses; partial/split settlement, reversals, deep links, demo fixtures, and Assistant PREPARE/confirm/execute flows while preserving project-cost semantics. |
 | **Phase 2** | **Project Scheduling & Gantt** | **Next / Planned** | Interactive Gantt charts (Frappe Gantt), task dependency networks, critical path method (CPM), milestone progress tracking, baseline-versus-actual schedule health, and project-scoped schedule navigation. |
 | **Phase 3** | **Field Capture & Barcode Asset Tagging** | Planned | Camera-based barcode/QR scanner (ZXing-js), equipment check-in/out, tool tracking, site material delivery validation. |
@@ -104,22 +104,22 @@ The customer-facing platform evolution remains structured into sequential, backw
 | **Phase 7** | **Document Intelligence & Advanced Parsing** | Future | Deep document layout analysis, multi-column contract parsing, CAD title-block OCR (Docling + Tesseract). |
 | **Phase 8** | **Field Communications & SMS** | Future | Direct Android SMS dispatch (httpSMS), shift notifications, emergency weather alerts, automated worker reminders. |
 
-### Engineering infrastructure track — Workflow Map, QA & Agent Context
+### Engineering infrastructure track - Workflow Map, QA & Agent Context
 
-This is a cross-cutting development track rather than a customer-facing Engoryx phase. Its planned architecture is documented in [ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md](ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
+This is a cross-cutting development track rather than a customer-facing Engoryx phase. Its architecture is documented in [ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md](ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
 
-The intended stack is deliberately repository-native:
+The stack is deliberately repository-native:
 
 - **one versioned machine-readable workflow graph** covering important routes, states, actions, guards, cross-domain relationships, and selected test references;
-- **Mermaid and/or React Flow/xyflow rendering** for a visual workflow canvas with domain grouping, pan/zoom, filtering, and clickable context;
+- **Mermaid and React Flow/xyflow rendering** for a visual workflow canvas with domain grouping, pan/zoom, filtering, and clickable context;
 - **deterministic graph validation** for broken node/edge references, selected route/lifecycle inconsistencies, missing high-risk guard metadata, and orphaned workflow paths;
-- **existing Playwright/browser QA** for rendered route interaction, responsive sweeps, screenshots, console/page errors, failed requests, and optional evidence attached to workflow nodes;
+- **existing Playwright/browser QA** for rendered route interaction, responsive sweeps, screenshots, console/page errors, failed requests, and evidence attached to workflow nodes;
 - **GitHub Issues, PRs, tests, and repository documentation** for durable defect/history context;
 - **bounded feature-scoped context packets** for future coding-agent runs so agents receive the relevant workflow, invariants, files, and tests without loading an unbounded project history.
 
 No external paid workflow-orchestration service is required. External repository-visualization tools may be used for exploration, but the Engoryx workflow graph remains the curated source for product-specific business semantics.
 
-The rollout proceeds incrementally: **WM-1 canonical workflow graph (implemented)** -> **WM-2 visual workflow canvas (next)** -> WM-3 graph consistency validation -> WM-4 browser evidence overlay -> WM-5 bounded agent-context generation.
+The rollout is complete through **WM-5**: WM-1 canonical workflow graph, WM-2 visual workflow canvas, WM-3 graph consistency validation, WM-4 browser evidence overlay, and WM-5 bounded agent-context generation are implemented. Later enhancements are optional and do not renumber the customer-facing roadmap.
 
 ---
 

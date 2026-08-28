@@ -185,13 +185,14 @@ Never overwrite newer work because a prompt references an older commit or prior 
 Before substantial implementation, debugging, or architecture work:
 
 1. inspect current `main` and current CI;
-2. use `docs/architecture/APP_WORKFLOW_MAP.md` for orientation;
-3. identify the affected domain/workflow;
-4. search/filter `docs/architecture/workflow-map.json` for that workflow and its neighboring nodes;
-5. inspect relevant guards, permissions, invariants, routes, files, and tests;
-6. inspect the actual source implementation;
-7. load the complete graph only for genuinely broad or cross-domain architecture work;
-8. treat the workflow map as advisory context, never as a replacement for source inspection.
+2. identify the affected domain/workflow/task;
+3. generate a bounded WM-5 packet when the work is feature-scoped, for example `npm.cmd run workflow-map:context -- --domain workforce --query "payroll period"` or `npm.cmd run workflow-map:context -- --node <actual-node-id>`;
+4. use the packet to orient on neighboring nodes, routes, guards, permissions, invariants, source files, tests, and current local provenance;
+5. inspect the actual referenced source implementation, guards, permissions, invariants, routes, tests, current `main`, and current CI before editing;
+6. load `docs/architecture/APP_WORKFLOW_MAP.md` and the complete `docs/architecture/workflow-map.json` only for genuinely broad or cross-domain architecture work, or when the bounded packet identifies a need;
+7. treat WM-5 and the workflow map as advisory context, never as a replacement for source inspection or live CI/runtime evidence.
+
+Do not require WM-5 for tiny CSS or copy-only work where it adds no value. WM-5 uses deterministic lexical selection, a bounded one-hop neighborhood by default, an explicit two-hop maximum, and a character budget; if a query is too broad it should be narrowed rather than expanded into a graph dump.
 
 When a change materially alters a mapped workflow, lifecycle, route, guard, permission, cross-domain relationship, or high-risk invariant, update `scripts/workflow-map/graph.ts` and regenerate both committed outputs in the same PR. Trivial CSS and internal refactors that do not change workflow meaning do not require graph edits.
 
