@@ -16,3 +16,11 @@ test("continuation hardening installs the QA-only Playwright dependency before r
   assert.match(workflow, /npm install --no-save --package-lock=false playwright@1\.55\.0/);
   assert.match(workflow, /npx playwright install --with-deps chromium/);
 });
+
+test("validated hardening does not stage generated workflow files for the repository-token push", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/continuation-hardening.yml", import.meta.url), "utf8");
+  const addLine = workflow.split(/\r?\n/).find((line) => line.trimStart().startsWith("git add "));
+
+  assert.ok(addLine, "the validated hardening commit must declare an explicit file allowlist");
+  assert.doesNotMatch(addLine!, /\.github\/workflows\//);
+});

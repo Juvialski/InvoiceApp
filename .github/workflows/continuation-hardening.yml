@@ -64,7 +64,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json src/lib/persistence.ts src/lib/engineeringDocumentsPersistence.ts src/lib/payrollImportPersistence.ts src/lib/payrollImport.ts src/server/assistant/assistantHandler.ts server.ts scripts/workflow-map/graph.ts docs .github/workflows/database-tests.yml tests/fileSecurity.test.ts tests/assistantGeminiCompatibility.test.ts tests/payrollReporting.test.ts tests/reconciliation.test.ts tests/serverAuthorization.test.ts tests/singleCompanyDeployment.test.ts tests/headerNavigation.test.ts tests/workspaceLifecycle.test.ts
+          git add package-lock.json src/lib/persistence.ts src/lib/engineeringDocumentsPersistence.ts src/lib/payrollImportPersistence.ts src/lib/payrollImport.ts src/server/assistant/assistantHandler.ts server.ts scripts/workflow-map/graph.ts docs tests/fileSecurity.test.ts tests/assistantGeminiCompatibility.test.ts tests/payrollReporting.test.ts tests/reconciliation.test.ts tests/serverAuthorization.test.ts tests/singleCompanyDeployment.test.ts tests/headerNavigation.test.ts tests/workspaceLifecycle.test.ts
           if git diff --cached --quiet; then
             echo "No generated hardening changes to commit."
           else
