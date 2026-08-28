@@ -6,349 +6,349 @@ TAP version 13
 # Subtest: verified invoice allocations are actual independent of payment, with payable separate
 ok 1 - verified invoice allocations are actual independent of payment, with payable separate
   ---
-  duration_ms: 11.55474
+  duration_ms: 5.107467
   type: 'test'
   ...
 # Subtest: only unverified invoice allocations are pending and their residual stays unallocated
 ok 2 - only unverified invoice allocations are pending and their residual stays unallocated
   ---
-  duration_ms: 0.452831
+  duration_ms: 0.357103
   type: 'test'
   ...
 # Subtest: payroll status, residual, void, and overhead semantics are shared
 ok 3 - payroll status, residual, void, and overhead semantics are shared
   ---
-  duration_ms: 13.527602
+  duration_ms: 1.127562
   type: 'test'
   ...
 # Subtest: accounting index is project-indexed without duplicate source records
 ok 4 - accounting index is project-indexed without duplicate source records
   ---
-  duration_ms: 0.727431
+  duration_ms: 0.57654
   type: 'test'
   ...
 # Subtest: currency aggregation never combines project currencies
 ok 5 - currency aggregation never combines project currencies
   ---
-  duration_ms: 10.591332
+  duration_ms: 2.727163
   type: 'test'
   ...
 # Subtest: source dates, 90 percent health, composition, and reconciliation are canonical
 ok 6 - source dates, 90 percent health, composition, and reconciliation are canonical
   ---
-  duration_ms: 6.618856
+  duration_ms: 2.898032
   type: 'test'
   ...
 # Subtest: activity trends and payable aging use source dates and omit unverified payables
 ok 7 - activity trends and payable aging use source dates and omit unverified payables
   ---
-  duration_ms: 28.495768
+  duration_ms: 12.128858
   type: 'test'
   ...
 # Subtest: parses project and project-subview deep links
 ok 8 - parses project and project-subview deep links
   ---
-  duration_ms: 3.724785
+  duration_ms: 4.254896
   type: 'test'
   ...
 # Subtest: parses invoice and review-session URLs with safe return paths
 ok 9 - parses invoice and review-session URLs with safe return paths
   ---
-  duration_ms: 0.380096
+  duration_ms: 0.370362
   type: 'test'
   ...
 # Subtest: builds predictable route URLs without embedding invoice contents
 ok 10 - builds predictable route URLs without embedding invoice contents
   ---
-  duration_ms: 0.843937
+  duration_ms: 0.780404
   type: 'test'
   ...
 # Subtest: payroll run links keep the canonical payroll route and target the exact run
 ok 11 - payroll run links keep the canonical payroll route and target the exact run
   ---
-  duration_ms: 0.531296
+  duration_ms: 0.515619
   type: 'test'
   ...
 # Subtest: treats platform company management as a first-class non-workspace route
 ok 12 - treats platform company management as a first-class non-workspace route
   ---
-  duration_ms: 0.357865
+  duration_ms: 0.369461
   type: 'test'
   ...
 # Subtest: platform management deep links select a company and management tab without opening its workspace
 ok 13 - platform management deep links select a company and management tab without opening its workspace
   ---
-  duration_ms: 1.845536
+  duration_ms: 0.430542
   type: 'test'
   ...
 # Subtest: assistant navigation generates correct routes for project documents and views
 ok 14 - assistant navigation generates correct routes for project documents and views
   ---
-  duration_ms: 0.346623
+  duration_ms: 4.107966
   type: 'test'
   ...
 # Subtest: assistant actions are reduced to known routes, entities, and tours
 ok 15 - assistant actions are reduced to known routes, entities, and tours
   ---
-  duration_ms: 5.851382
+  duration_ms: 4.173794
   type: 'test'
   ...
 # Subtest: Phase 1B assistant actions preserve project-scoped RFI and Submittal deep links
 ok 16 - Phase 1B assistant actions preserve project-scoped RFI and Submittal deep links
   ---
-  duration_ms: 1.412102
+  duration_ms: 1.1804
   type: 'test'
   ...
 # Subtest: Phase 1C assistant actions preserve project-scoped Daily Site Log deep links
 ok 17 - Phase 1C assistant actions preserve project-scoped Daily Site Log deep links
   ---
-  duration_ms: 0.740084
+  duration_ms: 0.607035
   type: 'test'
   ...
 # Subtest: assistant actions honor optional frontend permissions
 ok 18 - assistant actions honor optional frontend permissions
   ---
-  duration_ms: 0.304104
+  duration_ms: 0.279456
   type: 'test'
   ...
 # Subtest: assistant results cannot cross company or generation boundaries
 ok 19 - assistant results cannot cross company or generation boundaries
   ---
-  duration_ms: 0.30716
+  duration_ms: 0.253749
   type: 'test'
   ...
 # Subtest: prepare_process_attached_invoice definition enforces PREPARE risk tier and invoice permissions
 ok 20 - prepare_process_attached_invoice definition enforces PREPARE risk tier and invoice permissions
   ---
-  duration_ms: 2.044034
+  duration_ms: 1.861015
   type: 'test'
   ...
 # Subtest: prepare_process_attached_invoice prepares action with preview and attachment metadata
 ok 21 - prepare_process_attached_invoice prepares action with preview and attachment metadata
   ---
-  duration_ms: 1.242497
+  duration_ms: 1.295923
   type: 'test'
   ...
 # Subtest: attached invoice confirmation fails closed until the existing extraction pipeline persists an invoice
 ok 22 - attached invoice confirmation fails closed until the existing extraction pipeline persists an invoice
   ---
-  duration_ms: 0.988185
+  duration_ms: 1.249934
   type: 'test'
   ...
 # Subtest: attached invoice confirmation reuses an invoice already persisted by the extraction pipeline
 ok 23 - attached invoice confirmation reuses an invoice already persisted by the extraction pipeline
   ---
-  duration_ms: 0.55497
+  duration_ms: 0.625473
   type: 'test'
   ...
 # Subtest: assistant attachment routing accepts the bounded supported formats
 ok 24 - assistant attachment routing accepts the bounded supported formats
   ---
-  duration_ms: 4.861064
+  duration_ms: 3.84842
   type: 'test'
   ...
 # Subtest: assistant attachments reject unsupported types, mismatched MIME, and size limits
 ok 25 - assistant attachments reject unsupported types, mismatched MIME, and size limits
   ---
-  duration_ms: 0.381638
+  duration_ms: 0.374048
   type: 'test'
   ...
 # Subtest: spreadsheet routing is data-only and provides an explicit warning
 ok 26 - spreadsheet routing is data-only and provides an explicit warning
   ---
-  duration_ms: 1.63785
+  duration_ms: 0.46238
   type: 'test'
   ...
 # Subtest: Assistant registry contains only the requested allowlisted tools through financial settlement integration
 ok 27 - Assistant registry contains only the requested allowlisted tools through financial settlement integration
   ---
-  duration_ms: 2.77954
+  duration_ms: 2.286911
   type: 'test'
   ...
 # Subtest: tool validation rejects malformed identifiers and bounds prepared records
 ok 28 - tool validation rejects malformed identifiers and bounds prepared records
   ---
-  duration_ms: 4.149753
+  duration_ms: 3.244379
   type: 'test'
   ...
 # Subtest: prompt and attachment boundaries treat injected instructions as untrusted data
 ok 29 - prompt and attachment boundaries treat injected instructions as untrusted data
   ---
-  duration_ms: 2.206185
+  duration_ms: 1.819333
   type: 'test'
   ...
 # Subtest: worker onboarding is a prepared action separate from payroll-run mutations
 ok 30 - worker onboarding is a prepared action separate from payroll-run mutations
   ---
-  duration_ms: 0.238292
+  duration_ms: 0.234039
   type: 'test'
   ...
 # Subtest: model runner uses the primary model, one fallback, then stays on fallback
 ok 31 - model runner uses the primary model, one fallback, then stays on fallback
   ---
-  duration_ms: 2.167534
+  duration_ms: 2.287621
   type: 'test'
   ...
 # Subtest: model runner does not spend a fallback request on credential, quota, or request failures
 ok 32 - model runner does not spend a fallback request on credential, quota, or request failures
   ---
-  duration_ms: 1.296627
+  duration_ms: 1.138848
   type: 'test'
   ...
 # Subtest: worker creation is company-scoped, validates daily rates, and writes only after confirmation
 ok 33 - worker creation is company-scoped, validates daily rates, and writes only after confirmation
   ---
-  duration_ms: 3.535112
+  duration_ms: 3.342775
   type: 'test'
   ...
 # Subtest: worker creation is denied before any write without the company permission
 ok 34 - worker creation is denied before any write without the company permission
   ---
-  duration_ms: 0.440658
+  duration_ms: 0.500797
   type: 'test'
   ...
 # Subtest: expired prepared actions are expired before an identical request is retried
 ok 35 - expired prepared actions are expired before an identical request is retried
   ---
-  duration_ms: 1.884608
+  duration_ms: 3.604395
   type: 'test'
   ...
 # Subtest: payroll period discovery uses the workspace timezone and keeps future drafts scheduled
 ok 36 - payroll period discovery uses the workspace timezone and keeps future drafts scheduled
   ---
-  duration_ms: 25.583742
+  duration_ms: 42.206394
   type: 'test'
   ...
 # Subtest: assistant loop bounds iterations and preserves Gemini function name/id matching
 ok 37 - assistant loop bounds iterations and preserves Gemini function name/id matching
   ---
-  duration_ms: 5.308445
+  duration_ms: 7.627094
   type: 'test'
   ...
 # Subtest: assistant loop stops after eight model iterations without external calls
 ok 38 - assistant loop stops after eight model iterations without external calls
   ---
-  duration_ms: 2.797002
+  duration_ms: 5.435757
   type: 'test'
   ...
 # Subtest: assistant authentication fails closed for missing bearer/company and tool authorization rejects non-members
 ok 39 - assistant authentication fails closed for missing bearer/company and tool authorization rejects non-members
   ---
-  duration_ms: 1.210026
+  duration_ms: 1.18655
   type: 'test'
   ...
 # Subtest: Cash & Banking route is allowlisted and mapped to cash.summary.read permission
 ok 40 - Cash & Banking route is allowlisted and mapped to cash.summary.read permission
   ---
-  duration_ms: 1.274275
+  duration_ms: 1.320289
   type: 'test'
   ...
 # Subtest: Cash & Banking tools are registered with correct permissions and schemas
 ok 41 - Cash & Banking tools are registered with correct permissions and schemas
   ---
-  duration_ms: 0.75412
+  duration_ms: 1.003957
   type: 'test'
   ...
 # Subtest: get_cash_summary groups accounts strictly by currency and isolates PHP and USD
 ok 42 - get_cash_summary groups accounts strictly by currency and isolates PHP and USD
   ---
-  duration_ms: 2.007447
+  duration_ms: 2.244287
   type: 'test'
   ...
 # Subtest: Help catalog and tour registry support Cash & Banking
 ok 43 - Help catalog and tour registry support Cash & Banking
   ---
-  duration_ms: 1.12088
+  duration_ms: 1.17374
   type: 'test'
   ...
 # Subtest: assistant client parser keeps structured data and drops arbitrary actions
 ok 44 - assistant client parser keeps structured data and drops arbitrary actions
   ---
-  duration_ms: 11.034483
+  duration_ms: 5.751337
   type: 'test'
   ...
 # Subtest: settlement mutations are PREPARE tools with explicit confirmation
 ok 45 - settlement mutations are PREPARE tools with explicit confirmation
   ---
-  duration_ms: 1.00741
+  duration_ms: 1.140421
   type: 'test'
   ...
 # Subtest: single settlement validation preserves prepared match id during confirmation revalidation
 ok 46 - single settlement validation preserves prepared match id during confirmation revalidation
   ---
-  duration_ms: 1.453371
+  duration_ms: 1.409933
   type: 'test'
   ...
 # Subtest: split settlement validation preserves every prepared idempotency id
 ok 47 - split settlement validation preserves every prepared idempotency id
   ---
-  duration_ms: 1.191271
+  duration_ms: 1.150245
   type: 'test'
   ...
 # Subtest: split settlement permissions only require the target domains actually present
 ok 48 - split settlement permissions only require the target domains actually present
   ---
-  duration_ms: 0.309084
+  duration_ms: 0.31536
   type: 'test'
   ...
 # Subtest: settlement Assistant navigation uses exact canonical deep links
 ok 49 - settlement Assistant navigation uses exact canonical deep links
   ---
-  duration_ms: 0.607247
+  duration_ms: 0.558353
   type: 'test'
   ...
 # Subtest: reversal validation requires an auditable reason and preserves match id
 ok 50 - reversal validation requires an auditable reason and preserves match id
   ---
-  duration_ms: 0.445857
+  duration_ms: 0.478694
   type: 'test'
   ...
 # Subtest: Assistant settlement execution is routed through guarded RPCs and atomic batch
 ok 51 - Assistant settlement execution is routed through guarded RPCs and atomic batch
   ---
-  duration_ms: 1.129647
+  duration_ms: 1.149524
   type: 'test'
   ...
 # Subtest: assistant schemas audit every declaration and use the Gemini parameters contract
 ok 52 - assistant schemas audit every declaration and use the Gemini parameters contract
   ---
-  duration_ms: 6.878539
+  duration_ms: 6.580664
   type: 'test'
   ...
 # Subtest: unsupported schema fields fail with the declaration index and path instead of being cast away
 ok 53 - unsupported schema fields fail with the declaration index and path instead of being cast away
   ---
-  duration_ms: 0.836904
+  duration_ms: 0.890799
   type: 'test'
   ...
 # Subtest: the SDK request uses typed parameters for minimal and full assistant probes
 ok 54 - the SDK request uses typed parameters for minimal and full assistant probes
   ---
-  duration_ms: 35.034566
+  duration_ms: 35.559201
   type: 'test'
   ...
 # Subtest: Gemini function-call history preserves thought signatures and exact response IDs
 ok 55 - Gemini function-call history preserves thought signatures and exact response IDs
   ---
-  duration_ms: 4.704353
+  duration_ms: 3.802901
   type: 'test'
   ...
 # Subtest: provider request rejection diagnostics stay classified and secret-free
 ok 56 - provider request rejection diagnostics stay classified and secret-free
   ---
-  duration_ms: 2.142978
+  duration_ms: 1.974044
   type: 'test'
   ...
 # Subtest: assistant model timeout classification and fallback behavior remain bounded
 ok 57 - assistant model timeout classification and fallback behavior remain bounded
   ---
-  duration_ms: 2005.248607
+  duration_ms: 2003.053579
   type: 'test'
   ...
 # Subtest: provider retry reuses the failed thread and request without duplicating the user message
 not ok 58 - provider retry reuses the failed thread and request without duplicating the user message
   ---
-  duration_ms: 2.512735
+  duration_ms: 2.71538
   type: 'test'
   location: '/home/runner/work/InvoiceApp/InvoiceApp/tests/assistantGeminiCompatibility.test.ts:236:1'
   failureType: 'testCodeFailure'
@@ -370,275 +370,275 @@ not ok 58 - provider retry reuses the failed thread and request without duplicat
 # Subtest: assistant Markdown renders supported syntax while keeping HTML, images, and dangerous links inert
 ok 59 - assistant Markdown renders supported syntax while keeping HTML, images, and dangerous links inert
   ---
-  duration_ms: 38.222874
+  duration_ms: 40.166862
   type: 'test'
   ...
 # Subtest: user and system assistant messages remain plain text
 ok 60 - user and system assistant messages remain plain text
   ---
-  duration_ms: 1.416389
+  duration_ms: 1.781287
   type: 'test'
   ...
 # Subtest: help search returns only current InvoiceApp features with deterministic ranking
 ok 61 - help search returns only current InvoiceApp features with deterministic ranking
   ---
-  duration_ms: 2.238435
+  duration_ms: 2.201443
   type: 'test'
   ...
 # Subtest: help search resolves engineering documents and blueprint topics
 ok 62 - help search resolves engineering documents and blueprint topics
   ---
-  duration_ms: 2.283088
+  duration_ms: 2.448291
   type: 'test'
   ...
 # Subtest: help search resolves Daily Site Logs and preserves the payroll boundary
 ok 63 - help search resolves Daily Site Logs and preserves the payroll boundary
   ---
-  duration_ms: 0.354157
+  duration_ms: 0.346107
   type: 'test'
   ...
 # Subtest: unknown help questions stay honest instead of inventing a feature
 ok 64 - unknown help questions stay honest instead of inventing a feature
   ---
-  duration_ms: 0.729555
+  duration_ms: 0.71122
   type: 'test'
   ...
 # Subtest: user Assistant messages explicitly use the semantic on-dark foreground
 ok 65 - user Assistant messages explicitly use the semantic on-dark foreground
   ---
-  duration_ms: 3.179913
+  duration_ms: 3.235655
   type: 'test'
   ...
 # Subtest: assistant persistence is additive, company scoped, private, and does not store binary content
 ok 66 - assistant persistence is additive, company scoped, private, and does not store binary content
   ---
-  duration_ms: 3.197966
+  duration_ms: 3.163758
   type: 'test'
   ...
 # Subtest: tour registry contains the stable Wave 1 tour set and valid targets
 ok 67 - tour registry contains the stable Wave 1 tour set and valid targets
   ---
-  duration_ms: 2.189093
+  duration_ms: 1.898371
   type: 'test'
   ...
 # Subtest: attendance import matches exact employee code and commits only reviewed rows
 ok 68 - attendance import matches exact employee code and commits only reviewed rows
   ---
-  duration_ms: 68.903004
+  duration_ms: 39.826935
   type: 'test'
   ...
 # Subtest: attendance import uses unique-name fallback and blocks ambiguous names
 ok 69 - attendance import uses unique-name fallback and blocks ambiguous names
   ---
-  duration_ms: 15.242575
+  duration_ms: 13.935523
   type: 'test'
   ...
 # Subtest: attendance import reports invalid dates, out-of-period rows, and duplicate daily records
 ok 70 - attendance import reports invalid dates, out-of-period rows, and duplicate daily records
   ---
-  duration_ms: 8.068117
+  duration_ms: 9.774136
   type: 'test'
   ...
 # Subtest: normalizes auth email identifiers without touching password values
 ok 71 - normalizes auth email identifiers without touching password values
   ---
-  duration_ms: 1.23899
+  duration_ms: 1.234271
   type: 'test'
   ...
 # Subtest: email helpers fail closed when Supabase is not configured
 ok 72 - email helpers fail closed when Supabase is not configured
   ---
-  duration_ms: 1.23357
+  duration_ms: 1.175663
   type: 'test'
   ...
 # Subtest: auth redirect helper stays safe during server-side tests
 ok 73 - auth redirect helper stays safe during server-side tests
   ---
-  duration_ms: 0.228965
+  duration_ms: 0.241791
   type: 'test'
   ...
 # Subtest: unauthenticated AuthScreen exposes a real full-navigation demo entry
 ok 74 - unauthenticated AuthScreen exposes a real full-navigation demo entry
   ---
-  duration_ms: 2.826036
+  duration_ms: 2.540299
   type: 'test'
   ...
 # Subtest: brand configuration contains canonical Engoryx values
 ok 75 - brand configuration contains canonical Engoryx values
   ---
-  duration_ms: 1.251533
+  duration_ms: 1.473978
   type: 'test'
   ...
 # Subtest: page title and breadcrumb formatting helpers produce correct branded labels
 ok 76 - page title and breadcrumb formatting helpers produce correct branded labels
   ---
-  duration_ms: 0.231871
+  duration_ms: 0.315931
   type: 'test'
   ...
 # Subtest: index.html, metadata.json, and package.json are synchronized with Engoryx brand
 ok 77 - index.html, metadata.json, and package.json are synchronized with Engoryx brand
   ---
-  duration_ms: 0.758077
+  duration_ms: 0.826313
   type: 'test'
   ...
 # Subtest: feature registry covers all operational and roadmap engineering phases
 ok 78 - feature registry covers all operational and roadmap engineering phases
   ---
-  duration_ms: 0.544962
+  duration_ms: 0.554126
   type: 'test'
   ...
 # Subtest: client bank-ledger template parses and reconciles exactly
 ok 79 - client bank-ledger template parses and reconciles exactly
   ---
-  duration_ms: 19.922393
+  duration_ms: 16.283163
   type: 'test'
   ...
 # Subtest: CSV and XLSX parsing detect reordered columns and preserve formula values as data
 ok 80 - CSV and XLSX parsing detect reordered columns and preserve formula values as data
   ---
-  duration_ms: 24.158195
+  duration_ms: 24.969999
   type: 'test'
   ...
 # Subtest: statement parser handles commas, negative values, blank rows, repeated headers, and invalid dates
 ok 81 - statement parser handles commas, negative values, blank rows, repeated headers, and invalid dates
   ---
-  duration_ms: 1.148221
+  duration_ms: 2.416223
   type: 'test'
   ...
 # Subtest: inconsistent running balances are visible and block a reconciled import
 ok 82 - inconsistent running balances are visible and block a reconciled import
   ---
-  duration_ms: 0.916912
+  duration_ms: 1.312848
   type: 'test'
   ...
 # Subtest: duplicate imports are idempotent while identical-looking rows keep occurrence identity
 ok 83 - duplicate imports are idempotent while identical-looking rows keep occurrence identity
   ---
-  duration_ms: 1.52447
+  duration_ms: 2.355663
   type: 'test'
   ...
 # Subtest: cash flow excludes confirmed transfer principal and separates pending/reversed activity
 ok 84 - cash flow excludes confirmed transfer principal and separates pending/reversed activity
   ---
-  duration_ms: 2.877962
+  duration_ms: 4.191381
   type: 'test'
   ...
 # Subtest: balance source precedence keeps statement/provider freshness explicit
 ok 85 - balance source precedence keeps statement/provider freshness explicit
   ---
-  duration_ms: 7.125598
+  duration_ms: 10.538046
   type: 'test'
   ...
 # Subtest: account identifiers are masked and inactive accounts stay out of active totals
 ok 86 - account identifiers are masked and inactive accounts stay out of active totals
   ---
-  duration_ms: 0.631883
+  duration_ms: 0.88517
   type: 'test'
   ...
 # Subtest: dashboard cash position keeps bank, GCash, currencies, and reconciliation distinct
 ok 87 - dashboard cash position keeps bank, GCash, currencies, and reconciliation distinct
   ---
-  duration_ms: 0.877499
+  duration_ms: 1.069325
   type: 'test'
   ...
 # Subtest: reconciliation suggestions remain non-mutating and confirmed matches cannot overmatch
 ok 88 - reconciliation suggestions remain non-mutating and confirmed matches cannot overmatch
   ---
-  duration_ms: 0.864104
+  duration_ms: 1.016736
   type: 'test'
   ...
 # Subtest: internal transfer suggestions require opposite movement across same-company accounts
 ok 89 - internal transfer suggestions require opposite movement across same-company accounts
   ---
-  duration_ms: 0.340672
+  duration_ms: 0.391253
   type: 'test'
   ...
 # Subtest: cash migration defines additive tables, money invariants, and company RLS
 ok 90 - cash migration defines additive tables, money invariants, and company RLS
   ---
-  duration_ms: 1.8153
+  duration_ms: 2.227252
   type: 'test'
   ...
 # Subtest: company update migration removes overloaded RPC ambiguity and preserves the company ID path
 ok 91 - company update migration removes overloaded RPC ambiguity and preserves the company ID path
   ---
-  duration_ms: 0.286141
+  duration_ms: 0.333557
   type: 'test'
   ...
 # Subtest: cash tables are added to the existing realtime publication without replacing it
 ok 92 - cash tables are added to the existing realtime publication without replacing it
   ---
-  duration_ms: 0.426211
+  duration_ms: 0.360828
   type: 'test'
   ...
 # Subtest: cash migration preserves complete audit-event superset across all categories
 ok 93 - cash migration preserves complete audit-event superset across all categories
   ---
-  duration_ms: 0.650738
+  duration_ms: 0.555899
   type: 'test'
   ...
 # Subtest: migration chain invariant: audit-event allowlist only grows across all migrations
 ok 94 - migration chain invariant: audit-event allowlist only grows across all migrations
   ---
-  duration_ms: 6.502751
+  duration_ms: 10.72839
   type: 'test'
   ...
 # Subtest: upgrade-path simulation: historical payroll and AI audit rows are preserved and valid under cash migration constraint
 ok 95 - upgrade-path simulation: historical payroll and AI audit rows are preserved and valid under cash migration constraint
   ---
-  duration_ms: 0.402677
+  duration_ms: 0.494047
   type: 'test'
   ...
 # Subtest: management and workspace-opening permissions are separate
 ok 96 - management and workspace-opening permissions are separate
   ---
-  duration_ms: 1.590713
+  duration_ms: 1.266018
   type: 'test'
   ...
 # Subtest: company Gemini credentials encrypt and decrypt with AES-GCM
 ok 97 - company Gemini credentials encrypt and decrypt with AES-GCM
   ---
-  duration_ms: 2.895034
+  duration_ms: 1.974665
   type: 'test'
   ...
 # Subtest: tampered envelopes, company binding, and wrong keys fail closed
 ok 98 - tampered envelopes, company binding, and wrong keys fail closed
   ---
-  duration_ms: 1.950431
+  duration_ms: 1.257285
   type: 'test'
   ...
 # Subtest: master-key configuration requires exactly 32 decoded base64 bytes
 ok 99 - master-key configuration requires exactly 32 decoded base64 bytes
   ---
-  duration_ms: 1.562651
+  duration_ms: 0.989075
   type: 'test'
   ...
 # Subtest: explicit invalid master keys never fall back to the process environment
 ok 100 - explicit invalid master keys never fall back to the process environment
   ---
-  duration_ms: 2.716342
+  duration_ms: 1.450142
   type: 'test'
   ...
 # Subtest: invalid envelope encoding and server key failures keep distinct safe error codes
 ok 101 - invalid envelope encoding and server key failures keep distinct safe error codes
   ---
-  duration_ms: 1.291438
+  duration_ms: 0.644911
   type: 'test'
   ...
 # Subtest: AI credential migration is additive, encrypted-envelope-only, and owner controlled
 ok 102 - AI credential migration is additive, encrypted-envelope-only, and owner controlled
   ---
-  duration_ms: 1.255531
+  duration_ms: 0.604011
   type: 'test'
   ...
 # Subtest: AI hardening migration supports enable and closes browser envelope access
 ok 103 - AI hardening migration supports enable and closes browser envelope access
   ---
-  duration_ms: 0.61956
+  duration_ms: 0.334939
   type: 'test'
   ...
 # company-ai-failure {
-#   correlationRef: 'AI-83779FE03621',
+#   correlationRef: 'AI-D75DBE883778',
 #   companyId: '00000000-0000-4000-8000-000000000001',
 #   code: 'AI_CREDENTIAL_INVALID',
 #   status: 503,
@@ -646,792 +646,792 @@ ok 103 - AI hardening migration supports enable and closes browser envelope acce
 #   classification: 'AI_CREDENTIAL_INVALID',
 #   model: null,
 #   stage: 'credential-refresh',
-#   timestamp: '2026-08-28T09:48:38.837Z'
+#   timestamp: '2026-08-28T09:50:24.397Z'
 # }
 # Subtest: runtime credentials remain company-bound and cache invalidation follows versions
 ok 104 - runtime credentials remain company-bound and cache invalidation follows versions
   ---
-  duration_ms: 5.387331
+  duration_ms: 6.429298
   type: 'test'
   ...
 # Subtest: a mismatched resolver row fails closed instead of being relabeled to the requested company
 ok 105 - a mismatched resolver row fails closed instead of being relabeled to the requested company
   ---
-  duration_ms: 1.150065
+  duration_ms: 1.443603
   type: 'test'
   ...
 # Subtest: missing or disabled company credentials do not consume the global fallback
 ok 106 - missing or disabled company credentials do not consume the global fallback
   ---
-  duration_ms: 1.102266
+  duration_ms: 1.183024
   type: 'test'
   ...
 # Subtest: authentication retry re-resolves the same company runtime
 ok 107 - authentication retry re-resolves the same company runtime
   ---
-  duration_ms: 4.393186
+  duration_ms: 5.655098
   type: 'test'
   ...
 # Subtest: provider classification invalidates only genuine credential authentication failures
 ok 108 - provider classification invalidates only genuine credential authentication failures
   ---
-  duration_ms: 1.162408
+  duration_ms: 2.446839
   type: 'test'
   ...
 # Subtest: provider failures become distinct safe user-facing company AI errors
 ok 109 - provider failures become distinct safe user-facing company AI errors
   ---
-  duration_ms: 1.135879
+  duration_ms: 0.971529
   type: 'test'
   ...
 # Subtest: provider classifications expose safe codes and fallback eligibility without raw provider details
 ok 110 - provider classifications expose safe codes and fallback eligibility without raw provider details
   ---
-  duration_ms: 1.270609
+  duration_ms: 1.205157
   type: 'test'
   ...
 # Subtest: connection health uses the company runtime primary model for an assistant-compatible request
 ok 111 - connection health uses the company runtime primary model for an assistant-compatible request
   ---
-  duration_ms: 2.798886
+  duration_ms: 5.64937
   type: 'test'
   ...
 # Subtest: a disabled company rejects AI until enabled without changing its credential
 ok 112 - a disabled company rejects AI until enabled without changing its credential
   ---
-  duration_ms: 0.911572
+  duration_ms: 1.601348
   type: 'test'
   ...
 # Subtest: runtime cache evicts old company entries at its hard bound
 ok 113 - runtime cache evicts old company entries at its hard bound
   ---
-  duration_ms: 23.263404
+  duration_ms: 27.641072
   type: 'test'
   ...
 # Subtest: company AI endpoints are platform-owner scoped and metadata-only
 ok 114 - company AI endpoints are platform-owner scoped and metadata-only
   ---
-  duration_ms: 2.367905
+  duration_ms: 2.520419
   type: 'test'
   ...
 # Subtest: all production Gemini paths resolve the centralized company runtime
 ok 115 - all production Gemini paths resolve the centralized company runtime
   ---
-  duration_ms: 0.320945
+  duration_ms: 0.254679
   type: 'test'
   ...
 # Subtest: server and company configuration error messages stay distinct
 ok 116 - server and company configuration error messages stay distinct
   ---
-  duration_ms: 0.218916
+  duration_ms: 0.202432
   type: 'test'
   ...
 # Subtest: server AI resolver creates a private client only from backend configuration
 ok 117 - server AI resolver creates a private client only from backend configuration
   ---
-  duration_ms: 42.896812
+  duration_ms: 45.358114
   type: 'test'
   ...
 # Subtest: management-company selection stays local until explicit workspace opening
 ok 118 - management-company selection stays local until explicit workspace opening
   ---
-  duration_ms: 1.340628
+  duration_ms: 1.161341
   type: 'test'
   ...
 # Subtest: AI key UI clears plaintext state before awaiting save and has guarded actions
 ok 119 - AI key UI clears plaintext state before awaiting save and has guarded actions
   ---
-  duration_ms: 0.42026
+  duration_ms: 0.476791
   type: 'test'
   ...
 # Subtest: AI API trims empty keys, redacts request errors, and stores no browser credential state
 ok 120 - AI API trims empty keys, redacts request errors, and stores no browser credential state
   ---
-  duration_ms: 0.445096
+  duration_ms: 0.676519
   type: 'test'
   ...
 # Subtest: company management deep links preserve local selection and do not reload the active workspace
 ok 121 - company management deep links preserve local selection and do not reload the active workspace
   ---
-  duration_ms: 0.259001
+  duration_ms: 0.279597
   type: 'test'
   ...
 # Subtest: company management loads only resources for the active tab
 ok 122 - company management loads only resources for the active tab
   ---
-  duration_ms: 2.628158
+  duration_ms: 3.278019
   type: 'test'
   ...
 # Subtest: late management responses are rejected after company or generation changes
 ok 123 - late management responses are rejected after company or generation changes
   ---
-  duration_ms: 0.272096
+  duration_ms: 0.233108
   type: 'test'
   ...
 # Subtest: management deep-link tabs are allowlisted and default to General
 ok 124 - management deep-link tabs are allowlisted and default to General
   ---
-  duration_ms: 0.193229
+  duration_ms: 0.187891
   type: 'test'
   ...
 # Subtest: company rename sends the stable company ID and named update fields
 ok 125 - company rename sends the stable company ID and named update fields
   ---
-  duration_ms: 2.241401
+  duration_ms: 1.881266
   type: 'test'
   ...
 # Subtest: final company contract preserves exact caller shapes and platform override
 ok 126 - final company contract preserves exact caller shapes and platform override
   ---
-  duration_ms: 1.458848
+  duration_ms: 1.288402
   type: 'test'
   ...
 # Subtest: company backfill covers every persisted tenant table and fails closed
 ok 127 - company backfill covers every persisted tenant table and fails closed
   ---
-  duration_ms: 1.573721
+  duration_ms: 1.529481
   type: 'test'
   ...
 # Subtest: database security contract exposes the exact lead RPC names
 ok 128 - database security contract exposes the exact lead RPC names
   ---
-  duration_ms: 2.399243
+  duration_ms: 2.336174
   type: 'test'
   ...
 # Subtest: SECURITY DEFINER functions pin search_path and direct writes stay closed
 ok 129 - SECURITY DEFINER functions pin search_path and direct writes stay closed
   ---
-  duration_ms: 0.804203
+  duration_ms: 0.820364
   type: 'test'
   ...
 # Subtest: RLS, same-company integrity, and company-path storage are explicit
 ok 130 - RLS, same-company integrity, and company-path storage are explicit
   ---
-  duration_ms: 0.43093
+  duration_ms: 0.433377
   type: 'test'
   ...
 # Subtest: migration is non-destructive and preserves immutable/history checks
 ok 131 - migration is non-destructive and preserves immutable/history checks
   ---
-  duration_ms: 1.261091
+  duration_ms: 1.325026
   type: 'test'
   ...
 # Subtest: lead RPC shapes return the object/argument contract used by persistence
 ok 132 - lead RPC shapes return the object/argument contract used by persistence
   ---
-  duration_ms: 2.094718
+  duration_ms: 2.613748
   type: 'test'
   ...
 # Subtest: daily Site Log domain normalizes a complete observational aggregate
 ok 133 - daily Site Log domain normalizes a complete observational aggregate
   ---
-  duration_ms: 5.134851
+  duration_ms: 10.223617
   type: 'test'
   ...
 # Subtest: daily Site Log lifecycle only permits draft submission and submitted finalization
 ok 134 - daily Site Log lifecycle only permits draft submission and submitted finalization
   ---
-  duration_ms: 1.010576
+  duration_ms: 1.021213
   type: 'test'
   ...
 # Subtest: daily Site Log validation rejects invalid dates, missing work, crew, and child identity
 ok 135 - daily Site Log validation rejects invalid dates, missing work, crew, and child identity
   ---
-  duration_ms: 1.374692
+  duration_ms: 1.221041
   type: 'test'
   ...
 # Subtest: daily Site Log aggregate replacement preserves formal lifecycle history and scopes children
 ok 136 - daily Site Log aggregate replacement preserves formal lifecycle history and scopes children
   ---
-  duration_ms: 12.283051
+  duration_ms: 11.437296
   type: 'test'
   ...
 # Subtest: Phase 1C migration creates company-scoped Site Log aggregate and observational children
 ok 137 - Phase 1C migration creates company-scoped Site Log aggregate and observational children
   ---
-  duration_ms: 1.44372
+  duration_ms: 1.811692
   type: 'test'
   ...
 # Subtest: Phase 1C migration exposes read RLS and authenticated guarded lifecycle RPCs only
 ok 138 - Phase 1C migration exposes read RLS and authenticated guarded lifecycle RPCs only
   ---
-  duration_ms: 1.097467
+  duration_ms: 1.705674
   type: 'test'
   ...
 # Subtest: Phase 1C migration uses additive audit events and protects finalized history
 ok 139 - Phase 1C migration uses additive audit events and protects finalized history
   ---
-  duration_ms: 0.39815
+  duration_ms: 2.931852
   type: 'test'
   ...
 # Subtest: Daily Site Log persistence maps database rows and RPC payloads without payroll fields
 ok 140 - Daily Site Log persistence maps database rows and RPC payloads without payroll fields
   ---
-  duration_ms: 8.148937
+  duration_ms: 4.615343
   type: 'test'
   ...
 # Subtest: Daily Site Log local fallback round-trips a complete isolated workspace
 ok 141 - Daily Site Log local fallback round-trips a complete isolated workspace
   ---
-  duration_ms: 1.164862
+  duration_ms: 1.190886
   type: 'test'
   ...
 # Subtest: legacy demo fingerprints are identified without using currency
 ok 142 - legacy demo fingerprints are identified without using currency
   ---
-  duration_ms: 1.627682
+  duration_ms: 1.425726
   type: 'test'
   ...
 # Subtest: cleanup preserves real PHP, USD upload, and USD Gmail invoices
 ok 143 - cleanup preserves real PHP, USD upload, and USD Gmail invoices
   ---
-  duration_ms: 1.092388
+  duration_ms: 0.986742
   type: 'test'
   ...
 # Subtest: local cleanup is idempotent and writes the cleaned array
 ok 144 - local cleanup is idempotent and writes the cleaned array
   ---
-  duration_ms: 0.465785
+  duration_ms: 0.399706
   type: 'test'
   ...
 # Subtest: empty or malformed local storage becomes an empty workspace
 ok 145 - empty or malformed local storage becomes an empty workspace
   ---
-  duration_ms: 0.363274
+  duration_ms: 0.28191
   type: 'test'
   ...
 # Subtest: demo payroll keeps real overtime cost without presentation warnings
 ok 146 - demo payroll keeps real overtime cost without presentation warnings
   ---
-  duration_ms: 71.412645
+  duration_ms: 60.316061
   type: 'test'
   ...
 # Subtest: every canonical active application route has demo browser smoke coverage
 ok 147 - every canonical active application route has demo browser smoke coverage
   ---
-  duration_ms: 1.327244
+  duration_ms: 1.694818
   type: 'test'
   ...
 # Subtest: settings QA verifies product roadmap status labels
 ok 148 - settings QA verifies product roadmap status labels
   ---
-  duration_ms: 0.241388
+  duration_ms: 0.297444
   type: 'test'
   ...
 # Subtest: demo workspace generation is deterministic
 ok 149 - demo workspace generation is deterministic
   ---
-  duration_ms: 35.260706
+  duration_ms: 35.486918
   type: 'test'
   ...
 # Subtest: demo company identity is fixed and outside production company selection
 ok 150 - demo company identity is fixed and outside production company selection
   ---
-  duration_ms: 7.214041
+  duration_ms: 8.246689
   type: 'test'
   ...
 # Subtest: project and invoice allocation relationships are valid
 ok 151 - project and invoice allocation relationships are valid
   ---
-  duration_ms: 3.189621
+  duration_ms: 4.900749
   type: 'test'
   ...
 # Subtest: expense project relationships are valid
 ok 152 - expense project relationships are valid
   ---
-  duration_ms: 2.834422
+  duration_ms: 6.887722
   type: 'test'
   ...
 # Subtest: workforce project relationships are valid
 ok 153 - workforce project relationships are valid
   ---
-  duration_ms: 3.94315
+  duration_ms: 5.775283
   type: 'test'
   ...
 # Subtest: payroll records reference valid demo workers and periods
 ok 154 - payroll records reference valid demo workers and periods
   ---
-  duration_ms: 2.681106
+  duration_ms: 4.319632
   type: 'test'
   ...
 # Subtest: payroll periods are chronological, non-overlapping, and include current/open plus next
 ok 155 - payroll periods are chronological, non-overlapping, and include current/open plus next
   ---
-  duration_ms: 10.49366
+  duration_ms: 15.055853
   type: 'test'
   ...
 # Subtest: banking records are internally coherent
 ok 156 - banking records are internally coherent
   ---
-  duration_ms: 4.321131
+  duration_ms: 6.513053
   type: 'test'
   ...
 # Subtest: engineering documents reference valid projects and revisions are immutable records
 ok 157 - engineering documents reference valid projects and revisions are immutable records
   ---
-  duration_ms: 2.980944
+  duration_ms: 4.247124
   type: 'test'
   ...
 # Subtest: daily Site Log fixtures cover field conditions and stay project-scoped
 ok 158 - daily Site Log fixtures cover field conditions and stay project-scoped
   ---
-  duration_ms: 2.598964
+  duration_ms: 3.5606
   type: 'test'
   ...
 # Subtest: reset restores pristine deterministic demo data
 ok 159 - reset restores pristine deterministic demo data
   ---
-  duration_ms: 8.143768
+  duration_ms: 13.191358
   type: 'test'
   ...
 # Subtest: demo mutations are pure local state transitions and do not require a production repository
 ok 160 - demo mutations are pure local state transitions and do not require a production repository
   ---
-  duration_ms: 3.809051
+  duration_ms: 5.500303
   type: 'test'
   ...
 # Subtest: public demo route is selected before production application auth mounting
 ok 161 - public demo route is selected before production application auth mounting
   ---
-  duration_ms: 0.262828
+  duration_ms: 0.393737
   type: 'test'
   ...
 # Subtest: normal production route behavior remains production mode
 ok 162 - normal production route behavior remains production mode
   ---
-  duration_ms: 0.147533
+  duration_ms: 0.166678
   type: 'test'
   ...
 # Subtest: relative-date generation remains deterministic around the supplied anchor
 ok 163 - relative-date generation remains deterministic around the supplied anchor
   ---
-  duration_ms: 4.221085
+  duration_ms: 16.273079
   type: 'test'
   ...
 # Subtest: assistant mutation remains PREPARED before execution
 ok 164 - assistant mutation remains PREPARED before execution
   ---
-  duration_ms: 8.615693
+  duration_ms: 12.172243
   type: 'test'
   ...
 # Subtest: assistant confirmation changes demo workforce only
 ok 165 - assistant confirmation changes demo workforce only
   ---
-  duration_ms: 6.908798
+  duration_ms: 4.3453
   type: 'test'
   ...
 # Subtest: demo route cannot select an arbitrary real company id
 ok 166 - demo route cannot select an arbitrary real company id
   ---
-  duration_ms: 7.170281
+  duration_ms: 7.618401
   type: 'test'
   ...
 # Subtest: annotation save success is confirmed only for the current generation and request
 ok 167 - annotation save success is confirmed only for the current generation and request
   ---
-  duration_ms: 1.279335
+  duration_ms: 1.245588
   type: 'test'
   ...
 # Subtest: annotation save failure exposes error without changing local generation
 ok 168 - annotation save failure exposes error without changing local generation
   ---
-  duration_ms: 0.197777
+  duration_ms: 0.202492
   type: 'test'
   ...
 # Subtest: a newer edit keeps local work unsaved when an older request resolves
 ok 169 - a newer edit keeps local work unsaved when an older request resolves
   ---
-  duration_ms: 0.181778
+  duration_ms: 0.171025
   type: 'test'
   ...
 # Subtest: a stale request cannot change the visible state after a newer save begins
 ok 170 - a stale request cannot change the visible state after a newer save begins
   ---
-  duration_ms: 0.196575
+  duration_ms: 0.201661
   type: 'test'
   ...
 # Subtest: save coordinator advances edit generations for retry and race protection
 ok 171 - save coordinator advances edit generations for retry and race protection
   ---
-  duration_ms: 1.01836
+  duration_ms: 0.988595
   type: 'test'
   ...
 # Subtest: clamp and clampPoint ensure values stay bounded within [0, 1]
 ok 172 - clamp and clampPoint ensure values stay bounded within [0, 1]
   ---
-  duration_ms: 2.73081
+  duration_ms: 1.673446
   type: 'test'
   ...
 # Subtest: normalized coordinate transformations round-trip cleanly with viewport dimensions
 ok 173 - normalized coordinate transformations round-trip cleanly with viewport dimensions
   ---
-  duration_ms: 0.762386
+  duration_ms: 0.46269
   type: 'test'
   ...
 # Subtest: stage zooming and panning transformations correctly map screen to canvas and normalized space
 ok 174 - stage zooming and panning transformations correctly map screen to canvas and normalized space
   ---
-  duration_ms: 0.526006
+  duration_ms: 0.343192
   type: 'test'
   ...
 # Subtest: geometry measurements, distance, and physical scale calibration calculate accurately
 ok 175 - geometry measurements, distance, and physical scale calibration calculate accurately
   ---
-  duration_ms: 0.780018
+  duration_ms: 0.444002
   type: 'test'
   ...
 # Subtest: bounding box and point-in-rect tests behave correctly
 ok 176 - bounding box and point-in-rect tests behave correctly
   ---
-  duration_ms: 4.011025
+  duration_ms: 0.351704
   type: 'test'
   ...
 # Subtest: revision number comparison and sorting handle versions, letters, and numbers
 ok 177 - revision number comparison and sorting handle versions, letters, and numbers
   ---
-  duration_ms: 22.898798
+  duration_ms: 8.358845
   type: 'test'
   ...
 # Subtest: document lifecycle helpers: create, update, archive, and filter
 ok 178 - document lifecycle helpers: create, update, archive, and filter
   ---
-  duration_ms: 3.397116
+  duration_ms: 2.519157
   type: 'test'
   ...
 # Subtest: drawing annotation lifecycle helpers: create, update, and soft delete
 ok 179 - drawing annotation lifecycle helpers: create, update, and soft delete
   ---
-  duration_ms: 0.466246
+  duration_ms: 0.329882
   type: 'test'
   ...
 # Subtest: local fallback workspace data initializes with sample drawings and annotations
 ok 180 - local fallback workspace data initializes with sample drawings and annotations
   ---
-  duration_ms: 0.893849
+  duration_ms: 4.811937
   type: 'test'
   ...
 # Subtest: persistence row mappings accurately convert between database snake_case and TypeScript camelCase
 ok 181 - persistence row mappings accurately convert between database snake_case and TypeScript camelCase
   ---
-  duration_ms: 1.232267
+  duration_ms: 0.80479
   type: 'test'
   ...
 # Subtest: localStorage workspace serialization and deserialization works correctly
 ok 182 - localStorage workspace serialization and deserialization works correctly
   ---
-  duration_ms: 0.518943
+  duration_ms: 0.394188
   type: 'test'
   ...
 # Subtest: engineering PDF fingerprints are deterministic SHA-256 digests over file bytes
 ok 183 - engineering PDF fingerprints are deterministic SHA-256 digests over file bytes
   ---
-  duration_ms: 22.728849
+  duration_ms: 14.531852
   type: 'test'
   ...
 # Subtest: engineering PDF preparation validates the real PDF signature and preserves exact size
 ok 184 - engineering PDF preparation validates the real PDF signature and preserves exact size
   ---
-  duration_ms: 11.036319
+  duration_ms: 4.045573
   type: 'test'
   ...
 # Subtest: revision Storage paths are immutable and bound to company/document/revision identifiers
 ok 185 - revision Storage paths are immutable and bound to company/document/revision identifiers
   ---
-  duration_ms: 0.869895
+  duration_ms: 0.696388
   type: 'test'
   ...
 # Subtest: authenticated engineering persistence does not fall back to local cache
 ok 186 - authenticated engineering persistence does not fall back to local cache
   ---
-  duration_ms: 1.267203
+  duration_ms: 1.465806
   type: 'test'
   ...
 # Subtest: upload and viewer contracts preserve immutable private source behavior
 ok 187 - upload and viewer contracts preserve immutable private source behavior
   ---
-  duration_ms: 0.390555
+  duration_ms: 0.490321
   type: 'test'
   ...
 # Subtest: project Documents receives independent capabilities and lazy-loads the heavy viewer
 ok 188 - project Documents receives independent capabilities and lazy-loads the heavy viewer
   ---
-  duration_ms: 0.265814
+  duration_ms: 0.308009
   type: 'test'
   ...
 # Subtest: viewer switches revision-scoped annotations only after dirty-save success
 ok 189 - viewer switches revision-scoped annotations only after dirty-save success
   ---
-  duration_ms: 0.251627
+  duration_ms: 0.280649
   type: 'test'
   ...
 # Subtest: engineering documents migration defines additive tables, check constraints, and RLS
 ok 190 - engineering documents migration defines additive tables, check constraints, and RLS
   ---
-  duration_ms: 1.698934
+  duration_ms: 2.066833
   type: 'test'
   ...
 # Subtest: engineering documents permissions and role mappings are defined correctly
 ok 191 - engineering documents permissions and role mappings are defined correctly
   ---
-  duration_ms: 0.212254
+  duration_ms: 0.267509
   type: 'test'
   ...
 # Subtest: tenant policy catalog registers engineering documents tables
 ok 192 - tenant policy catalog registers engineering documents tables
   ---
-  duration_ms: 0.382419
+  duration_ms: 0.443782
   type: 'test'
   ...
 # Subtest: storage bucket and company-scoped storage policies are created
 ok 193 - storage bucket and company-scoped storage policies are created
   ---
-  duration_ms: 0.309495
+  duration_ms: 0.327708
   type: 'test'
   ...
 # Subtest: hardening enforces current-revision ownership and append-only source provenance
 ok 194 - hardening enforces current-revision ownership and append-only source provenance
   ---
-  duration_ms: 0.341304
+  duration_ms: 0.419135
   type: 'test'
   ...
 # Subtest: hardening removes normal revision-source Storage mutation capability
 ok 195 - hardening removes normal revision-source Storage mutation capability
   ---
-  duration_ms: 0.257028
+  duration_ms: 0.272186
   type: 'test'
   ...
 # Subtest: hardening exposes authenticated atomic metadata RPCs only
 ok 196 - hardening exposes authenticated atomic metadata RPCs only
   ---
-  duration_ms: 0.358846
+  duration_ms: 0.422711
   type: 'test'
   ...
 # Subtest: annotation hardening removes physical delete and preserves audit history
 ok 197 - annotation hardening removes physical delete and preserves audit history
   ---
-  duration_ms: 0.234676
+  duration_ms: 0.318705
   type: 'test'
   ...
 # Subtest: source validation hardening mirrors the authenticated PDF contract
 ok 198 - source validation hardening mirrors the authenticated PDF contract
   ---
-  duration_ms: 0.425009
+  duration_ms: 0.527316
   type: 'test'
   ...
 # Subtest: Storage insert policy accepts only immutable revision PDF paths
 ok 199 - Storage insert policy accepts only immutable revision PDF paths
   ---
-  duration_ms: 0.542467
+  duration_ms: 0.531813
   type: 'test'
   ...
 # Subtest: realtime publication includes engineering documents tables
 ok 200 - realtime publication includes engineering documents tables
   ---
-  duration_ms: 0.248962
+  duration_ms: 0.287158
   type: 'test'
   ...
 # Subtest: engineering documents migration defines complete authoritative superset of 39 audit events
 ok 201 - engineering documents migration defines complete authoritative superset of 39 audit events
   ---
-  duration_ms: 0.516439
+  duration_ms: 0.506836
   type: 'test'
   ...
 # Subtest: split invoice allocation is counted once across projects and rejects over-allocation
 ok 202 - split invoice allocation is counted once across projects and rejects over-allocation
   ---
-  duration_ms: 3.304835
+  duration_ms: 2.020263
   type: 'test'
   ...
 # Subtest: confirmed, pending, direct expense, and payroll costs use the defined semantics
 ok 203 - confirmed, pending, direct expense, and payroll costs use the defined semantics
   ---
-  duration_ms: 3.433604
+  duration_ms: 1.36134
   type: 'test'
   ...
 # Subtest: void expenses and foreign currencies do not inflate the PHP actual cost
 ok 204 - void expenses and foreign currencies do not inflate the PHP actual cost
   ---
-  duration_ms: 0.317008
+  duration_ms: 0.273618
   type: 'test'
   ...
 # Subtest: monthly payroll split preserves the full salary and project matching stays human-confirmed
 ok 205 - monthly payroll split preserves the full salary and project matching stays human-confirmed
   ---
-  duration_ms: 1.220636
+  duration_ms: 1.172909
   type: 'test'
   ...
 # Subtest: normalizes Error, PostgREST-shaped, and unknown failures without object leakage
 ok 206 - normalizes Error, PostgREST-shaped, and unknown failures without object leakage
   ---
-  duration_ms: 3.332977
+  duration_ms: 3.400321
   type: 'test'
   ...
 # Subtest: ConcreteGrid bad candidate is not accepted as a successful extraction
 ok 207 - ConcreteGrid bad candidate is not accepted as a successful extraction
   ---
-  duration_ms: 3.829709
+  duration_ms: 3.597565
   type: 'test'
   ...
 # Subtest: ConcreteGrid complete candidate is strong and reconciled
 ok 208 - ConcreteGrid complete candidate is strong and reconciled
   ---
-  duration_ms: 1.734199
+  duration_ms: 1.568239
   type: 'test'
   ...
 # Subtest: candidate selection prefers the better deterministic result
 ok 209 - candidate selection prefers the better deterministic result
   ---
-  duration_ms: 0.63005
+  duration_ms: 0.68365
   type: 'test'
   ...
 # Subtest: a good first attempt needs no automatic second attempt
 ok 210 - a good first attempt needs no automatic second attempt
   ---
-  duration_ms: 0.497865
+  duration_ms: 0.538954
   type: 'test'
   ...
 # Subtest: currency normalization preserves explicit foreign currency and symbols
 ok 211 - currency normalization preserves explicit foreign currency and symbols
   ---
-  duration_ms: 0.41995
+  duration_ms: 0.384844
   type: 'test'
   ...
 # Subtest: UOM remains separate from quantity
 ok 212 - UOM remains separate from quantity
   ---
-  duration_ms: 0.203277
+  duration_ms: 0.24187
   type: 'test'
   ...
 # Subtest: feature status maps to explicit in-app availability labels
 ok 213 - feature status maps to explicit in-app availability labels
   ---
-  duration_ms: 1.181533
+  duration_ms: 1.154842
   type: 'test'
   ...
 # Subtest: every registered feature has an unambiguous product availability state
 ok 214 - every registered feature has an unambiguous product availability state
   ---
-  duration_ms: 0.24197
+  duration_ms: 0.297233
   type: 'test'
   ...
 # Subtest: unfinished near-term phases remain marked coming soon rather than active
 ok 215 - unfinished near-term phases remain marked coming soon rather than active
   ---
-  duration_ms: 0.343908
+  duration_ms: 0.30189
   type: 'test'
   ...
 # Subtest: feature registry permission metadata uses canonical permission keys
 ok 216 - feature registry permission metadata uses canonical permission keys
   ---
-  duration_ms: 5.062657
+  duration_ms: 1.836499
   type: 'test'
   ...
 # Subtest: registered route metadata points only to canonical app routes
 ok 217 - registered route metadata points only to canonical app routes
   ---
-  duration_ms: 0.313452
+  duration_ms: 0.245076
   type: 'test'
   ...
 # Subtest: roadmap status matches the current delivery boundary
 ok 218 - roadmap status matches the current delivery boundary
   ---
-  duration_ms: 0.341624
+  duration_ms: 0.343763
   type: 'test'
   ...
 # Subtest: persisted document validation rejects MIME/signature confusion
 ok 219 - persisted document validation rejects MIME/signature confusion
   ---
-  duration_ms: 2.258944
+  duration_ms: 1.961525
   type: 'test'
   ...
 # Subtest: Storage path segments reject traversal and separators
 ok 220 - Storage path segments reject traversal and separators
   ---
-  duration_ms: 0.520255
+  duration_ms: 0.529369
   type: 'test'
   ...
 # Subtest: Gmail envelope and raw message limits fail closed
 ok 221 - Gmail envelope and raw message limits fail closed
   ---
-  duration_ms: 0.736478
+  duration_ms: 0.689188
   type: 'test'
   ...
 # Subtest: payroll imports require supported signatures
 ok 222 - payroll imports require supported signatures
   ---
-  duration_ms: 0.369536
+  duration_ms: 0.43551
   type: 'test'
   ...
 # Subtest: invoice payable basis only trusts explicit net-payable semantics
 ok 223 - invoice payable basis only trusts explicit net-payable semantics
   ---
-  duration_ms: 2.569179
+  duration_ms: 2.13271
   type: 'test'
   ...
 # Subtest: invoice settlement never blindly adds document paid and bank paid
 ok 224 - invoice settlement never blindly adds document paid and bank paid
   ---
-  duration_ms: 0.631142
+  duration_ms: 0.572734
   type: 'test'
   ...
 # Subtest: invoice reversal restores outstanding and overdue semantics
 ok 225 - invoice reversal restores outstanding and overdue semantics
   ---
-  duration_ms: 0.268218
+  duration_ms: 0.269221
   type: 'test'
   ...
 # Subtest: payroll settlement basis uses employee net pay, not gross or project cost
 ok 226 - payroll settlement basis uses employee net pay, not gross or project cost
   ---
-  duration_ms: 0.37737
+  duration_ms: 0.364854
   type: 'test'
   ...
 # Subtest: legacy manual PAID payroll history is preserved without a bank link
 ok 227 - legacy manual PAID payroll history is preserved without a bank link
   ---
-  duration_ms: 0.284087
+  duration_ms: 0.280258
   type: 'test'
   ...
 # Subtest: transaction allocation supports split and multiple-payment math without overage
 ok 228 - transaction allocation supports split and multiple-payment math without overage
   ---
-  duration_ms: 0.358124
+  duration_ms: 0.348229
   type: 'test'
   ...
 # Subtest: client settlement validation rejects wrong direction, lifecycle and currency before server confirmation
 ok 229 - client settlement validation rejects wrong direction, lifecycle and currency before server confirmation
   ---
-  duration_ms: 0.985599
+  duration_ms: 0.966291
   type: 'test'
   ...
 # Subtest: bank settlement does not change verified invoice or approved payroll project cost
 ok 230 - bank settlement does not change verified invoice or approved payroll project cost
   ---
-  duration_ms: 3.997411
+  duration_ms: 2.148865
   type: 'test'
   ...
 # Subtest: financial settlement deep links use canonical routes and parse stable query context
 ok 231 - financial settlement deep links use canonical routes and parse stable query context
   ---
-  duration_ms: 1.125229
+  duration_ms: 1.001263
   type: 'test'
   ...
 # Subtest: settlement migration is additive, guarded, auditable and not a costing source
 ok 232 - settlement migration is additive, guarded, auditable and not a costing source
   ---
-  duration_ms: 4.499843
+  duration_ms: 1.409161
   type: 'test'
   ...
 # Subtest: route tour targets are deterministic and independent from module scope
 ok 233 - route tour targets are deterministic and independent from module scope
   ---
-  duration_ms: 1.24434
+  duration_ms: 1.26041
   type: 'test'
   ...
 # Subtest: global controls are outside the scrollable navigation and expose the expected account actions
 not ok 234 - global controls are outside the scrollable navigation and expose the expected account actions
   ---
-  duration_ms: 1.607534
+  duration_ms: 1.546887
   type: 'test'
   location: '/home/runner/work/InvoiceApp/InvoiceApp/tests/headerNavigation.test.ts:21:1'
   failureType: 'testCodeFailure'
@@ -1583,767 +1583,767 @@ not ok 234 - global controls are outside the scrollable navigation and expose th
 # Subtest: seeded roles have explicit project-cost completeness semantics
 ok 235 - seeded roles have explicit project-cost completeness semantics
   ---
-  duration_ms: 6.47511
+  duration_ms: 2.51398
   type: 'test'
   ...
 # Subtest: route authorization is canonical for Assistant navigation and supports alternatives
 ok 236 - route authorization is canonical for Assistant navigation and supports alternatives
   ---
-  duration_ms: 4.206138
+  duration_ms: 1.1667
   type: 'test'
   ...
 # Subtest: Assistant entity navigation cannot bypass or visibly advertise a forbidden route
 ok 237 - Assistant entity navigation cannot bypass or visibly advertise a forbidden route
   ---
-  duration_ms: 0.972045
+  duration_ms: 0.942516
   type: 'test'
   ...
 # Subtest: Assistant project cost summary fails closed when any contributing source is unreadable
 ok 238 - Assistant project cost summary fails closed when any contributing source is unreadable
   ---
-  duration_ms: 4.509691
+  duration_ms: 1.944751
   type: 'test'
   ...
 # Subtest: incomplete Dashboard, project Overview, and Reports suppress authoritative combined aggregates
 ok 239 - incomplete Dashboard, project Overview, and Reports suppress authoritative combined aggregates
   ---
-  duration_ms: 0.256806
+  duration_ms: 0.314108
   type: 'test'
   ...
 # Subtest: Viewer and read-only roles are not offered mutation workflows
 ok 240 - Viewer and read-only roles are not offered mutation workflows
   ---
-  duration_ms: 0.219427
+  duration_ms: 0.256632
   type: 'test'
   ...
 # Subtest: Project workspace hides inaccessible financial and workforce tabs instead of showing false empty states
 ok 241 - Project workspace hides inaccessible financial and workforce tabs instead of showing false empty states
   ---
-  duration_ms: 0.213026
+  duration_ms: 0.173579
   type: 'test'
   ...
 # Subtest: settlement reversal presentation fails closed unless cash reconciliation is granted
 ok 242 - settlement reversal presentation fails closed unless cash reconciliation is granted
   ---
-  duration_ms: 0.190303
+  duration_ms: 0.141501
   type: 'test'
   ...
 # Subtest: deployment-company access clears stale context before every authorization refresh
 ok 243 - deployment-company access clears stale context before every authorization refresh
   ---
-  duration_ms: 0.761273
+  duration_ms: 0.602218
   type: 'test'
   ...
 # Subtest: display identity prioritizes vendor, invoice number, and readable date
 ok 244 - display identity prioritizes vendor, invoice number, and readable date
   ---
-  duration_ms: 37.74612
+  duration_ms: 28.238143
   type: 'test'
   ...
 # Subtest: missing invoice number never promotes the source filename
 ok 245 - missing invoice number never promotes the source filename
   ---
-  duration_ms: 0.58706
+  duration_ms: 0.585493
   type: 'test'
   ...
 # Subtest: invoice number is useful identity when vendor is unavailable
 ok 246 - invoice number is useful identity when vendor is unavailable
   ---
-  duration_ms: 0.741036
+  duration_ms: 0.666374
   type: 'test'
   ...
 # Subtest: amount display distinguishes missing totals, genuine zero, and missing currency
 ok 247 - amount display distinguishes missing totals, genuine zero, and missing currency
   ---
-  duration_ms: 9.215738
+  duration_ms: 8.467108
   type: 'test'
   ...
 # Subtest: workspace mode follows invoice review status
 ok 248 - workspace mode follows invoice review status
   ---
-  duration_ms: 0.229826
+  duration_ms: 0.241099
   type: 'test'
   ...
 # Subtest: PHP formatting defaults to en-PH currency display
 ok 249 - PHP formatting defaults to en-PH currency display
   ---
-  duration_ms: 26.064023
+  duration_ms: 21.92646
   type: 'test'
   ...
 # Subtest: foreign USD invoices remain USD
 ok 250 - foreign USD invoices remain USD
   ---
-  duration_ms: 1.937957
+  duration_ms: 1.878651
   type: 'test'
   ...
 # Subtest: standard Philippine 12% VAT passes
 ok 251 - standard Philippine 12% VAT passes
   ---
-  duration_ms: 0.439305
+  duration_ms: 0.44939
   type: 'test'
   ...
 # Subtest: incorrect Philippine VAT is routed to review
 ok 252 - incorrect Philippine VAT is routed to review
   ---
-  duration_ms: 0.336194
+  duration_ms: 0.352185
   type: 'test'
   ...
 # Subtest: non-VAT, zero-rated, and VAT-exempt cases do not receive an automatic 12% charge
 ok 253 - non-VAT, zero-rated, and VAT-exempt cases do not receive an automatic 12% charge
   ---
-  duration_ms: 0.560731
+  duration_ms: 0.493636
   type: 'test'
   ...
 # Subtest: mixed PH tax treatment reconciles
 ok 254 - mixed PH tax treatment reconciles
   ---
-  duration_ms: 0.455325
+  duration_ms: 0.309461
   type: 'test'
   ...
 # Subtest: withholding remains separate from invoice total
 ok 255 - withholding remains separate from invoice total
   ---
-  duration_ms: 0.393711
+  duration_ms: 0.307348
   type: 'test'
   ...
 # Subtest: missing currency is reviewed instead of inferred from a Philippine address
 ok 256 - missing currency is reviewed instead of inferred from a Philippine address
   ---
-  duration_ms: 0.569327
+  duration_ms: 0.486775
   type: 'test'
   ...
 # Subtest: nonzero invoice totals with no rows receive a missing-line-items warning
 ok 257 - nonzero invoice totals with no rows receive a missing-line-items warning
   ---
-  duration_ms: 0.643635
+  duration_ms: 0.588307
   type: 'test'
   ...
 # Subtest: pre-Philippine stored invoice shape remains readable
 ok 258 - pre-Philippine stored invoice shape remains readable
   ---
-  duration_ms: 0.852683
+  duration_ms: 0.779723
   type: 'test'
   ...
 # Subtest: PH completeness is a review aid and flags missing required fields
 ok 259 - PH completeness is a review aid and flags missing required fields
   ---
-  duration_ms: 0.714387
+  duration_ms: 0.67024
   type: 'test'
   ...
 # Subtest: all demo presets except the intentional validation fixture pass arithmetic checks
 ok 260 - all demo presets except the intentional validation fixture pass arithmetic checks
   ---
-  duration_ms: 1.291607
+  duration_ms: 1.222894
   type: 'test'
   ...
 # Subtest: review session navigation preserves the entered queue order
 ok 261 - review session navigation preserves the entered queue order
   ---
-  duration_ms: 0.534102
+  duration_ms: 0.414188
   type: 'test'
   ...
 # Subtest: migration naming and ordering safety: timestamps are valid, unique, and strictly monotonically increasing
 ok 262 - migration naming and ordering safety: timestamps are valid, unique, and strictly monotonically increasing
   ---
-  duration_ms: 2.042692
+  duration_ms: 1.741808
   type: 'test'
   ...
 # Subtest: migration invariant: company_audit_events allowlist only ever grows across the entire chain
 ok 263 - migration invariant: company_audit_events allowlist only ever grows across the entire chain
   ---
-  duration_ms: 13.452151
+  duration_ms: 9.307351
   type: 'test'
   ...
 # Subtest: migration invariant: latest migration contains the authoritative superset of all 58 audit event types
 ok 264 - migration invariant: latest migration contains the authoritative superset of all 58 audit event types
   ---
-  duration_ms: 3.873311
+  duration_ms: 4.65312
   type: 'test'
   ...
 # Subtest: exposes Cash & Banking as a primary module while keeping settings outside the module row
 ok 265 - exposes Cash & Banking as a primary module while keeping settings outside the module row
   ---
-  duration_ms: 2.546597
+  duration_ms: 2.231037
   type: 'test'
   ...
 # Subtest: filters modules and invoice subtabs by permissions
 ok 266 - filters modules and invoice subtabs by permissions
   ---
-  duration_ms: 0.839008
+  duration_ms: 0.712733
   type: 'test'
   ...
 # Subtest: selects a usable default child when the preferred child is hidden
 ok 267 - selects a usable default child when the preferred child is hidden
   ---
-  duration_ms: 0.36086
+  duration_ms: 0.337323
   type: 'test'
   ...
 # Subtest: defines one predictable canonical route for every application destination
 ok 268 - defines one predictable canonical route for every application destination
   ---
-  duration_ms: 2.329073
+  duration_ms: 2.019121
   type: 'test'
   ...
 # Subtest: normalizes paths and resolves root and legacy extract aliases
 ok 269 - normalizes paths and resolves root and legacy extract aliases
   ---
-  duration_ms: 1.067121
+  duration_ms: 1.062094
   type: 'test'
   ...
 # Subtest: resolves active route state and marks overflow destinations through More
 ok 270 - resolves active route state and marks overflow destinations through More
   ---
-  duration_ms: 0.535804
+  duration_ms: 0.486035
   type: 'test'
   ...
 # Subtest: monthly worker allocations preserve a 40,000 salary across projects
 ok 271 - monthly worker allocations preserve a 40,000 salary across projects
   ---
-  duration_ms: 1.909635
+  duration_ms: 1.94299
   type: 'test'
   ...
 # Subtest: daily and hourly time entries calculate project labor cost
 ok 272 - daily and hourly time entries calculate project labor cost
   ---
-  duration_ms: 0.228123
+  duration_ms: 0.217567
   type: 'test'
   ...
 # Subtest: only approved and paid payroll runs are confirmed labor cost
 ok 273 - only approved and paid payroll runs are confirmed labor cost
   ---
-  duration_ms: 0.173893
+  duration_ms: 0.170812
   type: 'test'
   ...
 # Subtest: hourly regular pay uses confirmed attendance as the primary source
 ok 274 - hourly regular pay uses confirmed attendance as the primary source
   ---
-  duration_ms: 4.490847
+  duration_ms: 3.955411
   type: 'test'
   ...
 # Subtest: daily attendance uses payable day fractions and monthly attendance does not invent deductions
 ok 275 - daily attendance uses payable day fractions and monthly attendance does not invent deductions
   ---
-  duration_ms: 15.438158
+  duration_ms: 19.345774
   type: 'test'
   ...
 # Subtest: pending overtime is excluded and approved explicit overtime wins over legacy overtime
 ok 276 - pending overtime is excluded and approved explicit overtime wins over legacy overtime
   ---
-  duration_ms: 3.068106
+  duration_ms: 2.655527
   type: 'test'
   ...
 # Subtest: admin and overhead labor contexts do not require or persist a fake project allocation
 ok 277 - admin and overhead labor contexts do not require or persist a fake project allocation
   ---
-  duration_ms: 4.260259
+  duration_ms: 0.777791
   type: 'test'
   ...
 # Subtest: source fingerprints and revisions deterministically block stale approval
 ok 278 - source fingerprints and revisions deterministically block stale approval
   ---
-  duration_ms: 2.231412
+  duration_ms: 4.102906
   type: 'test'
   ...
 # Subtest: gives an effective assignment override precedence over a profile
 ok 279 - gives an effective assignment override precedence over a profile
   ---
-  duration_ms: 7.277369
+  duration_ms: 4.618659
   type: 'test'
   ...
 # Subtest: selects the latest effective profile and respects its end date
 ok 280 - selects the latest effective profile and respects its end date
   ---
-  duration_ms: 0.333689
+  duration_ms: 0.291074
   type: 'test'
   ...
 # Subtest: applies only active effective recurring components
 ok 281 - applies only active effective recurring components
   ---
-  duration_ms: 9.553524
+  duration_ms: 8.326184
   type: 'test'
   ...
 # Subtest: uses admin defaults without inventing a project
 ok 282 - uses admin defaults without inventing a project
   ---
-  duration_ms: 0.364827
+  duration_ms: 0.342166
   type: 'test'
   ...
 # Subtest: does not multiply monthly base by days or duplicate estimated cost
 ok 283 - does not multiply monthly base by days or duplicate estimated cost
   ---
-  duration_ms: 0.627004
+  duration_ms: 0.572824
   type: 'test'
   ...
 # Subtest: preserves manual, assisted, and automated mode in the draft
 ok 284 - preserves manual, assisted, and automated mode in the draft
   ---
-  duration_ms: 5.950717
+  duration_ms: 0.619188
   type: 'test'
   ...
 # Subtest: classifies exception severity and becomes ready with no exceptions
 ok 285 - classifies exception severity and becomes ready with no exceptions
   ---
-  duration_ms: 0.276232
+  duration_ms: 0.231008
   type: 'test'
   ...
 # Subtest: flags overtime without a rule and invalid project context
 ok 286 - flags overtime without a rule and invalid project context
   ---
-  duration_ms: 0.49532
+  duration_ms: 0.625207
   type: 'test'
   ...
 # Subtest: monthly project labor follows dated project work without multiplying salary
 ok 287 - monthly project labor follows dated project work without multiplying salary
   ---
-  duration_ms: 9.789633
+  duration_ms: 9.346842
   type: 'test'
   ...
 # Subtest: components effective during a period are included even when they start after period start
 ok 288 - components effective during a period are included even when they start after period start
   ---
-  duration_ms: 0.564237
+  duration_ms: 0.668427
   type: 'test'
   ...
 # Subtest: hourly workers without approved work do not create zero-value payroll rows
 ok 289 - hourly workers without approved work do not create zero-value payroll rows
   ---
-  duration_ms: 6.409618
+  duration_ms: 0.349247
   type: 'test'
   ...
 # Subtest: assignment pay type and rate override the worker default only for its active date range
 ok 290 - assignment pay type and rate override the worker default only for its active date range
   ---
-  duration_ms: 2.69888
+  duration_ms: 5.55359
   type: 'test'
   ...
 # Subtest: explicit manual overrides are opt-in and can replace either resolved field
 ok 291 - explicit manual overrides are opt-in and can replace either resolved field
   ---
-  duration_ms: 0.26944
+  duration_ms: 0.263441
   type: 'test'
   ...
 # Subtest: hourly, daily, monthly, and overtime calculations are deterministic
 ok 292 - hourly, daily, monthly, and overtime calculations are deterministic
   ---
-  duration_ms: 0.898228
+  duration_ms: 3.95504
   type: 'test'
   ...
 # Subtest: structured adjustments produce gross, net, employer cost, and a reproducible snapshot
 ok 293 - structured adjustments produce gross, net, employer cost, and a reproducible snapshot
   ---
-  duration_ms: 0.740916
+  duration_ms: 0.745499
   type: 'test'
   ...
 # Subtest: validation exposes allocation percentages and unallocated labor
 ok 294 - validation exposes allocation percentages and unallocated labor
   ---
-  duration_ms: 0.588021
+  duration_ms: 0.573314
   type: 'test'
   ...
 # Subtest: builds a Monday-first month grid with previous/next dates and local today
 ok 295 - builds a Monday-first month grid with previous/next dates and local today
   ---
-  duration_ms: 5.363938
+  duration_ms: 5.404884
   type: 'test'
   ...
 # Subtest: supports fixed six-week grids without changing month boundaries
 ok 296 - supports fixed six-week grids without changing month boundaries
   ---
-  duration_ms: 0.698677
+  duration_ms: 0.609343
   type: 'test'
   ...
 # Subtest: keeps semi-monthly leap-year periods intact and slices them by month
 ok 297 - keeps semi-monthly leap-year periods intact and slices them by month
   ---
-  duration_ms: 1.410398
+  duration_ms: 1.255623
   type: 'test'
   ...
 # Subtest: handles weekly and biweekly periods crossing month boundaries
 ok 298 - handles weekly and biweekly periods crossing month boundaries
   ---
-  duration_ms: 0.783204
+  duration_ms: 0.56412
   type: 'test'
   ...
 # Subtest: projects daily, monthly, and custom actual period records without re-generating them
 ok 299 - projects daily, monthly, and custom actual period records without re-generating them
   ---
-  duration_ms: 0.659594
+  duration_ms: 0.527251
   type: 'test'
   ...
 # Subtest: returns period-end cutoff markers and pay-date markers for the requested month
 ok 300 - returns period-end cutoff markers and pay-date markers for the requested month
   ---
-  duration_ms: 0.482054
+  duration_ms: 0.389992
   type: 'test'
   ...
 # Subtest: looks up run statuses and combines automatic draft and persisted entry issues
 ok 301 - looks up run statuses and combines automatic draft and persisted entry issues
   ---
-  duration_ms: 12.491787
+  duration_ms: 10.228349
   type: 'test'
   ...
 # Subtest: finds imported activity by canonical period ID and ignores voided batches
 ok 302 - finds imported activity by canonical period ID and ignores voided batches
   ---
-  duration_ms: 0.548448
+  duration_ms: 0.475509
   type: 'test'
   ...
 # Subtest: selects a canonical period ID deterministically and preserves an existing selection
 ok 303 - selects a canonical period ID deterministically and preserves an existing selection
   ---
-  duration_ms: 1.203254
+  duration_ms: 1.068494
   type: 'test'
   ...
 # Subtest: uses human period labels and one conflict record for overlapping active periods
 ok 304 - uses human period labels and one conflict record for overlapping active periods
   ---
-  duration_ms: 11.837203
+  duration_ms: 11.328414
   type: 'test'
   ...
 # Subtest: uses local calendar fields for today instead of UTC date conversion
 ok 305 - uses local calendar fields for today instead of UTC date conversion
   ---
-  duration_ms: 0.330564
+  duration_ms: 0.337789
   type: 'test'
   ...
 # Subtest: VOID legacy periods never drive active month-calendar semantics
 ok 306 - VOID legacy periods never drive active month-calendar semantics
   ---
-  duration_ms: 8.092272
+  duration_ms: 7.839618
   type: 'test'
   ...
 # Subtest: payroll page preparation banner keeps READY silent and treats WAITING_FOR_BOUNDARY as a distinct retryable alert
 ok 307 - payroll page preparation banner keeps READY silent and treats WAITING_FOR_BOUNDARY as a distinct retryable alert
   ---
-  duration_ms: 0.938332
+  duration_ms: 0.784101
   type: 'test'
   ...
 # Subtest: calendar views use the nearest stable selection and expose no-active-period semantics
 ok 308 - calendar views use the nearest stable selection and expose no-active-period semantics
   ---
-  duration_ms: 0.614751
+  duration_ms: 0.550248
   type: 'test'
   ...
 # Subtest: desktop period bars render continuous connected ribbon across all days with full-width geometry
 ok 309 - desktop period bars render continuous connected ribbon across all days with full-width geometry
   ---
-  duration_ms: 0.678459
+  duration_ms: 0.531438
   type: 'test'
   ...
 # Subtest: portable Project Site fixture detects row 5, metadata, duplicate AMOUNT meaning, footer, and project context
 ok 310 - portable Project Site fixture detects row 5, metadata, duplicate AMOUNT meaning, footer, and project context
   ---
-  duration_ms: 38.253581
+  duration_ms: 32.803395
   type: 'test'
   ...
 # Subtest: portable Admin Office fixture maps synonyms and remains non-project overhead
 ok 311 - portable Admin Office fixture maps synonyms and remains non-project overhead
   ---
-  duration_ms: 10.107984
+  duration_ms: 9.163741
   type: 'test'
   ...
 # Subtest: the supplied blank Project Site workbook is detected without treating numbered placeholders as employees
 ok 312 - the supplied blank Project Site workbook is detected without treating numbered placeholders as employees # SKIP
   ---
-  duration_ms: 0.189062
+  duration_ms: 0.129777
   type: 'test'
   ...
 # Subtest: the supplied blank Admin Office workbook is detected as overhead with no fake project
 ok 313 - the supplied blank Admin Office workbook is detected as overhead with no fake project # SKIP
   ---
-  duration_ms: 0.136293
+  duration_ms: 0.122516
   type: 'test'
   ...
 # Subtest: CSV parser handles reordered columns, currency text, unknown columns, and duplicate headings
 ok 314 - CSV parser handles reordered columns, currency text, unknown columns, and duplicate headings
   ---
-  duration_ms: 3.940965
+  duration_ms: 3.731253
   type: 'test'
   ...
 # Subtest: multiple-sheet workbook ignores a blank first sheet and parses monthly, hourly, date, and cached formula values
 ok 315 - multiple-sheet workbook ignores a blank first sheet and parses monthly, hourly, date, and cached formula values
   ---
-  duration_ms: 9.249941
+  duration_ms: 8.959234
   type: 'test'
   ...
 # Subtest: legacy .xls data uses the same deterministic parser
 ok 316 - legacy .xls data uses the same deterministic parser
   ---
-  duration_ms: 13.140425
+  duration_ms: 12.155273
   type: 'test'
   ...
 # Subtest: normalization, manual mapping application, and reconciliation helpers remain independently usable
 ok 317 - normalization, manual mapping application, and reconciliation helpers remain independently usable
   ---
-  duration_ms: 0.362733
+  duration_ms: 0.371423
   type: 'test'
   ...
 # Subtest: structural signatures survive safe filename changes for saved-template matching
 ok 318 - structural signatures survive safe filename changes for saved-template matching
   ---
-  duration_ms: 21.523145
+  duration_ms: 19.960626
   type: 'test'
   ...
 # Subtest: bounded parser rejects unsupported, oversized, over-sheeted, and over-row workbooks clearly
 ok 319 - bounded parser rejects unsupported, oversized, over-sheeted, and over-row workbooks clearly
   ---
-  duration_ms: 13.159138
+  duration_ms: 14.598941
   type: 'test'
   ...
 # Subtest: project import stages, matches, and creates project allocation in a DRAFT run
 ok 320 - project import stages, matches, and creates project allocation in a DRAFT run
   ---
-  duration_ms: 51.778538
+  duration_ms: 35.540402
   type: 'test'
   ...
 # Subtest: admin office import remains non-project labor and creates no fake allocation
 ok 321 - admin office import remains non-project labor and creates no fake allocation
   ---
-  duration_ms: 22.117317
+  duration_ms: 9.50834
   type: 'test'
   ...
 # Subtest: ambiguous worker matches cannot be committed silently
 ok 322 - ambiguous worker matches cannot be committed silently
   ---
-  duration_ms: 23.051661
+  duration_ms: 5.846557
   type: 'test'
   ...
 # Subtest: local staging survives reload and duplicate SHA-256 files are discoverable
 ok 323 - local staging survives reload and duplicate SHA-256 files are discoverable
   ---
-  duration_ms: 0.573374
+  duration_ms: 0.4454
   type: 'test'
   ...
 # Subtest: matches workbook dates to a generated period
 ok 324 - matches workbook dates to a generated period
   ---
-  duration_ms: 1.495446
+  duration_ms: 1.295286
   type: 'test'
   ...
 # Subtest: warns when workbook dates conflict with the selected period
 ok 325 - warns when workbook dates conflict with the selected period
   ---
-  duration_ms: 0.351723
+  duration_ms: 0.362117
   type: 'test'
   ...
 # Subtest: does not silently invent a period for unknown workbook dates
 ok 326 - does not silently invent a period for unknown workbook dates
   ---
-  duration_ms: 0.255494
+  duration_ms: 0.202072
   type: 'test'
   ...
 # Subtest: schedule reconciliation deletes an empty obsolete future period but preserves locked history
 ok 327 - schedule reconciliation deletes an empty obsolete future period but preserves locked history
   ---
-  duration_ms: 2.676228
+  duration_ms: 11.700888
   type: 'test'
   ...
 # Subtest: data-bearing generated periods are never safe to retire
 ok 328 - data-bearing generated periods are never safe to retire
   ---
-  duration_ms: 0.295638
+  duration_ms: 0.292877
   type: 'test'
   ...
 # Subtest: integrity diagnostics identify duplicates, overlaps, and multiple active schedules
 ok 329 - integrity diagnostics identify duplicates, overlaps, and multiple active schedules
   ---
-  duration_ms: 16.533792
+  duration_ms: 47.395885
   type: 'test'
   ...
 # Subtest: normal generation selects one primary schedule and creates only the current draft run
 ok 330 - normal generation selects one primary schedule and creates only the current draft run
   ---
-  duration_ms: 4.248126
+  duration_ms: 3.635136
   type: 'test'
   ...
 # Subtest: canonical empty generated periods are not reported as stale
 ok 331 - canonical empty generated periods are not reported as stale
   ---
-  duration_ms: 3.462468
+  duration_ms: 3.910888
   type: 'test'
   ...
 # Subtest: integrity reports an uncovered range between active schedule versions
 ok 332 - integrity reports an uncovered range between active schedule versions
   ---
-  duration_ms: 0.54419
+  duration_ms: 0.509582
   type: 'test'
   ...
 # Subtest: the additive migration contains table-specific ownership triggers and preserves RLS
 ok 333 - the additive migration contains table-specific ownership triggers and preserves RLS
   ---
-  duration_ms: 0.853044
+  duration_ms: 0.814147
   type: 'test'
   ...
 # Subtest: validates daily, weekly, biweekly, semi-monthly, monthly, and custom shapes
 ok 334 - validates daily, weekly, biweekly, semi-monthly, monthly, and custom shapes
   ---
-  duration_ms: 4.861665
+  duration_ms: 2.888548
   type: 'test'
   ...
 # Subtest: rejects invalid fixed-frequency boundaries and period/version mismatches
 ok 335 - rejects invalid fixed-frequency boundaries and period/version mismatches
   ---
-  duration_ms: 2.490193
+  duration_ms: 2.618958
   type: 'test'
   ...
 # Subtest: repair deterministically deletes duplicate empty periods and runs idempotently
 ok 336 - repair deterministically deletes duplicate empty periods and runs idempotently
   ---
-  duration_ms: 16.615804
+  duration_ms: 14.957745
   type: 'test'
   ...
 # Subtest: repair protects finalized and data-bearing history and deletes stale future periods
 ok 337 - repair protects finalized and data-bearing history and deletes stale future periods
   ---
-  duration_ms: 1.030002
+  duration_ms: 0.920236
   type: 'test'
   ...
 # Subtest: safe reset preview reports protected rows without exposing internal identifiers
 ok 338 - safe reset preview reports protected rows without exposing internal identifiers
   ---
-  duration_ms: 0.555711
+  duration_ms: 0.482441
   type: 'test'
   ...
 # Subtest: historical frequency presentation follows the own schedule version
 ok 339 - historical frequency presentation follows the own schedule version
   ---
-  duration_ms: 0.313683
+  duration_ms: 0.266659
   type: 'test'
   ...
 # Subtest: one maintenance action produces a real preview and weekly rebuild replaces malformed boundaries
 ok 340 - one maintenance action produces a real preview and weekly rebuild replaces malformed boundaries
   ---
-  duration_ms: 27.213918
+  duration_ms: 24.432383
   type: 'test'
   ...
 # Subtest: REPAIR is conservative, idempotent, and preserves valid canonical weekly periods around mid-cycle reference date
 ok 341 - REPAIR is conservative, idempotent, and preserves valid canonical weekly periods around mid-cycle reference date
   ---
-  duration_ms: 13.969513
+  duration_ms: 21.120952
   type: 'test'
   ...
 # Subtest: REPAIR converges to restore missing canonical periods without destroying existing periods
 ok 342 - REPAIR converges to restore missing canonical periods without destroying existing periods
   ---
-  duration_ms: 1.375028
+  duration_ms: 4.31353
   type: 'test'
   ...
 # Subtest: REPAIR removes duplicate disposable periods and re-links version metadata safely
 ok 343 - REPAIR removes duplicate disposable periods and re-links version metadata safely
   ---
-  duration_ms: 1.436513
+  duration_ms: 1.209017
   type: 'test'
   ...
 # Subtest: empty generated VOID tombstones are disposable but meaningful VOID history remains protected
 ok 344 - empty generated VOID tombstones are disposable but meaningful VOID history remains protected
   ---
-  duration_ms: 0.472219
+  duration_ms: 0.403673
   type: 'test'
   ...
 # Subtest: reset unapproved removes derived payroll and reopens committed import provenance without touching source work
 ok 345 - reset unapproved removes derived payroll and reopens committed import provenance without touching source work
   ---
-  duration_ms: 4.400348
+  duration_ms: 6.221783
   type: 'test'
   ...
 # Subtest: maintenance preview parsing preserves the public count contract and exact confirmation phrase
 ok 346 - maintenance preview parsing preserves the public count contract and exact confirmation phrase
   ---
-  duration_ms: 0.436342
+  duration_ms: 0.470844
   type: 'test'
   ...
 # Subtest: frontend modal, permissions, and migration contract cover the maintenance safety boundary
 ok 347 - frontend modal, permissions, and migration contract cover the maintenance safety boundary
   ---
-  duration_ms: 1.04813
+  duration_ms: 1.066485
   type: 'test'
   ...
 # Subtest: local payroll persistence round-trips entries, adjustments, and work-entry period linkage
 ok 348 - local payroll persistence round-trips entries, adjustments, and work-entry period linkage
   ---
-  duration_ms: 4.43355
+  duration_ms: 3.996726
   type: 'test'
   ...
 # Subtest: local bootstrap uses the canonical zero-worker period/run generator without duplicates
 ok 349 - local bootstrap uses the canonical zero-worker period/run generator without duplicates
   ---
-  duration_ms: 20.891824
+  duration_ms: 16.68527
   type: 'test'
   ...
 # Subtest: local reconciliation persists removal of a safe obsolete generated period
 ok 350 - local reconciliation persists removal of a safe obsolete generated period
   ---
-  duration_ms: 2.464877
+  duration_ms: 3.93872
   type: 'test'
   ...
 # Subtest: complete payroll row mapping preserves schedules, versions, and automation domains
 ok 351 - complete payroll row mapping preserves schedules, versions, and automation domains
   ---
-  duration_ms: 0.865531
+  duration_ms: 0.923011
   type: 'test'
   ...
 # Subtest: authoritative loader includes every payroll domain table
 ok 352 - authoritative loader includes every payroll domain table
   ---
-  duration_ms: 2.500753
+  duration_ms: 0.830172
   type: 'test'
   ...
 # Subtest: payroll run transitions follow the database state machine
 ok 353 - payroll run transitions follow the database state machine
   ---
-  duration_ms: 0.209239
+  duration_ms: 0.18708
   type: 'test'
   ...
 # Subtest: approval validation requires matching, unique entries with non-empty snapshots
 ok 354 - approval validation requires matching, unique entries with non-empty snapshots
   ---
-  duration_ms: 0.56416
+  duration_ms: 0.537804
   type: 'test'
   ...
 # Subtest: allocation validation caps percentages and total project cost
 ok 355 - allocation validation caps percentages and total project cost
   ---
-  duration_ms: 0.339842
+  duration_ms: 0.297976
   type: 'test'
   ...
 # Subtest: project cost reports confirm only approved/paid labor and keep draft/calculated labor pending
 ok 356 - project cost reports confirm only approved/paid labor and keep draft/calculated labor pending
   ---
-  duration_ms: 2.545696
+  duration_ms: 7.486724
   type: 'test'
   ...
 # Subtest: payroll reports expose employee, payroll-period/run status, and project labels
 ok 357 - payroll reports expose employee, payroll-period/run status, and project labels
   ---
-  duration_ms: 0.620642
+  duration_ms: 3.651009
   type: 'test'
   ...
 # Subtest: payroll reports keep unallocated labor visible when allocations do not consume the entry cost
 ok 358 - payroll reports keep unallocated labor visible when allocations do not consume the entry cost
   ---
-  duration_ms: 1.068142
+  duration_ms: 1.09656
   type: 'test'
   ...
 # Subtest: project invoice reports and cost summaries preserve partial-payment semantics
 ok 359 - project invoice reports and cost summaries preserve partial-payment semantics
   ---
-  duration_ms: 1.150777
+  duration_ms: 1.059365
   type: 'test'
   ...
 # Subtest: project report totals separate foreign invoice, payroll, and expense currencies
 ok 360 - project report totals separate foreign invoice, payroll, and expense currencies
   ---
-  duration_ms: 0.470233
+  duration_ms: 0.433919
   type: 'test'
   ...
 # Subtest: engineering workbook construction keeps labeled payroll rows and project totals
 not ok 361 - engineering workbook construction keeps labeled payroll rows and project totals
   ---
-  duration_ms: 20.586605
+  duration_ms: 18.42466
   type: 'test'
   location: '/home/runner/work/InvoiceApp/InvoiceApp/tests/payrollReporting.test.ts:200:1'
   failureType: 'testCodeFailure'
-  error: 'cannot save file /tmp/invoiceapp-engineering-export-jSaVb1/engineering.xlsx'
+  error: 'cannot save file /tmp/invoiceapp-engineering-export-mExzvR/engineering.xlsx'
   code: 'ERR_TEST_FAILURE'
   stack: |-
     write_dl (file:///home/runner/work/InvoiceApp/InvoiceApp/node_modules/xlsx/xlsx.mjs:3348:8)
@@ -2360,755 +2360,755 @@ not ok 361 - engineering workbook construction keeps labeled payroll rows and pr
 # Subtest: post-reset default schedule matches the canonical standard profile
 ok 362 - post-reset default schedule matches the canonical standard profile
   ---
-  duration_ms: 19.267662
+  duration_ms: 47.358364
   type: 'test'
   ...
 # Subtest: post-reset horizon starts at effectiveFrom and lands Aug 16–31 / pay Sep 2
 ok 363 - post-reset horizon starts at effectiveFrom and lands Aug 16–31 / pay Sep 2
   ---
-  duration_ms: 1.414172
+  duration_ms: 1.405031
   type: 'test'
   ...
 # Subtest: zero-worker workspace gets exactly one draft run and stays stable across reloads
 ok 364 - zero-worker workspace gets exactly one draft run and stays stable across reloads
   ---
-  duration_ms: 6.749899
+  duration_ms: 24.83106
   type: 'test'
   ...
 # Subtest: attendance status transitions clear stale clocks and payable values at the domain boundary
 ok 365 - attendance status transitions clear stale clocks and payable values at the domain boundary
   ---
-  duration_ms: 10.169412
+  duration_ms: 3.768485
   type: 'test'
   ...
 # Subtest: confirmed ABSENT attendance cannot pay stale regular minutes
 ok 366 - confirmed ABSENT attendance cannot pay stale regular minutes
   ---
-  duration_ms: 5.898085
+  duration_ms: 2.533027
   type: 'test'
   ...
 # Subtest: leave transitions support approval, rejection, safe cancellation, overlap checks, and roster visibility
 ok 367 - leave transitions support approval, rejection, safe cancellation, overlap checks, and roster visibility
   ---
-  duration_ms: 2.365552
+  duration_ms: 2.275212
   type: 'test'
   ...
 # Subtest: project status is part of the relevant payroll source fingerprint
 ok 368 - project status is part of the relevant payroll source fingerprint
   ---
-  duration_ms: 2.689754
+  duration_ms: 1.798059
   type: 'test'
   ...
 # Subtest: payroll calculation does not mutate its input while collecting warnings
 ok 369 - payroll calculation does not mutate its input while collecting warnings
   ---
-  duration_ms: 0.794578
+  duration_ms: 1.639282
   type: 'test'
   ...
 # Subtest: generates daily and anchored weekly periods around a reference date
 ok 370 - generates daily and anchored weekly periods around a reference date
   ---
-  duration_ms: 4.321111
+  duration_ms: 7.13916
   type: 'test'
   ...
 # Subtest: generates anchored biweekly periods without local-time drift
 ok 371 - generates anchored biweekly periods without local-time drift
   ---
-  duration_ms: 0.298415
+  duration_ms: 0.315762
   type: 'test'
   ...
 # Subtest: handles semi-monthly February leap years and short months
 ok 372 - handles semi-monthly February leap years and short months
   ---
-  duration_ms: 0.53743
+  duration_ms: 0.558135
   type: 'test'
   ...
 # Subtest: generates the 2026-08-25 semi-monthly period with its business-day pay date
 ok 373 - generates the 2026-08-25 semi-monthly period with its business-day pay date
   ---
-  duration_ms: 0.332589
+  duration_ms: 0.297926
   type: 'test'
   ...
 # Subtest: generates monthly and practical custom cutoff periods
 ok 374 - generates monthly and practical custom cutoff periods
   ---
-  duration_ms: 0.55897
+  duration_ms: 0.766766
   type: 'test'
   ...
 # Subtest: supports all requested pay-date rules and clamps following-month dates
 ok 375 - supports all requested pay-date rules and clamps following-month dates
   ---
-  duration_ms: 0.387371
+  duration_ms: 0.425647
   type: 'test'
   ...
 # Subtest: validates invalid configurations and provides bounded previous/current/next periods
 ok 376 - validates invalid configurations and provides bounded previous/current/next periods
   ---
-  duration_ms: 1.061805
+  duration_ms: 1.400153
   type: 'test'
   ...
 # Subtest: schedule versions are prospective and locked history is never rewritten
 ok 377 - schedule versions are prospective and locked history is never rewritten
   ---
-  duration_ms: 0.813654
+  duration_ms: 9.42263
   type: 'test'
   ...
 # Subtest: a version effective mid-period never generates a pre-effective period
 ok 378 - a version effective mid-period never generates a pre-effective period
   ---
-  duration_ms: 0.716012
+  duration_ms: 0.576502
   type: 'test'
   ...
 # Subtest: period merge is idempotent and current selection prioritizes active current
 ok 379 - period merge is idempotent and current selection prioritizes active current
   ---
-  duration_ms: 1.008447
+  duration_ms: 4.044858
   type: 'test'
   ...
 # Subtest: a weekly schedule saved mid-cycle continues from the first complete period instead of an empty horizon
 ok 380 - a weekly schedule saved mid-cycle continues from the first complete period instead of an empty horizon
   ---
-  duration_ms: 1.024647
+  duration_ms: 0.976771
   type: 'test'
   ...
 # Subtest: no clipped transitional period is emitted inside the rejected cycle
 ok 381 - no clipped transitional period is emitted inside the rejected cycle
   ---
-  duration_ms: 0.685345
+  duration_ms: 0.658705
   type: 'test'
   ...
 # Subtest: a mid-cycle effectiveFrom one day later still yields the same first complete week
 ok 382 - a mid-cycle effectiveFrom one day later still yields the same first complete week
   ---
-  duration_ms: 0.60192
+  duration_ms: 2.72893
   type: 'test'
   ...
 # Subtest: generated periods carry the legacy schedule-level version identity
 ok 383 - generated periods carry the legacy schedule-level version identity
   ---
-  duration_ms: 0.578115
+  duration_ms: 0.677853
   type: 'test'
   ...
 # Subtest: findFirstGeneratablePayrollPeriod returns the first complete week directly for both mid-cycle variants
 ok 384 - findFirstGeneratablePayrollPeriod returns the first complete week directly for both mid-cycle variants
   ---
-  duration_ms: 0.617679
+  duration_ms: 0.623643
   type: 'test'
   ...
 # Subtest: weekly Friday-ending schedules skip the partial cycle and align to Friday ends
 ok 385 - weekly Friday-ending schedules skip the partial cycle and align to Friday ends
   ---
-  duration_ms: 0.611288
+  duration_ms: 0.707308
   type: 'test'
   ...
 # Subtest: an effectiveFrom exactly on a valid period start generates the complete current week without skipping
 ok 386 - an effectiveFrom exactly on a valid period start generates the complete current week without skipping
   ---
-  duration_ms: 0.47287
+  duration_ms: 3.514014
   type: 'test'
   ...
 # Subtest: semi-monthly schedules saved mid-cycle never emit the clipped half-month
 ok 387 - semi-monthly schedules saved mid-cycle never emit the clipped half-month
   ---
-  duration_ms: 0.448384
+  duration_ms: 0.491214
   type: 'test'
   ...
 # Subtest: monthly schedules saved mid-cycle never emit a partial August
 ok 388 - monthly schedules saved mid-cycle never emit a partial August
   ---
-  duration_ms: 0.594035
+  duration_ms: 1.607914
   type: 'test'
   ...
 # Subtest: biweekly anchored schedules skip the incomplete anchored cycle and stay on the anchor weekday
 ok 389 - biweekly anchored schedules skip the incomplete anchored cycle and stay on the anchor weekday
   ---
-  duration_ms: 0.835675
+  duration_ms: 0.799004
   type: 'test'
   ...
 # Subtest: length-based custom schedules skip the partial cycle and keep complete fixed-length cycles
 ok 390 - length-based custom schedules skip the partial cycle and keep complete fixed-length cycles
   ---
-  duration_ms: 1.122058
+  duration_ms: 3.149089
   type: 'test'
   ...
 # Subtest: daily schedules generate single-day periods from the effectiveFrom onward
 ok 391 - daily schedules generate single-day periods from the effectiveFrom onward
   ---
-  duration_ms: 0.539143
+  duration_ms: 0.553768
   type: 'test'
   ...
 # Subtest: version effectiveTo bounds the horizon and stops the forward search
 ok 392 - version effectiveTo bounds the horizon and stops the forward search
   ---
-  duration_ms: 1.178383
+  duration_ms: 5.291893
   type: 'test'
   ...
 # Subtest: previous chains never reach before a mid-cycle effectiveFrom
 ok 393 - previous chains never reach before a mid-cycle effectiveFrom
   ---
-  duration_ms: 0.501653
+  duration_ms: 0.573568
   type: 'test'
   ...
 # Subtest: forward search crosses a closed version boundary into the next schedule version
 ok 394 - forward search crosses a closed version boundary into the next schedule version
   ---
-  duration_ms: 1.22502
+  duration_ms: 1.120495
   type: 'test'
   ...
 # Subtest: boundary-equal version re-link preserves period identity so runs stay linked
 ok 395 - boundary-equal version re-link preserves period identity so runs stay linked
   ---
-  duration_ms: 19.226064
+  duration_ms: 33.537909
   type: 'test'
   ...
 # Subtest: a data-bearing OPEN period is re-linked to the governing version without losing data
 ok 396 - a data-bearing OPEN period is re-linked to the governing version without losing data
   ---
-  duration_ms: 1.399284
+  duration_ms: 3.833693
   type: 'test'
   ...
 # Subtest: legacy default schedule with mid-period effectiveFrom is left untouched because generation no longer fails
 ok 397 - legacy default schedule with mid-period effectiveFrom is left untouched because generation no longer fails
   ---
-  duration_ms: 3.95555
+  duration_ms: 3.700033
   type: 'test'
   ...
 # Subtest: unrepaired legacy default schedule still enables period generation
 ok 398 - unrepaired legacy default schedule still enables period generation
   ---
-  duration_ms: 2.351265
+  duration_ms: 1.831258
   type: 'test'
   ...
 # Subtest: the unrepaired legacy default schedule produces the full horizon without a future current-period run
 ok 399 - the unrepaired legacy default schedule produces the full horizon without a future current-period run
   ---
-  duration_ms: 35.030393
+  duration_ms: 18.455947
   type: 'test'
   ...
 # Subtest: user-authored mid-period schedule generates the future horizon instead of staying empty through ensurePayrollPeriodsAndRuns
 ok 400 - user-authored mid-period schedule generates the future horizon instead of staying empty through ensurePayrollPeriodsAndRuns
   ---
-  duration_ms: 1.178593
+  duration_ms: 1.187045
   type: 'test'
   ...
 # Subtest: already corrected schedule is not repaired again
 ok 401 - already corrected schedule is not repaired again
   ---
-  duration_ms: 0.234968
+  duration_ms: 0.256985
   type: 'test'
   ...
 # Subtest: user-authored mid-period schedule is not repaired
 ok 402 - user-authored mid-period schedule is not repaired
   ---
-  duration_ms: 0.194642
+  duration_ms: 0.178257
   type: 'test'
   ...
 # Subtest: WEEKLY AUTOMATED user schedule is not repaired or backdated
 ok 403 - WEEKLY AUTOMATED user schedule is not repaired or backdated
   ---
-  duration_ms: 0.293816
+  duration_ms: 0.259257
   type: 'test'
   ...
 # Subtest: schedule with different frequency is not repaired
 ok 404 - schedule with different frequency is not repaired
   ---
-  duration_ms: 0.186597
+  duration_ms: 0.213259
   type: 'test'
   ...
 # Subtest: schedule with different pay date rule is not repaired
 ok 405 - schedule with different pay date rule is not repaired
   ---
-  duration_ms: 0.413078
+  duration_ms: 0.497453
   type: 'test'
   ...
 # Subtest: schedule without autoCreateRuns is not repaired
 ok 406 - schedule without autoCreateRuns is not repaired
   ---
-  duration_ms: 0.504879
+  duration_ms: 0.607939
   type: 'test'
   ...
 # Subtest: inactive schedule is not repaired
 ok 407 - inactive schedule is not repaired
   ---
-  duration_ms: 0.284439
+  duration_ms: 0.304856
   type: 'test'
   ...
 # Subtest: schedule with data-bearing earlier period is not repaired
 ok 408 - schedule with data-bearing earlier period is not repaired
   ---
-  duration_ms: 0.356714
+  duration_ms: 0.327059
   type: 'test'
   ...
 # Subtest: schedule with finalized period at current boundary is not repaired
 ok 409 - schedule with finalized period at current boundary is not repaired
   ---
-  duration_ms: 0.278919
+  duration_ms: 0.271496
   type: 'test'
   ...
 # Subtest: schedule with work entries in backdated window is not repaired
 ok 410 - schedule with work entries in backdated window is not repaired
   ---
-  duration_ms: 0.255896
+  duration_ms: 0.268792
   type: 'test'
   ...
 # Subtest: schedule with attendance records in backdated window is not repaired
 ok 411 - schedule with attendance records in backdated window is not repaired
   ---
-  duration_ms: 0.267738
+  duration_ms: 0.276724
   type: 'test'
   ...
 # Subtest: schedule with overtime requests in backdated window is not repaired
 ok 412 - schedule with overtime requests in backdated window is not repaired
   ---
-  duration_ms: 0.233785
+  duration_ms: 0.218477
   type: 'test'
   ...
 # Subtest: schedule with leave overlapping backdated window is not repaired
 ok 413 - schedule with leave overlapping backdated window is not repaired
   ---
-  duration_ms: 0.336486
+  duration_ms: 0.315141
   type: 'test'
   ...
 # Subtest: void or period-linked source records outside the window leave the schedule untouched and generating
 ok 414 - void or period-linked source records outside the window leave the schedule untouched and generating
   ---
-  duration_ms: 0.825376
+  duration_ms: 0.730212
   type: 'test'
   ...
 # Subtest: schedule with inconsistent version effectiveFrom is not repaired
 ok 415 - schedule with inconsistent version effectiveFrom is not repaired
   ---
-  duration_ms: 0.192538
+  duration_ms: 0.174531
   type: 'test'
   ...
 # Subtest: schedule that already generates periods is not repaired
 ok 416 - schedule that already generates periods is not repaired
   ---
-  duration_ms: 0.202677
+  duration_ms: 0.156093
   type: 'test'
   ...
 # Subtest: createDefaultPayrollSchedule produces corrected effectiveFrom for 2026-08-25
 ok 417 - createDefaultPayrollSchedule produces corrected effectiveFrom for 2026-08-25
   ---
-  duration_ms: 0.236509
+  duration_ms: 0.289743
   type: 'test'
   ...
 # Subtest: createDefaultPayrollSchedule produces corrected effectiveFrom for 2026-08-10
 ok 418 - createDefaultPayrollSchedule produces corrected effectiveFrom for 2026-08-10
   ---
-  duration_ms: 0.153536
+  duration_ms: 0.163515
   type: 'test'
   ...
 # Subtest: next-period recommendation never guesses tomorrow
 ok 419 - next-period recommendation never guesses tomorrow
   ---
-  duration_ms: 3.673595
+  duration_ms: 2.432287
   type: 'test'
   ...
 # Subtest: recommendation asks the domain for the first generatable period and reports diagnostics
 ok 420 - recommendation asks the domain for the first generatable period and reports diagnostics
   ---
-  duration_ms: 0.309586
+  duration_ms: 0.284025
   type: 'test'
   ...
 # Subtest: next-period recommendation ignores a stale lone future row
 ok 421 - next-period recommendation ignores a stale lone future row
   ---
-  duration_ms: 0.226953
+  duration_ms: 0.196384
   type: 'test'
   ...
 # Subtest: inserting a repaired earlier boundary closes it before a stored future version
 ok 422 - inserting a repaired earlier boundary closes it before a stored future version
   ---
-  duration_ms: 0.272727
+  duration_ms: 0.31445
   type: 'test'
   ...
 # Subtest: one shared candidate builder feeds both the preview memo and the submit path
 ok 423 - one shared candidate builder feeds both the preview memo and the submit path
   ---
-  duration_ms: 3.384929
+  duration_ms: 0.265778
   type: 'test'
   ...
 # Subtest: candidate builder materializes the implicit legacy version so history keeps resolving
 ok 424 - candidate builder materializes the implicit legacy version so history keeps resolving
   ---
-  duration_ms: 1.61736
+  duration_ms: 2.159939
   type: 'test'
   ...
 # Subtest: preview explains mid-cycle skips and distinguishes thrown config errors from the empty-preview line
 ok 425 - preview explains mid-cycle skips and distinguishes thrown config errors from the empty-preview line
   ---
-  duration_ms: 0.466358
+  duration_ms: 0.436182
   type: 'test'
   ...
 # Subtest: payroll page keeps the boundary-waiting preparation state wired to retry
 ok 426 - payroll page keeps the boundary-waiting preparation state wired to retry
   ---
-  duration_ms: 0.20956
+  duration_ms: 0.184386
   type: 'test'
   ...
 # Subtest: payroll page distinguishes no active period from the selected next period
 ok 427 - payroll page distinguishes no active period from the selected next period
   ---
-  duration_ms: 3.565855
+  duration_ms: 0.485947
   type: 'test'
   ...
 # Subtest: weekly sunday schedules skip the incomplete cycle and start at the next complete week
 ok 428 - weekly sunday schedules skip the incomplete cycle and start at the next complete week
   ---
-  duration_ms: 3.813546
+  duration_ms: 6.566248
   type: 'test'
   ...
 # Subtest: selects the nearest upcoming weekly period instead of the farthest future period
 ok 429 - selects the nearest upcoming weekly period instead of the farthest future period
   ---
-  duration_ms: 2.361574
+  duration_ms: 5.112665
   type: 'test'
   ...
 # Subtest: selects the actual period containing each reference date
 ok 430 - selects the actual period containing each reference date
   ---
-  duration_ms: 0.496645
+  duration_ms: 0.710262
   type: 'test'
   ...
 # Subtest: future weekly periods remain drafts and do not receive a current run before the first boundary
 ok 431 - future weekly periods remain drafts and do not receive a current run before the first boundary
   ---
-  duration_ms: 19.259937
+  duration_ms: 34.96995
   type: 'test'
   ...
 # Subtest: a stale system-created future run is retired when no period is active
 ok 432 - a stale system-created future run is retired when no period is active
   ---
-  duration_ms: 6.228307
+  duration_ms: 3.815315
   type: 'test'
   ...
 # Subtest: an existing later period is reused while the two missing canonical weekly periods are reconstructed
 ok 433 - an existing later period is reused while the two missing canonical weekly periods are reconstructed
   ---
-  duration_ms: 4.178987
+  duration_ms: 2.884703
   type: 'test'
   ...
 # Subtest: locked reset-era VOID tombstones do not block new periods from the governing version
 ok 434 - locked reset-era VOID tombstones do not block new periods from the governing version
   ---
-  duration_ms: 4.951534
+  duration_ms: 1.646732
   type: 'test'
   ...
 # Subtest: a continuous version chain carries the weekly horizon across its boundary
 ok 435 - a continuous version chain carries the weekly horizon across its boundary
   ---
-  duration_ms: 1.02614
+  duration_ms: 0.858253
   type: 'test'
   ...
 # Subtest: an uncovered version gap is not filled by an out-of-range fallback version
 ok 436 - an uncovered version gap is not filled by an out-of-range fallback version
   ---
-  duration_ms: 3.413171
+  duration_ms: 1.11032
   type: 'test'
   ...
 # Subtest: a safe future version gap is repaired before rebuilding a lone later period
 ok 437 - a safe future version gap is repaired before rebuilding a lone later period
   ---
-  duration_ms: 2.175869
+  duration_ms: 1.76534
   type: 'test'
   ...
 # Subtest: a future version gap with source data remains manual review
 ok 438 - a future version gap with source data remains manual review
   ---
-  duration_ms: 4.623293
+  duration_ms: 0.685665
   type: 'test'
   ...
 # Subtest: actual-current lifecycle opens and creates a run only after a weekly boundary is active
 ok 439 - actual-current lifecycle opens and creates a run only after a weekly boundary is active
   ---
-  duration_ms: 2.161642
+  duration_ms: 1.5785
   type: 'test'
   ...
 # Subtest: ensures a bounded semi-monthly period horizon and opens only the current draft run
 ok 440 - ensures a bounded semi-monthly period horizon and opens only the current draft run
   ---
-  duration_ms: 37.265584
+  duration_ms: 43.407516
   type: 'test'
   ...
 # Subtest: bootstraps and generates a zero-worker semi-monthly horizon idempotently
 ok 441 - bootstraps and generates a zero-worker semi-monthly horizon idempotently
   ---
-  duration_ms: 3.802725
+  duration_ms: 5.428827
   type: 'test'
   ...
 # Subtest: preserves an existing future run and approved current run
 ok 442 - preserves an existing future run and approved current run
   ---
-  duration_ms: 1.358228
+  duration_ms: 4.453019
   type: 'test'
   ...
 # Subtest: does not replace an approved period when a schedule is edited
 ok 443 - does not replace an approved period when a schedule is edited
   ---
-  duration_ms: 1.244085
+  duration_ms: 1.224901
   type: 'test'
   ...
 # Subtest: keeps data-bearing prospective history when a schedule version changes
 ok 444 - keeps data-bearing prospective history when a schedule version changes
   ---
-  duration_ms: 1.290852
+  duration_ms: 4.171597
   type: 'test'
   ...
 # Subtest: a weekly mid-cycle bootstrap produces a bounded horizon and is idempotent
 ok 445 - a weekly mid-cycle bootstrap produces a bounded horizon and is idempotent
   ---
-  duration_ms: 2.299499
+  duration_ms: 2.147802
   type: 'test'
   ...
 # Subtest: finalized, locked, and data-bearing periods survive a mid-cycle weekly horizon untouched
 ok 446 - finalized, locked, and data-bearing periods survive a mid-cycle weekly horizon untouched
   ---
-  duration_ms: 1.450279
+  duration_ms: 4.176475
   type: 'test'
   ...
 # Subtest: switching the saved schedule to monthly keeps one DRAFT run per period and unique boundaries
 ok 447 - switching the saved schedule to monthly keeps one DRAFT run per period and unique boundaries
   ---
-  duration_ms: 1.81151
+  duration_ms: 1.515596
   type: 'test'
   ...
 # Subtest: generates the mid-cycle weekly horizon without any workers in the input at all
 ok 448 - generates the mid-cycle weekly horizon without any workers in the input at all
   ---
-  duration_ms: 1.226201
+  duration_ms: 3.555486
   type: 'test'
   ...
 # Subtest: validates date-only values and performs UTC calendar arithmetic at boundaries
 ok 449 - validates date-only values and performs UTC calendar arithmetic at boundaries
   ---
-  duration_ms: 7.500656
+  duration_ms: 9.303402
   type: 'test'
   ...
 # Subtest: worker expected and scheduled logic honors status, employment dates, weekdays, hours, holiday, and leave
 ok 450 - worker expected and scheduled logic honors status, employment dates, weekdays, hours, holiday, and leave
   ---
-  duration_ms: 10.441248
+  duration_ms: 10.487632
   type: 'test'
   ...
 # Subtest: daily roster excludes rest days, holidays, approved full-day leave, inactive workers, and out-of-range workers
 ok 451 - daily roster excludes rest days, holidays, approved full-day leave, inactive workers, and out-of-range workers
   ---
-  duration_ms: 4.70215
+  duration_ms: 5.86529
   type: 'test'
   ...
 # Subtest: schedule snapshots are deterministic and retain exclusion context
 ok 452 - schedule snapshots are deterministic and retain exclusion context
   ---
-  duration_ms: 0.75794
+  duration_ms: 0.666036
   type: 'test'
   ...
 # Subtest: attendance minute derivation clamps breaks and deviations without negative regular time
 ok 453 - attendance minute derivation clamps breaks and deviations without negative regular time
   ---
-  duration_ms: 0.365561
+  duration_ms: 0.400569
   type: 'test'
   ...
 # Subtest: attendance validation catches malformed clock and minute fields
 ok 454 - attendance validation catches malformed clock and minute fields
   ---
-  duration_ms: 3.678505
+  duration_ms: 0.610914
   type: 'test'
   ...
 # Subtest: leave helpers expand approved dates, distinguish inactive requests, and find inclusive overlaps
 ok 455 - leave helpers expand approved dates, distinguish inactive requests, and find inclusive overlaps
   ---
-  duration_ms: 0.860061
+  duration_ms: 0.781598
   type: 'test'
   ...
 # Subtest: duplicate detection and batch upsert normalize one worker/date without producing duplicates
 ok 456 - duplicate detection and batch upsert normalize one worker/date without producing duplicates
   ---
-  duration_ms: 4.942657
+  duration_ms: 4.824644
   type: 'test'
   ...
 # Subtest: markScheduledWorkersPresent is a pure, repeatable roster-to-attendance preview
 ok 457 - markScheduledWorkersPresent is a pure, repeatable roster-to-attendance preview
   ---
-  duration_ms: 1.926535
+  duration_ms: 1.709256
   type: 'test'
   ...
 # Subtest: overtime precedence uses approved explicit requests once and surfaces legacy conflicts
 ok 458 - overtime precedence uses approved explicit requests once and surfaces legacy conflicts
   ---
-  duration_ms: 1.084698
+  duration_ms: 4.102515
   type: 'test'
   ...
 # Subtest: normalization supplies deterministic defaults and keeps explicit minute overrides previewable
 ok 459 - normalization supplies deterministic defaults and keeps explicit minute overrides previewable
   ---
-  duration_ms: 0.699602
+  duration_ms: 0.700217
   type: 'test'
   ...
 # Subtest: attendance, leave, and overtime source records make a payroll period data-bearing
 ok 460 - attendance, leave, and overtime source records make a payroll period data-bearing
   ---
-  duration_ms: 1.502075
+  duration_ms: 1.392853
   type: 'test'
   ...
 # Subtest: local maintenance preserves workforce sources during reset and rebuild planning
 ok 461 - local maintenance preserves workforce sources during reset and rebuild planning
   ---
-  duration_ms: 4.461602
+  duration_ms: 3.981985
   type: 'test'
   ...
 # Subtest: workforce migration is additive and defines all company-scoped source tables
 ok 462 - workforce migration is additive and defines all company-scoped source tables
   ---
-  duration_ms: 1.70864
+  duration_ms: 1.809656
   type: 'test'
   ...
 # Subtest: workforce migration protects tenancy, RLS, finalized sources, stale approval, and maintenance
 ok 463 - workforce migration protects tenancy, RLS, finalized sources, stale approval, and maintenance
   ---
-  duration_ms: 0.396307
+  duration_ms: 0.392908
   type: 'test'
   ...
 # Subtest: payroll safety migration enforces leave lifecycle and project source freshness without touching history
 ok 464 - payroll safety migration enforces leave lifecycle and project source freshness without touching history
   ---
-  duration_ms: 0.301512
+  duration_ms: 0.273579
   type: 'test'
   ...
 # Subtest: factory reset confirmation is an exact case-sensitive phrase
 ok 465 - factory reset confirmation is an exact case-sensitive phrase
   ---
-  duration_ms: 1.819276
+  duration_ms: 1.784058
   type: 'test'
   ...
 # Subtest: reset preview parsing keeps per-table counts and derives the total
 ok 466 - reset preview parsing keeps per-table counts and derives the total
   ---
-  duration_ms: 0.584027
+  duration_ms: 0.565836
   type: 'test'
   ...
 # Subtest: client reset call refuses to run without the exact confirmation phrase
 ok 467 - client reset call refuses to run without the exact confirmation phrase
   ---
-  duration_ms: 0.595919
+  duration_ms: 0.568681
   type: 'test'
   ...
 # Subtest: migration contract: authenticated, permissioned, company-scoped destructive RPC
 ok 468 - migration contract: authenticated, permissioned, company-scoped destructive RPC
   ---
-  duration_ms: 1.618412
+  duration_ms: 1.562085
   type: 'test'
   ...
 # Subtest: migration contract: audit-event allowlist only grows
 ok 469 - migration contract: audit-event allowlist only grows
   ---
-  duration_ms: 0.5539
+  duration_ms: 0.505206
   type: 'test'
   ...
 # Subtest: migration contract: apply deletes every domain table the preview counts
 ok 470 - migration contract: apply deletes every domain table the preview counts
   ---
-  duration_ms: 1.211164
+  duration_ms: 1.052504
   type: 'test'
   ...
 # Subtest: payroll workspace reset: full migration chain + destructive RPC behave correctly on real PostgreSQL
 ok 471 - payroll workspace reset: full migration chain + destructive RPC behave correctly on real PostgreSQL # SKIP PAYROLL_RESET_DB_URL is not set; point it at a throwaway Supabase-compatible PostgreSQL database to run the live-migration suite
   ---
-  duration_ms: 1.170238
+  duration_ms: 0.947807
   type: 'test'
   ...
 # Subtest: remaining invoice allocatable amount uses cent-rounded amount and percentage allocations
 ok 472 - remaining invoice allocatable amount uses cent-rounded amount and percentage allocations
   ---
-  duration_ms: 1.677181
+  duration_ms: 1.538661
   type: 'test'
   ...
 # Subtest: allocation validation rejects duplicates, invalid values, and over-allocation
 ok 473 - allocation validation rejects duplicates, invalid values, and over-allocation
   ---
-  duration_ms: 1.097993
+  duration_ms: 1.185262
   type: 'test'
   ...
 # Subtest: replacement normalization and local fallback are deterministic
 ok 474 - replacement normalization and local fallback are deterministic
   ---
-  duration_ms: 1.113802
+  duration_ms: 4.391437
   type: 'test'
   ...
 # Subtest: partial invoice payment is split proportionally and never overstated per project
 ok 475 - partial invoice payment is split proportionally and never overstated per project
   ---
-  duration_ms: 2.451742
+  duration_ms: 2.134952
   type: 'test'
   ...
 # Subtest: partial payment cent rounding is deterministic and stays within invoice payment
 ok 476 - partial payment cent rounding is deterministic and stays within invoice payment
   ---
-  duration_ms: 1.483541
+  duration_ms: 1.425572
   type: 'test'
   ...
 # Subtest: foreign currency remains excluded from base-currency invoice totals
 ok 477 - foreign currency remains excluded from base-currency invoice totals
   ---
-  duration_ms: 0.286152
+  duration_ms: 0.27428
   type: 'test'
   ...
 # Subtest: demo project Documents uses the canonical project workspace route
 ok 478 - demo project Documents uses the canonical project workspace route
   ---
-  duration_ms: 2.549564
+  duration_ms: 2.600789
   type: 'test'
   ...
 # Subtest: global demo Documents remains a standalone register
 ok 479 - global demo Documents remains a standalone register
   ---
-  duration_ms: 0.193229
+  duration_ms: 0.235953
   type: 'test'
   ...
 # Subtest: project workspace renders header then tabs then Overview content
 ok 480 - project workspace renders header then tabs then Overview content
   ---
-  duration_ms: 0.504609
+  duration_ms: 0.558445
   type: 'test'
   ...
 # Subtest: demo project Documents is injected into the shared project shell
 ok 481 - demo project Documents is injected into the shared project shell
   ---
-  duration_ms: 0.316549
+  duration_ms: 0.344134
   type: 'test'
   ...
 # Subtest: project matching normalizes OCR punctuation and prioritizes an exact reference
 ok 482 - project matching normalizes OCR punctuation and prioritizes an exact reference
   ---
-  duration_ms: 2.382363
+  duration_ms: 2.205128
   type: 'test'
   ...
 # Subtest: project search excludes archived projects by default
 ok 483 - project search excludes archived projects by default
   ---
-  duration_ms: 1.355543
+  duration_ms: 1.204261
   type: 'test'
   ...
 # Subtest: allocation presentation distinguishes full, partial, and unallocated invoice cost
 ok 484 - allocation presentation distinguishes full, partial, and unallocated invoice cost
   ---
-  duration_ms: 23.095787
+  duration_ms: 19.477795
   type: 'test'
   ...
 # Subtest: best project match is deterministic
 ok 485 - best project match is deterministic
   ---
-  duration_ms: 1.658526
+  duration_ms: 1.592211
   type: 'test'
   ...
 # Subtest: project dashboard, project report, company row, and Excel summary share confirmed totals
 not ok 486 - project dashboard, project report, company row, and Excel summary share confirmed totals
   ---
-  duration_ms: 49.019262
+  duration_ms: 40.21312
   type: 'test'
   location: '/home/runner/work/InvoiceApp/InvoiceApp/tests/reconciliation.test.ts:22:1'
   failureType: 'testCodeFailure'
-  error: 'cannot save file /tmp/invoiceapp-reconciliation-pG5koU/engineering.xlsx'
+  error: 'cannot save file /tmp/invoiceapp-reconciliation-RK4j9E/engineering.xlsx'
   code: 'ERR_TEST_FAILURE'
   stack: |-
     write_dl (file:///home/runner/work/InvoiceApp/InvoiceApp/node_modules/xlsx/xlsx.mjs:3348:8)
@@ -3125,85 +3125,85 @@ not ok 486 - project dashboard, project report, company row, and Excel summary s
 # Subtest: queued saves compare against the latest successful persisted state
 ok 487 - queued saves compare against the latest successful persisted state
   ---
-  duration_ms: 4.093106
+  duration_ms: 3.180135
   type: 'test'
   ...
 # Subtest: failed saves do not advance persisted state and later saves can retry
 ok 488 - failed saves do not advance persisted state and later saves can retry
   ---
-  duration_ms: 0.743884
+  duration_ms: 0.700287
   type: 'test'
   ...
 # Subtest: Phase 2A exposes stable scheduling vocabulary
 ok 489 - Phase 2A exposes stable scheduling vocabulary
   ---
-  duration_ms: 1.802403
+  duration_ms: 1.79896
   type: 'test'
   ...
 # Subtest: schedule dates require real ISO calendar dates
 ok 490 - schedule dates require real ISO calendar dates
   ---
-  duration_ms: 0.323071
+  duration_ms: 0.309683
   type: 'test'
   ...
 # Subtest: task validation preserves date, milestone, and progress invariants
 ok 491 - task validation preserves date, milestone, and progress invariants
   ---
-  duration_ms: 0.416665
+  duration_ms: 0.406248
   type: 'test'
   ...
 # Subtest: dependency validation rejects self references and fractional lag
 ok 492 - dependency validation rejects self references and fractional lag
   ---
-  duration_ms: 0.257288
+  duration_ms: 0.237805
   type: 'test'
   ...
 # Subtest: schedule network rejects missing task references
 ok 493 - schedule network rejects missing task references
   ---
-  duration_ms: 0.540947
+  duration_ms: 0.49482
   type: 'test'
   ...
 # Subtest: schedule network detects dependency cycles deterministically
 ok 494 - schedule network detects dependency cycles deterministically
   ---
-  duration_ms: 0.341997
+  duration_ms: 0.380239
   type: 'test'
   ...
 # Subtest: acyclic schedule network remains valid
 ok 495 - acyclic schedule network remains valid
   ---
-  duration_ms: 0.335183
+  duration_ms: 0.271015
   type: 'test'
   ...
 # Subtest: Phase 2 scheduling remains planned while pointing at the prepared foundation
 ok 496 - Phase 2 scheduling remains planned while pointing at the prepared foundation
   ---
-  duration_ms: 2.039124
+  duration_ms: 1.721674
   type: 'test'
   ...
 # Subtest: Phase 2 scheduling permission vocabulary is reserved without changing route access
 ok 497 - Phase 2 scheduling permission vocabulary is reserved without changing route access
   ---
-  duration_ms: 0.480754
+  duration_ms: 0.412577
   type: 'test'
   ...
 # Subtest: company-specific AI and Gmail routes require a database permission check
 ok 498 - company-specific AI and Gmail routes require a database permission check
   ---
-  duration_ms: 10.056783
+  duration_ms: 1.896066
   type: 'test'
   ...
 # Subtest: the Express API separates Supabase and Google bearer tokens
 ok 499 - the Express API separates Supabase and Google bearer tokens
   ---
-  duration_ms: 0.382321
+  duration_ms: 0.369473
   type: 'test'
   ...
 # Subtest: browser API helper sends the selected company and Supabase session
 not ok 500 - browser API helper sends the selected company and Supabase session
   ---
-  duration_ms: 7.372668
+  duration_ms: 1.293874
   type: 'test'
   location: '/home/runner/work/InvoiceApp/InvoiceApp/tests/serverAuthorization.test.ts:43:1'
   failureType: 'testCodeFailure'
@@ -3297,79 +3297,79 @@ not ok 500 - browser API helper sends the selected company and Supabase session
 # Subtest: demo settlement fixtures include full, partial, split and payroll examples
 ok 501 - demo settlement fixtures include full, partial, split and payroll examples
   ---
-  duration_ms: 26.062666
+  duration_ms: 15.961587
   type: 'test'
   ...
 # Subtest: demo includes unmatched debit, confirmed transfer and reversed history evidence
 ok 502 - demo includes unmatched debit, confirmed transfer and reversed history evidence
   ---
-  duration_ms: 7.447966
+  duration_ms: 6.148684
   type: 'test'
   ...
 # Subtest: Reset Demo restores the deterministic financial settlement graph
 ok 503 - Reset Demo restores the deterministic financial settlement graph
   ---
-  duration_ms: 13.612782
+  duration_ms: 17.296854
   type: 'test'
   ...
 # Subtest: demo settlement construction does not mount production Supabase persistence
 ok 504 - demo settlement construction does not mount production Supabase persistence
   ---
-  duration_ms: 0.528153
+  duration_ms: 0.572617
   type: 'test'
   ...
 # Subtest: deployment access resolves exactly the configured company and suppresses platform-owner semantics
 ok 505 - deployment access resolves exactly the configured company and suppresses platform-owner semantics
   ---
-  duration_ms: 2.452093
+  duration_ms: 2.287871
   type: 'test'
   ...
 # Subtest: authenticated user without deployment membership receives explicit no-company access
 ok 506 - authenticated user without deployment membership receives explicit no-company access
   ---
-  duration_ms: 0.364398
+  duration_ms: 0.308591
   type: 'test'
   ...
 # Subtest: suspended deployment is not opened as an empty or selectable workspace
 ok 507 - suspended deployment is not opened as an empty or selectable workspace
   ---
-  duration_ms: 0.271686
+  duration_ms: 0.203615
   type: 'test'
   ...
 # Subtest: missing, unknown, and duplicate deployment-company access fail clearly
 ok 508 - missing, unknown, and duplicate deployment-company access fail clearly
   ---
-  duration_ms: 0.836396
+  duration_ms: 0.784773
   type: 'test'
   ...
 # Subtest: caller supplied company ids cannot override the deployment company
 ok 509 - caller supplied company ids cannot override the deployment company
   ---
-  duration_ms: 0.551195
+  duration_ms: 0.452296
   type: 'test'
   ...
 # Subtest: browser company context cannot switch directly between non-null companies
 ok 510 - browser company context cannot switch directly between non-null companies
   ---
-  duration_ms: 0.395807
+  duration_ms: 0.392648
   type: 'test'
   ...
 # Subtest: frontend has no authoritative stored company selection or company-picker UI
 ok 511 - frontend has no authoritative stored company selection or company-picker UI
   ---
-  duration_ms: 0.801471
+  duration_ms: 0.83579
   type: 'test'
   ...
 # Subtest: database migration keeps company_id boundaries while binding authorization to deployment configuration
 ok 512 - database migration keeps company_id boundaries while binding authorization to deployment configuration
   ---
-  duration_ms: 0.431152
+  duration_ms: 0.410274
   type: 'test'
   ...
 # Subtest: company access management is surfaced under deployment settings and remains permission based
 not ok 513 - company access management is surfaced under deployment settings and remains permission based
   ---
-  duration_ms: 2.191107
+  duration_ms: 2.124947
   type: 'test'
   location: '/home/runner/work/InvoiceApp/InvoiceApp/tests/singleCompanyDeployment.test.ts:110:1'
   failureType: 'testCodeFailure'
@@ -3631,613 +3631,613 @@ not ok 513 - company access management is surfaced under deployment settings and
 # Subtest: scenario IDs are stable and change when scenario identity changes
 ok 514 - scenario IDs are stable and change when scenario identity changes
   ---
-  duration_ms: 7.277982
+  duration_ms: 1.462968
   type: 'test'
   ...
 # Subtest: shared viewport definitions retain useful responsive metadata
 ok 515 - shared viewport definitions retain useful responsive metadata
   ---
-  duration_ms: 1.656833
+  duration_ms: 0.970882
   type: 'test'
   ...
 # Subtest: demo scenario catalog is unique and covers the required product surfaces
 ok 516 - demo scenario catalog is unique and covers the required product surfaces
   ---
-  duration_ms: 1.508407
+  duration_ms: 1.449798
   type: 'test'
   ...
 # Subtest: normalizes browser errors, redacts credential fragments, and keeps object leakage out
 ok 517 - normalizes browser errors, redacts credential fragments, and keeps object leakage out
   ---
-  duration_ms: 8.018981
+  duration_ms: 0.780988
   type: 'test'
   ...
 # Subtest: captures explicit allowlisted browser noise without hiding other errors
 ok 518 - captures explicit allowlisted browser noise without hiding other errors
   ---
-  duration_ms: 0.825556
+  duration_ms: 0.709401
   type: 'test'
   ...
 # Subtest: classifies network failures and normalizes request paths without query data
 ok 519 - classifies network failures and normalizes request paths without query data
   ---
-  duration_ms: 0.290792
+  duration_ms: 0.230184
   type: 'test'
   ...
 # Subtest: represents horizontal overflow with a tolerance and deterministic dimensions
 ok 520 - represents horizontal overflow with a tolerance and deterministic dimensions
   ---
-  duration_ms: 0.467681
+  duration_ms: 0.378316
   type: 'test'
   ...
 # Subtest: normalizes artifact paths and rejects traversal or absolute destinations
 ok 521 - normalizes artifact paths and rejects traversal or absolute destinations
   ---
-  duration_ms: 5.797517
+  duration_ms: 0.768979
   type: 'test'
   ...
 # Subtest: preserves safe route query context while redacting sensitive query values
 ok 522 - preserves safe route query context while redacting sensitive query values
   ---
-  duration_ms: 1.126496
+  duration_ms: 0.865514
   type: 'test'
   ...
 # Subtest: aggregates route, viewport, error, screenshot, and overflow summary fields
 ok 523 - aggregates route, viewport, error, screenshot, and overflow summary fields
   ---
-  duration_ms: 4.438539
+  duration_ms: 1.366243
   type: 'test'
   ...
 # Subtest: manifest contract is versioned and does not expose sensitive browser payload fields
 ok 524 - manifest contract is versioned and does not expose sensitive browser payload fields
   ---
-  duration_ms: 0.969263
+  duration_ms: 0.893216
   type: 'test'
   ...
 # Subtest: Engoryx Astryx theme: defines identity tokens and semantic colors
 ok 525 - Engoryx Astryx theme: defines identity tokens and semantic colors
   ---
-  duration_ms: 1.914753
+  duration_ms: 1.251912
   type: 'test'
   ...
 # Subtest: Engoryx Astryx theme: component overrides configure buttons, cards, and badges
 ok 526 - Engoryx Astryx theme: component overrides configure buttons, cards, and badges
   ---
-  duration_ms: 0.270954
+  duration_ms: 0.298877
   type: 'test'
   ...
 # Subtest: Engoryx Astryx icon registry: maps semantic slots to Lucide icons without version drift
 ok 527 - Engoryx Astryx icon registry: maps semantic slots to Lucide icons without version drift
   ---
-  duration_ms: 0.191146
+  duration_ms: 0.189583
   type: 'test'
   ...
 # Subtest: CSS Cascade: index.css imports @astryxdesign/core/astryx.css safely
 ok 528 - CSS Cascade: index.css imports @astryxdesign/core/astryx.css safely
   ---
-  duration_ms: 0.250356
+  duration_ms: 0.232258
   type: 'test'
   ...
 # Subtest: Architecture invariant: BlueprintViewer remains strictly lazy-loaded and not in core UI bundle
 ok 529 - Architecture invariant: BlueprintViewer remains strictly lazy-loaded and not in core UI bundle
   ---
-  duration_ms: 0.252981
+  duration_ms: 0.222593
   type: 'test'
   ...
 # Subtest: Astryx dependency placement keeps CLI tooling out of runtime dependencies
 ok 530 - Astryx dependency placement keeps CLI tooling out of runtime dependencies
   ---
-  duration_ms: 0.329574
+  duration_ms: 0.306088
   type: 'test'
   ...
 # Subtest: Engoryx uses the CLI-built theme artifact in production paths
 ok 531 - Engoryx uses the CLI-built theme artifact in production paths
   ---
-  duration_ms: 0.593234
+  duration_ms: 0.518325
   type: 'test'
   ...
 # Subtest: Application root owns the only Astryx theme provider and optional routes stay lazy
 ok 532 - Application root owns the only Astryx theme provider and optional routes stay lazy
   ---
-  duration_ms: 1.152304
+  duration_ms: 1.051332
   type: 'test'
   ...
 # Subtest: User-triggered spreadsheet code is isolated from the core entry path
 ok 533 - User-triggered spreadsheet code is isolated from the core entry path
   ---
-  duration_ms: 1.803536
+  duration_ms: 1.863736
   type: 'test'
   ...
 # Subtest: devServerLifecycle: starts clean server, verifies startup, and cleanly releases port upon failure
 ok 534 - devServerLifecycle: starts clean server, verifies startup, and cleanly releases port upon failure
   ---
-  duration_ms: 3826.116301
+  duration_ms: 3753.023811
   type: 'test'
   ...
 # Subtest: devServerLifecycle: refuses to start when target port is already occupied
 ok 535 - devServerLifecycle: refuses to start when target port is already occupied
   ---
-  duration_ms: 2333.038585
+  duration_ms: 2357.734556
   type: 'test'
   ...
 # Subtest: devServerLifecycle: terminateChildServer throws if cleanup verification expires while port remains occupied
 ok 536 - devServerLifecycle: terminateChildServer throws if cleanup verification expires while port remains occupied
   ---
-  duration_ms: 613.834921
+  duration_ms: 614.491124
   type: 'test'
   ...
 # Subtest: getCanvasPresets produces curated diagrams, domain views, and full architecture preset
 ok 537 - getCanvasPresets produces curated diagrams, domain views, and full architecture preset
   ---
-  duration_ms: 4.866806
+  duration_ms: 3.612962
   type: 'test'
   ...
 # Subtest: filterGraph respects curated preset definitions and does not show all 183 nodes by default
 ok 538 - filterGraph respects curated preset definitions and does not show all 183 nodes by default
   ---
-  duration_ms: 1.368927
+  duration_ms: 1.082349
   type: 'test'
   ...
 # Subtest: domain and node-type filtering correctly reduce visible nodes
 ok 539 - domain and node-type filtering correctly reduce visible nodes
   ---
-  duration_ms: 0.982749
+  duration_ms: 0.825824
   type: 'test'
   ...
 # Subtest: searchNodes finds matching nodes across labels, IDs, routes, statuses, and descriptions
 ok 540 - searchNodes finds matching nodes across labels, IDs, routes, statuses, and descriptions
   ---
-  duration_ms: 4.051278
+  duration_ms: 3.58418
   type: 'test'
   ...
 # Subtest: computeNeighborhood accurately resolves 1-hop and 2-hop graph connectivity
 ok 541 - computeNeighborhood accurately resolves 1-hop and 2-hop graph connectivity
   ---
-  duration_ms: 0.631776
+  duration_ms: 0.62185
   type: 'test'
   ...
 # Subtest: focusNeighborhood in filterGraph isolates selected node and immediate neighbors
 ok 542 - focusNeighborhood in filterGraph isolates selected node and immediate neighbors
   ---
-  duration_ms: 0.481596
+  duration_ms: 0.453238
   type: 'test'
   ...
 # Subtest: getNodeDetails builds comprehensive node view with invariants, edges, and file references
 ok 543 - getNodeDetails builds comprehensive node view with invariants, edges, and file references
   ---
-  duration_ms: 0.786042
+  duration_ms: 0.683883
   type: 'test'
   ...
 # Subtest: layoutGraph produces deterministic, valid coordinate positions for nodes
 ok 544 - layoutGraph produces deterministic, valid coordinate positions for nodes
   ---
-  duration_ms: 118.469068
+  duration_ms: 66.040309
   type: 'test'
   ...
 # Subtest: canonical graph remains immutable and unmutated after canvas operations
 ok 545 - canonical graph remains immutable and unmutated after canvas operations
   ---
-  duration_ms: 4.281908
+  duration_ms: 0.944192
   type: 'test'
   ...
 # Subtest: URL state parser and formatter round-trip correctly
 ok 546 - URL state parser and formatter round-trip correctly
   ---
-  duration_ms: 1.299008
+  duration_ms: 1.244521
   type: 'test'
   ...
 # Subtest: workflow-map application mode is isolated from demo and production authentication
 ok 547 - workflow-map application mode is isolated from demo and production authentication
   ---
-  duration_ms: 2.428469
+  duration_ms: 2.147461
   type: 'test'
   ...
 # Subtest: buildReactFlowElements and getNodeDetails integrate evidence model data correctly
 ok 548 - buildReactFlowElements and getNodeDetails integrate evidence model data correctly
   ---
-  duration_ms: 80.187658
+  duration_ms: 68.928167
   type: 'test'
   ...
 # Subtest: canonical workflow graph has the required version, domains, workflows, and unique references
 ok 549 - canonical workflow graph has the required version, domains, workflows, and unique references
   ---
-  duration_ms: 51.481262
+  duration_ms: 44.388118
   type: 'test'
   ...
 # Subtest: all graph file, test, route, and QA-1 references resolve from the current repository
 ok 550 - all graph file, test, route, and QA-1 references resolve from the current repository
   ---
-  duration_ms: 24.012401
+  duration_ms: 23.509333
   type: 'test'
   ...
 # Subtest: generated JSON and Markdown are deterministic and match committed outputs
 ok 551 - generated JSON and Markdown are deterministic and match committed outputs
   ---
-  duration_ms: 24.717042
+  duration_ms: 29.689284
   type: 'test'
   ...
 # Subtest: high-value graph semantics preserve financial, payroll, field, Assistant, demo, and reporting boundaries
 ok 552 - high-value graph semantics preserve financial, payroll, field, Assistant, demo, and reporting boundaries
   ---
-  duration_ms: 12.810316
+  duration_ms: 10.925727
   type: 'test'
   ...
 # Subtest: WM-3 accepts the current graph and authoritative source contracts
 ok 553 - WM-3 accepts the current graph and authoritative source contracts
   ---
-  duration_ms: 24.02332
+  duration_ms: 10.033122
   type: 'test'
   ...
 # Subtest: WM-3 catches a renamed route ID
 ok 554 - WM-3 catches a renamed route ID
   ---
-  duration_ms: 4.305441
+  duration_ms: 2.60135
   type: 'test'
   ...
 # Subtest: WM-3 catches a canonical route path mismatch
 ok 555 - WM-3 catches a canonical route path mismatch
   ---
-  duration_ms: 10.013516
+  duration_ms: 2.623342
   type: 'test'
   ...
 # Subtest: WM-3 catches a deep-link query-key mismatch
 ok 556 - WM-3 catches a deep-link query-key mismatch
   ---
-  duration_ms: 5.345171
+  duration_ms: 2.624985
   type: 'test'
   ...
 # Subtest: WM-3 rejects unknown node and edge permission keys
 ok 557 - WM-3 rejects unknown node and edge permission keys
   ---
-  duration_ms: 13.742517
+  duration_ms: 16.392817
   type: 'test'
   ...
 # Subtest: WM-3 catches RFI lifecycle status drift
 ok 558 - WM-3 catches RFI lifecycle status drift
   ---
-  duration_ms: 1.738587
+  duration_ms: 1.649967
   type: 'test'
   ...
 # Subtest: WM-3 catches Technical Submittal lifecycle transition drift
 ok 559 - WM-3 catches Technical Submittal lifecycle transition drift
   ---
-  duration_ms: 2.656661
+  duration_ms: 4.557805
   type: 'test'
   ...
 # Subtest: WM-3 catches Daily Site Log lifecycle status drift
 ok 560 - WM-3 catches Daily Site Log lifecycle status drift
   ---
-  duration_ms: 2.824585
+  duration_ms: 3.958749
   type: 'test'
   ...
 # Subtest: WM-3 catches unknown QA scenario references
 ok 561 - WM-3 catches unknown QA scenario references
   ---
-  duration_ms: 1.926326
+  duration_ms: 1.933101
   type: 'test'
   ...
 # Subtest: WM-3 catches a deterministic QA route mismatch
 ok 562 - WM-3 catches a deterministic QA route mismatch
   ---
-  duration_ms: 2.005433
+  duration_ms: 2.661559
   type: 'test'
   ...
 # Subtest: WM-3 requires regression coverage for selected high-risk workflows
 ok 563 - WM-3 requires regression coverage for selected high-risk workflows
   ---
-  duration_ms: 2.374357
+  duration_ms: 5.863177
   type: 'test'
   ...
 # Subtest: WM-3 catches an Assistant confirmation-policy mismatch
 ok 564 - WM-3 catches an Assistant confirmation-policy mismatch
   ---
-  duration_ms: 1.312075
+  duration_ms: 1.722666
   type: 'test'
   ...
 # Subtest: WM-3 catches an obvious graph orphan
 ok 565 - WM-3 catches an obvious graph orphan
   ---
-  duration_ms: 1.647017
+  duration_ms: 4.812456
   type: 'test'
   ...
 # Subtest: WM-3 catches invalid diagram references and duplicate diagram nodes
 ok 566 - WM-3 catches invalid diagram references and duplicate diagram nodes
   ---
-  duration_ms: 7.235419
+  duration_ms: 12.62657
   type: 'test'
   ...
 # Subtest: WM-3 preserves the settlement/project-cost separation contract
 ok 567 - WM-3 preserves the settlement/project-cost separation contract
   ---
-  duration_ms: 4.858527
+  duration_ms: 1.680353
   type: 'test'
   ...
 # Subtest: WM-3 preserves the payroll labor-cost/net-pay settlement contract
 ok 568 - WM-3 preserves the payroll labor-cost/net-pay settlement contract
   ---
-  duration_ms: 1.942966
+  duration_ms: 7.990217
   type: 'test'
   ...
 # Subtest: WM-3 accepts the current demo isolation contract
 ok 569 - WM-3 accepts the current demo isolation contract
   ---
-  duration_ms: 4.768651
+  duration_ms: 1.608725
   type: 'test'
   ...
 # Subtest: WM-5 selects an exact workflow node without consulting Git or source files
 ok 570 - WM-5 selects an exact workflow node without consulting Git or source files
   ---
-  duration_ms: 20.107525
+  duration_ms: 7.072475
   type: 'test'
   ...
 # Subtest: WM-5 supports domain plus deterministic keyword selection
 ok 571 - WM-5 supports domain plus deterministic keyword selection
   ---
-  duration_ms: 56.980662
+  duration_ms: 15.968958
   type: 'test'
   ...
 # Subtest: WM-5 selects route IDs and canonical route paths
 ok 572 - WM-5 selects route IDs and canonical route paths
   ---
-  duration_ms: 0.711784
+  duration_ms: 0.690603
   type: 'test'
   ...
 # Subtest: WM-5 selects source file references and keeps selection order deterministic
 ok 573 - WM-5 selects source file references and keeps selection order deterministic
   ---
-  duration_ms: 16.25708
+  duration_ms: 35.081076
   type: 'test'
   ...
 # Subtest: WM-5 maps changed source and test paths to nodes and invariants
 ok 574 - WM-5 maps changed source and test paths to nodes and invariants
   ---
-  duration_ms: 1.358828
+  duration_ms: 1.490359
   type: 'test'
   ...
 # Subtest: WM-5 expands a deterministic one-hop neighborhood
 ok 575 - WM-5 expands a deterministic one-hop neighborhood
   ---
-  duration_ms: 11.248691
+  duration_ms: 16.0366
   type: 'test'
   ...
 # Subtest: WM-5 honors an explicit two-hop maximum
 ok 576 - WM-5 honors an explicit two-hop maximum
   ---
-  duration_ms: 0.904302
+  duration_ms: 2.143405
   type: 'test'
   ...
 # Subtest: WM-5 includes relevant invariants, guards, permissions, and confirmations
 ok 577 - WM-5 includes relevant invariants, guards, permissions, and confirmations
   ---
-  duration_ms: 1.072676
+  duration_ms: 0.790322
   type: 'test'
   ...
 # Subtest: WM-5 preserves lifecycle transition edges in the bounded workflow section
 ok 578 - WM-5 preserves lifecycle transition edges in the bounded workflow section
   ---
-  duration_ms: 1.224499
+  duration_ms: 1.035559
   type: 'test'
   ...
 # Subtest: WM-5 enforces hard neighborhood node and edge bounds with omission reporting
 ok 579 - WM-5 enforces hard neighborhood node and edge bounds with omission reporting
   ---
-  duration_ms: 37.134888
+  duration_ms: 31.978136
   type: 'test'
   ...
 # Subtest: WM-5 removes duplicate files, tests, invariants, QA IDs, and routes
 ok 580 - WM-5 removes duplicate files, tests, invariants, QA IDs, and routes
   ---
-  duration_ms: 0.805609
+  duration_ms: 0.848549
   type: 'test'
   ...
 # Subtest: WM-5 rejects broad and unknown queries clearly
 ok 581 - WM-5 rejects broad and unknown queries clearly
   ---
-  duration_ms: 103.299756
+  duration_ms: 90.910157
   type: 'test'
   ...
 # Subtest: WM-5 enforces the character budget and reports omitted content
 ok 582 - WM-5 enforces the character budget and reports omitted content
   ---
-  duration_ms: 52.654808
+  duration_ms: 56.371622
   type: 'test'
   ...
 # Subtest: WM-5 bounds a large dirty-worktree metadata list for a narrow exact-node packet
 ok 583 - WM-5 bounds a large dirty-worktree metadata list for a narrow exact-node packet
   ---
-  duration_ms: 35.204804
+  duration_ms: 34.620367
   type: 'test'
   ...
 # Subtest: WM-5 preserves the seed and high-risk invariant IDs under a small budget
 ok 584 - WM-5 preserves the seed and high-risk invariant IDs under a small budget
   ---
-  duration_ms: 4.093378
+  duration_ms: 0.545316
   type: 'test'
   ...
 # Subtest: WM-5 Markdown and JSON are stable, versioned, and structurally equivalent
 ok 585 - WM-5 Markdown and JSON are stable, versioned, and structurally equivalent
   ---
-  duration_ms: 8.817216
+  duration_ms: 5.928535
   type: 'test'
   ...
 # Subtest: WM-5 repository metadata adapter is injectable and does not depend on the test runner branch
 ok 586 - WM-5 repository metadata adapter is injectable and does not depend on the test runner branch
   ---
-  duration_ms: 3.662297
+  duration_ms: 0.634019
   type: 'test'
   ...
 # Subtest: WM-5 rejects a failed Git metadata command without exposing arbitrary output
 ok 587 - WM-5 rejects a failed Git metadata command without exposing arbitrary output
   ---
-  duration_ms: 0.246447
+  duration_ms: 0.215843
   type: 'test'
   ...
 # Subtest: WM-5 CLI parsing supports exact, repeated, bounded, and JSON options
 ok 588 - WM-5 CLI parsing supports exact, repeated, bounded, and JSON options
   ---
-  duration_ms: 0.546845
+  duration_ms: 0.567168
   type: 'test'
   ...
 # Subtest: WM-5 validates the hard character-budget ceiling
 ok 589 - WM-5 validates the hard character-budget ceiling
   ---
-  duration_ms: 0.37692
+  duration_ms: 1.442758
   type: 'test'
   ...
 # Subtest: 1. valid schema-1 manifest parses correctly
 ok 590 - 1. valid schema-1 manifest parses correctly
   ---
-  duration_ms: 3.304103
+  duration_ms: 5.928825
   type: 'test'
   ...
 # Subtest: 2. unsupported manifest schema version rejects with clear error
 ok 591 - 2. unsupported manifest schema version rejects with clear error
   ---
-  duration_ms: 0.724756
+  duration_ms: 0.704734
   type: 'test'
   ...
 # Subtest: 3. malformed manifest rejects with actionable error
 ok 592 - 3. malformed manifest rejects with actionable error
   ---
-  duration_ms: 0.513473
+  duration_ms: 0.324455
   type: 'test'
   ...
 # Subtest: 4. oversized manifest input rejects if size exceeds limit
 ok 593 - 4. oversized manifest input rejects if size exceeds limit
   ---
-  duration_ms: 0.705409
+  duration_ms: 0.467008
   type: 'test'
   ...
 # Subtest: 5. node with no qaScenarioIds evaluates to UNMAPPED
 ok 594 - 5. node with no qaScenarioIds evaluates to UNMAPPED
   ---
-  duration_ms: 4.419062
+  duration_ms: 3.252323
   type: 'test'
   ...
 # Subtest: 6. mapped node with zero scenarios present in manifest evaluates to NOT_RUN
 ok 595 - 6. mapped node with zero scenarios present in manifest evaluates to NOT_RUN
   ---
-  duration_ms: 1.578229
+  duration_ms: 6.087102
   type: 'test'
   ...
 # Subtest: 7. node with some mapped scenarios present/pass and some missing evaluates to PARTIAL
 ok 596 - 7. node with some mapped scenarios present/pass and some missing evaluates to PARTIAL
   ---
-  duration_ms: 0.653744
+  duration_ms: 0.664644
   type: 'test'
   ...
 # Subtest: 8. all mapped scenarios present and passing evaluates to PASS
 ok 597 - 8. all mapped scenarios present and passing evaluates to PASS
   ---
-  duration_ms: 0.623016
+  duration_ms: 0.537815
   type: 'test'
   ...
 # Subtest: 9. any present mapped scenario FAIL forces node state to FAIL
 ok 598 - 9. any present mapped scenario FAIL forces node state to FAIL
   ---
-  duration_ms: 1.200789
+  duration_ms: 1.125372
   type: 'test'
   ...
 # Subtest: 10. FAIL wins even when another mapped scenario is absent
 ok 599 - 10. FAIL wins even when another mapped scenario is absent
   ---
-  duration_ms: 1.583408
+  duration_ms: 1.194396
   type: 'test'
   ...
 # Subtest: 11. unknown manifest scenario does not crash the mapper
 ok 600 - 11. unknown manifest scenario does not crash the mapper
   ---
-  duration_ms: 0.689059
+  duration_ms: 0.654128
   type: 'test'
   ...
 # Subtest: 12. unmapped runtime scenarios are counted and listed in summary
 ok 601 - 12. unmapped runtime scenarios are counted and listed in summary
   ---
-  duration_ms: 1.328395
+  duration_ms: 1.310319
   type: 'test'
   ...
 # Subtest: 13. visible-subset aggregation computes correct counts for given node IDs
 ok 602 - 13. visible-subset aggregation computes correct counts for given node IDs
   ---
-  duration_ms: 1.825047
+  duration_ms: 1.791208
   type: 'test'
   ...
 # Subtest: 14. failure-node list is deterministic and correctly populated
 ok 603 - 14. failure-node list is deterministic and correctly populated
   ---
-  duration_ms: 1.219985
+  duration_ms: 1.362808
   type: 'test'
   ...
 # Subtest: 15. provenance is retained accurately from run metadata
 ok 604 - 15. provenance is retained accurately from run metadata
   ---
-  duration_ms: 0.336143
+  duration_ms: 0.384434
   type: 'test'
   ...
 # Subtest: 16. canonical graph source objects are not mutated by mapping
 ok 605 - 16. canonical graph source objects are not mutated by mapping
   ---
-  duration_ms: 14.575283
+  duration_ms: 12.848322
   type: 'test'
   ...
 # Subtest: 17. derived overlay generation is deterministic and reproducible
 ok 606 - 17. derived overlay generation is deterministic and reproducible
   ---
-  duration_ms: 7.582413
+  duration_ms: 6.967568
   type: 'test'
   ...
 # Subtest: 18. derived output contains no screenshot bytes or forbidden payload keys
 ok 607 - 18. derived output contains no screenshot bytes or forbidden payload keys
   ---
-  duration_ms: 2.788345
+  duration_ms: 6.10569
   type: 'test'
   ...
 # Subtest: selected invoice drafts are protected from remote replacement
 ok 608 - selected invoice drafts are protected from remote replacement
   ---
-  duration_ms: 1.302016
+  duration_ms: 1.23705
   type: 'test'
   ...
 # Subtest: a clean selected invoice can accept a remote refresh or removal
 ok 609 - a clean selected invoice can accept a remote refresh or removal
   ---
-  duration_ms: 0.973396
+  duration_ms: 0.918173
   type: 'test'
   ...
 # Subtest: a refresh for another invoice is safe even while the selected invoice saves
 ok 610 - a refresh for another invoice is safe even while the selected invoice saves
   ---
-  duration_ms: 0.209078
+  duration_ms: 0.181341
   type: 'test'
   ...
 # Subtest: authenticated loader results cannot cross a session or request generation
 ok 611 - authenticated loader results cannot cross a session or request generation
   ---
-  duration_ms: 0.223716
+  duration_ms: 0.243384
   type: 'test'
   ...
 # Subtest: guest operational storage is isolated until auth resolves to guest mode
 ok 612 - guest operational storage is isolated until auth resolves to guest mode
   ---
-  duration_ms: 0.24761
+  duration_ms: 0.19367
   type: 'test'
   ...
 # Subtest: refreshed route records replace by stable ID and missing records resolve to null
 ok 613 - refreshed route records replace by stable ID and missing records resolve to null
   ---
-  duration_ms: 0.244263
+  duration_ms: 0.217465
   type: 'test'
   ...
 # Subtest: normal route changes do not belong to the full workspace lifecycle effect
 ok 614 - normal route changes do not belong to the full workspace lifecycle effect
   ---
-  duration_ms: 4.230803
+  duration_ms: 1.433764
   type: 'test'
   ...
 # Subtest: access revalidation preserves a usable snapshot and metadata mutations avoid refreshAccess
 not ok 615 - access revalidation preserves a usable snapshot and metadata mutations avoid refreshAccess
   ---
-  duration_ms: 5.509726
+  duration_ms: 3.232123
   type: 'test'
   location: '/home/runner/work/InvoiceApp/InvoiceApp/tests/workspaceLifecycle.test.ts:19:1'
   failureType: 'testCodeFailure'
@@ -4801,7 +4801,7 @@ not ok 615 - access revalidation preserves a usable snapshot and metadata mutati
 # Subtest: access bootstrap is coalesced per stable user identity and is not session-object driven
 not ok 616 - access bootstrap is coalesced per stable user identity and is not session-object driven
   ---
-  duration_ms: 1.365645
+  duration_ms: 1.316008
   type: 'test'
   location: '/home/runner/work/InvoiceApp/InvoiceApp/tests/workspaceLifecycle.test.ts:27:1'
   failureType: 'testCodeFailure'
@@ -5365,133 +5365,133 @@ not ok 616 - access bootstrap is coalesced per stable user identity and is not s
 # Subtest: company administration distinguishes management selection from active workspace opening
 ok 617 - company administration distinguishes management selection from active workspace opening
   ---
-  duration_ms: 0.651249
+  duration_ms: 0.221191
   type: 'test'
   ...
 # Subtest: deduplicates one exact user/company/group load and never crosses companies
 ok 618 - deduplicates one exact user/company/group load and never crosses companies
   ---
-  duration_ms: 12.559021
+  duration_ms: 2.900226
   type: 'test'
   ...
 # Subtest: serves stale data while one revalidation is in flight
 ok 619 - serves stale data while one revalidation is in flight
   ---
-  duration_ms: 0.771101
+  duration_ms: 0.68225
   type: 'test'
   ...
 # Subtest: invalidations isolate generations and preserve only the requested group
 ok 620 - invalidations isolate generations and preserve only the requested group
   ---
-  duration_ms: 1.025624
+  duration_ms: 0.938233
   type: 'test'
   ...
 # Subtest: keeps the cache bounded with LRU eviction and ignores an evicted completion
 ok 621 - keeps the cache bounded with LRU eviction and ignores an evicted completion
   ---
-  duration_ms: 0.655327
+  duration_ms: 0.587278
   type: 'test'
   ...
 # Subtest: emits the six named instrumentation events only when enabled
 ok 622 - emits the six named instrumentation events only when enabled
   ---
-  duration_ms: 2.391639
+  duration_ms: 2.04684
   type: 'test'
   ...
 # Subtest: defaults to silent instrumentation in a production Node environment
 ok 623 - defaults to silent instrumentation in a production Node environment
   ---
-  duration_ms: 0.46351
+  duration_ms: 0.396673
   type: 'test'
   ...
 # Subtest: maps persisted schema tables to bounded refresh groups
 ok 624 - maps persisted schema tables to bounded refresh groups
   ---
-  duration_ms: 2.273721
+  duration_ms: 2.090747
   type: 'test'
   ...
 # Subtest: subscribes every mapped table on one authenticated channel and cleans up late events
 ok 625 - subscribes every mapped table on one authenticated channel and cleans up late events
   ---
-  duration_ms: 1.199796
+  duration_ms: 1.00995
   type: 'test'
   ...
 # Subtest: coalesces bursts and emits exactly one follow-up after an active refresh
 ok 626 - coalesces bursts and emits exactly one follow-up after an active refresh
   ---
-  duration_ms: 1.28799
+  duration_ms: 1.061477
   type: 'test'
   ...
 # Subtest: focus, visibility, and online fallbacks respect cooldown and coalesce
 ok 627 - focus, visibility, and online fallbacks respect cooldown and coalesce
   ---
-  duration_ms: 2.813562
+  duration_ms: 2.627569
   type: 'test'
   ...
 # Subtest: controller maps session/channel lifecycle and ignores events after sign-out
 ok 628 - controller maps session/channel lifecycle and ignores events after sign-out
   ---
-  duration_ms: 1.971259
+  duration_ms: 1.832851
   type: 'test'
   ...
 # Subtest: realtime migration is additive, ordered, and covers only mapped persisted tables
 ok 629 - realtime migration is additive, ordered, and covers only mapped persisted tables
   ---
-  duration_ms: 2.654427
+  duration_ms: 1.020907
   type: 'test'
   ...
 # Subtest: does not start an authenticated subscription when the user is missing
 ok 630 - does not start an authenticated subscription when the user is missing
   ---
-  duration_ms: 5.572363
+  duration_ms: 2.160942
   type: 'test'
   ...
 # Subtest: stops the old user channel before creating the new user channel
 ok 631 - stops the old user channel before creating the new user channel
   ---
-  duration_ms: 7.358616
+  duration_ms: 3.084472
   type: 'test'
   ...
 # Subtest: does not recreate a realtime channel for an ordinary same-scope session update
 ok 632 - does not recreate a realtime channel for an ordinary same-scope session update
   ---
-  duration_ms: 0.718694
+  duration_ms: 0.576552
   type: 'test'
   ...
 # Subtest: StrictMode-like fallback setup and cleanup leaves one active listener
 ok 633 - StrictMode-like fallback setup and cleanup leaves one active listener
   ---
-  duration_ms: 0.961805
+  duration_ms: 0.90281
   type: 'test'
   ...
 # Subtest: controller coalesces events received during refresh into one follow-up
 ok 634 - controller coalesces events received during refresh into one follow-up
   ---
-  duration_ms: 1.736563
+  duration_ms: 1.714614
   type: 'test'
   ...
 # Subtest: a hidden visibility event does not refresh until visibility returns
 ok 635 - a hidden visibility event does not refresh until visibility returns
   ---
-  duration_ms: 0.336364
+  duration_ms: 0.332087
   type: 'test'
   ...
 # Subtest: going from offline to online eventually refreshes the authenticated controller
 ok 636 - going from offline to online eventually refreshes the authenticated controller
   ---
-  duration_ms: 0.93747
+  duration_ms: 0.854118
   type: 'test'
   ...
 # Subtest: a previous session generation cannot apply its late refresh completion
 ok 637 - a previous session generation cannot apply its late refresh completion
   ---
-  duration_ms: 0.720608
+  duration_ms: 0.613697
   type: 'test'
   ...
 # Subtest: selected route identity survives reordered refreshes by stable ID
 ok 638 - selected route identity survives reordered refreshes by stable ID
   ---
-  duration_ms: 0.69478
+  duration_ms: 0.617343
   type: 'test'
   ...
 1..638
@@ -5502,4 +5502,4 @@ ok 638 - selected route identity survives reordered refreshes by stable ID
 # cancelled 0
 # skipped 3
 # todo 0
-# duration_ms 15649.349197
+# duration_ms 15504.218607
