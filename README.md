@@ -7,6 +7,7 @@ For technical architecture and roadmap details, see:
 - [Engoryx Phase 1A: Engineering Documents & Blueprint Viewer](docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md)
 - [Engoryx Phase 1B: RFIs & Technical Submittals](docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md)
 - [Engoryx Phase 1C: Daily Site Logs & Weather Tracking](docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md)
+- [Engoryx Phase 2: Project Scheduling & Gantt](docs/ENGORYX_PHASE_2_PROJECT_SCHEDULING.md)
 - [Engoryx Financial Settlement Integration](docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md)
 - [Engoryx Workflow Map, QA & Agent Context Infrastructure](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md)
 - [Engoryx Open-Source Integrations Evaluation](docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md)
@@ -24,7 +25,7 @@ Roadmap snapshot as of **2026-08-28**:
   - **Phase 1B**: RFIs and Technical Submittals with guarded lifecycle/history and document-revision linking.
   - **Phase 1C**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal field-record history.
 - **Financial Settlement Integration is complete**: Cash & Banking can provide guarded settlement evidence for supplier invoices, payroll runs, and supported expenses while keeping project-cost and payroll-source semantics separate.
-- **The next customer-facing product phase is Phase 2: Project Scheduling & Gantt.**
+- **The next customer-facing product phase is Phase 2: Project Scheduling & Gantt.** Its foundation contract is prepared, but production scheduling remains planned until persistence, RLS, routing, and the workspace UI are implemented.
 - **QA-1 Structured Browser Evidence and WM-1 through WM-5 are implemented**: the repository contains generated machine-readable/Mermaid workflow-map outputs, a read-only developer canvas, deterministic graph-to-source contract checks, browser-evidence overlays, and an on-demand bounded agent-context generator.
 
 ---
@@ -54,7 +55,7 @@ Roadmap snapshot as of **2026-08-28**:
   - **Phase 1C (Complete)**: Daily Site Logs with weather/site conditions, crew headcount, equipment usage, delays, safety observations, and formal field-record history.
 - **Cross-Domain Financial Settlement (Complete)**: Guarded settlement integration across Cash & Banking, supplier invoices, payroll, supported expenses, and Assistant workflows. Settlement remains evidence of payment/disbursement and does not create project cost.
 - **Engineering Infrastructure Track (WM-1 through WM-5 implemented)**: the canonical source is [`scripts/workflow-map/graph.ts`](scripts/workflow-map/graph.ts), with generated [`workflow-map.json`](docs/architecture/workflow-map.json) and [`APP_WORKFLOW_MAP.md`](docs/architecture/APP_WORKFLOW_MAP.md). Use `npm.cmd run workflow-map:generate`, `npm.cmd run workflow-map:check`, `npm.cmd run workflow-map:consistency`, and `npm.cmd run workflow-map:context`; the track runs from repository code and existing CI/local tooling. Later enhancements are optional and do not renumber the customer-facing Engoryx roadmap. See [the dedicated plan](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
-- **Phase 2 (Next Product Phase / Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking, and project schedule health.
+- **Phase 2 (Next Product Phase / Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking, and project schedule health. The implementation contract is documented in [Engoryx Phase 2: Project Scheduling & Gantt](docs/ENGORYX_PHASE_2_PROJECT_SCHEDULING.md).
 - **Phase 3 (Planned)**: Field Capture & Barcode/QR Scanning (ZXing-js) for equipment check-in/out, tool tracking, and material delivery verification.
 - **Phase 4 (Future)**: 3D CAD & BIM Model Inspection (Online3DViewer / web-ifc), GIS Site Boundaries & Drone Survey Orthomosaics (MapLibre + Turf + OpenDroneMap).
 - **Phase 5 (Future)**: Procurement, Material Requisition Orders (MRO), BOQ/vendor workflows, and 3-way PO matching.

@@ -97,7 +97,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     documentationRef: 'docs/ENGORYX_PLATFORM_ARCHITECTURE.md',
   },
 
-  // Phase 1: Engineering Documents and Field Workflows (In Progress)
+  // Phase 1: Engineering Documents and Field Workflows (Complete)
   {
     id: 'eng-drawings-viewer',
     name: 'Engineering Drawings and Spec Sheets',
@@ -136,7 +136,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     documentationRef: 'docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md',
   },
 
-  // Phase 2: Scheduling and Critical Path (Planned)
+  // Phase 2: Scheduling and Critical Path (Foundation Prepared / Planned)
   {
     id: 'eng-schedule-gantt',
     name: 'Gantt Scheduling and Milestones',
@@ -144,8 +144,11 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     category: 'engineering',
     phase: 2,
     status: 'PLANNED',
+    moduleId: 'projects',
+    routeId: 'projects',
+    requiredPermissions: ['scheduling.read'],
     openSourceCandidates: ['Frappe Gantt'],
-    documentationRef: 'docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md',
+    documentationRef: 'docs/ENGORYX_PHASE_2_PROJECT_SCHEDULING.md',
   },
 
   // Phase 3: Field Capture and Barcode Asset Tagging (Planned)
