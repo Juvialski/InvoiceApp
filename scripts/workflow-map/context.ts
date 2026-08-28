@@ -18,6 +18,7 @@ export const MAX_CONTEXT_HOPS = 2 as const;
 export const MAX_CONTEXT_SEED_NODES = 2;
 export const MAX_CONTEXT_NEIGHBOR_NODES = 80;
 export const MAX_CONTEXT_NEIGHBOR_EDGES = 140;
+export const MAX_CONTEXT_CHANGED_FILE_PATHS = 64;
 
 const REQUIRED_VERIFICATION = [
   "Inspect the current source implementation referenced by this packet.",
@@ -310,7 +311,6 @@ interface FullContextCandidates {
   readonly qaScenarioIds: readonly string[];
   readonly repositoryChangedFilePaths: readonly string[];
   readonly changedFilePaths: readonly string[];
-  readonly changedFileMapping: WorkflowContextChangedFileMapping;
   readonly distanceByNodeId: ReadonlyMap<string, number>;
 }
 
@@ -904,13 +904,9 @@ function buildFullCandidates(
     tests: collectRankedReferences(rankedTests),
     qaScenarioIds: uniqueSorted(neighborhood.nodeIds.flatMap((nodeId) => graphNodes.get(nodeId)?.qaScenarioIds || [])),
     repositoryChangedFilePaths: uniqueSorted(repository.changedFilePaths.map(normalizeRepositoryPath)),
-    changedFilePaths: uniqueSorted([
-      ...repository.changedFilePaths.map(normalizeRepositoryPath),
+    changedFilePaths: uniqueInOrder([
       ...selection.requested.changedFilePaths.map(normalizeRepositoryPath),
-    ]),
-    changedFileMapping: mapChangedFiles(graph, [
-      ...repository.changedFilePaths,
-      ...selection.requested.changedFilePaths,
+      ...repository.changedFilePaths.map(normalizeRepositoryPath),
     ]),
     distanceByNodeId: neighborhood.distanceByNodeId,
   };
@@ -1053,6 +1049,14 @@ function createPacket(
   candidates: FullContextCandidates,
   state: ContextBuildState,
 ): WorkflowContextPacket {
+  const repositoryChangedFileSet = new Set(candidates.repositoryChangedFilePaths);
+  const requestedChangedFileSet = new Set(selection.requested.changedFilePaths);
+  const boundedRepositoryChangedFilePaths = uniqueSorted(state.changedFilePaths.filter((path) => repositoryChangedFileSet.has(path)));
+  const boundedRequestedChangedFilePaths = uniqueSorted(state.changedFilePaths.filter((path) => requestedChangedFileSet.has(path)));
+  const boundedRequestedScope: WorkflowContextRequestedScope = {
+    ...selection.requested,
+    changedFilePaths: boundedRequestedChangedFilePaths,
+  };
   const nodes = [...state.nodeIds]
     .map((nodeId) => candidates.graphNodes.get(nodeId))
     .filter((node): node is WorkflowNode => Boolean(node))
@@ -1098,11 +1102,11 @@ function createPacket(
       headSha: repository.headSha,
       branch: repository.branch,
       dirty: repository.dirty,
-      changedFilePaths: [...candidates.repositoryChangedFilePaths],
+      changedFilePaths: boundedRepositoryChangedFilePaths,
       graphSchemaVersion: graph.schemaVersion,
       graphVersion: graph.version,
     },
-    requestedScope: selection.requested,
+    requestedScope: boundedRequestedScope,
     selection: {
       seedNodeIds: selection.seedNodeIds,
       seedMatches: selection.seedMatches,
@@ -1203,12 +1207,15 @@ function fitPacket(
     files: [...candidates.files],
     tests: [...candidates.tests],
     qaScenarioIds: [...candidates.qaScenarioIds],
-    changedFilePaths: [...candidates.changedFilePaths],
+    // The union is already ranked with requested selector paths first. This
+    // hard cap prevents a very large worktree from making fitting expensive
+    // before the character-budget loop can refine it further.
+    changedFilePaths: [...candidates.changedFilePaths].slice(0, MAX_CONTEXT_CHANGED_FILE_PATHS),
     detailLevel: 0,
   };
   const budget = selection.requested.characterBudget;
   const maxIterations = candidates.files.length + candidates.tests.length + candidates.qaScenarioIds.length
-    + candidates.changedFilePaths.length + candidates.edgeIds.length + candidates.neighborhoodNodeIds.length
+    + state.changedFilePaths.length + candidates.edgeIds.length + candidates.neighborhoodNodeIds.length
     + candidates.invariantIds.length + 10;
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const packet = createPacket(graph, selection, repository, candidates, state);
@@ -1232,7 +1239,7 @@ function fitPacket(
       || removeLowestPriorityInvariant(state, candidates)
       || removeLast(state.tests)
       || removeLast(state.files)
-      || (state.changedFilePaths.length > 0 && removeLast(state.changedFilePaths));
+      || (state.changedFilePaths.length > 1 && removeLast(state.changedFilePaths));
     if (removed) continue;
     if (state.detailLevel < 2) {
       state.detailLevel = (state.detailLevel + 1) as 0 | 1 | 2;

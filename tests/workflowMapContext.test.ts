@@ -4,6 +4,7 @@ import {
   buildWorkflowContextPacket,
   generateWorkflowContext,
   MAX_CONTEXT_CHARACTER_BUDGET,
+  MAX_CONTEXT_CHANGED_FILE_PATHS,
   MAX_CONTEXT_NEIGHBOR_EDGES,
   MAX_CONTEXT_NEIGHBOR_NODES,
   renderWorkflowContextMarkdown,
@@ -245,6 +246,42 @@ test("WM-5 enforces the character budget and reports omitted content", () => {
   assert.ok(result.packet.truncation.truncated);
   assert.ok(Object.values(result.packet.truncation.omitted).some((count) => count > 0) || result.packet.truncation.detailLevel !== "full");
   assert.ok(result.packet.selection.seedNodeIds.includes("payroll-period"));
+});
+
+test("WM-5 bounds a large dirty-worktree metadata list for a narrow exact-node packet", () => {
+  const invariant = syntheticInvariant("dirty-worktree-boundary");
+  const graph = syntheticGraph([
+    syntheticNode("seed", { invariantIds: [invariant.id] }),
+  ], [], [invariant]);
+  const changedFilePaths = Array.from({ length: 500 }, (_, index) => `untracked/${String(index).padStart(4, "0")}.txt`);
+  const budget = 3_000;
+  const result = generateWorkflowContext(graph, {
+    nodeId: "seed",
+    changedFilePaths: ["src/protected.ts"],
+    useChangedFiles: true,
+    characterBudget: budget,
+  }, {
+    headSha: "feedfacefeedfacefeedfacefeedfacefeedface",
+    branch: "feat/large-worktree",
+    dirty: true,
+    changedFilePaths,
+  });
+
+  assert.ok(result.characterCount <= budget);
+  assert.ok(result.markdown.length <= budget);
+  assert.ok(result.json.length <= budget);
+  assert.ok(result.packet.workflow.nodes.some((node) => node.nodeId === "seed"));
+  assert.ok(result.packet.protectedBoundaries.invariants.some((item) => item.invariantId === invariant.id));
+  assert.ok(result.packet.repository.changedFilePaths.length <= MAX_CONTEXT_CHANGED_FILE_PATHS);
+  assert.ok(result.packet.requestedScope.changedFilePaths.length <= MAX_CONTEXT_CHANGED_FILE_PATHS);
+  assert.ok(new Set([
+    ...result.packet.repository.changedFilePaths,
+    ...result.packet.requestedScope.changedFilePaths,
+  ]).size <= MAX_CONTEXT_CHANGED_FILE_PATHS);
+  assert.ok(result.packet.requestedScope.changedFilePaths.includes("src/protected.ts"));
+  assert.ok(result.packet.repository.changedFilePaths.length < changedFilePaths.length);
+  assert.equal(result.packet.truncation.truncated, true);
+  assert.ok(result.packet.truncation.omitted.changedFiles > 0);
 });
 
 test("WM-5 preserves the seed and high-risk invariant IDs under a small budget", () => {
