@@ -511,7 +511,7 @@ export function generateWorkflowMapEvidenceOverlay(
 
   return {
     schemaVersion: WORKFLOW_MAP_EVIDENCE_SCHEMA_VERSION,
-    generatedAt: new Date().toISOString(),
+    generatedAt: manifest.run.timestamp,
     graph: {
       schemaVersion: graph.schemaVersion,
       version: graph.version,

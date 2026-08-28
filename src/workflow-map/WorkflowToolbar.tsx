@@ -111,6 +111,7 @@ export function WorkflowToolbar({
     const file = e.target.files?.[0];
     if (file) {
       onLoadEvidenceFile(file);
+      setEvidenceDropdownOpen(false);
       // reset input value so re-uploading same file triggers change
       e.target.value = "";
     }
@@ -119,6 +120,7 @@ export function WorkflowToolbar({
   const handleScreenshotFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0 && onAttachScreenshots) {
       onAttachScreenshots(e.target.files);
+      setEvidenceDropdownOpen(false);
       e.target.value = "";
     }
   };

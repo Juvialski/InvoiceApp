@@ -321,9 +321,9 @@ test("17. derived overlay generation is deterministic and reproducible", () => {
   const overlay2 = generateWorkflowMapEvidenceOverlay(WORKFLOW_GRAPH, manifest);
 
   assert.equal(overlay1.schemaVersion, WORKFLOW_MAP_EVIDENCE_SCHEMA_VERSION);
-  assert.deepEqual(overlay1.summary, overlay2.summary);
-  assert.deepEqual(overlay1.graph, overlay2.graph);
-  assert.deepEqual(overlay1.nodes, overlay2.nodes);
+  assert.equal(overlay1.generatedAt, manifest.run.timestamp);
+  assert.deepEqual(overlay1, overlay2);
+  assert.equal(JSON.stringify(overlay1), JSON.stringify(overlay2));
 });
 
 test("18. derived output contains no screenshot bytes or forbidden payload keys", () => {
