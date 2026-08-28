@@ -10,6 +10,7 @@ import type {
   Project,
   ProjectCostSummary,
 } from "../types.ts";
+import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
 export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid"> {
   allocations?: InvoiceProjectAllocation[];
@@ -35,6 +36,10 @@ export interface ProjectCostInput {
   invoices?: CostInvoice[];
   payroll?: CostPayrollRecord[];
   expenses?: Expense[];
+  /** Safe project-level labor totals used when payroll detail is unavailable. */
+  projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
+  /** Explicitly selects detail rows or the safe aggregate source. */
+  laborSource?: ProjectLaborSource;
   /** Used for the company/unallocated bucket, where there is no project currency. */
   baseCurrency?: string;
 }
@@ -310,6 +315,7 @@ export function calculateProjectCost(
 ): ProjectCostSummaryWithCurrency {
   const projectId = project?.id;
   const baseCurrency = normalizeCurrency(project?.currency || input.baseCurrency || "PHP");
+  const laborSource = input.laborSource || (input.projectLaborAggregates ? "aggregate" : "detail");
   const summary: ProjectCostSummaryWithCurrency = {
     projectId,
     currency: baseCurrency,
@@ -389,25 +395,41 @@ export function calculateProjectCost(
     }
   }
 
-  for (const payroll of input.payroll || []) {
-    const breakdown = payrollRecordCostBreakdown(payroll, baseCurrency);
-    if (projectId) {
-      const projectAmount = breakdown.projectAmountsById.get(projectId);
-      if (projectAmount) {
-        if (breakdown.currency === baseCurrency) {
-          summary.payrollCost = roundMoney(summary.payrollCost + projectAmount.confirmed);
-          summary.pendingPayrollCost = roundMoney(summary.pendingPayrollCost + projectAmount.pending);
-        } else {
-          addForeign(breakdown.currency, projectAmount.total);
+  if (laborSource === "detail") {
+    for (const payroll of input.payroll || []) {
+      const breakdown = payrollRecordCostBreakdown(payroll, baseCurrency);
+      if (projectId) {
+        const projectAmount = breakdown.projectAmountsById.get(projectId);
+        if (projectAmount) {
+          if (breakdown.currency === baseCurrency) {
+            summary.payrollCost = roundMoney(summary.payrollCost + projectAmount.confirmed);
+            summary.pendingPayrollCost = roundMoney(summary.pendingPayrollCost + projectAmount.pending);
+          } else {
+            addForeign(breakdown.currency, projectAmount.total);
+          }
         }
+        continue;
       }
-      continue;
+      summary.unallocatedPayrollCost = roundMoney(summary.unallocatedPayrollCost + breakdown.unallocatedConfirmed);
+      summary.unallocatedPendingPayrollCost = roundMoney(summary.unallocatedPendingPayrollCost + breakdown.unallocatedPending);
+      summary.overheadCost = roundMoney(summary.overheadCost + breakdown.overheadConfirmed);
+      summary.pendingOverheadCost = roundMoney(summary.pendingOverheadCost + breakdown.overheadPending);
+      for (const [code, amount] of Object.entries(breakdown.foreignCosts)) addForeign(code, amount);
     }
-    summary.unallocatedPayrollCost = roundMoney(summary.unallocatedPayrollCost + breakdown.unallocatedConfirmed);
-    summary.unallocatedPendingPayrollCost = roundMoney(summary.unallocatedPendingPayrollCost + breakdown.unallocatedPending);
-    summary.overheadCost = roundMoney(summary.overheadCost + breakdown.overheadConfirmed);
-    summary.pendingOverheadCost = roundMoney(summary.pendingOverheadCost + breakdown.overheadPending);
-    for (const [code, amount] of Object.entries(breakdown.foreignCosts)) addForeign(code, amount);
+  }
+
+  if (projectId && laborSource === "aggregate") {
+    for (const aggregate of input.projectLaborAggregates || []) {
+      if (aggregate.projectId !== projectId) continue;
+      const confirmed = positiveMoney(aggregate.confirmedLaborCost);
+      const pending = positiveMoney(aggregate.pendingLaborCost);
+      if (normalizeCurrency(aggregate.currency) !== baseCurrency) {
+        addForeign(aggregate.currency, confirmed + pending);
+        continue;
+      }
+      summary.payrollCost = roundMoney(summary.payrollCost + confirmed);
+      summary.pendingPayrollCost = roundMoney(summary.pendingPayrollCost + pending);
+    }
   }
 
   for (const expense of input.expenses || []) {

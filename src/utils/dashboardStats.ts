@@ -25,6 +25,7 @@ import {
   type ProjectCostInput,
   type ProjectCostSummaryWithCurrency,
 } from "./projectCosting.ts";
+import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
 export type CurrencyAmount = Record<string, number>;
 
@@ -48,6 +49,8 @@ export interface DashboardStatsInput {
   invoices?: CostInvoice[];
   expenses?: Expense[];
   payroll?: CostPayrollRecord[];
+  projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
+  laborSource?: ProjectLaborSource;
 }
 
 export interface IndexedAccountingData {
@@ -303,6 +306,8 @@ export function projectBudgetPositions(projects: Project[], input: ProjectCostIn
       invoices: index.invoicesByProjectId.get(project.id) || [],
       expenses: index.expensesByProjectId.get(project.id) || [],
       payroll: index.payrollByProjectId.get(project.id) || [],
+      projectLaborAggregates: input.projectLaborAggregates,
+      laborSource: input.laborSource,
     });
     return {
       projectId: project.id,

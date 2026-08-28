@@ -6,6 +6,11 @@ import {
 } from "../utils/projectAllocations.ts";
 import { supabase } from "./supabase.ts";
 import { companyScopedRow, requireActiveCompanyId } from "./companyContext.ts";
+import {
+  PROJECT_LABOR_AGGREGATE_RPC,
+  parseProjectLaborCostAggregates,
+  type ProjectLaborCostAggregate,
+} from "../utils/projectLaborCostAggregate.ts";
 
 const PROJECTS_STORAGE_KEY = "engineering_projects";
 const ALLOCATIONS_STORAGE_KEY = "engineering_invoice_project_allocations";
@@ -29,6 +34,21 @@ export function createLocalProject(input: Omit<Project, "id" | "createdAt" | "up
 export function createLocalAllocation(input: Omit<InvoiceProjectAllocation, "id">): InvoiceProjectAllocation { return { ...input, id: localId("allocation") }; }
 
 export async function loadProjectsFromSupabase(): Promise<Project[]> { const userId = await currentUserId(); if (!supabase || !userId) return []; const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("projects").select("*").eq("company_id", companyId).order("updated_at", { ascending: false }); if (error) throw error; return (data || []).map((row) => projectFromRow(row as Row)); }
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Loads project-level labor only; payroll detail is never selected here. */
+export async function loadProjectLaborCostAggregatesFromSupabase(projectIds: readonly string[]): Promise<ProjectLaborCostAggregate[]> {
+  const requestedProjectIds = [...new Set(projectIds.map((projectId) => String(projectId || "").trim()).filter(Boolean))];
+  if (!requestedProjectIds.length) return [];
+  if (requestedProjectIds.some((projectId) => !UUID_PATTERN.test(projectId))) throw new Error("Project labor aggregation requires valid project identifiers.");
+  const userId = await currentUserId();
+  if (!supabase || !userId) return [];
+  requireActiveCompanyId();
+  const { data, error } = await supabase.rpc(PROJECT_LABOR_AGGREGATE_RPC, { p_project_ids: requestedProjectIds });
+  if (error) throw error;
+  return parseProjectLaborCostAggregates(Array.isArray(data) ? data : [], requestedProjectIds);
+}
+
 export async function saveProjectToSupabase(project: Project): Promise<Project> { const userId = await currentUserId(); if (!supabase || !userId) throw new Error("Sign in before saving projects."); const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("projects").upsert(projectRow(project, userId, companyId)).select("*").single(); if (error) throw error; return projectFromRow(data as Row); }
 export async function archiveProjectInSupabase(projectId: string): Promise<Project> { const userId = await currentUserId(); if (!supabase || !userId) throw new Error("Sign in before archiving projects."); const companyId = requireActiveCompanyId(); const archivedAt = new Date().toISOString(); const { data, error } = await supabase.from("projects").update({ status: "ARCHIVED", archived_at: archivedAt, updated_at: archivedAt }).eq("id", projectId).eq("company_id", companyId).select("*").single(); if (error) throw error; return projectFromRow(data as Row); }
 export async function loadInvoiceProjectAllocationsFromSupabase(): Promise<InvoiceProjectAllocation[]> { const userId = await currentUserId(); if (!supabase || !userId) return []; const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("invoice_project_allocations").select("*").eq("company_id", companyId).order("created_at", { ascending: true }); if (error) throw error; return (data || []).map((row) => allocationFromRow(row as Row)); }

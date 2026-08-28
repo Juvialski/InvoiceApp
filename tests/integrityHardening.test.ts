@@ -98,6 +98,17 @@ test("seeded roles have explicit project-cost completeness semantics", () => {
   const viewer = projectCostDataCompleteness(VIEWER);
   assert.equal(viewer.complete, false);
   assert.deepEqual(viewer.missingSources, ["payrollLabor"]);
+
+  const financeWithAggregate = projectCostDataCompleteness(FINANCE, { sourceStates: { payrollLabor: "aggregate" } });
+  assert.equal(financeWithAggregate.complete, true);
+  assert.equal(financeWithAggregate.sourceStates.payrollLabor, "aggregate");
+  assert.deepEqual(financeWithAggregate.missingSources, []);
+  const aggregateUnavailable = projectCostDataCompleteness(FINANCE, { sourceStates: { payrollLabor: "unavailable" } });
+  assert.equal(aggregateUnavailable.complete, false);
+  assert.equal(aggregateUnavailable.reason, "load-error");
+  const currencyConflict = projectCostDataCompleteness(FINANCE, { sourceStates: { payrollLabor: "currency-conflict" } });
+  assert.equal(currencyConflict.complete, false);
+  assert.equal(currencyConflict.reason, "currency-conflict");
 });
 
 test("route authorization is canonical for Assistant navigation and supports alternatives", () => {
@@ -127,10 +138,9 @@ test("Assistant entity navigation cannot bypass or visibly advertise a forbidden
   assert.match(assistantMessage, /visibleClientActions\.map/);
 });
 
-test("Assistant project cost summary fails closed when any contributing source is unreadable", async () => {
-  await assert.rejects(
+test("Assistant project cost summary uses the safe labor aggregate permission", async () => {
+  await assert.doesNotReject(
     requireCompanyPermissions(authorizationContext(FINANCE), [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.reportsRead]),
-    /permission/i,
   );
   await assert.rejects(
     requireCompanyPermissions(authorizationContext(PAYROLL), [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.reportsRead]),

@@ -1,11 +1,65 @@
 import type { Expense, InvoiceData, InvoiceProjectAllocation, PayrollProjectAllocation, Project, ProjectCostSummary, PayrollEntry, PayrollPeriod, PayrollRun, Worker } from "../types.ts";
 import { calculateProjectCost, normalizedInvoiceAllocationAmount } from "./projectCosting.ts";
 import type { CostPayrollRecord } from "./projectCosting.ts";
+import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
 export interface ProjectCostReportRow extends ProjectCostSummary { projectCode: string; projectName: string; currency: string; }
 
-export function buildProjectCostReport(projects: Project[], invoices: InvoiceData[], invoiceAllocations: InvoiceProjectAllocation[], payroll: CostPayrollRecord[], expenses: Expense[]): ProjectCostReportRow[] {
-  return projects.map((project) => ({ projectCode: project.projectCode, projectName: project.projectName, currency: project.currency, ...calculateProjectCost(project, { invoices: invoices.map((invoice) => ({ ...invoice, allocations: invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id) })), payroll, expenses }) }));
+export interface ProjectCostReportOptions {
+  projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
+  laborSource?: ProjectLaborSource;
+}
+
+export function buildProjectCostReport(
+  projects: Project[],
+  invoices: InvoiceData[],
+  invoiceAllocations: InvoiceProjectAllocation[],
+  payroll: CostPayrollRecord[],
+  expenses: Expense[],
+  options: ProjectCostReportOptions = {},
+): ProjectCostReportRow[] {
+  return projects.map((project) => ({
+    projectCode: project.projectCode,
+    projectName: project.projectName,
+    currency: project.currency,
+    ...calculateProjectCost(project, {
+      invoices: invoices.map((invoice) => ({ ...invoice, allocations: invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id) })),
+      payroll,
+      expenses,
+      projectLaborAggregates: options.projectLaborAggregates,
+      laborSource: options.laborSource,
+    }),
+  }));
+}
+
+export interface ProjectLaborAggregateReportRow {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  currency: string;
+  confirmedLaborCost: number;
+  pendingLaborCost: number;
+  status: string;
+}
+
+export function buildProjectLaborAggregateReport(
+  projects: Project[],
+  aggregates: readonly ProjectLaborCostAggregate[],
+): ProjectLaborAggregateReportRow[] {
+  const aggregateByProjectId = new Map(aggregates.map((aggregate) => [aggregate.projectId, aggregate]));
+  return projects.flatMap((project) => {
+    const aggregate = aggregateByProjectId.get(project.id);
+    if (!aggregate) return [];
+    return [{
+      projectId: project.id,
+      projectCode: project.projectCode,
+      projectName: project.projectName,
+      currency: aggregate.currency,
+      confirmedLaborCost: aggregate.confirmedLaborCost,
+      pendingLaborCost: aggregate.pendingLaborCost,
+      status: aggregate.status,
+    }];
+  });
 }
 
 export function buildProjectInvoiceReport(projects: Project[], invoices: InvoiceData[], allocations: InvoiceProjectAllocation[]) {

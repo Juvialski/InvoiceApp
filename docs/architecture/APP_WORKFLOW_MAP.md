@@ -23,9 +23,9 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Source classification | `mixed` |
 | Reviewed against | `b88584f147b85d0b8154a4c104859a0e035bed82` |
 | Reviewed at | `2026-08-28` |
-| Node count | 183 |
-| Edge count | 211 |
-| Invariant count | 11 |
+| Node count | 184 |
+| Edge count | 214 |
+| Invariant count | 12 |
 | Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Cross-Domain Settlement`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
@@ -92,6 +92,7 @@ flowchart LR
     n_invoice_project_allocation[("Invoice project allocation<br/><small>DATA</small>")]
     n_invoice_project_cost_contribution["Verified invoice project-cost contribution<br/><small>DERIVED-DATA</small>"]
     n_payroll_project_labor_cost["Authoritative project labor cost<br/><small>DERIVED-DATA</small>"]
+    n_project_labor_aggregate_rpc[["Safe project labor aggregate RPC<br/><small>EXTERNAL-BOUNDARY</small>"]]
   end
   subgraph g_workforce["Workforce"]
     n_route_payroll(["Payroll route<br/><small>ROUTE · /payroll</small>"])
@@ -121,6 +122,7 @@ flowchart LR
   n_cash_settlement_match -->|payment evidence| n_cash_settlement_evidence
   n_cash_settlement_evidence -->|settlement evidence only| n_invoice_payable_obligation
   n_cash_settlement_evidence -->|disbursement evidence only| n_payroll_net_pay_basis
+  n_project_labor_aggregate_rpc -->|privacy-preserving labor source| n_project_cost_aggregation
   n_assistant_mutation_request -->|PREPARE only| n_assistant_prepared_action
   n_assistant_prepared_action -->|explicit user confirmation| n_assistant_human_confirmation
   n_assistant_human_confirmation -->|confirmed action| n_assistant_guarded_execution
@@ -154,6 +156,7 @@ flowchart LR
   class n_cash_settlement_evidence finance
   class n_payroll_run workforce
   class n_payroll_project_labor_cost projects
+  class n_project_labor_aggregate_rpc projects
   class n_payroll_net_pay_basis workforce
   class n_reports_derived_surface reporting
   class n_assistant_mutation_request assistant
@@ -177,6 +180,7 @@ flowchart LR
     n_project_aggregate[("Project aggregate<br/><small>DATA</small>")]
     n_project_overview["Project Overview<br/><small>SCREEN</small>"]
     n_project_cost_aggregation["Authoritative project-cost aggregation<br/><small>DERIVED-DATA</small>"]
+    n_project_labor_aggregate_rpc[["Safe project labor aggregate RPC<br/><small>EXTERNAL-BOUNDARY</small>"]]
   end
   subgraph g_engineering["Engineering"]
     n_route_project_documents(["Project Documents route<br/><small>ROUTE · /projects/:projectId/documents</small>"])
@@ -294,6 +298,7 @@ flowchart LR
   n_site_log_aggregate -->|safety| n_site_log_safety_observation
   n_site_log_aggregate -->|formal event history| n_site_log_event_history
   n_site_log_crew_observation -->|observation only| n_site_log_payroll_boundary
+  n_project_labor_aggregate_rpc -->|privacy-preserving labor source| n_project_cost_aggregation
   classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
@@ -357,6 +362,7 @@ flowchart LR
   class n_site_log_safety_observation engineering
   class n_site_log_event_history engineering
   class n_site_log_payroll_boundary engineering
+  class n_project_labor_aggregate_rpc projects
 ```
 
 ### Invoice and Cash Settlement flow
@@ -516,6 +522,7 @@ flowchart LR
   subgraph g_projects["Projects"]
     n_payroll_project_allocation[("Payroll project allocation<br/><small>DATA</small>")]
     n_payroll_project_labor_cost["Authoritative project labor cost<br/><small>DERIVED-DATA</small>"]
+    n_project_labor_aggregate_rpc[["Safe project labor aggregate RPC<br/><small>EXTERNAL-BOUNDARY</small>"]]
   end
   subgraph g_finance["Finance"]
     n_cash_settlement_candidates["Settlement candidates<br/><small>DERIVED-DATA</small>"]
@@ -545,6 +552,7 @@ flowchart LR
   n_payroll_run -->|per-worker snapshot| n_payroll_entry_snapshot
   n_payroll_entry_snapshot -->|project allocation| n_payroll_project_labor_allocation
   n_payroll_project_labor_allocation -->|confirmed labor cost| n_payroll_project_labor_cost
+  n_payroll_project_labor_allocation -->|server-side project sum| n_project_labor_aggregate_rpc
   n_payroll_entry_snapshot -->|sum netPay| n_payroll_net_pay_basis
   n_payroll_run -->|before approval/recalculation| n_payroll_source_freshness_guard
   n_payroll_run -->|approved/paid/void lock| n_payroll_history_immutability
@@ -581,6 +589,7 @@ flowchart LR
   class n_payroll_entry_snapshot workforce
   class n_payroll_project_labor_allocation workforce
   class n_payroll_project_labor_cost projects
+  class n_project_labor_aggregate_rpc projects
   class n_payroll_net_pay_basis workforce
   class n_payroll_source_freshness_guard workforce
   class n_payroll_history_immutability workforce
@@ -661,6 +670,7 @@ These invariants are intentionally explicit because generic import graphs cannot
 | **Demo mode is isolated from production writes**<br/><small>`demo-cannot-write-production`</small> | The public /demo runtime uses deterministic local/session state and cannot become a production company or Supabase write path. | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspaceProvider.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` |
 | **Verified invoice project cost is independent from cash settlement**<br/><small>`invoice-project-cost-independent-from-settlement`</small> | Verified invoice allocations are a project-cost source. Cash settlement is payment evidence and must not create or duplicate project cost. | `src/utils/projectCosting.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`supabase/migrations/20260827210000_financial_settlement_integration.sql`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/projectCostingHardening.test.ts` |
 | **Project labor cost is independent from employee net-pay settlement**<br/><small>`payroll-labor-cost-independent-from-net-pay-settlement`</small> | Approved or paid payroll allocations provide project labor cost, while settlement eligibility and basis use employee net pay. | `src/lib/payrollCalculation.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/utils/projectCosting.ts`<br/>`docs/payroll-workforce-hardening.md`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/payrollIntegrity.test.ts`<br/>`tests/payrollCalculation.test.ts` |
+| **Project labor aggregate preserves payroll privacy**<br/><small>`project-labor-aggregate-preserves-payroll-privacy`</small> | Finance and Viewer may receive confirmed/pending project labor totals through the guarded payroll.summary.read aggregate without receiving employee identity, payroll entries, rates, attendance, deductions, net pay, or allocation rows. | `src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/dataCompleteness.ts`<br/>`src/lib/projects.ts`<br/>`src/server/assistant/assistantToolExecutors.ts`<br/>`src/server/assistant/toolAuthorization.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/ENGORYX_INTEGRITY_HARDENING.md` | `tests/projectLaborCostAggregate.test.ts`<br/>`tests/projectLaborCostAggregateMigration.test.ts` |
 | **Site Log crew observation is not payroll attendance**<br/><small>`site-log-observation-is-not-payroll-attendance`</small> | Crew and headcount rows describe field presence observed by the site team; they never directly create or alter authoritative payroll attendance, timesheets, overtime, or runs. | `src/lib/dailySiteLogs.ts`<br/>`src/lib/dailySiteLogsPersistence.ts`<br/>`src/lib/payrollWorkforce.ts`<br/>`docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md` | `tests/dailySiteLogs.test.ts`<br/>`tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts` |
 | **Approved and paid payroll history is immutable**<br/><small>`approved-payroll-history-is-immutable`</small> | Approval, payment, locking, and voiding guards preserve payroll source snapshots, entries, allocations, and historical meaning. | `src/lib/payroll.ts`<br/>`src/lib/payrollIntegrity.ts`<br/>`src/lib/payrollSourceRevision.ts`<br/>`supabase/migrations/20260823150000_payroll_workforce_integrity.sql`<br/>`supabase/migrations/20260824120000_payroll_safety_hardening.sql` | `tests/payrollIntegrity.test.ts`<br/>`tests/payrollSafetyGate.test.ts`<br/>`tests/payrollPersistence.test.ts` |
 | **Engineering document revision lineage is immutable**<br/><small>`engineering-revision-lineage-is-immutable`</small> | A new document revision preserves prior source, identity, and references; annotation deletion is represented as history rather than physical deletion. | `src/lib/engineeringDocuments.ts`<br/>`src/lib/engineeringDocumentsPersistence.ts`<br/>`src/components/engineering/BlueprintViewer.tsx`<br/>`supabase/migrations/20260826140000_engineering_documents_hardening.sql`<br/>`supabase/migrations/20260826234440_engineering_documents_annotation_immutability.sql`<br/>`supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql` | `tests/engineeringDocuments.test.ts`<br/>`tests/engineeringDocumentsHardening.test.ts`<br/>`tests/engineeringDocumentsMigration.test.ts` |
@@ -732,12 +742,13 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Project Workspace**<br/><small>`project-workspace`</small> | `screen` | `project`<br/>— | — | — | `mixed` | `src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/projects.test.ts` | `project-workspace--project-overview--project-selected--desktop-1440`<br/>`project-workspace--project-documents--base-route-loaded--desktop-1440` |
 | **Project aggregate**<br/><small>`project-aggregate`</small> | `data` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage` | `mixed` | `src/lib/projects.ts`<br/>`src/types.ts`<br/>`supabase/migrations/20260823130000_engineering_project_costing_foundation.sql` | `tests/projects.test.ts`<br/>`tests/projectCostingHardening.test.ts` | — |
 | **Project Overview**<br/><small>`project-overview`</small> | `screen` | `project`<br/>— | — | — | `mixed` | `src/components/projects/ProjectOverview.tsx`<br/>`src/utils/projectDashboardViewModel.ts` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/accountingStatistics.test.ts` | — |
-| **Authoritative project-cost aggregation**<br/><small>`project-cost-aggregation`</small> | `derived-data` | `project`<br/>— | — | — | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectDashboardViewModel.ts`<br/>`src/App.tsx`<br/>`docs/engineering-project-costing-plan.md` | `tests/projectCostingHardening.test.ts`<br/>`tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
+| **Authoritative project-cost aggregation**<br/><small>`project-cost-aggregation`</small> | `derived-data` | `project`<br/>— | — | `projects.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/projectDashboardViewModel.ts`<br/>`src/App.tsx`<br/>`docs/engineering-project-costing-plan.md` | `tests/projectCostingHardening.test.ts`<br/>`tests/projectLaborCostAggregate.test.ts`<br/>`tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
 | **Invoice project allocation**<br/><small>`invoice-project-allocation`</small> | `data` | `company-and-project`<br/>— | — | `projects.manage`<br/>`invoices.read` | `mixed` | `src/utils/projectAllocations.ts`<br/>`src/lib/persistence.ts`<br/>`supabase/migrations/20260823170000_invoice_project_allocation_replacement.sql` | `tests/projectAllocations.test.ts`<br/>`tests/projectCostingHardening.test.ts` | — |
 | **Verified invoice project-cost contribution**<br/><small>`invoice-project-cost-contribution`</small> | `derived-data` | `company-and-project`<br/>— | — | — | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectAllocations.ts`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/projectCostingHardening.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
 | **Payroll project allocation**<br/><small>`payroll-project-allocation`</small> | `data` | `company-and-project`<br/>— | — | `payroll.approve`<br/>`projects.read` | `mixed` | `src/lib/payroll.ts`<br/>`src/lib/payrollCalculation.ts`<br/>`supabase/migrations/20260823150000_payroll_workforce_integrity.sql` | `tests/payrollIntegrity.test.ts`<br/>`tests/engineeringProjectCosting.test.ts` | — |
 | **Direct project expense**<br/><small>`direct-project-expense`</small> | `data` | `company-and-project`<br/>— | `DRAFT` → `APPROVED` → `PAID` → `VOID` | `expenses.read`<br/>`expenses.manage` | `mixed` | `src/lib/expenses.ts`<br/>`src/components/expenses/ProjectExpenses.tsx`<br/>`src/types.ts` | `tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
-| **Authoritative project labor cost**<br/><small>`payroll-project-labor-cost`</small> | `derived-data` | `company-and-project`<br/>— | — | — | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectDashboardViewModel.ts`<br/>`docs/payroll-workforce-hardening.md` | `tests/engineeringProjectCosting.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
+| **Authoritative project labor cost**<br/><small>`payroll-project-labor-cost`</small> | `derived-data` | `company-and-project`<br/>— | — | `payroll.summary.read`<br/>`projects.read` | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/projectDashboardViewModel.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/payroll-workforce-hardening.md` | `tests/engineeringProjectCosting.test.ts`<br/>`tests/projectLaborCostAggregate.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
+| **Safe project labor aggregate RPC**<br/><small>`project-labor-aggregate-rpc`</small> | `external-boundary` | `company-and-project`<br/>— | — | `projects.read`<br/>`payroll.summary.read` | `mixed` | `src/lib/projects.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/ENGORYX_INTEGRITY_HARDENING.md` | `tests/projectLaborCostAggregate.test.ts`<br/>`tests/projectLaborCostAggregateMigration.test.ts` | — |
 
 ### Engineering
 

@@ -9,6 +9,8 @@ import * as XLSX from "xlsx";
 XLSX.set_fs(fs);
 import { exportEngineeringProjectWorkbookToExcel } from "../src/utils/excelExport.ts";
 import { buildPayrollReport, buildProjectCostReport, buildProjectInvoiceReport } from "../src/utils/projectReports.ts";
+import { buildProjectLaborAggregateReport } from "../src/utils/projectReports.ts";
+import type { ProjectLaborCostAggregate } from "../src/utils/projectLaborCostAggregate.ts";
 import type {
   Expense,
   InvoiceData,
@@ -198,6 +200,64 @@ test("project report totals separate foreign invoice, payroll, and expense curre
 
   assert.equal(summary.totalActualCost, 0);
   assert.deepEqual(summary.foreignCosts, { USD: 1_000, EUR: 2_000, JPY: 3_000 });
+});
+
+test("aggregate-only project reports include labor without employee detail", () => {
+  const aggregates: ProjectLaborCostAggregate[] = [{
+    projectId: "project-a",
+    currency: "PHP",
+    confirmedLaborCost: 4_000,
+    pendingLaborCost: 500,
+    status: "AVAILABLE",
+  }];
+  const [summary] = buildProjectCostReport([project("project-a")], [], [], [], [], { laborSource: "aggregate", projectLaborAggregates: aggregates });
+  assert.equal(summary.payrollCost, 4_000);
+  assert.equal(summary.pendingPayrollCost, 500);
+  const rows = buildProjectLaborAggregateReport([project("project-a")], aggregates);
+  assert.deepEqual(rows[0], {
+    projectId: "project-a",
+    projectCode: "PROJECT-A",
+    projectName: "Project PROJECT-A",
+    currency: "PHP",
+    confirmedLaborCost: 4_000,
+    pendingLaborCost: 500,
+    status: "AVAILABLE",
+  });
+  assert.equal("worker" in rows[0]!, false);
+  assert.equal("grossPay" in rows[0]!, false);
+  assert.equal("netPay" in rows[0]!, false);
+});
+
+test("aggregate-only workbook uses project labor rows and omits employee sheets", () => {
+  const tempDirectory = mkdtempSync(join(tmpdir(), "invoiceapp-safe-labor-export-"));
+  const workbookPath = join(tempDirectory, "safe-labor.xlsx");
+  const aggregates: ProjectLaborCostAggregate[] = [{ projectId: "project-a", currency: "PHP", confirmedLaborCost: 4_000, pendingLaborCost: 500, status: "AVAILABLE" }];
+  try {
+    exportEngineeringProjectWorkbookToExcel({
+      projects: [project("project-a")],
+      invoices: [],
+      invoiceAllocations: [],
+      expenses: [],
+      workers: [],
+      assignments: [],
+      periods: [],
+      runs: [],
+      entries: [],
+      payrollAllocations: [],
+      projectLaborAggregates: aggregates,
+      laborSource: "aggregate",
+      payrollDetailVisible: false,
+    }, workbookPath);
+    const workbook = XLSX.read(readFileSync(workbookPath));
+    assert.deepEqual(workbook.SheetNames, ["Projects", "Invoice Allocations", "Payroll Allocations", "Expenses", "Project Cost Summary"]);
+    const payrollRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets["Payroll Allocations"]);
+    assert.equal(payrollRows[0]?.projectId, "project-a");
+    assert.equal("worker" in (payrollRows[0] || {}), false);
+    const costRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets["Project Cost Summary"]);
+    assert.equal(costRows[0]?.payrollCost, 4_000);
+  } finally {
+    rmSync(tempDirectory, { recursive: true, force: true });
+  }
 });
 
 test("engineering workbook construction keeps labeled payroll rows and project totals", () => {

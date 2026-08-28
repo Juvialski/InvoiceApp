@@ -2,6 +2,7 @@ import type { Expense, InvoiceProjectAllocation, PayrollPeriod, Project } from "
 import type { CostInvoice, CostPayrollRecord } from "./projectCosting.ts";
 import { calculateProjectCost, normalizedInvoiceAllocationAmount, projectHealth } from "./projectCosting.ts";
 import { unpaidBalance } from "./dashboardStats.ts";
+import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
 export interface ProjectDashboardTrendPoint {
   label: string;
@@ -42,6 +43,8 @@ interface ProjectDashboardInput {
   invoices: CostInvoice[];
   expenses: Expense[];
   payroll: Array<CostPayrollRecord & { periodEnd?: string }>;
+  projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
+  laborSource?: ProjectLaborSource;
   periods?: PayrollPeriod[];
   today?: string;
 }
@@ -56,7 +59,13 @@ function monthsBetween(keys: string[]) { const valid = keys.filter((key) => /^\d
 function projectInvoiceAmount(invoice: CostInvoice, projectId: string) { return round((invoice.allocations || []).filter((allocation) => allocation.projectId === projectId).reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), 0)); }
 
 export function buildProjectDashboardViewData(input: ProjectDashboardInput): ProjectDashboardViewData {
-  const summary = calculateProjectCost(input.project, { invoices: input.invoices, expenses: input.expenses, payroll: input.payroll });
+  const summary = calculateProjectCost(input.project, {
+    invoices: input.invoices,
+    expenses: input.expenses,
+    payroll: input.payroll,
+    projectLaborAggregates: input.projectLaborAggregates,
+    laborSource: input.laborSource,
+  });
   const pending = round(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
   const confirmed = round(summary.totalActualCost);
   const availableAfterCommitments = round(summary.budget - confirmed - pending);

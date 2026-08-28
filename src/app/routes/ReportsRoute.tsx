@@ -17,8 +17,9 @@ import type {
 } from "../../types";
 import { exportEngineeringProjectWorkbookToExcel } from "../../utils/excelExport";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
-import { projectCostDataCompleteness, projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
-import { useAppPermissions } from "../AppPermissionContext.tsx";
+import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
+import { useAppPermissions, useProjectCostCompleteness } from "../AppPermissionContext.tsx";
+import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 
 export interface ReportsRouteProps {
   projects: Project[];
@@ -31,6 +32,8 @@ export interface ReportsRouteProps {
   runs: PayrollRun[];
   entries: PayrollEntry[];
   payrollAllocations: PayrollProjectAllocation[];
+  projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
+  laborSource?: ProjectLaborSource;
   onExport?: () => void;
 }
 
@@ -45,6 +48,8 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
   runs,
   entries,
   payrollAllocations,
+  projectLaborAggregates = [],
+  laborSource,
   onExport,
 }) => {
   const permissions = useAppPermissions();
@@ -53,7 +58,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
   const canReadInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesRead);
   const canReadPayrollDetail = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadWorkers = hasPermission(permissions, PERMISSION_KEYS.workersRead);
-  const projectCostCompleteness = projectCostDataCompleteness(permissions);
+  const projectCostCompleteness = useProjectCostCompleteness();
   const missingProjectCostSources = projectCostMissingSourceLabels(projectCostCompleteness);
 
   const handleExport =
@@ -70,6 +75,9 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
         runs,
         entries,
         payrollAllocations,
+        projectLaborAggregates,
+        laborSource,
+        payrollDetailVisible: canReadPayrollDetail,
       }));
 
   return (
@@ -92,6 +100,9 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
           runs={runs}
           entries={entries}
           payrollAllocations={payrollAllocations}
+          projectLaborAggregates={projectLaborAggregates}
+          laborSource={laborSource}
+          payrollDetailVisible={canReadPayrollDetail}
           onExport={handleExport}
         />
       ) : canReadFinancialReports ? (

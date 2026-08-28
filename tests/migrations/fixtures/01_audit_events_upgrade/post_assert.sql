@@ -79,5 +79,16 @@ begin
       using errcode = 'P0001';
   end if;
 
+  -- The new reporting boundary must be present after the historical upgrade,
+  -- while the fixture's pre-existing audit history remains unchanged.
+  if not exists (
+    select 1
+    from pg_proc
+    where oid = 'public.get_project_labor_cost_aggregate(uuid[])'::regprocedure
+  ) then
+    raise exception 'Expected project labor aggregate RPC after historical upgrade'
+      using errcode = 'P0001';
+  end if;
+
   raise notice 'UPGRADE_PATH_ASSERTIONS_PASSED: 15 historical rows preserved, 11 CASH_* events accepted, check constraint integrity verified.';
 end $$;

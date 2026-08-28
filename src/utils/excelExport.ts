@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
 import type { Expense, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectWorkerAssignment, Worker } from "../types.ts";
-import { buildExpenseReport, buildPayrollReportWithContext, buildProjectCostReport, buildProjectInvoiceReport } from "./projectReports.ts";
+import { buildExpenseReport, buildPayrollReportWithContext, buildProjectCostReport, buildProjectInvoiceReport, buildProjectLaborAggregateReport } from "./projectReports.ts";
 import type { CostPayrollRecord } from "./projectCosting.ts";
+import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
 function getColumnWidths(rows: unknown[][]) {
   const widths: { wch: number }[] = [];
@@ -252,18 +253,24 @@ export interface EngineeringWorkbookInput {
   runs: PayrollRun[];
   entries: PayrollEntry[];
   payrollAllocations: PayrollProjectAllocation[];
+  projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
+  laborSource?: ProjectLaborSource;
+  payrollDetailVisible?: boolean;
 }
 
 /** Keeps the existing invoice workbook intact while adding a separate project-cost workbook. */
 export function exportEngineeringProjectWorkbookToExcel(input: EngineeringWorkbookInput, customFileName?: string) {
   const payroll: CostPayrollRecord[] = input.runs.map((run) => ({ id: run.id, status: run.status, entries: input.entries.filter((entry) => entry.payrollRunId === run.id), allocations: input.payrollAllocations.filter((allocation) => input.entries.some((entry) => entry.id === allocation.payrollEntryId && entry.payrollRunId === run.id)) }));
+  const payrollDetailVisible = input.payrollDetailVisible ?? (input.laborSource === undefined || input.laborSource === "detail");
   const workbook = XLSX.utils.book_new();
   appendJsonSheet(workbook, input.projects.map((project) => ({ "Project Code": project.projectCode, "Project Name": project.projectName, Client: project.clientName || "", Location: project.location || "", Status: project.status, Budget: project.projectBudget, Currency: project.currency })), "Projects");
   appendJsonSheet(workbook, buildProjectInvoiceReport(input.projects, input.invoices, input.invoiceAllocations), "Invoice Allocations");
-  appendJsonSheet(workbook, buildPayrollReportWithContext(input.projects, input.workers, input.periods, input.runs, input.entries, input.payrollAllocations), "Payroll Allocations");
+  appendJsonSheet(workbook, payrollDetailVisible
+    ? buildPayrollReportWithContext(input.projects, input.workers, input.periods, input.runs, input.entries, input.payrollAllocations)
+    : buildProjectLaborAggregateReport(input.projects, input.projectLaborAggregates || []).map((row) => Object.fromEntries(Object.entries(row))), "Payroll Allocations");
   appendJsonSheet(workbook, buildExpenseReport(input.projects, input.expenses), "Expenses");
-  appendJsonSheet(workbook, buildProjectCostReport(input.projects, input.invoices, input.invoiceAllocations, payroll, input.expenses).map((row) => ({ ...row })), "Project Cost Summary");
-  appendJsonSheet(workbook, input.workers.map((worker) => ({ "Employee Code": worker.employeeCode, Name: worker.displayName, Role: worker.jobTitle || "", "Employment Type": worker.employmentType, "Pay Type": worker.defaultPayType, "Default Rate": worker.defaultRate, Active: worker.active })), "Workers");
+  appendJsonSheet(workbook, buildProjectCostReport(input.projects, input.invoices, input.invoiceAllocations, payroll, input.expenses, { projectLaborAggregates: input.projectLaborAggregates, laborSource: input.laborSource }).map((row) => ({ ...row })), "Project Cost Summary");
+  if (payrollDetailVisible) appendJsonSheet(workbook, input.workers.map((worker) => ({ "Employee Code": worker.employeeCode, Name: worker.displayName, Role: worker.jobTitle || "", "Employment Type": worker.employmentType, "Pay Type": worker.defaultPayType, "Default Rate": worker.defaultRate, Active: worker.active })), "Workers");
   const dateStr = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(workbook, customFileName || `Engineering_Project_Costs_${dateStr}.xlsx`);
 }

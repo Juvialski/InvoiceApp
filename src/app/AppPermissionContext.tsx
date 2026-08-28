@@ -1,10 +1,19 @@
 import React, { createContext, useContext, useMemo } from "react";
 import { isSupabaseConfigured } from "../lib/supabase.ts";
 import { hasAnyPermission, hasPermission, type PermissionKey } from "../utils/accessControl.ts";
+import { projectCostDataCompleteness, type DataCompleteness, type ProjectCostSource } from "../utils/dataCompleteness.ts";
 
-const AppPermissionContext = createContext<readonly PermissionKey[]>([]);
+interface AppPermissionContextValue {
+  permissions: readonly PermissionKey[];
+  projectCostCompleteness: DataCompleteness<ProjectCostSource>;
+}
 
-export function AppPermissionProvider({ permissions = [], children }: { permissions?: readonly PermissionKey[]; children: React.ReactNode }) {
+const AppPermissionContext = createContext<AppPermissionContextValue>({
+  permissions: [],
+  projectCostCompleteness: projectCostDataCompleteness([]),
+});
+
+export function AppPermissionProvider({ permissions = [], projectCostCompleteness, children }: { permissions?: readonly PermissionKey[]; projectCostCompleteness?: DataCompleteness<ProjectCostSource>; children: React.ReactNode }) {
   // Browser-only mode predates company RBAC and has no permission snapshot.
   // Keep its local-only behavior intact, while configured Supabase workspaces
   // remain fail-closed until company permissions are actually loaded.
@@ -12,11 +21,19 @@ export function AppPermissionProvider({ permissions = [], children }: { permissi
     () => !isSupabaseConfigured ? ["*"] : [...permissions],
     [permissions],
   );
-  return <AppPermissionContext.Provider value={stablePermissions}>{children}</AppPermissionContext.Provider>;
+  const value = useMemo<AppPermissionContextValue>(
+    () => ({ permissions: stablePermissions, projectCostCompleteness: projectCostCompleteness || projectCostDataCompleteness(stablePermissions) }),
+    [projectCostCompleteness, stablePermissions],
+  );
+  return <AppPermissionContext.Provider value={value}>{children}</AppPermissionContext.Provider>;
 }
 
 export function useAppPermissions(): readonly PermissionKey[] {
-  return useContext(AppPermissionContext);
+  return useContext(AppPermissionContext).permissions;
+}
+
+export function useProjectCostCompleteness(): DataCompleteness<ProjectCostSource> {
+  return useContext(AppPermissionContext).projectCostCompleteness;
 }
 
 export function useAppPermission(required: PermissionKey): boolean {

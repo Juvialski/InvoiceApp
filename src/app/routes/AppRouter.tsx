@@ -29,6 +29,7 @@ import type {
   Worker,
 } from "../../types";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
+import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import type { WorkspaceTab } from "../../components/projects/ProjectWorkspace";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
@@ -100,6 +101,8 @@ export interface AppRouterProps {
   selectedProject?: Project | null;
   projectSummaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
+  projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
+  laborSource?: ProjectLaborSource;
   projectFormSeed?: Project | null;
   companyId?: string;
   engineeringDocumentsCanRead?: boolean;
@@ -261,6 +264,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   selectedProject,
   projectSummaries,
   projectDashboard,
+  projectLaborAggregates = [],
+  laborSource,
   projectFormSeed,
   companyId,
   engineeringDocumentsCanRead = true,
@@ -613,6 +618,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         runs={payrollData.runs}
         entries={payrollData.entries}
         payrollAllocations={payrollData.allocations}
+        projectLaborAggregates={projectLaborAggregates}
+        laborSource={laborSource}
         onExport={onExportReportsWorkbook}
       />
     );

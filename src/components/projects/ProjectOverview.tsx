@@ -6,8 +6,8 @@ import { Card } from "@astryxdesign/core/Card";
 import type { ProjectCostSummary } from "../../types";
 import { projectHealth } from "../../utils/projectCosting";
 import type { ProjectDashboardAttention, ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
-import { projectCostDataCompleteness, projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
-import { useAppPermissions } from "../../app/AppPermissionContext.tsx";
+import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
+import { useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI";
 
 interface ProjectView {
@@ -142,7 +142,7 @@ function RestrictedProjectOverview({ project, onBack, onEdit, onArchive, hideHea
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><ShieldCheck className="h-5 w-5" /></div>
           <div className="min-w-0">
             <h3 className="text-sm font-black text-slate-950">Combined project financial position withheld</h3>
-            <p className="mt-1 text-xs leading-5 text-slate-600">Your role cannot read {missingSources.join(", ")}. Confirmed cost, pending cost, available after commitments, utilization, health, composition, cost trend, and cumulative burn are not shown because they would be incomplete.</p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">Required project-cost sources are unavailable or incomplete: {missingSources.join(", ")}. Confirmed cost, pending cost, available after commitments, utilization, health, composition, cost trend, and cumulative burn are not shown because they would be incomplete.</p>
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -167,8 +167,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   onOpenTab,
   hideHeader = false,
 }) => {
-  const permissions = useAppPermissions();
-  const completeness = projectCostDataCompleteness(permissions);
+  const completeness = useProjectCostCompleteness();
   if (!completeness.complete) {
     return <RestrictedProjectOverview project={project} onBack={onBack} onEdit={onEdit} onArchive={onArchive} hideHeader={hideHeader} missingSources={projectCostMissingSourceLabels(completeness)} />;
   }

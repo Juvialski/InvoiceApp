@@ -20,6 +20,8 @@ import { readAndCleanLocalInvoices } from "./utils/demoCleanup";
 import { enqueueSerializedSave } from "./utils/saveSequencing";
 import { currencySymbolFor, DEFAULT_CURRENCY, loadRegionalSettings, RegionalSettings, setRegionalSettings as setActiveRegionalSettings } from "./config/regional";
 import { calculateProjectCost } from "./utils/projectCosting";
+import { projectCostDataCompleteness, type DataSourceState } from "./utils/dataCompleteness.ts";
+import { ProjectLaborAggregateDataError, projectLaborAggregateCurrencyConflicts, type ProjectLaborCostAggregate, type ProjectLaborSource } from "./utils/projectLaborCostAggregate.ts";
 import type { DashboardActivityPeriod } from "./components/engineering/EngineeringCostOperationsDashboard";
 import { buildDashboardViewData } from "./utils/dashboardViewModel";
 import { buildProjectDashboardViewData } from "./utils/projectDashboardViewModel";
@@ -50,6 +52,7 @@ import {
 import {
   loadInvoiceProjectAllocationsFromSupabase,
   loadProjectsFromSupabase,
+  loadProjectLaborCostAggregatesFromSupabase,
   readInvoiceProjectAllocationsFromLocal,
   replaceInvoiceProjectAllocationsOnSupabase,
   writeInvoiceProjectAllocationsToLocal,
@@ -210,6 +213,8 @@ function userFacingError(error: unknown, fallback: string) {
 
 type PayrollWorkspaceLoadState = "idle" | "loading" | "loaded" | "failed";
 type PayrollPeriodPreparationState = "NO_SCHEDULE" | "PREPARING" | "SYNCING" | "READY" | "WAITING_FOR_BOUNDARY" | "FAILED";
+type ProjectCostDomainLoadState = "not-loaded" | "loading" | "loaded" | "failed";
+type ProjectLaborAggregateLoadState = "not-loaded" | "loading" | "available" | "incomplete" | "currency-conflict" | "unavailable";
 
 function initialAppLocation(): AppLocation {
   if (typeof window === "undefined") return parseAppLocation(DEFAULT_ROUTE_PATH);
@@ -284,6 +289,9 @@ function InvoiceWorkspace() {
   const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(() => isSupabaseConfigured ? { costCenters: [], batches: [], rows: [], templates: [] } : readPayrollImportWorkspaceFromLocal());
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(() => isSupabaseConfigured ? [] : readInvoiceProjectAllocationsFromLocal());
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
+  const [projectLaborAggregates, setProjectLaborAggregates] = useState<ProjectLaborCostAggregate[]>([]);
+  const [projectCostDomainLoadState, setProjectCostDomainLoadState] = useState<ProjectCostDomainLoadState>(isSupabaseConfigured ? "not-loaded" : "loaded");
+  const [projectLaborAggregateLoadState, setProjectLaborAggregateLoadState] = useState<ProjectLaborAggregateLoadState>(isSupabaseConfigured ? "not-loaded" : "unavailable");
   const [payrollData, setPayrollData] = useState<PayrollWorkspaceData>(() => isSupabaseConfigured ? emptyPayrollWorkspaceData() : readPayrollWorkspaceFromLocal());
   const payrollDataRef = useRef<PayrollWorkspaceData>(payrollData);
   const [cashData, setCashData] = useState<CashBankingWorkspaceData>(() => isSupabaseConfigured ? emptyCashBankingWorkspaceData() : readCashBankingWorkspaceFromLocal());
@@ -437,6 +445,9 @@ function InvoiceWorkspace() {
     projectController.reset();
     setInvoiceProjectAllocations([]);
     setExpenses([]);
+    setProjectLaborAggregates([]);
+    setProjectCostDomainLoadState(isSupabaseConfigured ? "not-loaded" : "loaded");
+    setProjectLaborAggregateLoadState(isSupabaseConfigured ? "not-loaded" : "unavailable");
     const emptyCashData = emptyCashBankingWorkspaceData();
     setCashData(emptyCashData);
     cashDataRef.current = emptyCashData;
@@ -486,7 +497,7 @@ function InvoiceWorkspace() {
             ? can(PERMISSION_KEYS.gmailRead)
             : false);
 
-  type EngineeringWorkspaceGroup = { projects: Project[]; allocations: InvoiceProjectAllocation[]; expenses: Expense[] };
+  type EngineeringWorkspaceGroup = { projects: Project[]; allocations: InvoiceProjectAllocation[]; expenses: Expense[]; laborAggregates: ProjectLaborCostAggregate[]; laborAggregateLoadState: ProjectLaborAggregateLoadState };
   type WorkspaceGroupData = InvoiceData[] | EngineeringWorkspaceGroup | PayrollWorkspaceData | PayrollImportWorkspaceData | CashBankingWorkspaceData | { lastHistoryId?: string; lastSyncedAt?: string };
 
   const applyInvoicesForWorkspace = (prepared: InvoiceData[], token: { generation: number; userId: string; companyId: string }) => {
@@ -541,23 +552,52 @@ function InvoiceWorkspace() {
     projectController.applyProjects(data.projects);
     setInvoiceProjectAllocations(data.allocations);
     setExpenses(data.expenses);
+    setProjectLaborAggregates(data.laborAggregates);
+    setProjectLaborAggregateLoadState(data.laborAggregateLoadState);
+    setProjectCostDomainLoadState("loaded");
   };
 
   const loadEngineeringGroup = async (): Promise<EngineeringWorkspaceGroup> => {
-    const results = await Promise.allSettled([
-      can(PERMISSION_KEYS.projectsRead) ? loadProjectsFromSupabase() : Promise.resolve([]),
-      can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
-      can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
-    ]);
-    const failures: string[] = [];
-    const projects = results[0].status === "fulfilled" ? results[0].value : [];
-    const allocations = results[1].status === "fulfilled" ? results[1].value : [];
-    const expenses = results[2].status === "fulfilled" ? results[2].value : [];
-    if (results[0].status !== "fulfilled") failures.push("projects");
-    if (results[1].status !== "fulfilled") failures.push("invoice allocations");
-    if (results[2].status !== "fulfilled") failures.push("expenses");
-    if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
-    return { projects, allocations, expenses };
+    setProjectCostDomainLoadState("loading");
+    try {
+      const results = await Promise.allSettled([
+        can(PERMISSION_KEYS.projectsRead) ? loadProjectsFromSupabase() : Promise.resolve([]),
+        can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
+        can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
+      ]);
+      const failures: string[] = [];
+      const projects = results[0].status === "fulfilled" ? results[0].value : [];
+      const allocations = results[1].status === "fulfilled" ? results[1].value : [];
+      const expenses = results[2].status === "fulfilled" ? results[2].value : [];
+      if (results[0].status !== "fulfilled") failures.push("projects");
+      if (results[1].status !== "fulfilled") failures.push("invoice allocations");
+      if (results[2].status !== "fulfilled") failures.push("expenses");
+      if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
+
+      let laborAggregates: ProjectLaborCostAggregate[] = [];
+      let laborAggregateLoadState: ProjectLaborAggregateLoadState = "not-loaded";
+      const shouldLoadLaborAggregate = can(PERMISSION_KEYS.projectsRead)
+        && can(PERMISSION_KEYS.payrollAggregateRead)
+        && !can(PERMISSION_KEYS.payrollSensitiveRead);
+      if (shouldLoadLaborAggregate) {
+        if (!projects.length) {
+          laborAggregateLoadState = "available";
+        } else {
+          setProjectLaborAggregateLoadState("loading");
+          try {
+            laborAggregates = await loadProjectLaborCostAggregatesFromSupabase(projects.map((project) => project.id));
+            laborAggregateLoadState = "available";
+          } catch (error) {
+            laborAggregateLoadState = error instanceof ProjectLaborAggregateDataError ? error.kind : "unavailable";
+          }
+        }
+      }
+      setProjectCostDomainLoadState("loaded");
+      return { projects, allocations, expenses, laborAggregates, laborAggregateLoadState };
+    } catch (error) {
+      setProjectCostDomainLoadState("failed");
+      throw error;
+    }
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -2527,20 +2567,68 @@ function InvoiceWorkspace() {
     return {
       id: run.id,
       status: run.status,
-      currency: "PHP",
+      currency: activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY,
       periodStart: period?.periodStart,
       periodEnd: period?.periodEnd,
       allocations: payrollData.allocations.filter((allocation) => entryIds.has(allocation.payrollEntryId)),
       entries: payrollData.entries.filter((entry) => entry.payrollRunId === run.id),
     };
-  }), [payrollData.runs, payrollData.periods, payrollData.allocations, payrollData.entries]);
+  }), [payrollData.runs, payrollData.periods, payrollData.allocations, payrollData.entries, activeCompany?.defaultCurrency, regionalSettings.currency]);
+  const aggregateCurrencyConflictProjectIds = useMemo(
+    () => projectLaborAggregateCurrencyConflicts(projects, projectLaborAggregates),
+    [projects, projectLaborAggregates],
+  );
+  const detailCurrencyConflictProjectIds = useMemo(() => projects
+    .filter((project) => costPayroll.some((run) => run.allocations.some((allocation) => allocation.projectId === project.id)
+      && String(run.currency || "PHP").trim().toUpperCase() !== String(project.currency || "").trim().toUpperCase()))
+    .map((project) => project.id), [projects, costPayroll]);
+  const projectLaborSource = useMemo<ProjectLaborSource>(() => {
+    if (!isSupabaseConfigured) return "detail";
+    if (hasPermission(permissions, PERMISSION_KEYS.payrollSensitiveRead)) {
+      return payrollWorkspaceLoadState === "loaded" ? "detail" : "unavailable";
+    }
+    if (!hasPermission(permissions, PERMISSION_KEYS.payrollAggregateRead)) return "unavailable";
+    if (projectLaborAggregateLoadState === "available") return "aggregate";
+    if (projectLaborAggregateLoadState === "incomplete") return "incomplete";
+    if (projectLaborAggregateLoadState === "currency-conflict") return "currency-conflict";
+    return "unavailable";
+  }, [payrollWorkspaceLoadState, permissions, projectLaborAggregateLoadState]);
+  const projectCostSourceStates = useMemo(() => {
+    const supplierInvoices: DataSourceState = !isSupabaseConfigured
+      ? "detail"
+      : hasPermission(permissions, PERMISSION_KEYS.invoicesRead) && projectCostDomainLoadState === "loaded"
+        ? "detail"
+        : "unavailable";
+    const directExpenses: DataSourceState = !isSupabaseConfigured
+      ? "detail"
+      : hasPermission(permissions, PERMISSION_KEYS.expensesRead) && projectCostDomainLoadState === "loaded"
+        ? "detail"
+        : "unavailable";
+    let payrollLabor: DataSourceState = projectLaborSource;
+    if (projectLaborSource === "detail" && detailCurrencyConflictProjectIds.length) payrollLabor = "currency-conflict";
+    if (projectLaborSource === "aggregate" && aggregateCurrencyConflictProjectIds.length) payrollLabor = "currency-conflict";
+    return { supplierInvoices, payrollLabor, directExpenses } as const;
+  }, [aggregateCurrencyConflictProjectIds, detailCurrencyConflictProjectIds.length, isSupabaseConfigured, permissions, projectCostDomainLoadState, projectLaborSource]);
+  const projectCostCompleteness = useMemo(
+    () => projectCostDataCompleteness(permissions, { sourceStates: projectCostSourceStates }),
+    [permissions, projectCostSourceStates],
+  );
+  const detailPayrollForProjectCost = projectLaborSource === "detail" ? costPayroll : [];
   const projectSummaries = useMemo<Record<string, ProjectCostSummary>>(() => {
     const next: Record<string, ProjectCostSummary> = {};
-    projects.forEach((project) => { next[project.id] = calculateProjectCost(project, { invoices: costInvoices, payroll: costPayroll, expenses }); });
-    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: costPayroll, expenses });
+    projects.forEach((project) => {
+      next[project.id] = calculateProjectCost(project, {
+        invoices: costInvoices,
+        payroll: detailPayrollForProjectCost,
+        expenses,
+        projectLaborAggregates,
+        laborSource: projectLaborSource,
+      });
+    });
+    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses });
     next.__unallocated__ = unallocated;
     return next;
-  }, [projects, costInvoices, costPayroll, expenses]);
+  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, projectLaborAggregates, projectLaborSource]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
     ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
     ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
@@ -2550,7 +2638,9 @@ function InvoiceWorkspace() {
     projects,
     invoices: costInvoices,
     expenses,
-    payroll: costPayroll,
+    payroll: detailPayrollForProjectCost,
+    projectLaborAggregates,
+    laborSource: projectLaborSource,
     periods: payrollData.periods,
     workers: payrollData.workers,
     payrollEntries: payrollData.entries,
@@ -2562,9 +2652,9 @@ function InvoiceWorkspace() {
     customEnd: dashboardCustomEnd,
     selectedCurrency: dashboardCurrency,
     projectId: dashboardProjectId,
-  }), [projects, costInvoices, expenses, costPayroll, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
+  }), [projects, costInvoices, expenses, detailPayrollForProjectCost, projectLaborAggregates, projectLaborSource, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
 
-  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: costPayroll, periods: payrollData.periods }) : undefined, [selectedProject, costInvoices, expenses, costPayroll, payrollData.periods]);
+  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, projectLaborAggregates, projectLaborSource, payrollData.periods]);
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").length;
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
@@ -2666,6 +2756,7 @@ function InvoiceWorkspace() {
         activeCompanyId={companyAccess.activeCompanyId}
         visibleRouteIds={visibleRouteIds}
         permissions={permissions}
+        projectCostCompleteness={projectCostCompleteness}
         remoteInvoiceUpdate={remoteInvoiceUpdate}
         selectedInvoiceId={selectedInvoice?.id}
         onReloadRemoteInvoice={reloadLatestRemoteInvoice}
@@ -2706,6 +2797,8 @@ function InvoiceWorkspace() {
           selectedProject={selectedProject}
           projectSummaries={projectSummaries}
           projectDashboard={projectDashboard}
+          projectLaborAggregates={projectLaborAggregates}
+          laborSource={projectLaborSource}
           projectFormSeed={projectFormSeed}
           onOpenProject={projectController.openProject}
           onSaveProject={(project) => void projectController.saveProject(project)}
