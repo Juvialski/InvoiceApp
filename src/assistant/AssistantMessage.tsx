@@ -4,6 +4,8 @@ import type { AssistantClientAction, AssistantPreparedAction } from "./assistant
 import type { AssistantConversationMessage } from "./assistantUiTypes.ts";
 import { AssistantActionCard } from "./AssistantActionCard.tsx";
 import { BRAND } from "../config/brand.ts";
+import { useAppPermissions } from "../app/AppPermissionContext.tsx";
+import { isAssistantActionAllowed } from "./assistantActionPolicy.ts";
 
 const LazyAssistantMessageContent = React.lazy(async () => {
   const module = await import("./AssistantMessageContent.ts");
@@ -22,8 +24,10 @@ export interface AssistantMessageProps {
 }
 
 export const AssistantMessage: React.FC<AssistantMessageProps> = ({ message, busy = false, onConfirmAction, onCancelAction, onClientAction }) => {
+  const permissions = useAppPermissions();
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
+  const visibleClientActions = message.clientActions.filter((action) => isAssistantActionAllowed(action, permissions));
   return (
     <article className={`flex gap-2.5 ${isUser ? "flex-row-reverse" : ""}`} aria-label={isUser ? "You" : BRAND.assistantName}>
       <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${isUser ? "bg-slate-200 text-slate-600" : isSystem ? "bg-amber-100 text-amber-700" : "bg-indigo-100 text-indigo-700"}`}>
@@ -43,7 +47,7 @@ export const AssistantMessage: React.FC<AssistantMessageProps> = ({ message, bus
         </div>
         {message.references.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{message.references.map((reference) => <span key={`${reference.type}:${reference.id || reference.label}`} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-500">{reference.label}</span>)}</div>}
         {message.preparedActions.length > 0 && <div className="mt-2 space-y-2">{message.preparedActions.map((action) => <AssistantActionCard key={action.id} preparedAction={action} busy={busy} onConfirm={onConfirmAction} onCancel={onCancelAction} />)}</div>}
-        {message.clientActions.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{message.clientActions.map((action, index) => <AssistantActionCard key={`${action.type}:${action.entityId || action.routeId || action.tourId || action.date || index}`} clientAction={action} busy={busy} onClientAction={onClientAction} />)}</div>}
+        {visibleClientActions.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{visibleClientActions.map((action, index) => <AssistantActionCard key={`${action.type}:${action.entityId || action.routeId || action.tourId || action.date || index}`} clientAction={action} busy={busy} onClientAction={onClientAction} />)}</div>}
       </div>
     </article>
   );
