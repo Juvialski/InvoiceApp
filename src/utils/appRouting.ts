@@ -1,14 +1,10 @@
 import type { AppTab } from "./routes.ts";
 import { getRouteForAppTab, normalizeRoutePath, resolveRoute, type RouteId } from "./routes.ts";
-import { companyManagementTabFromQuery, type CompanyManagementTab } from "./companyManagement.ts";
 import { getAppRouteContract } from "./appRouteContracts.ts";
 
 export type ProjectWorkspaceView = "overview" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
-export const PLATFORM_COMPANIES_PATH = getAppRouteContract("platform-companies")!.pathPattern as "/platform/companies";
-
 export type AppLocation =
-  | { kind: "platform-companies"; pathname: string; search: string; managementCompanyId?: string; managementTab?: CompanyManagementTab }
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
   | {
       kind: "project"; tab: "projects"; routeId: "projects"; projectId: string; view: ProjectWorkspaceView; pathname: string; search: string;
@@ -69,17 +65,6 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
   const query = new URLSearchParams(normalizedSearch);
   const segments = normalizedPath.split("/").filter(Boolean).map(safeDecode);
 
-  if (normalizedPath === PLATFORM_COMPANIES_PATH) {
-    const managementCompanyId = routeQueryValue(query, "platform-companies", "companyId")?.trim() || undefined;
-    const managementTab = companyManagementTabFromQuery(routeQueryValue(query, "platform-companies", "tab"));
-    return {
-      kind: "platform-companies",
-      pathname: normalizedPath,
-      search: normalizedSearch,
-      ...(managementCompanyId ? { managementCompanyId } : {}),
-      ...(managementTab !== "general" ? { managementTab } : {}),
-    };
-  }
   if (segments[0] === "projects" && segments[1]) {
     const requestedView = segments[2] || routeQueryValue(query, "project-workspace", "view") || "overview";
     const view = PROJECT_VIEWS.has(requestedView as ProjectWorkspaceView)
@@ -125,23 +110,15 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
 }
 
 export function appTabForLocation(location: AppLocation): AppTab {
-  return location.kind === "platform-companies" ? "dashboard" : location.tab;
+  return location.tab;
 }
 
-export function isKnownWorkspaceLocation(location: AppLocation): location is Exclude<AppLocation, { kind: "platform-companies" | "unknown" }> {
-  return location.kind !== "platform-companies" && location.kind !== "unknown";
+export function isKnownWorkspaceLocation(location: AppLocation): location is Exclude<AppLocation, { kind: "unknown" }> {
+  return location.kind !== "unknown";
 }
 
 export function appPathForTab(tab: AppTab) {
   return getRouteForAppTab(tab)?.path || "/dashboard";
-}
-
-export function appPathForPlatformCompanies(companyId?: string | null, tab?: CompanyManagementTab) {
-  const query = new URLSearchParams();
-  setRouteQueryValue(query, "platform-companies", "companyId", companyId || undefined);
-  if (tab && tab !== "general") setRouteQueryValue(query, "platform-companies", "tab", tab);
-  const suffix = query.toString();
-  return `${routeContractPath("platform-companies")}${suffix ? `?${suffix}` : ""}`;
 }
 
 export function appPathForProject(

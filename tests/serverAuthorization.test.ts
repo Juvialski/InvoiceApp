@@ -4,6 +4,7 @@ import test from "node:test";
 
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 const browserClient = readFileSync(new URL("../src/lib/companyApi.ts", import.meta.url), "utf8");
+const legacyBrowserClient = readFileSync(new URL("../src/lib/supabase.ts", import.meta.url), "utf8");
 const assistantHandler = readFileSync(new URL("../src/server/assistant/assistantHandler.ts", import.meta.url), "utf8");
 
 function routeBody(path: string) {
@@ -30,6 +31,8 @@ test("company-specific AI and Gmail routes require a database permission check",
   assert.match(assistantHandler, /router\.post\("\/cancel"/);
   assert.match(server, /p_company_id: companyId/);
   assert.match(server, /p_permission_key: permission/);
+  assert.match(server, /headerCompanyId = firstHeaderValue\(req\.headers\["x-company-id"\]\)/);
+  assert.match(server, /headerCompanyId !== companyId/);
 });
 
 test("the Express API separates Supabase and Google bearer tokens", () => {
@@ -40,11 +43,14 @@ test("the Express API separates Supabase and Google bearer tokens", () => {
   assert.doesNotMatch(server, /SUPABASE_SERVICE_ROLE_KEY/);
 });
 
-test("browser API helper sends the selected company and Supabase session", () => {
+test("browser API helper sends the deployment company and Supabase session", () => {
   assert.match(browserClient, /supabase\.auth\.getSession\(\)/);
   assert.match(browserClient, /headers\.set\("Authorization", `Bearer \$\{data\.session\.access_token\}`\)/);
   assert.match(browserClient, /assertDeploymentCompanyId\(deploymentCompanyId, options\.companyId/);
   assert.match(browserClient, /headers\.set\("X-Company-Id", deploymentCompanyId\)/);
   assert.match(browserClient, /X-Gmail-Access-Token/);
+  assert.match(legacyBrowserClient, /const deploymentCompanyId = getActiveCompanyId\(\)/);
+  assert.match(legacyBrowserClient, /requestedCompanyId !== deploymentCompanyId/);
+  assert.doesNotMatch(legacyBrowserClient, /options\.companyId \|\| getActiveCompanyId/);
 });
 

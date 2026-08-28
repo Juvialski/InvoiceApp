@@ -69,9 +69,22 @@ Read-only financial/project surfaces remain inspectable. Create, save, verify, a
 - Financial settlement history may be redacted by the settlement RPC when Cash & Banking transaction access is unavailable.
 - Settlement reversal is opt-in and requires `cash.reconcile`; the component defaults to no reversal capability.
 
-## Company switching
+## Deployment-company access refresh
 
-Company switching clears the active global company context and the current permission set before the next company is applied. Assistant company identity/generation changes also reset conversation, attachments, pending actions, and context state. A previous company's capabilities must not remain usable during a switch.
+The browser receives a read-only identity for the company configured in the
+current Engoryx deployment. It does not select, switch, or open an unrelated
+client company. On sign-in, sign-out, session replacement, role or membership
+change, Realtime access notification, and access refresh, the current company
+context and permissions are cleared before the backend re-resolves the
+deployment company and active membership. Workspace results and Assistant
+state tied to the previous user or deployment identity are discarded while
+that refresh is in flight.
+
+The compatibility `X-Company-Id` header can only confirm the authoritative
+deployment company. A missing deployment configuration, ambiguous legacy
+company state, suspended company, inactive membership, or mismatched header
+fails closed; none of those states is represented as an empty but usable
+workspace.
 
 ## Financial boundaries preserved
 

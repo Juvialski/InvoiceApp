@@ -73,11 +73,11 @@ export async function resolveCompanyAiRuntime(options: { supabase: SupabaseClien
   if (!resolution) {
     const fallback = globalFallbackRuntime(companyId, options.environment);
     if (fallback) return fallback;
-    throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI is not configured for this company. Contact the platform administrator.", 503);
+    throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI is not configured for this company. Contact an authorized deployment operator.", 503);
   }
   if (resolution.status === "INVALID") throw new CompanyAiError("AI_CREDENTIAL_INVALID", "The configured Gemini API key is invalid.", 503);
   if (resolution.status === "DISABLED") throw new CompanyAiError("AI_DISABLED_FOR_COMPANY", "AI is disabled for this company.", 503);
-  if (!resolution.credential) throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI is not configured for this company. Contact the platform administrator.", 503);
+  if (!resolution.credential) throw new CompanyAiError("AI_NOT_CONFIGURED_FOR_COMPANY", "AI is not configured for this company. Contact an authorized deployment operator.", 503);
   if (!resolution.enabled) throw new CompanyAiError("AI_DISABLED_FOR_COMPANY", "AI is disabled for this company.", 503);
 
   const envelope = resolution.credential;

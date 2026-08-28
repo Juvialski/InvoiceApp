@@ -140,7 +140,7 @@ export function dailySiteLogEventFromRow(row: Row): EngineeringDailySiteLogEvent
 function resolveCompanyId(companyId?: string): string {
   const active = getActiveCompanyId();
   const resolved = companyId?.trim() || active || requireActiveCompanyId();
-  if (active && active !== resolved) throw new Error("The selected company context changed. Reload Site Logs and retry.");
+  if (active && active !== resolved) throw new Error("Deployment company access changed. Reload Site Logs and retry.");
   return resolved;
 }
 

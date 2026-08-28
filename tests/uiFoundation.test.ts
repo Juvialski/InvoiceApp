@@ -107,9 +107,10 @@ test("Application root owns the only Astryx theme provider and optional routes s
   assert.doesNotMatch(fs.readFileSync(path.resolve(process.cwd(), "src/App.tsx"), "utf-8"), /EngoryxThemeProvider/);
 
   const routerContent = fs.readFileSync(path.resolve(process.cwd(), "src/app/routes/AppRouter.tsx"), "utf-8");
-  for (const route of ["CashBankingRoute", "InvoicesRoute", "PayrollRoute", "ExpensesRoute", "ReportsRoute", "SettingsRoute", "PlatformCompaniesRoute"]) {
+  for (const route of ["CashBankingRoute", "InvoicesRoute", "PayrollRoute", "ExpensesRoute", "ReportsRoute", "SettingsRoute"]) {
     assert.match(routerContent, new RegExp(`const ${route} = lazy\\(\\(\\) => import\\(\\"\\./${route}\\"\\)\\)`));
   }
+  assert.doesNotMatch(routerContent, /PlatformCompaniesRoute|platformCompaniesProps/);
   assert.match(routerContent, /const ProjectsRoute = lazy\(\(\) => import\("\.\/ProjectsRoute"\)\.then\(\(\{ ProjectsRoute \}\) => \(\{ default: ProjectsRoute \}\)\)\)/);
 });
 

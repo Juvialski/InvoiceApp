@@ -18,6 +18,15 @@ begin
   values (v_company_id, 'Upgrade Test Corp', 'upg-corp', 'ACTIVE', 'PHP', 'Asia/Manila', v_user_id)
   on conflict (id) do nothing;
 
+  -- Represent inherited operator state that the single-company closure must
+  -- remove without depending on a named developer identity.
+  insert into public.platform_admin_allowlist (normalized_email)
+  values ('historical-audit-tester@example.com')
+  on conflict (normalized_email) do nothing;
+  insert into public.platform_admins (user_id)
+  values (v_user_id)
+  on conflict (user_id) do nothing;
+
   -- Seed representative historical audit rows across all pre-Cash categories
   insert into public.company_audit_events (company_id, actor_user_id, event_type, target_type, metadata)
   values

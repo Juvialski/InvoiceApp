@@ -46,6 +46,10 @@ async function main() {
       console.error("\n❌ Database connection required in CI / strict mode.");
       process.exit(1);
     }
+    if (upgradeResult && (upgradeResult as any).skipped) {
+      console.warn("\n⚠️  Static migration checks passed; live upgrade-path validation was skipped because PostgreSQL is unavailable.");
+      return;
+    }
   } catch (err: any) {
     console.error(`\n❌ Migration validation failed:\n   ${err.message}`);
     process.exit(1);

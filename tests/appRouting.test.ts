@@ -5,14 +5,12 @@ import {
   appPathForInvoice,
   appPathForPayrollRun,
   appPathForProject,
-  appPathForPlatformCompanies,
   appPathForReviewInvoice,
   appPathForTab,
   appTabForLocation,
   isKnownWorkspaceLocation,
   parseAppLocation,
   payrollRunIdFromSearch,
-  PLATFORM_COMPANIES_PATH,
 } from "../src/utils/appRouting.ts";
 import { pathForAssistantAction } from "../src/assistant/assistantNavigation.ts";
 
@@ -77,23 +75,11 @@ test("payroll run links keep the canonical payroll route and target the exact ru
   assert.match(payrollRouteSource, /selectedPeriodId=\{requestedPeriod\.id\}/);
 });
 
-test("treats platform company management as a first-class non-workspace route", () => {
-  const location = parseAppLocation(PLATFORM_COMPANIES_PATH);
-  assert.deepEqual(location, { kind: "platform-companies", pathname: PLATFORM_COMPANIES_PATH, search: "" });
+test("legacy platform-company deep links fail closed instead of selecting a workspace", () => {
+  const location = parseAppLocation("/platform/companies?companyId=00000000-0000-4000-8000-000000000001&tab=ai");
+  assert.equal(location.kind, "unknown");
   assert.equal(appTabForLocation(location), "dashboard");
   assert.equal(isKnownWorkspaceLocation(location), false);
-});
-
-test("platform management deep links select a company and management tab without opening its workspace", () => {
-  const companyId = "00000000-0000-4000-8000-000000000001";
-  assert.equal(appPathForPlatformCompanies(companyId, "ai"), `${PLATFORM_COMPANIES_PATH}?companyId=${companyId}&tab=ai`);
-  assert.deepEqual(parseAppLocation(`${PLATFORM_COMPANIES_PATH}?companyId=${companyId}&tab=ai`), {
-    kind: "platform-companies",
-    pathname: PLATFORM_COMPANIES_PATH,
-    search: `?companyId=${companyId}&tab=ai`,
-    managementCompanyId: companyId,
-    managementTab: "ai",
-  });
 });
 
 test("assistant navigation generates correct routes for project documents and views", () => {

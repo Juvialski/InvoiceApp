@@ -6,5 +6,4 @@ export * from "./PayrollRoute";
 export * from "./ExpensesRoute";
 export * from "./ReportsRoute";
 export * from "./SettingsRoute";
-export * from "./PlatformCompaniesRoute";
 export * from "./AppRouter";

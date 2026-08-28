@@ -4,7 +4,6 @@ import test from "node:test";
 
 const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const access = readFileSync(new URL("../src/context/CompanyAccessContext.tsx", import.meta.url), "utf8");
-const management = readFileSync(new URL("../src/components/access/CompanyManagement.tsx", import.meta.url), "utf8");
 
 test("normal route changes do not belong to the full workspace lifecycle effect", () => {
   const effect = app.match(/useEffect\(\(\) => \{\r?\n    if \(!authResolved\)[\s\S]*?\r?\n  \}, \[[^\]]+\]\);/);
@@ -32,12 +31,4 @@ test("access bootstrap is coalesced per stable user identity and has no tenant-s
   assert.doesNotMatch(access, /selectionGenerationRef|preferredCompanyId|selectionChanged/);
   assert.doesNotMatch(access, /const refreshAccess = useCallback\(async \(\) => \{[\s\S]*?\}, \[session, setAccessSnapshot\]\);/);
   assert.match(access, /return \(\) => \{ void supabase\.removeChannel\(channel\); \};/);
-});
-
-test("company administration distinguishes management selection from active workspace opening", () => {
-  assert.match(management, /managementCompanyId/);
-  assert.match(management, /activeCompanyId/);
-  assert.match(management, /selectManagementCompany\(company\.id\)/);
-  assert.match(management, /Open workspace/);
-  assert.match(management, /onOpenWorkspace/);
 });

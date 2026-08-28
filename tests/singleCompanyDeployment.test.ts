@@ -26,7 +26,7 @@ function snapshot(overrides: Partial<CompanyAccessSnapshot> = {}): CompanyAccess
   };
 }
 
-test("deployment access resolves exactly the configured company and suppresses platform-owner semantics", () => {
+test("deployment access resolves exactly the configured company and suppresses legacy operator semantics", () => {
   const resolved = resolveDeploymentCompanyAccess(snapshot(), DEPLOYMENT);
   assert.equal(resolved.status, "ready");
   assert.equal(resolved.activeCompanyId, DEPLOYMENT);
@@ -103,6 +103,7 @@ test("database migration keeps company_id boundaries while binding authorization
   assert.match(migration, /company\.members\.manage/);
   assert.match(migration, /Creating additional companies is disabled/);
   assert.match(guards, /At least one active Company Admin must remain/);
+  assert.match(guards, /before insert or update or delete on public\.company_members/);
   assert.match(guards, /Membership cannot target a company outside this Engoryx deployment/);
   assert.match(guards, /companies_single_deployment_guard/);
 });

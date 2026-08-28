@@ -23,8 +23,8 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Source classification | `mixed` |
 | Reviewed against | `b88584f147b85d0b8154a4c104859a0e035bed82` |
 | Reviewed at | `2026-08-28` |
-| Node count | 184 |
-| Edge count | 212 |
+| Node count | 183 |
+| Edge count | 211 |
 | Invariant count | 11 |
 | Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Cross-Domain Settlement`, `QA-1`, `WM-1` |
 
@@ -34,7 +34,6 @@ Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContract
 
 | Node | Route ID | Canonical path | Query keys | Scope |
 | --- | --- | --- | --- | --- |
-| **Platform company management route**<br/><small>`route-platform-companies`</small> | `platform-companies` | `/platform/companies` | `companyId`, `tab` | `global` |
 | **Demo landing route**<br/><small>`route-demo-landing`</small> | demo-only | `/demo` | — | `demo-only` |
 | **Demo Assistant route**<br/><small>`route-demo-assistant`</small> | demo-only | `/demo/app/assistant` | — | `demo-only` |
 | **Demo standalone Engineering Documents route**<br/><small>`route-demo-documents`</small> | demo-only | `/demo/app/documents` | — | `demo-only` |
@@ -705,13 +704,12 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Deployment configured company**<br/><small>`deployment-company`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/deploymentCompany.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260828150000_single_company_deployment.sql` | `tests/singleCompanyDeployment.test.ts` | — |
 | **Isolated demo mode**<br/><small>`demo-mode`</small> | `workflow` | `demo-only`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspace.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |
 | **Workspace shell and router**<br/><small>`platform-shell`</small> | `screen` | `company`<br/>— | — | — | `code-derived` | `src/app/AppShell.tsx`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/navigation/navigationModel.ts` | `tests/headerNavigation.test.ts`<br/>`tests/navigationRoutes.test.ts` | — |
-| **Deployment company context**<br/><small>`company-context`</small> | `data` | `company`<br/>— | — | — | `code-derived` | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/lib/companyContext.ts` | `tests/companyAccess.test.ts`<br/>`tests/companyManagement.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
+| **Deployment company context**<br/><small>`company-context`</small> | `data` | `company`<br/>— | — | — | `code-derived` | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/lib/companyContext.ts` | `tests/companyAccess.test.ts`<br/>`tests/singleCompanyDeployment.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
 | **User membership and role permissions**<br/><small>`company-membership`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/companyAccess.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql` | `tests/companyTenancyRpcContract.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts` | — |
 | **Company RBAC and RLS guard**<br/><small>`company-rbac`</small> | `guard` | `company`<br/>— | — | `dashboard.read`<br/>`projects.read`<br/>`cash.summary.read`<br/>`invoices.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/utils/accessControl.ts`<br/>`src/lib/companyAccess.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyMigration.test.ts`<br/>`tests/serverAuthorization.test.ts` | — |
 | **Production persistence boundary**<br/><small>`production-persistence-boundary`</small> | `external-boundary` | `company`<br/>— | — | — | `mixed` | `src/lib/supabase.ts`<br/>`src/lib/persistence.ts`<br/>`src/lib/workspaceSync.ts`<br/>`supabase/migrations/20260824095000_company_tenancy_storage_and_verification.sql` | `tests/companyTenancyFinalContract.test.ts`<br/>`tests/workspaceSyncRegression.test.ts` | — |
 | **Demo isolation guard**<br/><small>`demo-isolation`</small> | `guard` | `demo-only`<br/>— | — | — | `mixed` | `src/demo/DemoWorkspaceProvider.tsx`<br/>`src/demo/demoState.ts`<br/>`src/demo/demoRouting.ts`<br/>`src/demo/DemoWorkspace.tsx` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` | — |
 | **Workspace cache and Realtime synchronization**<br/><small>`workspace-sync`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/lib/workspaceSync.ts`<br/>`src/lib/workspaceLoadCache.ts`<br/>`src/lib/workspaceSyncInstrumentation.ts`<br/>`supabase/migrations/20260823180000_workspace_sync_realtime.sql` | `tests/workspaceSync.test.ts`<br/>`tests/workspaceSyncRegression.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
-| **Platform company management route**<br/><small>`route-platform-companies`</small> | `route` | `global`<br/>`platform-companies`<br/>`/platform/companies`<br/>query: `companyId`, `tab` | — | `platform.manage` | `code-derived` | `src/utils/appRouting.ts`<br/>`src/app/routes/PlatformCompaniesRoute.tsx`<br/>`src/components/access/CompanyManagement.tsx` | `tests/appRouting.test.ts`<br/>`tests/companyManagement.test.ts` | — |
 | **Demo landing route**<br/><small>`route-demo-landing`</small> | `route` | `demo-only`<br/>demo-only<br/>`/demo` | — | — | `code-derived` | `src/demo/demoRouting.ts`<br/>`src/demo/DemoLandingPage.tsx` | `tests/demoWorkspace.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |
 | **Settings route**<br/><small>`route-settings`</small> | `route` | `company`<br/>`settings`<br/>`/settings` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/SettingsRoute.tsx`<br/>`src/components/Settings.tsx` | `tests/appRouting.test.ts` | — |
 

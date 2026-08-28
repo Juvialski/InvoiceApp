@@ -141,6 +141,10 @@ async function authenticateServerRequest(req: express.Request) {
 async function authorizePlatformCompanyRequest(req: express.Request, companyId: string): Promise<CompanyRequestAuthorization> {
   if (!UUID_PATTERN.test(companyId)) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A valid company context is required for this operation.");
   const auth = await authenticateServerRequest(req);
+  const headerCompanyId = firstHeaderValue(req.headers["x-company-id"]).trim();
+  if (headerCompanyId && (!UUID_PATTERN.test(headerCompanyId) || headerCompanyId !== companyId)) {
+    throw new ApiAuthorizationError(403, "FORBIDDEN", "This request cannot target another Engoryx deployment company.");
+  }
   const { data: deploymentCompanyId, error: deploymentError } = await auth.supabase.rpc("get_deployment_company_id");
   if (deploymentError || deploymentCompanyId !== companyId) {
     throw new ApiAuthorizationError(deploymentError ? 503 : 403, deploymentError ? "SERVER_AUTH_UNAVAILABLE" : "FORBIDDEN", deploymentError ? "Deployment company authorization is temporarily unavailable." : "Platform maintenance cannot target another Engoryx deployment company.");

@@ -12,6 +12,23 @@ declare
   v_deployment_company_id uuid := (select private.deployment_company_id());
   v_other_admins integer;
 begin
+  if tg_op = 'DELETE' then
+    if old.company_id = v_deployment_company_id
+       and old.role_key = 'COMPANY_ADMIN'
+       and old.status = 'ACTIVE'
+       and not exists (
+         select 1
+         from public.company_members cm
+         where cm.company_id = old.company_id
+           and cm.id <> old.id
+           and cm.role_key = 'COMPANY_ADMIN'
+           and cm.status = 'ACTIVE'
+       ) then
+      raise exception 'At least one active Company Admin must remain in the deployment company' using errcode = '23514';
+    end if;
+    return old;
+  end if;
+
   if v_deployment_company_id is not null and new.company_id is distinct from v_deployment_company_id then
     raise exception 'Membership cannot target a company outside this Engoryx deployment' using errcode = '42501';
   end if;
@@ -41,7 +58,7 @@ revoke execute on function private.enforce_deployment_company_membership() from 
 
 drop trigger if exists company_members_deployment_guard on public.company_members;
 create trigger company_members_deployment_guard
-before insert or update on public.company_members
+before insert or update or delete on public.company_members
 for each row execute function private.enforce_deployment_company_membership();
 
 create or replace function private.enforce_deployment_company_invitation()

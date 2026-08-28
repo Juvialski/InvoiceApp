@@ -113,9 +113,6 @@ export interface AppShellProps {
   onSignOut?: () => Promise<void> | void;
   companies?: readonly CompanySummary[];
   activeCompanyId?: string | null;
-  isPlatformOwner?: boolean;
-  onSelectCompany?: (companyId: string) => Promise<void> | void;
-  onOpenPlatformManagement?: () => void;
   visibleRouteIds?: readonly RouteId[];
   permissions?: readonly PermissionKey[];
 
@@ -154,9 +151,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   onSignOut,
   companies = [],
   activeCompanyId,
-  isPlatformOwner = false,
-  onSelectCompany,
-  onOpenPlatformManagement,
   visibleRouteIds,
   permissions = [],
   notification,
@@ -186,9 +180,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           onSignOut={onSignOut}
           companies={companies}
           activeCompanyId={activeCompanyId}
-          isPlatformOwner={isPlatformOwner}
-          onSelectCompany={onSelectCompany}
-          onOpenPlatformManagement={onOpenPlatformManagement}
           visibleRouteIds={visibleRouteIds}
           permissions={permissions}
         />

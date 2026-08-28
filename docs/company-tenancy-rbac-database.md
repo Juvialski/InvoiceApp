@@ -43,7 +43,8 @@ The original tenancy migrations remain additive and data-preserving:
 8. `20260824101000_company_tenancy_sql_corrections.sql` corrects invitation claiming and Storage details.
 9. Later compatibility migrations align lead/server RPC shapes and domain additions.
 10. `20260828150000_single_company_deployment.sql` converts application semantics to one configured deployment company, removes platform-owner business-data override, binds invitations/member administration to that company, and disables authenticated creation of additional companies.
-11. `20260828151000_single_company_access_guards.sql` prevents membership/invitation retargeting, prevents creating another company after deployment configuration, and prevents demoting/revoking/suspending the last active `COMPANY_ADMIN`.
+11. `20260828151000_single_company_access_guards.sql` prevents membership/invitation retargeting, prevents creating another company after deployment configuration, and prevents demoting/revoking/suspending/deleting the last active `COMPANY_ADMIN`.
+12. `20260828151500_single_company_platform_update_signature_transition.sql` and `20260828152000_single_company_platform_maintenance.sql` finalize compatibility RPC signatures and bind internal maintenance to the configured deployment company.
 
 No single-company migration deletes business rows, historical companies, or Storage objects. Historical extra-company rows on an upgraded database remain preserved but are inaccessible through ordinary client-deployment authorization once a deployment company is configured. They should be exported/split deliberately if a legacy multi-company database is ever converted into separate client deployments.
 
@@ -58,7 +59,7 @@ Runtime bootstrap:
 - `claim_company_invitations()` claims only invitations for the deployment company.
 - `has_company_permission(company_id, permission_key)` succeeds only when `company_id` is the configured deployment company and the authenticated user has an ACTIVE membership/role permission in an ACTIVE company.
 
-The old selected-company header remains a compatibility transport for Express endpoints, but it is not a selection mechanism. Browser `companyApiRequest()` replaces it with the resolved deployment-company ID and rejects a mismatched caller-supplied ID before sending a request. Database permission helpers independently reject a different company ID, so frontend hiding is not the security boundary.
+The legacy company header remains a compatibility transport for Express endpoints, but it is not a selection mechanism. Browser `companyApiRequest()` replaces it with the resolved deployment-company ID and rejects a mismatched caller-supplied ID before sending a request. Database permission helpers independently reject a different company ID, so frontend hiding is not the security boundary.
 
 ## Roles and access management
 
@@ -73,7 +74,7 @@ Seeded company roles remain:
 
 Company administrators manage members under the Settings surface for the deployment company. Invitation creation, role changes, suspension/reactivation, and revocation are authorized again at the database RPC layer using `company.members.manage`; the administrator does not choose a company. Database triggers prevent removing the last active Company Admin.
 
-Platform-owner maintenance tables/RPC names remain for migration compatibility and internal maintenance history, but ordinary client deployments do not expose global cross-company navigation or platform-owner business-data access. A future global operator console, if needed, should be a separate internal deployment/tool rather than a tenant picker inside a client Engoryx instance.
+Platform-owner maintenance tables/RPC names remain for migration compatibility and explicit internal maintenance only. The final deployment migration clears inherited platform-admin and allowlist records because the legacy tables do not preserve seed provenance; an internal operator must be provisioned deliberately afterward if needed. Ordinary client deployments do not expose global navigation or platform-owner business-data access. A future fleet operator console belongs in a separate internal deployment/tool.
 
 ## Persistence, Storage, Gmail, and Assistant boundaries
 

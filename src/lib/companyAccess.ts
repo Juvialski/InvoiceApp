@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
-import { normalizePermissionKeys, type PermissionKey, ALL_PERMISSION_KEYS } from "../utils/accessControl.ts";
+import { hasPermission, normalizePermissionKeys, type PermissionKey } from "../utils/accessControl.ts";
 import { supabase } from "./supabase.ts";
 
 export const COMPANY_ACCESS_RPC = "get_my_company_access";
@@ -128,10 +128,6 @@ function text(value: unknown): string | undefined {
   return String(value);
 }
 
-function bool(value: unknown) {
-  return value === true || value === 1 || value === "true";
-}
-
 function firstPresent(source: Record<string, any>, ...keys: string[]) {
   for (const key of keys) if (source[key] !== undefined && source[key] !== null) return source[key];
   return undefined;
@@ -189,7 +185,6 @@ export function normalizeCompanyAccessPayload(payload: unknown, user?: Pick<User
   if (rowShape) {
     const companies = new Map<string, CompanySummary>();
     const memberships: CompanyMembership[] = [];
-    const isPlatformOwner = responseRows.some((item) => bool(firstPresent(record(item), "is_platform_admin", "isPlatformOwner", "platform_owner")));
     for (const item of responseRows) {
       const row = record(item);
       const company = companyFromRecord(row);
@@ -199,7 +194,7 @@ export function normalizeCompanyAccessPayload(payload: unknown, user?: Pick<User
         if (membership) memberships.push(membership);
       }
     }
-    const status: CompanyAccessStatus = isPlatformOwner || memberships.some((membership) => membership.status === "ACTIVE")
+    const status: CompanyAccessStatus = memberships.some((membership) => membership.status === "ACTIVE")
       ? "ready"
       : memberships.some((membership) => membership.status === "SUSPENDED" && companies.get(membership.companyId)?.status === "SUSPENDED")
         ? "company-suspended"
@@ -208,7 +203,7 @@ export function normalizeCompanyAccessPayload(payload: unknown, user?: Pick<User
       status,
       userId: user?.id,
       email: user?.email || undefined,
-      isPlatformOwner,
+      isPlatformOwner: false,
       companies: [...companies.values()],
       memberships,
       activeCompanyId: null,
@@ -217,9 +212,6 @@ export function normalizeCompanyAccessPayload(payload: unknown, user?: Pick<User
   }
 
   const raw = unwrapRpcPayload(payload);
-  const platform = record(firstPresent(raw, "platform", "platform_admin", "platformAdmin"));
-  const isPlatformOwner = bool(firstPresent(raw, "is_platform_owner", "isPlatformOwner", "platform_owner", "platformOwner"))
-    || bool(firstPresent(platform, "is_owner", "isOwner", "is_platform_owner", "isPlatformOwner"));
   const rawCompanies = array(firstPresent(raw, "companies", "accessible_companies", "accessibleCompanies"));
   const rawMemberships = array(firstPresent(raw, "memberships", "company_members", "companyMembers"));
   const permissionsByCompany = record(firstPresent(raw, "permissions_by_company", "permissionsByCompany"));
@@ -243,7 +235,7 @@ export function normalizeCompanyAccessPayload(payload: unknown, user?: Pick<User
     }
   }
 
-  const status: CompanyAccessStatus = isPlatformOwner || memberships.some((membership) => membership.status === "ACTIVE")
+  const status: CompanyAccessStatus = memberships.some((membership) => membership.status === "ACTIVE")
     ? "ready"
     : memberships.some((membership) => membership.status === "SUSPENDED" && companies.get(membership.companyId)?.status === "SUSPENDED")
       ? "company-suspended"
@@ -253,33 +245,33 @@ export function normalizeCompanyAccessPayload(payload: unknown, user?: Pick<User
     status,
     userId: user?.id,
     email: user?.email || undefined,
-    isPlatformOwner,
+    isPlatformOwner: false,
     companies: [...companies.values()],
     memberships,
     activeCompanyId: null,
     permissions: [],
   };
 }
-export function permissionsForCompany(snapshot: Pick<CompanyAccessSnapshot, "isPlatformOwner" | "memberships">, companyId: string | null | undefined): PermissionKey[] {
+export function permissionsForCompany(snapshot: Pick<CompanyAccessSnapshot, "memberships">, companyId: string | null | undefined): PermissionKey[] {
   if (!companyId) return [];
-  if (snapshot.isPlatformOwner) return [...ALL_PERMISSION_KEYS];
   const membership = snapshot.memberships.find((item) => item.companyId === companyId && item.status === "ACTIVE");
   return membership ? [...membership.permissions] : [];
 }
 
-export function canManageCompany(snapshot: Pick<CompanyAccessSnapshot, "isPlatformOwner" | "companies">, companyId: string): boolean {
+export function canManageCompany(snapshot: Pick<CompanyAccessSnapshot, "companies" | "memberships">, companyId: string): boolean {
   const company = snapshot.companies.find((item) => item.id === companyId);
-  return Boolean(company && snapshot.isPlatformOwner);
+  const membership = snapshot.memberships.find((item) => item.companyId === companyId && item.status === "ACTIVE");
+  return Boolean(company && membership && hasPermission(membership.permissions, "company.members.manage"));
 }
 
-export function canOpenCompanyWorkspace(snapshot: Pick<CompanyAccessSnapshot, "isPlatformOwner" | "companies" | "memberships">, companyId: string): boolean {
+export function canOpenCompanyWorkspace(snapshot: Pick<CompanyAccessSnapshot, "companies" | "memberships">, companyId: string): boolean {
   const company = snapshot.companies.find((item) => item.id === companyId);
   if (!company || company.status.toUpperCase() !== "ACTIVE") return false;
-  return snapshot.isPlatformOwner || snapshot.memberships.some((item) => item.companyId === companyId && item.status === "ACTIVE");
+  return snapshot.memberships.some((item) => item.companyId === companyId && item.status === "ACTIVE");
 }
 
 /** @deprecated Use canOpenCompanyWorkspace for workspace selection semantics. */
-export function companyIsSelectable(snapshot: Pick<CompanyAccessSnapshot, "isPlatformOwner" | "companies" | "memberships">, companyId: string): boolean {
+export function companyIsSelectable(snapshot: Pick<CompanyAccessSnapshot, "companies" | "memberships">, companyId: string): boolean {
   return canOpenCompanyWorkspace(snapshot, companyId);
 }
 

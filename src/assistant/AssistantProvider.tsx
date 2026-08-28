@@ -121,7 +121,7 @@ function errorMessage(error: unknown, canConfigureAi = false) {
     const reference = error instanceof AssistantClientError ? error.reference : undefined;
     return reference ? `${message} Reference: ${reference}.` : message;
   };
-  if (code === "AI_CREDENTIAL_INVALID") return withReference(canConfigureAi ? "The configured Gemini key could not be authenticated." : "The company AI configuration needs attention. Contact your platform administrator.");
+  if (code === "AI_CREDENTIAL_INVALID") return withReference(canConfigureAi ? "The configured Gemini key could not be authenticated." : "The company AI configuration needs attention. Contact an authorized deployment operator.");
   if (code === "AI_QUOTA_LIMITED") return withReference("Gemini quota or rate limit has been reached.");
   if (code === "AI_PROVIDER_ACCESS_DENIED") return withReference("The configured Gemini project does not have access to the requested AI service.");
   if (code === "AI_MODEL_UNAVAILABLE") return withReference("The AI model is temporarily unavailable.");
@@ -129,8 +129,8 @@ function errorMessage(error: unknown, canConfigureAi = false) {
   if (code === "AI_REQUEST_REJECTED") return withReference("Gemini rejected the assistant request configuration.");
   if (code === "AI_TIMEOUT") return withReference("The AI request timed out.");
   if (code === "AI_NETWORK_ERROR") return withReference(`${BRAND.assistantName} could not reach Gemini.`);
-  if (code === "AI_NOT_CONFIGURED_FOR_COMPANY") return withReference(canConfigureAi ? "AI is not configured for this company." : "The company AI configuration needs attention. Contact your platform administrator.");
-  if (code === "AI_DISABLED_FOR_COMPANY") return withReference(canConfigureAi ? "AI is disabled for this company." : "The company AI configuration needs attention. Contact your platform administrator.");
+  if (code === "AI_NOT_CONFIGURED_FOR_COMPANY") return withReference(canConfigureAi ? "AI is not configured for this company." : "The company AI configuration needs attention. Contact an authorized deployment operator.");
+  if (code === "AI_DISABLED_FOR_COMPANY") return withReference(canConfigureAi ? "AI is disabled for this company." : "The company AI configuration needs attention. Contact an authorized deployment operator.");
   if (error instanceof Error && error.message) return error.message;
   return `${BRAND.assistantName} could not complete that request.`;
 }
@@ -341,7 +341,7 @@ export function AssistantProvider({
   const sendMessage = useCallback(async (message: string, options: { requestId?: string; isRetry?: boolean; attachments?: readonly AssistantAttachmentInput[] } = {}) => {
     if (isLoading) return false;
     if (!canUseAssistant || !companyId) {
-      setError(`Sign in and select a company before using ${BRAND.assistantName}.`);
+      setError(`Sign in and resolve deployment access before using ${BRAND.assistantName}.`);
       setIsOpen(true);
       return false;
     }
@@ -417,7 +417,7 @@ export function AssistantProvider({
 
   const confirmAction = useCallback(async (actionId: string) => {
     if (!canUseAssistant || !companyId) {
-      setError("Sign in and select a company before confirming an assistant action.");
+      setError("Sign in and resolve deployment access before confirming an assistant action.");
       return false;
     }
     const pending = pendingActionsRef.current.find((action) => action.id === actionId && action.status === "PREPARED");
@@ -468,7 +468,7 @@ export function AssistantProvider({
 
   const cancelAction = useCallback(async (actionId: string) => {
     if (!canUseAssistant || !companyId) {
-      setError("Sign in and select a company before cancelling an assistant action.");
+      setError("Sign in and resolve deployment access before cancelling an assistant action.");
       return false;
     }
     const pending = pendingActionsRef.current.find((action) => action.id === actionId && action.status === "PREPARED");

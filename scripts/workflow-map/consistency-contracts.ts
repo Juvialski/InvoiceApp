@@ -15,7 +15,6 @@ import {
   appPathForCashTransaction,
   appPathForInvoice,
   appPathForPayrollRun,
-  appPathForPlatformCompanies,
   appPathForProject,
   appPathForReviewInvoice,
   financialTransactionIdFromSearch,
@@ -101,7 +100,6 @@ export interface WorkflowMapConsistencyContracts {
 }
 
 export const WORKFLOW_ROUTE_CONTRACT_IDS: Readonly<Record<string, string>> = Object.freeze({
-  "route-platform-companies": "platform-companies",
   "route-demo-landing": "demo-landing",
   "route-demo-assistant": "demo-assistant",
   "route-demo-documents": "demo-documents",
@@ -135,10 +133,7 @@ function locationSummary(path: string): WorkflowRouteRoundTripResult {
   const location = parseAppLocation(pathname, search);
   const selected: Record<string, string | undefined> = {};
 
-  if (location.kind === "platform-companies") {
-    selected.companyId = location.managementCompanyId;
-    selected.tab = location.managementTab;
-  } else if (location.kind === "project") {
+  if (location.kind === "project") {
     selected.projectId = location.projectId;
     selected.view = location.view;
     selected.documentId = location.documentId;
@@ -193,7 +188,6 @@ function roundTrip(
 }
 
 const PROJECT_ID = "00000000-0000-4000-8000-000000000001";
-const COMPANY_ID = "00000000-0000-4000-8000-000000000002";
 const DOCUMENT_ID = "00000000-0000-4000-8000-000000000003";
 const REVISION_ID = "00000000-0000-4000-8000-000000000004";
 const RFI_ID = "00000000-0000-4000-8000-000000000005";
@@ -205,13 +199,6 @@ const TRANSACTION_ID = "00000000-0000-4000-8000-000000000010";
 const PAYROLL_RUN_ID = "00000000-0000-4000-8000-000000000011";
 
 const ROUTE_ROUND_TRIPS: readonly WorkflowRouteRoundTripContract[] = [
-  roundTrip(
-    "route-platform-companies",
-    "platform company selection and management tab",
-    () => appPathForPlatformCompanies(COMPANY_ID, "ai"),
-    `/platform/companies?companyId=${COMPANY_ID}&tab=ai`,
-    (path) => expectedLocation(path, "platform-companies", null, { companyId: COMPANY_ID, tab: "ai" }),
-  ),
   roundTrip(
     "route-project-documents",
     "project document and revision selection",

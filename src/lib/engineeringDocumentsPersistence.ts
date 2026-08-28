@@ -285,7 +285,7 @@ function requireRemoteUser(userId: string | null): string {
 function resolveCompanyId(companyId?: string): string {
   const activeCompanyId = getActiveCompanyId();
   const resolved = companyId?.trim() || activeCompanyId || requireActiveCompanyId();
-  if (activeCompanyId && activeCompanyId !== resolved) throw new Error("The selected company context changed. Reload the engineering workspace and retry.");
+  if (activeCompanyId && activeCompanyId !== resolved) throw new Error("Deployment company access changed. Reload the engineering workspace and retry.");
   return resolved;
 }
 
@@ -503,7 +503,7 @@ export async function getEngineeringDocumentFileUrl(
   const companyId = resolveCompanyId(explicitCompanyId);
   const normalizedFilePath = filePath.trim();
   if (!expectedDocumentId || !expectedRevisionId || !isEngineeringDocumentStoragePathForRevision(normalizedFilePath, companyId, expectedDocumentId, expectedRevisionId)) {
-    throw new Error("The engineering revision source is outside the active company.");
+    throw new Error("The engineering revision source is outside the deployment company.");
   }
 
   const { data, error } = await supabase!.storage
@@ -530,7 +530,7 @@ export async function compensateUnprovenancedEngineeringDocumentUpload(
   const companyId = resolveCompanyId(explicitCompanyId);
   const normalizedFilePath = filePath.trim();
   if (!isEngineeringDocumentStoragePathForRevision(normalizedFilePath, companyId, expectedDocumentId, expectedRevisionId)) {
-    throw new Error("Refusing to compensate an engineering upload outside the active company.");
+    throw new Error("Refusing to compensate an engineering upload outside the deployment company.");
   }
   const { error } = await supabase!.storage
     .from(ENGINEERING_DOCUMENTS_BUCKET)

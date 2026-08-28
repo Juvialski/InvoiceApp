@@ -359,7 +359,7 @@
       ],
       "testRefs": [
         "tests/companyAccess.test.ts",
-        "tests/companyManagement.test.ts",
+        "tests/singleCompanyDeployment.test.ts",
         "tests/workspaceLoadCache.test.ts"
       ],
       "invariantIds": [
@@ -483,37 +483,6 @@
       ],
       "invariantIds": [
         "company-rbac-is-authoritative"
-      ]
-    },
-    {
-      "sourceClassification": "code-derived",
-      "id": "route-platform-companies",
-      "label": "Platform company management route",
-      "domain": "platform-tenancy",
-      "type": "route",
-      "scope": "global",
-      "route": {
-        "routeId": "platform-companies",
-        "canonicalPath": "/platform/companies",
-        "pathPattern": "/platform/companies",
-        "queryKeys": [
-          "companyId",
-          "tab"
-        ],
-        "scope": "production"
-      },
-      "description": "Platform-owner company and membership management deep link; it does not open the selected company workspace.",
-      "permissionKeys": [
-        "platform.manage"
-      ],
-      "fileRefs": [
-        "src/utils/appRouting.ts",
-        "src/app/routes/PlatformCompaniesRoute.tsx",
-        "src/components/access/CompanyManagement.tsx"
-      ],
-      "testRefs": [
-        "tests/appRouting.test.ts",
-        "tests/companyManagement.test.ts"
       ]
     },
     {
@@ -4673,14 +4642,6 @@
       "invariantIds": [
         "company-rbac-is-authoritative"
       ]
-    },
-    {
-      "id": "route-platform-management-to-shell",
-      "source": "route-platform-companies",
-      "target": "platform-shell",
-      "type": "routes-to",
-      "kind": "navigation",
-      "label": "platform management"
     },
     {
       "id": "demo-landing-to-demo-mode",

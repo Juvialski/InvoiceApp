@@ -18,32 +18,25 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 The publishable key is intended for browser clients. Do **not** put a Supabase service-role/secret key in the frontend.
 
-## 2. Apply the included database migration
+## 2. Apply the complete migration set
 
-Run this file in the new project's SQL editor or through your normal Supabase migration workflow:
+Apply every file under `supabase/migrations/` in repository order through the
+normal Supabase migration workflow. Do not apply only the invoice foundation:
+the current chain also establishes company-scoped RLS, Storage boundaries,
+membership/RBAC, deployment-company resolution, immutable history rules, and
+the single-company deployment guards.
 
-```text
-supabase/migrations/20260822150000_invoice_operations_foundation.sql
-```
+After the migrations, provision exactly one client company and set
+`public.deployment_configuration.company_id` through an administrative or
+service-role process. Create the initial active `COMPANY_ADMIN` membership
+explicitly. A fresh database intentionally does not invent a client company;
+an upgraded database with multiple active companies and no configuration
+fails closed as ambiguous.
 
-It creates:
-
-- `profiles`
-- `gmail_connections`
-- `gmail_sync_state`
-- `email_messages`
-- `source_documents`
-- `vendors`
-- `invoices`
-- `invoice_line_items`
-- `invoice_extractions`
-- `invoice_review_events`
-- private `invoice-originals` Storage bucket
-- private `email-originals` Storage bucket
-
-It also enables basic per-user RLS and explicit authenticated Data API grants. This is only the baseline ownership model; a later security phase can add organizations, team roles, admin review, retention policies, etc.
-
-The migration is safe to rerun for this foundation and adds stable Gmail attachment identifiers, duplicate markers, and append-only protections for AI extraction snapshots and review history. Apply it before testing the first authenticated read or write; a fresh project will otherwise return a missing-table error from the Data API.
+The complete migration chain is additive for business data and preserves
+company IDs, historical rows, Storage prefixes, invoice extraction snapshots,
+review history, and approved/paid payroll history. Run fresh-reset and
+upgrade-path validation before using the project for production data.
 
 The invoice directory uses archive semantics: removing an invoice hides the working record while keeping the original document, immutable AI extraction, and review events.
 
@@ -92,7 +85,7 @@ Use the exact callback shown by your Supabase project rather than guessing it.
 
 ## 5. Gemini credentials
 
-Production company AI credentials are configured by a platform owner in **Manage Companies → AI Configuration**. The browser submits a new key once over HTTPS; Express encrypts it with AES-256-GCM and stores only the encrypted envelope plus safe metadata.
+Production company AI credentials are configured by an explicitly provisioned internal deployment operator through the server-side maintenance path. The ordinary client deployment has no global company-management screen. The browser submits a new key once over HTTPS when that internal path is deliberately enabled; Express encrypts it with AES-256-GCM and stores only the encrypted envelope plus safe metadata.
 
 Configure this server-only master key in the deployment:
 

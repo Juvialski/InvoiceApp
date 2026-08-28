@@ -196,9 +196,14 @@ export interface CompanyApiRequestOptions extends RequestInit {
  */
 export async function fetchCompanyApi(path: string, options: CompanyApiRequestOptions = {}) {
   const token = await getSupabaseAccessToken();
-  const companyId = (options.companyId || getActiveCompanyId() || "").trim();
+  const deploymentCompanyId = getActiveCompanyId();
   if (!token) throw new Error("Your session is no longer active. Please sign in again.");
-  if (!companyId) throw new Error("Select a company before using this operation.");
+  if (!deploymentCompanyId) throw new Error("Resolve deployment access before using this operation.");
+  const requestedCompanyId = (options.companyId || "").trim();
+  if (requestedCompanyId && requestedCompanyId !== deploymentCompanyId) {
+    throw new Error("This request cannot target another Engoryx deployment company.");
+  }
+  const companyId = deploymentCompanyId;
 
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${token}`);

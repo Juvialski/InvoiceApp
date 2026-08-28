@@ -1,15 +1,12 @@
--- Client deployments must not inherit a repository-seeded global operator.
--- Preserve the platform-maintenance mechanism for explicit service-role setup,
--- but remove the historical default identity and bind maintenance mutations to
--- the configured deployment company.
-
-delete from public.platform_admins pa
-using auth.users u
-where pa.user_id = u.id
-  and lower(btrim(u.email)) = 'al.matubis17@gmail.com';
-
-delete from public.platform_admin_allowlist
-where normalized_email = 'al.matubis17@gmail.com';
+-- Client deployments must not inherit global platform operators from the
+-- legacy tenancy migrations. Those immutable migrations have no provenance
+-- column that can distinguish a repository seed from a deliberately
+-- provisioned internal operator, so this forward-only deployment migration
+-- clears the inherited operator records. An internal maintenance operator,
+-- if required, must be provisioned explicitly after deployment through a
+-- controlled service-role process; no client migration grants it implicitly.
+delete from public.platform_admins;
+delete from public.platform_admin_allowlist;
 
 create or replace function private.require_platform_deployment_company(p_company_id uuid)
 returns uuid

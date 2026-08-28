@@ -11,7 +11,7 @@ Each client receives an isolated Engoryx stack:
 - one configured company identity;
 - many users and roles within that company.
 
-Do not reuse a client Supabase project for another unrelated company. Do not add a tenant picker to a client deployment.
+Do not reuse a client Supabase project for another unrelated company. The deployment identity is fixed by its database configuration and is shown as a read-only company badge.
 
 ## New-client provisioning
 
@@ -97,7 +97,7 @@ With the initial Company Admin account:
 - verify `get_deployment_company_id()` resolves the expected company;
 - verify Settings → Company access shows only that company's users;
 - verify a fabricated `X-Company-Id` for another UUID is rejected;
-- verify logout/login does not restore browser-selected company state because no such selection is authoritative.
+- verify logout/login does not restore stale browser company state because deployment identity is re-resolved from the database.
 
 A missing deployment company must produce an explicit configuration error. An upgraded database with multiple active companies and no singleton configuration must fail as ambiguous rather than selecting the first row.
 
@@ -122,7 +122,7 @@ Use Settings → Company access as a Company Admin. Invite users directly into t
 - `PAYROLL`;
 - `VIEWER`.
 
-The administrator does not select a company during invitation or role changes. Database RPCs reject membership operations outside the configured deployment company. The database also prevents removal/demotion/suspension of the last active Company Admin.
+The administrator manages users only within the configured deployment company. Database RPCs reject membership operations outside that company. The database also prevents removal/demotion/suspension/deletion of the last active Company Admin.
 
 ### 10. Run role smoke tests
 
@@ -151,13 +151,13 @@ Instead:
 5. cut over each client separately;
 6. archive the legacy shared deployment only after reconciliation.
 
-The single-company migration intentionally preserves historical extra-company rows and fails closed when no unambiguous deployment company can be selected. It does not perform destructive automatic tenant splitting.
+The single-company migration intentionally preserves historical extra-company rows and fails closed when no unambiguous deployment company can be resolved. It does not perform destructive automatic tenant splitting.
 
 ## Platform-owner strategy
 
-Global cross-company administration does not belong in an ordinary client Engoryx deployment. Legacy platform-admin tables and maintenance RPC names remain for migration compatibility/internal maintenance, but client product navigation does not expose a global company directory and platform ownership does not bypass company business-data permissions.
+Global cross-company administration does not belong in an ordinary client Engoryx deployment. Legacy platform-admin tables and maintenance RPC names remain for migration compatibility and explicit internal maintenance only. The final deployment migration clears inherited platform-admin and allowlist records because the legacy tables do not preserve seed provenance; an internal operator must be provisioned deliberately afterward if needed. Client product navigation does not expose a global company directory and platform ownership does not bypass company business-data permissions.
 
-If Engoryx later needs fleet-wide operations across client deployments, build that as a separate internal operator service/tool that connects to explicitly authorized deployments. Do not reintroduce tenant switching into the client application.
+If Engoryx later needs fleet-wide operations across client deployments, build that as a separate internal operator service/tool that connects to explicitly authorized deployments. Keep that capability outside the client application.
 
 ## Release checklist
 

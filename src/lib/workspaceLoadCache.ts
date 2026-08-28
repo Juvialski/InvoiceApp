@@ -198,7 +198,7 @@ function normalizedMaxEntries(value: number | undefined): number {
  *
  * The cache never searches by group alone: every read and load is addressed by
  * normalized user ID, company ID (including null), and group. This makes a
- * company switch a different key even when an older request is still pending.
+ * deployment identity transition a different key even when an older request is still pending.
  * Generation and entry-identity checks also prevent late completions from an
  * invalidated or evicted request from repopulating the cache.
  */

@@ -1,5 +1,5 @@
 begin;
-select plan(58);
+select plan(66);
 
 -- 1. Core tables exist across all domains
 select has_table('public', 'companies', 'public.companies exists');
@@ -26,6 +26,7 @@ select has_table('public', 'engineering_daily_site_log_crew', 'public.engineerin
 select has_table('public', 'engineering_daily_site_log_equipment', 'public.engineering_daily_site_log_equipment exists');
 select has_table('public', 'engineering_daily_site_log_safety', 'public.engineering_daily_site_log_safety exists');
 select has_table('public', 'engineering_daily_site_log_events', 'public.engineering_daily_site_log_events exists');
+select has_table('public', 'deployment_configuration', 'public.deployment_configuration exists');
 
 -- 2. Row Level Security active on sensitive tables
 select isnt_empty('select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = ''public'' and c.relname = ''companies'' and c.relrowsecurity = true', 'companies RLS active');
@@ -57,6 +58,26 @@ select has_function('public', 'update_engineering_daily_site_log_draft', 'public
 select has_function('public', 'submit_engineering_daily_site_log', 'public.submit_engineering_daily_site_log exists');
 select has_function('public', 'finalize_engineering_daily_site_log', 'public.finalize_engineering_daily_site_log exists');
 select has_function('public', 'void_engineering_daily_site_log', 'public.void_engineering_daily_site_log exists');
+select has_function('public', 'get_deployment_company_id', 'deployment company resolver exists');
+select isnt_empty(
+  'select 1 from pg_trigger where tgname = ''company_members_deployment_guard'' and not tgisinternal',
+  'membership deployment guard exists'
+);
+select isnt_empty(
+  'select 1 from pg_trigger where tgname = ''company_invitations_deployment_guard'' and not tgisinternal',
+  'invitation deployment guard exists'
+);
+select isnt_empty(
+  'select 1 from pg_trigger where tgname = ''companies_single_deployment_guard'' and not tgisinternal',
+  'single-company insert guard exists'
+);
+select is_empty('select 1 from public.platform_admins', 'fresh replay does not inherit platform admin rows');
+select is_empty('select 1 from public.platform_admin_allowlist', 'fresh replay does not inherit platform allowlist rows');
+select isnt_empty(
+  $$select 1 from pg_proc where oid = 'public.platform_create_company(text,text,text,text)'::regprocedure
+    and pg_get_functiondef(oid) like '%Creating additional companies is disabled%'$$,
+  'additional company creation is disabled by the final RPC'
+);
 
 -- 4. Check constraints exist
 select isnt_empty(

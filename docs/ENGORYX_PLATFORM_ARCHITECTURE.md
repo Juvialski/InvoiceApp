@@ -189,7 +189,7 @@ src/
 - `has_company_permission(company_id, permission_key)` fails unless the target is the configured deployment company and the authenticated user has an active membership and permission.
 - Company-prefixed Storage paths remain `companies/<company-id>/...` and are checked through company permissions.
 - Invitation/member administration is deployment-scoped. `COMPANY_ADMIN` receives the explicit access-management permission; the last active Company Admin cannot be removed/demoted/suspended.
-- An old platform-owner mechanism may remain for explicit internal maintenance compatibility, but it is not a client role, is not shown in ordinary client navigation, and does not bypass business-data company permission checks.
+- A legacy internal-maintenance mechanism may remain for compatibility, but it is not a client role, is not shown in ordinary client navigation, and does not bypass business-data company permission checks.
 - A fleet-wide operator console, if later required, belongs in a separate internal deployment/tool rather than in client tenant-switching UI.
 
 ### Authorization presentation
