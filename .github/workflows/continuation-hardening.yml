@@ -23,6 +23,7 @@ jobs:
           sed -i 's/version: latest/version: 2.76.8/' .github/workflows/database-tests.yml
           python3 scripts/continuation-hardening-patch.py
           python3 scripts/continuation-test-compat.py
+          python3 scripts/continuation-lint-fix.py
       - name: Install and refresh lockfile
         run: npm install
       - name: Regenerate workflow map
