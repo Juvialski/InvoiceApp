@@ -17,6 +17,7 @@ import type {
 } from "../../types";
 import { exportEngineeringProjectWorkbookToExcel } from "../../utils/excelExport";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import { projectCostDataCompleteness, projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
 
 export interface ReportsRouteProps {
@@ -50,10 +51,10 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
   const canReadFinancialReports = hasPermission(permissions, PERMISSION_KEYS.reportsRead);
   const canReadPayrollReports = hasPermission(permissions, PERMISSION_KEYS.reportsPayrollRead);
   const canReadInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesRead);
-  const canReadExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesRead);
   const canReadPayrollDetail = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadWorkers = hasPermission(permissions, PERMISSION_KEYS.workersRead);
-  const hasCompleteProjectCostSources = canReadInvoices && canReadExpenses && canReadPayrollDetail;
+  const projectCostCompleteness = projectCostDataCompleteness(permissions);
+  const missingProjectCostSources = projectCostMissingSourceLabels(projectCostCompleteness);
 
   const handleExport =
     onExport ||
@@ -72,14 +73,14 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
       }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-project-cost-completeness={projectCostCompleteness.status}>
       {canReadFinancialReports && canReadInvoices && <Reports invoices={invoices} />}
 
       {canReadPayrollReports && canReadPayrollDetail && (
         <PayrollOperatingCosts runs={runs} entries={entries} allocations={payrollAllocations} />
       )}
 
-      {canReadFinancialReports && hasCompleteProjectCostSources ? (
+      {canReadFinancialReports && projectCostCompleteness.complete ? (
         <ProjectReports
           projects={projects}
           invoices={invoices}
@@ -96,7 +97,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
       ) : canReadFinancialReports ? (
         <section role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-          <div><strong>Combined project-cost report unavailable for this role.</strong> It would be incomplete because at least one source domain is not readable. Invoice and payroll report sections above remain available only when your role has the corresponding source access.</div>
+          <div><strong>Combined project-cost report and export unavailable for this role.</strong> Producing them would omit {missingProjectCostSources.join(", ")}. Source-specific report sections above remain available only when your role has the corresponding source access.</div>
         </section>
       ) : null}
 
