@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
+import { DAILY_SITE_LOG_STATUSES } from "../../lib/dailySiteLogs.ts";
 import { AssistantBackendError, AssistantToolError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { boundedLimit, boundedText, enumValue, optionalDateOnly, optionalNumber, plainObject, requireDateOnly, requireUuid } from "./toolValidation.ts";
 
@@ -77,7 +78,7 @@ const aggregateProperties = {
 };
 
 export const DAILY_SITE_LOGS_TOOL_DEFINITIONS: readonly DailySiteLogsToolDefinition[] = Object.freeze([
-  read("search_site_logs", "Search the current company Daily Site Log register by project, date, status, weather, safety, or field text.", ["engineering.sitelogs.read"], { projectId: uuid, from: date, to: date, status: { type: "string", enum: ["DRAFT", "SUBMITTED", "FINALIZED", "VOID"] }, weatherCondition: { type: "string" }, hasSafety: { type: "boolean" }, query: { type: "string" }, limit }),
+  read("search_site_logs", "Search the current company Daily Site Log register by project, date, status, weather, safety, or field text.", ["engineering.sitelogs.read"], { projectId: uuid, from: date, to: date, status: { type: "string", enum: DAILY_SITE_LOG_STATUSES }, weatherCondition: { type: "string" }, hasSafety: { type: "boolean" }, query: { type: "string" }, limit }),
   read("get_site_log", "Get one company Daily Site Log with weather, crew, equipment, safety, and lifecycle history.", ["engineering.sitelogs.read"], { siteLogId: uuid }, ["siteLogId"]),
   navigation("navigate_to_site_log", "Open a verified company Daily Site Log in its project workspace.", ["engineering.sitelogs.read", "projects.read"], { siteLogId: uuid }, ["siteLogId"]),
   prepare("prepare_create_site_log", "Prepare a project Daily Site Log draft. Confirmation is required before persistence.", ["engineering.sitelogs.create"], aggregateProperties, ["projectId", "siteDate"]),
@@ -88,7 +89,6 @@ export const DAILY_SITE_LOGS_TOOL_DEFINITIONS: readonly DailySiteLogsToolDefinit
 ]);
 
 const TOOL_NAMES = new Set(DAILY_SITE_LOGS_TOOL_DEFINITIONS.map((item) => item.name));
-const STATUSES = ["DRAFT", "SUBMITTED", "FINALIZED", "VOID"] as const;
 const CONDITIONS = ["CLEAR", "PARTLY_CLOUDY", "OVERCAST", "RAIN", "STORM", "WINDY", "EXTREME_HEAT", "OTHER", "UNKNOWN"] as const;
 const SEVERITIES = ["OBSERVATION", "LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 
@@ -159,7 +159,7 @@ export function validateDailySiteLogsToolArguments(toolName: string, input: unkn
       const to = optionalDateOnly(args.to, "to");
       if (from && to && from > to) throw new AssistantToolError("INVALID_DATE_RANGE", "The start date cannot be after the end date.");
       if (args.hasSafety !== undefined && typeof args.hasSafety !== "boolean") throw new AssistantToolError("INVALID_ARGUMENT", "hasSafety must be boolean when provided.");
-      return { projectId: args.projectId ? requireUuid(args.projectId, "projectId") : undefined, from, to, status: enumValue(args.status, "status", STATUSES, false), weatherCondition: boundedText(args.weatherCondition, "weatherCondition", 40, false)?.toUpperCase(), hasSafety: args.hasSafety === undefined ? undefined : args.hasSafety, query: boundedText(args.query, "query", 200, false), limit: boundedLimit(args.limit) };
+      return { projectId: args.projectId ? requireUuid(args.projectId, "projectId") : undefined, from, to, status: enumValue(args.status, "status", DAILY_SITE_LOG_STATUSES, false), weatherCondition: boundedText(args.weatherCondition, "weatherCondition", 40, false)?.toUpperCase(), hasSafety: args.hasSafety === undefined ? undefined : args.hasSafety, query: boundedText(args.query, "query", 200, false), limit: boundedLimit(args.limit) };
     }
     case "get_site_log":
     case "navigate_to_site_log":

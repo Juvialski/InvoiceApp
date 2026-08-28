@@ -1,0 +1,82 @@
+name: Workflow Map Consistency
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/utils/**"
+      - "src/features/**"
+      - "src/lib/engineeringCoordination.ts"
+      - "src/lib/dailySiteLogs.ts"
+      - "src/lib/financialSettlement.ts"
+      - "src/lib/payroll.ts"
+      - "src/types.ts"
+      - "src/assistant/**"
+      - "src/server/assistant/**"
+      - "src/app/applicationMode.ts"
+      - "src/demo/**"
+      - "src/main.tsx"
+      - "scripts/workflow-map/**"
+      - "scripts/qa/**"
+      - "tests/**"
+      - "supabase/migrations/**"
+      - "docs/architecture/**"
+      - "docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/workflow-map-consistency.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/utils/**"
+      - "src/features/**"
+      - "src/lib/engineeringCoordination.ts"
+      - "src/lib/dailySiteLogs.ts"
+      - "src/lib/financialSettlement.ts"
+      - "src/lib/payroll.ts"
+      - "src/types.ts"
+      - "src/assistant/**"
+      - "src/server/assistant/**"
+      - "src/app/applicationMode.ts"
+      - "src/demo/**"
+      - "src/main.tsx"
+      - "scripts/workflow-map/**"
+      - "scripts/qa/**"
+      - "tests/**"
+      - "supabase/migrations/**"
+      - "docs/architecture/**"
+      - "docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/workflow-map-consistency.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  consistency:
+    name: Graph and Source Contract Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Check generated workflow map
+        run: npm run workflow-map:check
+      - name: Check graph/source consistency
+        run: npm run workflow-map:consistency
+      - name: Run focused workflow-map tests
+        run: npm run test:workflow-map

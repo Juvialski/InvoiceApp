@@ -3,7 +3,8 @@ import type { FinancialAccount, FinancialTransaction } from "./cashBanking.ts";
 import { derivePaymentStatus } from "../utils/invoiceLogic.ts";
 
 export type SettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE";
-export type SettlementRecordStatus = "CONFIRMED" | "REVERSED";
+export const SETTLEMENT_RECORD_STATUSES = ["CONFIRMED", "REVERSED"] as const;
+export type SettlementRecordStatus = (typeof SETTLEMENT_RECORD_STATUSES)[number];
 export type InvoiceSettlementState = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE";
 export type PayrollSettlementState = "UNSETTLED" | "PARTIALLY_DISBURSED" | "SETTLED";
 

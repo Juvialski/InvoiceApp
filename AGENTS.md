@@ -111,6 +111,8 @@ Do not assign Tier 3 architecture or implementation ownership to a weak/free mod
 
 Kilo is an execution assistant, not the default architect.
 
+Default cost-saving bias: for Tier 0 and well-bounded Tier 1 work with an established implementation pattern and no high-risk contract ownership, prefer Kilo/Nemotron first, including broad repetitive changes across many files. File count alone is not a reason to escalate when each edit is mechanical. The lead defines architecture and boundaries, Kilo executes on a feature branch/PR, and the lead reviews, repairs, validates, and merges the result. Kilo must not merge its own non-trivial PR. If the task requires deciding business meaning or crossing a protected boundary, escalate instead of guessing.
+
 For weaker/free models such as Nemotron:
 
 - give **one cohesive task per prompt**;
@@ -192,6 +194,8 @@ Before substantial implementation, debugging, or architecture work:
 8. treat the workflow map as advisory context, never as a replacement for source inspection.
 
 When a change materially alters a mapped workflow, lifecycle, route, guard, permission, cross-domain relationship, or high-risk invariant, update `scripts/workflow-map/graph.ts` and regenerate both committed outputs in the same PR. Trivial CSS and internal refactors that do not change workflow meaning do not require graph edits.
+
+When a change materially alters a mapped route, deep-link contract, lifecycle, permission, guard, Assistant mutation contract, QA scenario mapping, or high-risk cross-domain boundary, run `npm.cmd run workflow-map:check` and `npm.cmd run workflow-map:consistency`.
 
 ## Session startup / resumption protocol
 

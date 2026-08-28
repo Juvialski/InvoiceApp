@@ -155,6 +155,7 @@ export function renderWorkflowMapMarkdown(graph: WorkflowGraph): string {
     "",
     `- Generate: \`npm.cmd run workflow-map:generate\``,
     `- Check for drift: \`npm.cmd run workflow-map:check\``,
+    `- Check source-contract consistency: \`npm.cmd run workflow-map:consistency\``,
     `- Machine-readable graph: \`${WORKFLOW_MAP_JSON_PATH}\``,
     `- Canonical source: \`${graph.canonicalSource}\``,
     "",
@@ -175,7 +176,7 @@ export function renderWorkflowMapMarkdown(graph: WorkflowGraph): string {
     "",
     "## Canonical route rule",
     "",
-    "Route references below mirror `src/utils/appRouting.ts` and `src/utils/routes.ts`; they are context links, not a second router. Project subviews remain one `projects` route with view/query selection. The standalone `/demo/app/documents` and `/demo/app/assistant` entries are explicitly demo-only.",
+    "Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContracts.ts`, and `src/utils/appRouting.ts`; they are context links, not a second router. Project subviews remain one `projects` route with view/query selection. The standalone `/demo/app/documents` and `/demo/app/assistant` entries are explicitly demo-only.",
     "",
     "| Node | Route ID | Canonical path | Query keys | Scope |",
     "| --- | --- | --- | --- | --- |",
@@ -223,7 +224,7 @@ export function renderWorkflowMapMarkdown(graph: WorkflowGraph): string {
     "",
     "When a future product change introduces or materially changes a workflow, lifecycle, route, guard, permission, cross-domain relationship, or high-risk invariant, update `scripts/workflow-map/graph.ts` in the same implementation PR and regenerate both committed outputs. Trivial CSS and internal refactors that do not change workflow meaning do not require graph edits.",
     "",
-    "WM-2 Visual Workflow Canvas is the next infrastructure stage. WM-1 deliberately does not add React Flow/xyflow, a customer-facing map, an external orchestrator, or a new financial/payroll behavior.",
+    "WM-3 Graph Consistency Validation compares this advisory graph with selected authoritative source contracts. WM-4 Browser Evidence Overlay is the next infrastructure stage. The map remains read-only and does not add a customer-facing editor, external orchestrator, or new financial/payroll behavior.",
     "",
   );
   return lines.join("\n");

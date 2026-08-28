@@ -201,7 +201,7 @@ export interface CreateDailySiteLogInput {
   now?: Date;
 }
 
-const DAILY_LOG_TRANSITIONS: Readonly<Record<DailySiteLogStatus, readonly DailySiteLogStatus[]>> = Object.freeze({
+export const DAILY_LOG_TRANSITIONS: Readonly<Record<DailySiteLogStatus, readonly DailySiteLogStatus[]>> = Object.freeze({
   DRAFT: ["SUBMITTED", "VOID"],
   SUBMITTED: ["FINALIZED", "VOID"],
   FINALIZED: [],

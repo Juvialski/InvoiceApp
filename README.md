@@ -25,7 +25,7 @@ Roadmap snapshot as of **2026-08-28**:
   - **Phase 1C**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal field-record history.
 - **Financial Settlement Integration is complete**: Cash & Banking can provide guarded settlement evidence for supplier invoices, payroll runs, and supported expenses while keeping project-cost and payroll-source semantics separate.
 - **The next customer-facing product phase is Phase 2: Project Scheduling & Gantt.**
-- **QA-1 Structured Browser Evidence and WM-1 Canonical Workflow Graph are implemented**: the repository now contains generated machine-readable and Mermaid workflow-map outputs for Engoryx routes, lifecycles, guarded actions, data relationships, and high-value tests. **WM-2 Visual Workflow Canvas is next.**
+- **QA-1 Structured Browser Evidence, WM-1 Canonical Workflow Graph, WM-2 Visual Workflow Canvas, and WM-3 Graph Consistency Validation are implemented**: the repository contains generated machine-readable/Mermaid workflow-map outputs, a read-only developer canvas, and deterministic graph-to-source contract checks. **WM-4 Browser Evidence Overlay is next.**
 
 ---
 
@@ -53,7 +53,7 @@ Roadmap snapshot as of **2026-08-28**:
   - **Phase 1B (Complete)**: RFIs and Technical Submittals with Engineer-of-Record-style coordination workflows and immutable document-revision references.
   - **Phase 1C (Complete)**: Daily Site Logs with weather/site conditions, crew headcount, equipment usage, delays, safety observations, and formal field-record history.
 - **Cross-Domain Financial Settlement (Complete)**: Guarded settlement integration across Cash & Banking, supplier invoices, payroll, supported expenses, and Assistant workflows. Settlement remains evidence of payment/disbursement and does not create project cost.
-- **Engineering Infrastructure Track (WM-1 implemented — WM-2 next)**: the canonical source is [`scripts/workflow-map/graph.ts`](scripts/workflow-map/graph.ts), with generated [`workflow-map.json`](docs/architecture/workflow-map.json) and [`APP_WORKFLOW_MAP.md`](docs/architecture/APP_WORKFLOW_MAP.md). Use `npm.cmd run workflow-map:generate` and `npm.cmd run workflow-map:check`; the track runs from repository code and existing CI/local tooling. See [the dedicated plan](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
+- **Engineering Infrastructure Track (WM-1 through WM-3 implemented — WM-4 next)**: the canonical source is [`scripts/workflow-map/graph.ts`](scripts/workflow-map/graph.ts), with generated [`workflow-map.json`](docs/architecture/workflow-map.json) and [`APP_WORKFLOW_MAP.md`](docs/architecture/APP_WORKFLOW_MAP.md). Use `npm.cmd run workflow-map:generate`, `npm.cmd run workflow-map:check`, and `npm.cmd run workflow-map:consistency`; the track runs from repository code and existing CI/local tooling. See [the dedicated plan](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
 - **Phase 2 (Next Product Phase / Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking, and project schedule health.
 - **Phase 3 (Planned)**: Field Capture & Barcode/QR Scanning (ZXing-js) for equipment check-in/out, tool tracking, and material delivery verification.
 - **Phase 4 (Future)**: 3D CAD & BIM Model Inspection (Online3DViewer / web-ifc), GIS Site Boundaries & Drone Survey Orthomosaics (MapLibre + Turf + OpenDroneMap).
