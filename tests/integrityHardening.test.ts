@@ -17,11 +17,12 @@ const reportsRoute = readFileSync(new URL("../src/app/routes/ReportsRoute.tsx", 
 const invoicesRoute = readFileSync(new URL("../src/app/routes/InvoicesRoute.tsx", import.meta.url), "utf8");
 const projectsPage = readFileSync(new URL("../src/components/projects/ProjectsPage.tsx", import.meta.url), "utf8");
 const projectWorkspace = readFileSync(new URL("../src/components/projects/ProjectWorkspace.tsx", import.meta.url), "utf8");
+const projectOverview = readFileSync(new URL("../src/components/projects/ProjectOverview.tsx", import.meta.url), "utf8");
 const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");
 const settlementCard = readFileSync(new URL("../src/components/FinancialSettlementCard.tsx", import.meta.url), "utf8");
 const companyAccess = readFileSync(new URL("../src/context/CompanyAccessContext.tsx", import.meta.url), "utf8");
 
-const COMPANY_ADMIN = new Set<PermissionKey>(Object.values(PERMISSION_KEYS));
+const COMPANY_ADMIN = new Set<PermissionKey>(Object.values(PERMISSION_KEYS) as PermissionKey[]);
 const FINANCE = new Set<PermissionKey>([
   PERMISSION_KEYS.dashboardView,
   PERMISSION_KEYS.projectsRead,
@@ -137,10 +138,13 @@ test("Assistant project cost summary fails closed when any contributing source i
   );
 });
 
-test("incomplete Dashboard and Reports suppress combined authoritative aggregates", () => {
+test("incomplete Dashboard, project Overview, and Reports suppress authoritative combined aggregates", () => {
   assert.match(dashboardRoute, /if \(!completeness\.complete\)/);
   assert.match(dashboardRoute, /Combined company cost position withheld/);
   assert.match(dashboardRoute, /filter\(\(\{ tab \}\) => canAccessAppTab\(tab, permissions\)\)/);
+  assert.match(projectOverview, /if \(!completeness\.complete\)/);
+  assert.match(projectOverview, /Combined project financial position withheld/);
+  assert.match(projectOverview, /Confirmed cost, pending cost, available after commitments, utilization, health, composition, cost trend, and cumulative burn are not shown/);
   assert.match(reportsRoute, /projectCostCompleteness\.complete/);
   assert.match(reportsRoute, /Combined project-cost report and export unavailable for this role/);
   assert.match(reportsRoute, /missingProjectCostSources\.join/);
