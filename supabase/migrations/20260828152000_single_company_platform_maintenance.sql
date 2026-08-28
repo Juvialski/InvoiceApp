@@ -164,8 +164,9 @@ security definer
 set search_path = ''
 as $$ select public.reactivate_company(p_company_id); $$;
 
--- Retire the older five-argument platform-update overload if it still exists.
-revoke execute on function public.platform_update_company(uuid, text, text, text, text) from authenticated, public, anon;
+-- Retire the older five-argument platform-update overload when upgrading from
+-- repositories that created it. DROP IF EXISTS is safe on fresh replays too.
+drop function if exists public.platform_update_company(uuid, text, text, text, text);
 
 revoke execute on function public.update_company(uuid, text, text, text, text) from public, anon;
 revoke execute on function public.platform_update_company(uuid, text, text, text, text, text) from public, anon;
