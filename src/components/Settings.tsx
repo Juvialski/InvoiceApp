@@ -3,13 +3,15 @@ import { CheckCircle2, Clock3, Globe2, MapPin, RotateCcw } from "lucide-react";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE, RegionalSettings } from "../config/regional";
 import { FeatureStatusOverview } from "./FeatureStatusOverview";
 import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
+import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.tsx";
 
 interface SettingsProps {
   settings: RegionalSettings;
   onChange: (settings: RegionalSettings) => void;
+  showDeploymentAccessManagement?: boolean;
 }
 
-export const Settings: React.FC<SettingsProps> = ({ settings, onChange }) => {
+export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDeploymentAccessManagement = true }) => {
   const isDeploymentProfile = settings.country === DEFAULT_COUNTRY
     && settings.locale === DEFAULT_LOCALE
     && settings.currency === DEFAULT_CURRENCY
@@ -17,7 +19,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange }) => {
 
   return (
     <div className="max-w-4xl space-y-5">
-      <PageHeader eyebrow="Workspace configuration" title="Operational settings" description="This deployment uses a fixed Philippines operating profile for consistent dates, currency formatting, and VAT review." />
+      <PageHeader eyebrow="Workspace configuration" title="Operational settings" description="This Engoryx deployment belongs to one client company. Roles and permissions control what each company user can access." />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex items-start gap-3">
@@ -46,6 +48,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange }) => {
         </div>
       </section>
 
+      {showDeploymentAccessManagement && <DeploymentAccessManagement />}
       <FeatureStatusOverview />
     </div>
   );

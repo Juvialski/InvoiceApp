@@ -4,7 +4,7 @@ export type AppRouteScope = "production" | "demo" | "production-and-demo";
 
 export interface AppRouteContract {
   readonly id: string;
-  readonly routeId?: RouteId | "platform-companies";
+  readonly routeId?: RouteId;
   readonly canonicalPath: string;
   readonly pathPattern: string;
   readonly queryKeys?: readonly string[];
@@ -32,14 +32,6 @@ const BASE_ROUTE_CONTRACTS: readonly AppRouteContract[] = ROUTE_DEFINITIONS.map(
  */
 export const APP_ROUTE_CONTRACTS: readonly AppRouteContract[] = Object.freeze([
   ...BASE_ROUTE_CONTRACTS,
-  {
-    id: "platform-companies",
-    routeId: "platform-companies",
-    canonicalPath: "/platform/companies",
-    pathPattern: "/platform/companies",
-    queryKeys: ["companyId", "tab"],
-    scope: "production",
-  },
   {
     id: "project-workspace",
     routeId: "projects",

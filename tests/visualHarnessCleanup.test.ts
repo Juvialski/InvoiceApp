@@ -8,13 +8,15 @@ import {
   terminateChildServer,
 } from "../scripts/qa/devServerLifecycle.ts";
 
-test("devServerLifecycle: starts clean server, verifies startup, and cleanly releases port upon failure", async () => {
-  const PORT = 3000;
+const TEST_PORT_BASE = 31000 + (process.pid % 1000) * 3;
+
+test("devServerLifecycle: starts clean server, verifies startup, and cleanly releases port upon failure", { concurrency: false }, async () => {
+  const PORT = TEST_PORT_BASE;
   const BASE_URL = `http://localhost:${PORT}`;
 
   // 1. Independently verify port 3000 is free before starting
   const portInitiallyUsed = await isPortInUse(PORT);
-  assert.equal(portInitiallyUsed, false, "Port 3000 must be free before test");
+  assert.equal(portInitiallyUsed, false, `Port ${PORT} must be free before test`);
 
   let serverProcess: any = null;
   let controlledErrorThrown = false;
@@ -47,8 +49,8 @@ test("devServerLifecycle: starts clean server, verifies startup, and cleanly rel
   assert.equal(serverAfterCleanup, false, "Dev server must no longer respond after termination");
 });
 
-test("devServerLifecycle: refuses to start when target port is already occupied", async () => {
-  const PORT = 3000;
+test("devServerLifecycle: refuses to start when target port is already occupied", { concurrency: false }, async () => {
+  const PORT = TEST_PORT_BASE + 1;
   const BASE_URL = `http://localhost:${PORT}`;
 
   let firstServer: any = null;
@@ -77,7 +79,7 @@ test("devServerLifecycle: refuses to start when target port is already occupied"
 
 test("devServerLifecycle: terminateChildServer throws if cleanup verification expires while port remains occupied", async () => {
   const http = await import("node:http");
-  const TEST_PORT = 3099;
+  const TEST_PORT = TEST_PORT_BASE + 2;
   const mockServer = http.createServer((req, res) => {
     res.writeHead(200);
     res.end("ok");

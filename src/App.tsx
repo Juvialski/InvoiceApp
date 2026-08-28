@@ -2,15 +2,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { Header, AppTab } from "./components/Header";
-import { AccessDenied, CompanySwitcher, NoCompanyAccess } from "./components/access/AccessStates.tsx";
-import { CompanyManagement } from "./components/access/CompanyManagement.tsx";
+import { AccessDenied, NoCompanyAccess } from "./components/access/AccessStates.tsx";
 import { AuthScreen } from "./components/auth";
 import { BRAND, formatPageTitle } from "./config/brand";
 import type { ExtractPayload } from "./components/UploadZone";
 import type { SaveState } from "./components/VerificationWorkspace";
 import { AppShell } from "./app/AppShell";
 import { AppRouter } from "./app/routes/AppRouter";
-import { appPathForInvoice, appPathForPlatformCompanies, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, isKnownWorkspaceLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
+import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
@@ -93,7 +92,6 @@ import {
   saveFinancialTransactionToSupabase,
   writeCashBankingWorkspaceToLocal,
 } from "./lib/cashBankingPersistence.ts";
-import { disableCompanyGemini, enableCompanyGemini, loadCompanyAiConfig as loadCompanyAiConfigApi, removeCompanyGeminiKey, saveCompanyGeminiKey, testCompanyGeminiKey } from "./lib/companyAiApi.ts";
 import { useProjectController } from "./features/projects/useProjectController.ts";
 
 function revisePayrollSourcePeriods(
@@ -245,7 +243,6 @@ function InvoiceWorkspace() {
   const [dashboardProjectId, setDashboardProjectId] = useState("");
   const [workspaceReturnPath, setWorkspaceReturnPath] = useState<string>(appPathForTab(appTabForLocation(initialAppLocation())));
   const routeSignatureRef = useRef("");
-  const platformManagementReturnPathRef = useRef<string | null>(null);
   const [processingCount, setProcessingCount] = useState(0);
   const [notification, setNotification] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
   const {
@@ -256,20 +253,10 @@ function InvoiceWorkspace() {
     activeCompany,
     activeCompanyId,
     permissions,
-    isPlatformOwner,
-    isSwitching,
     can,
     refreshAccess,
-    selectCompany,
     enterGuestMode,
     signOut: signOutFromAccess,
-    createCompany,
-    updateCompany,
-    inviteCompanyMember,
-    updateCompanyMember,
-    loadCompanyMembers,
-    loadCompanyInvitations,
-    loadCompanyAccessAudit,
   } = companyAccess;
   const sessionRef = useRef<Session | null>(session);
   sessionRef.current = session;
@@ -335,34 +322,6 @@ function InvoiceWorkspace() {
   };
 
   const setActiveTab = (tab: AppTab) => navigateToPath(appPathForTab(tab));
-  const validatedWorkspaceReturnPath = (candidate?: string | null) => {
-    const fallback = appPathForTab(defaultAppTabForPermissions(permissions));
-    if (!activeCompanyId || !candidate) return fallback;
-    const parsed = parseAppLocation(candidate);
-    if (!isKnownWorkspaceLocation(parsed)) return fallback;
-    if (!isPlatformOwner && !canAccessAppTab(parsed.tab, permissions)) return fallback;
-    return `${parsed.pathname}${parsed.search}`;
-  };
-  const openPlatformManagement = () => {
-    const currentPath = typeof window === "undefined" ? null : appPathFromLocation(window.location);
-    if (currentPath && parseAppLocation(currentPath).kind !== "platform-companies") {
-      platformManagementReturnPathRef.current = validatedWorkspaceReturnPath(currentPath);
-    } else if (!platformManagementReturnPathRef.current) {
-      platformManagementReturnPathRef.current = validatedWorkspaceReturnPath(workspaceReturnPath);
-    }
-    navigateToPath(appPathForPlatformCompanies(activeCompanyId));
-  };
-  const closePlatformManagement = () => {
-    const returnPath = validatedWorkspaceReturnPath(platformManagementReturnPathRef.current || workspaceReturnPath);
-    platformManagementReturnPathRef.current = null;
-    navigateToPath(returnPath, true);
-  };
-  const loadManagedCompanyAiConfig = useCallback((companyId: string) => loadCompanyAiConfigApi(companyId), []);
-  const saveManagedCompanyAiKey = useCallback((companyId: string, apiKey: string) => saveCompanyGeminiKey(companyId, apiKey), []);
-  const testManagedCompanyAi = useCallback((companyId: string) => testCompanyGeminiKey(companyId), []);
-  const disableManagedCompanyAi = useCallback((companyId: string) => disableCompanyGemini(companyId), []);
-  const enableManagedCompanyAi = useCallback((companyId: string) => enableCompanyGemini(companyId), []);
-  const removeManagedCompanyAi = useCallback((companyId: string) => removeCompanyGeminiKey(companyId), []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -384,7 +343,6 @@ function InvoiceWorkspace() {
     const signature = `${route.kind}:${route.pathname}${route.search}`;
     if (routeSignatureRef.current === signature) return;
     routeSignatureRef.current = signature;
-    if (route.kind === "platform-companies") return;
     if (route.kind === "invoice" || route.kind === "review-invoice") {
       const fallback = route.kind === "review-invoice" ? appPathForTab("review") : appPathForTab("invoices");
       const returnPath = route.returnTo || fallback;
@@ -400,7 +358,6 @@ function InvoiceWorkspace() {
 
   useEffect(() => {
     if (!isSupabaseConfigured || !session || access.status !== "ready" || !activeCompanyId) return;
-    if (route.kind === "platform-companies") return;
     if (canAccessAppTab(route.tab, permissions)) return;
     const fallback = appPathForTab(defaultAppTabForPermissions(permissions));
     if (`${route.pathname}${route.search}` !== fallback) navigateToPath(fallback, true);
@@ -1709,9 +1666,9 @@ function InvoiceWorkspace() {
     const referenceDate = dateOnly();
     if (session && supabase) {
       const token = currentWorkspaceLoadToken();
-      if (!token) throw new Error("Select a company before previewing payroll maintenance.");
+      if (!token) throw new Error("Resolve deployment access before previewing payroll maintenance.");
       const result = await previewPayrollMaintenanceRpc(action, referenceDate, token.companyId);
-      if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while the payroll preview was loading.");
+      if (!canApplyWorkspaceResult(token)) throw new Error("Deployment access changed while the payroll preview was loading.");
       return result;
     }
     return planLocalPayrollMaintenance(localMaintenanceInput(referenceDate), action).preview;
@@ -1723,12 +1680,12 @@ function InvoiceWorkspace() {
     const referenceDate = dateOnly();
     if (session && supabase) {
       const token = currentWorkspaceLoadToken();
-      if (!token) throw new Error("Select a company before applying payroll maintenance.");
+      if (!token) throw new Error("Resolve deployment access before applying payroll maintenance.");
       const result = await applyPayrollMaintenanceRpc(action, referenceDate, confirmation, token.companyId);
-      if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while payroll maintenance was running.");
+      if (!canApplyWorkspaceResult(token)) throw new Error("Deployment access changed while payroll maintenance was running.");
       payrollAutomationKeyRef.current = "";
       await refreshWorkspaceGroups(["payroll", "payroll-imports"], token, { force: true, reason: "payroll-maintenance" });
-      if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while payroll maintenance was refreshing.");
+      if (!canApplyWorkspaceResult(token)) throw new Error("Deployment access changed while payroll maintenance was refreshing.");
       showNotification("success", maintenanceSuccessMessage(action));
       return result;
     }
@@ -1746,9 +1703,9 @@ function InvoiceWorkspace() {
     assertPayrollMaintenancePermission();
     if (!(session && supabase)) throw new Error("The payroll factory reset requires a connected company workspace.");
     const token = currentWorkspaceLoadToken();
-    if (!token) throw new Error("Select a company before previewing the payroll factory reset.");
+    if (!token) throw new Error("Resolve deployment access before previewing the payroll factory reset.");
     const result = await previewPayrollWorkspaceResetRpc(dateOnly(), token.companyId);
-    if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while the reset preview was loading.");
+    if (!canApplyWorkspaceResult(token)) throw new Error("Deployment access changed while the reset preview was loading.");
     return result;
   };
 
@@ -1757,13 +1714,13 @@ function InvoiceWorkspace() {
     assertPayrollWorkspaceResetConfirmation(confirmation);
     if (!(session && supabase)) throw new Error("The payroll factory reset requires a connected company workspace.");
     const token = currentWorkspaceLoadToken();
-    if (!token) throw new Error("Select a company before applying the payroll factory reset.");
+    if (!token) throw new Error("Resolve deployment access before applying the payroll factory reset.");
     // Once the server confirms the reset, failure messages must never claim
     // that "nothing was changed": only the post-reset reload may still fail.
     let appliedOnServer = false;
     try {
       const result = await applyPayrollWorkspaceResetRpc(confirmation, dateOnly(), token.companyId);
-      if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while the payroll factory reset was running.");
+      if (!canApplyWorkspaceResult(token)) throw new Error("Deployment access changed while the payroll factory reset was running.");
       appliedOnServer = true;
       // The workspace is intentionally empty here. Clear every bootstrap
       // marker so the canonical default schedule is recreated from scratch,
@@ -1774,7 +1731,7 @@ function InvoiceWorkspace() {
       payrollRepairInFlightRef.current = null;
       setPayrollPeriodPreparationState("PREPARING");
       await refreshWorkspaceGroups(["payroll", "payroll-imports"], token, { force: true, reason: "payroll-workspace-reset" });
-      if (!canApplyWorkspaceResult(token)) throw new Error("The selected company changed while the payroll factory reset was refreshing.");
+      if (!canApplyWorkspaceResult(token)) throw new Error("Deployment access changed while the payroll factory reset was refreshing.");
       showNotification("success", "Payroll workspace was reset for this company. A clean standard schedule is being prepared.");
       return result;
     } catch (error: unknown) {
@@ -2629,41 +2586,16 @@ function InvoiceWorkspace() {
   const visibleRouteIds = useMemo<readonly RouteId[] | undefined>(() => {
     if (!isSupabaseConfigured || !session) return undefined;
     return ROUTE_DEFINITIONS
-      .filter((definition) => isPlatformOwner || canAccessAppTab(definition.appTab, permissions))
+      .filter((definition) => canAccessAppTab(definition.appTab, permissions))
       .map((definition) => definition.id);
-  }, [isPlatformOwner, permissions, session]);
-  const routePermission = route.kind === "platform-companies"
-    ? PERMISSION_KEYS.platformManage
-    : route.kind === "unknown" ? null : requiredPermissionForAppTab(route.tab);
+  }, [permissions, session]);
+  const routePermission = route.kind === "unknown" ? null : requiredPermissionForAppTab(route.tab);
   const routeDenied = Boolean(isSupabaseConfigured && session && access.status === "ready" && (
-    (route.kind === "platform-companies" && !isPlatformOwner)
-    || (route.kind !== "platform-companies" && route.kind !== "unknown" && activeCompanyId && !isPlatformOwner && routePermission && !canAccessAppTab(route.tab, permissions))
+    (route.kind !== "unknown" && activeCompanyId && routePermission && !canAccessAppTab(route.tab, permissions))
   ));
   const workspaceRouteVisible = !routeNotFound && !routeDenied;
-  const managementView = <CompanyManagement
-    companies={companyAccess.companies}
-    activeCompanyId={companyAccess.activeCompanyId}
-    managementCompanyId={route.kind === "platform-companies" ? route.managementCompanyId : undefined}
-    initialTab={route.kind === "platform-companies" ? route.managementTab : undefined}
-    onOpenWorkspace={companyAccess.selectCompany}
-    onCreateCompany={createCompany}
-    onUpdateCompany={updateCompany}
-    onInviteCompanyMember={inviteCompanyMember}
-    onUpdateCompanyMember={updateCompanyMember}
-    onLoadCompanyMembers={loadCompanyMembers}
-    onLoadCompanyInvitations={loadCompanyInvitations}
-    onLoadAudit={loadCompanyAccessAudit}
-    onLoadAiConfig={loadManagedCompanyAiConfig}
-    onSaveAiKey={saveManagedCompanyAiKey}
-    onTestAi={testManagedCompanyAi}
-    onDisableAi={disableManagedCompanyAi}
-    onEnableAi={enableManagedCompanyAi}
-    onRemoveAi={removeManagedCompanyAi}
-    onClose={closePlatformManagement}
-  />;
   useEffect(() => {
     if (!routeDenied) return;
-    if (route.kind === "platform-companies") return;
     const fallbackTab = defaultAppTabForPermissions(permissions);
     const fallbackPath = appPathForTab(fallbackTab);
     if (route.pathname !== fallbackPath) navigateToPath(fallbackPath, true);
@@ -2675,26 +2607,13 @@ function InvoiceWorkspace() {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-700"><Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />Loading company access…</div>;
   }
   if (isSupabaseConfigured && session && companyAccess.access.status === "error") {
-    return <NoCompanyAccess onSignOut={handleSignOut}><div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs leading-5 text-rose-900">We couldn’t load your company access. Refresh the page or contact the platform owner.</div></NoCompanyAccess>;
+    return <NoCompanyAccess onSignOut={handleSignOut}><div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs leading-5 text-rose-900">We couldn’t load deployment access. Refresh the page or contact a company administrator.</div></NoCompanyAccess>;
   }
-  if (isSupabaseConfigured && session && route.kind === "platform-companies" && companyAccess.access.status !== "ready" && !(companyAccess.access.status === "refreshing" && companyAccess.isPlatformOwner)) {
-    return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-700"><Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />Checking platform access…</div>;
-  }
-  if (isSupabaseConfigured && session && route.kind === "platform-companies" && companyAccess.isPlatformOwner) {
-    return <div className="min-h-screen bg-slate-50 text-slate-900"><Header activeTab={activeTab} setActiveTab={setActiveTab} invoicesCount={invoices.length} reviewCount={reviewCount} onBatchExportExcel={() => { void handleBatchExportExcel(); }} workspaceSyncStatus={workspaceSyncStatus} accountEmail={session.user.email || undefined} onSignOut={handleSignOut} companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelectCompany={companyAccess.selectCompany} onOpenPlatformManagement={openPlatformManagement} visibleRouteIds={visibleRouteIds} permissions={permissions} /><main className="px-4 py-5 sm:px-6 lg:ml-[17rem] lg:px-8"><button type="button" onClick={closePlatformManagement} className="mb-4 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Back to workspace</button>{managementView}</main></div>;
-  }
-  if (isSupabaseConfigured && session && !companyAccess.isPlatformOwner && (companyAccess.access.status === "no-company" || companyAccess.access.status === "company-suspended")) {
+  if (isSupabaseConfigured && session && (companyAccess.access.status === "no-company" || companyAccess.access.status === "company-suspended")) {
     return <NoCompanyAccess onSignOut={handleSignOut} />;
   }
-  if (isSupabaseConfigured && session && companyAccess.isPlatformOwner && !companyAccess.activeCompanyId) {
-    return <NoCompanyAccess isPlatformOwner onSignOut={handleSignOut}>
-      {managementView}
-    </NoCompanyAccess>;
-  }
   if (isSupabaseConfigured && session && companyAccess.access.status === "ready" && !companyAccess.activeCompanyId) {
-    return <NoCompanyAccess onSignOut={handleSignOut}>
-      <div className="mt-6"><CompanySwitcher companies={companyAccess.companies} activeCompanyId={companyAccess.activeCompanyId} isPlatformOwner={companyAccess.isPlatformOwner} onSelect={companyAccess.selectCompany} /></div>
-    </NoCompanyAccess>;
+    return <NoCompanyAccess onSignOut={handleSignOut} />;
   }
   const emailRedirectTo = typeof window === "undefined" ? undefined : new URL(authRedirectPath, window.location.origin).toString();
   const resetRedirectTo = typeof window === "undefined" ? undefined : new URL("/reset-password", window.location.origin).toString();
@@ -2709,10 +2628,10 @@ function InvoiceWorkspace() {
   }
 
   const engineeringDocumentsGuestMode = !isSupabaseConfigured || guestModeState;
-  const engineeringDocumentsCanRead = engineeringDocumentsGuestMode || isPlatformOwner || can(PERMISSION_KEYS.engineeringDocumentsRead);
-  const engineeringDocumentsCanCreate = engineeringDocumentsGuestMode || isPlatformOwner || can(PERMISSION_KEYS.engineeringDocumentsCreate);
-  const engineeringDocumentsCanAnnotate = engineeringDocumentsGuestMode || isPlatformOwner || can(PERMISSION_KEYS.engineeringDocumentsUpdate);
-  const engineeringDocumentsCanManage = engineeringDocumentsGuestMode || isPlatformOwner || can(PERMISSION_KEYS.engineeringDocumentsManage);
+  const engineeringDocumentsCanRead = engineeringDocumentsGuestMode || can(PERMISSION_KEYS.engineeringDocumentsRead);
+  const engineeringDocumentsCanCreate = engineeringDocumentsGuestMode || can(PERMISSION_KEYS.engineeringDocumentsCreate);
+  const engineeringDocumentsCanAnnotate = engineeringDocumentsGuestMode || can(PERMISSION_KEYS.engineeringDocumentsUpdate);
+  const engineeringDocumentsCanManage = engineeringDocumentsGuestMode || can(PERMISSION_KEYS.engineeringDocumentsManage);
 
   return (
     <AssistantProvider
@@ -2723,7 +2642,6 @@ function InvoiceWorkspace() {
       permissions={permissions}
        compactContext={{ route: route.pathname, companyName: activeCompany?.name, companyTimezone: activeCompany?.timezone || regionalSettings.timezone, currency: activeCompany?.defaultCurrency || regionalSettings.currency, locale: regionalSettings.locale, selectedInvoiceId: selectedInvoice?.id || undefined, selectedProjectId: selectedProject?.id || undefined, selectedSiteLogId: route.kind === "project" ? route.siteLogId : undefined }}
       onNavigate={(path) => navigateToPath(path)}
-      onOpenAiConfiguration={() => { if (isPlatformOwner) openPlatformManagement(); }}
       onOpenInvoice={(invoiceId) => { const invoice = invoicesRef.current.find((item) => item.id === invoiceId); if (invoice) openInvoice(invoice); else navigateToPath(appPathForInvoice(invoiceId)); }}
       onOpenReviewInvoice={(invoiceId) => { const invoice = invoicesRef.current.find((item) => item.id === invoiceId); if (invoice) openInvoiceForReview(invoice, activeTab); else navigateToPath(appPathForReviewInvoice(invoiceId, appPathForTab(activeTab))); }}
       onOpenProject={(projectId) => { const project = projects.find((item) => item.id === projectId); if (project) projectController.openProject(project); else navigateToPath(appPathForProject(projectId)); }}
@@ -2746,9 +2664,6 @@ function InvoiceWorkspace() {
         onSignOut={handleSignOut}
         companies={companyAccess.companies}
         activeCompanyId={companyAccess.activeCompanyId}
-        isPlatformOwner={companyAccess.isPlatformOwner}
-        onSelectCompany={companyAccess.selectCompany}
-        onOpenPlatformManagement={openPlatformManagement}
         visibleRouteIds={visibleRouteIds}
         permissions={permissions}
         remoteInvoiceUpdate={remoteInvoiceUpdate}

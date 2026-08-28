@@ -40,7 +40,6 @@ export const REQUIRED_WORKFLOW_IDS = [
   "assistant-guarded-execution",
 ] as const;
 
-const ALLOWED_SPECIAL_ROUTE_IDS = new Set(["platform-companies"]);
 const STATE_CHANGING_EDGE_TYPES = new Set<WorkflowEdge["type"]>(["writes", "derives", "feeds", "transitions", "executes-through"]);
 const AUTHORITATIVE_SOURCE_NODE_IDS = new Set([
   "invoice-record",
@@ -101,7 +100,7 @@ function validateRouteReferences(graph: WorkflowGraph, errors: string[]) {
       continue;
     }
     if (!node.route.canonicalPath.trim()) push(errors, `route node ${node.id} has an empty canonical path`);
-    if (node.route.routeId && !knownRouteIds.has(node.route.routeId as typeof ROUTE_DEFINITIONS[number]["id"]) && !ALLOWED_SPECIAL_ROUTE_IDS.has(node.route.routeId)) {
+    if (node.route.routeId && !knownRouteIds.has(node.route.routeId as typeof ROUTE_DEFINITIONS[number]["id"])) {
       push(errors, `route node ${node.id} references unknown route ID ${node.route.routeId}`);
     }
     if (node.route.queryKeys && uniqueValues(node.route.queryKeys).length !== node.route.queryKeys.length) {

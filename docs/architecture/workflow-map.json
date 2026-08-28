@@ -261,19 +261,44 @@
       "domain": "platform-tenancy",
       "type": "workflow",
       "scope": "company",
-      "description": "Mounts CompanyAccessProvider and the production App/route shell for an authenticated, company-scoped workspace.",
+      "description": "Mounts the production application for the one company configured to this Engoryx deployment; users do not choose or switch unrelated companies.",
       "fileRefs": [
         "src/main.tsx",
         "src/App.tsx",
         "src/app/AppProviders.tsx",
-        "src/context/CompanyAccessContext.tsx"
+        "src/context/CompanyAccessContext.tsx",
+        "src/lib/deploymentCompany.ts"
       ],
       "testRefs": [
         "tests/auth.test.ts",
-        "tests/companyAccess.test.ts"
+        "tests/companyAccess.test.ts",
+        "tests/singleCompanyDeployment.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "deployment-company",
+      "label": "Deployment configured company",
+      "domain": "platform-tenancy",
+      "type": "data",
+      "scope": "company",
+      "description": "A singleton deployment configuration resolves exactly one client company before membership and role permissions are evaluated.",
+      "fileRefs": [
+        "src/lib/deploymentCompany.ts",
+        "src/context/CompanyAccessContext.tsx",
+        "supabase/migrations/20260828150000_single_company_deployment.sql"
+      ],
+      "testRefs": [
+        "tests/singleCompanyDeployment.test.ts"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative"
+      ],
+      "tags": [
+        "single-company-deployment"
       ]
     },
     {
@@ -322,11 +347,11 @@
     {
       "sourceClassification": "code-derived",
       "id": "company-context",
-      "label": "Active company context",
+      "label": "Deployment company context",
       "domain": "platform-tenancy",
       "type": "data",
       "scope": "company",
-      "description": "Selected active company, company summaries, membership state, and current permission set used by production workspace loaders.",
+      "description": "The deployment-resolved company plus the authenticated user membership and permission snapshot; no tenant picker or unrelated company selection is authoritative.",
       "fileRefs": [
         "src/context/CompanyAccessContext.tsx",
         "src/lib/companyAccess.ts",
@@ -334,7 +359,7 @@
       ],
       "testRefs": [
         "tests/companyAccess.test.ts",
-        "tests/companyManagement.test.ts",
+        "tests/singleCompanyDeployment.test.ts",
         "tests/workspaceLoadCache.test.ts"
       ],
       "invariantIds": [
@@ -344,7 +369,7 @@
     {
       "sourceClassification": "mixed",
       "id": "company-membership",
-      "label": "Company membership and access snapshot",
+      "label": "User membership and role permissions",
       "domain": "platform-tenancy",
       "type": "data",
       "scope": "company",
@@ -458,37 +483,6 @@
       ],
       "invariantIds": [
         "company-rbac-is-authoritative"
-      ]
-    },
-    {
-      "sourceClassification": "code-derived",
-      "id": "route-platform-companies",
-      "label": "Platform company management route",
-      "domain": "platform-tenancy",
-      "type": "route",
-      "scope": "global",
-      "route": {
-        "routeId": "platform-companies",
-        "canonicalPath": "/platform/companies",
-        "pathPattern": "/platform/companies",
-        "queryKeys": [
-          "companyId",
-          "tab"
-        ],
-        "scope": "production"
-      },
-      "description": "Platform-owner company and membership management deep link; it does not open the selected company workspace.",
-      "permissionKeys": [
-        "platform.manage"
-      ],
-      "fileRefs": [
-        "src/utils/appRouting.ts",
-        "src/app/routes/PlatformCompaniesRoute.tsx",
-        "src/components/access/CompanyManagement.tsx"
-      ],
-      "testRefs": [
-        "tests/appRouting.test.ts",
-        "tests/companyManagement.test.ts"
       ]
     },
     {
@@ -4543,12 +4537,23 @@
       ]
     },
     {
-      "id": "production-to-company-context",
+      "id": "production-to-deployment-company",
       "source": "production-mode",
-      "target": "company-context",
+      "target": "deployment-company",
       "type": "reads",
       "kind": "context",
-      "label": "loads access context",
+      "label": "resolves configured company",
+      "invariantIds": [
+        "company-rbac-is-authoritative"
+      ]
+    },
+    {
+      "id": "deployment-company-to-membership",
+      "source": "deployment-company",
+      "target": "company-membership",
+      "type": "guards",
+      "kind": "guard",
+      "label": "deployment membership only",
       "invariantIds": [
         "company-rbac-is-authoritative"
       ]
@@ -4559,7 +4564,7 @@
       "target": "company-context",
       "type": "feeds",
       "kind": "context",
-      "label": "resolves active company",
+      "label": "membership and permissions",
       "invariantIds": [
         "company-rbac-is-authoritative"
       ]
@@ -4637,14 +4642,6 @@
       "invariantIds": [
         "company-rbac-is-authoritative"
       ]
-    },
-    {
-      "id": "route-platform-management-to-shell",
-      "source": "route-platform-companies",
-      "target": "platform-shell",
-      "type": "routes-to",
-      "kind": "navigation",
-      "label": "platform management"
     },
     {
       "id": "demo-landing-to-demo-mode",

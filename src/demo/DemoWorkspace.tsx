@@ -22,12 +22,11 @@ const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "extract", "invoices", 
 function activeTabFor(location: DemoLocation): AppTab {
   if (location.kind === "documents") return "projects";
   if (location.kind === "assistant" || location.kind === "landing") return "dashboard";
-  return location.appLocation.kind === "platform-companies" ? "dashboard" : location.appLocation.tab;
+  return location.appLocation.tab;
 }
 
 function safeAppLocation(location: DemoLocation): AppLocation | null {
   if (location.kind !== "app") return null;
-  if (location.appLocation.kind === "platform-companies") return null;
   const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "extractor", "inbox", "review", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
   return allowed.has(location.appLocation.tab) ? location.appLocation : null;
 }
@@ -170,6 +169,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onSaveExpense={(expense: Expense) => dispatch({ type: "SAVE_EXPENSE", value: expense })}
             onArchiveExpense={(expense: Expense) => dispatch({ type: "ARCHIVE_EXPENSE", value: expense })}
             regionalSettings={DEFAULT_REGIONAL_SETTINGS}
+            showDeploymentAccessManagement={false}
           />
         )
         : <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">This route is not part of the public demo. <button type="button" className="ml-1 font-black text-indigo-600" onClick={() => onNavigate(demoPathForTab("dashboard"))}>Return to Dashboard</button></div>;

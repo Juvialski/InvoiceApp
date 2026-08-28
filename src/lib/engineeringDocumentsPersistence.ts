@@ -12,6 +12,7 @@ import {
   type EngineeringDocumentType,
 } from "./engineeringDocuments.ts";
 import { getActiveCompanyId, requireActiveCompanyId } from "./companyContext.ts";
+import { safeStorageSegment } from "./fileSecurity.ts";
 import { supabase } from "./supabase.ts";
 
 export const ENGINEERING_WORKSPACE_STORAGE_KEY = "invoice_engineering_documents_workspace_v1";
@@ -84,10 +85,9 @@ export async function prepareEngineeringPdf(
 }
 
 export function getEngineeringDocumentStoragePath(companyId: string, documentId: string, revisionId: string, fileName: string): string {
-  const normalizedCompanyId = companyId.trim();
-  const normalizedDocumentId = documentId.trim();
-  const normalizedRevisionId = revisionId.trim();
-  if (!normalizedCompanyId || !normalizedDocumentId || !normalizedRevisionId) throw new Error("Company, document, and revision IDs are required for Storage uploads.");
+  const normalizedCompanyId = safeStorageSegment(companyId, "Company ID");
+  const normalizedDocumentId = safeStorageSegment(documentId, "Engineering document ID");
+  const normalizedRevisionId = safeStorageSegment(revisionId, "Engineering revision ID");
   return `companies/${normalizedCompanyId}/documents/${normalizedDocumentId}/revisions/${normalizedRevisionId}/${safeFileName(fileName)}`;
 }
 
@@ -98,9 +98,16 @@ export function isEngineeringDocumentStoragePathForRevision(
   revisionId: string,
 ): boolean {
   const parts = filePath.trim().split("/");
-  const normalizedCompanyId = companyId.trim();
-  const normalizedDocumentId = documentId.trim();
-  const normalizedRevisionId = revisionId.trim();
+  let normalizedCompanyId: string;
+  let normalizedDocumentId: string;
+  let normalizedRevisionId: string;
+  try {
+    normalizedCompanyId = safeStorageSegment(companyId, "Company ID");
+    normalizedDocumentId = safeStorageSegment(documentId, "Engineering document ID");
+    normalizedRevisionId = safeStorageSegment(revisionId, "Engineering revision ID");
+  } catch {
+    return false;
+  }
   return parts.length === 7
     && parts[0] === "companies"
     && parts[1] === normalizedCompanyId
@@ -278,7 +285,7 @@ function requireRemoteUser(userId: string | null): string {
 function resolveCompanyId(companyId?: string): string {
   const activeCompanyId = getActiveCompanyId();
   const resolved = companyId?.trim() || activeCompanyId || requireActiveCompanyId();
-  if (activeCompanyId && activeCompanyId !== resolved) throw new Error("The selected company context changed. Reload the engineering workspace and retry.");
+  if (activeCompanyId && activeCompanyId !== resolved) throw new Error("Deployment company access changed. Reload the engineering workspace and retry.");
   return resolved;
 }
 
@@ -496,7 +503,7 @@ export async function getEngineeringDocumentFileUrl(
   const companyId = resolveCompanyId(explicitCompanyId);
   const normalizedFilePath = filePath.trim();
   if (!expectedDocumentId || !expectedRevisionId || !isEngineeringDocumentStoragePathForRevision(normalizedFilePath, companyId, expectedDocumentId, expectedRevisionId)) {
-    throw new Error("The engineering revision source is outside the active company.");
+    throw new Error("The engineering revision source is outside the deployment company.");
   }
 
   const { data, error } = await supabase!.storage
@@ -523,7 +530,7 @@ export async function compensateUnprovenancedEngineeringDocumentUpload(
   const companyId = resolveCompanyId(explicitCompanyId);
   const normalizedFilePath = filePath.trim();
   if (!isEngineeringDocumentStoragePathForRevision(normalizedFilePath, companyId, expectedDocumentId, expectedRevisionId)) {
-    throw new Error("Refusing to compensate an engineering upload outside the active company.");
+    throw new Error("Refusing to compensate an engineering upload outside the deployment company.");
   }
   const { error } = await supabase!.storage
     .from(ENGINEERING_DOCUMENTS_BUCKET)

@@ -6,6 +6,7 @@ declare
   v_user_id uuid := '22222222-2222-2222-2222-222222222222'::uuid;
   v_historical_count bigint;
   v_distinct_events bigint;
+  v_platform_records bigint;
   v_error_caught boolean := false;
 begin
   -- 1. Verify all 15 historical rows are intact
@@ -64,6 +65,17 @@ begin
 
   if not v_error_caught then
     raise exception 'Check constraint failed to reject illegal event type ILLEGAL_EVENT_TYPE_XYZ'
+      using errcode = 'P0001';
+  end if;
+
+  -- The single-company closure clears inherited global operator state. The
+  -- tables and explicit internal provisioning path remain available, but no
+  -- platform admin or allowlist row survives a normal client deployment.
+  select (select count(*) from public.platform_admins)
+       + (select count(*) from public.platform_admin_allowlist)
+    into v_platform_records;
+  if v_platform_records <> 0 then
+    raise exception 'Expected inherited platform operator state to be cleared, found % record(s)', v_platform_records
       using errcode = 'P0001';
   end if;
 

@@ -16,9 +16,12 @@ export const PERMISSION_KEYS = {
   cashConnectionsManage: "cash.connections.manage",
   invoicesRead: "invoices.read",
   invoicesWrite: "invoices.manage",
+  invoicesVerify: "invoices.verify",
   invoicesExtract: "invoices.extract",
   gmailRead: "gmail.read",
   gmailManage: "gmail.manage",
+  vendorsRead: "vendors.read",
+  vendorsManage: "vendors.manage",
   projectsRead: "projects.read",
   projectsWrite: "projects.manage",
   projectScheduleRead: "scheduling.read",
@@ -36,10 +39,12 @@ export const PERMISSION_KEYS = {
   payrollAggregateRead: "payroll.summary.read",
   payrollSensitiveRead: "payroll.detail.read",
   reportsRead: "reports.financial.read",
+  reportsPayrollRead: "reports.payroll.read",
   reportsExport: "reports.financial.read",
   settingsRead: "company.settings.read",
   companyManage: "company.settings.manage",
-  accessManage: "company.members.read",
+  accessRead: "company.members.read",
+  accessManage: "company.members.manage",
   platformManage: "platform.manage",
   engineeringDocumentsRead: "engineering.documents.read",
   engineeringDocumentsCreate: "engineering.documents.create",
@@ -74,9 +79,13 @@ export const ROUTE_PERMISSION_REQUIREMENTS: Readonly<Partial<Record<AppTab, Perm
   invoices: PERMISSION_KEYS.invoicesRead,
   payroll: PERMISSION_KEYS.payrollRead,
   expenses: PERMISSION_KEYS.expensesRead,
-  vendors: "vendors.read",
+  vendors: PERMISSION_KEYS.vendorsRead,
   reports: PERMISSION_KEYS.reportsRead,
   settings: PERMISSION_KEYS.settingsRead,
+});
+
+export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, readonly PermissionKey[]>>> = Object.freeze({
+  reports: [PERMISSION_KEYS.reportsPayrollRead],
 });
 
 export function normalizePermissionKey(value: unknown): PermissionKey | null {
@@ -108,12 +117,17 @@ export function requiredPermissionForAppTab(tab: AppTab): PermissionKey | null {
   return ROUTE_PERMISSION_REQUIREMENTS[tab] || null;
 }
 
-export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, readonly PermissionKey[]>>> = Object.freeze({
-  reports: ["reports.payroll.read"],
-});
+/**
+ * Returns every permission that can independently authorize a route. Callers
+ * must treat this list as an any-of requirement, never as an all-of list.
+ */
+export function permissionOptionsForAppTab(tab: AppTab): readonly PermissionKey[] {
+  const primary = requiredPermissionForAppTab(tab);
+  return [...new Set([...(primary ? [primary] : []), ...(ROUTE_PERMISSION_ALTERNATIVES[tab] || [])])];
+}
 
 export function canAccessAppTab(tab: AppTab, permissions: Iterable<PermissionKey> | null | undefined): boolean {
-  return hasPermission(permissions, requiredPermissionForAppTab(tab)) || (ROUTE_PERMISSION_ALTERNATIVES[tab] || []).some((permission) => hasPermission(permissions, permission));
+  return hasAnyPermission(permissions, permissionOptionsForAppTab(tab));
 }
 
 export function permittedAppTabs(permissions: Iterable<PermissionKey> | null | undefined): AppTab[] {
@@ -145,9 +159,12 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.cashConnectionsManage]: "Cash connections",
     [PERMISSION_KEYS.invoicesRead]: "Invoices",
     [PERMISSION_KEYS.invoicesWrite]: "Invoice editing",
+    [PERMISSION_KEYS.invoicesVerify]: "Invoice verification",
     [PERMISSION_KEYS.invoicesExtract]: "Invoice extraction",
     [PERMISSION_KEYS.gmailRead]: "Gmail",
     [PERMISSION_KEYS.gmailManage]: "Gmail connection management",
+    [PERMISSION_KEYS.vendorsRead]: "Vendors",
+    [PERMISSION_KEYS.vendorsManage]: "Vendor management",
     [PERMISSION_KEYS.projectsRead]: "Projects",
     [PERMISSION_KEYS.projectsWrite]: "Project editing",
     [PERMISSION_KEYS.projectScheduleRead]: "Project schedule viewing",
@@ -163,9 +180,11 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
     [PERMISSION_KEYS.payrollImport]: "Payroll imports",
     [PERMISSION_KEYS.payrollAggregateRead]: "Payroll cost summaries",
     [PERMISSION_KEYS.payrollSensitiveRead]: "Sensitive payroll details",
-    [PERMISSION_KEYS.reportsRead]: "Reports",
+    [PERMISSION_KEYS.reportsRead]: "Financial reports",
+    [PERMISSION_KEYS.reportsPayrollRead]: "Payroll reports",
     [PERMISSION_KEYS.settingsRead]: "Settings",
     [PERMISSION_KEYS.companyManage]: "Company settings",
+    [PERMISSION_KEYS.accessRead]: "Access directory",
     [PERMISSION_KEYS.accessManage]: "Access management",
     [PERMISSION_KEYS.platformManage]: "Platform management",
     [PERMISSION_KEYS.engineeringDocumentsRead]: "Engineering document viewing",

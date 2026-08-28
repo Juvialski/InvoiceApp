@@ -25,7 +25,6 @@ export interface NavigationFilter {
   readonly permissions?: Iterable<PermissionKey> | null;
   /** The App-level permission-filtered route list remains authoritative when supplied. */
   readonly visibleRouteIds?: readonly RouteId[];
-  readonly isPlatformOwner?: boolean;
 }
 
 export interface NavigationRoute extends RouteDefinition {
@@ -82,7 +81,7 @@ function asNavigationRoute(route: RouteDefinition): NavigationRoute {
 
 function routeIsVisible(route: RouteDefinition, filter: NavigationFilter = {}) {
   if (filter.visibleRouteIds && !filter.visibleRouteIds.includes(route.id)) return false;
-  if (filter.permissions === undefined || filter.isPlatformOwner) return true;
+  if (filter.permissions === undefined) return true;
   return canAccessAppTab(route.appTab, filter.permissions);
 }
 

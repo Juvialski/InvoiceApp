@@ -218,7 +218,7 @@ export interface SendAssistantMessageOptions {
 
 export async function sendAssistantMessage(options: SendAssistantMessageOptions): Promise<AssistantResponse> {
   const companyId = (options.companyId || "").trim();
-  if (!companyId) throw new AssistantClientError(`Sign in and select a company before using ${BRAND.assistantName}.`, { code: "COMPANY_REQUIRED" });
+  if (!companyId) throw new AssistantClientError(`Sign in and resolve deployment access before using ${BRAND.assistantName}.`, { code: "COMPANY_REQUIRED" });
   const message = options.message.trim().slice(0, MAX_MESSAGE_LENGTH);
   if (!message) throw new AssistantClientError("Ask a question or attach a file before sending.", { code: "MESSAGE_REQUIRED" });
   const context = compactAssistantContext({ ...options.context, companyId });
@@ -243,7 +243,7 @@ export interface ConfirmAssistantActionOptions {
 
 export async function confirmAssistantAction(options: ConfirmAssistantActionOptions): Promise<AssistantResponse> {
   const companyId = (options.companyId || "").trim();
-  if (!companyId) throw new AssistantClientError("Sign in and select a company before confirming an action.", { code: "COMPANY_REQUIRED" });
+  if (!companyId) throw new AssistantClientError("Sign in and resolve deployment access before confirming an action.", { code: "COMPANY_REQUIRED" });
   if (!SAFE_TOKEN.test(options.actionId)) throw new AssistantClientError("That assistant action is not valid.", { code: "ACTION_INVALID" });
   const contextGeneration = Number(options.contextGeneration);
   if (!Number.isSafeInteger(contextGeneration) || contextGeneration < 0) throw new AssistantClientError("That assistant context is no longer valid.", { code: "CONTEXT_INVALID" });
@@ -254,7 +254,7 @@ export async function confirmAssistantAction(options: ConfirmAssistantActionOpti
 
 export async function cancelAssistantAction(options: ConfirmAssistantActionOptions): Promise<AssistantResponse> {
   const companyId = (options.companyId || "").trim();
-  if (!companyId) throw new AssistantClientError("Sign in and select a company before cancelling an assistant action.", { code: "COMPANY_REQUIRED" });
+  if (!companyId) throw new AssistantClientError("Sign in and resolve deployment access before cancelling an assistant action.", { code: "COMPANY_REQUIRED" });
   if (!SAFE_TOKEN.test(options.actionId)) throw new AssistantClientError("That assistant action is not valid.", { code: "ACTION_INVALID" });
   const contextGeneration = Number(options.contextGeneration);
   if (!Number.isSafeInteger(contextGeneration) || contextGeneration < 0) throw new AssistantClientError("That assistant context is no longer valid.", { code: "CONTEXT_INVALID" });

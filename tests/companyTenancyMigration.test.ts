@@ -13,6 +13,7 @@ const migrationNames = [
   "20260824101000_company_tenancy_sql_corrections.sql",
 ] as const;
 const sql = migrationNames.map((name) => readFileSync(new URL(`../supabase/migrations/${name}`, import.meta.url), "utf8")).join("\n");
+const platformMaintenance = readFileSync(new URL("../supabase/migrations/20260828152000_single_company_platform_maintenance.sql", import.meta.url), "utf8");
 
 const tenantTables = [
   "gmail_connections", "gmail_sync_state", "email_messages", "source_documents", "vendors", "invoices",
@@ -43,9 +44,16 @@ test("database security contract exposes the exact lead RPC names", () => {
   ]) {
     assert.match(sql, new RegExp(`create (?:or replace )?function ${functionName.replaceAll(".", "\\.")}`));
   }
-  assert.match(sql, /al\.matubis17@gmail\.com/);
   assert.match(sql, /email_confirmed_at/);
   assert.match(sql, /auth\.uid\(\)/);
+});
+
+test("single-company closure removes inherited platform identities without embedding a developer email", () => {
+  assert.match(platformMaintenance, /forward-only deployment migration/i);
+  assert.match(platformMaintenance, /delete from public\.platform_admins\s*;/i);
+  assert.match(platformMaintenance, /delete from public\.platform_admin_allowlist\s*;/i);
+  assert.doesNotMatch(platformMaintenance, /@[a-z0-9.-]+\.[a-z]{2,}/i);
+  assert.match(platformMaintenance, /explicitly after deployment/i);
 });
 
 test("SECURITY DEFINER functions pin search_path and direct writes stay closed", () => {

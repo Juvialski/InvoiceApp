@@ -59,12 +59,14 @@ export async function authenticateAssistantRequest(req: Request, options: Assist
   if (error || !data.user) throw new AssistantBackendError("UNAUTHENTICATED", "A valid InvoiceApp session is required.", 401);
   const companyId = firstHeader(req.headers["x-company-id"]).trim();
   if (!UUID_HEADER_PATTERN.test(companyId)) throw new AssistantBackendError("COMPANY_REQUIRED", "A valid company context is required.", 400);
-  const [membership, platform] = await Promise.all([
-    supabase.rpc("is_active_company_member", { p_company_id: companyId }),
-    supabase.rpc("is_platform_admin"),
-  ]);
-  if (membership.error || platform.error) throw new AssistantBackendError("AUTHORIZATION_UNAVAILABLE", "Company authorization is temporarily unavailable.", 503);
-  if (membership.data !== true && platform.data !== true) throw new AssistantBackendError("FORBIDDEN", "You do not have access to this company.", 403);
+  const deployment = await supabase.rpc("get_deployment_company_id");
+  if (deployment.error || typeof deployment.data !== "string" || !UUID_HEADER_PATTERN.test(deployment.data)) {
+    throw new AssistantBackendError("AUTHORIZATION_UNAVAILABLE", "Deployment company authorization is temporarily unavailable.", 503);
+  }
+  if (deployment.data !== companyId) throw new AssistantBackendError("FORBIDDEN", "The Assistant cannot target another Engoryx deployment company.", 403);
+  const membership = await supabase.rpc("is_active_company_member", { p_company_id: companyId });
+  if (membership.error) throw new AssistantBackendError("AUTHORIZATION_UNAVAILABLE", "Company authorization is temporarily unavailable.", 503);
+  if (membership.data !== true) throw new AssistantBackendError("FORBIDDEN", "You do not have active access to this Engoryx deployment company.", 403);
   return { accessToken, companyId, supabase, user: data.user };
 }
 

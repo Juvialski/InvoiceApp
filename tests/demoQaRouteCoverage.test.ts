@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { DEMO_QA_SCENARIOS } from "../scripts/qa/demoScenarios.ts";
 import { ROUTE_DEFINITIONS } from "../src/utils/routes.ts";
 
@@ -17,4 +18,11 @@ test("settings QA verifies product roadmap status labels", () => {
   assert.ok(scenario);
   assert.equal(scenario.interactionState, "feature status verified");
   assert.equal(typeof scenario.action, "function");
+});
+
+test("demo settings does not mount production company access management", () => {
+  const demoWorkspace = readFileSync(new URL("../src/demo/DemoWorkspace.tsx", import.meta.url), "utf8");
+  const settings = readFileSync(new URL("../src/components/Settings.tsx", import.meta.url), "utf8");
+  assert.match(demoWorkspace, /showDeploymentAccessManagement=\{false\}/);
+  assert.match(settings, /showDeploymentAccessManagement && <DeploymentAccessManagement \/>/);
 });

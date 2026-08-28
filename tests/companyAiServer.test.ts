@@ -12,7 +12,7 @@ const migration = readFileSync(new URL("../supabase/migrations/20260824122000_co
 const hardeningMigration = readFileSync(new URL("../supabase/migrations/20260824123000_company_ai_hardening.sql", import.meta.url), "utf8");
 const serverSupabase = readFileSync(new URL("../src/server/ai/companyAiServerSupabase.ts", import.meta.url), "utf8");
 
-test("company AI endpoints are platform-owner scoped and metadata-only", () => {
+test("company AI endpoints are internal-operator scoped and metadata-only", () => {
   for (const path of [
     "/api/platform/companies/:companyId/ai-config",
     "/api/platform/companies/:companyId/ai-config/gemini",
@@ -53,7 +53,7 @@ test("all production Gemini paths resolve the centralized company runtime", () =
 
 test("server and company configuration error messages stay distinct", () => {
   assert.match(serverSupabase, /AI backend configuration is incomplete/);
-  assert.match(runtime, /AI is not configured for this company\. Contact the platform administrator/);
+  assert.match(runtime, /AI is not configured for this company\. Contact an authorized deployment operator/);
   assert.match(runtime, /AI is disabled for this company/);
   assert.match(runtime, /The configured Gemini API key is invalid/);
 });

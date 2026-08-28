@@ -1,6 +1,7 @@
 import type { PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun } from "../types.ts";
 import { supabase } from "./supabase.ts";
 import { companyStoragePath, requireActiveCompanyId } from "./companyContext.ts";
+import { safeStorageSegment, validatePayrollImportBytes } from "./fileSecurity.ts";
 
 export type PayrollImportBatchStatus = "UPLOADED" | "MAPPED" | "VALIDATED" | "COMMITTED" | "FAILED" | "VOIDED";
 export type PayrollImportRowStatus = "STAGED" | "READY" | "SKIPPED" | "COMMITTED" | "ERROR";
@@ -462,7 +463,9 @@ export async function savePayrollImportTemplateToSupabase(template: PayrollImpor
 export async function uploadPayrollImportSourceToSupabase(input: { batchId: string; fileName: string; mimeType?: string; bytes: Uint8Array }) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before uploading payroll source files.");
-  const storagePath = `${companyStoragePath("payroll-imports", input.batchId)}/${safeName(input.fileName)}`;
+  validatePayrollImportBytes(input.bytes, input.fileName, input.mimeType);
+  const batchId = safeStorageSegment(input.batchId, "Payroll import batch ID");
+  const storagePath = `${companyStoragePath("payroll-imports", batchId)}/${safeName(input.fileName)}`;
   const { error } = await supabase.storage.from(PAYROLL_IMPORT_BUCKET).upload(storagePath, input.bytes, { contentType: input.mimeType, upsert: false });
   if (error) throw error;
   return storagePath;

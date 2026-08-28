@@ -33,7 +33,7 @@ function date(value?: string) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = ({ targetType, targetId, title, compact = false, canReverse = true, fallbackSummary }) => {
+export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = ({ targetType, targetId, title, compact = false, canReverse = false, fallbackSummary }) => {
   const demoSummary = useMemo(() => targetId.startsWith("demo-") ? demoSettlementSummaryForTarget(targetType, targetId) : null, [targetId, targetType]);
   const [summary, setSummary] = useState<FinancialSettlementSummary | null>(fallbackSummary || demoSummary);
   const [loading, setLoading] = useState(!fallbackSummary && !demoSummary);

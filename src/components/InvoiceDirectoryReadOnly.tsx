@@ -1,0 +1,20 @@
+import React, { useMemo, useState } from "react";
+import { Eye, Files, Plus, Search } from "lucide-react";
+import type { InvoiceData } from "../types.ts";
+import { getInvoiceDisplay } from "../utils/invoiceDisplay.ts";
+import { EmptyState, PageHeader, StatusBadge } from "./ui/OperationsUI.tsx";
+
+export function InvoiceDirectoryReadOnly({ invoices, onSelectInvoice, onAddNew }: { invoices: InvoiceData[]; onSelectInvoice: (invoice: InvoiceData) => void; onAddNew?: () => void }) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return invoices;
+    return invoices.filter((invoice) => [invoice.invoiceNumber, invoice.vendor?.name, invoice.vendor?.registeredName, invoice.vendor?.taxId, invoice.projectReference, invoice.currency, invoice.grandTotal].join(" ").toLowerCase().includes(q));
+  }, [invoices, query]);
+
+  return <div className="space-y-5">
+    <PageHeader eyebrow="Supplier control" title="Invoices" description="Read invoice records and verification status. Destructive and editing actions are hidden when your role does not permit them." actions={onAddNew ? <button type="button" onClick={onAddNew} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"><Plus className="h-3.5 w-3.5" /> New extraction</button> : undefined} />
+    <label className="flex max-w-2xl items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5"><Search className="h-4 w-4 text-slate-400" /><span className="sr-only">Search invoices</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search invoice, vendor, TIN, project…" className="w-full text-xs outline-none" /></label>
+    {filtered.length ? <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Read-only invoice directory"><div className="ops-scrollbar overflow-auto"><table className="ops-table min-w-[760px] w-full text-left text-xs"><thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Invoice / vendor</th><th className="px-4 py-3">Date</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3">Review</th><th className="px-4 py-3">Payment</th><th className="px-4 py-3 text-right">Open</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((invoice) => { const display = getInvoiceDisplay(invoice); return <tr key={invoice.id}><td className="max-w-[280px] px-4 py-3"><strong className="block truncate text-xs text-slate-900">{display.primaryLabel}</strong><span className="mt-0.5 block truncate text-[10px] text-slate-500">{display.invoiceLabel}</span></td><td className="px-4 py-3 text-[10px] text-slate-600">{display.dateLabel}</td><td className="px-4 py-3 text-right font-bold tabular-nums">{display.amountLabel}</td><td className="px-4 py-3"><StatusBadge tone={invoice.reviewStatus === "VERIFIED" ? "success" : "warning"}>{invoice.reviewStatus === "VERIFIED" ? "Verified" : "Needs review"}</StatusBadge></td><td className="px-4 py-3"><StatusBadge tone={invoice.status === "PAID" ? "success" : invoice.status === "OVERDUE" ? "danger" : "neutral"}>{invoice.status}</StatusBadge></td><td className="px-4 py-3 text-right"><button type="button" onClick={() => onSelectInvoice(invoice)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-50"><Eye className="h-3.5 w-3.5" /> Open</button></td></tr>; })}</tbody></table></div></section> : <EmptyState icon={Files} title={invoices.length ? "No invoices match this search" : "No invoices yet"} description="No invoice records are available for the current view." />}
+  </div>;
+}

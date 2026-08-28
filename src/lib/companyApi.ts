@@ -1,17 +1,18 @@
 import { supabase } from "./supabase";
 import { BRAND } from "../config/brand";
+import { requireActiveCompanyId } from "./companyContext.ts";
+import { assertDeploymentCompanyId } from "./deploymentCompany.ts";
 
 export interface CompanyApiRequestOptions extends RequestInit {
+  /** Compatibility input. It must match the deployment company when supplied. */
   companyId: string;
   googleAccessToken?: string;
 }
 
 /**
- * Send a request to a company-scoped Express endpoint.
- *
- * The browser only supplies the current Supabase session and selected company
- * context. The server verifies both; a Google provider token is deliberately
- * carried in its own header and is never used as the InvoiceApp bearer token.
+ * Send a request to a company-scoped Express endpoint. The browser does not
+ * choose the company: the resolved deployment-company context is authoritative.
+ * Any mismatched caller-supplied company id fails before a request is sent.
  */
 export async function companyApiRequest(path: string, options: CompanyApiRequestOptions) {
   if (!supabase) throw new Error(`Sign in to ${BRAND.productName} before using this service.`);
@@ -19,14 +20,15 @@ export async function companyApiRequest(path: string, options: CompanyApiRequest
   if (error || !data.session?.access_token) {
     throw new Error(`Your ${BRAND.productName} session has expired. Sign in again.`);
   }
-  if (!options.companyId) throw new Error("Select a company before continuing.");
+
+  const deploymentCompanyId = requireActiveCompanyId();
+  assertDeploymentCompanyId(deploymentCompanyId, options.companyId, "server request");
 
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${data.session.access_token}`);
-  headers.set("X-Company-Id", options.companyId);
+  headers.set("X-Company-Id", deploymentCompanyId);
   if (options.googleAccessToken) headers.set("X-Gmail-Access-Token", options.googleAccessToken);
 
   const { companyId: _companyId, googleAccessToken: _googleAccessToken, ...requestInit } = options;
   return fetch(path, { ...requestInit, headers });
 }
-

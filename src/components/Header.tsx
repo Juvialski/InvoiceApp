@@ -17,7 +17,6 @@ import {
   Receipt,
   RefreshCw,
   Settings as SettingsIcon,
-  ShieldCheck,
   UserCircle2,
   WifiOff,
   WalletCards,
@@ -51,9 +50,6 @@ interface HeaderProps {
   onSignOut?: () => Promise<void> | void;
   companies?: readonly CompanySummary[];
   activeCompanyId?: string | null;
-  isPlatformOwner?: boolean;
-  onSelectCompany?: (companyId: string) => Promise<void> | void;
-  onOpenPlatformManagement?: () => void;
   visibleRouteIds?: readonly RouteId[];
   /** Optional direct permission input for callers that do not already build visibleRouteIds. */
   permissions?: readonly PermissionKey[];
@@ -177,7 +173,7 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({ module,
   );
 };
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest", accountEmail, onSignOut, companies = [], activeCompanyId, isPlatformOwner = false, onSelectCompany, onOpenPlatformManagement, visibleRouteIds, permissions }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest", accountEmail, onSignOut, companies = [], activeCompanyId, visibleRouteIds, permissions }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [invoicesExpanded, setInvoicesExpanded] = useState(() => ["invoices", "extractor", "inbox", "review", "vendors"].includes(activeTab));
   const [accountOpen, setAccountOpen] = useState(false);
@@ -190,7 +186,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
   const activeCompany = companies.find((company) => company.id === activeCompanyId);
   const syncStatus = workspaceSyncStatus as WorkspaceSyncStatus;
   const effectivePermissions = syncStatus === "guest" && !accountEmail ? undefined : permissions;
-  const navigationFilter = useMemo(() => ({ permissions: effectivePermissions, visibleRouteIds, isPlatformOwner }), [effectivePermissions, isPlatformOwner, visibleRouteIds]);
+  const navigationFilter = useMemo(() => ({ permissions: effectivePermissions, visibleRouteIds }), [effectivePermissions, visibleRouteIds]);
   const navigation = useMemo(() => getNavigationModel(navigationFilter), [navigationFilter]);
   const activeModule = activeModuleDefinition ? navigation.modules.find((module) => module.id === activeModuleDefinition.id) : undefined;
   const syncLabel = workspaceSyncLabel(syncStatus);
@@ -206,7 +202,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
   const syncTitle = syncStatus === "guest"
     ? "Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in."
     : syncLabel;
-  const accountHasActions = Boolean(accountEmail || onSignOut || navigation.settingsRoute || (isPlatformOwner && onOpenPlatformManagement));
+  const accountHasActions = Boolean(accountEmail || onSignOut || navigation.settingsRoute);
   const routeContext = activeModule
     ? activeRouteId && activeRouteId !== activeModule.defaultRouteId
       ? `${activeModule.label} / ${activeRoute?.label || "Workspace"}`
@@ -283,7 +279,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 ops-scrollbar">
-          {companies.length > 0 && onSelectCompany && <div className="mb-5 px-1"><p className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Workspace</p><CompanySwitcher companies={companies} activeCompanyId={activeCompanyId} isPlatformOwner={isPlatformOwner} onSelect={onSelectCompany} onOpenPlatformManagement={onOpenPlatformManagement} /></div>}
+          {companies.length > 0 && <div className="mb-5 px-1"><p className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Deployment</p><CompanySwitcher companies={companies} activeCompanyId={activeCompanyId} /></div>}
           <p className="mb-2 px-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Operations</p>
           <nav className="space-y-1" aria-label="Primary navigation">
             {navigation.modules.map((module) => <div key={module.id}>
@@ -326,8 +322,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
                 {accountEmail && <p className="truncate px-2 py-1.5 text-[10px] font-bold text-slate-500">{accountEmail}</p>}
                 <p className="px-2 pb-1.5 text-[10px] font-semibold text-slate-400">Account / Workspace</p>
                 {navigation.settingsRoute && <button type="button" role="menuitem" data-tour="route:settings" aria-current={activeTab === navigation.settingsRoute.appTab ? "page" : undefined} onClick={() => selectRoute(navigation.settingsRoute!)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50"><SettingsIcon aria-hidden="true" className="h-3.5 w-3.5" />Workspace Settings</button>}
-                {isPlatformOwner && onOpenPlatformManagement && <button type="button" role="menuitem" onClick={() => { onOpenPlatformManagement(); setAccountOpen(false); }} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50"><ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 text-indigo-600" />Manage Companies</button>}
-                {(navigation.settingsRoute || (isPlatformOwner && onOpenPlatformManagement)) && onSignOut && <div className="my-1 border-t border-slate-100" />}
+                {navigation.settingsRoute && onSignOut && <div className="my-1 border-t border-slate-100" />}
                 {onSignOut && <button type="button" role="menuitem" onClick={() => void handleSignOut()} disabled={accountBusy} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"><LogOut aria-hidden="true" className="h-3.5 w-3.5" />{accountBusy ? "Signing out…" : "Sign out"}</button>}
               </div>}
             </div>}

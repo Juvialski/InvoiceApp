@@ -3,7 +3,10 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as fs from "node:fs";
 import * as XLSX from "xlsx";
+
+XLSX.set_fs(fs);
 import { exportEngineeringProjectWorkbookToExcel } from "../src/utils/excelExport.ts";
 import { buildPayrollReport, buildProjectCostReport, buildProjectInvoiceReport } from "../src/utils/projectReports.ts";
 import type {

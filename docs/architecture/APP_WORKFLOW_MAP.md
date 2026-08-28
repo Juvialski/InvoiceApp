@@ -34,7 +34,6 @@ Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContract
 
 | Node | Route ID | Canonical path | Query keys | Scope |
 | --- | --- | --- | --- | --- |
-| **Platform company management route**<br/><small>`route-platform-companies`</small> | `platform-companies` | `/platform/companies` | `companyId`, `tab` | `global` |
 | **Demo landing route**<br/><small>`route-demo-landing`</small> | demo-only | `/demo` | — | `demo-only` |
 | **Demo Assistant route**<br/><small>`route-demo-assistant`</small> | demo-only | `/demo/app/assistant` | — | `demo-only` |
 | **Demo standalone Engineering Documents route**<br/><small>`route-demo-documents`</small> | demo-only | `/demo/app/documents` | — | `demo-only` |
@@ -73,7 +72,7 @@ flowchart LR
     n_platform_entry{"Application entry<br/><small>WORKFLOW</small>"}
     n_production_mode{"Authenticated production mode<br/><small>WORKFLOW</small>"}
     n_demo_mode{"Isolated demo mode<br/><small>WORKFLOW</small>"}
-    n_company_context[("Active company context<br/><small>DATA</small>")]
+    n_company_context[("Deployment company context<br/><small>DATA</small>")]
     n_company_rbac{{"Company RBAC and RLS guard<br/><small>GUARD</small>"}}
     n_production_persistence_boundary[["Production persistence boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_demo_isolation{{"Demo isolation guard<br/><small>GUARD</small>"}}
@@ -111,7 +110,6 @@ flowchart LR
   end
   n_platform_entry -->|production path| n_production_mode
   n_platform_entry -->|/demo path| n_demo_mode
-  n_production_mode -->|loads access context| n_company_context
   n_company_context -->|permission snapshot| n_company_rbac
   n_company_rbac -->|RLS/RPC authority| n_production_persistence_boundary
   n_demo_mode -->|local/session boundary| n_demo_isolation
@@ -702,16 +700,16 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | **Application entry**<br/><small>`platform-entry`</small> | `workflow` | `global`<br/>— | — | — | `code-derived` | `src/main.tsx`<br/>`src/app/applicationMode.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/authScreenEntry.test.ts` | — |
-| **Authenticated production mode**<br/><small>`production-mode`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/App.tsx`<br/>`src/app/AppProviders.tsx`<br/>`src/context/CompanyAccessContext.tsx` | `tests/auth.test.ts`<br/>`tests/companyAccess.test.ts` | — |
+| **Authenticated production mode**<br/><small>`production-mode`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/App.tsx`<br/>`src/app/AppProviders.tsx`<br/>`src/context/CompanyAccessContext.tsx`<br/>`src/lib/deploymentCompany.ts` | `tests/auth.test.ts`<br/>`tests/companyAccess.test.ts`<br/>`tests/singleCompanyDeployment.test.ts` | — |
+| **Deployment configured company**<br/><small>`deployment-company`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/deploymentCompany.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260828150000_single_company_deployment.sql` | `tests/singleCompanyDeployment.test.ts` | — |
 | **Isolated demo mode**<br/><small>`demo-mode`</small> | `workflow` | `demo-only`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspace.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |
 | **Workspace shell and router**<br/><small>`platform-shell`</small> | `screen` | `company`<br/>— | — | — | `code-derived` | `src/app/AppShell.tsx`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/navigation/navigationModel.ts` | `tests/headerNavigation.test.ts`<br/>`tests/navigationRoutes.test.ts` | — |
-| **Active company context**<br/><small>`company-context`</small> | `data` | `company`<br/>— | — | — | `code-derived` | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/lib/companyContext.ts` | `tests/companyAccess.test.ts`<br/>`tests/companyManagement.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
-| **Company membership and access snapshot**<br/><small>`company-membership`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/companyAccess.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql` | `tests/companyTenancyRpcContract.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts` | — |
+| **Deployment company context**<br/><small>`company-context`</small> | `data` | `company`<br/>— | — | — | `code-derived` | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/lib/companyContext.ts` | `tests/companyAccess.test.ts`<br/>`tests/singleCompanyDeployment.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
+| **User membership and role permissions**<br/><small>`company-membership`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/companyAccess.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql` | `tests/companyTenancyRpcContract.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts` | — |
 | **Company RBAC and RLS guard**<br/><small>`company-rbac`</small> | `guard` | `company`<br/>— | — | `dashboard.read`<br/>`projects.read`<br/>`cash.summary.read`<br/>`invoices.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/utils/accessControl.ts`<br/>`src/lib/companyAccess.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyMigration.test.ts`<br/>`tests/serverAuthorization.test.ts` | — |
 | **Production persistence boundary**<br/><small>`production-persistence-boundary`</small> | `external-boundary` | `company`<br/>— | — | — | `mixed` | `src/lib/supabase.ts`<br/>`src/lib/persistence.ts`<br/>`src/lib/workspaceSync.ts`<br/>`supabase/migrations/20260824095000_company_tenancy_storage_and_verification.sql` | `tests/companyTenancyFinalContract.test.ts`<br/>`tests/workspaceSyncRegression.test.ts` | — |
 | **Demo isolation guard**<br/><small>`demo-isolation`</small> | `guard` | `demo-only`<br/>— | — | — | `mixed` | `src/demo/DemoWorkspaceProvider.tsx`<br/>`src/demo/demoState.ts`<br/>`src/demo/demoRouting.ts`<br/>`src/demo/DemoWorkspace.tsx` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` | — |
 | **Workspace cache and Realtime synchronization**<br/><small>`workspace-sync`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/lib/workspaceSync.ts`<br/>`src/lib/workspaceLoadCache.ts`<br/>`src/lib/workspaceSyncInstrumentation.ts`<br/>`supabase/migrations/20260823180000_workspace_sync_realtime.sql` | `tests/workspaceSync.test.ts`<br/>`tests/workspaceSyncRegression.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
-| **Platform company management route**<br/><small>`route-platform-companies`</small> | `route` | `global`<br/>`platform-companies`<br/>`/platform/companies`<br/>query: `companyId`, `tab` | — | `platform.manage` | `code-derived` | `src/utils/appRouting.ts`<br/>`src/app/routes/PlatformCompaniesRoute.tsx`<br/>`src/components/access/CompanyManagement.tsx` | `tests/appRouting.test.ts`<br/>`tests/companyManagement.test.ts` | — |
 | **Demo landing route**<br/><small>`route-demo-landing`</small> | `route` | `demo-only`<br/>demo-only<br/>`/demo` | — | — | `code-derived` | `src/demo/demoRouting.ts`<br/>`src/demo/DemoLandingPage.tsx` | `tests/demoWorkspace.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |
 | **Settings route**<br/><small>`route-settings`</small> | `route` | `company`<br/>`settings`<br/>`/settings` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/SettingsRoute.tsx`<br/>`src/components/Settings.tsx` | `tests/appRouting.test.ts` | — |
 

@@ -2,7 +2,6 @@ import React, { lazy, Suspense } from "react";
 import type { AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
-import type { PlatformCompaniesRouteProps } from "./PlatformCompaniesRoute";
 import type {
   DashboardActivityPeriod,
   DashboardViewData,
@@ -70,7 +69,6 @@ const PayrollRoute = lazy(() => import("./PayrollRoute"));
 const ExpensesRoute = lazy(() => import("./ExpensesRoute"));
 const ReportsRoute = lazy(() => import("./ReportsRoute"));
 const SettingsRoute = lazy(() => import("./SettingsRoute"));
-const PlatformCompaniesRoute = lazy(() => import("./PlatformCompaniesRoute"));
 
 const lazyRouteFallback = (
   <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-600">
@@ -245,9 +243,7 @@ export interface AppRouterProps {
   // Settings
   regionalSettings: RegionalSettings;
   onRegionalSettingsChange?: (settings: RegionalSettings) => void;
-
-  // Platform Companies
-  platformCompaniesProps?: PlatformCompaniesRouteProps;
+  showDeploymentAccessManagement?: boolean;
 }
 
 export const AppRouter: React.FC<AppRouterProps> = ({
@@ -376,12 +372,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onExportReportsWorkbook,
   regionalSettings,
   onRegionalSettingsChange = () => {},
-  platformCompaniesProps,
+  showDeploymentAccessManagement = true,
 }) => {
-  if (route.kind === "platform-companies" && platformCompaniesProps) {
-    return lazyRoute(<PlatformCompaniesRoute {...platformCompaniesProps} />);
-  }
-
   if (!workspaceRouteVisible) {
     return null;
   }
@@ -628,7 +620,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 9. Settings Route
   if (route.kind === "tab" && activeTab === "settings") {
-    return lazyRoute(<SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} />);
+    return lazyRoute(<SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} showDeploymentAccessManagement={showDeploymentAccessManagement} />);
   }
 
   return null;

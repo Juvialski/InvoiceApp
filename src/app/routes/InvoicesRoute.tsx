@@ -2,8 +2,11 @@ import React from "react";
 import { VerificationWorkspace, type SaveState } from "../../components/VerificationWorkspace";
 import { UploadZone, type ExtractPayload } from "../../components/UploadZone";
 import { EmailInbox } from "../../components/EmailInbox";
+import { GmailInboxReadOnly } from "../../components/GmailInboxReadOnly.tsx";
 import { ReviewQueue } from "../../components/ReviewQueue";
 import { InvoiceDirectory } from "../../components/InvoiceDirectory";
+import { InvoiceDirectoryReadOnly } from "../../components/InvoiceDirectoryReadOnly.tsx";
+import { InvoiceViewer } from "../../components/InvoiceViewer.tsx";
 import { Vendors } from "../../components/Vendors";
 import { FinancialSettlementCard } from "../../components/FinancialSettlementCard.tsx";
 import { InvoiceSettlementDirectoryPanel } from "../../components/InvoiceSettlementDirectoryPanel.tsx";
@@ -16,7 +19,9 @@ import type {
   InvoiceProjectAllocation,
   Project,
 } from "../../types";
+import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import type { AppTab } from "../../utils/routes";
+import { useAppPermissions } from "../AppPermissionContext.tsx";
 
 export interface InvoicesRouteProps {
   selectedInvoice?: InvoiceData | null;
@@ -107,11 +112,21 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onImportGmailMessage = async () => { throw new Error("Gmail import handler not configured."); },
   onProcessEmail = async () => { throw new Error("Process email handler not configured."); },
 }) => {
+  const permissions = useAppPermissions();
+  const canManageInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
+  const canVerifyInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesVerify);
+  const canExtractInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesExtract);
+  const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
+  const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile);
+
   if (selectedInvoice) {
+    if (!canManageInvoices && !canVerifyInvoices) {
+      return <div className="space-y-5"><FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact canReverse={canReverseSettlement} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
+    }
     const handleReopenCallback = async () => { if (onReopen) await onReopen(selectedInvoice); };
     return (
       <div className="space-y-5">
-        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact />
+        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact canReverse={canReverseSettlement} />
         <VerificationWorkspace
           invoice={selectedInvoice}
           queue={reviewQueue}
@@ -119,14 +134,14 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           saveState={saveState}
           completion={reviewCompletion}
           isRetrying={retryingInvoiceId === selectedInvoice.id}
-          onRetryExtraction={onRetryExtraction ? () => onRetryExtraction(selectedInvoice) : async () => null}
+          onRetryExtraction={canExtractInvoices && onRetryExtraction ? () => onRetryExtraction(selectedInvoice) : async () => null}
           onUpdateInvoice={onUpdateInvoice}
           onBack={onBack}
           backLabel={workspaceOriginLabel}
           onPrevious={onPrevious}
           onNext={onNext}
           onSave={onSave}
-          onVerifyAndNext={onVerifyAndNext}
+          onVerifyAndNext={canVerifyInvoices ? onVerifyAndNext : async () => false}
           onReopen={handleReopenCallback}
           onContinueWithNewItems={onContinueWithNewItems}
           onReturnToDashboard={onReturnToDashboard}
@@ -144,11 +159,13 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   if (activeSubTab === "extractor") return <div className="space-y-5"><UploadZone onExtract={onExtract} onLoadPreset={onLoadPreset} onBatchComplete={onBatchComplete} isLoading={processingCount > 0} /></div>;
   if (activeSubTab === "inbox") {
     const fallbackConnection: GmailConnectionInfo = { configured: false, signedIn: false, hasGmailToken: false };
-    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={gmailConnection || fallbackConnection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} />;
+    const connection = gmailConnection || fallbackConnection;
+    if (!canManageGmail) return <GmailInboxReadOnly invoices={invoices} connection={connection} onOpenInvoice={onSelectInvoice} />;
+    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} />;
   }
-  if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={onStartReview} />;
+  if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifyInvoices ? onStartReview : undefined} readOnly={!canVerifyInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
-  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} /><InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onDeleteInvoice={onDeleteInvoice} onAddNew={onAddNew} /></div>;
+  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onDeleteInvoice={onDeleteInvoice} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}</div>;
 };
 
 export default InvoicesRoute;
