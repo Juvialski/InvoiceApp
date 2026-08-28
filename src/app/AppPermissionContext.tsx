@@ -1,10 +1,17 @@
 import React, { createContext, useContext, useMemo } from "react";
+import { isSupabaseConfigured } from "../lib/supabase.ts";
 import { hasAnyPermission, hasPermission, type PermissionKey } from "../utils/accessControl.ts";
 
 const AppPermissionContext = createContext<readonly PermissionKey[]>([]);
 
 export function AppPermissionProvider({ permissions = [], children }: { permissions?: readonly PermissionKey[]; children: React.ReactNode }) {
-  const stablePermissions = useMemo(() => [...permissions], [permissions]);
+  // Browser-only mode predates company RBAC and has no permission snapshot.
+  // Keep its local-only behavior intact, while configured Supabase workspaces
+  // remain fail-closed until company permissions are actually loaded.
+  const stablePermissions = useMemo<readonly PermissionKey[]>(
+    () => !isSupabaseConfigured ? ["*"] : [...permissions],
+    [permissions],
+  );
   return <AppPermissionContext.Provider value={stablePermissions}>{children}</AppPermissionContext.Provider>;
 }
 
