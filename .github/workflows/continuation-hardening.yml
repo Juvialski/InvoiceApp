@@ -20,6 +20,9 @@ jobs:
           cache: npm
       - name: Apply reconstructed continuation patch
         run: |
+          # Normalize the pre-patch CI pin so the reconstruction script can
+          # deterministically replace it with the validated CLI version.
+          sed -i 's/version: latest/version: 2.76.8/' .github/workflows/database-tests.yml
           if ! python3 scripts/continuation-hardening-patch.py > /tmp/continuation-patch.log 2>&1; then
             cp /tmp/continuation-patch.log continuation-patch-error.txt
             git config user.name "github-actions[bot]"
