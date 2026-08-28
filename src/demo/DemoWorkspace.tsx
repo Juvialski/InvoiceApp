@@ -17,7 +17,7 @@ import { buildDemoDashboard, buildDemoProjectDashboard, buildDemoProjectSummarie
 import { DEMO_COMPANY_ID } from "./demoTypes.ts";
 import { demoAssistantPath, demoDocumentsPath, demoPathForInvoice, demoPathForProject, demoPathForTab, type DemoLocation } from "./demoRouting.ts";
 
-const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "invoices", "payroll", "expenses", "reports"] as const;
+const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
 function activeTabFor(location: DemoLocation): AppTab {
   if (location.kind === "documents") return "projects";
@@ -28,7 +28,7 @@ function activeTabFor(location: DemoLocation): AppTab {
 function safeAppLocation(location: DemoLocation): AppLocation | null {
   if (location.kind !== "app") return null;
   if (location.appLocation.kind === "platform-companies") return null;
-  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "invoices", "payroll", "expenses", "reports", "review"]);
+  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "extractor", "inbox", "review", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
   return allowed.has(location.appLocation.tab) ? location.appLocation : null;
 }
 
@@ -65,6 +65,12 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     if (!selectedInvoice) return false;
     dispatch({ type: "SAVE_INVOICE", value: { ...selectedInvoice, reviewStatus: "VERIFIED", status: selectedInvoice.status === "PENDING" || selectedInvoice.status === "DRAFT" ? "APPROVED" : selectedInvoice.status, verifiedAt: `${data.anchorDate}T13:30:00+08:00` } });
     return true;
+  };
+
+  const extractDemoInvoice = async () => {
+    const sample = data.invoices.find((invoice) => invoice.reviewStatus === "NEEDS_REVIEW") || data.invoices[0];
+    if (!sample) throw new Error("No demo invoice fixture is available.");
+    return sample;
   };
 
   const resetDemo = () => {
@@ -130,7 +136,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onOpenInvoiceForReview={openInvoice}
             onStartReview={(queue) => { const first = queue?.[0] || reviewQueue[0]; if (first) openInvoice(first); }}
             onDeleteInvoice={(id) => dispatch({ type: "DELETE_INVOICE", id })}
-            onAddNewInvoice={() => onNavigate(demoPathForTab("invoices"))}
+            onAddNewInvoice={() => onNavigate(demoPathForTab("extractor"))}
+            onExtractInvoice={extractDemoInvoice}
+            onLoadInvoicePreset={(invoice) => { dispatch({ type: "SAVE_INVOICE", value: invoice }); openInvoice(invoice); }}
+            onBatchExtractComplete={(successful) => { const first = successful[0]; if (first) openInvoice(first); }}
             cashData={data.cash}
             canManageCashAccounts={true}
             canManageCashTransactions={true}
@@ -182,7 +191,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       <div className="sticky top-2 z-40 mb-5 flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white/95 px-3.5 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-indigo-600 px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-white">Demo Workspace</span><span className="truncate text-xs font-black text-slate-900">{data.company.name}</span></div>
-          <p className="mt-1 text-[10px] font-semibold text-slate-500">Sample data — no real records • PHP • Asia/Manila</p>
+          <p className="mt-1 text-[10px] font-semibold text-slate-500">Sample data - no real records • PHP • Asia/Manila</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setTourOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><Presentation className="h-3.5 w-3.5" /> Tour</button>
@@ -191,7 +200,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
           <button type="button" onClick={resetDemo} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
         </div>
       </div>
-      <div className="mb-4 flex items-center gap-2 text-[10px] font-semibold text-emerald-700"><ShieldCheck className="h-3.5 w-3.5" /> Isolated demo data source — production authentication, company queries, Storage, and writes are not mounted on this route.</div>
+      <div className="mb-4 flex items-center gap-2 text-[10px] font-semibold text-emerald-700"><ShieldCheck className="h-3.5 w-3.5" /> Isolated demo data source - production authentication, company queries, Storage, AI extraction, Gmail authorization, and writes are not mounted on this route.</div>
       {content}
       <DemoTour open={tourOpen} onOpenChange={setTourOpen} currentPath={window.location.pathname} onNavigate={onNavigate} />
     </AppShell>

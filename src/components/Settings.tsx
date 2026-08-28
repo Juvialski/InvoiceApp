@@ -1,6 +1,7 @@
 import React from "react";
 import { CheckCircle2, Clock3, Globe2, MapPin, RotateCcw } from "lucide-react";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE, RegionalSettings } from "../config/regional";
+import { FeatureStatusOverview } from "./FeatureStatusOverview";
 import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 
 interface SettingsProps {
@@ -44,6 +45,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange }) => {
           {!isDeploymentProfile && <button type="button" onClick={() => onChange({ country: DEFAULT_COUNTRY, locale: DEFAULT_LOCALE, currency: DEFAULT_CURRENCY, timezone: DEFAULT_TIMEZONE })} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-slate-50"><RotateCcw className="w-3 h-3" />Restore deployment defaults</button>}
         </div>
       </section>
+
+      <FeatureStatusOverview />
     </div>
   );
 };
