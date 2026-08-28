@@ -40,8 +40,10 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright for QA only
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
       - name: Start preview
         run: |
           npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/engoryx-preview.log 2>&1 &

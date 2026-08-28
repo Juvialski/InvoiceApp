@@ -9,3 +9,10 @@ test("package scripts expose the Vite preview command used by CI", () => {
 
   assert.equal(packageJson.scripts?.preview, "vite preview");
 });
+
+test("continuation hardening installs the QA-only Playwright dependency before running demo QA", () => {
+  const workflow = readFileSync(new URL("../.github/workflows/continuation-hardening.yml", import.meta.url), "utf8");
+
+  assert.match(workflow, /npm install --no-save --package-lock=false playwright@1\.55\.0/);
+  assert.match(workflow, /npx playwright install --with-deps chromium/);
+});
