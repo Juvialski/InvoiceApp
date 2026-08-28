@@ -10,6 +10,8 @@
     "lint": "tsc --noEmit",
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "qa:demo": "tsx scripts/demo-visual-qa.ts",
+    "workflow-map:generate": "tsx scripts/workflow-map/generate.ts",
+    "workflow-map:check": "tsx scripts/workflow-map/validate.ts --check",
     "test:migrations": "tsx scripts/test-migrations.ts",
     "test:migrations:upgrade": "tsx scripts/test-migration-upgrade.ts",
     "astryx": "astryx",

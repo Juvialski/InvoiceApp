@@ -3,7 +3,7 @@ name: Demo Visual QA
 on:
   push:
     branches:
-      - feat/client-demo-workspace
+      - main
     paths:
       - "src/demo/**"
       - "src/main.tsx"
