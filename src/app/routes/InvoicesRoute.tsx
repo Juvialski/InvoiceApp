@@ -117,15 +117,16 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canVerifyInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesVerify);
   const canExtractInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesExtract);
   const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
+  const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile);
 
   if (selectedInvoice) {
     if (!canManageInvoices && !canVerifyInvoices) {
-      return <div className="space-y-5"><FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
+      return <div className="space-y-5"><FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact canReverse={canReverseSettlement} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
     }
     const handleReopenCallback = async () => { if (onReopen) await onReopen(selectedInvoice); };
     return (
       <div className="space-y-5">
-        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact />
+        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact canReverse={canReverseSettlement} />
         <VerificationWorkspace
           invoice={selectedInvoice}
           queue={reviewQueue}
@@ -140,7 +141,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onPrevious={onPrevious}
           onNext={onNext}
           onSave={onSave}
-          onVerifyAndNext={onVerifyAndNext}
+          onVerifyAndNext={canVerifyInvoices ? onVerifyAndNext : async () => false}
           onReopen={handleReopenCallback}
           onContinueWithNewItems={onContinueWithNewItems}
           onReturnToDashboard={onReturnToDashboard}
@@ -162,7 +163,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
     if (!canManageGmail) return <GmailInboxReadOnly invoices={invoices} connection={connection} onOpenInvoice={onSelectInvoice} />;
     return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} />;
   }
-  if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={onStartReview} />;
+  if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifyInvoices ? onStartReview : undefined} readOnly={!canVerifyInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
   return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onDeleteInvoice={onDeleteInvoice} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}</div>;
 };
