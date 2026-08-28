@@ -368,15 +368,17 @@ export function calculateWorkEntryCost(entry: Pick<WorkEntry, "regularHours" | "
   return round(regular + overtime);
 }
 
+export const PAYROLL_RUN_STATUSES = ["DRAFT", "CALCULATED", "APPROVED", "PAID", "VOID"] as const satisfies readonly PayrollRunStatus[];
+
 export function payrollStatusIsConfirmed(status: string) { return status === "APPROVED" || status === "PAID"; }
 
-const PAYROLL_RUN_TRANSITIONS: Readonly<Record<PayrollRunStatus, readonly PayrollRunStatus[]>> = {
+export const PAYROLL_RUN_TRANSITIONS: Readonly<Record<PayrollRunStatus, readonly PayrollRunStatus[]>> = Object.freeze({
   DRAFT: ["CALCULATED", "VOID"],
   CALCULATED: ["APPROVED", "VOID"],
   APPROVED: ["PAID", "VOID"],
   PAID: [],
   VOID: [],
-};
+});
 
 export function canTransitionPayrollRun(from: PayrollRunStatus, to: PayrollRunStatus) {
   return from === to || PAYROLL_RUN_TRANSITIONS[from].includes(to);

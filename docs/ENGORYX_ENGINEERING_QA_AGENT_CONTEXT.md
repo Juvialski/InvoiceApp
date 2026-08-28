@@ -8,7 +8,7 @@ The primary goal is a repository-native workflow map that can be rendered as an 
 
 ## Status and sequencing
 
-- **Status:** **QA-1 Structured Browser Evidence is IMPLEMENTED. WM-1 Canonical Workflow Graph is IMPLEMENTED. WM-2 Visual Workflow Canvas is IMPLEMENTED. WM-3 Graph Consistency Validation is NEXT / PLANNED. WM-4 Browser Evidence Overlay and WM-5 Bounded Agent Context Generation remain PLANNED.**
+- **Status:** **QA-1 Structured Browser Evidence is IMPLEMENTED. WM-1 Canonical Workflow Graph is IMPLEMENTED. WM-2 Visual Workflow Canvas is IMPLEMENTED. WM-3 Graph Consistency Validation is IMPLEMENTED. WM-4 Browser Evidence Overlay is NEXT / PLANNED. WM-5 Bounded Agent Context Generation remains PLANNED.**
 - **Priority:** Immediate engineering-infrastructure work, before or alongside Product Phase 2.
 - **Product roadmap effect:** This track does **not** renumber the Engoryx customer-facing phases. Product Phase 2 remains Project Scheduling & Gantt.
 - **Hosting requirement:** None. The first useful version must work from the repository and existing CI/local tooling without a paid automation service.
@@ -19,8 +19,8 @@ The primary goal is a repository-native workflow map that can be rendered as an 
 | QA-1 — Structured Browser Evidence | IMPLEMENTED |
 | WM-1 — Canonical Workflow Graph | IMPLEMENTED |
 | WM-2 — Visual Workflow Canvas | IMPLEMENTED |
-| WM-3 — Graph Consistency Validation | NEXT / PLANNED |
-| WM-4 — Browser Evidence Overlay | PLANNED |
+| WM-3 — Graph Consistency Validation | IMPLEMENTED |
+| WM-4 — Browser Evidence Overlay | NEXT / PLANNED |
 | WM-5 — Bounded Agent Context Generation | PLANNED |
 
 ## Current project baseline
@@ -39,7 +39,7 @@ The committed outputs are generated from that source:
 - `docs/architecture/workflow-map.json` — machine-readable graph for agents and deterministic checks;
 - `docs/architecture/APP_WORKFLOW_MAP.md` — generated route/source/test index plus Mermaid diagrams for the whole platform, Projects + Engineering, Invoice + Cash Settlement, Workforce + Payroll, and Assistant guarded mutations.
 
-Run `npm.cmd run workflow-map:generate` after a graph change and `npm.cmd run workflow-map:check` to fail on generated-output drift. The generator and check are repository-local and do not require GitDiagram, Supabase, a database, Gemini, a browser, or production credentials.
+Run `npm.cmd run workflow-map:generate` after a graph change, `npm.cmd run workflow-map:check` to fail on generated-output drift, and `npm.cmd run workflow-map:consistency` to compare selected graph metadata with authoritative source contracts. These commands are repository-local and do not require GitDiagram, Supabase, a database, Gemini, a browser, or production credentials.
 
 ## Workflow graph contract
 
@@ -105,7 +105,7 @@ The visual workflow canvas is dedicated developer and agent tooling. It is compl
 7. **URL state synchronization**: Shareable preset, domain, node, and search query parameters.
 8. **Read-only guarantee**: authoring, edge creation, and graph mutation tools are disabled. Node dragging is permitted for temporary exploration without modifying the canonical graph source.
 
-WM-3 Graph Consistency Validation is the next infrastructure stage.
+WM-3 Graph Consistency Validation is implemented as a repository-local, deterministic contract check. It does not grant access to production data or mutate the graph.
 
 ## Structured browser evidence — implemented foundation
 
@@ -259,15 +259,31 @@ The versioned graph at `scripts/workflow-map/graph.ts` documents the most import
 
 GitDiagram was accessed for WM-1 discovery only. Its inferred map was checked against current routes, domain code, lifecycle guards, permissions, persistence/RPC boundaries, tests, and documented invariants before the curated graph was committed.
 
-### Stage WM-2: Visual workflow canvas — NEXT / PLANNED
+### Stage WM-2: Visual workflow canvas — IMPLEMENTED
 
-Render the graph for humans using Mermaid and/or a lightweight interactive React Flow/xyflow developer view. Support domain filtering, pan/zoom, clickable node details, and stable layout/grouping.
+The read-only developer canvas is available at `/workflow-map`, `/dev/workflow-map`, `/dev/architecture`, and `/?view=workflow-map`. It consumes the canonical graph, provides deterministic Dagre layout, presets, search, filters, node details, neighborhood focus, invariant inspection, and URL state without mounting production authentication or mutation paths.
 
-### Stage WM-3: Graph consistency validation — PLANNED
+### Stage WM-3: Graph consistency validation — IMPLEMENTED
 
-Add deterministic tests that validate node/edge integrity, known route references, lifecycle transitions, required high-risk guards, and selected test references.
+WM-3 is the lightweight graph-to-source consistency lane. Run `npm.cmd run workflow-map:consistency` locally or in the dedicated `Workflow Map Consistency` GitHub Actions workflow. It validates, using injected pure contracts and no network/database/browser/secrets:
 
-### Stage WM-4: Browser evidence overlay — PLANNED
+- canonical route IDs, paths, patterns, and selected deep-link query keys;
+- selected route build/parse round trips using synthetic UUID-like identifiers;
+- supported permission keys and active feature/route availability;
+- RFI, Technical Submittal, Daily Site Log, and payroll-run statuses/transitions exported by production domain code;
+- stable settlement confirmed/reversed history statuses;
+- Assistant confirmation policy and persisted prepared-action status metadata;
+- demo/production/workflow-map application-mode separation;
+- QA-1 scenario references and normalized route correspondence;
+- selected high-risk graph/test coverage, bounded graph orphans, and WM-2 diagram integrity.
+
+The graph remains advisory. WM-3 imports or receives authoritative constants/helpers; it does not copy lifecycle arrays, route tables, permission matrices, financial calculations, payroll calculations, or Assistant execution logic. A failure identifies the graph node, edge, invariant, or scenario plus the conflicting contract and expected/current values where useful. `workflow-map:check` remains the separate generated-output and WM-1 structural/semantic integrity check.
+
+To add a consistency contract, first expose the smallest node-safe pure contract from the production module and keep production code using it. Then add only the graph-node-to-contract adapter needed to identify the mapping, a focused pure validator assertion, a positive test, and a synthetic drift test. Do not parse broad TypeScript source text or connect the validator to Supabase, provider credentials, or browser state.
+
+When a mapped route, deep link, lifecycle, permission, guard, Assistant mutation, QA mapping, or high-risk cross-domain boundary changes, update the production contract and `scripts/workflow-map/graph.ts` together when workflow meaning changed, regenerate the committed outputs, and run both `npm.cmd run workflow-map:check` and `npm.cmd run workflow-map:consistency`.
+
+### Stage WM-4: Browser evidence overlay — NEXT / PLANNED
 
 Connect the implemented structured Playwright/browser manifest to relevant workflow nodes/scenarios so agents can see which paths have runtime evidence and where failures occurred.
 
@@ -315,7 +331,7 @@ This track does not:
 
 ## Overall track acceptance criteria
 
-QA-1 and WM-1 are complete. The remaining workflow-map track stages are complete when:
+QA-1 and WM-1 through WM-3 are complete. The remaining workflow-map track stages are complete when:
 
 - Engoryx's major product workflows are represented in one versioned machine-readable graph;
 - the graph has a clear human-readable visual rendering;

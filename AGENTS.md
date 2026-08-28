@@ -193,6 +193,8 @@ Before substantial implementation, debugging, or architecture work:
 
 When a change materially alters a mapped workflow, lifecycle, route, guard, permission, cross-domain relationship, or high-risk invariant, update `scripts/workflow-map/graph.ts` and regenerate both committed outputs in the same PR. Trivial CSS and internal refactors that do not change workflow meaning do not require graph edits.
 
+When a change materially alters a mapped route, deep-link contract, lifecycle, permission, guard, Assistant mutation contract, QA scenario mapping, or high-risk cross-domain boundary, run `npm.cmd run workflow-map:check` and `npm.cmd run workflow-map:consistency`.
+
 ## Session startup / resumption protocol
 
 When returning to this project after a break:

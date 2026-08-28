@@ -4718,6 +4718,30 @@
       "label": "opens"
     },
     {
+      "id": "route-vendors-to-invoices",
+      "source": "route-vendors",
+      "target": "invoice-record",
+      "type": "routes-to",
+      "kind": "navigation",
+      "label": "vendor directory"
+    },
+    {
+      "id": "route-expenses-to-expense",
+      "source": "route-expenses",
+      "target": "direct-project-expense",
+      "type": "routes-to",
+      "kind": "navigation",
+      "label": "opens"
+    },
+    {
+      "id": "route-settings-to-company-context",
+      "source": "route-settings",
+      "target": "company-context",
+      "type": "routes-to",
+      "kind": "navigation",
+      "label": "opens"
+    },
+    {
       "id": "directory-to-selection",
       "source": "project-directory",
       "target": "project-selection",

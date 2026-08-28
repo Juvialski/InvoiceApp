@@ -12,6 +12,8 @@
     "qa:demo": "tsx scripts/demo-visual-qa.ts",
     "workflow-map:generate": "tsx scripts/workflow-map/generate.ts",
     "workflow-map:check": "tsx scripts/workflow-map/validate.ts --check",
+    "workflow-map:consistency": "tsx scripts/workflow-map/consistency.ts",
+    "test:workflow-map": "node --test --experimental-strip-types tests/workflowMap.test.ts tests/workflowMapConsistency.test.ts",
     "test:migrations": "tsx scripts/test-migrations.ts",
     "test:migrations:upgrade": "tsx scripts/test-migration-upgrade.ts",
     "astryx": "astryx",

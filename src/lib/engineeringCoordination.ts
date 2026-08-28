@@ -1,6 +1,7 @@
 import { engineeringId, type DisciplineType, type EngineeringDocument, type EngineeringDocumentRevision } from "./engineeringDocuments.ts";
 
-export type RfiStatus = "DRAFT" | "OPEN" | "ANSWERED" | "CLOSED" | "VOID";
+export const RFI_STATUSES = ["DRAFT", "OPEN", "ANSWERED", "CLOSED", "VOID"] as const;
+export type RfiStatus = (typeof RFI_STATUSES)[number];
 export type RfiPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
 export type RfiResponseType = "RESPONSE" | "CORRECTION" | "NOTE";
 
@@ -49,16 +50,8 @@ export interface EngineeringRfiDocumentLink {
   createdAt: string;
 }
 
-export type SubmittalStatus =
-  | "DRAFT"
-  | "SUBMITTED"
-  | "UNDER_REVIEW"
-  | "APPROVED"
-  | "APPROVED_AS_NOTED"
-  | "REVISE_AND_RESUBMIT"
-  | "REJECTED"
-  | "CLOSED"
-  | "VOID";
+export const SUBMITTAL_STATUSES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED", "CLOSED", "VOID"] as const;
+export type SubmittalStatus = (typeof SUBMITTAL_STATUSES)[number];
 
 export type SubmittalDecision = "APPROVED" | "APPROVED_AS_NOTED" | "REVISE_AND_RESUBMIT" | "REJECTED";
 
@@ -135,7 +128,7 @@ export interface RevisionReference {
   revisionId: string;
 }
 
-const RFI_TRANSITIONS: Readonly<Record<RfiStatus, readonly RfiStatus[]>> = Object.freeze({
+export const RFI_TRANSITIONS: Readonly<Record<RfiStatus, readonly RfiStatus[]>> = Object.freeze({
   DRAFT: ["OPEN", "VOID"],
   OPEN: ["ANSWERED", "VOID"],
   ANSWERED: ["CLOSED", "VOID"],
@@ -143,7 +136,7 @@ const RFI_TRANSITIONS: Readonly<Record<RfiStatus, readonly RfiStatus[]>> = Objec
   VOID: [],
 });
 
-const SUBMITTAL_TRANSITIONS: Readonly<Record<SubmittalStatus, readonly SubmittalStatus[]>> = Object.freeze({
+export const SUBMITTAL_TRANSITIONS: Readonly<Record<SubmittalStatus, readonly SubmittalStatus[]>> = Object.freeze({
   DRAFT: ["SUBMITTED", "VOID"],
   SUBMITTED: ["UNDER_REVIEW", "APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED", "VOID"],
   UNDER_REVIEW: ["APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED", "VOID"],

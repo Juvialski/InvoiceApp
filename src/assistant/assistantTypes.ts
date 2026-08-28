@@ -30,6 +30,8 @@ export interface AssistantContext {
   generation: number;
 }
 
+export const ASSISTANT_PREPARED_ACTION_STATUSES = ["PREPARED", "CONFIRMED", "EXECUTED", "FAILED", "CANCELLED", "EXPIRED"] as const;
+
 export interface AssistantAttachmentInput {
   id?: string;
   fileName: string;
@@ -65,7 +67,7 @@ export interface AssistantPreparedAction {
   id: string;
   toolName: string;
   riskTier: AssistantRiskTier;
-  status: "PREPARED" | "CONFIRMED" | "EXECUTED" | "FAILED" | "CANCELLED" | "EXPIRED";
+  status: (typeof ASSISTANT_PREPARED_ACTION_STATUSES)[number];
   preview: Record<string, unknown>;
   expiresAt: string;
 }

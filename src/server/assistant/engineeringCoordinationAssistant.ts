@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
+import { RFI_STATUSES as DOMAIN_RFI_STATUSES, SUBMITTAL_STATUSES as DOMAIN_SUBMITTAL_STATUSES } from "../../lib/engineeringCoordination.ts";
 import { AssistantBackendError, AssistantToolError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { boundedLimit, boundedText, enumValue, optionalDateOnly, plainObject, requireDateOnly, requireUuid } from "./toolValidation.ts";
 
@@ -16,8 +17,8 @@ const uuid = { type: "string", description: "Identifier supplied by a prior tool
 const date = { type: "string", description: "Calendar date in YYYY-MM-DD format." };
 const limit = { type: "integer", minimum: 1, maximum: 50 };
 const discipline = { type: "string", enum: ["ARCHITECTURAL", "STRUCTURAL", "CIVIL", "MECHANICAL", "ELECTRICAL", "PLUMBING", "FIRE_PROTECTION", "GEOTECHNICAL", "GENERAL_ENGINEERING", "OTHER"] };
-const rfiStatus = { type: "string", enum: ["DRAFT", "OPEN", "ANSWERED", "CLOSED", "VOID"] };
-const submittalStatus = { type: "string", enum: ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED", "CLOSED", "VOID"] };
+const rfiStatus = { type: "string", enum: DOMAIN_RFI_STATUSES };
+const submittalStatus = { type: "string", enum: DOMAIN_SUBMITTAL_STATUSES };
 const revisionIds = { type: "array", maxItems: 20, items: uuid, description: "Immutable engineering_document_revision IDs from the same company and project." };
 
 function schema(properties: Record<string, unknown>, required: string[] = []) {
@@ -51,8 +52,6 @@ export const ENGINEERING_COORDINATION_TOOL_DEFINITIONS: readonly EngineeringCoor
 
 const TOOL_NAMES = new Set(ENGINEERING_COORDINATION_TOOL_DEFINITIONS.map((item) => item.name));
 const DISCIPLINES = ["ARCHITECTURAL", "STRUCTURAL", "CIVIL", "MECHANICAL", "ELECTRICAL", "PLUMBING", "FIRE_PROTECTION", "GEOTECHNICAL", "GENERAL_ENGINEERING", "OTHER"] as const;
-const RFI_STATUSES = ["DRAFT", "OPEN", "ANSWERED", "CLOSED", "VOID"] as const;
-const SUBMITTAL_STATUSES = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED", "CLOSED", "VOID"] as const;
 const DECISIONS = ["APPROVED", "APPROVED_AS_NOTED", "REVISE_AND_RESUBMIT", "REJECTED"] as const;
 
 export function isEngineeringCoordinationTool(name: string): boolean { return TOOL_NAMES.has(name); }
@@ -66,8 +65,8 @@ function uuidArray(value: unknown, label: string): string[] {
 export function validateEngineeringCoordinationToolArguments(toolName: string, input: unknown): Record<string, unknown> {
   const args = plainObject(input);
   switch (toolName) {
-    case "search_rfis": return { projectId: args.projectId ? requireUuid(args.projectId, "projectId") : undefined, query: boundedText(args.query, "query", 200, false), status: enumValue(args.status, "status", RFI_STATUSES, false), discipline: enumValue(args.discipline, "discipline", DISCIPLINES, false), priority: enumValue(args.priority, "priority", ["LOW", "NORMAL", "HIGH", "URGENT"] as const, false), dueBefore: optionalDateOnly(args.dueBefore, "dueBefore"), limit: boundedLimit(args.limit) };
-    case "search_submittals": return { projectId: args.projectId ? requireUuid(args.projectId, "projectId") : undefined, query: boundedText(args.query, "query", 200, false), status: enumValue(args.status, "status", SUBMITTAL_STATUSES, false), discipline: enumValue(args.discipline, "discipline", DISCIPLINES, false), dueBefore: optionalDateOnly(args.dueBefore, "dueBefore"), limit: boundedLimit(args.limit) };
+    case "search_rfis": return { projectId: args.projectId ? requireUuid(args.projectId, "projectId") : undefined, query: boundedText(args.query, "query", 200, false), status: enumValue(args.status, "status", DOMAIN_RFI_STATUSES, false), discipline: enumValue(args.discipline, "discipline", DISCIPLINES, false), priority: enumValue(args.priority, "priority", ["LOW", "NORMAL", "HIGH", "URGENT"] as const, false), dueBefore: optionalDateOnly(args.dueBefore, "dueBefore"), limit: boundedLimit(args.limit) };
+    case "search_submittals": return { projectId: args.projectId ? requireUuid(args.projectId, "projectId") : undefined, query: boundedText(args.query, "query", 200, false), status: enumValue(args.status, "status", DOMAIN_SUBMITTAL_STATUSES, false), discipline: enumValue(args.discipline, "discipline", DISCIPLINES, false), dueBefore: optionalDateOnly(args.dueBefore, "dueBefore"), limit: boundedLimit(args.limit) };
     case "get_rfi":
     case "navigate_to_rfi": return { rfiId: requireUuid(args.rfiId, "rfiId") };
     case "get_submittal": return { submittalId: requireUuid(args.submittalId, "submittalId") };
