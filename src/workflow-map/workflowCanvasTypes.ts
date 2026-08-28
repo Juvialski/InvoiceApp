@@ -6,10 +6,16 @@ import type {
   WorkflowNode,
   WorkflowNodeType,
 } from "../../scripts/workflow-map/types.ts";
+import type {
+  WorkflowNodeEvidence,
+  WorkflowNodeEvidenceState,
+} from "../../scripts/workflow-map/evidence.ts";
 
 export type Writable<T> = {
   -readonly [P in keyof T]: T[P];
 };
+
+export type WorkflowEvidenceMode = "off" | "status" | "failures";
 
 export interface WorkflowCanvasPreset {
   readonly id: string;
@@ -29,6 +35,7 @@ export interface WorkflowCanvasFilter {
   readonly focusNeighborhood: boolean;
   readonly neighborhoodHops: 1 | 2;
   readonly filterInvariantOnly: boolean;
+  readonly evidenceMode: WorkflowEvidenceMode;
 }
 
 export interface DomainVisualMeta {
@@ -75,6 +82,8 @@ export interface WorkflowCustomNodeData {
   readonly invariants: readonly WorkflowInvariant[];
   readonly incomingCount: number;
   readonly outgoingCount: number;
+  readonly evidence?: WorkflowNodeEvidence;
+  readonly evidenceMode: WorkflowEvidenceMode;
   readonly onSelectNode: (nodeId: string) => void;
   readonly onFocusNeighborhood: (nodeId: string) => void;
 }
@@ -107,4 +116,6 @@ export interface NodeDetailViewData {
   readonly fileRefs: readonly string[];
   readonly testRefs: readonly string[];
   readonly qaScenarioIds: readonly string[];
+  readonly evidence?: WorkflowNodeEvidence;
+  readonly screenshotUrls?: Record<string, string>;
 }

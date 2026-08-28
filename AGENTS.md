@@ -528,6 +528,64 @@ npx.cmd tsx scripts/test-migration-upgrade.ts
 3. **Line endings in regex**: Windows checkouts may use CRLF (`\r\n`). Tests inspecting source should use `\r?\n` or `\s+` instead of assuming raw `\n`.
 4. **Dev server is long-running**: do not treat a server as failed merely because it does not exit immediately; manage it as a tracked background process.
 
+## Execution continuity and failure recovery
+
+For implementation/debugging tasks, a failed command, test, build, browser check, lint run, migration validation, or CI-equivalent local check is NOT a natural stopping point.
+
+When a command finishes with a failure:
+
+1. inspect the failure output immediately;
+2. determine whether it is:
+   - an implementation defect;
+   - a test/harness defect;
+   - an environment/tooling defect;
+   - or a genuine external blocker requiring user input;
+3. if it is fixable within the assigned task, fix it;
+4. rerun the narrow failing check;
+5. once fixed, rerun the appropriate broader validation;
+6. continue the original task until its completion criteria are satisfied.
+
+Do not stop merely because:
+- a test failed;
+- a command returned non-zero;
+- a selector timed out;
+- lint/build failed;
+- a browser assertion failed;
+- a dev server/task is still listed in the UI.
+
+Treat those outcomes as debugging evidence.
+
+If an agent launches a long-running/background task:
+- actively inspect that task or its output;
+- when it completes, inspect the result immediately;
+- if it fails, enter the failure-recovery loop;
+- if it succeeds, continue to the next implementation/validation step;
+- never return control to the user merely because a command was launched or failed.
+
+Only stop and request user input when there is a genuine blocker the agent cannot resolve safely, such as:
+- missing credentials/authorization;
+- unavailable required external service;
+- ambiguous product/business decision;
+- destructive action requiring explicit approval;
+- environment capability genuinely unavailable.
+
+When blocked, report:
+- the exact blocker;
+- what was already attempted;
+- what remains running;
+- the minimum user action needed.
+
+### Process continuity and loop prevention
+
+A background dev server is infrastructure for the current validation task, not a reason for the agent to stop working. If foreground tests fail while the server is alive:
+- diagnose/fix/rerun;
+- reuse the server if it is known-good and belongs to this run, or restart it cleanly;
+- terminate all owned processes before final handoff.
+
+Continuity does NOT mean endlessly retrying an unchanged command. After a failure:
+`inspect -> diagnose -> change something justified -> rerun`.
+If two or more reasonable fixes expose the same unresolved external blocker, stop with a precise blocker report rather than looping indefinitely.
+
 ## Anti-retry guidance
 
 Never retry an unchanged failed command blindly.

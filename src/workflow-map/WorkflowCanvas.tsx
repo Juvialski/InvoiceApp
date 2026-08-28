@@ -26,6 +26,8 @@ import {
   DOMAIN_META,
 } from "./workflowCanvasUtils.ts";
 
+import type { WorkflowMapEvidenceModel } from "../../scripts/workflow-map/evidence.ts";
+
 const nodeTypes = {
   workflowNode: WorkflowNodeComponent,
 };
@@ -47,6 +49,7 @@ const defaultEdgeOptions = {
 interface WorkflowCanvasContentProps {
   readonly graph: WorkflowGraph;
   readonly filter: WorkflowCanvasFilter;
+  readonly evidenceModel?: WorkflowMapEvidenceModel | null;
   readonly onSelectNode: (nodeId: string | null) => void;
   readonly onFocusNeighborhood: (nodeId: string) => void;
 }
@@ -54,6 +57,7 @@ interface WorkflowCanvasContentProps {
 function WorkflowCanvasContent({
   graph,
   filter,
+  evidenceModel,
   onSelectNode,
   onFocusNeighborhood,
 }: WorkflowCanvasContentProps) {
@@ -85,8 +89,9 @@ function WorkflowCanvasContent({
         onFocusNeighborhood: (id) => onFocusNeighborhood(id),
       },
       positions,
+      evidenceModel,
     );
-  }, [filteredNodes, filteredEdges, graph, filter, onSelectNode, onFocusNeighborhood, positions]);
+  }, [filteredNodes, filteredEdges, graph, filter, onSelectNode, onFocusNeighborhood, positions, evidenceModel]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);

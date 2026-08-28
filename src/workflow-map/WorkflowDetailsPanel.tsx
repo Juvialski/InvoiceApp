@@ -4,7 +4,6 @@ import {
   Copy,
   Check,
   Focus,
-  ShieldAlert,
   AlertTriangle,
   Compass,
   FileCode,
@@ -12,18 +11,29 @@ import {
   Layers,
   ArrowRight,
   ArrowLeft,
-  ExternalLink,
   ShieldCheck,
-  Lock,
   Tag,
-  Share2,
+  CheckCircle2,
+  AlertOctagon,
+  MinusCircle,
+  CircleDot,
+  Clock,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Image as ImageIcon,
+  AlertCircle,
 } from "lucide-react";
 import type { WorkflowGraph } from "../../scripts/workflow-map/types.ts";
+import type { WorkflowMapEvidenceModel, WorkflowNodeEvidence } from "../../scripts/workflow-map/evidence.ts";
 import { getNodeDetails } from "./workflowCanvasUtils.ts";
+import type { QaScenarioEvidence } from "../../scripts/qa/structuredEvidence.ts";
 
 interface WorkflowDetailsPanelProps {
   readonly graph: WorkflowGraph;
   readonly selectedNodeId: string | null;
+  readonly evidenceModel?: WorkflowMapEvidenceModel | null;
+  readonly screenshotUrls?: Record<string, string>;
   readonly onClose: () => void;
   readonly onSelectNode: (nodeId: string) => void;
   readonly onFocusNeighborhood: (nodeId: string) => void;
@@ -33,19 +43,33 @@ interface WorkflowDetailsPanelProps {
 export function WorkflowDetailsPanel({
   graph,
   selectedNodeId,
+  evidenceModel,
+  screenshotUrls,
   onClose,
   onSelectNode,
   onFocusNeighborhood,
   isNeighborhoodFocused,
 }: WorkflowDetailsPanelProps) {
   const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [expandedScenarios, setExpandedScenarios] = useState<Record<string, boolean>>({});
 
   if (!selectedNodeId) return null;
 
-  const details = getNodeDetails(graph, selectedNodeId);
+  const details = getNodeDetails(graph, selectedNodeId, evidenceModel, screenshotUrls);
   if (!details) return null;
 
-  const { node, domainMeta, typeMeta, invariants, incomingEdges, outgoingEdges, fileRefs, testRefs, qaScenarioIds } = details;
+  const {
+    node,
+    domainMeta,
+    typeMeta,
+    invariants,
+    incomingEdges,
+    outgoingEdges,
+    fileRefs,
+    testRefs,
+    qaScenarioIds,
+    evidence,
+  } = details;
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -53,10 +77,17 @@ export function WorkflowDetailsPanel({
     setTimeout(() => setCopiedText(null), 2000);
   };
 
+  const toggleScenarioExpand = (scenarioId: string) => {
+    setExpandedScenarios((prev) => ({
+      ...prev,
+      [scenarioId]: !prev[scenarioId],
+    }));
+  };
+
   return (
     <aside
       aria-label="Node Details Panel"
-      className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-slate-200 bg-white shadow-2xl transition-all duration-300 sm:w-[460px] md:w-[490px] dark:border-slate-800 dark:bg-slate-900"
+      className="absolute inset-y-0 right-0 z-40 flex w-full flex-col border-l border-slate-200 bg-white shadow-2xl transition-all duration-300 sm:w-[480px] md:w-[520px] dark:border-slate-800 dark:bg-slate-900"
     >
       {/* Header */}
       <div className="flex items-start justify-between border-b border-slate-200 p-4 dark:border-slate-800">
@@ -127,6 +158,272 @@ export function WorkflowDetailsPanel({
             {node.description}
           </p>
         </section>
+
+        {/* WM-4 Browser Evidence Section (if evidence loaded) */}
+        {evidence && (
+          <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-800 dark:bg-slate-850/60">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-slate-100">
+                <Layers className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <span>Browser QA Evidence (QA-1)</span>
+              </div>
+              <div>
+                {evidence.state === "PASS" && (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-850 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-800">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                    <span>QA Passed</span>
+                  </span>
+                )}
+                {evidence.state === "FAIL" && (
+                  <span className="inline-flex items-center gap-1 rounded bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-850 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-800">
+                    <AlertOctagon className="h-3 w-3 text-rose-600 dark:text-rose-400" />
+                    <span>QA Failed</span>
+                  </span>
+                )}
+                {evidence.state === "PARTIAL" && (
+                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-850 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-800">
+                    <CircleDot className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                    <span>Partial Evidence</span>
+                  </span>
+                )}
+                {evidence.state === "NOT_RUN" && (
+                  <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                    <MinusCircle className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                    <span>Not Run</span>
+                  </span>
+                )}
+                {evidence.state === "UNMAPPED" && (
+                  <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
+                    <span>Unmapped Node</span>
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Explanatory Boundary Notice */}
+            <div className="rounded-lg bg-slate-100/80 p-2 text-[10px] leading-relaxed text-slate-600 dark:bg-slate-800/80 dark:text-slate-400">
+              <span className="font-semibold text-slate-800 dark:text-slate-200">Note:</span> Browser QA verification indicates that mapped deterministic Playwright scenarios passed their browser checks. It does not certify accounting calculations, RLS tenant isolation, payroll history immutability, or engineering lifecycle correctness.
+            </div>
+
+            {/* Scenario Breakdown Stats */}
+            {evidence.mappedScenarioIds.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-750 dark:bg-slate-900">
+                  <div className="text-[10px] text-slate-400">Mapped Scenarios</div>
+                  <div className="font-bold text-slate-800 dark:text-slate-200">
+                    {evidence.presentScenarioIds.length} / {evidence.mappedScenarioIds.length} present
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-750 dark:bg-slate-900">
+                  <div className="text-[10px] text-slate-400">Tested Viewports</div>
+                  <div className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {evidence.testedViewports.length > 0 ? evidence.testedViewports.join(", ") : "None"}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Missing Scenarios list (if any) */}
+            {evidence.missingScenarioIds.length > 0 && (
+              <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50/70 p-2.5 dark:border-amber-900/50 dark:bg-amber-950/30 text-xs">
+                <div className="flex items-center gap-1 font-bold text-amber-900 dark:text-amber-300 text-[11px]">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Missing Mapped Scenarios ({evidence.missingScenarioIds.length})</span>
+                </div>
+                <div className="space-y-1 font-mono text-[10px] text-amber-850 dark:text-amber-300">
+                  {evidence.missingScenarioIds.map((id) => (
+                    <div key={id} className="truncate">
+                      • {id}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Present Scenarios Accordion / Cards */}
+            {evidence.scenarios.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Present Scenario Evidence ({evidence.scenarios.length})
+                </div>
+                <div className="space-y-2">
+                  {evidence.scenarios.map((sc) => {
+                    const isExpanded = expandedScenarios[sc.scenarioId] ?? true;
+                    const screenshotUrl = screenshotUrls?.[sc.scenarioId] || (sc.screenshotPath ? screenshotUrls?.[sc.screenshotPath] : undefined);
+
+                    return (
+                      <div
+                        key={sc.scenarioId}
+                        className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs dark:border-slate-750 dark:bg-slate-900"
+                      >
+                        {/* Scenario Card Header */}
+                        <div
+                          onClick={() => toggleScenarioExpand(sc.scenarioId)}
+                          className="flex cursor-pointer items-start justify-between gap-2"
+                        >
+                          <div className="space-y-0.5 overflow-hidden">
+                            <div className="flex items-center gap-1.5">
+                              {sc.status === "PASS" ? (
+                                <span className="inline-flex items-center gap-0.5 rounded bg-emerald-100 px-1.5 py-0.2 text-[10px] font-bold text-emerald-850 border border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800">
+                                  <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
+                                  PASS
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 rounded bg-rose-100 px-1.5 py-0.2 text-[10px] font-bold text-rose-850 border border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-800">
+                                  <AlertOctagon className="h-2.5 w-2.5 text-rose-600" />
+                                  FAIL
+                                </span>
+                              )}
+                              <span className="font-mono text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                                {sc.viewport.name} ({sc.viewport.width}x{sc.viewport.height})
+                              </span>
+                            </div>
+                            <div className="font-mono text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                              {sc.scenarioId}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 text-slate-400">
+                            <span className="text-[10px] font-mono">{sc.durationMs}ms</span>
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </div>
+                        </div>
+
+                        {/* Scenario Details (Collapsible) */}
+                        {isExpanded && (
+                          <div className="mt-2.5 space-y-2 border-t border-slate-100 pt-2 dark:border-slate-800 text-xs">
+                            {/* Failure Reasons Callout */}
+                            {sc.failureReasons.length > 0 && (
+                              <div className="rounded-lg border border-rose-200 bg-rose-50/80 p-2 dark:border-rose-900/50 dark:bg-rose-950/40">
+                                <div className="text-[10px] font-bold uppercase text-rose-900 dark:text-rose-300">
+                                  Failure Reasons
+                                </div>
+                                <div className="mt-0.5 flex flex-wrap gap-1">
+                                  {sc.failureReasons.map((reason) => (
+                                    <code key={reason} className="rounded bg-rose-100 px-1 py-0.2 font-mono text-[10px] font-bold text-rose-800 dark:bg-rose-900 dark:text-rose-200">
+                                      {reason}
+                                    </code>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Interaction & Route details */}
+                            <div className="space-y-1 text-[11px]">
+                              <div className="flex items-center justify-between text-slate-500">
+                                <span>Interaction State:</span>
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">{sc.interactionState}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-500">
+                                <span>Tested Path:</span>
+                                <code className="font-mono text-slate-700 dark:text-slate-300">{sc.requestedPath}</code>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-500">
+                                <span>HTTP Status:</span>
+                                <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">
+                                  {sc.navigation.status !== null ? `HTTP ${sc.navigation.status}` : "No response"}
+                                </span>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-500">
+                                <span>Horizontal Overflow:</span>
+                                <span className={`font-mono ${sc.overflow.detected ? "font-bold text-rose-600" : "text-slate-700 dark:text-slate-300"}`}>
+                                  {sc.overflow.detected ? `${sc.overflow.pixels}px detected` : "None (0px)"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Assertions */}
+                            {sc.assertions.length > 0 && (
+                              <div className="space-y-1">
+                                <div className="text-[10px] font-bold uppercase text-slate-400">Deterministic Assertions</div>
+                                <div className="space-y-0.5">
+                                  {sc.assertions.map((a) => (
+                                    <div key={a.id} className="flex items-center justify-between rounded bg-slate-50 px-2 py-1 text-[10px] dark:bg-slate-800">
+                                      <span className="font-mono text-slate-700 dark:text-slate-300">{a.id}</span>
+                                      <span className={a.passed ? "font-bold text-emerald-600" : "font-bold text-rose-600"}>
+                                        {a.passed ? "PASS" : "FAIL"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Console Errors */}
+                            {sc.consoleErrors.length > 0 && (
+                              <div className="space-y-1">
+                                <div className="text-[10px] font-bold uppercase text-slate-400">
+                                  Console Errors ({sc.consoleErrors.length})
+                                </div>
+                                <div className="space-y-1">
+                                  {sc.consoleErrors.map((err, idx) => (
+                                    <div key={idx} className={`rounded p-1.5 font-mono text-[10px] leading-tight ${err.ignored ? "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" : "bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"}`}>
+                                      {err.ignored && <span className="font-bold uppercase text-slate-400 mr-1">[IGNORED]</span>}
+                                      {err.message}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Page Errors */}
+                            {sc.pageErrors.length > 0 && (
+                              <div className="space-y-1">
+                                <div className="text-[10px] font-bold uppercase text-rose-500">
+                                  Page Errors ({sc.pageErrors.length})
+                                </div>
+                                <div className="space-y-1">
+                                  {sc.pageErrors.map((err, idx) => (
+                                    <div key={idx} className="rounded bg-rose-50 p-1.5 font-mono text-[10px] leading-tight text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                                      {err.message}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Screenshot Preview / Relative Path */}
+                            <div className="space-y-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                              <div className="flex items-center justify-between text-[10px] text-slate-400">
+                                <span className="flex items-center gap-1">
+                                  <ImageIcon className="h-3 w-3" />
+                                  <span>Screenshot Artifact</span>
+                                </span>
+                                {sc.screenshotPath && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopy(sc.screenshotPath!, "screenshot-path")}
+                                    className="inline-flex items-center gap-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                    title="Copy relative screenshot path"
+                                  >
+                                    <Copy className="h-2.5 w-2.5" />
+                                    <span>{copiedText === "screenshot-path" ? "Copied" : "Copy Path"}</span>
+                                  </button>
+                                )}
+                              </div>
+                              {screenshotUrl ? (
+                                <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-950 dark:border-slate-700">
+                                  <img
+                                    src={screenshotUrl}
+                                    alt={`Screenshot of scenario ${sc.scenarioId}`}
+                                    className="max-h-56 w-full object-contain"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="rounded bg-slate-50 px-2 py-1.5 font-mono text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-400 flex items-center justify-between">
+                                  <span className="truncate">{sc.screenshotPath || "No screenshot captured"}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         {/* High Risk Invariants Alert Section */}
         {invariants.length > 0 && (
@@ -377,11 +674,11 @@ export function WorkflowDetailsPanel({
           </section>
         )}
 
-        {/* QA-1 Scenarios */}
+        {/* QA-1 Scenarios (Architecture Catalog references) */}
         {qaScenarioIds.length > 0 && (
           <section className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              QA-1 Browser Scenarios ({qaScenarioIds.length})
+              Mapped Architecture QA Scenarios ({qaScenarioIds.length})
             </h3>
             <div className="flex flex-wrap gap-1.5">
               {qaScenarioIds.map((scId) => (

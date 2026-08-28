@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { WORKFLOW_GRAPH } from "../../scripts/workflow-map/graph.ts";
 import type { WorkflowCanvasFilter } from "./workflowCanvasTypes.ts";
 import {
@@ -7,11 +7,17 @@ import {
   formatWorkflowMapUrlQuery,
   parseWorkflowMapUrlState,
 } from "./workflowCanvasUtils.ts";
+import {
+  mapEvidenceToWorkflowGraph,
+  parseQaManifest,
+  type WorkflowMapEvidenceModel,
+} from "../../scripts/workflow-map/evidence.ts";
 import { WorkflowToolbar } from "./WorkflowToolbar.tsx";
 import { WorkflowCanvas } from "./WorkflowCanvas.tsx";
 import { WorkflowDetailsPanel } from "./WorkflowDetailsPanel.tsx";
 import { WorkflowInvariantsModal } from "./WorkflowInvariantsModal.tsx";
 import { WorkflowStatusBar } from "./WorkflowStatusBar.tsx";
+import { AlertTriangle, X } from "lucide-react";
 
 function relevantPresetForNode(nodeId: string): string {
   const curated = WORKFLOW_GRAPH.diagrams.find((diagram) => diagram.nodeIds.includes(nodeId));
@@ -33,6 +39,21 @@ export default function WorkflowMapRoot() {
   });
 
   const [invariantsModalOpen, setInvariantsModalOpen] = useState(false);
+  const [evidenceModel, setEvidenceModel] = useState<WorkflowMapEvidenceModel | null>(null);
+  const [screenshotUrls, setScreenshotUrls] = useState<Record<string, string>>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const screenshotUrlsRef = useRef(screenshotUrls);
+  screenshotUrlsRef.current = screenshotUrls;
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      for (const url of Object.values(screenshotUrlsRef.current)) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, []);
 
   // Sync filter changes to URL query state
   useEffect(() => {
@@ -46,7 +67,10 @@ export default function WorkflowMapRoot() {
   }, []);
 
   const handleResetFilter = useCallback(() => {
-    setFilter(DEFAULT_FILTER);
+    setFilter((prev) => ({
+      ...DEFAULT_FILTER,
+      evidenceMode: prev.evidenceMode,
+    }));
   }, []);
 
   const handleSelectNode = useCallback((nodeId: string | null) => {
@@ -78,22 +102,111 @@ export default function WorkflowMapRoot() {
     }));
   }, []);
 
+  // Evidence handlers
+  const handleLoadEvidenceFile = useCallback(async (file: File) => {
+    try {
+      const text = await file.text();
+      const manifest = parseQaManifest(text);
+      const model = mapEvidenceToWorkflowGraph(WORKFLOW_GRAPH, manifest);
+      setEvidenceModel(model);
+      setErrorMessage(null);
+      setFilter((prev) => ({
+        ...prev,
+        evidenceMode: prev.evidenceMode === "off" ? "status" : prev.evidenceMode,
+      }));
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
+  const handleAttachScreenshots = useCallback((files: FileList | File[]) => {
+    const newMap: Record<string, string> = { ...screenshotUrlsRef.current };
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith("image/") || file.name.endsWith(".png")) {
+        const url = URL.createObjectURL(file);
+        // Map by filename (e.g. "scenario-id.png")
+        newMap[file.name] = url;
+        // Map by relative artifact path (e.g. "screenshots/scenario-id.png")
+        newMap[`screenshots/${file.name}`] = url;
+        // Map by base scenarioId without .png
+        const baseName = file.name.replace(/\.png$/i, "");
+        newMap[baseName] = url;
+      }
+    }
+    setScreenshotUrls(newMap);
+  }, []);
+
+  const handleClearEvidence = useCallback(() => {
+    for (const url of Object.values(screenshotUrlsRef.current)) {
+      URL.revokeObjectURL(url);
+    }
+    setScreenshotUrls({});
+    setEvidenceModel(null);
+    setErrorMessage(null);
+    setFilter((prev) => ({
+      ...prev,
+      evidenceMode: "off",
+    }));
+  }, []);
+
+  const handleFocusFailures = useCallback(() => {
+    if (!evidenceModel || evidenceModel.summary.failCount === 0) return;
+    const firstFailId = evidenceModel.summary.failureNodeIds[0];
+    const targetPreset = relevantPresetForNode(firstFailId);
+
+    setFilter((prev) => ({
+      ...prev,
+      presetId: targetPreset,
+      selectedDomains: [],
+      selectedNodeTypes: [],
+      selectedNodeId: firstFailId,
+      evidenceMode: "failures",
+      focusNeighborhood: false,
+    }));
+  }, [evidenceModel]);
+
   // Compute visible counts for status bar
-  const { visibleNodeCount, visibleEdgeCount } = useMemo(() => {
+  const { visibleNodes, visibleNodeCount, visibleEdgeCount } = useMemo(() => {
     const { nodes, edges } = filterGraph(WORKFLOW_GRAPH, filter);
-    return { visibleNodeCount: nodes.length, visibleEdgeCount: edges.length };
+    return { visibleNodes: nodes, visibleNodeCount: nodes.length, visibleEdgeCount: edges.length };
   }, [filter]);
+
+  const visibleNodeIds = useMemo(() => visibleNodes.map((n) => n.id), [visibleNodes]);
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-100 font-sans text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      {/* Error Alert Banner (if manifest parsing fails) */}
+      {errorMessage && (
+        <div className="z-50 flex items-center justify-between bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-md">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-white" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="rounded p-1 hover:bg-rose-700"
+            title="Dismiss error"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Top Toolbar */}
       <WorkflowToolbar
         graph={WORKFLOW_GRAPH}
         filter={filter}
+        evidenceModel={evidenceModel}
         onFilterChange={handleFilterChange}
         onResetFilter={handleResetFilter}
         onOpenInvariantsModal={() => setInvariantsModalOpen(true)}
         onSelectSearchNode={handleSelectSearchNode}
+        onLoadEvidenceFile={handleLoadEvidenceFile}
+        onAttachScreenshots={handleAttachScreenshots}
+        onClearEvidence={handleClearEvidence}
+        onFocusFailures={handleFocusFailures}
       />
 
       {/* Main Workspace: Canvas + Slide-in Details Drawer */}
@@ -101,6 +214,7 @@ export default function WorkflowMapRoot() {
         <WorkflowCanvas
           graph={WORKFLOW_GRAPH}
           filter={filter}
+          evidenceModel={evidenceModel}
           onSelectNode={handleSelectNode}
           onFocusNeighborhood={handleFocusNeighborhood}
         />
@@ -109,6 +223,8 @@ export default function WorkflowMapRoot() {
         <WorkflowDetailsPanel
           graph={WORKFLOW_GRAPH}
           selectedNodeId={filter.selectedNodeId}
+          evidenceModel={evidenceModel}
+          screenshotUrls={screenshotUrls}
           onClose={() => handleSelectNode(null)}
           onSelectNode={handleSelectNode}
           onFocusNeighborhood={handleFocusNeighborhood}
@@ -122,6 +238,8 @@ export default function WorkflowMapRoot() {
         visibleNodeCount={visibleNodeCount}
         visibleEdgeCount={visibleEdgeCount}
         filter={filter}
+        evidenceModel={evidenceModel}
+        visibleNodeIds={visibleNodeIds}
       />
 
       {/* Invariants Reference Modal */}
