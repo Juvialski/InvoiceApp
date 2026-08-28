@@ -2,10 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { useCompanyAccess } from "../../context/CompanyAccessContext.tsx";
 import type { CompanyInvitationSummary, CompanyMemberSummary } from "../../lib/companyAccess.ts";
-import { PERMISSION_KEYS, roleDisplayName, type PermissionKey } from "../../utils/accessControl.ts";
+import { PERMISSION_KEYS, roleDisplayName } from "../../utils/accessControl.ts";
 import { safeErrorMessage } from "../../utils/errorNormalization.ts";
 
-const COMPANY_MEMBERS_MANAGE = "company.members.manage" as PermissionKey;
 const ASSIGNABLE_ROLES = ["COMPANY_ADMIN", "FINANCE", "PAYROLL", "VIEWER"] as const;
 
 function displayTime(value?: string) {
@@ -17,8 +16,8 @@ function displayTime(value?: string) {
 export function DeploymentAccessManagement() {
   const companyAccess = useCompanyAccess();
   const company = companyAccess.activeCompany;
-  const canRead = companyAccess.can(PERMISSION_KEYS.accessManage);
-  const canManage = companyAccess.can(COMPANY_MEMBERS_MANAGE);
+  const canRead = companyAccess.can(PERMISSION_KEYS.accessRead);
+  const canManage = companyAccess.can(PERMISSION_KEYS.accessManage);
   const [members, setMembers] = useState<CompanyMemberSummary[]>([]);
   const [invitations, setInvitations] = useState<CompanyInvitationSummary[]>([]);
   const [loading, setLoading] = useState(false);
