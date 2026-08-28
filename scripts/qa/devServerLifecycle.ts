@@ -33,6 +33,16 @@ export async function isServerReady(baseUrl: string, path = "/workflow-map", tim
   }
 }
 
+function signalPosixProcessGroup(pid: number, signal: NodeJS.Signals | 0): boolean {
+  try {
+    process.kill(-pid, signal);
+    return true;
+  } catch (error: any) {
+    if (error?.code === "ESRCH") return false;
+    throw error;
+  }
+}
+
 export async function startDevServer(options: DevServerOptions = {}): Promise<ChildProcess> {
   const port = options.port ?? 3000;
   const baseUrl = options.baseUrl ?? `http://localhost:${port}`;
@@ -52,7 +62,10 @@ export async function startDevServer(options: DevServerOptions = {}): Promise<Ch
   const cmd = isWin ? "npx.cmd" : "npx";
   const child = spawn(cmd, ["tsx", "server.ts"], {
     stdio: "ignore",
-    detached: false,
+    // On POSIX, own a dedicated process group so cleanup can terminate the
+    // npx/tsx server plus any Node/esbuild descendants without touching an
+    // unrelated process that happens to use the same port later.
+    detached: !isWin,
     shell: isWin,
     env: { ...process.env, PORT: String(port) },
   });
@@ -90,22 +103,20 @@ export async function terminateChildServer(
     });
   } else {
     try {
-      child.kill("SIGTERM");
-      const start = Date.now();
-      let exited = false;
-      while (Date.now() - start < 3000) {
-        try {
-          process.kill(child.pid, 0);
-          await new Promise((r) => setTimeout(r, 200));
-        } catch {
-          exited = true;
-          break;
-        }
+      let groupAlive = signalPosixProcessGroup(child.pid, "SIGTERM");
+      const graceStart = Date.now();
+      while (groupAlive && Date.now() - graceStart < 3000) {
+        await new Promise((r) => setTimeout(r, 200));
+        groupAlive = signalPosixProcessGroup(child.pid, 0);
       }
-      if (!exited) {
-        child.kill("SIGKILL");
+      if (groupAlive) {
+        signalPosixProcessGroup(child.pid, "SIGKILL");
       }
-    } catch {}
+    } catch {
+      // The final port/server verification below is authoritative. If a
+      // process-group signal unexpectedly fails, cleanup must still fail
+      // closed rather than claiming success.
+    }
   }
 
   // Bounded polling loop to guarantee port is completely released
