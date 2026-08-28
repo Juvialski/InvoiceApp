@@ -8,7 +8,7 @@ The primary goal is a repository-native workflow map that can be rendered as an 
 
 ## Status and sequencing
 
-- **Status:** **QA-1 Structured Browser Evidence is IMPLEMENTED. WM-1 Canonical Workflow Graph is IMPLEMENTED. WM-2 Visual Workflow Canvas is NEXT / PLANNED. WM-3 Graph Consistency Validation, WM-4 Browser Evidence Overlay, and WM-5 Bounded Agent Context Generation remain PLANNED.**
+- **Status:** **QA-1 Structured Browser Evidence is IMPLEMENTED. WM-1 Canonical Workflow Graph is IMPLEMENTED. WM-2 Visual Workflow Canvas is IMPLEMENTED. WM-3 Graph Consistency Validation is NEXT / PLANNED. WM-4 Browser Evidence Overlay and WM-5 Bounded Agent Context Generation remain PLANNED.**
 - **Priority:** Immediate engineering-infrastructure work, before or alongside Product Phase 2.
 - **Product roadmap effect:** This track does **not** renumber the Engoryx customer-facing phases. Product Phase 2 remains Project Scheduling & Gantt.
 - **Hosting requirement:** None. The first useful version must work from the repository and existing CI/local tooling without a paid automation service.
@@ -17,9 +17,9 @@ The primary goal is a repository-native workflow map that can be rendered as an 
 | Infrastructure stage | Status |
 | --- | --- |
 | QA-1 — Structured Browser Evidence | IMPLEMENTED |
-| WM-1 — Canonical Workflow Graph | IMPLEMENTED by this PR |
-| WM-2 — Visual Workflow Canvas | NEXT / PLANNED |
-| WM-3 — Graph Consistency Validation | PLANNED |
+| WM-1 — Canonical Workflow Graph | IMPLEMENTED |
+| WM-2 — Visual Workflow Canvas | IMPLEMENTED |
+| WM-3 — Graph Consistency Validation | NEXT / PLANNED |
 | WM-4 — Browser Evidence Overlay | PLANNED |
 | WM-5 — Bounded Agent Context Generation | PLANNED |
 
@@ -81,21 +81,31 @@ The graph also records stable diagram node selections and the limited explorator
 
 The graph should stay bounded to meaningful workflows. It must not attempt to represent every function call or every component in the repository.
 
-## Visual rendering
+## Visual rendering — WM-2 Visual Workflow Canvas
 
-WM-1 generates a readable Mermaid view for humans. The future WM-2 view should resemble a workflow canvas:
+WM-1 generates a readable Mermaid view for documentation. **WM-2 delivers an interactive, read-only visual workflow canvas** built with `@xyflow/react` and a deterministic Dagre layout engine.
 
-- pan and zoom;
-- grouped domains or swimlanes;
-- readable directional edges;
-- click a node to reveal route/file/test/context details;
-- filter by domain such as Payroll, Invoices, Engineering, Cash, or Assistant;
-- optionally highlight one end-to-end workflow at a time;
-- export or render a static representation for documentation/CI artifacts.
+### Launch and developer access
 
-A repository-native renderer may use **Mermaid** for low-maintenance documentation and/or **React Flow / xyflow** for a richer interactive developer view. WM-1 does not add the interactive canvas; any renderer must consume the canonical graph contract instead of maintaining duplicated relationships.
+The visual workflow canvas is dedicated developer and agent tooling. It is completely isolated from production customer navigation and authentication:
 
-External tools such as GitDiagram or repository-wiki generators are useful for quick architecture exploration, but they are not authoritative because they infer structure and may miss Engoryx business semantics. For WM-1, GitDiagram should be used as an initial map to accelerate discovery, then the graph must be corrected against current routes, domain code, lifecycle guards, permissions, tests, and documented invariants before it becomes repository context.
+- Open `/workflow-map`, `/dev/workflow-map`, or `/?view=workflow-map` in any browser while the development server is running (`npm.cmd run dev` or `npx.cmd tsx server.ts`);
+- No Supabase login, session, or credentials required;
+- Zero customer navigation links, RBAC permissions, or business mutation endpoints mounted;
+- Consumes the canonical graph directly from `scripts/workflow-map/graph.ts` (183 nodes, 208 edges, 11 invariants).
+
+### Canvas capabilities
+
+1. **View presets**: Curated diagram views (Whole-platform overview, Projects & Engineering, Invoice & Cash Settlement, Workforce & Payroll, Assistant guarded mutations), individual domain views, and full architecture view.
+2. **Deterministic layout**: Left-to-right (`rankdir: LR`) workflow progression with stable coordinates across views.
+3. **Interactive search & filtering**: Fast real-time search across node labels, IDs, routes, statuses, invariants, and descriptions. Domain and node type filter toggles.
+4. **Neighborhood focus**: Highlight 1-hop or 2-hop connected dependencies with dimmed unrelated nodes, or isolate strictly to the neighborhood.
+5. **Node details drawer**: Full inspection of node scope, route paths, lifecycle state progressions, required permissions, human confirmation gates, attached high-risk invariants, copyable source and test file paths, and clickable incoming/outgoing dependencies.
+6. **High-risk invariants catalog**: Dedicated reference sheet for all 11 architectural invariants protecting financial and system integrity.
+7. **URL state synchronization**: Shareable preset, domain, node, and search query parameters.
+8. **Read-only guarantee**: authoring, edge creation, and graph mutation tools are disabled. Node dragging is permitted for temporary exploration without modifying the canonical graph source.
+
+WM-3 Graph Consistency Validation is the next infrastructure stage.
 
 ## Structured browser evidence — implemented foundation
 
