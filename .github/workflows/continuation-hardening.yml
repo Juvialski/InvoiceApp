@@ -19,7 +19,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Apply reconstructed continuation patch
-        run: node scripts/continuation-hardening-patch.mjs
+        run: python3 scripts/continuation-hardening-patch.py
       - name: Install and refresh lockfile
         run: npm install
       - name: Regenerate workflow map
@@ -58,11 +58,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json src/lib/persistence.ts src/lib/engineeringDocumentsPersistence.ts src/lib/payrollImportPersistence.ts src/lib/payrollImport.ts server.ts scripts/workflow-map/graph.ts docs/WORKFLOW_MAP.md docs/WORKFLOW_MAP.mmd docs/workflow-map.json .github/workflows/database-tests.yml tests/fileSecurity.test.ts
+          git add package-lock.json src/lib/persistence.ts src/lib/engineeringDocumentsPersistence.ts src/lib/payrollImportPersistence.ts src/lib/payrollImport.ts src/server/assistant/assistantHandler.ts server.ts scripts/workflow-map/graph.ts docs/WORKFLOW_MAP.md docs/WORKFLOW_MAP.mmd docs/workflow-map.json .github/workflows/database-tests.yml tests/fileSecurity.test.ts
           if git diff --cached --quiet; then
             echo "No generated hardening changes to commit."
           else
-            git commit -m "security: harden single-company file boundaries [skip ci]"
+            git commit -m "security: harden single-company boundaries [skip ci]"
             git push
           fi
 
