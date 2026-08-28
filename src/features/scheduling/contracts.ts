@@ -99,8 +99,10 @@ export function isScheduleIsoDate(value: string): boolean {
 
 export function validateScheduleTaskDraft(task: ProjectScheduleTaskDraft): ScheduleValidationIssue[] {
   const issues: ScheduleValidationIssue[] = [];
-  const startValid = isScheduleIsoDate(task.startDate);
-  const endValid = isScheduleIsoDate(task.endDate);
+  const startDate = task.startDate.trim();
+  const endDate = task.endDate.trim();
+  const startValid = isScheduleIsoDate(startDate);
+  const endValid = isScheduleIsoDate(endDate);
 
   if (!task.name.trim()) {
     issues.push({ code: "name-required", field: "name", message: "Task name is required." });
@@ -111,10 +113,10 @@ export function validateScheduleTaskDraft(task: ProjectScheduleTaskDraft): Sched
   if (!endValid) {
     issues.push({ code: "invalid-end-date", field: "endDate", message: "End date must be a valid YYYY-MM-DD date." });
   }
-  if (startValid && endValid && task.endDate < task.startDate) {
+  if (startValid && endValid && endDate < startDate) {
     issues.push({ code: "end-before-start", field: "endDate", message: "End date cannot be before start date." });
   }
-  if (startValid && endValid && task.kind === "MILESTONE" && task.startDate !== task.endDate) {
+  if (startValid && endValid && task.kind === "MILESTONE" && startDate !== endDate) {
     issues.push({ code: "milestone-date-mismatch", field: "endDate", message: "Milestones must use the same start and end date." });
   }
   if (!Number.isFinite(task.progressPercent) || task.progressPercent < 0 || task.progressPercent > 100) {
