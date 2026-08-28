@@ -1,9 +1,13 @@
 # ENGORYX — Engineering Operations Platform
 
-Engoryx is an integrated engineering operations platform for architecture, engineering, and construction (AEC) firms, contractors, and project teams. It unifies project costing, cash & banking operations, supplier invoice extraction & verification, workforce management, engineering payroll, direct expenses, engineering document control, field workflows, financial settlement evidence, and comprehensive reporting under a secure multi-tenant architecture.
+Engoryx is an integrated engineering operations platform for architecture, engineering, and construction (AEC) firms, contractors, and project teams. It unifies project costing, cash & banking operations, supplier invoice extraction & verification, workforce management, engineering payroll, direct expenses, engineering document control, field workflows, financial settlement evidence, and comprehensive reporting under a deployment-isolated company architecture.
+
+**Deployment tenancy model:** one deployed Engoryx instance serves one client company. Different client companies use separate application deployments and separate Supabase projects/databases/Storage. Multiple users and role-based access remain within each company's deployment. Database rows continue to carry `company_id` as a defense-in-depth authorization and audit boundary.
 
 For technical architecture and roadmap details, see:
 - [Engoryx Platform Architecture](docs/ENGORYX_PLATFORM_ARCHITECTURE.md)
+- [Company boundary and database RBAC](docs/company-tenancy-rbac-database.md)
+- [Single-company deployment runbook](docs/SINGLE_COMPANY_DEPLOYMENT.md)
 - [Engoryx Phase 1A: Engineering Documents & Blueprint Viewer](docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md)
 - [Engoryx Phase 1B: RFIs & Technical Submittals](docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md)
 - [Engoryx Phase 1C: Daily Site Logs & Weather Tracking](docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md)
@@ -19,7 +23,7 @@ For technical architecture and roadmap details, see:
 
 Roadmap snapshot as of **2026-08-28**:
 
-- **Phase 0 core operations are established**: multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Workforce & Payroll, Reports, and the guarded Engoryx Assistant are active platform foundations.
+- **Phase 0 core operations are established**: deployment-scoped company RBAC, Cash & Banking, Invoices, Projects, Expenses, Workforce & Payroll, Reports, and the guarded Engoryx Assistant are active platform foundations.
 - **Phase 1 is functionally complete on `main`**:
   - **Phase 1A**: Engineering Drawings & Blueprint Viewer, immutable revision lineage, and normalized redlines.
   - **Phase 1B**: RFIs and Technical Submittals with guarded lifecycle/history and document-revision linking.
@@ -48,7 +52,7 @@ Roadmap snapshot as of **2026-08-28**:
 
 ## 3. Phased Engineering Platform Roadmap
 
-- **Phase 0 (Established / Active)**: Engoryx Core Foundation, Multi-Tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, and the bounded Astryx UI-foundation pilot.
+- **Phase 0 (Established / Active)**: Engoryx Core Foundation, deployment-scoped company RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, and the bounded Astryx UI-foundation pilot.
 - **Phase 1 (Complete / Active in product)**:
   - **Phase 1A (Complete)**: Engineering Drawings & Blueprint Viewer (PDF.js + Konva), immutable revisions, normalized redlines.
   - **Phase 1B (Complete)**: RFIs and Technical Submittals with Engineer-of-Record-style coordination workflows and immutable document-revision references.
@@ -92,6 +96,12 @@ npm.cmd run build
 
 # Validate database migrations
 npm.cmd run test:migrations
+npm.cmd run test:migrations:upgrade
+
+# Validate the canonical workflow map
+npm.cmd run workflow-map:check
+npm.cmd run workflow-map:consistency
+npm.cmd run test:workflow-map
 ```
 
 ### Bounded workflow context for substantial work
@@ -124,12 +134,16 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
+Deployment company identity is stored in the target Supabase project's singleton `deployment_configuration` row rather than a browser environment UUID. See [the deployment runbook](docs/SINGLE_COMPANY_DEPLOYMENT.md).
+
 ---
 
-## 6. Security, Tenancy & Financial Invariants
+## 6. Security, Company Boundary & Financial Invariants
 
-- **Multi-Tenancy**: All records are strictly company-isolated via PostgreSQL Row-Level Security (RLS).
+- **Deployment isolation**: unrelated client companies do not coexist in one production deployment or Supabase project.
+- **Database defense in depth**: operational rows retain `company_id`, and PostgreSQL RLS/RPC authorization requires the configured deployment company plus active membership and permission.
+- **No tenant switching**: browser state, URLs, Assistant arguments, or request headers cannot select another company; a mismatch fails closed.
 - **Financial Immutability**: Historical financial transactions, approved payroll runs, and verified invoice baselines are append-only.
 - **Settlement Separation**: Confirmed cash settlement is evidence of payment/disbursement and does not independently create project cost or rewrite payroll-source history.
 - **Controlled AI Actions**: AI operations produce previews only (PREPARED); write operations require explicit human confirmation.
-- **Philippines-First Context**: Complies with official BIR/EOPT invoice guidance ([BIR RR No. 7-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%207-%202024.pdf), [RMC No. 77-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%2077-%202024.pdf)).
+- **Philippines-First Context**: Complies with official BIR/EOPT invoice guidance ([BIR RR No. 7-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%207-%202024.pdf), [RMC No. 77-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%207-%202024.pdf)).
