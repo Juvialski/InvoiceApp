@@ -1,638 +1,233 @@
 # InvoiceApp / Engoryx Development & Agent Rules
 
-These instructions apply only to this repository.
+These rules apply only to this repository. The repository may still be named `InvoiceApp`; use the current Engoryx product naming and live repository state.
 
-The repository may still be named `InvoiceApp` while the product evolves under the Engoryx brand. Agents must use the current repository state and current product naming found in code rather than assuming older names or architecture.
+## Architecture baseline
 
-## Default development workflow
+Engoryx is permanently designed as:
 
-Use a capability-aware workflow. The strongest or most expensive agent should not automatically receive every task.
+`one deployment -> one client company -> active membership/RBAC -> permitted workflows`
 
-Default responsibility order:
+Each client company receives a separate deployment, Supabase project/database, Storage, environment configuration, and users. Do not add unrelated-company switching or tenant selection to the client app.
 
-1. **ChatGPT with authorized GitHub access** — default lead engineer, planner, reviewer, integrator, and finisher.
-2. **Codex** — complex local implementation and validation specialist.
-3. **Antigravity** — UI, browser, visual QA, and medium-complexity implementation specialist.
-4. **VS Code + Kilo Code / OpenRouter** — free or low-cost bounded execution for mechanical and low-risk work.
+Keep `company_id`, company-prefixed Storage paths, RLS, membership checks, permission checks, and company-bound foreign-key validation as defense in depth.
 
-The lead must choose the least expensive/capability-lightest tool that can safely complete a task. Cost savings never override financial integrity, security, migration safety, or correctness.
+## Current product mode: CORE HARDENING FREEZE
 
-## ChatGPT / GitHub-native lead role
+Until the user explicitly lifts this freeze, do not implement new planned/future product modules such as Scheduling/Gantt/CPM or other roadmap expansion.
 
-When an authorized GitHub integration is available, ChatGPT should be treated as the default repository lead and finisher for work it can safely complete remotely.
+Prioritize completion and hardening of features that already exist:
 
-Typical responsibilities:
+1. editable deployment-company profile and first-run setup;
+2. real user invitation delivery and invitation lifecycle;
+3. per-member permission customization using the existing granular permission vocabulary;
+4. safe correction/removal semantics for accidental inputs;
+5. Assistant parity with authorized deterministic workflows;
+6. CRUD/lifecycle completeness across existing modules;
+7. RBAC/RLS/security and financial-integrity audits;
+8. browser/mobile/UX completion and production-readiness regression work.
 
-- inspect the latest `main`, current HEAD, recent commits, PRs, and CI state;
-- investigate bugs and determine root cause;
-- design implementation plans and contracts;
-- edit repository files directly;
-- create focused branches;
-- create commits and pull requests;
-- review diffs and integrate delegated work;
-- inspect CI results and fix straightforward CI failures;
-- maintain repository instructions/documentation;
-- merge low-risk or adequately validated work when authorized and appropriate;
-- identify when local execution is required and delegate only that portion.
+See `docs/ENGORYX_CORE_HARDENING_PLAN.md` for the active hardening sequence.
 
-A GitHub-native agent must not claim local/runtime validation it did not perform. GitHub access is not equivalent to access to the user's Windows machine, localhost, Docker, Supabase CLI, browser state, or local environment variables.
+## Lead and tool routing
 
-When a change requires those capabilities, delegate the missing validation or implementation portion to Codex, Antigravity, or Kilo as appropriate.
+Use the least expensive tool that can safely complete the work.
 
-## Task routing by difficulty and risk
+- **ChatGPT with authorized GitHub access**: default lead, investigator, reviewer, integrator, CI reviewer, straightforward GitHub editor, and finisher.
+- **Codex**: use when difficult multi-file reasoning, local execution, Supabase CLI/Docker, migration replay, complex tests, or runtime debugging materially helps.
+- **Antigravity**: prefer for browser-driven UI/UX, responsive work, screenshots, and visual QA.
+- **Kilo/OpenRouter/free models**: prefer for tightly bounded mechanical Tier 0 and low-risk Tier 1 changes with an established pattern.
 
-Classify work before delegating it.
+Do not spend Codex/Luna usage on mechanical edits, CI polling, documentation-only work, or broad repository rereads that the lead can handle.
 
-### Tier 0 — Mechanical / low-risk
-
-Prefer **Kilo Code with OpenRouter/Nemotron or another free model** when the task can be tightly bounded.
-
-Good examples:
-
-- copy/text changes;
-- renaming clearly identified symbols;
-- repetitive markup cleanup;
-- applying an already-defined spacing/style pattern;
-- extracting a simple component with no business-rule changes;
-- adding straightforward tests from an exact specification;
-- replacing duplication with an existing helper;
-- documentation updates;
-- mechanical type cleanup.
-
-Tier 0 tasks should normally specify exact files and exact expected behavior.
-
-### Tier 1 — Standard implementation
-
-Prefer **ChatGPT/GitHub**, **Antigravity**, or a stronger Kilo/OpenRouter model depending on environment needs.
-
-Examples:
-
-- isolated CRUD behavior;
-- small components;
-- straightforward service adapters;
-- bounded bug fixes;
-- normal UI state changes;
-- simple refactors with clear tests.
-
-### Tier 2 — Complex
-
-Prefer **ChatGPT as lead** and use **Codex** when local execution or deeper multi-file reasoning materially helps.
-
-Examples:
-
-- payroll calculations and period logic;
-- invoice extraction and review workflows;
-- cross-domain state bugs;
-- complex project/accounting behavior;
-- large multi-file refactors;
-- AI assistant actions and tool orchestration;
-- non-trivial data synchronization;
-- engineering document persistence flows.
-
-### Tier 3 — Critical / high-risk
-
-Use **ChatGPT as lead/reviewer** with **Codex/local validation** whenever possible.
-
-Examples:
-
-- Supabase migrations;
-- RLS and tenant isolation;
-- authentication/authorization;
-- destructive or irreversible operations;
-- approved/paid payroll history;
-- verified financial history;
-- production data migrations;
-- security-sensitive integrations;
-- schema changes affecting historical meaning.
-
-Do not assign Tier 3 architecture or implementation ownership to a weak/free model solely to save usage.
-
-## Kilo Code / OpenRouter execution policy
-
-Kilo is an execution assistant, not the default architect.
-
-Default cost-saving bias: for Tier 0 and well-bounded Tier 1 work with an established implementation pattern and no high-risk contract ownership, prefer Kilo/Nemotron first, including broad repetitive changes across many files. File count alone is not a reason to escalate when each edit is mechanical. The lead defines architecture and boundaries, Kilo executes on a feature branch/PR, and the lead reviews, repairs, validates, and merges the result. Kilo must not merge its own non-trivial PR. If the task requires deciding business meaning or crossing a protected boundary, escalate instead of guessing.
-
-For weaker/free models such as Nemotron:
-
-- give **one cohesive task per prompt**;
-- specify exact files whenever practical;
-- define the expected before/after behavior;
-- define commands it should run;
-- prohibit unrelated cleanup;
-- prefer tasks with an existing implementation pattern to copy;
-- require a diff review before completion.
-
-Kilo/Nemotron must not independently design or modify:
-
-- RLS policies;
-- authentication/authorization architecture;
-- production migrations;
-- payroll-history semantics;
-- finalized financial history;
-- tenant isolation;
-- secrets management;
-- high-risk shared contracts;
-- destructive operations.
-
-Do not allow a weaker agent to edit `App.tsx`, central shared types, schema/migration files, or security-sensitive services unless the lead provides a narrow explicit specification and plans to review every change.
-
-If the task becomes ambiguous or expands beyond the given specification, the weaker agent should stop and return the unresolved issue rather than invent behavior.
-
-## Antigravity role
-
-Prefer Antigravity for tasks that benefit from browser-driven or visual work, including:
-
-- UI/UX iteration;
-- spacing, balance, typography, and responsive fixes;
-- screenshot-based audits;
-- browser interaction and workflow verification;
-- medium-complexity frontend implementation;
-- visual regression investigation.
-
-Antigravity should not become the default owner of financial history, migrations, RLS, or security architecture unless explicitly directed and subsequently reviewed by the lead.
-
-## Codex role
-
-Use Codex where premium local reasoning or local machine access justifies the usage, including:
-
-- difficult multi-file implementation;
-- root-cause debugging requiring local execution;
-- Supabase CLI and Docker validation;
-- migration replay/upgrade testing;
-- complex test work;
-- browser/runtime debugging when Codex has the required tools;
-- Windows-specific environment issues;
-- difficult integration failures.
-
-Do not spend Codex usage on purely mechanical edits that a lower-cost agent can safely complete.
+Kilo/free models must not independently design RLS, authentication/authorization, destructive operations, production migrations, payroll-history semantics, finalized financial history, tenant isolation, or other high-risk shared contracts.
 
 ## Repository freshness
 
-Before any repository implementation work:
+Before implementation:
 
-- Inspect the current branch.
-- Inspect the current HEAD.
-- Inspect recent commits.
-- Inspect working-tree status when local access exists.
-- Inspect relevant open PR/CI state when remote GitHub access exists.
-- Use the current codebase rather than relying on an older conversation snapshot.
+1. inspect the current branch and HEAD;
+2. inspect recent `main` and relevant open PR/CI state;
+3. inspect working-tree status when local access exists;
+4. never rely on an old prompt SHA or previous-chat snapshot when the repository has moved.
 
-Never overwrite newer work because a prompt references an older commit or prior chat.
+Do not overwrite newer work. Do not reset/recreate an active implementation branch unless explicitly required.
 
-## Workflow graph context
+## Mandatory bounded WM-5 context workflow
 
-Before substantial implementation, debugging, or architecture work:
+For substantial feature-scoped implementation, debugging, security, financial, or architecture work, WM-5 is the default orientation path.
 
-1. inspect current `main` and current CI;
-2. identify the affected domain/workflow/task;
-3. generate a bounded WM-5 packet when the work is feature-scoped, for example `npm.cmd run workflow-map:context -- --domain workforce --query "payroll period"` or `npm.cmd run workflow-map:context -- --node <actual-node-id>`;
-4. use the packet to orient on neighboring nodes, routes, guards, permissions, invariants, source files, tests, and current local provenance;
-5. inspect the actual referenced source implementation, guards, permissions, invariants, routes, tests, current `main`, and current CI before editing;
-6. load `docs/architecture/APP_WORKFLOW_MAP.md` and the complete `docs/architecture/workflow-map.json` only for genuinely broad or cross-domain architecture work, or when the bounded packet identifies a need;
-7. treat WM-5 and the workflow map as advisory context, never as a replacement for source inspection or live CI/runtime evidence.
+### Start narrow
 
-Do not require WM-5 for tiny CSS or copy-only work where it adds no value. WM-5 uses deterministic lexical selection, a bounded one-hop neighborhood by default, an explicit two-hop maximum, and a character budget; if a query is too broad it should be narrowed rather than expanded into a graph dump.
+Before broad source inspection, run one targeted packet such as:
 
-When a change materially alters a mapped workflow, lifecycle, route, guard, permission, cross-domain relationship, or high-risk invariant, update `scripts/workflow-map/graph.ts` and regenerate both committed outputs in the same PR. Trivial CSS and internal refactors that do not change workflow meaning do not require graph edits.
+```text
+npm.cmd run workflow-map:context -- --domain workforce --query "worker removal" --hops 1 --budget 12000
+```
 
-When a change materially alters a mapped route, deep-link contract, lifecycle, permission, guard, Assistant mutation contract, QA scenario mapping, or high-risk cross-domain boundary, run `npm.cmd run workflow-map:check` and `npm.cmd run workflow-map:consistency`.
+or use an exact node/route/file selector when known.
 
-## Session startup / resumption protocol
+Rules:
 
-When returning to this project after a break:
+1. Default to **1 hop** and about **10,000-12,000 characters**. Never exceed WM-5's 20,000-character maximum merely to avoid choosing a better query.
+2. Record the selector/query and packet size in the working notes or final handoff for substantial Codex runs.
+3. Use the packet to identify the smallest relevant set of routes, guards, permissions, invariants, source files, and tests.
+4. Inspect actual source before editing, but prefer targeted `rg`, exact symbols, and bounded line ranges over whole-file dumps.
+5. Open a second narrow WM-5 packet only when the first packet reveals a genuine adjacent boundary. Do not compensate for uncertainty by scanning the entire repository.
+6. Do not load complete `docs/architecture/APP_WORKFLOW_MAP.md` or `docs/architecture/workflow-map.json` for scoped work. Full-map loading is reserved for genuinely broad architecture work.
+7. Do not read many architecture documents “at minimum” when a bounded packet plus the canonical source can answer the task.
+8. If a task expands across multiple unrelated domains, split it into separate PR-sized waves instead of continuing one ever-growing session.
 
-1. Read this `AGENTS.md`.
-2. Inspect latest `main` and its recent commits.
-3. Check current PRs and CI state when accessible.
-4. Inspect the files relevant to the next requested feature/bug.
-5. Do not resume an old implementation from memory if the repository has moved.
-6. Classify the task by tier and select the appropriate execution tool.
-7. Keep the lead responsible for final integration and validation boundaries.
+WM-5 is advisory context, not a substitute for source, CI, runtime evidence, RLS, or migration validation.
 
-## Subagent concurrency — hard limit
+### Context/output discipline
 
-A maximum of **two concurrent subagents** may be used by a lead environment that supports subagents.
+Expensive local agents must actively limit context growth:
 
-Never create three or more concurrent subagents. If more than two workstreams exist, process them in waves.
+- do not dump whole large files when a symbol/range is sufficient;
+- do not ingest full successful test/build logs; retain the command, exit status, counts, and relevant warnings only;
+- on failure, inspect the failing step and the smallest useful error region first;
+- do not repeatedly reopen unchanged files or replay unchanged logs;
+- use targeted tests during iteration, then broader validation once the narrow failure is fixed;
+- do not continuously watch GitHub CI after a PR is pushed.
 
-Preferred structure:
+After pushing a PR, a local Codex/Luna run should normally hand CI monitoring to the GitHub-native lead/user and end. Resume local work only when CI exposes a failure that actually requires local implementation/debugging.
 
-- Agent 1 owns one cohesive group of files or features.
-- Agent 2 owns another cohesive group of files or features.
-- The lead owns architecture, shared integration files, conflict-heavy files such as `App.tsx`, migrations affecting multiple workstreams, final regression review, validation, and final handoff.
+A failed command is debugging evidence, not a reason to blindly rerun it. Use:
 
-Reuse agents sequentially for later workstreams instead of creating additional concurrent agents.
+`inspect -> diagnose -> make a justified change -> rerun the narrow check -> run broader validation`
 
-This concurrency rule applies to subagents spawned inside an agent environment. It does not require simultaneously running every external tool listed in this document.
+Never retry an unchanged failure in a loop.
 
-## Codex-specific subagent model — Luna only
+## Session and PR scope
 
-When **Codex itself** spawns subagents, every Codex subagent must use Luna at the highest thinking/reasoning level available for Luna in that environment.
+Use one cohesive implementation objective per agent run and per PR whenever practical.
 
-Never let Codex spawn Terra, Sol, Opus, Gemini, another model, an automatic fallback model, or a default non-Luna subagent.
+Do not turn a focused fix into a repository-wide audit. Adjacent issues should be fixed immediately only when required for correctness/safety; otherwise record them for the next hardening wave.
 
-Before spawning a Codex subagent, verify that the selected model is Luna. If Luna is unavailable, unsupported, capacity-limited, or fails model validation, do not substitute another model; reuse an available Luna agent sequentially or have the Codex lead perform the work.
+If the changed-file set or reasoning surface grows materially beyond the original objective, reassess and split the work rather than continuing to accumulate context.
 
-This Luna-only restriction does not prohibit the project lead from intentionally assigning separate bounded work to ChatGPT, Antigravity, or Kilo/OpenRouter under the routing rules above.
+## Subagent hard limit
 
-## Lead ownership and delegated file boundaries
+Maximum **2 concurrent subagents**.
 
-The lead owns the final result even when another tool performs implementation.
+If more than two workstreams exist, process them in waves and reuse agents sequentially. The lead owns architecture, shared contracts, conflict-heavy files, security-sensitive integration, migrations spanning domains, final diff review, validation, push/PR integration, and handoff.
 
-The lead should normally own or reconcile:
+### Codex subagents: Luna only
 
-- architecture and cross-domain contracts;
-- shared types;
-- `App.tsx` and other conflict-heavy files;
-- shared data/services;
-- authentication/authorization;
-- security-sensitive files;
-- migrations affecting multiple domains;
-- final diff review;
-- final CI/validation assessment;
-- branch/PR integration.
+When Codex itself spawns subagents, every subagent must use **Luna at the highest reasoning level available**.
 
-Avoid giving multiple agents overlapping file ownership at the same time. When parallel work is useful, give each agent a cohesive, non-overlapping scope.
+Never substitute Terra, Sol, Opus, Gemini, automatic fallback models, or another non-Luna model. If Luna is unavailable, reuse an available Luna sequentially or let the Codex lead do the work.
 
-## Git and push safety
+## Existing-data correction and removal policy
 
-Before repository work, inspect branch and HEAD. When local access exists, also inspect working tree and origin.
+For current Engoryx modules, use this lifecycle principle unless a stricter domain rule already exists:
 
-For remote publishing:
+- **Unused accidental record**: guarded permanent delete may be appropriate when no dependent/auditable history exists.
+- **Used operational record**: archive, deactivate, offboard, cancel, or equivalent reversible lifecycle state.
+- **Finalized/auditable financial or engineering history**: void, reverse, supersede, or deliberate correction; never silently erase history.
 
-1. Prefer an authorized, verified native GitHub integration when available for branch creation, commits, PRs, reviews, and merges.
-2. A GitHub-native lead may publish directly when authorized and the change is appropriately validated for its risk level.
-3. Local agents may fetch or pull when permitted, create branches, edit files, run commands and validation, stage changes, and create commits.
-4. Do not repeatedly attempt shell `git push` when the local environment reports an unverified destination, sensitive egress, auto-review denial, network/policy restriction, or blocked private-repository destination.
-5. If a local agent cannot publish, finish implementation and validation, create the local commit, verify the working tree is clean, report branch/final SHA, and hand publishing back to the GitHub-native lead or user.
-6. Do not retry a policy-blocked push.
-7. Never bypass sandbox restrictions, network security, credential protection, or auto-review.
-8. Never force-push unless explicitly requested and safe.
+Do not add raw Delete buttons that bypass dependency/history checks.
 
-A blocked local push does not mean implementation failed when implementation is complete, validation passed, and a clean local commit exists.
+## RBAC and Assistant parity
 
-## Branch safety
+Authorization vocabulary is permission-based, not role-name-based. Existing roles are presets; do not infer access solely from labels such as FINANCE or PAYROLL.
 
-Do not create unnecessary branches for tiny routine work, but prefer a focused branch/PR for non-trivial or review-worthy changes.
+When per-member overrides are implemented, deterministic UI/API authorization, server/RPC checks, RLS, and Assistant tools must resolve the same effective permissions. The Assistant never receives broader authority than the current user.
 
-Use a dedicated feature branch for high-risk changes such as:
+Destructive or consequential Assistant mutations must preserve the existing prepare/validate/human-confirm/execute boundary.
 
-- multi-tenancy;
-- RLS/security redesign;
-- destructive database migrations;
-- major payroll-history changes;
-- authentication/authorization architecture;
-- broad financial-data changes.
+## Database, migration, and history safety
 
-Never rewrite Git history unnecessarily, force-push by default, delete production history, or auto-merge a critical security/data branch without appropriate validation and authorization.
+Protect approved/finalized payroll, verified invoice history, settlement history, engineering history, project cost allocations, committed import provenance, and audit trails.
 
-## Database and financial-history safety
+Once a migration has successfully reached a shared/protected environment, do not edit it in place. Add a forward migration. The only exception is a migration proven never to have applied anywhere and whose failed transaction fully rolled back.
 
-InvoiceApp/Engoryx contains financial and payroll data. Never destructively modify approved or finalized historical data merely to simplify implementation.
+For critical migrations/RLS/security changes, static review alone is insufficient when clean replay/upgrade validation is available.
 
-Protect:
+Never weaken RLS or permission checks merely because a deployment contains one company.
 
-- Verified invoice history.
-- Invoice extraction snapshots.
-- Review history.
-- Approved payroll.
-- Paid payroll.
-- Locked payroll periods.
-- Historical payroll entries.
-- Project cost allocations.
-- Committed import provenance.
+## Git and publishing safety
 
-Migrations should be additive, backfilled, and preserve financial meaning whenever possible.
+Prefer focused branches/PRs for non-trivial work. Never force-push by default or rewrite production history.
 
-## Applied migration immutability
+If a local agent cannot push because of policy/network restrictions, stop retrying after identifying the blocker. Leave a clean local commit and hand publishing to the GitHub-native lead/user.
 
-Once a migration has successfully reached a shared or protected Supabase environment such as production `main` or staging, do not edit it in place. Always resolve schema corrections, index updates, or data fixes with a new additive migration.
-
-Exception: a migration that has never successfully applied anywhere and is currently the failing unapplied deployment blocker may be corrected in place only after confirming that the failed transaction rolled back completely and no partial objects remain.
+Do not merge a critical security/data PR until required exact-head CI has been reviewed.
 
 ## Validation
 
-Before declaring implementation complete, run the relevant validation available in the environment.
-
-Normally include:
-
-```text
-npm test
-npm run lint
-npm run build
-npm run test:migrations
-```
-
-Use the actual scripts in `package.json` and the environment-specific commands documented later in this file.
-
-Do not claim a command passed if it was not run successfully.
-
-### Validation ownership by environment
-
-**GitHub-native lead:**
-
-- inspect CI/checks when available;
-- review diff and repository-level test coverage;
-- do not claim local runtime/browser/Supabase validation unless actually performed;
-- request local validation for tasks where CI cannot prove the required behavior.
-
-**Local Codex/Antigravity/Kilo execution:**
-
-- run the applicable local commands;
-- perform browser/runtime validation when assigned and tools permit;
-- report exact results to the lead;
-- do not present skipped checks as passes.
-
-For critical migrations/RLS/security changes, static review alone is insufficient when a live/local replay path is available.
-
-## Human-like browser and visual validation
-
-For significant user-facing changes, automated tests alone may not be enough.
-
-When browser tools are available, validate relevant workflows by:
-
-- loading the actual page;
-- interacting with buttons/forms/modals;
-- checking navigation;
-- checking responsive layout;
-- testing loading/empty/error states;
-- checking refresh/persistence behavior when relevant;
-- inspecting console/runtime errors when possible;
-- capturing/inspecting screenshots for visual-quality tasks.
-
-Do not claim browser validation if the UI was never rendered.
-
-## Final implementation handoff
-
-For substantial implementation tasks, report:
-
-- Starting SHA.
-- Branch.
-- Final commit SHA.
-- Major changes.
-- Migrations added.
-- Tests added.
-- Tests actually run and results.
-- Lint/typecheck result.
-- Build result.
-- Migration validation result when relevant.
-- Runtime/browser validation actually performed.
-- Remaining manual or deployment steps.
-- Whether remote publishing/PR/merge succeeded or requires handoff.
-- Which execution tools were used and for what scope.
-
-For local agent runs that start background processes, also include the exact confirmation line:
-
-```text
-Background commands/processes started by this run remaining: 0
-```
-
-If Codex subagents were used, also report the number of subagents, Luna model/tier, visible reasoning level when available, and confirmation that no non-Luna Codex subagent was created.
-
-## Background process and command cleanup
-
-All background processes, dev servers, watchers, subagents, and long-running shell commands launched by a local agent during a task run MUST be explicitly tracked and terminated before completing that local run.
-
-### Cleanup protocol
-
-1. **Agent lifecycle tracking**: every local subagent/lead tracks background processes it starts.
-2. **Subagent cleanup**: subagents terminate their own dev servers, tasks, and watchers before returning completion.
-3. **Lead final sweep**: before local handoff, perform a final sweep (for example task-list and port inspection) to ensure no orphaned processes remain.
-4. **Mandatory confirmation line for applicable local runs**:
-
-```text
-Background commands/processes started by this run remaining: 0
-```
-
-GitHub-native edits that do not start local processes do not need to pretend this check was performed.
-
-## Verified local execution / agent runbook
-
-This section contains the exact previously verified commands and procedures for the user's Windows PowerShell environment. Future local agents MUST use these commands first unless they verify that the environment has changed.
-
-### Environment
-
-- **OS / Shell**: Windows 11 / PowerShell (`pwsh` / `powershell.exe`).
-- **Executable Resolution**: Plain `npm` and `npx` resolve to `npm.ps1` and `npx.ps1`, which fail with `PSSecurityException: UnauthorizedAccess` because PowerShell script execution is restricted.
-- **Mandatory Suffix**: use `npm.cmd` and `npx.cmd` in PowerShell tool commands (for example `npm.cmd test`, `npx.cmd tsx server.ts`).
-
-### Development server
-
-- **Working Directory**: `c:\Users\Al\Documents\InvoiceApp`
-- **Command**: `npx.cmd tsx server.ts` (or `npm.cmd run dev`)
-- **Execution Mode**: run as a daemon/background support process when the agent environment supports that (`IsDaemon: true`, `WaitMsBeforeAsync: 3000`).
-- **Port**: default `3000` (from `PORT || 3000`), listening on `http://0.0.0.0:3000`.
-- **Readiness Check**: verify server readiness with a request to `http://localhost:3000/` or the current startup message emitted by the repository.
-- **Reuse Existing Server**: before spawning a new server, check whether port 3000 or an existing background task is already active.
-
-### Tests
-
-**Full suite:**
+Use the actual scripts in current `package.json`. Typical substantial validation includes:
 
 ```text
 npm.cmd test
-```
-
-or directly via Node when appropriate:
-
-```text
-node --test --experimental-strip-types tests/*.test.ts
-```
-
-**Targeted test:**
-
-```text
-node --test --experimental-strip-types tests/<test-file-name>.test.ts
-```
-
-Example:
-
-```text
-node --test --experimental-strip-types tests/cashBanking.test.ts
-```
-
-**Targeted pattern:**
-
-```text
-node --test --experimental-strip-types tests/payroll*.test.ts
-```
-
-This repository uses the Node.js native test runner (`node:test`). Do not supply Jest/Vitest-only flags such as `--run`, `--watch=false`, or `-t` unless the repository test setup changes and is verified.
-
-### Validation
-
-**Lint / typecheck:**
-
-```text
 npm.cmd run lint
-```
-
-Historically this runs `tsc --noEmit`; verify `package.json` if scripts change.
-
-**Build:**
-
-```text
 npm.cmd run build
+npm.cmd run test:migrations
 ```
 
-Historically this runs Vite plus the bundled server build; verify `package.json` if scripts change.
+When workflow-map contracts change, also run the relevant generation/check/consistency/tests.
 
-**Database migration validation:**
+For migration/RLS work, prefer clean Supabase replay, pgTAP/invariant tests, and historical upgrade-path validation when available.
+
+For significant user-facing work, perform actual browser interaction and responsive QA when the assigned environment supports it. Do not claim a runtime/browser/database check passed when it was skipped or unavailable.
+
+### Windows local commands
+
+The verified local environment is Windows PowerShell. Plain `npm`/`npx` may resolve to blocked `.ps1` shims, so prefer:
 
 ```text
-npm.cmd run test:migrations
+npm.cmd ...
+npx.cmd ...
 ```
 
-This performs static migration invariants and may attempt live replay/upgrades if local Supabase/PostgreSQL is available.
+Common commands:
 
-### Database migration testing procedures
-
-1. **Local pre-push migration test**
-
-```powershell
+```text
+npm.cmd test
+npm.cmd run lint
+npm.cmd run build
 npm.cmd run test:migrations
-```
-
-2. **Local Supabase startup (requires Docker)**
-
-```powershell
 npx.cmd supabase start
-```
-
-3. **Clean migration replay/reset**
-
-```powershell
 npx.cmd supabase db reset
-```
-
-4. **Database schema/invariant assertions (pgTAP)**
-
-```powershell
 npx.cmd supabase test db
-```
-
-5. **Upgrade-path suite with historical seed rows**
-
-```powershell
 npx.cmd tsx scripts/test-migration-upgrade.ts
 ```
 
-6. **GitHub Actions check**
+Check for an existing dev server before starting another one.
 
-- `Database Migrations & Upgrade Suite` is defined in `.github/workflows/database-tests.yml` and should remain required in branch protection for `main` when that workflow is present and active.
+## Background process cleanup
 
-### Known command pitfalls
+Local agents must track and stop all dev servers, watchers, Supabase processes they own, and spawned subagents before final handoff.
 
-1. **`npm: PSSecurityException`**: plain `npm` may call `npm.ps1`; use `npm.cmd`.
-2. **`npx: PSSecurityException`**: plain `npx` may call `npx.ps1`; use `npx.cmd`.
-3. **Line endings in regex**: Windows checkouts may use CRLF (`\r\n`). Tests inspecting source should use `\r?\n` or `\s+` instead of assuming raw `\n`.
-4. **Dev server is long-running**: do not treat a server as failed merely because it does not exit immediately; manage it as a tracked background process.
+For applicable local runs, include:
 
-## Execution continuity and failure recovery
+```text
+Background commands/processes started by this run remaining: 0
+```
 
-For implementation/debugging tasks, a failed command, test, build, browser check, lint run, migration validation, or CI-equivalent local check is NOT a natural stopping point.
+## Final handoff
 
-When a command finishes with a failure:
+For substantial work, report concisely:
 
-1. inspect the failure output immediately;
-2. determine whether it is:
-   - an implementation defect;
-   - a test/harness defect;
-   - an environment/tooling defect;
-   - or a genuine external blocker requiring user input;
-3. if it is fixable within the assigned task, fix it;
-4. rerun the narrow failing check;
-5. once fixed, rerun the appropriate broader validation;
-6. continue the original task until its completion criteria are satisfied.
+- starting/base SHA;
+- branch and final SHA;
+- PR status/link;
+- major changes and migrations;
+- tests actually run and results;
+- lint/build/migration/browser results as applicable;
+- validation that was unavailable or skipped;
+- remaining limitations or follow-up;
+- tools/subagents used.
 
-Do not stop merely because:
-- a test failed;
-- a command returned non-zero;
-- a selector timed out;
-- lint/build failed;
-- a browser assertion failed;
-- a dev server/task is still listed in the UI.
-
-Treat those outcomes as debugging evidence.
-
-If an agent launches a long-running/background task:
-- actively inspect that task or its output;
-- when it completes, inspect the result immediately;
-- if it fails, enter the failure-recovery loop;
-- if it succeeds, continue to the next implementation/validation step;
-- never return control to the user merely because a command was launched or failed.
-
-Only stop and request user input when there is a genuine blocker the agent cannot resolve safely, such as:
-- missing credentials/authorization;
-- unavailable required external service;
-- ambiguous product/business decision;
-- destructive action requiring explicit approval;
-- environment capability genuinely unavailable.
-
-When blocked, report:
-- the exact blocker;
-- what was already attempted;
-- what remains running;
-- the minimum user action needed.
-
-### Process continuity and loop prevention
-
-A background dev server is infrastructure for the current validation task, not a reason for the agent to stop working. If foreground tests fail while the server is alive:
-- diagnose/fix/rerun;
-- reuse the server if it is known-good and belongs to this run, or restart it cleanly;
-- terminate all owned processes before final handoff.
-
-Continuity does NOT mean endlessly retrying an unchanged command. After a failure:
-`inspect -> diagnose -> change something justified -> rerun`.
-If two or more reasonable fixes expose the same unresolved external blocker, stop with a precise blocker report rather than looping indefinitely.
-
-## Anti-retry guidance
-
-Never retry an unchanged failed command blindly.
-
-After any command fails:
-
-1. Read the actual error and exit code.
-2. Determine whether the cause is syntax, executable resolution, shell behavior, working directory, environment, process lifecycle, port/readiness, network/policy, or source code.
-3. Make one informed, targeted retry only after changing the relevant condition.
-
-This applies equally to local commands, GitHub writes, CI fixes, and external-agent delegation.
+If Codex subagents were used, report their count and confirm all were Luna.
 
 ## Repository learning rule
 
-`AGENTS.md` is the repository's persistent operational memory.
+`AGENTS.md` is persistent operational memory, not a transcript. Keep it concise. Persist only verified, reusable rules. Do not add one-off failures, long incident narratives, provider quota events, or temporary environment noise.
 
-If a future agent discovers that a documented execution command, architecture assumption, tool role, or procedure is obsolete:
-
-1. verify the replacement successfully or verify the new repository state;
-2. determine why the old instruction no longer applies;
-3. update `AGENTS.md` in the same implementation session when appropriate;
-4. mention the update in the final handoff.
-
-Do not persist transient sandbox, network, provider, quota, or one-off failures as permanent repository rules.
-
-## Scope discipline
-
-Fix the requested problem first.
-
-Agents may identify adjacent issues, but should not automatically expand a task into unrelated cleanup. Fix adjacent issues immediately only when necessary for correctness or safety; otherwise report them for follow-up.
-
-Keep diffs reviewable and preserve working behavior.
+When a rule becomes obsolete, replace or remove it instead of appending another contradictory paragraph.
 
 ## Definition of done
 
-A substantial task is complete only when the lead has:
-
-1. inspected the current repository state;
-2. selected the appropriate execution tier/tool;
-3. implemented or integrated the requested behavior;
-4. preserved unrelated working behavior and historical meaning;
-5. reviewed all changed files/diffs;
-6. reconciled delegated work;
-7. run or obtained the applicable validation for the risk level;
-8. clearly identified any validation that could not be performed;
-9. checked CI when applicable;
-10. prepared a concise final handoff with branch/commit/PR status.
-
-The lead remains responsible for the final result regardless of which tool performed the individual edits.
+A substantial task is done only when current repository state was verified, scope stayed disciplined, implementation preserves security/history semantics, changed files were reviewed, appropriate validation was actually obtained, CI was checked when applicable, and the final handoff clearly states what did and did not pass.
