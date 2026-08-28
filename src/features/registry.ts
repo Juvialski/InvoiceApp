@@ -23,7 +23,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     status: 'ACTIVE',
     moduleId: 'cash',
     routeId: 'cash',
-    requiredPermissions: ['cash.accounts.read'],
+    requiredPermissions: ['cash.summary.read'],
     documentationRef: 'docs/ENGORYX_PLATFORM_ARCHITECTURE.md',
   },
   {
@@ -71,7 +71,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     status: 'ACTIVE',
     moduleId: 'payroll',
     routeId: 'payroll',
-    requiredPermissions: ['payroll.read'],
+    requiredPermissions: ['payroll.detail.read'],
     documentationRef: 'docs/ENGORYX_PLATFORM_ARCHITECTURE.md',
   },
   {
@@ -83,7 +83,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
     status: 'ACTIVE',
     moduleId: 'reports',
     routeId: 'reports',
-    requiredPermissions: ['reports.read'],
+    requiredPermissions: ['reports.financial.read'],
     documentationRef: 'docs/ENGORYX_PLATFORM_ARCHITECTURE.md',
   },
   {
