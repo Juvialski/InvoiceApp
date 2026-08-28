@@ -4,15 +4,24 @@
 
 This is a **development infrastructure track**, not a customer-facing Engoryx product module. Its purpose is to give humans and coding agents a fast visual and machine-readable understanding of how Engoryx works across routes, domain workflows, guarded transitions, data boundaries, and important cross-module links.
 
-The primary goal is a repository-native workflow map that can be rendered as an interactive node graph similar to a visual workflow editor while remaining useful to agents as plain structured data. The same map can support targeted QA and defect discovery without requiring a hosted orchestration service.
+The primary goal is a repository-native workflow map that can be rendered as an interactive node graph similar to a visual workflow editor while remaining useful to agents as plain structured data. The same map can support targeted QA and defect discovery using repository code and existing CI/local tooling.
 
 ## Status and sequencing
 
-- **Status:** Structured browser evidence is implemented. The next immediate stage is **WM-1: Canonical Workflow Graph**, using GitDiagram as an exploratory aid plus direct code/document inspection before committing the authoritative graph.
+- **Status:** **QA-1 Structured Browser Evidence is IMPLEMENTED. WM-1 Canonical Workflow Graph is IMPLEMENTED. WM-2 Visual Workflow Canvas is NEXT / PLANNED. WM-3 Graph Consistency Validation, WM-4 Browser Evidence Overlay, and WM-5 Bounded Agent Context Generation remain PLANNED.**
 - **Priority:** Immediate engineering-infrastructure work, before or alongside Product Phase 2.
 - **Product roadmap effect:** This track does **not** renumber the Engoryx customer-facing phases. Product Phase 2 remains Project Scheduling & Gantt.
 - **Hosting requirement:** None. The first useful version must work from the repository and existing CI/local tooling without a paid automation service.
 - **Implementation rule:** The workflow map is documentation and QA infrastructure. It must not become a second source of business truth that silently drifts from the actual code.
+
+| Infrastructure stage | Status |
+| --- | --- |
+| QA-1 — Structured Browser Evidence | IMPLEMENTED |
+| WM-1 — Canonical Workflow Graph | IMPLEMENTED by this PR |
+| WM-2 — Visual Workflow Canvas | NEXT / PLANNED |
+| WM-3 — Graph Consistency Validation | PLANNED |
+| WM-4 — Browser Evidence Overlay | PLANNED |
+| WM-5 — Bounded Agent Context Generation | PLANNED |
 
 ## Current project baseline
 
@@ -23,63 +32,14 @@ As of the roadmap refresh on 2026-08-28:
 - The Financial Settlement Integration layer is implemented across Cash & Banking, supplier invoices, payroll, demo fixtures, and the Assistant while preserving project-cost and payroll-source semantics.
 - The next customer-facing product phase is **Phase 2: Project Scheduling & Gantt**.
 
-## Core concept: one canonical workflow graph
+WM-1 now maintains one versioned, typed graph contract in `scripts/workflow-map/graph.ts`. It describes meaningful product workflows, states, actions, routes, guards, authoritative/derived data, and cross-domain relationships without attempting to dump every component or SQL function.
 
-The infrastructure should maintain a small versioned graph contract in the repository. The graph describes important product areas, states, actions, routes, guards, and cross-domain relationships.
+The committed outputs are generated from that source:
 
-Conceptually:
+- `docs/architecture/workflow-map.json` — machine-readable graph for agents and deterministic checks;
+- `docs/architecture/APP_WORKFLOW_MAP.md` — generated route/source/test index plus Mermaid diagrams for the whole platform, Projects + Engineering, Invoice + Cash Settlement, Workforce + Payroll, and Assistant guarded mutations.
 
-```text
-                              ENGORYX
-                                 |
-        +------------------------+-------------------------+
-        |                        |                         |
-        v                        v                         v
-     PROJECTS                 FINANCE                  WORKFORCE
-        |                        |                         |
-  +-----+------+          +------+-------+          +------+------+
-  |     |      |          |      |       |          |      |      |
- Docs  RFIs  Site Logs  Invoices Cash  Expenses  Attendance OT Payroll
-  |     |      |          |      |                  |      |      |
-  +-----+------+----------+------+------------------+------+------+
-        |                        |                         |
-        +------------------------+-------------------------+
-                                 |
-                          GUARDED ASSISTANT
-```
-
-A more detailed graph can show lifecycle paths such as:
-
-```text
-Invoice
-  -> AI extraction
-  -> human verification
-  -> verified project allocation
-  -> settlement candidate
-  -> confirmed cash settlement
-  -> settlement reversal history
-
-Payroll
-  -> attendance/overtime/leave sources
-  -> payroll period
-  -> draft run
-  -> approved run
-  -> project labor allocation
-  -> net-pay settlement evidence
-
-RFI
-  -> DRAFT
-  -> OPEN
-  -> ANSWERED
-  -> CLOSED
-       \
-        -> VOID where allowed
-
-Daily Site Log
-  -> DRAFT
-  -> SUBMITTED
-  -> FINALIZED
-```
+Run `npm.cmd run workflow-map:generate` after a graph change and `npm.cmd run workflow-map:check` to fail on generated-output drift. The generator and check are repository-local and do not require GitDiagram, Supabase, a database, Gemini, a browser, or production credentials.
 
 ## Workflow graph contract
 
@@ -90,18 +50,20 @@ Prefer a machine-readable source such as TypeScript data, JSON, or YAML plus gen
 - stable node ID;
 - label;
 - feature/domain;
-- node type (`route`, `screen`, `state`, `action`, `data`, `guard`, `external`);
+- node type (`route`, `screen`, `workflow`, `state`, `action`, `data`, `derived-data`, `guard`, `external-boundary`);
 - canonical route or relevant file references when applicable;
 - short description;
 - lifecycle/status metadata when applicable;
 - permission or confirmation requirements when important;
-- related tests where useful.
+- related tests where useful;
+- company/project/demo scope, source classification, high-risk invariant IDs, and deterministic QA-1 scenario IDs where the mapping is useful.
 
 ### Edge fields
 
 - stable edge ID;
 - source node;
 - target node;
+- relationship type and edge kind;
 - relationship/action label;
 - optional condition or guard;
 - whether the edge is read-only, navigation, prepared action, confirmed mutation, or derived-data flow;
@@ -115,11 +77,13 @@ Prefer a machine-readable source such as TypeScript data, JSON, or YAML plus gen
 - last reviewed date;
 - whether an element is code-derived, curated, or mixed.
 
+The graph also records stable diagram node selections and the limited exploratory role of GitDiagram. Mermaid, future React Flow/xyflow rendering, agent context, and QA overlays must consume this graph rather than maintain separate relationship definitions.
+
 The graph should stay bounded to meaningful workflows. It must not attempt to represent every function call or every component in the repository.
 
 ## Visual rendering
 
-The human-facing view should resemble a workflow canvas:
+WM-1 generates a readable Mermaid view for humans. The future WM-2 view should resemble a workflow canvas:
 
 - pan and zoom;
 - grouped domains or swimlanes;
@@ -129,7 +93,7 @@ The human-facing view should resemble a workflow canvas:
 - optionally highlight one end-to-end workflow at a time;
 - export or render a static representation for documentation/CI artifacts.
 
-A repository-native renderer may use **Mermaid** for low-maintenance documentation and/or **React Flow / xyflow** for a richer interactive developer view. The visualization must consume the canonical graph contract instead of maintaining its own duplicated relationships.
+A repository-native renderer may use **Mermaid** for low-maintenance documentation and/or **React Flow / xyflow** for a richer interactive developer view. WM-1 does not add the interactive canvas; any renderer must consume the canonical graph contract instead of maintaining duplicated relationships.
 
 External tools such as GitDiagram or repository-wiki generators are useful for quick architecture exploration, but they are not authoritative because they infer structure and may miss Engoryx business semantics. For WM-1, GitDiagram should be used as an initial map to accelerate discovery, then the graph must be corrected against current routes, domain code, lifecycle guards, permissions, tests, and documented invariants before it becomes repository context.
 
@@ -238,6 +202,10 @@ Relevant surfaces
 
 Generated context is advisory. Every agent still starts by checking current `main`, current CI, and the actual implementation.
 
+### Current repository startup contract
+
+WM-1 adds the stable instruction to `AGENTS.md`: before substantial implementation, debugging, or architecture work, read `docs/architecture/APP_WORKFLOW_MAP.md` and `docs/architecture/workflow-map.json`, identify the affected workflow/domain, inspect neighboring nodes and invariants, and then verify the actual source, guards, permissions, and tests. High-risk mapped domains require explicit inspection of their invariants and neighboring flows.
+
 ## Defect discovery from the graph
 
 The workflow map can help find **structural defects**, but it is not a replacement for runtime/browser testing.
@@ -257,7 +225,7 @@ These checks should fail only on deterministic contract violations. A workflow g
 
 ## Browser QA relationship
 
-The structured-evidence producer is implemented now; a later workflow-map stage may attach its manifest records to graph nodes or paths.
+The structured-evidence producer is implemented now. WM-1 adds stable `qaScenarioIds` to selected graph nodes so a later stage can attach manifest records without dynamically reading CI artifacts in the graph generator.
 
 A later enhancement may attach browser evidence to workflow nodes or paths:
 
@@ -271,33 +239,33 @@ Workflow node: Payroll Run Detail
   - screenshot artifact: <relative CI artifact reference>
 ```
 
-This creates a useful bridge between architecture understanding and actual rendered behavior without introducing a separate hosted orchestration system.
+This creates a useful bridge between architecture understanding and actual rendered behavior without introducing another service.
 
 ## Proposed implementation stages
 
-### Stage WM-1: Canonical workflow graph — next
+### Stage WM-1: Canonical workflow graph — IMPLEMENTED
 
-Create the versioned machine-readable graph contract and document the most important existing Engoryx flows: Projects, Engineering Documents, RFIs, Submittals, Site Logs, Invoices, Cash/Settlement, Expenses, Workforce/Payroll, Reports, and the guarded Assistant.
+The versioned graph at `scripts/workflow-map/graph.ts` documents the most important existing Engoryx flows: Projects, Engineering Documents, RFIs, Submittals, Site Logs, Invoices, Cash/Settlement, Expenses, Workforce/Payroll, Reports, and the guarded Assistant. The generated JSON and Mermaid Markdown outputs are checked for deterministic drift, broken references, and selected high-risk semantic boundaries.
 
-Use GitDiagram as an exploratory starting point, not as the source of truth. Review its inferred map against the actual current repository, then encode the curated graph in repository-native structured data with stable IDs, routes, file/test references, lifecycle metadata, guards, and high-risk invariants.
+GitDiagram was accessed for WM-1 discovery only. Its inferred map was checked against current routes, domain code, lifecycle guards, permissions, persistence/RPC boundaries, tests, and documented invariants before the curated graph was committed.
 
-### Stage WM-2: Visual workflow canvas
+### Stage WM-2: Visual workflow canvas — NEXT / PLANNED
 
 Render the graph for humans using Mermaid and/or a lightweight interactive React Flow/xyflow developer view. Support domain filtering, pan/zoom, clickable node details, and stable layout/grouping.
 
-### Stage WM-3: Graph consistency validation
+### Stage WM-3: Graph consistency validation — PLANNED
 
 Add deterministic tests that validate node/edge integrity, known route references, lifecycle transitions, required high-risk guards, and selected test references.
 
-### Stage WM-4: Browser evidence overlay
+### Stage WM-4: Browser evidence overlay — PLANNED
 
 Connect the implemented structured Playwright/browser manifest to relevant workflow nodes/scenarios so agents can see which paths have runtime evidence and where failures occurred.
 
-### Stage WM-5: Bounded agent context generation
+### Stage WM-5: Bounded agent context generation — PLANNED
 
 Generate compact feature-scoped context from the graph plus live repository metadata. Do not maintain an unlimited agent-memory database and do not copy chat transcripts into the repository.
 
-At WM-5, update `AGENTS.md` so substantial implementation/debugging runs automatically read the canonical workflow map and the relevant domain context before editing code. The map remains advisory context; agents must still inspect current `main`, current CI, and the actual source.
+WM-5 may later generate smaller feature-scoped packets from the same graph. The map remains advisory context; agents must still inspect current `main`, current CI, and the actual source.
 
 ## Context persistence
 
@@ -325,7 +293,7 @@ Do not introduce Supabase or another database solely to store workflow/agent con
 
 This track does not:
 
-- require a hosted workflow-automation subscription;
+- require an external workflow-automation subscription;
 - replace GitHub Actions;
 - replace deterministic tests with diagrams;
 - automatically infer every business rule from source code;
@@ -337,7 +305,7 @@ This track does not:
 
 ## Overall track acceptance criteria
 
-Structured browser evidence is complete. The workflow-map track is complete when:
+QA-1 and WM-1 are complete. The remaining workflow-map track stages are complete when:
 
 - Engoryx's major product workflows are represented in one versioned machine-readable graph;
 - the graph has a clear human-readable visual rendering;

@@ -85,7 +85,7 @@ The current `main` baseline has moved beyond the original Phase 1 planning state
 - **Phase 1C is complete**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal submission/finalization history.
 - **Financial Settlement Integration is complete** across Cash & Banking, supplier invoices, payroll, supported expense compatibility, demo fixtures, and Assistant workflows. Settlement is authoritative payment/disbursement evidence but remains separate from project-cost and payroll-source semantics.
 - **Next customer-facing product phase:** Phase 2 — Project Scheduling & Gantt.
-- **Next engineering-infrastructure priority:** Workflow Map, QA & Agent Context, planned before or alongside Phase 2. This track does not renumber the product roadmap and does not require a hosted orchestration service.
+- **Engineering-infrastructure status:** QA-1 Structured Browser Evidence and WM-1 Canonical Workflow Graph are implemented; WM-2 Visual Workflow Canvas is next. This track does not renumber the product roadmap and runs from repository code and existing CI/local tooling.
 
 ### Customer-facing product roadmap
 
@@ -117,9 +117,9 @@ The intended stack is deliberately repository-native:
 - **GitHub Issues, PRs, tests, and repository documentation** for durable defect/history context;
 - **bounded feature-scoped context packets** for future coding-agent runs so agents receive the relevant workflow, invariants, files, and tests without loading an unbounded project history.
 
-No n8n or paid workflow-orchestration service is required. External repository-visualization tools may be used for exploration, but the Engoryx workflow graph remains the curated source for product-specific business semantics.
+No external paid workflow-orchestration service is required. External repository-visualization tools may be used for exploration, but the Engoryx workflow graph remains the curated source for product-specific business semantics.
 
-The rollout should proceed incrementally: canonical workflow graph -> visual workflow canvas -> graph consistency validation -> browser evidence overlay -> bounded agent-context generation.
+The rollout proceeds incrementally: **WM-1 canonical workflow graph (implemented)** -> **WM-2 visual workflow canvas (next)** -> WM-3 graph consistency validation -> WM-4 browser evidence overlay -> WM-5 bounded agent-context generation.
 
 ---
 

@@ -178,6 +178,20 @@ Before any repository implementation work:
 
 Never overwrite newer work because a prompt references an older commit or prior chat.
 
+## Workflow graph context
+
+Before substantial implementation, debugging, or architecture work:
+
+1. inspect current `main` and current CI;
+2. read `docs/architecture/APP_WORKFLOW_MAP.md`;
+3. inspect `docs/architecture/workflow-map.json`;
+4. identify the affected workflow/domain;
+5. inspect neighboring graph nodes and high-risk invariants;
+6. inspect the actual source implementation, guards, permissions, and relevant tests;
+7. treat the workflow map as advisory context, never as a replacement for source inspection.
+
+When a change materially alters a mapped workflow, lifecycle, route, guard, permission, cross-domain relationship, or high-risk invariant, update `scripts/workflow-map/graph.ts` and regenerate both committed outputs in the same PR. Trivial CSS and internal refactors that do not change workflow meaning do not require graph edits.
+
 ## Session startup / resumption protocol
 
 When returning to this project after a break:
