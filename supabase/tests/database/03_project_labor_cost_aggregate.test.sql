@@ -57,6 +57,8 @@ select
   '20000000-0000-4000-8000-000000000001'::uuid as project_other_company,
   '30000000-0000-4000-8000-000000000001'::uuid as worker_id,
   '30000000-0000-4000-8000-000000000002'::uuid as worker_two,
+  '30000000-0000-4000-8000-000000000003'::uuid as worker_three,
+  '30000000-0000-4000-8000-000000000004'::uuid as worker_four,
   '40000000-0000-4000-8000-000000000001'::uuid as period_approved,
   '40000000-0000-4000-8000-000000000002'::uuid as period_paid,
   '40000000-0000-4000-8000-000000000003'::uuid as period_draft,
@@ -115,7 +117,9 @@ values
 insert into public.workers (id, user_id, company_id, employee_code, first_name, last_name, display_name, default_pay_type, default_rate)
 values
   ((select worker_id from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-001', 'Aggregate', 'Worker', 'Aggregate Worker', 'MONTHLY', 1000),
-  ((select worker_two from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-002', 'Second', 'Worker', 'Second Worker', 'MONTHLY', 1000);
+  ((select worker_two from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-002', 'Second', 'Worker', 'Second Worker', 'MONTHLY', 1000),
+  ((select worker_three from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-003', 'Third', 'Worker', 'Third Worker', 'MONTHLY', 1000),
+  ((select worker_four from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-004', 'Fourth', 'Worker', 'Fourth Worker', 'MONTHLY', 1000);
 
 insert into public.payroll_periods (id, user_id, company_id, period_start, period_end, status, locked_at)
 values
@@ -143,8 +147,8 @@ values
   ((select entry_calculated from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_calculated from project_labor_test_ids), (select worker_two from project_labor_test_ids), 10, 8, 10, '{"fixture":true}'::jsonb, '{}'::jsonb),
   ((select entry_void from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_void from project_labor_test_ids), (select worker_id from project_labor_test_ids), 999, 900, 999, '{"fixture":true}'::jsonb, '{}'::jsonb),
   ((select entry_overhead from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_two from project_labor_test_ids), 500, 400, 500, '{"fixture":true}'::jsonb, '{"type":"ADMIN_OFFICE"}'::jsonb),
-  ((select entry_zero from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_id from project_labor_test_ids), 0, 0, 0, '{"fixture":true}'::jsonb, '{}'::jsonb),
-  ((select entry_usd from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_two from project_labor_test_ids), 20, 15, 20, '{"fixture":true}'::jsonb, '{}'::jsonb);
+  ((select entry_zero from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_three from project_labor_test_ids), 0, 0, 0, '{"fixture":true}'::jsonb, '{}'::jsonb),
+  ((select entry_usd from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), (select run_approved from project_labor_test_ids), (select worker_four from project_labor_test_ids), 20, 15, 20, '{"fixture":true}'::jsonb, '{}'::jsonb);
 
 insert into public.payroll_project_allocations (id, user_id, company_id, payroll_entry_id, project_id, allocation_amount, allocation_percentage, source)
 values
