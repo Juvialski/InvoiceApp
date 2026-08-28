@@ -179,7 +179,10 @@ test("settlement reversal presentation fails closed unless cash reconciliation i
   assert.match(invoicesRoute, /canReverse=\{canReverseSettlement\}/);
 });
 
-test("company switching clears company context and capabilities before applying the next company", () => {
-  assert.match(companyAccess, /clearCompanyContext\(\);[\s\S]{0,400}activeCompanyId: null, permissions: \[\]/);
-  assert.match(companyAccess, /permissions: permissionsForCompany\(latest, companyId\)/);
+test("deployment-company access clears stale context before every authorization refresh", () => {
+  assert.match(companyAccess, /resetAuthenticatedContext\("loading"/);
+  assert.match(companyAccess, /clearCompanyContext\(\)/);
+  assert.match(companyAccess, /loadDeploymentCompanyId/);
+  assert.match(companyAccess, /resolveDeploymentCompanyAccess/);
+  assert.doesNotMatch(companyAccess, /sessionStorage|activeCompanyStorageKey|chooseCompany/);
 });
