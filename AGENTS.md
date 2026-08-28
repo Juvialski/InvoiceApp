@@ -111,6 +111,8 @@ Do not assign Tier 3 architecture or implementation ownership to a weak/free mod
 
 Kilo is an execution assistant, not the default architect.
 
+Default cost-saving bias: for Tier 0 and well-bounded Tier 1 work with an established implementation pattern and no high-risk contract ownership, prefer Kilo/Nemotron first, including broad repetitive changes across many files. File count alone is not a reason to escalate when each edit is mechanical. The lead defines architecture and boundaries, Kilo executes on a feature branch/PR, and the lead reviews, repairs, validates, and merges the result. Kilo must not merge its own non-trivial PR. If the task requires deciding business meaning or crossing a protected boundary, escalate instead of guessing.
+
 For weaker/free models such as Nemotron:
 
 - give **one cohesive task per prompt**;
