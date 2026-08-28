@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AssistantContext } from "../../assistant/assistantTypes.ts";
-import { PERMISSION_KEYS, permissionOptionsForAppTab } from "../../utils/accessControl.ts";
+import { permissionOptionsForAppTab } from "../../utils/accessControl.ts";
 import { getRouteDefinition } from "../../utils/routes.ts";
 import { AssistantBackendError } from "./assistantBackendTypes.ts";
 
@@ -22,7 +22,7 @@ export async function hasCompanyPermission(supabase: SupabaseClient, companyId: 
 
 async function hasPermissionRequirement(context: ToolAuthorizationContext, requirement: string): Promise<boolean> {
   const options = [...new Set(requirement.split("|").map((value) => value.trim()).filter(Boolean))];
-  if (!options.length) return true;
+  if (!options.length) return false;
   for (const permission of options) {
     if (await hasCompanyPermission(context.supabase, context.companyId, permission)) return true;
   }
@@ -44,9 +44,16 @@ export async function requireCompanyPermissions(context: ToolAuthorizationContex
 }
 
 export function routePermission(routeId: unknown): string {
-  if (typeof routeId !== "string") return PERMISSION_KEYS.dashboardView;
+  if (typeof routeId !== "string" || !routeId.trim()) {
+    throw new AssistantBackendError("FORBIDDEN", "That app destination is not authorized.", 403);
+  }
   const route = getRouteDefinition(routeId);
-  if (!route) return PERMISSION_KEYS.dashboardView;
+  if (!route) {
+    throw new AssistantBackendError("FORBIDDEN", "That app destination is not authorized.", 403, { routeId });
+  }
   const options = permissionOptionsForAppTab(route.appTab);
-  return options.length ? options.join("|") : PERMISSION_KEYS.dashboardView;
+  if (!options.length) {
+    throw new AssistantBackendError("FORBIDDEN", "That app destination has no authorization contract.", 403, { routeId });
+  }
+  return options.join("|");
 }
