@@ -20,8 +20,10 @@ import type {
   WorkflowCanvasPreset,
   WorkflowCustomEdgeData,
   WorkflowCustomNodeData,
+  WorkflowEvidenceMode,
   Writable,
 } from "./workflowCanvasTypes.ts";
+import type { WorkflowMapEvidenceModel } from "../../scripts/workflow-map/evidence.ts";
 
 export const DOMAIN_META: Record<WorkflowDomain, DomainVisualMeta> = {
   "platform-tenancy": {
@@ -344,6 +346,7 @@ export const DEFAULT_FILTER: WorkflowCanvasFilter = {
   focusNeighborhood: false,
   neighborhoodHops: 1,
   filterInvariantOnly: false,
+  evidenceMode: "off",
 };
 
 export function computeNeighborhood(
@@ -558,6 +561,7 @@ export function buildReactFlowElements(
     onFocusNeighborhood: (nodeId: string) => void;
   },
   positions: Map<string, { x: number; y: number }>,
+  evidenceModel?: WorkflowMapEvidenceModel | null,
 ): { flowNodes: Node<WorkflowCustomNodeData>[]; flowEdges: Edge<WorkflowCustomEdgeData>[] } {
   const invariantsById = new Map(graph.invariants.map((i) => [i.id, i]));
 
@@ -581,8 +585,20 @@ export function buildReactFlowElements(
       : false;
     const isIncomingNeighbor = neighborhood ? neighborhood.directIncomingNodeIds.has(node.id) : false;
     const isOutgoingNeighbor = neighborhood ? neighborhood.directOutgoingNodeIds.has(node.id) : false;
-    const isHighlighted = isSelected || isDirectNeighbor;
-    const isDimmed = hasSelection && !isHighlighted;
+    
+    const nodeEvidence = evidenceModel?.evidenceForNode(node.id);
+    
+    let isHighlighted = isSelected || isDirectNeighbor;
+    let isDimmed = hasSelection && !isHighlighted;
+
+    if (filter.evidenceMode === "failures" && evidenceModel) {
+      if (nodeEvidence?.state === "FAIL") {
+        isHighlighted = true;
+        isDimmed = false;
+      } else if (!hasSelection) {
+        isDimmed = true;
+      }
+    }
 
     const nodeInvariants = (node.invariantIds || [])
       .map((id) => invariantsById.get(id))
@@ -610,6 +626,8 @@ export function buildReactFlowElements(
         invariants: nodeInvariants,
         incomingCount: incomingCounts.get(node.id) || 0,
         outgoingCount: outgoingCounts.get(node.id) || 0,
+        evidence: nodeEvidence,
+        evidenceMode: filter.evidenceMode,
         onSelectNode: handlers.onSelectNode,
         onFocusNeighborhood: handlers.onFocusNeighborhood,
       },
@@ -649,7 +667,12 @@ export function buildReactFlowElements(
   return { flowNodes, flowEdges };
 }
 
-export function getNodeDetails(graph: WorkflowGraph, nodeId: string): NodeDetailViewData | null {
+export function getNodeDetails(
+  graph: WorkflowGraph,
+  nodeId: string,
+  evidenceModel?: WorkflowMapEvidenceModel | null,
+  screenshotUrls?: Record<string, string>,
+): NodeDetailViewData | null {
   const node = graph.nodes.find((n) => n.id === nodeId);
   if (!node) return null;
 
@@ -683,6 +706,8 @@ export function getNodeDetails(graph: WorkflowGraph, nodeId: string): NodeDetail
     fileRefs: node.fileRefs || [],
     testRefs: node.testRefs || [],
     qaScenarioIds: node.qaScenarioIds || [],
+    evidence: evidenceModel?.evidenceForNode(nodeId),
+    screenshotUrls,
   };
 }
 
@@ -710,6 +735,11 @@ export function parseWorkflowMapUrlState(search = window.location.search): Parti
   const hops = params.get("hops");
   if (hops === "2") result.neighborhoodHops = 2;
 
+  const evidence = params.get("evidence");
+  if (evidence === "status" || evidence === "failures" || evidence === "off") {
+    result.evidenceMode = evidence;
+  }
+
   return result;
 }
 
@@ -733,6 +763,9 @@ export function formatWorkflowMapUrlQuery(filter: WorkflowCanvasFilter): string 
   }
   if (filter.neighborhoodHops === 2) {
     params.set("hops", "2");
+  }
+  if (filter.evidenceMode && filter.evidenceMode !== "off") {
+    params.set("evidence", filter.evidenceMode);
   }
 
   const queryStr = params.toString();

@@ -6,24 +6,32 @@ on:
       - main
     paths:
       - "src/demo/**"
+      - "src/workflow-map/**"
       - "src/main.tsx"
       - "src/app/applicationMode.ts"
       - "public/demo/**"
       - "package.json"
       - "scripts/demo-visual-qa.ts"
       - "scripts/qa/**"
+      - "scripts/workflow-map/**"
+      - "tests/structuredBrowserEvidence.test.ts"
+      - "tests/workflowMap*.test.ts"
       - ".github/workflows/demo-visual-qa.yml"
   pull_request:
     branches:
       - main
     paths:
       - "src/demo/**"
+      - "src/workflow-map/**"
       - "src/main.tsx"
       - "src/app/applicationMode.ts"
       - "public/demo/**"
       - "package.json"
       - "scripts/demo-visual-qa.ts"
       - "scripts/qa/**"
+      - "scripts/workflow-map/**"
+      - "tests/structuredBrowserEvidence.test.ts"
+      - "tests/workflowMap*.test.ts"
       - ".github/workflows/demo-visual-qa.yml"
 
 permissions:
@@ -61,6 +69,14 @@ jobs:
           exit 1
       - name: Capture structured demo evidence
         run: npm run qa:demo
+      - name: Generate workflow map evidence overlay
+        if: always()
+        run: |
+          if [ -f "artifacts/demo-visual-qa/manifest.json" ]; then
+            npm run workflow-map:evidence -- --manifest artifacts/demo-visual-qa/manifest.json
+          else
+            echo "No manifest.json found; skipping evidence overlay generation."
+          fi
       - name: Upload visual QA evidence
         if: always()
         uses: actions/upload-artifact@v4

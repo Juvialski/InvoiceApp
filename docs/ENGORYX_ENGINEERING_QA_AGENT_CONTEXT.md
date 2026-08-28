@@ -283,11 +283,30 @@ To add a consistency contract, first expose the smallest node-safe pure contract
 
 When a mapped route, deep link, lifecycle, permission, guard, Assistant mutation, QA mapping, or high-risk cross-domain boundary changes, update the production contract and `scripts/workflow-map/graph.ts` together when workflow meaning changed, regenerate the committed outputs, and run both `npm.cmd run workflow-map:check` and `npm.cmd run workflow-map:consistency`.
 
-### Stage WM-4: Browser evidence overlay — NEXT / PLANNED
+### Stage WM-4: Browser evidence overlay — IMPLEMENTED
 
-Connect the implemented structured Playwright/browser manifest to relevant workflow nodes/scenarios so agents can see which paths have runtime evidence and where failures occurred.
+WM-4 connects structured QA-1 browser evidence to the canonical WM-1 workflow graph and the interactive WM-2 developer canvas without duplicating mutable QA status into canonical graph source files or storing massive screenshot payload bytes.
 
-### Stage WM-5: Bounded agent context generation — PLANNED
+Key components:
+1. **Pure Evidence Mapping Engine (`scripts/workflow-map/evidence.ts`)**:
+   - Strictly validates versioned `manifest.json` inputs (schema v1, payload bounds, safe relative paths).
+   - Computes deterministic node evidence states (`UNMAPPED`, `NOT_RUN`, `PARTIAL`, `PASS`, `FAIL`) where any failed scenario dominates and missing mapped scenarios evaluate to `PARTIAL`.
+   - Aggregates visible-subset and platform summaries with run provenance (`commitSha`, `branch`, `timestamp`, `trigger`).
+   - Generates machine-readable `workflow-map-evidence.json` overlays.
+2. **CLI Overlay Generator (`scripts/workflow-map/evidence-cli.ts`)**:
+   - Executable via `npm.cmd run workflow-map:evidence -- --manifest <path> [--out <path>]`.
+   - Integrated into CI in `.github/workflows/demo-visual-qa.yml` to generate derived overlays alongside raw test artifacts.
+3. **Interactive Canvas Integration (`src/workflow-map/`)**:
+   - Evidence mode controls (`Off`, `Status`, `Failures`).
+   - Local manifest loading, screenshot preview attachments (`URL.createObjectURL`/`revokeObjectURL`), and provenance inspections.
+   - Restrained, accessible status badges on nodes and failure highlight styling.
+   - Dedicated "Browser QA Evidence" section in the Details Panel displaying scenario cards, assertions, interaction states, tested paths, failure reasons, and screenshot previews.
+   - "Focus Failures" instant navigation.
+4. **Automated & Visual Test Coverage**:
+   - Full pure mapping test suite in `tests/workflowMapEvidence.test.ts` (18 unit tests).
+   - End-to-end multi-viewport browser QA harness in `scripts/test-visual-canvas.ts` (`npm.cmd run test:visual`).
+
+### Stage WM-5: Bounded agent context generation — NEXT / PLANNED
 
 Generate compact feature-scoped context from the graph plus live repository metadata. Do not maintain an unlimited agent-memory database and do not copy chat transcripts into the repository.
 

@@ -1,6 +1,13 @@
 import { createRequire } from "node:module";
+import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { DEMO_QA_SCENARIOS } from "./qa/demoScenarios.ts";
+import {
+  createOverflowResult,
+  createQaManifest,
+  createScenarioEvidence,
+} from "./qa/structuredEvidence.ts";
 
 // Playwright remains an optional QA-only dependency, matching the existing demo QA lane.
 // Resolve it at runtime so normal TypeScript validation does not require it to be installed.
@@ -9,125 +16,341 @@ const { chromium } = require("playwright");
 
 const BASE_URL = "http://localhost:3000";
 const OUTPUT_DIR = path.resolve("artifacts/workflow-canvas-qa");
+const FIXTURES_DIR = path.resolve("artifacts/workflow-canvas-qa/fixtures");
+
+async function prepareFixtures() {
+  await fs.mkdir(FIXTURES_DIR, { recursive: true });
+
+  // 1. All-pass fixture
+  const allPassScenarios = DEMO_QA_SCENARIOS.map((s) =>
+    createScenarioEvidence({
+      scenario: s,
+      timestamp: "2026-08-28T04:00:00.000Z",
+      durationMs: 45,
+      navigation: { requestedPath: s.path, finalPath: s.path, status: 200, loaded: true },
+      consoleErrors: [],
+      pageErrors: [],
+      failedRequests: [],
+      overflow: createOverflowResult({ documentWidth: s.viewport.width, bodyWidth: s.viewport.width, viewportWidth: s.viewport.width }),
+      assertions: [{ id: "page-has-content", passed: true, details: "body text >= 80" }],
+      screenshotPath: `screenshots/${s.id}.png`,
+    })
+  );
+  const allPassManifest = createQaManifest({
+    run: {
+      commitSha: "6a1c8d20e0d846d04f9bb760189f4a22f23c527b",
+      branch: "feat/workflow-map-browser-evidence-overlay",
+      timestamp: "2026-08-28T04:00:00.000Z",
+      trigger: "workflow_dispatch",
+      appMode: "demo",
+    },
+    scenarios: allPassScenarios,
+    artifacts: { manifestPath: "manifest.json", screenshotsDirectory: "screenshots", logPath: "logs/qa.log" },
+  });
+  await fs.writeFile(path.join(FIXTURES_DIR, "all-pass-manifest.json"), JSON.stringify(allPassManifest, null, 2), "utf8");
+
+  // 2. Failure fixture (dashboard and projects failures)
+  const failureScenarios = DEMO_QA_SCENARIOS.map((s) => {
+    if (s.id === "dashboard--dashboard--base-route-loaded--desktop-1440" || s.id === "projects--projects--base-route-loaded--desktop-1440") {
+      return createScenarioEvidence({
+        scenario: s,
+        timestamp: "2026-08-28T04:05:00.000Z",
+        durationMs: 62,
+        navigation: { requestedPath: s.path, finalPath: s.path, status: 200, loaded: true },
+        consoleErrors: [{ message: `Uncaught TypeError: Cannot read properties of undefined (reading 'render_${s.feature}')`, ignored: false }],
+        pageErrors: [{ message: `Page crashed during ${s.feature} hydration` }],
+        failedRequests: [{ url: `/api/${s.feature}-summary`, method: "GET", resourceType: "xhr", status: 500, classification: "http-error", ignored: false }],
+        overflow: createOverflowResult({ documentWidth: 1440, bodyWidth: 1440, viewportWidth: 1440 }),
+        assertions: [{ id: `${s.feature}-stats-rendered`, passed: false, details: "Widget missing" }],
+        screenshotPath: `screenshots/${s.id}.png`,
+      });
+    }
+    return createScenarioEvidence({
+      scenario: s,
+      timestamp: "2026-08-28T04:05:00.000Z",
+      durationMs: 40,
+      navigation: { requestedPath: s.path, finalPath: s.path, status: 200, loaded: true },
+      consoleErrors: [],
+      pageErrors: [],
+      failedRequests: [],
+      overflow: createOverflowResult({ documentWidth: s.viewport.width, bodyWidth: s.viewport.width, viewportWidth: s.viewport.width }),
+      assertions: [{ id: "page-has-content", passed: true }],
+      screenshotPath: `screenshots/${s.id}.png`,
+    });
+  });
+  const failureManifest = createQaManifest({
+    run: {
+      commitSha: "6a1c8d20e0d846d04f9bb760189f4a22f23c527b",
+      branch: "feat/workflow-map-browser-evidence-overlay",
+      timestamp: "2026-08-28T04:05:00.000Z",
+      trigger: "workflow_dispatch",
+      appMode: "demo",
+    },
+    scenarios: failureScenarios,
+    artifacts: { manifestPath: "manifest.json", screenshotsDirectory: "screenshots", logPath: "logs/qa.log" },
+  });
+  await fs.writeFile(path.join(FIXTURES_DIR, "failure-manifest.json"), JSON.stringify(failureManifest, null, 2), "utf8");
+
+  // 3. Partial fixture (includes 1 scenario for project-workspace and omits the other)
+  const partialIncludedIds = new Set([
+    "projects--projects--base-route-loaded--desktop-1440",
+    "project-workspace--project-overview--project-selected--desktop-1440", // present for project-workspace (leaving documents scenario missing -> PARTIAL)
+    "demo--landing--base-route-loaded--desktop-1440",
+    "dashboard--dashboard--base-route-loaded--desktop-1440",
+  ]);
+  const partialScenarios = allPassScenarios.filter((s) => partialIncludedIds.has(s.scenarioId));
+  const partialManifest = createQaManifest({
+    run: {
+      commitSha: "6a1c8d20e0d846d04f9bb760189f4a22f23c527b",
+      branch: "feat/workflow-map-browser-evidence-overlay",
+      timestamp: "2026-08-28T04:10:00.000Z",
+      trigger: "local",
+      appMode: "demo",
+    },
+    scenarios: partialScenarios,
+    artifacts: { manifestPath: "manifest.json", screenshotsDirectory: "screenshots", logPath: "logs/qa.log" },
+  });
+  await fs.writeFile(path.join(FIXTURES_DIR, "partial-manifest.json"), JSON.stringify(partialManifest, null, 2), "utf8");
+}
+
+async function isServerReady(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${url}/workflow-map`);
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureDevServer(): Promise<{ serverProcess: ChildProcess | null }> {
+  const ready = await isServerReady(BASE_URL);
+  if (ready) {
+    console.log(`[Dev Server] Existing server detected and ready at ${BASE_URL}`);
+    return { serverProcess: null };
+  }
+
+  console.log(`[Dev Server] Starting server on ${BASE_URL}...`);
+  const isWin = process.platform === "win32";
+  const cmd = isWin ? "npx.cmd" : "npx";
+  const child = spawn(cmd, ["tsx", "server.ts"], {
+    stdio: "ignore",
+    detached: false,
+    shell: isWin,
+    env: { ...process.env, PORT: "3000" },
+  });
+
+  const startTime = Date.now();
+  while (Date.now() - startTime < 30000) {
+    await new Promise((r) => setTimeout(r, 600));
+    if (await isServerReady(BASE_URL)) {
+      console.log(`[Dev Server] Server started successfully and ready at ${BASE_URL}`);
+      return { serverProcess: child };
+    }
+  }
+
+  try {
+    if (isWin && child.pid) {
+      spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], { stdio: "ignore" });
+    } else {
+      child.kill();
+    }
+  } catch {}
+  throw new Error(`Timeout waiting for dev server to start at ${BASE_URL}`);
+}
 
 async function runVisualValidation() {
-  await fs.mkdir(OUTPUT_DIR, { recursive: true });
+  await prepareFixtures();
 
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-
-  const presetsToTest = [
-    { id: "overview", name: "Whole-platform overview", preset: "overview" },
-    { id: "projects-engineering", name: "Projects and Engineering flow", preset: "projects-engineering" },
-    { id: "invoice-cash-settlement", name: "Invoice and Cash Settlement flow", preset: "invoice-cash-settlement" },
-    { id: "workforce-payroll", name: "Workforce and Payroll flow", preset: "workforce-payroll" },
-    { id: "assistant-guarded-mutations", name: "Assistant guarded mutation flow", preset: "assistant-guarded-mutations" },
-  ];
-
-  const viewports = [
-    { name: "desktop-1440", width: 1440, height: 900 },
-    { name: "tablet-1024", width: 1024, height: 768 },
-    { name: "mobile-390", width: 390, height: 844 },
-  ];
-
-  console.log("==================================================");
-  console.log("Starting WM-2 Visual Workflow Canvas Browser Validation");
-  console.log("==================================================");
-
+  let serverProcess: ChildProcess | null = null;
+  let browser: any = null;
   let totalErrors = 0;
 
-  for (const vp of viewports) {
-    console.log(`\nTesting Viewport: ${vp.name} (${vp.width}x${vp.height})`);
-    const page = await context.newPage();
-    await page.setViewportSize({ width: vp.width, height: vp.height });
+  try {
+    const serverResult = await ensureDevServer();
+    serverProcess = serverResult.serverProcess;
 
-    const consoleErrors: string[] = [];
-    const pageErrors: string[] = [];
-    page.on("console", (msg: { type(): string; text(): string }) => {
-      if (msg.type() === "error") consoleErrors.push(msg.text());
-    });
-    page.on("pageerror", (err: unknown) => {
-      pageErrors.push(String(err));
-    });
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext();
 
-    for (const p of presetsToTest) {
-      const url = `${BASE_URL}/workflow-map?preset=${p.preset}`;
-      await page.goto(url, { waitUntil: "networkidle" });
-      await page.waitForTimeout(600); // Allow fitView animation to complete
+    const presetsToTest = [
+      { id: "overview", name: "Whole-platform overview", preset: "overview" },
+      { id: "projects-engineering", name: "Projects and Engineering flow", preset: "projects-engineering" },
+      { id: "invoice-cash-settlement", name: "Invoice and Cash Settlement flow", preset: "invoice-cash-settlement" },
+      { id: "workforce-payroll", name: "Workforce and Payroll flow", preset: "workforce-payroll" },
+      { id: "assistant-guarded-mutations", name: "Assistant guarded mutation flow", preset: "assistant-guarded-mutations" },
+    ];
 
-      // Verify canvas rendered nodes
-      const nodeCount = await page.locator(".react-flow__node").count();
-      console.log(`  [${vp.name}] Preset: ${p.name} -> ${nodeCount} visible nodes`);
+    const viewports = [
+      { name: "desktop-1440", width: 1440, height: 900 },
+      { name: "tablet-1024", width: 1024, height: 768 },
+      { name: "mobile-390", width: 390, height: 844 },
+    ];
 
-      if (nodeCount === 0) {
-        console.error(`  ❌ Error: No nodes rendered for preset ${p.id}`);
-        totalErrors++;
+    console.log("==================================================");
+    console.log("Starting WM-4 Visual Workflow Canvas Browser Validation");
+    console.log("==================================================");
+
+    for (const vp of viewports) {
+      console.log(`\nTesting Viewport: ${vp.name} (${vp.width}x${vp.height})`);
+      const page = await context.newPage();
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+
+      const consoleErrors: string[] = [];
+      const pageErrors: string[] = [];
+      page.on("console", (msg: { type(): string; text(): string }) => {
+        if (msg.type() === "error") consoleErrors.push(msg.text());
+      });
+      page.on("pageerror", (err: unknown) => {
+        pageErrors.push(String(err));
+      });
+
+      // A. NO EVIDENCE - Test presets rendering
+      for (const p of presetsToTest) {
+        const url = `${BASE_URL}/workflow-map?preset=${p.preset}`;
+        await page.goto(url, { waitUntil: "networkidle" });
+        await page.waitForTimeout(600);
+
+        const nodeCount = await page.locator(".react-flow__node").count();
+        console.log(`  [${vp.name}] Preset: ${p.name} -> ${nodeCount} visible nodes`);
+
+        if (nodeCount === 0) {
+          console.error(`  ❌ Error: No nodes rendered for preset ${p.id}`);
+          totalErrors++;
+        }
+
+        if (vp.name === "desktop-1440" || vp.name === "mobile-390") {
+          const screenshotPath = path.join(OUTPUT_DIR, `${vp.name}-${p.id}.png`);
+          await page.screenshot({ path: screenshotPath, fullPage: false });
+        }
       }
 
-      // Take screenshot for desktop and mobile
-      if (vp.name === "desktop-1440" || vp.name === "mobile-390") {
-        const screenshotPath = path.join(OUTPUT_DIR, `${vp.name}-${p.id}.png`);
-        await page.screenshot({ path: screenshotPath, fullPage: false });
-      }
-    }
-
-    // Interactive Test on Desktop: Click a node, verify details panel opens, test search
-    if (vp.name === "desktop-1440") {
-      console.log("\n  [Interactive QA] Testing node selection, details panel, and search...");
+      // B. ALL-PASS MANIFEST VALIDATION (Desktop & Mobile)
+      console.log(`\n  [${vp.name}] Testing ALL-PASS QA Evidence Overlay loading...`);
       await page.goto(`${BASE_URL}/workflow-map?preset=overview`, { waitUntil: "networkidle" });
       await page.waitForTimeout(500);
 
-      // 1. Click first visible node
-      const firstNode = page.locator(".react-flow__node").first();
-      await firstNode.click();
-      await page.waitForTimeout(300);
+      // Upload all-pass fixture via file input
+      const fileInput = page.locator("input[type='file'][accept*='json']");
+      await fileInput.setInputFiles(path.join(FIXTURES_DIR, "all-pass-manifest.json"));
+      await page.waitForTimeout(600);
 
-      // Verify details drawer opened
-      const drawerVisible = await page.locator("aside[aria-label='Node Details Panel']").isVisible();
-      console.log(`  - Details drawer open after node click: ${drawerVisible ? "✅ YES" : "❌ NO"}`);
-      if (!drawerVisible) totalErrors++;
+      // Check evidence status bar & badges
+      const statusBarText = await page.locator("footer").innerText();
+      const hasEvidenceInStatus = statusBarText.includes("QA Evidence:") && statusBarText.includes("PASS");
+      console.log(`  - Status bar shows QA evidence summary: ${hasEvidenceInStatus ? "✅ YES" : "❌ NO"}`);
+      if (!hasEvidenceInStatus) totalErrors++;
 
-      const selectedScreenshot = path.join(OUTPUT_DIR, "desktop-1440-selected-node-details.png");
-      await page.screenshot({ path: selectedScreenshot });
+      const passBadges = await page.locator("text=QA Passed").count();
+      console.log(`  - Visible 'QA Passed' badges on canvas: ${passBadges > 0 ? `✅ YES (${passBadges} visible)` : "❌ NO"}`);
+      if (passBadges === 0) totalErrors++;
 
-      // 2. Test search autocomplete
-      const searchInput = page.locator("input[placeholder*='Search nodes']");
-      await searchInput.fill("payroll");
-      await page.waitForTimeout(300);
+      // Open details drawer for a mapped node
+      const firstMappedNode = page.locator(".react-flow__node:has-text('QA Passed')").first();
+      await firstMappedNode.click();
+      await page.waitForTimeout(400);
 
-      const matchingItems = await page.locator("div:has-text('Matching Nodes')").count();
-      console.log(`  - Search autocomplete popup visible: ${matchingItems > 0 ? "✅ YES" : "❌ NO"}`);
-      if (matchingItems === 0) totalErrors++;
+      const evidenceSectionVisible = await page.locator("aside").getByText("Browser QA Evidence (QA-1)").isVisible();
+      console.log(`  - Details drawer shows Browser QA Evidence section: ${evidenceSectionVisible ? "✅ YES" : "❌ NO"}`);
+      if (!evidenceSectionVisible) totalErrors++;
 
-      const searchScreenshot = path.join(OUTPUT_DIR, "desktop-1440-search-autocomplete.png");
-      await page.screenshot({ path: searchScreenshot });
+      if (vp.name === "desktop-1440") {
+        await page.screenshot({ path: path.join(OUTPUT_DIR, "desktop-1440-evidence-all-pass.png") });
+      } else if (vp.name === "mobile-390") {
+        await page.screenshot({ path: path.join(OUTPUT_DIR, "mobile-390-evidence-details.png") });
+      }
 
-      // 3. Test Invariants Catalog modal
-      const catalogBtn = page.locator("button:has-text('Catalog')");
-      await catalogBtn.click();
-      await page.waitForTimeout(300);
+      // Close details drawer
+      const closeBtn = page.locator("aside button[title='Close details drawer']");
+      if (await closeBtn.isVisible()) {
+        await closeBtn.click();
+        await page.waitForTimeout(200);
+      }
 
-      const modalVisible = await page.locator("div[aria-label='High-Risk Invariants Catalog']").isVisible();
-      console.log(`  - High-Risk Invariants Catalog Modal open: ${modalVisible ? "✅ YES" : "❌ NO"}`);
-      if (!modalVisible) totalErrors++;
+      // C. FAILURE MANIFEST & FOCUS FAILURES (Desktop)
+      if (vp.name === "desktop-1440") {
+        console.log("\n  [Desktop] Testing FAILURE Evidence Manifest & Focus Failures...");
+        await fileInput.setInputFiles(path.join(FIXTURES_DIR, "failure-manifest.json"));
+        await page.waitForTimeout(600);
 
-      const modalScreenshot = path.join(OUTPUT_DIR, "desktop-1440-invariants-catalog.png");
-      await page.screenshot({ path: modalScreenshot });
+        const failBadges = await page.locator("text=QA Failed").count();
+        console.log(`  - Visible 'QA Failed' badges: ${failBadges > 0 ? `✅ YES (${failBadges})` : "❌ NO"}`);
+        if (failBadges === 0) totalErrors++;
+
+        const focusFailuresBtn = page.locator("button:has-text('Focus Failures')");
+        const focusBtnVisible = await focusFailuresBtn.isVisible();
+        console.log(`  - 'Focus Failures' button visible: ${focusBtnVisible ? "✅ YES" : "❌ NO"}`);
+        if (!focusBtnVisible) totalErrors++;
+
+        // Click Focus Failures
+        await focusFailuresBtn.click();
+        await page.waitForTimeout(500);
+
+        const failureDrawerVisible = await page.locator("aside").getByText("Failure Reasons").isVisible();
+        console.log(`  - Focus Failures opened failing node details drawer: ${failureDrawerVisible ? "✅ YES" : "❌ NO"}`);
+        if (!failureDrawerVisible) totalErrors++;
+
+        await page.screenshot({ path: path.join(OUTPUT_DIR, "desktop-1440-evidence-failure-focus.png") });
+
+        // Close details drawer before next step
+        if (await closeBtn.isVisible()) {
+          await closeBtn.click();
+          await page.waitForTimeout(200);
+        }
+
+        // D. PARTIAL EVIDENCE MANIFEST
+        console.log("\n  [Desktop] Testing PARTIAL Evidence Manifest...");
+        await fileInput.setInputFiles(path.join(FIXTURES_DIR, "partial-manifest.json"));
+        await page.waitForTimeout(600);
+
+        const partialBadges = await page.locator("text=Partial QA").count();
+        console.log(`  - 'Partial QA' badges visible: ${partialBadges > 0 ? `✅ YES (${partialBadges})` : "❌ NO"}`);
+        if (partialBadges === 0) totalErrors++;
+
+        await page.screenshot({ path: path.join(OUTPUT_DIR, "desktop-1440-evidence-partial.png") });
+
+        // E. CLEAR EVIDENCE
+        console.log("\n  [Desktop] Testing Clear Evidence action...");
+        const evidenceDropdownBtn = page.locator("header button:has-text('6a1c8d2'), header button:has-text('Evidence')").first();
+        await evidenceDropdownBtn.click();
+        await page.waitForTimeout(300);
+
+        const clearBtn = page.locator("button:has-text('Clear Evidence')");
+        await clearBtn.click();
+        await page.waitForTimeout(400);
+
+        const loadEvidenceBtnVisible = await page.locator("button:has-text('Load QA Evidence')").isVisible();
+        console.log(`  - Cleared evidence, 'Load QA Evidence' restored: ${loadEvidenceBtnVisible ? "✅ YES" : "❌ NO"}`);
+        if (!loadEvidenceBtnVisible) totalErrors++;
+
+        await page.screenshot({ path: path.join(OUTPUT_DIR, "desktop-1440-evidence-cleared.png") });
+      }
+
+      if (consoleErrors.length > 0) {
+        console.error(`  ❌ Console errors logged for ${vp.name}:`, consoleErrors);
+        totalErrors += consoleErrors.length;
+      }
+      if (pageErrors.length > 0) {
+        console.error(`  ❌ Page errors logged for ${vp.name}:`, pageErrors);
+        totalErrors += pageErrors.length;
+      }
+
+      await page.close();
     }
-
-    if (consoleErrors.length > 0) {
-      console.error(`  ❌ Console errors logged for ${vp.name}:`, consoleErrors);
-      totalErrors += consoleErrors.length;
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
     }
-    if (pageErrors.length > 0) {
-      console.error(`  ❌ Page errors logged for ${vp.name}:`, pageErrors);
-      totalErrors += pageErrors.length;
+    if (serverProcess) {
+      console.log("[Dev Server] Terminating child dev server...");
+      try {
+        if (process.platform === "win32" && serverProcess.pid) {
+          spawn("taskkill", ["/pid", String(serverProcess.pid), "/t", "/f"], { stdio: "ignore" });
+        } else {
+          serverProcess.kill();
+        }
+      } catch {}
     }
-
-    await page.close();
   }
-
-  await browser.close();
 
   console.log("\n==================================================");
   console.log(`Visual QA Summary: ${totalErrors === 0 ? "✅ ALL CHECKS PASSED" : `❌ ${totalErrors} ERRORS FOUND`}`);

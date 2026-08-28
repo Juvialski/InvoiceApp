@@ -199,6 +199,7 @@ test("URL state parser and formatter round-trip correctly", () => {
     focusNeighborhood: true,
     neighborhoodHops: 2,
     filterInvariantOnly: false,
+    evidenceMode: "status",
   };
 
   const queryString = formatWorkflowMapUrlQuery(sampleFilter);
@@ -208,6 +209,7 @@ test("URL state parser and formatter round-trip correctly", () => {
   assert.match(queryString, /q=blueprint/);
   assert.match(queryString, /focus=1/);
   assert.match(queryString, /hops=2/);
+  assert.match(queryString, /evidence=status/);
 
   const parsed = parseWorkflowMapUrlState(queryString);
   assert.equal(parsed.presetId, sampleFilter.presetId);
@@ -216,6 +218,7 @@ test("URL state parser and formatter round-trip correctly", () => {
   assert.equal(parsed.searchQuery, sampleFilter.searchQuery);
   assert.equal(parsed.focusNeighborhood, sampleFilter.focusNeighborhood);
   assert.equal(parsed.neighborhoodHops, sampleFilter.neighborhoodHops);
+  assert.equal(parsed.evidenceMode, sampleFilter.evidenceMode);
 });
 
 test("workflow-map application mode is isolated from demo and production authentication", async () => {
@@ -226,5 +229,38 @@ test("workflow-map application mode is isolated from demo and production authent
   assert.equal(isWorkflowMapApplicationPath("/workflow-map"), true);
   assert.equal(isWorkflowMapApplicationPath("/demo"), false);
   assert.equal(isWorkflowMapApplicationPath("/invoices"), false);
+});
+
+test("buildReactFlowElements and getNodeDetails integrate evidence model data correctly", async () => {
+  const { buildReactFlowElements } = await import("../src/workflow-map/workflowCanvasUtils.ts");
+  const { mapEvidenceToWorkflowGraph } = await import("../scripts/workflow-map/evidence.ts");
+  const { createQaManifest } = await import("../scripts/qa/structuredEvidence.ts");
+
+  const manifest = createQaManifest({
+    run: { commitSha: "abc1234", branch: "main", timestamp: new Date().toISOString(), trigger: "local", appMode: "demo" },
+    scenarios: [],
+    artifacts: { manifestPath: "manifest.json", screenshotsDirectory: "screenshots", logPath: "logs/qa.log" },
+  });
+  const model = mapEvidenceToWorkflowGraph(WORKFLOW_GRAPH, manifest);
+
+  const { nodes, edges } = filterGraph(WORKFLOW_GRAPH, DEFAULT_FILTER);
+  const layout = layoutGraph(nodes, edges);
+  const { flowNodes } = buildReactFlowElements(
+    nodes,
+    edges,
+    WORKFLOW_GRAPH,
+    { ...DEFAULT_FILTER, evidenceMode: "status" },
+    { onSelectNode: () => {}, onFocusNeighborhood: () => {} },
+    layout.nodePositions,
+    model,
+  );
+
+  assert.equal(flowNodes.length, nodes.length);
+  assert.ok(flowNodes.every((fn) => Boolean(fn.data.evidence)));
+
+  const details = getNodeDetails(WORKFLOW_GRAPH, "route-dashboard", model, { "screenshots/sample.png": "blob:sample" });
+  assert.ok(details);
+  assert.equal(details.evidence?.nodeId, "route-dashboard");
+  assert.equal(details.screenshotUrls?.["screenshots/sample.png"], "blob:sample");
 });
 

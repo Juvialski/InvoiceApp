@@ -14,6 +14,10 @@ import {
   AlertTriangle,
   ArrowRight,
   Focus,
+  CheckCircle2,
+  AlertOctagon,
+  MinusCircle,
+  Circle,
 } from "lucide-react";
 import type { WorkflowCustomNodeData } from "./workflowCanvasTypes.ts";
 
@@ -56,11 +60,15 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
     isIncomingNeighbor,
     isOutgoingNeighbor,
     invariants,
+    evidence,
+    evidenceMode,
     onSelectNode,
     onFocusNeighborhood,
   } = data;
 
   const activeSelected = isSelected || selected;
+  const isEvidenceActive = evidenceMode && evidenceMode !== "off" && Boolean(evidence);
+  const isFail = isEvidenceActive && evidence?.state === "FAIL";
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -76,11 +84,13 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
     <div
       onClick={handleClick}
       className={`relative w-[285px] cursor-pointer rounded-xl border bg-white p-3 shadow-xs transition-all duration-200 dark:bg-slate-900 select-none ${
-        activeSelected
-          ? "border-indigo-600 ring-2 ring-indigo-500 ring-offset-2 shadow-lg dark:ring-offset-slate-950 scale-[1.01]"
-          : isDirectNeighbor
-            ? "border-sky-500 ring-1 ring-sky-400 shadow-md"
-            : `${domainMeta.colorBorder} hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-md`
+        isFail && evidenceMode === "failures"
+          ? "border-rose-600 ring-2 ring-rose-500 ring-offset-2 shadow-xl dark:ring-offset-slate-950 scale-[1.015]"
+          : activeSelected
+            ? "border-indigo-600 ring-2 ring-indigo-500 ring-offset-2 shadow-lg dark:ring-offset-slate-950 scale-[1.01]"
+            : isDirectNeighbor
+              ? "border-sky-500 ring-1 ring-sky-400 shadow-md"
+              : `${domainMeta.colorBorder} hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-md`
       } ${isDimmed ? "opacity-25 grayscale-[40%]" : "opacity-100"}`}
     >
       {/* Target handle (left) */}
@@ -97,7 +107,7 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
         className="!h-3 !w-3 !rounded-full !border-2 !border-white !bg-slate-500 transition-colors hover:!bg-indigo-600 dark:!border-slate-900"
       />
 
-      {/* Top Header: Domain + Node Type + Scope */}
+      {/* Top Header: Domain + Node Type + Evidence Pill / Scope */}
       <div className="mb-2 flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1.5 overflow-hidden">
           <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${domainMeta.colorBadge}`}>
@@ -110,18 +120,60 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
           </span>
         </div>
 
-        {/* Scope or neighbor pill */}
-        {isIncomingNeighbor && (
+        {/* Evidence Status Pill (if overlay active) */}
+        {isEvidenceActive && evidence && (
+          <div>
+            {evidence.state === "FAIL" && (
+              <span
+                className="inline-flex items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-900 border border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-800"
+                title={`Browser QA Failed: ${evidence.failedScenarioIds.length} failed scenario(s)`}
+              >
+                <AlertOctagon className="h-2.5 w-2.5 text-rose-700 dark:text-rose-400" />
+                <span>QA Failed</span>
+              </span>
+            )}
+            {evidence.state === "PASS" && (
+              <span
+                className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-900 border border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-800"
+                title={`Browser QA Passed (${evidence.presentScenarioIds.length} scenario${evidence.presentScenarioIds.length > 1 ? "s" : ""})`}
+              >
+                <CheckCircle2 className="h-2.5 w-2.5 text-emerald-700 dark:text-emerald-400" />
+                <span>QA Passed</span>
+              </span>
+            )}
+            {evidence.state === "PARTIAL" && (
+              <span
+                className="inline-flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-900 border border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-800"
+                title={`Partial Evidence: ${evidence.presentScenarioIds.length} passed, ${evidence.missingScenarioIds.length} missing`}
+              >
+                <CircleDot className="h-2.5 w-2.5 text-amber-700 dark:text-amber-400" />
+                <span>Partial QA</span>
+              </span>
+            )}
+            {evidence.state === "NOT_RUN" && (
+              <span
+                className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                title={`Mapped scenarios not run (${evidence.mappedScenarioIds.length})`}
+              >
+                <MinusCircle className="h-2.5 w-2.5 text-slate-500 dark:text-slate-400" />
+                <span>Not Run</span>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Scope or neighbor pill (when evidence badge not occupying this space) */}
+        {!isEvidenceActive && isIncomingNeighbor && (
           <span className="rounded bg-sky-100 px-1 py-0.2 text-[9px] font-bold text-sky-800 dark:bg-sky-950 dark:text-sky-300">
             Source
           </span>
         )}
-        {isOutgoingNeighbor && (
+        {!isEvidenceActive && isOutgoingNeighbor && (
           <span className="rounded bg-indigo-100 px-1 py-0.2 text-[9px] font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
             Target
           </span>
         )}
-        {!isIncomingNeighbor && !isOutgoingNeighbor && node.scope && node.scope !== "company" && (
+        {!isEvidenceActive && !isIncomingNeighbor && !isOutgoingNeighbor && node.scope && node.scope !== "company" && (
           <span className="rounded bg-slate-100 px-1 py-0.2 text-[9px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-400">
             {node.scope}
           </span>
