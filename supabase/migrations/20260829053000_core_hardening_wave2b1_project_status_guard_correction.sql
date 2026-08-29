@@ -7,6 +7,12 @@
 -- archived project metadata save must be allowed through the INSERT phase only
 -- when an existing row already has the exact same archived lifecycle fields.
 
+-- Internal preflight helpers accept project/company identifiers and run with
+-- definer rights. Keep them callable only by their owning wrapper/functions,
+-- never directly by client roles.
+revoke execute on function private.project_lifecycle_preflight(uuid, uuid) from public, anon, authenticated;
+revoke execute on function private.project_lifecycle_preflight_authorized(uuid) from public, anon, authenticated;
+
 create or replace function public.guard_project_lifecycle_edit()
 returns trigger
 language plpgsql
