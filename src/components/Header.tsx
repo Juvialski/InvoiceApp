@@ -14,6 +14,8 @@ import {
   LogOut,
   Menu,
   MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
   Receipt,
   RefreshCw,
   Settings as SettingsIcon,
@@ -39,7 +41,7 @@ import { BRAND } from "../config/brand.ts";
 
 export type { AppTab } from "../utils/routes";
 
-interface HeaderProps {
+export interface HeaderProps {
   activeTab: AppTab;
   setActiveTab: (tab: AppTab) => void;
   invoicesCount: number;
@@ -53,6 +55,8 @@ interface HeaderProps {
   visibleRouteIds?: readonly RouteId[];
   /** Optional direct permission input for callers that do not already build visibleRouteIds. */
   permissions?: readonly PermissionKey[];
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const routeIcons: Record<RouteId, React.ElementType> = {
@@ -105,16 +109,58 @@ interface NavigationRouteButtonProps {
   active: boolean;
   menuItem?: boolean;
   sidebar?: boolean;
+  collapsed?: boolean;
   invoicesCount: number;
   reviewCount: number;
   onSelect: (route: NavigationRoute) => void;
 }
 
-const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({ route, active, menuItem = false, sidebar = false, invoicesCount, reviewCount, onSelect }) => {
+const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({
+  route,
+  active,
+  menuItem = false,
+  sidebar = false,
+  collapsed = false,
+  invoicesCount,
+  reviewCount,
+  onSelect,
+}) => {
   const Icon = routeIcons[route.id];
   const badgeCount = badgeCountFor(route.id, invoicesCount, reviewCount);
   const badgeLabel = badgeLabelFor(route.id, badgeCount);
   const accessibleLabel = badgeLabel ? `${route.label}, ${badgeLabel}` : route.label;
+
+  if (sidebar && collapsed) {
+    return (
+      <button
+        type="button"
+        data-tour={navigationRouteTourTarget(route.id)}
+        role={menuItem ? "menuitem" : undefined}
+        onClick={() => onSelect(route)}
+        aria-label={accessibleLabel}
+        aria-current={active ? "page" : undefined}
+        title={accessibleLabel}
+        className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition ${
+          active
+            ? "bg-white/15 text-white shadow-sm ring-1 ring-white/20"
+            : "text-slate-400 hover:bg-white/10 hover:text-slate-100"
+        } mx-auto`}
+      >
+        <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${active ? "text-indigo-300" : "text-slate-400 group-hover:text-slate-200"}`} />
+        {badgeCount > 0 && (
+          <span
+            aria-hidden="true"
+            className={`absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black leading-none ${
+              route.id === "review" ? "bg-amber-400 text-amber-950" : "bg-indigo-400 text-indigo-950"
+            }`}
+          >
+            {badgeCount}
+          </span>
+        )}
+      </button>
+    );
+  }
+
   const classes = sidebar
     ? `group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${active ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/7 hover:text-slate-100"}`
     : `${menuItem ? "w-full justify-start" : ""} relative inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all sm:px-3 ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-white/70 hover:text-slate-900"}`;
@@ -141,17 +187,54 @@ interface NavigationModuleButtonProps {
   module: NavigationModule;
   active: boolean;
   sidebar?: boolean;
+  collapsed?: boolean;
   invoicesCount: number;
   onSelect: (module: NavigationModule) => void;
 }
 
-const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({ module, active, sidebar = false, invoicesCount, onSelect }) => {
+const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
+  module,
+  active,
+  sidebar = false,
+  collapsed = false,
+  invoicesCount,
+  onSelect,
+}) => {
   const route = module.defaultRoute;
   if (!route) return null;
   const Icon = routeIcons[route.id];
   const accessibleLabel = module.id === "invoices" && invoicesCount > 0
     ? `${module.label}, ${invoicesCount} invoice${invoicesCount === 1 ? "" : "s"}`
     : module.label;
+
+  if (sidebar && collapsed) {
+    return (
+      <button
+        type="button"
+        data-tour={navigationModuleTourTarget(module.id)}
+        onClick={() => onSelect(module)}
+        aria-label={accessibleLabel}
+        aria-current={active ? "page" : undefined}
+        title={accessibleLabel}
+        className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition ${
+          active
+            ? "bg-white/15 text-white shadow-sm ring-1 ring-white/20"
+            : "text-slate-400 hover:bg-white/10 hover:text-slate-100"
+        } mx-auto`}
+      >
+        <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${active ? "text-indigo-300" : "text-slate-400 group-hover:text-slate-200"}`} />
+        {module.id === "invoices" && invoicesCount > 0 && (
+          <span
+            aria-hidden="true"
+            className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-400 px-1 text-[9px] font-black leading-none text-indigo-950"
+          >
+            {invoicesCount}
+          </span>
+        )}
+      </button>
+    );
+  }
+
   const classes = sidebar
     ? `group flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-bold transition ${active ? "bg-white/12 text-white" : "text-slate-300 hover:bg-white/7 hover:text-white"}`
     : `relative inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all sm:px-3 ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-white/70 hover:text-slate-900"}`;
@@ -173,7 +256,22 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({ module,
   );
 };
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoicesCount, reviewCount, onBatchExportExcel, workspaceSyncStatus = "guest", accountEmail, onSignOut, companies = [], activeCompanyId, visibleRouteIds, permissions }) => {
+export const Header: React.FC<HeaderProps> = ({
+  activeTab,
+  setActiveTab,
+  invoicesCount,
+  reviewCount,
+  onBatchExportExcel,
+  workspaceSyncStatus = "guest",
+  accountEmail,
+  onSignOut,
+  companies = [],
+  activeCompanyId,
+  visibleRouteIds,
+  permissions,
+  collapsed = false,
+  onToggleCollapse,
+}) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [invoicesExpanded, setInvoicesExpanded] = useState(() => ["invoices", "extractor", "inbox", "review", "vendors"].includes(activeTab));
   const [accountOpen, setAccountOpen] = useState(false);
@@ -256,7 +354,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
   };
 
   const handleSignOut = async () => {
-    if (!onSignOut || accountBusy) return;
+    if (!onSignOut) return;
     setAccountBusy(true);
     try {
       await onSignOut();
@@ -269,42 +367,175 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
   return (
     <>
       {mobileOpen && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-slate-950/60 lg:hidden" onClick={() => setMobileOpen(false)} />}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-col border-r border-slate-800 bg-slate-950 text-slate-100 shadow-2xl shadow-slate-950/20 transition-transform duration-200 lg:shadow-none ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`} aria-label="Workspace navigation">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <div aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white shadow-lg shadow-indigo-950/30"><Files className="h-4 w-4" /></div>
-            <div className="min-w-0"><p className="truncate text-sm font-black tracking-tight text-white">{BRAND.productName}</p><p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500">{BRAND.tagline}</p></div>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-800 bg-slate-950 text-slate-100 shadow-2xl shadow-slate-950/20 transition-[width,transform] duration-200 lg:shadow-none ${
+          collapsed ? "w-[4.25rem]" : "w-[16.5rem]"
+        } ${mobileOpen ? "translate-x-0 !w-[16.5rem]" : "-translate-x-full lg:translate-x-0"}`}
+        aria-label="Workspace navigation"
+      >
+        {collapsed && !mobileOpen ? (
+          <div className="flex flex-col items-center justify-center border-b border-white/10 px-2 py-4">
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500 text-white shadow-lg shadow-indigo-950/30 hover:bg-indigo-400 transition"
+              title="Expand sidebar"
+              aria-label="Expand sidebar"
+            >
+              <Files className="h-4 w-4" />
+            </button>
           </div>
-          <button type="button" onClick={() => setMobileOpen(false)} className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden" aria-label="Close navigation"><X className="h-4 w-4" /></button>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <div aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white shadow-lg shadow-indigo-950/30">
+                <Files className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black tracking-tight text-white">{BRAND.productName}</p>
+                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{BRAND.tagline}</p>
+              </div>
+            </div>
+            {onToggleCollapse && (
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                className="hidden lg:flex items-center justify-center rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+                title="Collapse sidebar"
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
+              aria-label="Close navigation"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 ops-scrollbar">
-          {companies.length > 0 && <div className="mb-5 px-1"><p className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Deployment</p><CompanySwitcher companies={companies} activeCompanyId={activeCompanyId} /></div>}
-          <p className="mb-2 px-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Operations</p>
+        <div className={`min-h-0 flex-1 overflow-y-auto ${collapsed && !mobileOpen ? "px-1.5" : "px-3"} py-4 ops-scrollbar`}>
+          {companies.length > 0 && (
+            <div className={`mb-4 ${collapsed && !mobileOpen ? "px-0" : "px-1"}`}>
+              {!collapsed || mobileOpen ? <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Deployment</p> : null}
+              <CompanySwitcher companies={companies} activeCompanyId={activeCompanyId} collapsed={collapsed && !mobileOpen} />
+            </div>
+          )}
+          {!collapsed || mobileOpen ? <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Operations</p> : null}
           <nav className="space-y-1" aria-label="Primary navigation">
-            {navigation.modules.map((module) => <div key={module.id}>
-              <NavigationModuleButton module={module} active={activeModule?.id === module.id} sidebar invoicesCount={invoicesCount} onSelect={selectModule} />
-              {module.id === "invoices" && invoicesExpanded && module.routes.length > 1 && <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2" aria-label="Invoice navigation">
-                {module.routes.map((route) => <NavigationRouteButton key={route.id} route={route} active={route.id === activeRouteId} sidebar menuItem invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} />)}
-              </div>}
-            </div>)}
+            {navigation.modules.map((module) => (
+              <div key={module.id}>
+                <NavigationModuleButton
+                  module={module}
+                  active={activeModule?.id === module.id}
+                  sidebar
+                  collapsed={collapsed && !mobileOpen}
+                  invoicesCount={invoicesCount}
+                  onSelect={selectModule}
+                />
+                {module.id === "invoices" && invoicesExpanded && (!collapsed || mobileOpen) && module.routes.length > 1 && (
+                  <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2" aria-label="Invoice navigation">
+                    {module.routes.map((route) => (
+                      <NavigationRouteButton
+                        key={route.id}
+                        route={route}
+                        active={route.id === activeRouteId}
+                        sidebar
+                        menuItem
+                        invoicesCount={invoicesCount}
+                        reviewCount={reviewCount}
+                        onSelect={selectRoute}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
           </nav>
-          {navigation.settingsRoute && <div className="mt-6 border-t border-white/10 pt-4"><p className="mb-2 px-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">Workspace</p><NavigationRouteButton route={navigation.settingsRoute} active={activeRouteId === navigation.settingsRoute.id} sidebar menuItem invoicesCount={invoicesCount} reviewCount={reviewCount} onSelect={selectRoute} /></div>}
+          {navigation.settingsRoute && (
+            <div className="mt-6 border-t border-white/10 pt-4">
+              {!collapsed || mobileOpen ? <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Workspace</p> : null}
+              <NavigationRouteButton
+                route={navigation.settingsRoute}
+                active={activeRouteId === navigation.settingsRoute.id}
+                sidebar
+                collapsed={collapsed && !mobileOpen}
+                menuItem
+                invoicesCount={invoicesCount}
+                reviewCount={reviewCount}
+                onSelect={selectRoute}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="border-t border-white/10 px-4 py-4">
-          <div className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-[10px] font-bold ${workspaceSyncClasses(syncStatus)}`} title={syncTitle} aria-label={syncTitle}>
-            <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
-            <span className="min-w-0 truncate">{syncLabel}</span>
+        {collapsed && !mobileOpen ? (
+          <div className="border-t border-white/10 px-2 py-3 flex flex-col items-center gap-2">
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-bold ${workspaceSyncClasses(syncStatus)}`}
+              title={syncTitle}
+              aria-label={syncTitle}
+            >
+              <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+            </div>
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-200 transition"
+              title={accountEmail || activeCompany?.name || "Local workspace"}
+              aria-label={accountEmail || activeCompany?.name || "Local workspace"}
+            >
+              <UserCircle2 aria-hidden="true" className="h-5 w-5 shrink-0" />
+            </div>
+            {onToggleCollapse && (
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition mt-1"
+                title="Expand sidebar"
+                aria-label="Expand sidebar"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
+            )}
           </div>
-          <div className="mt-3 flex items-center gap-2 px-1">
-            <UserCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
-            <div className="min-w-0"><p className="truncate text-[10px] font-bold text-slate-300">{accountEmail || activeCompany?.name || "Local workspace"}</p><p className="truncate text-[9px] text-slate-600">{activeCompany?.name && accountEmail ? activeCompany.name : "Workspace context"}</p></div>
+        ) : (
+          <div className="border-t border-white/10 px-3 py-3">
+            <div className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-bold ${workspaceSyncClasses(syncStatus)}`} title={syncTitle} aria-label={syncTitle}>
+              <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
+              <span className="min-w-0 flex-1 truncate">{syncLabel}</span>
+            </div>
+            <div className="mt-2.5 flex items-center justify-between gap-2 px-1">
+              <div className="flex min-w-0 items-center gap-2" title={accountEmail || activeCompany?.name || "Local workspace"}>
+                <UserCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-bold text-slate-300">{accountEmail || activeCompany?.name || "Local workspace"}</p>
+                  <p className="truncate text-[10px] text-slate-500">{activeCompany?.name && accountEmail ? activeCompany.name : "Workspace context"}</p>
+                </div>
+              </div>
+              {onToggleCollapse && (
+                <button
+                  type="button"
+                  onClick={onToggleCollapse}
+                  className="hidden lg:flex items-center justify-center rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition shrink-0"
+                  title="Collapse sidebar"
+                  aria-label="Collapse sidebar"
+                >
+                  <PanelLeftClose className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </aside>
 
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur lg:ml-[17rem]">
+      <header
+        className={`sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur transition-[margin] duration-200 ${
+          collapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
+        }`}
+      >
         <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
           <button type="button" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen}><Menu className="h-4 w-4" /></button>
           <div className="min-w-0 flex-1">
@@ -319,7 +550,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, invoice
             {accountHasActions && <div className="relative shrink-0" ref={accountMenuRef}>
               <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"} aria-expanded={accountOpen} aria-controls="header-account-menu" className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-indigo-200 hover:text-indigo-700"><UserCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" /><span className="hidden max-w-[9rem] truncate sm:inline">{accountEmail || "Account"}</span></button>
               {accountOpen && <div id="header-account-menu" role="menu" aria-label="Account menu" className="absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
-                {accountEmail && <p className="truncate px-2 py-1.5 text-[10px] font-bold text-slate-500">{accountEmail}</p>}
+                {accountEmail && <p className="truncate px-2 py-1.5 text-xs font-bold text-slate-600">{accountEmail}</p>}
                 <p className="px-2 pb-1.5 text-[10px] font-semibold text-slate-400">Account / Workspace</p>
                 {navigation.settingsRoute && <button type="button" role="menuitem" data-tour="route:settings" aria-current={activeTab === navigation.settingsRoute.appTab ? "page" : undefined} onClick={() => selectRoute(navigation.settingsRoute!)} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50"><SettingsIcon aria-hidden="true" className="h-3.5 w-3.5" />Workspace Settings</button>}
                 {navigation.settingsRoute && onSignOut && <div className="my-1 border-t border-slate-100" />}
