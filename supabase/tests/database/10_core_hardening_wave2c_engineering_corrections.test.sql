@@ -184,7 +184,7 @@ insert into public.engineering_daily_site_logs (id, company_id, project_id, site
 values
   ((select site_log_draft from wave2c_ids), (select company_a from wave2c_ids), (select project_a from wave2c_ids), date '2026-08-27', 'W2C-DSL-DRAFT', 'DRAFT', (select admin_user from wave2c_ids), '', now(), now(), null, null, null, null),
   ((select site_log_submitted from wave2c_ids), (select company_a from wave2c_ids), (select project_a from wave2c_ids), date '2026-08-28', 'W2C-DSL-SUBMITTED', 'SUBMITTED', (select admin_user from wave2c_ids), 'Submitted field observations', now(), now(), now(), (select admin_user from wave2c_ids), null, null),
-  ((select site_log_finalized from wave2c_ids), (select company_a from wave2c_ids), (select project_a from wave2c_ids), date '2026-08-29', 'W2C-DSL-FINALIZED', 'FINALIZED', (select admin_user from wave2c_ids), 'Finalized original observation', now(), now(), now(), (select admin_user from wave2c_ids), (select admin_user from wave2c_ids), now());
+  ((select site_log_finalized from wave2c_ids), (select company_a from wave2c_ids), (select project_a from wave2c_ids), date '2026-08-29', 'W2C-DSL-FINALIZED', 'FINALIZED', (select admin_user from wave2c_ids), 'Finalized original observation', now(), now(), now(), (select admin_user from wave2c_ids), now(), (select admin_user from wave2c_ids));
 
 insert into public.engineering_daily_site_log_weather (id, company_id, site_log_id, condition, created_at, updated_at)
 values
