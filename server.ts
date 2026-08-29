@@ -11,6 +11,7 @@ import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai
 import { disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
 import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, isCompanyAiFallbackEligible, logCompanyAiFailure, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
 import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
+import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyInvitationEmail, invitationRedirectUrl } from "./src/server/access/invitationDelivery.ts";
 import {
   chooseBestExtractionCandidate,
   evaluateExtractionQuality,
@@ -29,7 +30,9 @@ const ACCURACY_MODEL = COMPANY_AI_FALLBACK_MODEL;
 type CompanyPermission =
   | "gmail.read"
   | "gmail.manage"
-  | "invoices.extract";
+  | "invoices.extract"
+  | "company.members.manage"
+  | "company.settings.manage";
 
 interface CompanyRequestAuthorization {
   accessToken: string;
@@ -79,6 +82,9 @@ function serverSupabaseConfiguration() {
     || ""
   ).trim();
   if (!supabaseUrl || !publishableKey) {
+    throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is not configured on the server.");
+  }
+  if (/service[_-]?role|secret/i.test(publishableKey)) {
     throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is not configured on the server.");
   }
   return { supabaseUrl, publishableKey };
@@ -175,6 +181,94 @@ function apiErrorMessage(error: unknown, fallback: string) {
 
 function apiAiErrorDetails(error: unknown) {
   return error instanceof CompanyAiError ? { code: error.code, reference: error.correlationRef } : {};
+}
+
+function rpcRows(value: unknown): Record<string, any>[] {
+  if (Array.isArray(value)) return value.filter((item): item is Record<string, any> => Boolean(item && typeof item === "object"));
+  return value && typeof value === "object" ? [value as Record<string, any>] : [];
+}
+
+function rpcRow(value: unknown) {
+  return rpcRows(value)[0] || null;
+}
+
+function accessRpcStatus(error: unknown) {
+  const code = error && typeof error === "object" && "code" in error ? String(error.code || "") : "";
+  if (code === "42501") return 403;
+  if (code === "22023" || code === "22P02") return 400;
+  if (code === "23505") return 409;
+  return 503;
+}
+
+function accessRpcMessage(error: unknown, fallback: string) {
+  const code = error && typeof error === "object" && "code" in error ? String(error.code || "") : "";
+  if (code === "42501") return "You do not have permission for this company access operation.";
+  if (code === "23505") return "That email already has a pending invitation or company membership.";
+  if (code === "22023" || code === "22P02") return "The company access request is invalid.";
+  return fallback;
+}
+
+function invitationEmail(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function invitationRole(value: unknown) {
+  return typeof value === "string" ? value.trim().toUpperCase() : "";
+}
+
+function normalizeInvitationOverrides(value: unknown) {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return null;
+  return value.map((item) => {
+    if (!item || typeof item !== "object") return item;
+    const row = item as Record<string, unknown>;
+    return {
+      permission_key: typeof row.permission_key === "string" ? row.permission_key.trim().toLowerCase() : typeof row.permissionKey === "string" ? row.permissionKey.trim().toLowerCase() : "",
+      effect: typeof row.effect === "string" ? row.effect.trim().toUpperCase() : "",
+    };
+  });
+}
+
+class InvitationEmailRequestError extends Error {
+  readonly invitation: Record<string, any>;
+
+  constructor(invitation: Record<string, any>) {
+    super("The invitation record was created, but the invitation email could not be sent.");
+    this.name = "InvitationEmailRequestError";
+    this.invitation = invitation;
+  }
+}
+
+async function sendAndRecordInvitationEmail(
+  admin: SupabaseClient,
+  actorUserId: string,
+  invitation: Record<string, any>,
+) {
+  const invitationId = typeof invitation.id === "string" ? invitation.id : "";
+  const email = invitationEmail(invitation.normalized_email || invitation.email);
+  if (!invitationId || !email) throw new InvitationEmailRequestError(invitation);
+  try {
+    await deliverCompanyInvitationEmail(
+      { email, redirectTo: invitationRedirectUrl() },
+      process.env,
+      { admin },
+    );
+    const { data, error } = await admin.rpc("platform_mark_company_invitation_delivery", {
+      p_actor_user_id: actorUserId,
+      p_invitation_id: invitationId,
+      p_delivery_status: "SENT",
+    });
+    if (error) throw new InvitationDeliveryError("PROVIDER_UNAVAILABLE");
+    return rpcRow(data) || invitation;
+  } catch {
+    const { data } = await admin.rpc("platform_mark_company_invitation_delivery", {
+      p_actor_user_id: actorUserId,
+      p_invitation_id: invitationId,
+      p_delivery_status: "FAILED",
+      p_delivery_error: "Invitation email delivery failed.",
+    });
+    throw new InvitationEmailRequestError(rpcRow(data) || invitation);
+  }
 }
 
 const EXTRACTION_TIMEOUT_MS = 60_000;
@@ -460,6 +554,131 @@ async function generateStructured(ai: GeminiClientLike, requestedModel: unknown,
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", primaryModel: PRIMARY_MODEL, accuracyModel: ACCURACY_MODEL, timestamp: new Date().toISOString() });
+});
+
+app.post("/api/company/invitations", async (req, res) => {
+  let auth: CompanyRequestAuthorization;
+  try {
+    auth = await authorizeCompanyRequest(req, "company.members.manage");
+  } catch (error) {
+    return res.status(authorizationErrorStatus(error)).json({ success: false, error: authorizationErrorMessage(error, "Company invitation authorization failed.") });
+  }
+
+  const email = invitationEmail(req.body?.email);
+  const roleKey = invitationRole(req.body?.roleKey);
+  const overrides = normalizeInvitationOverrides(req.body?.permissionOverrides);
+  const requestedExpiry = req.body?.expiresAt;
+  if (!email || !roleKey || (overrides === null) || (requestedExpiry !== undefined && typeof requestedExpiry !== "string")) {
+    return res.status(400).json({ success: false, error: "A valid invitation email, role, and optional expiry are required." });
+  }
+  if (requestedExpiry) {
+    const parsedExpiry = new Date(requestedExpiry);
+    if (Number.isNaN(parsedExpiry.getTime())) return res.status(400).json({ success: false, error: "The invitation expiry is invalid." });
+  }
+
+  let admin: SupabaseClient;
+  try {
+    admin = createInvitationServerClient();
+  } catch (error) {
+    const message = error instanceof InvitationDeliveryError && error.code === "NOT_CONFIGURED"
+      ? "Invitation delivery is not configured on this deployment."
+      : "Invitation delivery is temporarily unavailable.";
+    return res.status(503).json({ success: false, code: "INVITATION_DELIVERY_UNAVAILABLE", error: message });
+  }
+
+  const createArgs: Record<string, unknown> = {
+    p_actor_user_id: auth.user.id,
+    p_company_id: auth.companyId,
+    p_email: email,
+    p_role_key: roleKey,
+  };
+  if (requestedExpiry) createArgs.p_expires_at = requestedExpiry;
+  if (overrides !== undefined) createArgs.p_permission_overrides = overrides;
+
+  let invitation: Record<string, any> | null;
+  try {
+    const { data, error } = await admin.rpc("platform_create_company_invitation", createArgs);
+    if (error) return res.status(accessRpcStatus(error)).json({ success: false, error: accessRpcMessage(error, "The invitation could not be created.") });
+    invitation = rpcRow(data);
+    if (!invitation) return res.status(503).json({ success: false, error: "The invitation record was not returned." });
+  } catch {
+    return res.status(503).json({ success: false, error: "The invitation could not be created safely." });
+  }
+
+  try {
+    const sentInvitation = await sendAndRecordInvitationEmail(admin, auth.user.id, invitation);
+    return res.status(201).json({ success: true, status: "SENT", invitation: sentInvitation });
+  } catch (error) {
+    const failedInvitation = error instanceof InvitationEmailRequestError ? error.invitation : invitation;
+    return res.status(502).json({
+      success: false,
+      code: "INVITATION_DELIVERY_FAILED",
+      error: "The invitation record was created, but the invitation email could not be sent. Check the deployment email configuration and use Resend.",
+      invitation: failedInvitation,
+    });
+  }
+});
+
+app.post("/api/company/invitations/:invitationId/resend", async (req, res) => {
+  let auth: CompanyRequestAuthorization;
+  try {
+    auth = await authorizeCompanyRequest(req, "company.members.manage");
+  } catch (error) {
+    return res.status(authorizationErrorStatus(error)).json({ success: false, error: authorizationErrorMessage(error, "Company invitation authorization failed.") });
+  }
+
+  const invitationId = String(req.params.invitationId || "").trim();
+  if (!UUID_PATTERN.test(invitationId)) return res.status(400).json({ success: false, error: "A valid invitation is required." });
+
+  let admin: SupabaseClient;
+  try {
+    admin = createInvitationServerClient();
+  } catch {
+    return res.status(503).json({ success: false, code: "INVITATION_DELIVERY_UNAVAILABLE", error: "Invitation delivery is not configured on this deployment." });
+  }
+
+  const { data: listed, error: listError } = await auth.supabase.rpc("platform_list_company_invitations", { p_company_id: auth.companyId });
+  if (listError) return res.status(accessRpcStatus(listError)).json({ success: false, error: accessRpcMessage(listError, "The invitation could not be loaded.") });
+  const existing = rpcRows(listed).find((row) => row.id === invitationId);
+  if (!existing) return res.status(404).json({ success: false, error: "The invitation was not found in this deployment company." });
+  if (String(existing.status || "").toUpperCase() === "ACCEPTED") return res.status(409).json({ success: false, error: "Accepted invitations cannot be resent." });
+
+  let invitation: Record<string, any> | null = null;
+  const expiresAt = typeof existing.expires_at === "string" ? new Date(existing.expires_at).getTime() : 0;
+  if (String(existing.status || "").toUpperCase() === "PENDING" && expiresAt > Date.now()) {
+    const { data, error } = await admin.rpc("platform_reset_company_invitation_delivery", {
+      p_actor_user_id: auth.user.id,
+      p_invitation_id: invitationId,
+    });
+    if (error) return res.status(accessRpcStatus(error)).json({ success: false, error: accessRpcMessage(error, "The invitation could not be prepared for resend.") });
+    invitation = rpcRow(data);
+  } else {
+    const email = invitationEmail(existing.normalized_email);
+    const roleKey = invitationRole(existing.role_key);
+    if (!email || !roleKey) return res.status(400).json({ success: false, error: "The existing invitation is missing valid delivery details." });
+    const { data, error } = await admin.rpc("platform_create_company_invitation", {
+      p_actor_user_id: auth.user.id,
+      p_company_id: auth.companyId,
+      p_email: email,
+      p_role_key: roleKey,
+    });
+    if (error) return res.status(accessRpcStatus(error)).json({ success: false, error: accessRpcMessage(error, "A replacement invitation could not be created.") });
+    invitation = rpcRow(data);
+  }
+  if (!invitation) return res.status(503).json({ success: false, error: "The invitation record was not returned." });
+
+  try {
+    const sentInvitation = await sendAndRecordInvitationEmail(admin, auth.user.id, invitation);
+    return res.json({ success: true, status: "SENT", invitation: sentInvitation });
+  } catch (error) {
+    const failedInvitation = error instanceof InvitationEmailRequestError ? error.invitation : invitation;
+    return res.status(502).json({
+      success: false,
+      code: "INVITATION_DELIVERY_FAILED",
+      error: "The invitation record exists, but the invitation email could not be sent. Check the deployment email configuration and retry.",
+      invitation: failedInvitation,
+    });
+  }
 });
 
 function platformCompanyAiPath(req: express.Request) {

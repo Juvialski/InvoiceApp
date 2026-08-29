@@ -1,5 +1,6 @@
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { hasPermission, normalizePermissionKeys, type PermissionKey } from "../utils/accessControl.ts";
+import { companyApiRequest } from "./companyApi.ts";
 import { supabase } from "./supabase.ts";
 
 export const COMPANY_ACCESS_RPC = "get_my_company_access";
@@ -13,10 +14,15 @@ export const PLATFORM_LIST_MEMBERS_RPC = "platform_list_company_members";
 export const PLATFORM_LIST_MEMBER_DIRECTORY_RPC = "platform_list_company_member_directory";
 export const PLATFORM_LIST_AUDIT_RPC = "platform_list_access_audit";
 export const PLATFORM_LIST_INVITATIONS_RPC = "platform_list_company_invitations";
+export const PLATFORM_LIST_PERMISSION_CATALOG_RPC = "platform_list_company_permission_catalog";
+export const PLATFORM_UPDATE_MEMBER_PERMISSIONS_RPC = "platform_update_company_member_permissions";
+export const REVOKE_INVITATION_RPC = "revoke_company_invitation";
 
 export type CompanyStatus = "ACTIVE" | "SUSPENDED" | "ARCHIVED" | (string & {});
 export type MembershipStatus = "ACTIVE" | "SUSPENDED" | "REVOKED" | (string & {});
 export type InvitationStatus = "PENDING" | "ACCEPTED" | "REVOKED" | "EXPIRED" | (string & {});
+export type InvitationDeliveryStatus = "CREATED" | "SENT" | "FAILED" | (string & {});
+export type PermissionOverrideEffect = "GRANT" | "DENY";
 
 export interface CompanySummary {
   id: string;
@@ -39,6 +45,25 @@ export interface CompanyMemberSummary {
   status: MembershipStatus;
   joinedAt?: string;
   updatedAt?: string;
+  rolePermissions: PermissionKey[];
+  effectivePermissions: PermissionKey[];
+  permissionOverrides: CompanyMemberPermissionOverride[];
+}
+
+export interface CompanyMemberPermissionOverride {
+  id?: string;
+  companyId?: string;
+  membershipId?: string;
+  permissionKey: PermissionKey;
+  effect: PermissionOverrideEffect;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CompanyPermissionCatalogEntry {
+  permissionKey: PermissionKey;
+  description?: string;
+  memberAssignable: boolean;
 }
 
 export interface CompanyInvitationSummary {
@@ -47,8 +72,12 @@ export interface CompanyInvitationSummary {
   email?: string;
   roleKey?: string;
   status: InvitationStatus;
+  deliveryStatus?: InvitationDeliveryStatus;
+  deliveryError?: string;
+  sentAt?: string;
   createdAt?: string;
   expiresAt?: string;
+  updatedAt?: string;
 }
 
 export interface CompanyMembership {
@@ -58,6 +87,8 @@ export interface CompanyMembership {
   roleKey?: string;
   status: MembershipStatus;
   permissions: PermissionKey[];
+  rolePermissions?: PermissionKey[];
+  permissionOverrides?: CompanyMemberPermissionOverride[];
   joinedAt?: string;
   updatedAt?: string;
 }
@@ -88,6 +119,7 @@ export interface InviteCompanyMemberInput {
   email: string;
   roleKey: string;
   expiresAt?: string;
+  permissionOverrides?: CompanyMemberPermissionOverride[];
 }
 
 export interface UpdateCompanyMemberInput {
@@ -96,6 +128,12 @@ export interface UpdateCompanyMemberInput {
   membershipId?: string;
   roleKey?: string;
   status?: MembershipStatus;
+}
+
+export interface UpdateCompanyMemberPermissionsInput {
+  companyId: string;
+  membershipId: string;
+  overrides: Array<Pick<CompanyMemberPermissionOverride, "permissionKey" | "effect">>;
 }
 
 export interface CompanyAccessAuditEntry {
@@ -157,6 +195,7 @@ function membershipFromRecord(value: unknown, permissionsByCompany: Record<strin
   const permissions = firstPresent(row, "permissions", "permission_keys", "permissionKeys", "role_permissions")
     ?? permissionsByCompany[companyId]
     ?? [];
+  const rolePermissions = normalizePermissionKeys(firstPresent(row, "role_permissions", "rolePermissions"));
   return {
     id: text(firstPresent(row, "id", "membership_id", "membershipId")),
     companyId,
@@ -164,9 +203,31 @@ function membershipFromRecord(value: unknown, permissionsByCompany: Record<strin
     roleKey: text(firstPresent(row, "role_key", "roleKey", "role")),
     status: (text(firstPresent(row, "status", "membership_status", "membershipStatus")) || "ACTIVE").toUpperCase() as MembershipStatus,
     permissions: normalizePermissionKeys(permissions),
+    rolePermissions: rolePermissions.length ? rolePermissions : normalizePermissionKeys(firstPresent(row, "permissions", "permission_keys", "permissionKeys")),
+    permissionOverrides: permissionOverridesFromRecord(firstPresent(row, "permission_overrides", "permissionOverrides")),
     joinedAt: text(firstPresent(row, "joined_at", "joinedAt", "created_at", "createdAt")),
     updatedAt: text(firstPresent(row, "updated_at", "updatedAt")),
   };
+}
+
+function permissionOverrideFromRecord(value: unknown): CompanyMemberPermissionOverride | null {
+  const row = record(value);
+  const permissionKey = text(firstPresent(row, "permission_key", "permissionKey"));
+  const effect = text(firstPresent(row, "effect"))?.toUpperCase();
+  if (!permissionKey || (effect !== "GRANT" && effect !== "DENY")) return null;
+  return {
+    id: text(firstPresent(row, "id")),
+    companyId: text(firstPresent(row, "company_id", "companyId")),
+    membershipId: text(firstPresent(row, "membership_id", "membershipId")),
+    permissionKey: permissionKey.toLowerCase() as PermissionKey,
+    effect,
+    createdAt: text(firstPresent(row, "created_at", "createdAt")),
+    updatedAt: text(firstPresent(row, "updated_at", "updatedAt")),
+  };
+}
+
+function permissionOverridesFromRecord(value: unknown): CompanyMemberPermissionOverride[] {
+  return array(value).map(permissionOverrideFromRecord).filter((item): item is CompanyMemberPermissionOverride => Boolean(item));
 }
 
 function unwrapRpcPayload(value: unknown): Record<string, any> {
@@ -311,6 +372,9 @@ function memberFromRecord(value: unknown): CompanyMemberSummary {
     status: (text(firstPresent(row, "status", "membership_status", "membershipStatus")) || "ACTIVE").toUpperCase() as MembershipStatus,
     joinedAt: text(firstPresent(row, "joined_at", "joinedAt", "created_at", "createdAt")),
     updatedAt: text(firstPresent(row, "updated_at", "updatedAt")),
+    rolePermissions: normalizePermissionKeys(firstPresent(row, "role_permissions", "rolePermissions")),
+    effectivePermissions: normalizePermissionKeys(firstPresent(row, "effective_permissions", "effectivePermissions", "permissions")),
+    permissionOverrides: permissionOverridesFromRecord(firstPresent(row, "permission_overrides", "permissionOverrides")),
   };
 }
 
@@ -322,8 +386,12 @@ function invitationFromRecord(value: unknown): CompanyInvitationSummary {
     email: text(firstPresent(row, "normalized_email", "email")),
     roleKey: text(firstPresent(row, "role_key", "roleKey")),
     status: (text(firstPresent(row, "status", "invitation_status", "invitationStatus")) || "PENDING").toUpperCase() as InvitationStatus,
+    deliveryStatus: (text(firstPresent(row, "delivery_status", "deliveryStatus")) || "CREATED").toUpperCase() as InvitationDeliveryStatus,
+    deliveryError: text(firstPresent(row, "delivery_error", "deliveryError")),
+    sentAt: text(firstPresent(row, "sent_at", "sentAt")),
     createdAt: text(firstPresent(row, "created_at", "createdAt")),
     expiresAt: text(firstPresent(row, "expires_at", "expiresAt")),
+    updatedAt: text(firstPresent(row, "updated_at", "updatedAt")),
   };
 }
 
@@ -356,6 +424,26 @@ export async function updateCompany(companyId: string, patch: Partial<Pick<Compa
 }
 
 export async function inviteCompanyMember(input: InviteCompanyMemberInput, client: SupabaseClient | null = supabase) {
+  if (client === supabase) {
+    const response = await companyApiRequest("/api/company/invitations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: input.email,
+        roleKey: input.roleKey,
+        expiresAt: input.expiresAt,
+        permissionOverrides: input.permissionOverrides?.map((override) => ({ permission_key: override.permissionKey, effect: override.effect })),
+      }),
+      companyId: input.companyId,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) throw new Error(payload?.error || "The invitation email could not be sent.");
+    return payload?.invitation || payload;
+  }
+
+  // Test/compatibility clients may still exercise the RPC adapter directly;
+  // production callers use the trusted server path above, and the migration
+  // revokes this direct browser execution path.
   const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_INVITE_MEMBER_RPC, {
     p_company_id: input.companyId,
     p_email: input.email.trim().toLowerCase(),
@@ -378,6 +466,27 @@ export async function updateCompanyMember(input: UpdateCompanyMemberInput, clien
   return unwrapRpcPayload(data);
 }
 
+export async function updateCompanyMemberPermissions(input: UpdateCompanyMemberPermissionsInput, client: SupabaseClient | null = supabase) {
+  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_UPDATE_MEMBER_PERMISSIONS_RPC, {
+    p_company_id: input.companyId,
+    p_membership_id: input.membershipId,
+    p_overrides: input.overrides.map((override) => ({ permission_key: override.permissionKey, effect: override.effect })),
+  });
+  if (error) throw error;
+  return unwrapRpcPayload(data);
+}
+
+export async function revokeCompanyInvitation(invitationId: string, companyId: string, client: SupabaseClient | null = supabase) {
+  const deploymentCompanyId = companyId.trim();
+  if (!deploymentCompanyId) throw new Error("The deployment company is required to revoke an invitation.");
+  const { data, error } = await requireSupabaseClient(client).rpc(REVOKE_INVITATION_RPC, { p_invitation_id: invitationId });
+  if (error) throw error;
+  const invitation = unwrapRpcPayload(data);
+  const returnedCompanyId = text(firstPresent(invitation, "company_id", "companyId"));
+  if (returnedCompanyId && returnedCompanyId !== deploymentCompanyId) throw new Error("The invitation is outside this Engoryx deployment.");
+  return invitation;
+}
+
 export async function loadCompanyMembers(companyId: string, client: SupabaseClient | null = supabase): Promise<CompanyMemberSummary[]> {
   const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_MEMBER_DIRECTORY_RPC, { p_company_id: companyId });
   if (error) throw error;
@@ -388,6 +497,19 @@ export async function loadCompanyInvitations(companyId: string, client: Supabase
   const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_INVITATIONS_RPC, { p_company_id: companyId });
   if (error) throw error;
   return unwrapRows<unknown>(data).map(invitationFromRecord).filter((invitation) => invitation.companyId === companyId || !invitation.companyId);
+}
+
+export async function loadCompanyPermissionCatalog(companyId: string, client: SupabaseClient | null = supabase): Promise<CompanyPermissionCatalogEntry[]> {
+  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_PERMISSION_CATALOG_RPC, { p_company_id: companyId });
+  if (error) throw error;
+  return unwrapRows<unknown>(data).map((value) => {
+    const row = record(value);
+    return {
+      permissionKey: (text(firstPresent(row, "permission_key", "permissionKey")) || "").toLowerCase() as PermissionKey,
+      description: text(firstPresent(row, "description")),
+      memberAssignable: firstPresent(row, "member_assignable", "memberAssignable") !== false,
+    } satisfies CompanyPermissionCatalogEntry;
+  }).filter((entry) => Boolean(entry.permissionKey));
 }
 
 export async function loadCompanyAccessAudit(companyId: string | undefined, client: SupabaseClient | null = supabase): Promise<CompanyAccessAuditEntry[]> {

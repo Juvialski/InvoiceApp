@@ -208,6 +208,39 @@ export function permissionDisplayName(permission: PermissionKey | null | undefin
   return labels[permission || ""] || "this area";
 }
 
+export function permissionGroupKey(permission: PermissionKey | null | undefined) {
+  const value = typeof permission === "string" ? permission.trim().toLowerCase() : "";
+  return value.split(".")[0] || "other";
+}
+
+export function permissionGroupDisplayName(permission: PermissionKey | null | undefined) {
+  const labels: Record<string, string> = {
+    dashboard: "Dashboard",
+    cash: "Cash & Banking",
+    company: "Company administration",
+    engineering: "Engineering",
+    expenses: "Expenses",
+    gmail: "Gmail",
+    invoices: "Invoices",
+    payroll: "Payroll",
+    projects: "Projects",
+    reports: "Reports",
+    vendors: "Vendors",
+    workers: "Workforce",
+  };
+  const group = permissionGroupKey(permission);
+  return labels[group] || group[0]?.toUpperCase() + group.slice(1) || "Other";
+}
+
+/** Presentation-only risk cue; database permission checks remain authoritative. */
+export function isSensitivePermission(permission: PermissionKey | null | undefined) {
+  const value = typeof permission === "string" ? permission.toLowerCase() : "";
+  return /(^|\.)(approve|manage|verify|import|reconcile|settings|extract|connections)(\.|$)/.test(value)
+    || value.endsWith(".detail.read")
+    || value === "company.members.manage"
+    || value === "company.settings.manage";
+}
+
 export function roleDisplayName(roleKey: string | null | undefined): string {
   const normalized = (roleKey || "").trim().toUpperCase();
   const labels: Record<string, string> = {

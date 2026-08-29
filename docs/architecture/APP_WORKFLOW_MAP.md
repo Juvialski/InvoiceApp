@@ -21,12 +21,12 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Graph version | `wm-1` |
 | Product | Engoryx Engineering Operations Platform |
 | Source classification | `mixed` |
-| Reviewed against | `b88584f147b85d0b8154a4c104859a0e035bed82` |
-| Reviewed at | `2026-08-28` |
-| Node count | 184 |
-| Edge count | 214 |
+| Reviewed against | `5900a9dffa3e0e5d99a2d076318f2dbaa7f7bce4` |
+| Reviewed at | `2026-08-29` |
+| Node count | 188 |
+| Edge count | 220 |
 | Invariant count | 12 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Cross-Domain Settlement`, `QA-1`, `WM-1` |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Cross-Domain Settlement`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -74,6 +74,10 @@ flowchart LR
     n_demo_mode{"Isolated demo mode<br/><small>WORKFLOW</small>"}
     n_company_context[("Deployment company context<br/><small>DATA</small>")]
     n_company_rbac{{"Company RBAC and RLS guard<br/><small>GUARD</small>"}}
+    n_company_profile_settings["Deployment company profile<br/><small>SCREEN</small>"]
+    n_company_access_management["Company access management<br/><small>SCREEN</small>"]
+    n_company_invitation_delivery[["Trusted invitation delivery<br/><small>EXTERNAL-BOUNDARY · CREATED → SENT → FAILED → ACCEPTED → REVOKED → EXPIRED</small>"]]
+    n_company_member_permission_editor{{"Member permission overrides<br/><small>GUARD</small>"}}
     n_production_persistence_boundary[["Production persistence boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_demo_isolation{{"Demo isolation guard<br/><small>GUARD</small>"}}
   end
@@ -115,6 +119,8 @@ flowchart LR
   n_company_rbac -->|RLS/RPC authority| n_production_persistence_boundary
   n_demo_mode -->|local/session boundary| n_demo_isolation
   n_demo_isolation -->|no production writes| n_production_persistence_boundary
+  n_company_access_management -->|trusted invitation email| n_company_invitation_delivery
+  n_company_access_management -->|effective overrides| n_company_member_permission_editor
   n_invoice_project_allocation -->|verified supplier cost| n_project_cost_aggregation
   n_invoice_project_allocation -->|verified invoice cost| n_invoice_project_cost_contribution
   n_invoice_project_cost_contribution -->|project cost contribution| n_project_cost_aggregation
@@ -139,6 +145,10 @@ flowchart LR
   class n_demo_mode platformTenancy
   class n_company_context platformTenancy
   class n_company_rbac platformTenancy
+  class n_company_profile_settings platformTenancy
+  class n_company_access_management platformTenancy
+  class n_company_invitation_delivery platformTenancy
+  class n_company_member_permission_editor platformTenancy
   class n_production_persistence_boundary platformTenancy
   class n_demo_isolation platformTenancy
   class n_route_cash finance
@@ -666,7 +676,7 @@ These invariants are intentionally explicit because generic import graphs cannot
 
 | Invariant | Meaning | Source files | Tests |
 | --- | --- | --- | --- |
-| **Company and RBAC isolation is authoritative**<br/><small>`company-rbac-is-authoritative`</small> | Business records are scoped by company membership and permission; client visibility is not a substitute for PostgreSQL RLS/RPC authorization. | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/utils/accessControl.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts`<br/>`tests/companyTenancyMigration.test.ts` |
+| **Company and RBAC isolation is authoritative**<br/><small>`company-rbac-is-authoritative`</small> | Business records are scoped by company membership and permission; client visibility is not a substitute for PostgreSQL RLS/RPC authorization. | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/utils/accessControl.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql`<br/>`src/server/access/invitationDelivery.ts` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts`<br/>`tests/companyTenancyMigration.test.ts` |
 | **Demo mode is isolated from production writes**<br/><small>`demo-cannot-write-production`</small> | The public /demo runtime uses deterministic local/session state and cannot become a production company or Supabase write path. | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspaceProvider.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` |
 | **Verified invoice project cost is independent from cash settlement**<br/><small>`invoice-project-cost-independent-from-settlement`</small> | Verified invoice allocations are a project-cost source. Cash settlement is payment evidence and must not create or duplicate project cost. | `src/utils/projectCosting.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`supabase/migrations/20260827210000_financial_settlement_integration.sql`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/projectCostingHardening.test.ts` |
 | **Project labor cost is independent from employee net-pay settlement**<br/><small>`payroll-labor-cost-independent-from-net-pay-settlement`</small> | Approved or paid payroll allocations provide project labor cost, while settlement eligibility and basis use employee net pay. | `src/lib/payrollCalculation.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/utils/projectCosting.ts`<br/>`docs/payroll-workforce-hardening.md`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/payrollIntegrity.test.ts`<br/>`tests/payrollCalculation.test.ts` |
@@ -715,13 +725,17 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Isolated demo mode**<br/><small>`demo-mode`</small> | `workflow` | `demo-only`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspace.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |
 | **Workspace shell and router**<br/><small>`platform-shell`</small> | `screen` | `company`<br/>— | — | — | `code-derived` | `src/app/AppShell.tsx`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/navigation/navigationModel.ts` | `tests/headerNavigation.test.ts`<br/>`tests/navigationRoutes.test.ts` | — |
 | **Deployment company context**<br/><small>`company-context`</small> | `data` | `company`<br/>— | — | — | `code-derived` | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/lib/companyContext.ts` | `tests/companyAccess.test.ts`<br/>`tests/singleCompanyDeployment.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
-| **User membership and role permissions**<br/><small>`company-membership`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/companyAccess.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql` | `tests/companyTenancyRpcContract.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts` | — |
-| **Company RBAC and RLS guard**<br/><small>`company-rbac`</small> | `guard` | `company`<br/>— | — | `dashboard.read`<br/>`projects.read`<br/>`cash.summary.read`<br/>`invoices.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/utils/accessControl.ts`<br/>`src/lib/companyAccess.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyMigration.test.ts`<br/>`tests/serverAuthorization.test.ts` | — |
+| **User membership and role permissions**<br/><small>`company-membership`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/companyAccess.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql` | `tests/companyTenancyRpcContract.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts`<br/>`tests/coreHardeningWave1.test.ts` | — |
+| **Company RBAC and RLS guard**<br/><small>`company-rbac`</small> | `guard` | `company`<br/>— | — | `dashboard.read`<br/>`projects.read`<br/>`cash.summary.read`<br/>`invoices.read`<br/>`payroll.summary.read`<br/>`reports.financial.read`<br/>`company.members.read`<br/>`company.members.manage`<br/>`company.settings.manage` | `mixed` | `src/utils/accessControl.ts`<br/>`src/lib/companyAccess.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyMigration.test.ts`<br/>`tests/serverAuthorization.test.ts`<br/>`tests/coreHardeningWave1.test.ts` | — |
+| **Deployment company profile**<br/><small>`company-profile-settings`</small> | `screen` | `company`<br/>— | — | `company.settings.read`<br/>`company.settings.manage` | `mixed` | `src/components/access/CompanyProfileSettings.tsx`<br/>`src/components/Settings.tsx`<br/>`src/lib/companyAccess.ts`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql` | `tests/companyRename.test.ts`<br/>`tests/coreHardeningWave1.test.ts` | — |
+| **Company access management**<br/><small>`company-access-management`</small> | `screen` | `company`<br/>— | — | `company.members.read`<br/>`company.members.manage` | `mixed` | `src/components/access/DeploymentAccessManagement.tsx`<br/>`src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts` | `tests/singleCompanyDeployment.test.ts`<br/>`tests/coreHardeningWave1.test.ts` | — |
+| **Trusted invitation delivery**<br/><small>`company-invitation-delivery`</small> | `external-boundary` | `company`<br/>— | `CREATED` → `SENT` → `FAILED` → `ACCEPTED` → `REVOKED` → `EXPIRED` | `company.members.manage` | `mixed` | `server.ts`<br/>`src/server/access/invitationDelivery.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql` | `tests/coreHardeningWave1.test.ts` | — |
+| **Member permission overrides**<br/><small>`company-member-permission-editor`</small> | `guard` | `company`<br/>— | — | `company.members.manage` | `mixed` | `src/components/access/DeploymentAccessManagement.tsx`<br/>`src/utils/accessControl.ts`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql` | `tests/coreHardeningWave1.test.ts`<br/>`tests/companyAccess.test.ts` | — |
 | **Production persistence boundary**<br/><small>`production-persistence-boundary`</small> | `external-boundary` | `company`<br/>— | — | — | `mixed` | `src/lib/supabase.ts`<br/>`src/lib/persistence.ts`<br/>`src/lib/workspaceSync.ts`<br/>`supabase/migrations/20260824095000_company_tenancy_storage_and_verification.sql` | `tests/companyTenancyFinalContract.test.ts`<br/>`tests/workspaceSyncRegression.test.ts` | — |
 | **Demo isolation guard**<br/><small>`demo-isolation`</small> | `guard` | `demo-only`<br/>— | — | — | `mixed` | `src/demo/DemoWorkspaceProvider.tsx`<br/>`src/demo/demoState.ts`<br/>`src/demo/demoRouting.ts`<br/>`src/demo/DemoWorkspace.tsx` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` | — |
 | **Workspace cache and Realtime synchronization**<br/><small>`workspace-sync`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/lib/workspaceSync.ts`<br/>`src/lib/workspaceLoadCache.ts`<br/>`src/lib/workspaceSyncInstrumentation.ts`<br/>`supabase/migrations/20260823180000_workspace_sync_realtime.sql` | `tests/workspaceSync.test.ts`<br/>`tests/workspaceSyncRegression.test.ts`<br/>`tests/workspaceLoadCache.test.ts` | — |
 | **Demo landing route**<br/><small>`route-demo-landing`</small> | `route` | `demo-only`<br/>demo-only<br/>`/demo` | — | — | `code-derived` | `src/demo/demoRouting.ts`<br/>`src/demo/DemoLandingPage.tsx` | `tests/demoWorkspace.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |
-| **Settings route**<br/><small>`route-settings`</small> | `route` | `company`<br/>`settings`<br/>`/settings` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/SettingsRoute.tsx`<br/>`src/components/Settings.tsx` | `tests/appRouting.test.ts` | — |
+| **Settings route**<br/><small>`route-settings`</small> | `route` | `company`<br/>`settings`<br/>`/settings` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/SettingsRoute.tsx`<br/>`src/components/Settings.tsx`<br/>`src/components/access/CompanyProfileSettings.tsx`<br/>`src/components/access/DeploymentAccessManagement.tsx` | `tests/appRouting.test.ts`<br/>`tests/coreHardeningWave1.test.ts` | — |
 
 ### Dashboard
 

@@ -2,24 +2,29 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Session } from "@supabase/supabase-js";
 import {
   activeCompanyMembership,
-  inviteCompanyMember as inviteCompanyMemberApi,
   loadCompanyAccess,
   loadCompanyAccessAudit as loadCompanyAccessAuditApi,
   loadCompanyInvitations as loadCompanyInvitationsApi,
   loadCompanyMembers as loadCompanyMembersApi,
+  loadCompanyPermissionCatalog as loadCompanyPermissionCatalogApi,
+  revokeCompanyInvitation as revokeCompanyInvitationApi,
   updateCompany as updateCompanyApi,
   updateCompanyMember as updateCompanyMemberApi,
+  updateCompanyMemberPermissions as updateCompanyMemberPermissionsApi,
   type CompanyAccessAuditEntry,
   type CompanyAccessSnapshot,
   type CompanyInvitationSummary,
   type CompanyMemberSummary,
   type CompanyMembership,
+  type CompanyPermissionCatalogEntry,
   type CompanySummary,
   type CreateCompanyInput,
   type InviteCompanyMemberInput,
   type MembershipStatus,
   type UpdateCompanyMemberInput,
+  type UpdateCompanyMemberPermissionsInput,
 } from "../lib/companyAccess.ts";
+import { companyApiRequest } from "../lib/companyApi.ts";
 import { clearCompanyContext, setDeploymentCompanyId } from "../lib/companyContext.ts";
 import { assertDeploymentCompanyId, loadDeploymentCompanyId, resolveDeploymentCompanyAccess } from "../lib/deploymentCompany.ts";
 import { isSupabaseConfigured, signOutWorkspace, supabase } from "../lib/supabase.ts";
@@ -47,9 +52,13 @@ export interface CompanyAccessContextValue {
   createCompany: (input: CreateCompanyInput) => Promise<CompanySummary>;
   updateCompany: (companyId: string, patch: Partial<Pick<CompanySummary, "name" | "companyCode" | "status" | "defaultCurrency" | "timezone">>) => Promise<CompanySummary>;
   inviteCompanyMember: (input: InviteCompanyMemberInput) => Promise<unknown>;
+  resendCompanyInvitation: (companyId: string, invitationId: string) => Promise<unknown>;
+  revokeCompanyInvitation: (companyId: string, invitationId: string) => Promise<unknown>;
   updateCompanyMember: (input: UpdateCompanyMemberInput) => Promise<unknown>;
+  updateCompanyMemberPermissions: (input: UpdateCompanyMemberPermissionsInput) => Promise<unknown>;
   loadCompanyMembers: (companyId: string) => Promise<CompanyMemberSummary[]>;
   loadCompanyInvitations: (companyId: string) => Promise<CompanyInvitationSummary[]>;
+  loadCompanyPermissionCatalog: (companyId: string) => Promise<CompanyPermissionCatalogEntry[]>;
   loadCompanyAccessAudit: (companyId?: string) => Promise<CompanyAccessAuditEntry[]>;
 }
 
@@ -189,14 +198,18 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase || !session?.user?.id) return undefined;
     const userId = session.user.id;
+    const companyId = access.activeCompanyId;
     const channel = supabase
       .channel(`invoice-access:${encodeURIComponent(userId)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "company_members", filter: `user_id=eq.${userId}` }, () => {
         void refreshAccess();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "company_member_permission_overrides", ...(companyId ? { filter: `company_id=eq.${companyId}` } : {}) }, () => {
+        void refreshAccess();
+      })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [refreshAccess, session?.user?.id]);
+  }, [access.activeCompanyId, refreshAccess, session?.user?.id]);
 
   const deploymentCompanyIdFor = useCallback((candidateCompanyId?: string | null, operation?: string) => {
     return assertDeploymentCompanyId(deploymentCompanyIdRef.current, candidateCompanyId, operation);
@@ -236,7 +249,36 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
 
   const inviteCompanyMember = useCallback(async (input: InviteCompanyMemberInput) => {
     const deploymentCompanyId = deploymentCompanyIdFor(input.companyId, "member invitation");
-    return inviteCompanyMemberApi({ ...input, companyId: deploymentCompanyId });
+    const response = await companyApiRequest("/api/company/invitations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: input.email,
+        roleKey: input.roleKey,
+        expiresAt: input.expiresAt,
+        permissionOverrides: input.permissionOverrides,
+      }),
+      companyId: deploymentCompanyId,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) throw new Error(payload?.error || "The invitation email could not be sent.");
+    return payload?.invitation || payload;
+  }, [deploymentCompanyIdFor]);
+
+  const resendCompanyInvitation = useCallback(async (companyId: string, invitationId: string) => {
+    const deploymentCompanyId = deploymentCompanyIdFor(companyId, "invitation resend");
+    const response = await companyApiRequest(`/api/company/invitations/${encodeURIComponent(invitationId)}/resend`, {
+      method: "POST",
+      companyId: deploymentCompanyId,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.success === false) throw new Error(payload?.error || "The invitation email could not be resent.");
+    return payload?.invitation || payload;
+  }, [deploymentCompanyIdFor]);
+
+  const revokeCompanyInvitation = useCallback(async (companyId: string, invitationId: string) => {
+    const deploymentCompanyId = deploymentCompanyIdFor(companyId, "invitation revocation");
+    return revokeCompanyInvitationApi(invitationId, deploymentCompanyId);
   }, [deploymentCompanyIdFor]);
 
   const updateCompanyMember = useCallback(async (input: UpdateCompanyMemberInput) => {
@@ -246,12 +288,24 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     return result;
   }, [deploymentCompanyIdFor, refreshAccess, session?.user?.id]);
 
+  const updateCompanyMemberPermissions = useCallback(async (input: UpdateCompanyMemberPermissionsInput) => {
+    const deploymentCompanyId = deploymentCompanyIdFor(input.companyId, "member permission update");
+    const result = await updateCompanyMemberPermissionsApi({ ...input, companyId: deploymentCompanyId });
+    const target = accessRef.current.memberships.find((membership) => membership.id === input.membershipId);
+    if (target?.userId && target.userId === session?.user?.id) await refreshAccess();
+    return result;
+  }, [deploymentCompanyIdFor, refreshAccess, session?.user?.id]);
+
   const loadCompanyMembers = useCallback(async (companyId: string) => {
     return loadCompanyMembersApi(deploymentCompanyIdFor(companyId, "member directory"));
   }, [deploymentCompanyIdFor]);
 
   const loadCompanyInvitations = useCallback(async (companyId: string) => {
     return loadCompanyInvitationsApi(deploymentCompanyIdFor(companyId, "invitation list"));
+  }, [deploymentCompanyIdFor]);
+
+  const loadCompanyPermissionCatalog = useCallback(async (companyId: string) => {
+    return loadCompanyPermissionCatalogApi(deploymentCompanyIdFor(companyId, "permission catalog"));
   }, [deploymentCompanyIdFor]);
 
   const loadCompanyAccessAudit = useCallback(async (companyId?: string) => {
@@ -281,12 +335,16 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
       createCompany,
       updateCompany,
       inviteCompanyMember,
+      resendCompanyInvitation,
+      revokeCompanyInvitation,
       updateCompanyMember,
+      updateCompanyMemberPermissions,
       loadCompanyMembers,
       loadCompanyInvitations,
+      loadCompanyPermissionCatalog,
       loadCompanyAccessAudit,
     };
-  }, [access, authResolved, createCompany, enterGuestMode, guestMode, inviteCompanyMember, isSwitching, loadCompanyAccessAudit, loadCompanyInvitations, loadCompanyMembers, refreshAccess, selectCompany, session, signOut, updateCompany, updateCompanyMember]);
+  }, [access, authResolved, createCompany, enterGuestMode, guestMode, inviteCompanyMember, isSwitching, loadCompanyAccessAudit, loadCompanyInvitations, loadCompanyMembers, loadCompanyPermissionCatalog, refreshAccess, resendCompanyInvitation, revokeCompanyInvitation, selectCompany, session, signOut, updateCompany, updateCompanyMember, updateCompanyMemberPermissions]);
 
   return <CompanyAccessContext.Provider value={value}>{children}</CompanyAccessContext.Provider>;
 }

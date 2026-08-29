@@ -1,5 +1,5 @@
-import { supabase } from "./supabase";
-import { BRAND } from "../config/brand";
+import { supabase } from "./supabase.ts";
+import { BRAND } from "../config/brand.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
 import { assertDeploymentCompanyId } from "./deploymentCompany.ts";
 
