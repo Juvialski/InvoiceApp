@@ -73,6 +73,7 @@ interface ProjectWorkspaceProps {
   onUploadInvoice: () => void;
   onEditProject: () => void;
   onArchiveProject: () => void;
+  onReactivateProject?: () => void;
   onAddExpense?: () => void;
   onOpenPayroll?: () => void;
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
@@ -138,6 +139,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onUploadInvoice,
   onEditProject,
   onArchiveProject,
+  onReactivateProject,
   onAddExpense,
   onOpenPayroll,
   onSaveInvoiceAllocations,
@@ -212,6 +214,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
             <StatusBadge tone={projectStatusTone(project.status)}>{project.status.replaceAll("_", " ")}</StatusBadge>
             {canManageProject && <Button variant="secondary" label="Edit" onClick={onEditProject} />}
             {canManageProject && project.status !== "ARCHIVED" && <Button variant="destructive" label="Archive" onClick={onArchiveProject} />}
+            {canManageProject && project.status === "ARCHIVED" && onReactivateProject && <Button variant="secondary" label="Reactivate" onClick={onReactivateProject} />}
           </>
         )}
       />

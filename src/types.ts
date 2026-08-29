@@ -407,6 +407,7 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   archivedAt?: string;
+  archivedFromStatus?: Exclude<ProjectStatus, "ARCHIVED">;
 }
 
 export interface InvoiceProjectAllocation {
