@@ -1,25 +1,63 @@
 import React, { useMemo, useState } from "react";
 import { ChevronRight, FileStack, History, Image, ShieldCheck, X } from "lucide-react";
 import type { EngineeringDocument } from "../lib/engineeringDocuments.ts";
+import { buildLocalEngineeringDocumentLifecyclePreview, type EngineeringLifecycleAction, type EngineeringLifecyclePreview } from "../lib/engineeringLifecycle.ts";
 import { useDemoWorkspace } from "./DemoWorkspaceProvider.tsx";
+import { EngineeringLifecycleDialog } from "../components/engineering/EngineeringLifecycleDialog.tsx";
 
 function statusClass(status: EngineeringDocument["status"]) {
   if (status === "APPROVED") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "UNDER_REVIEW") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (status === "SUPERSEDED") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (status === "ARCHIVED") return "border-slate-300 bg-slate-100 text-slate-600";
   return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 export function DemoEngineeringDocuments({ projectId }: { projectId?: string }) {
-  const { data } = useDemoWorkspace();
+  const { data, dispatch } = useDemoWorkspace();
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [showInactive, setShowInactive] = useState(false);
+  const [lifecyclePreview, setLifecyclePreview] = useState<EngineeringLifecyclePreview | null>(null);
   const project = projectId ? data.projects.find((item) => item.id === projectId) : undefined;
-  const documents = useMemo(() => data.engineering.documents.filter((document) => !projectId || document.projectId === projectId), [data.engineering.documents, projectId]);
+  const documents = useMemo(() => data.engineering.documents.filter((document) => (!projectId || document.projectId === projectId) && (showInactive || !["ARCHIVED", "SUPERSEDED"].includes(document.status))), [data.engineering.documents, projectId, showInactive]);
   const previewableDocument = useMemo(() => documents.find((document) => Boolean(document.metadata?.demoAsset)), [documents]);
   const selected = documents.find((document) => document.id === selectedDocumentId) || previewableDocument || documents[0];
   const revisions = selected ? data.engineering.revisions.filter((revision) => revision.documentId === selected.id).sort((a, b) => a.createdAt.localeCompare(b.createdAt)) : [];
   const selectedProject = selected ? data.projects.find((item) => item.id === selected.projectId) : undefined;
   const asset = selected?.metadata?.demoAsset as string | undefined;
+
+  const openLifecycleReview = () => {
+    if (!selected) return;
+    setLifecyclePreview(buildLocalEngineeringDocumentLifecyclePreview({
+      documentId: selected.id,
+      status: selected.status,
+      projectId: selected.projectId,
+      revisions: data.engineering.revisions.filter((revision) => revision.documentId === selected.id).length,
+      annotations: data.engineering.annotations.filter((annotation) => annotation.documentId === selected.id).length,
+      rfiLinks: data.coordination.rfiDocumentLinks.filter((link) => link.documentId === selected.id).length,
+      submittalLinks: data.coordination.submittalDocumentLinks.filter((link) => link.documentId === selected.id).length,
+      source: "demo",
+    }));
+  };
+
+  const applyLifecycle = (action: EngineeringLifecycleAction, reason?: string) => {
+    if (!selected || (action !== "DELETE_UNUSED" && action !== "ARCHIVE" && action !== "SUPERSEDE")) return;
+    const preview = lifecyclePreview;
+    if (!preview) return;
+    const allowed = action === "DELETE_UNUSED" ? preview.canDelete : action === "ARCHIVE" ? preview.canArchive : preview.canSupersede;
+    if (!allowed) return;
+    if (action === "DELETE_UNUSED") {
+      dispatch({ type: "SAVE_ENGINEERING_DOCUMENTS", value: { documents: data.engineering.documents.filter((item) => item.id !== selected.id), revisions: data.engineering.revisions.filter((item) => item.documentId !== selected.id), annotations: data.engineering.annotations.filter((item) => item.documentId !== selected.id) } });
+      setSelectedDocumentId(null);
+    } else {
+      const updated: EngineeringDocument = action === "ARCHIVE"
+        ? { ...selected, status: "ARCHIVED", archivedAt: selected.archivedAt || data.anchorDate, lifecycleReason: reason || "Confirmed demo document archive" }
+        : { ...selected, status: "SUPERSEDED", supersededAt: selected.supersededAt || data.anchorDate, lifecycleReason: reason || "Confirmed demo document supersede" };
+      dispatch({ type: "SAVE_ENGINEERING_DOCUMENTS", value: { ...data.engineering, documents: data.engineering.documents.map((item) => item.id === updated.id ? updated : item) } });
+    }
+    setLifecyclePreview(null);
+  };
 
   return (
     <div className="space-y-5">
@@ -34,7 +72,7 @@ export function DemoEngineeringDocuments({ projectId }: { projectId?: string }) 
             )}
             <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-500">Fictional project drawings and document revisions are served from the isolated demo bundle. Production Storage URLs and signed asset paths are never requested here.</p>
           </div>
-          <span className="inline-flex items-center gap-1.5 self-start rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700"><ShieldCheck className="h-3.5 w-3.5" /> Sample assets only</span>
+          <div className="flex flex-wrap items-center gap-2 self-start"><label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600"><input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} /> Show inactive</label><span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700"><ShieldCheck className="h-3.5 w-3.5" /> Sample assets only</span></div>
         </div>
       </header>
 
@@ -67,6 +105,7 @@ export function DemoEngineeringDocuments({ projectId }: { projectId?: string }) 
                 <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{selected.documentNumber}</p><h2 className="mt-1 text-sm font-black text-slate-900">{selected.title}</h2><p className="mt-1 text-[10px] text-slate-500">{selectedProject?.projectName}</p></div>
               </div>
               <p className="mt-4 text-xs leading-5 text-slate-600">{selected.description}</p>
+              <button type="button" onClick={openLifecycleReview} className="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50">Review lifecycle</button>
               <div className="mt-5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500"><History className="h-3.5 w-3.5" /> Immutable revision history</div>
               <div className="mt-2 space-y-2">
                 {revisions.map((revision) => (
@@ -91,6 +130,7 @@ export function DemoEngineeringDocuments({ projectId }: { projectId?: string }) 
           </div>
         </div>
       )}
+      {lifecyclePreview && selected && <EngineeringLifecycleDialog entityLabel="engineering document" recordLabel={`${selected.documentNumber} · ${selected.title}`} preview={lifecyclePreview} actions={[{ action: "DELETE_UNUSED", label: "Delete unused", description: "Permanently remove only an untouched demo draft shell with no historical dependencies.", tone: "danger" }, { action: "ARCHIVE", label: "Archive", description: "Keep all fictional revisions and source metadata while removing this document from the normal active list.", requiresReason: true, tone: "warning" }, { action: "SUPERSEDE", label: "Supersede", description: "Mark this fictional document as replaced without deleting its revision history.", requiresReason: true, tone: "primary" }]} onClose={() => setLifecyclePreview(null)} onApply={applyLifecycle} />}
     </div>
   );
 }

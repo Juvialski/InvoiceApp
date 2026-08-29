@@ -113,7 +113,8 @@ test("daily Site Log fixtures cover field conditions and stay project-scoped", (
   assert.ok(data.siteLogs.equipment.some((equipment) => (equipment.idleHours || 0) > 0));
   assert.ok(data.siteLogs.safety.length > 0);
   for (const log of data.siteLogs.logs) assert.ok(projectIds.has(log.projectId));
-  for (const row of [...data.siteLogs.weather, ...data.siteLogs.crew, ...data.siteLogs.equipment, ...data.siteLogs.safety, ...data.siteLogs.events]) assert.ok(logIds.has(row.siteLogId));
+  for (const row of [...data.siteLogs.weather, ...data.siteLogs.crew, ...data.siteLogs.equipment, ...data.siteLogs.safety, ...data.siteLogs.events, ...data.siteLogs.addenda]) assert.ok(logIds.has(row.siteLogId));
+  assert.deepEqual(data.siteLogs.addenda, []);
 });
 
 test("reset restores pristine deterministic demo data", () => {

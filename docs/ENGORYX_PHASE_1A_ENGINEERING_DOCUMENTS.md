@@ -24,7 +24,7 @@ Guest/browser-only mode is deliberately separate. It may use local storage and e
 
 ## Database and Storage invariants
 
-The foundation migration is `supabase/migrations/20260826130000_engineering_documents_foundation.sql`. The additive hardening migrations are `supabase/migrations/20260826140000_engineering_documents_hardening.sql`, `supabase/migrations/20260826234440_engineering_documents_annotation_immutability.sql`, `supabase/migrations/20260826235525_engineering_documents_source_validation.sql`, and `supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql`.
+The foundation migration is `supabase/migrations/20260826130000_engineering_documents_foundation.sql`. The additive hardening migrations are `supabase/migrations/20260826140000_engineering_documents_hardening.sql`, `supabase/migrations/20260826234440_engineering_documents_annotation_immutability.sql`, `supabase/migrations/20260826235525_engineering_documents_source_validation.sql`, `supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql`, and `supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql`.
 
 - `engineering_documents.current_revision_id` must reference a revision belonging to the same company and document.
 - `engineering_document_revisions` is append-only after insertion. Normal authenticated users have no update or delete capability for revision rows.
@@ -32,6 +32,7 @@ The foundation migration is `supabase/migrations/20260826130000_engineering_docu
 - New revision sources must be PDFs with a normalized SHA-256 fingerprint.
 - The `engineering-documents` bucket remains private. Read access uses short-lived signed URLs; signed URLs are presentation-layer values and are never stored in the database.
 - Normal Storage update and delete policies for revision source objects are removed. Archiving a document does not delete its revisions or source files.
+- Only an untouched DRAFT shell with no revisions, annotations, coordination links, Storage objects, or meaningful lifecycle history can use `DELETE_UNUSED`. Used documents use the guarded `ARCHIVE` or `SUPERSEDE` action with a reason; neither action removes source files or revision lineage.
 - Annotations are revision-scoped. Application deletes are denied and UI deletes are represented as `status = DELETED` so redline history remains auditable.
 
 ## Viewer behavior
@@ -48,7 +49,7 @@ Drawing scale and sheet-size fields are source metadata only. No dimensional mea
 
 The project Documents tab shows only documents whose `projectId` equals the current project. Unassigned company documents are not silently presented as project-owned documents.
 
-The UI receives independent capabilities for read, create/upload, annotation update, and manage/archive actions. RLS and Storage policies remain the security boundary; the controls only reflect the same capability model for readers, creators, updaters, and managers.
+The UI receives independent capabilities for read, create/upload, annotation update, and lifecycle-management actions. The lifecycle review surface explains dependency blockers and requires confirmation/reason for archive or supersede. RLS, Storage policies, and the Wave 2C preflight/apply RPCs remain the security boundary; controls only reflect the same capability model for readers, creators, updaters, and managers.
 
 ## Lazy loading
 

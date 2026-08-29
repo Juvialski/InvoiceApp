@@ -31,13 +31,15 @@ The lifecycle is:
 
 `DRAFT -> SUBMITTED -> FINALIZED`
 
-An unfinalized record may be guarded as `VOID` with a required reason. Finalized records cannot be casually voided, deleted, or edited. Important lifecycle operations are recorded both in `engineering_daily_site_log_events` and `company_audit_events`:
+An untouched editable DRAFT with no observations, narrative content, or formal history may use guarded `DELETE_UNUSED`. An unfinalized record may be guarded as `VOID` with a required reason. Finalized records cannot be casually voided, deleted, or edited; a correction uses an append-only addendum. Important lifecycle operations are recorded both in `engineering_daily_site_log_events` and `company_audit_events`:
 
 - `ENGINEERING_DAILY_SITE_LOG_CREATED`
 - `ENGINEERING_DAILY_SITE_LOG_UPDATED`
 - `ENGINEERING_DAILY_SITE_LOG_SUBMITTED`
 - `ENGINEERING_DAILY_SITE_LOG_FINALIZED`
 - `ENGINEERING_DAILY_SITE_LOG_VOIDED`
+- `ENGINEERING_DAILY_SITE_LOG_DELETED_UNUSED`
+- `ENGINEERING_DAILY_SITE_LOG_ADDENDUM`
 
 Draft child rows are replaced atomically by the guarded draft-update operation. Submission validates the aggregate before changing status. Finalization revalidates the persisted aggregate and records the finalizing actor.
 
@@ -87,7 +89,7 @@ All six tables have RLS enabled and expose only authenticated read access throug
 - `finalize_engineering_daily_site_log`
 - `void_engineering_daily_site_log`
 
-The migration is additive and does not alter the applied Phase 1B migration.
+The migration is additive and does not alter the applied Phase 1B migration. Wave 2C adds `engineering_daily_site_log_addenda`, which is read-only to clients and written only through `create_engineering_daily_site_log_addendum`; the original finalized aggregate and observations remain unchanged.
 
 ## Assistant integration
 

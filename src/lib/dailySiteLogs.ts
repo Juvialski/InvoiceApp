@@ -119,6 +119,17 @@ export interface EngineeringDailySiteLogEvent {
   createdAt: string;
 }
 
+export interface EngineeringDailySiteLogAddendum {
+  id: string;
+  companyId?: string;
+  siteLogId: string;
+  addendumNumber: number;
+  reason: string;
+  correctionText: string;
+  createdByUserId?: string;
+  createdAt: string;
+}
+
 export interface EngineeringDailySiteLogAggregate {
   log: EngineeringDailySiteLog;
   weather?: EngineeringDailySiteLogWeather;
@@ -135,6 +146,7 @@ export interface EngineeringDailySiteLogsWorkspaceData {
   equipment: EngineeringDailySiteLogEquipment[];
   safety: EngineeringDailySiteLogSafety[];
   events: EngineeringDailySiteLogEvent[];
+  addenda: EngineeringDailySiteLogAddendum[];
 }
 
 export interface DailySiteLogWeatherInput {
@@ -250,7 +262,7 @@ export function canTransitionDailySiteLog(from: DailySiteLogStatus, to: DailySit
 }
 
 export function emptyDailySiteLogsWorkspaceData(): EngineeringDailySiteLogsWorkspaceData {
-  return { logs: [], weather: [], crew: [], equipment: [], safety: [], events: [] };
+  return { logs: [], weather: [], crew: [], equipment: [], safety: [], events: [], addenda: [] };
 }
 
 function normalizeWeather(input: DailySiteLogWeatherInput | undefined, siteLogId: string, companyId: string | undefined, timestamp: string): EngineeringDailySiteLogWeather {

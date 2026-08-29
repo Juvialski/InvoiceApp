@@ -267,6 +267,12 @@ async function rpc(context: AssistantToolContext, name: string, args: Record<str
   return result.data as Record<string, unknown>;
 }
 
+async function lifecycleRpc(context: AssistantToolContext, name: string, args: Record<string, unknown>) {
+  const result = await (context.auth.supabase as any).rpc(name, args);
+  if (result.error) throw new AssistantBackendError("DOMAIN_WRITE_REJECTED", result.error.message || "The Daily Site Log lifecycle action was rejected.", 409);
+  return result.data as Record<string, unknown>;
+}
+
 function rpcAggregate(args: Record<string, unknown>) {
   const weather = args.weather as Record<string, unknown> | undefined;
   return {
@@ -291,7 +297,7 @@ export async function executePreparedDailySiteLogsAction(context: AssistantToolC
     case "prepare_update_site_log": return { log: await rpc(context, "update_engineering_daily_site_log_draft", rpcAggregate(args)) };
     case "prepare_submit_site_log": return { log: await rpc(context, "submit_engineering_daily_site_log", { p_daily_site_log_id: args.siteLogId }) };
     case "prepare_finalize_site_log": return { log: await rpc(context, "finalize_engineering_daily_site_log", { p_daily_site_log_id: args.siteLogId }) };
-    case "prepare_void_site_log": return { log: await rpc(context, "void_engineering_daily_site_log", { p_daily_site_log_id: args.siteLogId, p_reason: args.reason }) };
+    case "prepare_void_site_log": return { log: await lifecycleRpc(context, "apply_engineering_daily_site_log_lifecycle", { p_site_log_id: args.siteLogId, p_action: "VOID", p_reason: args.reason }) };
     default: throw new AssistantToolError("UNKNOWN_TOOL", "That prepared Site Log operation is no longer available.");
   }
 }

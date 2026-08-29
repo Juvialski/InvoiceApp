@@ -151,6 +151,10 @@ export interface EngineeringDocument {
   createdAt: string;
   updatedAt: string;
   archivedAt?: string;
+  lifecycleReason?: string;
+  lifecycleActorUserId?: string;
+  supersededAt?: string;
+  supersededByUserId?: string;
 }
 
 export interface EngineeringDocumentsWorkspaceData {

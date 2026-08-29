@@ -15,6 +15,12 @@ import {
   type SubmittalDecision,
 } from "./engineeringCoordination.ts";
 import type { DisciplineType } from "./engineeringDocuments.ts";
+import {
+  parseEngineeringLifecyclePreview,
+  parseEngineeringLifecycleResult,
+  type EngineeringLifecyclePreview,
+  type EngineeringLifecycleResult,
+} from "./engineeringLifecycle.ts";
 
 export const ENGINEERING_COORDINATION_STORAGE_KEY = "invoice_engineering_coordination_workspace_v1";
 type Row = Record<string, unknown>;
@@ -109,6 +115,13 @@ async function rpc(name: string, args: Record<string, unknown>, companyId?: stri
   return data;
 }
 
+async function lifecycleRpc(name: string, args: Record<string, unknown>, companyId?: string): Promise<unknown> {
+  await requireAuthenticatedCompany(companyId);
+  const { data, error } = await supabase!.rpc(name, args);
+  if (error) throw error;
+  return data;
+}
+
 export async function loadEngineeringCoordinationFromSupabase(companyId?: string, projectId?: string): Promise<EngineeringCoordinationWorkspaceData> {
   const resolvedCompanyId = await requireAuthenticatedCompany(companyId);
   const projectFilter = <T extends { eq: (column: string, value: string) => T }>(query: T) => projectId ? query.eq("project_id", projectId) : query;
@@ -170,6 +183,14 @@ export function respondRfiRpc(input: { rfiId: string; responseId: string; respon
 export function closeRfiRpc(rfiId: string, reason?: string, companyId?: string) { return rpc("close_engineering_rfi", { p_rfi_id: rfiId, p_reason: reason || null }, companyId); }
 export function voidRfiRpc(rfiId: string, reason: string, companyId?: string) { return rpc("void_engineering_rfi", { p_rfi_id: rfiId, p_reason: reason }, companyId); }
 
+export async function previewEngineeringRfiLifecycleInSupabase(rfiId: string, companyId?: string): Promise<EngineeringLifecyclePreview> {
+  return parseEngineeringLifecyclePreview(await lifecycleRpc("preview_engineering_rfi_lifecycle", { p_rfi_id: rfiId }, companyId), "RFI");
+}
+
+export async function applyEngineeringRfiLifecycleInSupabase(rfiId: string, action: "DELETE_UNUSED" | "VOID", reason?: string, companyId?: string): Promise<EngineeringLifecycleResult> {
+  return parseEngineeringLifecycleResult(await lifecycleRpc("apply_engineering_rfi_lifecycle", { p_rfi_id: rfiId, p_action: action, p_reason: reason || null }, companyId), "RFI");
+}
+
 export function createSubmittalRpc(input: { id: string; roundId: string; projectId: string; submittalNumber: string; title: string; discipline: DisciplineType; category: string; specificationReference?: string; dueReviewDate?: string; references?: RevisionReference[] }, companyId?: string) {
   return rpc("create_engineering_submittal", {
     p_submittal_id: input.id, p_round_id: input.roundId, p_project_id: input.projectId, p_submittal_number: input.submittalNumber, p_title: input.title,
@@ -187,3 +208,11 @@ export function resubmitSubmittalRpc(input: { submittalId: string; roundId: stri
 }
 export function closeSubmittalRpc(submittalId: string, reason?: string, companyId?: string) { return rpc("close_engineering_submittal", { p_submittal_id: submittalId, p_reason: reason || null }, companyId); }
 export function voidSubmittalRpc(submittalId: string, reason: string, companyId?: string) { return rpc("void_engineering_submittal", { p_submittal_id: submittalId, p_reason: reason }, companyId); }
+
+export async function previewEngineeringSubmittalLifecycleInSupabase(submittalId: string, companyId?: string): Promise<EngineeringLifecyclePreview> {
+  return parseEngineeringLifecyclePreview(await lifecycleRpc("preview_engineering_submittal_lifecycle", { p_submittal_id: submittalId }, companyId), "SUBMITTAL");
+}
+
+export async function applyEngineeringSubmittalLifecycleInSupabase(submittalId: string, action: "DELETE_UNUSED" | "VOID", reason?: string, companyId?: string): Promise<EngineeringLifecycleResult> {
+  return parseEngineeringLifecycleResult(await lifecycleRpc("apply_engineering_submittal_lifecycle", { p_submittal_id: submittalId, p_action: action, p_reason: reason || null }, companyId), "SUBMITTAL");
+}

@@ -1,0 +1,6 @@
+{
+  "id": "02_engineering_wave2c_upgrade",
+  "name": "Historical Engineering Records Pre-Wave 2C Upgrade Path",
+  "description": "Verifies that a pre-Wave2C superseded document and finalized Daily Site Log survive the additive lifecycle metadata, addendum table, and audit allowlist migration.",
+  "boundaryMigration": "20260827150000_engineering_daily_site_logs_phase1c.sql"
+}

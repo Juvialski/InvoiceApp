@@ -17,21 +17,24 @@ import {
   type SubmittalDecision,
 } from "../../lib/engineeringCoordination.ts";
 import { engineeringId, type DisciplineType } from "../../lib/engineeringDocuments.ts";
+import { buildLocalRfiLifecyclePreview, buildLocalSubmittalLifecyclePreview, type EngineeringLifecyclePreview, type EngineeringLifecycleResult } from "../../lib/engineeringLifecycle.ts";
 import {
+  applyEngineeringRfiLifecycleInSupabase,
+  applyEngineeringSubmittalLifecycleInSupabase,
   closeRfiRpc,
   closeSubmittalRpc,
   createRfiRpc,
   createSubmittalRpc,
   loadEngineeringCoordinationFromSupabase,
   openRfiRpc,
+  previewEngineeringRfiLifecycleInSupabase,
+  previewEngineeringSubmittalLifecycleInSupabase,
   readEngineeringCoordinationFromLocal,
   respondRfiRpc,
   resubmitSubmittalRpc,
   reviewSubmittalRpc,
   startSubmittalReviewRpc,
   submitSubmittalRpc,
-  voidRfiRpc,
-  voidSubmittalRpc,
   writeEngineeringCoordinationToLocal,
 } from "../../lib/engineeringCoordinationPersistence.ts";
 
@@ -46,7 +49,7 @@ export interface CreateSubmittalInput {
 
 function message(error: unknown, fallback: string) { return error instanceof Error && error.message.trim() ? error.message : fallback; }
 
-export function useEngineeringCoordinationController({ project, companyId, canRead, guestMode }: { project: Project; companyId?: string; canRead: boolean; guestMode: boolean }) {
+export function useEngineeringCoordinationController({ project, companyId, canRead, canManage = true, guestMode }: { project: Project; companyId?: string; canRead: boolean; canManage?: boolean; guestMode: boolean }) {
   const [data, setData] = useState<EngineeringCoordinationWorkspaceData>(() => readEngineeringCoordinationFromLocal());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -119,11 +122,47 @@ export function useEngineeringCoordinationController({ project, companyId, canRe
     persistLocal({ ...data, rfis: data.rfis.map((item) => item.id === rfi.id ? updated : item) });
   }, [companyId, data, guestMode, persistLocal, reload]);
 
-  const voidRfi = useCallback(async (rfi: EngineeringRfi, reason: string) => {
-    if (!guestMode) { await voidRfiRpc(rfi.id, reason, companyId); await reload(); return; }
+  const previewRfiLifecycle = useCallback(async (rfi: EngineeringRfi): Promise<EngineeringLifecyclePreview> => {
+    if (guestMode) {
+      return buildLocalRfiLifecyclePreview({
+        rfiId: rfi.id,
+        status: rfi.status,
+        projectId: rfi.projectId,
+        responses: data.rfiResponses.filter((item) => item.rfiId === rfi.id).length,
+        documentLinks: data.rfiDocumentLinks.filter((item) => item.rfiId === rfi.id).length,
+        source: "demo",
+      });
+    }
+    return previewEngineeringRfiLifecycleInSupabase(rfi.id, companyId);
+  }, [companyId, data.rfiDocumentLinks, data.rfiResponses, guestMode]);
+
+  const applyRfiLifecycle = useCallback(async (rfi: EngineeringRfi, action: "DELETE_UNUSED" | "VOID", reason?: string): Promise<EngineeringLifecycleResult> => {
+    if (!canManage) throw new Error("You do not have permission to manage RFI lifecycle state in this company.");
+    if (!guestMode) {
+      const result = await applyEngineeringRfiLifecycleInSupabase(rfi.id, action, reason, companyId);
+      await reload();
+      return result;
+    }
+    const preview = await previewRfiLifecycle(rfi);
+    const allowed = action === "DELETE_UNUSED" ? preview.canDelete : preview.canVoid;
+    if (!allowed) throw new Error(preview.blockedReason || "This RFI lifecycle action is not available.");
+    if (action === "DELETE_UNUSED") {
+      persistLocal({
+        ...data,
+        rfis: data.rfis.filter((item) => item.id !== rfi.id),
+        rfiResponses: data.rfiResponses.filter((item) => item.rfiId !== rfi.id),
+        rfiDocumentLinks: data.rfiDocumentLinks.filter((item) => item.rfiId !== rfi.id),
+      });
+      return { entityType: "RFI", entityId: rfi.id, action, deleted: true, changed: true, preflight: preview };
+    }
     const updated = transitionRfi(rfi, "VOID", { reason });
     persistLocal({ ...data, rfis: data.rfis.map((item) => item.id === rfi.id ? updated : item) });
-  }, [companyId, data, guestMode, persistLocal, reload]);
+    return { entityType: "RFI", entityId: rfi.id, action, deleted: false, changed: true, preflight: preview, record: updated as unknown as Record<string, unknown> };
+  }, [canManage, companyId, data, guestMode, persistLocal, previewRfiLifecycle, reload]);
+
+  const voidRfi = useCallback(async (rfi: EngineeringRfi, reason: string) => {
+    await applyRfiLifecycle(rfi, "VOID", reason);
+  }, [applyRfiLifecycle]);
 
   const createSubmittal = useCallback(async (input: CreateSubmittalInput) => {
     const created = createDraftSubmittal({ ...input, projectId: project.id, companyId });
@@ -171,6 +210,53 @@ export function useEngineeringCoordinationController({ project, companyId, canRe
     persistLocal({ ...data, submittals: data.submittals.map((item) => item.id === submittal.id ? result.submittal : item), submittalRounds: [...data.submittalRounds, result.round], submittalDocumentLinks: [...data.submittalDocumentLinks, ...links] });
   }, [companyId, data, guestMode, persistLocal, reload]);
 
+  const previewSubmittalLifecycle = useCallback(async (submittal: EngineeringSubmittal): Promise<EngineeringLifecyclePreview> => {
+    if (guestMode) {
+      const rounds = data.submittalRounds.filter((item) => item.submittalId === submittal.id);
+      return buildLocalSubmittalLifecyclePreview({
+        submittalId: submittal.id,
+        status: submittal.status,
+        projectId: submittal.projectId,
+        rounds: rounds.length,
+        reviews: data.submittalReviews.filter((item) => item.submittalId === submittal.id).length,
+        documentLinks: data.submittalDocumentLinks.filter((item) => item.submittalId === submittal.id).length,
+        additionalRounds: Math.max(0, rounds.length - 1),
+        currentRoundStatus: rounds.find((item) => item.roundNumber === submittal.currentRound)?.status,
+        source: "demo",
+      });
+    }
+    return previewEngineeringSubmittalLifecycleInSupabase(submittal.id, companyId);
+  }, [companyId, data.submittalDocumentLinks, data.submittalReviews, data.submittalRounds, guestMode]);
+
+  const applySubmittalLifecycle = useCallback(async (submittal: EngineeringSubmittal, action: "DELETE_UNUSED" | "VOID", reason?: string): Promise<EngineeringLifecycleResult> => {
+    if (!canManage) throw new Error("You do not have permission to manage technical submittal lifecycle state in this company.");
+    if (!guestMode) {
+      const result = await applyEngineeringSubmittalLifecycleInSupabase(submittal.id, action, reason, companyId);
+      await reload();
+      return result;
+    }
+    const preview = await previewSubmittalLifecycle(submittal);
+    const allowed = action === "DELETE_UNUSED" ? preview.canDelete : preview.canVoid;
+    if (!allowed) throw new Error(preview.blockedReason || "This submittal lifecycle action is not available.");
+    if (action === "DELETE_UNUSED") {
+      persistLocal({
+        ...data,
+        submittals: data.submittals.filter((item) => item.id !== submittal.id),
+        submittalRounds: data.submittalRounds.filter((item) => item.submittalId !== submittal.id),
+        submittalReviews: data.submittalReviews.filter((item) => item.submittalId !== submittal.id),
+        submittalDocumentLinks: data.submittalDocumentLinks.filter((item) => item.submittalId !== submittal.id),
+      });
+      return { entityType: "SUBMITTAL", entityId: submittal.id, action, deleted: true, changed: true, preflight: preview };
+    }
+    const updated = transitionSubmittal(submittal, "VOID", { reason });
+    persistLocal({
+      ...data,
+      submittals: data.submittals.map((item) => item.id === submittal.id ? updated : item),
+      submittalRounds: data.submittalRounds.map((item) => item.submittalId === submittal.id && ["DRAFT", "SUBMITTED", "UNDER_REVIEW"].includes(item.status) ? { ...item, status: "VOID", completedAt: item.completedAt || updated.updatedAt, updatedAt: updated.updatedAt } : item),
+    });
+    return { entityType: "SUBMITTAL", entityId: submittal.id, action, deleted: false, changed: true, preflight: preview, record: updated as unknown as Record<string, unknown> };
+  }, [canManage, companyId, data, guestMode, persistLocal, previewSubmittalLifecycle, reload]);
+
   const closeSubmittal = useCallback(async (submittal: EngineeringSubmittal, reason?: string) => {
     if (!guestMode) { await closeSubmittalRpc(submittal.id, reason, companyId); await reload(); return; }
     const updated = transitionSubmittal(submittal, "CLOSED", { reason });
@@ -178,10 +264,8 @@ export function useEngineeringCoordinationController({ project, companyId, canRe
   }, [companyId, data, guestMode, persistLocal, reload]);
 
   const voidSubmittal = useCallback(async (submittal: EngineeringSubmittal, reason: string) => {
-    if (!guestMode) { await voidSubmittalRpc(submittal.id, reason, companyId); await reload(); return; }
-    const updated = transitionSubmittal(submittal, "VOID", { reason });
-    persistLocal({ ...data, submittals: data.submittals.map((item) => item.id === submittal.id ? updated : item) });
-  }, [companyId, data, guestMode, persistLocal, reload]);
+    await applySubmittalLifecycle(submittal, "VOID", reason);
+  }, [applySubmittalLifecycle]);
 
-  return { data: projectData, isLoading, loadError, retryLoad: refresh, createRfi, openRfi, respondRfi, closeRfi, voidRfi, createSubmittal, submitSubmittal, startReview, reviewSubmittal, resubmitSubmittal, closeSubmittal, voidSubmittal };
+  return { data: projectData, isLoading, loadError, retryLoad: refresh, createRfi, openRfi, respondRfi, closeRfi, voidRfi, previewRfiLifecycle, applyRfiLifecycle, createSubmittal, submitSubmittal, startReview, reviewSubmittal, resubmitSubmittal, closeSubmittal, voidSubmittal, previewSubmittalLifecycle, applySubmittalLifecycle };
 }

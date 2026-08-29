@@ -224,10 +224,34 @@ authorizes mutation, with verified-invoice voids additionally requiring
 `invoices.verify`. UI and Assistant paths use the same lifecycle semantics and
 cannot bypass the database RPC boundary.
 
+### Wave 2C — Engineering correction and removal lifecycles (implemented in this change)
+
+The existing Engineering Documents, RFI, Technical Submittal, and Daily Site
+Log workflows now converge on the same guarded correction model. Each public
+lifecycle surface has a bounded read preflight and a company-derived,
+permission-checked mutation RPC that locks the target and rechecks the current
+state before changing or deleting it. Direct client deletes and lifecycle-field
+updates remain closed.
+
+| Engineering record state or evidence | Permitted lifecycle outcome | History rule |
+| --- | --- | --- |
+| Document is an untouched `DRAFT` shell with no revisions, annotations, RFI/Submittal links, Storage objects, or meaningful lifecycle history | `DELETE_UNUSED`, or `ARCHIVE` / `SUPERSEDE` after reason and confirmation | Only the unused shell may be removed; audit history remains append-only and no Storage object is deleted by the workflow. |
+| Document has a revision, annotation, coordination link, Storage object, or formal history | `ARCHIVE` or `SUPERSEDE` after reason and confirmation | Revision lineage, annotations, links, and source files remain valid historical references. |
+| RFI is an unused `DRAFT` with no response/link/history dependency | `DELETE_UNUSED` after confirmation | The guarded delete removes only the disposable draft; formal response history is never deleted. |
+| RFI is `OPEN` or `ANSWERED` | Append a response with `CORRECTION` / `NOTE`, or `VOID` with reason | Responses remain append-only; `CLOSED` and `VOID` RFIs remain preserved. |
+| Submittal is an unused `DRAFT` with only disposable Round 1 and no links/reviews | `DELETE_UNUSED` after confirmation | Submitted/reviewed rounds are never hard-deleted. |
+| Submittal is submitted, reviewed, or requires resubmission | `VOID` / withdraw with reason, or create a new resubmission round through the existing path | Earlier rounds, review decisions, and revision links remain immutable; terminal records are not silently reopened. |
+| Site Log is an editable `DRAFT` without formal submission/finalization/addendum history | Correct the draft or `DELETE_UNUSED` after confirmation | Draft observations may be removed with the disposable draft; submitted/finalized field history cannot be erased. |
+| Site Log is `SUBMITTED` | `FINALIZED` through the existing path, or `VOID` with reason | Submitted observations remain protected from ordinary content edits. |
+| Site Log is `FINALIZED` | Add an append-only correction/addendum with reason and correction text | Original weather, workforce, equipment, safety, delay, and narrative observations remain unchanged. |
+
+The addendum table is read-only to clients and writable only through its
+authenticated lifecycle RPC. Demo actions use the same state decisions against
+isolated deterministic fixtures and never call production Supabase or Storage.
+
 Deferred from this focused slice:
 
 - Wave 2B3 — cash, banking, and settlement correction semantics;
-- Wave 2C — engineering correction semantics beyond the narrow archived-project activity boundary;
 - Wave 3 — Assistant project lifecycle/action parity.
 
 Scheduling/Gantt/CPM remains frozen.

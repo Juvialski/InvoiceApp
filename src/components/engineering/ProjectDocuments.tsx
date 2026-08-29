@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   Clock,
   FileSpreadsheet,
-  AlertTriangle,
   X,
   ChevronDown,
   Download,
@@ -39,6 +38,8 @@ import {
 } from "../../lib/engineeringDocuments.ts";
 import type { Project } from "../../types";
 import { useEngineeringDocumentsController } from "../../features/engineering/useEngineeringDocumentsController.ts";
+import type { EngineeringLifecycleAction, EngineeringLifecyclePreview } from "../../lib/engineeringLifecycle.ts";
+import { EngineeringLifecycleDialog } from "./EngineeringLifecycleDialog.tsx";
 
 const BlueprintViewer = lazy(() => import("./BlueprintViewer").then((module) => ({ default: module.BlueprintViewer })));
 
@@ -116,7 +117,6 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     getDocAnnotations,
     createDocument,
     createRevision,
-    archiveDocument,
     saveAnnotations,
   } = engineeringDocuments;
 
@@ -135,7 +135,6 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   const [isNewDocModalOpen, setIsNewDocModalOpen] = useState<boolean>(false);
   const [isUploadRevModalOpen, setIsUploadRevModalOpen] = useState<boolean>(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
-  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState<boolean>(false);
   const [modalTargetDoc, setModalTargetDoc] = useState<EngineeringDocument | null>(null);
 
   // Form State: New Document
@@ -161,6 +160,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   const [revError, setRevError] = useState<string | null>(null);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [deepLinkError, setDeepLinkError] = useState<string | null>(null);
+  const [lifecyclePreview, setLifecyclePreview] = useState<EngineeringLifecyclePreview | null>(null);
+  const [lifecycleTargetDoc, setLifecycleTargetDoc] = useState<EngineeringDocument | null>(null);
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
 
   useEffect(() => {
     setActiveViewerDoc(null);
@@ -169,7 +171,8 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     setModalTargetDoc(null);
     setIsHistoryModalOpen(false);
     setIsUploadRevModalOpen(false);
-    setIsArchiveModalOpen(false);
+    setLifecyclePreview(null);
+    setLifecycleTargetDoc(null);
   }, [companyId, guestMode, project.id]);
 
   useEffect(() => {
@@ -199,7 +202,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   const projectDocs = useMemo(() => {
     let result = projectDocuments;
     if (!showArchived) {
-      result = result.filter((d) => d.status !== "ARCHIVED");
+      result = result.filter((d) => !["ARCHIVED", "SUPERSEDED"].includes(d.status));
     }
     if (selectedDiscipline !== "ALL") {
       result = result.filter((d) => d.discipline === selectedDiscipline);
@@ -289,8 +292,8 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       setRevError("A revision code is required.");
       return;
     }
-    if (modalTargetDoc.status === "ARCHIVED") {
-      setRevError("Archived engineering documents cannot receive new revisions.");
+    if (["ARCHIVED", "SUPERSEDED"].includes(modalTargetDoc.status)) {
+      setRevError("Archived or superseded engineering documents cannot receive new revisions.");
       return;
     }
     if (!guestMode && !revFile) {
@@ -326,18 +329,35 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     }
   };
 
-  // Handle Archive Document
-  const handleArchive = async () => {
-    if (!modalTargetDoc || !effectiveCanManage) return;
+  const openLifecycleReview = async (document: EngineeringDocument) => {
+    if (!effectiveCanManage) return;
+    setLifecycleTargetDoc(document);
+    setLifecycleBusy(true);
     setArchiveError(null);
     try {
-      await archiveDocument(modalTargetDoc);
-
-      setIsArchiveModalOpen(false);
-      setModalTargetDoc(null);
+      setLifecyclePreview(await engineeringDocuments.previewLifecycle(document));
     } catch (err) {
-      setArchiveError(errorMessage(err, "The document was not archived. Revision files remain unchanged; retry when the company service is available."));
+      setArchiveError(errorMessage(err, "The document lifecycle preview could not be loaded."));
+      setLifecycleTargetDoc(null);
+    } finally {
+      setLifecycleBusy(false);
     }
+  };
+
+  const applyLifecycleAction = (action: EngineeringLifecycleAction, reason?: string) => {
+    if (!lifecycleTargetDoc || (action !== "DELETE_UNUSED" && action !== "ARCHIVE" && action !== "SUPERSEDE")) return;
+    setLifecycleBusy(true);
+    setArchiveError(null);
+    void engineeringDocuments.applyLifecycle(lifecycleTargetDoc, action, reason).then((result) => {
+      setLifecyclePreview(null);
+      setLifecycleTargetDoc(null);
+      if (result.deleted && activeViewerDoc?.id === lifecycleTargetDoc.id) {
+        setActiveViewerDoc(null);
+        setActiveViewerRevId(undefined);
+      }
+    }).catch((err) => {
+      setArchiveError(errorMessage(err, "The document lifecycle action could not be completed."));
+    }).finally(() => setLifecycleBusy(false));
   };
 
   // Open Blueprint Viewer
@@ -382,6 +402,12 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
             <Archive className="h-3 w-3" /> Archived
           </span>
         );
+      case "SUPERSEDED":
+        return (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 border border-amber-200">
+            <Layers className="h-3 w-3" /> Superseded
+          </span>
+        );
       default:
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold text-slate-700 border border-slate-200">
@@ -402,11 +428,11 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
   return (
     <div className="space-y-6">
-      {(loadError || deepLinkError) && (
+      {(loadError || deepLinkError || archiveError) && (
         <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="font-black">Engineering documents could not be loaded.</p>
-            <p className="mt-1 break-words">{loadError || deepLinkError}</p>
+            <p className="font-black">{archiveError && !loadError && !deepLinkError ? "Engineering lifecycle action unavailable." : "Engineering documents could not be loaded."}</p>
+            <p className="mt-1 break-words">{loadError || deepLinkError || archiveError}</p>
           </div>
           <button type="button" onClick={retryLoad} className="shrink-0 rounded-lg border border-rose-300 bg-white px-3 py-2 text-[10px] font-black text-rose-800 hover:bg-rose-100">Retry load</button>
         </div>
@@ -521,7 +547,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                   onChange={(event) => setShowArchived(event.target.checked)}
                   className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                Show archived
+                Show inactive
               </label>
             </div>
         </div>
@@ -654,7 +680,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     <History className="h-3.5 w-3.5 text-slate-500" />
                   </button>
 
-                  {effectiveCanCreate && doc.status !== "ARCHIVED" && <button
+                  {effectiveCanCreate && !["ARCHIVED", "SUPERSEDED"].includes(doc.status) && <button
                         type="button"
                         onClick={() => {
                           setModalTargetDoc(doc);
@@ -666,14 +692,11 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                         <Upload className="h-3.5 w-3.5 text-slate-500" />
                       </button>}
 
-                  {effectiveCanManage && doc.status !== "ARCHIVED" && <button
+                  {effectiveCanManage && !["ARCHIVED", "SUPERSEDED"].includes(doc.status) && <button
                         type="button"
-                        onClick={() => {
-                          setModalTargetDoc(doc);
-                          setIsArchiveModalOpen(true);
-                        }}
+                        onClick={() => void openLifecycleReview(doc)}
                         className="px-3 py-1.5 hover:text-rose-600 hover:bg-white rounded-lg transition"
-                        title="Archive Document"
+                        title="Review lifecycle"
                       >
                         <Archive className="h-3.5 w-3.5 text-slate-400 hover:text-rose-600" />
                       </button>}
@@ -735,7 +758,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                       >
                         <History className="h-3.5 w-3.5" />
                       </button>
-                      {effectiveCanCreate && doc.status !== "ARCHIVED" && <button
+                      {effectiveCanCreate && !["ARCHIVED", "SUPERSEDED"].includes(doc.status) && <button
                             type="button"
                             onClick={() => {
                               setModalTargetDoc(doc);
@@ -746,14 +769,11 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                           >
                             <Upload className="h-3.5 w-3.5" />
                           </button>}
-                      {effectiveCanManage && doc.status !== "ARCHIVED" && <button
+                      {effectiveCanManage && !["ARCHIVED", "SUPERSEDED"].includes(doc.status) && <button
                             type="button"
-                            onClick={() => {
-                              setModalTargetDoc(doc);
-                              setIsArchiveModalOpen(true);
-                            }}
+                            onClick={() => void openLifecycleReview(doc)}
                             className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                            title="Archive"
+                            title="Review lifecycle"
                           >
                             <Archive className="h-3.5 w-3.5" />
                           </button>}
@@ -1093,44 +1113,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
         </div>
       )}
 
-      {/* 7. Modal: Archive Document Confirmation */}
-      {isArchiveModalOpen && modalTargetDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-amber-600">
-              <AlertTriangle className="h-6 w-6" />
-              <h3 className="text-base font-black text-slate-900">Archive Engineering Document</h3>
-            </div>
-
-              <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to archive{" "}
-              <strong className="font-bold text-slate-900">{modalTargetDoc.documentNumber}: {modalTargetDoc.title}</strong>?
-              Archived documents can still be viewed in historical records but will no longer appear in the active drawing set.
-              </p>
-
-              {archiveError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{archiveError}</div>}
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setIsArchiveModalOpen(false)}
-                className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleArchive}
-                className="rounded-xl bg-rose-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-500"
-              >
-                Confirm Archive
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 8. Fullscreen Blueprint Viewer Overlay */}
+      {/* 7. Fullscreen Blueprint Viewer Overlay */}
       {activeViewerDoc && (
         <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 p-3 sm:p-6 backdrop-blur-md">
           <div className="relative flex-1 rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
@@ -1152,6 +1135,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
           </div>
         </div>
       )}
+      {lifecyclePreview && lifecycleTargetDoc && <EngineeringLifecycleDialog entityLabel="engineering document" recordLabel={`${lifecycleTargetDoc.documentNumber} · ${lifecycleTargetDoc.title}`} preview={lifecyclePreview} actions={[{ action: "DELETE_UNUSED", label: "Delete unused", description: "Permanently remove only an untouched DRAFT document shell with no revisions, annotations, links, Storage objects, or meaningful history.", tone: "danger" }, { action: "ARCHIVE", label: "Archive", description: "Remove this document from normal active choices while preserving every revision, annotation, link, and source file.", requiresReason: true, tone: "warning" }, { action: "SUPERSEDE", label: "Supersede", description: "Mark this document as replaced historical material without deleting its immutable revision lineage.", requiresReason: true, tone: "primary" }]} busy={lifecycleBusy} error={archiveError} onClose={() => { setLifecyclePreview(null); setLifecycleTargetDoc(null); }} onApply={applyLifecycleAction} />}
     </div>
   );
 };

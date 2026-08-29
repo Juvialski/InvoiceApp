@@ -29,6 +29,7 @@ Important rules:
 - A final response operation records the response and transitions an OPEN RFI to ANSWERED atomically.
 - CLOSED and VOID are terminal states.
 - Due dates are tracked separately from lifecycle status so overdue open RFIs remain visible.
+- An untouched DRAFT with no responses, revision links, or meaningful lifecycle history may use guarded `DELETE_UNUSED`; an OPEN or ANSWERED RFI can receive an append-only `CORRECTION` or `NOTE` response. CLOSED and VOID history remains preserved.
 
 ## Technical Submittal model and lifecycle
 
@@ -54,6 +55,7 @@ Important rules:
 - `REVISE_AND_RESUBMIT` does not overwrite the rejected/revision-requested package. Resubmission creates a new round while retaining all prior round metadata, revision links, and review decisions.
 - `APPROVED_AS_NOTED` is distinct from `APPROVED`.
 - Formal round identity is immutable after submission.
+- An untouched DRAFT with only its disposable Round 1 may use guarded `DELETE_UNUSED`; submitted or reviewed records use VOID/withdrawal or the existing new-round resubmission path. Prior rounds, reviews, and revision links are never deleted.
 
 ## Immutable Engineering Documents linkage
 
@@ -69,6 +71,8 @@ This prevents coordination records from silently drifting when a newer revision 
 ## Database and write boundary
 
 Migration: `supabase/migrations/20260827140000_engineering_coordination_phase1b.sql`.
+
+Wave 2C adds the forward lifecycle migration `supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql` with bounded `preview_engineering_rfi_lifecycle`, `apply_engineering_rfi_lifecycle`, `preview_engineering_submittal_lifecycle`, and `apply_engineering_submittal_lifecycle` RPCs. The new paths derive the deployment company, enforce effective permissions, lock/recheck the target, and close direct client deletes.
 
 Lifecycle mutations are operation-specific RPCs rather than arbitrary client status updates. Examples include:
 

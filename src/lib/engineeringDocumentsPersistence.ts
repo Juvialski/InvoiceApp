@@ -14,6 +14,12 @@ import {
 import { getActiveCompanyId, requireActiveCompanyId } from "./companyContext.ts";
 import { safeStorageSegment } from "./fileSecurity.ts";
 import { supabase } from "./supabase.ts";
+import {
+  parseEngineeringLifecyclePreview,
+  parseEngineeringLifecycleResult,
+  type EngineeringLifecyclePreview,
+  type EngineeringLifecycleResult,
+} from "./engineeringLifecycle.ts";
 
 export const ENGINEERING_WORKSPACE_STORAGE_KEY = "invoice_engineering_documents_workspace_v1";
 export const ENGINEERING_DOCUMENTS_BUCKET = "engineering-documents";
@@ -185,6 +191,10 @@ export function documentFromRow(row: Row): EngineeringDocument {
     createdAt: String(row.created_at || new Date().toISOString()),
     updatedAt: String(row.updated_at || new Date().toISOString()),
     archivedAt: text(row.archived_at),
+    lifecycleReason: text(row.lifecycle_reason),
+    lifecycleActorUserId: text(row.lifecycle_actor_user_id),
+    supersededAt: text(row.superseded_at),
+    supersededByUserId: text(row.superseded_by_user_id),
   };
 }
 
@@ -331,25 +341,47 @@ export async function archiveEngineeringDocumentInSupabase(
   documentId: string,
   explicitCompanyId?: string
 ): Promise<EngineeringDocument> {
-  const userId = requireRemoteUser(await currentUserId());
-  const companyId = resolveCompanyId(explicitCompanyId);
+  const result = await applyEngineeringDocumentLifecycleInSupabase(
+    documentId,
+    "ARCHIVE",
+    "Confirmed engineering document archive",
+    explicitCompanyId,
+  );
+  if (!result.record) throw new Error("The document lifecycle action did not return the committed document.");
+  return result.record;
+}
 
-  const now = new Date().toISOString();
-  const { data, error } = await supabase!
-    .from("engineering_documents")
-    .update({
-      status: "ARCHIVED",
-      archived_at: now,
-      updated_at: now,
-    })
-    .eq("id", documentId)
-    .eq("company_id", companyId)
-    .select("*")
-    .single();
-
+export async function previewEngineeringDocumentLifecycleInSupabase(
+  documentId: string,
+  explicitCompanyId?: string,
+): Promise<EngineeringLifecyclePreview> {
+  requireRemoteUser(await currentUserId());
+  resolveCompanyId(explicitCompanyId);
+  const { data, error } = await supabase!.rpc("preview_engineering_document_lifecycle", { p_document_id: documentId });
   if (error) throw error;
-  void userId;
-  return documentFromRow(data as Row);
+  return parseEngineeringLifecyclePreview(data, "DOCUMENT");
+}
+
+export async function applyEngineeringDocumentLifecycleInSupabase(
+  documentId: string,
+  action: "DELETE_UNUSED" | "ARCHIVE" | "SUPERSEDE",
+  reason?: string,
+  explicitCompanyId?: string,
+): Promise<Omit<EngineeringLifecycleResult, "record"> & { record?: EngineeringDocument }> {
+  requireRemoteUser(await currentUserId());
+  resolveCompanyId(explicitCompanyId);
+  const { data, error } = await supabase!.rpc("apply_engineering_document_lifecycle", {
+    p_document_id: documentId,
+    p_action: action,
+    p_reason: reason || null,
+  });
+  if (error) throw error;
+  const result = parseEngineeringLifecycleResult(data, "DOCUMENT");
+  const { record: rawRecord, ...resultWithoutRecord } = result;
+  return {
+    ...resultWithoutRecord,
+    ...(rawRecord ? { record: documentFromRow(rawRecord) } : {}),
+  };
 }
 
 export async function createEngineeringDocumentWithRevisionInSupabase(
