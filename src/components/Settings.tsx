@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, Clock3, Coins, Globe2, MapPin, RotateCcw } from "lucide-react";
+import { Clock3, Coins, Globe2, MapPin, RotateCcw } from "lucide-react";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE, RegionalSettings } from "../config/regional";
 import { FeatureStatusOverview } from "./FeatureStatusOverview";
 import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
@@ -28,7 +28,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
 
       <div className="grid gap-6 lg:grid-cols-2">
         {showDeploymentAccessManagement ? (
-          showDeploymentAccessManagement && <CompanyProfileSettings />
+          <CompanyProfileSettings />
         ) : (
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col justify-center">
             <SectionHeader
