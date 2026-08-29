@@ -33,13 +33,23 @@ export function AppPermissionProvider({
     () => !isSupabaseConfigured ? ["*"] : [...permissions],
     [permissions],
   );
+  const resolvedProjectCostCompleteness = useMemo(
+    () => projectCostCompleteness || projectCostDataCompleteness(stablePermissions),
+    [projectCostCompleteness, stablePermissions],
+  );
+  const presentationProjectCostCompleteness = useMemo(
+    () => workspaceDataPending && resolvedProjectCostCompleteness.reason === "load-error"
+      ? projectCostDataCompleteness(stablePermissions)
+      : resolvedProjectCostCompleteness,
+    [resolvedProjectCostCompleteness, stablePermissions, workspaceDataPending],
+  );
   const value = useMemo<AppPermissionContextValue>(
     () => ({
       permissions: stablePermissions,
-      projectCostCompleteness: projectCostCompleteness || projectCostDataCompleteness(stablePermissions),
+      projectCostCompleteness: presentationProjectCostCompleteness,
       workspaceDataPending,
     }),
-    [projectCostCompleteness, stablePermissions, workspaceDataPending],
+    [presentationProjectCostCompleteness, stablePermissions, workspaceDataPending],
   );
   return <AppPermissionContext.Provider value={value}>{children}</AppPermissionContext.Provider>;
 }
