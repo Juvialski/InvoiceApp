@@ -107,13 +107,13 @@ export function CompanyProfileSettings() {
       </div>}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <label className="text-[11px] font-bold text-slate-600">Company name
+        <label className="text-xs font-bold text-slate-700">Company name
           <input value={draft.name} disabled={!canManage || busy} onChange={(event) => setField("name", event.target.value)} maxLength={200} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50" />
         </label>
-        <label className="text-[11px] font-bold text-slate-600">Default currency
+        <label className="text-xs font-bold text-slate-700">Default currency
           <input value={draft.defaultCurrency} disabled={!canManage || busy} onChange={(event) => setField("defaultCurrency", event.target.value)} maxLength={3} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold uppercase text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50" />
         </label>
-        <label className="text-[11px] font-bold text-slate-600 sm:col-span-2">Deployment timezone
+        <label className="text-xs font-bold text-slate-700 sm:col-span-2">Deployment timezone
           <input value={draft.timezone} disabled={!canManage || busy} onChange={(event) => setField("timezone", event.target.value)} maxLength={100} placeholder="Asia/Manila" className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50" />
         </label>
       </div>

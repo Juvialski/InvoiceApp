@@ -50,9 +50,9 @@ export function StatusBadge({
 export function PageHeader({ eyebrow, title, description, actions, className = "" }: { eyebrow?: string; title: string; description?: string; actions?: React.ReactNode; className?: string }) {
   return <div className={`flex flex-col gap-4 border-b border-slate-200/80 pb-5 sm:flex-row sm:items-end sm:justify-between ${className}`}>
     <div className="min-w-0">
-      {eyebrow && <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-600">{eyebrow}</p>}
+      {eyebrow && <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">{eyebrow}</p>}
       <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-[1.75rem]">{title}</h1>
-      {description && <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>}
+      {description && <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>}
     </div>
     {actions && <div className="flex shrink-0 flex-wrap items-center gap-2 sm:pb-0.5">{actions}</div>}
   </div>;
@@ -62,20 +62,21 @@ export function SectionHeader({ title, description, action, icon: Icon, classNam
   return <div className="flex items-start justify-between gap-3">
     <div className="min-w-0">
       <h2 className={`flex items-center gap-2 text-base font-bold text-slate-950 ${className}`}>{Icon && <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-600" />}{title}</h2>
-      {description && <p className="mt-1 text-sm leading-5 text-slate-500">{description}</p>}
+      {description && <p className="mt-1 text-xs sm:text-sm leading-5 text-slate-500">{description}</p>}
     </div>
     {action && <div className="shrink-0">{action}</div>}
   </div>;
 }
 
 export function MetricCard({ label, value, detail, icon: Icon, tone = "neutral", emphasis = false, className = "" }: { label: string; value: React.ReactNode; detail?: string; icon?: LucideIcon; tone?: StatusTone; emphasis?: boolean; className?: string }) {
-  return <article className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 ${emphasis ? "shadow-sm" : ""} ${className}`}>
+  const valueTitle = typeof value === "string" || typeof value === "number" ? String(value) : undefined;
+  return <article className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${emphasis ? "shadow-sm" : ""} ${className}`}>
     <div className="flex items-start justify-between gap-3">
       {Icon && <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${metricClasses[tone]}`}><Icon aria-hidden="true" className="h-4 w-4" /></span>}
-      {emphasis && <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Key</span>}
+      {emphasis && <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Key</span>}
     </div>
-    <p className="mt-3 break-words text-2xl font-black tabular-nums tracking-tight text-slate-950">{value}</p>
-    <p className="mt-1 text-sm font-semibold text-slate-700">{label}</p>
+    <p className="mt-3 max-w-full overflow-x-auto whitespace-nowrap text-lg font-black tabular-nums tracking-tight text-slate-950 sm:text-xl xl:text-2xl" title={valueTitle}>{value}</p>
+    <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 sm:text-sm">{label}</p>
     {detail && <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>}
   </article>;
 }

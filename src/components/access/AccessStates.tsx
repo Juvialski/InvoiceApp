@@ -6,20 +6,38 @@ import type { CompanySummary } from "../../lib/companyAccess.ts";
 export interface CompanySwitcherProps {
   companies: readonly CompanySummary[];
   activeCompanyId?: string | null;
+  collapsed?: boolean;
 }
 
 /**
  * Compatibility surface retained for Header/App callers. In a client Engoryx
  * deployment this is a read-only identity badge, never a tenant selector.
  */
-export function CompanySwitcher({ companies, activeCompanyId }: CompanySwitcherProps) {
+export function CompanySwitcher({ companies, activeCompanyId, collapsed = false }: CompanySwitcherProps) {
   const company = companies.find((item) => item.id === activeCompanyId)
     || (companies.length === 1 ? companies.at(0) || null : null);
   if (!company) return null;
-  return <div aria-label={`Deployment company: ${company.name}`} className="inline-flex max-w-[18rem] items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left text-[10px] font-bold text-slate-700 shadow-sm">
-    <Building2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
-    <span className="min-w-0 truncate">{company.name}</span>
-  </div>;
+  if (collapsed) {
+    return (
+      <div
+        aria-label={`Deployment company: ${company.name}`}
+        title={`Deployment company: ${company.name}`}
+        className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-200 shadow-sm mx-auto transition-colors hover:border-slate-700"
+      >
+        <Building2 aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-400" />
+      </div>
+    );
+  }
+  return (
+    <div
+      aria-label={`Deployment company: ${company.name}`}
+      title={company.name}
+      className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-2 text-left text-xs font-bold text-slate-200 shadow-sm transition-colors hover:border-slate-700"
+    >
+      <Building2 aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-400" />
+      <span className="min-w-0 flex-1 truncate">{company.name}</span>
+    </div>
+  );
 }
 
 export function NoCompanyAccess({ onSignOut, children }: { onSignOut?: () => void | Promise<void>; children?: ReactNode }) {

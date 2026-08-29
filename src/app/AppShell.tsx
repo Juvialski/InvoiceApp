@@ -1,4 +1,4 @@
-import React, { type ReactNode } from "react";
+import React, { useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Cloud, Loader2, X } from "lucide-react";
 import { Header, type AppTab } from "../components/Header";
 import { CompanySwitcher } from "../components/access/AccessStates.tsx";
@@ -169,6 +169,25 @@ export const AppShell: React.FC<AppShellProps> = ({
   onReturnToDashboard,
   footerText = BRAND.footerText,
 }) => {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem("engoryx_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const handleToggleCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("engoryx_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const workspaceDataPending =
     workspaceLoading || workspaceSyncStatus === "connecting" || workspaceSyncStatus === "syncing";
 
@@ -192,9 +211,15 @@ export const AppShell: React.FC<AppShellProps> = ({
           activeCompanyId={activeCompanyId}
           visibleRouteIds={visibleRouteIds}
           permissions={permissions}
+          collapsed={isSidebarCollapsed}
+          onToggleCollapse={handleToggleCollapse}
         />
 
-        <main className="min-w-0 flex-1 overflow-x-hidden px-4 py-5 sm:px-6 lg:ml-[17rem] lg:px-8 2xl:px-10">
+        <main
+          className={`min-w-0 flex-1 overflow-x-hidden px-4 py-5 sm:px-6 lg:px-8 2xl:px-10 transition-[margin] duration-200 ${
+            isSidebarCollapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
+          }`}
+        >
           {remoteInvoiceUpdate && selectedInvoiceId === remoteInvoiceUpdate.invoiceId && (
             <div
               role="status"
@@ -297,7 +322,11 @@ export const AppShell: React.FC<AppShellProps> = ({
           {!workspaceLoading && <AppErrorBoundary>{children}</AppErrorBoundary>}
         </main>
 
-        <footer className="border-t border-slate-200 bg-white py-4 text-center text-[10px] text-slate-500 lg:ml-[17rem]">
+        <footer
+          className={`border-t border-slate-200 bg-white py-4 text-center text-xs text-slate-500 transition-[margin] duration-200 ${
+            isSidebarCollapsed ? "lg:ml-[4.25rem]" : "lg:ml-[16.5rem]"
+          }`}
+        >
           {footerText}
         </footer>
       </div>

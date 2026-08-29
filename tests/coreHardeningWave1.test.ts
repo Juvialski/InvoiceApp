@@ -90,7 +90,8 @@ test("profile and access UI expose truthful states and remain isolated from the 
   assert.match(profile, /Read-only/);
   assert.match(profile, /updateDeploymentCompanyProfile/);
   assert.match(profile, /companyAccess\.refreshAccess/);
-  assert.match(settings, /showDeploymentAccessManagement && <CompanyProfileSettings/);
+  assert.match(settings, /\{showDeploymentAccessManagement \? \([\s\S]*?<CompanyProfileSettings \/>[\s\S]*?\) : \(/);
+  assert.match(settings, /\{showDeploymentAccessManagement && <DeploymentAccessManagement \/>\}/);
   assert.match(settings, /Production company profile controls are intentionally not mounted here/);
   assert.match(accessManagement, /Role default/);
   assert.match(accessManagement, /Custom grant/);

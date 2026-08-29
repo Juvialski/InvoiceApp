@@ -43,9 +43,9 @@ export const FeatureStatusOverview: React.FC = () => (
         <h3 className="text-xs font-black text-slate-900">Available now</h3>
         <StatusBadge tone="success">{availableFeatures.length} features</StatusBadge>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {availableFeatures.map((feature) => (
-          <div key={feature.id} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+          <div key={feature.id} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3.5 flex flex-col justify-between">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs font-black text-slate-900">{feature.name}</p>
@@ -63,22 +63,20 @@ export const FeatureStatusOverview: React.FC = () => (
         <Clock3 className="h-4 w-4 text-amber-600" />
         <h3 className="text-xs font-black text-slate-900">Planned development</h3>
       </div>
-      <p className="mt-1 text-[11px] text-slate-500">These items are not active product features yet. Phase 2 and Phase 3 are planned next; later phases remain longer-term roadmap items.</p>
+      <p className="mt-1 text-xs text-slate-500">These items are not active product features yet. Phase 2 and Phase 3 are planned next; later phases remain longer-term roadmap items.</p>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
         {upcomingFeatures.map((feature) => {
           const availability = featureAvailability(feature);
           return (
-            <div key={feature.id} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-black text-slate-900">{feature.name}</p>
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{featurePhaseLabel(feature)}</span>
-                  </div>
-                  <p className="mt-1.5 text-[11px] leading-5 text-slate-600">{feature.description}</p>
+            <div key={feature.id} className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 flex flex-col justify-between">
+              <div>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="text-xs font-black text-slate-900">{feature.name}</p>
+                  <StatusBadge tone={toneForAvailability(availability)}>{featureAvailabilityLabel(availability)}</StatusBadge>
                 </div>
-                <StatusBadge tone={toneForAvailability(availability)}>{featureAvailabilityLabel(availability)}</StatusBadge>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">{featurePhaseLabel(feature)}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-600">{feature.description}</p>
               </div>
             </div>
           );
