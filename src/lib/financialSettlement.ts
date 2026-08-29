@@ -47,7 +47,7 @@ export interface FinancialSettlementSummary {
 }
 
 export interface SettlementCandidate {
-  targetType: "INVOICE" | "PAYROLL";
+  targetType: "INVOICE" | "PAYROLL" | "EXPENSE";
   targetId: string;
   label: string;
   currency: string;
@@ -162,6 +162,30 @@ export function derivePayrollSettlementSummary(
     outstanding,
     settlementState: state,
     legacyPaidWithoutBankLink: run.status === "PAID" && bankPaid <= 0.005,
+    history: [...history],
+  };
+}
+
+export function deriveExpenseSettlementSummary(
+  expense: { id: string; currency?: string; amount: number; status: string },
+  history: readonly FinancialSettlementHistoryItem[],
+): FinancialSettlementSummary {
+  const basis = money(Math.max(0, expense.amount));
+  const bankPaid = Math.min(basis, confirmedSettlementTotal(history));
+  const outstanding = money(Math.max(0, basis - bankPaid));
+  const state: InvoiceSettlementState = bankPaid <= 0.005 ? "UNPAID" : outstanding <= 0.005 ? "PAID" : "PARTIALLY_PAID";
+  return {
+    targetType: "EXPENSE",
+    targetId: expense.id,
+    currency: expense.currency || "PHP",
+    lifecycleStatus: expense.status,
+    settlementBasis: basis,
+    basisSource: "EXPENSE_AMOUNT",
+    reconciledCashPaid: bankPaid,
+    documentReportedPaid: 0,
+    effectiveSettled: bankPaid,
+    outstanding,
+    settlementState: state,
     history: [...history],
   };
 }

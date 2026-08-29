@@ -1,16 +1,18 @@
 import React, { useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Landmark, Link2, RotateCcw, Search, Split, WalletCards } from "lucide-react";
 import { financialId, type CashBankingWorkspaceData, type FinancialReconciliationCandidate, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
-import { defaultSettlementAllocation } from "../lib/financialSettlement.ts";
+import { defaultSettlementAllocation, type FinancialSettlementHistoryItem } from "../lib/financialSettlement.ts";
 import { reverseFinancialSettlement } from "../lib/financialSettlementPersistence.ts";
 import { appPathForInvoice, appPathForPayrollRun, financialTransactionIdFromSearch } from "../utils/appRouting.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
+import { SettlementReversalDialog } from "./financial/SettlementReversalDialog.tsx";
 
 interface Props {
   data: CashBankingWorkspaceData;
   candidates: readonly FinancialReconciliationCandidate[];
   canReconcile?: boolean;
   onSaveMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
+  onReverseMatch?: (matchId: string, reason: string) => Promise<void> | void;
 }
 
 function money(value: number, currency: string) {
@@ -26,7 +28,7 @@ function targetPath(candidate: FinancialReconciliationCandidate) {
   return undefined;
 }
 
-export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candidates, canReconcile = true, onSaveMatch }) => {
+export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candidates, canReconcile = true, onSaveMatch, onReverseMatch }) => {
   const linkedId = typeof window === "undefined" ? undefined : financialTransactionIdFromSearch(window.location.search);
   const initial = data.transactions.find((transaction) => transaction.id === linkedId)
     || data.transactions.find((transaction) => transaction.status === "POSTED" && transaction.direction === "DEBIT" && !["MATCHED", "IGNORED"].includes(transaction.reconciliationStatus));
@@ -35,8 +37,9 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [reversedIds, setReversedIds] = useState<Set<string>>(() => new Set());
-  const [reversalMatchId, setReversalMatchId] = useState<string | null>(null);
+  const [reversalMatch, setReversalMatch] = useState<FinancialTransactionMatch | null>(null);
   const [reversalReason, setReversalReason] = useState("");
+  const [reversalError, setReversalError] = useState("");
   const [notice, setNotice] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
   const transaction = data.transactions.find((item) => item.id === transactionId);
   const account = transaction ? data.accounts.find((item) => item.id === transaction.accountId) : undefined;
@@ -105,18 +108,45 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
     } finally { setBusy(false); }
   };
 
-  const reverse = async (matchId: string) => {
-    if (reversalReason.trim().length < 3) return;
-    setBusy(true); setNotice(null);
-    try {
-      if (matchId.startsWith("demo-")) throw new Error("Demo history is deterministic. Reset Demo restores the original reconciliation fixtures.");
-      await reverseFinancialSettlement(matchId, reversalReason.trim());
-      setReversedIds((current) => new Set([...current, matchId]));
-      setReversalMatchId(null); setReversalReason("");
-      setNotice({ tone: "success", text: "Settlement link reversed. The original confirmation remains in audit history." });
-    } catch (error) { setNotice({ tone: "danger", text: safeErrorMessage(error, "Settlement reversal failed.") }); }
-    finally { setBusy(false); }
+  const openReversal = (match: FinancialTransactionMatch) => {
+    setReversalMatch(match);
+    setReversalReason("");
+    setReversalError("");
   };
+
+  const confirmReversal = async () => {
+    if (!reversalMatch || reversalReason.trim().length < 3) return;
+    setBusy(true); setReversalError(""); setNotice(null);
+    try {
+      if (onReverseMatch) {
+        await onReverseMatch(reversalMatch.id, reversalReason.trim());
+      } else if (!reversalMatch.id.startsWith("demo-")) {
+        await reverseFinancialSettlement(reversalMatch.id, reversalReason.trim());
+      }
+      setReversedIds((current) => new Set([...current, reversalMatch.id]));
+      setReversalMatch(null); setReversalReason("");
+      setNotice({ tone: "success", text: "Settlement link reversed. The original confirmation remains in audit history." });
+    } catch (error) {
+      setReversalError(safeErrorMessage(error, "Settlement reversal failed."));
+    } finally { setBusy(false); }
+  };
+
+  const reversalDialogItem: FinancialSettlementHistoryItem | null = reversalMatch && transaction ? {
+    id: reversalMatch.id,
+    transactionId: transaction.id,
+    status: "CONFIRMED",
+    amount: reversalMatch.matchedAmount,
+    confirmedAt: reversalMatch.confirmedAt,
+    accountId: transaction.accountId,
+    accountName: account?.displayName,
+    maskedIdentifier: account?.maskedIdentifier,
+    transactionDate: transaction.transactionDate,
+    referenceNumber: transaction.referenceNumber,
+    description: transaction.description,
+    currency: transaction.currency,
+  } : null;
+
+  const reversalTargetCandidate = reversalMatch ? candidates.find((item) => item.targetType === reversalMatch.targetType && item.targetId === reversalMatch.targetId) : undefined;
 
   return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Settlement allocation workspace" data-tour="cash-settlement-workspace">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -142,7 +172,24 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
       {transactionMatches.length > 0 && <div className="mt-4 space-y-2"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Confirmed allocations</p>{transactionMatches.map((match) => {
         const candidate = candidates.find((item) => item.targetType === match.targetType && item.targetId === match.targetId);
         const href = candidate ? targetPath(candidate) : undefined;
-        return <div key={match.id} className="flex flex-col gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="truncate text-xs font-bold text-slate-800">{candidate?.label || `${match.targetType} ${match.targetId || ""}`}</p><p className="text-[10px] text-slate-500">{money(match.matchedAmount, transaction.currency)} · confirmed</p></div><div className="flex flex-wrap gap-2">{href && <a href={href} className="inline-flex items-center gap-1 text-[10px] font-black text-indigo-700">Open target <ArrowRight className="h-3 w-3" /></a>}{canReconcile && <button type="button" onClick={() => setReversalMatchId(reversalMatchId === match.id ? null : match.id)} className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700"><RotateCcw className="h-3 w-3" /> Reverse</button>}</div>{reversalMatchId === match.id && <div className="flex w-full flex-col gap-2 sm:flex-row"><input value={reversalReason} onChange={(event) => setReversalReason(event.target.value)} placeholder="Reason for reversal" className="min-h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-xs" /><button type="button" disabled={busy || reversalReason.trim().length < 3} onClick={() => void reverse(match.id)} className="rounded-lg bg-rose-600 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50">Confirm reversal</button></div>}</div>;
+        return <div key={match.id} className="flex flex-col gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-bold text-slate-800">{candidate?.label || `${match.targetType} ${match.targetId || ""}`}</p>
+            <p className="text-[10px] text-slate-500">{money(match.matchedAmount, transaction.currency)} · confirmed</p>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            {href && <a href={href} className="inline-flex items-center gap-1 text-[10px] font-black text-indigo-700">Open target <ArrowRight className="h-3 w-3" /></a>}
+            {canReconcile && (
+              <button
+                type="button"
+                onClick={() => openReversal(match)}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-50"
+              >
+                <RotateCcw className="h-3 w-3" /> Reverse settlement
+              </button>
+            )}
+          </div>
+        </div>;
       })}</div>}
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><label className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3"><Search className="h-4 w-4 text-slate-400" /><span className="sr-only">Search settlement candidates</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search invoice, vendor, payroll period, reference…" className="w-full bg-transparent text-xs outline-none" /></label><div className="text-right"><p className="text-[10px] text-slate-500">Draft allocation</p><p className={`text-sm font-black tabular-nums ${draftInvalid ? "text-rose-700" : "text-slate-900"}`}>{money(draftTotal, transaction.currency)} <span className="text-[10px] font-medium text-slate-400">· {money(afterDraft, transaction.currency)} left</span></p></div></div>
@@ -156,11 +203,30 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
       <div className="mt-4 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="flex items-center gap-1.5 text-xs font-black text-slate-800"><WalletCards className="h-4 w-4" /> Confirmation review</p><p className="mt-1 text-[10px] text-slate-500">{selectedDrafts.length ? `${selectedDrafts.length} allocation${selectedDrafts.length === 1 ? "" : "s"} selected. Server validation is authoritative.` : "Select one or more allocations. Nothing is auto-confirmed."}</p>{draftInvalid && <p className="mt-1 text-[10px] font-bold text-rose-700">Draft allocation exceeds the transaction remaining amount or a target outstanding amount.</p>}</div><button type="button" onClick={() => void confirm()} disabled={!canReconcile || !onSaveMatch || busy || !selectedDrafts.length || draftInvalid} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-xs font-black text-white disabled:opacity-40"><CheckCircle2 className="h-4 w-4" /> {busy ? "Confirming…" : "Confirm settlement"}</button></div>
     </>}
     <p className="mt-3 flex items-center gap-1.5 text-[10px] text-slate-400"><Split className="h-3 w-3" /> Internal account transfers continue through the dedicated transfer workflow below and never become invoice/payroll settlement.</p>
+
+    {reversalDialogItem && reversalMatch && (
+      <SettlementReversalDialog
+        item={reversalDialogItem}
+        targetContext={{
+          targetType: reversalMatch.targetType as any,
+          targetId: reversalMatch.targetId,
+          targetLabel: reversalTargetCandidate?.label,
+          currency: transaction?.currency || "PHP",
+          currentOutstanding: reversalTargetCandidate ? reversalTargetCandidate.amount : undefined,
+        }}
+        loading={busy}
+        error={reversalError}
+        reason={reversalReason}
+        onReasonChange={setReversalReason}
+        onConfirm={() => void confirmReversal()}
+        onClose={() => { if (!busy) setReversalMatch(null); }}
+      />
+    )}
   </section>;
 };
 
-function Metric({ icon: Icon, label, value, emphasis = false }: { icon?: React.ComponentType<{ className?: string }>; label: string; value: string; emphasis?: boolean }) {
-  return <div className={`min-w-0 rounded-xl border p-3 ${emphasis ? "border-indigo-200 bg-indigo-50" : "border-slate-100 bg-slate-50"}`}><p className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">{Icon && <Icon className="h-3 w-3" />}{label}</p><p className={`mt-1 truncate text-xs font-black tabular-nums ${emphasis ? "text-indigo-900" : "text-slate-800"}`}>{value}</p></div>;
+function Metric({ icon: Icon, label, value, emphasis = false }: { icon?: React.ElementType; label: string; value: string; emphasis?: boolean }) {
+  return <div className={`rounded-xl border p-3 ${emphasis ? "border-amber-200 bg-amber-50" : "border-slate-100 bg-slate-50"}`}><p className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">{Icon && <Icon className="h-3 w-3" />}{label}</p><p className={`mt-1 text-sm font-black tabular-nums ${emphasis ? "text-amber-900" : "text-slate-900"}`}>{value}</p></div>;
 }
 
 export default CashSettlementAllocationWorkspace;

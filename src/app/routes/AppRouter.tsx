@@ -193,6 +193,7 @@ export interface AppRouterProps {
   onSaveFinancialTransaction?: (transaction: FinancialTransaction) => Promise<void> | void;
   onCommitFinancialImport?: (preview: StatementPreview, account: FinancialAccount) => Promise<void> | void;
   onSaveFinancialMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
+  onReverseFinancialMatch?: (matchId: string, reason: string) => Promise<void> | void;
   onIgnoreFinancialTransaction?: (transaction: FinancialTransaction) => Promise<void> | void;
   onConfirmFinancialTransfer?: (left: FinancialTransaction, right: FinancialTransaction) => Promise<void> | void;
   onOpenCashDashboard?: () => void;
@@ -357,6 +358,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onSaveFinancialTransaction = () => {},
   onCommitFinancialImport,
   onSaveFinancialMatch,
+  onReverseFinancialMatch,
   onIgnoreFinancialTransaction,
   onConfirmFinancialTransfer,
   onOpenCashDashboard,
@@ -524,6 +526,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSaveTransaction={onSaveFinancialTransaction}
         onCommitImport={onCommitFinancialImport}
         onSaveMatch={onSaveFinancialMatch}
+        onReverseMatch={onReverseFinancialMatch}
         onIgnoreTransaction={onIgnoreFinancialTransaction}
         onConfirmTransfer={onConfirmFinancialTransfer}
         reconciliationCandidates={cashReconciliationCandidates}
