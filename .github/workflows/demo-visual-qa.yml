@@ -5,10 +5,12 @@ on:
     branches:
       - main
     paths:
+      - "src/app/**"
+      - "src/components/**"
       - "src/demo/**"
       - "src/workflow-map/**"
+      - "src/**/*.css"
       - "src/main.tsx"
-      - "src/app/applicationMode.ts"
       - "public/demo/**"
       - "package.json"
       - "scripts/demo-visual-qa.ts"
@@ -21,10 +23,12 @@ on:
     branches:
       - main
     paths:
+      - "src/app/**"
+      - "src/components/**"
       - "src/demo/**"
       - "src/workflow-map/**"
+      - "src/**/*.css"
       - "src/main.tsx"
-      - "src/app/applicationMode.ts"
       - "public/demo/**"
       - "package.json"
       - "scripts/demo-visual-qa.ts"
