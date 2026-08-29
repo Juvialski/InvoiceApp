@@ -258,7 +258,7 @@ select is((public.apply_project_worker_assignment_lifecycle((select assignment_u
 select is((select end_date from public.project_worker_assignments where id = (select assignment_used from wave2_ids)), date '2026-01-31', 'ended assignment retains its historical end date');
 select throws_ok(
   $$insert into public.project_worker_assignments (user_id, company_id, worker_id, project_id, start_date, end_date, active) values ((select admin_user from wave2_ids), (select company_a from wave2_ids), (select worker_lifecycle from wave2_ids), (select project_a from wave2_ids), date '2026-02-01', date '2026-01-01', true)$$,
-  '22000', null,
+  '23514', null,
   'assignment start/end date invariant is enforced'
 );
 select throws_ok(
@@ -331,6 +331,7 @@ select lives_ok(
   'consumed compensation profile can be ended without rewriting its row'
 );
 select is((select rate from public.worker_compensation_profiles where id = (select profile_consumed from wave2_ids)), 1000::numeric, 'historical compensation rate remains unchanged');
+select is((public.apply_compensation_profile_lifecycle((select profile_old from wave2_ids), 'DELETE_UNUSED', null, null)->>'deleted')::boolean, true, 'unused superseded compensation profile can be deleted safely');
 reset role;
 
 -- Recurring component lifecycle mirrors compensation history behavior.
@@ -364,7 +365,8 @@ select throws_ok($$select public.apply_workforce_source_lifecycle('OVERTIME', (s
 reset role;
 
 -- Audit records are generated only for lifecycle outcomes and contain no
--- salary/payroll amounts in the metadata contract.
+-- salary/payroll amounts in the metadata contract. Inspect Wave 2A events and
+-- sensitive monetary key names, not arbitrary free-text values.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from wave2_ids), true);
 select is((select count(*) from public.company_audit_events where company_id = (select company_a from wave2_ids) and event_type = 'WORKER_OFFBOARDED' and target_id = (select worker_lifecycle from wave2_ids)), 1::bigint, 'worker offboarding writes an audit event');
@@ -372,8 +374,21 @@ select is((select count(*) from public.company_audit_events where company_id = (
 select is((select count(*) from public.company_audit_events where company_id = (select company_a from wave2_ids) and event_type = 'PROJECT_ASSIGNMENT_ENDED' and target_id = (select assignment_used from wave2_ids)), 1::bigint, 'assignment ending writes an audit event');
 select is((select count(*) from public.company_audit_events where company_id = (select company_a from wave2_ids) and event_type = 'ATTENDANCE_VOIDED'), 0::bigint, 'finalized attendance correction writes no false success audit');
 select is_empty(
-  $$select 1 from public.company_audit_events where company_id = (select company_a from wave2_ids) and metadata::text ~* '(gross|net|salary|rate|amount)'$$,
-  'lifecycle audit metadata does not expose payroll amounts'
+  $$select 1
+    from public.company_audit_events
+    where company_id = (select company_a from wave2_ids)
+      and event_type in (
+        'WORKER_OFFBOARDED', 'WORKER_REACTIVATED', 'WORKER_DELETED_UNUSED',
+        'PROJECT_ASSIGNMENT_ENDED', 'PROJECT_ASSIGNMENT_DELETED_UNUSED',
+        'COMPENSATION_PROFILE_ENDED', 'COMPENSATION_PROFILE_SUPERSEDED', 'COMPENSATION_PROFILE_DELETED_UNUSED',
+        'PAYROLL_COMPONENT_DEACTIVATED', 'PAYROLL_COMPONENT_DELETED_UNUSED',
+        'WORK_ENTRY_VOIDED', 'WORK_ENTRY_DELETED_UNUSED',
+        'ATTENDANCE_VOIDED', 'ATTENDANCE_DELETED_UNUSED',
+        'LEAVE_CANCELLED', 'LEAVE_DELETED_UNUSED',
+        'OVERTIME_CANCELLED', 'OVERTIME_DELETED_UNUSED'
+      )
+      and metadata::text ~* '"(gross(_?pay)?|net(_?pay)?|salary(_?rate)?|default_?rate|rate|amount|base_?pay|regular_?pay|overtime_?pay|allowances|deductions|employer_?costs|project_?allocated_?cost)"[[:space:]]*:'$$,
+  'Wave 2A lifecycle audit metadata does not expose payroll amount fields'
 );
 reset role;
 
