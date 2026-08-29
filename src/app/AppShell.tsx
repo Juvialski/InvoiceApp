@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type ReactNode } from "react";
+import React, { useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Cloud, Loader2, X } from "lucide-react";
 import { Header, type AppTab } from "../components/Header";
 import { CompanySwitcher } from "../components/access/AccessStates.tsx";
