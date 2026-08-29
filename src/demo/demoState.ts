@@ -1,6 +1,7 @@
 import type { FinancialAccount, FinancialBalanceSnapshot, FinancialTransaction } from "../lib/cashBanking.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../lib/dailySiteLogs.ts";
+import type { RecurringPayrollComponent, WorkerCompensationProfile } from "../lib/payrollAutomation.ts";
 import type {
   AttendanceRecord,
   Expense,
@@ -19,6 +20,7 @@ import type {
 import { createDemoWorkspace } from "./data/createDemoWorkspace.ts";
 import { demoTimestamp } from "./data/demoDates.ts";
 import { DEMO_COMPANY_ID, type DemoPreparedAssistantAction, type DemoWorkspaceData } from "./demoTypes.ts";
+import { assignmentDependencySummary, assignmentForLifecycle, componentForLifecycle, isCompensationProfileConsumed, isRecurringComponentConsumed, profileForLifecycle, workerDependencySummary, workerForLifecycle, type PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 
 export type DemoWorkspaceMutation =
   | { type: "SAVE_PROJECT"; value: Project }
@@ -30,6 +32,9 @@ export type DemoWorkspaceMutation =
   | { type: "ARCHIVE_EXPENSE"; value: Expense }
   | { type: "SAVE_WORKER"; value: Worker }
   | { type: "SAVE_ASSIGNMENT"; value: ProjectWorkerAssignment }
+  | { type: "SAVE_COMPENSATION_PROFILE"; value: WorkerCompensationProfile }
+  | { type: "SAVE_RECURRING_COMPONENT"; value: RecurringPayrollComponent }
+  | { type: "PAYROLL_LIFECYCLE"; request: PayrollLifecycleRequest }
   | { type: "SAVE_PERIOD"; value: PayrollPeriod }
   | { type: "SAVE_SCHEDULE"; value: PayrollSchedule }
   | { type: "SAVE_WORK_ENTRY"; value: WorkEntry }
@@ -45,6 +50,12 @@ export type DemoWorkspaceMutation =
   | { type: "SAVE_DAILY_SITE_LOGS"; value: EngineeringDailySiteLogsWorkspaceData };
 
 function upsert<T extends { id: string }>(items: readonly T[], value: T): T[] {
+  const found = items.some((item) => item.id === value.id);
+  return found ? items.map((item) => item.id === value.id ? value : item) : [value, ...items];
+}
+
+function upsertOptionalId<T extends { id?: string }>(items: readonly T[], value: T): T[] {
+  if (!value.id) return [value, ...items];
   const found = items.some((item) => item.id === value.id);
   return found ? items.map((item) => item.id === value.id ? value : item) : [value, ...items];
 }
@@ -69,6 +80,79 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, payroll: { ...state.payroll, workers: upsert(state.payroll.workers, mutation.value) } };
     case "SAVE_ASSIGNMENT":
       return { ...state, payroll: { ...state.payroll, assignments: upsert(state.payroll.assignments, mutation.value) } };
+    case "SAVE_COMPENSATION_PROFILE":
+      return { ...state, payroll: { ...state.payroll, compensationProfiles: upsertOptionalId(state.payroll.compensationProfiles, mutation.value) } };
+    case "SAVE_RECURRING_COMPONENT":
+      return { ...state, payroll: { ...state.payroll, recurringComponents: upsert(state.payroll.recurringComponents, mutation.value) } };
+    case "PAYROLL_LIFECYCLE": {
+      const request = mutation.request;
+      const payroll = state.payroll;
+      const effectiveDate = request.effectiveDate || state.anchorDate;
+      if (request.entity === "WORKER") {
+        const worker = payroll.workers.find((item) => item.id === request.id);
+        if (!worker) return state;
+        const summary = workerDependencySummary(request.id, {
+          workers: payroll.workers,
+          assignments: payroll.assignments,
+          attendanceRecords: payroll.attendanceRecords,
+          leaveRequests: payroll.leaveRequests,
+          overtimeRequests: payroll.overtimeRequests,
+          workEntries: payroll.workEntries,
+          payrollEntries: payroll.entries,
+          payrollRuns: payroll.runs,
+          periods: payroll.periods,
+          compensationProfiles: payroll.compensationProfiles,
+          recurringComponents: payroll.recurringComponents,
+          departmentManagerWorkerIds: payroll.departments.map((department) => department.managerWorkerId).filter((id): id is string => Boolean(id)),
+        });
+        if (request.action === "DELETE_UNUSED" && !summary.canDelete) return state;
+        return { ...state, payroll: { ...payroll, workers: request.action === "DELETE_UNUSED" ? payroll.workers.filter((item) => item.id !== request.id) : payroll.workers.map((item) => item.id === request.id ? workerForLifecycle(item, request.action as "OFFBOARD" | "REACTIVATE", effectiveDate) : item) } };
+      }
+      if (request.entity === "PROJECT_ASSIGNMENT") {
+        const assignment = payroll.assignments.find((item) => item.id === request.id);
+        if (!assignment) return state;
+        const dependency = assignmentDependencySummary(assignment, { workEntries: payroll.workEntries, overtimeRequests: payroll.overtimeRequests, payrollEntries: payroll.entries, allocations: payroll.allocations });
+        if (request.action === "DELETE_UNUSED") return dependency.canDelete ? { ...state, payroll: { ...payroll, assignments: payroll.assignments.filter((item) => item.id !== request.id) } } : state;
+        return { ...state, payroll: { ...payroll, assignments: payroll.assignments.map((item) => item.id === request.id ? assignmentForLifecycle(item, effectiveDate) : item) } };
+      }
+      if (request.entity === "COMPENSATION_PROFILE") {
+        const profile = payroll.compensationProfiles.find((item) => item.id === request.id);
+        if (!profile) return state;
+        if (request.action === "DELETE_UNUSED") return isCompensationProfileConsumed({ profile, payrollEntries: payroll.entries, payrollRuns: payroll.runs, periods: payroll.periods }) ? state : { ...state, payroll: { ...payroll, compensationProfiles: payroll.compensationProfiles.filter((item) => item.id !== request.id) } };
+        return { ...state, payroll: { ...payroll, compensationProfiles: payroll.compensationProfiles.map((item) => item.id === request.id ? profileForLifecycle(item, effectiveDate) : item) } };
+      }
+      if (request.entity === "RECURRING_COMPONENT") {
+        const component = payroll.recurringComponents.find((item) => item.id === request.id);
+        if (!component) return state;
+        if (request.action === "DELETE_UNUSED") return isRecurringComponentConsumed({ component, payrollEntries: payroll.entries, payrollRuns: payroll.runs, periods: payroll.periods }) ? state : { ...state, payroll: { ...payroll, recurringComponents: payroll.recurringComponents.filter((item) => item.id !== request.id) } };
+        return { ...state, payroll: { ...payroll, recurringComponents: payroll.recurringComponents.map((item) => item.id === request.id ? componentForLifecycle(item, effectiveDate) : item) } };
+      }
+      if (request.entity === "WORK_ENTRY") {
+        const entry = payroll.workEntries.find((item) => item.id === request.id);
+        if (!entry) return state;
+        if (request.action === "DELETE_DRAFT") return entry.status === "DRAFT" ? { ...state, payroll: { ...payroll, workEntries: payroll.workEntries.filter((item) => item.id !== request.id) } } : state;
+        return { ...state, payroll: { ...payroll, workEntries: payroll.workEntries.map((item) => item.id === request.id ? { ...item, status: "VOID", voidedAt: demoTimestamp(state.anchorDate, 16, 20), voidReason: request.reason } : item) } };
+      }
+      if (request.entity === "ATTENDANCE") {
+        const record = (payroll.attendanceRecords || []).find((item) => item.id === request.id);
+        if (!record) return state;
+        if (request.action === "DELETE_DRAFT") return record.recordStatus === "DRAFT" ? { ...state, payroll: { ...payroll, attendanceRecords: (payroll.attendanceRecords || []).filter((item) => item.id !== request.id) } } : state;
+        return { ...state, payroll: { ...payroll, attendanceRecords: (payroll.attendanceRecords || []).map((item) => item.id === request.id ? { ...item, recordStatus: "VOID", voidedAt: demoTimestamp(state.anchorDate, 16, 20), voidReason: request.reason } : item) } };
+      }
+      if (request.entity === "LEAVE") {
+        const leave = (payroll.leaveRequests || []).find((item) => item.id === request.id);
+        if (!leave) return state;
+        if (request.action === "DELETE_DRAFT") return leave.status === "DRAFT" ? { ...state, payroll: { ...payroll, leaveRequests: (payroll.leaveRequests || []).filter((item) => item.id !== request.id) } } : state;
+        return { ...state, payroll: { ...payroll, leaveRequests: (payroll.leaveRequests || []).map((item) => item.id === request.id ? { ...item, status: "CANCELLED", cancelledAt: demoTimestamp(state.anchorDate, 16, 20), cancellationReason: request.reason } : item) } };
+      }
+      if (request.entity === "OVERTIME") {
+        const overtime = (payroll.overtimeRequests || []).find((item) => item.id === request.id);
+        if (!overtime) return state;
+        if (request.action === "DELETE_DRAFT") return overtime.status === "DRAFT" ? { ...state, payroll: { ...payroll, overtimeRequests: (payroll.overtimeRequests || []).filter((item) => item.id !== request.id) } } : state;
+        return { ...state, payroll: { ...payroll, overtimeRequests: (payroll.overtimeRequests || []).map((item) => item.id === request.id ? { ...item, status: "CANCELLED", cancelledAt: demoTimestamp(state.anchorDate, 16, 20), cancellationReason: request.reason } : item) } };
+      }
+      return state;
+    }
     case "SAVE_PERIOD":
       return { ...state, payroll: { ...state.payroll, periods: upsert(state.payroll.periods, mutation.value) } };
     case "SAVE_SCHEDULE":

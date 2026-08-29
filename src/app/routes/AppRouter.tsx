@@ -62,6 +62,7 @@ import type {
   PayrollWorkspaceResetPreview,
 } from "../../lib/payrollMaintenance";
 import type { RegionalSettings } from "../../config/regional";
+import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
 
 const CashBankingRoute = lazy(() => import("./CashBankingRoute"));
 const ProjectsRoute = lazy(() => import("./ProjectsRoute").then(({ ProjectsRoute }) => ({ default: ProjectsRoute })));
@@ -202,6 +203,9 @@ export interface AppRouterProps {
   onRetryPayrollPeriodPreparation?: () => void;
   canManagePayrollSettings?: boolean;
   canManagePayrollMaintenance?: boolean;
+  canManageWorkforce?: boolean;
+  canManagePayrollSources?: boolean;
+  onPayrollLifecycle?: (request: PayrollLifecycleRequest) => Promise<void> | void;
   onSavePayrollWorker?: (worker: Worker) => void;
   onSavePayrollAssignment?: (assignment: ProjectWorkerAssignment) => void;
   onSavePayrollPeriod?: (period: PayrollPeriod) => void;
@@ -347,6 +351,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onRetryPayrollPeriodPreparation,
   canManagePayrollSettings = true,
   canManagePayrollMaintenance = true,
+  canManageWorkforce = true,
+  canManagePayrollSources = true,
+  onPayrollLifecycle,
   onSavePayrollWorker = () => {},
   onSavePayrollAssignment = () => {},
   onSavePayrollPeriod = () => {},
@@ -558,6 +565,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         schedules={payrollData.schedules || []}
         compensationProfiles={payrollData.compensationProfiles || []}
         recurringComponents={payrollData.recurringComponents || []}
+        payrollImportWorkerIds={payrollImportData.rows.map((row) => row.workerId).filter((id): id is string => Boolean(id))}
+        departmentManagerWorkerIds={payrollData.departments.map((department) => department.managerWorkerId).filter((id): id is string => Boolean(id))}
         importBatches={payrollImportData.batches}
         importTemplates={payrollImportData.templates}
         periodPreparationState={payrollPeriodPreparationState}
@@ -568,6 +577,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSaveSchedule={onSavePayrollSchedule}
         canManagePayrollSettings={canManagePayrollSettings}
         canManagePayrollMaintenance={canManagePayrollMaintenance}
+        canManageWorkforce={canManageWorkforce}
+        canManagePayrollSources={canManagePayrollSources}
+        onPayrollLifecycle={onPayrollLifecycle}
         onSaveCompensationProfile={onSaveWorkerCompensationProfile}
         onSaveRecurringComponent={onSaveRecurringPayrollComponent}
         onSaveWorkEntry={onSavePayrollWorkEntry}

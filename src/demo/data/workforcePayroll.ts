@@ -95,6 +95,8 @@ export function createDemoPayroll(anchorDate: string): PayrollWorkspaceData {
     departmentId: departmentIdByName.get(spec.department),
     defaultPayType: spec.payType,
     defaultRate: spec.rate,
+    defaultLaborContext: spec.projectId ? "PROJECT" : "ADMIN_OFFICE",
+    defaultProjectId: spec.projectId,
     active: true,
     hireDate: addDemoDays(anchorDate, -(380 + index * 9)),
     workingDays: ["MON", "TUE", "WED", "THU", "FRI", "SAT"],

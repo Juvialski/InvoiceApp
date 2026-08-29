@@ -148,6 +148,34 @@ At minimum cover:
 
 Audit every currently implemented entity for a safe correction path. Do not add raw deletion indiscriminately.
 
+### Wave 2A — Workforce and payroll correction lifecycles (implemented in this PR)
+
+Wave 2A hardens the existing worker/payroll domain without expanding the
+product surface. The additive workforce correction migration and shared
+`payrollLifecycle` contract provide:
+
+- authoritative worker dependency preflight, unused-only deletion,
+  offboarding, and reactivation;
+- date-ranged project assignments with multiple concurrent projects, safe end
+  semantics, archived-project rejection, and history-preserving unused delete;
+- explicit `PROJECT`, `ADMIN_OFFICE`, `GENERAL_OVERHEAD`, and
+  `UNALLOCATED_REVIEW` context rules, with actual work evidence kept separate
+  from default/home context and no fake Main Office project;
+- effective-dated compensation profile supersession/end protection and
+  recurring component deactivation/end protection;
+- guarded draft deletion, source void, and leave/overtime cancellation with
+  reasons, while approved/paid/locked payroll sources remain immutable;
+- existing permission vocabulary (`workers.read`, `workers.manage`,
+  `workers.compensation.read`, `payroll.detail.read`, and `payroll.manage`),
+  company-derived SECURITY DEFINER RPCs, closed direct DELETE paths, and
+  lifecycle audit events.
+
+The implementation is covered by focused application tests, migration
+invariants, and a pgTAP suite. Fresh replay, historical upgrade replay,
+authenticated RLS probes, and responsive browser evidence are release gates
+to be recorded against the exact PR head; they are not inferred from static
+checks.
+
 Priority known gaps include:
 
 ### Workforce / Payroll setup

@@ -58,7 +58,8 @@ import {
   writeInvoiceProjectAllocationsToLocal,
 } from "./lib/projects";
 import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
-import { canTransitionPayrollRun, deletePayrollPeriodToSupabase, deletePayrollRunToSupabase, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
+import { applyPayrollLifecycleToSupabase, canTransitionPayrollRun, deletePayrollPeriodToSupabase, deletePayrollRunToSupabase, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, previewWorkerLifecycleToSupabase, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
+import { assignmentForLifecycle, componentForLifecycle, profileForLifecycle, type PayrollLifecycleRequest, workerForLifecycle, workerDependencySummary } from "./lib/payrollLifecycle";
 import { isSafeToDeletePayrollPeriod, isSafeToDeletePayrollRun, selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
   import { applyPayrollMaintenance as applyPayrollMaintenanceRpc, applyPayrollWorkspaceReset as applyPayrollWorkspaceResetRpc, localMaintenanceResult, planLocalPayrollMaintenance, previewPayrollMaintenance as previewPayrollMaintenanceRpc, previewPayrollWorkspaceReset as previewPayrollWorkspaceResetRpc, assertPayrollWorkspaceResetConfirmation, type PayrollMaintenanceAction, type PayrollMaintenancePreview, type PayrollWorkspaceResetPreview } from "./lib/payrollMaintenance";
 import { commitPayrollImportToSupabase, findDuplicatePayrollImportBatches, loadPayrollImportWorkspaceFromSupabase, readPayrollImportWorkspaceFromLocal, savePayrollImportBatchToSupabase, savePayrollImportRowsToSupabase, savePayrollImportTemplateToSupabase, uploadPayrollImportSourceToSupabase, writePayrollImportWorkspaceToLocal, type PayrollImportBatch, type PayrollImportRow, type PayrollImportTemplate, type PayrollImportWorkspaceData } from "./lib/payrollImportPersistence";
@@ -1521,6 +1522,105 @@ function InvoiceWorkspace() {
     }
   };
 
+  const handlePayrollLifecycle = async (request: PayrollLifecycleRequest) => {
+    try {
+      const requiresWorkforcePermission = ["WORKER", "PROJECT_ASSIGNMENT", "COMPENSATION_PROFILE", "RECURRING_COMPONENT"].includes(request.entity);
+      if (isSupabaseConfigured && (requiresWorkforcePermission ? !can(PERMISSION_KEYS.workersManage) : !can(PERMISSION_KEYS.payrollWrite))) {
+        throw new Error(requiresWorkforcePermission ? "You do not have permission to manage workforce lifecycle records in this company." : "You do not have permission to manage payroll source lifecycle records in this company.");
+      }
+      const current = payrollDataRef.current;
+      if (request.entity === "WORKER" && request.action === "DELETE_UNUSED") {
+        const summary = workerDependencySummary(request.id, {
+          workers: current.workers,
+          assignments: current.assignments,
+          attendanceRecords: current.attendanceRecords,
+          leaveRequests: current.leaveRequests,
+          overtimeRequests: current.overtimeRequests,
+          workEntries: current.workEntries,
+          payrollEntries: current.entries,
+          payrollRuns: current.runs,
+          periods: current.periods,
+          compensationProfiles: current.compensationProfiles,
+          recurringComponents: current.recurringComponents,
+          departmentManagerWorkerIds: current.departments.map((department) => department.managerWorkerId).filter((id): id is string => Boolean(id)),
+          payrollImportWorkerIds: payrollImportData.rows.map((row) => row.workerId).filter((id): id is string => Boolean(id)),
+        });
+        if (!summary.canDelete) throw new Error(summary.blockedReason || "This employee cannot be permanently deleted. Offboard the employee instead.");
+      }
+
+      if (session && supabase) {
+        if (request.entity === "WORKER" && request.action === "DELETE_UNUSED") {
+          const preflight = await previewWorkerLifecycleToSupabase(request.id);
+          if (preflight.canDelete !== true) throw new Error("This employee has historical workforce or payroll records and cannot be permanently deleted. Offboard the employee instead.");
+        }
+        const token = currentWorkspaceLoadToken();
+        if (!token) throw new Error("Resolve deployment access before changing payroll lifecycle records.");
+        const result = await applyPayrollLifecycleToSupabase(request);
+        setPayrollData((snapshot) => {
+          const next = { ...snapshot };
+          if (request.entity === "WORKER") next.workers = result.deleted ? snapshot.workers.filter((item) => item.id !== request.id) : result.worker ? snapshot.workers.map((item) => item.id === result.worker!.id ? result.worker! : item) : snapshot.workers;
+          if (request.entity === "PROJECT_ASSIGNMENT") next.assignments = result.deleted ? snapshot.assignments.filter((item) => item.id !== request.id) : result.assignment ? snapshot.assignments.map((item) => item.id === result.assignment!.id ? result.assignment! : item) : snapshot.assignments;
+          if (request.entity === "COMPENSATION_PROFILE") next.compensationProfiles = result.deleted ? snapshot.compensationProfiles.filter((item) => item.id !== request.id) : result.profile ? [result.profile, ...snapshot.compensationProfiles.filter((item) => item.id !== result.profile!.id)] : snapshot.compensationProfiles;
+          if (request.entity === "RECURRING_COMPONENT") next.recurringComponents = result.deleted ? snapshot.recurringComponents.filter((item) => item.id !== request.id) : result.component ? [result.component, ...snapshot.recurringComponents.filter((item) => item.id !== result.component!.id)] : snapshot.recurringComponents;
+          if (request.entity === "WORK_ENTRY") next.workEntries = result.deleted ? snapshot.workEntries.filter((item) => item.id !== request.id) : result.workEntry ? snapshot.workEntries.map((item) => item.id === result.workEntry!.id ? result.workEntry! : item) : snapshot.workEntries;
+          if (request.entity === "ATTENDANCE") next.attendanceRecords = result.deleted ? (snapshot.attendanceRecords || []).filter((item) => item.id !== request.id) : result.attendance ? [result.attendance, ...(snapshot.attendanceRecords || []).filter((item) => item.id !== result.attendance!.id)] : snapshot.attendanceRecords;
+          if (request.entity === "LEAVE") next.leaveRequests = result.deleted ? (snapshot.leaveRequests || []).filter((item) => item.id !== request.id) : result.leave ? [result.leave, ...(snapshot.leaveRequests || []).filter((item) => item.id !== result.leave!.id)] : snapshot.leaveRequests;
+          if (request.entity === "OVERTIME") next.overtimeRequests = result.deleted ? (snapshot.overtimeRequests || []).filter((item) => item.id !== request.id) : result.overtime ? [result.overtime, ...(snapshot.overtimeRequests || []).filter((item) => item.id !== result.overtime!.id)] : snapshot.overtimeRequests;
+          next.periods = revisePayrollSourcePeriods(next.periods, { allOpen: true });
+          payrollDataRef.current = next;
+          return next;
+        });
+        if (!canApplyWorkspaceResult(token)) throw new Error("Deployment access changed while the lifecycle action was running.");
+        await refreshWorkspaceGroups(["payroll", "payroll-imports"], token, { force: true, reason: "payroll-lifecycle" });
+        if (!canApplyWorkspaceResult(token)) throw new Error("Deployment access changed while payroll lifecycle data was refreshing.");
+      } else {
+        const effectiveDate = request.effectiveDate || dateOnly();
+        const next = { ...current };
+        if (request.entity === "WORKER") {
+          const worker = current.workers.find((item) => item.id === request.id);
+          if (!worker) throw new Error("Worker does not exist in this workspace.");
+          next.workers = request.action === "DELETE_UNUSED" ? current.workers.filter((item) => item.id !== request.id) : current.workers.map((item) => item.id === request.id ? workerForLifecycle(item, request.action as "OFFBOARD" | "REACTIVATE", effectiveDate) : item);
+        } else if (request.entity === "PROJECT_ASSIGNMENT") {
+          const assignment = current.assignments.find((item) => item.id === request.id);
+          if (!assignment) throw new Error("Project assignment does not exist in this workspace.");
+          next.assignments = request.action === "DELETE_UNUSED" ? current.assignments.filter((item) => item.id !== request.id) : current.assignments.map((item) => item.id === request.id ? assignmentForLifecycle(item, effectiveDate) : item);
+        } else if (request.entity === "COMPENSATION_PROFILE") {
+          const profile = current.compensationProfiles.find((item) => item.id === request.id);
+          if (!profile) throw new Error("Compensation profile does not exist in this workspace.");
+          next.compensationProfiles = request.action === "DELETE_UNUSED" ? current.compensationProfiles.filter((item) => item.id !== request.id) : current.compensationProfiles.map((item) => item.id === request.id ? profileForLifecycle(item, effectiveDate) : item);
+        } else if (request.entity === "RECURRING_COMPONENT") {
+          const component = current.recurringComponents.find((item) => item.id === request.id);
+          if (!component) throw new Error("Recurring payroll component does not exist in this workspace.");
+          next.recurringComponents = request.action === "DELETE_UNUSED" ? current.recurringComponents.filter((item) => item.id !== request.id) : current.recurringComponents.map((item) => item.id === request.id ? componentForLifecycle(item, effectiveDate) : item);
+        } else if (request.entity === "WORK_ENTRY") {
+          const entry = current.workEntries.find((item) => item.id === request.id);
+          if (!entry) throw new Error("Work entry does not exist in this workspace.");
+          if (request.action === "DELETE_DRAFT") { if (entry.status !== "DRAFT") throw new Error("Only an unused draft work entry may be deleted."); next.workEntries = current.workEntries.filter((item) => item.id !== request.id); } else next.workEntries = current.workEntries.map((item) => item.id === request.id ? { ...item, status: "VOID", voidedAt: new Date().toISOString(), voidReason: request.reason } : item);
+        } else if (request.entity === "ATTENDANCE") {
+          const record = (current.attendanceRecords || []).find((item) => item.id === request.id);
+          if (!record) throw new Error("Attendance record does not exist in this workspace.");
+          next.attendanceRecords = request.action === "DELETE_DRAFT" ? (record.recordStatus === "DRAFT" ? (current.attendanceRecords || []).filter((item) => item.id !== request.id) : (() => { throw new Error("Only draft attendance may be deleted."); })()) : (current.attendanceRecords || []).map((item) => item.id === request.id ? { ...item, recordStatus: "VOID", voidedAt: new Date().toISOString(), voidReason: request.reason } : item);
+        } else if (request.entity === "LEAVE") {
+          const requestRow = (current.leaveRequests || []).find((item) => item.id === request.id);
+          if (!requestRow) throw new Error("Leave request does not exist in this workspace.");
+          next.leaveRequests = request.action === "DELETE_DRAFT" ? (requestRow.status === "DRAFT" ? (current.leaveRequests || []).filter((item) => item.id !== request.id) : (() => { throw new Error("Only draft leave requests may be deleted."); })()) : (current.leaveRequests || []).map((item) => item.id === request.id ? { ...item, status: "CANCELLED", cancelledAt: new Date().toISOString(), cancellationReason: request.reason } : item);
+        } else if (request.entity === "OVERTIME") {
+          const requestRow = (current.overtimeRequests || []).find((item) => item.id === request.id);
+          if (!requestRow) throw new Error("Overtime request does not exist in this workspace.");
+          next.overtimeRequests = request.action === "DELETE_DRAFT" ? (requestRow.status === "DRAFT" ? (current.overtimeRequests || []).filter((item) => item.id !== request.id) : (() => { throw new Error("Only draft overtime requests may be deleted."); })()) : (current.overtimeRequests || []).map((item) => item.id === request.id ? { ...item, status: "CANCELLED", cancelledAt: new Date().toISOString(), cancellationReason: request.reason } : item);
+        }
+        next.periods = revisePayrollSourcePeriods(next.periods, { allOpen: true });
+        payrollDataRef.current = next;
+        setPayrollData(next);
+      }
+      const actionLabels: Record<string, string> = { OFFBOARD: "Worker offboarded. Historical payroll remains preserved.", REACTIVATE: "Worker reactivated.", END: "Lifecycle record ended. Historical records remain preserved.", DEACTIVATE: "Payroll component deactivated. Historical payroll remains preserved.", DELETE_UNUSED: "Unused record deleted after the authoritative safety check.", DELETE_DRAFT: "Unused draft source deleted.", VOID: "Source voided and retained in history.", CANCEL: "Request cancelled and retained in history." };
+      showNotification("success", actionLabels[request.action] || "Lifecycle action completed.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not complete the payroll lifecycle action."));
+      throw error;
+    }
+  };
+
   const handleSaveDepartment = async (department: Department) => {
     try {
       if (isSupabaseConfigured && !can(PERMISSION_KEYS.workersManage)) throw new Error("You do not have permission to manage workforce departments in this company.");
@@ -1787,6 +1887,10 @@ function InvoiceWorkspace() {
       if (isSupabaseConfigured && !can(PERMISSION_KEYS.workersManage)) throw new Error("You do not have permission to manage compensation profiles in this company.");
       const saved = session && supabase ? await saveWorkerCompensationProfileToSupabase(profile) : profile;
       setPayrollData((current) => { const next = { ...current, compensationProfiles: [saved, ...(current.compensationProfiles || []).filter((item) => item.id !== saved.id)], periods: revisePayrollSourcePeriods(current.periods, { allOpen: true }) }; payrollDataRef.current = next; return next; });
+      if (session && supabase) {
+        const token = currentWorkspaceLoadToken();
+        if (token) await refreshWorkspaceGroups(["payroll"], token, { force: true, reason: "compensation-profile-saved" });
+      }
       showNotification("success", "Effective compensation profile saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save compensation profile."));
@@ -2890,6 +2994,9 @@ function InvoiceWorkspace() {
           onSavePayrollSchedule={(schedule) => void handleSavePayrollSchedule(schedule)}
           canManagePayrollSettings={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollSettings)}
           canManagePayrollMaintenance={payrollMaintenanceAllowed}
+          canManageWorkforce={!isSupabaseConfigured || can(PERMISSION_KEYS.workersManage)}
+          canManagePayrollSources={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollWrite)}
+          onPayrollLifecycle={(request) => handlePayrollLifecycle(request)}
           onSaveWorkerCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)}
           onSaveRecurringPayrollComponent={(component) => void handleSaveRecurringComponent(component)}
           onSavePayrollWorkEntry={(entry) => void handleSaveWorkEntry(entry)}

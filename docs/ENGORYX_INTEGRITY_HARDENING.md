@@ -120,3 +120,28 @@ The aggregate sums the canonical `payroll_project_allocations.allocation_amount`
 The current payroll schema has no currency column on payroll runs or project allocations. Therefore the RPC reports the deployment company's `default_currency` as the payroll allocation currency. A project whose currency differs receives `CURRENCY_CONFLICT`; application composition keeps the amount separate as a foreign amount and marks the project-cost source `currency-conflict`. No FX conversion is performed. `ZERO` is an authoritative no-row/zero-allocation result and is distinct from an unavailable or incomplete RPC load.
 
 The aggregate is consumed by the Dashboard project-cost view, Projects/project Overview, combined Reports and export, and the Assistant `get_project_cost_summary` tool. Payroll-detail views continue to use the existing detail permission and are not broadened. If the RPC is unavailable, invalid, incomplete, or currency-incompatible, the shared completeness helper withholds combined totals rather than converting the result to zero.
+
+## Core Hardening Wave 2A workforce correction boundary
+
+The forward migration `20260829024150_core_hardening_wave2a_workforce_corrections.sql`
+adds one company-derived lifecycle boundary for existing workforce/payroll
+records. A dependency-free worker, assignment, profile, component, or draft
+source may be deleted only after server/database checks. Used operational rows
+are ended, offboarded, deactivated, cancelled, or voided. Finalized payroll
+snapshots and project labor history remain immutable.
+
+Worker home context is explicit (`PROJECT`, `ADMIN_OFFICE`,
+`GENERAL_OVERHEAD`, or `UNALLOCATED_REVIEW`) and is separate from actual work
+entries and finalized allocations. Office, overhead, and unresolved labor do
+not become project labor; Main Office is never a fake project. Multiple active
+project assignments are allowed and do not themselves create allocation
+percentages or duplicate cost. Explicit actual project evidence takes
+precedence over defaults.
+
+The lifecycle RPCs require the existing effective `workers.manage` or
+`payroll.manage` permission, active deployment membership, and target-company
+validation. Direct authenticated DELETE is closed for covered tables. The
+focused pgTAP suite records the worker, assignment, context, compensation,
+component, work-entry, attendance, leave, overtime, RLS, permission, and audit
+invariants. This is Wave 2A only; Finance/Projects Wave 2B, Engineering Wave
+2C, and Assistant parity Wave 3 remain outstanding.

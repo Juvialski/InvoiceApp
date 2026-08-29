@@ -480,6 +480,8 @@ export interface AttendanceRecord {
   recordStatus: AttendanceRecordStatus;
   source: AttendanceSource;
   notes?: string;
+  voidedAt?: string;
+  voidReason?: string;
   createdBy?: string;
   updatedBy?: string;
   createdAt: string;
@@ -498,6 +500,8 @@ export interface LeaveRequest {
   paid?: boolean;
   status: LeaveStatus;
   notes?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
   createdBy?: string;
   updatedBy?: string;
   createdAt: string;
@@ -520,6 +524,8 @@ export interface OvertimeRequest {
   approvedAt?: string;
   notes?: string;
   source: OvertimeSource;
+  cancelledAt?: string;
+  cancellationReason?: string;
   createdBy?: string;
   updatedBy?: string;
   createdAt: string;
@@ -565,6 +571,10 @@ export interface Worker {
   managerWorkerId?: string;
   defaultPayType: PayType;
   defaultRate: number;
+  /** The worker's home context; actual work entries remain authoritative. */
+  defaultLaborContext?: PayrollLaborContextType;
+  /** Convenience only; must be absent for office, overhead, and review contexts. */
+  defaultProjectId?: string;
   active: boolean;
   hireDate?: string;
   endDate?: string;
@@ -638,6 +648,8 @@ export interface WorkEntry {
   description?: string;
   notes?: string;
   status: WorkEntryStatus;
+  voidedAt?: string;
+  voidReason?: string;
 }
 
 export interface PayrollRun {
