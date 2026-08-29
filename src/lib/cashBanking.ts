@@ -7,7 +7,7 @@ export type FinancialTransactionSource = "MANUAL" | "CSV" | "XLSX" | "PDF" | "PR
 export type FinancialReconciliationStatus = "UNMATCHED" | "SUGGESTED" | "PARTIAL" | "MATCHED" | "IGNORED";
 export type FinancialImportStatus = "PREVIEW" | "IMPORTED" | "FAILED";
 export type FinancialMatchTargetType = "EXPENSE" | "INVOICE" | "PAYROLL" | "TRANSFER" | "OTHER";
-export type FinancialMatchStatus = "SUGGESTED" | "CONFIRMED" | "REJECTED";
+export type FinancialMatchStatus = "SUGGESTED" | "CONFIRMED" | "REJECTED" | "REVERSED";
 
 export interface FinancialAccount {
   id: string;
@@ -101,6 +101,9 @@ export interface FinancialTransactionMatch {
   confidence?: number;
   confirmedByUserId?: string;
   confirmedAt?: string;
+  reversedByUserId?: string;
+  reversedAt?: string;
+  reversalReason?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;

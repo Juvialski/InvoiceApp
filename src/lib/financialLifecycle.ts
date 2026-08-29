@@ -127,7 +127,7 @@ export function buildLocalInvoiceCorrectionPreview({ invoice, allocationCount = 
     canRestore,
     recommendedAction: lifecycleStatus === "VOID" ? (canRestore ? "RESTORE" : "NONE") : invoice.reviewStatus === "VERIFIED" || totalDependencyCount > 0 ? "VOID" : "ARCHIVE",
     blockedReason: confirmedSettlementCount > 0
-      ? "Confirmed settlement evidence exists. Correct the settlement in the deferred Wave 2B3 cash workflow before voiding this invoice."
+      ? "Confirmed settlement evidence exists. Reverse or correct the cash settlement in Cash & Banking before voiding this invoice."
       : "Permanent deletion is available only after an authoritative database preflight.",
     totalDependencyCount,
     confirmedSettlementCount,
@@ -162,7 +162,7 @@ export function buildLocalExpenseCorrectionPreview({ expense, settlementMatchCou
     canRestore,
     recommendedAction: lifecycleStatus === "VOID" ? (canRestore ? "RESTORE" : "NONE") : expense.status === "APPROVED" || expense.status === "PAID" || totalDependencyCount > 0 ? "VOID" : "ARCHIVE",
     blockedReason: confirmedSettlementCount > 0
-      ? "Confirmed settlement evidence exists. Correct the settlement in the deferred Wave 2B3 cash workflow before voiding this expense."
+      ? "Confirmed settlement evidence exists. Reverse or correct the cash settlement in Cash & Banking before voiding this expense."
       : "Permanent deletion is available only after an authoritative database preflight.",
     totalDependencyCount,
     confirmedSettlementCount,

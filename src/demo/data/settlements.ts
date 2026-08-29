@@ -1,5 +1,5 @@
 import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransactionMatch } from "../../lib/cashBanking.ts";
-import type { FinancialSettlementHistoryItem, FinancialSettlementSummary } from "../../lib/financialSettlement.ts";
+import type { FinancialSettlementHistoryItem, FinancialSettlementSummary, SettlementTargetType } from "../../lib/financialSettlement.ts";
 import { DEMO_COMPANY_ID } from "../demoTypes.ts";
 import { addDemoDays, demoTimestamp } from "./demoDates.ts";
 
@@ -104,7 +104,7 @@ export function enrichDemoCashWithSettlements(base: CashBankingWorkspaceData, an
   };
 }
 
-export function demoSettlementSummaryForTarget(targetType: "INVOICE" | "PAYROLL", targetId: string, anchorDate = new Date().toISOString().slice(0, 10)): FinancialSettlementSummary | null {
+export function demoSettlementSummaryForTarget(targetType: SettlementTargetType, targetId: string, anchorDate = new Date().toISOString().slice(0, 10)): FinancialSettlementSummary | null {
   if (targetType === "INVOICE" && targetId === "demo-invoice-01") {
     const history = [payment("demo-settlement-inv-01", "demo-transaction-02", 1_487_360.40, anchorDate, 22, "BDO", "MS-260481")];
     return { targetType, targetId, currency: "PHP", lifecycleStatus: "VERIFIED", settlementBasis: 1_487_360.40, basisSource: "GROSS_DOCUMENT_AMOUNT", reconciledCashPaid: 1_487_360.40, documentReportedPaid: 1_487_360.40, effectiveSettled: 1_487_360.40, outstanding: 0, settlementState: "PAID", history };

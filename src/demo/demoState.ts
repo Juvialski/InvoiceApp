@@ -1,4 +1,4 @@
-import type { FinancialAccount, FinancialBalanceSnapshot, FinancialTransaction } from "../lib/cashBanking.ts";
+import { reconciliationStatusForTransaction, type FinancialAccount, type FinancialBalanceSnapshot, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../lib/dailySiteLogs.ts";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "../lib/payrollAutomation.ts";
@@ -51,6 +51,8 @@ export type DemoWorkspaceMutation =
   | { type: "SAVE_FINANCIAL_ACCOUNT"; value: FinancialAccount }
   | { type: "SAVE_FINANCIAL_SNAPSHOT"; value: FinancialBalanceSnapshot }
   | { type: "SAVE_FINANCIAL_TRANSACTION"; value: FinancialTransaction }
+  | { type: "SAVE_FINANCIAL_MATCH"; match: FinancialTransactionMatch; transaction: FinancialTransaction }
+  | { type: "REVERSE_FINANCIAL_SETTLEMENT"; matchId: string; reason: string }
   | { type: "SAVE_DAILY_SITE_LOGS"; value: EngineeringDailySiteLogsWorkspaceData };
 
 function upsert<T extends { id: string }>(items: readonly T[], value: T): T[] {
@@ -230,6 +232,29 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, cash: { ...state.cash, snapshots: upsert(state.cash.snapshots, mutation.value) } };
     case "SAVE_FINANCIAL_TRANSACTION":
       return { ...state, cash: { ...state.cash, transactions: upsert(state.cash.transactions, mutation.value) } };
+    case "SAVE_FINANCIAL_MATCH": {
+      const nextMatches = upsert(state.cash.matches, mutation.match);
+      const nextTransactions = upsert(state.cash.transactions, mutation.transaction);
+      return { ...state, cash: { ...state.cash, matches: nextMatches, transactions: nextTransactions } };
+    }
+    case "REVERSE_FINANCIAL_SETTLEMENT": {
+      const reversedAt = demoTimestamp(state.anchorDate, 16, 25);
+      const targetMatch = state.cash.matches.find((m) => m.id === mutation.matchId);
+      if (!targetMatch) return state;
+      const updatedMatch: FinancialTransactionMatch = {
+        ...targetMatch,
+        status: "REVERSED",
+        reversedAt,
+        reversalReason: mutation.reason,
+        updatedAt: reversedAt,
+      };
+      const nextMatches = state.cash.matches.map((m) => m.id === mutation.matchId ? updatedMatch : m);
+      const affectedTx = state.cash.transactions.find((t) => t.id === targetMatch.transactionId);
+      const nextTransactions = affectedTx
+        ? state.cash.transactions.map((t) => t.id === affectedTx.id ? { ...t, reconciliationStatus: reconciliationStatusForTransaction(t, nextMatches), updatedAt: reversedAt } : t)
+        : state.cash.transactions;
+      return { ...state, cash: { ...state.cash, matches: nextMatches, transactions: nextTransactions } };
+    }
     case "SAVE_DAILY_SITE_LOGS":
       return { ...state, siteLogs: mutation.value };
     default:

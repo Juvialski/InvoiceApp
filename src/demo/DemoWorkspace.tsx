@@ -224,6 +224,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onDeactivateFinancialAccount={(account) => dispatch({ type: "SAVE_FINANCIAL_ACCOUNT", value: { ...account, active: false, updatedAt: `${data.anchorDate}T14:00:00+08:00` } })}
             onSaveFinancialSnapshot={(snapshot: FinancialBalanceSnapshot) => dispatch({ type: "SAVE_FINANCIAL_SNAPSHOT", value: snapshot })}
             onSaveFinancialTransaction={(transaction: FinancialTransaction) => dispatch({ type: "SAVE_FINANCIAL_TRANSACTION", value: transaction })}
+            onSaveFinancialMatch={(match, transaction) => dispatch({ type: "SAVE_FINANCIAL_MATCH", match, transaction })}
+            onReverseFinancialMatch={(matchId, reason) => dispatch({ type: "REVERSE_FINANCIAL_SETTLEMENT", matchId, reason })}
             onIgnoreFinancialTransaction={(transaction) => dispatch({ type: "SAVE_FINANCIAL_TRANSACTION", value: { ...transaction, reconciliationStatus: "IGNORED" } })}
             onOpenCashDashboard={() => onNavigate(demoPathForTab("dashboard"))}
             payrollData={data.payroll}

@@ -98,6 +98,7 @@ import {
   saveFinancialTransactionToSupabase,
   writeCashBankingWorkspaceToLocal,
 } from "./lib/cashBankingPersistence.ts";
+import { reverseFinancialSettlement } from "./lib/financialSettlementPersistence.ts";
 import { useProjectController } from "./features/projects/useProjectController.ts";
 
 function revisePayrollSourcePeriods(
@@ -888,6 +889,31 @@ function InvoiceWorkspace() {
     }
     const nextMatches = [...cashDataRef.current.matches.filter((item) => item.id !== match.id), match];
     applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? transaction : item) });
+  };
+
+  const handleReverseFinancialMatch = async (matchId: string, reason: string) => {
+    if (session && supabase) {
+      await reverseFinancialSettlement(matchId, reason);
+      const token = currentWorkspaceLoadToken();
+      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-match-reversed" });
+      return;
+    }
+    const targetMatch = cashDataRef.current.matches.find((m) => m.id === matchId);
+    if (!targetMatch) return;
+    const updatedAt = new Date().toISOString();
+    const updatedMatch: FinancialTransactionMatch = {
+      ...targetMatch,
+      status: "REVERSED",
+      reversedAt: updatedAt,
+      reversalReason: reason,
+      updatedAt,
+    };
+    const nextMatches = cashDataRef.current.matches.map((m) => m.id === matchId ? updatedMatch : m);
+    const affectedTx = cashDataRef.current.transactions.find((t) => t.id === targetMatch.transactionId);
+    const nextTransactions = affectedTx
+      ? cashDataRef.current.transactions.map((t) => t.id === affectedTx.id ? { ...t, reconciliationStatus: reconciliationStatusForTransaction(t, nextMatches), updatedAt } : t)
+      : cashDataRef.current.transactions;
+    applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: nextTransactions });
   };
 
   const handleIgnoreFinancialTransaction = (transaction: FinancialTransaction) => handleSaveFinancialTransaction(transaction);
@@ -3022,6 +3048,7 @@ function InvoiceWorkspace() {
           onSaveFinancialTransaction={handleSaveFinancialTransaction}
           onCommitFinancialImport={handleCommitFinancialImport}
           onSaveFinancialMatch={handleSaveFinancialMatch}
+          onReverseFinancialMatch={handleReverseFinancialMatch}
           onIgnoreFinancialTransaction={handleIgnoreFinancialTransaction}
           onConfirmFinancialTransfer={handleConfirmFinancialTransfer}
           cashReconciliationCandidates={cashReconciliationCandidates}

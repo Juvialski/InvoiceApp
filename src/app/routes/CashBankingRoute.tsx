@@ -11,6 +11,7 @@ export const CashBankingRoute: React.FC<CashBankingRouteProps> = (props) => {
       candidates={props.reconciliationCandidates || []}
       canReconcile={props.canReconcile}
       onSaveMatch={props.onSaveMatch}
+      onReverseMatch={props.onReverseMatch}
     />
     <CashBankingPage {...props} />
   </div>;

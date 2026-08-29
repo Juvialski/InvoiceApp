@@ -53,6 +53,7 @@ export interface CashBankingPageProps {
   onSaveTransaction: (transaction: FinancialTransaction) => Promise<void> | void;
   onCommitImport?: (preview: StatementPreview, account: FinancialAccount) => Promise<void> | void;
   onSaveMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
+  onReverseMatch?: (matchId: string, reason: string) => Promise<void> | void;
   onIgnoreTransaction?: (transaction: FinancialTransaction) => Promise<void> | void;
   onConfirmTransfer?: (left: FinancialTransaction, right: FinancialTransaction) => Promise<void> | void;
   reconciliationCandidates?: readonly FinancialReconciliationCandidate[];

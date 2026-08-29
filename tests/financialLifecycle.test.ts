@@ -38,14 +38,14 @@ test("local correction previews keep permanent deletion unavailable and explain 
   const invoicePreview = buildLocalInvoiceCorrectionPreview({ invoice: invoice(), allocationCount: 1, settlementMatchCount: 1, confirmedSettlementCount: 1, historyCount: 2 });
   assert.equal(invoicePreview.canDelete, false);
   assert.equal(invoicePreview.canVoid, false);
-  assert.match(invoicePreview.blockedReason || "", /Wave 2B3/);
+  assert.match(invoicePreview.blockedReason || "", /settlement/i);
   const expense = { id: "expense-a", expenseDate: "2026-08-01", category: "Fuel", description: "Fuel", amount: 100, currency: "PHP", status: "APPROVED" as const, createdAt: "2026-08-01", updatedAt: "2026-08-01" };
   const expensePreview = buildLocalExpenseCorrectionPreview({ expense, confirmedSettlementCount: 0 });
   assert.equal(expensePreview.canDelete, false);
   assert.equal(expensePreview.canVoid, true);
   const settledExpensePreview = buildLocalExpenseCorrectionPreview({ expense, confirmedSettlementCount: 1 });
   assert.equal(settledExpensePreview.canVoid, false);
-  assert.match(settledExpensePreview.blockedReason || "", /Wave 2B3/);
+  assert.match(settledExpensePreview.blockedReason || "", /settlement/i);
 });
 
 test("correction response parsing accepts the bounded database contract", () => {
