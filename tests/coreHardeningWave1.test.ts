@@ -5,10 +5,12 @@ import { invitationRedirectUrl, InvitationDeliveryError, deliverCompanyInvitatio
 import { normalizeCompanyAccessPayload } from "../src/lib/companyAccess.ts";
 
 const migration = readFileSync(new URL("../supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql", import.meta.url), "utf8");
+const platformMaintenanceCorrection = readFileSync(new URL("../supabase/migrations/20260829020000_core_hardening_wave1_platform_maintenance_correction.sql", import.meta.url), "utf8");
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 const clientSupabase = readFileSync(new URL("../src/lib/supabase.ts", import.meta.url), "utf8");
 const accessManagement = readFileSync(new URL("../src/components/access/DeploymentAccessManagement.tsx", import.meta.url), "utf8");
 const profile = readFileSync(new URL("../src/components/access/CompanyProfileSettings.tsx", import.meta.url), "utf8");
+const settings = readFileSync(new URL("../src/components/Settings.tsx", import.meta.url), "utf8");
 
 test("Wave 1 migration adds company-bound overrides and backend-only invitation delivery state", () => {
   assert.match(migration, /company_member_permission_overrides/);
@@ -25,6 +27,13 @@ test("Wave 1 migration adds company-bound overrides and backend-only invitation 
   assert.match(migration, /MEMBER_PERMISSIONS_UPDATED/);
   assert.match(migration, /You cannot assign a permission you do not hold/);
   assert.match(migration, /At least one active member with access-management authority must remain/);
+});
+
+test("Wave 1 correction preserves a separate explicit platform-maintenance authorization path", () => {
+  assert.match(platformMaintenanceCorrection, /perform private\.require_platform_deployment_company\(p_company_id\)/);
+  assert.match(platformMaintenanceCorrection, /update public\.companies c/);
+  assert.doesNotMatch(platformMaintenanceCorrection, /public\.update_company\(/);
+  assert.match(platformMaintenanceCorrection, /maintenance_path', true/);
 });
 
 test("Wave 1 migration preserves every existing audit event while adding delivery and permission events", () => {
@@ -76,10 +85,12 @@ test("existing Auth users receive a real sign-in email while database membership
   assert.equal(sentEmail, "existing@example.com");
 });
 
-test("profile and access UI expose truthful states and the three permission sources", () => {
+test("profile and access UI expose truthful states and remain isolated from the demo route", () => {
   assert.match(profile, /Company profile/);
   assert.match(profile, /Read-only/);
   assert.match(profile, /companyAccess\.updateCompany/);
+  assert.match(settings, /showDeploymentAccessManagement && <CompanyProfileSettings/);
+  assert.match(settings, /Production company profile controls are intentionally not mounted here/);
   assert.match(accessManagement, /Role default/);
   assert.match(accessManagement, /Custom grant/);
   assert.match(accessManagement, /Custom deny/);
