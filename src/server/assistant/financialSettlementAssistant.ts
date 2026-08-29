@@ -173,7 +173,7 @@ async function getPayrollSettlement(args: Record<string, unknown>, context: Assi
 
 async function listOpenInvoices(args: Record<string, unknown>, context: AssistantToolContext): Promise<ToolExecutionResult> {
   const limitValue = Number(args.limit || 20);
-  let query = (context.auth.supabase as any).from("invoices").select("id,invoice_number,invoice_date,due_date,currency,grand_total,review_status,vendor_id,current_data").eq("company_id", context.auth.companyId).eq("review_status", "VERIFIED").is("archived_at", null).order("due_date", { ascending: true }).limit(Math.min(50, Math.max(limitValue * 2, limitValue)));
+  let query = (context.auth.supabase as any).from("invoices").select("id,invoice_number,invoice_date,due_date,currency,grand_total,review_status,lifecycle_status,vendor_id,current_data").eq("company_id", context.auth.companyId).eq("review_status", "VERIFIED").neq("lifecycle_status", "VOID").is("archived_at", null).order("due_date", { ascending: true }).limit(Math.min(50, Math.max(limitValue * 2, limitValue)));
   if (typeof args.query === "string" && args.query.trim()) query = query.ilike("invoice_number", `%${args.query.trim().replace(/[\\%_]/g, "\\$&")}%`);
   const result = await query;
   if (result.error) throw new AssistantBackendError("TOOL_READ_FAILED", "Supplier invoices could not be read safely.", 503);

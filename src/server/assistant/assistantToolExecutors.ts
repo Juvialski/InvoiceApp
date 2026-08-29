@@ -8,9 +8,9 @@ import { toolOk } from "./toolResults.ts";
 type DbClient = any;
 type Row = AssistantRow & { id?: string; status?: string };
 
-const INVOICE_SELECT = "id,invoice_number,invoice_date,due_date,currency,grand_total,payment_status,review_status,duplicate_status,duplicate_of_id,document_type,vendor_id,current_data,verified_at,archived_at,created_at,updated_at";
+const INVOICE_SELECT = "id,invoice_number,invoice_date,due_date,currency,grand_total,payment_status,review_status,duplicate_status,duplicate_of_id,document_type,vendor_id,current_data,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason,created_at,updated_at";
 const PROJECT_SELECT = "id,project_code,project_name,description,client_name,client_reference,location,site_address,project_manager,status,start_date,target_end_date,actual_end_date,contract_value,project_budget,currency,notes,created_at,updated_at,archived_at";
-const EXPENSE_SELECT = "id,project_id,expense_date,category,description,payee,amount,currency,payment_method,reference_number,status,notes,created_at,updated_at,archived_at";
+const EXPENSE_SELECT = "id,project_id,expense_date,category,description,payee,amount,currency,payment_method,reference_number,status,notes,created_at,updated_at,archived_at,voided_at,voided_by_user_id,void_reason";
 const WORKER_SELECT = "id,employee_code,first_name,middle_name,last_name,display_name,employment_type,employment_status,job_title,department,department_id,manager_worker_id,default_pay_type,default_rate,active,hire_date,end_date,working_days,working_hours_start,working_hours_end,notes,created_at,updated_at,archived_at";
 const ATTENDANCE_SELECT = "id,worker_id,period_id,attendance_date,scheduled_start,scheduled_end,scheduled_minutes,break_minutes,actual_time_in,actual_time_out,regular_minutes,late_minutes,undertime_minutes,overtime_minutes,paid_day_fraction,attendance_status,record_status,source,notes,created_by,updated_by,created_at,updated_at";
 const LEAVE_SELECT = "id,worker_id,leave_type,start_date,end_date,partial_day,paid,status,notes,created_by,updated_by,created_at,updated_at";
@@ -130,6 +130,11 @@ function invoiceView(row: Row) {
     documentType: text(row, "document_type"),
     vendorId: optionalText(row, "vendor_id"),
     verifiedAt: optionalText(row, "verified_at"),
+    lifecycleStatus: text(row, "lifecycle_status", "ACTIVE"),
+    voidedAt: optionalText(row, "voided_at"),
+    voidedByUserId: optionalText(row, "voided_by_user_id"),
+    voidReason: optionalText(row, "void_reason"),
+    archivedAt: optionalText(row, "archived_at"),
     createdAt: optionalText(row, "created_at"),
   };
 }
@@ -167,6 +172,9 @@ function expenseView(row: Row) {
     status: text(row, "status"),
     referenceNumber: optionalText(row, "reference_number"),
     archivedAt: optionalText(row, "archived_at"),
+    voidedAt: optionalText(row, "voided_at"),
+    voidedByUserId: optionalText(row, "voided_by_user_id"),
+    voidReason: optionalText(row, "void_reason"),
   };
 }
 
@@ -291,7 +299,7 @@ async function getInvoiceTool(context: AssistantToolContext, args: Record<string
 
 async function listReviewQueue(context: AssistantToolContext, args: Record<string, unknown>) {
   const limit = Number(args.limit || 20);
-  const rows = await getRows(userCompanyQuery(context, "invoices", INVOICE_SELECT).eq("review_status", "NEEDS_REVIEW").is("archived_at", null).order("created_at", { ascending: true }).limit(limit), "Review queue");
+  const rows = await getRows(userCompanyQuery(context, "invoices", INVOICE_SELECT).eq("review_status", "NEEDS_REVIEW").neq("lifecycle_status", "VOID").is("archived_at", null).order("created_at", { ascending: true }).limit(limit), "Review queue");
   return toolOk({ records: rows.map(invoiceView), count: rows.length, label: "Invoices needing review" }, { references: rows.map((row) => reference("invoice", text(row, "id"), safeLabel(row.invoice_number, row.invoice_date))), clientActions: rows.length ? [{ type: "OPEN_REVIEW_INVOICE", entityId: text(rows[0], "id"), label: "Open review queue" }] : [] });
 }
 
@@ -308,7 +316,7 @@ async function getProjectTool(context: AssistantToolContext, args: Record<string
   const row = await getProject(context, String(args.projectId));
   const [invoiceAllocations, expenses, assignments] = await Promise.all([
     getRows(userCompanyQuery(context, "invoice_project_allocations", "id,invoice_id,allocation_amount,allocation_percentage,allocation_type,notes").eq("project_id", String(row.id)).limit(50), "Project invoice allocations"),
-    getRows(userCompanyQuery(context, "expenses", EXPENSE_SELECT).eq("project_id", String(row.id)).is("archived_at", null).order("expense_date", { ascending: false }).limit(50), "Project expenses"),
+    getRows(userCompanyQuery(context, "expenses", EXPENSE_SELECT).eq("project_id", String(row.id)).order("expense_date", { ascending: false }).limit(50), "Project expenses"),
     getRows(userCompanyQuery(context, "project_worker_assignments", "id,worker_id,project_id,start_date,end_date,pay_type,rate,role_on_project,active").eq("project_id", String(row.id)).order("start_date", { ascending: false }).limit(50), "Project worker assignments"),
   ]);
   return toolOk({ project: projectView(row), invoiceAllocations, expenses: expenses.map(expenseView), workerAssignments: assignments }, { references: [reference("project", text(row, "id"), safeLabel(row.project_code, row.project_name))] });
@@ -319,10 +327,10 @@ async function getProjectCostSummary(context: AssistantToolContext, args: Record
   const project = await getProject(context, projectId);
   const allocations = await getRows(userCompanyQuery(context, "invoice_project_allocations", "invoice_id,allocation_amount,currency").eq("project_id", projectId).limit(500), "Project invoice allocations");
   const invoiceIds = allocations.map((row) => text(row, "invoice_id")).filter(Boolean);
-  const invoices = invoiceIds.length ? await getRows(userCompanyQuery(context, "invoices", "id,review_status,payment_status,invoice_date,currency,archived_at").in("id", invoiceIds).is("archived_at", null).limit(500), "Project invoices") : [];
+  const invoices = invoiceIds.length ? await getRows(userCompanyQuery(context, "invoices", "id,review_status,payment_status,invoice_date,currency,archived_at,lifecycle_status").in("id", invoiceIds).limit(500), "Project invoices") : [];
   const invoiceById = new Map(invoices.map((row) => [text(row, "id"), row]));
   if (new Set(invoiceIds).size !== invoiceById.size) throw new AssistantToolError("DATA_UNAVAILABLE", "The project invoice-cost source is incomplete.");
-  const expenses = await getRows(userCompanyQuery(context, "expenses", "id,amount,currency,status,expense_date").eq("project_id", projectId).is("archived_at", null).limit(500), "Project expenses");
+  const expenses = await getRows(userCompanyQuery(context, "expenses", "id,amount,currency,status,expense_date,archived_at").eq("project_id", projectId).limit(500), "Project expenses");
   const aggregateResult = await db(context).rpc("get_project_labor_cost_aggregate", { p_project_ids: [projectId] });
   if (aggregateResult.error) throw new AssistantToolError("DATA_UNAVAILABLE", "The project labor-cost aggregate is temporarily unavailable.");
   const aggregateRow = Array.isArray(aggregateResult.data) && aggregateResult.data.length === 1 ? aggregateResult.data[0] as Row : null;
@@ -342,8 +350,9 @@ async function getProjectCostSummary(context: AssistantToolContext, args: Record
   for (const allocation of allocations) {
     const invoice = invoiceById.get(text(allocation, "invoice_id"));
     if (!invoice) continue;
+    if (text(invoice, "lifecycle_status", "ACTIVE") === "VOID") continue;
     const current = bucket(text(invoice, "currency", "UNKNOWN"));
-    if (text(invoice, "review_status") === "VERIFIED") current.invoiceConfirmed += amount(allocation, "allocation_amount");
+    if (text(invoice, "review_status") === "VERIFIED" && text(invoice, "lifecycle_status", "ACTIVE") !== "VOID") current.invoiceConfirmed += amount(allocation, "allocation_amount");
     else current.invoicePending += amount(allocation, "allocation_amount");
   }
   for (const expense of expenses) {
@@ -380,7 +389,7 @@ async function getProjectCostSummary(context: AssistantToolContext, args: Record
 async function listExpenses(context: AssistantToolContext, args: Record<string, unknown>) {
   const limit = Number(args.limit || 20);
   const range = dateRange(args);
-  let query = userCompanyQuery(context, "expenses", EXPENSE_SELECT).is("archived_at", null).order("expense_date", { ascending: false }).limit(limit);
+  let query = userCompanyQuery(context, "expenses", EXPENSE_SELECT).order("expense_date", { ascending: false }).limit(limit);
   if (typeof args.projectId === "string") query = query.eq("project_id", args.projectId);
   if (typeof args.status === "string") query = query.eq("status", args.status);
   if (range.from) query = query.gte("expense_date", range.from);
@@ -392,15 +401,16 @@ async function listExpenses(context: AssistantToolContext, args: Record<string, 
 
 async function getExpenseSummary(context: AssistantToolContext, args: Record<string, unknown>) {
   const range = dateRange(args);
-  let query = userCompanyQuery(context, "expenses", "id,project_id,expense_date,amount,currency,status").is("archived_at", null).limit(500);
+  let query = userCompanyQuery(context, "expenses", "id,project_id,expense_date,amount,currency,status,archived_at").limit(500);
   if (typeof args.projectId === "string") query = query.eq("project_id", args.projectId);
   if (range.from) query = query.gte("expense_date", range.from);
   if (range.to) query = query.lte("expense_date", range.to);
   if (typeof args.currency === "string") query = query.eq("currency", args.currency);
   const rows = await getRows(query, "Expense summary");
-  const confirmed = rows.filter((row) => ["APPROVED", "PAID"].includes(text(row, "status")));
-  const pending = rows.filter((row) => text(row, "status") === "DRAFT");
-  return toolOk({ count: rows.length, confirmedTotal: confirmed.reduce((sum, row) => sum + amount(row, "amount"), 0), pendingTotal: pending.reduce((sum, row) => sum + amount(row, "amount"), 0), byCurrency: [...new Set(rows.map((row) => text(row, "currency", "PHP")))].map((currency) => ({ currency, total: rows.filter((row) => text(row, "currency", "PHP") === currency).reduce((sum, row) => sum + amount(row, "amount"), 0) })), semantics: "Persisted expense source totals; VOID rows are excluded from confirmed and pending totals." });
+  const activeRows = rows.filter((row) => text(row, "status") !== "VOID");
+  const confirmed = activeRows.filter((row) => ["APPROVED", "PAID"].includes(text(row, "status")));
+  const pending = activeRows.filter((row) => text(row, "status") === "DRAFT");
+  return toolOk({ count: rows.length, confirmedTotal: confirmed.reduce((sum, row) => sum + amount(row, "amount"), 0), pendingTotal: pending.reduce((sum, row) => sum + amount(row, "amount"), 0), byCurrency: [...new Set(activeRows.map((row) => text(row, "currency", "PHP")))].map((currency) => ({ currency, total: activeRows.filter((row) => text(row, "currency", "PHP") === currency).reduce((sum, row) => sum + amount(row, "amount"), 0) })), semantics: "Persisted expense source totals; count includes preserved VOID history, while financial totals exclude VOID rows." });
 }
 
 async function searchVendors(context: AssistantToolContext, args: Record<string, unknown>) {
@@ -414,7 +424,7 @@ async function searchVendors(context: AssistantToolContext, args: Record<string,
 
 async function getVendorSummary(context: AssistantToolContext, args: Record<string, unknown>) {
   const vendor = requireFound(await getOne(userCompanyQuery(context, "vendors", "id,name,email,phone,tax_id,address,default_currency,default_category").eq("id", String(args.vendorId)).maybeSingle(), "Vendor"), "Vendor was not found in this company.");
-  const invoices = await getRows(userCompanyQuery(context, "invoices", "id,invoice_number,invoice_date,currency,grand_total,payment_status,review_status").eq("vendor_id", String(vendor.id)).is("archived_at", null).order("invoice_date", { ascending: false }).limit(50), "Vendor invoices");
+  const invoices = await getRows(userCompanyQuery(context, "invoices", "id,invoice_number,invoice_date,currency,grand_total,payment_status,review_status,lifecycle_status,voided_at,voided_by_user_id,void_reason,archived_at").eq("vendor_id", String(vendor.id)).is("archived_at", null).order("invoice_date", { ascending: false }).limit(50), "Vendor invoices");
   return toolOk({ vendor: { id: text(vendor, "id"), name: text(vendor, "name"), email: optionalText(vendor, "email"), phone: optionalText(vendor, "phone"), taxId: optionalText(vendor, "tax_id"), defaultCurrency: optionalText(vendor, "default_currency") }, invoiceCount: invoices.length, invoices: invoices.map(invoiceView), note: "Totals are shown per source currency; no exchange-rate conversion is applied." }, { references: [reference("report", text(vendor, "id"), text(vendor, "name"))] });
 }
 
@@ -1022,6 +1032,7 @@ async function prepareInvoiceProjectAssignment(context: AssistantToolContext, ar
   const project = await getProject(context, String(args.projectId));
   if (text(project, "status") === "ARCHIVED" || project.archived_at) throw new AssistantToolError("PROJECT_ARCHIVED", "Archived projects cannot receive new invoice allocations.");
   if (text(invoice, "review_status") !== "VERIFIED") throw new AssistantToolError("INVOICE_NOT_VERIFIED", "Invoice project allocation requires a human-verified invoice.");
+  if (text(invoice, "lifecycle_status", "ACTIVE") === "VOID") throw new AssistantToolError("INVOICE_VOID", "Voided invoices retain their allocation history and cannot receive new project allocations.");
   return context.prepareAction({
     toolName: "assign_invoice_to_project", riskTier: "NORMAL_MUTATION", normalizedArgs: args, contextGeneration: context.context.generation,
     preview: { operation: "Assign verified invoice to project", invoice: safeLabel(invoice.invoice_number, invoice.id), project: safeLabel(project.project_code, project.project_name), allocationAmount: args.allocationAmount, allocationPercentage: args.allocationPercentage },
@@ -1278,7 +1289,7 @@ async function executeProjectDraft(context: AssistantToolContext, args: Record<s
 async function executeInvoiceProjectAssignment(context: AssistantToolContext, args: Record<string, unknown>, actionId?: string) {
   const invoice = await getInvoice(context, String(args.invoiceId));
   const project = await getProject(context, String(args.projectId));
-  if (text(invoice, "review_status") !== "VERIFIED" || text(project, "status") === "ARCHIVED" || project.archived_at) throw new AssistantToolError("SOURCE_CHANGED", "The verified invoice or project is no longer eligible for allocation.");
+  if (text(invoice, "review_status") !== "VERIFIED" || text(invoice, "lifecycle_status", "ACTIVE") === "VOID" || text(project, "status") === "ARCHIVED" || project.archived_at) throw new AssistantToolError("SOURCE_CHANGED", "The verified invoice or project is no longer eligible for allocation.");
   const allocationType = args.allocationPercentage !== undefined ? "PERCENTAGE" : "AMOUNT";
   const row = {
     id: actionId || randomUUID(), user_id: context.auth.user.id, company_id: context.auth.companyId, invoice_id: args.invoiceId, project_id: args.projectId,
@@ -1292,7 +1303,7 @@ async function executeInvoiceProjectAssignment(context: AssistantToolContext, ar
 
 async function executeInvoiceDraftUpdate(context: AssistantToolContext, args: Record<string, unknown>) {
   const invoice = await getInvoice(context, String(args.invoiceId));
-  if (text(invoice, "review_status") !== "NEEDS_REVIEW") throw new AssistantToolError("INVOICE_CHANGED", "The invoice is no longer an editable draft.");
+  if (text(invoice, "review_status") !== "NEEDS_REVIEW" || text(invoice, "lifecycle_status", "ACTIVE") === "VOID") throw new AssistantToolError("INVOICE_CHANGED", "The invoice is no longer an editable draft.");
   const currentData = invoice.current_data && typeof invoice.current_data === "object" && !Array.isArray(invoice.current_data) ? invoice.current_data as Record<string, unknown> : {};
   const nextData = { ...currentData };
   const patch: Record<string, unknown> = { updated_at: context.now.toISOString(), current_data: nextData };

@@ -14,6 +14,7 @@ import {
   invoiceUnpaidBalance,
   isConfirmedExpense,
   isConfirmedInvoice,
+  isVoidedInvoice,
   MixedCurrencyError,
   normalizeCurrency,
   payrollRecordCostBreakdown,
@@ -215,6 +216,7 @@ export function invoiceAllocationTotal(invoice: Pick<CostInvoice, "grandTotal" |
 
 export function invoiceResidualByCurrency(invoices: CostInvoice[]): CurrencyAmount {
   return invoices.reduce<CurrencyAmount>((result, invoice) => {
+    if (isVoidedInvoice(invoice)) return result;
     const residual = invoiceResidualAmount(invoice);
     if (residual) addAmount(result, normalizeCurrency(invoice.currency), residual);
     return result;
@@ -273,7 +275,7 @@ export function buildAccountingIndex(input: DashboardStatsInput): IndexedAccount
     invoicesById: new Map(invoices.map((invoice) => [invoice.id, invoice])),
     invoicesByProjectId,
     invoiceAllocationsByProjectId,
-    unallocatedInvoices: invoices.filter((invoice) => invoiceResidualAmount(invoice) > 0),
+    unallocatedInvoices: invoices.filter((invoice) => !isVoidedInvoice(invoice) && invoiceResidualAmount(invoice) > 0),
     expensesById: new Map(expenses.map((expense) => [expense.id, expense])),
     expensesByProjectId,
     unallocatedExpenses,
@@ -510,6 +512,7 @@ export function activityTrends(input: DashboardStatsInput, options: ActivityTren
   };
 
   for (const invoice of input.invoices || []) {
+    if (isVoidedInvoice(invoice)) continue;
     if (normalizeCurrency(invoice.currency) !== code) continue;
     const date = sourceDate(invoice);
     if (!inActivityPeriod(date, options)) continue;
@@ -528,7 +531,9 @@ export function activityTrends(input: DashboardStatsInput, options: ActivityTren
   }
 
   for (const expense of input.expenses || []) {
-    if (normalizeCurrency(expense.currency) !== code || expense.status === "VOID" || expense.archivedAt) continue;
+    // Archive changes visibility only; it must not remove a financial expense
+    // from cost trends. VOID is the financial exclusion state.
+    if (normalizeCurrency(expense.currency) !== code || expense.status === "VOID") continue;
     const date = sourceDate(expense);
     if (!inActivityPeriod(date, options)) continue;
     const point = getPoint(date);

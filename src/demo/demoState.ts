@@ -22,16 +22,18 @@ import { demoTimestamp } from "./data/demoDates.ts";
 import { DEMO_COMPANY_ID, type DemoPreparedAssistantAction, type DemoWorkspaceData } from "./demoTypes.ts";
 import { assignmentDependencySummary, assignmentForLifecycle, componentForLifecycle, isCompensationProfileConsumed, isRecurringComponentConsumed, profileForLifecycle, workerDependencySummary, workerForLifecycle, type PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction } from "../lib/projects.ts";
+import type { FinancialCorrectionAction } from "../lib/financialLifecycle.ts";
 
 export type DemoWorkspaceMutation =
   | { type: "SAVE_PROJECT"; value: Project }
   | { type: "ARCHIVE_PROJECT"; value: Project }
   | { type: "PROJECT_LIFECYCLE"; project: Project; action: ProjectLifecycleAction }
   | { type: "SAVE_INVOICE"; value: InvoiceData }
+  /** Legacy test-only demo transition; production routes use FINANCIAL_CORRECTION. */
   | { type: "DELETE_INVOICE"; id: string }
+  | { type: "FINANCIAL_CORRECTION"; entity: "INVOICE" | "EXPENSE"; id: string; action: FinancialCorrectionAction; reason?: string }
   | { type: "SAVE_INVOICE_ALLOCATIONS"; invoiceId: string; value: InvoiceProjectAllocation[] }
   | { type: "SAVE_EXPENSE"; value: Expense }
-  | { type: "ARCHIVE_EXPENSE"; value: Expense }
   | { type: "SAVE_WORKER"; value: Worker }
   | { type: "SAVE_ASSIGNMENT"; value: ProjectWorkerAssignment }
   | { type: "SAVE_COMPENSATION_PROFILE"; value: WorkerCompensationProfile }
@@ -105,12 +107,25 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, invoices: upsert(state.invoices, mutation.value) };
     case "DELETE_INVOICE":
       return { ...state, invoices: state.invoices.filter((invoice) => invoice.id !== mutation.id), invoiceAllocations: state.invoiceAllocations.filter((allocation) => allocation.invoiceId !== mutation.id) };
+    case "FINANCIAL_CORRECTION": {
+      const updatedAt = demoTimestamp(state.anchorDate, 16, mutation.entity === "INVOICE" ? 15 : 20);
+      if (mutation.entity === "INVOICE") {
+        const invoice = state.invoices.find((candidate) => candidate.id === mutation.id);
+        if (!invoice) return state;
+        if (mutation.action === "DELETE_UNUSED") return { ...state, invoices: state.invoices.filter((candidate) => candidate.id !== mutation.id), invoiceAllocations: state.invoiceAllocations.filter((allocation) => allocation.invoiceId !== mutation.id) };
+        const value = mutation.action === "VOID" ? { ...invoice, lifecycleStatus: "VOID" as const, voidedAt: updatedAt, voidReason: mutation.reason || "Confirmed invoice void", updatedAt } : mutation.action === "ARCHIVE" ? { ...invoice, archivedAt: invoice.archivedAt || updatedAt, updatedAt } : { ...invoice, archivedAt: undefined, updatedAt };
+        return { ...state, invoices: state.invoices.map((candidate) => candidate.id === mutation.id ? value : candidate) };
+      }
+      const expense = state.expenses.find((candidate) => candidate.id === mutation.id);
+      if (!expense) return state;
+      if (mutation.action === "DELETE_UNUSED") return { ...state, expenses: state.expenses.filter((candidate) => candidate.id !== mutation.id) };
+      const value = mutation.action === "VOID" ? { ...expense, status: "VOID" as const, voidedAt: updatedAt, voidReason: mutation.reason || "Confirmed expense void", updatedAt } : mutation.action === "ARCHIVE" ? { ...expense, archivedAt: expense.archivedAt || updatedAt, updatedAt } : { ...expense, archivedAt: undefined, updatedAt };
+      return { ...state, expenses: state.expenses.map((candidate) => candidate.id === mutation.id ? value : candidate) };
+    }
     case "SAVE_INVOICE_ALLOCATIONS":
       return { ...state, invoiceAllocations: [...state.invoiceAllocations.filter((allocation) => allocation.invoiceId !== mutation.invoiceId), ...mutation.value] };
     case "SAVE_EXPENSE":
       return { ...state, expenses: upsert(state.expenses, mutation.value) };
-    case "ARCHIVE_EXPENSE":
-      return { ...state, expenses: state.expenses.map((expense) => expense.id === mutation.value.id ? { ...expense, archivedAt: demoTimestamp(state.anchorDate, 16, 10), updatedAt: demoTimestamp(state.anchorDate, 16, 10) } : expense) };
     case "SAVE_WORKER":
       return { ...state, payroll: { ...state.payroll, workers: upsert(state.payroll.workers, mutation.value) } };
     case "SAVE_ASSIGNMENT":

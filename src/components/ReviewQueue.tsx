@@ -39,7 +39,7 @@ function reasonBadges(invoice: InvoiceData) {
 }
 
 export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, onOpenInvoice, onStartReview, readOnly = false }) => {
-  const queue = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW"), [invoices]);
+  const queue = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID"), [invoices]);
   const description = readOnly
     ? "Inspect invoices that are awaiting verification. Your role can read these records but cannot edit or verify them."
     : "Review the original source alongside the extraction, correct anything needed, then verify the record.";

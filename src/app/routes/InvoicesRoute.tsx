@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { VerificationWorkspace, type SaveState } from "../../components/VerificationWorkspace";
 import { UploadZone, type ExtractPayload } from "../../components/UploadZone";
 import { EmailInbox } from "../../components/EmailInbox";
@@ -22,6 +22,8 @@ import type {
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import type { AppTab } from "../../utils/routes";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
+import { FinancialCorrectionDialog } from "../../components/financial/FinancialCorrectionDialog.tsx";
+import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 
 export interface InvoicesRouteProps {
   selectedInvoice?: InvoiceData | null;
@@ -55,7 +57,8 @@ export interface InvoicesRouteProps {
   onSelectInvoice?: (invoice: InvoiceData) => void;
   onOpenInvoiceForReview?: (invoice: InvoiceData) => void;
   onStartReview?: (queue?: InvoiceData[]) => void;
-  onDeleteInvoice?: (id: string) => void;
+  onPreviewCorrection?: (invoice: InvoiceData) => Promise<FinancialCorrectionPreview>;
+  onApplyCorrection?: (invoice: InvoiceData, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
   onAddNew?: () => void;
   onExtract?: (payload: ExtractPayload) => Promise<InvoiceData>;
   onLoadPreset?: (invoice: InvoiceData) => void;
@@ -100,7 +103,8 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onSelectInvoice = () => {},
   onOpenInvoiceForReview = () => {},
   onStartReview = () => {},
-  onDeleteInvoice = () => {},
+  onPreviewCorrection,
+  onApplyCorrection,
   onAddNew = () => {},
   onExtract = async () => { throw new Error("Extractor handler not configured."); },
   onLoadPreset,
@@ -118,15 +122,61 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canExtractInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesExtract);
   const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile);
+  const [correctionInvoice, setCorrectionInvoice] = useState<InvoiceData | null>(null);
+  const [correctionPreview, setCorrectionPreview] = useState<FinancialCorrectionPreview | null>(null);
+  const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [correctionError, setCorrectionError] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+
+  const openCorrection = async (invoice: InvoiceData) => {
+    setCorrectionInvoice(invoice);
+    setCorrectionPreview(null);
+    setCorrectionError("");
+    setCorrectionReason("");
+    setCorrectionLoading(true);
+    try {
+      if (!onPreviewCorrection) throw new Error("Invoice correction is not available in this workspace.");
+      setCorrectionPreview(await onPreviewCorrection(invoice));
+    } catch (error) {
+      setCorrectionError(error instanceof Error ? error.message : "Could not load the invoice correction preview. No action was taken.");
+    } finally {
+      setCorrectionLoading(false);
+    }
+  };
+
+  const closeCorrection = () => {
+    setCorrectionInvoice(null);
+    setCorrectionPreview(null);
+    setCorrectionError("");
+    setCorrectionReason("");
+  };
+
+  const applyCorrection = async (action: FinancialCorrectionAction) => {
+    if (!correctionInvoice || !correctionPreview || !onApplyCorrection) return;
+    if ((action === "VOID" || action === "ARCHIVE" || action === "RESTORE") && correctionReason.trim().length < 3) return;
+    setCorrectionLoading(true);
+    setCorrectionError("");
+    try {
+      await onApplyCorrection(correctionInvoice, action, correctionReason.trim() || undefined);
+      closeCorrection();
+    } catch (error) {
+      setCorrectionError(error instanceof Error ? error.message : "Could not complete the invoice correction. Nothing was changed.");
+    } finally {
+      setCorrectionLoading(false);
+    }
+  };
+
+  const correctionDialog = correctionInvoice ? <FinancialCorrectionDialog entityLabel="invoice" recordLabel={`${correctionInvoice.invoiceNumber || "Invoice"}${correctionInvoice.vendor?.name ? ` · ${correctionInvoice.vendor.name}` : ""}`} preview={correctionPreview} loading={correctionLoading} error={correctionError} reason={correctionReason} onReasonChange={setCorrectionReason} onApply={(action) => void applyCorrection(action)} onClose={closeCorrection} /> : null;
 
   if (selectedInvoice) {
     if (!canManageInvoices && !canVerifyInvoices) {
-      return <div className="space-y-5"><FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact canReverse={canReverseSettlement} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
+      return <div className="space-y-5"><FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
     }
     const handleReopenCallback = async () => { if (onReopen) await onReopen(selectedInvoice); };
     return (
       <div className="space-y-5">
-        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} compact canReverse={canReverseSettlement} />
+        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} />
+        {canManageInvoices && onPreviewCorrection && <button type="button" onClick={() => void openCorrection(selectedInvoice)} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100">Review correction options</button>}
         <VerificationWorkspace
           invoice={selectedInvoice}
           queue={reviewQueue}
@@ -135,14 +185,14 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           completion={reviewCompletion}
           isRetrying={retryingInvoiceId === selectedInvoice.id}
           onRetryExtraction={canExtractInvoices && onRetryExtraction ? () => onRetryExtraction(selectedInvoice) : async () => null}
-          onUpdateInvoice={onUpdateInvoice}
+          onUpdateInvoice={canManageInvoices && selectedInvoice.lifecycleStatus !== "VOID" ? onUpdateInvoice : () => {}}
           onBack={onBack}
           backLabel={workspaceOriginLabel}
           onPrevious={onPrevious}
           onNext={onNext}
-          onSave={onSave}
+          onSave={canManageInvoices && selectedInvoice.lifecycleStatus !== "VOID" ? onSave : async () => false}
           onVerifyAndNext={canVerifyInvoices ? onVerifyAndNext : async () => false}
-          onReopen={handleReopenCallback}
+          onReopen={selectedInvoice.lifecycleStatus === "VOID" ? async () => {} : handleReopenCallback}
           onContinueWithNewItems={onContinueWithNewItems}
           onReturnToDashboard={onReturnToDashboard}
           onViewVerified={onViewVerified}
@@ -151,8 +201,9 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           projects={projects}
           invoiceProjectAllocations={invoiceProjectAllocations}
           preferredProjectId={preferredProjectId}
-          onSaveProjectAllocations={onSaveProjectAllocations}
+          onSaveProjectAllocations={selectedInvoice.lifecycleStatus === "VOID" ? async () => {} : onSaveProjectAllocations}
         />
+        {correctionDialog}
       </div>
     );
   }
@@ -165,7 +216,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifyInvoices ? onStartReview : undefined} readOnly={!canVerifyInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
-  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onDeleteInvoice={onDeleteInvoice} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}</div>;
+  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}{correctionDialog}</div>;
 };
 
 export default InvoicesRoute;

@@ -64,6 +64,7 @@ import type {
 } from "../../lib/payrollMaintenance";
 import type { RegionalSettings } from "../../config/regional";
 import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
+import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 
 const CashBankingRoute = lazy(() => import("./CashBankingRoute"));
 const ProjectsRoute = lazy(() => import("./ProjectsRoute").then(({ ProjectsRoute }) => ({ default: ProjectsRoute })));
@@ -127,6 +128,7 @@ export interface AppRouterProps {
   onProjectBack?: () => void;
   onProjectUploadInvoice?: () => void;
   onProjectAddExpense?: () => void;
+  onProjectOpenExpenseCorrection?: (expense: Expense) => void;
   onProjectOpenPayroll?: () => void;
 
   // Invoices Data & Handlers
@@ -162,7 +164,8 @@ export interface AppRouterProps {
   onSelectInvoice?: (invoice: InvoiceData) => void;
   onOpenInvoiceForReview?: (invoice: InvoiceData) => void;
   onStartReview?: (queue?: InvoiceData[]) => void;
-  onDeleteInvoice?: (id: string) => void;
+  onPreviewInvoiceCorrection?: (invoice: InvoiceData) => Promise<FinancialCorrectionPreview>;
+  onApplyInvoiceCorrection?: (invoice: InvoiceData, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
   onAddNewInvoice?: () => void;
   onExtractInvoice?: (payload: ExtractPayload) => Promise<InvoiceData>;
   onLoadInvoicePreset?: (invoice: InvoiceData) => void;
@@ -245,8 +248,11 @@ export interface AppRouterProps {
   // Expenses Data & Handlers
   expenses: Expense[];
   expenseFormContext?: string | null;
+  expenseCorrectionContext?: string | null;
   onSaveExpense?: (expense: Expense) => void;
-  onArchiveExpense?: (expense: Expense) => void;
+  onPreviewExpenseCorrection?: (expense: Expense) => Promise<FinancialCorrectionPreview>;
+  onApplyExpenseCorrection?: (expense: Expense, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
+  onExpenseCorrectionContextConsumed?: () => void;
 
   // Reports
   onExportReportsWorkbook?: () => void;
@@ -296,6 +302,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onProjectBack = () => {},
   onProjectUploadInvoice = () => {},
   onProjectAddExpense,
+  onProjectOpenExpenseCorrection,
   onProjectOpenPayroll,
   invoices,
   selectedInvoice,
@@ -326,7 +333,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onSelectInvoice,
   onOpenInvoiceForReview,
   onStartReview,
-  onDeleteInvoice,
+  onPreviewInvoiceCorrection,
+  onApplyInvoiceCorrection,
   onAddNewInvoice,
   onExtractInvoice,
   onLoadInvoicePreset,
@@ -386,8 +394,11 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onApplyFactoryReset,
   expenses,
   expenseFormContext,
+  expenseCorrectionContext,
   onSaveExpense = () => {},
-  onArchiveExpense = () => {},
+  onPreviewExpenseCorrection,
+  onApplyExpenseCorrection,
+  onExpenseCorrectionContextConsumed,
   onExportReportsWorkbook,
   regionalSettings,
   onRegionalSettingsChange = () => {},
@@ -426,6 +437,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onRevertToAI={onRevertToAI}
         onRevertField={onRevertField}
         onSaveProjectAllocations={onSaveInvoiceProjectAllocations}
+        onPreviewCorrection={onPreviewInvoiceCorrection}
+        onApplyCorrection={onApplyInvoiceCorrection}
       />
     );
   }
@@ -473,6 +486,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onOpenInvoice={(invoice) => onSelectInvoice?.(invoice)}
         onUploadInvoice={onProjectUploadInvoice}
         onAddExpense={onProjectAddExpense}
+        onOpenExpenseCorrection={onProjectOpenExpenseCorrection}
         onOpenPayroll={onProjectOpenPayroll}
       />
     );
@@ -540,7 +554,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSelectInvoice={onSelectInvoice}
         onOpenInvoiceForReview={onOpenInvoiceForReview}
         onStartReview={onStartReview}
-        onDeleteInvoice={onDeleteInvoice}
+        onPreviewCorrection={onPreviewInvoiceCorrection}
+        onApplyCorrection={onApplyInvoiceCorrection}
         onAddNew={onAddNewInvoice}
         onExtract={onExtractInvoice}
         onLoadPreset={onLoadInvoicePreset}
@@ -620,8 +635,11 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         expenses={expenses}
         projects={projects}
         initialProjectId={expenseFormContext || undefined}
+        initialExpenseId={expenseCorrectionContext}
         onSave={onSaveExpense}
-        onArchive={onArchiveExpense}
+        onPreviewCorrection={onPreviewExpenseCorrection || (async () => { throw new Error("Expense correction is not available in this workspace."); })}
+        onApplyCorrection={onApplyExpenseCorrection || (async () => { throw new Error("Expense correction is not available in this workspace."); })}
+        onInitialCorrectionConsumed={onExpenseCorrectionContextConsumed}
       />
     );
   }

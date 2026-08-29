@@ -34,7 +34,7 @@ import type { PayrollSchedule } from "./lib/payrollSchedule";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./lib/payrollAutomation";
 import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, supabase } from "./lib/supabase";
 import {
-  deleteInvoiceFromSupabase,
+  applyInvoiceCorrectionInSupabase,
   ensureWorkspaceProfile,
   loadGmailSyncState,
   loadInvoicesFromSupabase,
@@ -43,6 +43,7 @@ import {
   markSourceDocumentStatus,
   persistNewInvoice,
   persistExtractionAttempt,
+  previewInvoiceCorrectionInSupabase,
   saveGmailMessageSource,
   saveGmailSyncState,
   saveManualEmailRecord,
@@ -57,7 +58,8 @@ import {
   replaceInvoiceProjectAllocationsOnSupabase,
   writeInvoiceProjectAllocationsToLocal,
 } from "./lib/projects";
-import { archiveExpenseInSupabase, createLocalExpense, loadExpensesFromSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
+import { applyExpenseCorrectionInSupabase, createLocalExpense, loadExpensesFromSupabase, previewExpenseCorrectionInSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
+import { buildLocalExpenseCorrectionPreview, buildLocalInvoiceCorrectionPreview, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./lib/financialLifecycle.ts";
 import { applyPayrollLifecycleToSupabase, canTransitionPayrollRun, deletePayrollPeriodToSupabase, deletePayrollRunToSupabase, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, previewWorkerLifecycleToSupabase, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
 import { assignmentForLifecycle, componentForLifecycle, profileForLifecycle, type PayrollLifecycleRequest, workerForLifecycle, workerDependencySummary } from "./lib/payrollLifecycle";
 import { isSafeToDeletePayrollPeriod, isSafeToDeletePayrollRun, selectPrimaryPayrollSchedule } from "./lib/payrollIntegrity";
@@ -378,7 +380,7 @@ function InvoiceWorkspace() {
       const resolved = resolveEntityById(invoices, invoiceRoute.invoiceId);
       setSelectedInvoice(resolved);
       if (invoiceRoute.kind === "review-invoice" && !reviewSessionIds.length && !workspaceLoading) {
-        const ids = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").map((invoice) => invoice.id);
+        const ids = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID").map((invoice) => invoice.id);
         setReviewSessionIds(ids.includes(invoiceRoute.invoiceId) ? ids : [invoiceRoute.invoiceId, ...ids]);
       }
       return;
@@ -388,6 +390,7 @@ function InvoiceWorkspace() {
   }, [route, invoices, reviewSessionIds.length, workspaceLoading]);
 
   const [expenseFormContext, setExpenseFormContext] = useState<string | null>(null);
+  const [expenseCorrectionContext, setExpenseCorrectionContext] = useState<string | null>(null);
   const [uploadProjectContextId, setUploadProjectContextId] = useState<string | null>(null);
   const setGuestMode = (enabled: boolean) => {
     guestModeRef.current = enabled;
@@ -446,6 +449,7 @@ function InvoiceWorkspace() {
     projectController.reset();
     setInvoiceProjectAllocations([]);
     setExpenses([]);
+    setExpenseCorrectionContext(null);
     setProjectLaborAggregates([]);
     setProjectCostDomainLoadState(isSupabaseConfigured ? "not-loaded" : "loaded");
     setProjectLaborAggregateLoadState(isSupabaseConfigured ? "not-loaded" : "unavailable");
@@ -1492,6 +1496,7 @@ function InvoiceWorkspace() {
 
   const handleSaveExpense = async (expense: Expense) => {
     try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.expensesWrite)) throw new Error("You do not have permission to manage expenses in this company.");
       const saved = session && supabase ? await saveExpenseToSupabase(expense) : { ...expense, updatedAt: new Date().toISOString() };
       setExpenses((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]);
       setExpenseFormContext(null);
@@ -1501,13 +1506,94 @@ function InvoiceWorkspace() {
     }
   };
 
-  const handleArchiveExpense = async (expense: Expense) => {
+  const previewInvoiceCorrection = async (invoice: InvoiceData): Promise<FinancialCorrectionPreview> => {
+    if (session && supabase) return previewInvoiceCorrectionInSupabase(invoice.id);
+    const matches = cashData.matches.filter((match) => match.targetType === "INVOICE" && match.targetId === invoice.id);
+    return buildLocalInvoiceCorrectionPreview({
+      invoice,
+      allocationCount: invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id).length,
+      settlementMatchCount: matches.length,
+      confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length,
+      historyCount: (invoice.extractionId ? 1 : 0) + (invoice.reviewStatus === "VERIFIED" ? 1 : 0),
+    });
+  };
+
+  const applyInvoiceCorrection = async (invoice: InvoiceData, action: FinancialCorrectionAction, reason?: string): Promise<FinancialCorrectionResult> => {
     try {
-      const archived = session && supabase ? await archiveExpenseInSupabase(expense.id) : { ...expense, status: "VOID" as const, archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-      setExpenses((current) => current.map((item) => item.id === archived.id ? archived : item));
-      showNotification("info", "Expense archived and excluded from future project actual cost.");
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.invoicesWrite)) throw new Error("You do not have permission to correct invoices in this company.");
+      if (isSupabaseConfigured && action === "VOID" && invoice.reviewStatus === "VERIFIED" && !can(PERMISSION_KEYS.invoicesVerify)) throw new Error("Voiding a verified invoice requires invoices.verify.");
+      let result: FinancialCorrectionResult;
+      if (session && supabase) {
+        result = await applyInvoiceCorrectionInSupabase(invoice.id, action, reason);
+      } else {
+        const preview = await previewInvoiceCorrection(invoice);
+        if (action === "DELETE_UNUSED") throw new Error("Permanent invoice deletion requires an authoritative database preflight.");
+        if (action === "VOID" && !preview.canVoid) throw new Error(preview.blockedReason || "This invoice cannot be voided.");
+        const updatedAt = new Date().toISOString();
+        const record = action === "VOID"
+          ? { ...invoice, lifecycleStatus: "VOID" as const, voidedAt: updatedAt, voidReason: reason?.trim() || "Confirmed invoice void", updatedAt }
+          : action === "ARCHIVE"
+            ? { ...invoice, archivedAt: invoice.archivedAt || updatedAt, updatedAt }
+            : { ...invoice, archivedAt: undefined, updatedAt };
+        result = { entityType: "INVOICE", entityId: invoice.id, action, deleted: false, changed: true, preflight: preview, record };
+      }
+      if (result.deleted) {
+        const next = invoicesRef.current.filter((item) => item.id !== result.entityId);
+        invoicesRef.current = next;
+        setInvoices(next);
+        lastPersistedRef.current.delete(result.entityId);
+        if (selectedInvoice?.id === result.entityId) setSelectedInvoice(null);
+      } else if (result.record) {
+        const next = invoicesRef.current.map((item) => item.id === result.entityId ? result.record as InvoiceData : item);
+        invoicesRef.current = next;
+        setInvoices(next);
+        setSelectedInvoice((current) => current?.id === result.entityId ? result.record as InvoiceData : current);
+        lastPersistedRef.current.set(result.entityId, result.record as InvoiceData);
+      }
+      showNotification("success", action === "VOID" ? "Invoice voided. Original values, extraction snapshots, allocations, and review history remain preserved." : action === "ARCHIVE" ? "Invoice archived for visibility only. Its financial status and history remain unchanged." : "Invoice restored to the visible directory.");
+      return result;
     } catch (error: any) {
-      showNotification("error", userFacingError(error, "Could not archive expense."));
+      showNotification("error", userFacingError(error, "Could not complete invoice correction."));
+      throw error;
+    }
+  };
+
+  const previewExpenseCorrection = async (expense: Expense): Promise<FinancialCorrectionPreview> => {
+    if (session && supabase) return previewExpenseCorrectionInSupabase(expense.id);
+    const matches = cashData.matches.filter((match) => match.targetType === "EXPENSE" && match.targetId === expense.id);
+    return buildLocalExpenseCorrectionPreview({
+      expense,
+      settlementMatchCount: matches.length,
+      confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length,
+      historyCount: expense.createdAt ? 1 : 0,
+    });
+  };
+
+  const applyExpenseCorrection = async (expense: Expense, action: FinancialCorrectionAction, reason?: string): Promise<FinancialCorrectionResult> => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.expensesWrite)) throw new Error("You do not have permission to correct expenses in this company.");
+      let result: FinancialCorrectionResult;
+      if (session && supabase) {
+        result = await applyExpenseCorrectionInSupabase(expense.id, action, reason);
+      } else {
+        const preview = await previewExpenseCorrection(expense);
+        if (action === "DELETE_UNUSED") throw new Error("Permanent expense deletion requires an authoritative database preflight.");
+        if (action === "VOID" && !preview.canVoid) throw new Error(preview.blockedReason || "This expense cannot be voided.");
+        const updatedAt = new Date().toISOString();
+        const record = action === "VOID"
+          ? { ...expense, status: "VOID" as const, voidedAt: updatedAt, voidReason: reason?.trim() || "Confirmed expense void", updatedAt }
+          : action === "ARCHIVE"
+            ? { ...expense, archivedAt: expense.archivedAt || updatedAt, updatedAt }
+            : { ...expense, archivedAt: undefined, updatedAt };
+        result = { entityType: "EXPENSE", entityId: expense.id, action, deleted: false, changed: true, preflight: preview, record };
+      }
+      if (result.deleted) setExpenses((current) => current.filter((item) => item.id !== result.entityId));
+      else if (result.record && "expenseDate" in result.record) setExpenses((current) => current.map((item) => item.id === result.entityId ? result.record as Expense : item));
+      showNotification("success", action === "VOID" ? "Expense voided and excluded from active project cost. Its history remains preserved." : action === "ARCHIVE" ? "Expense archived for visibility only. Its financial status and cost contribution remain unchanged." : "Expense restored to the visible directory.");
+      return result;
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not complete expense correction."));
+      throw error;
     }
   };
 
@@ -2509,18 +2595,8 @@ function InvoiceWorkspace() {
     showNotification("info", `Reverted ${path.replaceAll(".", " ")} to the original AI value.`);
   };
 
-  const handleDeleteInvoice = async (id: string) => {
-    if (session && supabase) await deleteInvoiceFromSupabase(id);
-    const next = invoicesRef.current.filter((invoice) => invoice.id !== id);
-    invoicesRef.current = next;
-    setInvoices(next);
-    lastPersistedRef.current.delete(id);
-    if (selectedInvoice?.id === id) setSelectedInvoice(null);
-    showNotification("info", "Invoice record archived. The original source file, AI snapshot, and review history remain preserved.");
-  };
-
   const startReview = (requestedQueue?: InvoiceData[], initialId?: string, origin: AppTab = activeTab, returnPath = workspaceReturnPath) => {
-    const queue = requestedQueue?.length ? requestedQueue : invoicesRef.current.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW");
+    const queue = requestedQueue?.length ? requestedQueue : invoicesRef.current.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID");
     const ids = queue.map((invoice) => invoice.id);
     const firstId = initialId && ids.includes(initialId) ? initialId : ids[0];
     if (!firstId) {
@@ -2735,7 +2811,7 @@ function InvoiceWorkspace() {
   }, [projects, costInvoices, detailPayrollForProjectCost, expenses, projectLaborAggregates, projectLaborSource]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
     ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
-    ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
+    ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
     ...payrollData.runs.filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: payrollData.entries.filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: payrollData.periods.find((period) => period.id === run.periodId)?.payDate || payrollData.periods.find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment" })),
   ].filter((candidate) => candidate.amount > 0), [expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods]);
   const dashboardViewData = useMemo(() => buildDashboardViewData({
@@ -2759,7 +2835,7 @@ function InvoiceWorkspace() {
   }), [projects, costInvoices, expenses, detailPayrollForProjectCost, projectLaborAggregates, projectLaborSource, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
 
   const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, projectLaborAggregates, projectLaborSource, payrollData.periods]);
-  const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW").length;
+  const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID").length;
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
     signedIn: Boolean(session),
@@ -2928,8 +3004,14 @@ function InvoiceWorkspace() {
           onProjectAddExpense={() => {
             if (selectedProject) {
               setExpenseFormContext(selectedProject.id);
+              setExpenseCorrectionContext(null);
               navigateToPath(appPathForTab("expenses"));
             }
+          }}
+          onProjectOpenExpenseCorrection={(expense) => {
+            setExpenseFormContext(null);
+            setExpenseCorrectionContext(expense.id);
+            navigateToPath(appPathForTab("expenses"));
           }}
           onProjectOpenPayroll={() => setActiveTab("payroll")}
           onSaveInvoiceProjectAllocations={handleSaveInvoiceProjectAllocations}
@@ -2985,7 +3067,8 @@ function InvoiceWorkspace() {
           onSelectInvoice={openInvoice}
           onOpenInvoiceForReview={openInvoiceForReview}
           onStartReview={(queue) => startReview(queue, undefined, "review")}
-          onDeleteInvoice={(id) => void handleDeleteInvoice(id)}
+          onPreviewInvoiceCorrection={previewInvoiceCorrection}
+          onApplyInvoiceCorrection={applyInvoiceCorrection}
           onAddNewInvoice={() => resetWorkspaceSelection("extractor")}
           payrollData={payrollData}
           payrollImportData={payrollImportData}
@@ -3021,8 +3104,11 @@ function InvoiceWorkspace() {
           onApplyFactoryReset={(confirmation) => handleApplyPayrollWorkspaceReset(confirmation)}
           expenses={expenses}
           expenseFormContext={expenseFormContext}
+          expenseCorrectionContext={expenseCorrectionContext}
           onSaveExpense={(expense) => void handleSaveExpense(expense)}
-          onArchiveExpense={(expense) => void handleArchiveExpense(expense)}
+          onPreviewExpenseCorrection={previewExpenseCorrection}
+          onApplyExpenseCorrection={applyExpenseCorrection}
+          onExpenseCorrectionContextConsumed={() => setExpenseCorrectionContext(null)}
           regionalSettings={regionalSettings}
           onRegionalSettingsChange={handleRegionalSettingsChange}
         />

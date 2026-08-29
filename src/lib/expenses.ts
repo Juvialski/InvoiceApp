@@ -1,6 +1,7 @@
 import type { Expense, ExpenseStatus } from "../types";
 import { supabase } from "./supabase";
 import { companyScopedRow, requireActiveCompanyId } from "./companyContext";
+import { parseFinancialCorrectionPreview, parseFinancialCorrectionResult, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./financialLifecycle.ts";
 
 const EXPENSES_STORAGE_KEY = "engineering_expenses";
 
@@ -36,6 +37,9 @@ function fromRow(row: Record<string, unknown>): Expense {
     createdAt: String(row.created_at || new Date().toISOString()),
     updatedAt: String(row.updated_at || new Date().toISOString()),
     archivedAt: text(row.archived_at),
+    voidedAt: text(row.voided_at),
+    voidedByUserId: text(row.voided_by_user_id),
+    voidReason: text(row.void_reason),
   };
 }
 
@@ -89,7 +93,7 @@ export function createLocalExpense(input: Omit<Expense, "id" | "createdAt" | "up
 export async function loadExpensesFromSupabase(): Promise<Expense[]> {
   const userId = await currentUserId();
   if (!supabase || !userId) return [];
-  const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("expenses").select("*").eq("company_id", companyId).is("archived_at", null).order("expense_date", { ascending: false });
+  const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("expenses").select("*").eq("company_id", companyId).order("expense_date", { ascending: false });
   if (error) throw error;
   return (data || []).map((row) => fromRow(row as Record<string, unknown>));
 }
@@ -102,10 +106,39 @@ export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> 
   return fromRow(data as Record<string, unknown>);
 }
 
-export async function archiveExpenseInSupabase(expenseId: string): Promise<Expense> {
+export async function previewExpenseCorrectionInSupabase(expenseId: string): Promise<FinancialCorrectionPreview> {
   const userId = await currentUserId();
-  if (!supabase || !userId) throw new Error("Sign in before archiving expenses.");
-  const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("expenses").update({ archived_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", expenseId).eq("company_id", companyId).select("*").single();
+  if (!supabase || !userId) throw new Error("Sign in before previewing expense correction actions.");
+  requireActiveCompanyId();
+  const { data, error } = await supabase.rpc("preview_expense_correction", { p_expense_id: expenseId });
   if (error) throw error;
-  return fromRow(data as Record<string, unknown>);
+  return parseFinancialCorrectionPreview(data, "EXPENSE");
+}
+
+export async function applyExpenseCorrectionInSupabase(
+  expenseId: string,
+  action: FinancialCorrectionAction,
+  reason?: string,
+): Promise<FinancialCorrectionResult> {
+  const userId = await currentUserId();
+  if (!supabase || !userId) throw new Error("Sign in before changing expense lifecycle state.");
+  requireActiveCompanyId();
+  const { data, error } = await supabase.rpc("apply_expense_correction", {
+    p_expense_id: expenseId,
+    p_action: action,
+    p_reason: reason || null,
+  });
+  if (error) throw error;
+  const parsed = parseFinancialCorrectionResult(data, "EXPENSE");
+  return {
+    ...parsed,
+    ...(parsed.rawRecord ? { record: fromRow(parsed.rawRecord) } : {}),
+  };
+}
+
+/** Compatibility wrapper for callers that still request an explicit archive. */
+export async function archiveExpenseInSupabase(expenseId: string): Promise<Expense> {
+  const result = await applyExpenseCorrectionInSupabase(expenseId, "ARCHIVE", "Confirmed expense archive");
+  if (!result.record || !("expenseDate" in result.record)) throw new Error("Expense archive did not return the preserved expense record.");
+  return result.record as Expense;
 }

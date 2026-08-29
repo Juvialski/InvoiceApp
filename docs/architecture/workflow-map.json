@@ -6,7 +6,7 @@
   "purpose": "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   "canonicalSource": "scripts/workflow-map/graph.ts",
   "sourceClassification": "mixed",
-  "reviewedCommitSha": "dfbde16a688b7f6f912afd0e07b99fb4c3bf8cf5",
+  "reviewedCommitSha": "c5d3a41c90220e45bd692c7ae5d9784d3b4b9630",
   "reviewedAt": "2026-08-29",
   "phaseTags": [
     "Phase 0",
@@ -15,6 +15,7 @@
     "Phase 1C",
     "Core Hardening Wave 1",
     "Core Hardening Wave 2A",
+    "Core Hardening Wave 2B2",
     "Cross-Domain Settlement",
     "QA-1",
     "WM-1"
@@ -91,6 +92,25 @@
       "testRefs": [
         "tests/financialSettlement.test.ts",
         "tests/projectCostingHardening.test.ts"
+      ]
+    },
+    {
+      "id": "financial-corrections-preserve-history",
+      "label": "Invoice and expense corrections preserve financial history",
+      "description": "Unused invoice/expense deletion is database-guarded; operational records use explicit archive or void actions; finalized history, allocations, extraction/review evidence, and confirmed settlement dependencies are never silently erased or rewritten.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/financialLifecycle.ts",
+        "src/lib/persistence.ts",
+        "src/lib/expenses.ts",
+        "src/utils/projectCosting.ts",
+        "supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql",
+        "docs/ENGORYX_CORE_HARDENING_PLAN.md"
+      ],
+      "testRefs": [
+        "tests/financialLifecycle.test.ts",
+        "tests/coreHardeningWave2B2.test.ts",
+        "supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql"
       ]
     },
     {
@@ -1699,15 +1719,83 @@
       "fileRefs": [
         "src/lib/expenses.ts",
         "src/components/expenses/ProjectExpenses.tsx",
+        "src/components/expenses/ExpensesPage.tsx",
         "src/types.ts"
       ],
       "testRefs": [
         "tests/accountingStatistics.test.ts",
-        "tests/financialSettlement.test.ts"
+        "tests/financialSettlement.test.ts",
+        "tests/financialLifecycle.test.ts"
       ],
       "permissionKeys": [
         "expenses.read",
         "expenses.manage"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "expense-correction-lifecycle",
+      "label": "Expense correction lifecycle",
+      "domain": "finance",
+      "type": "workflow",
+      "scope": "company-and-project",
+      "statusValues": [
+        "DELETE_UNUSED",
+        "VOID",
+        "ARCHIVE",
+        "RESTORE"
+      ],
+      "description": "Authoritative expense correction outcomes distinguish unused draft deletion, history-preserving void, visibility-only archive, and visibility restore; confirmed settlement evidence blocks void/delete until Wave 2B3.",
+      "fileRefs": [
+        "src/components/expenses/ExpensesPage.tsx",
+        "src/components/expenses/ProjectExpenses.tsx",
+        "src/lib/financialLifecycle.ts",
+        "src/lib/expenses.ts",
+        "supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/financialLifecycle.test.ts",
+        "tests/coreHardeningWave2B2.test.ts",
+        "supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "expenses.read",
+        "expenses.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "financial-corrections-preserve-history"
+      ],
+      "tags": [
+        "correction-lifecycle",
+        "history-preserving"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "expense-correction-rpc-boundary",
+      "label": "Authoritative expense correction RPC boundary",
+      "domain": "finance",
+      "type": "external-boundary",
+      "scope": "company-and-project",
+      "description": "Database preflight and mutation lock the expense, recheck dependencies and confirmed settlements, preserve project/source identity, derive deployment-company permissions, and write audit history.",
+      "fileRefs": [
+        "src/lib/expenses.ts",
+        "supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/coreHardeningWave2B2.test.ts",
+        "supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "expenses.read",
+        "expenses.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "financial-corrections-preserve-history"
       ]
     },
     {
@@ -3086,9 +3174,11 @@
       "scope": "company",
       "statusValues": [
         "NEEDS_REVIEW",
-        "VERIFIED"
+        "VERIFIED",
+        "ACTIVE",
+        "VOID"
       ],
-      "description": "Persisted invoice identity, extracted fields, review status, payment presentation, source provenance, and review history.",
+      "description": "Persisted invoice identity, extracted fields, review status, payment presentation, source provenance, correction lifecycle, and review history.",
       "fileRefs": [
         "src/types.ts",
         "src/lib/persistence.ts",
@@ -3102,6 +3192,97 @@
       "permissionKeys": [
         "invoices.read",
         "invoices.manage"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "invoice-correction-lifecycle",
+      "label": "Invoice correction lifecycle",
+      "domain": "finance",
+      "type": "workflow",
+      "scope": "company",
+      "statusValues": [
+        "DELETE_UNUSED",
+        "VOID",
+        "ARCHIVE",
+        "RESTORE"
+      ],
+      "description": "Authoritative invoice correction outcomes distinguish unused-only deletion, history-preserving void, visibility-only archive, and visibility restore; confirmed settlement evidence blocks void/delete until Wave 2B3.",
+      "fileRefs": [
+        "src/components/InvoiceDirectory.tsx",
+        "src/app/routes/InvoicesRoute.tsx",
+        "src/lib/financialLifecycle.ts",
+        "src/lib/persistence.ts",
+        "supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/financialLifecycle.test.ts",
+        "tests/coreHardeningWave2B2.test.ts",
+        "supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "invoices.read",
+        "invoices.manage",
+        "invoices.verify"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "invoice-project-cost-independent-from-settlement",
+        "financial-corrections-preserve-history"
+      ],
+      "tags": [
+        "correction-lifecycle",
+        "history-preserving"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "invoice-correction-rpc-boundary",
+      "label": "Authoritative invoice correction RPC boundary",
+      "domain": "finance",
+      "type": "external-boundary",
+      "scope": "company",
+      "description": "Database preflight and mutation lock the invoice, recheck dependencies and confirmed settlements, derive deployment-company permissions, preserve original values, and write audit/review history.",
+      "fileRefs": [
+        "src/lib/persistence.ts",
+        "supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/coreHardeningWave2B2.test.ts",
+        "supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "invoices.read",
+        "invoices.manage",
+        "invoices.verify"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "invoice-state-void",
+      "label": "Invoice · VOID",
+      "domain": "finance",
+      "type": "state",
+      "scope": "company",
+      "description": "Explicitly voided invoice remains queryable with actor, timestamp, reason, original values, extraction/review history, and allocations preserved; it is excluded from active project cost and new settlement confirmation.",
+      "fileRefs": [
+        "src/types.ts",
+        "src/utils/projectCosting.ts",
+        "supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/financialLifecycle.test.ts",
+        "supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql"
+      ],
+      "invariantIds": [
+        "invoice-project-cost-independent-from-settlement",
+        "financial-corrections-preserve-history"
       ]
     },
     {
@@ -6196,6 +6377,89 @@
       "label": "review provenance"
     },
     {
+      "id": "invoice-to-correction-lifecycle",
+      "source": "invoice-record",
+      "target": "invoice-correction-lifecycle",
+      "type": "contains",
+      "kind": "state-transition",
+      "label": "correction outcomes",
+      "invariantIds": [
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "id": "invoice-correction-to-rpc",
+      "source": "invoice-correction-lifecycle",
+      "target": "invoice-correction-rpc-boundary",
+      "type": "executes-through",
+      "kind": "external-boundary",
+      "label": "locked preflight and mutation",
+      "permissionKeys": [
+        "invoices.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "id": "invoice-correction-to-void",
+      "source": "invoice-correction-lifecycle",
+      "target": "invoice-state-void",
+      "type": "transitions",
+      "kind": "state-transition",
+      "label": "void with reason",
+      "permissionKeys": [
+        "invoices.manage",
+        "invoices.verify"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "id": "invoice-verified-to-void",
+      "source": "invoice-state-verified",
+      "target": "invoice-state-void",
+      "type": "transitions",
+      "kind": "state-transition",
+      "label": "explicit correction",
+      "permissionKeys": [
+        "invoices.manage",
+        "invoices.verify"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "invoice-project-cost-independent-from-settlement",
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "id": "invoice-void-to-cost-exclusion",
+      "source": "invoice-state-void",
+      "target": "invoice-project-cost-contribution",
+      "type": "separates",
+      "kind": "separation",
+      "label": "excluded from active project cost",
+      "invariantIds": [
+        "invoice-project-cost-independent-from-settlement",
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "id": "invoice-correction-to-settlement-guard",
+      "source": "invoice-correction-rpc-boundary",
+      "target": "cash-settlement-guard",
+      "type": "guards",
+      "kind": "guard",
+      "label": "confirmed settlement blocks void/delete",
+      "invariantIds": [
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
       "id": "verified-to-allocation-action",
       "source": "invoice-state-verified",
       "target": "invoice-project-allocation-action",
@@ -6240,6 +6504,55 @@
       "permissionKeys": [
         "invoices.read",
         "invoices.manage"
+      ]
+    },
+    {
+      "id": "expense-to-correction-lifecycle",
+      "source": "direct-project-expense",
+      "target": "expense-correction-lifecycle",
+      "type": "contains",
+      "kind": "state-transition",
+      "label": "correction outcomes",
+      "invariantIds": [
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "id": "expense-correction-to-rpc",
+      "source": "expense-correction-lifecycle",
+      "target": "expense-correction-rpc-boundary",
+      "type": "executes-through",
+      "kind": "external-boundary",
+      "label": "locked preflight and mutation",
+      "permissionKeys": [
+        "expenses.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "id": "expense-correction-to-cost",
+      "source": "expense-correction-rpc-boundary",
+      "target": "project-cost-aggregation",
+      "type": "guards",
+      "kind": "guard",
+      "label": "VOID excluded, ARCHIVE retained",
+      "invariantIds": [
+        "financial-corrections-preserve-history"
+      ]
+    },
+    {
+      "id": "expense-correction-to-settlement-guard",
+      "source": "expense-correction-rpc-boundary",
+      "target": "cash-settlement-guard",
+      "type": "guards",
+      "kind": "guard",
+      "label": "confirmed settlement blocks void/delete",
+      "invariantIds": [
+        "financial-corrections-preserve-history"
       ]
     },
     {
@@ -7090,9 +7403,15 @@
         "project-labor-aggregate-rpc",
         "route-invoices",
         "invoice-state-verified",
+        "invoice-state-void",
+        "invoice-correction-lifecycle",
+        "invoice-correction-rpc-boundary",
         "invoice-project-allocation",
         "invoice-project-cost-contribution",
         "invoice-payable-obligation",
+        "direct-project-expense",
+        "expense-correction-lifecycle",
+        "expense-correction-rpc-boundary",
         "route-cash",
         "cash-settlement-match",
         "cash-settlement-evidence",
@@ -7188,9 +7507,11 @@
         "invoice-extraction-workflow",
         "invoice-extraction-ai-boundary",
         "invoice-record",
-        "invoice-review-queue",
+        "invoice-correction-lifecycle",
+        "invoice-correction-rpc-boundary",
         "invoice-state-needs-review",
         "invoice-state-verified",
+        "invoice-state-void",
         "invoice-human-verification",
         "invoice-review-history",
         "invoice-project-allocation",
@@ -7212,7 +7533,9 @@
         "cash-settlement-reversal-history",
         "cash-settlement-guard",
         "cash-settlement-rpc-boundary",
-        "direct-project-expense"
+        "direct-project-expense",
+        "expense-correction-lifecycle",
+        "expense-correction-rpc-boundary"
       ]
     },
     {

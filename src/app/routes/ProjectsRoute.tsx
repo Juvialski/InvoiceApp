@@ -67,6 +67,7 @@ export interface ProjectsRouteProps {
   onOpenInvoice: (invoice: InvoiceData) => void;
   onUploadInvoice: () => void;
   onAddExpense?: () => void;
+  onOpenExpenseCorrection?: (expense: Expense) => void;
   onOpenPayroll?: () => void;
 }
 
@@ -121,6 +122,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onOpenInvoice,
   onUploadInvoice,
   onAddExpense,
+  onOpenExpenseCorrection,
   onOpenPayroll,
 }) => {
   const query = typeof window === "undefined" ? null : new URLSearchParams(window.location.search);
@@ -188,6 +190,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onArchiveProject={() => void onArchiveProject(selectedProject)}
         onReactivateProject={canReactivateSelectedProject ? () => void onReactivateProject(selectedProject) : undefined}
         onAddExpense={onAddExpense}
+        onOpenExpenseCorrection={onOpenExpenseCorrection}
         onOpenPayroll={onOpenPayroll}
       />
     );

@@ -6,6 +6,7 @@ import { Card } from "@astryxdesign/core/Card";
 import { InvoiceData } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { formatMoney, totalVatByCurrency, totalsByCurrency } from "../utils/invoiceLogic";
+import { isVoidedInvoice } from "../utils/projectCosting.ts";
 
 interface DashboardProps {
   invoices: InvoiceData[];
@@ -16,22 +17,23 @@ interface DashboardProps {
 const isPhilippine = (invoice: InvoiceData) => invoice.currency?.toUpperCase() === "PHP" || invoice.vendor?.country?.toLowerCase().includes("philippines") || Boolean(invoice.philippineTaxDetails);
 
 export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, onNavigate }) => {
-  const needsReview = invoices.filter((i) => i.reviewStatus === "NEEDS_REVIEW");
-  const verified = invoices.filter((i) => i.reviewStatus === "VERIFIED");
-  const overdue = invoices.filter((i) => i.status === "OVERDUE");
-  const totals = totalsByCurrency(invoices);
-  const balances = totalsByCurrency(invoices, "balanceDue");
-  const vatTotals = totalVatByCurrency(invoices);
+  const activeInvoices = invoices.filter((invoice) => !isVoidedInvoice(invoice));
+  const needsReview = activeInvoices.filter((i) => i.reviewStatus === "NEEDS_REVIEW" && !i.archivedAt);
+  const verified = activeInvoices.filter((i) => i.reviewStatus === "VERIFIED");
+  const overdue = activeInvoices.filter((i) => i.status === "OVERDUE");
+  const totals = totalsByCurrency(activeInvoices);
+  const balances = totalsByCurrency(activeInvoices, "balanceDue");
+  const vatTotals = totalVatByCurrency(activeInvoices);
   const phpTotal = totals.PHP || 0;
   const phpOutstanding = balances.PHP || 0;
   const phpVat = vatTotals.PHP || 0;
-  const phInvoices = invoices.filter(isPhilippine);
+  const phInvoices = activeInvoices.filter(isPhilippine);
   const phVatInvoices = phInvoices.filter((invoice) => invoice.invoiceSubtype === "VAT_INVOICE" || invoice.philippineTaxDetails?.sellerRegistration === "VAT");
   const missingVatDetails = phVatInvoices.filter((invoice) => invoice.philippineInvoiceCompleteness?.status === "MISSING_INFORMATION" || !invoice.philippineTaxDetails?.vatAmount);
   const phVatable = phVatInvoices.reduce((sum, invoice) => sum + (Number(invoice.philippineTaxDetails?.vatableSales) || 0), 0);
   const phZeroRated = phInvoices.reduce((sum, invoice) => sum + (Number(invoice.philippineTaxDetails?.zeroRatedSales) || 0), 0);
   const phExempt = phInvoices.reduce((sum, invoice) => sum + (Number(invoice.philippineTaxDetails?.vatExemptSales) || 0), 0);
-  const latest = [...invoices].sort((a, b) => +new Date(b.extractedAt) - +new Date(a.extractedAt)).slice(0, 6);
+  const latest = [...activeInvoices].sort((a, b) => +new Date(b.extractedAt) - +new Date(a.extractedAt)).slice(0, 6);
   const foreignEntries = Object.entries(totals).filter(([currency]) => currency !== "PHP" && currency !== "UNK");
 
   return (

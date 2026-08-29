@@ -65,7 +65,7 @@ export function buildProjectLaborAggregateReport(
 export function buildProjectInvoiceReport(projects: Project[], invoices: InvoiceData[], allocations: InvoiceProjectAllocation[]) {
   return invoices.flatMap((invoice) => allocations.filter((allocation) => allocation.invoiceId === invoice.id).map((allocation) => {
     const project = projects.find((item) => item.id === allocation.projectId);
-    return { project: project?.projectName || "Unknown project", projectCode: project?.projectCode || "", vendor: invoice.vendor?.name || invoice.vendor?.registeredName || "Unknown vendor", invoiceNumber: invoice.invoiceNumber || "", invoiceDate: invoice.invoiceDate || "", invoiceTotal: invoice.grandTotal, allocatedAmount: normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), currency: invoice.currency || "", paymentStatus: invoice.status || "UNPAID", reviewStatus: invoice.reviewStatus || "NEEDS_REVIEW" };
+    return { project: project?.projectName || "Unknown project", projectCode: project?.projectCode || "", vendor: invoice.vendor?.name || invoice.vendor?.registeredName || "Unknown vendor", invoiceNumber: invoice.invoiceNumber || "", invoiceDate: invoice.invoiceDate || "", invoiceTotal: invoice.grandTotal, allocatedAmount: normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), currency: invoice.currency || "", paymentStatus: invoice.status || "UNPAID", reviewStatus: invoice.reviewStatus || "NEEDS_REVIEW", lifecycleStatus: invoice.lifecycleStatus || "ACTIVE", visibility: invoice.archivedAt ? "ARCHIVED" : "VISIBLE" };
   }));
 }
 
@@ -94,7 +94,7 @@ export function buildPayrollReport(projects: Project[], workers: Worker[], perio
   return [...rows, ...unallocatedRows];
 }
 
-export function buildExpenseReport(projects: Project[], expenses: Expense[]) { return expenses.map((expense) => ({ date: expense.expenseDate, project: projects.find((project) => project.id === expense.projectId)?.projectName || "Unallocated", category: expense.category, description: expense.description, payee: expense.payee || "", amount: expense.amount, currency: expense.currency, status: expense.status, reference: expense.referenceNumber || "" })); }
+export function buildExpenseReport(projects: Project[], expenses: Expense[]) { return expenses.map((expense) => ({ date: expense.expenseDate, project: projects.find((project) => project.id === expense.projectId)?.projectName || "Unallocated", category: expense.category, description: expense.description, payee: expense.payee || "", amount: expense.amount, currency: expense.currency, status: expense.status, visibility: expense.archivedAt ? "ARCHIVED" : "VISIBLE", reference: expense.referenceNumber || "" })); }
 
 export function groupCostByCategory(expenses: Expense[]) { return expenses.reduce<Record<string, number>>((result, expense) => { if (expense.status === "VOID") return result; result[expense.category] = (result[expense.category] || 0) + expense.amount; return result; }, {}); }
 
