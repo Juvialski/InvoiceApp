@@ -9,7 +9,7 @@ import type { InvoiceData, Project } from "../../types";
 import { canAccessAppTab } from "../../utils/accessControl.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import type { AppTab } from "../../utils/routes";
-import { useAppPermissions, useProjectCostCompleteness } from "../AppPermissionContext.tsx";
+import { useAppPermissions, useProjectCostCompleteness, useWorkspaceDataPending } from "../AppPermissionContext.tsx";
 
 export interface DashboardRouteProps {
   data: DashboardViewData;
@@ -49,9 +49,13 @@ export const DashboardRoute: React.FC<DashboardRouteProps> = ({
 }) => {
   const permissions = useAppPermissions();
   const completeness = useProjectCostCompleteness();
+  const workspaceDataPending = useWorkspaceDataPending();
   const hiddenSources = projectCostMissingSourceLabels(completeness);
+  const transientRefreshGap = !completeness.complete
+    && workspaceDataPending
+    && completeness.reason === "load-error";
 
-  if (!completeness.complete) {
+  if (!completeness.complete && !transientRefreshGap) {
     const shortcuts = RESTRICTED_DASHBOARD_SHORTCUTS.filter(({ tab }) => canAccessAppTab(tab, permissions));
     return (
       <div className="space-y-5" data-dashboard-completeness="incomplete">

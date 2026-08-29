@@ -6,7 +6,9 @@ import { useEngineeringDocumentsController } from "../../features/engineering/us
 import { useEngineeringCoordinationController } from "../../features/engineering/useEngineeringCoordinationController.ts";
 import type { DisciplineType } from "../../lib/engineeringDocuments.ts";
 import type { EngineeringRfi, RfiPriority, RfiStatus } from "../../lib/engineeringCoordination.ts";
+import type { EngineeringLifecycleAction, EngineeringLifecyclePreview } from "../../lib/engineeringLifecycle.ts";
 import { CoordinationRevisionPicker } from "./CoordinationRevisionPicker.tsx";
+import { EngineeringLifecycleDialog } from "./EngineeringLifecycleDialog.tsx";
 
 const DISCIPLINES: DisciplineType[] = ["ARCHITECTURAL", "STRUCTURAL", "CIVIL", "MECHANICAL", "ELECTRICAL", "PLUMBING", "FIRE_PROTECTION", "GEOTECHNICAL", "GENERAL_ENGINEERING", "OTHER"];
 const STATUSES: RfiStatus[] = ["DRAFT", "OPEN", "ANSWERED", "CLOSED", "VOID"];
@@ -42,7 +44,7 @@ export const ProjectRfis: React.FC<{
   canReadDocuments?: boolean;
   guestMode?: boolean;
 }> = ({ project, companyId, initialRfiId, canRead = true, canCreate = true, canRespond = true, canManage = true, canReadDocuments = true, guestMode = false }) => {
-  const controller = useEngineeringCoordinationController({ project, companyId, canRead, guestMode });
+  const controller = useEngineeringCoordinationController({ project, companyId, canRead, canManage, guestMode });
   const documents = useEngineeringDocumentsController({ project, companyId, canRead: canReadDocuments, guestMode });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<RfiStatus | "ALL">("ALL");
@@ -58,6 +60,8 @@ export const ProjectRfis: React.FC<{
   const [responseFinal, setResponseFinal] = useState(true);
   const [responseRevisionIds, setResponseRevisionIds] = useState<string[]>([]);
   const [closeReason, setCloseReason] = useState("");
+  const [responseType, setResponseType] = useState<"RESPONSE" | "CORRECTION" | "NOTE">("RESPONSE");
+  const [lifecyclePreview, setLifecyclePreview] = useState<EngineeringLifecyclePreview | null>(null);
   const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => setSelectedId(initialRfiId), [initialRfiId, project.id]);
@@ -87,6 +91,12 @@ export const ProjectRfis: React.FC<{
     try { await operation(); } catch (error) { setActionError(error instanceof Error ? error.message : "The RFI action could not be completed."); } finally { setBusy(false); }
   };
 
+  const openLifecycleReview = async () => {
+    if (!selected || !canManage) return;
+    setBusy(true); setActionError(null);
+    try { setLifecyclePreview(await controller.previewRfiLifecycle(selected)); } catch (error) { setActionError(error instanceof Error ? error.message : "The RFI lifecycle preview could not be loaded."); } finally { setBusy(false); }
+  };
+
   if (!canRead) return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">You do not have permission to read project RFIs.</div>;
   if (controller.isLoading) return <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Loading RFI register…</div>;
   if (controller.loadError) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800"><p className="font-bold">RFI register unavailable</p><p className="mt-1 text-xs">{controller.loadError}</p><button type="button" className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold shadow-sm" onClick={controller.retryLoad}>Retry</button></div>;
@@ -108,6 +118,7 @@ export const ProjectRfis: React.FC<{
           <div className="flex flex-wrap gap-2">
             {selected.status === "DRAFT" && canCreate && <button type="button" disabled={busy} onClick={() => run(() => controller.openRfi(selected))} className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50">Open RFI</button>}
             {selected.status === "ANSWERED" && canManage && <button type="button" disabled={busy} onClick={() => run(() => controller.closeRfi(selected, closeReason))} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50">Close RFI</button>}
+            {canManage && !["CLOSED", "VOID"].includes(selected.status) && <button type="button" disabled={busy} onClick={() => void openLifecycleReview()} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50">Review lifecycle</button>}
           </div>
         </div>
 
@@ -141,10 +152,10 @@ export const ProjectRfis: React.FC<{
               <div className="mt-3 space-y-2">{linkedRows.length ? linkedRows.map(({ link, document, revision }) => <a key={link.id} href={appPathForProject(project.id, "documents", { docId: link.documentId, revId: link.revisionId })} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 hover:border-indigo-200 hover:bg-indigo-50"><FileText className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" /><span className="min-w-0"><span className="block truncate text-xs font-black text-slate-800">{document?.documentNumber || "Engineering document"}</span><span className="mt-0.5 block text-[10px] text-slate-500">Revision {revision?.revisionNumber || link.revisionId}</span></span></a>) : <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No engineering revisions linked.</p>}</div>
             </article>
 
-            {selected.status === "OPEN" && canRespond && <article className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-sm"><h3 className="text-sm font-black text-slate-900">Add response</h3><textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} rows={5} className={`${fieldClass} mt-3 resize-y`} placeholder="Record the formal response or clarification…" /><label className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={responseFinal} onChange={(e) => setResponseFinal(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />Mark as final answer</label><div className="mt-4"><CoordinationRevisionPicker documents={documents.projectDocuments} revisions={documents.revisions} selectedRevisionIds={responseRevisionIds} onChange={setResponseRevisionIds} label="Response revision references" /></div><button type="button" disabled={busy || !responseText.trim()} onClick={() => run(async () => { await controller.respondRfi({ rfi: selected, responseText, isFinalAnswer: responseFinal, references: refsForIds(responseRevisionIds) }); setResponseText(""); setResponseRevisionIds([]); })} className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50">Save response</button></article>}
+            {(selected.status === "OPEN" || selected.status === "ANSWERED") && canRespond && <article className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-sm"><h3 className="text-sm font-black text-slate-900">{selected.status === "ANSWERED" ? "Add correction or note" : "Add response"}</h3>{selected.status === "ANSWERED" && <select aria-label="Response type" value={responseType} onChange={(e) => { setResponseType(e.target.value as typeof responseType); setResponseFinal(false); }} className={`${fieldClass} mt-3`}><option value="CORRECTION">Correction</option><option value="NOTE">Note</option></select>}<textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} rows={5} className={`${fieldClass} mt-3 resize-y`} placeholder={selected.status === "ANSWERED" ? "Record an append-only correction or note…" : "Record the formal response or clarification…"} /><label className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={selected.status === "OPEN" && responseFinal} disabled={selected.status !== "OPEN"} onChange={(e) => setResponseFinal(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />Mark as final answer</label><div className="mt-4"><CoordinationRevisionPicker documents={documents.projectDocuments} revisions={documents.revisions} selectedRevisionIds={responseRevisionIds} onChange={setResponseRevisionIds} label="Response revision references" /></div><button type="button" disabled={busy || !responseText.trim()} onClick={() => run(async () => { await controller.respondRfi({ rfi: selected, responseText, responseType: selected.status === "ANSWERED" ? responseType : "RESPONSE", isFinalAnswer: selected.status === "OPEN" && responseFinal, references: refsForIds(responseRevisionIds) }); setResponseText(""); setResponseRevisionIds([]); setResponseType("RESPONSE"); })} className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50">{selected.status === "ANSWERED" ? "Save correction" : "Save response"}</button></article>}
 
             {selected.status === "ANSWERED" && canManage && <label className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className={labelClass}>Optional close note</span><input className={fieldClass} value={closeReason} onChange={(e) => setCloseReason(e.target.value)} placeholder="Resolution / close note" /></label>}
-            {!['CLOSED','VOID'].includes(selected.status) && canManage && <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><p className="text-xs font-bold text-slate-600">Need to preserve this RFI as invalid history?</p><button type="button" disabled={busy} onClick={() => { const reason = typeof window === "undefined" ? "Voided by manager" : window.prompt("Reason for voiding this formal RFI?") || ""; if (reason.trim()) void run(() => controller.voidRfi(selected, reason)); }} className="mt-3 text-xs font-black text-rose-700 hover:text-rose-900">Void RFI</button></article>}
+            {lifecyclePreview && <EngineeringLifecycleDialog entityLabel="RFI" recordLabel={`${selected.rfiNumber} · ${selected.subject}`} preview={lifecyclePreview} actions={[{ action: "DELETE_UNUSED", label: "Delete unused", description: "Permanently remove only an untouched draft with no responses, links, or lifecycle history.", tone: "danger" }, { action: "VOID", label: "Void RFI", description: "Keep the formal record and responses while marking this RFI as invalid history.", requiresReason: true, tone: "danger" }]} busy={busy} error={actionError} onClose={() => setLifecyclePreview(null)} onApply={(action: EngineeringLifecycleAction, reason?: string) => { if (action !== "DELETE_UNUSED" && action !== "VOID") return; void run(async () => { const result = await controller.applyRfiLifecycle(selected, action, reason); setLifecyclePreview(null); if (result.deleted) { setSelectedId(undefined); if (typeof window !== "undefined") window.history.replaceState({}, "", appPathForProject(project.id, "rfis")); } }); }} />}
           </aside>
         </div>
       </section>

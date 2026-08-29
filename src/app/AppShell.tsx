@@ -169,8 +169,15 @@ export const AppShell: React.FC<AppShellProps> = ({
   onReturnToDashboard,
   footerText = BRAND.footerText,
 }) => {
+  const workspaceDataPending =
+    workspaceLoading || workspaceSyncStatus === "connecting" || workspaceSyncStatus === "syncing";
+
   return (
-    <AppPermissionProvider permissions={permissions} projectCostCompleteness={projectCostCompleteness}>
+    <AppPermissionProvider
+      permissions={permissions}
+      projectCostCompleteness={projectCostCompleteness}
+      workspaceDataPending={workspaceDataPending}
+    >
       <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
         <Header
           activeTab={activeTab}
@@ -287,7 +294,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
           )}
 
-          <AppErrorBoundary>{children}</AppErrorBoundary>
+          {!workspaceLoading && <AppErrorBoundary>{children}</AppErrorBoundary>}
         </main>
 
         <footer className="border-t border-slate-200 bg-white py-4 text-center text-[10px] text-slate-500 lg:ml-[17rem]">

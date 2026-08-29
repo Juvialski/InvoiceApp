@@ -6,14 +6,26 @@ import { projectCostDataCompleteness, type DataCompleteness, type ProjectCostSou
 interface AppPermissionContextValue {
   permissions: readonly PermissionKey[];
   projectCostCompleteness: DataCompleteness<ProjectCostSource>;
+  workspaceDataPending: boolean;
 }
 
 const AppPermissionContext = createContext<AppPermissionContextValue>({
   permissions: [],
   projectCostCompleteness: projectCostDataCompleteness([]),
+  workspaceDataPending: false,
 });
 
-export function AppPermissionProvider({ permissions = [], projectCostCompleteness, children }: { permissions?: readonly PermissionKey[]; projectCostCompleteness?: DataCompleteness<ProjectCostSource>; children: React.ReactNode }) {
+export function AppPermissionProvider({
+  permissions = [],
+  projectCostCompleteness,
+  workspaceDataPending = false,
+  children,
+}: {
+  permissions?: readonly PermissionKey[];
+  projectCostCompleteness?: DataCompleteness<ProjectCostSource>;
+  workspaceDataPending?: boolean;
+  children: React.ReactNode;
+}) {
   // Browser-only mode predates company RBAC and has no permission snapshot.
   // Keep its local-only behavior intact, while configured Supabase workspaces
   // remain fail-closed until company permissions are actually loaded.
@@ -21,9 +33,23 @@ export function AppPermissionProvider({ permissions = [], projectCostCompletenes
     () => !isSupabaseConfigured ? ["*"] : [...permissions],
     [permissions],
   );
-  const value = useMemo<AppPermissionContextValue>(
-    () => ({ permissions: stablePermissions, projectCostCompleteness: projectCostCompleteness || projectCostDataCompleteness(stablePermissions) }),
+  const resolvedProjectCostCompleteness = useMemo(
+    () => projectCostCompleteness || projectCostDataCompleteness(stablePermissions),
     [projectCostCompleteness, stablePermissions],
+  );
+  const presentationProjectCostCompleteness = useMemo(
+    () => workspaceDataPending && resolvedProjectCostCompleteness.reason === "load-error"
+      ? projectCostDataCompleteness(stablePermissions)
+      : resolvedProjectCostCompleteness,
+    [resolvedProjectCostCompleteness, stablePermissions, workspaceDataPending],
+  );
+  const value = useMemo<AppPermissionContextValue>(
+    () => ({
+      permissions: stablePermissions,
+      projectCostCompleteness: presentationProjectCostCompleteness,
+      workspaceDataPending,
+    }),
+    [presentationProjectCostCompleteness, stablePermissions, workspaceDataPending],
   );
   return <AppPermissionContext.Provider value={value}>{children}</AppPermissionContext.Provider>;
 }
@@ -34,6 +60,10 @@ export function useAppPermissions(): readonly PermissionKey[] {
 
 export function useProjectCostCompleteness(): DataCompleteness<ProjectCostSource> {
   return useContext(AppPermissionContext).projectCostCompleteness;
+}
+
+export function useWorkspaceDataPending(): boolean {
+  return useContext(AppPermissionContext).workspaceDataPending;
 }
 
 export function useAppPermission(required: PermissionKey): boolean {

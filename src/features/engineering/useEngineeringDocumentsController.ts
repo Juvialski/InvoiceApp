@@ -14,18 +14,20 @@ import {
   type EngineeringDocumentType,
 } from "../../lib/engineeringDocuments.ts";
 import {
-  archiveEngineeringDocumentInSupabase,
+  applyEngineeringDocumentLifecycleInSupabase,
   compensateUnprovenancedEngineeringDocumentUpload,
   createEngineeringDocumentWithRevisionInSupabase,
   createEngineeringRevisionInSupabase,
   getEngineeringDocumentStoragePath,
   loadEngineeringDocumentsWorkspaceFromSupabase,
   prepareEngineeringPdf,
+  previewEngineeringDocumentLifecycleInSupabase,
   readEngineeringDocumentsWorkspaceFromLocal,
   saveDrawingAnnotationsBatchToSupabase,
   uploadEngineeringDocumentFile,
   writeEngineeringDocumentsWorkspaceToLocal,
 } from "../../lib/engineeringDocumentsPersistence.ts";
+import { buildLocalEngineeringDocumentLifecyclePreview, type EngineeringLifecyclePreview } from "../../lib/engineeringLifecycle.ts";
 
 export interface NewEngineeringDocumentInput {
   documentNumber: string;
@@ -62,6 +64,8 @@ export interface EngineeringDocumentsController {
   createDocument: (input: NewEngineeringDocumentInput) => Promise<{ document: EngineeringDocument; revision: EngineeringDocumentRevision }>;
   createRevision: (input: NewEngineeringRevisionInput) => Promise<{ document: EngineeringDocument; revision: EngineeringDocumentRevision }>;
   archiveDocument: (document: EngineeringDocument) => Promise<EngineeringDocument>;
+  previewLifecycle: (document: EngineeringDocument) => Promise<EngineeringLifecyclePreview>;
+  applyLifecycle: (document: EngineeringDocument, action: "DELETE_UNUSED" | "ARCHIVE" | "SUPERSEDE", reason?: string) => Promise<{ deleted: boolean; document?: EngineeringDocument }>;
   saveAnnotations: (documentId: string, revisionId: string, nextAnnotations: DrawingAnnotation[]) => Promise<DrawingAnnotation[]>;
 }
 
@@ -236,8 +240,8 @@ export function useEngineeringDocumentsController({
 
   const createRevision = useCallback(async (input: NewEngineeringRevisionInput) => {
     const currentDocument = documents.find((document) => document.id === input.document.id);
-    if (!currentDocument || currentDocument.status === "ARCHIVED") {
-      throw new Error("Archived or unavailable engineering documents cannot receive new revisions.");
+    if (!currentDocument || ["ARCHIVED", "SUPERSEDED"].includes(currentDocument.status)) {
+      throw new Error("Archived, superseded, or unavailable engineering documents cannot receive new revisions.");
     }
     const revisionId = engineeringId("rev");
     let fileName = `${input.document.documentNumber}_${input.revisionNumber}.pdf`;
@@ -315,18 +319,59 @@ export function useEngineeringDocumentsController({
     }
   }, [companyId, documents, guestMode, persistGuestDocumentWorkspace, revisions]);
 
-  const archiveDocument = useCallback(async (document: EngineeringDocument) => {
+  const previewLifecycle = useCallback(async (document: EngineeringDocument) => {
     if (guestMode) {
-      const archived = { ...document, status: "ARCHIVED" as const, archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-      const nextDocuments = documents.map((item) => item.id === archived.id ? archived : item);
+      return buildLocalEngineeringDocumentLifecyclePreview({
+        documentId: document.id,
+        status: document.status,
+        projectId: document.projectId,
+        revisions: revisions.filter((item) => item.documentId === document.id).length,
+        annotations: annotations.filter((item) => item.documentId === document.id).length,
+        source: "local",
+      });
+    }
+    return previewEngineeringDocumentLifecycleInSupabase(document.id, companyId);
+  }, [annotations, companyId, guestMode, revisions]);
+
+  const applyLifecycle = useCallback(async (document: EngineeringDocument, action: "DELETE_UNUSED" | "ARCHIVE" | "SUPERSEDE", reason?: string) => {
+    if (guestMode) {
+      const preview = await previewLifecycle(document);
+      const allowed = action === "DELETE_UNUSED" ? preview.canDelete : action === "ARCHIVE" ? preview.canArchive : preview.canSupersede;
+      if (!allowed) throw new Error(preview.blockedReason || "This engineering document lifecycle action is not available.");
+      if (action === "DELETE_UNUSED") {
+        const nextDocuments = documents.filter((item) => item.id !== document.id);
+        const nextRevisions = revisions.filter((item) => item.documentId !== document.id);
+        const nextAnnotations = annotations.filter((item) => item.documentId !== document.id);
+        setDocuments(nextDocuments);
+        setRevisions(nextRevisions);
+        setAnnotations(nextAnnotations);
+        writeEngineeringDocumentsWorkspaceToLocal({ ...readEngineeringDocumentsWorkspaceFromLocal(), documents: nextDocuments, revisions: nextRevisions, annotations: nextAnnotations });
+        return { deleted: true };
+      }
+      const timestamp = new Date().toISOString();
+      const updated: EngineeringDocument = action === "ARCHIVE"
+        ? { ...document, status: "ARCHIVED", archivedAt: document.archivedAt || timestamp, lifecycleReason: reason?.trim() || "Confirmed engineering document archive", updatedAt: timestamp }
+        : { ...document, status: "SUPERSEDED", supersededAt: document.supersededAt || timestamp, lifecycleReason: reason?.trim() || "Confirmed engineering document supersede", updatedAt: timestamp };
+      const nextDocuments = documents.map((item) => item.id === updated.id ? updated : item);
       setDocuments(nextDocuments);
       persistGuestDocumentWorkspace(nextDocuments, revisions);
-      return archived;
+      return { deleted: false, document: updated };
     }
-    const archived = await archiveEngineeringDocumentInSupabase(document.id, companyId);
-    setDocuments((current) => current.map((item) => item.id === archived.id ? archived : item));
-    return archived;
-  }, [companyId, documents, guestMode, persistGuestDocumentWorkspace, revisions]);
+    const result = await applyEngineeringDocumentLifecycleInSupabase(document.id, action, reason, companyId);
+    const updated = result.record;
+    if (result.deleted) {
+      setDocuments((current) => current.filter((item) => item.id !== document.id));
+    } else if (updated) {
+      setDocuments((current) => current.map((item) => item.id === updated.id ? updated : item));
+    }
+    return { deleted: result.deleted, ...(updated ? { document: updated } : {}) };
+  }, [annotations, companyId, documents, guestMode, persistGuestDocumentWorkspace, previewLifecycle, revisions]);
+
+  const archiveDocument = useCallback(async (document: EngineeringDocument) => {
+    const result = await applyLifecycle(document, "ARCHIVE", "Confirmed engineering document archive");
+    if (!result.document) throw new Error("The document archive did not return the committed document.");
+    return result.document;
+  }, [applyLifecycle]);
 
   const saveAnnotations = useCallback(async (documentId: string, revisionId: string, nextAnnotations: DrawingAnnotation[]) => {
     const document = documents.find((item) => item.id === documentId);
@@ -371,6 +416,8 @@ export function useEngineeringDocumentsController({
     createDocument,
     createRevision,
     archiveDocument,
+    previewLifecycle,
+    applyLifecycle,
     saveAnnotations,
   };
 }

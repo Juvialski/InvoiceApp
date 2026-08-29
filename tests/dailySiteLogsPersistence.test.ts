@@ -4,6 +4,7 @@ import { createDraftDailySiteLog } from "../src/lib/dailySiteLogs.ts";
 import {
   dailySiteLogAggregateToRpcPayload,
   dailySiteLogCrewFromRow,
+  dailySiteLogAddendumFromRow,
   dailySiteLogFromRow,
   readDailySiteLogsFromLocal,
   writeDailySiteLogsToLocal,
@@ -28,10 +29,13 @@ test("Daily Site Log persistence maps database rows and RPC payloads without pay
   assert.equal((payload.p_crew as Array<Record<string, unknown>>)[0]?.crew_label, "Concrete");
   assert.equal("attendance" in payload, false);
   assert.equal("payroll" in payload, false);
+  const addendum = dailySiteLogAddendumFromRow({ id: "addendum-1", company_id: "company-1", site_log_id: "log-1", addendum_number: 1, reason: "Corrected reference", correction_text: "Use inspection IR-204.", created_at: "2026-08-27T10:00:00Z" });
+  assert.equal(addendum.addendumNumber, 1);
+  assert.equal(addendum.correctionText, "Use inspection IR-204.");
 });
 test("Daily Site Log local fallback round-trips a complete isolated workspace", () => {
   const target = storage();
-  const data = { logs: [{ id: "log-1" }], weather: [], crew: [], equipment: [], safety: [], events: [] } as any;
+  const data = { logs: [{ id: "log-1" }], weather: [], crew: [], equipment: [], safety: [], events: [], addenda: [] } as any;
   writeDailySiteLogsToLocal(data, target);
   assert.deepEqual(readDailySiteLogsFromLocal(target), data);
 });

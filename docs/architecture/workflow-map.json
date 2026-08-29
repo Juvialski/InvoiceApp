@@ -1841,15 +1841,19 @@
         "SUPERSEDED",
         "ARCHIVED"
       ],
-      "description": "Company-scoped engineering document identity, discipline/type metadata, project scope, and current revision pointer.",
+      "description": "Company-scoped engineering document identity, discipline/type metadata, project scope, current revision pointer, and guarded archive/supersede lifecycle.",
       "fileRefs": [
         "src/lib/engineeringDocuments.ts",
         "src/lib/engineeringDocumentsPersistence.ts",
-        "supabase/migrations/20260826130000_engineering_documents_foundation.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "supabase/migrations/20260826130000_engineering_documents_foundation.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/engineeringDocuments.test.ts",
-        "tests/engineeringDocumentsMigration.test.ts"
+        "tests/engineeringDocumentsMigration.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "permissionKeys": [
         "engineering.documents.read",
@@ -1875,15 +1879,22 @@
         "SUPERSEDED",
         "ARCHIVED"
       ],
-      "description": "Document status is distinct from immutable revision lineage; archiving the document does not delete revisions or source files.",
+      "description": "Only an unused DRAFT shell can be deleted; used documents archive or supersede through a reasoned, confirmed lifecycle while revisions and source files remain historical.",
       "fileRefs": [
         "src/lib/engineeringDocuments.ts",
         "src/lib/engineeringDocumentsPersistence.ts",
-        "docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md"
+        "src/lib/engineeringLifecycle.ts",
+        "src/components/engineering/ProjectDocuments.tsx",
+        "src/components/engineering/EngineeringLifecycleDialog.tsx",
+        "docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md",
+        "docs/ENGORYX_CORE_HARDENING_PLAN.md",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/engineeringDocuments.test.ts",
-        "tests/engineeringDocumentsHardening.test.ts"
+        "tests/engineeringDocumentsHardening.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "engineering-revision-lineage-is-immutable"
@@ -2044,13 +2055,16 @@
       "description": "Private engineering-documents Storage plus authenticated document/revision/annotation persistence and compensation behavior.",
       "fileRefs": [
         "src/lib/engineeringDocumentsPersistence.ts",
+        "src/lib/engineeringLifecycle.ts",
         "supabase/migrations/20260826130000_engineering_documents_foundation.sql",
         "supabase/migrations/20260826140000_engineering_documents_hardening.sql",
-        "supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql"
+        "supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/engineeringDocumentsMigration.test.ts",
-        "tests/engineeringDocumentsHardening.test.ts"
+        "tests/engineeringDocumentsHardening.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "permissionKeys": [
         "engineering.documents.read",
@@ -2132,15 +2146,19 @@
         "CLOSED",
         "VOID"
       ],
-      "description": "Project-scoped question/clarification record with due-date and assignment metadata.",
+      "description": "Project-scoped question/clarification record with due-date and assignment metadata plus guarded unused-delete, void, and append-only correction paths.",
       "fileRefs": [
         "src/lib/engineeringCoordination.ts",
         "src/lib/engineeringCoordinationPersistence.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/migrationInvariants.test.ts"
+        "tests/migrationInvariants.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "permissionKeys": [
         "engineering.rfis.read",
@@ -2166,14 +2184,20 @@
         "CLOSED",
         "VOID"
       ],
-      "description": "Guarded RFI state transitions: DRAFT → OPEN → ANSWERED → CLOSED, with VOID available as a guarded terminal state.",
+      "description": "Guarded RFI state transitions: DRAFT → OPEN → ANSWERED → CLOSED, with unused DRAFT deletion, append-only corrections, and VOID as a reasoned terminal state.",
       "fileRefs": [
         "src/lib/engineeringCoordination.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "src/components/engineering/ProjectRfis.tsx",
+        "src/components/engineering/EngineeringLifecycleDialog.tsx",
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/migrationInvariants.test.ts"
+        "tests/migrationInvariants.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "permissionKeys": [
         "engineering.rfis.create",
@@ -2236,14 +2260,18 @@
       "domain": "engineering",
       "type": "data",
       "scope": "company-and-project",
-      "description": "Formal responses and corrections are retained as new response records; final answer transitions OPEN to ANSWERED atomically.",
+      "description": "Formal responses and corrections are retained as new response records; final answer transitions OPEN to ANSWERED atomically and never rewrites prior responses.",
       "fileRefs": [
         "src/lib/engineeringCoordination.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "src/components/engineering/ProjectRfis.tsx",
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/migrationInvariants.test.ts"
+        "tests/migrationInvariants.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "formal-engineering-history-is-preserved"
@@ -2277,7 +2305,7 @@
       "domain": "engineering",
       "type": "guard",
       "scope": "company-and-project",
-      "description": "Operation-specific permission and status validation for create/open/respond/close/void actions.",
+      "description": "Operation-specific permission and status validation for create/open/respond/close plus confirmed unused-delete and reasoned void actions.",
       "permissionKeys": [
         "engineering.rfis.create",
         "engineering.rfis.respond",
@@ -2285,12 +2313,15 @@
       ],
       "fileRefs": [
         "src/lib/engineeringCoordination.ts",
+        "src/lib/engineeringLifecycle.ts",
         "src/server/assistant/engineeringCoordinationAssistant.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/assistantActionPolicy.test.ts"
+        "tests/assistantActionPolicy.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -2304,7 +2335,7 @@
       "domain": "engineering",
       "type": "action",
       "scope": "company-and-project",
-      "description": "Application or Assistant request to create, open, respond, close, or void an RFI through the guarded domain boundary.",
+      "description": "Application or existing Assistant request to create, open, respond, close, or void an RFI through the guarded domain boundary; Wave 2C adds lifecycle review in the application without expanding Assistant tools.",
       "permissionKeys": [
         "engineering.rfis.create",
         "engineering.rfis.respond",
@@ -2313,11 +2344,14 @@
       "confirmationRequirement": "human",
       "fileRefs": [
         "src/features/engineering/useEngineeringCoordinationController.ts",
-        "src/server/assistant/engineeringCoordinationAssistant.ts"
+        "src/components/engineering/ProjectRfis.tsx",
+        "src/server/assistant/engineeringCoordinationAssistant.ts",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/assistantActionPolicy.test.ts"
+        "tests/assistantActionPolicy.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "formal-engineering-history-is-preserved"
@@ -2330,7 +2364,7 @@
       "domain": "engineering",
       "type": "external-boundary",
       "scope": "company-and-project",
-      "description": "Authenticated operation-specific RFI RPCs with company/project validation, permission checks, and audit/history protection.",
+      "description": "Authenticated RFI RPCs plus locked preflight/apply lifecycle RPCs with company/project validation, effective permissions, audit history, and unused-DRAFT deletion only.",
       "permissionKeys": [
         "engineering.rfis.create",
         "engineering.rfis.respond",
@@ -2338,11 +2372,14 @@
       ],
       "fileRefs": [
         "src/lib/engineeringCoordinationPersistence.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/migrationInvariants.test.ts",
-        "tests/assistantBackend.test.ts"
+        "tests/assistantBackend.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -2422,15 +2459,19 @@
         "CLOSED",
         "VOID"
       ],
-      "description": "Project submittal identity and current formal round status.",
+      "description": "Project submittal identity and current formal round status with guarded unused-delete and void/withdrawal correction paths.",
       "fileRefs": [
         "src/lib/engineeringCoordination.ts",
         "src/lib/engineeringCoordinationPersistence.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/migrationInvariants.test.ts"
+        "tests/migrationInvariants.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "permissionKeys": [
         "engineering.submittals.read",
@@ -2460,14 +2501,20 @@
         "CLOSED",
         "VOID"
       ],
-      "description": "Guarded submittal state path with explicit review outcomes, resubmission rounds, terminal close, and void.",
+      "description": "Guarded submittal state path with unused DRAFT deletion, explicit review outcomes, retained resubmission rounds, terminal close, and reasoned void/withdrawal.",
       "fileRefs": [
         "src/lib/engineeringCoordination.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "src/components/engineering/ProjectSubmittals.tsx",
+        "src/components/engineering/EngineeringLifecycleDialog.tsx",
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/migrationInvariants.test.ts"
+        "tests/migrationInvariants.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "permissionKeys": [
         "engineering.submittals.create",
@@ -2577,15 +2624,18 @@
         "CLOSED",
         "VOID"
       ],
-      "description": "Each resubmission creates a new formal round while retaining previous round identity, metadata, links, and decisions.",
+      "description": "Each resubmission creates a new formal round while retaining previous round identity, metadata, links, and decisions; only a disposable first DRAFT round may be removed with its parent.",
       "fileRefs": [
         "src/lib/engineeringCoordination.ts",
         "src/lib/engineeringCoordinationPersistence.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/migrationInvariants.test.ts"
+        "tests/migrationInvariants.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "formal-engineering-history-is-preserved"
@@ -2646,7 +2696,7 @@
       "domain": "engineering",
       "type": "guard",
       "scope": "company-and-project",
-      "description": "Operation-specific permission, current-round, decision, and resubmission validation.",
+      "description": "Operation-specific permission, current-round, decision, resubmission, unused-DRAFT deletion, and terminal correction validation.",
       "permissionKeys": [
         "engineering.submittals.create",
         "engineering.submittals.review",
@@ -2654,12 +2704,15 @@
       ],
       "fileRefs": [
         "src/lib/engineeringCoordination.ts",
+        "src/lib/engineeringLifecycle.ts",
         "src/server/assistant/engineeringCoordinationAssistant.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/assistantActionPolicy.test.ts"
+        "tests/assistantActionPolicy.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -2673,7 +2726,7 @@
       "domain": "engineering",
       "type": "action",
       "scope": "company-and-project",
-      "description": "Application or Assistant request to create, submit, review, resubmit, close, or void a submittal.",
+      "description": "Application or existing Assistant request to create, submit, review, resubmit, close, or void a submittal; application lifecycle review adds guarded correction choices without Wave 3 Assistant expansion.",
       "permissionKeys": [
         "engineering.submittals.create",
         "engineering.submittals.review",
@@ -2682,11 +2735,14 @@
       "confirmationRequirement": "human",
       "fileRefs": [
         "src/features/engineering/useEngineeringCoordinationController.ts",
-        "src/server/assistant/engineeringCoordinationAssistant.ts"
+        "src/components/engineering/ProjectSubmittals.tsx",
+        "src/server/assistant/engineeringCoordinationAssistant.ts",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/assistantActionPolicy.test.ts"
+        "tests/assistantActionPolicy.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "formal-engineering-history-is-preserved"
@@ -2699,7 +2755,7 @@
       "domain": "engineering",
       "type": "external-boundary",
       "scope": "company-and-project",
-      "description": "Authenticated submittal RPCs enforce company/project identity, permissions, current-round decisions, and immutable history.",
+      "description": "Authenticated submittal RPCs plus locked lifecycle preflight/apply enforce company/project identity, effective permissions, current-round decisions, unused-DRAFT deletion, and immutable history.",
       "permissionKeys": [
         "engineering.submittals.create",
         "engineering.submittals.review",
@@ -2707,11 +2763,14 @@
       ],
       "fileRefs": [
         "src/lib/engineeringCoordinationPersistence.ts",
-        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "supabase/migrations/20260827140000_engineering_coordination_phase1b.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/migrationInvariants.test.ts",
-        "tests/assistantBackend.test.ts"
+        "tests/assistantBackend.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -2792,16 +2851,20 @@
         "FINALIZED",
         "VOID"
       ],
-      "description": "Project/date field report with narrative, child observations, actor lineage, and lifecycle timestamps.",
+      "description": "Project/date field report with narrative, child observations, actor lineage, lifecycle timestamps, and append-only correction addenda.",
       "fileRefs": [
         "src/lib/dailySiteLogs.ts",
         "src/lib/dailySiteLogsPersistence.ts",
-        "supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/dailySiteLogs.test.ts",
         "tests/dailySiteLogsPersistence.test.ts",
-        "tests/dailySiteLogsMigration.test.ts"
+        "tests/dailySiteLogsMigration.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "permissionKeys": [
         "engineering.sitelogs.read",
@@ -2828,14 +2891,19 @@
         "FINALIZED",
         "VOID"
       ],
-      "description": "Guarded field-record path: DRAFT → SUBMITTED → FINALIZED, with VOID only for an unfinalized record and a required reason.",
+      "description": "Guarded field-record path: editable DRAFT correction/delete, DRAFT → SUBMITTED → FINALIZED, VOID only for an unfinalized record, and append-only FINALIZED addenda.",
       "fileRefs": [
         "src/lib/dailySiteLogs.ts",
-        "supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "src/components/engineering/ProjectSiteLogs.tsx",
+        "supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/dailySiteLogs.test.ts",
-        "tests/dailySiteLogsMigration.test.ts"
+        "tests/dailySiteLogsMigration.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "permissionKeys": [
         "engineering.sitelogs.create",
@@ -2882,6 +2950,34 @@
       "type": "state",
       "scope": "company-and-project",
       "description": "Guarded void field record with reason."
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "site-log-correction-addendum",
+      "label": "Append-only Site Log correction/addendum",
+      "domain": "engineering",
+      "type": "data",
+      "scope": "company-and-project",
+      "description": "Reasoned correction text appended to a FINALIZED Site Log without changing the original field observations.",
+      "fileRefs": [
+        "src/lib/dailySiteLogs.ts",
+        "src/lib/dailySiteLogsPersistence.ts",
+        "src/components/engineering/ProjectSiteLogs.tsx",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/dailySiteLogsPersistence.test.ts",
+        "tests/engineeringLifecycle.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
+      ],
+      "permissionKeys": [
+        "engineering.sitelogs.read",
+        "engineering.sitelogs.manage"
+      ],
+      "invariantIds": [
+        "formal-engineering-history-is-preserved",
+        "site-log-observation-is-not-payroll-attendance"
+      ]
     },
     {
       "sourceClassification": "mixed",
@@ -2992,7 +3088,7 @@
       "domain": "engineering",
       "type": "guard",
       "scope": "company-and-project",
-      "description": "Company/project checks, required aggregate validation, formal-state locks, and permission-specific create/update/submit/manage gates.",
+      "description": "Company/project checks, required aggregate validation, formal-state locks, permission-specific gates, unused-draft deletion, and finalized addendum control.",
       "permissionKeys": [
         "engineering.sitelogs.create",
         "engineering.sitelogs.update",
@@ -3001,13 +3097,16 @@
       ],
       "fileRefs": [
         "src/lib/dailySiteLogs.ts",
+        "src/lib/engineeringLifecycle.ts",
         "src/server/assistant/dailySiteLogsAssistant.ts",
-        "supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql"
+        "supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/dailySiteLogs.test.ts",
         "tests/dailySiteLogsMigration.test.ts",
-        "tests/assistantBackend.test.ts"
+        "tests/assistantBackend.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -3021,7 +3120,7 @@
       "domain": "engineering",
       "type": "action",
       "scope": "company-and-project",
-      "description": "Application or Assistant request to create/update/submit/finalize/void a Daily Site Log.",
+      "description": "Application or existing Assistant request to create/update/submit/finalize/void a Daily Site Log; application lifecycle review adds unused delete and finalized addendum without Wave 3 expansion.",
       "permissionKeys": [
         "engineering.sitelogs.create",
         "engineering.sitelogs.update",
@@ -3031,11 +3130,14 @@
       "confirmationRequirement": "human",
       "fileRefs": [
         "src/features/engineering/useDailySiteLogsController.ts",
-        "src/server/assistant/dailySiteLogsAssistant.ts"
+        "src/components/engineering/ProjectSiteLogs.tsx",
+        "src/server/assistant/dailySiteLogsAssistant.ts",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/dailySiteLogs.test.ts",
-        "tests/assistantBackend.test.ts"
+        "tests/assistantBackend.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "site-log-observation-is-not-payroll-attendance",
@@ -3049,7 +3151,7 @@
       "domain": "engineering",
       "type": "external-boundary",
       "scope": "company-and-project",
-      "description": "Authenticated Site Log aggregate RPCs with active-company permission, project validation, actor lineage, and lifecycle/history guards.",
+      "description": "Authenticated Site Log aggregate and lifecycle RPCs with active-company permission, project validation, actor lineage, locked preflight, immutable history, and addenda.",
       "permissionKeys": [
         "engineering.sitelogs.create",
         "engineering.sitelogs.update",
@@ -3058,11 +3160,14 @@
       ],
       "fileRefs": [
         "src/lib/dailySiteLogsPersistence.ts",
-        "supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql"
+        "src/lib/engineeringLifecycle.ts",
+        "supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql",
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
       ],
       "testRefs": [
         "tests/dailySiteLogsPersistence.test.ts",
-        "tests/dailySiteLogsMigration.test.ts"
+        "tests/dailySiteLogsMigration.test.ts",
+        "tests/coreHardeningWave2C.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -6223,6 +6328,17 @@
       ]
     },
     {
+      "id": "site-log-aggregate-to-addendum",
+      "source": "site-log-aggregate",
+      "target": "site-log-correction-addendum",
+      "type": "preserves",
+      "kind": "history",
+      "label": "post-finalization correction",
+      "invariantIds": [
+        "formal-engineering-history-is-preserved"
+      ]
+    },
+    {
       "id": "site-log-crew-to-payroll-boundary",
       "source": "site-log-crew-observation",
       "target": "site-log-payroll-boundary",
@@ -6262,6 +6378,20 @@
       "type": "writes",
       "kind": "history",
       "label": "audit lifecycle event",
+      "invariantIds": [
+        "formal-engineering-history-is-preserved"
+      ]
+    },
+    {
+      "id": "site-log-rpc-to-addendum",
+      "source": "site-log-rpc-boundary",
+      "target": "site-log-correction-addendum",
+      "type": "writes",
+      "kind": "history",
+      "label": "append-only correction",
+      "permissionKeys": [
+        "engineering.sitelogs.manage"
+      ],
       "invariantIds": [
         "formal-engineering-history-is-preserved"
       ]
@@ -7490,6 +7620,7 @@
         "site-log-equipment-observation",
         "site-log-safety-observation",
         "site-log-event-history",
+        "site-log-correction-addendum",
         "site-log-payroll-boundary"
       ]
     },

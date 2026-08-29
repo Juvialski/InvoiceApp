@@ -7,6 +7,7 @@ import {
   eventForDailySiteLogTransition,
   replaceDailySiteLogAggregate,
   reportNumberForSiteDate,
+  type EngineeringDailySiteLogAddendum,
   transitionDailySiteLog,
   validateDailySiteLogAggregate,
   type CreateDailySiteLogInput,
@@ -14,14 +15,17 @@ import {
   type EngineeringDailySiteLogAggregate,
   type EngineeringDailySiteLogsWorkspaceData,
 } from "../../lib/dailySiteLogs.ts";
+import { buildLocalSiteLogLifecyclePreview, type EngineeringLifecyclePreview } from "../../lib/engineeringLifecycle.ts";
 import {
+  applyDailySiteLogLifecycleInSupabase,
+  createDailySiteLogAddendumRpc,
   createDailySiteLogRpc,
   finalizeDailySiteLogRpc,
   loadDailySiteLogsFromSupabase,
+  previewDailySiteLogLifecycleInSupabase,
   readDailySiteLogsFromLocal,
   submitDailySiteLogRpc,
   updateDailySiteLogDraftRpc,
-  voidDailySiteLogRpc,
   writeDailySiteLogsToLocal,
 } from "../../lib/dailySiteLogsPersistence.ts";
 
@@ -96,6 +100,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
       equipment: data.equipment.filter((item) => logIds.has(item.siteLogId)),
       safety: data.safety.filter((item) => logIds.has(item.siteLogId)),
       events: data.events.filter((item) => logIds.has(item.siteLogId)),
+      addenda: (data.addenda || []).filter((item) => logIds.has(item.siteLogId)),
     };
   }, [data, project.id]);
 
@@ -132,6 +137,24 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
   const retryLoad = useCallback(() => setGeneration((value) => value + 1), []);
 
   const aggregate = useCallback((siteLogId: string) => aggregateForDailySiteLog(data, siteLogId), [data]);
+
+  const previewLifecycle = useCallback(async (siteLogId: string): Promise<EngineeringLifecyclePreview> => {
+    const current = aggregate(siteLogId);
+    if (!current) throw new Error("The selected Site Log is no longer available.");
+    if (guestMode || isControlled) {
+      return buildLocalSiteLogLifecyclePreview({
+        siteLogId,
+        status: current.log.status,
+        projectId: current.log.projectId,
+        formalEvents: current.events.filter((event) => ["SUBMITTED", "FINALIZED", "VOIDED"].includes(event.eventType)).length,
+        addenda: (data.addenda || []).filter((item) => item.siteLogId === siteLogId).length,
+        draftObservations: (current.weather ? 1 : 0) + current.crew.length + current.equipment.length + current.safety.length,
+        narrativeFields: [current.log.workSummary, current.log.progressNotes, current.log.delaysConstraints, current.log.generalNotes].filter((value) => Boolean(value?.trim())).length,
+        source: guestMode ? "demo" : "local",
+      });
+    }
+    return previewDailySiteLogLifecycleInSupabase(siteLogId, companyId);
+  }, [aggregate, companyId, data.addenda, guestMode, isControlled]);
 
   const create = useCallback(async (input: Omit<CreateDailySiteLogInput, "projectId" | "companyId">) => {
     requirePermission(canCreate, "You do not have permission to create Site Logs in this company.");
@@ -179,7 +202,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     if (!guestMode && !isControlled) {
       if (target === "SUBMITTED") await submitDailySiteLogRpc(siteLogId, companyId);
       else if (target === "FINALIZED") await finalizeDailySiteLogRpc(siteLogId, companyId);
-      else await voidDailySiteLogRpc(siteLogId, reason || "Voided by manager", companyId);
+      else await applyDailySiteLogLifecycleInSupabase(siteLogId, "VOID", reason || "Voided by manager", companyId);
       await reload();
       return;
     }
@@ -188,12 +211,65 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     publish(replaceDailySiteLogAggregate(data, next));
   }, [aggregate, canManage, canSubmit, companyId, data, guestMode, isControlled, publish, reload]);
 
+  const applyLifecycle = useCallback(async (siteLogId: string, action: "DELETE_UNUSED" | "VOID", reason?: string) => {
+    requirePermission(canManage, "You do not have permission to manage Site Log lifecycle state in this company.");
+    const current = aggregate(siteLogId);
+    if (!current) throw new Error("The selected Site Log is no longer available.");
+    if (!guestMode && !isControlled) {
+      await applyDailySiteLogLifecycleInSupabase(siteLogId, action, reason, companyId);
+      await reload();
+      return { deleted: action === "DELETE_UNUSED" };
+    }
+    const preview = await previewLifecycle(siteLogId);
+    const allowed = action === "DELETE_UNUSED" ? preview.canDelete : preview.canVoid;
+    if (!allowed) throw new Error(preview.blockedReason || "This Site Log lifecycle action is not available.");
+    if (action === "DELETE_UNUSED") {
+      const without = <T extends { siteLogId: string }>(rows: T[]) => rows.filter((row) => row.siteLogId !== siteLogId);
+      publish({ ...data, logs: data.logs.filter((item) => item.id !== siteLogId), weather: without(data.weather), crew: without(data.crew), equipment: without(data.equipment), safety: without(data.safety), events: without(data.events), addenda: without(data.addenda || []) });
+      return { deleted: true };
+    }
+    const nextLog = transitionDailySiteLog(current.log, "VOID", { reason });
+    const next = { ...current, log: nextLog, events: [...current.events, eventForDailySiteLogTransition(current.log, nextLog, { reason })] };
+    publish(replaceDailySiteLogAggregate(data, next));
+    return { deleted: false };
+  }, [aggregate, canManage, companyId, data, guestMode, isControlled, previewLifecycle, publish, reload]);
+
+  const addAddendum = useCallback(async (siteLogId: string, reason: string, correctionText: string): Promise<EngineeringDailySiteLogAddendum> => {
+    requirePermission(canManage, "You do not have permission to add Site Log corrections in this company.");
+    const current = aggregate(siteLogId);
+    if (!current) throw new Error("The selected Site Log is no longer available.");
+    if (current.log.status !== "FINALIZED") throw new Error("Addenda are available only for FINALIZED Site Logs.");
+    if (!reason.trim()) throw new Error("A reason is required for a Site Log addendum.");
+    if (!correctionText.trim()) throw new Error("Correction or addendum text is required.");
+    if (!guestMode && !isControlled) {
+      const created = await createDailySiteLogAddendumRpc(siteLogId, reason, correctionText, companyId);
+      await reload();
+      return created;
+    }
+    const createdAt = new Date().toISOString();
+    const addendum: EngineeringDailySiteLogAddendum = {
+      id: `demo-site-log-addendum-${siteLogId}-${(data.addenda || []).filter((item) => item.siteLogId === siteLogId).length + 1}`,
+      companyId: current.log.companyId,
+      siteLogId,
+      addendumNumber: (data.addenda || []).filter((item) => item.siteLogId === siteLogId).length + 1,
+      reason: reason.trim(),
+      correctionText: correctionText.trim(),
+      createdByUserId: current.log.preparedByUserId,
+      createdAt,
+    };
+    publish({ ...data, addenda: [...(data.addenda || []), addendum] });
+    return addendum;
+  }, [aggregate, canManage, companyId, data, guestMode, isControlled, publish, reload]);
+
   return {
     data: projectData,
     isLoading,
     loadError,
     retryLoad,
     aggregate,
+    previewLifecycle,
+    applyLifecycle,
+    addAddendum,
     create,
     updateDraft,
     submit: (siteLogId: string) => transition(siteLogId, "SUBMITTED"),

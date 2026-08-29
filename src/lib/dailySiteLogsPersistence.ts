@@ -3,6 +3,7 @@ import { supabase } from "./supabase.ts";
 import {
   emptyDailySiteLogsWorkspaceData,
   type EngineeringDailySiteLog,
+  type EngineeringDailySiteLogAddendum,
   type EngineeringDailySiteLogCrew,
   type EngineeringDailySiteLogEquipment,
   type EngineeringDailySiteLogEvent,
@@ -10,6 +11,7 @@ import {
   type EngineeringDailySiteLogWeather,
   type EngineeringDailySiteLogsWorkspaceData,
 } from "./dailySiteLogs.ts";
+import { parseEngineeringLifecyclePreview, parseEngineeringLifecycleResult, type EngineeringLifecyclePreview, type EngineeringLifecycleResult } from "./engineeringLifecycle.ts";
 
 export const DAILY_SITE_LOGS_STORAGE_KEY = "invoice_engineering_daily_site_logs_v1";
 type Row = Record<string, unknown>;
@@ -137,6 +139,19 @@ export function dailySiteLogEventFromRow(row: Row): EngineeringDailySiteLogEvent
   };
 }
 
+export function dailySiteLogAddendumFromRow(row: Row): EngineeringDailySiteLogAddendum {
+  return {
+    id: String(row.id),
+    companyId: text(row.company_id),
+    siteLogId: String(row.site_log_id),
+    addendumNumber: numberValue(row.addendum_number, 1),
+    reason: String(row.reason || ""),
+    correctionText: String(row.correction_text || ""),
+    createdByUserId: text(row.created_by_user_id),
+    createdAt: String(row.created_at || ""),
+  };
+}
+
 function resolveCompanyId(companyId?: string): string {
   const active = getActiveCompanyId();
   const resolved = companyId?.trim() || active || requireActiveCompanyId();
@@ -159,19 +174,27 @@ async function rpc(name: string, args: Record<string, unknown>, companyId?: stri
   return data;
 }
 
+async function lifecycleRpc(name: string, args: Record<string, unknown>, companyId?: string): Promise<unknown> {
+  await requireAuthenticatedCompany(companyId);
+  const { data, error } = await supabase!.rpc(name, args);
+  if (error) throw error;
+  return data;
+}
+
 export async function loadDailySiteLogsFromSupabase(companyId?: string, projectId?: string): Promise<EngineeringDailySiteLogsWorkspaceData> {
   const resolvedCompanyId = await requireAuthenticatedCompany(companyId);
   let logsQuery = supabase!.from("engineering_daily_site_logs").select("*").eq("company_id", resolvedCompanyId).order("site_date", { ascending: false }).order("created_at", { ascending: false });
   if (projectId) logsQuery = logsQuery.eq("project_id", projectId);
-  const [logs, weather, crew, equipment, safety, events] = await Promise.all([
+  const [logs, weather, crew, equipment, safety, events, addenda] = await Promise.all([
     logsQuery,
     supabase!.from("engineering_daily_site_log_weather").select("*").eq("company_id", resolvedCompanyId).order("created_at", { ascending: true }),
     supabase!.from("engineering_daily_site_log_crew").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
     supabase!.from("engineering_daily_site_log_equipment").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
     supabase!.from("engineering_daily_site_log_safety").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
     supabase!.from("engineering_daily_site_log_events").select("*").eq("company_id", resolvedCompanyId).order("created_at", { ascending: true }),
+    supabase!.from("engineering_daily_site_log_addenda").select("*").eq("company_id", resolvedCompanyId).order("addendum_number", { ascending: true }),
   ]);
-  for (const result of [logs, weather, crew, equipment, safety, events]) if (result.error) throw result.error;
+  for (const result of [logs, weather, crew, equipment, safety, events, addenda]) if (result.error) throw result.error;
   const logIds = new Set((logs.data || []).map((row) => String((row as Row).id)));
   const onlyProjectLogs = (rows: Row[]) => rows.filter((row) => logIds.has(String(row.site_log_id)));
   return {
@@ -181,6 +204,7 @@ export async function loadDailySiteLogsFromSupabase(companyId?: string, projectI
     equipment: onlyProjectLogs((equipment.data || []) as Row[]).map(dailySiteLogEquipmentFromRow),
     safety: onlyProjectLogs((safety.data || []) as Row[]).map(dailySiteLogSafetyFromRow),
     events: onlyProjectLogs((events.data || []) as Row[]).map(dailySiteLogEventFromRow),
+    addenda: onlyProjectLogs((addenda.data || []) as Row[]).map(dailySiteLogAddendumFromRow),
   };
 }
 
@@ -197,6 +221,7 @@ export function readDailySiteLogsFromLocal(storage: Storage | undefined = typeof
       equipment: Array.isArray(parsed.equipment) ? parsed.equipment : [],
       safety: Array.isArray(parsed.safety) ? parsed.safety : [],
       events: Array.isArray(parsed.events) ? parsed.events : [],
+      addenda: Array.isArray(parsed.addenda) ? parsed.addenda : [],
     };
   } catch {
     return emptyDailySiteLogsWorkspaceData();
@@ -251,4 +276,16 @@ export function finalizeDailySiteLogRpc(siteLogId: string, companyId?: string) {
 
 export function voidDailySiteLogRpc(siteLogId: string, reason: string, companyId?: string) {
   return rpc("void_engineering_daily_site_log", { p_daily_site_log_id: siteLogId, p_reason: reason }, companyId);
+}
+
+export async function previewDailySiteLogLifecycleInSupabase(siteLogId: string, companyId?: string): Promise<EngineeringLifecyclePreview> {
+  return parseEngineeringLifecyclePreview(await lifecycleRpc("preview_engineering_daily_site_log_lifecycle", { p_site_log_id: siteLogId }, companyId), "SITE_LOG");
+}
+
+export async function applyDailySiteLogLifecycleInSupabase(siteLogId: string, action: "DELETE_UNUSED" | "VOID", reason?: string, companyId?: string): Promise<EngineeringLifecycleResult> {
+  return parseEngineeringLifecycleResult(await lifecycleRpc("apply_engineering_daily_site_log_lifecycle", { p_site_log_id: siteLogId, p_action: action, p_reason: reason || null }, companyId), "SITE_LOG");
+}
+
+export async function createDailySiteLogAddendumRpc(siteLogId: string, reason: string, correctionText: string, companyId?: string): Promise<EngineeringDailySiteLogAddendum> {
+  return dailySiteLogAddendumFromRow(await lifecycleRpc("create_engineering_daily_site_log_addendum", { p_site_log_id: siteLogId, p_reason: reason, p_correction_text: correctionText }, companyId) as Row);
 }

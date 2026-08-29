@@ -1,6 +1,7 @@
 import { reconciliationStatusForTransaction, type FinancialAccount, type FinancialBalanceSnapshot, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../lib/dailySiteLogs.ts";
+import type { EngineeringDocumentsWorkspaceData } from "../lib/engineeringDocuments.ts";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "../lib/payrollAutomation.ts";
 import type {
   AttendanceRecord,
@@ -53,6 +54,7 @@ export type DemoWorkspaceMutation =
   | { type: "SAVE_FINANCIAL_TRANSACTION"; value: FinancialTransaction }
   | { type: "SAVE_FINANCIAL_MATCH"; match: FinancialTransactionMatch; transaction: FinancialTransaction }
   | { type: "REVERSE_FINANCIAL_SETTLEMENT"; matchId: string; reason: string }
+  | { type: "SAVE_ENGINEERING_DOCUMENTS"; value: EngineeringDocumentsWorkspaceData }
   | { type: "SAVE_DAILY_SITE_LOGS"; value: EngineeringDailySiteLogsWorkspaceData };
 
 function upsert<T extends { id: string }>(items: readonly T[], value: T): T[] {
@@ -255,6 +257,8 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
         : state.cash.transactions;
       return { ...state, cash: { ...state.cash, matches: nextMatches, transactions: nextTransactions } };
     }
+    case "SAVE_ENGINEERING_DOCUMENTS":
+      return { ...state, engineering: mutation.value };
     case "SAVE_DAILY_SITE_LOGS":
       return { ...state, siteLogs: mutation.value };
     default:

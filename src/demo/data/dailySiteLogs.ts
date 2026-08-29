@@ -88,5 +88,5 @@ export function createDemoDailySiteLogs(anchorDate: string): EngineeringDailySit
     event("demo-event-cebu-finalized", cebuCloseout, "FINALIZED", "FINALIZED", addDemoDays(anchorDate, -112), "SUBMITTED", "Historical close-out record."),
   ];
 
-  return { logs, weather, crew, equipment, safety, events };
+  return { logs, weather, crew, equipment, safety, events, addenda: [] };
 }

@@ -18,7 +18,7 @@ import type {
 import { exportEngineeringProjectWorkbookToExcel } from "../../utils/excelExport";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
-import { useAppPermissions, useProjectCostCompleteness } from "../AppPermissionContext.tsx";
+import { useAppPermissions, useProjectCostCompleteness, useWorkspaceDataPending } from "../AppPermissionContext.tsx";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 
 export interface ReportsRouteProps {
@@ -59,7 +59,11 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
   const canReadPayrollDetail = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadWorkers = hasPermission(permissions, PERMISSION_KEYS.workersRead);
   const projectCostCompleteness = useProjectCostCompleteness();
+  const workspaceDataPending = useWorkspaceDataPending();
   const missingProjectCostSources = projectCostMissingSourceLabels(projectCostCompleteness);
+  const transientRefreshGap = !projectCostCompleteness.complete
+    && workspaceDataPending
+    && projectCostCompleteness.reason === "load-error";
 
   const handleExport =
     onExport ||
@@ -88,7 +92,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
         <PayrollOperatingCosts runs={runs} entries={entries} allocations={payrollAllocations} />
       )}
 
-      {canReadFinancialReports && projectCostCompleteness.complete ? (
+      {canReadFinancialReports && (projectCostCompleteness.complete || transientRefreshGap) ? (
         <ProjectReports
           projects={projects}
           invoices={invoices}
