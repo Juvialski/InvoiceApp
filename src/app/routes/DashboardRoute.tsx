@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, ShieldCheck } from "lucide-react";
 import {
   EngineeringCostOperationsDashboard,
   type DashboardActivityPeriod,
@@ -51,17 +51,11 @@ export const DashboardRoute: React.FC<DashboardRouteProps> = ({
   const completeness = useProjectCostCompleteness();
   const workspaceDataPending = useWorkspaceDataPending();
   const hiddenSources = projectCostMissingSourceLabels(completeness);
+  const transientRefreshGap = !completeness.complete
+    && workspaceDataPending
+    && completeness.reason === "load-error";
 
-  if (!completeness.complete && workspaceDataPending) {
-    return (
-      <div role="status" aria-live="polite" className="flex min-h-32 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 shadow-sm">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />
-        Refreshing dashboard data…
-      </div>
-    );
-  }
-
-  if (!completeness.complete) {
+  if (!completeness.complete && !transientRefreshGap) {
     const shortcuts = RESTRICTED_DASHBOARD_SHORTCUTS.filter(({ tab }) => canAccessAppTab(tab, permissions));
     return (
       <div className="space-y-5" data-dashboard-completeness="incomplete">
