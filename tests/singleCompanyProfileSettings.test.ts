@@ -65,8 +65,9 @@ test("single-company settings and deployment badge do not expose the legacy comp
   const accessStates = readFileSync(new URL("../src/components/access/AccessStates.tsx", import.meta.url), "utf8");
   const migration = readFileSync(new URL("../supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql", import.meta.url), "utf8");
 
-  assert.doesNotMatch(settings, /Company code|companyCode/);
-  assert.doesNotMatch(accessStates, /company\.companyCode/);
-  assert.match(migration, /create or replace function public\.update_company/);
-  assert.match(migration, /private\.has_company_permission\(p_company_id, 'company\.settings\.manage'\)/);
+  assert.equal(settings.includes("Company code"), false);
+  assert.equal(settings.includes("companyCode"), false);
+  assert.equal(accessStates.includes("company.companyCode"), false);
+  assert.equal(migration.includes("create or replace function public.update_company("), true);
+  assert.equal(migration.includes("private.has_company_permission(p_company_id, 'company.settings.manage')"), true);
 });
