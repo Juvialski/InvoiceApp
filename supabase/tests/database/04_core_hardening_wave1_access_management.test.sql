@@ -47,8 +47,11 @@ select
   '10000000-0000-4000-8000-000000000004'::uuid as suspended_user,
   '10000000-0000-4000-8000-000000000005'::uuid as invited_user,
   '10000000-0000-4000-8000-000000000006'::uuid as wrong_email_user,
+  '10000000-0000-4000-8000-000000000007'::uuid as platform_user,
   'aaaaaaaa-0000-4000-8000-000000000001'::uuid as company_id,
   'bbbbbbbb-0000-4000-8000-000000000002'::uuid as other_company_id;
+
+grant select on wave1_ids to authenticated, service_role;
 
 insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 select id, email, 'x', now(), now(), now()
@@ -58,7 +61,8 @@ from (values
   ((select viewer_user from wave1_ids), 'wave1-viewer@test.local'),
   ((select suspended_user from wave1_ids), 'wave1-suspended@test.local'),
   ((select invited_user from wave1_ids), 'wave1-invited@test.local'),
-  ((select wrong_email_user from wave1_ids), 'wave1-wrong-email@test.local')
+  ((select wrong_email_user from wave1_ids), 'wave1-wrong-email@test.local'),
+  ((select platform_user from wave1_ids), 'wave1-platform@test.local')
 ) users(id, email)
 on conflict (id) do nothing;
 
@@ -77,26 +81,46 @@ values
 insert into public.deployment_configuration (singleton, company_id)
 values (true, (select company_id from wave1_ids));
 
--- Company Admin can update the configured profile, but cannot target another
--- deployment company. Finance and suspended members cannot update it.
+insert into public.platform_admins (user_id)
+values ((select platform_user from wave1_ids));
+
+-- Company Admin uses the membership-authorized profile path. Platform
+-- maintenance remains a separate explicit authority and does not require a
+-- client-company membership.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from wave1_ids), true);
-select is((select name from public.platform_update_company(
-  (select company_id from wave1_ids), 'Wave 1 Renamed', null, null, 'EUR', 'Europe/Berlin'
+select is((select name from public.update_company(
+  (select company_id from wave1_ids), 'Wave 1 Renamed', null, 'EUR', 'Europe/Berlin'
 )), 'Wave 1 Renamed'::text, 'Company Admin can update deployment profile');
 select throws_ok(
-  $$select public.platform_update_company((select other_company_id from wave1_ids), 'Wrong Company', null, null, null, null)$$,
+  $$select public.update_company((select other_company_id from wave1_ids), 'Wrong Company', null, null, null)$$,
   '42501', null, 'wrong-company profile update is rejected'
+);
+select throws_ok(
+  $$select public.platform_update_company((select company_id from wave1_ids), 'Admin Cannot Use Platform Path', null, null, null, null)$$,
+  '42501', null, 'Company Admin does not gain platform-maintenance authority'
 );
 select set_config('request.jwt.claim.sub', (select finance_user::text from wave1_ids), true);
 select throws_ok(
-  $$select public.platform_update_company((select company_id from wave1_ids), 'Finance Cannot Rename', null, null, null, null)$$,
+  $$select public.update_company((select company_id from wave1_ids), 'Finance Cannot Rename', null, null, null)$$,
   '42501', null, 'Finance cannot update company profile'
 );
 select set_config('request.jwt.claim.sub', (select suspended_user::text from wave1_ids), true);
 select throws_ok(
-  $$select public.platform_update_company((select company_id from wave1_ids), 'Suspended Cannot Rename', null, null, null, null)$$,
+  $$select public.update_company((select company_id from wave1_ids), 'Suspended Cannot Rename', null, null, null)$$,
   '42501', null, 'suspended member cannot update company profile'
+);
+select set_config('request.jwt.claim.sub', (select platform_user::text from wave1_ids), true);
+select is((select name from public.platform_update_company(
+  (select company_id from wave1_ids), 'Wave 1 Maintained', null, null, null, null
+)), 'Wave 1 Maintained'::text, 'explicit platform operator can maintain deployment company without membership');
+select throws_ok(
+  $$select public.platform_update_company((select other_company_id from wave1_ids), 'Wrong Platform Company', null, null, null, null)$$,
+  '42501', null, 'platform maintenance cannot target another deployment company'
+);
+select throws_ok(
+  $$select public.update_company((select company_id from wave1_ids), 'Platform User Cannot Use Client Path', null, null, null)$$,
+  '42501', null, 'platform operator without membership cannot use the client profile path'
 );
 reset role;
 
@@ -108,6 +132,7 @@ select throws_ok(
   '42501', null, 'actor without access-management permission cannot create an invitation'
 );
 create temp table wave1_invites (kind text primary key, invitation_id uuid);
+grant select on wave1_invites to authenticated;
 insert into wave1_invites
 select 'created', ci.id
 from public.platform_create_company_invitation(
