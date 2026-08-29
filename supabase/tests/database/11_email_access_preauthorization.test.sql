@@ -2,8 +2,8 @@ begin;
 select no_plan();
 
 -- The fixture deliberately exercises the browser-authenticated RPCs under
--- authenticated role. The service role is used only to seed trusted Auth and
--- historical rows that a browser cannot manufacture.
+-- authenticated role. The database owner seeds trusted Auth rows; service_role
+-- is used only for historical application rows that a browser cannot manufacture.
 create temp table preauth_ids as
 select
   '20000000-0000-4000-8000-000000000001'::uuid as admin_user,
@@ -25,7 +25,6 @@ select
   'dddddddd-0000-4000-8000-000000000002'::uuid as other_company_id;
 grant select on preauth_ids to authenticated, service_role;
 
-set local role service_role;
 insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 select id, email, 'x', confirmed_at, now(), now()
 from (values
@@ -47,6 +46,7 @@ from (values
 ) users(id, email, confirmed_at)
 on conflict (id) do nothing;
 
+set local role service_role;
 insert into public.companies (id, name, company_code, status, default_currency, timezone)
 values
   ((select company_id from preauth_ids), 'Preauthorization Company', 'preauth-company', 'ACTIVE', 'PHP', 'Asia/Manila'),
