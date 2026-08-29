@@ -22,6 +22,7 @@ import { readPayrollImportWorkspaceFromLocal, type PayrollImportBatch } from "./
 import { dateOnly, ensurePayrollPeriodsAndRuns } from "./payrollWorkflow.ts";
 import { supabase } from "./supabase.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
+import type { PayrollLifecycleRequest } from "./payrollLifecycle.ts";
 
 const WORKERS_STORAGE_KEY = "engineering_workers";
 const ASSIGNMENTS_STORAGE_KEY = "engineering_project_worker_assignments";
@@ -55,7 +56,7 @@ function workerFromRow(row: Record<string, unknown>): Worker {
     firstName: String(row.first_name || ""), middleName: text(row.middle_name), lastName: String(row.last_name || ""),
     displayName: String(row.display_name || [row.first_name, row.last_name].filter(Boolean).join(" ")),
     employmentType: String(row.employment_type || "OTHER") as Worker["employmentType"], employmentStatus: text(row.employment_status) as Worker["employmentStatus"], jobTitle: text(row.job_title), department: text(row.department), departmentId: text(row.department_id), managerWorkerId: text(row.manager_worker_id),
-    defaultPayType: String(row.default_pay_type || "MONTHLY") as Worker["defaultPayType"], defaultRate: numberValue(row.default_rate),
+    defaultPayType: String(row.default_pay_type || "MONTHLY") as Worker["defaultPayType"], defaultRate: numberValue(row.default_rate), defaultLaborContext: text(row.default_labor_context) as Worker["defaultLaborContext"], defaultProjectId: text(row.default_project_id),
     active: bool(row.active), hireDate: text(row.hire_date), endDate: text(row.end_date), workingDays: Array.isArray(row.working_days) ? row.working_days.map(String) : undefined, workingHoursStart: text(row.working_hours_start), workingHoursEnd: text(row.working_hours_end), notes: text(row.notes),
     createdAt: String(row.created_at || new Date().toISOString()), updatedAt: String(row.updated_at || new Date().toISOString()), archivedAt: text(row.archived_at),
   };
@@ -96,7 +97,7 @@ function allocationFromRow(row: Record<string, unknown>): PayrollProjectAllocati
 }
 
 function workEntryFromRow(row: Record<string, unknown>): WorkEntry {
-  return { id: String(row.id), workerId: String(row.worker_id), projectId: text(row.project_id), laborContext: text(row.labor_context) as WorkEntry["laborContext"], periodId: text(row.period_id), workDate: String(row.work_date || ""), regularHours: numberValue(row.regular_hours), overtimeHours: numberValue(row.overtime_hours), daysWorked: numberValue(row.days_worked), rate: numberValue(row.rate), overtimeRate: row.overtime_rate === null ? undefined : numberValue(row.overtime_rate), description: text(row.description), notes: text(row.notes), status: String(row.status || "DRAFT") as WorkEntry["status"] };
+  return { id: String(row.id), workerId: String(row.worker_id), projectId: text(row.project_id), laborContext: text(row.labor_context) as WorkEntry["laborContext"], periodId: text(row.period_id), workDate: String(row.work_date || ""), regularHours: numberValue(row.regular_hours), overtimeHours: numberValue(row.overtime_hours), daysWorked: numberValue(row.days_worked), rate: numberValue(row.rate), overtimeRate: row.overtime_rate === null ? undefined : numberValue(row.overtime_rate), description: text(row.description), notes: text(row.notes), status: String(row.status || "DRAFT") as WorkEntry["status"], voidedAt: text(row.voided_at), voidReason: text(row.void_reason) };
 }
 
 function attendanceFromRow(row: Record<string, unknown>): AttendanceRecord {
@@ -106,7 +107,7 @@ function attendanceFromRow(row: Record<string, unknown>): AttendanceRecord {
     actualTimeIn: text(row.actual_time_in), actualTimeOut: text(row.actual_time_out), regularMinutes: numberValue(row.regular_minutes), lateMinutes: numberValue(row.late_minutes),
     undertimeMinutes: numberValue(row.undertime_minutes), overtimeMinutes: numberValue(row.overtime_minutes), paidDayFraction: numberValue(row.paid_day_fraction),
     attendanceStatus: String(row.attendance_status || "PRESENT") as AttendanceRecord["attendanceStatus"], recordStatus: String(row.record_status || "DRAFT") as AttendanceRecord["recordStatus"],
-    source: String(row.source || "MANUAL") as AttendanceRecord["source"], notes: text(row.notes), createdBy: text(row.created_by), updatedBy: text(row.updated_by),
+    source: String(row.source || "MANUAL") as AttendanceRecord["source"], notes: text(row.notes), voidedAt: text(row.voided_at), voidReason: text(row.void_reason), createdBy: text(row.created_by), updatedBy: text(row.updated_by),
     createdAt: String(row.created_at || new Date().toISOString()), updatedAt: String(row.updated_at || new Date().toISOString()),
   };
 }
@@ -116,7 +117,7 @@ function leaveFromRow(row: Record<string, unknown>): LeaveRequest {
     id: String(row.id), companyId: text(row.company_id), workerId: String(row.worker_id), leaveType: String(row.leave_type || ""),
     startDate: String(row.start_date || ""), endDate: String(row.end_date || ""), partialDay: text(row.partial_day) as LeaveRequest["partialDay"],
     paid: row.paid === null || row.paid === undefined ? undefined : bool(row.paid, false), status: String(row.status || "DRAFT") as LeaveRequest["status"],
-    notes: text(row.notes), createdBy: text(row.created_by), updatedBy: text(row.updated_by), createdAt: String(row.created_at || new Date().toISOString()), updatedAt: String(row.updated_at || new Date().toISOString()),
+    notes: text(row.notes), cancelledAt: text(row.cancelled_at), cancellationReason: text(row.cancellation_reason), createdBy: text(row.created_by), updatedBy: text(row.updated_by), createdAt: String(row.created_at || new Date().toISOString()), updatedAt: String(row.updated_at || new Date().toISOString()),
   };
 }
 
@@ -125,7 +126,7 @@ function overtimeFromRow(row: Record<string, unknown>): OvertimeRequest {
     id: String(row.id), companyId: text(row.company_id), workerId: String(row.worker_id), periodId: text(row.period_id), overtimeDate: String(row.overtime_date || ""),
     projectId: text(row.project_id), laborContext: text(row.labor_context) as OvertimeRequest["laborContext"], requestedMinutes: numberValue(row.requested_minutes), approvedMinutes: numberValue(row.approved_minutes),
     reason: text(row.reason), status: String(row.status || "DRAFT") as OvertimeRequest["status"], approvedBy: text(row.approved_by), approvedAt: text(row.approved_at),
-    notes: text(row.notes), source: String(row.source || "MANUAL") as OvertimeRequest["source"], createdBy: text(row.created_by), updatedBy: text(row.updated_by),
+    notes: text(row.notes), source: String(row.source || "MANUAL") as OvertimeRequest["source"], cancelledAt: text(row.cancelled_at), cancellationReason: text(row.cancellation_reason), createdBy: text(row.created_by), updatedBy: text(row.updated_by),
     createdAt: String(row.created_at || new Date().toISOString()), updatedAt: String(row.updated_at || new Date().toISOString()),
   };
 }
@@ -174,7 +175,7 @@ function scheduleFromRow(row: Record<string, unknown>, versionRows: Record<strin
   return { id: String(row.id), userId: text(row.user_id), name: text(row.name), effectiveFrom: String(row.effective_from || ""), ...scheduleConfiguration(row), payDateRule: objectValue(row.pay_date_rule) as unknown as PayrollSchedule["payDateRule"], autoGeneratePeriods: bool(row.auto_generate_periods), active: bool(row.active), versions: versionRows.filter((version) => String(version.schedule_id) === String(row.id)).map(scheduleVersionFromRow), createdAt: text(row.created_at), updatedAt: text(row.updated_at) };
 }
 function profileFromRow(row: Record<string, unknown>): WorkerCompensationProfile {
-  return { id: text(row.id), workerId: String(row.worker_id), effectiveFrom: String(row.effective_from || ""), effectiveTo: text(row.effective_to), frequency: String(row.frequency || "MONTHLY") as WorkerCompensationProfile["frequency"], rate: numberValue(row.rate), defaultLaborContext: String(row.default_labor_context || "UNALLOCATED_REVIEW") as WorkerCompensationProfile["defaultLaborContext"], defaultProjectId: text(row.default_project_id) };
+  return { id: text(row.id), workerId: String(row.worker_id), effectiveFrom: String(row.effective_from || ""), effectiveTo: text(row.effective_to), frequency: String(row.frequency || "MONTHLY") as WorkerCompensationProfile["frequency"], rate: numberValue(row.rate), defaultLaborContext: String(row.default_labor_context || "UNALLOCATED_REVIEW") as WorkerCompensationProfile["defaultLaborContext"], defaultProjectId: text(row.default_project_id), active: row.active === undefined ? true : bool(row.active) };
 }
 function componentFromRow(row: Record<string, unknown>): RecurringPayrollComponent {
   return { id: String(row.id), workerId: String(row.worker_id), type: String(row.type || "EARNING") as RecurringPayrollComponent["type"], name: text(row.name), amount: row.amount === null ? undefined : numberValue(row.amount), rate: row.rate === null ? undefined : numberValue(row.rate), effectiveFrom: String(row.effective_from || ""), effectiveTo: text(row.effective_to), active: bool(row.active), code: text(row.code) } as RecurringPayrollComponent;
@@ -540,7 +541,7 @@ export async function saveAttendanceRecordToSupabase(record: AttendanceRecord) {
     scheduled_minutes: record.scheduledMinutes, break_minutes: record.breakMinutes, actual_time_in: record.actualTimeIn || null, actual_time_out: record.actualTimeOut || null,
     regular_minutes: record.regularMinutes, late_minutes: record.lateMinutes, undertime_minutes: record.undertimeMinutes, overtime_minutes: record.overtimeMinutes,
     paid_day_fraction: record.paidDayFraction, attendance_status: record.attendanceStatus, record_status: record.recordStatus, source: record.source,
-    notes: record.notes || null, created_by: record.createdBy || userId, updated_by: userId, updated_at: new Date().toISOString(),
+    notes: record.notes || null, voided_at: record.voidedAt || null, void_reason: record.voidReason || null, created_by: record.createdBy || userId, updated_by: userId, updated_at: new Date().toISOString(),
   }, { onConflict: "company_id,worker_id,attendance_date" }).select("*").single();
   if (error) throw error;
   return attendanceFromRow(data as Record<string, unknown>);
@@ -556,7 +557,7 @@ export async function saveAttendanceRecordsToSupabase(records: AttendanceRecord[
     attendance_date: record.attendanceDate, scheduled_start: record.scheduledStart || null, scheduled_end: record.scheduledEnd || null, scheduled_minutes: record.scheduledMinutes,
     break_minutes: record.breakMinutes, actual_time_in: record.actualTimeIn || null, actual_time_out: record.actualTimeOut || null, regular_minutes: record.regularMinutes,
     late_minutes: record.lateMinutes, undertime_minutes: record.undertimeMinutes, overtime_minutes: record.overtimeMinutes, paid_day_fraction: record.paidDayFraction,
-    attendance_status: record.attendanceStatus, record_status: record.recordStatus, source: record.source, notes: record.notes || null, created_by: record.createdBy || userId, updated_by: userId,
+    attendance_status: record.attendanceStatus, record_status: record.recordStatus, source: record.source, notes: record.notes || null, voided_at: record.voidedAt || null, void_reason: record.voidReason || null, created_by: record.createdBy || userId, updated_by: userId,
   }));
   const { data, error } = await supabase.from("attendance_records").upsert(rows, { onConflict: "company_id,worker_id,attendance_date" }).select("*");
   if (error) throw error;
@@ -569,7 +570,7 @@ export async function saveLeaveRequestToSupabase(request: LeaveRequest) {
   const { data, error } = await supabase.from("leave_requests").upsert({
     id: persistedId(request.id, "leave"), user_id: userId, company_id: requireActiveCompanyId(), worker_id: request.workerId, leave_type: request.leaveType.trim(),
     start_date: request.startDate, end_date: request.endDate, partial_day: request.partialDay || "FULL", paid: request.paid ?? null, status: request.status,
-    notes: request.notes || null, created_by: request.createdBy || userId, updated_by: userId, updated_at: new Date().toISOString(),
+    notes: request.notes || null, cancelled_at: request.cancelledAt || null, cancellation_reason: request.cancellationReason || null, created_by: request.createdBy || userId, updated_by: userId, updated_at: new Date().toISOString(),
   }).select("*").single();
   if (error) throw error;
   return leaveFromRow(data as Record<string, unknown>);
@@ -582,7 +583,7 @@ export async function saveOvertimeRequestToSupabase(request: OvertimeRequest) {
     id: persistedId(request.id, "overtime"), user_id: userId, company_id: requireActiveCompanyId(), worker_id: request.workerId, period_id: request.periodId || null,
     overtime_date: request.overtimeDate, project_id: request.projectId || null, labor_context: request.laborContext || (request.projectId ? "PROJECT" : "UNALLOCATED_REVIEW"),
     requested_minutes: request.requestedMinutes, approved_minutes: request.approvedMinutes, reason: request.reason || null, status: request.status,
-    approved_by: request.approvedBy || null, approved_at: request.approvedAt || null, notes: request.notes || null, source: request.source, created_by: request.createdBy || userId, updated_by: userId,
+    approved_by: request.approvedBy || null, approved_at: request.approvedAt || null, notes: request.notes || null, cancelled_at: request.cancelledAt || null, cancellation_reason: request.cancellationReason || null, source: request.source, created_by: request.createdBy || userId, updated_by: userId,
     updated_at: new Date().toISOString(),
   }).select("*").single();
   if (error) throw error;
@@ -611,7 +612,7 @@ export async function saveDepartmentToSupabase(department: Department) {
 export async function saveWorkerToSupabase(worker: Worker) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving workers.");
-  const { data, error } = await supabase.from("workers").upsert({ id: persistedId(worker.id, "worker"), user_id: userId, auth_user_id: worker.authUserId || null, employee_code: worker.employeeCode, first_name: worker.firstName, middle_name: worker.middleName || null, last_name: worker.lastName, display_name: worker.displayName, employment_type: worker.employmentType, employment_status: worker.employmentStatus || (worker.active ? "ACTIVE" : "INACTIVE"), job_title: worker.jobTitle || null, department: worker.department || null, department_id: worker.departmentId || null, manager_worker_id: worker.managerWorkerId || null, default_pay_type: worker.defaultPayType, default_rate: worker.defaultRate, active: worker.active, hire_date: worker.hireDate || null, end_date: worker.endDate || null, working_days: worker.workingDays || null, working_hours_start: worker.workingHoursStart || null, working_hours_end: worker.workingHoursEnd || null, notes: worker.notes || null, archived_at: worker.archivedAt || null, updated_at: new Date().toISOString() }).select("*").single();
+  const { data, error } = await supabase.from("workers").upsert({ id: persistedId(worker.id, "worker"), user_id: userId, auth_user_id: worker.authUserId || null, employee_code: worker.employeeCode, first_name: worker.firstName, middle_name: worker.middleName || null, last_name: worker.lastName, display_name: worker.displayName, employment_type: worker.employmentType, employment_status: worker.employmentStatus || (worker.active ? "ACTIVE" : "INACTIVE"), job_title: worker.jobTitle || null, department: worker.department || null, department_id: worker.departmentId || null, manager_worker_id: worker.managerWorkerId || null, default_pay_type: worker.defaultPayType, default_rate: worker.defaultRate, default_labor_context: worker.defaultLaborContext || "UNALLOCATED_REVIEW", default_project_id: worker.defaultProjectId || null, active: worker.active, hire_date: worker.hireDate || null, end_date: worker.endDate || null, working_days: worker.workingDays || null, working_hours_start: worker.workingHoursStart || null, working_hours_end: worker.workingHoursEnd || null, notes: worker.notes || null, archived_at: worker.archivedAt || null, updated_at: new Date().toISOString() }).select("*").single();
   if (error) throw error;
   return workerFromRow(data as Record<string, unknown>);
 }
@@ -667,7 +668,20 @@ export async function savePayrollScheduleToSupabase(schedule: PayrollSchedule) {
 export async function saveWorkerCompensationProfileToSupabase(profile: WorkerCompensationProfile) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving compensation profiles.");
-  const { data, error } = await supabase.from("worker_compensation_profiles").upsert({ id: persistedId(profile.id, "compensation"), user_id: userId, worker_id: profile.workerId, effective_from: profile.effectiveFrom, effective_to: profile.effectiveTo || null, frequency: profile.frequency, rate: profile.rate, default_labor_context: profile.defaultLaborContext, default_project_id: profile.defaultProjectId || null, active: true, updated_at: new Date().toISOString() }).select("*").single();
+  const profileId = persistedId(profile.id, "compensation");
+  const { data: rpcData, error: rpcError } = await supabase.rpc("save_worker_compensation_profile", {
+    p_profile_id: profileId,
+    p_worker_id: profile.workerId,
+    p_effective_from: profile.effectiveFrom,
+    p_effective_to: profile.effectiveTo || null,
+    p_frequency: profile.frequency,
+    p_rate: profile.rate,
+    p_default_labor_context: profile.defaultLaborContext,
+    p_default_project_id: profile.defaultProjectId || null,
+    p_active: profile.active ?? true,
+  });
+  const error = rpcError;
+  const data = rpcData;
   if (error) throw error;
   return profileFromRow(data as Record<string, unknown>);
 }
@@ -679,6 +693,81 @@ export async function saveRecurringPayrollComponentToSupabase(component: Recurri
   if (error) throw error;
   return componentFromRow(data as Record<string, unknown>);
 }
+
+export interface PayrollLifecycleRpcResult {
+  entityType: string;
+  entityId: string;
+  action: string;
+  deleted: boolean;
+  preflight?: Record<string, unknown>;
+  record?: Record<string, unknown>;
+  worker?: Worker;
+  assignment?: ProjectWorkerAssignment;
+  profile?: WorkerCompensationProfile;
+  component?: RecurringPayrollComponent;
+  workEntry?: WorkEntry;
+  attendance?: AttendanceRecord;
+  leave?: LeaveRequest;
+  overtime?: OvertimeRequest;
+}
+
+function lifecycleRpcRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+export async function previewWorkerLifecycleToSupabase(workerId: string): Promise<Record<string, unknown>> {
+  const userId = await currentUserId();
+  if (!supabase || !userId) throw new Error("Sign in before checking worker lifecycle safety.");
+  const { data, error } = await supabase.rpc("preview_worker_lifecycle", { p_worker_id: workerId });
+  if (error) throw error;
+  return lifecycleRpcRecord(data);
+}
+
+export async function applyPayrollLifecycleToSupabase(request: PayrollLifecycleRequest): Promise<PayrollLifecycleRpcResult> {
+  const userId = await currentUserId();
+  if (!supabase || !userId) throw new Error("Sign in before changing payroll lifecycle records.");
+  let rpcName: string;
+  let args: Record<string, unknown>;
+  if (request.entity === "WORKER") {
+    rpcName = "apply_worker_lifecycle";
+    args = { p_worker_id: request.id, p_action: request.action, p_reason: request.reason || null };
+  } else if (request.entity === "PROJECT_ASSIGNMENT") {
+    rpcName = "apply_project_worker_assignment_lifecycle";
+    args = { p_assignment_id: request.id, p_action: request.action, p_end_date: request.effectiveDate || null, p_reason: request.reason || null };
+  } else if (request.entity === "COMPENSATION_PROFILE") {
+    rpcName = "apply_compensation_profile_lifecycle";
+    args = { p_profile_id: request.id, p_action: request.action, p_end_date: request.effectiveDate || null, p_reason: request.reason || null };
+  } else if (request.entity === "RECURRING_COMPONENT") {
+    rpcName = "apply_recurring_component_lifecycle";
+    args = { p_component_id: request.id, p_action: request.action, p_end_date: request.effectiveDate || null, p_reason: request.reason || null };
+  } else {
+    rpcName = "apply_workforce_source_lifecycle";
+    args = { p_entity_type: request.entity, p_entity_id: request.id, p_action: request.action, p_reason: request.reason || null };
+  }
+  const { data, error } = await supabase.rpc(rpcName, args);
+  if (error) throw error;
+  const raw = lifecycleRpcRecord(data);
+  const result: PayrollLifecycleRpcResult = {
+    entityType: String(raw.entityType || raw.entity_type || request.entity),
+    entityId: String(raw.entityId || raw.entity_id || request.id),
+    action: String(raw.action || request.action),
+    deleted: Boolean(raw.deleted),
+    preflight: lifecycleRpcRecord(raw.preflight),
+    record: lifecycleRpcRecord(raw.record),
+  };
+  if (result.record && Object.keys(result.record).length) {
+    if (request.entity === "WORKER") result.worker = workerFromRow(result.record);
+    if (request.entity === "PROJECT_ASSIGNMENT") result.assignment = assignmentFromRow(result.record);
+    if (request.entity === "COMPENSATION_PROFILE") result.profile = profileFromRow(result.record);
+    if (request.entity === "RECURRING_COMPONENT") result.component = componentFromRow(result.record);
+    if (request.entity === "WORK_ENTRY") result.workEntry = workEntryFromRow(result.record);
+    if (request.entity === "ATTENDANCE") result.attendance = attendanceFromRow(result.record);
+    if (request.entity === "LEAVE") result.leave = leaveFromRow(result.record);
+    if (request.entity === "OVERTIME") result.overtime = overtimeFromRow(result.record);
+  }
+  return result;
+}
+
 export async function savePayrollPeriodToSupabase(period: PayrollPeriod) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving payroll periods.");
@@ -711,7 +800,7 @@ export async function deletePayrollPeriodToSupabase(periodId: string) {
 export async function saveWorkEntryToSupabase(entry: WorkEntry) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving time entries.");
-  const { data, error } = await supabase.from("work_entries").upsert({ id: persistedId(entry.id, "work"), user_id: userId, worker_id: entry.workerId, project_id: entry.projectId || null, labor_context: entry.laborContext || (entry.projectId ? "PROJECT" : "UNALLOCATED_REVIEW"), period_id: entry.periodId || null, work_date: entry.workDate, regular_hours: entry.regularHours ?? null, overtime_hours: entry.overtimeHours ?? null, days_worked: entry.daysWorked ?? null, rate: entry.rate, overtime_rate: entry.overtimeRate ?? null, description: entry.description || null, notes: entry.notes || null, status: entry.status, updated_at: new Date().toISOString() }).select("*").single();
+  const { data, error } = await supabase.from("work_entries").upsert({ id: persistedId(entry.id, "work"), user_id: userId, worker_id: entry.workerId, project_id: entry.projectId || null, labor_context: entry.laborContext || (entry.projectId ? "PROJECT" : "UNALLOCATED_REVIEW"), period_id: entry.periodId || null, work_date: entry.workDate, regular_hours: entry.regularHours ?? null, overtime_hours: entry.overtimeHours ?? null, days_worked: entry.daysWorked ?? null, rate: entry.rate, overtime_rate: entry.overtimeRate ?? null, description: entry.description || null, notes: entry.notes || null, status: entry.status, voided_at: entry.voidedAt || null, void_reason: entry.voidReason || null, updated_at: new Date().toISOString() }).select("*").single();
   if (error) throw error;
   return workEntryFromRow(data as Record<string, unknown>);
 }

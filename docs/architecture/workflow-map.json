@@ -6,7 +6,7 @@
   "purpose": "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   "canonicalSource": "scripts/workflow-map/graph.ts",
   "sourceClassification": "mixed",
-  "reviewedCommitSha": "5900a9dffa3e0e5d99a2d076318f2dbaa7f7bce4",
+  "reviewedCommitSha": "dfbde16a688b7f6f912afd0e07b99fb4c3bf8cf5",
   "reviewedAt": "2026-08-29",
   "phaseTags": [
     "Phase 0",
@@ -14,6 +14,7 @@
     "Phase 1B",
     "Phase 1C",
     "Core Hardening Wave 1",
+    "Core Hardening Wave 2A",
     "Cross-Domain Settlement",
     "QA-1",
     "WM-1"
@@ -3563,11 +3564,15 @@
       "fileRefs": [
         "src/components/payroll/WorkersTable.tsx",
         "src/components/payroll/ProjectAssignments.tsx",
-        "src/app/routes/PayrollRoute.tsx"
+        "src/components/payroll/PayrollProfiles.tsx",
+        "src/app/routes/PayrollRoute.tsx",
+        "src/lib/payrollLifecycle.ts"
       ],
       "testRefs": [
         "tests/payrollWorkforce.test.ts",
-        "tests/payrollWorkforceIntegration.test.ts"
+        "tests/payrollWorkforceIntegration.test.ts",
+        "tests/payrollLifecycle.test.ts",
+        "tests/payrollLifecycleUi.test.ts"
       ],
       "permissionKeys": [
         "workers.read",
@@ -3582,20 +3587,114 @@
       "domain": "workforce",
       "type": "data",
       "scope": "company",
-      "description": "Canonical worker identity, employment metadata, and project assignments used by time and payroll records.",
+      "description": "Canonical worker identity, employment metadata, default labor context, and date-ranged project assignments used by time and payroll records; used workers are offboarded rather than erased.",
       "fileRefs": [
         "src/types.ts",
         "src/lib/payroll.ts",
         "src/lib/payrollWorkforce.ts",
-        "supabase/migrations/20260824110000_payroll_workforce_operations.sql"
+        "src/lib/payrollLifecycle.ts",
+        "supabase/migrations/20260824110000_payroll_workforce_operations.sql",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
       ],
       "testRefs": [
         "tests/payrollWorkforce.test.ts",
-        "tests/payrollWorkforceMigration.test.ts"
+        "tests/payrollWorkforceMigration.test.ts",
+        "tests/payrollLifecycle.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
       ],
       "permissionKeys": [
         "workers.read",
         "workers.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "workforce-correction-lifecycle",
+      "label": "Workforce and payroll correction lifecycle",
+      "domain": "workforce",
+      "type": "workflow",
+      "scope": "company",
+      "description": "One correction model for unused deletion, operational offboarding/end/deactivation/cancellation, and finalized-history void/correction. Multiple assignments remain membership context and never duplicate labor cost.",
+      "fileRefs": [
+        "src/lib/payrollLifecycle.ts",
+        "src/lib/payroll.ts",
+        "src/App.tsx",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/payrollLifecycle.test.ts",
+        "tests/payrollLifecycleUi.test.ts",
+        "tests/coreHardeningWave2A.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "workers.manage",
+        "payroll.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "workforce-lifecycle-rpc-boundary",
+      "label": "Authoritative workforce lifecycle RPC boundary",
+      "domain": "workforce",
+      "type": "external-boundary",
+      "scope": "company",
+      "description": "Database preflight and mutation boundary that derives deployment company, checks active membership/effective permission, revalidates dependencies under lock, and writes lifecycle audit events.",
+      "fileRefs": [
+        "src/lib/payroll.ts",
+        "src/App.tsx",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/coreHardeningWave2A.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "workers.manage",
+        "payroll.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "workforce-labor-context-guard",
+      "label": "Default versus actual labor context guard",
+      "domain": "workforce",
+      "type": "guard",
+      "scope": "company",
+      "description": "PROJECT, ADMIN_OFFICE, GENERAL_OVERHEAD, and UNALLOCATED_REVIEW remain explicit. Actual project work wins over defaults; office/overhead/review never become project labor or a fake Main Office project.",
+      "fileRefs": [
+        "src/types.ts",
+        "src/lib/payrollAutomation.ts",
+        "src/lib/payrollCalculation.ts",
+        "src/components/payroll/WorkersTable.tsx",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/payrollLifecycle.test.ts",
+        "tests/payrollCalculation.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "workers.manage",
+        "payroll.manage"
+      ],
+      "invariantIds": [
+        "payroll-labor-cost-independent-from-net-pay-settlement",
+        "approved-payroll-history-is-immutable"
       ]
     },
     {
@@ -3609,11 +3708,15 @@
       "fileRefs": [
         "src/lib/payroll.ts",
         "src/lib/payrollWorkflow.ts",
-        "supabase/migrations/20260823191000_payroll_profiles_and_components.sql"
+        "src/lib/payrollLifecycle.ts",
+        "supabase/migrations/20260823191000_payroll_profiles_and_components.sql",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
       ],
       "testRefs": [
         "tests/payrollCalculation.test.ts",
-        "tests/payrollWorkforce.test.ts"
+        "tests/payrollWorkforce.test.ts",
+        "tests/payrollLifecycle.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
       ],
       "permissionKeys": [
         "workers.compensation.read",
@@ -3639,12 +3742,15 @@
       "fileRefs": [
         "src/lib/payrollWorkforce.ts",
         "src/lib/payroll.ts",
-        "supabase/migrations/20260824110000_payroll_workforce_operations.sql"
+        "src/lib/payrollLifecycle.ts",
+        "supabase/migrations/20260824110000_payroll_workforce_operations.sql",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
       ],
       "testRefs": [
         "tests/payrollAttendanceCalculation.test.ts",
         "tests/payrollWorkforce.test.ts",
-        "tests/payrollWorkforceMigration.test.ts"
+        "tests/payrollWorkforceMigration.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
       ],
       "permissionKeys": [
         "payroll.detail.read",
@@ -3673,11 +3779,14 @@
       "fileRefs": [
         "src/lib/payrollWorkforce.ts",
         "src/lib/payroll.ts",
-        "supabase/migrations/20260824110000_payroll_workforce_operations.sql"
+        "src/lib/payrollLifecycle.ts",
+        "supabase/migrations/20260824110000_payroll_workforce_operations.sql",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
       ],
       "testRefs": [
         "tests/payrollAttendanceCalculation.test.ts",
-        "tests/payrollWorkforce.test.ts"
+        "tests/payrollWorkforce.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
       ],
       "permissionKeys": [
         "payroll.detail.read",
@@ -3705,11 +3814,14 @@
       "fileRefs": [
         "src/lib/payrollWorkforce.ts",
         "src/lib/payroll.ts",
-        "supabase/migrations/20260824110000_payroll_workforce_operations.sql"
+        "src/lib/payrollLifecycle.ts",
+        "supabase/migrations/20260824110000_payroll_workforce_operations.sql",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
       ],
       "testRefs": [
         "tests/payrollWorkforce.test.ts",
-        "tests/payrollSafetyGate.test.ts"
+        "tests/payrollSafetyGate.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
       ],
       "permissionKeys": [
         "payroll.detail.read",
@@ -3737,12 +3849,15 @@
         "src/lib/payroll.ts",
         "src/lib/payrollImport.ts",
         "src/lib/payrollImportWorkflow.ts",
-        "src/lib/payrollImportPersistence.ts"
+        "src/lib/payrollImportPersistence.ts",
+        "src/lib/payrollLifecycle.ts",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
       ],
       "testRefs": [
         "tests/payrollImport.test.ts",
         "tests/payrollImportDomain.test.ts",
-        "tests/payrollCalculation.test.ts"
+        "tests/payrollCalculation.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
       ],
       "permissionKeys": [
         "payroll.import",
@@ -4096,12 +4211,15 @@
       "fileRefs": [
         "src/lib/payrollIntegrity.ts",
         "supabase/migrations/20260823150000_payroll_workforce_integrity.sql",
-        "supabase/migrations/20260824120000_payroll_safety_hardening.sql"
+        "supabase/migrations/20260824120000_payroll_safety_hardening.sql",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
       ],
       "testRefs": [
         "tests/payrollIntegrity.test.ts",
         "tests/payrollSafetyGate.test.ts",
-        "tests/payrollWorkspaceResetDb.test.ts"
+        "tests/payrollWorkspaceResetDb.test.ts",
+        "tests/payrollLifecycle.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
       ],
       "invariantIds": [
         "approved-payroll-history-is-immutable"
@@ -4147,13 +4265,17 @@
         "src/lib/payroll.ts",
         "src/lib/payrollImportPersistence.ts",
         "src/lib/payrollMaintenance.ts",
+        "src/lib/payrollLifecycle.ts",
         "supabase/migrations/20260824102000_company_tenancy_final_grants.sql",
-        "supabase/migrations/20260824105000_payroll_maintenance_rpcs.sql"
+        "supabase/migrations/20260824105000_payroll_maintenance_rpcs.sql",
+        "supabase/migrations/20260829024150_core_hardening_wave2a_workforce_corrections.sql"
       ],
       "testRefs": [
         "tests/payrollPersistence.test.ts",
         "tests/payrollMaintenance.test.ts",
-        "tests/payrollWorkforceMigration.test.ts"
+        "tests/payrollWorkforceMigration.test.ts",
+        "tests/coreHardeningWave2A.test.ts",
+        "supabase/tests/database/05_core_hardening_wave2_workforce_corrections.test.sql"
       ],
       "permissionKeys": [
         "payroll.manage",
@@ -6215,6 +6337,22 @@
       "label": "workers and assignments"
     },
     {
+      "id": "directory-to-correction-lifecycle",
+      "source": "workforce-directory",
+      "target": "workforce-correction-lifecycle",
+      "type": "writes",
+      "kind": "mutation",
+      "label": "safe correction actions",
+      "permissionKeys": [
+        "workers.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable"
+      ]
+    },
+    {
       "id": "workers-to-compensation",
       "source": "worker-records",
       "target": "compensation-profiles",
@@ -6253,6 +6391,56 @@
       "type": "links-to",
       "kind": "context",
       "label": "work source"
+    },
+    {
+      "id": "workers-to-labor-context-guard",
+      "source": "worker-records",
+      "target": "workforce-labor-context-guard",
+      "type": "guards",
+      "kind": "guard",
+      "label": "default versus actual context",
+      "permissionKeys": [
+        "workers.manage",
+        "payroll.manage"
+      ],
+      "invariantIds": [
+        "payroll-labor-cost-independent-from-net-pay-settlement"
+      ]
+    },
+    {
+      "id": "correction-to-rpc-boundary",
+      "source": "workforce-correction-lifecycle",
+      "target": "workforce-lifecycle-rpc-boundary",
+      "type": "executes-through",
+      "kind": "external-boundary",
+      "label": "preflight, lock, audit",
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable"
+      ]
+    },
+    {
+      "id": "rpc-boundary-to-history-guard",
+      "source": "workforce-lifecycle-rpc-boundary",
+      "target": "payroll-history-immutability",
+      "type": "guards",
+      "kind": "guard",
+      "label": "preserves consumed history",
+      "invariantIds": [
+        "approved-payroll-history-is-immutable"
+      ]
+    },
+    {
+      "id": "labor-context-to-allocation",
+      "source": "workforce-labor-context-guard",
+      "target": "payroll-project-labor-allocation",
+      "type": "guards",
+      "kind": "separation",
+      "label": "no fake office project or duplicate labor",
+      "invariantIds": [
+        "payroll-labor-cost-independent-from-net-pay-settlement"
+      ]
     },
     {
       "id": "schedule-to-period",
@@ -6900,6 +7088,9 @@
         "route-payroll-run",
         "workforce-directory",
         "worker-records",
+        "workforce-correction-lifecycle",
+        "workforce-lifecycle-rpc-boundary",
+        "workforce-labor-context-guard",
         "compensation-profiles",
         "payroll-attendance",
         "payroll-overtime",

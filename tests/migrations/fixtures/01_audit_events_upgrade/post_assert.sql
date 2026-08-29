@@ -90,5 +90,20 @@ begin
       using errcode = 'P0001';
   end if;
 
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'workers' and column_name = 'default_labor_context'
+  ) then
+    raise exception 'Expected Wave 2A worker context column after historical upgrade'
+      using errcode = 'P0001';
+  end if;
+  if not exists (
+    select 1 from pg_proc
+    where oid = 'public.apply_worker_lifecycle(uuid,text,text)'::regprocedure
+  ) then
+    raise exception 'Expected Wave 2A worker lifecycle RPC after historical upgrade'
+      using errcode = 'P0001';
+  end if;
+
   raise notice 'UPGRADE_PATH_ASSERTIONS_PASSED: 15 historical rows preserved, 11 CASH_* events accepted, check constraint integrity verified.';
 end $$;

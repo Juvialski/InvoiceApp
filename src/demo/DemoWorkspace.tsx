@@ -9,6 +9,7 @@ import type { AppLocation, ProjectWorkspaceView } from "../utils/appRouting.ts";
 import type { FinancialAccount, FinancialBalanceSnapshot, FinancialTransaction } from "../lib/cashBanking.ts";
 import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectWorkerAssignment, WorkEntry, Worker } from "../types.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
+import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { DemoAssistant } from "./DemoAssistant.tsx";
 import { DemoEngineeringDocuments } from "./DemoEngineeringDocuments.tsx";
 import { DemoTour } from "./DemoTour.tsx";
@@ -58,6 +59,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
 
   const saveInvoiceAllocations = async (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => {
     dispatch({ type: "SAVE_INVOICE_ALLOCATIONS", invoiceId: invoice.id, value: allocations });
+  };
+
+  const applyPayrollLifecycle = (request: PayrollLifecycleRequest) => {
+    dispatch({ type: "PAYROLL_LIFECYCLE", request });
   };
 
   const verifySelected = async () => {
@@ -154,6 +159,9 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             payrollPeriodPreparationState="READY"
             canManagePayrollSettings={true}
             canManagePayrollMaintenance={false}
+            canManageWorkforce={true}
+            canManagePayrollSources={true}
+            onPayrollLifecycle={applyPayrollLifecycle}
             onSavePayrollWorker={(worker: Worker) => dispatch({ type: "SAVE_WORKER", value: worker })}
             onSavePayrollAssignment={(assignment: ProjectWorkerAssignment) => dispatch({ type: "SAVE_ASSIGNMENT", value: assignment })}
             onSavePayrollPeriod={(period: PayrollPeriod) => dispatch({ type: "SAVE_PERIOD", value: period })}
@@ -163,6 +171,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onSavePayrollAttendanceBatch={(records: AttendanceRecord[]) => dispatch({ type: "SAVE_ATTENDANCE_BATCH", value: records })}
             onSavePayrollLeave={(request: LeaveRequest) => dispatch({ type: "SAVE_LEAVE", value: request })}
             onSavePayrollOvertime={(request: OvertimeRequest) => dispatch({ type: "SAVE_OVERTIME", value: request })}
+            onSaveWorkerCompensationProfile={(profile) => dispatch({ type: "SAVE_COMPENSATION_PROFILE", value: profile })}
+            onSaveRecurringPayrollComponent={(component) => dispatch({ type: "SAVE_RECURRING_COMPONENT", value: component })}
             onSavePayrollEntry={(entry: PayrollEntry) => dispatch({ type: "SAVE_PAYROLL_ENTRY", value: entry })}
             onUpdatePayrollRun={(run: PayrollRun) => dispatch({ type: "UPDATE_PAYROLL_RUN", value: run })}
             expenses={data.expenses}

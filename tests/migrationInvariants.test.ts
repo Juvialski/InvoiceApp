@@ -134,6 +134,16 @@ test("migration invariant: latest migration contains the authoritative superset 
     "Daily Site Logs (Phase 1C)": [
       "ENGINEERING_DAILY_SITE_LOG_CREATED", "ENGINEERING_DAILY_SITE_LOG_UPDATED",
       "ENGINEERING_DAILY_SITE_LOG_SUBMITTED", "ENGINEERING_DAILY_SITE_LOG_FINALIZED", "ENGINEERING_DAILY_SITE_LOG_VOIDED"
+    ],
+    "Workforce and Payroll Correction Lifecycles (Wave 2A)": [
+      "WORKER_OFFBOARDED", "WORKER_REACTIVATED", "WORKER_DELETED_UNUSED",
+      "PROJECT_ASSIGNMENT_ENDED", "PROJECT_ASSIGNMENT_DELETED_UNUSED",
+      "COMPENSATION_PROFILE_ENDED", "COMPENSATION_PROFILE_SUPERSEDED", "COMPENSATION_PROFILE_DELETED_UNUSED",
+      "PAYROLL_COMPONENT_DEACTIVATED", "PAYROLL_COMPONENT_DELETED_UNUSED",
+      "WORK_ENTRY_VOIDED", "WORK_ENTRY_DELETED_UNUSED",
+      "ATTENDANCE_VOIDED", "ATTENDANCE_DELETED_UNUSED",
+      "LEAVE_CANCELLED", "LEAVE_DELETED_UNUSED",
+      "OVERTIME_CANCELLED", "OVERTIME_DELETED_UNUSED"
     ]
   };
 
@@ -148,6 +158,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 61, "Authoritative set must comprise exactly 61 events through Core Hardening Wave 1");
-  assert.equal(latestSet.size, 61, `Latest allowlist has ${latestSet.size} unique events, expected 61`);
+  assert.equal(totalExpected, 79, "Authoritative set must comprise exactly 79 events through Core Hardening Wave 2A");
+  assert.equal(latestSet.size, 79, `Latest allowlist has ${latestSet.size} unique events, expected 79`);
 });

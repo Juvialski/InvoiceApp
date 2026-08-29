@@ -475,7 +475,7 @@ export function ensurePayrollPeriodsAndRuns(input: EnsurePayrollWorkflowInput): 
 }
 
 function rosterWorker(worker: Worker) {
-  return { id: worker.id, name: worker.displayName, archived: !worker.active, rate: worker.defaultRate, frequency: worker.defaultPayType, defaultLaborContext: "UNALLOCATED_REVIEW" as const };
+  return { id: worker.id, name: worker.displayName, archived: !worker.active, rate: worker.defaultRate, frequency: worker.defaultPayType, defaultLaborContext: worker.defaultLaborContext || "UNALLOCATED_REVIEW", defaultProjectId: worker.defaultProjectId };
 }
 
 function profileInput(profile: WorkerCompensationProfile) { return { ...profile, effectiveFrom: profile.effectiveFrom instanceof Date ? profile.effectiveFrom.toISOString() : profile.effectiveFrom, effectiveTo: profile.effectiveTo instanceof Date ? profile.effectiveTo.toISOString() : profile.effectiveTo }; }

@@ -46,6 +46,7 @@ export interface WorkerCompensationProfile {
   rate: number;
   defaultLaborContext: LaborContext;
   defaultProjectId?: string;
+  active?: boolean;
 }
 
 export interface WorkerRosterItem {
@@ -690,7 +691,8 @@ function buildPayrollDraftLegacy(input: PayrollAutomationInput): PayrollDraft {
   };
 }
 
-function automationRecordDate(record: Record<string, unknown>): DateLike | undefined {
+function automationRecordDate(record: Record<string, unknown> | undefined): DateLike | undefined {
+  if (!record) return undefined;
   for (const key of ["attendanceDate", "overtimeDate", "workDate", "leaveDate", "date"]) {
     const value = record[key];
     if (value instanceof Date || typeof value === "string") return value;
