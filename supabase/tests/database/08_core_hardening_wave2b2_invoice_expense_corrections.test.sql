@@ -217,7 +217,7 @@ select throws_ok(
 );
 
 select is((public.preview_invoice_correction((select invoice_settled from wave2b2_ids))->>'confirmedSettlementCount')::bigint, 1::bigint, 'confirmed invoice settlement is reported');
-select like(public.preview_invoice_correction((select invoice_settled from wave2b2_ids))->>'blockedReason', '%Wave 2B3%', 'confirmed invoice settlement explains the deferred correction dependency');
+select ok((public.preview_invoice_correction((select invoice_settled from wave2b2_ids))->>'blockedReason') like '%Wave 2B3%', 'confirmed invoice settlement explains the deferred correction dependency');
 select is((public.preview_invoice_correction((select invoice_settled from wave2b2_ids))->>'canVoid')::boolean, false, 'confirmed invoice settlement blocks void');
 select throws_ok(
   $$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000304'::uuid, 'VOID', 'Wrong total')$$,
@@ -273,7 +273,7 @@ select throws_ok(
 );
 
 select is((public.preview_expense_correction((select expense_settled from wave2b2_ids))->>'confirmedSettlementCount')::bigint, 1::bigint, 'confirmed expense settlement is reported');
-select like(public.preview_expense_correction((select expense_settled from wave2b2_ids))->>'blockedReason', '%Wave 2B3%', 'confirmed expense settlement explains the deferred correction dependency');
+select ok((public.preview_expense_correction((select expense_settled from wave2b2_ids))->>'blockedReason') like '%Wave 2B3%', 'confirmed expense settlement explains the deferred correction dependency');
 select is((public.preview_expense_correction((select expense_settled from wave2b2_ids))->>'canVoid')::boolean, false, 'confirmed expense settlement blocks void');
 select throws_ok(
   $$select public.apply_expense_correction('c2000000-0000-4000-8000-000000000303'::uuid, 'VOID', 'Wrong receipt')$$,
