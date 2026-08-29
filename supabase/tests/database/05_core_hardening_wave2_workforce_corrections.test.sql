@@ -304,8 +304,8 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from wave2_ids), true);
 select is((public.save_worker_compensation_profile((select profile_old from wave2_ids), (select worker_context from wave2_ids), date '2026-01-01', null, 'MONTHLY', 1000, 'PROJECT', (select project_a from wave2_ids), true)->>'id'), (select profile_old::text from wave2_ids), 'existing compensation profile can be saved by identity');
-select is((select effective_to from public.worker_compensation_profiles where id = (select profile_old from wave2_ids)), date '2026-12-31', 'new effective profile supersedes the older profile without erasing it');
 select is((public.save_worker_compensation_profile(gen_random_uuid(), (select worker_context from wave2_ids), date '2027-01-01', null, 'MONTHLY', 1200, 'ADMIN_OFFICE', null, true)->>'default_labor_context'), 'ADMIN_OFFICE', 'admin office profile stores without a project');
+select is((select effective_to from public.worker_compensation_profiles where id = (select profile_old from wave2_ids)), date '2026-12-31', 'new effective profile supersedes the older profile without erasing it');
 select throws_ok(
   $$select public.save_worker_compensation_profile(gen_random_uuid(), (select worker_context from wave2_ids), date '2027-02-01', null, 'MONTHLY', 1200, 'ADMIN_OFFICE', (select project_a from wave2_ids), true)$$,
   '22023', null,
@@ -356,7 +356,7 @@ select throws_ok($$delete from public.work_entries where id = (select entry_void
 select is((public.apply_workforce_source_lifecycle('WORK_ENTRY', (select entry_void from wave2_ids), 'VOID', 'Corrected source')->'record'->>'status'), 'VOID', 'approved work source can be voided in an open period');
 select throws_ok($$select public.apply_workforce_source_lifecycle('WORK_ENTRY', (select entry_void from wave2_ids), 'VOID', null)$$, '22023', null, 'void requires a reason');
 select is((public.apply_workforce_source_lifecycle('ATTENDANCE', (select attendance_draft from wave2_ids), 'DELETE_DRAFT', null)->>'deleted')::boolean, true, 'draft attendance can be deleted');
-select throws_ok($$select public.apply_workforce_source_lifecycle('ATTENDANCE', (select attendance_confirmed from wave2_ids), 'VOID', 'Late correction')$$, '42501', null, 'finalized attendance cannot be voided');
+select throws_ok($$select public.apply_workforce_source_lifecycle('ATTENDANCE', (select attendance_finalized from wave2_ids), 'VOID', 'Late correction')$$, '42501', null, 'finalized attendance cannot be voided');
 select is((public.apply_workforce_source_lifecycle('LEAVE', (select leave_pending from wave2_ids), 'CANCEL', 'Employee correction')->'record'->>'status'), 'CANCELLED', 'pending leave can be cancelled with a reason');
 select is((public.apply_workforce_source_lifecycle('OVERTIME', (select overtime_pending from wave2_ids), 'CANCEL', 'Employee correction')->'record'->>'status'), 'CANCELLED', 'pending overtime can be cancelled with a reason');
 select throws_ok($$select public.apply_workforce_source_lifecycle('LEAVE', (select leave_approved from wave2_ids), 'CANCEL', 'Correction')$$, '42501', null, 'finalized leave cannot be cancelled');
