@@ -115,6 +115,6 @@ test("company access management is surfaced under deployment settings and remain
   assert.match(management, /PERMISSION_KEYS\.accessManage/);
   assert.match(management, /companyAccess\.can/);
   assert.doesNotMatch(management, /activeMembership\?\.roleKey|roleKey === "COMPANY_ADMIN"/);
-  assert.match(management, /companyAccess\.inviteCompanyMember/);
+  assert.match(management, /companyAccess\.authorizeCompanyMemberEmail/);
   assert.match(management, /companyAccess\.updateCompanyMember/);
 });

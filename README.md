@@ -129,12 +129,12 @@ npm.cmd run workflow-map:context -- --changed --budget 8000
 ```env
 AI_CREDENTIALS_MASTER_KEY=BASE64_OF_32_RANDOM_BYTES
 SUPABASE_AI_SERVER_KEY=SUPABASE_SECRET_KEY_FOR_COMPANY_AI_ONLY
-SUPABASE_INVITATION_SERVER_KEY=SUPABASE_SECRET_KEY_FOR_INVITATION_DELIVERY_ONLY
-APP_ORIGIN=https://your-engoryx-deployment.example
 ALLOW_GLOBAL_GEMINI_FALLBACK=false
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
+
+The retired server invitation-delivery compatibility endpoint may additionally use `APP_ORIGIN`, but the normal Add user access flow does not require it.
 
 Deployment company identity is stored in the target Supabase project's singleton `deployment_configuration` row rather than a browser environment UUID. See [the deployment runbook](docs/SINGLE_COMPANY_DEPLOYMENT.md).
 
@@ -148,4 +148,5 @@ Deployment company identity is stored in the target Supabase project's singleton
 - **Financial Immutability**: Historical financial transactions, approved payroll runs, and verified invoice baselines are append-only.
 - **Settlement Separation**: Confirmed cash settlement is evidence of payment/disbursement and does not independently create project cost or rewrite payroll-source history.
 - **Controlled AI Actions**: AI operations produce previews only (PREPARED); write operations require explicit human confirmation.
+- **Email access preauthorization**: Company Admins authorize exact email addresses in the database; users sign up through Supabase Auth and verified-email claim creates membership. SMTP and invitation-delivery secrets are not required.
 - **Philippines-First Context**: Complies with official BIR/EOPT invoice guidance ([BIR RR No. 7-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%207-%202024.pdf), [RMC No. 77-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%207-%202024.pdf)).

@@ -24,6 +24,7 @@ async function main() {
     path.join(ROOT, "tests", "dailySiteLogsMigration.test.ts"),
     path.join(ROOT, "tests", "projectLaborCostAggregateMigration.test.ts"),
     path.join(ROOT, "tests", "coreHardeningWave1.test.ts"),
+    path.join(ROOT, "tests", "emailAccessPreauthorization.test.ts"),
     path.join(ROOT, "tests", "coreHardeningWave2A.test.ts"),
     path.join(ROOT, "tests", "coreHardeningWave2B1.test.ts"),
     path.join(ROOT, "tests", "coreHardeningWave2B2.test.ts"),

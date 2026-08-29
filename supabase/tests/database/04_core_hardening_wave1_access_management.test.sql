@@ -48,6 +48,7 @@ select
   '10000000-0000-4000-8000-000000000005'::uuid as invited_user,
   '10000000-0000-4000-8000-000000000006'::uuid as wrong_email_user,
   '10000000-0000-4000-8000-000000000007'::uuid as platform_user,
+  '10000000-0000-4000-8000-000000000008'::uuid as sent_user,
   'aaaaaaaa-0000-4000-8000-000000000001'::uuid as company_id,
   'bbbbbbbb-0000-4000-8000-000000000002'::uuid as other_company_id;
 
@@ -62,7 +63,8 @@ from (values
   ((select suspended_user from wave1_ids), 'wave1-suspended@test.local'),
   ((select invited_user from wave1_ids), 'wave1-invited@test.local'),
   ((select wrong_email_user from wave1_ids), 'wave1-wrong-email@test.local'),
-  ((select platform_user from wave1_ids), 'wave1-platform@test.local')
+  ((select platform_user from wave1_ids), 'wave1-platform@test.local'),
+  ((select sent_user from wave1_ids), 'wave1-sent@test.local')
 ) users(id, email)
 on conflict (id) do nothing;
 
@@ -125,7 +127,8 @@ select throws_ok(
 reset role;
 
 -- Invitation creation is service-only after the server has independently
--- authenticated the actor. It starts CREATED and cannot be claimed yet.
+-- authenticated the actor. It starts CREATED, but delivery state is not an
+-- authorization condition under the email-preauthorization contract.
 set local role service_role;
 select throws_ok(
   $$select public.platform_create_company_invitation((select finance_user from wave1_ids), (select company_id from wave1_ids), 'unauthorized@test.local', 'VIEWER', now() + interval '2 days', '[]'::jsonb)$$,
@@ -143,28 +146,33 @@ reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select invited_user::text from wave1_ids), true);
-select is((select count(*) from public.claim_company_invitations()), 0::bigint, 'undelivered invitation cannot grant membership');
+select is((select count(*) from public.claim_company_invitations()), 1::bigint, 'CREATED invitation can grant membership after verified email');
+select is((select count(*) from public.company_members where company_id = (select company_id from wave1_ids) and user_id = (select invited_user from wave1_ids) and role_key = 'VIEWER' and status = 'ACTIVE'), 1::bigint, 'CREATED invitation creates the intended membership');
 reset role;
 
--- Only the trusted service role can record SENT; the matching verified email
--- then claims once and transfers the intended role.
+-- Only the trusted service role can record SENT. A separate historical SENT
+-- invitation remains compatible even though SENT is no longer required.
 set local role service_role;
+insert into wave1_invites
+select 'sent', ci.id
+from public.platform_create_company_invitation(
+  (select admin_user from wave1_ids), (select company_id from wave1_ids), 'wave1-sent@test.local', 'VIEWER', now() + interval '2 days', '[]'::jsonb
+) ci;
 select lives_ok(
-  $$select * from public.platform_mark_company_invitation_delivery((select admin_user from wave1_ids), (select invitation_id from wave1_invites where kind = 'created'), 'SENT', null)$$,
+  $$select * from public.platform_mark_company_invitation_delivery((select admin_user from wave1_ids), (select invitation_id from wave1_invites where kind = 'sent'), 'SENT', null)$$,
   'trusted service role can record SENT delivery'
 );
 reset role;
 set local role authenticated;
-select set_config('request.jwt.claim.sub', (select invited_user::text from wave1_ids), true);
-select is((select count(*) from public.claim_company_invitations()), 1::bigint, 'matching verified email claims a sent invitation');
-select is((select count(*) from public.company_members where company_id = (select company_id from wave1_ids) and user_id = (select invited_user from wave1_ids) and role_key = 'VIEWER' and status = 'ACTIVE'), 1::bigint, 'claimed invitation creates the intended membership');
-reset role;
-set local role service_role;
-select is((select status from public.company_invitations where id = (select invitation_id from wave1_invites where kind = 'created')), 'ACCEPTED'::text, 'claimed invitation is marked accepted');
+select set_config('request.jwt.claim.sub', (select sent_user::text from wave1_ids), true);
+select is((select count(*) from public.claim_company_invitations()), 1::bigint, 'matching verified email claims a historical sent invitation');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select invited_user::text from wave1_ids), true);
-select is((select count(*) from public.claim_company_invitations()), 0::bigint, 'consumed invitation is replay-safe');
+select is((select count(*) from public.claim_company_invitations()), 0::bigint, 'consumed CREATED invitation is replay-safe');
+reset role;
+set local role service_role;
+select is((select status from public.company_invitations where id = (select invitation_id from wave1_invites where kind = 'created')), 'ACCEPTED'::text, 'claimed invitation is marked accepted');
 reset role;
 
 -- Active memberships cannot be invited again, and revocation closes a pending

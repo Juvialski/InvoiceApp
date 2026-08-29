@@ -80,7 +80,7 @@ Do not create a second client company in this Supabase project. The forward data
 
 ### 5. Configure application secrets
 
-Configure the deployment's Supabase URL/publishable key and required server-side secrets in the hosting provider, including `SUPABASE_INVITATION_SERVER_KEY` for the trusted invitation path and `APP_ORIGIN` for the allow-listed Auth redirect. Company AI credentials or global fallback credentials must follow the existing server-side encryption and fallback policy; never expose secret/service-role credentials to the browser bundle.
+Configure the deployment's Supabase URL/publishable key and any existing server-side AI secrets in the hosting provider. Email access preauthorization does not require SMTP, `SUPABASE_INVITATION_SERVER_KEY`, or a service-role key in the browser. Supabase Auth confirmation redirects must still be allow-listed for the deployed application origin. Company AI credentials or global fallback credentials must follow the existing server-side encryption and fallback policy; never expose secret/service-role credentials to the browser bundle.
 
 Use `.env.example` as a shape reference only. Real production values belong in deployment secret management.
 
@@ -115,14 +115,14 @@ Run the database verification/migration harness and targeted probes for:
 
 ### 9. Invite the remaining users
 
-Use Settings → Company profile and Company access as a Company Admin. Edit the deployment company's display name, code, default currency, and timezone; then invite users directly into the deployment company and assign one of the seeded roles:
+Use Settings → Company profile and Company access as a Company Admin. Edit the deployment company's display name, code, default currency, and timezone; then authorize users directly in the deployment company and assign one of the seeded roles:
 
 - `COMPANY_ADMIN`;
 - `FINANCE`;
 - `PAYROLL`;
 - `VIEWER`.
 
-The administrator manages users only within the configured deployment company. Database RPCs reject membership operations outside that company. Invitation delivery is performed by the trusted server and must report `SENT` before an invitation can be claimed. The access editor distinguishes role defaults, custom grants, and custom denies; reserved administration permissions remain role-controlled. The database also prevents removal/demotion/suspension/deletion of the last active Company Admin and blocks self-editing from the access screen.
+The administrator manages users only within the configured deployment company. Database RPCs reject membership operations outside that company. Add user access creates a pending authorization for the exact normalized email; the user signs up normally, verifies that email through Supabase Auth, and then claims membership automatically. The access editor distinguishes role defaults, custom grants, and custom denies; reserved administration permissions remain role-controlled. The database also prevents removal/demotion/suspension/deletion of the last active Company Admin and blocks self-editing from the access screen.
 
 ### 10. Run role smoke tests
 

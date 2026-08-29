@@ -9,7 +9,7 @@ const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 test("deployment access management is the only client company-access surface", () => {
   assert.match(accessManagement, /Company access/);
   assert.match(accessManagement, /companyAccess\.can/);
-  assert.match(accessManagement, /companyAccess\.inviteCompanyMember/);
+  assert.match(accessManagement, /companyAccess\.authorizeCompanyMemberEmail/);
   assert.match(accessManagement, /companyAccess\.updateCompanyMember/);
   assert.doesNotMatch(accessManagement, /select a company|open workspace|company selector|tenant picker/i);
   assert.doesNotMatch(app, /CompanyManagement|PlatformCompaniesRoute|Manage Companies|onOpenPlatformManagement/);

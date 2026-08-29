@@ -96,6 +96,9 @@ function isAlreadyRegisteredError(error: unknown) {
 }
 
 /**
+ * Legacy compatibility helper for the retired delivery endpoint. The primary
+ * access-authorization flow never calls this helper.
+ *
  * Send a real Auth email without ever returning or logging the server key.
  * Confirmed users receive a sign-in link as the safe existing-account path;
  * the database invitation still controls whether that session gets membership.
