@@ -9,25 +9,21 @@ select isnt_empty(
   'settlement reversal RPC is SECURITY DEFINER with an empty search_path'
 );
 
-select is_empty(
-  $$select 1 from information_schema.routine_privileges
-    where routine_schema='public' and routine_name='reverse_financial_settlement'
-      and lower(grantee) in ('anon','public') and privilege_type='EXECUTE'$$,
+select ok(
+  not has_function_privilege('anon', 'public.reverse_financial_settlement(uuid,uuid,text)', 'EXECUTE'),
   'anon and public cannot execute settlement reversal RPC'
 );
 
-select isnt_empty(
-  $$select 1 from information_schema.routine_privileges
-    where routine_schema='public' and routine_name='reverse_financial_settlement'
-      and grantee='authenticated' and privilege_type='EXECUTE'$$,
+select ok(
+  has_function_privilege('authenticated', 'public.reverse_financial_settlement(uuid,uuid,text)', 'EXECUTE'),
   'authenticated can execute guarded settlement reversal RPC'
 );
 
-select is_empty(
-  $$select 1 from information_schema.role_table_grants
-    where table_schema='public' and table_name='financial_transaction_matches'
-      and grantee='authenticated' and privilege_type in ('UPDATE', 'DELETE')$$,
-  'authenticated cannot bypass reversal RPC with direct match table updates or deletes'
+select ok(
+  not has_table_privilege('authenticated', 'public.financial_transaction_matches', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.financial_transaction_matches', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.financial_transaction_matches', 'DELETE'),
+  'authenticated cannot bypass settlement RPCs with direct match table writes'
 );
 
 select * from finish();
