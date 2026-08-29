@@ -1,6 +1,6 @@
 import type { Expense, InvoiceProjectAllocation, PayrollPeriod, Project } from "../types.ts";
 import type { CostInvoice, CostPayrollRecord } from "./projectCosting.ts";
-import { calculateProjectCost, normalizedInvoiceAllocationAmount, projectHealth } from "./projectCosting.ts";
+import { calculateProjectCost, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth } from "./projectCosting.ts";
 import { unpaidBalance } from "./dashboardStats.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
@@ -56,7 +56,7 @@ function monthLabel(key: string) { const [year, month] = key.split("-").map(Numb
 function addMonth(key: string) { const [year, month] = key.split("-").map(Number); return month === 12 ? `${year + 1}-01` : `${year}-${String(month + 1).padStart(2, "0")}`; }
 function monthsBetween(keys: string[]) { const valid = keys.filter((key) => /^\d{4}-\d{2}$/.test(key)).sort(); if (!valid.length) return []; const result: string[] = []; for (let key = valid[0]!; key <= valid.at(-1)!; key = addMonth(key)) result.push(key); return result; }
 
-function projectInvoiceAmount(invoice: CostInvoice, projectId: string) { return round((invoice.allocations || []).filter((allocation) => allocation.projectId === projectId).reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), 0)); }
+function projectInvoiceAmount(invoice: CostInvoice, projectId: string) { return isVoidedInvoice(invoice) ? 0 : round((invoice.allocations || []).filter((allocation) => allocation.projectId === projectId).reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), 0)); }
 
 export function buildProjectDashboardViewData(input: ProjectDashboardInput): ProjectDashboardViewData {
   const summary = calculateProjectCost(input.project, {
@@ -75,6 +75,7 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
   const keys = monthsBetween([...invoiceDates, ...payrollDates, ...expenseDates, dateOnly(input.project.startDate), dateOnly(input.today || new Date().toISOString())].map(monthKey));
   const points = new Map(keys.map((period) => [period, { label: monthLabel(period), period, invoices: 0, payroll: 0, expenses: 0, total: 0, pending: 0, cumulative: 0, cumulativeCommitted: 0 }]));
   for (const invoice of input.invoices) {
+    if (isVoidedInvoice(invoice)) continue;
     const amount = projectInvoiceAmount(invoice, input.project.id); const date = dateOnly((invoice as CostInvoice & { invoiceDate?: string }).invoiceDate); const point = points.get(monthKey(date));
     if (point && invoice.reviewStatus === "VERIFIED") point.invoices = round(point.invoices + amount);
     else if (point) point.pending = round(point.pending + amount);
@@ -90,6 +91,7 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
   }
   for (const expense of input.expenses) {
     if (expense.projectId !== input.project.id) continue;
+    if (expense.status === "VOID") continue;
     if (expense.status === "DRAFT") { const point = points.get(monthKey(expense.expenseDate)); if (point) point.pending = round(point.pending + expense.amount); continue; }
     if (expense.status !== "APPROVED" && expense.status !== "PAID") continue;
     const point = points.get(monthKey(expense.expenseDate)); if (point) point.expenses = round(point.expenses + expense.amount);

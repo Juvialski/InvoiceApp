@@ -2,6 +2,7 @@ import { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRe
 import { supabase } from "./supabase";
 import { companyStoragePath, requireActiveCompanyId } from "./companyContext";
 import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity";
+import { parseFinancialCorrectionPreview, parseFinancialCorrectionResult, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./financialLifecycle.ts";
 
 const INVOICE_BUCKET = "invoice-originals";
 const EMAIL_BUCKET = "email-originals";
@@ -134,9 +135,8 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
   await requireUserId();
   const { data, error } = await client
     .from("invoices")
-    .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,created_at")
+    .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason, payment_status,created_at")
     .eq("company_id", requireActiveCompanyId())
-    .is("archived_at", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -169,7 +169,14 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
     invoice.duplicateStatus = row.duplicate_status || invoice.duplicateStatus;
     invoice.duplicateOfId = row.duplicate_of_id || invoice.duplicateOfId;
     invoice.verifiedAt = row.verified_at || invoice.verifiedAt;
-    invoice.archivedAt = row.archived_at || invoice.archivedAt;
+    // These columns are authoritative. In particular, a NULL archived_at
+    // after RESTORE must clear any stale lifecycle value embedded in JSON.
+    invoice.archivedAt = row.archived_at || undefined;
+    invoice.lifecycleStatus = row.lifecycle_status || invoice.lifecycleStatus || "ACTIVE";
+    invoice.voidedAt = row.voided_at || undefined;
+    invoice.voidedByUserId = row.voided_by_user_id || undefined;
+    invoice.voidReason = row.void_reason || undefined;
+    invoice.status = row.payment_status || invoice.status;
     if (invoice.sourceStoragePath) invoice.previewUrl = await signedUrl(INVOICE_BUCKET, invoice.sourceStoragePath);
     results.push(invoice);
   }
@@ -527,7 +534,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
   if (invoice.sourceDocumentId) {
     const { data: existing, error: existingError } = await client
       .from("invoices")
-      .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at")
+      .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason,payment_status")
       .eq("source_document_id", invoice.sourceDocumentId)
       .eq("company_id", requireActiveCompanyId())
       .maybeSingle();
@@ -544,6 +551,12 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
         duplicateStatus: existing.duplicate_status || existing.current_data?.duplicateStatus || "UNIQUE",
         duplicateOfId: existing.duplicate_of_id || existing.current_data?.duplicateOfId,
         verifiedAt: existing.verified_at || existing.current_data?.verifiedAt,
+        archivedAt: existing.archived_at ?? undefined,
+        lifecycleStatus: existing.lifecycle_status || existing.current_data?.lifecycleStatus || "ACTIVE",
+        voidedAt: existing.voided_at ?? undefined,
+        voidedByUserId: existing.voided_by_user_id ?? undefined,
+        voidReason: existing.void_reason ?? undefined,
+        status: existing.payment_status || existing.current_data?.status,
       } as InvoiceData;
     }
   }
@@ -555,6 +568,10 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     ...invoice,
     reviewStatus: "NEEDS_REVIEW",
     verifiedAt: undefined,
+    lifecycleStatus: "ACTIVE",
+    voidedAt: undefined,
+    voidedByUserId: undefined,
+    voidReason: undefined,
   };
 
   const { data: possibleDuplicates, error: duplicateError } = await client
@@ -607,6 +624,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
       document_type: persistedInvoice.documentType || "OTHER",
       current_data: { ...persistedInvoice, aiSnapshot },
       verified_at: null,
+      lifecycle_status: "ACTIVE",
     })
     .select("id")
     .single();
@@ -649,10 +667,13 @@ export async function persistExtractionAttempt(
   const userId = await requireUserId();
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
-    .select("id,current_data,source_document_id,source_email_id,vendor_id,duplicate_status,duplicate_of_id")
+    .select("id,current_data,source_document_id,source_email_id,vendor_id,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status")
     .eq("id", existingInvoice.id).eq("company_id", requireActiveCompanyId())
     .single();
   if (existingError) throw existingError;
+  if (existingRow.lifecycle_status === "VOID") {
+    throw new Error("Voided invoices are immutable; reopen or correct the record through the authorized lifecycle workflow.");
+  }
 
   const currentData = (existingRow.current_data || existingInvoice) as InvoiceData;
   const preservedSource = {
@@ -666,6 +687,11 @@ export async function persistExtractionAttempt(
     sourceEmailId: existingRow.source_email_id || currentData.sourceEmailId || candidate.sourceEmailId,
     sourceType: currentData.sourceType || candidate.sourceType,
     sourceMetadata: { ...(candidate.sourceMetadata || {}), ...(currentData.sourceMetadata || {}) },
+    lifecycleStatus: existingRow.lifecycle_status || currentData.lifecycleStatus || "ACTIVE",
+    archivedAt: existingRow.archived_at ?? undefined,
+    voidedAt: existingRow.voided_at ?? undefined,
+    voidedByUserId: existingRow.voided_by_user_id ?? undefined,
+    voidReason: existingRow.void_reason ?? undefined,
   };
   const aiSnapshot = clone({ ...candidate, ...preservedSource, id: existingRow.id });
   delete (aiSnapshot as any).aiSnapshot;
@@ -802,7 +828,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   const vendorId = await ensureVendor(updated);
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
-    .select("current_data,duplicate_status,duplicate_of_id")
+    .select("current_data,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status")
     .eq("id", updated.id).eq("company_id", requireActiveCompanyId())
     .single();
   if (existingError) throw existingError;
@@ -812,6 +838,11 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     : previous;
   const currentData = {
     ...updated,
+    lifecycleStatus: existingRow?.lifecycle_status || updated.lifecycleStatus || "ACTIVE",
+    archivedAt: existingRow?.archived_at ?? undefined,
+    voidedAt: existingRow?.voided_at ?? undefined,
+    voidedByUserId: existingRow?.voided_by_user_id ?? undefined,
+    voidReason: existingRow?.void_reason ?? undefined,
     ...(durableAiSnapshot ? { aiSnapshot: clone(durableAiSnapshot) } : {}),
   };
   const { error } = await client.from("invoices").update({
@@ -855,15 +886,50 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   }
 }
 
-export async function deleteInvoiceFromSupabase(invoiceId: string) {
+function invoiceFromLifecycleRecord(value: Record<string, unknown>): InvoiceData {
+  const currentData = value.current_data && typeof value.current_data === "object" && !Array.isArray(value.current_data)
+    ? value.current_data as Partial<InvoiceData>
+    : {};
+  const lifecycleValue = (column: string, fallback: unknown) => Object.prototype.hasOwnProperty.call(value, column) ? value[column] || undefined : fallback;
+  return {
+    ...currentData,
+    id: String(value.id || currentData.id || ""),
+    reviewStatus: (value.review_status || currentData.reviewStatus || "NEEDS_REVIEW") as InvoiceData["reviewStatus"],
+    status: String(value.payment_status || currentData.status || "UNPAID"),
+    lifecycleStatus: (value.lifecycle_status || currentData.lifecycleStatus || "ACTIVE") as InvoiceData["lifecycleStatus"],
+    archivedAt: lifecycleValue("archived_at", currentData.archivedAt) as string | undefined,
+    voidedAt: lifecycleValue("voided_at", currentData.voidedAt) as string | undefined,
+    voidedByUserId: lifecycleValue("voided_by_user_id", currentData.voidedByUserId) as string | undefined,
+    voidReason: lifecycleValue("void_reason", currentData.voidReason) as string | undefined,
+  } as InvoiceData;
+}
+
+export async function previewInvoiceCorrectionInSupabase(invoiceId: string): Promise<FinancialCorrectionPreview> {
   const client = requireSupabase();
-  const userId = await requireUserId();
-  const archivedAt = new Date().toISOString();
-  const { error } = await client.from("invoices").update({ archived_at: archivedAt, updated_at: archivedAt }).eq("id", invoiceId).eq("company_id", requireActiveCompanyId());
+  await requireUserId();
+  const { data, error } = await client.rpc("preview_invoice_correction", { p_invoice_id: invoiceId });
   if (error) throw error;
-  const { error: eventError } = await client.from("invoice_review_events").insert({ user_id: userId, company_id: requireActiveCompanyId(),
-      invoice_id: invoiceId, event_type: "INVOICE_ARCHIVED", new_value: { archivedAt } });
-  if (eventError) throw eventError;
+  return parseFinancialCorrectionPreview(data, "INVOICE");
+}
+
+export async function applyInvoiceCorrectionInSupabase(
+  invoiceId: string,
+  action: FinancialCorrectionAction,
+  reason?: string,
+): Promise<FinancialCorrectionResult> {
+  const client = requireSupabase();
+  await requireUserId();
+  const { data, error } = await client.rpc("apply_invoice_correction", {
+    p_invoice_id: invoiceId,
+    p_action: action,
+    p_reason: reason || null,
+  });
+  if (error) throw error;
+  const parsed = parseFinancialCorrectionResult(data, "INVOICE");
+  return {
+    ...parsed,
+    ...(parsed.rawRecord ? { record: invoiceFromLifecycleRecord(parsed.rawRecord) } : {}),
+  };
 }
 
 export async function loadReviewEvents(invoiceId: string): Promise<ReviewEvent[]> {

@@ -3,6 +3,7 @@ import {
   FileSpreadsheet,
   Download,
   Trash2,
+  Archive,
   Eye,
   Plus,
   Receipt,
@@ -19,7 +20,7 @@ import { formatDate, formatMoney, totalsByCurrency } from "../utils/invoiceLogic
 interface BatchManagerProps {
   invoices: InvoiceData[];
   onSelectInvoice: (invoice: InvoiceData) => void;
-  onDeleteInvoice: (id: string) => void;
+  onOpenCorrection: (invoice: InvoiceData) => void;
   onClearAll: () => void;
   onAddNew: () => void;
 }
@@ -27,7 +28,7 @@ interface BatchManagerProps {
 export const BatchManager: React.FC<BatchManagerProps> = ({
   invoices,
   onSelectInvoice,
-  onDeleteInvoice,
+  onOpenCorrection,
   onClearAll,
   onAddNew,
 }) => {
@@ -200,11 +201,11 @@ export const BatchManager: React.FC<BatchManagerProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => onDeleteInvoice(inv.id)}
+                          onClick={() => onOpenCorrection(inv)}
                           className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition"
-                          title="Remove invoice"
+                          title="Review correction options"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Archive className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>

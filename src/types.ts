@@ -44,6 +44,7 @@ export interface PartyDetails {
 export type SourceType = "UPLOAD" | "PASTED_TEXT" | "EMAIL" | "SAMPLE";
 export type ProcessingStatus = "NEW" | "EXTRACTING" | "EXTRACTED" | "FAILED";
 export type ReviewStatus = "NEEDS_REVIEW" | "VERIFIED";
+export type InvoiceLifecycleStatus = "ACTIVE" | "VOID";
 export type DuplicateStatus = "UNIQUE" | "POSSIBLE_DUPLICATE";
 export type DocumentType = "INVOICE" | "CREDIT_NOTE" | "RECEIPT" | "STATEMENT" | "PURCHASE_ORDER" | "SUPPLEMENTARY_DOCUMENT" | "UNKNOWN" | "OTHER";
 export type InvoiceSubtype = "VAT_INVOICE" | "NON_VAT_INVOICE" | "SERVICE_INVOICE" | "SALES_INVOICE" | "COMMERCIAL_INVOICE" | "CASH_INVOICE" | "CHARGE_INVOICE" | "CREDIT_INVOICE" | "UNKNOWN" | string;
@@ -240,6 +241,10 @@ export interface InvoiceData {
   rawJson?: string;
   verifiedAt?: string;
   archivedAt?: string;
+  lifecycleStatus?: InvoiceLifecycleStatus;
+  voidedAt?: string;
+  voidedByUserId?: string;
+  voidReason?: string;
   exportedAt?: string;
   aiSnapshot?: Partial<InvoiceData>;
 }
@@ -442,6 +447,9 @@ export interface Expense {
   createdAt: string;
   updatedAt: string;
   archivedAt?: string;
+  voidedAt?: string;
+  voidedByUserId?: string;
+  voidReason?: string;
 }
 
 export type EmploymentType = "REGULAR" | "PROJECT_BASED" | "CONTRACTUAL" | "DAILY" | "HOURLY" | "OTHER";

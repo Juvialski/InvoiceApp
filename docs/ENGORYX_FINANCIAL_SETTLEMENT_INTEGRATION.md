@@ -177,6 +177,22 @@ Idempotent match identifiers make retries safe. Database row locking prevents si
 
 A reversal recalculates transaction remaining/reconciliation state and target settlement presentation. It does not change project cost.
 
+## Correction boundary for invoices and expenses
+
+Invoice and direct-expense correction uses the same company/RBAC boundary as
+the rest of the financial workflows. A locked server preflight must be
+rechecked inside the mutation transaction before an unused record can be
+deleted. Used records are voided with a reason and preserved history; archive
+and restore change directory visibility only and do not change financial
+status or project-cost meaning.
+
+Confirmed settlement evidence blocks invoice or expense void/delete actions.
+Wave 2B2 does not reverse or rewrite a confirmed match, and it does not
+silently change cash history. Those corrections remain part of the deferred
+Wave 2B3 settlement-correction workflow. A voided target cannot receive new
+confirmed settlement evidence, while existing evidence remains available for
+the controlled settlement-reversal path.
+
 ## Audit
 
 The audit-event allowlist remains a strict superset and adds:

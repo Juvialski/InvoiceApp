@@ -65,6 +65,14 @@ test("invoice reversal restores outstanding and overdue semantics", () => {
   assert.equal(summary.settlementState, "OVERDUE");
 });
 
+test("voided invoice settlement history remains readable but is not an active settlement candidate", () => {
+  const invoice = { id: "void-inv", currency: "PHP", grandTotal: 100_000, amountPaid: 100_000, dueDate: "2026-08-01", reviewStatus: "VERIFIED" as const, lifecycleStatus: "VOID" as const };
+  const summary = deriveInvoiceSettlementSummary(invoice as any, [confirmed("void-match", "tx-void", 100_000)], REFERENCE_DATE);
+  assert.equal(summary.lifecycleStatus, "VOID");
+  assert.equal(summary.effectiveSettled, 100_000);
+  assert.deepEqual(eligibleSettlementCandidates(transaction(), [{ targetType: "INVOICE", targetId: invoice.id, label: "Voided", currency: "PHP", settlementBasis: 100_000, settledAmount: 100_000, outstandingAmount: 0, lifecycleStatus: summary.lifecycleStatus }]), []);
+});
+
 test("payroll settlement basis uses employee net pay, not gross or project cost", () => {
   const entries = [
     { netPay: 45_000, grossPay: 55_000, projectAllocatedCost: 55_000 },

@@ -12,7 +12,7 @@ import type {
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
-export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid"> {
+export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid" | "lifecycleStatus" | "archivedAt"> {
   allocations?: InvoiceProjectAllocation[];
   invoiceDate?: string;
   dueDate?: string;
@@ -161,6 +161,7 @@ export function invoicePaidAmount(invoice: Pick<CostInvoice, "grandTotal" | "amo
 
 /** The invoice-level payable balance, intentionally separate from cost. */
 export function invoiceUnpaidBalance(invoice: Pick<CostInvoice, "grandTotal" | "amountPaid" | "status" | "balanceDue">) {
+  if ((invoice as CostInvoice).lifecycleStatus === "VOID") return 0;
   const total = positiveMoney(invoice.grandTotal);
   const reportedBalance = Number(invoice.balanceDue);
   if (Number.isFinite(reportedBalance)) return roundMoney(Math.min(total, Math.max(0, reportedBalance)));
@@ -202,8 +203,12 @@ function invoiceAllocationPayableAmount(invoice: CostInvoice, allocatedAmount: n
   return roundMoney(Math.min(Math.max(0, allocatedAmount - paidAmount), Math.max(0, proportionalPayable)));
 }
 
-export function isConfirmedInvoice(invoice: Pick<CostInvoice, "reviewStatus">) {
-  return invoice.reviewStatus === "VERIFIED";
+export function isConfirmedInvoice(invoice: Pick<CostInvoice, "reviewStatus" | "lifecycleStatus">) {
+  return invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID";
+}
+
+export function isVoidedInvoice(invoice: Pick<CostInvoice, "lifecycleStatus">) {
+  return invoice.lifecycleStatus === "VOID";
 }
 
 export function isConfirmedPayroll(status: string) {
@@ -352,6 +357,7 @@ export function calculateProjectCost(
   };
 
   for (const invoice of input.invoices || []) {
+    if (isVoidedInvoice(invoice)) continue;
     const invoiceCurrency = normalizeCurrency(invoice.currency);
     const byProject = invoiceAllocationAmountsByProject(invoice);
     const allocationTotal = invoiceAllocationTotal(invoice);
@@ -434,7 +440,7 @@ export function calculateProjectCost(
 
   for (const expense of input.expenses || []) {
     const amount = positiveMoney(expense.amount);
-    if (!amount || expense.status === "VOID" || expense.archivedAt) continue;
+    if (!amount || expense.status === "VOID") continue;
     const expenseCurrency = normalizeCurrency(expense.currency);
     if (projectId) {
       if (expense.projectId !== projectId) continue;

@@ -45,7 +45,7 @@ jobs:
         run: npm ci
 
       - name: Step 1 - Static Migration Invariants & Naming Safety
-        run: node --test --experimental-strip-types tests/migrationInvariants.test.ts tests/cashBankingMigration.test.ts
+        run: node --test --experimental-strip-types tests/migrationInvariants.test.ts tests/cashBankingMigration.test.ts tests/coreHardeningWave2B2.test.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1

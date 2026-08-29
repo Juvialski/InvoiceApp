@@ -103,7 +103,7 @@ export function remainingTransactionAmount(transaction: Pick<FinancialTransactio
 }
 
 export function deriveInvoiceSettlementSummary(
-  invoice: Pick<InvoiceData, "id" | "currency" | "grandTotal" | "netAmountPayable" | "withholdingTaxAmount" | "philippineTaxDetails" | "amountPaid" | "dueDate" | "reviewStatus">,
+  invoice: Pick<InvoiceData, "id" | "currency" | "grandTotal" | "netAmountPayable" | "withholdingTaxAmount" | "philippineTaxDetails" | "amountPaid" | "dueDate" | "reviewStatus" | "lifecycleStatus">,
   history: readonly FinancialSettlementHistoryItem[],
   today = new Date().toISOString().slice(0, 10),
 ): FinancialSettlementSummary {
@@ -127,7 +127,7 @@ export function deriveInvoiceSettlementSummary(
     targetType: "INVOICE",
     targetId: invoice.id,
     currency: invoice.currency || "PHP",
-    lifecycleStatus: invoice.reviewStatus,
+    lifecycleStatus: invoice.lifecycleStatus || invoice.reviewStatus,
     settlementBasis: basis.amount,
     basisSource: basis.source,
     reconciledCashPaid: bankPaid,

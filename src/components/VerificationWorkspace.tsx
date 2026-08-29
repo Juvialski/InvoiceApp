@@ -34,7 +34,7 @@ interface VerificationWorkspaceProps {
   onNext: () => Promise<boolean>;
   onSave: () => Promise<boolean>;
   onVerifyAndNext: () => Promise<boolean>;
-  onReopen: () => Promise<void>;
+  onReopen?: () => Promise<void>;
   onContinueWithNewItems?: () => void;
   onReturnToDashboard: () => void;
   onViewVerified: () => void;
@@ -113,8 +113,11 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   const [retryConfirmation, setRetryConfirmation] = useState(false);
   const [focusFieldPath, setFocusFieldPath] = useState<string>();
   const [focusFieldToken, setFocusFieldToken] = useState(0);
+  const isVoided = invoice.lifecycleStatus === "VOID";
   const isVerified = getInvoiceWorkspaceMode(invoice) === "verified";
-  const needsReview = !isVerified;
+  // A voided invoice is a preserved, read-only financial history record even
+  // when its review state predates the void correction.
+  const needsReview = !isVerified && !isVoided;
   const inReviewSession = queue.length > 0 && queueIndex >= 0;
   const display = useMemo(() => getInvoiceDisplay(invoice), [invoice]);
   const issueCount = invoice.validation?.issues?.length || 0;
@@ -156,7 +159,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
     setRetryConfirmation(false);
     setFocusFieldPath(undefined);
     setMobilePane("details");
-  }, [invoice.id, invoice.reviewStatus]);
+  }, [invoice.id, invoice.reviewStatus, invoice.lifecycleStatus]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -191,9 +194,9 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
         <div className="hidden xl:block h-7 w-px bg-slate-200" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-[9px] font-black uppercase tracking-wider ${isVerified ? "text-emerald-700" : "text-indigo-600"}`}>{isVerified ? "Invoice workspace" : "Verification workspace"}</span>
+            <span className={`text-[9px] font-black uppercase tracking-wider ${isVoided ? "text-slate-600" : isVerified ? "text-emerald-700" : "text-indigo-600"}`}>{isVoided ? "Voided invoice record" : isVerified ? "Invoice workspace" : "Verification workspace"}</span>
             <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{display.sourceLabel}</span>
-            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isVerified ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{isVerified ? "Verified" : "Needs review"}</span>
+            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${isVoided ? "bg-slate-200 text-slate-700" : isVerified ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{isVoided ? "Voided" : isVerified ? "Verified" : "Needs review"}</span>
           </div>
           <h1 className="text-base font-black font-sans truncate mt-0.5">{display.primaryLabel}</h1>
           <p className="text-[10px] text-slate-600 font-sans tabular-nums mt-0.5">{display.invoiceLabel} • {display.dateLabel}</p>
@@ -203,7 +206,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {inReviewSession ? <><div className="text-right"><p className="text-[9px] uppercase font-black text-slate-400">Queue position</p><p className="text-sm font-black font-mono">{positionLabel}</p></div><div className="hidden sm:block h-7 w-px bg-slate-200" /><div className="text-right"><p className="text-[9px] uppercase font-black text-slate-400">Progress</p><p className="text-xs font-black text-emerald-700">{verifiedCount} verified <span className="text-slate-400">•</span> {remainingCount} remaining</p></div></> : <div className="text-right"><p className="text-[9px] uppercase font-black text-slate-400">View</p><p className="text-xs font-black text-slate-600">Standalone</p></div>}
-          {needsReview ? <div className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold ${saveState === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : saveState === "unsaved" ? "border-amber-200 bg-amber-50 text-amber-800" : saveState === "saving" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{saveState === "saving" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}{saveLabel(saveState)}</div> : <div className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-[10px] font-black text-emerald-700"><ShieldCheck className="w-3.5 h-3.5" />Verified</div>}
+          {needsReview ? <div className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-bold ${saveState === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : saveState === "unsaved" ? "border-amber-200 bg-amber-50 text-amber-800" : saveState === "saving" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{saveState === "saving" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}{saveLabel(saveState)}</div> : <div className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[10px] font-black ${isVoided ? "border-slate-200 bg-slate-100 text-slate-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}><ShieldCheck className="w-3.5 h-3.5" />{isVoided ? "Read-only void" : "Verified"}</div>}
         </div>
       </div>
     </header>
@@ -220,7 +223,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
 
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)] items-stretch lg:h-[calc(100vh-225px)] lg:min-h-[580px]">
       <aside className={`${mobilePane === "source" ? "block" : "hidden"} lg:block min-w-0 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden`}><SourceComparison invoice={invoice} mode="source" /></aside>
-      <section className={`${mobilePane === "details" ? "block" : "hidden"} lg:block min-w-0 min-h-0 overflow-y-auto pr-0.5 pb-24`}><div className="space-y-3">{onSaveProjectAllocations && <ProjectAssignmentPanel invoice={invoice} projects={projects} preferredProject={projects.find((project) => project.id === preferredProjectId)} savedAllocations={invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id)} readOnly={false} onSave={(allocations) => onSaveProjectAllocations(invoice, allocations)} />}<ReviewPanel invoice={invoice} onVerify={needsReview ? () => void verifyAndNext() : undefined} verifyLabel={inReviewSession ? "Verify & Next" : "Verify"} onReopen={isVerified ? onReopen : undefined} onRevertToAI={needsReview ? onRevertToAI : undefined} onFocusField={focusField} onRevertField={needsReview ? onRevertField : undefined} /><InvoiceViewer invoice={invoice} readOnly={isVerified} compact focusFieldPath={focusFieldPath} focusFieldToken={focusFieldToken} onUpdateInvoice={onUpdateInvoice} onBack={onBack} /></div></section>
+      <section className={`${mobilePane === "details" ? "block" : "hidden"} lg:block min-w-0 min-h-0 overflow-y-auto pr-0.5 pb-24`}><div className="space-y-3">{onSaveProjectAllocations && <ProjectAssignmentPanel invoice={invoice} projects={projects} preferredProject={projects.find((project) => project.id === preferredProjectId)} savedAllocations={invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id)} readOnly={invoice.lifecycleStatus === "VOID"} onSave={(allocations) => onSaveProjectAllocations(invoice, allocations)} />}<ReviewPanel invoice={invoice} onVerify={needsReview ? () => void verifyAndNext() : undefined} verifyLabel={inReviewSession ? "Verify & Next" : "Verify"} onReopen={isVerified && invoice.lifecycleStatus !== "VOID" ? onReopen : undefined} onRevertToAI={needsReview ? onRevertToAI : undefined} onFocusField={focusField} onRevertField={needsReview ? onRevertField : undefined} /><InvoiceViewer invoice={invoice} readOnly={isVerified || invoice.lifecycleStatus === "VOID"} compact focusFieldPath={focusFieldPath} focusFieldToken={focusFieldToken} onUpdateInvoice={onUpdateInvoice} onBack={onBack} /></div></section>
     </div>
 
     {inReviewSession && <div className="sticky bottom-2 z-20 rounded-2xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur p-2.5"><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => void onPrevious()} disabled={queueIndex <= 0} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40"><ChevronLeft className="w-4 h-4" />Previous <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+P</span></button><span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 px-1"><Clock3 className="w-3.5 h-3.5" />{positionLabel}</span><button type="button" onClick={() => void onNext()} disabled={queueIndex >= queue.length - 1} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Next <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+N</span><ChevronRight className="w-4 h-4" /></button>{needsReview ? <><button type="button" onClick={() => void onSave()} disabled={saveState === "saving"} className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-800 disabled:opacity-50"><Save className="w-3.5 h-3.5" />Save</button><div className="hidden md:flex items-center gap-1 text-[9px] text-slate-400"><Keyboard className="w-3.5 h-3.5" />Ctrl/Cmd+Enter</div><button type="button" onClick={() => void verifyAndNext()} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:bg-emerald-800"><ShieldCheck className="w-4 h-4" />Verify &amp; Next <ArrowRight className="w-3.5 h-3.5" /></button></> : <div className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700"><ShieldCheck className="w-3.5 h-3.5" />Read-only verified · Reopen above</div>}</div>{needsReview && warningConfirmation && <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] text-amber-900"><span><strong>{issueCount} validation warning{issueCount === 1 ? "" : "s"} remain.</strong> Verify this invoice anyway?</span><div className="flex items-center gap-2"><button type="button" onClick={() => setWarningConfirmation(false)} className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 font-bold text-amber-800">Cancel</button><button type="button" onClick={() => void verifyAndNext()} className="rounded-lg bg-amber-700 px-2.5 py-1.5 font-bold text-white">Verify &amp; Continue</button></div></div>}</div>}

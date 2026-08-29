@@ -13,6 +13,7 @@ export interface FinancialSettlementCardProps {
   compact?: boolean;
   canReverse?: boolean;
   fallbackSummary?: FinancialSettlementSummary | null;
+  lifecycleStatus?: string;
 }
 
 function money(value: number, currency: string) {
@@ -33,7 +34,7 @@ function date(value?: string) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = ({ targetType, targetId, title, compact = false, canReverse = false, fallbackSummary }) => {
+export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = ({ targetType, targetId, title, compact = false, canReverse = false, fallbackSummary, lifecycleStatus }) => {
   const demoSummary = useMemo(() => targetId.startsWith("demo-") ? demoSettlementSummaryForTarget(targetType, targetId) : null, [targetId, targetType]);
   const [summary, setSummary] = useState<FinancialSettlementSummary | null>(fallbackSummary || demoSummary);
   const [loading, setLoading] = useState(!fallbackSummary && !demoSummary);
@@ -76,8 +77,8 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   const reversed = summary?.history.filter((item) => item.status === "REVERSED") || [];
   return <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" aria-label={`${targetType.toLowerCase()} settlement`}>
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-      <div><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600">Payment / settlement</p><h3 className="mt-1 text-sm font-black text-slate-950">{title || (targetType === "PAYROLL" ? "Disbursement evidence" : "Supplier payment evidence")}</h3><p className="mt-1 text-[10px] text-slate-500">Cash evidence only. Project cost and payroll cost are not recreated here.</p></div>
-      {summary && <span className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-black ${stateTone(summary.settlementState)}`}>{String(summary.settlementState).replaceAll("_", " ")}</span>}
+      <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600">Payment / settlement</p><h3 className="mt-1 text-sm font-black text-slate-950">{title || (targetType === "PAYROLL" ? "Disbursement evidence" : "Supplier payment evidence")}</h3><p className="mt-1 text-[10px] text-slate-500">Cash evidence only. Project cost and payroll cost are not recreated here.</p></div>
+      {summary && <div className="flex flex-wrap items-center gap-1.5"><span className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-black ${stateTone(summary.settlementState)}`}>{String(summary.settlementState).replaceAll("_", " ")}</span>{(summary.lifecycleStatus === "VOID" || lifecycleStatus === "VOID") && <span className="w-fit rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-700">VOID FINANCIAL RECORD</span>}</div>}
     </div>
     {error && <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-800">{error}</div>}
     {summary && <>

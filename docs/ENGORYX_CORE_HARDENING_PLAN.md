@@ -201,9 +201,31 @@ authorizes preflight; `projects.manage` authorizes lifecycle mutation, with
 active membership and explicit member DENY overrides enforced by the same
 effective-permission helper used by RLS.
 
+### Wave 2B2 — Invoice and expense correction lifecycle (implemented in this PR)
+
+Invoices and direct expenses now use authoritative, company-scoped correction
+preflight and mutation RPCs. The mutation locks the target row, reruns the
+dependency scan, and records the original values, reason, actor, and bounded
+preflight in the append-only audit trail before changing or deleting anything.
+
+| Record state or evidence | Permitted lifecycle outcome | History and cost rule |
+| --- | --- | --- |
+| Truly unused invoice or `DRAFT` expense with no dependent or auditable history | `DELETE_UNUSED` after explicit confirmation | Guarded permanent deletion only; direct table `DELETE` remains closed. |
+| Used operational invoice or expense with no confirmed settlement | `VOID` after a reason and explicit confirmation | Preserve source/history/allocations; exclude the record from active project cost. |
+| Any invoice or expense where visibility should change without changing financial meaning | `ARCHIVE` or `RESTORE` after a reason and explicit confirmation | Change directory visibility only; preserve financial status and cost contribution. |
+| Confirmed settlement evidence exists | No void or permanent delete | Correction is blocked and points to the deferred Wave 2B3 settlement-correction workflow. |
+
+Voided invoices and expenses are immutable at the ordinary table-update path.
+Invoice allocations and history remain preserved, while new allocations,
+project-accounting events, and confirmed settlement matches cannot target a
+voided record. Existing settlement rows are not silently reversed. `invoices.read`
+or `expenses.read` authorizes preflight; `invoices.manage` or `expenses.manage`
+authorizes mutation, with verified-invoice voids additionally requiring
+`invoices.verify`. UI and Assistant paths use the same lifecycle semantics and
+cannot bypass the database RPC boundary.
+
 Deferred from this focused slice:
 
-- Wave 2B2 — invoices and expenses correction semantics;
 - Wave 2B3 — cash, banking, and settlement correction semantics;
 - Wave 2C — engineering correction semantics beyond the narrow archived-project activity boundary;
 - Wave 3 — Assistant project lifecycle/action parity.

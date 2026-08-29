@@ -75,6 +75,7 @@ interface ProjectWorkspaceProps {
   onArchiveProject: () => void;
   onReactivateProject?: () => void;
   onAddExpense?: () => void;
+  onOpenExpenseCorrection?: (expense: Expense) => void;
   onOpenPayroll?: () => void;
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
 }
@@ -142,6 +143,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onReactivateProject,
   onAddExpense,
   onOpenPayroll,
+  onOpenExpenseCorrection,
   onSaveInvoiceAllocations,
 }) => {
   const permissions = useAppPermissions();
@@ -248,7 +250,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />
         : <ProjectInvoicesReadOnly project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} />)}
 
-      {tab === "expenses" && canReadExpenses && <ProjectExpenses projectId={project.id} currency={project.currency} expenses={projectExpenses} onAdd={canManageExpenses ? onAddExpense : undefined} />}
+      {tab === "expenses" && canReadExpenses && <ProjectExpenses projectId={project.id} currency={project.currency} expenses={projectExpenses} onAdd={canManageExpenses ? onAddExpense : undefined} onOpenCorrection={canManageExpenses ? onOpenExpenseCorrection : undefined} />}
 
       {tab === "payroll" && canReadPayroll && <Card className="overflow-hidden p-0 shadow-sm" elevation="low"><div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5"><div><h3 className="text-sm font-black">Project payroll</h3><p className="mt-1 text-xs text-slate-500">Approved and paid payroll allocations feed labor cost.</p></div>{onOpenPayroll && <Button variant="primary" label="Open payroll" onClick={onOpenPayroll} />}</div>{projectPayroll.length ? <div className="divide-y divide-slate-100">{projectPayroll.map((allocation) => <div key={allocation.id} className="flex items-center justify-between gap-3 px-5 py-4"><div><p className="text-xs font-bold">Payroll allocation</p><p className="mt-1 text-[10px] text-slate-500">{payrollPeriods[0] ? `${payrollPeriods[0].periodStart} – ${payrollPeriods[0].periodEnd}` : "Current period"} • {allocation.source.replaceAll("_", " ")}</p></div><p className="text-xs font-black tabular-nums">{money(allocation.allocationAmount, project.currency)}</p></div>)}</div> : <div className="p-10 text-center"><HardHat className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">No payroll recorded for this project.</p><p className="mt-1 text-xs text-slate-500">Approve a payroll run with a project allocation to populate this view.</p></div>}</Card>}
 

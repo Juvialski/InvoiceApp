@@ -21,12 +21,12 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Graph version | `wm-1` |
 | Product | Engoryx Engineering Operations Platform |
 | Source classification | `mixed` |
-| Reviewed against | `dfbde16a688b7f6f912afd0e07b99fb4c3bf8cf5` |
+| Reviewed against | `c5d3a41c90220e45bd692c7ae5d9784d3b4b9630` |
 | Reviewed at | `2026-08-29` |
-| Node count | 194 |
-| Edge count | 228 |
-| Invariant count | 12 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Cross-Domain Settlement`, `QA-1`, `WM-1` |
+| Node count | 199 |
+| Edge count | 238 |
+| Invariant count | 13 |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -84,6 +84,11 @@ flowchart LR
   subgraph g_finance["Finance"]
     n_route_cash(["Cash &amp; Banking route<br/><small>ROUTE · /cash</small>"])
     n_route_invoices(["Invoices route<br/><small>ROUTE · /invoices</small>"])
+    n_expense_correction_lifecycle{"Expense correction lifecycle<br/><small>WORKFLOW · DELETE_UNUSED → VOID → ARCHIVE → RESTORE</small>"}
+    n_expense_correction_rpc_boundary[["Authoritative expense correction RPC boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_invoice_correction_lifecycle{"Invoice correction lifecycle<br/><small>WORKFLOW · DELETE_UNUSED → VOID → ARCHIVE → RESTORE</small>"}
+    n_invoice_correction_rpc_boundary[["Authoritative invoice correction RPC boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_invoice_state_void("Invoice · VOID<br/><small>STATE</small>")
     n_invoice_state_verified("Invoice · VERIFIED<br/><small>STATE</small>")
     n_invoice_payable_obligation["Verified invoice payable obligation<br/><small>DERIVED-DATA</small>"]
     n_cash_settlement_match[("Financial settlement match<br/><small>DATA · SUGGESTED → CONFIRMED → REJECTED → REVERSED</small>")]
@@ -95,6 +100,7 @@ flowchart LR
     n_project_cost_aggregation["Authoritative project-cost aggregation<br/><small>DERIVED-DATA</small>"]
     n_invoice_project_allocation[("Invoice project allocation<br/><small>DATA</small>")]
     n_invoice_project_cost_contribution["Verified invoice project-cost contribution<br/><small>DERIVED-DATA</small>"]
+    n_direct_project_expense[("Direct project expense<br/><small>DATA · DRAFT → APPROVED → PAID → VOID</small>")]
     n_payroll_project_labor_cost["Authoritative project labor cost<br/><small>DERIVED-DATA</small>"]
     n_project_labor_aggregate_rpc[["Safe project labor aggregate RPC<br/><small>EXTERNAL-BOUNDARY</small>"]]
   end
@@ -124,7 +130,15 @@ flowchart LR
   n_invoice_project_allocation -->|verified supplier cost| n_project_cost_aggregation
   n_invoice_project_allocation -->|verified invoice cost| n_invoice_project_cost_contribution
   n_invoice_project_cost_contribution -->|project cost contribution| n_project_cost_aggregation
+  n_direct_project_expense -->|approved/paid direct cost| n_project_cost_aggregation
+  n_invoice_correction_lifecycle -->|locked preflight and mutation| n_invoice_correction_rpc_boundary
+  n_invoice_correction_lifecycle -->|void with reason| n_invoice_state_void
+  n_invoice_state_verified -->|explicit correction| n_invoice_state_void
+  n_invoice_state_void -->|excluded from active project cost| n_invoice_project_cost_contribution
   n_invoice_state_verified -->|cash payable basis| n_invoice_payable_obligation
+  n_direct_project_expense -->|correction outcomes| n_expense_correction_lifecycle
+  n_expense_correction_lifecycle -->|locked preflight and mutation| n_expense_correction_rpc_boundary
+  n_expense_correction_rpc_boundary -->|VOID excluded, ARCHIVE retained| n_project_cost_aggregation
   n_cash_settlement_match -->|payment evidence| n_cash_settlement_evidence
   n_cash_settlement_evidence -->|settlement evidence only| n_invoice_payable_obligation
   n_cash_settlement_evidence -->|disbursement evidence only| n_payroll_net_pay_basis
@@ -160,6 +174,12 @@ flowchart LR
   class n_project_cost_aggregation projects
   class n_invoice_project_allocation projects
   class n_invoice_project_cost_contribution projects
+  class n_direct_project_expense projects
+  class n_expense_correction_lifecycle finance
+  class n_expense_correction_rpc_boundary finance
+  class n_invoice_correction_lifecycle finance
+  class n_invoice_correction_rpc_boundary finance
+  class n_invoice_state_void finance
   class n_invoice_state_verified finance
   class n_invoice_payable_obligation finance
   class n_cash_settlement_match finance
@@ -396,11 +416,15 @@ flowchart LR
     n_route_invoices(["Invoices route<br/><small>ROUTE · /invoices</small>"])
     n_route_invoice_detail(["Invoice detail route<br/><small>ROUTE · /invoices/:invoiceId</small>"])
     n_route_review_invoice(["Invoice review route<br/><small>ROUTE · /review?invoiceId=:invoiceId</small>"])
+    n_expense_correction_lifecycle{"Expense correction lifecycle<br/><small>WORKFLOW · DELETE_UNUSED → VOID → ARCHIVE → RESTORE</small>"}
+    n_expense_correction_rpc_boundary[["Authoritative expense correction RPC boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_invoice_source[("Invoice source document or email<br/><small>DATA</small>")]
     n_invoice_extraction_workflow{"Invoice extraction workflow<br/><small>WORKFLOW · NEW → EXTRACTING → EXTRACTED → FAILED</small>"}
     n_invoice_extraction_ai_boundary[["Gemini-compatible extraction boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
-    n_invoice_record[("Supplier invoice record<br/><small>DATA · NEEDS_REVIEW → VERIFIED</small>")]
-    n_invoice_review_queue["Human invoice verification workspace<br/><small>SCREEN</small>"]
+    n_invoice_record[("Supplier invoice record<br/><small>DATA · NEEDS_REVIEW → VERIFIED → ACTIVE → VOID</small>")]
+    n_invoice_correction_lifecycle{"Invoice correction lifecycle<br/><small>WORKFLOW · DELETE_UNUSED → VOID → ARCHIVE → RESTORE</small>"}
+    n_invoice_correction_rpc_boundary[["Authoritative invoice correction RPC boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_invoice_state_void("Invoice · VOID<br/><small>STATE</small>")
     n_invoice_state_needs_review("Invoice · NEEDS_REVIEW<br/><small>STATE</small>")
     n_invoice_state_verified("Invoice · VERIFIED<br/><small>STATE</small>")
     n_invoice_human_verification{{"Human verification guard<br/><small>GUARD</small>"}}
@@ -435,17 +459,24 @@ flowchart LR
   n_route_extract -->|new extraction| n_invoice_extraction_workflow
   n_route_inbox -->|email source| n_invoice_source
   n_route_invoices -->|directory| n_invoice_record
-  n_route_invoice_detail -->|detail workspace| n_invoice_review_queue
-  n_route_review_invoice -->|review queue| n_invoice_review_queue
   n_invoice_source -->|bytes and metadata| n_invoice_extraction_workflow
   n_invoice_extraction_workflow -->|assistive extraction| n_invoice_extraction_ai_boundary
   n_invoice_extraction_ai_boundary -->|draft/reviewable record| n_invoice_record
   n_invoice_record -->|awaits human verification| n_invoice_state_needs_review
-  n_invoice_review_queue -->|source comparison| n_invoice_record
   n_invoice_state_needs_review -->|explicit review| n_invoice_human_verification
   n_invoice_human_verification -->|verify| n_invoice_state_verified
   n_invoice_record -->|review provenance| n_invoice_review_history
+  n_invoice_record -->|correction outcomes| n_invoice_correction_lifecycle
+  n_invoice_correction_lifecycle -->|locked preflight and mutation| n_invoice_correction_rpc_boundary
+  n_invoice_correction_lifecycle -->|void with reason| n_invoice_state_void
+  n_invoice_state_verified -->|explicit correction| n_invoice_state_void
+  n_invoice_state_void -->|excluded from active project cost| n_invoice_project_cost_contribution
+  n_invoice_correction_rpc_boundary -->|confirmed settlement blocks void/delete| n_cash_settlement_guard
   n_invoice_state_verified -->|cash payable basis| n_invoice_payable_obligation
+  n_direct_project_expense -->|correction outcomes| n_expense_correction_lifecycle
+  n_expense_correction_lifecycle -->|locked preflight and mutation| n_expense_correction_rpc_boundary
+  n_expense_correction_rpc_boundary -->|VOID excluded, ARCHIVE retained| n_project_cost_aggregation
+  n_expense_correction_rpc_boundary -->|confirmed settlement blocks void/delete| n_cash_settlement_guard
   n_cash_accounts -->|account activity| n_cash_transactions
   n_cash_statement_import -->|validated import| n_cash_transactions
   n_cash_transactions -->|reconciliation context| n_cash_reconciliation_workspace
@@ -479,11 +510,15 @@ flowchart LR
   class n_invoice_project_allocation projects
   class n_invoice_project_cost_contribution projects
   class n_direct_project_expense projects
+  class n_expense_correction_lifecycle finance
+  class n_expense_correction_rpc_boundary finance
   class n_invoice_source finance
   class n_invoice_extraction_workflow finance
   class n_invoice_extraction_ai_boundary finance
   class n_invoice_record finance
-  class n_invoice_review_queue finance
+  class n_invoice_correction_lifecycle finance
+  class n_invoice_correction_rpc_boundary finance
+  class n_invoice_state_void finance
   class n_invoice_state_needs_review finance
   class n_invoice_state_verified finance
   class n_invoice_human_verification finance
@@ -699,6 +734,7 @@ These invariants are intentionally explicit because generic import graphs cannot
 | **Company and RBAC isolation is authoritative**<br/><small>`company-rbac-is-authoritative`</small> | Business records are scoped by company membership and permission; client visibility is not a substitute for PostgreSQL RLS/RPC authorization. | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/utils/accessControl.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql`<br/>`src/server/access/invitationDelivery.ts` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts`<br/>`tests/companyTenancyMigration.test.ts` |
 | **Demo mode is isolated from production writes**<br/><small>`demo-cannot-write-production`</small> | The public /demo runtime uses deterministic local/session state and cannot become a production company or Supabase write path. | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspaceProvider.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` |
 | **Verified invoice project cost is independent from cash settlement**<br/><small>`invoice-project-cost-independent-from-settlement`</small> | Verified invoice allocations are a project-cost source. Cash settlement is payment evidence and must not create or duplicate project cost. | `src/utils/projectCosting.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`supabase/migrations/20260827210000_financial_settlement_integration.sql`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/projectCostingHardening.test.ts` |
+| **Invoice and expense corrections preserve financial history**<br/><small>`financial-corrections-preserve-history`</small> | Unused invoice/expense deletion is database-guarded; operational records use explicit archive or void actions; finalized history, allocations, extraction/review evidence, and confirmed settlement dependencies are never silently erased or rewritten. | `src/lib/financialLifecycle.ts`<br/>`src/lib/persistence.ts`<br/>`src/lib/expenses.ts`<br/>`src/utils/projectCosting.ts`<br/>`supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql`<br/>`docs/ENGORYX_CORE_HARDENING_PLAN.md` | `tests/financialLifecycle.test.ts`<br/>`tests/coreHardeningWave2B2.test.ts`<br/>`supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql` |
 | **Project labor cost is independent from employee net-pay settlement**<br/><small>`payroll-labor-cost-independent-from-net-pay-settlement`</small> | Approved or paid payroll allocations provide project labor cost, while settlement eligibility and basis use employee net pay. | `src/lib/payrollCalculation.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/utils/projectCosting.ts`<br/>`docs/payroll-workforce-hardening.md`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/payrollIntegrity.test.ts`<br/>`tests/payrollCalculation.test.ts` |
 | **Project labor aggregate preserves payroll privacy**<br/><small>`project-labor-aggregate-preserves-payroll-privacy`</small> | Finance and Viewer may receive confirmed/pending project labor totals through the guarded payroll.summary.read aggregate without receiving employee identity, payroll entries, rates, attendance, deductions, net pay, or allocation rows. | `src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/dataCompleteness.ts`<br/>`src/lib/projects.ts`<br/>`src/server/assistant/assistantToolExecutors.ts`<br/>`src/server/assistant/toolAuthorization.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/ENGORYX_INTEGRITY_HARDENING.md` | `tests/projectLaborCostAggregate.test.ts`<br/>`tests/projectLaborCostAggregateMigration.test.ts` |
 | **Site Log crew observation is not payroll attendance**<br/><small>`site-log-observation-is-not-payroll-attendance`</small> | Crew and headcount rows describe field presence observed by the site team; they never directly create or alter authoritative payroll attendance, timesheets, overtime, or runs. | `src/lib/dailySiteLogs.ts`<br/>`src/lib/dailySiteLogsPersistence.ts`<br/>`src/lib/payrollWorkforce.ts`<br/>`docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md` | `tests/dailySiteLogs.test.ts`<br/>`tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts` |
@@ -783,7 +819,7 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Invoice project allocation**<br/><small>`invoice-project-allocation`</small> | `data` | `company-and-project`<br/>— | — | `projects.manage`<br/>`invoices.read` | `mixed` | `src/utils/projectAllocations.ts`<br/>`src/lib/persistence.ts`<br/>`supabase/migrations/20260823170000_invoice_project_allocation_replacement.sql` | `tests/projectAllocations.test.ts`<br/>`tests/projectCostingHardening.test.ts` | — |
 | **Verified invoice project-cost contribution**<br/><small>`invoice-project-cost-contribution`</small> | `derived-data` | `company-and-project`<br/>— | — | — | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectAllocations.ts`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/projectCostingHardening.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
 | **Payroll project allocation**<br/><small>`payroll-project-allocation`</small> | `data` | `company-and-project`<br/>— | — | `payroll.approve`<br/>`projects.read` | `mixed` | `src/lib/payroll.ts`<br/>`src/lib/payrollCalculation.ts`<br/>`supabase/migrations/20260823150000_payroll_workforce_integrity.sql` | `tests/payrollIntegrity.test.ts`<br/>`tests/engineeringProjectCosting.test.ts` | — |
-| **Direct project expense**<br/><small>`direct-project-expense`</small> | `data` | `company-and-project`<br/>— | `DRAFT` → `APPROVED` → `PAID` → `VOID` | `expenses.read`<br/>`expenses.manage` | `mixed` | `src/lib/expenses.ts`<br/>`src/components/expenses/ProjectExpenses.tsx`<br/>`src/types.ts` | `tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
+| **Direct project expense**<br/><small>`direct-project-expense`</small> | `data` | `company-and-project`<br/>— | `DRAFT` → `APPROVED` → `PAID` → `VOID` | `expenses.read`<br/>`expenses.manage` | `mixed` | `src/lib/expenses.ts`<br/>`src/components/expenses/ProjectExpenses.tsx`<br/>`src/components/expenses/ExpensesPage.tsx`<br/>`src/types.ts` | `tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts`<br/>`tests/financialLifecycle.test.ts` | — |
 | **Authoritative project labor cost**<br/><small>`payroll-project-labor-cost`</small> | `derived-data` | `company-and-project`<br/>— | — | `payroll.summary.read`<br/>`projects.read` | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/projectDashboardViewModel.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/payroll-workforce-hardening.md` | `tests/engineeringProjectCosting.test.ts`<br/>`tests/projectLaborCostAggregate.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
 | **Safe project labor aggregate RPC**<br/><small>`project-labor-aggregate-rpc`</small> | `external-boundary` | `company-and-project`<br/>— | — | `projects.read`<br/>`payroll.summary.read` | `mixed` | `src/lib/projects.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/ENGORYX_INTEGRITY_HARDENING.md` | `tests/projectLaborCostAggregate.test.ts`<br/>`tests/projectLaborCostAggregateMigration.test.ts` | — |
 
@@ -853,10 +889,14 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Invoice review route**<br/><small>`route-review-invoice`</small> | `route` | `company`<br/>`review`<br/>`/review?invoiceId=:invoiceId`<br/>query: `invoiceId`, `from` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/VerificationWorkspace.tsx` | `tests/appRouting.test.ts`<br/>`tests/invoiceLogic.test.ts` | `invoices--review--invoice-review-opened--desktop-1440` |
 | **Vendors route**<br/><small>`route-vendors`</small> | `route` | `company`<br/>`vendors`<br/>`/vendors` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/Vendors.tsx` | `tests/appRouting.test.ts` | — |
 | **Expenses route**<br/><small>`route-expenses`</small> | `route` | `company`<br/>`expenses`<br/>`/expenses` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/ExpensesRoute.tsx`<br/>`src/components/expenses/ExpensesPage.tsx` | `tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts` | `expenses--expenses--base-route-loaded--desktop-1440` |
+| **Expense correction lifecycle**<br/><small>`expense-correction-lifecycle`</small> | `workflow` | `company-and-project`<br/>— | `DELETE_UNUSED` → `VOID` → `ARCHIVE` → `RESTORE` | `expenses.read`<br/>`expenses.manage` | `mixed`<br/>confirmation: `human` | `src/components/expenses/ExpensesPage.tsx`<br/>`src/components/expenses/ProjectExpenses.tsx`<br/>`src/lib/financialLifecycle.ts`<br/>`src/lib/expenses.ts`<br/>`supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql` | `tests/financialLifecycle.test.ts`<br/>`tests/coreHardeningWave2B2.test.ts`<br/>`supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql` | — |
+| **Authoritative expense correction RPC boundary**<br/><small>`expense-correction-rpc-boundary`</small> | `external-boundary` | `company-and-project`<br/>— | — | `expenses.read`<br/>`expenses.manage` | `mixed`<br/>confirmation: `human` | `src/lib/expenses.ts`<br/>`supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql` | `tests/coreHardeningWave2B2.test.ts`<br/>`supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql` | — |
 | **Invoice source document or email**<br/><small>`invoice-source`</small> | `data` | `company`<br/>— | — | `invoices.extract`<br/>`gmail.read`<br/>`gmail.manage` | `mixed` | `src/components/UploadZone.tsx`<br/>`src/components/EmailInbox.tsx`<br/>`src/types.ts`<br/>`src/lib/persistence.ts` | `tests/invoiceLogic.test.ts`<br/>`tests/assistantAttachedInvoice.test.ts` | — |
 | **Invoice extraction workflow**<br/><small>`invoice-extraction-workflow`</small> | `workflow` | `company`<br/>— | `NEW` → `EXTRACTING` → `EXTRACTED` → `FAILED` | `invoices.extract` | `mixed` | `src/utils/invoiceWorkspace.ts`<br/>`src/utils/invoiceLogic.ts`<br/>`src/App.tsx`<br/>`src/server/ai/companyAiRuntime.ts` | `tests/invoiceLogic.test.ts`<br/>`tests/extractionQuality.test.ts`<br/>`tests/assistantAttachedInvoice.test.ts` | — |
 | **Gemini-compatible extraction boundary**<br/><small>`invoice-extraction-ai-boundary`</small> | `external-boundary` | `company`<br/>— | — | `invoices.extract` | `mixed` | `src/server/ai/companyAiRuntime.ts`<br/>`src/server/ai/companyAiCredentials.ts`<br/>`src/utils/invoiceLogic.ts` | `tests/companyAiRuntime.test.ts`<br/>`tests/companyAiServer.test.ts`<br/>`tests/extractionQuality.test.ts` | — |
-| **Supplier invoice record**<br/><small>`invoice-record`</small> | `data` | `company`<br/>— | `NEEDS_REVIEW` → `VERIFIED` | `invoices.read`<br/>`invoices.manage` | `mixed` | `src/types.ts`<br/>`src/lib/persistence.ts`<br/>`src/components/InvoiceDirectory.tsx` | `tests/invoiceLogic.test.ts`<br/>`tests/invoiceDisplay.test.ts`<br/>`tests/assistantBackend.test.ts` | — |
+| **Supplier invoice record**<br/><small>`invoice-record`</small> | `data` | `company`<br/>— | `NEEDS_REVIEW` → `VERIFIED` → `ACTIVE` → `VOID` | `invoices.read`<br/>`invoices.manage` | `mixed` | `src/types.ts`<br/>`src/lib/persistence.ts`<br/>`src/components/InvoiceDirectory.tsx` | `tests/invoiceLogic.test.ts`<br/>`tests/invoiceDisplay.test.ts`<br/>`tests/assistantBackend.test.ts` | — |
+| **Invoice correction lifecycle**<br/><small>`invoice-correction-lifecycle`</small> | `workflow` | `company`<br/>— | `DELETE_UNUSED` → `VOID` → `ARCHIVE` → `RESTORE` | `invoices.read`<br/>`invoices.manage`<br/>`invoices.verify` | `mixed`<br/>confirmation: `human` | `src/components/InvoiceDirectory.tsx`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/lib/financialLifecycle.ts`<br/>`src/lib/persistence.ts`<br/>`supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql` | `tests/financialLifecycle.test.ts`<br/>`tests/coreHardeningWave2B2.test.ts`<br/>`supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql` | — |
+| **Authoritative invoice correction RPC boundary**<br/><small>`invoice-correction-rpc-boundary`</small> | `external-boundary` | `company`<br/>— | — | `invoices.read`<br/>`invoices.manage`<br/>`invoices.verify` | `mixed`<br/>confirmation: `human` | `src/lib/persistence.ts`<br/>`supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql` | `tests/coreHardeningWave2B2.test.ts`<br/>`supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql` | — |
 | **Human invoice verification workspace**<br/><small>`invoice-review-queue`</small> | `screen` | `company`<br/>— | — | `invoices.read`<br/>`invoices.manage` | `mixed` | `src/components/VerificationWorkspace.tsx`<br/>`src/components/ReviewQueue.tsx`<br/>`src/app/routes/InvoicesRoute.tsx` | `tests/invoiceLogic.test.ts`<br/>`tests/invoiceDisplay.test.ts`<br/>`tests/assistantAttachedInvoice.test.ts` | `invoices--review--invoice-review-opened--desktop-1440` |
 | **Human verification guard**<br/><small>`invoice-human-verification`</small> | `guard` | `company`<br/>— | — | `invoices.manage` | `mixed`<br/>confirmation: `human` | `src/components/VerificationWorkspace.tsx`<br/>`src/utils/invoiceWorkspace.ts`<br/>`src/App.tsx` | `tests/invoiceLogic.test.ts`<br/>`tests/projectAllocations.test.ts` | — |
 | **Invoice review history**<br/><small>`invoice-review-history`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/types.ts`<br/>`src/lib/persistence.ts`<br/>`src/server/assistant/assistantToolExecutors.ts` | `tests/invoiceLogic.test.ts`<br/>`tests/assistantBackend.test.ts` | — |

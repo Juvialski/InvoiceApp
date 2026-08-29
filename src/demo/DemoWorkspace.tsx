@@ -11,6 +11,7 @@ import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, 
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction, type ProjectLifecyclePreview } from "../lib/projects.ts";
+import { buildLocalExpenseCorrectionPreview, buildLocalInvoiceCorrectionPreview, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "../lib/financialLifecycle.ts";
 import { DemoAssistant } from "./DemoAssistant.tsx";
 import { DemoEngineeringDocuments } from "./DemoEngineeringDocuments.tsx";
 import { DemoTour } from "./DemoTour.tsx";
@@ -40,6 +41,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const [dashboardCurrency, setDashboardCurrency] = useState("PHP");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [expenseCorrectionContext, setExpenseCorrectionContext] = useState<string | null>(null);
   const appLocation = safeAppLocation(location);
   const activeTab = activeTabFor(location);
   const selectedProject = appLocation?.kind === "project" ? data.projects.find((project) => project.id === appLocation.projectId) || null : null;
@@ -47,7 +49,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const summaries = useMemo(() => buildDemoProjectSummaries(data), [data]);
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
-  const reviewQueue = useMemo(() => data.invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW"), [data.invoices]);
+  const reviewQueue = useMemo(() => data.invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID"), [data.invoices]);
 
   const projectLifecyclePreview = async (project: Project): Promise<ProjectLifecyclePreview> => buildProjectLifecyclePreview(project, {
     invoiceProjectAllocations: data.invoiceAllocations.filter((allocation) => allocation.projectId === project.id).length,
@@ -93,6 +95,36 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
 
   const saveInvoiceAllocations = async (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => {
     dispatch({ type: "SAVE_INVOICE_ALLOCATIONS", invoiceId: invoice.id, value: allocations });
+  };
+
+  const previewInvoiceCorrection = async (invoice: InvoiceData): Promise<FinancialCorrectionPreview> => {
+    const matches = data.cash.matches.filter((match) => match.targetType === "INVOICE" && match.targetId === invoice.id);
+    return buildLocalInvoiceCorrectionPreview({ invoice, allocationCount: data.invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id).length, settlementMatchCount: matches.length, confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length, historyCount: (invoice.extractionId ? 1 : 0) + (invoice.reviewStatus === "VERIFIED" ? 1 : 0) });
+  };
+
+  const applyInvoiceCorrection = async (invoice: InvoiceData, action: FinancialCorrectionAction, reason?: string): Promise<FinancialCorrectionResult> => {
+    const preview = await previewInvoiceCorrection(invoice);
+    if (action === "DELETE_UNUSED") throw new Error("Permanent deletion is unavailable in the demo workspace.");
+    if (action === "VOID" && !preview.canVoid) throw new Error(preview.blockedReason || "This invoice cannot be voided.");
+    const updatedAt = `${data.anchorDate}T14:30:00+08:00`;
+    const record = action === "VOID" ? { ...invoice, lifecycleStatus: "VOID" as const, voidedAt: updatedAt, voidReason: reason?.trim() || "Confirmed invoice void", updatedAt } : action === "ARCHIVE" ? { ...invoice, archivedAt: invoice.archivedAt || updatedAt, updatedAt } : { ...invoice, archivedAt: undefined, updatedAt };
+    dispatch({ type: "FINANCIAL_CORRECTION", entity: "INVOICE", id: invoice.id, action, reason });
+    return { entityType: "INVOICE", entityId: invoice.id, action, deleted: false, changed: true, preflight: preview, record };
+  };
+
+  const previewExpenseCorrection = async (expense: Expense): Promise<FinancialCorrectionPreview> => {
+    const matches = data.cash.matches.filter((match) => match.targetType === "EXPENSE" && match.targetId === expense.id);
+    return buildLocalExpenseCorrectionPreview({ expense, settlementMatchCount: matches.length, confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length, historyCount: expense.createdAt ? 1 : 0 });
+  };
+
+  const applyExpenseCorrection = async (expense: Expense, action: FinancialCorrectionAction, reason?: string): Promise<FinancialCorrectionResult> => {
+    const preview = await previewExpenseCorrection(expense);
+    if (action === "DELETE_UNUSED") throw new Error("Permanent deletion is unavailable in the demo workspace.");
+    if (action === "VOID" && !preview.canVoid) throw new Error(preview.blockedReason || "This expense cannot be voided.");
+    const updatedAt = `${data.anchorDate}T14:30:00+08:00`;
+    const record = action === "VOID" ? { ...expense, status: "VOID" as const, voidedAt: updatedAt, voidReason: reason?.trim() || "Confirmed expense void", updatedAt } : action === "ARCHIVE" ? { ...expense, archivedAt: expense.archivedAt || updatedAt, updatedAt } : { ...expense, archivedAt: undefined, updatedAt };
+    dispatch({ type: "FINANCIAL_CORRECTION", entity: "EXPENSE", id: expense.id, action, reason });
+    return { entityType: "EXPENSE", entityId: expense.id, action, deleted: false, changed: true, preflight: preview, record };
   };
 
   const applyPayrollLifecycle = (request: PayrollLifecycleRequest) => {
@@ -157,6 +189,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onProjectBack={() => onNavigate(demoPathForTab("projects"))}
             onProjectUploadInvoice={() => onNavigate(demoPathForTab("invoices"))}
             onProjectAddExpense={() => onNavigate(demoPathForTab("expenses"))}
+            onProjectOpenExpenseCorrection={(expense) => { setExpenseCorrectionContext(expense.id); onNavigate(demoPathForTab("expenses")); }}
             onProjectOpenPayroll={() => onNavigate(demoPathForTab("payroll"))}
             invoices={data.invoices}
             selectedInvoice={selectedInvoice}
@@ -176,7 +209,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onSelectInvoice={openInvoice}
             onOpenInvoiceForReview={openInvoice}
             onStartReview={(queue) => { const first = queue?.[0] || reviewQueue[0]; if (first) openInvoice(first); }}
-            onDeleteInvoice={(id) => dispatch({ type: "DELETE_INVOICE", id })}
+            onPreviewInvoiceCorrection={previewInvoiceCorrection}
+            onApplyInvoiceCorrection={applyInvoiceCorrection}
             onAddNewInvoice={() => onNavigate(demoPathForTab("extractor"))}
             onExtractInvoice={extractDemoInvoice}
             onLoadInvoicePreset={(invoice) => { dispatch({ type: "SAVE_INVOICE", value: invoice }); openInvoice(invoice); }}
@@ -214,7 +248,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onUpdatePayrollRun={(run: PayrollRun) => dispatch({ type: "UPDATE_PAYROLL_RUN", value: run })}
             expenses={data.expenses}
             onSaveExpense={(expense: Expense) => dispatch({ type: "SAVE_EXPENSE", value: expense })}
-            onArchiveExpense={(expense: Expense) => dispatch({ type: "ARCHIVE_EXPENSE", value: expense })}
+            expenseCorrectionContext={expenseCorrectionContext}
+            onPreviewExpenseCorrection={previewExpenseCorrection}
+            onApplyExpenseCorrection={applyExpenseCorrection}
+            onExpenseCorrectionContextConsumed={() => setExpenseCorrectionContext(null)}
             regionalSettings={DEFAULT_REGIONAL_SETTINGS}
             showDeploymentAccessManagement={false}
           />

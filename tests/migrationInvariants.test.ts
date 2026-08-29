@@ -147,6 +147,10 @@ test("migration invariant: latest migration contains the authoritative superset 
     ],
     "Project Correction Lifecycle (Wave 2B1)": [
       "PROJECT_DELETED_UNUSED", "PROJECT_ARCHIVED", "PROJECT_REACTIVATED"
+    ],
+    "Invoice and Expense Correction Lifecycle (Wave 2B2)": [
+      "INVOICE_DELETED_UNUSED", "INVOICE_VOIDED", "INVOICE_ARCHIVED", "INVOICE_RESTORED",
+      "EXPENSE_DELETED_UNUSED", "EXPENSE_VOIDED", "EXPENSE_ARCHIVED", "EXPENSE_RESTORED"
     ]
   };
 
@@ -161,6 +165,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 82, "Authoritative set must comprise exactly 82 events through Core Hardening Wave 2B1");
-  assert.equal(latestSet.size, 82, `Latest allowlist has ${latestSet.size} unique events, expected 82`);
+  assert.equal(totalExpected, 90, "Authoritative set must comprise exactly 90 events through Core Hardening Wave 2B2");
+  assert.equal(latestSet.size, 90, `Latest allowlist has ${latestSet.size} unique events, expected 90`);
 });
