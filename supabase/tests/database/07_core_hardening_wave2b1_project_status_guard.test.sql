@@ -1,6 +1,16 @@
 begin;
 select no_plan();
 
+select is_empty(
+  $$select 1
+    from information_schema.routine_privileges
+   where routine_schema = 'private'
+     and routine_name in ('project_lifecycle_preflight', 'project_lifecycle_preflight_authorized')
+     and lower(grantee) in ('public', 'anon', 'authenticated')
+     and privilege_type = 'EXECUTE'$$,
+  'project lifecycle internal preflight helpers are not directly executable by client roles'
+);
+
 create temp table wave2b1_status_ids as
 select
   '00000000-0000-4000-8000-000000000301'::uuid as admin_user,
