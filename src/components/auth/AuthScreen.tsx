@@ -258,7 +258,7 @@ export function AuthScreen({
     ? `Sign in to continue to your ${BRAND.productName} workspace.`
     : mode === "sign-up"
       ? invitationRequired
-        ? "Use the invited work email for your company account. An account alone does not grant company access."
+        ? "Use the exact work email authorized by your company administrator. An account alone does not grant company access."
         : "Use your work email to create a secure workspace account."
       : mode === "forgot-password"
         ? "Enter your email and we’ll send instructions if an account matches."

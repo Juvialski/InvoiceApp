@@ -98,8 +98,9 @@ test("profile and access UI expose truthful states and remain isolated from the 
   assert.match(accessManagement, /Custom deny/);
   assert.match(accessManagement, /effectivePermissions/);
   assert.match(accessManagement, /Own access protected/);
-  assert.match(accessManagement, /Delivery failed/);
-  assert.match(accessManagement, /Resend/);
+  assert.match(accessManagement, /Add user access/);
+  assert.match(accessManagement, /Awaiting signup/);
+  assert.doesNotMatch(accessManagement, /Invitation email sent|Delivery failed|Resend/);
   assert.match(server, /\/api\/company\/invitations/);
   assert.match(server, /platform_create_company_invitation/);
   assert.match(server, /platform_mark_company_invitation_delivery/);

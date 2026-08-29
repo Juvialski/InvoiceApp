@@ -556,6 +556,9 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", primaryModel: PRIMARY_MODEL, accuracyModel: ACCURACY_MODEL, timestamp: new Date().toISOString() });
 });
 
+// Legacy delivery compatibility only. The primary Company Access UI now uses
+// authorize_company_member_email() directly with the authenticated browser
+// session, so this SMTP/secret-dependent route is not required for access.
 app.post("/api/company/invitations", async (req, res) => {
   let auth: CompanyRequestAuthorization;
   try {

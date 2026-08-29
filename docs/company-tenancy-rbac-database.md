@@ -45,7 +45,8 @@ The original tenancy migrations remain additive and data-preserving:
 10. `20260828150000_single_company_deployment.sql` converts application semantics to one configured deployment company, removes platform-owner business-data override, binds invitations/member administration to that company, and disables authenticated creation of additional companies.
 11. `20260828151000_single_company_access_guards.sql` prevents membership/invitation retargeting, prevents creating another company after deployment configuration, and prevents demoting/revoking/suspending/deleting the last active `COMPANY_ADMIN`.
 12. `20260828151500_single_company_platform_update_signature_transition.sql` and `20260828152000_single_company_platform_maintenance.sql` finalize compatibility RPC signatures and bind internal maintenance to the configured deployment company.
-13. `20260829003147_core_hardening_wave1_access_management.sql` adds company-bound member/invitation permission overrides, effective-permission evaluation, audited invitation delivery state, and company-admin profile editing while keeping direct invitation creation/delivery RPCs backend-only.
+13. `20260829003147_core_hardening_wave1_access_management.sql` adds company-bound member/invitation permission overrides, effective-permission evaluation, audited historical delivery state, and company-admin profile editing.
+14. `20260829132712_email_access_preauthorization.sql` adds authenticated email access authorization, pending override editing, verified-email claim lifecycle, and explicit authorization/membership audit events without requiring invitation delivery.
 
 No single-company migration deletes business rows, historical companies, or Storage objects. Historical extra-company rows on an upgraded database remain preserved but are inaccessible through ordinary client-deployment authorization once a deployment company is configured. They should be exported/split deliberately if a legacy multi-company database is ever converted into separate client deployments.
 
@@ -57,7 +58,7 @@ Runtime bootstrap:
 
 - `get_deployment_company_id()` resolves the configured company or raises an explicit configuration error.
 - `get_my_company_access()` returns only that deployment company and the current user's membership/effective permissions in it. It does not project global platform-owner state into the client app.
-- `claim_company_invitations()` claims only unexpired invitations marked `SENT` by the trusted delivery path, for the deployment company and matching verified email. It never reactivates an existing suspended or revoked membership.
+- `claim_company_invitations()` claims only unexpired pending authorizations for the deployment company and matching verified email. Historical delivery state is not an authorization condition, and the function never reactivates an existing suspended or revoked membership.
 - `has_company_permission(company_id, permission_key)` succeeds only when `company_id` is the configured deployment company and the authenticated user has an ACTIVE membership with role-baseline or explicit grant access that is not explicitly denied in an ACTIVE company.
 
 The legacy company header remains a compatibility transport for Express endpoints, but it is not a selection mechanism. Browser `companyApiRequest()` replaces it with the resolved deployment-company ID and rejects a mismatched caller-supplied ID before sending a request. Database permission helpers independently reject a different company ID, so frontend hiding is not the security boundary.
@@ -73,7 +74,7 @@ Seeded company roles remain:
 
 `company.members.read` allows permitted access-directory/audit reading. `company.members.manage` and `company.settings.manage` remain role-controlled administration capabilities; they are intentionally not assignable through member overrides. Other catalog permissions may be explicitly granted or denied only when the acting administrator already holds the permission and the catalog marks it member-assignable.
 
-Company administrators manage the profile and members under the Settings surface for the deployment company. Profile edits, role changes, suspension/reactivation, revocation, and permission overrides are authorized again at the database RPC layer; the administrator does not choose a company. The Express invitation endpoint creates the authorization row with a backend-only Supabase secret, calls Auth `inviteUserByEmail()` (or sends a sign-in link for an existing Auth user), and records `CREATED`, `SENT`, or `FAILED` delivery state. Database triggers and override RPC checks prevent removing the last usable access-management authority.
+Company administrators manage the profile, members, and pending email access authorizations under the Settings surface for the deployment company. Profile edits, role changes, suspension/reactivation, revocation, authorization creation, and permission overrides are authorized again at the database RPC layer; the administrator does not choose a company. The primary authorization path uses the authenticated browser session and does not call the Express invitation-delivery endpoint. Historical `CREATED`, `SENT`, or `FAILED` delivery state remains readable for compatibility, while database triggers and override RPC checks prevent removing the last usable access-management authority.
 
 Platform-owner maintenance tables/RPC names remain for migration compatibility and explicit internal maintenance only. The final deployment migration clears inherited platform-admin and allowlist records because the legacy tables do not preserve seed provenance; an internal operator must be provisioned deliberately afterward if needed. Ordinary client deployments do not expose global navigation or platform-owner business-data access. A future fleet operator console belongs in a separate internal deployment/tool.
 
@@ -104,7 +105,7 @@ For a new client, follow [`SINGLE_COMPANY_DEPLOYMENT.md`](SINGLE_COMPANY_DEPLOYM
 2. apply all migrations;
 3. create exactly one client company and set `deployment_configuration.company_id` using an administrative/service-role provisioning step;
 4. create the initial `COMPANY_ADMIN` membership;
-5. configure secrets and deploy the client service, including the backend-only `SUPABASE_INVITATION_SERVER_KEY` and canonical `APP_ORIGIN` for invitation delivery;
+5. configure the Supabase URL/publishable key and any existing server-side AI secrets; no invitation-delivery secret or SMTP configuration is required for access authorization;
 6. run RLS/Storage/role smoke tests before inviting remaining users.
 
 Production verification should include `verify_company_tenancy()` where supported, the repository migration test suites, role-specific route tests, wrong-company header/RPC probes, Storage-prefix probes, invitation/member administration, logout/login stale-context checks, and explicit validation that the deployment has exactly one configured company.

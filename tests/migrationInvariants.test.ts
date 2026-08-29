@@ -154,6 +154,11 @@ test("migration invariant: latest migration contains the authoritative superset 
     "Invoice and Expense Correction Lifecycle (Wave 2B2)": [
       "INVOICE_DELETED_UNUSED", "INVOICE_VOIDED", "INVOICE_ARCHIVED", "INVOICE_RESTORED",
       "EXPENSE_DELETED_UNUSED", "EXPENSE_VOIDED", "EXPENSE_ARCHIVED", "EXPENSE_RESTORED"
+    ],
+    "Email Access Preauthorization": [
+      "ACCESS_AUTHORIZATION_CREATED", "ACCESS_AUTHORIZATION_PERMISSIONS_UPDATED",
+      "ACCESS_AUTHORIZATION_REVOKED", "ACCESS_AUTHORIZATION_ACCEPTED",
+      "MEMBERSHIP_CREATED", "PERMISSION_OVERRIDES_TRANSFERRED"
     ]
   };
 
@@ -168,6 +173,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 96, "Authoritative set must comprise exactly 96 events through Core Hardening Wave 2C");
-  assert.equal(latestSet.size, 96, `Latest allowlist has ${latestSet.size} unique events, expected 96`);
+  assert.equal(totalExpected, 102, "Authoritative set must comprise exactly 102 events through email access preauthorization");
+  assert.equal(latestSet.size, 102, `Latest allowlist has ${latestSet.size} unique events, expected 102`);
 });

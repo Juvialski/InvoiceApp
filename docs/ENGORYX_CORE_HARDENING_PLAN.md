@@ -16,7 +16,7 @@ The goal of this program is not to add surface area. It is to make existing work
 
 ### Wave 1 status
 
-Company profile editing, trusted invitation delivery/lifecycle state, and per-member permission overrides are implemented in the focused Wave 1 change. Final live Supabase replay, authenticated role probes, configured email delivery, and browser evidence remain release validation requirements; Scheduling/Gantt/CPM remain planned and frozen.
+Company profile editing, email access preauthorization, verified-email membership claiming, and per-member permission overrides are implemented in the focused Wave 1 changes. Final live Supabase replay, authenticated role probes, and authenticated browser evidence remain release validation requirements; SMTP/invitation delivery is not required for access; Scheduling/Gantt/CPM remain planned and frozen.
 
 ## Execution model
 
@@ -80,22 +80,20 @@ Requirements:
 - provide a clear first-run/company-setup path for a newly provisioned deployment;
 - company updates are permission-checked, audited, company-bound, and reflected across the UI after refresh.
 
-### 1B. Real invitation delivery
+### 1B. Email access preauthorization
 
-Current database invitations are useful authorization state but are not sufficient UX if no message reaches the recipient.
-
-Implement a real server-side invitation delivery path using the deployment's supported Supabase Auth/server/Edge Function architecture.
+The deployment does not require an invitation email to authorize a user. A Company Admin creates a pending authorization for an exact normalized email, and the user signs up normally through Supabase Auth.
 
 Requirements:
 
-- never expose a service-role secret in the browser;
-- invitation is bound to the exact normalized email and deployment company;
-- recipient receives a usable Engoryx invitation/sign-in path;
+- browser creation uses an authenticated guarded database RPC, not a service-role secret or SMTP-dependent server endpoint;
+- authorization is bound to the exact normalized email and deployment company;
+- the user completes the existing Supabase Auth signup and email-verification flow;
 - expiry/revoke/accept states remain authoritative in the database;
 - login/claim only succeeds for the matching verified email;
-- resend/revoke behavior is clear and audited;
-- delivery failure must not be presented as a successfully sent email;
-- invitation UI distinguishes `created`, `sent`, `delivery failed`, `accepted`, `revoked`, and `expired` as appropriate to the chosen implementation.
+- pending permission overrides transfer exactly once when membership is created;
+- historical delivery fields and old invitation audit records remain readable without controlling authorization;
+- access UI clearly distinguishes pending `Awaiting signup`, accepted, revoked, and expired authorization states.
 
 ### 1C. Per-member permission customization
 
@@ -131,9 +129,9 @@ At minimum cover:
 
 - company-name/profile edit and refresh persistence;
 - no company-ID mutation/switching;
-- invitation create/send/accept/revoke/expire/resend paths;
+- authorization create/claim/revoke/expire paths;
 - wrong-email claim rejection;
-- delivery failure UX;
+- unauthorized-user access state;
 - role preset behavior;
 - grant override;
 - deny override;

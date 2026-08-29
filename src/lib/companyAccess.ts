@@ -1,11 +1,12 @@
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { hasPermission, normalizePermissionKeys, type PermissionKey } from "../utils/accessControl.ts";
-import { companyApiRequest } from "./companyApi.ts";
 import { supabase } from "./supabase.ts";
 
 export const COMPANY_ACCESS_RPC = "get_my_company_access";
 export const BOOTSTRAP_PLATFORM_ADMIN_RPC = "bootstrap_platform_admin";
 export const CLAIM_COMPANY_INVITATIONS_RPC = "claim_company_invitations";
+export const AUTHORIZE_COMPANY_MEMBER_EMAIL_RPC = "authorize_company_member_email";
+export const UPDATE_COMPANY_INVITATION_PERMISSIONS_RPC = "update_company_invitation_permissions";
 export const PLATFORM_CREATE_COMPANY_RPC = "platform_create_company";
 export const PLATFORM_UPDATE_COMPANY_RPC = "platform_update_company";
 export const PLATFORM_INVITE_MEMBER_RPC = "platform_invite_company_member";
@@ -14,6 +15,7 @@ export const PLATFORM_LIST_MEMBERS_RPC = "platform_list_company_members";
 export const PLATFORM_LIST_MEMBER_DIRECTORY_RPC = "platform_list_company_member_directory";
 export const PLATFORM_LIST_AUDIT_RPC = "platform_list_access_audit";
 export const PLATFORM_LIST_INVITATIONS_RPC = "platform_list_company_invitations";
+export const PLATFORM_LIST_INVITATIONS_WITH_OVERRIDES_RPC = "platform_list_company_invitations_with_overrides";
 export const PLATFORM_LIST_PERMISSION_CATALOG_RPC = "platform_list_company_permission_catalog";
 export const PLATFORM_UPDATE_MEMBER_PERMISSIONS_RPC = "platform_update_company_member_permissions";
 export const REVOKE_INVITATION_RPC = "revoke_company_invitation";
@@ -78,6 +80,7 @@ export interface CompanyInvitationSummary {
   createdAt?: string;
   expiresAt?: string;
   updatedAt?: string;
+  permissionOverrides: CompanyMemberPermissionOverride[];
 }
 
 export interface CompanyMembership {
@@ -133,6 +136,12 @@ export interface UpdateCompanyMemberInput {
 export interface UpdateCompanyMemberPermissionsInput {
   companyId: string;
   membershipId: string;
+  overrides: Array<Pick<CompanyMemberPermissionOverride, "permissionKey" | "effect">>;
+}
+
+export interface UpdateCompanyInvitationPermissionsInput {
+  companyId: string;
+  invitationId: string;
   overrides: Array<Pick<CompanyMemberPermissionOverride, "permissionKey" | "effect">>;
 }
 
@@ -342,8 +351,9 @@ export async function bootstrapPlatformAdmin(client: SupabaseClient | null = sup
   return data === true;
 }
 export async function claimCompanyInvitations(client: SupabaseClient | null = supabase) {
-  const { error } = await requireSupabaseClient(client).rpc(CLAIM_COMPANY_INVITATIONS_RPC);
+  const { data, error } = await requireSupabaseClient(client).rpc(CLAIM_COMPANY_INVITATIONS_RPC);
   if (error) throw error;
+  return data;
 }
 
 export async function loadCompanyAccess(client: SupabaseClient | null = supabase): Promise<CompanyAccessSnapshot> {
@@ -392,6 +402,7 @@ function invitationFromRecord(value: unknown): CompanyInvitationSummary {
     createdAt: text(firstPresent(row, "created_at", "createdAt")),
     expiresAt: text(firstPresent(row, "expires_at", "expiresAt")),
     updatedAt: text(firstPresent(row, "updated_at", "updatedAt")),
+    permissionOverrides: permissionOverridesFromRecord(firstPresent(row, "permission_overrides", "permissionOverrides")),
   };
 }
 
@@ -423,36 +434,20 @@ export async function updateCompany(companyId: string, patch: Partial<Pick<Compa
   return company;
 }
 
-export async function inviteCompanyMember(input: InviteCompanyMemberInput, client: SupabaseClient | null = supabase) {
-  if (client === supabase) {
-    const response = await companyApiRequest("/api/company/invitations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: input.email,
-        roleKey: input.roleKey,
-        expiresAt: input.expiresAt,
-        permissionOverrides: input.permissionOverrides?.map((override) => ({ permission_key: override.permissionKey, effect: override.effect })),
-      }),
-      companyId: input.companyId,
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload?.success === false) throw new Error(payload?.error || "The invitation email could not be sent.");
-    return payload?.invitation || payload;
-  }
-
-  // Test/compatibility clients may still exercise the RPC adapter directly;
-  // production callers use the trusted server path above, and the migration
-  // revokes this direct browser execution path.
-  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_INVITE_MEMBER_RPC, {
+export async function authorizeCompanyMemberEmail(input: InviteCompanyMemberInput, client: SupabaseClient | null = supabase) {
+  const { data, error } = await requireSupabaseClient(client).rpc(AUTHORIZE_COMPANY_MEMBER_EMAIL_RPC, {
     p_company_id: input.companyId,
     p_email: input.email.trim().toLowerCase(),
     p_role_key: input.roleKey,
+    p_permission_overrides: input.permissionOverrides?.map((override) => ({ permission_key: override.permissionKey, effect: override.effect })) || [],
     p_expires_at: input.expiresAt || null,
   });
   if (error) throw error;
   return unwrapRpcPayload(data);
 }
+
+/** Compatibility alias for callers that still use the old invitation name. */
+export const inviteCompanyMember = authorizeCompanyMemberEmail;
 
 export async function updateCompanyMember(input: UpdateCompanyMemberInput, client: SupabaseClient | null = supabase) {
   const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_UPDATE_MEMBER_RPC, {
@@ -470,6 +465,16 @@ export async function updateCompanyMemberPermissions(input: UpdateCompanyMemberP
   const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_UPDATE_MEMBER_PERMISSIONS_RPC, {
     p_company_id: input.companyId,
     p_membership_id: input.membershipId,
+    p_overrides: input.overrides.map((override) => ({ permission_key: override.permissionKey, effect: override.effect })),
+  });
+  if (error) throw error;
+  return unwrapRpcPayload(data);
+}
+
+export async function updateCompanyInvitationPermissions(input: UpdateCompanyInvitationPermissionsInput, client: SupabaseClient | null = supabase) {
+  const { data, error } = await requireSupabaseClient(client).rpc(UPDATE_COMPANY_INVITATION_PERMISSIONS_RPC, {
+    p_company_id: input.companyId,
+    p_invitation_id: input.invitationId,
     p_overrides: input.overrides.map((override) => ({ permission_key: override.permissionKey, effect: override.effect })),
   });
   if (error) throw error;
@@ -494,7 +499,7 @@ export async function loadCompanyMembers(companyId: string, client: SupabaseClie
 }
 
 export async function loadCompanyInvitations(companyId: string, client: SupabaseClient | null = supabase): Promise<CompanyInvitationSummary[]> {
-  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_INVITATIONS_RPC, { p_company_id: companyId });
+  const { data, error } = await requireSupabaseClient(client).rpc(PLATFORM_LIST_INVITATIONS_WITH_OVERRIDES_RPC, { p_company_id: companyId });
   if (error) throw error;
   return unwrapRows<unknown>(data).map(invitationFromRecord).filter((invitation) => invitation.companyId === companyId || !invitation.companyId);
 }
