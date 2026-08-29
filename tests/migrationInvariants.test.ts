@@ -83,7 +83,7 @@ test("migration invariant: company_audit_events allowlist only ever grows across
   );
 });
 
-test("migration invariant: latest migration contains the authoritative superset of all 58 audit event types", () => {
+test("migration invariant: latest migration contains the authoritative superset of all Wave 1 audit event types", () => {
   const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
   let latestConstraintMigration = "";
   let latestAllowlist: string[] = [];
@@ -104,8 +104,8 @@ test("migration invariant: latest migration contains the authoritative superset 
   const expectedCategories: Record<string, string[]> = {
     "Company Tenancy & Member Access": [
       "COMPANY_CREATED", "COMPANY_UPDATED", "COMPANY_SUSPENDED", "COMPANY_ARCHIVED", "COMPANY_REACTIVATED",
-      "USER_INVITED", "INVITE_REVOKED", "INVITE_ACCEPTED",
-      "MEMBER_ROLE_CHANGED", "MEMBER_SUSPENDED", "MEMBER_REACTIVATED", "MEMBER_REVOKED"
+      "USER_INVITED", "INVITE_REVOKED", "INVITE_ACCEPTED", "INVITATION_SENT", "INVITATION_DELIVERY_FAILED",
+      "MEMBER_ROLE_CHANGED", "MEMBER_SUSPENDED", "MEMBER_REACTIVATED", "MEMBER_REVOKED", "MEMBER_PERMISSIONS_UPDATED"
     ],
     "Payroll Maintenance & Factory Reset": [
       "PAYROLL_REPAIR_APPLIED", "PAYROLL_CALENDAR_REBUILT", "PAYROLL_UNAPPROVED_RESET", "PAYROLL_WORKSPACE_RESET"
@@ -148,6 +148,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 58, "Authoritative set must comprise exactly 58 events through financial settlement integration");
-  assert.equal(latestSet.size, 58, `Latest allowlist has ${latestSet.size} unique events, expected 58`);
+  assert.equal(totalExpected, 61, "Authoritative set must comprise exactly 61 events through Core Hardening Wave 1");
+  assert.equal(latestSet.size, 61, `Latest allowlist has ${latestSet.size} unique events, expected 61`);
 });

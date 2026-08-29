@@ -6,13 +6,14 @@
   "purpose": "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   "canonicalSource": "scripts/workflow-map/graph.ts",
   "sourceClassification": "mixed",
-  "reviewedCommitSha": "b88584f147b85d0b8154a4c104859a0e035bed82",
-  "reviewedAt": "2026-08-28",
+  "reviewedCommitSha": "5900a9dffa3e0e5d99a2d076318f2dbaa7f7bce4",
+  "reviewedAt": "2026-08-29",
   "phaseTags": [
     "Phase 0",
     "Phase 1A",
     "Phase 1B",
     "Phase 1C",
+    "Core Hardening Wave 1",
     "Cross-Domain Settlement",
     "QA-1",
     "WM-1"
@@ -47,7 +48,9 @@
         "src/lib/companyAccess.ts",
         "src/utils/accessControl.ts",
         "supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql",
-        "supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql"
+        "supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql",
+        "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql",
+        "src/server/access/invitationDelivery.ts"
       ],
       "testRefs": [
         "tests/companyAccess.test.ts",
@@ -370,7 +373,7 @@
       "domain": "platform-tenancy",
       "type": "data",
       "scope": "company",
-      "description": "The deployment-resolved company plus the authenticated user membership and permission snapshot; no tenant picker or unrelated company selection is authoritative.",
+      "description": "The deployment-resolved company plus the authenticated user membership and effective permission snapshot; no tenant picker or unrelated company selection is authoritative.",
       "fileRefs": [
         "src/context/CompanyAccessContext.tsx",
         "src/lib/companyAccess.ts",
@@ -392,15 +395,17 @@
       "domain": "platform-tenancy",
       "type": "data",
       "scope": "company",
-      "description": "Membership status, role, company status, and permissions returned by the company-access RPC boundary.",
+      "description": "Membership status, role preset, explicit overrides, delivery-aware invitations, and effective permissions returned by guarded access RPC boundaries.",
       "fileRefs": [
         "src/lib/companyAccess.ts",
         "src/context/CompanyAccessContext.tsx",
-        "supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql"
+        "supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql",
+        "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql"
       ],
       "testRefs": [
         "tests/companyTenancyRpcContract.test.ts",
-        "tests/companyTenancyFinalContract.test.ts"
+        "tests/companyTenancyFinalContract.test.ts",
+        "tests/coreHardeningWave1.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative"
@@ -413,25 +418,131 @@
       "domain": "platform-tenancy",
       "type": "guard",
       "scope": "company",
-      "description": "Fail-closed permission checks and database-enforced company isolation for routes, records, Storage, Realtime, and RPCs.",
+      "description": "Fail-closed effective-permission checks and database-enforced company isolation for routes, records, Storage, Realtime, access administration, and RPCs.",
       "permissionKeys": [
         "dashboard.read",
         "projects.read",
         "cash.summary.read",
         "invoices.read",
         "payroll.summary.read",
-        "reports.financial.read"
+        "reports.financial.read",
+        "company.members.read",
+        "company.members.manage",
+        "company.settings.manage"
       ],
       "fileRefs": [
         "src/utils/accessControl.ts",
         "src/lib/companyAccess.ts",
         "supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql",
-        "supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql"
+        "supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql",
+        "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql"
       ],
       "testRefs": [
         "tests/companyAccess.test.ts",
         "tests/companyTenancyMigration.test.ts",
-        "tests/serverAuthorization.test.ts"
+        "tests/serverAuthorization.test.ts",
+        "tests/coreHardeningWave1.test.ts"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "company-profile-settings",
+      "label": "Deployment company profile",
+      "domain": "platform-tenancy",
+      "type": "screen",
+      "scope": "company",
+      "description": "Company-admin profile editor for the configured deployment company name, code, default currency, and timezone with read-only fallback and audited persistence.",
+      "permissionKeys": [
+        "company.settings.read",
+        "company.settings.manage"
+      ],
+      "fileRefs": [
+        "src/components/access/CompanyProfileSettings.tsx",
+        "src/components/Settings.tsx",
+        "src/lib/companyAccess.ts",
+        "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql"
+      ],
+      "testRefs": [
+        "tests/companyRename.test.ts",
+        "tests/coreHardeningWave1.test.ts"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "company-access-management",
+      "label": "Company access management",
+      "domain": "platform-tenancy",
+      "type": "screen",
+      "scope": "company",
+      "description": "Settings access directory for member roles, invitation lifecycle state, effective permissions, and safe self-access protection.",
+      "permissionKeys": [
+        "company.members.read",
+        "company.members.manage"
+      ],
+      "fileRefs": [
+        "src/components/access/DeploymentAccessManagement.tsx",
+        "src/context/CompanyAccessContext.tsx",
+        "src/lib/companyAccess.ts"
+      ],
+      "testRefs": [
+        "tests/singleCompanyDeployment.test.ts",
+        "tests/coreHardeningWave1.test.ts"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "company-invitation-delivery",
+      "label": "Trusted invitation delivery",
+      "domain": "platform-tenancy",
+      "type": "external-boundary",
+      "scope": "company",
+      "statusValues": [
+        "CREATED",
+        "SENT",
+        "FAILED",
+        "ACCEPTED",
+        "REVOKED",
+        "EXPIRED"
+      ],
+      "description": "Authenticated server hop creates a company-bound invitation, calls Supabase Auth from backend-only secret configuration, records delivery outcome, and only allows SENT invitations to be claimed.",
+      "permissionKeys": [
+        "company.members.manage"
+      ],
+      "fileRefs": [
+        "server.ts",
+        "src/server/access/invitationDelivery.ts",
+        "src/context/CompanyAccessContext.tsx",
+        "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql"
+      ],
+      "testRefs": [
+        "tests/coreHardeningWave1.test.ts"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "company-member-permission-editor",
+      "label": "Member permission overrides",
+      "domain": "platform-tenancy",
+      "type": "guard",
+      "scope": "company",
+      "description": "Role-preserving grant/deny editor backed by canonical permission catalog, company-bound membership foreign keys, caller-held-permission checks, and last-authority protection.",
+      "permissionKeys": [
+        "company.members.manage"
+      ],
+      "fileRefs": [
+        "src/components/access/DeploymentAccessManagement.tsx",
+        "src/utils/accessControl.ts",
+        "supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql"
+      ],
+      "testRefs": [
+        "tests/coreHardeningWave1.test.ts",
+        "tests/companyAccess.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative"
@@ -1219,10 +1330,13 @@
       "fileRefs": [
         "src/utils/routes.ts",
         "src/app/routes/SettingsRoute.tsx",
-        "src/components/Settings.tsx"
+        "src/components/Settings.tsx",
+        "src/components/access/CompanyProfileSettings.tsx",
+        "src/components/access/DeploymentAccessManagement.tsx"
       ],
       "testRefs": [
-        "tests/appRouting.test.ts"
+        "tests/appRouting.test.ts",
+        "tests/coreHardeningWave1.test.ts"
       ]
     },
     {
@@ -4802,6 +4916,78 @@
       "label": "opens"
     },
     {
+      "id": "route-settings-to-company-profile",
+      "source": "route-settings",
+      "target": "company-profile-settings",
+      "type": "contains",
+      "kind": "navigation",
+      "label": "company profile",
+      "permissionKeys": [
+        "company.settings.read"
+      ]
+    },
+    {
+      "id": "route-settings-to-access-management",
+      "source": "route-settings",
+      "target": "company-access-management",
+      "type": "contains",
+      "kind": "navigation",
+      "label": "company access",
+      "permissionKeys": [
+        "company.members.read"
+      ]
+    },
+    {
+      "id": "access-management-to-membership",
+      "source": "company-access-management",
+      "target": "company-membership",
+      "type": "reads",
+      "kind": "read-flow",
+      "label": "members and roles",
+      "permissionKeys": [
+        "company.members.read"
+      ]
+    },
+    {
+      "id": "access-management-to-invitation-delivery",
+      "source": "company-access-management",
+      "target": "company-invitation-delivery",
+      "type": "executes-through",
+      "kind": "external-boundary",
+      "label": "trusted invitation email",
+      "permissionKeys": [
+        "company.members.manage"
+      ]
+    },
+    {
+      "id": "access-management-to-permission-editor",
+      "source": "company-access-management",
+      "target": "company-member-permission-editor",
+      "type": "contains",
+      "kind": "guard",
+      "label": "effective overrides",
+      "permissionKeys": [
+        "company.members.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative"
+      ]
+    },
+    {
+      "id": "invitation-delivery-to-membership",
+      "source": "company-invitation-delivery",
+      "target": "company-membership",
+      "type": "feeds",
+      "kind": "guard",
+      "label": "verified SENT claim",
+      "permissionKeys": [
+        "company.members.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative"
+      ]
+    },
+    {
       "id": "directory-to-selection",
       "source": "project-directory",
       "target": "project-selection",
@@ -6571,6 +6757,10 @@
         "demo-mode",
         "company-context",
         "company-rbac",
+        "company-profile-settings",
+        "company-access-management",
+        "company-invitation-delivery",
+        "company-member-permission-editor",
         "demo-isolation",
         "production-persistence-boundary",
         "route-projects",

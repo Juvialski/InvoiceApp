@@ -20,7 +20,8 @@ test("access revalidation clears stale company permissions before resolving the 
   assert.match(access, /Promise\.all\(\[\s*loadCompanyAccess\(supabase\),\s*loadDeploymentCompanyId\(supabase\)/);
   assert.match(access, /resolveDeploymentCompanyAccess\(loaded, deploymentCompanyId\)/);
   assert.match(access, /const result = await updateCompanyApi\(deploymentCompanyId, patch\);\r?\n\s+await refreshAccess\(\);/);
-  assert.match(access, /return inviteCompanyMemberApi\(\{ \.\.\.input, companyId: deploymentCompanyId \}\);/);
+  assert.match(access, /companyApiRequest\("\/api\/company\/invitations"/);
+  assert.match(access, /resendCompanyInvitation/);
 });
 
 test("access bootstrap is coalesced per stable user identity and has no tenant-selection generation", () => {

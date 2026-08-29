@@ -45,6 +45,7 @@ The original tenancy migrations remain additive and data-preserving:
 10. `20260828150000_single_company_deployment.sql` converts application semantics to one configured deployment company, removes platform-owner business-data override, binds invitations/member administration to that company, and disables authenticated creation of additional companies.
 11. `20260828151000_single_company_access_guards.sql` prevents membership/invitation retargeting, prevents creating another company after deployment configuration, and prevents demoting/revoking/suspending/deleting the last active `COMPANY_ADMIN`.
 12. `20260828151500_single_company_platform_update_signature_transition.sql` and `20260828152000_single_company_platform_maintenance.sql` finalize compatibility RPC signatures and bind internal maintenance to the configured deployment company.
+13. `20260829003147_core_hardening_wave1_access_management.sql` adds company-bound member/invitation permission overrides, effective-permission evaluation, audited invitation delivery state, and company-admin profile editing while keeping direct invitation creation/delivery RPCs backend-only.
 
 No single-company migration deletes business rows, historical companies, or Storage objects. Historical extra-company rows on an upgraded database remain preserved but are inaccessible through ordinary client-deployment authorization once a deployment company is configured. They should be exported/split deliberately if a legacy multi-company database is ever converted into separate client deployments.
 
@@ -55,9 +56,9 @@ All public application RPCs remain `authenticated`-only with `public`/`anon` exe
 Runtime bootstrap:
 
 - `get_deployment_company_id()` resolves the configured company or raises an explicit configuration error.
-- `get_my_company_access()` returns only that deployment company and the current user's membership/permissions in it. It does not project global platform-owner state into the client app.
-- `claim_company_invitations()` claims only invitations for the deployment company.
-- `has_company_permission(company_id, permission_key)` succeeds only when `company_id` is the configured deployment company and the authenticated user has an ACTIVE membership/role permission in an ACTIVE company.
+- `get_my_company_access()` returns only that deployment company and the current user's membership/effective permissions in it. It does not project global platform-owner state into the client app.
+- `claim_company_invitations()` claims only unexpired invitations marked `SENT` by the trusted delivery path, for the deployment company and matching verified email. It never reactivates an existing suspended or revoked membership.
+- `has_company_permission(company_id, permission_key)` succeeds only when `company_id` is the configured deployment company and the authenticated user has an ACTIVE membership with role-baseline or explicit grant access that is not explicitly denied in an ACTIVE company.
 
 The legacy company header remains a compatibility transport for Express endpoints, but it is not a selection mechanism. Browser `companyApiRequest()` replaces it with the resolved deployment-company ID and rejects a mismatched caller-supplied ID before sending a request. Database permission helpers independently reject a different company ID, so frontend hiding is not the security boundary.
 
@@ -70,9 +71,9 @@ Seeded company roles remain:
 - `PAYROLL`: payroll/workforce/compensation/import/settings/approval/reporting and minimal project references; no supplier invoice/expense/vendor/Gmail access unless separately granted.
 - `VIEWER`: read-only permitted financial/project surfaces and payroll aggregate summaries; no writes or payroll detail.
 
-`company.members.read` allows permitted access-directory/audit reading. `company.members.manage` is the mutation permission added by the single-company conversion and is granted to `COMPANY_ADMIN`.
+`company.members.read` allows permitted access-directory/audit reading. `company.members.manage` and `company.settings.manage` remain role-controlled administration capabilities; they are intentionally not assignable through member overrides. Other catalog permissions may be explicitly granted or denied only when the acting administrator already holds the permission and the catalog marks it member-assignable.
 
-Company administrators manage members under the Settings surface for the deployment company. Invitation creation, role changes, suspension/reactivation, and revocation are authorized again at the database RPC layer using `company.members.manage`; the administrator does not choose a company. Database triggers prevent removing the last active Company Admin.
+Company administrators manage the profile and members under the Settings surface for the deployment company. Profile edits, role changes, suspension/reactivation, revocation, and permission overrides are authorized again at the database RPC layer; the administrator does not choose a company. The Express invitation endpoint creates the authorization row with a backend-only Supabase secret, calls Auth `inviteUserByEmail()` (or sends a sign-in link for an existing Auth user), and records `CREATED`, `SENT`, or `FAILED` delivery state. Database triggers and override RPC checks prevent removing the last usable access-management authority.
 
 Platform-owner maintenance tables/RPC names remain for migration compatibility and explicit internal maintenance only. The final deployment migration clears inherited platform-admin and allowlist records because the legacy tables do not preserve seed provenance; an internal operator must be provisioned deliberately afterward if needed. Ordinary client deployments do not expose global navigation or platform-owner business-data access. A future fleet operator console belongs in a separate internal deployment/tool.
 
@@ -89,7 +90,7 @@ Existing Storage RLS resolves the company prefix and calls company permission he
 
 Gmail connections, sync state, imported messages, source documents, and conflict keys remain company-scoped. There is no Gmail company selector. Clearing/re-resolving authenticated company access also clears the browser persistence context before another request can be issued.
 
-The Engoryx Assistant runs with the same deployment company and current permission set as the rest of the application. `companyApiRequest()` rejects a mismatched company target, server/database permission checks remain authoritative, canonical route authorization remains unchanged, and the integrity hardening for payroll-detail redaction, incomplete aggregates, read-only invoice behavior, Gmail read/manage separation, project nested routes, and mutation confirmation remains in force.
+The Engoryx Assistant runs with the same deployment company and current effective permission set as the rest of the application. `companyApiRequest()` rejects a mismatched company target, server/database permission checks remain authoritative, canonical route authorization remains unchanged, and the integrity hardening for payroll-detail redaction, incomplete aggregates, read-only invoice behavior, Gmail read/manage separation, project nested routes, and mutation confirmation remains in force.
 
 ## Demo isolation
 
@@ -103,7 +104,7 @@ For a new client, follow [`SINGLE_COMPANY_DEPLOYMENT.md`](SINGLE_COMPANY_DEPLOYM
 2. apply all migrations;
 3. create exactly one client company and set `deployment_configuration.company_id` using an administrative/service-role provisioning step;
 4. create the initial `COMPANY_ADMIN` membership;
-5. configure secrets and deploy the client service;
+5. configure secrets and deploy the client service, including the backend-only `SUPABASE_INVITATION_SERVER_KEY` and canonical `APP_ORIGIN` for invitation delivery;
 6. run RLS/Storage/role smoke tests before inviting remaining users.
 
 Production verification should include `verify_company_tenancy()` where supported, the repository migration test suites, role-specific route tests, wrong-company header/RPC probes, Storage-prefix probes, invitation/member administration, logout/login stale-context checks, and explicit validation that the deployment has exactly one configured company.

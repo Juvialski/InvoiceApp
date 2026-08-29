@@ -14,6 +14,10 @@ The architectural baseline is:
 
 The goal of this program is not to add surface area. It is to make existing workflows complete, recoverable, permission-correct, financially truthful, and production-ready.
 
+### Wave 1 status
+
+Company profile editing, trusted invitation delivery/lifecycle state, and per-member permission overrides are implemented in the focused Wave 1 change. Final live Supabase replay, authenticated role probes, configured email delivery, and browser evidence remain release validation requirements; Scheduling/Gantt/CPM remain planned and frozen.
+
 ## Execution model
 
 Each wave should normally be its own focused PR and fresh agent session.
