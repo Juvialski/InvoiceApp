@@ -129,6 +129,31 @@ select lives_ok(
   'metadata edits remain available without changing archived lifecycle fields'
 );
 
+select lives_ok(
+  $$insert into public.projects (
+      id, user_id, company_id, project_code, project_name, status,
+      project_budget, currency, archived_at, archived_from_status
+    )
+    select
+      p.id, p.user_id, p.company_id, p.project_code,
+      'Archived metadata upsert correction', p.status,
+      p.project_budget, p.currency, p.archived_at, p.archived_from_status
+    from public.projects p
+    where p.id = (select project_id from wave2b1_status_ids)
+    on conflict (id) do update
+    set project_name = excluded.project_name,
+        status = excluded.status,
+        archived_at = excluded.archived_at,
+        archived_from_status = excluded.archived_from_status$$,
+  'archived metadata upsert preserves lifecycle fields and remains editable'
+);
+
+select is(
+  (select project_name from public.projects where id = (select project_id from wave2b1_status_ids)),
+  'Archived metadata upsert correction',
+  'archived metadata upsert applied the non-lifecycle correction'
+);
+
 reset role;
 select * from finish();
 rollback;
