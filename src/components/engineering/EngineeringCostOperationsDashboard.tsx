@@ -5,11 +5,9 @@ import {
   ArrowUpRight,
   BarChart3,
   BriefcaseBusiness,
-  CheckCircle2,
   ClipboardCheck,
   CircleDollarSign,
   Clock3,
-  FileWarning,
   HardHat,
   Landmark,
   Mail,
@@ -268,7 +266,7 @@ export const EngineeringCostOperationsDashboard: React.FC<EngineeringCostOperati
       <OperationsMetricCard label="Available after commitments" value={money(data.availableAfterCommitments, data.selectedCurrency)} detail="Budget less confirmed and pending" icon={BarChart3} tone={data.availableAfterCommitments < 0 ? "danger" : "info"} />
     </div>
 
-    {data.attention.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50/70 p-4" aria-label="Items requiring attention"><div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><h2 className="text-sm font-black text-amber-950">Items requiring attention</h2><p className="mt-1 text-[10px] leading-4 text-amber-900">Open the existing workflow or record that can resolve each issue.</p></div><StatusBadge tone="warning" icon={AlertTriangle}>{data.attention.length} active signal{data.attention.length === 1 ? "" : "s"}</StatusBadge></div><div className="mt-3 grid gap-2 md:grid-cols-2">{data.attention.slice(0, 4).map((item) => <button type="button" key={item.id} onClick={() => attentionAction(item)} className="flex items-start justify-between gap-3 rounded-lg border border-amber-200/80 bg-white/70 p-3 text-left hover:border-indigo-300 hover:bg-white"><span className="min-w-0"><strong className="block truncate text-xs text-slate-800">{item.label}{item.count !== undefined ? ` · ${item.count}` : ""}</strong><span className="mt-0.5 block text-[10px] leading-4 text-slate-500">{item.detail}</span></span><ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-indigo-600" aria-hidden="true" /></button>)}</div></section>}
+    {data.attention.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50/70 p-4" aria-label="Items requiring attention"><div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><h2 className="text-sm font-black text-amber-950">Items requiring attention</h2><p className="mt-1 text-[10px] leading-4 text-amber-900">Open the existing workflow or record that can resolve each issue.</p></div><StatusBadge tone="warning" icon={AlertTriangle}>{data.attention.length} active signal{data.attention.length === 1 ? "" : "s"}</StatusBadge></div><div className="mt-3 grid gap-2 md:grid-cols-2">{data.attention.slice(0, 8).map((item) => <button type="button" key={item.id} onClick={() => attentionAction(item)} className="flex items-start justify-between gap-3 rounded-lg border border-amber-200/80 bg-white/70 p-3 text-left hover:border-indigo-300 hover:bg-white"><span className="min-w-0"><strong className="block truncate text-xs text-slate-800">{item.label}{item.count !== undefined ? ` · ${item.count}` : ""}</strong><span className="mt-0.5 block text-[10px] leading-4 text-slate-500">{item.detail}</span></span><ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-indigo-600" aria-hidden="true" /></button>)}</div></section>}
 
     <ChartCard title="Project budget position" description="Lifetime position, sorted by financial pressure. Remaining never goes below zero; excess shows as a separate extension.">
       {!hasBudgetRows ? <ChartEmpty message="No active projects yet." /> : <><div className="h-[300px] w-full sm:h-[360px]"><ResponsiveContainer width="100%" height="100%"><BarChart data={data.projectRows} layout="vertical" margin={{ top: 4, right: 18, bottom: 4, left: 4 }} barCategoryGap="20%"><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" /><XAxis type="number" tickFormatter={(value) => compactMoney(Number(value), data.selectedCurrency)} tick={{ fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="projectCode" width={78} tick={{ fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} /><Tooltip content={renderTooltip(data.selectedCurrency, { confirmed: "Confirmed", pending: "Pending", remaining: "Remaining", excess: "Over commitment" })} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="confirmed" stackId="position" fill="#4f46e5" name="Confirmed" /><Bar dataKey="pending" stackId="position" fill="#f59e0b" name="Pending" /><Bar dataKey="remaining" stackId="position" fill="#cbd5e1" name="Remaining" /><Bar dataKey="excess" stackId="position" fill="#e11d48" name="Over commitment" /></BarChart></ResponsiveContainer></div><div className="mt-3 grid gap-2 text-[10px] text-slate-500 sm:grid-cols-3"><p><strong className="text-slate-700">Confirmed</strong> is lifetime project cost.</p><p><strong className="text-slate-700">Pending</strong> is a commitment, not actual cost.</p><p><strong className="text-slate-700">Available</strong> is shown in each project row below.</p></div></>}
@@ -361,7 +359,7 @@ export const EngineeringCostOperationsDashboard: React.FC<EngineeringCostOperati
 };
 
 function SummaryValue({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl bg-slate-50 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 truncate text-xs font-black tabular-nums text-slate-900" title={value}>{value}</p></div>;
+  return <div className="min-w-0 rounded-xl bg-slate-50 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 max-w-full overflow-x-auto whitespace-nowrap text-xs font-black tabular-nums text-slate-900" title={value}>{value}</p></div>;
 }
 
 function cashMoney(value: number, currency: string) {
@@ -371,5 +369,5 @@ function cashMoney(value: number, currency: string) {
 
 function CashMetric({ label, value, detail, tone = "neutral" }: { label: string; value: string; detail?: string; tone?: "neutral" | "success" | "warning" }) {
   const toneClass = tone === "success" ? "border-emerald-200 bg-emerald-50/50" : tone === "warning" ? "border-amber-200 bg-amber-50/50" : "border-slate-100 bg-slate-50";
-  return <div className={`min-w-0 rounded-xl border p-3 ${toneClass}`}><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1.5 truncate text-sm font-black tabular-nums text-slate-950 sm:text-base" title={value}>{value}</p>{detail && <p className="mt-1 text-[10px] text-slate-500">{detail}</p>}</div>;
+  return <div className={`min-w-0 rounded-xl border p-3 ${toneClass}`}><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1.5 max-w-full overflow-x-auto whitespace-nowrap text-sm font-black tabular-nums text-slate-950 sm:text-base" title={value}>{value}</p>{detail && <p className="mt-1 text-[10px] text-slate-500">{detail}</p>}</div>;
 }
