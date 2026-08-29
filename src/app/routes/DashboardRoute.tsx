@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, ArrowRight, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 import {
   EngineeringCostOperationsDashboard,
   type DashboardActivityPeriod,
@@ -9,7 +9,7 @@ import type { InvoiceData, Project } from "../../types";
 import { canAccessAppTab } from "../../utils/accessControl.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import type { AppTab } from "../../utils/routes";
-import { useAppPermissions, useProjectCostCompleteness } from "../AppPermissionContext.tsx";
+import { useAppPermissions, useProjectCostCompleteness, useWorkspaceDataPending } from "../AppPermissionContext.tsx";
 
 export interface DashboardRouteProps {
   data: DashboardViewData;
@@ -49,7 +49,17 @@ export const DashboardRoute: React.FC<DashboardRouteProps> = ({
 }) => {
   const permissions = useAppPermissions();
   const completeness = useProjectCostCompleteness();
+  const workspaceDataPending = useWorkspaceDataPending();
   const hiddenSources = projectCostMissingSourceLabels(completeness);
+
+  if (!completeness.complete && workspaceDataPending) {
+    return (
+      <div role="status" aria-live="polite" className="flex min-h-32 items-center justify-center rounded-2xl border border-slate-200 bg-white text-xs font-semibold text-slate-600 shadow-sm">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />
+        Refreshing dashboard data…
+      </div>
+    );
+  }
 
   if (!completeness.complete) {
     const shortcuts = RESTRICTED_DASHBOARD_SHORTCUTS.filter(({ tab }) => canAccessAppTab(tab, permissions));
