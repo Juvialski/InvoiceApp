@@ -1,6 +1,11 @@
 -- Core Hardening Wave 2B1 follow-up.
 -- Preserve the guarded ARCHIVED lifecycle without removing the existing
 -- PLANNING/ACTIVE/ON_HOLD/COMPLETED/CANCELLED project status workflow.
+--
+-- Project persistence currently uses INSERT ... ON CONFLICT DO UPDATE. Because
+-- PostgreSQL executes BEFORE INSERT triggers before conflict resolution, an
+-- archived project metadata save must be allowed through the INSERT phase only
+-- when an existing row already has the exact same archived lifecycle fields.
 
 create or replace function public.guard_project_lifecycle_edit()
 returns trigger
@@ -15,6 +20,15 @@ begin
        new.status = 'ARCHIVED'
        or new.archived_at is not null
        or new.archived_from_status is not null
+     )
+     and not exists (
+       select 1
+       from public.projects p
+       where p.id = new.id
+         and p.company_id = new.company_id
+         and p.status is not distinct from new.status
+         and p.archived_at is not distinct from new.archived_at
+         and p.archived_from_status is not distinct from new.archived_from_status
      ) then
     raise exception 'Create an archived project through the project lifecycle workflow'
       using errcode = '42501';
