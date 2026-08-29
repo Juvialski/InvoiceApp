@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Landmark, Link2, RotateCcw, Search, Split, WalletCards } from "lucide-react";
-import { financialId, type CashBankingWorkspaceData, type FinancialReconciliationCandidate, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
+import { financialId, reconciliationStatusForTransaction, type CashBankingWorkspaceData, type FinancialReconciliationCandidate, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
 import { defaultSettlementAllocation, type FinancialSettlementHistoryItem } from "../lib/financialSettlement.ts";
 import { reverseFinancialSettlement } from "../lib/financialSettlementPersistence.ts";
 import { appPathForInvoice, appPathForPayrollRun, financialTransactionIdFromSearch } from "../utils/appRouting.ts";
@@ -86,7 +86,9 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
     if (!transaction || !onSaveMatch || !selectedDrafts.length || draftInvalid) return;
     setBusy(true); setNotice(null);
     try {
+      let confirmedMatches = activeMatches;
       for (const row of selectedDrafts) {
+        const confirmedAt = new Date().toISOString();
         const match: FinancialTransactionMatch = {
           id: financialId("settlement"),
           transactionId: transaction.id,
@@ -96,10 +98,15 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
           status: "CONFIRMED",
           confidence: 100,
           notes: "Confirmed through Cash & Banking allocation review.",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: confirmedAt,
+          updatedAt: confirmedAt,
         };
-        await onSaveMatch(match, { ...transaction, reconciliationStatus: row.amount >= remaining - 0.005 ? "MATCHED" : "PARTIAL", updatedAt: new Date().toISOString() });
+        confirmedMatches = [...confirmedMatches, match];
+        await onSaveMatch(match, {
+          ...transaction,
+          reconciliationStatus: reconciliationStatusForTransaction(transaction, confirmedMatches),
+          updatedAt: confirmedAt,
+        });
       }
       setDraft({});
       setNotice({ tone: "success", text: `${selectedDrafts.length} settlement allocation${selectedDrafts.length === 1 ? "" : "s"} confirmed by the guarded settlement operation.` });
