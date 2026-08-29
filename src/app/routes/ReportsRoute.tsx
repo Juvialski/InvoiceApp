@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Reports } from "../../components/Reports";
 import { PayrollOperatingCosts } from "../../components/engineering/PayrollOperatingCosts";
 import { ProjectReports } from "../../components/engineering/ProjectReports";
@@ -61,6 +61,9 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
   const projectCostCompleteness = useProjectCostCompleteness();
   const workspaceDataPending = useWorkspaceDataPending();
   const missingProjectCostSources = projectCostMissingSourceLabels(projectCostCompleteness);
+  const transientRefreshGap = !projectCostCompleteness.complete
+    && workspaceDataPending
+    && projectCostCompleteness.reason === "load-error";
 
   const handleExport =
     onExport ||
@@ -89,7 +92,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
         <PayrollOperatingCosts runs={runs} entries={entries} allocations={payrollAllocations} />
       )}
 
-      {canReadFinancialReports && projectCostCompleteness.complete ? (
+      {canReadFinancialReports && (projectCostCompleteness.complete || transientRefreshGap) ? (
         <ProjectReports
           projects={projects}
           invoices={invoices}
@@ -106,11 +109,6 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
           payrollDetailVisible={canReadPayrollDetail}
           onExport={handleExport}
         />
-      ) : canReadFinancialReports && workspaceDataPending ? (
-        <section role="status" aria-live="polite" className="flex min-h-24 items-center justify-center rounded-xl border border-slate-200 bg-white p-4 text-xs font-semibold text-slate-600">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />
-          Refreshing project-cost report data…
-        </section>
       ) : canReadFinancialReports ? (
         <section role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
@@ -118,7 +116,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
         </section>
       ) : null}
 
-      {!canReadFinancialReports && canReadPayrollReports && !canReadPayrollDetail && !workspaceDataPending && (
+      {!canReadFinancialReports && canReadPayrollReports && !canReadPayrollDetail && (
         <section role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
           <div><strong>Payroll report detail is restricted.</strong> Your route permission allows payroll reporting, but this screen requires payroll-detail source access to produce employee and allocation figures safely.</div>
