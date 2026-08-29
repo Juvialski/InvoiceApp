@@ -139,6 +139,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
       payrollCost: 0,
       otherExpenseCost: 0,
     } as ProjectCostSummary);
+    const canReactivateSelectedProject = selectedProject.status === "ARCHIVED"
+      && ["PLANNING", "ACTIVE", "ON_HOLD"].includes(selectedProject.archivedFromStatus || "");
 
     return (
       <ProjectWorkspace
@@ -184,7 +186,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onUploadInvoice={onUploadInvoice}
         onEditProject={onEditProject || (() => {})}
         onArchiveProject={() => void onArchiveProject(selectedProject)}
-        onReactivateProject={() => void onReactivateProject(selectedProject)}
+        onReactivateProject={canReactivateSelectedProject ? () => void onReactivateProject(selectedProject) : undefined}
         onAddExpense={onAddExpense}
         onOpenPayroll={onOpenPayroll}
       />
