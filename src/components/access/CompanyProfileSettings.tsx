@@ -2,20 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { Building2, CheckCircle2, LockKeyhole, Save, X } from "lucide-react";
 import { DEFAULT_CURRENCY, DEFAULT_TIMEZONE } from "../../config/regional";
 import { useCompanyAccess } from "../../context/CompanyAccessContext.tsx";
+import { updateDeploymentCompanyProfile } from "../../lib/companyProfile.ts";
 import { PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { safeErrorMessage } from "../../utils/errorNormalization.ts";
 
 interface CompanyProfileDraft {
   name: string;
-  companyCode: string;
   defaultCurrency: string;
   timezone: string;
 }
 
-function draftFromCompany(company: { name: string; companyCode?: string; defaultCurrency?: string; timezone?: string }): CompanyProfileDraft {
+function draftFromCompany(company: { name: string; defaultCurrency?: string; timezone?: string }): CompanyProfileDraft {
   return {
     name: company.name,
-    companyCode: company.companyCode || "",
     defaultCurrency: company.defaultCurrency || DEFAULT_CURRENCY,
     timezone: company.timezone || DEFAULT_TIMEZONE,
   };
@@ -40,7 +39,7 @@ export function CompanyProfileSettings() {
     setDraft(next);
     setSavedDraft(next);
     setNotice(null);
-  }, [company?.id, company?.name, company?.companyCode, company?.defaultCurrency, company?.timezone, company?.updatedAt]);
+  }, [company?.id, company?.name, company?.defaultCurrency, company?.timezone, company?.updatedAt]);
 
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(savedDraft), [draft, savedDraft]);
 
@@ -59,15 +58,10 @@ export function CompanyProfileSettings() {
   const save = async () => {
     if (!canManage || busy) return;
     const name = draft.name.trim();
-    const companyCode = draft.companyCode.trim().toLowerCase();
     const defaultCurrency = draft.defaultCurrency.trim().toUpperCase();
     const timezone = draft.timezone.trim();
     if (!name || name.length > 200) {
       setNotice({ kind: "error", message: "Enter a company name between 1 and 200 characters." });
-      return;
-    }
-    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(companyCode)) {
-      setNotice({ kind: "error", message: "Company code must use lowercase letters, numbers, and hyphens (up to 64 characters)." });
       return;
     }
     if (!/^[A-Z]{3}$/.test(defaultCurrency)) {
@@ -81,11 +75,12 @@ export function CompanyProfileSettings() {
     setBusy(true);
     setNotice(null);
     try {
-      const result = await companyAccess.updateCompany(company.id, { name, companyCode, defaultCurrency, timezone });
+      const result = await updateDeploymentCompanyProfile(company.id, { name, defaultCurrency, timezone });
       const next = draftFromCompany(result);
       setDraft(next);
       setSavedDraft(next);
-      setNotice({ kind: "success", message: "Company profile saved. Updated identity is now used across this deployment." });
+      await companyAccess.refreshAccess();
+      setNotice({ kind: "success", message: "Company profile saved. The updated company name and defaults are now used across this deployment." });
     } catch (error) {
       setNotice({ kind: "error", message: safeErrorMessage(error, "The company profile could not be saved.") });
     } finally {
@@ -100,7 +95,7 @@ export function CompanyProfileSettings() {
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><Building2 className="h-5 w-5" /></div>
           <div>
             <p className="text-sm font-black text-slate-950" id="company-profile-title">Company profile</p>
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">This is the one client company configured for the deployment. Changes are company-scoped and audited; they do not create or switch tenants.</p>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">This deployment has one client company. Update the company name, default currency, and deployment timezone used across Engoryx.</p>
           </div>
         </div>
         {!canManage && <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-500"><LockKeyhole className="h-3 w-3" />Read-only</span>}
@@ -112,16 +107,13 @@ export function CompanyProfileSettings() {
       </div>}
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <label className="text-[11px] font-bold text-slate-600">Company / display name
+        <label className="text-[11px] font-bold text-slate-600">Company name
           <input value={draft.name} disabled={!canManage || busy} onChange={(event) => setField("name", event.target.value)} maxLength={200} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50" />
-        </label>
-        <label className="text-[11px] font-bold text-slate-600">Company code
-          <input value={draft.companyCode} disabled={!canManage || busy} onChange={(event) => setField("companyCode", event.target.value)} maxLength={64} placeholder="client-company" className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50" />
         </label>
         <label className="text-[11px] font-bold text-slate-600">Default currency
           <input value={draft.defaultCurrency} disabled={!canManage || busy} onChange={(event) => setField("defaultCurrency", event.target.value)} maxLength={3} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold uppercase text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50" />
         </label>
-        <label className="text-[11px] font-bold text-slate-600">Deployment timezone
+        <label className="text-[11px] font-bold text-slate-600 sm:col-span-2">Deployment timezone
           <input value={draft.timezone} disabled={!canManage || busy} onChange={(event) => setField("timezone", event.target.value)} maxLength={100} placeholder="Asia/Manila" className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-50" />
         </label>
       </div>

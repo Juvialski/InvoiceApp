@@ -88,7 +88,8 @@ test("existing Auth users receive a real sign-in email while database membership
 test("profile and access UI expose truthful states and remain isolated from the demo route", () => {
   assert.match(profile, /Company profile/);
   assert.match(profile, /Read-only/);
-  assert.match(profile, /companyAccess\.updateCompany/);
+  assert.match(profile, /updateDeploymentCompanyProfile/);
+  assert.match(profile, /companyAccess\.refreshAccess/);
   assert.match(settings, /showDeploymentAccessManagement && <CompanyProfileSettings/);
   assert.match(settings, /Production company profile controls are intentionally not mounted here/);
   assert.match(accessManagement, /Role default/);
