@@ -88,9 +88,10 @@ select
   '90000000-0000-4000-8000-000000000105'::uuid as overtime_pending,
   '90000000-0000-4000-8000-000000000106'::uuid as overtime_approved;
 
-grant select on wave2_ids to authenticated;
+grant select on wave2_ids to authenticated, service_role;
 
-set local role service_role;
+-- Seed fixture identities as the pgTAP session owner. Current Supabase does
+-- not grant service_role direct write access to auth.users.
 insert into auth.users (id, email, encrypted_password, created_at, updated_at)
 select id, email, 'x', now(), now()
 from (values
@@ -204,7 +205,6 @@ insert into public.overtime_requests (id, user_id, company_id, worker_id, period
 values
   ((select overtime_pending from wave2_ids), (select admin_user from wave2_ids), (select company_a from wave2_ids), (select worker_lifecycle from wave2_ids), (select period_open from wave2_ids), date '2026-01-21', null, 'UNALLOCATED_REVIEW', 60, 0, 'PENDING', 'MANUAL'),
   ((select overtime_approved from wave2_ids), (select admin_user from wave2_ids), (select company_a from wave2_ids), (select worker_context from wave2_ids), (select period_finalized from wave2_ids), date '2026-02-05', (select project_b from wave2_ids), 'PROJECT', 60, 60, 'APPROVED', 'MANUAL');
-reset role;
 
 -- Complete the finalized run after its snapshots and source rows exist.
 set local role service_role;
