@@ -281,13 +281,21 @@ select throws_ok(
 );
 
 select set_config('request.jwt.claim.sub', (select denied_user::text from wave2b2_ids), true);
-select throws_ok(
+select lives_ok(
   $$select public.preview_invoice_correction('b2000000-0000-4000-8000-000000000302'::uuid)$$,
-  '42501', null, 'effective permission deny blocks invoice correction preview'
+  'read permission still allows invoice correction preflight when manage is explicitly denied'
 );
 select throws_ok(
+  $$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000302'::uuid, 'DELETE_UNUSED', null)$$,
+  '42501', null, 'effective manage permission deny blocks invoice correction mutation'
+);
+select lives_ok(
   $$select public.preview_expense_correction('c2000000-0000-4000-8000-000000000302'::uuid)$$,
-  '42501', null, 'effective permission deny blocks expense correction preview'
+  'read permission still allows expense correction preflight when manage is explicitly denied'
+);
+select throws_ok(
+  $$select public.apply_expense_correction('c2000000-0000-4000-8000-000000000302'::uuid, 'ARCHIVE', 'permission boundary probe')$$,
+  '42501', null, 'effective manage permission deny blocks expense correction mutation'
 );
 
 select set_config('request.jwt.claim.sub', (select suspended_user::text from wave2b2_ids), true);
