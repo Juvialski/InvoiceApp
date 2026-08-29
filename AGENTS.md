@@ -57,6 +57,8 @@ Do not overwrite newer work. Do not reset/recreate an active implementation bran
 
 For substantial feature-scoped implementation, debugging, security, financial, or architecture work, use WM-5 to establish the working set before broad source exploration.
 
+This rule applies to **all repository agents**, including ChatGPT, Codex/Luna, Antigravity, and Kilo/free-model agents. If an environment cannot run the WM-5 CLI itself, use a narrow packet supplied by the lead or an exact generated-map slice; do not fall back to broad repository rereads merely because the CLI is unavailable.
+
 Example:
 
 ```text
@@ -79,6 +81,13 @@ The purpose of WM-5 is to avoid rediscovering architecture through repository-wi
 
 WM-5 is advisory context, not a substitute for source, CI, runtime evidence, RLS, migration replay, or database validation.
 
+### Cross-agent application
+
+- **Antigravity** should use the mapped working set to choose the exact pages/components for browser and responsive QA rather than crawling the whole app.
+- **Kilo/free models** should receive the mapped file/symbol boundary from the lead and stay inside it unless a concrete unresolved dependency requires escalation.
+- **Codex/Luna** should not repeat broad discovery after WM-5 has already established the relevant boundary.
+- The **lead agent** owns any required expansion of scope and should provide a new narrow packet instead of asking another agent to rediscover the repository.
+
 ### Changed-surface review
 
 After implementation, prefer a **diff-driven** review instead of rediscovering the feature from scratch:
@@ -93,7 +102,7 @@ Do not perform a second broad repository audit merely because targeted tests pas
 
 ## Context and output discipline
 
-Expensive local agents must actively limit context growth without reducing correctness.
+All repository agents must actively limit context/output growth without reducing correctness.
 
 - Do not dump whole large files when a symbol/range is sufficient.
 - Do not ingest full successful test/build logs. Retain command, exit status, counts, and relevant warnings only.
