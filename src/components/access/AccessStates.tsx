@@ -18,7 +18,7 @@ export function CompanySwitcher({ companies, activeCompanyId }: CompanySwitcherP
   if (!company) return null;
   return <div aria-label={`Deployment company: ${company.name}`} className="inline-flex max-w-[18rem] items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-left text-[10px] font-bold text-slate-700 shadow-sm">
     <Building2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
-    <span className="min-w-0"><span className="block truncate">{company.name}</span>{company.companyCode && <span className="mt-0.5 block truncate text-[9px] font-semibold text-slate-400">{company.companyCode}</span>}</span>
+    <span className="min-w-0 truncate">{company.name}</span>
   </div>;
 }
 
