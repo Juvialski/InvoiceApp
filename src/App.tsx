@@ -2904,10 +2904,13 @@ function InvoiceWorkspace() {
           projectLaborAggregates={projectLaborAggregates}
           laborSource={projectLaborSource}
           projectFormSeed={projectFormSeed}
-          onOpenProject={projectController.openProject}
-          onSaveProject={(project) => void projectController.saveProject(project)}
-          onArchiveProject={(project) => void projectController.archiveProject(project)}
-          onEditProject={() => { if (selectedProject) projectController.editProject(selectedProject); }}
+           onOpenProject={projectController.openProject}
+           onSaveProject={(project) => void projectController.saveProject(project)}
+           onPreviewProjectLifecycle={projectController.previewProjectLifecycle}
+           onApplyProjectLifecycle={projectController.applyProjectLifecycle}
+           onArchiveProject={(project) => void projectController.archiveProject(project)}
+           onReactivateProject={(project) => void projectController.reactivateProject(project)}
+           onEditProject={() => { if (selectedProject) projectController.editProject(selectedProject); }}
           onProjectTabChange={(tab) => {
             if (route.kind === "project" && selectedProject) {
               navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView));

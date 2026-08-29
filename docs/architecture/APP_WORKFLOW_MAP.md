@@ -23,8 +23,8 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Source classification | `mixed` |
 | Reviewed against | `dfbde16a688b7f6f912afd0e07b99fb4c3bf8cf5` |
 | Reviewed at | `2026-08-29` |
-| Node count | 191 |
-| Edge count | 225 |
+| Node count | 194 |
+| Edge count | 228 |
 | Invariant count | 12 |
 | Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Cross-Domain Settlement`, `QA-1`, `WM-1` |
 
@@ -188,6 +188,9 @@ flowchart LR
     n_project_selection("Select project<br/><small>ACTION</small>")
     n_project_workspace["Project Workspace<br/><small>SCREEN</small>"]
     n_project_aggregate[("Project aggregate<br/><small>DATA</small>")]
+    n_project_correction_lifecycle{"Project correction and removal lifecycle<br/><small>WORKFLOW</small>"}
+    n_project_lifecycle_rpc_boundary[["Authoritative project lifecycle RPC boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_project_activity_guard{{"Archived project activity guard<br/><small>GUARD</small>"}}
     n_project_overview["Project Overview<br/><small>SCREEN</small>"]
     n_project_cost_aggregation["Authoritative project-cost aggregation<br/><small>DERIVED-DATA</small>"]
     n_project_labor_aggregate_rpc[["Safe project labor aggregate RPC<br/><small>EXTERNAL-BOUNDARY</small>"]]
@@ -247,6 +250,9 @@ flowchart LR
   n_route_project_workspace -->|opens| n_project_workspace
   n_project_workspace -->|selected project| n_project_aggregate
   n_project_workspace -->|Overview tab| n_project_overview
+  n_project_directory -->|reviews correction options| n_project_correction_lifecycle
+  n_project_correction_lifecycle -->|preflight, lock, audit, lifecycle RPC| n_project_lifecycle_rpc_boundary
+  n_project_correction_lifecycle -->|archive boundary| n_project_activity_guard
   n_project_workspace -->|Documents tab| n_route_project_documents
   n_project_workspace -->|RFIs tab| n_route_project_rfis
   n_project_workspace -->|Submittals tab| n_route_project_submittals
@@ -330,6 +336,9 @@ flowchart LR
   class n_project_selection projects
   class n_project_workspace projects
   class n_project_aggregate projects
+  class n_project_correction_lifecycle projects
+  class n_project_lifecycle_rpc_boundary projects
+  class n_project_activity_guard projects
   class n_project_overview projects
   class n_project_cost_aggregation projects
   class n_engineering_documents_screen engineering
@@ -766,6 +775,9 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Select project**<br/><small>`project-selection`</small> | `action` | `company`<br/>— | — | `projects.read` | `code-derived` | `src/features/projects/useProjectController.ts`<br/>`src/utils/appRouting.ts` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/appRouting.test.ts` | — |
 | **Project Workspace**<br/><small>`project-workspace`</small> | `screen` | `project`<br/>— | — | — | `mixed` | `src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/projects.test.ts` | `project-workspace--project-overview--project-selected--desktop-1440`<br/>`project-workspace--project-documents--base-route-loaded--desktop-1440` |
 | **Project aggregate**<br/><small>`project-aggregate`</small> | `data` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage` | `mixed` | `src/lib/projects.ts`<br/>`src/types.ts`<br/>`supabase/migrations/20260823130000_engineering_project_costing_foundation.sql` | `tests/projects.test.ts`<br/>`tests/projectCostingHardening.test.ts` | — |
+| **Project correction and removal lifecycle**<br/><small>`project-correction-lifecycle`</small> | `workflow` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage` | `mixed`<br/>confirmation: `human` | `src/components/projects/ProjectsPage.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/lib/projects.ts`<br/>`src/features/projects/useProjectController.ts`<br/>`supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql` | `tests/projectLifecycle.test.ts`<br/>`tests/coreHardeningWave2B1.test.ts`<br/>`supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql` | — |
+| **Authoritative project lifecycle RPC boundary**<br/><small>`project-lifecycle-rpc-boundary`</small> | `external-boundary` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage` | `mixed`<br/>confirmation: `human` | `src/lib/projects.ts`<br/>`supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql` | `tests/coreHardeningWave2B1.test.ts`<br/>`supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql` | — |
+| **Archived project activity guard**<br/><small>`project-activity-guard`</small> | `guard` | `company-and-project`<br/>— | — | `projects.manage` | `mixed` | `supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql` | `tests/coreHardeningWave2B1.test.ts`<br/>`supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql` | — |
 | **Project Overview**<br/><small>`project-overview`</small> | `screen` | `project`<br/>— | — | — | `mixed` | `src/components/projects/ProjectOverview.tsx`<br/>`src/utils/projectDashboardViewModel.ts` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/accountingStatistics.test.ts` | — |
 | **Authoritative project-cost aggregation**<br/><small>`project-cost-aggregation`</small> | `derived-data` | `project`<br/>— | — | `projects.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/projectDashboardViewModel.ts`<br/>`src/App.tsx`<br/>`docs/engineering-project-costing-plan.md` | `tests/projectCostingHardening.test.ts`<br/>`tests/projectLaborCostAggregate.test.ts`<br/>`tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
 | **Invoice project allocation**<br/><small>`invoice-project-allocation`</small> | `data` | `company-and-project`<br/>— | — | `projects.manage`<br/>`invoices.read` | `mixed` | `src/utils/projectAllocations.ts`<br/>`src/lib/persistence.ts`<br/>`supabase/migrations/20260823170000_invoice_project_allocation_replacement.sql` | `tests/projectAllocations.test.ts`<br/>`tests/projectCostingHardening.test.ts` | — |

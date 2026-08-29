@@ -32,6 +32,7 @@ import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewM
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import type { WorkspaceTab } from "../../components/projects/ProjectWorkspace";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
 import type {
@@ -117,7 +118,10 @@ export interface AppRouterProps {
   pathForSiteLog?: (siteLogId?: string) => string;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
+  onPreviewProjectLifecycle: (project: Project) => Promise<ProjectLifecyclePreview>;
+  onApplyProjectLifecycle: (project: Project, action: ProjectLifecycleAction, reason?: string) => Promise<void>;
   onArchiveProject: (project: Project) => Promise<void> | void;
+  onReactivateProject: (project: Project) => Promise<void> | void;
   onEditProject?: () => void;
   onProjectTabChange?: (tab: WorkspaceTab) => void;
   onProjectBack?: () => void;
@@ -283,7 +287,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   pathForSiteLog,
   onOpenProject,
   onSaveProject,
+  onPreviewProjectLifecycle,
+  onApplyProjectLifecycle,
   onArchiveProject,
+  onReactivateProject,
   onEditProject,
   onProjectTabChange,
   onProjectBack = () => {},
@@ -456,7 +463,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onTabChange={onProjectTabChange}
         onOpenProject={onOpenProject}
         onSaveProject={onSaveProject}
+        onPreviewProjectLifecycle={onPreviewProjectLifecycle}
+        onApplyProjectLifecycle={onApplyProjectLifecycle}
         onArchiveProject={onArchiveProject}
+        onReactivateProject={onReactivateProject}
         onEditProject={onEditProject}
         onSaveInvoiceAllocations={onSaveInvoiceProjectAllocations}
         onBack={onProjectBack}

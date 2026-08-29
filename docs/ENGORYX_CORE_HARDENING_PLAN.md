@@ -176,6 +176,40 @@ authenticated RLS probes, and responsive browser evidence are release gates
 to be recorded against the exact PR head; they are not inferred from static
 checks.
 
+### Wave 2B1 — Project correction lifecycle (implemented in this PR)
+
+Project correction now uses one company-scoped lifecycle contract. The
+database preflight counts project dependencies without returning payroll or
+employee detail, and the mutation RPC locks the project and rechecks those
+dependencies before any permanent delete.
+
+| Project state or evidence | Permitted lifecycle outcome | History rule |
+| --- | --- | --- |
+| No operational, financial, workforce, payroll, engineering, import, or project-accounting dependency | `DELETE_UNUSED` after explicit confirmation | Permanently delete the accidental project and append a bounded audit event. |
+| Any dependency exists | `ARCHIVE` after a reason and explicit confirmation | Preserve the project identity and every linked record; remove the project from active workflows. |
+| Archived from `PLANNING`, `ACTIVE`, or `ON_HOLD` | Explicit `REACTIVATE` after a reason and confirmation | Restore the prior non-terminal state; do not rewrite historical records. |
+| Archived from `COMPLETED` or `CANCELLED`, or with no known prior state | Remain archived | Reactivation is refused so a terminal business state cannot be bypassed. |
+
+The authoritative dependency categories are invoice project allocations,
+expenses, project-worker assignments, work entries, overtime requests, payroll
+project allocations and project-context snapshots, payroll import rows,
+worker and compensation-profile default projects, engineering documents,
+RFIs, submittals, Daily Site Logs, and project accounting events. Archived
+projects reject new direct and linked cost, workforce, import, engineering,
+and project-accounting activity at the affected database paths. `projects.read`
+authorizes preflight; `projects.manage` authorizes lifecycle mutation, with
+active membership and explicit member DENY overrides enforced by the same
+effective-permission helper used by RLS.
+
+Deferred from this focused slice:
+
+- Wave 2B2 — invoices and expenses correction semantics;
+- Wave 2B3 — cash, banking, and settlement correction semantics;
+- Wave 2C — engineering correction semantics beyond the narrow archived-project activity boundary;
+- Wave 3 — Assistant project lifecycle/action parity.
+
+Scheduling/Gantt/CPM remains frozen.
+
 Priority known gaps include:
 
 ### Workforce / Payroll setup

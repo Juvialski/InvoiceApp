@@ -1471,6 +1471,91 @@
     },
     {
       "sourceClassification": "mixed",
+      "id": "project-correction-lifecycle",
+      "label": "Project correction and removal lifecycle",
+      "domain": "projects",
+      "type": "workflow",
+      "scope": "company-and-project",
+      "description": "One explicit project lifecycle for unused-only deletion, history-preserving archive, and guarded reactivation without rewriting linked financial, payroll, workforce, or engineering history.",
+      "fileRefs": [
+        "src/components/projects/ProjectsPage.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/lib/projects.ts",
+        "src/features/projects/useProjectController.ts",
+        "supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/projectLifecycle.test.ts",
+        "tests/coreHardeningWave2B1.test.ts",
+        "supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable",
+        "formal-engineering-history-is-preserved"
+      ],
+      "tags": [
+        "correction-lifecycle",
+        "history-preserving"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "project-lifecycle-rpc-boundary",
+      "label": "Authoritative project lifecycle RPC boundary",
+      "domain": "projects",
+      "type": "external-boundary",
+      "scope": "company-and-project",
+      "description": "Database preflight and mutation boundary that derives the deployment company, checks active effective permission, locks the project, rechecks dependency counts, and writes bounded audit metadata.",
+      "fileRefs": [
+        "src/lib/projects.ts",
+        "supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/coreHardeningWave2B1.test.ts",
+        "supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable",
+        "formal-engineering-history-is-preserved"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "project-activity-guard",
+      "label": "Archived project activity guard",
+      "domain": "projects",
+      "type": "guard",
+      "scope": "company-and-project",
+      "description": "Archived projects remain queryable but reject new direct cost, workforce, import, engineering, and project-accounting activity across direct and linked child paths.",
+      "fileRefs": [
+        "supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql"
+      ],
+      "testRefs": [
+        "tests/coreHardeningWave2B1.test.ts",
+        "supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql"
+      ],
+      "permissionKeys": [
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "formal-engineering-history-is-preserved"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
       "id": "project-overview",
       "label": "Project Overview",
       "domain": "projects",
@@ -5156,6 +5241,54 @@
       "label": "Overview tab"
     },
     {
+      "id": "directory-to-project-lifecycle",
+      "source": "project-directory",
+      "target": "project-correction-lifecycle",
+      "type": "opens",
+      "kind": "mutation",
+      "label": "reviews correction options",
+      "permissionKeys": [
+        "projects.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable"
+      ]
+    },
+    {
+      "id": "project-lifecycle-to-rpc",
+      "source": "project-correction-lifecycle",
+      "target": "project-lifecycle-rpc-boundary",
+      "type": "executes-through",
+      "kind": "external-boundary",
+      "label": "preflight, lock, audit, lifecycle RPC",
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "approved-payroll-history-is-immutable",
+        "formal-engineering-history-is-preserved"
+      ]
+    },
+    {
+      "id": "project-lifecycle-to-activity-guard",
+      "source": "project-correction-lifecycle",
+      "target": "project-activity-guard",
+      "type": "guards",
+      "kind": "guard",
+      "label": "archive boundary",
+      "permissionKeys": [
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "formal-engineering-history-is-preserved"
+      ]
+    },
+    {
       "id": "workspace-to-documents-route",
       "source": "project-workspace",
       "target": "route-project-documents",
@@ -6986,6 +7119,9 @@
         "route-project-workspace",
         "project-workspace",
         "project-aggregate",
+        "project-correction-lifecycle",
+        "project-lifecycle-rpc-boundary",
+        "project-activity-guard",
         "project-overview",
         "project-cost-aggregation",
         "project-labor-aggregate-rpc",

@@ -21,10 +21,12 @@ import { createDemoWorkspace } from "./data/createDemoWorkspace.ts";
 import { demoTimestamp } from "./data/demoDates.ts";
 import { DEMO_COMPANY_ID, type DemoPreparedAssistantAction, type DemoWorkspaceData } from "./demoTypes.ts";
 import { assignmentDependencySummary, assignmentForLifecycle, componentForLifecycle, isCompensationProfileConsumed, isRecurringComponentConsumed, profileForLifecycle, workerDependencySummary, workerForLifecycle, type PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
+import { buildProjectLifecyclePreview, type ProjectLifecycleAction } from "../lib/projects.ts";
 
 export type DemoWorkspaceMutation =
   | { type: "SAVE_PROJECT"; value: Project }
   | { type: "ARCHIVE_PROJECT"; value: Project }
+  | { type: "PROJECT_LIFECYCLE"; project: Project; action: ProjectLifecycleAction }
   | { type: "SAVE_INVOICE"; value: InvoiceData }
   | { type: "DELETE_INVOICE"; id: string }
   | { type: "SAVE_INVOICE_ALLOCATIONS"; invoiceId: string; value: InvoiceProjectAllocation[] }
@@ -60,12 +62,45 @@ function upsertOptionalId<T extends { id?: string }>(items: readonly T[], value:
   return found ? items.map((item) => item.id === value.id ? value : item) : [value, ...items];
 }
 
+function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: Project) {
+  return buildProjectLifecyclePreview(project, {
+    invoiceProjectAllocations: state.invoiceAllocations.filter((allocation) => allocation.projectId === project.id).length,
+    expenses: state.expenses.filter((expense) => expense.projectId === project.id).length,
+    projectWorkerAssignments: state.payroll.assignments.filter((assignment) => assignment.projectId === project.id).length,
+    workEntries: state.payroll.workEntries.filter((entry) => entry.projectId === project.id).length,
+    overtimeRequests: (state.payroll.overtimeRequests || []).filter((request) => request.projectId === project.id).length,
+    payrollProjectAllocations: state.payroll.allocations.filter((allocation) => allocation.projectId === project.id).length,
+    payrollEntryProjectContexts: state.payroll.entries.filter((entry) => entry.costContext?.projectId === project.id).length,
+    workerDefaultProjects: state.payroll.workers.filter((worker) => worker.defaultProjectId === project.id).length,
+    compensationProfileDefaultProjects: state.payroll.compensationProfiles.filter((profile) => profile.defaultProjectId === project.id).length,
+    engineeringDocuments: state.engineering.documents.filter((document) => document.projectId === project.id).length,
+    engineeringRfis: state.coordination.rfis.filter((rfi) => rfi.projectId === project.id).length,
+    engineeringSubmittals: state.coordination.submittals.filter((submittal) => submittal.projectId === project.id).length,
+    engineeringDailySiteLogs: state.siteLogs.logs.filter((log) => log.projectId === project.id).length,
+  });
+}
+
 export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWorkspaceMutation): DemoWorkspaceData {
   switch (mutation.type) {
     case "SAVE_PROJECT":
       return { ...state, projects: upsert(state.projects, { ...mutation.value, updatedAt: demoTimestamp(state.anchorDate, 16, 0) }) };
     case "ARCHIVE_PROJECT":
-      return { ...state, projects: state.projects.map((project) => project.id === mutation.value.id ? { ...project, status: "ARCHIVED", archivedAt: demoTimestamp(state.anchorDate, 16, 5), updatedAt: demoTimestamp(state.anchorDate, 16, 5) } : project) };
+      return { ...state, projects: state.projects.map((project) => project.id === mutation.value.id ? { ...project, status: "ARCHIVED", archivedFromStatus: project.status === "ARCHIVED" ? project.archivedFromStatus : project.status, archivedAt: demoTimestamp(state.anchorDate, 16, 5), updatedAt: demoTimestamp(state.anchorDate, 16, 5) } : project) };
+    case "PROJECT_LIFECYCLE": {
+      const project = state.projects.find((candidate) => candidate.id === mutation.project.id);
+      if (!project) return state;
+      const preview = demoProjectLifecyclePreview(state, project);
+      if (mutation.action === "DELETE_UNUSED") {
+        if (!preview.canDelete) return state;
+        return { ...state, projects: state.projects.filter((candidate) => candidate.id !== project.id) };
+      }
+      if (mutation.action === "ARCHIVE") {
+        const updatedAt = demoTimestamp(state.anchorDate, 16, 5);
+        return { ...state, projects: state.projects.map((candidate) => candidate.id === project.id ? { ...candidate, status: "ARCHIVED", archivedFromStatus: candidate.status === "ARCHIVED" ? candidate.archivedFromStatus : candidate.status, archivedAt: candidate.archivedAt || updatedAt, updatedAt } : candidate) };
+      }
+      if (!preview.canReactivate) return state;
+      return { ...state, projects: state.projects.map((candidate) => candidate.id === project.id ? { ...candidate, status: candidate.archivedFromStatus || "ACTIVE", archivedAt: undefined, archivedFromStatus: undefined, updatedAt: demoTimestamp(state.anchorDate, 16, 5) } : candidate) };
+    }
     case "SAVE_INVOICE":
       return { ...state, invoices: upsert(state.invoices, mutation.value) };
     case "DELETE_INVOICE":

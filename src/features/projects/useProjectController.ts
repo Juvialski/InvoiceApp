@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Project } from "../../types.ts";
 import {
-  archiveProjectInSupabase,
+  applyProjectLifecycleInSupabase,
+  buildProjectLifecyclePreview,
+  previewProjectLifecycleInSupabase,
   readProjectsFromLocal,
   saveProjectToSupabase,
   writeProjectsToLocal,
+  type ProjectLifecycleAction,
+  type ProjectLifecyclePreview,
 } from "../../lib/projects.ts";
 
 export interface ProjectControllerOptions {
@@ -31,9 +35,16 @@ export interface ProjectController {
   loadGuestProjects: () => void;
   reset: () => void;
   saveProject: (project: Project) => Promise<void>;
+  previewProjectLifecycle: (project: Project) => Promise<ProjectLifecyclePreview>;
+  applyProjectLifecycle: (project: Project, action: ProjectLifecycleAction, reason?: string) => Promise<void>;
   archiveProject: (project: Project) => Promise<void>;
+  reactivateProject: (project: Project) => Promise<void>;
   openProject: (project: Project) => void;
   editProject: (project: Project) => void;
+}
+
+function confirmProjectLifecycle(message: string) {
+  return typeof window === "undefined" || window.confirm(message);
 }
 
 export function useProjectController(options: ProjectControllerOptions): ProjectController {
@@ -104,23 +115,74 @@ export function useProjectController(options: ProjectControllerOptions): Project
     }
   }, [authenticated, onError, onPayrollRelevantChange, onSuccess, projects]);
 
-  const archiveProject = useCallback(async (project: Project) => {
+  const previewProjectLifecycle = useCallback(async (project: Project) => {
+    if (authenticated) return previewProjectLifecycleInSupabase(project.id);
+    // Guest/local workspaces do not have an authoritative database preflight.
+    // Keep permanent deletion unavailable while retaining the same archive and
+    // reactivation vocabulary used by the production lifecycle.
+    return buildProjectLifecyclePreview(project, {}, { allowDelete: false, allowLegacyReactivation: true, source: "local" });
+  }, [authenticated]);
+
+  const applyProjectLifecycle = useCallback(async (project: Project, action: ProjectLifecycleAction, reason?: string) => {
     try {
-      const archived = authenticated
-        ? await archiveProjectInSupabase(project.id)
-        : {
-            ...project,
-            status: "ARCHIVED" as const,
-            archivedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-      setProjects((current) => current.map((item) => item.id === archived.id ? archived : item));
+      const result = authenticated
+        ? await applyProjectLifecycleInSupabase(project.id, action, reason)
+        : (() => {
+            const preview = buildProjectLifecyclePreview(project, {}, { allowDelete: false, allowLegacyReactivation: true, source: "local" });
+            if (action === "DELETE_UNUSED") throw new Error("Permanent project deletion requires an authoritative database preflight.");
+            const updatedAt = new Date().toISOString();
+            const record = action === "ARCHIVE"
+              ? {
+                  ...project,
+                  status: "ARCHIVED" as const,
+                  archivedAt: project.archivedAt || updatedAt,
+                  archivedFromStatus: project.status === "ARCHIVED" ? project.archivedFromStatus : project.status,
+                  updatedAt,
+                }
+              : {
+                  ...project,
+                  status: project.archivedFromStatus || "ACTIVE",
+                  archivedAt: undefined,
+                  archivedFromStatus: undefined,
+                  updatedAt,
+                };
+            return { entityType: "PROJECT" as const, entityId: project.id, action, deleted: false, preflight: preview, record };
+          })();
+      if (result.deleted) {
+        setProjects((current) => current.filter((item) => item.id !== result.entityId));
+      } else if (result.record) {
+        setProjects((current) => current.map((item) => item.id === result.record?.id ? result.record : item));
+      }
       onPayrollRelevantChange();
-      onSuccess(`${project.projectCode} archived. Historical allocations remain visible.`);
+      setProjectFormSeed(null);
+      onSuccess(action === "DELETE_UNUSED"
+        ? `${project.projectCode} permanently deleted because it had no project history.`
+        : action === "REACTIVATE"
+          ? `${project.projectCode} reactivated.`
+          : `${project.projectCode} archived. Historical records remain visible.`);
     } catch (error) {
-      onError(error, "Could not archive project.");
+      onError(error, "Could not complete the project lifecycle action.");
+      throw error;
     }
   }, [authenticated, onError, onPayrollRelevantChange, onSuccess]);
+
+  const archiveProject = useCallback(async (project: Project) => {
+    if (!confirmProjectLifecycle("This keeps the project and its historical records but removes it from active workflows. Continue?")) return;
+    try {
+      await applyProjectLifecycle(project, "ARCHIVE", "Confirmed project archive");
+    } catch {
+      // The shared lifecycle handler already surfaced the normalized error.
+    }
+  }, [applyProjectLifecycle]);
+
+  const reactivateProject = useCallback(async (project: Project) => {
+    if (!confirmProjectLifecycle("Reactivate this project? It will return to active workflows, and historical records will remain unchanged.")) return;
+    try {
+      await applyProjectLifecycle(project, "REACTIVATE", "Confirmed project reactivation");
+    } catch {
+      // The shared lifecycle handler already surfaced the normalized error.
+    }
+  }, [applyProjectLifecycle]);
 
   const openProject = useCallback((project: Project) => {
     setProjectFormSeed(null);
@@ -140,7 +202,10 @@ export function useProjectController(options: ProjectControllerOptions): Project
     loadGuestProjects,
     reset,
     saveProject,
+    previewProjectLifecycle,
+    applyProjectLifecycle,
     archiveProject,
+    reactivateProject,
     openProject,
     editProject,
   };

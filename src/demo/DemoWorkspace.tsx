@@ -10,6 +10,7 @@ import type { FinancialAccount, FinancialBalanceSnapshot, FinancialTransaction }
 import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectWorkerAssignment, WorkEntry, Worker } from "../types.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
+import { buildProjectLifecyclePreview, type ProjectLifecycleAction, type ProjectLifecyclePreview } from "../lib/projects.ts";
 import { DemoAssistant } from "./DemoAssistant.tsx";
 import { DemoEngineeringDocuments } from "./DemoEngineeringDocuments.tsx";
 import { DemoTour } from "./DemoTour.tsx";
@@ -47,6 +48,39 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
   const reviewQueue = useMemo(() => data.invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW"), [data.invoices]);
+
+  const projectLifecyclePreview = async (project: Project): Promise<ProjectLifecyclePreview> => buildProjectLifecyclePreview(project, {
+    invoiceProjectAllocations: data.invoiceAllocations.filter((allocation) => allocation.projectId === project.id).length,
+    expenses: data.expenses.filter((expense) => expense.projectId === project.id).length,
+    projectWorkerAssignments: data.payroll.assignments.filter((assignment) => assignment.projectId === project.id).length,
+    workEntries: data.payroll.workEntries.filter((entry) => entry.projectId === project.id).length,
+    overtimeRequests: (data.payroll.overtimeRequests || []).filter((request) => request.projectId === project.id).length,
+    payrollProjectAllocations: data.payroll.allocations.filter((allocation) => allocation.projectId === project.id).length,
+    payrollEntryProjectContexts: data.payroll.entries.filter((entry) => entry.costContext?.projectId === project.id).length,
+    workerDefaultProjects: data.payroll.workers.filter((worker) => worker.defaultProjectId === project.id).length,
+    compensationProfileDefaultProjects: data.payroll.compensationProfiles.filter((profile) => profile.defaultProjectId === project.id).length,
+    engineeringDocuments: data.engineering.documents.filter((document) => document.projectId === project.id).length,
+    engineeringRfis: data.coordination.rfis.filter((rfi) => rfi.projectId === project.id).length,
+    engineeringSubmittals: data.coordination.submittals.filter((submittal) => submittal.projectId === project.id).length,
+    engineeringDailySiteLogs: data.siteLogs.logs.filter((log) => log.projectId === project.id).length,
+  }, { source: "demo" });
+
+  const applyProjectLifecycle = async (project: Project, action: ProjectLifecycleAction, _reason?: string) => {
+    const current = data.projects.find((candidate) => candidate.id === project.id) || project;
+    const preview = await projectLifecyclePreview(current);
+    if (action === "DELETE_UNUSED" && !preview.canDelete) throw new Error("This demo project has linked history and cannot be permanently deleted.");
+    dispatch({ type: "PROJECT_LIFECYCLE", project: current, action });
+  };
+
+  const archiveProject = async (project: Project) => {
+    if (!window.confirm("This keeps the project and its historical records but removes it from active workflows. Continue?")) return;
+    await applyProjectLifecycle(project, "ARCHIVE", "Confirmed project archive");
+  };
+
+  const reactivateProject = async (project: Project) => {
+    if (!window.confirm("Reactivate this project? It will return to active workflows, and historical records will remain unchanged.")) return;
+    await applyProjectLifecycle(project, "REACTIVATE", "Confirmed project reactivation");
+  };
 
   useEffect(() => {
     document.title = location.kind === "assistant" ? "AI Assistant | Engoryx Demo" : location.kind === "documents" ? "Engineering Documents | Engoryx Demo" : "Client Demo | Engoryx";
@@ -115,7 +149,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             pathForSiteLog={(siteLogId) => selectedProject ? demoPathForProject(selectedProject.id, "site-logs", siteLogId ? { siteLogId } : undefined) : demoPathForTab("projects")}
             onOpenProject={openProject}
             onSaveProject={(project) => dispatch({ type: "SAVE_PROJECT", value: project })}
-            onArchiveProject={(project) => dispatch({ type: "ARCHIVE_PROJECT", value: project })}
+            onPreviewProjectLifecycle={projectLifecyclePreview}
+            onApplyProjectLifecycle={applyProjectLifecycle}
+            onArchiveProject={archiveProject}
+            onReactivateProject={reactivateProject}
             onProjectTabChange={openProjectView}
             onProjectBack={() => onNavigate(demoPathForTab("projects"))}
             onProjectUploadInvoice={() => onNavigate(demoPathForTab("invoices"))}

@@ -14,6 +14,7 @@ import type {
 } from "../../types";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 
 export interface ProjectsRouteProps {
   projects: Project[];
@@ -56,7 +57,10 @@ export interface ProjectsRouteProps {
   onTabChange?: (tab: WorkspaceTab) => void;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
+  onPreviewProjectLifecycle: (project: Project) => Promise<ProjectLifecyclePreview>;
+  onApplyProjectLifecycle: (project: Project, action: ProjectLifecycleAction, reason?: string) => Promise<void>;
   onArchiveProject: (project: Project) => Promise<void> | void;
+  onReactivateProject: (project: Project) => Promise<void> | void;
   onEditProject?: () => void;
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
   onBack: () => void;
@@ -107,7 +111,10 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onTabChange,
   onOpenProject,
   onSaveProject,
+  onPreviewProjectLifecycle,
+  onApplyProjectLifecycle,
   onArchiveProject,
+  onReactivateProject,
   onEditProject,
   onSaveInvoiceAllocations,
   onBack,
@@ -132,6 +139,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
       payrollCost: 0,
       otherExpenseCost: 0,
     } as ProjectCostSummary);
+    const canReactivateSelectedProject = selectedProject.status === "ARCHIVED"
+      && ["PLANNING", "ACTIVE", "ON_HOLD"].includes(selectedProject.archivedFromStatus || "");
 
     return (
       <ProjectWorkspace
@@ -177,6 +186,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onUploadInvoice={onUploadInvoice}
         onEditProject={onEditProject || (() => {})}
         onArchiveProject={() => void onArchiveProject(selectedProject)}
+        onReactivateProject={canReactivateSelectedProject ? () => void onReactivateProject(selectedProject) : undefined}
         onAddExpense={onAddExpense}
         onOpenPayroll={onOpenPayroll}
       />
@@ -190,7 +200,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
       initialEditingProject={projectFormSeed}
       onOpenProject={onOpenProject}
       onSaveProject={onSaveProject}
-      onArchiveProject={onArchiveProject}
+      onPreviewProjectLifecycle={onPreviewProjectLifecycle}
+      onApplyProjectLifecycle={onApplyProjectLifecycle}
     />
   );
 };
