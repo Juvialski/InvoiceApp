@@ -1,7 +1,7 @@
 -- Core Hardening Wave 1 correction: keep client company-profile editing and
 -- internal platform maintenance as separate authorization paths.
 --
--- Company Admins use public.update_company(), which is membership-authorized.
+-- Company Admins use the membership-authorized company-profile RPC.
 -- Internal maintenance operators use public.platform_update_company(), which
 -- requires explicit platform-admin authorization and never requires company
 -- membership.
