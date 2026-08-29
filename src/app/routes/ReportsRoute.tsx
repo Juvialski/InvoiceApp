@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { Reports } from "../../components/Reports";
 import { PayrollOperatingCosts } from "../../components/engineering/PayrollOperatingCosts";
 import { ProjectReports } from "../../components/engineering/ProjectReports";
@@ -18,7 +18,7 @@ import type {
 import { exportEngineeringProjectWorkbookToExcel } from "../../utils/excelExport";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
-import { useAppPermissions, useProjectCostCompleteness } from "../AppPermissionContext.tsx";
+import { useAppPermissions, useProjectCostCompleteness, useWorkspaceDataPending } from "../AppPermissionContext.tsx";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 
 export interface ReportsRouteProps {
@@ -59,6 +59,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
   const canReadPayrollDetail = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadWorkers = hasPermission(permissions, PERMISSION_KEYS.workersRead);
   const projectCostCompleteness = useProjectCostCompleteness();
+  const workspaceDataPending = useWorkspaceDataPending();
   const missingProjectCostSources = projectCostMissingSourceLabels(projectCostCompleteness);
 
   const handleExport =
@@ -105,6 +106,11 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
           payrollDetailVisible={canReadPayrollDetail}
           onExport={handleExport}
         />
+      ) : canReadFinancialReports && workspaceDataPending ? (
+        <section role="status" aria-live="polite" className="flex min-h-24 items-center justify-center rounded-xl border border-slate-200 bg-white p-4 text-xs font-semibold text-slate-600">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-600" />
+          Refreshing project-cost report data…
+        </section>
       ) : canReadFinancialReports ? (
         <section role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
@@ -112,7 +118,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
         </section>
       ) : null}
 
-      {!canReadFinancialReports && canReadPayrollReports && !canReadPayrollDetail && (
+      {!canReadFinancialReports && canReadPayrollReports && !canReadPayrollDetail && !workspaceDataPending && (
         <section role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
           <div><strong>Payroll report detail is restricted.</strong> Your route permission allows payroll reporting, but this screen requires payroll-detail source access to produce employee and allocation figures safely.</div>
