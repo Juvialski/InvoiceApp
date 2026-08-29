@@ -79,7 +79,7 @@ test("invitation delivery requires a configured origin and uses injectable Auth 
 test("existing Auth users receive a real sign-in email while database membership remains the gate", async () => {
   const admin = { auth: { admin: { inviteUserByEmail: async () => ({ data: null, error: { message: "A user with this email address has already been registered" } }) } } } as any;
   let sentEmail = "";
-  const publicClient = { auth: { signInWithOtp: async (input: any) => { sentEmail = input.email; assert.equal(input.options.shouldCreateUser, false); return { data: {}, error: null }; } } as any;
+  const publicClient = { auth: { signInWithOtp: async (input: any) => { sentEmail = input.email; assert.equal(input.options.shouldCreateUser, false); return { data: {}, error: null }; } } } } as any;
   const result = await deliverCompanyInvitationEmail({ email: "existing@example.com", redirectTo: "https://engoryx.example/?auth=invite" }, { SUPABASE_URL: "https://project.supabase.co", SUPABASE_INVITATION_SERVER_KEY: "server-secret", SUPABASE_PUBLISHABLE_KEY: "publishable-key" }, { admin, public: publicClient });
   assert.equal(result.method, "sign-in");
   assert.equal(sentEmail, "existing@example.com");
