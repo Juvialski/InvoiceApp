@@ -158,7 +158,12 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', (select invited_user::text from wave1_ids), true);
 select is((select count(*) from public.claim_company_invitations()), 1::bigint, 'matching verified email claims a sent invitation');
 select is((select count(*) from public.company_members where company_id = (select company_id from wave1_ids) and user_id = (select invited_user from wave1_ids) and role_key = 'VIEWER' and status = 'ACTIVE'), 1::bigint, 'claimed invitation creates the intended membership');
+reset role;
+set local role service_role;
 select is((select status from public.company_invitations where id = (select invitation_id from wave1_invites where kind = 'created')), 'ACCEPTED'::text, 'claimed invitation is marked accepted');
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select invited_user::text from wave1_ids), true);
 select is((select count(*) from public.claim_company_invitations()), 0::bigint, 'consumed invitation is replay-safe');
 reset role;
 
@@ -181,6 +186,8 @@ select lives_ok(
   $$select * from public.revoke_company_invitation((select invitation_id from wave1_invites where kind = 'revoked'))$$,
   'authorized admin can revoke a pending invitation'
 );
+reset role;
+set local role service_role;
 select is((select status from public.company_invitations where id = (select invitation_id from wave1_invites where kind = 'revoked')), 'REVOKED'::text, 'revoked invitation is stored as REVOKED');
 reset role;
 
