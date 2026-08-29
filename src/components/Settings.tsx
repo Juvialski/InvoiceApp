@@ -22,12 +22,12 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
     <div className="max-w-4xl space-y-5">
       <PageHeader eyebrow="Workspace configuration" title="Operational settings" description="This Engoryx deployment belongs to one client company. Roles and permissions control what each company user can access." />
 
-      <CompanyProfileSettings />
+      {showDeploymentAccessManagement && <CompanyProfileSettings />}
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0"><Globe2 className="w-5 h-5" /></div>
-          <div><SectionHeader title="Regional display preferences" description="These browser preferences control presentation. The shared deployment company name, currency, and timezone are managed in Company profile above." /></div>
+          <div><SectionHeader title="Regional display preferences" description={showDeploymentAccessManagement ? "These browser preferences control presentation. The shared deployment company name, currency, and timezone are managed in Company profile above." : "These demo/browser preferences control presentation only. Production company profile controls are intentionally not mounted here."} /></div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3 mt-5">
