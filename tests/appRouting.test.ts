@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   appPathForInvoice,
+  appPathForAttendanceDate,
+  appPathForPayrollPeriod,
   appPathForPayrollRun,
   appPathForProject,
   appPathForReviewInvoice,
@@ -10,6 +12,8 @@ import {
   appTabForLocation,
   isKnownWorkspaceLocation,
   parseAppLocation,
+  attendanceDateFromSearch,
+  payrollPeriodIdFromSearch,
   payrollRunIdFromSearch,
 } from "../src/utils/appRouting.ts";
 import { pathForAssistantAction } from "../src/assistant/assistantNavigation.ts";
@@ -75,6 +79,23 @@ test("payroll run links keep the canonical payroll route and target the exact ru
   assert.match(payrollRouteSource, /selectedPeriodId=\{requestedPeriod\.id\}/);
 });
 
+test("payroll period links keep the canonical payroll route and target the exact period", () => {
+  assert.equal(appPathForPayrollPeriod("period-42", "/dashboard"), "/payroll?periodId=period-42&from=%2Fdashboard");
+  assert.equal(payrollPeriodIdFromSearch("?periodId=period-42&from=%2Fdashboard"), "period-42");
+  assert.equal(pathForAssistantAction({ type: "OPEN_PAYROLL_PERIOD", entityId: "period-42" }), "/payroll?periodId=period-42");
+  assert.match(payrollRouteSource, /payrollPeriodIdFromSearch\(search\)/);
+  assert.match(payrollRouteSource, /selectedPeriodId=\{requestedPeriod\?\.id\}/);
+});
+
+test("attendance links keep the canonical payroll route and target the exact date", () => {
+  assert.equal(appPathForAttendanceDate("2026-08-29", "/payroll"), "/payroll?attendanceDate=2026-08-29&from=%2Fpayroll");
+  assert.equal(attendanceDateFromSearch("?attendanceDate=2026-08-29"), "2026-08-29");
+  assert.equal(attendanceDateFromSearch("?attendanceDate=not-a-date"), undefined);
+  assert.equal(pathForAssistantAction({ type: "OPEN_ATTENDANCE_DATE", date: "2026-08-29" }), "/payroll?attendanceDate=2026-08-29");
+  assert.match(payrollRouteSource, /attendanceDateFromSearch\(search\)/);
+  assert.match(payrollRouteSource, /attendanceDate=\{requestedAttendanceDate\}/);
+});
+
 test("legacy platform-company deep links fail closed instead of selecting a workspace", () => {
   const location = parseAppLocation("/platform/companies?companyId=00000000-0000-4000-8000-000000000001&tab=ai");
   assert.equal(location.kind, "unknown");
@@ -85,5 +106,6 @@ test("legacy platform-company deep links fail closed instead of selecting a work
 test("assistant navigation generates correct routes for project documents and views", () => {
   assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT_DOCUMENTS", entityId: "proj-101" }), "/projects/proj-101/documents");
   assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT", entityId: "proj-101", view: "documents" }), "/projects/proj-101/documents");
+  assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT", entityId: "proj-101", view: "expenses" }), "/projects/proj-101/expenses");
   assert.equal(pathForAssistantAction({ type: "OPEN_PROJECT", entityId: "proj-101" }), "/projects/proj-101");
 });

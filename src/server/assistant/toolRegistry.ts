@@ -82,6 +82,18 @@ function finalization(name: string, description: string, permissions: Permission
   return { name, description, permissions, riskTier, parametersJsonSchema: objectSchema(properties, required), requiresConfirmation: true };
 }
 
+function projectNavigationPermissions(args: Record<string, unknown>) {
+  const permissions = ["projects.read"];
+  const view = typeof args.view === "string" ? args.view : "overview";
+  const additional: Record<string, string> = {
+    documents: "engineering.documents.read", rfis: "engineering.rfis.read", submittals: "engineering.submittals.read", "site-logs": "engineering.sitelogs.read",
+    invoices: "invoices.read", payroll: "payroll.detail.read", expenses: "expenses.read", people: "workers.read",
+  };
+  if (additional[view]) permissions.push(additional[view]);
+  if (view === "reports") permissions.push("reports.financial.read|reports.payroll.read");
+  return permissions;
+}
+
 export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Object.freeze([
   read("search_invoices", "Search company invoices by number, vendor, review status, or payment status. Return bounded source records.", ["invoices.read"], { query: { type: "string" }, invoiceNumber: { type: "string" }, vendor: { type: "string" }, reviewStatus: { type: "string" }, paymentStatus: { type: "string" }, limit }),
   read("get_invoice", "Get one company invoice and its review metadata.", ["invoices.read"], { invoiceId: uuid }, ["invoiceId"]),
@@ -114,9 +126,9 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   read("get_payroll_summary", "Return a bounded payroll period summary without calculating authoritative figures in the model.", ["payroll.summary.read"], { periodId: uuid }, ["periodId"]),
   read("list_payroll_periods", "List bounded company payroll periods and identify current and next using the workspace timezone. Future DRAFT periods remain scheduled and are never described as current.", ["payroll.summary.read"], { status: { type: "string" }, from: date, to: date, limit }),
   read("get_current_workspace_summary", "Return a small company workspace summary using only permitted aggregate reads.", ["dashboard.read"]),
-  read("get_cash_summary", "Return a company cash and bank summary with account balances grouped by currency, reconciliation status, and balance freshness.", ["cash.summary.read"], { currency: { type: "string" } }),
+  read("get_cash_summary", "Return a company cash and bank summary with account balances grouped by currency, reconciliation status, and balance freshness.", ["cash.summary.read", "cash.transactions.read"], { currency: { type: "string" } }),
   read("list_financial_accounts", "List active financial bank and e-wallet accounts with masked identifiers and latest balances.", ["cash.summary.read"], { currency: { type: "string" }, accountType: { type: "string", enum: ["BANK", "EWALLET", "CASH"] }, limit }),
-  read("get_financial_account", "Get one financial account, latest balance snapshot, and recent activity summary.", ["cash.summary.read"], { accountId: uuid }, ["accountId"]),
+  read("get_financial_account", "Get one financial account, latest balance snapshot, and recent activity summary.", ["cash.summary.read", "cash.transactions.read"], { accountId: uuid }, ["accountId"]),
   read("list_financial_transactions", "List company bank and e-wallet transactions with date, direction, and reconciliation filters.", ["cash.transactions.read"], { accountId: uuid, from: date, to: date, direction: { type: "string", enum: ["CREDIT", "DEBIT"] }, reconciliationStatus: { type: "string" }, limit }),
   read("get_cash_reconciliation_summary", "Return a reconciliation summary across financial accounts, matched transactions, and pending items.", ["cash.summary.read", "cash.transactions.read"], { accountId: uuid }),
 
@@ -127,7 +139,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   ...ASSISTANT_OPERATION_TOOL_DEFINITIONS,
 
   navigation("navigate_to", "Navigate to an allowlisted Engoryx route.", (args) => [routePermission(args.routeId)], { routeId: { type: "string", enum: ["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"] } }, ["routeId"]),
-  navigation("navigate_to_project", "Open a company project in the app.", ["projects.read"], { projectId: uuid }, ["projectId"]),
+  navigation("navigate_to_project", "Open a company project or one of its shipped workspace tabs in the app.", projectNavigationPermissions, { projectId: uuid, view: { type: "string", enum: ["overview", "documents", "rfis", "submittals", "site-logs", "invoices", "payroll", "expenses", "people", "reports"] } }, ["projectId"]),
   navigation("navigate_to_invoice", "Open a company invoice in the app.", ["invoices.read"], { invoiceId: uuid }, ["invoiceId"]),
   navigation("navigate_to_review_invoice", "Open a company invoice in the review screen.", ["invoices.read"], { invoiceId: uuid }, ["invoiceId"]),
   navigation("navigate_to_payroll_period", "Open a company payroll period.", ["payroll.summary.read"], { periodId: uuid }, ["periodId"]),
@@ -150,6 +162,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   prepare("reject_overtime", "Prepare rejection of an existing pending overtime request. Confirmation is required.", ["payroll.manage"], { requestId: uuid, reason: { type: "string" } }, ["requestId"]),
   prepare("cancel_overtime", "Prepare cancellation of an existing overtime request. Confirmation is required.", ["payroll.manage"], { requestId: uuid, reason: { type: "string" } }, ["requestId"]),
   prepare("prepare_payroll_recalculation", "Prepare a deterministic recalculation preview for an open payroll run. Confirmation is required before entries are replaced.", ["payroll.manage"], { periodId: uuid, runId: uuid }, ["periodId"]),
+  mutation("create_payroll_run", "Prepare creation of one draft payroll run for an open persisted payroll period. Confirmation is required before the run is created.", ["payroll.manage"], { periodId: uuid }, ["periodId"]),
   mutation("create_expense_draft", "Prepare creation of a draft expense after validating its project and fields.", ["expenses.manage"], { projectId: uuid, expenseDate: date, category: { type: "string" }, description: { type: "string" }, payee: { type: "string" }, amount: { type: "number", minimum: 0 }, currency: { type: "string" }, paymentMethod: { type: "string" }, referenceNumber: { type: "string" }, notes: { type: "string" } }, ["expenseDate", "category", "description", "amount"]),
   mutation("create_project_draft", "Prepare creation of a planning project draft.", ["projects.manage"], { projectCode: { type: "string" }, projectName: { type: "string" }, description: { type: "string" }, clientName: { type: "string" }, projectBudget: { type: "number", minimum: 0 }, currency: { type: "string" } }, ["projectCode", "projectName"]),
   mutation("assign_invoice_to_project", "Prepare a validated invoice-to-project allocation without verifying or deleting the invoice.", ["projects.manage", "invoices.manage"], { invoiceId: uuid, projectId: uuid, allocationAmount: { type: "number", minimum: 0 }, allocationPercentage: { type: "number", minimum: 0, maximum: 100 }, notes: { type: "string" } }, ["invoiceId", "projectId"]),

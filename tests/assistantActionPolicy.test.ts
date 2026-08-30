@@ -48,6 +48,15 @@ test("engineering document actions preserve project and revision deep links", ()
   assert.equal(isAssistantActionAllowed(action, ["projects.read"]), false);
 });
 
+test("project workspace navigation respects the selected subview permission", () => {
+  const expenses = sanitizeAssistantClientAction({ type: "OPEN_PROJECT", entityId: "project-7", view: "expenses" });
+  assert.deepEqual(expenses, { type: "OPEN_PROJECT", entityId: "project-7", view: "expenses" });
+  assert.equal(pathForAssistantAction(expenses!), "/projects/project-7/expenses");
+  assert.equal(isAssistantActionAllowed(expenses, ["projects.read", "expenses.read"]), true);
+  assert.equal(isAssistantActionAllowed(expenses, ["projects.read"]), false);
+  assert.equal(sanitizeAssistantClientAction({ type: "OPEN_PROJECT", entityId: "project-7", view: "unknown" }), null);
+});
+
 test("assistant actions honor optional frontend permissions", () => {
   const reports = { type: "NAVIGATE", routeId: "reports" } as const;
   assert.equal(isAssistantActionAllowed(reports), true);

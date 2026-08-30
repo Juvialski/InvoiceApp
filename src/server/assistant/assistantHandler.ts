@@ -23,10 +23,15 @@ import { CompanyAiError } from "../ai/companyAiTypes.ts";
 
 const ACTION_TTL_MS = 10 * 60 * 1000;
 const UUID_HEADER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_TEXT_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 
 function currencySymbolFor(currency: string) {
   return ({ PHP: "₱", USD: "$", EUR: "€", SGD: "S$", JPY: "¥", GBP: "£" } as Record<string, string>)[currency] || `${currency} `;
+}
+
+export function scrubAssistantMessage(value: string) {
+  return String(value || "").replace(UUID_TEXT_PATTERN, "the referenced record");
 }
 
 export interface AssistantHandlerOptions {
@@ -251,8 +256,9 @@ async function handleAssistantRequest(req: Request, res: Response, options: Assi
     const result = options.createModelClient
       ? await runWithClient(options.createModelClient(auth))
       : await withCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId }, (runtime) => runWithClient(runtime.geminiClient));
-    await persistMessage(auth, thread.id, "assistant", { text: result.message, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions });
-    const data: AssistantResponse = { threadId: thread.id, message: result.message, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions, attachments: attachmentReferences, usage: result.usage, contextGeneration: request.context.generation };
+    const safeMessage = scrubAssistantMessage(result.message);
+    await persistMessage(auth, thread.id, "assistant", { text: safeMessage, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions });
+    const data: AssistantResponse = { threadId: thread.id, message: safeMessage, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions, attachments: attachmentReferences, usage: result.usage, contextGeneration: request.context.generation };
     const response: AssistantSuccessResponse = { success: true, data };
     return res.json(response);
   } catch (error) {
@@ -299,6 +305,28 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
       clientActions.push({ type: "OPEN_REVIEW_INVOICE", entityId: invoiceId, label: "Open in Review Queue" });
     }
   }
+  if (action.tool_name === "create_payroll_run" && result.run && typeof result.run === "object" && !Array.isArray(result.run)) {
+    const run = result.run as Record<string, unknown>;
+    const runId = typeof run.id === "string" ? run.id : undefined;
+    message = "A draft payroll run was created for the selected period.";
+    if (runId) {
+      references.push({ type: "payroll_run", id: runId, label: "Draft payroll run" });
+      clientActions.push({ type: "OPEN_PAYROLL_RUN", entityId: runId, label: "Open payroll run" });
+    }
+  }
+  if (action.tool_name === "create_project_draft" && result.project && typeof result.project === "object" && !Array.isArray(result.project)) {
+    const project = result.project as Record<string, unknown>;
+    const projectId = typeof project.id === "string" ? project.id : undefined;
+    message = "The planning project draft was created.";
+    if (projectId) {
+      references.push({ type: "project", id: projectId, label: "Planning project" });
+      clientActions.push({ type: "OPEN_PROJECT", entityId: projectId, label: "Open project" });
+    }
+  }
+  if (action.tool_name === "create_expense_draft") {
+    message = "The draft expense was created and is ready in Expenses.";
+    clientActions.push({ type: "NAVIGATE", routeId: "expenses", label: "Open Expenses" });
+  }
   if (isDailySiteLogsTool(action.tool_name)) {
     const logResult = result.log && typeof result.log === "object" && !Array.isArray(result.log) ? result.log as Record<string, unknown> : undefined;
     const siteLogId = typeof logResult?.id === "string" ? logResult.id : typeof action.normalized_args.siteLogId === "string" ? action.normalized_args.siteLogId : typeof action.normalized_args.dailySiteLogId === "string" ? action.normalized_args.dailySiteLogId : undefined;
@@ -344,7 +372,7 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
       : typeof action.preview.target === "string" && action.preview.target.trim()
         ? action.preview.target.trim()
         : entityType.replaceAll("_", " ");
-    const requestedAction = typeof action.normalized_args.action === "string" ? action.normalized_args.action : action.tool_name === "prepare_site_log_addendum" ? "ADDENDUM" : action.tool_name.includes("import") ? "IMPORT" : action.tool_name.includes("create") ? "CREATE" : action.tool_name.includes("open") ? "OPEN" : action.tool_name.includes("respond") ? "RESPONSE" : action.tool_name.includes("submit") ? "SUBMIT" : action.tool_name.includes("start") ? "START_REVIEW" : action.tool_name.includes("review") ? "REVIEW" : action.tool_name.includes("resubmit") ? "RESUBMIT" : action.tool_name.includes("close") ? "CLOSE" : "UPDATE";
+    const requestedAction = typeof action.normalized_args.action === "string" ? action.normalized_args.action : action.tool_name === "prepare_site_log_addendum" ? "ADDENDUM" : action.tool_name.includes("reopen") ? "REOPEN" : action.tool_name.includes("authorize") ? "AUTHORIZE" : action.tool_name.includes("revoke") ? "REVOKE" : action.tool_name.includes("snapshot") ? "RECORD_MANUAL_BALANCE" : action.tool_name.includes("import") ? "IMPORT" : action.tool_name.includes("save") ? "SAVE" : action.tool_name.includes("create") ? "CREATE" : action.tool_name.includes("open") ? "OPEN" : action.tool_name.includes("respond") ? "RESPONSE" : action.tool_name.includes("submit") ? "SUBMIT" : action.tool_name.includes("start") ? "START_REVIEW" : action.tool_name.includes("review") ? "REVIEW" : action.tool_name.includes("resubmit") ? "RESUBMIT" : action.tool_name.includes("close") ? "CLOSE" : "UPDATE";
     const outcome: Record<string, string> = {
       DELETE_UNUSED: "was permanently deleted because it was unused",
       ARCHIVE: "was archived and its history was retained",
@@ -361,6 +389,9 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
       UPDATE: "was updated",
       CONFIRM: "was confirmed",
       REVERSE: "was reversed while its history was retained",
+      REOPEN: "was reopened for human review",
+      SAVE: "was saved",
+      RECORD_MANUAL_BALANCE: "received a dated manual balance snapshot",
       AUTHORIZE: "was authorized for signup",
       ROLE_UPDATED: "had its role updated",
       OVERRIDES_UPDATED: "had its explicit permissions updated",
@@ -393,13 +424,13 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
     else if (entityType === "SITE_LOG" && entityId && projectId) clientActions.push({ type: "OPEN_SITE_LOG", entityId, projectId, label: "Open Site Log" });
     else if (entityType === "FINANCIAL_TRANSACTION" && entityId) clientActions.push({ type: "OPEN_FINANCIAL_TRANSACTION", entityId, label: "Open transaction" });
     else if (entityType === "FINANCIAL_TRANSFER" && typeof action.normalized_args.leftTransactionId === "string") clientActions.push({ type: "OPEN_FINANCIAL_TRANSACTION", entityId: action.normalized_args.leftTransactionId, label: "Open transaction" });
-    else if (entityType === "FINANCIAL_IMPORT") clientActions.push({ type: "NAVIGATE", routeId: "cash", label: "Open Cash & Banking" });
+    else if (entityType === "FINANCIAL_IMPORT" || entityType === "FINANCIAL_SNAPSHOT") clientActions.push({ type: "NAVIGATE", routeId: "cash", label: "Open Cash & Banking" });
     else if (entityType === "COMPANY" || entityType === "INVITATION" || entityType === "MEMBERSHIP") clientActions.push({ type: "NAVIGATE", routeId: "settings", label: "Open Settings" });
     else if (["WORKER", "PROJECT_ASSIGNMENT", "COMPENSATION_PROFILE", "RECURRING_COMPONENT", "WORK_ENTRY", "ATTENDANCE", "LEAVE", "OVERTIME"].includes(entityType)) clientActions.push({ type: "NAVIGATE", routeId: "payroll", label: "Open Payroll" });
   }
   if (typeof workerResult?.id === "string") references.push({ type: "worker", id: String(workerResult.id), label: "View employee" });
   else if (typeof requestResult?.id === "string") references.push({ type: "worker", id: String(requestResult.id), label: "Updated workforce request" });
-  return { threadId: action.thread_id || "", message, references, clientActions, preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
+  return { threadId: action.thread_id || "", message: scrubAssistantMessage(message), references, clientActions, preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
 }
 
 async function handleAssistantConfirm(req: Request, res: Response, options: AssistantHandlerOptions) {

@@ -82,7 +82,7 @@ export function isCoreHardeningTool(name: string): boolean {
 }
 
 function requiredReason(action: string, reason: string | undefined, label: string) {
-  if (["ARCHIVE", "REACTIVATE", "OFFBOARD", "END", "SUPERSEDE", "DEACTIVATE", "VOID", "CANCEL"].includes(action) && !reason) {
+  if (["ARCHIVE", "RESTORE", "REACTIVATE", "OFFBOARD", "END", "SUPERSEDE", "DEACTIVATE", "VOID", "CANCEL"].includes(action) && !reason) {
     throw new AssistantToolError("REASON_REQUIRED", `A reason is required to ${action.toLowerCase().replaceAll("_", " ")} ${label}.`);
   }
 }
@@ -105,8 +105,8 @@ function validateWorkerUpdate(args: Record<string, unknown>) {
   for (const key of ["firstName", "middleName", "lastName", "employeeCode", "jobTitle", "department", "workingHoursStart", "workingHoursEnd", "notes"]) {
     if (args[key] !== undefined) fields[key] = boundedText(args[key], key, key === "notes" ? 2000 : 240, false);
   }
-  if (args.departmentId !== undefined) fields.departmentId = requireUuid(args.departmentId, "departmentId");
-  if (args.defaultProjectId !== undefined) fields.defaultProjectId = requireUuid(args.defaultProjectId, "defaultProjectId");
+  if (args.departmentId !== undefined) fields.departmentId = args.departmentId === null || args.departmentId === "" ? null : requireUuid(args.departmentId, "departmentId");
+  if (args.defaultProjectId !== undefined) fields.defaultProjectId = args.defaultProjectId === null || args.defaultProjectId === "" ? null : requireUuid(args.defaultProjectId, "defaultProjectId");
   if (args.defaultPayType !== undefined) fields.defaultPayType = enumValue(args.defaultPayType, "defaultPayType", ["MONTHLY", "DAILY", "HOURLY"] as const);
   if (args.defaultLaborContext !== undefined) fields.defaultLaborContext = enumValue(args.defaultLaborContext, "defaultLaborContext", ["PROJECT", "ADMIN_OFFICE", "GENERAL_OVERHEAD", "UNALLOCATED_REVIEW"] as const);
   if (args.defaultRate !== undefined) {
@@ -119,13 +119,14 @@ function validateWorkerUpdate(args: Record<string, unknown>) {
     fields.workingDays = args.workingDays.map((value, index) => boundedText(value, `workingDays[${index}]`, 20)!);
   }
   if (Object.keys(fields).length === 1) throw new AssistantToolError("NO_CHANGES", "Provide at least one worker field to update.");
+  if (args.expectedUpdatedAt !== undefined) fields.expectedUpdatedAt = boundedText(args.expectedUpdatedAt, "expectedUpdatedAt", 80, false);
   return fields;
 }
 
 export function validateCoreHardeningToolArguments(toolName: string, input: unknown): Record<string, unknown> {
   const args = plainObject(input);
   switch (toolName) {
-    case "prepare_project_lifecycle": return { ...validateLifecycle(args, "projectId", PROJECT_ACTIONS, "project"), effectiveDate: undefined };
+    case "prepare_project_lifecycle": return validateLifecycle(args, "projectId", PROJECT_ACTIONS, "project");
     case "prepare_financial_correction": {
       const action = enumValue(args.action, "action", FINANCIAL_ACTIONS)!;
       const reason = boundedText(args.reason, "reason", 1000, false);
@@ -137,7 +138,12 @@ export function validateCoreHardeningToolArguments(toolName: string, input: unkn
     case "prepare_assignment_lifecycle": return { ...validateLifecycle(args, "assignmentId", ASSIGNMENT_ACTIONS, "project assignment"), effectiveDate: validateDate(args.effectiveDate, "effectiveDate") };
     case "prepare_compensation_profile_lifecycle": return { ...validateLifecycle(args, "profileId", PROFILE_ACTIONS, "compensation profile"), effectiveDate: validateDate(args.effectiveDate, "effectiveDate") };
     case "prepare_recurring_component_lifecycle": return { ...validateLifecycle(args, "componentId", COMPONENT_ACTIONS, "recurring payroll component"), effectiveDate: validateDate(args.effectiveDate, "effectiveDate") };
-    case "prepare_workforce_source_lifecycle": return { entityType: enumValue(args.entityType, "entityType", SOURCE_ENTITIES)!, entityId: requireUuid(args.entityId, "entityId"), action: enumValue(args.action, "action", SOURCE_ACTIONS)!, reason: boundedText(args.reason, "reason", 1000, false) };
+    case "prepare_workforce_source_lifecycle": {
+      const action = enumValue(args.action, "action", SOURCE_ACTIONS)!;
+      const reason = boundedText(args.reason, "reason", 1000, false);
+      requiredReason(action, reason, "workforce source");
+      return { entityType: enumValue(args.entityType, "entityType", SOURCE_ENTITIES)!, entityId: requireUuid(args.entityId, "entityId"), action, reason };
+    }
     case "prepare_engineering_document_lifecycle": return validateLifecycle(args, "documentId", ENGINEERING_DOCUMENT_ACTIONS, "engineering document");
     case "prepare_rfi_lifecycle": return validateLifecycle(args, "rfiId", ENGINEERING_ACTIONS, "RFI");
     case "prepare_submittal_lifecycle": return validateLifecycle(args, "submittalId", ENGINEERING_ACTIONS, "technical submittal");
@@ -240,12 +246,12 @@ async function prepareAssignmentLifecycle(context: AssistantToolContext, args: R
     rows(context, "work_entries", (query) => query.eq("worker_id", assignment.worker_id).eq("project_id", assignment.project_id), "Assignment work entries"),
     rows(context, "overtime_requests", (query) => query.eq("worker_id", assignment.worker_id).eq("project_id", assignment.project_id), "Assignment overtime"),
   ]);
-  return prepareAction(context, "prepare_assignment_lifecycle", args, actionPreview(String(args.action), label(assignment, "role_on_project", "start_date"), { assignment, knownUsage: { workEntries: workEntries.length, overtimeRequests: overtime.length }, historyPolicy: "The authoritative assignment RPC rechecks payroll allocations and snapshots before deletion or end-dating." }));
+  return prepareAction(context, "prepare_assignment_lifecycle", args, actionPreview(String(args.action), label(assignment, "role_on_project", "start_date"), { currentState: assignment.active === false ? "ENDED" : "ACTIVE", startDate: assignment.start_date, endDate: assignment.end_date, knownUsage: { workEntries: workEntries.length, overtimeRequests: overtime.length }, historyPolicy: "The authoritative assignment RPC rechecks payroll allocations and snapshots before deletion or end-dating." }));
 }
 
 async function prepareSimpleLifecycle(context: AssistantToolContext, toolName: string, table: string, idKey: string, labelName: string, args: Record<string, unknown>) {
   const target = await row(context, table, String(args[idKey]), labelName, "*");
-  return prepareAction(context, toolName, args, actionPreview(String(args.action), label(target, "name", "display_name", "code", "id"), { currentRecord: target, historyPolicy: "The authoritative lifecycle RPC rechecks current state and preserved history during confirmation." }));
+  return prepareAction(context, toolName, args, actionPreview(String(args.action), label(target, "name", "display_name", "code", "type", "effective_from"), { currentState: target.status || target.lifecycle_status || target.record_status || target.active, historyPolicy: "The authoritative lifecycle RPC rechecks current state and preserved history during confirmation." }));
 }
 
 async function prepareSourceLifecycle(context: AssistantToolContext, args: Record<string, unknown>) {
@@ -279,7 +285,11 @@ async function getEngineeringDocument(context: AssistantToolContext, args: Recor
     rows(context, "engineering_document_revisions", (query) => query.eq("document_id", document.id).order("revision_number", { ascending: false }).limit(50), "Document revisions"),
     rows(context, "drawing_annotations", (query) => query.eq("document_id", document.id).order("created_at", { ascending: false }).limit(100), "Document annotations"),
   ]);
-  return toolOk({ document, revisions, annotations, history: "Revisions are immutable; annotations remain revision-scoped historical records." }, { references: [{ type: "document", id: String(document.id), label: label(document, "document_number", "title") }] });
+  const projectId = typeof document.project_id === "string" ? document.project_id : undefined;
+  const documentView = { id: document.id, projectId, documentNumber: document.document_number, title: document.title, discipline: document.discipline, status: document.status, currentRevisionId: document.current_revision_id, currentRevisionNumber: document.current_revision_number, createdAt: document.created_at, updatedAt: document.updated_at };
+  const revisionViews = revisions.map((revision) => ({ id: revision.id, documentId: revision.document_id, revisionNumber: revision.revision_number, revisionLabel: revision.revision_label, status: revision.status, fileName: revision.file_name, fileSizeBytes: revision.file_size_bytes, pageCount: revision.page_count, changeSummary: revision.change_summary, createdAt: revision.created_at }));
+  const annotationViews = annotations.map((annotation) => ({ id: annotation.id, revisionId: annotation.revision_id, pageNumber: annotation.page_number, annotationType: annotation.annotation_type, status: annotation.status, content: annotation.content, measurementValue: annotation.measurement_value, measurementUnit: annotation.measurement_unit, createdAt: annotation.created_at, updatedAt: annotation.updated_at }));
+  return toolOk({ document: documentView, revisions: revisionViews, annotations: annotationViews, history: "Revisions are immutable; annotations remain revision-scoped historical records. Private Storage paths and credentials are not returned." }, { references: [{ type: "document", id: String(document.id), label: label(document, "document_number", "title") }] });
 }
 
 async function getWorkerPayrollSetup(context: AssistantToolContext, args: Record<string, unknown>): Promise<ToolExecutionResult> {
@@ -321,7 +331,7 @@ export async function executeCoreHardeningTool(name: string, args: Record<string
   }
 }
 
-function patchForWorkerUpdate(args: Record<string, unknown>) {
+function patchForWorkerUpdate(args: Record<string, unknown>, current: Record<string, unknown>) {
   const patch: Record<string, unknown> = {};
   const mapping: Record<string, string> = {
     firstName: "first_name", middleName: "middle_name", lastName: "last_name", employeeCode: "employee_code", jobTitle: "job_title", department: "department", departmentId: "department_id",
@@ -330,15 +340,19 @@ function patchForWorkerUpdate(args: Record<string, unknown>) {
   for (const [key, column] of Object.entries(mapping)) if (args[key] !== undefined) patch[column] = args[key] === "" ? null : args[key];
   const first = typeof args.firstName === "string" ? args.firstName.trim() : undefined;
   const last = typeof args.lastName === "string" ? args.lastName.trim() : undefined;
-  if (first !== undefined || last !== undefined) patch.display_name = [first, last].filter(Boolean).join(" ").trim();
+  if (first !== undefined || last !== undefined) {
+    const currentFirst = stringValue(current.first_name).trim();
+    const currentLast = stringValue(current.last_name).trim();
+    patch.display_name = [first === undefined ? currentFirst : first, last === undefined ? currentLast : last].filter(Boolean).join(" ").trim();
+  }
   patch.updated_at = new Date().toISOString();
   return patch;
 }
 
 async function executeWorkerUpdate(context: AssistantToolContext, args: Record<string, unknown>) {
-  const current = await row(context, "workers", String(args.workerId), "Worker", "id,employee_code,display_name,updated_at");
+  const current = await row(context, "workers", String(args.workerId), "Worker", "id,employee_code,display_name,first_name,last_name,updated_at");
   if (args.expectedUpdatedAt !== undefined && String(current.updated_at || "") !== String(args.expectedUpdatedAt || "")) throw new AssistantToolError("STALE_PREVIEW", "The worker changed after the preview. Prepare the update again.");
-  const patch = patchForWorkerUpdate(args);
+  const patch = patchForWorkerUpdate(args, current);
   const updated = await db(context).from("workers").update(patch).eq("id", String(args.workerId)).eq("company_id", context.auth.companyId).select("*").maybeSingle();
   if (updated.error || !updated.data) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The worker update was rejected by the authoritative workforce rules.");
   return { operation: "worker_updated", entityType: "WORKER", entityId: String(updated.data.id), displayLabel: label(updated.data, "employee_code", "display_name", "first_name", "last_name"), record: updated.data };

@@ -2,7 +2,7 @@ import React from "react";
 import { ArrowLeft, WalletCards } from "lucide-react";
 import { PayrollPageV2, type PayrollPageV2Props } from "../../components/payroll/PayrollPageV2";
 import { PayrollRunView } from "../../components/payroll/PayrollRunView";
-import { payrollRunIdFromSearch } from "../../utils/appRouting.ts";
+import { attendanceDateFromSearch, payrollPeriodIdFromSearch, payrollRunIdFromSearch } from "../../utils/appRouting.ts";
 
 export type PayrollRouteProps = PayrollPageV2Props;
 
@@ -18,10 +18,16 @@ function safeReturnPath(search: string) {
 export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
   const search = currentSearch();
   const requestedRunId = payrollRunIdFromSearch(search);
+  const requestedPeriodId = payrollPeriodIdFromSearch(search);
+  const requestedAttendanceDate = attendanceDateFromSearch(search);
   const requestedRun = requestedRunId ? props.runs.find((run) => run.id === requestedRunId) : undefined;
-  const requestedPeriod = requestedRun ? props.periods.find((period) => period.id === requestedRun.periodId) : undefined;
+  const requestedPeriod = requestedRun
+    ? props.periods.find((period) => period.id === requestedRun.periodId)
+    : requestedPeriodId
+      ? props.periods.find((period) => period.id === requestedPeriodId)
+      : undefined;
 
-  if (!requestedRun || !requestedPeriod) return <PayrollPageV2 {...props} />;
+  if (!requestedRun) return <PayrollPageV2 {...props} selectedPeriodId={requestedPeriod?.id} attendanceDate={requestedAttendanceDate} />;
 
   return (
     <div className="space-y-5" data-tour="payroll-run-deep-link">

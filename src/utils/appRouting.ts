@@ -174,6 +174,22 @@ export function appPathForPayrollRun(payrollRunId: string, returnTo?: string) {
   return `${routeContractPath("payroll")}?${query.toString()}`;
 }
 
+/** Stable payroll deep link that selects the exact period in the existing payroll workspace. */
+export function appPathForPayrollPeriod(payrollPeriodId: string, returnTo?: string) {
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "payroll", "periodId", payrollPeriodId, true);
+  setRouteQueryValue(query, "payroll", "from", returnTo);
+  return `${routeContractPath("payroll")}?${query.toString()}`;
+}
+
+/** Stable payroll deep link that opens the attendance workspace on one exact date. */
+export function appPathForAttendanceDate(attendanceDate: string, returnTo?: string) {
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "payroll", "attendanceDate", attendanceDate, true);
+  setRouteQueryValue(query, "payroll", "from", returnTo);
+  return `${routeContractPath("payroll")}?${query.toString()}`;
+}
+
 export function financialTransactionIdFromSearch(search: string) {
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   return routeQueryValue(query, "cash", "transactionId")?.trim() || undefined;
@@ -182,6 +198,17 @@ export function financialTransactionIdFromSearch(search: string) {
 export function payrollRunIdFromSearch(search: string) {
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   return routeQueryValue(query, "payroll", "runId")?.trim() || undefined;
+}
+
+export function payrollPeriodIdFromSearch(search: string) {
+  const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  return routeQueryValue(query, "payroll", "periodId")?.trim() || undefined;
+}
+
+export function attendanceDateFromSearch(search: string) {
+  const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  const value = routeQueryValue(query, "payroll", "attendanceDate")?.trim();
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
 }
 
 export function appPathFromLocation(location: Pick<Location, "pathname" | "search">) {

@@ -569,7 +569,8 @@ export function AssistantProvider({
         else if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
         else defaultNavigate(path);
       } else if (safeAction.type === "OPEN_PROJECT" && safeAction.entityId) {
-        if (callbacks.onOpenProject) await callbacks.onOpenProject(safeAction.entityId, safeAction);
+        if (safeAction.view && safeAction.view !== "overview" && callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
+        else if (callbacks.onOpenProject) await callbacks.onOpenProject(safeAction.entityId, safeAction);
         else if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
         else defaultNavigate(path);
       } else if (safeAction.type === "OPEN_PROJECT_DOCUMENTS" || safeAction.type === "OPEN_ENGINEERING_DOCUMENT" || safeAction.type === "OPEN_PAYROLL_RUN" || safeAction.type === "OPEN_FINANCIAL_TRANSACTION") {

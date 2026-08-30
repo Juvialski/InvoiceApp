@@ -172,7 +172,7 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     id: "attendance-overtime",
     title: "Attendance and overtime",
     summary: "Maintain attendance, leave, holidays, and overtime inputs inside Payroll.",
-    details: "Attendance and overtime records are source inputs for payroll readiness. Review them against the open period before calculating a run.",
+    details: "Attendance and overtime records are source inputs for payroll readiness. Review them against the open period before calculating a run. Payroll also supports an attendance workbook import: inspect the parsed preview, resolve warnings, then commit the reviewed rows.",
     routeId: "payroll",
     keywords: ["attendance", "overtime", "leave", "holiday", "time", "workforce"],
   },
@@ -188,7 +188,7 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     id: "payroll-runs-imports",
     title: "Payroll runs and imports",
     summary: "Stage workbook imports, review them, calculate runs, and keep approval explicit.",
-    details: "Payroll imports are staged for review before commit. Runs can then be calculated and inspected before any approval or finalization step.",
+    details: "Payroll imports are staged for review before commit. Resolve worker and project matches in the import table, then commit the reviewed rows. Runs can then be calculated and inspected before any approval or finalization step.",
     routeId: "payroll",
     keywords: ["payroll", "run", "calculate", "import", "workbook", "excel", "stage", "commit"],
   },
@@ -280,7 +280,8 @@ export function getHelpEntry(value: unknown): HelpCatalogEntry | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim().toLowerCase();
   if (!normalized) return undefined;
-  return HELP_CATALOG.find((entry) => entry.id === normalized || entry.title.toLowerCase() === normalized);
+  return HELP_CATALOG.find((entry) => entry.id === normalized || entry.title.toLowerCase() === normalized)
+    || searchHelpCatalog(normalized, { limit: 1 })[0];
 }
 
 export function helpEntryReference(entry: HelpCatalogEntry): AssistantReference {

@@ -549,6 +549,20 @@ async function getPayrollReadiness(context: AssistantToolContext, args: Record<s
   return toolOk({ period: periodView(period), run: run ? runView(run) : undefined, sourceCounts: { confirmedAttendance: attendance.filter((row) => text(row, "record_status") === "CONFIRMED").length, activeLeave: leave.filter((row) => ["DRAFT", "PENDING", "APPROVED"].includes(text(row, "status"))).length, approvedOvertime: overtime.filter((row) => text(row, "status") === "APPROVED").length, approvedWorkEntries: workEntries.filter((row) => text(row, "status") === "APPROVED").length, payrollEntries: entries.length }, blockers, readyForApproval: blockers.length === 0 && Boolean(run && text(run, "status") === "CALCULATED"), authoritativeCalculation: false });
 }
 
+async function getPayrollSummary(context: AssistantToolContext, args: Record<string, unknown>) {
+  const period = await getPeriod(context, String(args.periodId));
+  const runs = await getRows(userCompanyQuery(context, "payroll_runs", RUN_SELECT).eq("period_id", String(period.id)).order("created_at", { ascending: false }).limit(10), "Payroll summary runs");
+  const currentRun = runs[0];
+  return toolOk({
+    period: periodView(period),
+    runs: runs.map(runView),
+    currentRun: currentRun ? runView(currentRun) : null,
+    sourceRevision: Number(period.source_revision || 0),
+    lifecycle: currentRun ? { status: text(currentRun, "status"), calculated: text(currentRun, "status") === "CALCULATED", approved: text(currentRun, "status") === "APPROVED", paid: text(currentRun, "status") === "PAID" } : { status: "NO_RUN", calculated: false, approved: false, paid: false },
+    semantics: "This is a period and run-status summary. Employee entries, rates, deductions, net pay, and attendance detail require payroll-detail permission and are not included.",
+  }, { references: [reference("payroll_period", text(period, "id"), `${text(period, "period_start")} – ${text(period, "period_end")}`)] });
+}
+
 function workspaceToday(context: AssistantToolContext) {
   const timezone = context.context.companyTimezone || "Asia/Manila";
   try {
@@ -789,7 +803,7 @@ async function navigateTo(context: AssistantToolContext, args: Record<string, un
   return toolOk({ destination: routeId }, { clientActions: [action] });
 }
 
-async function navigateToEntity(context: AssistantToolContext, type: "project" | "invoice" | "review-invoice" | "payroll-period", id: string) {
+async function navigateToEntity(context: AssistantToolContext, type: "project" | "invoice" | "review-invoice" | "payroll-period", id: string, view?: string) {
   if (type === "project") await getProject(context, id);
   if (type === "invoice" || type === "review-invoice") await getInvoice(context, id);
   if (type === "payroll-period") await getPeriod(context, id);
@@ -800,6 +814,7 @@ async function navigateToEntity(context: AssistantToolContext, type: "project" |
       : type === "review-invoice"
         ? { type: "OPEN_REVIEW_INVOICE", entityId: id, label: "Open invoice review" }
         : { type: "OPEN_PAYROLL_PERIOD", entityId: id, label: "Open payroll period" };
+  if (type === "project" && view && view !== "overview") action.view = view;
   return toolOk({ destination: type }, { clientActions: [action] });
 }
 
@@ -972,6 +987,16 @@ async function preparePayrollRecalculation(context: AssistantToolContext, args: 
   return context.prepareAction({
     toolName: "prepare_payroll_recalculation", riskTier: "PREPARE", normalizedArgs: { periodId: String(period.id), runId: String(run.id) }, contextGeneration: context.context.generation,
     preview: { operation: "Recalculate payroll run", periodStart: text(period, "period_start"), periodEnd: text(period, "period_end"), runStatus: text(run, "status"), sourceRevision: Number(period.source_revision || 0), writeStatus: "Replace only the open run's calculated entries after confirmation", authoritativeCalculation: false },
+  });
+}
+
+async function preparePayrollRunCreation(context: AssistantToolContext, args: Record<string, unknown>) {
+  const period = await assertOpenPeriod(context, String(args.periodId));
+  const runs = await getRows(userCompanyQuery(context, "payroll_runs", RUN_SELECT).eq("period_id", String(period.id)).limit(10), "Payroll runs");
+  if (runs.some((run) => text(run, "status") !== "VOID")) throw new AssistantToolError("RUN_EXISTS", "A non-void payroll run already exists for this period.");
+  return context.prepareAction({
+    toolName: "create_payroll_run", riskTier: "NORMAL_MUTATION", normalizedArgs: { periodId: String(period.id) }, contextGeneration: context.context.generation,
+    preview: { operation: "Create draft payroll run", periodStart: text(period, "period_start"), periodEnd: text(period, "period_end"), statusAfterConfirmation: "DRAFT", writeStatus: "PREPARED only until confirmation" },
   });
 }
 
@@ -1154,6 +1179,14 @@ async function executeLeaveTransition(context: AssistantToolContext, toolName: s
   if (currentStatus === target) return { operation: "leave_already_in_target_state", request: leaveView(current) };
   const valid = target === "APPROVED" || target === "REJECTED" ? currentStatus === "PENDING" : ["DRAFT", "PENDING", "APPROVED"].includes(currentStatus);
   if (!valid) throw new AssistantToolError("LEAVE_CHANGED", `Leave request is now ${currentStatus}; it was not changed.`);
+  if (toolName === "cancel_leave") {
+    const lifecycle = await db(context).rpc("apply_workforce_source_lifecycle", { p_entity_type: "LEAVE", p_entity_id: args.requestId, p_action: "CANCEL", p_reason: args.reason || "Leave request cancelled by an authorized payroll user" });
+    if (lifecycle.error) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The leave cancellation was rejected by the authoritative payroll lifecycle.");
+    const record = lifecycle.data && typeof lifecycle.data === "object" && !Array.isArray(lifecycle.data) && (lifecycle.data as Record<string, unknown>).record && typeof (lifecycle.data as Record<string, unknown>).record === "object"
+      ? (lifecycle.data as Record<string, unknown>).record as Row
+      : lifecycle.data as Row;
+    return { operation: "leave_updated", request: leaveView(record) };
+  }
   const updated = await updateOne(context, "leave_requests", String(current.id), { status: target, notes: args.reason || current.notes || null, updated_by: context.auth.user.id, updated_at: context.now.toISOString() }, currentStatus);
   return { operation: "leave_updated", request: leaveView(updated) };
 }
@@ -1181,6 +1214,14 @@ async function executeOvertimeTransition(context: AssistantToolContext, toolName
   if (typeof current.period_id === "string") await assertOpenPeriod(context, String(current.period_id));
   const valid = target === "APPROVED" || target === "REJECTED" ? currentStatus === "PENDING" : ["DRAFT", "PENDING", "APPROVED"].includes(currentStatus);
   if (!valid) throw new AssistantToolError("OVERTIME_CHANGED", `Overtime request is now ${currentStatus}; it was not changed.`);
+  if (toolName === "cancel_overtime") {
+    const lifecycle = await db(context).rpc("apply_workforce_source_lifecycle", { p_entity_type: "OVERTIME", p_entity_id: args.requestId, p_action: "CANCEL", p_reason: args.reason || "Overtime request cancelled by an authorized payroll user" });
+    if (lifecycle.error) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The overtime cancellation was rejected by the authoritative payroll lifecycle.");
+    const record = lifecycle.data && typeof lifecycle.data === "object" && !Array.isArray(lifecycle.data) && (lifecycle.data as Record<string, unknown>).record && typeof (lifecycle.data as Record<string, unknown>).record === "object"
+      ? (lifecycle.data as Record<string, unknown>).record as Row
+      : lifecycle.data as Row;
+    return { operation: "overtime_updated", request: overtimeView(record) };
+  }
   const approvedMinutes = target === "APPROVED" ? Number(args.approvedMinutes ?? current.requested_minutes) : 0;
   if (target === "APPROVED" && (!Number.isInteger(approvedMinutes) || approvedMinutes < 0 || approvedMinutes > amount(current, "requested_minutes"))) throw new AssistantToolError("INVALID_APPROVAL", "Approved overtime cannot exceed requested minutes.");
   const updated = await updateOne(context, "overtime_requests", String(current.id), { status: target, approved_minutes: approvedMinutes, approved_by: target === "APPROVED" ? context.auth.user.id : null, approved_at: target === "APPROVED" ? context.now.toISOString() : null, notes: args.reason || current.notes || null, updated_by: context.auth.user.id, updated_at: context.now.toISOString() }, currentStatus);
@@ -1222,6 +1263,15 @@ async function executePayrollRecalculation(context: AssistantToolContext, args: 
   const calculatedAt = context.now.toISOString();
   const updatedRun = requireFound(await getOne(db(context).from("payroll_runs").update({ status: "CALCULATED", calculated_at: calculatedAt, calculated_source_revision: calculation.sourceRevision ?? Number(period.source_revision || 0), source_fingerprint: calculation.sourceFingerprint || null }).eq("id", String(run.id)).eq("company_id", context.auth.companyId).select(RUN_SELECT).single(), "Payroll run update"), "The payroll run could not be marked calculated.");
   return { operation: "payroll_recalculated", run: runView(updatedRun), entryCount: generatedEntries.length, warnings: calculation.warnings.slice(0, 20), sourceRevision: calculation.sourceRevision, authoritativeCalculation: false };
+}
+
+async function executePayrollRunCreation(context: AssistantToolContext, args: Record<string, unknown>, actionId?: string) {
+  const period = await assertOpenPeriod(context, String(args.periodId));
+  const runs = await getRows(userCompanyQuery(context, "payroll_runs", RUN_SELECT).eq("period_id", String(period.id)).limit(10), "Current payroll runs");
+  if (runs.some((run) => text(run, "status") !== "VOID")) throw new AssistantToolError("RUN_EXISTS", "A payroll run already exists for this period; no second run was created.");
+  const { data, error } = await db(context).from("payroll_runs").insert({ id: actionId || randomUUID(), user_id: context.auth.user.id, company_id: context.auth.companyId, period_id: period.id, status: "DRAFT", calculated_at: null, calculated_source_revision: null, source_fingerprint: null, approved_at: null, paid_at: null, notes: null }).select(RUN_SELECT).single();
+  if (error) throw new AssistantToolError("WRITE_FAILED", "The draft payroll run could not be created.");
+  return { operation: "payroll_run_created", entityType: "PAYROLL_RUN", entityId: String((data as Row).id), displayLabel: `${text(period, "period_start")} – ${text(period, "period_end")}`, period: periodView(period), run: runView(data as Row) };
 }
 
 async function executePayrollFinalization(context: AssistantToolContext, toolName: string, args: Record<string, unknown>, preview: Record<string, unknown>) {
@@ -1294,6 +1344,8 @@ async function executeInvoiceDraftUpdate(context: AssistantToolContext, args: Re
   if (args.projectReference !== undefined) nextData.projectReference = args.projectReference;
   if (args.notes !== undefined) nextData.notes = args.notes;
   const updated = requireFound(await getOne(db(context).from("invoices").update(patch).eq("id", String(args.invoiceId)).eq("company_id", context.auth.companyId).eq("review_status", "NEEDS_REVIEW").select(INVOICE_SELECT).maybeSingle(), "Invoice update"), "The invoice changed before confirmation; no update was applied.");
+  const event = await db(context).from("invoice_review_events").insert({ user_id: context.auth.user.id, company_id: context.auth.companyId, invoice_id: args.invoiceId, event_type: "HUMAN_EDIT", previous_value: currentData, new_value: nextData });
+  if (event.error) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The invoice was updated, but its review history could not be recorded safely.");
   return { operation: "invoice_draft_updated", invoice: invoiceView(updated) };
 }
 
@@ -1311,6 +1363,7 @@ export async function executePreparedAction(context: AssistantToolContext, toolN
     case "reject_overtime":
     case "cancel_overtime": return executeOvertimeTransition(context, toolName, args);
     case "prepare_payroll_recalculation": return executePayrollRecalculation(context, args, preview);
+    case "create_payroll_run": return executePayrollRunCreation(context, args, actionId);
     case "create_expense_draft": return executeExpenseDraft(context, args, actionId);
     case "create_project_draft": return executeProjectDraft(context, args, actionId);
     case "assign_invoice_to_project": return executeInvoiceProjectAssignment(context, args, actionId);
@@ -1341,7 +1394,7 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "get_payroll_run": return getPayrollRunTool(context, args);
     case "get_payroll_readiness": return getPayrollReadiness(context, args);
     case "get_payroll_exceptions": return getPayrollReadiness(context, args);
-    case "get_payroll_summary": return getPayrollReadiness(context, args);
+    case "get_payroll_summary": return getPayrollSummary(context, args);
     case "list_payroll_periods": return listPayrollPeriods(context, args);
     case "get_current_workspace_summary": return getCurrentWorkspaceSummary(context);
     case "get_cash_summary": return getCashSummary(context, args);
@@ -1350,7 +1403,7 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "list_financial_transactions": return listFinancialTransactions(context, args);
     case "get_cash_reconciliation_summary": return getCashReconciliationSummary(context, args);
     case "navigate_to": return navigateTo(context, args);
-    case "navigate_to_project": return navigateToEntity(context, "project", String(args.projectId));
+    case "navigate_to_project": return navigateToEntity(context, "project", String(args.projectId), typeof args.view === "string" ? args.view : undefined);
     case "navigate_to_invoice": return navigateToEntity(context, "invoice", String(args.invoiceId));
     case "navigate_to_review_invoice": return navigateToEntity(context, "review-invoice", String(args.invoiceId));
     case "navigate_to_payroll_period": return navigateToEntity(context, "payroll-period", String(args.periodId));
@@ -1373,6 +1426,7 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "reject_overtime":
     case "cancel_overtime": return prepareOvertimeTransition(context, name, args);
     case "prepare_payroll_recalculation": return preparePayrollRecalculation(context, args);
+    case "create_payroll_run": return preparePayrollRunCreation(context, args);
     case "create_expense_draft": return prepareExpenseDraft(context, args);
     case "create_project_draft": return prepareProjectDraft(context, args);
     case "assign_invoice_to_project": return prepareInvoiceProjectAssignment(context, args);

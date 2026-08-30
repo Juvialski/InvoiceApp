@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { executePreparedCoreHardeningAction, executeCoreHardeningTool, validateCoreHardeningToolArguments } from "../src/server/assistant/coreHardeningAssistant.ts";
 import { executePreparedAssistantOperation, validateAssistantOperationArguments } from "../src/server/assistant/assistantOperations.ts";
-import { getAssistantToolDefinition } from "../src/server/assistant/toolRegistry.ts";
+import { executeAssistantTool, getAssistantToolDefinition } from "../src/server/assistant/toolRegistry.ts";
+import { scrubAssistantMessage } from "../src/server/assistant/assistantHandler.ts";
 
 const COMPANY_ID = "00000000-0000-4000-8000-000000000001";
 const USER_ID = "00000000-0000-4000-8000-000000000002";
@@ -34,12 +35,30 @@ function readClient(rows: Record<string, unknown>[]) {
   };
 }
 
+function mutableClient(seed: Record<string, Record<string, unknown>>, calls: Array<Record<string, unknown>>) {
+  return {
+    from(table: string) {
+      let response: { data: unknown; error: unknown } = { data: seed[table] || null, error: null };
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        neq: () => builder,
+        update: (patch: Record<string, unknown>) => { calls.push({ table, operation: "update", patch }); response = { data: { ...(seed[table] || {}), ...patch }, error: null }; return builder; },
+        insert: (row: Record<string, unknown>) => { calls.push({ table, operation: "insert", row }); response = { data: { ...row }, error: null }; return builder; },
+        maybeSingle: async () => response,
+        single: async () => response,
+      };
+      return builder;
+    },
+  };
+}
+
 test("Wave 3 hardening tools are confirmation-gated and use explicit domain permissions", () => {
   for (const name of [
     "prepare_project_lifecycle", "prepare_financial_correction", "prepare_worker_update", "prepare_worker_lifecycle", "prepare_assignment_lifecycle",
     "prepare_compensation_profile_lifecycle", "prepare_recurring_component_lifecycle", "prepare_workforce_source_lifecycle", "prepare_engineering_document_lifecycle",
     "prepare_rfi_lifecycle", "prepare_submittal_lifecycle", "prepare_site_log_lifecycle", "prepare_site_log_addendum", "prepare_save_project_assignment",
-    "prepare_save_compensation_profile", "prepare_save_recurring_component", "prepare_save_work_entry", "prepare_financial_account", "prepare_financial_account_lifecycle",
+    "prepare_update_project", "prepare_update_attendance", "prepare_save_compensation_profile", "prepare_save_recurring_component", "prepare_save_work_entry", "prepare_financial_account", "prepare_financial_account_lifecycle", "prepare_financial_snapshot",
     "prepare_financial_transaction", "prepare_financial_transaction_correction", "prepare_financial_transaction_lifecycle", "prepare_internal_transfer", "prepare_internal_transfer_reversal",
     "prepare_update_company_profile", "prepare_authorize_company_member", "prepare_update_company_member", "prepare_update_member_permissions", "prepare_revoke_company_invitation",
   ]) {
@@ -53,7 +72,7 @@ test("Wave 3 hardening tools are confirmation-gated and use explicit domain perm
 });
 
 test("lifecycle validation requires safe identifiers, action values, and reasons for destructive transitions", () => {
-  assert.deepEqual(validateCoreHardeningToolArguments("prepare_project_lifecycle", { projectId: PROJECT_ID, action: "ARCHIVE", reason: "Project closed" }), { projectId: PROJECT_ID, action: "ARCHIVE", reason: "Project closed", effectiveDate: undefined });
+  assert.deepEqual(validateCoreHardeningToolArguments("prepare_project_lifecycle", { projectId: PROJECT_ID, action: "ARCHIVE", reason: "Project closed" }), { projectId: PROJECT_ID, action: "ARCHIVE", reason: "Project closed" });
   assert.throws(() => validateCoreHardeningToolArguments("prepare_project_lifecycle", { projectId: PROJECT_ID, action: "ARCHIVE" }), /reason is required/i);
   assert.throws(() => validateCoreHardeningToolArguments("prepare_financial_correction", { entityType: "INVOICE", entityId: PROJECT_ID, action: "VOID" }), /reason is required/i);
   assert.deepEqual(validateAssistantOperationArguments("prepare_financial_transaction_lifecycle", { transactionId: PROJECT_ID, action: "IGNORE", reason: "Not a business item" }), { transactionId: PROJECT_ID, action: "IGNORE", reason: "Not a business item" });
@@ -106,4 +125,84 @@ test("financial correction and company profile executions retain company-bound R
     { name: "apply_invoice_correction", args: { p_invoice_id: PROJECT_ID, p_action: "VOID", p_reason: "Duplicate source" } },
     { name: "update_company", args: { p_company_id: COMPANY_ID, p_name: "Engoryx Client", p_default_currency: "PHP", p_timezone: "Asia/Manila" } },
   ]);
+});
+
+test("project, attendance, and manual-balance adapters validate deterministic inputs", () => {
+  assert.deepEqual(validateAssistantOperationArguments("prepare_update_project", { projectId: PROJECT_ID, projectName: "North Tower", projectBudget: 250000 }), { projectId: PROJECT_ID, projectName: "North Tower", projectBudget: 250000 });
+  assert.throws(() => validateAssistantOperationArguments("prepare_update_project", { projectId: PROJECT_ID }), /at least one project field/i);
+  assert.deepEqual(validateAssistantOperationArguments("prepare_update_attendance", { attendanceId: PROJECT_ID, attendanceStatus: "ABSENT" }), { attendanceId: PROJECT_ID, attendanceStatus: "ABSENT" });
+  const snapshot = validateAssistantOperationArguments("prepare_financial_snapshot", { accountId: PROJECT_ID, availableBalance: -125.5 });
+  const snapshotRetry = validateAssistantOperationArguments("prepare_financial_snapshot", { accountId: PROJECT_ID, availableBalance: -125.5 });
+  assert.equal(snapshot.availableBalance, -125.5);
+  assert.equal(snapshot.pendingBalance, undefined);
+  assert.equal(snapshot.snapshotId, snapshotRetry.snapshotId);
+});
+
+test("project and attendance corrections recheck the prepared row and write only through company-scoped updates", async () => {
+  const projectCalls: Array<Record<string, unknown>> = [];
+  const project = await executePreparedAssistantOperation(context(mutableClient({ projects: { id: PROJECT_ID, company_id: COMPANY_ID, project_code: "P-1", project_name: "Old name", status: "ACTIVE", updated_at: "2026-08-29T00:00:00.000Z" } }, projectCalls) as any), "prepare_update_project", { projectId: PROJECT_ID, projectName: "New name", expectedUpdatedAt: "2026-08-29T00:00:00.000Z" });
+  assert.equal(project.operation, "project_updated");
+  assert.deepEqual((projectCalls[0]?.patch as Record<string, unknown>)?.project_name, "New name");
+
+  const attendanceId = "00000000-0000-4000-8000-000000000004";
+  const attendanceCalls: Array<Record<string, unknown>> = [];
+  const attendance = await executePreparedAssistantOperation(context(mutableClient({
+    attendance_records: { id: attendanceId, company_id: COMPANY_ID, worker_id: PROJECT_ID, period_id: "00000000-0000-4000-8000-000000000005", attendance_date: "2026-08-29", scheduled_start: "09:00", scheduled_end: "18:00", scheduled_minutes: 480, break_minutes: 60, actual_time_in: "09:00", actual_time_out: "18:00", regular_minutes: 480, late_minutes: 0, undertime_minutes: 0, overtime_minutes: 0, paid_day_fraction: 1, attendance_status: "PRESENT", record_status: "CONFIRMED", source: "MANUAL", updated_at: "2026-08-29T00:00:00.000Z" },
+    payroll_periods: { id: "00000000-0000-4000-8000-000000000005", company_id: COMPANY_ID, status: "OPEN", locked_at: null },
+  }, attendanceCalls) as any), "prepare_update_attendance", { attendanceId, attendanceStatus: "ABSENT", expectedUpdatedAt: "2026-08-29T00:00:00.000Z" });
+  assert.equal(attendance.operation, "attendance_corrected");
+  const attendancePatch = attendanceCalls[0]?.patch as Record<string, unknown>;
+  assert.equal(attendancePatch.actual_time_in, null);
+  assert.equal(attendancePatch.regular_minutes, 0);
+  assert.equal(attendancePatch.record_status, "CONFIRMED");
+});
+
+test("cash statement import normalizes deterministic fingerprints and executes only through the atomic import RPC", async () => {
+  const source = {
+    accountId: "00000000-0000-4000-8000-000000000004",
+    sourceType: "CSV",
+    fileName: "august-bank.csv",
+    rows: [{ transactionDate: "2026-08-29", description: "Supplier payment", direction: "DEBIT", amount: 1250, currency: "php" }],
+  };
+  const first = validateAssistantOperationArguments("prepare_import_cash_statement", source);
+  const second = validateAssistantOperationArguments("prepare_import_cash_statement", source);
+  assert.equal(first.fileFingerprint, second.fileFingerprint);
+  assert.equal(getAssistantToolDefinition("prepare_import_cash_statement")?.riskTier, "BULK_MUTATION");
+
+  const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const supabase = {
+    from() {
+      const builder: any = {
+        select: () => builder,
+        eq: () => builder,
+        maybeSingle: async () => ({ data: { id: source.accountId, company_id: COMPANY_ID, display_name: "Operating account", currency: "PHP", active: true }, error: null }),
+      };
+      return builder;
+    },
+    rpc: async (name: string, args: Record<string, unknown>) => { calls.push({ name, args }); return { data: { batch_id: "00000000-0000-4000-8000-000000000005", imported_count: 1 }, error: null }; },
+  };
+  const prepared: any = await (await import("../src/server/assistant/assistantOperations.ts")).executeAssistantOperationTool("prepare_import_cash_statement", first, context(supabase, async (request) => ({ output: { prepared: true }, preparedAction: { id: "action", toolName: request.toolName, riskTier: request.riskTier, status: "PREPARED", preview: request.preview, expiresAt: "2026-08-30T00:00:00.000Z" } })));
+  assert.equal(prepared.preparedAction.riskTier, "BULK_MUTATION");
+  const executed = await (await import("../src/server/assistant/assistantOperations.ts")).executePreparedAssistantOperation(context(supabase), "prepare_import_cash_statement", first);
+  assert.equal(executed.operation, "cash_statement_imported");
+  assert.equal(calls[0]?.name, "commit_financial_import");
+  assert.equal((calls[0]?.args.p_rows as Array<Record<string, unknown>>)[0]?.transaction_date, "2026-08-29");
+});
+
+test("Assistant normal prose scrubs UUIDs while structured references remain available to the client", () => {
+  assert.equal(scrubAssistantMessage("The invoice 00000000-0000-4000-8000-000000000003 is ready."), "The invoice the referenced record is ready.");
+  assert.equal(scrubAssistantMessage("No identifiers were present."), "No identifiers were present.");
+});
+
+test("an effective permission denial blocks new Assistant mutations before entity reads or preparation", async () => {
+  let reads = 0;
+  let prepared = 0;
+  const supabase = {
+    rpc: async () => { reads += 1; return { data: false, error: null }; },
+    from: () => { throw new Error("entity read must not run after permission denial"); },
+  };
+  const result: any = await executeAssistantTool("prepare_project_lifecycle", { projectId: PROJECT_ID, action: "ARCHIVE", reason: "Project closed" }, context(supabase, async () => { prepared += 1; return { output: {} }; }));
+  assert.equal(result.error.code, "FORBIDDEN");
+  assert.equal(prepared, 0);
+  assert.equal(reads, 1);
 });

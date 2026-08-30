@@ -17,7 +17,7 @@ import { ASSISTANT_TOOL_DEFINITIONS, assistantFunctionDeclarations } from "../sr
 import { companyAiProviderError, classifyCompanyAiProviderFailure } from "../src/server/ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../src/server/ai/companyAiTypes.ts";
 
-const EXPECTED_ASSISTANT_TOOL_COUNT = 126;
+const EXPECTED_ASSISTANT_TOOL_COUNT = 132;
 
 async function captureGeminiRequest(request: Parameters<GoogleGenAI["models"]["generateContent"]>[0]) {
   const originalFetch = globalThis.fetch;

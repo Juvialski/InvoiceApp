@@ -1,5 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
+import { findInternalTransferSuggestions } from "../../lib/cashBanking.ts";
+import { normalizeAttendanceRecord } from "../../lib/payrollWorkforce.ts";
 import { AssistantBackendError, AssistantToolError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { boundedLimit, boundedText, enumValue, optionalDateOnly, optionalNumber, plainObject, requireDateOnly, requireUuid } from "./toolValidation.ts";
 import { toolOk } from "./toolResults.ts";
@@ -92,6 +94,33 @@ const workEntrySchema = {
   status: { type: "string", enum: ["DRAFT", "APPROVED", "VOID"] },
 };
 
+const projectUpdateSchema = {
+  projectId: uuid,
+  projectCode: { type: "string" },
+  projectName: { type: "string" },
+  description: { type: "string" },
+  clientName: { type: "string" },
+  clientReference: { type: "string" },
+  location: { type: "string" },
+  siteAddress: { type: "string" },
+  projectManager: { type: "string" },
+  startDate: date,
+  targetEndDate: date,
+  actualEndDate: date,
+  contractValue: { type: "number", minimum: 0, maximum: 1000000000 },
+  projectBudget: { type: "number", minimum: 0, maximum: 1000000000 },
+  currency: { type: "string" },
+  notes: { type: "string" },
+};
+
+const attendanceUpdateSchema = {
+  attendanceId: uuid,
+  attendanceStatus: { type: "string", enum: ["PRESENT", "ABSENT", "PARTIAL", "ON_LEAVE", "REST_DAY", "HOLIDAY", "OFFICIAL_BUSINESS"] },
+  actualTimeIn: { type: "string" },
+  actualTimeOut: { type: "string" },
+  notes: { type: "string" },
+};
+
 const statementRowSchema = {
   transactionDate: date,
   postedAt: { type: "string" },
@@ -105,14 +134,19 @@ const statementRowSchema = {
 
 export const ASSISTANT_OPERATION_TOOL_DEFINITIONS: readonly AssistantOperationToolDefinition[] = Object.freeze([
   read("search_work_entries", "Search company time and labor source entries by worker, project, period, date, or status.", ["payroll.detail.read"], { workerId: uuid, projectId: uuid, periodId: uuid, from: date, to: date, status: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 50 } }),
+  read("list_internal_transfer_suggestions", "List deterministic same-currency opposite transaction pairs that the Cash & Banking reconciliation workspace can review as possible internal transfers.", ["cash.reconcile"], { limit: { type: "integer", minimum: 1, maximum: 20 } }),
+  prepare("prepare_reopen_invoice_review", "Prepare reopening an invoice for human review. This does not verify the invoice, change financial totals, or replace the original extraction evidence.", ["invoices.read", "invoices.manage"], { invoiceId: uuid, reason: { type: "string" } }, ["invoiceId"]),
+  prepare("prepare_update_project", "Prepare a metadata correction to an existing project without changing its archive or lifecycle state.", ["projects.manage"], projectUpdateSchema, ["projectId"]),
+  prepare("prepare_update_attendance", "Prepare a correction to an existing attendance record using the same deterministic time/status normalization as the attendance workspace.", ["payroll.manage"], attendanceUpdateSchema, ["attendanceId"]),
   prepare("prepare_save_project_assignment", "Prepare creation or editing of a project worker assignment. Database lifecycle guards reject rewrites of used assignment identity or archived-project activity.", ["workers.manage"], assignmentSchema, ["workerId", "projectId", "startDate"]),
   prepare("prepare_save_compensation_profile", "Prepare an effective-dated worker compensation profile through the same guarded payroll setup RPC as the deterministic UI.", ["workers.manage"], compensationSchema, ["workerId", "effectiveFrom", "frequency", "rate", "defaultLaborContext"]),
   prepare("prepare_save_recurring_component", "Prepare creation or editing of a recurring payroll component with effective dates and lifecycle guards.", ["workers.manage"], componentSchema, ["workerId", "type", "effectiveFrom"]),
   prepare("prepare_save_work_entry", "Prepare creation or editing of an open-period work entry using the existing company-scoped workforce source contract.", ["payroll.manage"], workEntrySchema, ["workerId", "periodId", "workDate", "rate"]),
   prepare("prepare_financial_account", "Prepare creation or descriptive correction of a Cash & Banking account through the guarded account RPC.", ["cash.accounts.manage"], { accountId: uuid, accountType: { type: "string", enum: ["BANK", "EWALLET", "CASH"] }, institutionCode: { type: "string" }, institutionName: { type: "string" }, displayName: { type: "string" }, maskedIdentifier: { type: "string" }, currency: { type: "string" }, openingBalance: { type: "number" }, openingBalanceDate: date, connectionType: { type: "string", enum: ["MANUAL", "STATEMENT", "PROVIDER"] }, provider: { type: "string" }, providerAccountId: { type: "string" } }, ["accountType", "institutionName", "displayName", "currency", "openingBalance", "openingBalanceDate", "connectionType"]),
   prepare("prepare_financial_account_lifecycle", "Prepare deactivation or reactivation of a Cash & Banking account while preserving its financial history.", ["cash.accounts.manage"], { accountId: uuid, action: lifecycle(["DEACTIVATE", "REACTIVATE"]), reason }, ["accountId", "action", "reason"]),
+  prepare("prepare_financial_snapshot", "Prepare recording one manual Cash & Banking balance snapshot. It is labeled Manual and never represents a live provider balance.", ["cash.accounts.manage"], { snapshotId: uuid, accountId: uuid, availableBalance: { type: "number", minimum: -1000000000, maximum: 1000000000 }, pendingBalance: { type: "number", minimum: 0, maximum: 1000000000 } }, ["accountId", "availableBalance"]),
   prepare("prepare_financial_transaction", "Prepare a manual Cash & Banking transaction through the guarded transaction RPC. Imported/provider rows are not created by this operation.", ["cash.transactions.manage"], { transactionId: uuid, accountId: uuid, transactionDate: date, postedAt: { type: "string" }, referenceNumber: { type: "string" }, description: { type: "string" }, direction: { type: "string", enum: ["CREDIT", "DEBIT"] }, amount: { type: "number", minimum: 0.01, maximum: 1000000000 }, currency: { type: "string" } }, ["accountId", "transactionDate", "description", "direction", "amount", "currency"]),
-  prepare("prepare_financial_transaction_correction", "Prepare correction of an uncommitted unreconciled manual transaction. Used or imported evidence must be reversed instead.", ["cash.transactions.manage"], { transactionId: uuid, transactionDate: date, postedAt: { type: "string" }, referenceNumber: { type: "string" }, description: { type: "string" }, direction: { type: "string", enum: ["CREDIT", "DEBIT"] }, amount: { type: "number", minimum: 0.01, maximum: 1000000000 }, reason }, ["transactionId", "transactionDate", "description", "direction", "amount", "reason"]),
+  prepare("prepare_financial_transaction_correction", "Prepare correction of an uncommitted unreconciled manual transaction. Used or imported evidence must be reversed instead.", ["cash.transactions.manage"], { transactionId: uuid, transactionDate: date, referenceNumber: { type: "string" }, description: { type: "string" }, direction: { type: "string", enum: ["CREDIT", "DEBIT"] }, amount: { type: "number", minimum: 0.01, maximum: 1000000000 }, reason }, ["transactionId", "transactionDate", "description", "direction", "amount", "reason"]),
   prepare("prepare_financial_transaction_lifecycle", "Prepare reversal, Ignore, or return-to-review for a Cash & Banking transaction using the guarded financial lifecycle RPC.", (args) => [String(args.action).toUpperCase() === "REVERSE" ? "cash.transactions.manage" : "cash.reconcile"], { transactionId: uuid, action: lifecycle(["REVERSE", "IGNORE", "RETURN_TO_REVIEW"]), reason }, ["transactionId", "action", "reason"]),
   bulkPrepare("prepare_import_cash_statement", "Prepare a validated CSV/XLSX cash statement import from structured rows. Confirmation is required before the existing atomic import RPC commits any batch or transactions.", ["cash.import"], { accountId: uuid, sourceType: { type: "string", enum: ["CSV", "XLSX"] }, fileName: { type: "string" }, fileFingerprint: { type: "string" }, statementFrom: date, statementTo: date, openingBalance: { type: "number" }, closingBalance: { type: "number" }, rows: { type: "array", minItems: 1, maxItems: 500, items: { type: "object", properties: statementRowSchema, required: ["transactionDate", "description", "direction", "amount", "currency"], additionalProperties: false } } }, ["accountId", "sourceType", "fileName", "rows"]),
   prepare("prepare_internal_transfer", "Prepare confirmation of an exact opposite same-currency internal transfer pair. Confirmation is required before both relationship rows are written.", ["cash.reconcile"], { leftTransactionId: uuid, rightTransactionId: uuid, matchedAmount: { type: "number", minimum: 0.01, maximum: 1000000000 }, transferGroupId: uuid }, ["leftTransactionId", "rightTransactionId", "matchedAmount"]),
@@ -144,14 +178,18 @@ function optionalUuid(value: unknown, label: string) {
   return value === undefined || value === null || value === "" ? undefined : requireUuid(value, label);
 }
 
+function deterministicUuid(seed: unknown) {
+  const hex = createHash("sha256").update(typeof seed === "string" ? seed : JSON.stringify(seed)).digest("hex").slice(0, 32).split("");
+  hex[12] = "4";
+  hex[16] = ["8", "9", "a", "b"][Number.parseInt(hex[16] || "8", 16) % 4]!;
+  const value = hex.join("");
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
+}
+
 function requiredMoney(value: unknown, label: string) {
   const parsed = optionalNumber(value, label, { min: 0.01, max: 1_000_000_000 });
   if (parsed === undefined) throw new AssistantToolError("INVALID_NUMBER", `${label} is required.`);
   return Math.round(parsed * 100) / 100;
-}
-
-function normalizedReason(value: unknown, required = false) {
-  return boundedText(value, "reason", 1000, !required);
 }
 
 function normalizedOverrides(value: unknown, label = "permissionOverrides") {
@@ -178,8 +216,62 @@ function normalizeDate(value: unknown, label: string, required = true) {
   return required ? requireDateOnly(value, label) : optionalDateOnly(value, label);
 }
 
+function nullableText(value: unknown, label: string, max: number, required = false) {
+  if (value === undefined) return undefined;
+  if (value === null) {
+    if (required) throw new AssistantToolError("INVALID_ARGUMENT", `${label} is required.`);
+    return null;
+  }
+  if (typeof value !== "string") throw new AssistantToolError("INVALID_ARGUMENT", `${label} must be text.`);
+  const normalized = value.trim();
+  if (required && !normalized) throw new AssistantToolError("INVALID_ARGUMENT", `${label} is required.`);
+  if (normalized.length > max) throw new AssistantToolError("ARGUMENT_TOO_LARGE", `${label} is too long.`);
+  return normalized || null;
+}
+
+function nullableDate(value: unknown, label: string) {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  return requireDateOnly(value, label);
+}
+
+function normalizeCurrency(value: unknown, label = "currency") {
+  const normalized = boundedText(value, label, 3)!.toUpperCase();
+  if (!/^[A-Z]{3}$/.test(normalized)) throw new AssistantToolError("INVALID_ARGUMENT", `${label} must be a three-letter currency code.`);
+  return normalized;
+}
+
+function normalizeProjectUpdate(args: Record<string, unknown>) {
+  const projectId = requireUuid(args.projectId, "projectId");
+  const fields: Record<string, unknown> = {};
+  const textFields: Array<[string, number, boolean]> = [
+    ["projectCode", 80, true], ["projectName", 200, true], ["description", 2000, false], ["clientName", 200, false],
+    ["clientReference", 200, false], ["location", 240, false], ["siteAddress", 500, false], ["projectManager", 200, false], ["notes", 2000, false],
+  ];
+  for (const [key, max, required] of textFields) if (args[key] !== undefined) fields[key] = nullableText(args[key], key, max, required);
+  for (const key of ["startDate", "targetEndDate", "actualEndDate"]) if (args[key] !== undefined) fields[key] = nullableDate(args[key], key);
+  for (const key of ["contractValue", "projectBudget"]) if (args[key] !== undefined) fields[key] = optionalNumber(args[key], key, { min: 0, max: 1_000_000_000 });
+  if (args.currency !== undefined) fields.currency = normalizeCurrency(args.currency);
+  const startDate = typeof fields.startDate === "string" ? fields.startDate : undefined;
+  const targetEndDate = typeof fields.targetEndDate === "string" ? fields.targetEndDate : undefined;
+  if (startDate && targetEndDate && targetEndDate < startDate) throw new AssistantToolError("INVALID_DATE_RANGE", "targetEndDate cannot be before startDate.");
+  if (!Object.keys(fields).length) throw new AssistantToolError("NO_CHANGES", "Provide at least one project field to update.");
+  return { projectId, ...fields, ...(args.expectedUpdatedAt !== undefined ? { expectedUpdatedAt: boundedText(args.expectedUpdatedAt, "expectedUpdatedAt", 80, false) } : {}) };
+}
+
+function normalizeAttendanceUpdate(args: Record<string, unknown>) {
+  const attendanceId = requireUuid(args.attendanceId, "attendanceId");
+  const fields: Record<string, unknown> = { attendanceId };
+  if (args.attendanceStatus !== undefined) fields.attendanceStatus = enumValue(args.attendanceStatus, "attendanceStatus", ["PRESENT", "ABSENT", "PARTIAL", "ON_LEAVE", "REST_DAY", "HOLIDAY", "OFFICIAL_BUSINESS"] as const);
+  if (args.actualTimeIn !== undefined) fields.actualTimeIn = nullableText(args.actualTimeIn, "actualTimeIn", 40, false);
+  if (args.actualTimeOut !== undefined) fields.actualTimeOut = nullableText(args.actualTimeOut, "actualTimeOut", 40, false);
+  if (args.notes !== undefined) fields.notes = nullableText(args.notes, "notes", 500, false);
+  if (Object.keys(fields).length === 1) throw new AssistantToolError("NO_CHANGES", "Provide an attendance status, clock time, or note to correct.");
+  return { ...fields, ...(args.expectedUpdatedAt !== undefined ? { expectedUpdatedAt: boundedText(args.expectedUpdatedAt, "expectedUpdatedAt", 80, false) } : {}) };
+}
+
 function normalizeAssignment(args: Record<string, unknown>) {
-  const assignmentId = optionalUuid(args.assignmentId, "assignmentId") || randomUUID();
+  const assignmentId = optionalUuid(args.assignmentId, "assignmentId") || deterministicUuid({ operation: "assignment", workerId: args.workerId, projectId: args.projectId, startDate: args.startDate });
   const workerId = requireUuid(args.workerId, "workerId");
   const projectId = requireUuid(args.projectId, "projectId");
   const startDate = normalizeDate(args.startDate, "startDate")!;
@@ -190,7 +282,7 @@ function normalizeAssignment(args: Record<string, unknown>) {
 }
 
 function normalizeCompensation(args: Record<string, unknown>) {
-  const profileId = optionalUuid(args.profileId, "profileId") || randomUUID();
+  const profileId = optionalUuid(args.profileId, "profileId") || deterministicUuid({ operation: "compensation", workerId: args.workerId, effectiveFrom: args.effectiveFrom, frequency: args.frequency, rate: args.rate });
   const effectiveFrom = normalizeDate(args.effectiveFrom, "effectiveFrom")!;
   const effectiveTo = normalizeDate(args.effectiveTo, "effectiveTo", false);
   if (effectiveTo && effectiveTo < effectiveFrom) throw new AssistantToolError("INVALID_DATE_RANGE", "effectiveTo cannot be before effectiveFrom.");
@@ -201,7 +293,7 @@ function normalizeCompensation(args: Record<string, unknown>) {
 }
 
 function normalizeComponent(args: Record<string, unknown>) {
-  const componentId = optionalUuid(args.componentId, "componentId") || randomUUID();
+  const componentId = optionalUuid(args.componentId, "componentId") || deterministicUuid({ operation: "component", workerId: args.workerId, type: args.type, effectiveFrom: args.effectiveFrom, code: args.code });
   const effectiveFrom = normalizeDate(args.effectiveFrom, "effectiveFrom")!;
   const effectiveTo = normalizeDate(args.effectiveTo, "effectiveTo", false);
   if (effectiveTo && effectiveTo < effectiveFrom) throw new AssistantToolError("INVALID_DATE_RANGE", "effectiveTo cannot be before effectiveFrom.");
@@ -212,7 +304,7 @@ function normalizeComponent(args: Record<string, unknown>) {
 }
 
 function normalizeWorkEntry(args: Record<string, unknown>) {
-  const entryId = optionalUuid(args.entryId, "entryId") || randomUUID();
+  const entryId = optionalUuid(args.entryId, "entryId") || deterministicUuid({ operation: "work-entry", workerId: args.workerId, periodId: args.periodId, workDate: args.workDate, projectId: args.projectId });
   const laborContext = enumValue(args.laborContext || (args.projectId ? "PROJECT" : "UNALLOCATED_REVIEW"), "laborContext", LABOR_CONTEXTS)!;
   const projectId = optionalUuid(args.projectId, "projectId");
   if (laborContext === "PROJECT" && !projectId) throw new AssistantToolError("INVALID_ARGUMENT", "PROJECT work entries require a project.");
@@ -246,13 +338,38 @@ export function validateAssistantOperationArguments(toolName: string, input: unk
   const args = plainObject(input);
   switch (toolName) {
     case "search_work_entries": return { workerId: optionalUuid(args.workerId, "workerId"), projectId: optionalUuid(args.projectId, "projectId"), periodId: optionalUuid(args.periodId, "periodId"), from: normalizeDate(args.from, "from", false), to: normalizeDate(args.to, "to", false), status: boundedText(args.status, "status", 40, false), limit: boundedLimit(args.limit) };
+    case "list_internal_transfer_suggestions": return { limit: boundedLimit(args.limit, 10) };
+    case "prepare_reopen_invoice_review": return { invoiceId: requireUuid(args.invoiceId, "invoiceId"), reason: boundedText(args.reason, "reason", 500, false) };
+    case "prepare_update_project": return normalizeProjectUpdate(args);
+    case "prepare_update_attendance": return normalizeAttendanceUpdate(args);
     case "prepare_save_project_assignment": return normalizeAssignment(args);
     case "prepare_save_compensation_profile": return normalizeCompensation(args);
     case "prepare_save_recurring_component": return normalizeComponent(args);
     case "prepare_save_work_entry": return normalizeWorkEntry(args);
-    case "prepare_financial_account": return { accountId: optionalUuid(args.accountId, "accountId") || randomUUID(), accountType: enumValue(args.accountType, "accountType", ACCOUNT_TYPES)!, institutionCode: boundedText(args.institutionCode, "institutionCode", 80, false), institutionName: boundedText(args.institutionName, "institutionName", 160)!, displayName: boundedText(args.displayName, "displayName", 160)!, maskedIdentifier: boundedText(args.maskedIdentifier, "maskedIdentifier", 80, false), currency: boundedText(args.currency, "currency", 3)!.toUpperCase(), openingBalance: args.openingBalance === undefined ? 0 : Number(args.openingBalance), openingBalanceDate: requireDateOnly(args.openingBalanceDate, "openingBalanceDate"), connectionType: enumValue(args.connectionType, "connectionType", CONNECTION_TYPES)!, provider: boundedText(args.provider, "provider", 120, false), providerAccountId: boundedText(args.providerAccountId, "providerAccountId", 240, false) };
+    case "prepare_financial_account": {
+      const currency = boundedText(args.currency, "currency", 3)!.toUpperCase();
+      if (!/^[A-Z]{3}$/.test(currency)) throw new AssistantToolError("INVALID_ARGUMENT", "currency must be a three-letter currency code.");
+      const openingBalance = args.openingBalance === undefined ? 0 : Number(args.openingBalance);
+      if (!Number.isFinite(openingBalance)) throw new AssistantToolError("INVALID_NUMBER", "openingBalance must be numeric.");
+      return { accountId: optionalUuid(args.accountId, "accountId") || deterministicUuid({ operation: "financial-account", accountType: args.accountType, institutionName: args.institutionName, displayName: args.displayName, currency, openingBalanceDate: args.openingBalanceDate }), accountType: enumValue(args.accountType, "accountType", ACCOUNT_TYPES)!, institutionCode: boundedText(args.institutionCode, "institutionCode", 80, false), institutionName: boundedText(args.institutionName, "institutionName", 160)!, displayName: boundedText(args.displayName, "displayName", 160)!, maskedIdentifier: boundedText(args.maskedIdentifier, "maskedIdentifier", 80, false), currency, openingBalance, openingBalanceDate: requireDateOnly(args.openingBalanceDate, "openingBalanceDate"), connectionType: enumValue(args.connectionType, "connectionType", CONNECTION_TYPES)!, provider: boundedText(args.provider, "provider", 120, false), providerAccountId: boundedText(args.providerAccountId, "providerAccountId", 240, false) };
+    }
     case "prepare_financial_account_lifecycle": return { accountId: requireUuid(args.accountId, "accountId"), action: enumValue(args.action, "action", ["DEACTIVATE", "REACTIVATE"] as const)!, reason: boundedText(args.reason, "reason", 500)! };
-    case "prepare_financial_transaction": return { transactionId: optionalUuid(args.transactionId, "transactionId") || randomUUID(), accountId: requireUuid(args.accountId, "accountId"), transactionDate: requireDateOnly(args.transactionDate, "transactionDate"), postedAt: boundedText(args.postedAt, "postedAt", 80, false), referenceNumber: boundedText(args.referenceNumber, "referenceNumber", 160, false), description: boundedText(args.description, "description", 500)!, direction: enumValue(args.direction, "direction", TRANSACTION_DIRECTIONS)!, amount: requiredMoney(args.amount, "amount"), currency: boundedText(args.currency, "currency", 3)!.toUpperCase(), sourceFingerprint: `assistant-${randomUUID()}` };
+    case "prepare_financial_snapshot": {
+      const availableBalance = optionalNumber(args.availableBalance, "availableBalance", { min: -1_000_000_000, max: 1_000_000_000 });
+      if (availableBalance === undefined) throw new AssistantToolError("INVALID_NUMBER", "availableBalance is required.");
+      return { snapshotId: optionalUuid(args.snapshotId, "snapshotId") || deterministicUuid({ operation: "financial-snapshot", accountId: args.accountId, availableBalance, pendingBalance: args.pendingBalance }), accountId: requireUuid(args.accountId, "accountId"), availableBalance, pendingBalance: optionalNumber(args.pendingBalance, "pendingBalance", { min: 0, max: 1_000_000_000 }) };
+    }
+    case "prepare_financial_transaction": {
+      const accountId = requireUuid(args.accountId, "accountId");
+      const transactionDate = requireDateOnly(args.transactionDate, "transactionDate");
+      const description = boundedText(args.description, "description", 500)!;
+      const direction = enumValue(args.direction, "direction", TRANSACTION_DIRECTIONS)!;
+      const amount = requiredMoney(args.amount, "amount");
+      const currency = boundedText(args.currency, "currency", 3)!.toUpperCase();
+      const seed = { operation: "financial-transaction", accountId, transactionDate, description, direction, amount, currency, referenceNumber: args.referenceNumber || null };
+      const fingerprint = createHash("sha256").update(JSON.stringify(seed)).digest("hex");
+      return { transactionId: optionalUuid(args.transactionId, "transactionId") || deterministicUuid(seed), accountId, transactionDate, postedAt: boundedText(args.postedAt, "postedAt", 80, false), referenceNumber: boundedText(args.referenceNumber, "referenceNumber", 160, false), description, direction, amount, currency, sourceFingerprint: `assistant-${fingerprint}` };
+    }
     case "prepare_financial_transaction_correction": return { transactionId: requireUuid(args.transactionId, "transactionId"), transactionDate: requireDateOnly(args.transactionDate, "transactionDate"), referenceNumber: boundedText(args.referenceNumber, "referenceNumber", 160, false), description: boundedText(args.description, "description", 500)!, direction: enumValue(args.direction, "direction", TRANSACTION_DIRECTIONS)!, amount: requiredMoney(args.amount, "amount"), reason: boundedText(args.reason, "reason", 500)! };
     case "prepare_financial_transaction_lifecycle": return { transactionId: requireUuid(args.transactionId, "transactionId"), action: enumValue(args.action, "action", ["REVERSE", "IGNORE", "RETURN_TO_REVIEW"] as const)!, reason: boundedText(args.reason, "reason", 500)! };
     case "prepare_import_cash_statement": {
@@ -261,14 +378,18 @@ export function validateAssistantOperationArguments(toolName: string, input: unk
       const sourceType = enumValue(args.sourceType, "sourceType", ["CSV", "XLSX"] as const)!;
       const providedFingerprint = boundedText(args.fileFingerprint, "fileFingerprint", 256, false);
       const fileFingerprint = providedFingerprint || createHash("sha256").update(JSON.stringify({ fileName, rows })).digest("hex");
+      if (fileFingerprint.length < 8) throw new AssistantToolError("INVALID_ARGUMENT", "fileFingerprint must contain at least eight characters.");
       const statementFrom = normalizeDate(args.statementFrom, "statementFrom", false);
       const statementTo = normalizeDate(args.statementTo, "statementTo", false);
       if (statementFrom && statementTo && statementFrom > statementTo) throw new AssistantToolError("INVALID_DATE_RANGE", "statementFrom cannot be after statementTo.");
       const currencies = new Set(rows.map((row) => row.currency));
       if (currencies.size !== 1) throw new AssistantToolError("CURRENCY_MISMATCH", "All imported statement rows must use one account currency.");
-      return { accountId: requireUuid(args.accountId, "accountId"), sourceType, fileName, fileFingerprint, statementFrom, statementTo, openingBalance: args.openingBalance === undefined ? undefined : Number(args.openingBalance), closingBalance: args.closingBalance === undefined ? undefined : Number(args.closingBalance), rows };
+      const openingBalance = args.openingBalance === undefined ? undefined : Number(args.openingBalance);
+      const closingBalance = args.closingBalance === undefined ? undefined : Number(args.closingBalance);
+      if ((openingBalance !== undefined && !Number.isFinite(openingBalance)) || (closingBalance !== undefined && !Number.isFinite(closingBalance))) throw new AssistantToolError("INVALID_NUMBER", "Statement balances must be numeric.");
+      return { accountId: requireUuid(args.accountId, "accountId"), sourceType, fileName, fileFingerprint, statementFrom, statementTo, openingBalance, closingBalance, rows };
     }
-    case "prepare_internal_transfer": return { leftTransactionId: requireUuid(args.leftTransactionId, "leftTransactionId"), rightTransactionId: requireUuid(args.rightTransactionId, "rightTransactionId"), matchedAmount: requiredMoney(args.matchedAmount, "matchedAmount"), transferGroupId: optionalUuid(args.transferGroupId, "transferGroupId") || randomUUID() };
+    case "prepare_internal_transfer": { const leftTransactionId = requireUuid(args.leftTransactionId, "leftTransactionId"); const rightTransactionId = requireUuid(args.rightTransactionId, "rightTransactionId"); const matchedAmount = requiredMoney(args.matchedAmount, "matchedAmount"); return { leftTransactionId, rightTransactionId, matchedAmount, transferGroupId: optionalUuid(args.transferGroupId, "transferGroupId") || deterministicUuid({ operation: "internal-transfer", leftTransactionId, rightTransactionId, matchedAmount }) }; }
     case "prepare_internal_transfer_reversal": return { transferGroupId: requireUuid(args.transferGroupId, "transferGroupId"), leftTransactionId: requireUuid(args.leftTransactionId, "leftTransactionId"), rightTransactionId: requireUuid(args.rightTransactionId, "rightTransactionId"), reason: boundedText(args.reason, "reason", 500)! };
     case "prepare_update_company_profile": return { name: boundedText(args.name, "name", 160)!, defaultCurrency: boundedText(args.defaultCurrency, "defaultCurrency", 3)!.toUpperCase(), timezone: boundedText(args.timezone, "timezone", 80)! };
     case "get_company_access_summary": return {};
@@ -293,6 +414,12 @@ function db(context: AssistantToolContext): any {
 async function rpc(context: AssistantToolContext, name: string, args: Record<string, unknown>) {
   const result = await db(context).rpc(name, args);
   if (result.error) throw new AssistantBackendError("DOMAIN_WRITE_REJECTED", result.error.message || "The authoritative operation was rejected.", 409);
+  return result.data;
+}
+
+async function readRpc(context: AssistantToolContext, name: string, args: Record<string, unknown>) {
+  const result = await db(context).rpc(name, args);
+  if (result.error) throw new AssistantBackendError("TOOL_READ_FAILED", "The company access summary could not be read safely.", 503);
   return result.data;
 }
 
@@ -330,6 +457,71 @@ async function searchWorkEntries(context: AssistantToolContext, args: Record<str
   if (result.error) throw new AssistantBackendError("TOOL_READ_FAILED", "Work entries could not be read safely.", 503);
   const records = (result.data || []) as Record<string, unknown>[];
   return toolOk({ count: records.length, records, semantics: "Work entries are payroll source records; approved or finalized payroll history remains protected." }, { references: records.slice(0, 10).map((entry) => ({ type: "report" as const, id: String(entry.id), label: `${entry.work_date || "Work entry"} · ${entry.description || "Labor source"}` })) });
+}
+
+async function prepareProjectUpdate(context: AssistantToolContext, args: Record<string, unknown>) {
+  const project = await getRow(context, "projects", String(args.projectId), "Project", "id,project_code,project_name,description,client_name,client_reference,location,site_address,project_manager,start_date,target_end_date,actual_end_date,contract_value,project_budget,currency,status,updated_at");
+  const changes = Object.fromEntries(Object.entries(args).filter(([key]) => key !== "projectId"));
+  return prepareOperation(context, "prepare_update_project", { ...args, expectedUpdatedAt: project.updated_at || undefined }, targetLabel(project, ["project_code", "project_name"]), { currentStatus: project.status, currentCurrency: project.currency, changes, lifecyclePolicy: "Archive, reactivate, and other project state changes remain on the guarded project lifecycle operation." });
+}
+
+function attendanceRecordFromRow(row: Record<string, unknown>, companyId: string) {
+  return {
+    id: String(row.id), companyId, workerId: String(row.worker_id), periodId: row.period_id ? String(row.period_id) : undefined, attendanceDate: String(row.attendance_date),
+    scheduledStart: row.scheduled_start ? String(row.scheduled_start) : undefined, scheduledEnd: row.scheduled_end ? String(row.scheduled_end) : undefined,
+    scheduledMinutes: Number(row.scheduled_minutes || 0), breakMinutes: Number(row.break_minutes || 0), actualTimeIn: row.actual_time_in ? String(row.actual_time_in) : undefined, actualTimeOut: row.actual_time_out ? String(row.actual_time_out) : undefined,
+    regularMinutes: Number(row.regular_minutes || 0), lateMinutes: Number(row.late_minutes || 0), undertimeMinutes: Number(row.undertime_minutes || 0), overtimeMinutes: Number(row.overtime_minutes || 0), paidDayFraction: Number(row.paid_day_fraction || 0),
+    attendanceStatus: String(row.attendance_status || "PRESENT"), recordStatus: String(row.record_status || "DRAFT"), source: String(row.source || "MANUAL"), notes: row.notes ? String(row.notes) : undefined,
+    createdBy: row.created_by ? String(row.created_by) : undefined, updatedBy: row.updated_by ? String(row.updated_by) : undefined, createdAt: row.created_at ? String(row.created_at) : undefined, updatedAt: row.updated_at ? String(row.updated_at) : undefined,
+  };
+}
+
+function normalizedAttendanceUpdate(current: Record<string, unknown>, args: Record<string, unknown>, companyId: string) {
+  const existing = attendanceRecordFromRow(current, companyId);
+  const input: Record<string, unknown> = { id: existing.id, companyId, workerId: existing.workerId, attendanceDate: existing.attendanceDate, periodId: existing.periodId, source: existing.source, recordStatus: "CONFIRMED" };
+  if (args.attendanceStatus !== undefined) input.attendanceStatus = args.attendanceStatus;
+  if (args.actualTimeIn !== undefined) input.actualTimeIn = args.actualTimeIn || undefined;
+  if (args.actualTimeOut !== undefined) input.actualTimeOut = args.actualTimeOut || undefined;
+  if (args.notes !== undefined) input.notes = args.notes || undefined;
+  const normalized = normalizeAttendanceRecord(input as any, { existing: existing as any, companyId, defaultSource: existing.source as any, defaultRecordStatus: "CONFIRMED" });
+  if (!normalized.valid || !normalized.record) throw new AssistantToolError("ATTENDANCE_INVALID", normalized.errors.map((issue) => issue.message).join(" ") || "The attendance correction is invalid.");
+  return normalized.record as Record<string, unknown>;
+}
+
+async function prepareAttendanceUpdate(context: AssistantToolContext, args: Record<string, unknown>) {
+  const current = await getRow(context, "attendance_records", String(args.attendanceId), "Attendance record", "*");
+  if (String(current.record_status) === "VOID") throw new AssistantToolError("ATTENDANCE_VOID", "A void attendance record is immutable and cannot be corrected.");
+  if (current.period_id) {
+    const period = await getRow(context, "payroll_periods", String(current.period_id), "Payroll period", "id,period_start,period_end,status,locked_at");
+    if (period.locked_at || ["APPROVED", "PAID", "VOID"].includes(text(period.status))) throw new AssistantToolError("PAYROLL_LOCKED", "Attendance in a finalized payroll period cannot be corrected.");
+  }
+  const normalized = normalizedAttendanceUpdate(current, args, context.auth.companyId);
+  return prepareOperation(context, "prepare_update_attendance", { ...args, expectedUpdatedAt: current.updated_at || undefined }, `${current.attendance_date} · ${current.worker_id}`, { currentStatus: current.record_status, targetStatus: normalized.attendanceStatus, normalizedTimes: { actualTimeIn: normalized.actualTimeIn, actualTimeOut: normalized.actualTimeOut }, historyPolicy: "Attendance correction uses the same deterministic normalization as the workspace; finalized or void history remains protected." });
+}
+
+async function listInternalTransferSuggestions(context: AssistantToolContext, args: Record<string, unknown>): Promise<ToolExecutionResult> {
+  const [transactions, matches] = await Promise.all([
+    (async () => {
+      const result = await db(context).from("financial_transactions").select("id,account_id,transaction_date,reference_number,description,direction,amount,currency,status,reconciliation_status,transfer_group_id").eq("company_id", context.auth.companyId).order("transaction_date", { ascending: false }).limit(500);
+      if (result.error) throw new AssistantBackendError("TOOL_READ_FAILED", "Cash transactions could not be read safely.", 503);
+      return (result.data || []) as Record<string, unknown>[];
+    })(),
+    (async () => {
+      const result = await db(context).from("financial_transaction_matches").select("id,transaction_id,target_type,target_id,matched_amount,status,transfer_group_id").eq("company_id", context.auth.companyId).limit(500);
+      if (result.error) throw new AssistantBackendError("TOOL_READ_FAILED", "Cash reconciliation history could not be read safely.", 503);
+      return (result.data || []) as Record<string, unknown>[];
+    })(),
+  ]);
+  const suggestions = findInternalTransferSuggestions(transactions.map((item) => ({ id: String(item.id), accountId: String(item.account_id), transactionDate: String(item.transaction_date), referenceNumber: item.reference_number ? String(item.reference_number) : undefined, description: String(item.description || ""), direction: String(item.direction) as "CREDIT" | "DEBIT", amount: Number(item.amount), currency: String(item.currency), status: String(item.status) as "PENDING" | "POSTED" | "REVERSED", source: "MANUAL", reconciliationStatus: String(item.reconciliation_status) as "UNMATCHED" | "SUGGESTED" | "PARTIAL" | "MATCHED" | "IGNORED", transferGroupId: item.transfer_group_id ? String(item.transfer_group_id) : undefined } as any)), matches.map((item) => ({ id: String(item.id), transactionId: String(item.transaction_id), targetType: String(item.target_type), targetId: item.target_id ? String(item.target_id) : undefined, matchedAmount: Number(item.matched_amount), status: String(item.status), transferGroupId: item.transfer_group_id ? String(item.transfer_group_id) : undefined } as any))).slice(0, Number(args.limit || 10));
+  const records = suggestions.map((suggestion) => ({ left: { id: suggestion.left.id, date: suggestion.left.transactionDate, description: suggestion.left.description, direction: suggestion.left.direction, amount: suggestion.left.amount, currency: suggestion.left.currency }, right: { id: suggestion.right.id, date: suggestion.right.transactionDate, description: suggestion.right.description, direction: suggestion.right.direction, amount: suggestion.right.amount, currency: suggestion.right.currency }, reasons: suggestion.reasons }));
+  return toolOk({ count: records.length, suggestions: records, semantics: "Suggestions are non-authoritative. A transfer changes reconciliation evidence only after explicit human confirmation through the guarded transfer RPC." }, { references: records.slice(0, 10).flatMap((record) => [{ type: "report" as const, id: record.left.id, label: record.left.description }, { type: "report" as const, id: record.right.id, label: record.right.description }]) });
+}
+
+async function prepareReopenInvoiceReview(context: AssistantToolContext, args: Record<string, unknown>) {
+  const invoice = await getRow(context, "invoices", String(args.invoiceId), "id,invoice_number,invoice_date,review_status,lifecycle_status,verified_at,updated_at");
+  if (text(invoice.lifecycle_status) === "VOID") throw new AssistantToolError("INVOICE_VOID", "A void invoice cannot be reopened for review.");
+  if (text(invoice.review_status) === "NEEDS_REVIEW") throw new AssistantToolError("ALREADY_IN_REVIEW", "The invoice is already in the review queue.");
+  return prepareOperation(context, "prepare_reopen_invoice_review", { ...args, expectedUpdatedAt: invoice.updated_at || undefined }, targetLabel(invoice, ["invoice_number", "invoice_date"]), { currentReviewStatus: invoice.review_status, targetReviewStatus: "NEEDS_REVIEW", reason: args.reason || "Reopened for human review", historyPolicy: "The original extraction snapshot and source evidence remain unchanged." });
 }
 
 async function prepareAssignment(context: AssistantToolContext, args: Record<string, unknown>) {
@@ -402,20 +594,20 @@ async function prepareInternalTransfer(context: AssistantToolContext, args: Reco
   const left = await getRow(context, "financial_transactions", String(args.leftTransactionId), "Left transfer transaction", "id,account_id,transaction_date,direction,amount,currency,status,reconciliation_status");
   const right = await getRow(context, "financial_transactions", String(args.rightTransactionId), "Right transfer transaction", "id,account_id,transaction_date,direction,amount,currency,status,reconciliation_status");
   if (String(left.account_id) === String(right.account_id)) throw new AssistantToolError("INVALID_TRANSFER", "An internal transfer must connect two different accounts.");
-  return prepareOperation(context, "prepare_internal_transfer", args, `${left.transaction_date} · ${right.transaction_date}`, { left, right, matchedAmount: args.matchedAmount, historyPolicy: "The transfer RPC rechecks both locked transactions, accounts, amounts, dates, currencies, and existing evidence." });
+  return prepareOperation(context, "prepare_internal_transfer", args, `${left.transaction_date} · ${right.transaction_date}`, { left: { date: left.transaction_date, direction: left.direction, amount: left.amount, currency: left.currency, status: left.status }, right: { date: right.transaction_date, direction: right.direction, amount: right.amount, currency: right.currency, status: right.status }, matchedAmount: args.matchedAmount, historyPolicy: "The transfer RPC rechecks both locked transactions, accounts, amounts, dates, currencies, and existing evidence." });
 }
 
 async function prepareCompanyProfile(context: AssistantToolContext, args: Record<string, unknown>) {
   const company = await db(context).from("companies").select("id,name,default_currency,timezone").eq("id", context.auth.companyId).maybeSingle();
   if (company.error || !company.data) throw new AssistantBackendError("TOOL_READ_FAILED", "The deployment company profile could not be read safely.", 503);
-  return prepareOperation(context, "prepare_update_company_profile", args, String(company.data.name || "Deployment company"), { current: company.data, changes: { name: args.name, defaultCurrency: args.defaultCurrency, timezone: args.timezone }, companyBoundary: "company_id is fixed to the authenticated deployment company" });
+  return prepareOperation(context, "prepare_update_company_profile", args, String(company.data.name || "Deployment company"), { current: { name: company.data.name, defaultCurrency: company.data.default_currency, timezone: company.data.timezone }, changes: { name: args.name, defaultCurrency: args.defaultCurrency, timezone: args.timezone }, companyBoundary: "company_id is fixed to the authenticated deployment company" });
 }
 
 async function getCompanyAccessSummary(context: AssistantToolContext): Promise<ToolExecutionResult> {
   const [members, invitations, permissions] = await Promise.all([
-    rpc(context, "platform_list_company_member_directory", { p_company_id: context.auth.companyId }),
-    rpc(context, "platform_list_company_invitations_with_overrides", { p_company_id: context.auth.companyId }),
-    rpc(context, "platform_list_company_permission_catalog", { p_company_id: context.auth.companyId }),
+    readRpc(context, "platform_list_company_member_directory", { p_company_id: context.auth.companyId }),
+    readRpc(context, "platform_list_company_invitations_with_overrides", { p_company_id: context.auth.companyId }),
+    readRpc(context, "platform_list_company_permission_catalog", { p_company_id: context.auth.companyId }),
   ]);
   return toolOk({ members: Array.isArray(members) ? members : [], pendingAccess: Array.isArray(invitations) ? invitations : [], assignablePermissions: Array.isArray(permissions) ? permissions : [], semantics: "Access is deployment-company bound. Effective member permissions combine the role preset with explicit GRANT/DENY overrides; pending access is Awaiting signup until the verified email claims it." });
 }
@@ -427,12 +619,17 @@ async function prepareAccessOperation(context: AssistantToolContext, toolName: s
 export async function executeAssistantOperationTool(name: string, args: Record<string, unknown>, context: AssistantToolContext): Promise<ToolExecutionResult> {
   switch (name) {
     case "search_work_entries": return searchWorkEntries(context, args);
+    case "list_internal_transfer_suggestions": return listInternalTransferSuggestions(context, args);
+    case "prepare_reopen_invoice_review": return prepareReopenInvoiceReview(context, args);
+    case "prepare_update_project": return prepareProjectUpdate(context, args);
+    case "prepare_update_attendance": return prepareAttendanceUpdate(context, args);
     case "prepare_save_project_assignment": return prepareAssignment(context, args);
     case "prepare_save_compensation_profile": return prepareCompensation(context, args);
     case "prepare_save_recurring_component": return prepareComponent(context, args);
     case "prepare_save_work_entry": return prepareWorkEntry(context, args);
     case "prepare_financial_account": return prepareFinancialAccount(context, args);
     case "prepare_financial_account_lifecycle": return prepareFinancialAccountLifecycle(context, args);
+    case "prepare_financial_snapshot": return prepareFinancialSnapshot(context, args);
     case "prepare_financial_transaction": return prepareFinancialTransaction(context, args);
     case "prepare_financial_transaction_correction": return prepareTransactionById(context, name, args);
     case "prepare_financial_transaction_lifecycle": return prepareTransactionById(context, name, args);
@@ -465,6 +662,80 @@ async function saveAssignment(context: AssistantToolContext, args: Record<string
   const result = await db(context).from("project_worker_assignments").upsert(assignmentRow(args, context.auth.user.id, context.auth.companyId)).select("*").single();
   if (result.error) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The project assignment was rejected by the authoritative workforce rules.");
   return { operation: "project_assignment_saved", entityType: "PROJECT_ASSIGNMENT", entityId: String(result.data.id), displayLabel: targetLabel(result.data, ["role_on_project", "start_date"]), projectId: String(result.data.project_id), record: result.data };
+}
+
+function projectUpdatePatch(args: Record<string, unknown>, now: string) {
+  const mapping: Record<string, string> = {
+    projectCode: "project_code", projectName: "project_name", description: "description", clientName: "client_name", clientReference: "client_reference",
+    location: "location", siteAddress: "site_address", projectManager: "project_manager", startDate: "start_date", targetEndDate: "target_end_date",
+    actualEndDate: "actual_end_date", contractValue: "contract_value", projectBudget: "project_budget", currency: "currency", notes: "notes",
+  };
+  const patch: Record<string, unknown> = { updated_at: now };
+  for (const [key, column] of Object.entries(mapping)) if (args[key] !== undefined) patch[column] = args[key];
+  return patch;
+}
+
+async function updateProject(context: AssistantToolContext, args: Record<string, unknown>) {
+  const current = await getRow(context, "projects", String(args.projectId), "Project", "*");
+  if (args.expectedUpdatedAt !== undefined && String(current.updated_at || "") !== String(args.expectedUpdatedAt || "")) throw new AssistantToolError("STALE_PREVIEW", "The project changed after the preview. Prepare the update again.");
+  let query = db(context).from("projects").update(projectUpdatePatch(args, context.now.toISOString())).eq("id", String(args.projectId)).eq("company_id", context.auth.companyId);
+  if (args.expectedUpdatedAt !== undefined) query = query.eq("updated_at", args.expectedUpdatedAt);
+  const result = await query.select("*").maybeSingle();
+  if (result.error || !result.data) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The project update was rejected by the authoritative project rules.");
+  return { operation: "project_updated", entityType: "PROJECT", entityId: String(result.data.id), displayLabel: targetLabel(result.data, ["project_code", "project_name"]), record: result.data };
+}
+
+async function updateAttendance(context: AssistantToolContext, args: Record<string, unknown>) {
+  const current = await getRow(context, "attendance_records", String(args.attendanceId), "Attendance record", "*");
+  if (String(current.record_status) === "VOID") throw new AssistantToolError("ATTENDANCE_VOID", "A void attendance record is immutable and cannot be corrected.");
+  if (args.expectedUpdatedAt !== undefined && String(current.updated_at || "") !== String(args.expectedUpdatedAt || "")) throw new AssistantToolError("STALE_PREVIEW", "The attendance record changed after the preview. Prepare the correction again.");
+  if (current.period_id) {
+    const period = await getRow(context, "payroll_periods", String(current.period_id), "Payroll period", "id,status,locked_at");
+    if (period.locked_at || ["APPROVED", "PAID", "VOID"].includes(text(period.status))) throw new AssistantToolError("PAYROLL_LOCKED", "Attendance in a finalized payroll period cannot be corrected.");
+  }
+  const normalized = normalizedAttendanceUpdate(current, args, context.auth.companyId);
+  const payload = {
+    id: normalized.id, user_id: context.auth.user.id, company_id: context.auth.companyId, worker_id: normalized.workerId, period_id: normalized.periodId || null, attendance_date: normalized.attendanceDate,
+    scheduled_start: normalized.scheduledStart || null, scheduled_end: normalized.scheduledEnd || null, scheduled_minutes: normalized.scheduledMinutes || 0, break_minutes: normalized.breakMinutes || 0,
+    actual_time_in: normalized.actualTimeIn || null, actual_time_out: normalized.actualTimeOut || null, regular_minutes: normalized.regularMinutes || 0, late_minutes: normalized.lateMinutes || 0,
+    undertime_minutes: normalized.undertimeMinutes || 0, overtime_minutes: normalized.overtimeMinutes || 0, paid_day_fraction: normalized.paidDayFraction || 0, attendance_status: normalized.attendanceStatus,
+    record_status: "CONFIRMED", source: normalized.source || "MANUAL", notes: normalized.notes || null, voided_at: current.voided_at || null, void_reason: current.void_reason || null,
+    created_by: current.created_by || context.auth.user.id, updated_by: context.auth.user.id, updated_at: context.now.toISOString(),
+  };
+  let query = db(context).from("attendance_records").update(payload).eq("id", String(current.id)).eq("company_id", context.auth.companyId);
+  if (args.expectedUpdatedAt !== undefined) query = query.eq("updated_at", args.expectedUpdatedAt);
+  const result = await query.select("*").maybeSingle();
+  if (result.error || !result.data) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The attendance correction was rejected by the authoritative workforce rules.");
+  return { operation: "attendance_corrected", entityType: "ATTENDANCE", entityId: String(result.data.id), displayLabel: `${result.data.attendance_date || "Attendance"} · ${result.data.attendance_status || "record"}`, record: result.data };
+}
+
+async function prepareFinancialSnapshot(context: AssistantToolContext, args: Record<string, unknown>) {
+  const account = await getRow(context, "financial_accounts", String(args.accountId), "Financial account", "id,display_name,currency,active");
+  if (account.active === false) throw new AssistantToolError("ACCOUNT_INACTIVE", "An inactive financial account cannot receive a new balance snapshot.");
+  return prepareOperation(context, "prepare_financial_snapshot", args, targetLabel(account, ["display_name"]), { currency: account.currency, availableBalance: args.availableBalance, pendingBalance: args.pendingBalance, source: "MANUAL", semantics: "A manual balance is dated evidence, not a live provider balance." });
+}
+
+async function saveFinancialSnapshot(context: AssistantToolContext, args: Record<string, unknown>) {
+  const account = await getRow(context, "financial_accounts", String(args.accountId), "Financial account", "id,display_name,active,currency");
+  if (account.active === false) throw new AssistantToolError("ACCOUNT_INACTIVE", "An inactive financial account cannot receive a balance snapshot.");
+  const result = await db(context).from("financial_balance_snapshots").insert({ id: args.snapshotId, company_id: context.auth.companyId, account_id: account.id, captured_at: context.now.toISOString(), ledger_balance: args.availableBalance, available_balance: args.availableBalance, pending_balance: args.pendingBalance ?? null, source: "MANUAL", created_by_user_id: context.auth.user.id }).select("*").single();
+  if (result.error || !result.data) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The manual balance snapshot was rejected by the authoritative cash rules.");
+  return { operation: "financial_snapshot_recorded", entityType: "FINANCIAL_SNAPSHOT", entityId: String(result.data.id), displayLabel: targetLabel(account, ["display_name"]), action: "RECORD_MANUAL_BALANCE", record: result.data };
+}
+
+async function reopenInvoiceReview(context: AssistantToolContext, args: Record<string, unknown>) {
+  const current = await getRow(context, "invoices", String(args.invoiceId), "Invoice", "id,company_id,invoice_number,review_status,lifecycle_status,verified_at,updated_at,current_data");
+  if (text(current.lifecycle_status) === "VOID") throw new AssistantToolError("INVOICE_VOID", "A void invoice cannot be reopened for review.");
+  if (text(current.review_status) === "NEEDS_REVIEW") return { operation: "invoice_already_in_review", entityType: "INVOICE", entityId: String(current.id), displayLabel: targetLabel(current, ["invoice_number"]), record: current };
+  if (args.expectedUpdatedAt !== undefined && String(current.updated_at || "") !== String(args.expectedUpdatedAt || "")) throw new AssistantToolError("STALE_PREVIEW", "The invoice changed after the preview. Prepare the review action again.");
+  const currentData = current.current_data && typeof current.current_data === "object" && !Array.isArray(current.current_data) ? (() => { const next: Record<string, unknown> = { ...(current.current_data as Record<string, unknown>), reviewStatus: "NEEDS_REVIEW" }; delete next.verifiedAt; return next; })() : undefined;
+  let query = db(context).from("invoices").update({ review_status: "NEEDS_REVIEW", verified_at: null, ...(currentData ? { current_data: currentData } : {}), updated_at: context.now.toISOString() }).eq("id", String(args.invoiceId)).eq("company_id", context.auth.companyId).neq("lifecycle_status", "VOID");
+  if (args.expectedUpdatedAt !== undefined) query = query.eq("updated_at", args.expectedUpdatedAt);
+  const result = await query.select("*").maybeSingle();
+  if (result.error || !result.data) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The invoice changed before it could be reopened for review.");
+  const event = await db(context).from("invoice_review_events").insert({ user_id: context.auth.user.id, company_id: context.auth.companyId, invoice_id: args.invoiceId, event_type: "REOPENED", previous_value: { reviewStatus: current.review_status, verifiedAt: current.verified_at }, new_value: { reviewStatus: "NEEDS_REVIEW", reason: args.reason || "Reopened for human review" } });
+  if (event.error) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The invoice reopened, but its review history could not be recorded safely.");
+  return { operation: "invoice_reopened_for_review", entityType: "INVOICE", entityId: String(result.data.id), displayLabel: targetLabel(result.data, ["invoice_number", "invoice_date"]), record: result.data };
 }
 
 async function saveCompensationProfile(context: AssistantToolContext, args: Record<string, unknown>) {
@@ -561,12 +832,16 @@ async function accessMutation(context: AssistantToolContext, toolName: string, a
 
 export async function executePreparedAssistantOperation(context: AssistantToolContext, toolName: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   switch (toolName) {
+    case "prepare_reopen_invoice_review": return reopenInvoiceReview(context, args);
+    case "prepare_update_project": return updateProject(context, args);
+    case "prepare_update_attendance": return updateAttendance(context, args);
     case "prepare_save_project_assignment": return saveAssignment(context, args);
     case "prepare_save_compensation_profile": return saveCompensationProfile(context, args);
     case "prepare_save_recurring_component": return saveComponent(context, args);
     case "prepare_save_work_entry": return saveWorkEntry(context, args);
     case "prepare_financial_account": return saveFinancialAccount(context, args);
     case "prepare_financial_account_lifecycle": return financialAccountLifecycle(context, args);
+    case "prepare_financial_snapshot": return saveFinancialSnapshot(context, args);
     case "prepare_financial_transaction": return saveFinancialTransaction(context, args);
     case "prepare_import_cash_statement": return importCashStatement(context, args);
     case "prepare_financial_transaction_correction": return correctFinancialTransaction(context, args);
