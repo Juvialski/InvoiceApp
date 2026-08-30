@@ -21,6 +21,7 @@ import { AttendanceWorkspace } from "./AttendanceWorkspace";
 import type { PayrollImportBatch, PayrollImportRow, PayrollImportTemplate } from "../../lib/payrollImportPersistence";
 import type { PayrollMaintenanceAction, PayrollMaintenancePreview, PayrollWorkspaceResetPreview } from "../../lib/payrollMaintenance";
 import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
+import { useWorkspaceDataPending } from "../../app/AppPermissionContext.tsx";
 
 export interface PayrollPageV2Props {
   workers: Worker[];

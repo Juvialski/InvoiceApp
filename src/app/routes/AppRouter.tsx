@@ -66,6 +66,8 @@ import type { RegionalSettings } from "../../config/regional";
 import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 
+import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
+
 const CashBankingRoute = lazy(() => import("./CashBankingRoute"));
 const ProjectsRoute = lazy(() => import("./ProjectsRoute").then(({ ProjectsRoute }) => ({ default: ProjectsRoute })));
 const InvoicesRoute = lazy(() => import("./InvoicesRoute"));
@@ -74,11 +76,7 @@ const ExpensesRoute = lazy(() => import("./ExpensesRoute"));
 const ReportsRoute = lazy(() => import("./ReportsRoute"));
 const SettingsRoute = lazy(() => import("./SettingsRoute"));
 
-const lazyRouteFallback = (
-  <div role="status" className="flex min-h-48 items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 text-sm font-semibold text-slate-600">
-    Loading workspace page…
-  </div>
-);
+const lazyRouteFallback = <RouteLoadingSkeleton />;
 
 function lazyRoute(element: React.ReactNode): React.JSX.Element {
   return <Suspense fallback={lazyRouteFallback}>{element}</Suspense>;

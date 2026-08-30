@@ -4,6 +4,8 @@ import { PayrollPageV2, type PayrollPageV2Props } from "../../components/payroll
 import { PayrollRunView } from "../../components/payroll/PayrollRunView";
 import { payrollRunIdFromSearch } from "../../utils/appRouting.ts";
 
+import { useWorkspaceDataPending } from "../AppPermissionContext.tsx";
+
 export type PayrollRouteProps = PayrollPageV2Props;
 
 function currentSearch() {
@@ -16,12 +18,14 @@ function safeReturnPath(search: string) {
 }
 
 export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
+  const workspaceDataPending = useWorkspaceDataPending();
+  const periodPreparationState = props.periodPreparationState ?? (props.periods.length ? "READY" : workspaceDataPending ? "SYNCING" : props.schedules?.length ? "PREPARING" : "NO_SCHEDULE");
   const search = currentSearch();
   const requestedRunId = payrollRunIdFromSearch(search);
   const requestedRun = requestedRunId ? props.runs.find((run) => run.id === requestedRunId) : undefined;
   const requestedPeriod = requestedRun ? props.periods.find((period) => period.id === requestedRun.periodId) : undefined;
 
-  if (!requestedRun || !requestedPeriod) return <PayrollPageV2 {...props} />;
+  if (!requestedRun || !requestedPeriod) return <PayrollPageV2 {...props} periodPreparationState={periodPreparationState} />;
 
   return (
     <div className="space-y-5" data-tour="payroll-run-deep-link">
