@@ -44,10 +44,13 @@ import { parseStatementFile } from "../lib/cashBankingImport.ts";
 import { EmptyState, MetricCard, Notice, PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI.tsx";
 import { FinancialReasonDialog } from "./financial/FinancialReasonDialog.tsx";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
+import type { AppNavigate } from "../utils/clientNavigation.ts";
 import { useWorkspaceDataPending } from "../app/AppPermissionContext.tsx";
 
 export interface CashBankingPageProps {
   data: CashBankingWorkspaceData;
+  selectedTransactionId?: string;
+  onNavigatePath?: AppNavigate;
   selectedCurrency?: string;
   onCurrencyChange?: (currency: string) => void;
   onSaveAccount: (account: FinancialAccount) => Promise<FinancialAccount | void> | FinancialAccount | void;

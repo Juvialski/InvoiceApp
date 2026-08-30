@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronRight, Clock3, FileText, MessageSquareText, Plus, Search, X } from "lucide-react";
 import type { Project } from "../../types.ts";
 import { appPathForProject } from "../../utils/appRouting.ts";
+import { navigateInApp, type AppNavigate } from "../../utils/clientNavigation.ts";
 import { useEngineeringDocumentsController } from "../../features/engineering/useEngineeringDocumentsController.ts";
 import { useEngineeringCoordinationController } from "../../features/engineering/useEngineeringCoordinationController.ts";
 import type { DisciplineType } from "../../lib/engineeringDocuments.ts";
@@ -43,7 +44,8 @@ export const ProjectRfis: React.FC<{
   canManage?: boolean;
   canReadDocuments?: boolean;
   guestMode?: boolean;
-}> = ({ project, companyId, initialRfiId, canRead = true, canCreate = true, canRespond = true, canManage = true, canReadDocuments = true, guestMode = false }) => {
+  onNavigatePath?: AppNavigate;
+}> = ({ project, companyId, initialRfiId, canRead = true, canCreate = true, canRespond = true, canManage = true, canReadDocuments = true, guestMode = false, onNavigatePath }) => {
   const controller = useEngineeringCoordinationController({ project, companyId, canRead, canManage, guestMode });
   const documents = useEngineeringDocumentsController({ project, companyId, canRead: canReadDocuments, guestMode });
   const [query, setQuery] = useState("");
@@ -81,10 +83,22 @@ export const ProjectRfis: React.FC<{
     return revision ? { documentId: revision.documentId, revisionId } : null;
   }).filter((item): item is { documentId: string; revisionId: string } => Boolean(item));
 
+  const navigate = (path: string, replace = false) => {
+    if (onNavigatePath) onNavigatePath(path, replace);
+    else navigateInApp(path, replace);
+  };
+
   const selectRfi = (id: string) => {
     setSelectedId(id);
-    if (typeof window !== "undefined") window.history.replaceState({}, "", appPathForProject(project.id, "rfis", { rfiId: id }));
+    navigate(appPathForProject(project.id, "rfis", { rfiId: id }));
   };
+
+  const refreshNotice = controller.hasLoaded && (controller.isLoading || controller.loadError) ? (
+    <div role={controller.loadError ? "alert" : "status"} className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-xs ${controller.loadError ? "border-rose-200 bg-rose-50 text-rose-800" : "border-indigo-100 bg-indigo-50 text-indigo-800"}`}>
+      <span>{controller.loadError ? `Could not refresh the RFI register. Showing the last successful records. ${controller.loadError}` : "Refreshing the RFI register… Existing records remain available."}</span>
+      {controller.loadError && <button type="button" onClick={controller.retryLoad} className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-rose-800 shadow-sm">Retry</button>}
+    </div>
+  ) : null;
 
   const run = async (operation: () => Promise<unknown>) => {
     setBusy(true); setActionError(null);
@@ -98,8 +112,9 @@ export const ProjectRfis: React.FC<{
   };
 
   if (!canRead) return <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">You do not have permission to read project RFIs.</div>;
-  if (controller.isLoading) return <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Loading RFI register…</div>;
-  if (controller.loadError) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800"><p className="font-bold">RFI register unavailable</p><p className="mt-1 text-xs">{controller.loadError}</p><button type="button" className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold shadow-sm" onClick={controller.retryLoad}>Retry</button></div>;
+  if (controller.isLoading && !controller.hasLoaded) return <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Loading RFI register…</div>;
+  if (controller.loadError && !controller.hasLoaded) return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800"><p className="font-bold">RFI register unavailable</p><p className="mt-1 text-xs">{controller.loadError}</p><button type="button" className="mt-3 rounded-lg bg-white px-3 py-2 text-xs font-bold shadow-sm" onClick={controller.retryLoad}>Retry</button></div>;
+  if (selectedId && !selected) return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950"><p className="font-black">RFI not available</p><p className="mt-1 text-xs leading-5">The requested RFI is not available in this project or company.</p><button type="button" onClick={() => { setSelectedId(undefined); navigate(appPathForProject(project.id, "rfis"), true); }} className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm">Return to register</button></div>;
 
   if (selected) {
     const responses = controller.data.rfiResponses.filter((item) => item.rfiId === selected.id);
@@ -108,9 +123,10 @@ export const ProjectRfis: React.FC<{
     const due = dueLabel(selected, today);
     return (
       <section className="space-y-4" data-phase1b="rfi-detail">
+        {refreshNotice}
         <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <button type="button" className="text-xs font-bold text-indigo-700 hover:text-indigo-900" onClick={() => { setSelectedId(undefined); if (typeof window !== "undefined") window.history.replaceState({}, "", appPathForProject(project.id, "rfis")); }}>← RFI register</button>
+            <button type="button" className="text-xs font-bold text-indigo-700 hover:text-indigo-900" onClick={() => { setSelectedId(undefined); navigate(appPathForProject(project.id, "rfis"), true); }}>← RFI register</button>
             <div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-sm font-black text-slate-900">{selected.rfiNumber}</span><span className={`rounded-full border px-2 py-1 text-[10px] font-black ${statusClass[selected.status]}`}>{statusLabel(selected.status)}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{statusLabel(selected.discipline)}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">{selected.priority}</span></div>
             <h2 className="mt-2 truncate text-lg font-black text-slate-950">{selected.subject}</h2>
             {due && <p className={`mt-1 text-xs font-bold ${due.className}`}><Clock3 className="mr-1 inline h-3.5 w-3.5" />{due.text}</p>}
@@ -149,13 +165,13 @@ export const ProjectRfis: React.FC<{
           <aside className="space-y-4">
             <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Referenced revisions</p>
-              <div className="mt-3 space-y-2">{linkedRows.length ? linkedRows.map(({ link, document, revision }) => <a key={link.id} href={appPathForProject(project.id, "documents", { docId: link.documentId, revId: link.revisionId })} className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 hover:border-indigo-200 hover:bg-indigo-50"><FileText className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" /><span className="min-w-0"><span className="block truncate text-xs font-black text-slate-800">{document?.documentNumber || "Engineering document"}</span><span className="mt-0.5 block text-[10px] text-slate-500">Revision {revision?.revisionNumber || link.revisionId}</span></span></a>) : <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No engineering revisions linked.</p>}</div>
+              <div className="mt-3 space-y-2">{linkedRows.length ? linkedRows.map(({ link, document, revision }) => <button key={link.id} type="button" onClick={() => navigate(appPathForProject(project.id, "documents", { docId: link.documentId, revId: link.revisionId }))} className="flex w-full items-start gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-indigo-200 hover:bg-indigo-50"><FileText className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" /><span className="min-w-0"><span className="block truncate text-xs font-black text-slate-800">{document?.documentNumber || "Engineering document"}</span><span className="mt-0.5 block text-[10px] text-slate-500">Revision {revision?.revisionNumber || link.revisionId}</span></span></button>) : <p className="rounded-xl bg-slate-50 p-4 text-xs text-slate-500">No engineering revisions linked.</p>}</div>
             </article>
 
             {(selected.status === "OPEN" || selected.status === "ANSWERED") && canRespond && <article className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5 shadow-sm"><h3 className="text-sm font-black text-slate-900">{selected.status === "ANSWERED" ? "Add correction or note" : "Add response"}</h3>{selected.status === "ANSWERED" && <select aria-label="Response type" value={responseType} onChange={(e) => { setResponseType(e.target.value as typeof responseType); setResponseFinal(false); }} className={`${fieldClass} mt-3`}><option value="CORRECTION">Correction</option><option value="NOTE">Note</option></select>}<textarea value={responseText} onChange={(e) => setResponseText(e.target.value)} rows={5} className={`${fieldClass} mt-3 resize-y`} placeholder={selected.status === "ANSWERED" ? "Record an append-only correction or note…" : "Record the formal response or clarification…"} /><label className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-700"><input type="checkbox" checked={selected.status === "OPEN" && responseFinal} disabled={selected.status !== "OPEN"} onChange={(e) => setResponseFinal(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-indigo-600" />Mark as final answer</label><div className="mt-4"><CoordinationRevisionPicker documents={documents.projectDocuments} revisions={documents.revisions} selectedRevisionIds={responseRevisionIds} onChange={setResponseRevisionIds} label="Response revision references" /></div><button type="button" disabled={busy || !responseText.trim()} onClick={() => run(async () => { await controller.respondRfi({ rfi: selected, responseText, responseType: selected.status === "ANSWERED" ? responseType : "RESPONSE", isFinalAnswer: selected.status === "OPEN" && responseFinal, references: refsForIds(responseRevisionIds) }); setResponseText(""); setResponseRevisionIds([]); setResponseType("RESPONSE"); })} className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white disabled:opacity-50">{selected.status === "ANSWERED" ? "Save correction" : "Save response"}</button></article>}
 
             {selected.status === "ANSWERED" && canManage && <label className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><span className={labelClass}>Optional close note</span><input className={fieldClass} value={closeReason} onChange={(e) => setCloseReason(e.target.value)} placeholder="Resolution / close note" /></label>}
-            {lifecyclePreview && <EngineeringLifecycleDialog entityLabel="RFI" recordLabel={`${selected.rfiNumber} · ${selected.subject}`} preview={lifecyclePreview} actions={[{ action: "DELETE_UNUSED", label: "Delete unused", description: "Permanently remove only an untouched draft with no responses, links, or lifecycle history.", tone: "danger" }, { action: "VOID", label: "Void RFI", description: "Keep the formal record and responses while marking this RFI as invalid history.", requiresReason: true, tone: "danger" }]} busy={busy} error={actionError} onClose={() => setLifecyclePreview(null)} onApply={(action: EngineeringLifecycleAction, reason?: string) => { if (action !== "DELETE_UNUSED" && action !== "VOID") return; void run(async () => { const result = await controller.applyRfiLifecycle(selected, action, reason); setLifecyclePreview(null); if (result.deleted) { setSelectedId(undefined); if (typeof window !== "undefined") window.history.replaceState({}, "", appPathForProject(project.id, "rfis")); } }); }} />}
+            {lifecyclePreview && <EngineeringLifecycleDialog entityLabel="RFI" recordLabel={`${selected.rfiNumber} · ${selected.subject}`} preview={lifecyclePreview} actions={[{ action: "DELETE_UNUSED", label: "Delete unused", description: "Permanently remove only an untouched draft with no responses, links, or lifecycle history.", tone: "danger" }, { action: "VOID", label: "Void RFI", description: "Keep the formal record and responses while marking this RFI as invalid history.", requiresReason: true, tone: "danger" }]} busy={busy} error={actionError} onClose={() => setLifecyclePreview(null)} onApply={(action: EngineeringLifecycleAction, reason?: string) => { if (action !== "DELETE_UNUSED" && action !== "VOID") return; void run(async () => { const result = await controller.applyRfiLifecycle(selected, action, reason); setLifecyclePreview(null); if (result.deleted) { setSelectedId(undefined); navigate(appPathForProject(project.id, "rfis"), true); } }); }} />}
           </aside>
         </div>
       </section>
@@ -164,6 +180,7 @@ export const ProjectRfis: React.FC<{
 
   return (
     <section className="space-y-4" data-phase1b="rfi-register">
+      {refreshNotice}
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600">Engineering coordination</p><h2 className="mt-1 text-lg font-black text-slate-950">RFI Register</h2><p className="mt-1 text-xs text-slate-500">Formal project questions, answers, due dates, and immutable drawing/specification references.</p></div>
         {canCreate && <button type="button" onClick={() => setShowCreate(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white"><Plus className="h-4 w-4" />Create RFI</button>}

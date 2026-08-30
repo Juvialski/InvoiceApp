@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, History, Landmark, LockKeyhole, RotateCcw, ShieldCheck, WalletCards } from "lucide-react";
 import type { FinancialSettlementHistoryItem, FinancialSettlementSummary, SettlementTargetType } from "../lib/financialSettlement.ts";
 import { loadFinancialSettlementSummary, reverseFinancialSettlement } from "../lib/financialSettlementPersistence.ts";
 import { demoSettlementSummaryForTarget } from "../demo/data/settlements.ts";
 import { appPathForCashTransaction } from "../utils/appRouting.ts";
+import type { AppNavigate } from "../utils/clientNavigation.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
 import { SettlementReversalDialog } from "./financial/SettlementReversalDialog.tsx";
 
@@ -17,6 +18,7 @@ export interface FinancialSettlementCardProps {
   fallbackSummary?: FinancialSettlementSummary | null;
   lifecycleStatus?: string;
   onReversed?: (item: FinancialSettlementHistoryItem) => void;
+  onNavigatePath?: AppNavigate;
 }
 
 function money(value: number, currency: string) {
@@ -47,10 +49,16 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   fallbackSummary,
   lifecycleStatus,
   onReversed,
+  onNavigatePath,
 }) => {
   const demoSummary = useMemo(() => targetId.startsWith("demo-") ? demoSettlementSummaryForTarget(targetType, targetId) : null, [targetId, targetType]);
   const [summary, setSummary] = useState<FinancialSettlementSummary | null>(fallbackSummary || demoSummary);
   const [loading, setLoading] = useState(!fallbackSummary && !demoSummary);
+  const [refreshing, setRefreshing] = useState(false);
+  const targetKey = `${targetType}:${targetId}`;
+  const resolvedTargetKeyRef = useRef<string | null>((fallbackSummary || demoSummary) ? targetKey : null);
+  const refreshRequestRef = useRef(0);
+  const visibleSummary = resolvedTargetKeyRef.current === targetKey ? summary : null;
   const [error, setError] = useState("");
   const [reversalTarget, setReversalTarget] = useState<FinancialSettlementHistoryItem | null>(null);
   const [reversalReason, setReversalReason] = useState("");
@@ -58,19 +66,42 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   const [reversalError, setReversalError] = useState("");
 
   const refresh = async () => {
+    const requestId = ++refreshRequestRef.current;
     if (targetId.startsWith("demo-")) {
       setSummary(fallbackSummary || demoSummary);
+      resolvedTargetKeyRef.current = targetKey;
+      setError("");
       setLoading(false);
+      setRefreshing(false);
       return;
     }
-    setLoading(true);
+    if (summary && resolvedTargetKeyRef.current === targetKey) setRefreshing(true);
+    else setLoading(true);
     setError("");
-    try { setSummary(await loadFinancialSettlementSummary(targetType, targetId)); }
-    catch (cause) { setError(safeErrorMessage(cause, "Settlement details could not be loaded.")); }
-    finally { setLoading(false); }
+    try {
+      const loaded = await loadFinancialSettlementSummary(targetType, targetId);
+      if (refreshRequestRef.current !== requestId) return;
+      setSummary(loaded);
+      resolvedTargetKeyRef.current = targetKey;
+    }
+    catch (cause) {
+      if (refreshRequestRef.current !== requestId) return;
+      setError(safeErrorMessage(cause, "Settlement details could not be loaded."));
+    }
+    finally {
+      if (refreshRequestRef.current === requestId) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
   };
 
-  useEffect(() => { void refresh(); }, [targetId, targetType, fallbackSummary, demoSummary]);
+  useEffect(() => { void refresh(); }, [targetId, targetType, fallbackSummary, demoSummary, targetKey]);
+  useEffect(() => {
+    setReversalTarget(null);
+    setReversalReason("");
+    setReversalError("");
+  }, [targetKey]);
 
   const openReversalDialog = (item: FinancialSettlementHistoryItem) => {
     setReversalTarget(item);
@@ -145,11 +176,11 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
     }
   };
 
-  if (loading) return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading settlement evidence…</section>;
-  if (!summary && !error) return null;
+  if (loading || (!visibleSummary && !error)) return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading settlement evidence…</section>;
+  if (!visibleSummary && error) return <section className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800"><div className="flex items-center justify-between gap-3"><span>{error}</span><button type="button" onClick={() => void refresh()} className="shrink-0 rounded-md bg-white px-2 py-1 font-black text-rose-800 shadow-sm">Retry</button></div></section>;
 
-  const active = summary?.history.filter((item) => item.status === "CONFIRMED") || [];
-  const reversed = summary?.history.filter((item) => item.status === "REVERSED") || [];
+  const active = visibleSummary?.history.filter((item) => item.status === "CONFIRMED") || [];
+  const reversed = visibleSummary?.history.filter((item) => item.status === "REVERSED") || [];
 
   const defaultTitle = targetType === "PAYROLL"
     ? "Disbursement evidence"
@@ -174,7 +205,7 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
             <h3 className="mt-1 text-sm font-black text-slate-950">{title || defaultTitle}</h3>
             <p className="mt-1 text-[10px] text-slate-500">Cash evidence only. Project cost and operational history are not recreated or erased here.</p>
           </div>
-          {summary && (
+          {visibleSummary && (
             <div className="flex flex-wrap items-center gap-1.5">
               <span className={`w-fit rounded-full border px-2.5 py-1 text-[10px] font-black ${stateTone(summary.settlementState)}`}>
                 {String(summary.settlementState).replaceAll("_", " ")}
@@ -188,9 +219,11 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
           )}
         </div>
 
-        {error && <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-800">{error}</div>}
+        {error && <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-semibold text-rose-800"><span>{error}{visibleSummary ? " Showing the last successful settlement evidence." : ""}</span><button type="button" onClick={() => void refresh()} className="shrink-0 rounded-md bg-white px-2 py-1 font-black text-rose-800 shadow-sm">Retry</button></div>}
 
-        {summary && (
+        {refreshing && <p role="status" className="mt-3 text-[10px] font-semibold text-indigo-700">Refreshing settlement evidence… Existing evidence remains visible.</p>}
+
+        {visibleSummary && (
           <>
             <div className={`mt-4 grid gap-2 ${compact ? "sm:grid-cols-3" : "sm:grid-cols-3"}`}>
               <Metric label={basisLabel} value={money(summary.settlementBasis, summary.currency)} />
@@ -237,6 +270,11 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       <a
                         href={appPathForCashTransaction(item.transactionId, targetType, targetId)}
+                        onClick={(event) => {
+                          if (!onNavigatePath) return;
+                          event.preventDefault();
+                          onNavigatePath(appPathForCashTransaction(item.transactionId, targetType, targetId));
+                        }}
                         className="inline-flex items-center gap-1 text-[10px] font-black text-indigo-700 hover:underline"
                       >
                         <WalletCards className="h-3 w-3" /> View payment in Cash & Banking <ArrowRight className="h-3 w-3" />

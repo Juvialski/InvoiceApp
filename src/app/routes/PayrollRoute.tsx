@@ -29,6 +29,21 @@ export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
     : requestedPeriodId
       ? props.periods.find((period) => period.id === requestedPeriodId)
       : undefined;
+  const requestedTargetMissing = Boolean(!workspaceDataPending && (
+    (requestedRunId && !requestedRun)
+    || (requestedPeriodId && !requestedPeriod)
+    || (requestedRun && !requestedPeriod)
+  ));
+
+  if (requestedTargetMissing) {
+    return (
+      <section role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-900">
+        <p className="font-black">Payroll destination unavailable</p>
+        <p className="mt-1 text-xs leading-5">The requested payroll run or period is not available in this workspace. No payroll data was changed.</p>
+        <a href="/payroll" onClick={(event) => { if (!props.onNavigatePath) return; event.preventDefault(); props.onNavigatePath("/payroll"); }} className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-sm">Return to Payroll</a>
+      </section>
+    );
+  }
 
   if (!requestedRun || !requestedPeriod) {
     return (
@@ -50,7 +65,7 @@ export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
             <h1 className="mt-1 text-xl font-black text-slate-950">{requestedPeriod.periodStart} – {requestedPeriod.periodEnd}</h1>
             <p className="mt-1 text-xs text-slate-500">Opened from a direct Engoryx link. Settlement evidence remains separate from payroll calculation and project labor cost.</p>
           </div>
-          <a href={safeReturnPath(search)} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50">
+          <a href={safeReturnPath(search)} onClick={(event) => { if (!props.onNavigatePath) return; event.preventDefault(); props.onNavigatePath(safeReturnPath(search)); }} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="h-3.5 w-3.5" /> Back
           </a>
         </div>

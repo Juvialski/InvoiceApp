@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { canAccessAppTab, PERMISSION_KEYS, type PermissionKey } from "../utils/accessControl.ts";
 import { getRouteDefinition } from "../utils/routes.ts";
+import { navigateInApp } from "../utils/clientNavigation.ts";
 import { BRAND } from "../config/brand.ts";
 import { pathForAssistantAction } from "./assistantNavigation.ts";
 import { compactAssistantContext } from "./assistantContext.ts";
@@ -136,11 +137,7 @@ function errorMessage(error: unknown, canConfigureAi = false) {
 }
 
 function defaultNavigate(path: string) {
-  if (typeof window === "undefined") return;
-  const nextPath = path.startsWith("/") ? path : `/${path}`;
-  const current = `${window.location.pathname}${window.location.search}`;
-  if (current !== nextPath) window.history.pushState({}, "", nextPath);
-  window.dispatchEvent(new Event("popstate"));
+  navigateInApp(path);
 }
 
 function routeIdForClientAction(action: AssistantClientAction) {
@@ -371,22 +368,25 @@ export function AssistantProvider({
     setAttachments([]);
     try {
       const response = await sendAssistantMessageRequest({ companyId, threadId: threadIdRef.current, requestId, message: normalizedMessage, context, attachments: requestAttachments, signal: controller.signal });
-      if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
+      if (requestAbortRef.current !== controller || !isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
       appendResponse(response, requestAttachments);
       lastFailedRequestRef.current = null;
       setCanRetry(false);
       return true;
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") {
+        if (requestAbortRef.current !== controller) return false;
         lastFailedRequestRef.current = { message: normalizedMessage, requestId, attachments: requestAttachments };
         setCanRetry(true);
         return false;
       }
       if (requestError instanceof Error && requestError.name === "AbortError") {
+        if (requestAbortRef.current !== controller) return false;
         lastFailedRequestRef.current = { message: normalizedMessage, requestId, attachments: requestAttachments };
         setCanRetry(true);
         return false;
       }
+      if (requestAbortRef.current !== controller) return false;
       if (requestError instanceof AssistantClientError && requestError.threadId) {
         threadIdRef.current = requestError.threadId;
         setThreadId(requestError.threadId);
@@ -396,9 +396,9 @@ export function AssistantProvider({
       if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) setError(errorMessage(requestError, permissions?.includes(PERMISSION_KEYS.platformManage) === true));
       return false;
     } finally {
-      if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) {
+      if (requestAbortRef.current === controller && isAssistantCompanyIdentityCurrent(started, identityRef.current)) {
         setIsLoading(false);
-        if (requestAbortRef.current === controller) requestAbortRef.current = null;
+        requestAbortRef.current = null;
       }
     }
   }, [appendResponse, canUseAssistant, companyGeneration, companyId, compactContext, isLoading, permissions]);
@@ -434,7 +434,7 @@ export function AssistantProvider({
     setIsLoading(true);
     try {
       const response = await confirmAssistantActionRequest({ companyId, actionId, contextGeneration: contextGenerationRef.current, signal: controller.signal });
-      if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
+      if (requestAbortRef.current !== controller || !isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
       if (pending.toolName === "prepare_process_attached_invoice" && callbacks.onProcessAttachedInvoice && !response.clientActions.some((action) => action.type === "OPEN_REVIEW_INVOICE")) {
         const attachment = attachedInvoicePayloadsRef.current.get(actionId);
         if (!attachment?.dataBase64 || !attachment.mimeType || !attachment.fileName) {
@@ -457,12 +457,12 @@ export function AssistantProvider({
     } catch (requestError) {
       if (requestError instanceof DOMException && requestError.name === "AbortError") return false;
       if (requestError instanceof Error && requestError.name === "AbortError") return false;
-      if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) setError(errorMessage(requestError, permissions?.includes(PERMISSION_KEYS.platformManage) === true));
+      if (requestAbortRef.current === controller && isAssistantCompanyIdentityCurrent(started, identityRef.current)) setError(errorMessage(requestError, permissions?.includes(PERMISSION_KEYS.platformManage) === true));
       return false;
     } finally {
-      if (isAssistantCompanyIdentityCurrent(started, identityRef.current)) {
+      if (requestAbortRef.current === controller && isAssistantCompanyIdentityCurrent(started, identityRef.current)) {
         setIsLoading(false);
-        if (requestAbortRef.current === controller) requestAbortRef.current = null;
+        requestAbortRef.current = null;
       }
     }
   }, [canUseAssistant, callbacks, companyId, permissions]);

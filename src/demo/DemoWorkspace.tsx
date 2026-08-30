@@ -18,7 +18,7 @@ import { DemoTour } from "./DemoTour.tsx";
 import { useDemoWorkspace } from "./DemoWorkspaceProvider.tsx";
 import { buildDemoDashboard, buildDemoProjectDashboard, buildDemoProjectSummaries } from "./demoSelectors.ts";
 import { DEMO_COMPANY_ID } from "./demoTypes.ts";
-import { demoAssistantPath, demoDocumentsPath, demoPathForInvoice, demoPathForProject, demoPathForTab, type DemoLocation } from "./demoRouting.ts";
+import { demoAssistantPath, demoDocumentsPath, demoPathForAppPath, demoPathForInvoice, demoPathForProject, demoPathForTab, type DemoLocation } from "./demoRouting.ts";
 import { projectCostDataCompleteness } from "../utils/dataCompleteness.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
@@ -35,7 +35,7 @@ function safeAppLocation(location: DemoLocation): AppLocation | null {
   return allowed.has(location.appLocation.tab) ? location.appLocation : null;
 }
 
-export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation; onNavigate: (path: string) => void }) {
+export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation; onNavigate: (path: string, replace?: boolean) => void }) {
   const { data, dispatch, reset, tourOpen, setTourOpen } = useDemoWorkspace();
   const [activityPeriod, setActivityPeriod] = useState<DashboardActivityPeriod>("QUARTER");
   const [dashboardProjectId, setDashboardProjectId] = useState<string | undefined>();
@@ -160,6 +160,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
           <AppRouter
             route={appLocation}
             activeTab={activeTab}
+            onNavigatePath={(path, replace = false) => onNavigate(path.startsWith("/demo/") ? path : demoPathForAppPath(path), replace)}
             dashboardData={dashboardData}
             dashboardProjectId={dashboardProjectId}
             onDashboardProjectChange={setDashboardProjectId}

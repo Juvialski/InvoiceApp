@@ -111,6 +111,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     projectDocuments,
     revisions,
     isLoading,
+    hasLoaded,
     loadError,
     retryLoad,
     getDocRevisions,
@@ -426,17 +427,26 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     );
   }
 
+  if (isLoading && !hasLoaded) {
+    return <div role="status" className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm font-semibold text-slate-600">Loading engineering documents…</div>;
+  }
+
+  if (loadError && !hasLoaded) {
+    return <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-900"><p className="font-black">Engineering documents are unavailable</p><p className="mt-1 text-xs leading-5">{loadError}</p><button type="button" onClick={retryLoad} className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-black text-rose-800 shadow-sm">Retry load</button></div>;
+  }
+
   return (
     <div className="space-y-6">
       {(loadError || deepLinkError || archiveError) && (
         <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="font-black">{archiveError && !loadError && !deepLinkError ? "Engineering lifecycle action unavailable." : "Engineering documents could not be loaded."}</p>
+            <p className="font-black">{archiveError && !loadError && !deepLinkError ? "Engineering lifecycle action unavailable." : hasLoaded ? "Engineering documents could not be refreshed." : "Engineering documents could not be loaded."}</p>
             <p className="mt-1 break-words">{loadError || deepLinkError || archiveError}</p>
           </div>
           <button type="button" onClick={retryLoad} className="shrink-0 rounded-lg border border-rose-300 bg-white px-3 py-2 text-[10px] font-black text-rose-800 hover:bg-rose-100">Retry load</button>
         </div>
       )}
+      {isLoading && hasLoaded && <p role="status" className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800">Refreshing engineering documents… Existing records remain available.</p>}
       {/* 1. Header & KPI Metric Summary Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
@@ -572,7 +582,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       </div>
 
       {/* 3. Document Items View (Grid or Table) */}
-      {isLoading ? (
+      {isLoading && !hasLoaded ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
           <Clock className="mx-auto h-8 w-8 text-blue-500 animate-spin" />
           <p className="mt-3 text-sm font-bold text-slate-700">Loading engineering drawings & specifications...</p>

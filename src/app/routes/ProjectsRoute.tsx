@@ -15,6 +15,7 @@ import type {
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ProjectsRouteProps {
   projects: Project[];
@@ -37,6 +38,7 @@ export interface ProjectsRouteProps {
   initialSubmittalRoundId?: string;
   initialSiteLogId?: string;
   pathForSiteLog?: (siteLogId?: string) => string;
+  onNavigatePath?: AppNavigate;
   companyId?: string;
   engineeringDocumentsCanRead?: boolean;
   engineeringDocumentsCanCreate?: boolean;
@@ -92,6 +94,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   initialSubmittalRoundId,
   initialSiteLogId,
   pathForSiteLog,
+  onNavigatePath,
   companyId,
   engineeringDocumentsCanRead,
   engineeringDocumentsCanCreate,
@@ -164,6 +167,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         initialSubmittalRoundId={linkedRoundId}
         initialSiteLogId={linkedSiteLogId}
         pathForSiteLog={pathForSiteLog}
+        onNavigatePath={onNavigatePath}
         companyId={companyId}
         engineeringDocumentsCanRead={engineeringDocumentsCanRead}
         engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
