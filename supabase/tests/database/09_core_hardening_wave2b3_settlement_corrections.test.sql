@@ -37,12 +37,6 @@ select isnt_empty($$select 1 from pg_indexes where schemaname='public' and table
 select isnt_empty($$select 1 from pg_trigger where tgrelid='public.financial_import_batches'::regclass and tgname='financial_import_batches_immutable'$$, 'committed import provenance has an immutable trigger');
 select isnt_empty($$select 1 from pg_constraint where conrelid='public.company_audit_events'::regclass and conname='company_audit_events_event_type_check' and pg_get_constraintdef(oid) like '%CASH_TRANSACTION_CORRECTED%' and pg_get_constraintdef(oid) like '%CASH_TRANSFER_REVERSED%'$$, 'audit allowlist includes Wave 2B3 correction events');
 
-select * from finish();
-rollback;
-
-begin;
-select no_plan();
-
 create temp table wave2b3_ids as
 select
   '00000000-0000-4000-8000-000000000201'::uuid as admin_user,

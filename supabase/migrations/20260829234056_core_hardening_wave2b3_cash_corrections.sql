@@ -142,19 +142,21 @@ begin
   if not found then
     raise exception 'Financial account is outside the company' using errcode = '42501';
   end if;
-  if tg_table_name = 'financial_transactions' and new.currency is distinct from v_account.currency then
-    raise exception 'Transaction currency must match its financial account' using errcode = '22023';
+  if tg_table_name = 'financial_transactions' then
+    if new.currency is distinct from v_account.currency then
+      raise exception 'Transaction currency must match its financial account' using errcode = '22023';
+    end if;
   end if;
-  if tg_table_name in ('financial_transactions', 'financial_balance_snapshots')
-     and new.import_batch_id is not null
-     and not exists (
-       select 1
-       from public.financial_import_batches ib
-       where ib.id = new.import_batch_id
-         and ib.company_id = new.company_id
-         and ib.account_id = new.account_id
-     ) then
-    raise exception 'Financial import provenance must belong to the same company and account' using errcode = '42501';
+  if tg_table_name in ('financial_transactions', 'financial_balance_snapshots') then
+    if new.import_batch_id is not null and not exists (
+      select 1
+      from public.financial_import_batches ib
+      where ib.id = new.import_batch_id
+        and ib.company_id = new.company_id
+        and ib.account_id = new.account_id
+    ) then
+      raise exception 'Financial import provenance must belong to the same company and account' using errcode = '42501';
+    end if;
   end if;
   if tg_op = 'INSERT'
      and tg_table_name in ('financial_transactions', 'financial_import_batches', 'financial_balance_snapshots')
