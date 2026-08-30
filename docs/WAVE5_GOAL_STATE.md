@@ -4,6 +4,7 @@ Status: focused implementation checkpoint complete; live database, browser, and 
 
 - Branch: `hardening/wave5-financial-integrity`
 - Base SHA: `f28e6a22fc3d35eca4bde105355624d993c497ee` (refreshed from `origin/main` before implementation)
+- Checkpoint commit: `9882d2397a2375a88f390eabf6aa40fa9d28905f`
 - Scope held to confirmed Wave 5 findings; no Scheduling/Gantt/CPM, tenant switching, or unrelated refactors were added.
 - PR: not opened, per the continuation instruction.
 
