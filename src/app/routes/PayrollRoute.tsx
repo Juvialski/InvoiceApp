@@ -3,6 +3,7 @@ import { ArrowLeft, WalletCards } from "lucide-react";
 import { PayrollPageV2, type PayrollPageV2Props } from "../../components/payroll/PayrollPageV2";
 import { PayrollRunView } from "../../components/payroll/PayrollRunView";
 import { attendanceDateFromSearch, payrollPeriodIdFromSearch, payrollRunIdFromSearch } from "../../utils/appRouting.ts";
+import { useWorkspaceDataPending } from "../AppPermissionContext.tsx";
 
 export type PayrollRouteProps = PayrollPageV2Props;
 
@@ -16,6 +17,8 @@ function safeReturnPath(search: string) {
 }
 
 export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
+  const workspaceDataPending = useWorkspaceDataPending();
+  const periodPreparationState = props.periodPreparationState ?? (props.periods.length ? "READY" : workspaceDataPending ? "SYNCING" : props.schedules?.length ? "PREPARING" : "NO_SCHEDULE");
   const search = currentSearch();
   const requestedRunId = payrollRunIdFromSearch(search);
   const requestedPeriodId = payrollPeriodIdFromSearch(search);
@@ -27,7 +30,16 @@ export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
       ? props.periods.find((period) => period.id === requestedPeriodId)
       : undefined;
 
-  if (!requestedRun) return <PayrollPageV2 {...props} selectedPeriodId={requestedPeriod?.id} attendanceDate={requestedAttendanceDate} />;
+  if (!requestedRun || !requestedPeriod) {
+    return (
+      <PayrollPageV2
+        {...props}
+        periodPreparationState={periodPreparationState}
+        selectedPeriodId={!requestedRun ? requestedPeriod?.id : undefined}
+        attendanceDate={requestedAttendanceDate}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5" data-tour="payroll-run-deep-link">
@@ -43,7 +55,7 @@ export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
           </a>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-500">
-          <span className="rounded-full bg-slate-100 px-2.5 py-1">Run {requestedRun.id}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1">Payroll run</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700"><WalletCards className="h-3 w-3" /> {requestedRun.status}</span>
         </div>
       </section>
