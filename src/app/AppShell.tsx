@@ -319,7 +319,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
           )}
 
-          {!workspaceLoading && <AppErrorBoundary>{children}</AppErrorBoundary>}
+          <AppErrorBoundary>{children}</AppErrorBoundary>
         </main>
 
         <footer

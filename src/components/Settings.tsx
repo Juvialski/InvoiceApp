@@ -19,7 +19,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
     && settings.timezone === DEFAULT_TIMEZONE;
 
   return (
-    <div className="w-full max-w-7xl space-y-6">
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Workspace configuration"
         title="Operational settings"

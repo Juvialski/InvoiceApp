@@ -32,10 +32,10 @@ export function CompanySwitcher({ companies, activeCompanyId, collapsed = false 
     <div
       aria-label={`Deployment company: ${company.name}`}
       title={company.name}
-      className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-2 text-left text-xs font-bold text-slate-200 shadow-sm transition-colors hover:border-slate-700"
+      className="flex w-full min-w-0 items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-2.5 text-left text-xs font-bold text-slate-200 shadow-sm transition-colors hover:border-slate-700"
     >
       <Building2 aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-400" />
-      <span className="min-w-0 flex-1 truncate">{company.name}</span>
+      <span className="min-w-0 flex-1 line-clamp-2 leading-snug break-words">{company.name}</span>
     </div>
   );
 }
