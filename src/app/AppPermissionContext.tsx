@@ -38,7 +38,7 @@ export function AppPermissionProvider({
     [projectCostCompleteness, stablePermissions],
   );
   const presentationProjectCostCompleteness = useMemo(
-    () => workspaceDataPending && resolvedProjectCostCompleteness.reason === "load-error"
+    () => workspaceDataPending
       ? projectCostDataCompleteness(stablePermissions)
       : resolvedProjectCostCompleteness,
     [resolvedProjectCostCompleteness, stablePermissions, workspaceDataPending],

@@ -51,6 +51,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .field-input { width: 100%; min-height: 2.625rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #fff; padding: 0.625rem 0.8rem; font-size: 0.875rem; line-height: 1.25rem; color: #1e293b; }
 .field-input:focus { outline: 2px solid rgba(99, 102, 241, 0.2); border-color: #818cf8; }
 
+/* Permission risk must not look like access denial. Sensitive permissions keep
+   a thin amber cue, while access state is carried by the explicit status text. */
+[data-permission-editor] .border-amber-200.bg-amber-50\/45,
+[data-access-authorization-editor] .border-amber-200.bg-amber-50\/45 {
+  border-color: #e2e8f0 !important;
+  background: #fff !important;
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
+[data-permission-editor] .flex.shrink-0.items-center.gap-2 > span:first-child {
+  border: 1px solid #cbd5e1;
+  border-radius: 9999px;
+  background: #f8fafc;
+  padding: 0.2rem 0.5rem;
+  line-height: 1rem !important;
+}
+
+[data-permission-editor] .flex.shrink-0.items-center.gap-2 > span.text-emerald-700 {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857 !important;
+}
+
 /* Seven cash metrics need the wide workspace; keep values single-line on
    laptop widths and expand the dense row only on very wide screens. */
 @media (min-width: 1024px) and (max-width: 1535px) {
