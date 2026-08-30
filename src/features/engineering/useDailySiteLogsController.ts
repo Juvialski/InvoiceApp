@@ -85,15 +85,19 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
   const [hasLoaded, setHasLoaded] = useState(isControlled);
   const scopeKey = `${companyId || ""}:${project.id}:${guestMode}:${canRead}:${isControlled}`;
   const loadedScopeRef = useRef<string | null>(isControlled ? scopeKey : null);
+  const loadRequestRef = useRef(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
   const pendingCreateIdsRef = useRef(new Map<string, string>());
 
   useEffect(() => {
     if (controlledData !== undefined) {
+      loadRequestRef.current += 1;
       setData(controlledData);
       loadedScopeRef.current = scopeKey;
       setHasLoaded(true);
+      setLoadError(null);
+      setIsLoading(false);
     }
   }, [controlledData, scopeKey]);
 
@@ -118,6 +122,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
   }, [guestMode, isControlled, onControlledDataChange]);
 
   const reload = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
     if (isControlled) {
       loadedScopeRef.current = scopeKey;
       setHasLoaded(true);
@@ -130,19 +135,22 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
       loadedScopeRef.current = scopeKey;
       setHasLoaded(true);
       setIsLoading(false);
+      setLoadError(null);
       return;
     }
     setIsLoading(true);
     setLoadError(null);
     try {
       const loaded = guestMode ? readDailySiteLogsFromLocal() : await loadDailySiteLogsFromSupabase(companyId, project.id);
+      if (loadRequestRef.current !== requestId) return;
       setData(loaded);
       loadedScopeRef.current = scopeKey;
       setHasLoaded(true);
     } catch (error) {
+      if (loadRequestRef.current !== requestId) return;
       setLoadError(errorMessage(error, "Site Logs could not be loaded. Your local form state remains available for retry."));
     } finally {
-      setIsLoading(false);
+      if (loadRequestRef.current === requestId) setIsLoading(false);
     }
   }, [canRead, companyId, guestMode, isControlled, project.id, scopeKey]);
 
