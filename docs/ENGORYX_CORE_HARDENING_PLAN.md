@@ -274,9 +274,7 @@ The addendum table is read-only to clients and writable only through its
 authenticated lifecycle RPC. Demo actions use the same state decisions against
 isolated deterministic fixtures and never call production Supabase or Storage.
 
-Deferred from this focused slice:
-
-- Wave 3 — Assistant project lifecycle/action parity and any broader new cash actions.
+Wave 3 Assistant parity is now recorded in the durable [Engoryx Assistant Capability Matrix](ENGORYX_ASSISTANT_CAPABILITY_MATRIX.md). The matrix is the current-state inventory for every shipped domain and separates `COMPLETE`, `INTENTIONAL UNSUPPORTED`, and `DEFERRED` boundaries.
 
 Scheduling/Gantt/CPM remains frozen.
 
@@ -321,30 +319,39 @@ Requirements for all domains:
 - restore/reactivate is offered when the lifecycle supports it;
 - audit events record consequential changes where appropriate.
 
-## Wave 3 — Assistant parity for existing workflows
+## Wave 3 — Assistant parity for existing workflows (implemented)
 
-Do not add new product domains. Bring the Assistant up to parity with safe operations that already exist in Engoryx.
+Wave 3 brings the Assistant to the safe operation boundary of the existing
+Engoryx product without adding new domains. Coverage includes persisted reads,
+bounded source explanations, permission-aware navigation, worker/project/
+attendance/payroll/cash corrections, engineering lifecycle actions, company
+profile and access administration, and the existing invoice/settlement/site-log
+coordination workflows.
 
-Examples include, subject to current permissions/lifecycle rules:
+The implementation is organized across the registry plus domain adapters:
 
-- edit worker;
-- safely delete an unused worker;
-- offboard/deactivate a used worker;
-- correct or void attendance/time records;
-- end/remove assignments;
-- manage recurring payroll setup;
-- archive/cancel/void existing records;
-- edit company profile;
-- assist with invitation/member-permission management where safe.
+- `src/server/assistant/coreHardeningAssistant.ts` handles guarded project,
+  financial, workforce, attendance, and engineering lifecycle operations;
+- `src/server/assistant/assistantOperations.ts` handles project and attendance
+  edits, payroll setup records, cash accounts/snapshots/transactions/imports,
+  transfers, invoice review reopening, company profile, and access management;
+- `src/server/assistant/assistantToolExecutors.ts` retains the existing
+  deterministic create, attendance, payroll run, expense, allocation, and
+  settlement paths and now includes draft payroll-run creation;
+- `src/assistant/helpCatalog.ts`, `tourRegistry.ts`, route contracts, and
+  attachment policy are the current product-language/navigation boundaries.
 
-Requirements:
+Every consequential Assistant mutation remains:
 
-- Assistant authorization exactly matches deterministic authorization;
-- mutations use PREPARE → validate → human confirmation → execute;
-- destructive previews explain whether the result is Delete, Archive/Offboard, Void, or Reverse;
-- dependency conflicts produce a useful alternative rather than a misleading generic refusal;
-- Assistant never gains a permission merely because another role or UI can perform the action;
-- ambiguous targets require clarification rather than guessing.
+`request → deterministic PREPARE → exact preview → explicit human confirmation → guarded server execution → persisted/refreshable result`.
+
+The Assistant uses effective permission checks, deployment-company identity,
+the same lifecycle/RLS/RPC boundaries as the deterministic UI, and no
+client-supplied company authority. It never executes a mutation in the model
+turn. Workbook row-mapping/commit, payroll maintenance/reset, report export,
+vendor-master mutation, AI secret/provider configuration, and engineering
+binary/canvas mutation remain explicitly documented UI-only boundaries in the
+matrix; they are not advertised as Assistant-executable operations.
 
 ## Wave 4 — CRUD and RBAC completeness audit
 

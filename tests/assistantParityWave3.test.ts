@@ -206,3 +206,9 @@ test("an effective permission denial blocks new Assistant mutations before entit
   assert.equal(prepared, 0);
   assert.equal(reads, 1);
 });
+
+test("specialized UI-only boundaries are not exposed as Assistant mutations", () => {
+  for (const name of ["prepare_verify_invoice", "prepare_reextract_invoice", "prepare_commit_attendance_import", "prepare_reset_payroll_workspace", "prepare_update_vendor", "prepare_upload_engineering_revision"]) {
+    assert.equal(getAssistantToolDefinition(name), undefined, name);
+  }
+});

@@ -54,7 +54,7 @@ test("project workspace navigation respects the selected subview permission", ()
   assert.equal(pathForAssistantAction(expenses!), "/projects/project-7/expenses");
   assert.equal(isAssistantActionAllowed(expenses, ["projects.read", "expenses.read"]), true);
   assert.equal(isAssistantActionAllowed(expenses, ["projects.read"]), false);
-  assert.equal(sanitizeAssistantClientAction({ type: "OPEN_PROJECT", entityId: "project-7", view: "unknown" }), null);
+  assert.deepEqual(sanitizeAssistantClientAction({ type: "OPEN_PROJECT", entityId: "project-7", view: "unknown" }), { type: "OPEN_PROJECT", entityId: "project-7" });
 });
 
 test("assistant actions honor optional frontend permissions", () => {
