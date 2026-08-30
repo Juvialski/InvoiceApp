@@ -81,6 +81,11 @@ test("project detail routes use the host router and preserve usable refresh snap
     assert.match(controller, /hasLoaded/);
     assert.match(controller, /loadedScopeRef/);
   }
+  for (const controller of [coordination, dailyLogs]) {
+    assert.match(controller, /loadRequestRef/);
+    assert.match(controller, /loadRequestRef\.current !== requestId/);
+    assert.match(controller, /loadRequestRef\.current === requestId/);
+  }
   assert.match(rfi, /isLoading && !controller\.hasLoaded/);
   assert.match(submittal, /isLoading && !controller\.hasLoaded/);
   assert.match(siteLog, /isLoading && !controller\.hasLoaded/);
@@ -103,6 +108,9 @@ test("route-local settlement links can stay in the SPA", () => {
   assert.match(cashWorkspace, /selectedTransactionId/);
   assert.match(cashWorkspace, /requestedTransactionUnavailable/);
   assert.match(settlementCard, /onNavigatePath\?: AppNavigate/);
+  assert.match(settlementCard, /refreshRequestRef/);
+  assert.match(settlementCard, /refreshRequestRef\.current !== requestId/);
+  assert.match(settlementCard, /\[targetKey\]/);
 });
 
 test("Assistant request recovery cannot let an aborted request clear a newer operation", () => {
