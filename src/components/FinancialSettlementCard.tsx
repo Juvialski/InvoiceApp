@@ -57,6 +57,7 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   const [refreshing, setRefreshing] = useState(false);
   const targetKey = `${targetType}:${targetId}`;
   const resolvedTargetKeyRef = useRef<string | null>((fallbackSummary || demoSummary) ? targetKey : null);
+  const refreshRequestRef = useRef(0);
   const visibleSummary = resolvedTargetKeyRef.current === targetKey ? summary : null;
   const [error, setError] = useState("");
   const [reversalTarget, setReversalTarget] = useState<FinancialSettlementHistoryItem | null>(null);
@@ -65,6 +66,7 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   const [reversalError, setReversalError] = useState("");
 
   const refresh = async () => {
+    const requestId = ++refreshRequestRef.current;
     if (targetId.startsWith("demo-")) {
       setSummary(fallbackSummary || demoSummary);
       resolvedTargetKeyRef.current = targetKey;
@@ -77,14 +79,29 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
     else setLoading(true);
     setError("");
     try {
-      setSummary(await loadFinancialSettlementSummary(targetType, targetId));
+      const loaded = await loadFinancialSettlementSummary(targetType, targetId);
+      if (refreshRequestRef.current !== requestId) return;
+      setSummary(loaded);
       resolvedTargetKeyRef.current = targetKey;
     }
-    catch (cause) { setError(safeErrorMessage(cause, "Settlement details could not be loaded.")); }
-    finally { setLoading(false); setRefreshing(false); }
+    catch (cause) {
+      if (refreshRequestRef.current !== requestId) return;
+      setError(safeErrorMessage(cause, "Settlement details could not be loaded."));
+    }
+    finally {
+      if (refreshRequestRef.current === requestId) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
   };
 
   useEffect(() => { void refresh(); }, [targetId, targetType, fallbackSummary, demoSummary, targetKey]);
+  useEffect(() => {
+    setReversalTarget(null);
+    setReversalReason("");
+    setReversalError("");
+  }, [targetKey]);
 
   const openReversalDialog = (item: FinancialSettlementHistoryItem) => {
     setReversalTarget(item);
