@@ -111,9 +111,12 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
         const docPaid = summary?.documentReportedPaid || 0;
         const effective = Math.max(activePaid, docPaid);
         const outstanding = Math.max(0, basis - effective);
-        const state = targetType === "PAYROLL"
-          ? (activePaid <= 0.005 ? "UNSETTLED" : outstanding <= 0.005 ? "SETTLED" : "PARTIALLY_DISBURSED")
-          : (effective >= basis - 0.005 ? "PAID" : effective > 0.005 ? "PARTIALLY_PAID" : "UNPAID");
+        const isVoided = summary?.lifecycleStatus === "VOID" || lifecycleStatus === "VOID";
+        const state = isVoided
+          ? "VOID"
+          : targetType === "PAYROLL"
+            ? (activePaid <= 0.005 ? "UNSETTLED" : outstanding <= 0.005 ? "SETTLED" : "PARTIALLY_DISBURSED")
+            : (effective >= basis - 0.005 ? "PAID" : effective > 0.005 ? "PARTIALLY_PAID" : "UNPAID");
 
         const updatedSummary: FinancialSettlementSummary = {
           ...summary!,

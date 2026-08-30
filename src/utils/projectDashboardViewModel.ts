@@ -81,6 +81,7 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
     else if (point) point.pending = round(point.pending + amount);
   }
   for (const run of input.payroll) {
+    if (run.status === "VOID") continue;
     if (run.status !== "APPROVED" && run.status !== "PAID") {
       const point = points.get(monthKey(dateOnly(run.periodEnd)));
       if (point) point.pending = round(point.pending + (run.allocations || []).filter((allocation) => allocation.projectId === input.project.id).reduce((sum, allocation) => sum + allocation.allocationAmount, 0));

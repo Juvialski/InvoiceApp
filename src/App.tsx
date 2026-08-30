@@ -1638,9 +1638,16 @@ function InvoiceWorkspace() {
     try {
       if (isSupabaseConfigured && !hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.projectsWrite])) throw new Error("You do not have permission to manage invoice project allocations in this company.");
       const saved = session && supabase
-        ? await replaceInvoiceProjectAllocationsOnSupabase(invoice.id, invoice.grandTotal, allocations)
-        : replaceInvoiceProjectAllocationsLocally(invoice.id, invoice.grandTotal, invoiceProjectAllocations, allocations).filter((allocation) => allocation.invoiceId === invoice.id);
-      setInvoiceProjectAllocations((current) => [...current.filter((allocation) => allocation.invoiceId !== invoice.id), ...saved]);
+        ? await replaceInvoiceProjectAllocationsOnSupabase(invoice.id, invoice.grandTotal, allocations, invoice.updatedAt)
+        : { allocations: replaceInvoiceProjectAllocationsLocally(invoice.id, invoice.grandTotal, invoiceProjectAllocations, allocations).filter((allocation) => allocation.invoiceId === invoice.id), invoiceUpdatedAt: undefined };
+      if (saved.invoiceUpdatedAt) {
+        const withFreshToken = { ...invoice, updatedAt: saved.invoiceUpdatedAt };
+        invoicesRef.current = invoicesRef.current.map((item) => item.id === invoice.id ? withFreshToken : item);
+        setInvoices(invoicesRef.current);
+        setSelectedInvoice((current) => current?.id === invoice.id ? withFreshToken : current);
+        lastPersistedRef.current.set(invoice.id, withFreshToken);
+      }
+      setInvoiceProjectAllocations((current) => [...current.filter((allocation) => allocation.invoiceId !== invoice.id), ...saved.allocations]);
       showNotification("success", allocations.length ? "Invoice project allocation saved." : "Invoice is now unallocated.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save invoice project allocation."));
@@ -2327,7 +2334,7 @@ function InvoiceWorkspace() {
         let savedEntries = records.entries;
         let savedAllocations = records.allocations;
         if (session && supabase) {
-          const persisted = await replacePayrollRunEntriesToSupabase(run.id, records.entries, records.allocations);
+          const persisted = await replacePayrollRunEntriesToSupabase(run.id, period.sourceRevision ?? 0, records.entries, records.allocations);
           savedEntries = persisted.entries;
           savedAllocations = persisted.allocations;
         }
@@ -2370,7 +2377,7 @@ function InvoiceWorkspace() {
       let savedEntries = entriesToSave;
       let savedAllocations = allocationsToSave;
       if (session && supabase) {
-        const persisted = await replacePayrollRunEntriesToSupabase(run.id, entriesToSave, allocationsToSave);
+        const persisted = await replacePayrollRunEntriesToSupabase(run.id, period.sourceRevision ?? 0, entriesToSave, allocationsToSave);
         savedEntries = persisted.entries;
         savedAllocations = persisted.allocations;
       }
@@ -2469,11 +2476,16 @@ function InvoiceWorkspace() {
 
     const operation = enqueueSerializedSave<InvoiceData>(savePromisesRef.current, lastPersistedRef.current, invoice.id, async (previous) => {
       updateSaveState("saving");
-      await updateInvoiceInSupabase(previous || invoice, invoice, eventType);
-      return invoice;
+      return updateInvoiceInSupabase(previous || invoice, invoice, eventType);
     });
     try {
-      await operation;
+      const saved = await operation;
+      if (editRevisionRef.current.get(invoice.id) === revision) {
+        const next = invoicesRef.current.map((item) => item.id === saved.id ? saved : item);
+        invoicesRef.current = next;
+        setInvoices(next);
+        setSelectedInvoice((current) => current?.id === saved.id ? saved : current);
+      }
       if (editRevisionRef.current.get(invoice.id) === revision) updateSaveState("saved");
     } catch (error) {
       if (editRevisionRef.current.get(invoice.id) === revision) updateSaveState("error");

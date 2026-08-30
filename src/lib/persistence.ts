@@ -135,7 +135,7 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
   await requireUserId();
   const { data, error } = await client
     .from("invoices")
-    .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason, payment_status,created_at")
+    .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason, payment_status,created_at,updated_at")
     .eq("company_id", requireActiveCompanyId())
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -177,6 +177,7 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
     invoice.voidedByUserId = row.voided_by_user_id || undefined;
     invoice.voidReason = row.void_reason || undefined;
     invoice.status = row.payment_status || invoice.status;
+    invoice.updatedAt = row.updated_at || undefined;
     if (invoice.sourceStoragePath) invoice.previewUrl = await signedUrl(INVOICE_BUCKET, invoice.sourceStoragePath);
     results.push(invoice);
   }
@@ -534,7 +535,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
   if (invoice.sourceDocumentId) {
     const { data: existing, error: existingError } = await client
       .from("invoices")
-      .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason,payment_status")
+      .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
       .eq("source_document_id", invoice.sourceDocumentId)
       .eq("company_id", requireActiveCompanyId())
       .maybeSingle();
@@ -557,6 +558,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
         voidedByUserId: existing.voided_by_user_id ?? undefined,
         voidReason: existing.void_reason ?? undefined,
         status: existing.payment_status || existing.current_data?.status,
+        updatedAt: existing.updated_at || undefined,
       } as InvoiceData;
     }
   }
@@ -626,7 +628,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
       verified_at: null,
       lifecycle_status: "ACTIVE",
     })
-    .select("id")
+    .select("id,updated_at")
     .single();
   if (error) throw error;
 
@@ -648,9 +650,10 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     .single();
   if (extractionError) throw extractionError;
 
-  const saved = { ...persistedInvoice, extractionId: extraction.id, aiSnapshot: clone(aiSnapshot) };
-  const { error: updateError } = await client.from("invoices").update({ current_data: saved }).eq("id", row.id).eq("company_id", requireActiveCompanyId());
+  const saved = { ...persistedInvoice, extractionId: extraction.id, aiSnapshot: clone(aiSnapshot), updatedAt: String(row.updated_at || new Date().toISOString()) };
+  const { data: savedRow, error: updateError } = await client.from("invoices").update({ current_data: saved }).eq("id", row.id).eq("company_id", requireActiveCompanyId()).select("updated_at").single();
   if (updateError) throw updateError;
+  saved.updatedAt = String(savedRow.updated_at || saved.updatedAt || new Date().toISOString());
 
   const { error: eventError } = await client.from("invoice_review_events").insert({ user_id: userId, company_id: requireActiveCompanyId(),
       invoice_id: row.id, event_type: "AI_EXTRACTION_CREATED", new_value: { model: persistedInvoice.modelUsed, confidence: persistedInvoice.confidenceScore } });
@@ -667,12 +670,15 @@ export async function persistExtractionAttempt(
   const userId = await requireUserId();
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
-    .select("id,current_data,source_document_id,source_email_id,vendor_id,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status")
+    .select("id,current_data,source_document_id,source_email_id,vendor_id,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
     .eq("id", existingInvoice.id).eq("company_id", requireActiveCompanyId())
     .single();
   if (existingError) throw existingError;
   if (existingRow.lifecycle_status === "VOID") {
     throw new Error("Voided invoices are immutable; reopen or correct the record through the authorized lifecycle workflow.");
+  }
+  if (!existingInvoice.updatedAt || String(existingRow.updated_at || "") !== existingInvoice.updatedAt) {
+    throw new Error("This invoice changed in another session. Refresh it before retrying the extraction.");
   }
 
   const currentData = (existingRow.current_data || existingInvoice) as InvoiceData;
@@ -748,7 +754,7 @@ export async function persistExtractionAttempt(
   });
   if (eventError) throw eventError;
 
-  const { error: updateError } = await client.from("invoices").update({
+  const { data: savedRow, error: updateError } = await client.from("invoices").update({
     vendor_id: vendorId,
     invoice_number: saved.invoiceNumber || null,
     invoice_date: saved.invoiceDate || null,
@@ -763,10 +769,11 @@ export async function persistExtractionAttempt(
     current_data: saved,
     verified_at: null,
     updated_at: new Date().toISOString(),
-  }).eq("id", existingRow.id).eq("company_id", requireActiveCompanyId());
+  }).eq("id", existingRow.id).eq("company_id", requireActiveCompanyId()).eq("updated_at", existingRow.updated_at).select("updated_at").maybeSingle();
   if (updateError) throw updateError;
+  if (!savedRow) throw new Error("This invoice changed in another session. Refresh it before retrying the extraction.");
   await replaceLineItems(existingRow.id, saved.items);
-  return saved;
+  return { ...saved, updatedAt: String(savedRow.updated_at || new Date().toISOString()) };
 }
 
 async function replaceLineItems(invoiceId: string, items: InvoiceData["items"]) {
@@ -822,16 +829,20 @@ function comparableSnapshot(invoice: InvoiceData) {
   };
 }
 
-export async function updateInvoiceInSupabase(previous: InvoiceData, updated: InvoiceData, eventType = "HUMAN_EDIT"): Promise<void> {
+export async function updateInvoiceInSupabase(previous: InvoiceData, updated: InvoiceData, eventType = "HUMAN_EDIT"): Promise<InvoiceData> {
   const client = requireSupabase();
   const userId = await requireUserId();
   const vendorId = await ensureVendor(updated);
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
-    .select("current_data,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status")
+    .select("current_data,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
     .eq("id", updated.id).eq("company_id", requireActiveCompanyId())
     .single();
   if (existingError) throw existingError;
+  const expectedUpdatedAt = previous.updatedAt || updated.updatedAt;
+  if (!expectedUpdatedAt || String(existingRow.updated_at || "") !== expectedUpdatedAt) {
+    throw new Error("This invoice changed in another session. Refresh it before saving.");
+  }
   const durableAiSnapshot = existingRow?.current_data?.aiSnapshot || previous.aiSnapshot || updated.aiSnapshot;
   const persistedBefore = existingRow?.current_data
     ? { ...(existingRow.current_data as Partial<InvoiceData>), id: updated.id }
@@ -845,7 +856,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     voidReason: existingRow?.void_reason ?? undefined,
     ...(durableAiSnapshot ? { aiSnapshot: clone(durableAiSnapshot) } : {}),
   };
-  const { error } = await client.from("invoices").update({
+  const { data: savedRow, error } = await client.from("invoices").update({
     vendor_id: vendorId,
     invoice_number: updated.invoiceNumber || null,
     invoice_date: updated.invoiceDate || null,
@@ -860,8 +871,9 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     current_data: currentData,
     verified_at: updated.verifiedAt || null,
     updated_at: new Date().toISOString(),
-  }).eq("id", updated.id).eq("company_id", requireActiveCompanyId());
+  }).eq("id", updated.id).eq("company_id", requireActiveCompanyId()).eq("updated_at", expectedUpdatedAt).select("updated_at").maybeSingle();
   if (error) throw error;
+  if (!savedRow) throw new Error("This invoice changed in another session. Refresh it before saving.");
   await replaceLineItems(updated.id, updated.items);
 
   // The database row is the final source of truth. The caller normally passes
@@ -884,6 +896,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     const { error: eventError } = await client.from("invoice_review_events").insert(events);
     if (eventError) throw eventError;
   }
+  return { ...updated, updatedAt: String(savedRow.updated_at || new Date().toISOString()) };
 }
 
 function invoiceFromLifecycleRecord(value: Record<string, unknown>): InvoiceData {

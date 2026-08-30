@@ -101,9 +101,23 @@ export async function loadExpensesFromSupabase(): Promise<Expense[]> {
 export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before saving expenses.");
-  const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("expenses").upsert(toRow(expense, userId, companyId)).select("*").single();
-  if (error) throw error;
-  return fromRow(data as Record<string, unknown>);
+  const companyId = requireActiveCompanyId();
+  const { data: existing, error: existingError } = await supabase.from("expenses").select("id,updated_at").eq("id", expense.id).eq("company_id", companyId).maybeSingle();
+  if (existingError) throw existingError;
+  const row = toRow(expense, userId, companyId);
+  let data: Record<string, unknown> | null = null;
+  if (existing) {
+    if (!expense.updatedAt || String(existing.updated_at || "") !== expense.updatedAt) throw new Error("This expense changed in another session. Refresh it before saving.");
+    const result = await supabase.from("expenses").update(row).eq("id", expense.id).eq("company_id", companyId).eq("updated_at", expense.updatedAt).select("*").maybeSingle();
+    if (result.error) throw result.error;
+    if (!result.data) throw new Error("This expense changed in another session. Refresh it before saving.");
+    data = result.data as Record<string, unknown>;
+  } else {
+    const result = await supabase.from("expenses").insert(row).select("*").single();
+    if (result.error) throw result.error;
+    data = result.data as Record<string, unknown>;
+  }
+  return fromRow(data);
 }
 
 export async function previewExpenseCorrectionInSupabase(expenseId: string): Promise<FinancialCorrectionPreview> {

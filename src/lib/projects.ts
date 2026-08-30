@@ -232,7 +232,17 @@ export async function reactivateProjectInSupabase(projectId: string, reason = "C
   return result.record;
 }
 export async function loadInvoiceProjectAllocationsFromSupabase(): Promise<InvoiceProjectAllocation[]> { const userId = await currentUserId(); if (!supabase || !userId) return []; const companyId = requireActiveCompanyId(); const { data, error } = await supabase.from("invoice_project_allocations").select("*").eq("company_id", companyId).order("created_at", { ascending: true }); if (error) throw error; return (data || []).map((row) => allocationFromRow(row as Row)); }
-export async function replaceInvoiceProjectAllocationsOnSupabase(invoiceId: string, invoiceTotal: number, allocations: InvoiceProjectAllocation[]): Promise<InvoiceProjectAllocation[]> {
+export interface InvoiceProjectAllocationReplacementResult {
+  allocations: InvoiceProjectAllocation[];
+  invoiceUpdatedAt?: string;
+}
+
+export async function replaceInvoiceProjectAllocationsOnSupabase(
+  invoiceId: string,
+  invoiceTotal: number,
+  allocations: InvoiceProjectAllocation[],
+  expectedInvoiceUpdatedAt?: string,
+): Promise<InvoiceProjectAllocationReplacementResult> {
   const validation = validateInvoiceProjectAllocationSet(invoiceTotal, allocations);
   if (!validation.valid) throw new Error(validation.message || "Invoice project allocations are invalid.");
 
@@ -240,14 +250,18 @@ export async function replaceInvoiceProjectAllocationsOnSupabase(invoiceId: stri
   if (!supabase) {
     const replaced = replaceInvoiceProjectAllocationsLocally(invoiceId, invoiceTotal, readInvoiceProjectAllocationsFromLocal(), allocations);
     writeInvoiceProjectAllocationsToLocal(replaced);
-    return replaced.filter((allocation) => allocation.invoiceId === invoiceId);
+    return { allocations: replaced.filter((allocation) => allocation.invoiceId === invoiceId) };
   }
   if (!userId) throw new Error("Sign in before assigning invoice projects."); requireActiveCompanyId();
+  if (!expectedInvoiceUpdatedAt) throw new Error("Invoice freshness is unavailable; refresh before assigning invoice projects.");
 
   const { data, error } = await supabase.rpc("replace_invoice_project_allocations", {
     p_invoice_id: invoiceId,
     p_allocations: toInvoiceProjectAllocationPersistenceRows(invoiceId, invoiceTotal, allocations),
+    p_expected_updated_at: expectedInvoiceUpdatedAt,
   });
   if (error) throw error;
-  return (data || []).map((row) => allocationFromRow(row as Row));
+  const { data: invoice, error: invoiceError } = await supabase.from("invoices").select("updated_at").eq("id", invoiceId).eq("company_id", requireActiveCompanyId()).single();
+  if (invoiceError) throw invoiceError;
+  return { allocations: (data || []).map((row) => allocationFromRow(row as Row)), invoiceUpdatedAt: String(invoice.updated_at || "") || undefined };
 }
