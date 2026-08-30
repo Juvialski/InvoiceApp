@@ -2,19 +2,29 @@ import React, { useRef, useState } from "react";
 import { Loader2, Paperclip, Send, X } from "lucide-react";
 import { ASSISTANT_ATTACHMENT_ACCEPT } from "./attachmentRouter.ts";
 import { useAssistant } from "./AssistantProvider.tsx";
+import { prepareAssistantComposerSubmission } from "./assistantComposerState.ts";
 import { BRAND } from "../config/brand.ts";
 
 export const AssistantComposer: React.FC = () => {
-  const { attachments, addAttachments, removeAttachment, sendMessage, isLoading } = useAssistant();
+  const { attachments, addAttachments, removeAttachment, sendMessage, isLoading, canUseAssistant } = useAssistant();
   const [draft, setDraft] = useState("");
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const submit = async (event?: React.FormEvent) => {
+  const submit = (event?: React.FormEvent) => {
     event?.preventDefault();
-    if (isLoading || (!draft.trim() && attachments.length === 0)) return;
-    const sent = await sendMessage(draft);
-    if (sent) setDraft("");
+    const submission = prepareAssistantComposerSubmission({
+      draft,
+      attachmentCount: attachments.length,
+      isLoading,
+      canUseAssistant,
+    });
+    if (!submission.accepted) return;
+    // Capture the exact submitted text before clearing the controlled field.
+    // AssistantProvider snapshots attachments and the request context during
+    // this synchronous call; later typing cannot alter this in-flight request.
+    if (submission.clearDraft) setDraft("");
+    void sendMessage(submission.message);
   };
 
   const onFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,7 +36,7 @@ export const AssistantComposer: React.FC = () => {
   };
 
   return (
-    <form data-tour="assistant-composer" onSubmit={(event) => void submit(event)} className="border-t border-slate-200 bg-white p-3 sm:p-4">
+    <form data-tour="assistant-composer" onSubmit={submit} className="border-t border-slate-200 bg-white p-3 sm:p-4">
       {attachments.length > 0 && <div className="mb-2 flex max-h-20 flex-wrap gap-1.5 overflow-y-auto">{attachments.map((attachment) => <span key={attachment.id} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[9px] font-bold text-slate-600"><span className="max-w-[12rem] truncate">{attachment.fileName}</span><button type="button" onClick={() => removeAttachment(attachment.id)} className="rounded p-0.5 text-slate-400 hover:bg-white hover:text-slate-700" aria-label={`Remove ${attachment.fileName}`}><X aria-hidden="true" className="h-3 w-3" /></button></span>)}</div>}
       {attachmentError && <p role="alert" className="mb-2 text-[10px] font-semibold leading-4 text-rose-700">{attachmentError}</p>}
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2 shadow-inner focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100">

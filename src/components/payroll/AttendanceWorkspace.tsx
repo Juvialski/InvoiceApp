@@ -53,8 +53,13 @@ function workersForRoster(workers: Worker[]): WorkforceWorker[] {
 
 export const AttendanceWorkspace: React.FC<AttendanceWorkspaceProps> = ({
   workers, periods, selectedPeriodId, initialDate, attendanceRecords, leaveRequests, overtimeRequests, holidays, lockedPeriodIds = [],
-  onSaveAttendance, onSaveAttendanceBatch, onSaveLeave, onSaveOvertime, onSaveHoliday, onPayrollLifecycle, canManagePayrollSources = true,
+  onSaveAttendance, onSaveAttendanceBatch: suppliedOnSaveAttendanceBatch, onSaveLeave: suppliedOnSaveLeave, onSaveOvertime: suppliedOnSaveOvertime, onSaveHoliday: suppliedOnSaveHoliday, onPayrollLifecycle: suppliedOnPayrollLifecycle, canManagePayrollSources = true,
 }) => {
+  const onSaveAttendanceBatch = canManagePayrollSources ? suppliedOnSaveAttendanceBatch : undefined;
+  const onSaveLeave = canManagePayrollSources ? suppliedOnSaveLeave : undefined;
+  const onSaveOvertime = canManagePayrollSources ? suppliedOnSaveOvertime : undefined;
+  const onSaveHoliday = canManagePayrollSources ? suppliedOnSaveHoliday : undefined;
+  const onPayrollLifecycle = canManagePayrollSources ? suppliedOnPayrollLifecycle : undefined;
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
   const [date, setDate] = useState(() => initialDate || selectedPeriod?.periodStart || localDateOnly());
   const [drafts, setDrafts] = useState<Record<string, DraftRow>>({});
@@ -189,20 +194,20 @@ export const AttendanceWorkspace: React.FC<AttendanceWorkspaceProps> = ({
 
   const saveLeave = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!onSaveLeave || !leaveForm.workerId || !leaveForm.leaveType || !leaveForm.startDate || !leaveForm.endDate) return;
+    if (!canManagePayrollSources || !onSaveLeave || !leaveForm.workerId || !leaveForm.leaveType || !leaveForm.startDate || !leaveForm.endDate) return;
     onSaveLeave({ id: id("leave"), workerId: leaveForm.workerId, leaveType: leaveForm.leaveType, startDate: leaveForm.startDate, endDate: leaveForm.endDate, paid: leaveForm.paid === "" ? undefined : leaveForm.paid === "true", status: "PENDING", notes: "", createdAt: now(), updatedAt: now() });
     setMessage({ tone: "info", text: "Leave request saved as pending review." });
   };
   const saveOvertime = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!onSaveOvertime || !overtimeForm.workerId || !overtimeForm.date) return;
+    if (!canManagePayrollSources || !onSaveOvertime || !overtimeForm.workerId || !overtimeForm.date) return;
     const minutes = Math.max(0, Math.round(Number(overtimeForm.hours || 0) * 60));
     onSaveOvertime({ id: id("overtime"), workerId: overtimeForm.workerId, periodId: selectedPeriodId || undefined, overtimeDate: overtimeForm.date, laborContext: "UNALLOCATED_REVIEW", requestedMinutes: minutes, approvedMinutes: 0, status: "PENDING", source: "MANUAL", reason: overtimeForm.reason || undefined, createdAt: now(), updatedAt: now() });
     setMessage({ tone: "info", text: "Overtime request saved as pending approval." });
   };
   const saveHoliday = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!onSaveHoliday || !holidayForm.date || !holidayForm.name.trim()) return;
+    if (!canManagePayrollSources || !onSaveHoliday || !holidayForm.date || !holidayForm.name.trim()) return;
     onSaveHoliday({ id: id("holiday"), holidayDate: holidayForm.date, name: holidayForm.name.trim(), active: true, createdAt: now(), updatedAt: now() });
     setHolidayForm((current) => ({ ...current, name: "" }));
     setMessage({ tone: "info", text: "Company holiday saved." });
@@ -214,7 +219,7 @@ export const AttendanceWorkspace: React.FC<AttendanceWorkspaceProps> = ({
       void Promise.resolve(onPayrollLifecycle({ entity: "LEAVE", id: request.id, action: "CANCEL", reason: "Leave request cancelled by an authorized payroll user" })).catch((error) => setMessage({ tone: "error", text: error instanceof Error ? error.message : "Could not cancel leave." }));
       return;
     }
-    if (!onSaveLeave) return;
+    if (!canManagePayrollSources || !onSaveLeave) return;
     onSaveLeave({ ...request, status, updatedAt: now() });
   };
 

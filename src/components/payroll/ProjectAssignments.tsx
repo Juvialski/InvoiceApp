@@ -43,6 +43,7 @@ export const ProjectAssignments: React.FC<ProjectAssignmentsProps> = ({
 
   const save = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!canManageWorkforce) return;
     if (!editing?.workerId || !editing.projectId || !editing.startDate || (editing.endDate && editing.endDate < editing.startDate)) {
       setMessage("Assignment dates are invalid. End date must be on or after start date.");
       return;

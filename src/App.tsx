@@ -11,7 +11,7 @@ import { AppShell } from "./app/AppShell";
 import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
-import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
+import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
@@ -252,7 +252,10 @@ function InvoiceWorkspace() {
   const [reviewCompletion, setReviewCompletion] = useState<{ verifiedCount: number; totalCount: number; newItems: number } | null>(null);
   const [workspaceOrigin, setWorkspaceOrigin] = useState<AppTab>("dashboard");
   const [route, setRoute] = useState<AppLocation>(initialAppLocation);
-  const [activeTab, setActiveTabState] = useState<AppTab>(() => appTabForLocation(initialAppLocation()));
+  // Route is the single source of truth. Deriving the tab during render keeps
+  // the content dispatcher in sync with history without a blank/old-page
+  // intermediate render while an effect catches up.
+  const activeTab = appTabForLocation(route);
   const [dashboardActivityPeriod, setDashboardActivityPeriod] = useState<DashboardActivityPeriod>("MONTH");
   const [dashboardCustomStart, setDashboardCustomStart] = useState("");
   const [dashboardCustomEnd, setDashboardCustomEnd] = useState("");
@@ -355,7 +358,6 @@ function InvoiceWorkspace() {
   }, []);
 
   useEffect(() => {
-    setActiveTabState(appTabForLocation(route));
     if (typeof document !== "undefined") {
       const tabLabel = route.kind === "tab" ? ROUTE_DEFINITIONS.find((candidate) => candidate.appTab === route.tab)?.label : undefined;
       document.title = formatPageTitle(tabLabel);
@@ -571,47 +573,44 @@ function InvoiceWorkspace() {
     setProjectCostDomainLoadState("loaded");
   };
 
-  const loadEngineeringGroup = async (): Promise<EngineeringWorkspaceGroup> => {
-    setProjectCostDomainLoadState("loading");
-    try {
-      const results = await Promise.allSettled([
-        can(PERMISSION_KEYS.projectsRead) ? loadProjectsFromSupabase() : Promise.resolve([]),
-        can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
-        can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
-      ]);
-      const failures: string[] = [];
-      const projects = results[0].status === "fulfilled" ? results[0].value : [];
-      const allocations = results[1].status === "fulfilled" ? results[1].value : [];
-      const expenses = results[2].status === "fulfilled" ? results[2].value : [];
-      if (results[0].status !== "fulfilled") failures.push("projects");
-      if (results[1].status !== "fulfilled") failures.push("invoice allocations");
-      if (results[2].status !== "fulfilled") failures.push("expenses");
-      if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
+  const loadEngineeringGroup = async (preserveExisting = false): Promise<EngineeringWorkspaceGroup> => {
+    const results = await Promise.allSettled([
+      can(PERMISSION_KEYS.projectsRead) ? loadProjectsFromSupabase() : Promise.resolve([]),
+      can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
+      can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
+    ]);
+    const failures: string[] = [];
+    const projects = results[0].status === "fulfilled" ? results[0].value : [];
+    const allocations = results[1].status === "fulfilled" ? results[1].value : [];
+    const expenses = results[2].status === "fulfilled" ? results[2].value : [];
+    if (results[0].status !== "fulfilled") failures.push("projects");
+    if (results[1].status !== "fulfilled") failures.push("invoice allocations");
+    if (results[2].status !== "fulfilled") failures.push("expenses");
+    if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
-      let laborAggregates: ProjectLaborCostAggregate[] = [];
-      let laborAggregateLoadState: ProjectLaborAggregateLoadState = "not-loaded";
-      const shouldLoadLaborAggregate = can(PERMISSION_KEYS.projectsRead)
-        && can(PERMISSION_KEYS.payrollAggregateRead)
-        && !can(PERMISSION_KEYS.payrollSensitiveRead);
-      if (shouldLoadLaborAggregate) {
-        if (!projects.length) {
+    let laborAggregates: ProjectLaborCostAggregate[] = [];
+    let laborAggregateLoadState: ProjectLaborAggregateLoadState = "not-loaded";
+    const shouldLoadLaborAggregate = can(PERMISSION_KEYS.projectsRead)
+      && can(PERMISSION_KEYS.payrollAggregateRead)
+      && !can(PERMISSION_KEYS.payrollSensitiveRead);
+    if (shouldLoadLaborAggregate) {
+      if (!projects.length) {
+        laborAggregateLoadState = "available";
+      } else {
+        // A cached aggregate remains the rendered source while its refresh is
+        // pending. If that refresh fails, reject the group as a whole so the
+        // previous projects, expenses, and aggregate stay an atomic snapshot.
+        if (!preserveExisting) setProjectLaborAggregateLoadState("loading");
+        try {
+          laborAggregates = await loadProjectLaborCostAggregatesFromSupabase(projects.map((project) => project.id));
           laborAggregateLoadState = "available";
-        } else {
-          setProjectLaborAggregateLoadState("loading");
-          try {
-            laborAggregates = await loadProjectLaborCostAggregatesFromSupabase(projects.map((project) => project.id));
-            laborAggregateLoadState = "available";
-          } catch (error) {
-            laborAggregateLoadState = error instanceof ProjectLaborAggregateDataError ? error.kind : "unavailable";
-          }
+        } catch (error) {
+          if (preserveExisting || !(error instanceof ProjectLaborAggregateDataError)) throw error;
+          laborAggregateLoadState = error.kind;
         }
       }
-      setProjectCostDomainLoadState("loaded");
-      return { projects, allocations, expenses, laborAggregates, laborAggregateLoadState };
-    } catch (error) {
-      setProjectCostDomainLoadState("failed");
-      throw error;
     }
+    return { projects, allocations, expenses, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -643,9 +642,9 @@ function InvoiceWorkspace() {
     setSyncState(data);
   };
 
-  const loadWorkspaceGroup = async (group: WorkspaceRefreshGroup): Promise<WorkspaceGroupData> => {
+  const loadWorkspaceGroup = async (group: WorkspaceRefreshGroup, options: { preserveExisting?: boolean } = {}): Promise<WorkspaceGroupData> => {
     if (group === "invoices") return loadInvoicesGroup();
-    if (group === "engineering") return loadEngineeringGroup();
+    if (group === "engineering") return loadEngineeringGroup(options.preserveExisting === true);
     if (group === "cash") return loadCashGroup();
     if (group === "payroll") return loadPayrollGroup();
     if (group === "payroll-imports") return loadPayrollImportsGroup();
@@ -662,13 +661,16 @@ function InvoiceWorkspace() {
   };
 
   const refreshWorkspaceGroup = async (group: WorkspaceRefreshGroup, token: { generation: number; userId: string; companyId: string }, options: { force?: boolean; reason?: string } = {}) => {
+    const cacheKey = { userId: token.userId, companyId: token.companyId, group };
+    const hasUsableCachedData = workspaceLoadCacheRef.current.get(cacheKey)?.hasData === true;
+    if (group === "engineering" && !hasUsableCachedData) setProjectCostDomainLoadState("loading");
     if (group === "payroll") {
       setPayrollRefreshing(true);
-      if (!workspaceLoadCacheRef.current.get({ userId: token.userId, companyId: token.companyId, group })?.hasData) setPayrollWorkspaceLoadState("loading");
+      if (!hasUsableCachedData) setPayrollWorkspaceLoadState("loading");
     }
     const request = workspaceLoadCacheRef.current.getOrLoad(
-      { userId: token.userId, companyId: token.companyId, group },
-      () => loadWorkspaceGroup(group),
+      cacheKey,
+      () => loadWorkspaceGroup(group, { preserveExisting: hasUsableCachedData }),
       { force: options.force },
     );
     workspaceInstrumentationRef.current.groupRefresh({
@@ -683,7 +685,10 @@ function InvoiceWorkspace() {
       const data = await request.promise;
       if (canApplyWorkspaceResult(token)) applyWorkspaceGroup(group, data, token);
     } catch (error) {
-      if (group === "payroll" && canApplyWorkspaceResult(token)) setPayrollWorkspaceLoadState("failed");
+      if (canApplyWorkspaceResult(token) && !hasUsableCachedData) {
+        if (group === "engineering") setProjectCostDomainLoadState("failed");
+        if (group === "payroll") setPayrollWorkspaceLoadState("failed");
+      }
       throw error;
     } finally {
       if (group === "payroll" && canApplyWorkspaceResult(token)) setPayrollRefreshing(false);
@@ -1361,6 +1366,9 @@ function InvoiceWorkspace() {
   };
 
   const handleExtract = async (payload: ExtractPayload): Promise<InvoiceData> => {
+    if (isSupabaseConfigured && !hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify])) {
+      throw new Error("Invoice extraction requires invoice management, extraction, and verification permissions in this company.");
+    }
     setProcessingCount((n) => n + 1);
     try {
       let storedSource: Awaited<ReturnType<typeof saveManualSourceDocument>> | undefined;
@@ -1400,6 +1408,9 @@ function InvoiceWorkspace() {
   };
 
   const handleProcessEmail = async ({ sender, subject, receivedAt, body, attachments }: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }): Promise<EmailClassification | null> => {
+    if (isSupabaseConfigured && !hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify])) {
+      throw new Error("Invoice extraction requires invoice management, extraction, and verification permissions in this company.");
+    }
     setProcessingCount((n) => n + 1);
     try {
       const classifyResponse = await companyApiRequest("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender, subject, body, attachmentNames: attachments.map((file) => file.name), model: "gemini-3.5-flash-lite" }), companyId: companyAccess.activeCompanyId || "" });
@@ -1520,6 +1531,9 @@ function InvoiceWorkspace() {
 
   const handleImportGmailMessage = async (candidate: GmailMessageCandidate) => {
     if (!session) throw new Error("Connect Google + Gmail first.");
+    if (isSupabaseConfigured && !hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify])) {
+      throw new Error("Invoice extraction requires invoice management, extraction, and verification permissions in this company.");
+    }
     setProcessingCount((n) => n + 1);
     try {
       const imported = await gmailRequest("/api/gmail/import", { messageId: candidate.id }) as GmailImportedMessage;
@@ -1622,6 +1636,7 @@ function InvoiceWorkspace() {
 
   const handleSaveInvoiceProjectAllocations = async (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => {
     try {
+      if (isSupabaseConfigured && !hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.projectsWrite])) throw new Error("You do not have permission to manage invoice project allocations in this company.");
       const saved = session && supabase
         ? await replaceInvoiceProjectAllocationsOnSupabase(invoice.id, invoice.grandTotal, allocations)
         : replaceInvoiceProjectAllocationsLocally(invoice.id, invoice.grandTotal, invoiceProjectAllocations, allocations).filter((allocation) => allocation.invoiceId === invoice.id);
@@ -2167,7 +2182,7 @@ function InvoiceWorkspace() {
 
   const handleCommitPayrollImport = async (staged: StagedPayrollImport, periodStart: string, periodEnd: string, payDate?: string) => {
     try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.payrollImport)) throw new Error("You do not have permission to commit payroll imports in this company.");
+      if (isSupabaseConfigured && !hasAllPermissions(permissions, [PERMISSION_KEYS.payrollImport, PERMISSION_KEYS.payrollWrite])) throw new Error("Committing a payroll import requires payroll import and payroll management permissions in this company.");
       const sourceBatch = payrollImportData.batches.find((item) => item.id === staged.batch.id) || staged.batch;
       const { buildDraftPayrollFromImport } = await import("./lib/payrollImportWorkflow.ts");
       const draft = buildDraftPayrollFromImport({ batch: sourceBatch, rows: staged.rows, periodStart, periodEnd, payDate });
@@ -3179,6 +3194,7 @@ function InvoiceWorkspace() {
           canManageCashTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)}
           canCashImport={!isSupabaseConfigured || can(PERMISSION_KEYS.cashImport)}
           canCashReconcile={!isSupabaseConfigured || can(PERMISSION_KEYS.cashReconcile)}
+          canSettleCashTarget={(targetType) => !isSupabaseConfigured || (targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : can(PERMISSION_KEYS.expensesWrite))}
           onOpenCashDashboard={() => setActiveTab("dashboard")}
           invoices={invoices}
           selectedInvoice={selectedInvoice}
@@ -3232,6 +3248,7 @@ function InvoiceWorkspace() {
           canManagePayrollMaintenance={payrollMaintenanceAllowed}
           canManageWorkforce={!isSupabaseConfigured || can(PERMISSION_KEYS.workersManage)}
           canManagePayrollSources={!isSupabaseConfigured || can(PERMISSION_KEYS.payrollWrite)}
+          canManagePayrollImports={!isSupabaseConfigured || (can(PERMISSION_KEYS.payrollImport) && can(PERMISSION_KEYS.payrollWrite))}
           onPayrollLifecycle={(request) => handlePayrollLifecycle(request)}
           onSaveWorkerCompensationProfile={(profile) => void handleSaveCompensationProfile(profile)}
           onSaveRecurringPayrollComponent={(component) => void handleSaveRecurringComponent(component)}

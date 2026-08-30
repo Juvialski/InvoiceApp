@@ -65,6 +65,7 @@ import type {
 import type { RegionalSettings } from "../../config/regional";
 import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
+import { appRouteTargetForLocation } from "../../utils/appRouteTarget.ts";
 
 import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
 
@@ -185,6 +186,7 @@ export interface AppRouterProps {
   canManageCashTransactions?: boolean;
   canCashImport?: boolean;
   canCashReconcile?: boolean;
+  canSettleCashTarget?: (targetType: FinancialReconciliationCandidate["targetType"]) => boolean;
   onSaveFinancialAccount?: (account: FinancialAccount) => Promise<FinancialAccount | void> | FinancialAccount | void;
   onDeactivateFinancialAccount?: (account: FinancialAccount, reason: string) => Promise<void> | void;
   onReactivateFinancialAccount?: (account: FinancialAccount, reason: string) => Promise<void> | void;
@@ -218,6 +220,7 @@ export interface AppRouterProps {
   canManagePayrollMaintenance?: boolean;
   canManageWorkforce?: boolean;
   canManagePayrollSources?: boolean;
+  canManagePayrollImports?: boolean;
   onPayrollLifecycle?: (request: PayrollLifecycleRequest) => Promise<void> | void;
   onSavePayrollWorker?: (worker: Worker) => void;
   onSavePayrollAssignment?: (assignment: ProjectWorkerAssignment) => void;
@@ -357,6 +360,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   canManageCashTransactions = true,
   canCashImport = true,
   canCashReconcile = true,
+  canSettleCashTarget,
   onSaveFinancialAccount = () => {},
   onDeactivateFinancialAccount,
   onReactivateFinancialAccount,
@@ -382,6 +386,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   canManagePayrollMaintenance = true,
   canManageWorkforce = true,
   canManagePayrollSources = true,
+  canManagePayrollImports = true,
   onPayrollLifecycle,
   onSavePayrollWorker = () => {},
   onSavePayrollAssignment = () => {},
@@ -422,8 +427,13 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return null;
   }
 
+  // `route` is canonical. Do not dispatch from the legacy activeTab prop,
+  // which may still describe the previous location for one render after a
+  // history transition.
+  const routeTarget = appRouteTargetForLocation(route);
+
   // 1. Single Invoice Verification / Review Workspace Mode
-  if ((route.kind === "invoice" || route.kind === "review-invoice") && selectedInvoice) {
+  if (routeTarget === "invoice-workspace" && selectedInvoice) {
     return lazyRoute(
       <InvoicesRoute
         selectedInvoice={selectedInvoice}
@@ -458,7 +468,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   }
 
   // 2. Projects Route (Tab or Project Workspace)
-  if (route.kind === "project" || activeTab === "projects") {
+  if (routeTarget === "projects") {
     return lazyRoute(
       <ProjectsRoute
         projects={projects}
@@ -507,7 +517,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   }
 
   // 3. Dashboard Route
-  if (route.kind === "tab" && activeTab === "dashboard") {
+  if (routeTarget === "dashboard") {
     return (
       <DashboardRoute
         data={dashboardData}
@@ -528,7 +538,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   }
 
   // 4. Cash & Banking Route
-  if (route.kind === "tab" && activeTab === "cash") {
+  if (routeTarget === "cash") {
     return lazyRoute(
       <CashBankingRoute
         data={cashData}
@@ -553,6 +563,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         canManageTransactions={canManageCashTransactions}
         canImport={canCashImport}
         canReconcile={canCashReconcile}
+        canSettleTarget={canSettleCashTarget}
         onOpenDashboard={onOpenCashDashboard || (onNavigateTab ? () => onNavigateTab("dashboard") : undefined)}
       />
     );
@@ -560,8 +571,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
 
   // 5. Invoices and Related Tabs
   if (
-    route.kind === "tab" &&
-    ["extractor", "inbox", "review", "invoices", "vendors"].includes(activeTab)
+    ["extractor", "inbox", "review", "invoices", "vendors"].includes(routeTarget)
   ) {
     return lazyRoute(
       <InvoicesRoute
@@ -593,7 +603,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   }
 
   // 6. Payroll Route
-  if (route.kind === "tab" && activeTab === "payroll") {
+  if (routeTarget === "payroll") {
     return lazyRoute(
       <PayrollRoute
         workers={payrollData.workers}
@@ -626,6 +636,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         canManagePayrollMaintenance={canManagePayrollMaintenance}
         canManageWorkforce={canManageWorkforce}
         canManagePayrollSources={canManagePayrollSources}
+        canManagePayrollImports={canManagePayrollImports}
         onPayrollLifecycle={onPayrollLifecycle}
         onSaveCompensationProfile={onSaveWorkerCompensationProfile}
         onSaveRecurringComponent={onSaveRecurringPayrollComponent}
@@ -651,7 +662,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   }
 
   // 7. Expenses Route
-  if (route.kind === "tab" && activeTab === "expenses") {
+  if (routeTarget === "expenses") {
     return lazyRoute(
       <ExpensesRoute
         expenses={expenses}
@@ -667,7 +678,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   }
 
   // 8. Reports Route
-  if (route.kind === "tab" && activeTab === "reports") {
+  if (routeTarget === "reports") {
     return lazyRoute(
       <ReportsRoute
         projects={projects}
@@ -688,7 +699,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   }
 
   // 9. Settings Route
-  if (route.kind === "tab" && activeTab === "settings") {
+  if (routeTarget === "settings") {
     return lazyRoute(<SettingsRoute settings={regionalSettings} onChange={onRegionalSettingsChange} showDeploymentAccessManagement={showDeploymentAccessManagement} />);
   }
 

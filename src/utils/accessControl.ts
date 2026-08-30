@@ -109,6 +109,11 @@ export function hasPermission(permissions: Iterable<PermissionKey> | null | unde
   return false;
 }
 
+export function hasAllPermissions(permissions: Iterable<PermissionKey> | null | undefined, required: readonly PermissionKey[]): boolean {
+  const granted = new Set(permissions || []);
+  return required.every((permission) => granted.has(permission) || granted.has("*"));
+}
+
 export function hasAnyPermission(permissions: Iterable<PermissionKey> | null | undefined, required: readonly PermissionKey[]): boolean {
   return required.some((permission) => hasPermission(permissions, permission));
 }

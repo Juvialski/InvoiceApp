@@ -19,6 +19,7 @@ import { useDemoWorkspace } from "./DemoWorkspaceProvider.tsx";
 import { buildDemoDashboard, buildDemoProjectDashboard, buildDemoProjectSummaries } from "./demoSelectors.ts";
 import { DEMO_COMPANY_ID } from "./demoTypes.ts";
 import { demoAssistantPath, demoDocumentsPath, demoPathForInvoice, demoPathForProject, demoPathForTab, type DemoLocation } from "./demoRouting.ts";
+import { projectCostDataCompleteness } from "../utils/dataCompleteness.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -50,6 +51,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
   const reviewQueue = useMemo(() => data.invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID"), [data.invoices]);
+  const demoProjectCostCompleteness = useMemo(() => projectCostDataCompleteness(["*"]), []);
 
   const projectLifecyclePreview = async (project: Project): Promise<ProjectLifecyclePreview> => buildProjectLifecyclePreview(project, {
     invoiceProjectAllocations: data.invoiceAllocations.filter((allocation) => allocation.projectId === project.id).length,
@@ -284,6 +286,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       accountEmail="client.demo@engoryx.local"
       visibleRouteIds={VISIBLE_ROUTES}
       permissions={["*"]}
+      projectCostCompleteness={demoProjectCostCompleteness}
       isSupabaseConfigured={true}
       footerText="Engoryx Demo Workspace • Meridian Engineering & Construction Corp. • Sample data only"
     >

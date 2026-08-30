@@ -82,6 +82,27 @@ test("serves stale data while one revalidation is in flight", async () => {
   assert.equal(cache.get(key("company-a"))?.data, "v2");
 });
 
+test("keeps usable stale data rendered when background revalidation fails", async () => {
+  let now = 0;
+  const cache = createWorkspaceLoadCache<string>({ staleAfterMs: 10, now: () => now });
+  await cache.load(key("company-a"), () => "current");
+  now = 11;
+
+  const failed = cache.getOrLoad(key("company-a"), async () => {
+    throw new Error("temporary refresh failure");
+  });
+  assert.equal(failed.fromCache, true);
+  assert.equal(failed.revalidating, true);
+  assert.equal(failed.data, "current", "the route can continue rendering the last usable value");
+  await assert.rejects(failed.promise, /temporary refresh failure/);
+
+  const preserved = cache.get(key("company-a"));
+  assert.equal(preserved?.hasData, true);
+  assert.equal(preserved?.data, "current");
+  assert.equal(preserved?.state, "stale");
+  assert.match(String(preserved?.error), /temporary refresh failure/);
+});
+
 test("invalidations isolate generations and preserve only the requested group", async () => {
   const cache = createWorkspaceLoadCache<string>({ staleAfterMs: 1_000 });
   await cache.load(key("company-a", "engineering"), () => "engineering-a");
