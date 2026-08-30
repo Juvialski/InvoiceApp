@@ -10,7 +10,7 @@ Status: focused implementation, validation, and diff review complete; the Wave 5
 
 ## Confirmed findings closed
 
-- Payroll finalization now requires effective `payroll.approve` at the database boundary; supporting period statuses cannot act as a second finalization path; approved/paid payloads and entry financial bounds are guarded.
+- Payroll finalization now requires effective `payroll.approve` at the database boundary; supporting period statuses cannot act as a second finalization path; calculated evidence cannot be rewritten during `CALCULATED` → `APPROVED`; approved/paid payloads and entry financial bounds are guarded.
 - Payroll source revisions are date/period scoped, internal period refreshes preserve the initiating permission context, and calculation replacement is locked and bound to the expected source revision.
 - Historical payroll currency cannot be relabeled by changing the deployment default after payroll history exists.
 - Invoice cash basis is capped at gross evidence, VOID documents expose a non-active settlement state, and VOID payroll rows are excluded from project dashboard/report cost surfaces.
@@ -20,6 +20,7 @@ Status: focused implementation, validation, and diff review complete; the Wave 5
 ## Evidence obtained
 
 - Focused Wave 5 regression suite: 9 passed, including fresh-token retention and stale-vendor-side-effect regressions.
+- Wave 5 pgTAP regression now covers unchanged approval, calculated revision/fingerprint/timestamp tampering, and stale calculated-run approval using an approval-only member; live execution remains unavailable locally.
 - `npm.cmd test`: 762 tests, 761 passed, 1 skipped; the skip is the existing live payroll-reset test requiring `PAYROLL_RESET_DB_URL`.
 - `npm.cmd run lint`: passed.
 - `npm.cmd run build`: passed. Existing warnings remain for the unloaded Inter font, a mixed static/dynamic `companyApi` import, and large chunks.

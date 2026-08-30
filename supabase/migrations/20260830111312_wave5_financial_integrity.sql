@@ -166,6 +166,17 @@ begin
     end if;
   end if;
 
+  -- Approval finalizes the already-calculated result. The approval member may
+  -- change status and the server owns approved_at/paid_at, but calculated
+  -- evidence cannot be rewritten in the same UPDATE.
+  if old.status = 'CALCULATED' and new.status = 'APPROVED' then
+    if new.calculated_at is distinct from old.calculated_at
+       or new.calculated_source_revision is distinct from old.calculated_source_revision
+       or new.source_fingerprint is distinct from old.source_fingerprint then
+      raise exception 'Calculated payroll evidence is immutable during approval' using errcode = '42501';
+    end if;
+  end if;
+
   if new.status = 'APPROVED' then
     if not exists (select 1 from public.payroll_entries pe where pe.payroll_run_id = new.id and pe.company_id = new.company_id) then
       raise exception 'Payroll run approval requires at least one payroll entry' using errcode = '42501';

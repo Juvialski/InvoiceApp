@@ -75,6 +75,10 @@ test("Wave 5 migration closes finalization, stale-replacement, currency, and per
   assert.match(migration, /project_allocated_cost > pe\.gross_pay \+ 0\.01/);
   assert.match(migration, /p_expected_source_revision/);
   assert.match(migration, /v_current_revision <> p_expected_source_revision/);
+  assert.match(migration, /old\.status = 'CALCULATED' and new\.status = 'APPROVED'/);
+  assert.match(migration, /new\.calculated_at is distinct from old\.calculated_at/);
+  assert.match(migration, /new\.calculated_source_revision is distinct from old\.calculated_source_revision/);
+  assert.match(migration, /new\.source_fingerprint is distinct from old\.source_fingerprint/);
   assert.match(migration, /app\.payroll_source_revision_internal/);
   assert.match(migration, /create or replace function private\.guard_company_payroll_currency_change\(\)[\s\S]*security definer/);
   assert.match(migration, /companies_payroll_currency_guard/);

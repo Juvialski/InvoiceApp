@@ -23,10 +23,21 @@ select
   '30000000-0000-4000-8000-000000000501'::uuid as period_january,
   '30000000-0000-4000-8000-000000000502'::uuid as period_december,
   '30000000-0000-4000-8000-000000000503'::uuid as period_open,
+  '30000000-0000-4000-8000-000000000504'::uuid as period_source_tamper,
+  '30000000-0000-4000-8000-000000000505'::uuid as period_fingerprint_tamper,
+  '30000000-0000-4000-8000-000000000506'::uuid as period_calculated_at_tamper,
   '40000000-0000-4000-8000-000000000501'::uuid as run_main,
   '40000000-0000-4000-8000-000000000502'::uuid as run_invalid,
+  '40000000-0000-4000-8000-000000000503'::uuid as run_source_tamper,
+  '40000000-0000-4000-8000-000000000504'::uuid as run_fingerprint_tamper,
+  '40000000-0000-4000-8000-000000000505'::uuid as run_calculated_at_tamper,
+  '40000000-0000-4000-8000-000000000506'::uuid as run_stale,
   '50000000-0000-4000-8000-000000000501'::uuid as entry_main,
-  '50000000-0000-4000-8000-000000000502'::uuid as invoice_id;
+  '50000000-0000-4000-8000-000000000502'::uuid as invoice_id,
+  '50000000-0000-4000-8000-000000000503'::uuid as entry_source_tamper,
+  '50000000-0000-4000-8000-000000000504'::uuid as entry_fingerprint_tamper,
+  '50000000-0000-4000-8000-000000000505'::uuid as entry_calculated_at_tamper,
+  '50000000-0000-4000-8000-000000000506'::uuid as entry_stale;
 
 grant select on wave5_ids to authenticated;
 
@@ -65,13 +76,45 @@ insert into public.payroll_periods (id, user_id, company_id, period_start, perio
 values
   ((select period_january from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), date '2026-01-01', date '2026-01-15', 'OPEN'),
   ((select period_december from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), date '2026-12-01', date '2026-12-15', 'OPEN'),
-  ((select period_open from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), date '2026-08-01', date '2026-08-15', 'OPEN');
+  ((select period_open from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), date '2026-08-01', date '2026-08-15', 'OPEN'),
+  ((select period_source_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), date '2026-02-01', date '2026-02-15', 'OPEN'),
+  ((select period_fingerprint_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), date '2026-03-01', date '2026-03-15', 'OPEN'),
+  ((select period_calculated_at_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), date '2026-04-01', date '2026-04-15', 'OPEN');
 insert into public.payroll_runs (id, user_id, company_id, period_id, status)
 values
   ((select run_main from wave5_ids), (select admin_user from wave5_ids), (select company_id from wave5_ids), (select period_open from wave5_ids), 'DRAFT'),
-  ((select run_invalid from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select period_december from wave5_ids), 'DRAFT');
+  ((select run_invalid from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select period_december from wave5_ids), 'DRAFT'),
+  ((select run_source_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select period_source_tamper from wave5_ids), 'CALCULATED'),
+  ((select run_fingerprint_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select period_fingerprint_tamper from wave5_ids), 'CALCULATED'),
+  ((select run_calculated_at_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select period_calculated_at_tamper from wave5_ids), 'CALCULATED'),
+  ((select run_stale from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select period_january from wave5_ids), 'CALCULATED');
+update public.payroll_runs
+set calculated_at = case
+      when id = (select run_source_tamper from wave5_ids) then timestamptz '2026-02-15 08:00:00+00'
+      when id = (select run_fingerprint_tamper from wave5_ids) then timestamptz '2026-03-15 08:00:00+00'
+      when id = (select run_calculated_at_tamper from wave5_ids) then timestamptz '2026-04-15 08:00:00+00'
+      else timestamptz '2026-01-15 08:00:00+00'
+    end,
+    calculated_source_revision = case when id = (select run_source_tamper from wave5_ids) then 1 else 0 end,
+    source_fingerprint = case
+      when id = (select run_source_tamper from wave5_ids) then 'source-revision-original'
+      when id = (select run_fingerprint_tamper from wave5_ids) then 'fingerprint-original'
+      when id = (select run_calculated_at_tamper from wave5_ids) then 'calculated-at-original'
+      else 'stale-original'
+    end
+where id in (
+  (select run_source_tamper from wave5_ids),
+  (select run_fingerprint_tamper from wave5_ids),
+  (select run_calculated_at_tamper from wave5_ids),
+  (select run_stale from wave5_ids)
+);
 insert into public.payroll_entries (id, user_id, company_id, payroll_run_id, worker_id, gross_pay, net_pay, project_allocated_cost, calculation_snapshot)
-values ((select entry_main from wave5_ids), (select admin_user from wave5_ids), (select company_id from wave5_ids), (select run_main from wave5_ids), (select worker_id from wave5_ids), 100, 90, 100, '{"source":"wave5"}'::jsonb);
+values
+  ((select entry_main from wave5_ids), (select admin_user from wave5_ids), (select company_id from wave5_ids), (select run_main from wave5_ids), (select worker_id from wave5_ids), 100, 90, 100, '{"source":"wave5"}'::jsonb),
+  ((select entry_source_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select run_source_tamper from wave5_ids), (select worker_id from wave5_ids), 100, 90, 100, '{"source":"wave5-source"}'::jsonb),
+  ((select entry_fingerprint_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select run_fingerprint_tamper from wave5_ids), (select worker_id from wave5_ids), 100, 90, 100, '{"source":"wave5-fingerprint"}'::jsonb),
+  ((select entry_calculated_at_tamper from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select run_calculated_at_tamper from wave5_ids), (select worker_id from wave5_ids), 100, 90, 100, '{"source":"wave5-calculated-at"}'::jsonb),
+  ((select entry_stale from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select run_stale from wave5_ids), (select worker_id from wave5_ids), 100, 90, 100, '{"source":"wave5-stale"}'::jsonb);
 
 insert into public.invoices (id, user_id, company_id, invoice_number, invoice_date, currency, grand_total, payment_status, review_status, current_data)
 values ((select invoice_id from wave5_ids), (select admin_user from wave5_ids), (select company_id from wave5_ids), 'W5-INV-001', date '2026-08-01', 'PHP', 100, 'UNPAID', 'VERIFIED', '{"netAmountPayable":120}'::jsonb);
@@ -79,17 +122,30 @@ values ((select invoice_id from wave5_ids), (select admin_user from wave5_ids), 
 -- Manager-only can prepare, but cannot approve/pay/void a run.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select manager_user::text from wave5_ids), true);
-select lives_ok($$update public.payroll_runs set status = 'CALCULATED' where id = (select run_main from wave5_ids)$$, 'payroll.manage can calculate an open run');
+select lives_ok($$update public.payroll_runs
+  set status = 'CALCULATED',
+      calculated_at = timestamptz '2026-08-15 08:00:00+00',
+      calculated_source_revision = 0,
+      source_fingerprint = 'main-original'
+  where id = (select run_main from wave5_ids)$$, 'payroll.manage can calculate an open run');
 select throws_ok($$update public.payroll_runs set status = 'APPROVED' where id = (select run_main from wave5_ids)$$, '42501', null, 'payroll.manage cannot approve a run without payroll.approve');
 select throws_ok($$update public.payroll_periods set status = 'APPROVED' where id = (select period_open from wave5_ids)$$, '42501', null, 'a manager cannot use period APPROVED as an alternate finalization path');
 select throws_ok($$select public.replace_payroll_run_entries((select run_main from wave5_ids), 99::bigint, '[]'::jsonb, '[]'::jsonb)$$, '40001', null, 'stale payroll calculation replacement is rejected before deletion');
 select throws_ok($$insert into public.payroll_entries (id, user_id, company_id, payroll_run_id, worker_id, gross_pay, net_pay, project_allocated_cost, calculation_snapshot) values (gen_random_uuid(), (select manager_user from wave5_ids), (select company_id from wave5_ids), (select run_invalid from wave5_ids), (select worker_id from wave5_ids), 100, 110, 101, '{"source":"invalid"}'::jsonb)$$, '22023', null, 'project labor and net pay cannot exceed gross pay');
 reset role;
 
--- An approve-only member can finalize the run but cannot edit it afterward.
+-- An approve-only member can finalize an unchanged calculated run, but cannot
+-- rewrite calculated evidence in the approval UPDATE.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select approver_user::text from wave5_ids), true);
+select is(public.has_company_permission((select company_id from wave5_ids), 'payroll.approve'), true, 'approval fixture member has effective payroll.approve');
+select is(public.has_company_permission((select company_id from wave5_ids), 'payroll.manage'), false, 'approval fixture member lacks effective payroll.manage');
 select lives_ok($$update public.payroll_runs set status = 'APPROVED' where id = (select run_main from wave5_ids)$$, 'payroll.approve can approve a calculated run without payroll.manage');
+-- This tamper changes the stored revision to the current period revision, so
+-- the existing freshness guard passes; the calculated-history guard must reject it.
+select throws_ok($$update public.payroll_runs set status = 'APPROVED', calculated_source_revision = 0 where id = (select run_source_tamper from wave5_ids)$$, '42501', null, 'approval cannot rewrite calculated source revision');
+select throws_ok($$update public.payroll_runs set status = 'APPROVED', source_fingerprint = 'fingerprint-tampered' where id = (select run_fingerprint_tamper from wave5_ids)$$, '42501', null, 'approval cannot rewrite calculated source fingerprint');
+select throws_ok($$update public.payroll_runs set status = 'APPROVED', calculated_at = timestamptz '2026-04-15 09:00:00+00' where id = (select run_calculated_at_tamper from wave5_ids)$$, '42501', null, 'approval cannot rewrite calculated timestamp');
 select lives_ok($$update public.payroll_runs set status = 'PAID' where id = (select run_main from wave5_ids)$$, 'payroll.approve can pay an approved run');
 select throws_ok($$update public.payroll_runs set notes = 'rewritten' where id = (select run_main from wave5_ids)$$, '42501', null, 'paid payroll history remains immutable');
 reset role;
@@ -101,6 +157,10 @@ select lives_ok($$update public.worker_compensation_profiles set rate = 1200 whe
 reset role;
 select is((select source_revision from public.payroll_periods where id = (select period_january from wave5_ids)), 1::bigint, 'the overlapping open period is revised');
 select is((select source_revision from public.payroll_periods where id = (select period_december from wave5_ids)), 0::bigint, 'an unrelated open period is not revised');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select approver_user::text from wave5_ids), true);
+select throws_ok($$update public.payroll_runs set status = 'APPROVED' where id = (select run_stale from wave5_ids)$$, '42501', null, 'a stale calculated run cannot be approved after the period source revision changes');
+reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from wave5_ids), true);
