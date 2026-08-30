@@ -31,6 +31,16 @@ export function sanitizeAssistantClientAction(value: unknown): AssistantClientAc
     const view = type === "OPEN_PROJECT" && typeof candidate.view === "string" && ["overview", "documents", "rfis", "submittals", "site-logs"].includes(candidate.view) ? candidate.view : undefined;
     return entityId ? { type, entityId, ...(view ? { view } : {}), ...(label ? { label } : {}) } : null;
   }
+  if (type === "OPEN_PROJECT_DOCUMENTS" || type === "OPEN_PAYROLL_RUN" || type === "OPEN_FINANCIAL_TRANSACTION") {
+    const entityId = safeToken(candidate.entityId);
+    return entityId ? { type, entityId, ...(label ? { label } : {}) } : null;
+  }
+  if (type === "OPEN_ENGINEERING_DOCUMENT") {
+    const entityId = safeToken(candidate.entityId);
+    const projectId = safeToken(candidate.projectId);
+    const revisionId = candidate.revisionId === undefined ? undefined : safeToken(candidate.revisionId);
+    return entityId && projectId && (candidate.revisionId === undefined || revisionId) ? { type, entityId, projectId, ...(revisionId ? { revisionId } : {}), ...(label ? { label } : {}) } : null;
+  }
   if (type === "OPEN_RFI" || type === "OPEN_SUBMITTAL" || type === "OPEN_SITE_LOG") {
     const entityId = safeToken(candidate.entityId);
     const projectId = safeToken(candidate.projectId);
@@ -63,8 +73,9 @@ export function assistantRouteIdForAction(action: AssistantClientAction): RouteI
   if (action.type === "NAVIGATE") return isAssistantRouteId(action.routeId) ? action.routeId : null;
   if (action.type === "OPEN_INVOICE") return "invoices";
   if (action.type === "OPEN_REVIEW_INVOICE") return "review";
-  if (action.type === "OPEN_PROJECT" || action.type === "OPEN_RFI" || action.type === "OPEN_SUBMITTAL" || action.type === "OPEN_SITE_LOG") return "projects";
-  if (action.type === "OPEN_PAYROLL_PERIOD" || action.type === "OPEN_ATTENDANCE_DATE") return "payroll";
+  if (action.type === "OPEN_PROJECT" || action.type === "OPEN_PROJECT_DOCUMENTS" || action.type === "OPEN_ENGINEERING_DOCUMENT" || action.type === "OPEN_RFI" || action.type === "OPEN_SUBMITTAL" || action.type === "OPEN_SITE_LOG") return "projects";
+  if (action.type === "OPEN_PAYROLL_PERIOD" || action.type === "OPEN_PAYROLL_RUN" || action.type === "OPEN_ATTENDANCE_DATE") return "payroll";
+  if (action.type === "OPEN_FINANCIAL_TRANSACTION") return "cash";
   return null;
 }
 
@@ -81,6 +92,9 @@ export function isAssistantActionAllowed(action: unknown, permissions?: Iterable
   if (safeAction.type === "OPEN_RFI" && !hasPermission(permissions, PERMISSION_KEYS.engineeringRfisRead)) return false;
   if (safeAction.type === "OPEN_SUBMITTAL" && !hasPermission(permissions, PERMISSION_KEYS.engineeringSubmittalsRead)) return false;
   if (safeAction.type === "OPEN_SITE_LOG" && !hasPermission(permissions, PERMISSION_KEYS.engineeringSiteLogsRead)) return false;
+  if (safeAction.type === "OPEN_PROJECT_DOCUMENTS" && !hasPermission(permissions, PERMISSION_KEYS.engineeringDocumentsRead)) return false;
+  if (safeAction.type === "OPEN_ENGINEERING_DOCUMENT" && !hasPermission(permissions, PERMISSION_KEYS.engineeringDocumentsRead)) return false;
+  if (safeAction.type === "OPEN_FINANCIAL_TRANSACTION" && !hasPermission(permissions, PERMISSION_KEYS.cashTransactionsRead)) return false;
   const routeId = assistantRouteIdForAction(safeAction);
   const route = routeId ? getRouteDefinition(routeId) : undefined;
   return Boolean(route && canAccessAppTab(route.appTab, permissions));

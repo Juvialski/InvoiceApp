@@ -8,18 +8,27 @@ export type HelpEntryId =
   | "invoice-review"
   | "cash-banking"
   | "project-costing"
+  | "project-lifecycle"
+  | "project-assignments"
   | "engineering-documents"
   | "daily-site-logs"
   | "blueprint-revisions"
   | "redline-annotations"
   | "drawing-disciplines"
   | "expenses"
+  | "invoice-corrections"
+  | "expense-corrections"
+  | "cash-corrections"
+  | "settlements-transfers"
   | "attendance-overtime"
   | "payroll-readiness"
   | "payroll-runs-imports"
+  | "workforce-lifecycle"
+  | "compensation-components"
   | "reports"
   | "gmail-import"
-  | "settings";
+  | "settings"
+  | "company-access";
 
 export interface HelpCatalogEntry {
   readonly id: HelpEntryId;
@@ -62,6 +71,22 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     details: "Projects show the cost picture for each project. Reports can compare budget, confirmed cost, pending commitments, and remaining budget.",
     routeId: "projects",
     keywords: ["project", "cost", "costing", "budget", "allocation", "actual", "supplier"],
+  },
+  {
+    id: "project-lifecycle",
+    title: "Project correction and lifecycle",
+    summary: "Edit planning details, archive operational projects, and reactivate eligible archived projects.",
+    details: "Open Projects to review dependencies before changing a project. Delete is limited to an unused project with no history; projects with operational or financial history are archived instead. An archived project can be reactivated only when it was archived from a non-terminal state.",
+    routeId: "projects",
+    keywords: ["project", "archive", "archived", "reactivate", "restore", "delete", "unused", "correction", "lifecycle"],
+  },
+  {
+    id: "project-assignments",
+    title: "Project worker assignments",
+    summary: "Assign workers to projects with effective dates, role, and optional pay overrides.",
+    details: "Project assignments are date-ranged workforce sources. An unused assignment can be deleted; an assignment with downstream work or payroll history must be ended with an effective date so history remains intact.",
+    routeId: "payroll",
+    keywords: ["assignment", "assign", "worker", "project", "end", "effective date", "labor"],
   },
   {
     id: "engineering-documents",
@@ -112,6 +137,38 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     keywords: ["expense", "direct cost", "fuel", "transport", "permit", "meal"],
   },
   {
+    id: "invoice-corrections",
+    title: "Invoice corrections",
+    summary: "Correct, archive, restore, void, or delete an invoice only through its guarded lifecycle.",
+    details: "Invoice correction checks dependencies and confirmed settlement evidence before changing anything. Unused records may be deleted, used records may be voided or archived, and archived records may be restored. A verified invoice still requires the verification permission to void.",
+    routeId: "invoices",
+    keywords: ["invoice", "correct", "correction", "void", "archive", "restore", "delete", "lifecycle"],
+  },
+  {
+    id: "expense-corrections",
+    title: "Expense corrections",
+    summary: "Correct direct-expense mistakes without erasing project-cost history.",
+    details: "Expense correction checks dependency and settlement evidence. Use delete-unused only when the database confirms there is no history; otherwise use archive for visibility or void to remove the source from active financial cost.",
+    routeId: "expenses",
+    keywords: ["expense", "correct", "correction", "void", "archive", "restore", "delete", "lifecycle"],
+  },
+  {
+    id: "cash-corrections",
+    title: "Cash and banking corrections",
+    summary: "Create, correct, reverse, ignore, or return cash transactions to review with an audit reason.",
+    details: "Manual uncommitted and unreconciled transactions can be corrected. Imported, provider, reconciled, transfer-linked, or used transactions must be reversed. Ignore and return-to-review are for unresolved reconciliation items and never hide confirmed evidence.",
+    routeId: "cash",
+    keywords: ["cash", "bank", "transaction", "correct", "correction", "reverse", "ignore", "review", "account"],
+  },
+  {
+    id: "settlements-transfers",
+    title: "Settlements and internal transfers",
+    summary: "Link payment evidence to invoices or payroll and confirm exact internal transfer pairs.",
+    details: "Settlement confirmation is a human-confirmed cash-evidence action, not project cost. Same-currency opposite transactions can be paired as an internal transfer. Reversals retain the original confirmation and require a reason.",
+    routeId: "cash",
+    keywords: ["settlement", "payment", "disbursement", "match", "split", "reverse", "transfer", "reconcile"],
+  },
+  {
     id: "attendance-overtime",
     title: "Attendance and overtime",
     summary: "Maintain attendance, leave, holidays, and overtime inputs inside Payroll.",
@@ -136,6 +193,22 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     keywords: ["payroll", "run", "calculate", "import", "workbook", "excel", "stage", "commit"],
   },
   {
+    id: "workforce-lifecycle",
+    title: "Worker correction and lifecycle",
+    summary: "Edit worker details, delete an unused worker, or offboard/reactivate a worker with history preserved.",
+    details: "Worker deletion is limited to a database-confirmed unused record. Workers with assignments, attendance, work, leave, overtime, payroll, or import history must be offboarded. Offboarding keeps the historical identity and prevents new active workforce activity; eligible workers can be reactivated.",
+    routeId: "payroll",
+    keywords: ["worker", "employee", "workforce", "edit", "delete", "unused", "offboard", "deactivate", "reactivate", "restore"],
+  },
+  {
+    id: "compensation-components",
+    title: "Compensation and recurring payroll components",
+    summary: "Maintain effective-dated compensation profiles and recurring earnings, deductions, or employer costs.",
+    details: "Compensation setup is effective-dated. New profiles can supersede overlapping setup without rewriting finalized payroll snapshots. Consumed profiles and recurring components must be ended, superseded, or deactivated instead of deleted or rewritten.",
+    routeId: "payroll",
+    keywords: ["compensation", "salary", "rate", "pay", "component", "earning", "deduction", "employer cost", "effective"],
+  },
+  {
     id: "reports",
     title: "Reports",
     summary: "Review invoice, project, expense, payroll cost, and export views.",
@@ -158,6 +231,14 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
     details: "Settings contains the current workspace regional preferences, such as currency and timezone behavior where supported.",
     routeId: "settings",
     keywords: ["settings", "preferences", "currency", "timezone", "regional"],
+  },
+  {
+    id: "company-access",
+    title: "Company access and member permissions",
+    summary: "Authorize exact emails, review effective access, and manage role or explicit permission overrides.",
+    details: "A Company Admin authorizes an exact email for this deployment. The user signs up and verifies that email before membership is claimed. Roles are presets; explicit GRANT and DENY overrides remain company-bound, and the database protects self-access and the last access-management authority. Pending access is Awaiting signup, not a claim that an email was delivered.",
+    routeId: "settings",
+    keywords: ["access", "member", "permission", "role", "grant", "deny", "invite", "authorization", "awaiting signup", "suspend", "revoke"],
   },
 ]);
 
@@ -194,6 +275,13 @@ export function searchHelpCatalog(query: string, options: { limit?: number } = {
 }
 
 export const searchHelp = searchHelpCatalog;
+
+export function getHelpEntry(value: unknown): HelpCatalogEntry | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return undefined;
+  return HELP_CATALOG.find((entry) => entry.id === normalized || entry.title.toLowerCase() === normalized);
+}
 
 export function helpEntryReference(entry: HelpCatalogEntry): AssistantReference {
   return { type: "help", id: entry.id, label: entry.title };

@@ -105,14 +105,17 @@ test("prepare_process_attached_invoice prepares action with preview and attachme
   assert.equal((result.preparedAction.preview as any).reviewStatusAfterConfirmation, "NEEDS_REVIEW");
 });
 
-test("attached invoice confirmation fails closed until the existing extraction pipeline persists an invoice", async () => {
+test("attached invoice confirmation authorizes a post-confirmation extraction handoff without claiming a persisted invoice", async () => {
   const supabase = createMockSupabase([], []);
   const context = mockContext(supabase);
 
-  await assert.rejects(() => executePreparedAction(context, "prepare_process_attached_invoice", {
+  const result: any = await executePreparedAction(context, "prepare_process_attached_invoice", {
     fileName: "acme-supplier-invoice.pdf",
     sha256: "unique-sha-999",
-  }, "act-inv-100"), /review pipeline/i);
+  }, "act-inv-100");
+  assert.equal(result.operation, "invoice_attachment_handoff_confirmed");
+  assert.equal(result.clientExecutionRequired, true);
+  assert.equal(result.reviewStatusAfterProcessing, "NEEDS_REVIEW");
 });
 
 test("attached invoice confirmation reuses an invoice already persisted by the extraction pipeline", async () => {

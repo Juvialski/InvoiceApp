@@ -27,6 +27,7 @@ export function pathForAssistantAction(action: AssistantClientAction): string | 
   if (action.type === "OPEN_FINANCIAL_TRANSACTION" && action.entityId) return appPathForCashTransaction(action.entityId);
   if (action.type === "OPEN_PAYROLL_RUN" && action.entityId) return appPathForPayrollRun(action.entityId);
   if (action.type === "OPEN_PROJECT_DOCUMENTS" && action.entityId) return appPathForProject(action.entityId, "documents");
+  if (action.type === "OPEN_ENGINEERING_DOCUMENT" && action.entityId && action.projectId) return appPathForProject(action.projectId, "documents", { docId: action.entityId, revId: action.revisionId });
   if (action.type === "OPEN_RFI" && action.entityId && action.projectId) return appPathForProject(action.projectId, "rfis", { rfiId: action.entityId });
   if (action.type === "OPEN_SUBMITTAL" && action.entityId && action.projectId) return appPathForProject(action.projectId, "submittals", { submittalId: action.entityId, roundId: action.roundId });
   if (action.type === "OPEN_SITE_LOG" && action.entityId && action.projectId) return appPathForProject(action.projectId, "site-logs", { siteLogId: action.entityId });

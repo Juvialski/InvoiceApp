@@ -2,15 +2,19 @@ import { getRouteDefinition, type RouteId } from "../utils/routes.ts";
 import { BRAND } from "../config/brand.ts";
 
 export const ASSISTANT_TOUR_IDS = [
-  "invoiceapp-overview",
+  "engoryx-overview",
   "cash-banking",
   "first-invoice",
   "gmail-import",
   "projects-costing",
   "engineering-documents",
+  "project-lifecycle",
   "payroll-basics",
   "attendance-overtime",
   "payroll-run",
+  "workforce-lifecycle",
+  "cash-corrections",
+  "company-access",
   "reports",
   "assistant-basics",
 ] as const;
@@ -63,8 +67,8 @@ const assistantStep = (id: string, title: string, body: string, target: Assistan
 const routeStep = (id: string, title: string, body: string, routeId: RouteId): AssistantTourStep => ({ id, title, body, target: `route:${routeId}` as RouteTourTarget, routeId });
 
 export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = Object.freeze({
-  "invoiceapp-overview": {
-    id: "invoiceapp-overview",
+  "engoryx-overview": {
+    id: "engoryx-overview",
     title: `${BRAND.productName} overview`,
     summary: "See how invoices, projects, payroll, Gmail intake, and reports fit together.",
     steps: [
@@ -120,6 +124,16 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
       routeStep("eng-docs-viewer", "Blueprint Viewer & Markups", "Inspect high-resolution drawings, filter by discipline, and collaborate with redline annotations.", "projects"),
     ],
   },
+  "project-lifecycle": {
+    id: "project-lifecycle",
+    title: "Correct a project safely",
+    summary: "Review project dependencies before editing, archiving, or reactivating a project.",
+    steps: [
+      routeStep("project-lifecycle-directory", "Open Projects", "Start from the project directory or a project workspace.", "projects"),
+      routeStep("project-lifecycle-review", "Review dependencies", "Use the project correction dialog to see whether history makes Delete unused safe, or whether Archive is the correct outcome.", "projects"),
+      routeStep("project-lifecycle-history", "Keep history intact", "Archived projects remain available for historical review; eligible projects can be reactivated without rewriting source records.", "projects"),
+    ],
+  },
   "payroll-basics": {
     id: "payroll-basics",
     title: "Understand payroll basics",
@@ -146,6 +160,34 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
       routeStep("run-period", "Choose the period", "Start with the correct open payroll period and confirm its date range.", "payroll"),
       routeStep("run-import", "Review imports", "Stage payroll workbook data through the import review flow before committing it.", "payroll"),
       routeStep("run-calculate", "Calculate and review", "Calculate the run, inspect entries and allocations, and keep approval/finalization explicit.", "payroll"),
+    ],
+  },
+  "workforce-lifecycle": {
+    id: "workforce-lifecycle",
+    title: "Manage workforce corrections",
+    summary: "Edit worker details and use offboarding or reactivation when history exists.",
+    steps: [
+      routeStep("workforce-lifecycle-payroll", "Open Payroll", "Payroll contains workers, assignments, compensation, time, attendance, and runs.", "payroll"),
+      routeStep("workforce-lifecycle-history", "Choose the safe outcome", "Unused records may be deleted after a dependency check; used workers and assignments are offboarded or ended so history remains available.", "payroll"),
+    ],
+  },
+  "cash-corrections": {
+    id: "cash-corrections",
+    title: "Correct Cash & Banking safely",
+    summary: "Use the correct correction, reversal, Ignore, or review-restoration path for financial evidence.",
+    steps: [
+      routeStep("cash-corrections-workspace", "Open Cash & Banking", "Review the account, transaction source, reconciliation state, and any linked evidence.", "cash"),
+      routeStep("cash-corrections-outcome", "Use the guarded outcome", "Correct only an uncommitted unreconciled manual transaction; reverse used or imported evidence; Ignore unresolved non-business items with a reason.", "cash"),
+    ],
+  },
+  "company-access": {
+    id: "company-access",
+    title: "Manage company access",
+    summary: "Authorize exact emails and maintain effective member permissions without weakening deployment isolation.",
+    steps: [
+      routeStep("company-access-settings", "Open Settings", "Company access is managed from Settings when your effective permissions allow it.", "settings"),
+      routeStep("company-access-authorize", "Add user access", "Authorize the exact normalized email and assign an allowed role; the user must sign up and verify that email before membership is claimed.", "settings"),
+      routeStep("company-access-overrides", "Review overrides", "Use explicit GRANT or DENY overrides for another member; the database protects self-access and the last access-management authority.", "settings"),
     ],
   },
   reports: {

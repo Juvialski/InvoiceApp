@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { calculatePayrollRunFromWorkEntries } from "../../lib/payrollCalculation.ts";
 import { applyAttendanceBatch, buildDailyRoster, type AttendanceRecordInput } from "../../lib/payrollWorkforce.ts";
 import type { AssistantClientAction, AssistantReference } from "../../assistant/assistantTypes.ts";
+import { getHelpEntry, getHelpResponse, helpEntryPath, helpEntryReference } from "../../assistant/helpCatalog.ts";
+import { getAssistantTour } from "../../assistant/tourRegistry.ts";
 import { AssistantToolError, type AssistantRow, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { toolOk } from "./toolResults.ts";
 
@@ -751,52 +753,33 @@ async function executeProcessAttachedInvoice(context: AssistantToolContext, args
       return { operation: "invoice_already_processed", invoice: invoiceView(existing), invoiceId: text(existing, "id") };
     }
   }
-  throw new AssistantToolError("ATTACHED_INVOICE_PIPELINE_REQUIRED", `The attached invoice ${fileName} must be processed through the InvoiceApp review pipeline before confirmation can complete.`);
+  // The binary payload remains in the validated browser attachment draft. The
+  // confirmation endpoint authorizes this explicit handoff; the host then
+  // invokes the existing deterministic extraction pipeline with that payload.
+  // No invoice row is claimed to exist until that pipeline returns.
+  return { operation: "invoice_attachment_handoff_confirmed", fileName, clientExecutionRequired: true, reviewStatusAfterProcessing: "NEEDS_REVIEW" };
 }
 
-const HELP_TOPICS: Record<string, { title: string; summary: string; routeId?: string }> = {
-  invoices: { title: "Invoices", summary: "Browse extracted invoices, inspect source details, and use the review workflow before verification.", routeId: "invoices" },
-  review: { title: "Invoice review", summary: "Review uncertain fields and source evidence, then verify or reopen an invoice. Verification is a human decision.", routeId: "review" },
-  cash: { title: "Cash & Banking", summary: "Monitor bank accounts, e-wallets, manual and statement balances, transactions, and reconciliation.", routeId: "cash" },
-  banking: { title: "Cash & Banking", summary: "Monitor bank accounts, e-wallets, manual and statement balances, transactions, and reconciliation.", routeId: "cash" },
-  projects: { title: "Projects", summary: "Track project budgets and keep invoice, payroll, and direct-expense sources separate.", routeId: "projects" },
-  payroll: { title: "Payroll", summary: "Work with periods, attendance, leave, overtime, source freshness, calculation, approval, and payment controls.", routeId: "payroll" },
-  attendance: { title: "Attendance", summary: "Record daily attendance in the workspace timezone. Confirmed records can become payroll sources.", routeId: "payroll" },
-  expenses: { title: "Expenses", summary: "Record direct expenses separately from supplier invoices and preserve currency on each source.", routeId: "expenses" },
-  "site-logs": { title: "Daily Site Logs", summary: "Record project-scoped field observations for weather, crew presence, equipment, progress, delays, safety, and formal history. Crew headcount does not change payroll attendance.", routeId: "projects" },
-  "daily site logs": { title: "Daily Site Logs", summary: "Record project-scoped field observations for weather, crew presence, equipment, progress, delays, safety, and formal history. Crew headcount does not change payroll attendance.", routeId: "projects" },
-};
-
 async function searchHelp(_context: AssistantToolContext, args: Record<string, unknown>) {
-  const query = String(args.query || "").toLowerCase();
-  const topics = Object.entries(HELP_TOPICS).filter(([key, topic]) => !query || `${key} ${topic.title} ${topic.summary}`.toLowerCase().includes(query)).map(([key, topic]) => ({ feature: key, ...topic }));
-  return toolOk({ topics: topics.slice(0, 10), count: topics.length });
+  const response = getHelpResponse(String(args.query || ""), { limit: 10 });
+  if (response.kind === "unknown") return toolOk({ topics: [], count: 0, message: response.message });
+  const topics = response.matches.map((entry) => ({ feature: entry.id, title: entry.title, summary: entry.summary, details: entry.details, routeId: entry.routeId, path: helpEntryPath(entry) }));
+  const routeIds = [...new Set(response.matches.map((entry) => entry.routeId))];
+  return toolOk({ topics, count: topics.length }, { references: response.references, clientActions: routeIds.slice(0, 3).map((routeId) => ({ type: "NAVIGATE" as const, routeId, label: `Open ${routeId}` })) });
 }
 
 async function getFeatureHelp(_context: AssistantToolContext, args: Record<string, unknown>) {
-  const key = String(args.feature || "").toLowerCase();
-  const topic = HELP_TOPICS[key];
-  if (!topic) throw new AssistantToolError("HELP_NOT_FOUND", "That help topic is not available.");
-  return toolOk({ feature: key, ...topic });
+  const entry = getHelpEntry(args.feature);
+  if (!entry) throw new AssistantToolError("HELP_NOT_FOUND", "That verified Engoryx help topic is not available.");
+  return toolOk({ feature: entry.id, title: entry.title, summary: entry.summary, details: entry.details, routeId: entry.routeId, path: helpEntryPath(entry) }, { references: [helpEntryReference(entry)], clientActions: [{ type: "NAVIGATE", routeId: entry.routeId, label: `Open ${entry.title}` }] });
 }
 
 async function startTour(_context: AssistantToolContext, args: Record<string, unknown>) {
   const tourId = String(args.tourId || "").toLowerCase();
-  const tourLabels: Record<string, string> = {
-    "invoiceapp-overview": "InvoiceApp overview",
-    "cash-banking": "Explore Cash & Banking",
-    "first-invoice": "Process your first invoice",
-    "gmail-import": "Import from Gmail",
-    "projects-costing": "Track project costing",
-    "payroll-basics": "Understand payroll basics",
-    "attendance-overtime": "Record attendance and overtime",
-    "payroll-run": "Prepare a payroll run",
-    reports: "Use reports",
-    "assistant-basics": "Use InvoiceApp Assistant",
-  };
-  if (!tourLabels[tourId]) throw new AssistantToolError("TOUR_NOT_FOUND", "That in-app tour is not available.");
-  const action: AssistantClientAction = { type: "START_TOUR", tourId, label: tourLabels[tourId] };
-  return toolOk({ started: false, tourId, message: "The tour is ready to start in the app." }, { clientActions: [action] });
+  const tour = getAssistantTour(tourId);
+  if (!tour) throw new AssistantToolError("TOUR_NOT_FOUND", "That in-app tour is not available.");
+  const action: AssistantClientAction = { type: "START_TOUR", tourId, label: tour.title };
+  return toolOk({ started: false, tourId, title: tour.title, summary: tour.summary, message: "The tour is ready to start in the app." }, { clientActions: [action] });
 }
 
 async function navigateTo(context: AssistantToolContext, args: Record<string, unknown>) {
@@ -1291,14 +1274,13 @@ async function executeInvoiceProjectAssignment(context: AssistantToolContext, ar
   const project = await getProject(context, String(args.projectId));
   if (text(invoice, "review_status") !== "VERIFIED" || text(invoice, "lifecycle_status", "ACTIVE") === "VOID" || text(project, "status") === "ARCHIVED" || project.archived_at) throw new AssistantToolError("SOURCE_CHANGED", "The verified invoice or project is no longer eligible for allocation.");
   const allocationType = args.allocationPercentage !== undefined ? "PERCENTAGE" : "AMOUNT";
-  const row = {
-    id: actionId || randomUUID(), user_id: context.auth.user.id, company_id: context.auth.companyId, invoice_id: args.invoiceId, project_id: args.projectId,
-    allocation_type: allocationType, allocation_percentage: allocationType === "PERCENTAGE" ? args.allocationPercentage : null, allocation_amount: allocationType === "AMOUNT" ? args.allocationAmount : null,
-    currency: invoice.currency || "PHP", notes: args.notes || null, updated_at: context.now.toISOString(),
-  };
-  const { data, error } = await db(context).from("invoice_project_allocations").upsert(row, { onConflict: "invoice_id,project_id" }).select("id,invoice_id,project_id,allocation_type,allocation_percentage,allocation_amount,currency,notes").single();
-  if (error) throw new AssistantToolError("WRITE_FAILED", "The invoice project allocation could not be saved.");
-  return { operation: "invoice_project_assignment_saved", allocation: data, invoiceId: args.invoiceId, projectId: args.projectId };
+  const existing = await getRows(userCompanyQuery(context, "invoice_project_allocations", "id,project_id,allocation_type,allocation_percentage,allocation_amount,notes").eq("invoice_id", String(args.invoiceId)).limit(50), "Invoice project allocations");
+  const allocations = existing.filter((row) => text(row, "project_id") !== String(args.projectId)).map((row) => ({ id: text(row, "id"), project_id: text(row, "project_id"), allocation_type: text(row, "allocation_type"), allocation_percentage: row.allocation_percentage ?? null, allocation_amount: row.allocation_amount ?? null, notes: row.notes ?? null }));
+  const previous = existing.find((row) => text(row, "project_id") === String(args.projectId));
+  allocations.push({ id: (previous ? text(previous, "id") : undefined) || actionId || randomUUID(), project_id: String(args.projectId), allocation_type: allocationType, allocation_percentage: allocationType === "PERCENTAGE" ? args.allocationPercentage : null, allocation_amount: allocationType === "AMOUNT" ? args.allocationAmount : null, notes: args.notes || null });
+  const result = await db(context).rpc("replace_invoice_project_allocations", { p_invoice_id: args.invoiceId, p_allocations: allocations });
+  if (result.error) throw new AssistantToolError("WRITE_FAILED", "The invoice project allocation could not be saved through the authoritative allocation workflow.");
+  return { operation: "invoice_project_assignment_saved", allocations: result.data || [], invoiceId: args.invoiceId, projectId: args.projectId };
 }
 
 async function executeInvoiceDraftUpdate(context: AssistantToolContext, args: Record<string, unknown>) {
@@ -1397,6 +1379,6 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "update_invoice_draft": return prepareInvoiceDraftUpdate(context, args);
     case "approve_payroll":
     case "mark_payroll_paid": return preparePayrollFinalization(context, name, args);
-    default: throw new AssistantToolError("UNKNOWN_TOOL", "That operation is not available in InvoiceApp.");
+    default: throw new AssistantToolError("UNKNOWN_TOOL", "That operation is not available in Engoryx.");
   }
 }

@@ -7,7 +7,7 @@ import {
   unknownHelpResponse,
 } from "../src/assistant/helpCatalog.ts";
 
-test("help search returns only current InvoiceApp features with deterministic ranking", () => {
+test("help search returns only current Engoryx features with deterministic ranking", () => {
   const payrollMatches = searchHelpCatalog("payroll import");
   assert.equal(payrollMatches[0]?.id, "payroll-runs-imports");
   assert.equal(helpEntryPath(payrollMatches[0]!), "/payroll");
@@ -40,11 +40,21 @@ test("help search resolves Daily Site Logs and preserves the payroll boundary", 
   assert.match(matches[0]!.details, /never create payroll attendance/i);
 });
 
+test("help search covers current correction, access, and lifecycle workflows", () => {
+  assert.equal(searchHelpCatalog("archive project reactivate")[0]?.id, "project-lifecycle");
+  assert.equal(searchHelpCatalog("worker offboard reactivate")[0]?.id, "workforce-lifecycle");
+  assert.equal(searchHelpCatalog("company member permission deny")[0]?.id, "company-access");
+  assert.equal(searchHelpCatalog("cash transaction reverse")[0]?.id, "cash-corrections");
+  const response = getHelpResponse("invoice void archive");
+  assert.equal(response.kind, "matches");
+  if (response.kind === "matches") assert.equal(response.matches[0]?.id, "invoice-corrections");
+});
+
 test("unknown help questions stay honest instead of inventing a feature", () => {
   const response = getHelpResponse("custom CRM sync");
   assert.equal(response.kind, "unknown");
   if (response.kind === "unknown") {
-    assert.match(response.message, /don’t have a verified (Engoryx|InvoiceApp) help answer/i);
+    assert.match(response.message, /don’t have a verified Engoryx help answer/i);
     assert.doesNotMatch(response.message, /CRM sync is available/i);
   }
   assert.match(unknownHelpResponse("something else"), /Engineering Documents and blueprints/i);

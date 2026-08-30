@@ -40,6 +40,14 @@ test("Phase 1C assistant actions preserve project-scoped Daily Site Log deep lin
   assert.equal(isAssistantActionAllowed(action, ["projects.read"]), false);
 });
 
+test("engineering document actions preserve project and revision deep links", () => {
+  const action = sanitizeAssistantClientAction({ type: "OPEN_ENGINEERING_DOCUMENT", entityId: "document-42", projectId: "project-7", revisionId: "revision-3", label: "Open drawing" });
+  assert.deepEqual(action, { type: "OPEN_ENGINEERING_DOCUMENT", entityId: "document-42", projectId: "project-7", revisionId: "revision-3", label: "Open drawing" });
+  assert.equal(pathForAssistantAction(action!), "/projects/project-7/documents?docId=document-42&revId=revision-3");
+  assert.equal(isAssistantActionAllowed(action, ["projects.read", "engineering.documents.read"]), true);
+  assert.equal(isAssistantActionAllowed(action, ["projects.read"]), false);
+});
+
 test("assistant actions honor optional frontend permissions", () => {
   const reports = { type: "NAVIGATE", routeId: "reports" } as const;
   assert.equal(isAssistantActionAllowed(reports), true);
