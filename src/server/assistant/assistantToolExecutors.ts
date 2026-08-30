@@ -1268,7 +1268,11 @@ async function executePayrollRecalculation(context: AssistantToolContext, args: 
 async function executePayrollRunCreation(context: AssistantToolContext, args: Record<string, unknown>, actionId?: string) {
   const period = await assertOpenPeriod(context, String(args.periodId));
   const runs = await getRows(userCompanyQuery(context, "payroll_runs", RUN_SELECT).eq("period_id", String(period.id)).limit(10), "Current payroll runs");
-  if (runs.some((run) => text(run, "status") !== "VOID")) throw new AssistantToolError("RUN_EXISTS", "A payroll run already exists for this period; no second run was created.");
+  const existing = runs.find((run) => text(run, "status") !== "VOID");
+  if (existing) {
+    if (actionId && text(existing, "id") === actionId) return { operation: "payroll_run_already_created", entityType: "PAYROLL_RUN", entityId: actionId, displayLabel: `${text(period, "period_start")} – ${text(period, "period_end")}`, period: periodView(period), run: runView(existing) };
+    throw new AssistantToolError("RUN_EXISTS", "A payroll run already exists for this period; no second run was created.");
+  }
   const { data, error } = await db(context).from("payroll_runs").insert({ id: actionId || randomUUID(), user_id: context.auth.user.id, company_id: context.auth.companyId, period_id: period.id, status: "DRAFT", calculated_at: null, calculated_source_revision: null, source_fingerprint: null, approved_at: null, paid_at: null, notes: null }).select(RUN_SELECT).single();
   if (error) throw new AssistantToolError("WRITE_FAILED", "The draft payroll run could not be created.");
   return { operation: "payroll_run_created", entityType: "PAYROLL_RUN", entityId: String((data as Row).id), displayLabel: `${text(period, "period_start")} – ${text(period, "period_end")}`, period: periodView(period), run: runView(data as Row) };

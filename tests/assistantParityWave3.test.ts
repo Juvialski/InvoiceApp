@@ -3,6 +3,7 @@ import test from "node:test";
 import { executePreparedCoreHardeningAction, executeCoreHardeningTool, validateCoreHardeningToolArguments } from "../src/server/assistant/coreHardeningAssistant.ts";
 import { executePreparedAssistantOperation, validateAssistantOperationArguments } from "../src/server/assistant/assistantOperations.ts";
 import { executeAssistantTool, getAssistantToolDefinition } from "../src/server/assistant/toolRegistry.ts";
+import { executePreparedAction, executeRegisteredTool } from "../src/server/assistant/assistantToolExecutors.ts";
 import { scrubAssistantMessage } from "../src/server/assistant/assistantHandler.ts";
 
 const COMPANY_ID = "00000000-0000-4000-8000-000000000001";
@@ -211,4 +212,36 @@ test("specialized UI-only boundaries are not exposed as Assistant mutations", ()
   for (const name of ["prepare_verify_invoice", "prepare_reextract_invoice", "prepare_commit_attendance_import", "prepare_reset_payroll_workspace", "prepare_update_vendor", "prepare_upload_engineering_revision"]) {
     assert.equal(getAssistantToolDefinition(name), undefined, name);
   }
+});
+
+test("payroll-run creation prepares an open period and is idempotent for the action identity", async () => {
+  const periodId = "00000000-0000-4000-8000-000000000006";
+  const actionId = "00000000-0000-4000-8000-000000000007";
+  const runs: Record<string, unknown>[] = [];
+  const supabase = {
+    from(table: string) {
+      let rows = table === "payroll_periods" ? [{ id: periodId, company_id: COMPANY_ID, period_start: "2026-08-24", period_end: "2026-08-30", status: "OPEN", locked_at: null, source_revision: 2 }] : runs;
+      const query: any = {
+        select: () => query,
+        eq: (key: string, value: unknown) => { rows = rows.filter((row) => row[key] === value); return query; },
+        limit: (count: number) => { rows = rows.slice(0, count); return query; },
+        insert: (row: Record<string, unknown>) => { runs.push({ ...row }); rows = [runs.at(-1)!]; return query; },
+        maybeSingle: async () => ({ data: rows[0] || null, error: null }),
+        single: async () => ({ data: rows[0] || null, error: rows[0] ? null : { message: "not found" } }),
+        then: (resolve: (value: unknown) => unknown, reject: (error: unknown) => unknown) => Promise.resolve({ data: rows, error: null }).then(resolve, reject),
+      };
+      return query;
+    },
+  };
+  let preparedRequest: any;
+  const assistantContext = context(supabase, async (request) => { preparedRequest = request; return { output: { prepared: true } }; });
+  const prepared = await executeRegisteredTool("create_payroll_run", { periodId }, assistantContext);
+  assert.equal(prepared.output.prepared, true);
+  assert.equal(preparedRequest.normalizedArgs.periodId, periodId);
+  const first = await executePreparedAction(assistantContext, "create_payroll_run", preparedRequest.normalizedArgs, actionId, preparedRequest.preview);
+  const second = await executePreparedAction(assistantContext, "create_payroll_run", preparedRequest.normalizedArgs, actionId, preparedRequest.preview);
+  assert.equal(first.operation, "payroll_run_created");
+  assert.equal(second.operation, "payroll_run_already_created");
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0]?.id, actionId);
 });
