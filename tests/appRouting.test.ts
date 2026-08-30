@@ -84,7 +84,7 @@ test("payroll period links keep the canonical payroll route and target the exact
   assert.equal(payrollPeriodIdFromSearch("?periodId=period-42&from=%2Fdashboard"), "period-42");
   assert.equal(pathForAssistantAction({ type: "OPEN_PAYROLL_PERIOD", entityId: "period-42" }), "/payroll?periodId=period-42");
   assert.match(payrollRouteSource, /payrollPeriodIdFromSearch\(search\)/);
-  assert.match(payrollRouteSource, /selectedPeriodId=\{requestedPeriod\?\.id\}/);
+  assert.match(payrollRouteSource, /selectedPeriodId=\{\s*!requestedRun\s*\?\s*requestedPeriod\?\.id\s*:\s*undefined\s*\}/);
 });
 
 test("attendance links keep the canonical payroll route and target the exact date", () => {

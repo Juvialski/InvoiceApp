@@ -1,6 +1,6 @@
 # Engoryx Assistant Capability Matrix
 
-Status: Wave 3 current-state coverage at `1950e489b184a2c298b27db1d6ab4ff1c21ec5f0` (2026-08-30). This is the durable definition-of-done tracker for Full Assistant Parity. Each row is classified as `COMPLETE`, `INTENTIONAL UNSUPPORTED`, or `DEFERRED`; there are no unexplained partial rows. A check in Read/query or Question answering means persisted company data can be used safely. `P → H → G` means deterministic prepare, explicit human confirmation, and guarded execution. Navigation is resolved against the authenticated deployment company before a client deep link is emitted.
+Status: Wave 3 current-state coverage, updated 2026-08-30. This is the durable definition-of-done tracker for Full Assistant Parity. Each row is classified as `COMPLETE`, `INTENTIONAL UNSUPPORTED`, or `DEFERRED`; there are no unexplained partial rows. A check in Read/query or Question answering means persisted company data can be used safely. `P → H → G` means deterministic prepare, explicit human confirmation, and guarded execution. Navigation is resolved against the authenticated deployment company before a client deep link is emitted.
 
 The inventory was checked against current routes/components, `src/features/registry.ts`, `src/utils/accessControl.ts`, domain libraries, persistence/RPC boundaries, `scripts/workflow-map/graph.ts`, Assistant adapters, and focused tests. UUIDs are implementation references only; normal Assistant prose and action-card labels use human-readable values.
 
