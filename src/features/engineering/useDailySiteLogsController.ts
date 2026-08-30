@@ -82,13 +82,20 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
   const isControlled = controlledData !== undefined;
   const [data, setData] = useState<EngineeringDailySiteLogsWorkspaceData>(() => controlledData || (guestMode ? readDailySiteLogsFromLocal() : emptyDailySiteLogsWorkspaceData()));
   const [isLoading, setIsLoading] = useState(!isControlled);
+  const [hasLoaded, setHasLoaded] = useState(isControlled);
+  const scopeKey = `${companyId || ""}:${project.id}:${guestMode}:${canRead}:${isControlled}`;
+  const loadedScopeRef = useRef<string | null>(isControlled ? scopeKey : null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
   const pendingCreateIdsRef = useRef(new Map<string, string>());
 
   useEffect(() => {
-    if (controlledData !== undefined) setData(controlledData);
-  }, [controlledData]);
+    if (controlledData !== undefined) {
+      setData(controlledData);
+      loadedScopeRef.current = scopeKey;
+      setHasLoaded(true);
+    }
+  }, [controlledData, scopeKey]);
 
   const projectData = useMemo<EngineeringDailySiteLogsWorkspaceData>(() => {
     const logs = data.logs.filter((item) => item.projectId === project.id);
@@ -112,12 +119,16 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
 
   const reload = useCallback(async () => {
     if (isControlled) {
+      loadedScopeRef.current = scopeKey;
+      setHasLoaded(true);
       setIsLoading(false);
       setLoadError(null);
       return;
     }
     if (!canRead) {
       setData(guestMode ? readDailySiteLogsFromLocal() : emptyDailySiteLogsWorkspaceData());
+      loadedScopeRef.current = scopeKey;
+      setHasLoaded(true);
       setIsLoading(false);
       return;
     }
@@ -126,12 +137,14 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     try {
       const loaded = guestMode ? readDailySiteLogsFromLocal() : await loadDailySiteLogsFromSupabase(companyId, project.id);
       setData(loaded);
+      loadedScopeRef.current = scopeKey;
+      setHasLoaded(true);
     } catch (error) {
       setLoadError(errorMessage(error, "Site Logs could not be loaded. Your local form state remains available for retry."));
     } finally {
       setIsLoading(false);
     }
-  }, [canRead, companyId, guestMode, isControlled, project.id]);
+  }, [canRead, companyId, guestMode, isControlled, project.id, scopeKey]);
 
   useEffect(() => { void reload(); }, [reload, generation]);
   const retryLoad = useCallback(() => setGeneration((value) => value + 1), []);
@@ -264,6 +277,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
   return {
     data: projectData,
     isLoading,
+    hasLoaded: hasLoaded && loadedScopeRef.current === scopeKey,
     loadError,
     retryLoad,
     aggregate,

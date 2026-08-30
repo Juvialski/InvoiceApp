@@ -15,11 +15,11 @@ function DemoRootContent() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  const navigate = useCallback((path: string) => {
+  const navigate = useCallback((path: string, replace = false) => {
     if (!(path === DEMO_ROOT_PATH || path.startsWith(`${DEMO_ROOT_PATH}/`))) {
       throw new Error("Demo navigation cannot leave the isolated /demo route namespace.");
     }
-    window.history.pushState({}, "", path);
+    window.history[replace ? "replaceState" : "pushState"]({}, "", path);
     setNavigationRevision((value) => value + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);

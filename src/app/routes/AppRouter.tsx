@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import type { AppLocation } from "../../utils/appRouting";
+import { financialTransactionIdFromSearch, type AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
 import type {
@@ -66,6 +66,7 @@ import type { RegionalSettings } from "../../config/regional";
 import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 import { appRouteTargetForLocation } from "../../utils/appRouteTarget.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
 
@@ -88,6 +89,7 @@ export interface AppRouterProps {
   route: AppLocation;
   activeTab: AppTab;
   workspaceRouteVisible?: boolean;
+  onNavigatePath?: AppNavigate;
 
   // Dashboard Data & Handlers
   dashboardData: DashboardViewData;
@@ -276,6 +278,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   route,
   activeTab,
   workspaceRouteVisible = true,
+  onNavigatePath,
   dashboardData,
   dashboardProjectId,
   onDashboardProjectChange,
@@ -437,6 +440,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <InvoicesRoute
         selectedInvoice={selectedInvoice}
+        onNavigatePath={onNavigatePath}
         invoices={invoices}
         projects={projects}
         invoiceProjectAllocations={invoiceProjectAllocations}
@@ -497,6 +501,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         dailySiteLogsData={dailySiteLogsData}
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
         pathForSiteLog={pathForSiteLog}
+        onNavigatePath={onNavigatePath}
         onTabChange={onProjectTabChange}
         onOpenProject={onOpenProject}
         onSaveProject={onSaveProject}
@@ -542,6 +547,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <CashBankingRoute
         data={cashData}
+        selectedTransactionId={financialTransactionIdFromSearch(route.search)}
+        onNavigatePath={onNavigatePath}
         onSaveAccount={onSaveFinancialAccount}
         onDeactivateAccount={onDeactivateFinancialAccount}
         onSaveSnapshot={onSaveFinancialSnapshot}
@@ -576,6 +583,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <InvoicesRoute
         activeSubTab={activeTab}
+        onNavigatePath={onNavigatePath}
         invoices={invoices}
         projects={projects}
         invoiceProjectAllocations={invoiceProjectAllocations}
@@ -606,6 +614,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   if (routeTarget === "payroll") {
     return lazyRoute(
       <PayrollRoute
+        onNavigatePath={onNavigatePath}
         workers={payrollData.workers}
         assignments={payrollData.assignments}
         periods={payrollData.periods}

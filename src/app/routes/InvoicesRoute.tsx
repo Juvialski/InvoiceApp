@@ -24,6 +24,7 @@ import type { AppTab } from "../../utils/routes";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
 import { FinancialCorrectionDialog } from "../../components/financial/FinancialCorrectionDialog.tsx";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface InvoicesRouteProps {
   selectedInvoice?: InvoiceData | null;
@@ -69,6 +70,7 @@ export interface InvoicesRouteProps {
   onSyncGmail?: () => Promise<GmailMessageCandidate[]>;
   onImportGmailMessage?: (message: GmailMessageCandidate) => Promise<number>;
   onProcessEmail?: (input: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }) => Promise<EmailClassification | null>;
+  onNavigatePath?: AppNavigate;
 }
 
 export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
@@ -115,6 +117,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onSyncGmail = async () => [],
   onImportGmailMessage = async () => { throw new Error("Gmail import handler not configured."); },
   onProcessEmail = async () => { throw new Error("Process email handler not configured."); },
+  onNavigatePath,
 }) => {
   const permissions = useAppPermissions();
   const canManageInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
@@ -171,12 +174,12 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
 
   if (selectedInvoice) {
     if (!canManageInvoices && !canVerifyInvoices) {
-      return <div className="space-y-5"><FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
+      return <div className="space-y-5"><FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} onNavigatePath={onNavigatePath} /><InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
     }
     const handleReopenCallback = async () => { if (onReopen) await onReopen(selectedInvoice); };
     return (
       <div className="space-y-5">
-        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} />
+        <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} onNavigatePath={onNavigatePath} />
         {canManageInvoices && onPreviewCorrection && <button type="button" onClick={() => void openCorrection(selectedInvoice)} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100">Review correction options</button>}
         <VerificationWorkspace
           invoice={selectedInvoice}
@@ -217,7 +220,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifyInvoices ? onStartReview : undefined} readOnly={!canVerifyInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
-  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}{correctionDialog}</div>;
+  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} onNavigatePath={onNavigatePath} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}{correctionDialog}</div>;
 };
 
 export default InvoicesRoute;

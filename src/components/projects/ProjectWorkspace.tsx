@@ -25,6 +25,7 @@ import { useEngineeringCoordinationAccess } from "../../features/engineering/use
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import { hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
@@ -50,6 +51,7 @@ interface ProjectWorkspaceProps {
   initialSubmittalRoundId?: string;
   initialSiteLogId?: string;
   pathForSiteLog?: (siteLogId?: string) => string;
+  onNavigatePath?: AppNavigate;
   companyId?: string;
   engineeringDocumentsCanRead?: boolean;
   engineeringDocumentsCanCreate?: boolean;
@@ -117,6 +119,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   initialSubmittalRoundId,
   initialSiteLogId,
   pathForSiteLog,
+  onNavigatePath,
   companyId,
   engineeringDocumentsCanRead = true,
   engineeringDocumentsCanCreate = true,
@@ -241,11 +244,11 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
       {tab === "documents" && (projectDocumentsContent ?? <ProjectDocuments project={project} companyId={companyId} initialDocumentId={initialDocumentId} initialRevisionId={initialRevisionId} canRead={engineeringDocumentsCanRead} canCreate={engineeringDocumentsCanCreate} canAnnotate={engineeringDocumentsCanAnnotate} canManage={engineeringDocumentsCanManage} guestMode={engineeringDocumentsGuestMode} />)}
 
-      {tab === "rfis" && (coordinationAccess.loading && engineeringRfisCanRead === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking RFI access…</div> : <ProjectRfis project={project} companyId={companyId} initialRfiId={initialRfiId} canRead={phase1bAccess.rfisRead} canCreate={phase1bAccess.rfisCreate} canRespond={phase1bAccess.rfisRespond} canManage={phase1bAccess.rfisManage} canReadDocuments={engineeringDocumentsCanRead} guestMode={engineeringDocumentsGuestMode} />)}
+      {tab === "rfis" && (coordinationAccess.loading && engineeringRfisCanRead === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking RFI access…</div> : <ProjectRfis project={project} companyId={companyId} initialRfiId={initialRfiId} canRead={phase1bAccess.rfisRead} canCreate={phase1bAccess.rfisCreate} canRespond={phase1bAccess.rfisRespond} canManage={phase1bAccess.rfisManage} canReadDocuments={engineeringDocumentsCanRead} guestMode={engineeringDocumentsGuestMode} onNavigatePath={onNavigatePath} />)}
 
-      {tab === "submittals" && (coordinationAccess.loading && engineeringSubmittalsCanRead === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking submittal access…</div> : <ProjectSubmittals project={project} companyId={companyId} initialSubmittalId={initialSubmittalId} initialRoundId={initialSubmittalRoundId} canRead={phase1bAccess.submittalsRead} canCreate={phase1bAccess.submittalsCreate} canReview={phase1bAccess.submittalsReview} canManage={phase1bAccess.submittalsManage} canReadDocuments={engineeringDocumentsCanRead} guestMode={engineeringDocumentsGuestMode} />)}
+      {tab === "submittals" && (coordinationAccess.loading && engineeringSubmittalsCanRead === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking submittal access…</div> : <ProjectSubmittals project={project} companyId={companyId} initialSubmittalId={initialSubmittalId} initialRoundId={initialSubmittalRoundId} canRead={phase1bAccess.submittalsRead} canCreate={phase1bAccess.submittalsCreate} canReview={phase1bAccess.submittalsReview} canManage={phase1bAccess.submittalsManage} canReadDocuments={engineeringDocumentsCanRead} guestMode={engineeringDocumentsGuestMode} onNavigatePath={onNavigatePath} />)}
 
-      {tab === "site-logs" && (coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div> : <ProjectSiteLogs project={project} companyId={companyId} initialSiteLogId={initialSiteLogId} pathForSiteLog={pathForSiteLog} canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead} canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate} canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate} canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit} canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage} guestMode={engineeringDocumentsGuestMode} controlledData={dailySiteLogsData} onControlledDataChange={onDailySiteLogsDataChange} />)}
+      {tab === "site-logs" && (coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div> : <ProjectSiteLogs project={project} companyId={companyId} initialSiteLogId={initialSiteLogId} pathForSiteLog={pathForSiteLog} onNavigatePath={onNavigatePath} canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead} canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate} canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate} canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit} canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage} guestMode={engineeringDocumentsGuestMode} controlledData={dailySiteLogsData} onControlledDataChange={onDailySiteLogsDataChange} />)}
 
       {tab === "invoices" && canReadInvoices && (canManageInvoiceAllocations
         ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />

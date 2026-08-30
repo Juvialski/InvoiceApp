@@ -3123,6 +3123,7 @@ function InvoiceWorkspace() {
         <AppRouter
           route={route}
           activeTab={activeTab}
+          onNavigatePath={navigateToPath}
           workspaceRouteVisible={workspaceRouteVisible}
           dashboardData={dashboardViewData}
           dashboardProjectId={dashboardProjectId}

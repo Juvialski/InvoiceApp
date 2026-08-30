@@ -8,6 +8,8 @@ export const CashBankingRoute: React.FC<CashBankingRouteProps> = (props) => {
   return <div className="space-y-5">
     <CashSettlementAllocationWorkspace
       data={props.data}
+      selectedTransactionId={props.selectedTransactionId}
+      onNavigatePath={props.onNavigatePath}
       candidates={props.reconciliationCandidates || []}
       canReconcile={props.canReconcile}
       canSettleTarget={props.canSettleTarget}

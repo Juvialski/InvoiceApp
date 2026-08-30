@@ -56,6 +56,7 @@ export interface EngineeringDocumentsController {
   annotations: DrawingAnnotation[];
   projectDocuments: EngineeringDocument[];
   isLoading: boolean;
+  hasLoaded: boolean;
   loadError: string | null;
   retryLoad: () => void;
   applyWorkspaceData: (data: EngineeringDocumentsWorkspaceData) => void;
@@ -88,6 +89,9 @@ export function useEngineeringDocumentsController({
   const [revisions, setRevisions] = useState<EngineeringDocumentRevision[]>([]);
   const [annotations, setAnnotations] = useState<DrawingAnnotation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const scopeKey = `${companyId || ""}:${project.id}:${guestMode}:${canRead}`;
+  const loadedScopeRef = useRef<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const guestObjectUrlsRef = useRef(new Set<string>());
@@ -98,6 +102,8 @@ export function useEngineeringDocumentsController({
       setIsLoading(true);
       setLoadError(null);
       if (!canRead) {
+        if (isMounted) loadedScopeRef.current = scopeKey;
+        if (isMounted) setHasLoaded(true);
         if (isMounted) setIsLoading(false);
         return;
       }
@@ -109,13 +115,12 @@ export function useEngineeringDocumentsController({
           setDocuments(data.documents);
           setRevisions(data.revisions);
           setAnnotations(data.annotations);
+          loadedScopeRef.current = scopeKey;
+          setHasLoaded(true);
         }
       } catch (error) {
         if (isMounted) {
           setLoadError(errorMessage(error, "Engineering documents could not be loaded. Retry the workspace request."));
-          setDocuments([]);
-          setRevisions([]);
-          setAnnotations([]);
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -125,7 +130,7 @@ export function useEngineeringDocumentsController({
     return () => {
       isMounted = false;
     };
-  }, [canRead, companyId, guestMode, loadAttempt, project.id]);
+  }, [canRead, companyId, guestMode, loadAttempt, project.id, scopeKey]);
 
   useEffect(() => () => {
     for (const url of guestObjectUrlsRef.current) URL.revokeObjectURL(url);
@@ -138,7 +143,10 @@ export function useEngineeringDocumentsController({
     setDocuments(data.documents);
     setRevisions(data.revisions);
     setAnnotations(data.annotations);
-  }, []);
+    loadedScopeRef.current = scopeKey;
+    setHasLoaded(true);
+    setLoadError(null);
+  }, [scopeKey]);
 
   const retryLoad = useCallback(() => setLoadAttempt((attempt) => attempt + 1), []);
 
@@ -408,6 +416,7 @@ export function useEngineeringDocumentsController({
     annotations,
     projectDocuments,
     isLoading,
+    hasLoaded: hasLoaded && loadedScopeRef.current === scopeKey,
     loadError,
     retryLoad,
     applyWorkspaceData,

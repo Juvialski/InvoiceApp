@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Project } from "../../types.ts";
 import {
   appendRfiResponse,
@@ -52,6 +52,9 @@ function message(error: unknown, fallback: string) { return error instanceof Err
 export function useEngineeringCoordinationController({ project, companyId, canRead, canManage = true, guestMode }: { project: Project; companyId?: string; canRead: boolean; canManage?: boolean; guestMode: boolean }) {
   const [data, setData] = useState<EngineeringCoordinationWorkspaceData>(() => readEngineeringCoordinationFromLocal());
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const scopeKey = `${companyId || ""}:${project.id}:${guestMode}:${canRead}`;
+  const loadedScopeRef = useRef<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
 
@@ -74,15 +77,17 @@ export function useEngineeringCoordinationController({ project, companyId, canRe
 
   const persistLocal = useCallback((next: EngineeringCoordinationWorkspaceData) => { setData(next); writeEngineeringCoordinationToLocal(next); }, []);
   const reload = useCallback(async () => {
-    if (!canRead) { setData(readEngineeringCoordinationFromLocal()); setIsLoading(false); return; }
+    if (!canRead) { setData(readEngineeringCoordinationFromLocal()); loadedScopeRef.current = scopeKey; setHasLoaded(true); setIsLoading(false); return; }
     setIsLoading(true); setLoadError(null);
     try {
       const loaded = guestMode ? readEngineeringCoordinationFromLocal() : await loadEngineeringCoordinationFromSupabase(companyId, project.id);
       setData(loaded);
+      loadedScopeRef.current = scopeKey;
+      setHasLoaded(true);
     } catch (error) {
       setLoadError(message(error, "Engineering coordination records could not be loaded."));
     } finally { setIsLoading(false); }
-  }, [canRead, companyId, guestMode, project.id]);
+  }, [canRead, companyId, guestMode, project.id, scopeKey]);
 
   useEffect(() => { void reload(); }, [reload, generation]);
   const refresh = useCallback(() => setGeneration((value) => value + 1), []);
@@ -267,5 +272,5 @@ export function useEngineeringCoordinationController({ project, companyId, canRe
     await applySubmittalLifecycle(submittal, "VOID", reason);
   }, [applySubmittalLifecycle]);
 
-  return { data: projectData, isLoading, loadError, retryLoad: refresh, createRfi, openRfi, respondRfi, closeRfi, voidRfi, previewRfiLifecycle, applyRfiLifecycle, createSubmittal, submitSubmittal, startReview, reviewSubmittal, resubmitSubmittal, closeSubmittal, voidSubmittal, previewSubmittalLifecycle, applySubmittalLifecycle };
+  return { data: projectData, isLoading, hasLoaded: hasLoaded && loadedScopeRef.current === scopeKey, loadError, retryLoad: refresh, createRfi, openRfi, respondRfi, closeRfi, voidRfi, previewRfiLifecycle, applyRfiLifecycle, createSubmittal, submitSubmittal, startReview, reviewSubmittal, resubmitSubmittal, closeSubmittal, voidSubmittal, previewSubmittalLifecycle, applySubmittalLifecycle };
 }
