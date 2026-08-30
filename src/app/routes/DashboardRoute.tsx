@@ -10,6 +10,7 @@ import { canAccessAppTab } from "../../utils/accessControl.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import type { AppTab } from "../../utils/routes";
 import { useAppPermissions, useProjectCostCompleteness, useWorkspaceDataPending } from "../AppPermissionContext.tsx";
+import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
 
 export interface DashboardRouteProps {
   data: DashboardViewData;
@@ -85,6 +86,10 @@ export const DashboardRoute: React.FC<DashboardRouteProps> = ({
         </section>
       </div>
     );
+  }
+
+  if (workspaceDataPending && projects.length === 0 && !data.projectRows.length) {
+    return <RouteLoadingSkeleton />;
   }
 
   return (

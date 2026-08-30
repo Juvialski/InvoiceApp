@@ -132,6 +132,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     }
   };
 
+  const isHydrating = workspaceDataPending && projects.length === 0;
+
   return (
     <div className="space-y-5">
       <PageHeader eyebrow="Engineering operations" title="Projects" description="Projects are the cost context for supplier invoices, labor, and direct expenses." actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditing(blankProject())} /> : undefined} />
@@ -139,10 +141,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       {!costDataComplete && !workspaceDataPending && <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-5 text-amber-950"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><div><strong>Partial cost visibility.</strong> Recorded-cost and remaining-budget figures below exclude {hiddenCostSources.join(", ")} because those sources are unavailable or incomplete.</div></div>}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Project register summary">
-        <MetricCard label="All projects" value={projects.length} icon={BriefcaseBusiness} tone="info" />
-        <MetricCard label="Active" value={projects.filter((project) => project.status === "ACTIVE" || (project.status as string) === "IN_PROGRESS").length} tone="success" />
-        <MetricCard label="On hold" value={projects.filter((project) => project.status === "ON_HOLD").length} tone="warning" />
-        <MetricCard label="Archived" value={projects.filter((project) => project.status === "ARCHIVED").length} tone="neutral" />
+        <MetricCard label="All projects" value={projects.length} loading={isHydrating} icon={BriefcaseBusiness} tone="info" />
+        <MetricCard label="Active" value={projects.filter((project) => project.status === "ACTIVE" || (project.status as string) === "IN_PROGRESS").length} loading={isHydrating} tone="success" />
+        <MetricCard label="On hold" value={projects.filter((project) => project.status === "ON_HOLD").length} loading={isHydrating} tone="warning" />
+        <MetricCard label="Archived" value={projects.filter((project) => project.status === "ARCHIVED").length} loading={isHydrating} tone="neutral" />
       </div>
 
       <Card className="p-3" elevation="low" aria-label="Project filters"><div className="flex flex-col gap-2 md:flex-row"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5"><Search aria-hidden="true" className="h-4 w-4 text-slate-400" /><span className="sr-only">Search projects</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search code, project, client, location, manager…" className="w-full bg-transparent text-xs outline-none placeholder:text-slate-400" /></label><label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5"><Filter aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" /><span className="sr-only">Project status</span><select value={status} onChange={(event) => setStatus(event.target.value as "ALL" | ProjectStatus)} className="bg-transparent text-xs font-semibold outline-none"><option value="ALL">All statuses</option>{["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED", "ARCHIVED"].map((value) => <option key={value} value={value}>{value.replaceAll("_", " ")}</option>)}</select></label></div></Card>

@@ -68,17 +68,39 @@ export function SectionHeader({ title, description, action, icon: Icon, classNam
   </div>;
 }
 
-export function MetricCard({ label, value, detail, icon: Icon, tone = "neutral", emphasis = false, className = "" }: { label: string; value: React.ReactNode; detail?: string; icon?: LucideIcon; tone?: StatusTone; emphasis?: boolean; className?: string }) {
-  const valueTitle = typeof value === "string" || typeof value === "number" ? String(value) : undefined;
-  return <article className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${emphasis ? "shadow-sm" : ""} ${className}`}>
-    <div className="flex items-start justify-between gap-3">
-      {Icon && <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${metricClasses[tone]}`}><Icon aria-hidden="true" className="h-4 w-4" /></span>}
-      {emphasis && <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Key</span>}
-    </div>
-    <p className="mt-3 max-w-full overflow-x-auto whitespace-nowrap text-lg font-black tabular-nums tracking-tight text-slate-950 sm:text-xl xl:text-2xl" title={valueTitle}>{value}</p>
-    <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 sm:text-sm">{label}</p>
-    {detail && <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>}
-  </article>;
+export function MetricCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone = "neutral",
+  emphasis = false,
+  loading = false,
+  className = "",
+}: {
+  label: string;
+  value: React.ReactNode;
+  detail?: string;
+  icon?: LucideIcon;
+  tone?: StatusTone;
+  emphasis?: boolean;
+  loading?: boolean;
+  className?: string;
+}) {
+  const valueTitle = !loading && (typeof value === "string" || typeof value === "number") ? String(value) : undefined;
+  return (
+    <article className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${emphasis ? "shadow-sm" : ""} ${className}`}>
+      <div className="flex items-start justify-between gap-3">
+        {Icon && <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${metricClasses[tone]}`}><Icon aria-hidden="true" className="h-4 w-4" /></span>}
+        {emphasis && <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Key</span>}
+      </div>
+      <p className="mt-3 max-w-full overflow-x-auto whitespace-nowrap text-lg font-black tabular-nums tracking-tight text-slate-950 sm:text-xl xl:text-2xl" title={valueTitle}>
+        {loading ? <span className="inline-block h-6 w-16 animate-pulse rounded-md bg-slate-200 align-middle" /> : value}
+      </p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 sm:text-sm">{label}</p>
+      {detail && <p className="mt-1 text-xs leading-5 text-slate-500">{detail}</p>}
+    </article>
+  );
 }
 
 export function EmptyState({
