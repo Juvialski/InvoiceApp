@@ -76,6 +76,7 @@ import {
   commitStatementPreviewToWorkspace,
   createFinancialMatch,
   financialId,
+  isManualTransactionCorrectionEligible,
   reconciliationStatusForTransaction,
   type CashBankingWorkspaceData,
   type FinancialAccount,
@@ -87,7 +88,9 @@ import {
 } from "./lib/cashBanking.ts";
 import {
   confirmFinancialTransferToSupabase,
+  confirmFinancialSettlementBatchToSupabase,
   commitFinancialImportToSupabase,
+  correctFinancialTransactionInSupabase,
   deactivateFinancialAccountInSupabase,
   emptyCashBankingWorkspaceData,
   loadCashBankingWorkspaceFromSupabase,
@@ -96,6 +99,11 @@ import {
   saveFinancialBalanceSnapshotToSupabase,
   saveFinancialTransactionMatchToSupabase,
   saveFinancialTransactionToSupabase,
+  ignoreFinancialTransactionInSupabase,
+  reactivateFinancialAccountInSupabase,
+  restoreFinancialTransactionToReviewInSupabase,
+  reverseFinancialTransactionInSupabase,
+  reverseFinancialTransferInSupabase,
   writeCashBankingWorkspaceToLocal,
 } from "./lib/cashBankingPersistence.ts";
 import { reverseFinancialSettlement } from "./lib/financialSettlementPersistence.ts";
@@ -843,13 +851,22 @@ function InvoiceWorkspace() {
     return account;
   };
 
-  const handleDeactivateFinancialAccount = async (account: FinancialAccount) => {
+  const handleDeactivateFinancialAccount = async (account: FinancialAccount, reason: string) => {
     if (session && supabase) {
-      const saved = await deactivateFinancialAccountInSupabase(account.id);
+      const saved = await deactivateFinancialAccountInSupabase(account.id, reason);
       applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === saved.id ? saved : item) });
       return;
     }
     applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === account.id ? { ...item, active: false, updatedAt: new Date().toISOString() } : item) });
+  };
+
+  const handleReactivateFinancialAccount = async (account: FinancialAccount, reason: string) => {
+    if (session && supabase) {
+      const saved = await reactivateFinancialAccountInSupabase(account.id, reason);
+      applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === saved.id ? saved : item) });
+      return;
+    }
+    applyCashWorkspace({ ...cashDataRef.current, accounts: cashDataRef.current.accounts.map((item) => item.id === account.id ? { ...item, active: true, updatedAt: new Date().toISOString() } : item) });
   };
 
   const handleSaveFinancialSnapshot = async (snapshot: FinancialBalanceSnapshot) => {
@@ -882,13 +899,35 @@ function InvoiceWorkspace() {
 
   const handleSaveFinancialMatch = async (match: FinancialTransactionMatch, transaction: FinancialTransaction) => {
     if (session && supabase) {
-      const savedMatch = await saveFinancialTransactionMatchToSupabase(match);
-      const savedTransaction = await saveFinancialTransactionToSupabase(transaction);
-      applyCashWorkspace({ ...cashDataRef.current, matches: [savedMatch, ...cashDataRef.current.matches.filter((item) => item.id !== match.id && item.id !== savedMatch.id)], transactions: [savedTransaction, ...cashDataRef.current.transactions.filter((item) => item.id !== transaction.id && item.id !== savedTransaction.id)] });
+      await saveFinancialTransactionMatchToSupabase(match);
+      const token = currentWorkspaceLoadToken();
+      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-settlement-confirmed" });
       return;
     }
     const nextMatches = [...cashDataRef.current.matches.filter((item) => item.id !== match.id), match];
     applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? transaction : item) });
+  };
+
+  const handleSaveFinancialMatchBatch = async (matches: FinancialTransactionMatch[], transaction: FinancialTransaction) => {
+    if (session && supabase) {
+      await confirmFinancialSettlementBatchToSupabase(transaction.id, matches.map((match) => ({
+        targetType: match.targetType,
+        targetId: match.targetId || "",
+        amount: match.matchedAmount,
+        matchId: match.id,
+        confidence: match.confidence,
+        notes: match.notes,
+      })));
+      const token = currentWorkspaceLoadToken();
+      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-settlement-batch-confirmed" });
+      return;
+    }
+    const nextMatches = [...cashDataRef.current.matches.filter((item) => !matches.some((match) => match.id === item.id)), ...matches];
+    applyCashWorkspace({
+      ...cashDataRef.current,
+      matches: nextMatches,
+      transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? transaction : item),
+    });
   };
 
   const handleReverseFinancialMatch = async (matchId: string, reason: string) => {
@@ -916,7 +955,60 @@ function InvoiceWorkspace() {
     applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: nextTransactions });
   };
 
-  const handleIgnoreFinancialTransaction = (transaction: FinancialTransaction) => handleSaveFinancialTransaction(transaction);
+  const handleCorrectFinancialTransaction = async (
+    transaction: FinancialTransaction,
+    input: { transactionDate: string; referenceNumber?: string; description: string; direction: FinancialTransaction["direction"]; amount: number },
+    reason: string,
+  ) => {
+    if (!isManualTransactionCorrectionEligible(transaction, cashDataRef.current.matches)) throw new Error("Only an unreconciled manual transaction without financial history can be edited.");
+    if (session && supabase) {
+      const saved = await correctFinancialTransactionInSupabase(transaction.id, input, reason);
+      applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === saved.id ? saved : item) });
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    applyCashWorkspace({
+      ...cashDataRef.current,
+      transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? {
+        ...item,
+        ...input,
+        referenceNumber: input.referenceNumber || undefined,
+        postedAt: item.postedAt ? `${input.transactionDate}T00:00:00.000Z` : undefined,
+        updatedAt,
+      } : item),
+    });
+  };
+
+  const handleReverseFinancialTransaction = async (transaction: FinancialTransaction, reason: string) => {
+    if (session && supabase) {
+      const saved = await reverseFinancialTransactionInSupabase(transaction.id, reason);
+      applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === saved.id ? saved : item) });
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    applyCashWorkspace({
+      ...cashDataRef.current,
+      transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? { ...item, status: "REVERSED", reconciliationStatus: "UNMATCHED", reversedAt: updatedAt, reversalReason: reason, updatedAt } : item),
+    });
+  };
+
+  const handleIgnoreFinancialTransaction = async (transaction: FinancialTransaction, reason: string) => {
+    if (session && supabase) {
+      const saved = await ignoreFinancialTransactionInSupabase(transaction.id, reason);
+      applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === saved.id ? saved : item) });
+      return;
+    }
+    applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? { ...item, reconciliationStatus: "IGNORED", updatedAt: new Date().toISOString() } : item) });
+  };
+
+  const handleRestoreFinancialTransactionToReview = async (transaction: FinancialTransaction, reason: string) => {
+    if (session && supabase) {
+      const saved = await restoreFinancialTransactionToReviewInSupabase(transaction.id, reason);
+      applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === saved.id ? saved : item) });
+      return;
+    }
+    applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === transaction.id ? { ...item, reconciliationStatus: "UNMATCHED", updatedAt: new Date().toISOString() } : item) });
+  };
 
   const handleConfirmFinancialTransfer = async (left: FinancialTransaction, right: FinancialTransaction) => {
     if (session && supabase) {
@@ -929,9 +1021,30 @@ function InvoiceWorkspace() {
     const leftNext = { ...left, transferGroupId, reconciliationStatus: "MATCHED" as const, updatedAt: new Date().toISOString() };
     const rightNext = { ...right, transferGroupId, reconciliationStatus: "MATCHED" as const, updatedAt: new Date().toISOString() };
     const amount = Math.min(left.amount, right.amount);
-    const leftMatch = createFinancialMatch({ companyId: left.companyId, transactionId: left.id, targetType: "TRANSFER", targetId: right.id, matchedAmount: amount, status: "CONFIRMED", confirmedAt: new Date().toISOString(), notes: "Confirmed internal transfer" });
-    const rightMatch = createFinancialMatch({ companyId: right.companyId, transactionId: right.id, targetType: "TRANSFER", targetId: left.id, matchedAmount: amount, status: "CONFIRMED", confirmedAt: new Date().toISOString(), notes: "Confirmed internal transfer" });
+    const leftMatch = createFinancialMatch({ companyId: left.companyId, transactionId: left.id, targetType: "TRANSFER", targetId: right.id, matchedAmount: amount, status: "CONFIRMED", confirmedAt: new Date().toISOString(), notes: "Confirmed internal transfer", transferGroupId });
+    const rightMatch = createFinancialMatch({ companyId: right.companyId, transactionId: right.id, targetType: "TRANSFER", targetId: left.id, matchedAmount: amount, status: "CONFIRMED", confirmedAt: new Date().toISOString(), notes: "Confirmed internal transfer", transferGroupId });
     applyCashWorkspace({ ...cashDataRef.current, transactions: cashDataRef.current.transactions.map((item) => item.id === left.id ? leftNext : item.id === right.id ? rightNext : item), matches: [...cashDataRef.current.matches, leftMatch, rightMatch] });
+  };
+
+  const handleReverseFinancialTransfer = async (left: FinancialTransaction, right: FinancialTransaction, reason: string) => {
+    if (!left.transferGroupId || left.transferGroupId !== right.transferGroupId) throw new Error("The exact confirmed transfer pair is no longer available.");
+    if (session && supabase) {
+      await reverseFinancialTransferInSupabase(left.id, right.id, left.transferGroupId, reason);
+      const token = currentWorkspaceLoadToken();
+      if (token) await refreshWorkspaceGroup("cash", token, { force: true, reason: "cash-transfer-reversed" });
+      return;
+    }
+    const updatedAt = new Date().toISOString();
+    const nextMatches = cashDataRef.current.matches.map((match) => match.status === "CONFIRMED"
+      && match.targetType === "TRANSFER"
+      && ((match.transactionId === left.id && match.targetId === right.id) || (match.transactionId === right.id && match.targetId === left.id))
+      ? { ...match, status: "REVERSED" as const, reversedAt: updatedAt, reversalReason: reason, updatedAt }
+      : match);
+    const nextTransactions = cashDataRef.current.transactions.map((transaction) => {
+      if (transaction.id !== left.id && transaction.id !== right.id) return transaction;
+      return { ...transaction, transferGroupId: undefined, reconciliationStatus: reconciliationStatusForTransaction({ ...transaction, transferGroupId: undefined, reconciliationStatus: "UNMATCHED" }, nextMatches), updatedAt };
+    });
+    applyCashWorkspace({ ...cashDataRef.current, matches: nextMatches, transactions: nextTransactions });
   };
 
   useEffect(() => {
@@ -3044,13 +3157,23 @@ function InvoiceWorkspace() {
           cashData={cashData}
           onSaveFinancialAccount={handleSaveFinancialAccount}
           onDeactivateFinancialAccount={handleDeactivateFinancialAccount}
+          onReactivateFinancialAccount={handleReactivateFinancialAccount}
           onSaveFinancialSnapshot={handleSaveFinancialSnapshot}
           onSaveFinancialTransaction={handleSaveFinancialTransaction}
           onCommitFinancialImport={handleCommitFinancialImport}
           onSaveFinancialMatch={handleSaveFinancialMatch}
+          onSaveFinancialMatchBatch={handleSaveFinancialMatchBatch}
           onReverseFinancialMatch={handleReverseFinancialMatch}
+          canReverseFinancialMatch={(match) => isSupabaseConfigured
+            ? can(PERMISSION_KEYS.cashReconcile)
+              && (match.targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : match.targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : match.targetType === "EXPENSE" ? can(PERMISSION_KEYS.expensesWrite) : false)
+            : true}
+          onCorrectFinancialTransaction={handleCorrectFinancialTransaction}
+          onReverseFinancialTransaction={handleReverseFinancialTransaction}
           onIgnoreFinancialTransaction={handleIgnoreFinancialTransaction}
+          onRestoreFinancialTransactionToReview={handleRestoreFinancialTransactionToReview}
           onConfirmFinancialTransfer={handleConfirmFinancialTransfer}
+          onReverseFinancialTransfer={handleReverseFinancialTransfer}
           cashReconciliationCandidates={cashReconciliationCandidates}
           canManageCashAccounts={!isSupabaseConfigured || can(PERMISSION_KEYS.cashAccountsManage)}
           canManageCashTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)}

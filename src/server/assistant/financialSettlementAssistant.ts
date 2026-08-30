@@ -146,6 +146,7 @@ async function transactionAllocated(context: AssistantToolContext, transactionId
 async function validatePreparedAllocation(context: AssistantToolContext, transactionId: string, targetType: "INVOICE" | "PAYROLL", targetId: string, amount: number) {
   const tx = await transaction(context, transactionId);
   if (tx.status !== "POSTED" || tx.direction !== "DEBIT") throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "Only a POSTED debit can settle a supplier invoice or payroll run.", 409);
+  if (tx.reconciliation_status === "IGNORED") throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "Return the ignored transaction to review before confirming financial evidence.", 409);
   const summary = await settlementSummary(context, targetType, targetId);
   if (String(summary.currency || "").toUpperCase() !== String(tx.currency || "").toUpperCase()) throw new AssistantBackendError("SETTLEMENT_CURRENCY_MISMATCH", "Transaction and target currency differ. FX settlement is not supported.", 409);
   if (targetType === "INVOICE" && String(summary.lifecycleStatus) !== "VERIFIED") throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "Only a VERIFIED supplier invoice can be settled.", 409);
@@ -202,6 +203,7 @@ async function prepareSplit(args: Record<string, unknown>, context: AssistantToo
   const rows = args.allocations as Array<Record<string, unknown>>;
   const tx = await transaction(context, String(args.transactionId));
   if (tx.status !== "POSTED" || tx.direction !== "DEBIT") throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "Only a POSTED debit can be split across settlement targets.", 409);
+  if (tx.reconciliation_status === "IGNORED") throw new AssistantBackendError("SETTLEMENT_NOT_ELIGIBLE", "Return the ignored transaction to review before confirming financial evidence.", 409);
   const allocated = await transactionAllocated(context, String(args.transactionId));
   const transactionRemaining = Math.max(0, num(tx.amount) - allocated);
   const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);

@@ -222,11 +222,24 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             canCashReconcile={true}
             onSaveFinancialAccount={(account: FinancialAccount) => dispatch({ type: "SAVE_FINANCIAL_ACCOUNT", value: account })}
             onDeactivateFinancialAccount={(account) => dispatch({ type: "SAVE_FINANCIAL_ACCOUNT", value: { ...account, active: false, updatedAt: `${data.anchorDate}T14:00:00+08:00` } })}
+            onReactivateFinancialAccount={(account) => dispatch({ type: "SAVE_FINANCIAL_ACCOUNT", value: { ...account, active: true, updatedAt: `${data.anchorDate}T14:05:00+08:00` } })}
             onSaveFinancialSnapshot={(snapshot: FinancialBalanceSnapshot) => dispatch({ type: "SAVE_FINANCIAL_SNAPSHOT", value: snapshot })}
             onSaveFinancialTransaction={(transaction: FinancialTransaction) => dispatch({ type: "SAVE_FINANCIAL_TRANSACTION", value: transaction })}
             onSaveFinancialMatch={(match, transaction) => dispatch({ type: "SAVE_FINANCIAL_MATCH", match, transaction })}
+            onSaveFinancialMatchBatch={(matches, transaction) => { for (const match of matches) dispatch({ type: "SAVE_FINANCIAL_MATCH", match, transaction }); }}
             onReverseFinancialMatch={(matchId, reason) => dispatch({ type: "REVERSE_FINANCIAL_SETTLEMENT", matchId, reason })}
-            onIgnoreFinancialTransaction={(transaction) => dispatch({ type: "SAVE_FINANCIAL_TRANSACTION", value: { ...transaction, reconciliationStatus: "IGNORED" } })}
+            onCorrectFinancialTransaction={(transaction, input) => dispatch({ type: "SAVE_FINANCIAL_TRANSACTION", value: { ...transaction, ...input, postedAt: transaction.postedAt ? `${input.transactionDate}T00:00:00.000Z` : undefined, updatedAt: `${data.anchorDate}T14:10:00+08:00` } })}
+            onReverseFinancialTransaction={(transaction, _reason) => dispatch({ type: "SAVE_FINANCIAL_TRANSACTION", value: { ...transaction, status: "REVERSED", reconciliationStatus: "UNMATCHED", updatedAt: `${data.anchorDate}T14:10:00+08:00` } })}
+            onIgnoreFinancialTransaction={(transaction, _reason) => dispatch({ type: "SAVE_FINANCIAL_TRANSACTION", value: { ...transaction, reconciliationStatus: "IGNORED", updatedAt: `${data.anchorDate}T14:10:00+08:00` } })}
+            onRestoreFinancialTransactionToReview={(transaction, _reason) => dispatch({ type: "SAVE_FINANCIAL_TRANSACTION", value: { ...transaction, reconciliationStatus: "UNMATCHED", updatedAt: `${data.anchorDate}T14:10:00+08:00` } })}
+            onReverseFinancialTransfer={(left, right, reason) => {
+              const updatedAt = `${data.anchorDate}T14:15:00+08:00`;
+              for (const transaction of [left, right]) {
+                const partnerId = transaction.id === left.id ? right.id : left.id;
+                const match = data.cash.matches.find((item) => item.status === "CONFIRMED" && item.targetType === "TRANSFER" && item.transactionId === transaction.id && item.targetId === partnerId);
+                if (match) dispatch({ type: "SAVE_FINANCIAL_MATCH", match: { ...match, status: "REVERSED", reversedAt: updatedAt, reversalReason: reason, updatedAt }, transaction: { ...transaction, transferGroupId: undefined, reconciliationStatus: "UNMATCHED", updatedAt } });
+              }
+            }}
             onOpenCashDashboard={() => onNavigate(demoPathForTab("dashboard"))}
             payrollData={data.payroll}
             payrollPeriodPreparationState="READY"
