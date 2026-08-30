@@ -524,7 +524,7 @@ declare
   v_fingerprint text := btrim(coalesce(p_source_fingerprint, ''));
 begin
   if p_transaction_id is null or p_account_id is null or p_transaction_date is null then raise exception 'Financial transaction identity and date are required' using errcode = '22023'; end if;
-  if v_description !~ '.{1,500}' then raise exception 'Financial transaction description is required' using errcode = '22023'; end if;
+  if length(v_description) < 1 or length(v_description) > 500 then raise exception 'Financial transaction description is required' using errcode = '22023'; end if;
   if v_direction not in ('CREDIT', 'DEBIT') then raise exception 'Financial transaction direction is invalid' using errcode = '22023'; end if;
   if p_amount is null or p_amount <= 0 then raise exception 'Financial transaction amount must be positive' using errcode = '22023'; end if;
   if v_currency !~ '^[A-Z]{3}$' or length(v_fingerprint) not between 8 and 256 then raise exception 'Financial transaction currency or fingerprint is invalid' using errcode = '22023'; end if;
@@ -589,7 +589,7 @@ declare
   v_direction text := upper(btrim(coalesce(p_direction, '')));
 begin
   if length(btrim(coalesce(p_reason, ''))) not between 3 and 500 then raise exception 'A clear transaction correction reason is required' using errcode = '22023'; end if;
-  if p_transaction_date is null or v_description !~ '.{1,500}' or v_direction not in ('CREDIT', 'DEBIT') or p_amount is null or p_amount <= 0 then
+  if p_transaction_date is null or length(v_description) < 1 or length(v_description) > 500 or v_direction not in ('CREDIT', 'DEBIT') or p_amount is null or p_amount <= 0 then
     raise exception 'Transaction correction fields are invalid' using errcode = '22023';
   end if;
   select ft.* into v_transaction from public.financial_transactions ft where ft.id = p_transaction_id and ft.company_id = p_company_id for update;

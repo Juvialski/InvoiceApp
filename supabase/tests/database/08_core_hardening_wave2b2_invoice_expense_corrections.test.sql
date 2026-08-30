@@ -139,14 +139,11 @@ values
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from wave2b2_ids), true);
 
-insert into public.financial_accounts (id, company_id, account_type, institution_name, display_name, currency, created_by_user_id)
-values ((select financial_account from wave2b2_ids), (select company_a from wave2b2_ids), 'BANK', 'Fixture Bank', 'Wave 2B2 account', 'PHP', (select admin_user from wave2b2_ids));
+select public.save_financial_account((select company_a from wave2b2_ids), (select financial_account from wave2b2_ids), 'BANK', 'FIXTURE', 'Fixture Bank', 'Wave 2B2 account', '•••• 2202', 'PHP', 0, date '2026-01-01', 'MANUAL', null, null);
 
-insert into public.financial_transactions (id, company_id, account_id, transaction_date, description, direction, amount, currency, source, source_fingerprint, created_by_user_id)
-values
-  ((select invoice_transaction from wave2b2_ids), (select company_a from wave2b2_ids), (select financial_account from wave2b2_ids), date '2026-08-10', 'Invoice settlement', 'DEBIT', 400, 'PHP', 'MANUAL', 'wave2b2-invoice', (select admin_user from wave2b2_ids)),
-  ((select expense_transaction from wave2b2_ids), (select company_a from wave2b2_ids), (select financial_account from wave2b2_ids), date '2026-08-11', 'Expense settlement', 'DEBIT', 75, 'PHP', 'MANUAL', 'wave2b2-expense', (select admin_user from wave2b2_ids)),
-  ((select post_void_transaction from wave2b2_ids), (select company_a from wave2b2_ids), (select financial_account from wave2b2_ids), date '2026-08-12', 'Post-void settlement attempt', 'DEBIT', 300, 'PHP', 'MANUAL', 'wave2b2-post-void', (select admin_user from wave2b2_ids));
+select public.create_financial_transaction((select company_a from wave2b2_ids), (select invoice_transaction from wave2b2_ids), (select financial_account from wave2b2_ids), date '2026-08-10', timestamptz '2026-08-10 09:00:00+00', null, 'Invoice settlement', 'DEBIT', 400, 'PHP', 'wave2b2-invoice');
+select public.create_financial_transaction((select company_a from wave2b2_ids), (select expense_transaction from wave2b2_ids), (select financial_account from wave2b2_ids), date '2026-08-11', timestamptz '2026-08-11 09:00:00+00', null, 'Expense settlement', 'DEBIT', 75, 'PHP', 'wave2b2-expense');
+select public.create_financial_transaction((select company_a from wave2b2_ids), (select post_void_transaction from wave2b2_ids), (select financial_account from wave2b2_ids), date '2026-08-12', timestamptz '2026-08-12 09:00:00+00', null, 'Post-void settlement attempt', 'DEBIT', 300, 'PHP', 'wave2b2-post-void');
 
 select public.confirm_financial_settlement(
   (select company_a from wave2b2_ids), (select invoice_transaction from wave2b2_ids), 'INVOICE',
