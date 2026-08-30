@@ -234,8 +234,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
       <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1" aria-label="Project workspace sections">
         {tabs.map(([id, tabLabel, Icon]) => (
-          <button key={id} type="button" onClick={() => selectTab(id)} className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${tab === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
-            <Icon className="h-3.5 w-3.5" />{tabLabel}
+          <button key={id} type="button" onClick={() => selectTab(id)} aria-current={tab === id ? "page" : undefined} className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${tab === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+            <Icon aria-hidden="true" className="h-3.5 w-3.5" />{tabLabel}
           </button>
         ))}
       </nav>

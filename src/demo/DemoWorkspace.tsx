@@ -47,6 +47,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const activeTab = activeTabFor(location);
   const selectedProject = appLocation?.kind === "project" ? data.projects.find((project) => project.id === appLocation.projectId) || null : null;
   const selectedInvoice = appLocation && (appLocation.kind === "invoice" || appLocation.kind === "review-invoice") ? data.invoices.find((invoice) => invoice.id === appLocation.invoiceId) || null : null;
+  const routeNotFound = Boolean(appLocation && ((appLocation.kind === "project" && !selectedProject) || ((appLocation.kind === "invoice" || appLocation.kind === "review-invoice") && !selectedInvoice)));
   const summaries = useMemo(() => buildDemoProjectSummaries(data), [data]);
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
@@ -155,7 +156,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     ? <DemoAssistant onNavigate={onNavigate} />
     : location.kind === "documents"
       ? <DemoEngineeringDocuments />
-      : appLocation
+      : appLocation && !routeNotFound
         ? (
           <AppRouter
             route={appLocation}
@@ -274,7 +275,9 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             showDeploymentAccessManagement={false}
           />
         )
-        : <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">This route is not part of the public demo. <button type="button" className="ml-1 font-black text-indigo-600" onClick={() => onNavigate(demoPathForTab("dashboard"))}>Return to Dashboard</button></div>;
+        : routeNotFound
+          ? null
+          : <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">This route is not part of the public demo. <button type="button" className="ml-1 font-black text-indigo-600" onClick={() => onNavigate(demoPathForTab("dashboard"))}>Return to Dashboard</button></div>;
 
   return (
     <AppShell
@@ -289,6 +292,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       permissions={["*"]}
       projectCostCompleteness={demoProjectCostCompleteness}
       isSupabaseConfigured={true}
+      routeNotFound={routeNotFound}
+      onReturnToDashboard={() => onNavigate(demoPathForTab("dashboard"))}
       footerText="Engoryx Demo Workspace • Meridian Engineering & Construction Corp. • Sample data only"
     >
       <div className="sticky top-2 z-40 mb-5 flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white/95 px-3.5 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">

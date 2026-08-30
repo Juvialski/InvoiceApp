@@ -32,19 +32,26 @@ function tone(state: FinancialSettlementSummary["settlementState"]) {
   return "bg-slate-100 text-slate-600";
 }
 
+function invoiceNavigationPath(invoiceId: string) {
+  const path = appPathForInvoice(invoiceId);
+  return invoiceId.startsWith("demo-") ? `/demo/app${path}` : path;
+}
+
 export const InvoiceSettlementDirectoryPanel: React.FC<Props> = ({ invoices, maxRows = 8, onNavigatePath }) => {
   const eligible = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && !isVoidedInvoice(invoice)), [invoices]);
   const [summaries, setSummaries] = useState<Map<string, FinancialSettlementSummary>>(() => new Map(eligible.map((invoice) => [invoice.id, localSummary(invoice)])));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [refreshAttempt, setRefreshAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setSummaries(new Map(eligible.map((invoice) => [invoice.id, localSummary(invoice)])));
+    setLoading(false);
+    setError("");
     const remote = eligible.filter((invoice) => !invoice.id.startsWith("demo-") && !invoice.id.startsWith("local-")).slice(0, 50);
     if (!remote.length) return () => { cancelled = true; };
     setLoading(true);
-    setError("");
     Promise.all(remote.map(async (invoice) => {
       try { return [invoice.id, await loadFinancialSettlementSummary("INVOICE", invoice.id)] as const; }
       catch { return [invoice.id, null] as const; }
@@ -59,7 +66,7 @@ export const InvoiceSettlementDirectoryPanel: React.FC<Props> = ({ invoices, max
     }).catch((cause) => { if (!cancelled) setError(safeErrorMessage(cause, "Settlement summaries could not be refreshed.")); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [eligible]);
+  }, [eligible, refreshAttempt]);
 
   const rows = eligible.map((invoice) => ({ invoice, summary: summaries.get(invoice.id) || localSummary(invoice) }));
   const open = rows.filter(({ summary }) => summary.outstanding > 0.005);
@@ -72,20 +79,20 @@ export const InvoiceSettlementDirectoryPanel: React.FC<Props> = ({ invoices, max
   }).slice(0, maxRows);
 
   return <section className="rounded-xl border border-slate-200 bg-white p-4" aria-label="Supplier invoice settlement overview">
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600">Authoritative cash settlement</p><h2 className="mt-1 text-sm font-black text-slate-950">Supplier payment overview</h2><p className="mt-1 max-w-3xl text-[11px] text-slate-500">Bank reconciliation is shown separately from extracted document payment fields. Paying an invoice changes paid/payable evidence only; verified project cost does not change.</p></div>
-      {loading && <span className="text-[10px] font-semibold text-slate-400">Refreshing bank evidence…</span>}
+    <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600">Authoritative cash settlement</p><h2 className="mt-1 text-sm font-black text-slate-950">Supplier payment overview</h2><p className="mt-1 max-w-3xl break-words text-[11px] text-slate-500">Bank reconciliation is shown separately from extracted document payment fields. Paying an invoice changes paid/payable evidence only; verified project cost does not change.</p></div>
+      {loading && <span role="status" aria-live="polite" className="shrink-0 text-[10px] font-semibold text-slate-400">Refreshing bank evidence…</span>}
     </div>
-    {error && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-900"><AlertTriangle className="mr-1 inline h-3 w-3" />{error}</p>}
+    {error && <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] text-amber-900"><AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" /><p className="min-w-0 flex-1 break-words">{error}</p><button type="button" disabled={loading} onClick={() => setRefreshAttempt((attempt) => attempt + 1)} className="shrink-0 rounded-md border border-amber-300 bg-white px-2 py-1 font-black text-amber-800 disabled:cursor-not-allowed disabled:opacity-50">{loading ? "Retrying…" : "Retry"}</button></div>}
     <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Metric icon={Clock3} label="Outstanding" value={String(open.length)} />
       <Metric icon={CheckCircle2} label="Paid" value={String(paid)} />
       <Metric icon={WalletCards} label="Partial" value={String(partial)} />
       <Metric icon={AlertTriangle} label="Overdue" value={String(overdue)} warning={overdue > 0} />
     </div>
-    {visible.length > 0 ? <div className="mt-4 grid gap-2 lg:grid-cols-2">{visible.map(({ invoice, summary }) => <a key={invoice.id} href={appPathForInvoice(invoice.id)} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(appPathForInvoice(invoice.id)); }} className="min-w-0 rounded-lg border border-slate-100 bg-slate-50 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/40">
-      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-black text-slate-900">{invoice.invoiceNumber || "Supplier invoice"} · {invoice.vendor?.name || "Supplier"}</p><p className="mt-1 text-[10px] text-slate-500">Payable {money(summary.settlementBasis, summary.currency)} · confirmed cash {money(summary.reconciledCashPaid, summary.currency)}</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${tone(summary.settlementState)}`}>{String(summary.settlementState).replaceAll("_", " ")}</span></div>
-      <div className="mt-2 flex items-center justify-between gap-3"><span className="text-[10px] text-slate-500">Due {invoice.dueDate || "not recorded"}</span><strong className="text-[10px] tabular-nums text-slate-800">{money(summary.outstanding, summary.currency)} outstanding</strong></div>
+    {visible.length > 0 ? <div className="mt-4 grid gap-2 lg:grid-cols-2">{visible.map(({ invoice, summary }) => <a key={invoice.id} href={invoiceNavigationPath(invoice.id)} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(appPathForInvoice(invoice.id)); }} className="min-w-0 rounded-lg border border-slate-100 bg-slate-50 p-3 transition hover:border-indigo-200 hover:bg-indigo-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+      <div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-black text-slate-900">{invoice.invoiceNumber || "Supplier invoice"} · {invoice.vendor?.name || "Supplier"}</p><p className="mt-1 break-words text-[10px] text-slate-500">Payable {money(summary.settlementBasis, summary.currency)} · confirmed cash {money(summary.reconciledCashPaid, summary.currency)}</p></div><span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${tone(summary.settlementState)}`}>{String(summary.settlementState).replaceAll("_", " ")}</span></div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-[10px] text-slate-500">Due {invoice.dueDate || "not recorded"}</span><strong className="text-[10px] tabular-nums text-slate-800">{money(summary.outstanding, summary.currency)} outstanding</strong></div>
     </a>)}</div> : <p className="mt-4 rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500">No verified supplier invoice currently has an outstanding settlement balance.</p>}
   </section>;
 };

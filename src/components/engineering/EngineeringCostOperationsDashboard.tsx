@@ -359,7 +359,7 @@ export const EngineeringCostOperationsDashboard: React.FC<EngineeringCostOperati
 };
 
 function SummaryValue({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0 rounded-xl bg-slate-50 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 max-w-full overflow-x-auto whitespace-nowrap text-xs font-black tabular-nums text-slate-900" title={value}>{value}</p></div>;
+  return <div className="min-w-0 rounded-xl bg-slate-50 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 max-w-full break-words whitespace-normal text-xs font-black tabular-nums text-slate-900" title={value}>{value}</p></div>;
 }
 
 function cashMoney(value: number, currency: string) {
@@ -369,5 +369,5 @@ function cashMoney(value: number, currency: string) {
 
 function CashMetric({ label, value, detail, tone = "neutral" }: { label: string; value: string; detail?: string; tone?: "neutral" | "success" | "warning" }) {
   const toneClass = tone === "success" ? "border-emerald-200 bg-emerald-50/50" : tone === "warning" ? "border-amber-200 bg-amber-50/50" : "border-slate-100 bg-slate-50";
-  return <div className={`min-w-0 rounded-xl border p-3 ${toneClass}`}><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1.5 max-w-full overflow-x-auto whitespace-nowrap text-sm font-black tabular-nums text-slate-950 sm:text-base" title={value}>{value}</p>{detail && <p className="mt-1 text-[10px] text-slate-500">{detail}</p>}</div>;
+  return <div className={`min-w-0 rounded-xl border p-3 ${toneClass}`}><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1.5 max-w-full break-words whitespace-normal text-sm font-black tabular-nums text-slate-950 sm:text-base" title={value}>{value}</p>{detail && <p className="mt-1 text-[10px] text-slate-500">{detail}</p>}</div>;
 }

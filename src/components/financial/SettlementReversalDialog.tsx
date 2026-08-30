@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Landmark, RotateCcw, ShieldAlert, X } from "lucide-react";
 import type { FinancialSettlementHistoryItem, SettlementTargetType } from "../../lib/financialSettlement.ts";
+import { useDialogFocus } from "../ui/useDialogFocus.ts";
 
 export interface SettlementReversalTargetContext {
   targetType: SettlementTargetType;
@@ -56,6 +57,8 @@ export const SettlementReversalDialog: React.FC<SettlementReversalDialogProps> =
   const targetLabel = targetContext.targetLabel || `${targetContext.targetType} ${targetContext.targetId}`;
   const isReasonValid = reason.trim().length >= 3;
   const currency = item.currency || targetContext.currency || "PHP";
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const dialogRef = useDialogFocus({ open: true, onClose: () => { if (!loading) onClose(); }, initialFocusRef: reasonRef });
 
   const targetTypeName =
     targetContext.targetType === "INVOICE"
@@ -66,10 +69,12 @@ export const SettlementReversalDialog: React.FC<SettlementReversalDialogProps> =
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="settlement-reversal-title"
+      aria-busy={loading}
     >
       <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
@@ -113,7 +118,7 @@ export const SettlementReversalDialog: React.FC<SettlementReversalDialogProps> =
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               <div>
                 <span className="text-[10px] text-slate-500">Target obligation:</span>
-                <p className="font-bold text-slate-900 truncate">{targetLabel}</p>
+                <p className="break-words font-bold text-slate-900">{targetLabel}</p>
               </div>
               <div>
                 <span className="text-[10px] text-slate-500">Settled amount:</span>
@@ -171,6 +176,7 @@ export const SettlementReversalDialog: React.FC<SettlementReversalDialogProps> =
               A clear reason is required for auditable financial correction history.
             </p>
             <textarea
+              ref={reasonRef}
               id="settlement-reversal-reason"
               value={reason}
               onChange={(e) => onReasonChange(e.target.value)}

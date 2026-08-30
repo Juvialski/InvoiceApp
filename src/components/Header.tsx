@@ -36,6 +36,7 @@ import { getRouteForAppTab, type AppTab, type RouteId } from "../utils/routes";
 import type { PermissionKey } from "../utils/accessControl.ts";
 import type { WorkspaceSyncStatus } from "../lib/workspaceSync";
 import { CompanySwitcher } from "./access/AccessStates";
+import { useDialogFocus } from "./ui/useDialogFocus.ts";
 import type { CompanySummary } from "../lib/companyAccess";
 import { BRAND } from "../config/brand.ts";
 
@@ -135,7 +136,6 @@ const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({
       <button
         type="button"
         data-tour={navigationRouteTourTarget(route.id)}
-        role={menuItem ? "menuitem" : undefined}
         onClick={() => onSelect(route)}
         aria-label={accessibleLabel}
         aria-current={active ? "page" : undefined}
@@ -169,7 +169,6 @@ const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({
     <button
       type="button"
       data-tour={navigationRouteTourTarget(route.id)}
-      role={menuItem ? "menuitem" : undefined}
       onClick={() => onSelect(route)}
       aria-label={accessibleLabel}
       aria-current={active ? "page" : undefined}
@@ -188,6 +187,7 @@ interface NavigationModuleButtonProps {
   active: boolean;
   sidebar?: boolean;
   collapsed?: boolean;
+  expanded?: boolean;
   invoicesCount: number;
   onSelect: (module: NavigationModule) => void;
 }
@@ -197,6 +197,7 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
   active,
   sidebar = false,
   collapsed = false,
+  expanded = false,
   invoicesCount,
   onSelect,
 }) => {
@@ -215,6 +216,7 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
         onClick={() => onSelect(module)}
         aria-label={accessibleLabel}
         aria-current={active ? "page" : undefined}
+        aria-expanded={module.id === "invoices" ? expanded : undefined}
         title={accessibleLabel}
         className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition ${
           active
@@ -246,6 +248,8 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
       onClick={() => onSelect(module)}
       aria-label={accessibleLabel}
       aria-current={active ? "page" : undefined}
+      aria-expanded={module.id === "invoices" ? expanded : undefined}
+      aria-controls={module.id === "invoices" ? "invoice-navigation" : undefined}
       title={accessibleLabel}
       className={classes}
     >
@@ -278,6 +282,13 @@ export const Header: React.FC<HeaderProps> = ({
   const [accountBusy, setAccountBusy] = useState(false);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileDrawerRef = useDialogFocus({
+    open: mobileOpen,
+    onClose: () => setMobileOpen(false),
+    initialFocusRef: mobileCloseButtonRef,
+  });
   const activeRoute = getRouteForAppTab(activeTab);
   const activeRouteId = activeRoute?.id || null;
   const activeModuleDefinition = getPrimaryModuleForRoute(activeRouteId);
@@ -366,8 +377,12 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      {mobileOpen && <button type="button" aria-label="Close navigation" className="fixed inset-0 z-40 bg-slate-950/60 lg:hidden" onClick={() => setMobileOpen(false)} />}
+      {mobileOpen && <button type="button" aria-hidden="true" tabIndex={-1} aria-label="Close navigation" className="fixed inset-0 z-40 bg-slate-950/60 lg:hidden" onClick={() => setMobileOpen(false)} />}
       <aside
+        ref={mobileDrawerRef}
+        id="workspace-navigation-drawer"
+        role={mobileOpen ? "dialog" : undefined}
+        aria-modal={mobileOpen ? "true" : undefined}
         className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-800 bg-slate-950 text-slate-100 shadow-2xl shadow-slate-950/20 transition-[width,transform] duration-200 lg:shadow-none ${
           collapsed ? "w-[4.25rem]" : "w-[16.5rem]"
         } ${mobileOpen ? "translate-x-0 !w-[16.5rem]" : "-translate-x-full lg:translate-x-0"}`}
@@ -410,6 +425,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => setMobileOpen(false)}
+              ref={mobileCloseButtonRef}
               className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
               aria-label="Close navigation"
             >
@@ -434,11 +450,12 @@ export const Header: React.FC<HeaderProps> = ({
                   active={activeModule?.id === module.id}
                   sidebar
                   collapsed={collapsed && !mobileOpen}
+                  expanded={module.id === "invoices" ? invoicesExpanded : undefined}
                   invoicesCount={invoicesCount}
                   onSelect={selectModule}
                 />
-                {module.id === "invoices" && invoicesExpanded && (!collapsed || mobileOpen) && module.routes.length > 1 && (
-                  <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2" aria-label="Invoice navigation">
+                {module.id === "invoices" && (!collapsed || mobileOpen) && module.routes.length > 1 && (
+                  <div id="invoice-navigation" hidden={!invoicesExpanded} className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2" aria-label="Invoice navigation">
                     {module.routes.map((route) => (
                       <NavigationRouteButton
                         key={route.id}
@@ -537,7 +554,7 @@ export const Header: React.FC<HeaderProps> = ({
         }`}
       >
         <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-          <button type="button" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen}><Menu className="h-4 w-4" /></button>
+          <button ref={mobileMenuButtonRef} type="button" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-navigation-drawer"><Menu className="h-4 w-4" /></button>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-600 sm:text-base">
               <span className="hidden sm:inline"><span className="font-bold text-slate-900">{BRAND.productName}</span><span className="mx-1.5 text-slate-300">/</span></span>
