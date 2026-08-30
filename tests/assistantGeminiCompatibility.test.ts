@@ -17,7 +17,7 @@ import { ASSISTANT_TOOL_DEFINITIONS, assistantFunctionDeclarations } from "../sr
 import { companyAiProviderError, classifyCompanyAiProviderFailure } from "../src/server/ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../src/server/ai/companyAiTypes.ts";
 
-const EXPECTED_ASSISTANT_TOOL_COUNT = 87;
+const EXPECTED_ASSISTANT_TOOL_COUNT = 132;
 
 async function captureGeminiRequest(request: Parameters<GoogleGenAI["models"]["generateContent"]>[0]) {
   const originalFetch = globalThis.fetch;
@@ -66,6 +66,10 @@ test("assistant schemas audit every declaration and use the Gemini parameters co
   const settlement = declarations.find((declaration) => declaration.name === "prepare_match_transaction_to_invoice")!;
   assert.equal(settlement.parameters?.properties?.amount?.minimum, 0.01);
   assert.equal(settlement.parameters?.properties?.amount?.maximum, 1_000_000_000);
+
+  const lifecycle = declarations.find((declaration) => declaration.name === "prepare_project_lifecycle")!;
+  assert.deepEqual(lifecycle.parameters?.properties?.action?.enum, ["DELETE_UNUSED", "ARCHIVE", "REACTIVATE"]);
+  assert.deepEqual(lifecycle.parameters?.required, ["projectId", "action"]);
 });
 
 test("unsupported schema fields fail with the declaration index and path instead of being cast away", () => {

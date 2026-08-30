@@ -147,8 +147,9 @@ function routeIdForClientAction(action: AssistantClientAction) {
   if (action.type === "NAVIGATE") return action.routeId;
   if (action.type === "OPEN_INVOICE") return "invoices";
   if (action.type === "OPEN_REVIEW_INVOICE") return "review";
-  if (action.type === "OPEN_PROJECT" || action.type === "OPEN_RFI" || action.type === "OPEN_SUBMITTAL" || action.type === "OPEN_SITE_LOG") return "projects";
-  if (action.type === "OPEN_PAYROLL_PERIOD" || action.type === "OPEN_ATTENDANCE_DATE") return "payroll";
+  if (action.type === "OPEN_PROJECT" || action.type === "OPEN_PROJECT_DOCUMENTS" || action.type === "OPEN_ENGINEERING_DOCUMENT" || action.type === "OPEN_RFI" || action.type === "OPEN_SUBMITTAL" || action.type === "OPEN_SITE_LOG") return "projects";
+  if (action.type === "OPEN_PAYROLL_PERIOD" || action.type === "OPEN_PAYROLL_RUN" || action.type === "OPEN_ATTENDANCE_DATE") return "payroll";
+  if (action.type === "OPEN_FINANCIAL_TRANSACTION") return "cash";
   return null;
 }
 
@@ -432,7 +433,9 @@ export function AssistantProvider({
     setError(null);
     setIsLoading(true);
     try {
-      if (pending.toolName === "prepare_process_attached_invoice" && callbacks.onProcessAttachedInvoice) {
+      const response = await confirmAssistantActionRequest({ companyId, actionId, contextGeneration: contextGenerationRef.current, signal: controller.signal });
+      if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
+      if (pending.toolName === "prepare_process_attached_invoice" && callbacks.onProcessAttachedInvoice && !response.clientActions.some((action) => action.type === "OPEN_REVIEW_INVOICE")) {
         const attachment = attachedInvoicePayloadsRef.current.get(actionId);
         if (!attachment?.dataBase64 || !attachment.mimeType || !attachment.fileName) {
           setError("The original invoice attachment is no longer available. Attach it again and prepare the action again.");
@@ -440,8 +443,6 @@ export function AssistantProvider({
         }
         await callbacks.onProcessAttachedInvoice(attachment, pending);
       }
-      const response = await confirmAssistantActionRequest({ companyId, actionId, contextGeneration: contextGenerationRef.current, signal: controller.signal });
-      if (!isAssistantCompanyIdentityCurrent(started, identityRef.current)) return false;
       threadIdRef.current = response.threadId;
       setThreadId(response.threadId);
       contextGenerationRef.current = response.contextGeneration;
@@ -568,8 +569,12 @@ export function AssistantProvider({
         else if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
         else defaultNavigate(path);
       } else if (safeAction.type === "OPEN_PROJECT" && safeAction.entityId) {
-        if (callbacks.onOpenProject) await callbacks.onOpenProject(safeAction.entityId, safeAction);
+        if (safeAction.view && safeAction.view !== "overview" && callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
+        else if (callbacks.onOpenProject) await callbacks.onOpenProject(safeAction.entityId, safeAction);
         else if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
+        else defaultNavigate(path);
+      } else if (safeAction.type === "OPEN_PROJECT_DOCUMENTS" || safeAction.type === "OPEN_ENGINEERING_DOCUMENT" || safeAction.type === "OPEN_PAYROLL_RUN" || safeAction.type === "OPEN_FINANCIAL_TRANSACTION") {
+        if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);
         else defaultNavigate(path);
       } else if ((safeAction.type === "OPEN_RFI" || safeAction.type === "OPEN_SUBMITTAL" || safeAction.type === "OPEN_SITE_LOG") && safeAction.entityId && safeAction.projectId) {
         if (callbacks.onNavigate) await callbacks.onNavigate(path, safeAction);

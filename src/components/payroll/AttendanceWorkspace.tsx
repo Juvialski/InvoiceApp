@@ -10,6 +10,7 @@ interface AttendanceWorkspaceProps {
   workers: Worker[];
   periods: PayrollPeriod[];
   selectedPeriodId: string;
+  initialDate?: string;
   attendanceRecords: AttendanceRecord[];
   leaveRequests: LeaveRequest[];
   overtimeRequests: OvertimeRequest[];
@@ -51,11 +52,11 @@ function workersForRoster(workers: Worker[]): WorkforceWorker[] {
 }
 
 export const AttendanceWorkspace: React.FC<AttendanceWorkspaceProps> = ({
-  workers, periods, selectedPeriodId, attendanceRecords, leaveRequests, overtimeRequests, holidays, lockedPeriodIds = [],
+  workers, periods, selectedPeriodId, initialDate, attendanceRecords, leaveRequests, overtimeRequests, holidays, lockedPeriodIds = [],
   onSaveAttendance, onSaveAttendanceBatch, onSaveLeave, onSaveOvertime, onSaveHoliday, onPayrollLifecycle, canManagePayrollSources = true,
 }) => {
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
-  const [date, setDate] = useState(() => selectedPeriod?.periodStart || localDateOnly());
+  const [date, setDate] = useState(() => initialDate || selectedPeriod?.periodStart || localDateOnly());
   const [drafts, setDrafts] = useState<Record<string, DraftRow>>({});
   const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);
   const [leaveForm, setLeaveForm] = useState({ workerId: workers[0]?.id || "", leaveType: "PERSONAL", startDate: date, endDate: date, paid: "" });
@@ -88,6 +89,9 @@ export const AttendanceWorkspace: React.FC<AttendanceWorkspaceProps> = ({
   };
 
   const setDateAndReset = (next: string) => { setDate(next); setDrafts({}); setMessage(null); setOvertimeForm((current) => ({ ...current, date: next })); setHolidayForm((current) => ({ ...current, date: next })); };
+  React.useEffect(() => {
+    if (initialDate && initialDate !== date) setDateAndReset(initialDate);
+  }, [initialDate]);
   const changeDate = (days: number) => {
     const base = new Date(`${date}T00:00:00Z`);
     base.setUTCDate(base.getUTCDate() + days);

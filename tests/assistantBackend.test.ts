@@ -13,10 +13,12 @@ import { executePreparedAction, executeRegisteredTool } from "../src/server/assi
 
 const requestedTools = [
   "search_invoices", "get_invoice", "list_review_queue", "search_projects", "get_project", "get_project_cost_summary", "list_expenses", "get_expense_summary", "search_vendors", "get_vendor_summary", "search_workers", "get_worker", "prepare_create_worker", "get_attendance_day", "get_attendance_period_summary", "get_payroll_period", "get_payroll_run", "get_payroll_readiness", "get_payroll_exceptions", "get_payroll_summary", "list_payroll_periods", "get_current_workspace_summary", "get_cash_summary", "list_financial_accounts", "get_financial_account", "list_financial_transactions", "get_cash_reconciliation_summary",
-  "search_rfis", "get_rfi", "search_submittals", "get_submittal", "navigate_to_rfi", "navigate_to_submittal", "prepare_create_rfi", "prepare_respond_rfi", "prepare_close_rfi", "prepare_create_submittal", "prepare_submit_submittal", "prepare_review_submittal", "prepare_resubmit_submittal",
+  "search_rfis", "get_rfi", "search_submittals", "get_submittal", "navigate_to_rfi", "navigate_to_submittal", "prepare_create_rfi", "prepare_open_rfi", "prepare_respond_rfi", "prepare_close_rfi", "prepare_create_submittal", "prepare_submit_submittal", "prepare_start_submittal_review", "prepare_review_submittal", "prepare_resubmit_submittal", "prepare_close_submittal",
   "search_site_logs", "get_site_log", "navigate_to_site_log", "prepare_create_site_log", "prepare_update_site_log", "prepare_submit_site_log", "prepare_finalize_site_log", "prepare_void_site_log",
   "get_invoice_settlement", "get_payroll_settlement", "list_open_invoice_settlements", "get_financial_transaction_settlements", "navigate_to_financial_transaction", "navigate_to_payroll_run", "prepare_match_transaction_to_invoice", "prepare_match_transaction_to_payroll", "prepare_split_transaction_allocation", "prepare_reverse_financial_settlement",
-  "navigate_to", "navigate_to_project", "navigate_to_invoice", "navigate_to_review_invoice", "navigate_to_payroll_period", "navigate_to_attendance_date", "search_help", "get_feature_help", "start_tour", "prepare_process_attached_invoice", "prepare_attendance_batch", "prepare_attendance_roster", "record_presence", "record_absence", "prepare_leave_request", "approve_leave", "reject_leave", "cancel_leave", "prepare_overtime_request", "approve_overtime", "reject_overtime", "cancel_overtime", "prepare_payroll_recalculation", "create_expense_draft", "create_project_draft", "assign_invoice_to_project", "update_invoice_draft", "approve_payroll", "mark_payroll_paid",
+  "prepare_project_lifecycle", "prepare_financial_correction", "prepare_worker_update", "prepare_worker_lifecycle", "prepare_assignment_lifecycle", "prepare_compensation_profile_lifecycle", "prepare_recurring_component_lifecycle", "prepare_workforce_source_lifecycle", "prepare_engineering_document_lifecycle", "prepare_rfi_lifecycle", "prepare_submittal_lifecycle", "prepare_site_log_lifecycle", "prepare_site_log_addendum", "search_engineering_documents", "get_engineering_document", "navigate_to_engineering_document", "get_worker_payroll_setup",
+  "search_work_entries", "list_internal_transfer_suggestions", "prepare_reopen_invoice_review", "prepare_update_project", "prepare_update_attendance", "prepare_save_project_assignment", "prepare_save_compensation_profile", "prepare_save_recurring_component", "prepare_save_work_entry", "prepare_financial_account", "prepare_financial_account_lifecycle", "prepare_financial_snapshot", "prepare_financial_transaction", "prepare_financial_transaction_correction", "prepare_financial_transaction_lifecycle", "prepare_import_cash_statement", "prepare_internal_transfer", "prepare_internal_transfer_reversal", "prepare_update_company_profile", "get_company_access_summary", "prepare_authorize_company_member", "prepare_update_company_member", "prepare_update_member_permissions", "prepare_revoke_company_invitation",
+  "navigate_to", "navigate_to_project", "navigate_to_invoice", "navigate_to_review_invoice", "navigate_to_payroll_period", "navigate_to_attendance_date", "search_help", "get_feature_help", "start_tour", "prepare_process_attached_invoice", "prepare_attendance_batch", "prepare_attendance_roster", "record_presence", "record_absence", "prepare_leave_request", "approve_leave", "reject_leave", "cancel_leave", "prepare_overtime_request", "approve_overtime", "reject_overtime", "cancel_overtime", "prepare_payroll_recalculation", "create_payroll_run", "create_expense_draft", "create_project_draft", "assign_invoice_to_project", "update_invoice_draft", "approve_payroll", "mark_payroll_paid",
 ];
 
 function loopContext() {
@@ -36,6 +38,7 @@ test("Assistant registry contains only the requested allowlisted tools through f
   assert.equal(names.includes("execute_sql"), false);
   assert.equal(names.includes("fetch_url"), false);
   assert.equal(names.includes("run_shell"), false);
+  assert.doesNotMatch(ASSISTANT_SYSTEM_PROMPT, new RegExp(["Invoice", "App"].join(""), "i"));
 });
 
 test("tool validation rejects malformed identifiers and bounds prepared records", () => {
@@ -313,7 +316,7 @@ test("assistant loop stops after eight model iterations without external calls",
 });
 
 test("assistant authentication fails closed for missing bearer/company and tool authorization rejects non-members", async () => {
-  await assert.rejects(() => authenticateAssistantRequest({ headers: {} } as any), /valid InvoiceApp session/i);
+  await assert.rejects(() => authenticateAssistantRequest({ headers: {} } as any), /valid Engoryx session/i);
   const fakeClient = {
     auth: { getUser: async () => ({ data: { user: { id: "00000000-0000-4000-8000-000000000002" } }, error: null }) },
     rpc: async (_name: string, args: Record<string, unknown>) => ({ data: false, error: null, args }),

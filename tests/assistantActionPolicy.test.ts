@@ -40,6 +40,23 @@ test("Phase 1C assistant actions preserve project-scoped Daily Site Log deep lin
   assert.equal(isAssistantActionAllowed(action, ["projects.read"]), false);
 });
 
+test("engineering document actions preserve project and revision deep links", () => {
+  const action = sanitizeAssistantClientAction({ type: "OPEN_ENGINEERING_DOCUMENT", entityId: "document-42", projectId: "project-7", revisionId: "revision-3", label: "Open drawing" });
+  assert.deepEqual(action, { type: "OPEN_ENGINEERING_DOCUMENT", entityId: "document-42", projectId: "project-7", revisionId: "revision-3", label: "Open drawing" });
+  assert.equal(pathForAssistantAction(action!), "/projects/project-7/documents?docId=document-42&revId=revision-3");
+  assert.equal(isAssistantActionAllowed(action, ["projects.read", "engineering.documents.read"]), true);
+  assert.equal(isAssistantActionAllowed(action, ["projects.read"]), false);
+});
+
+test("project workspace navigation respects the selected subview permission", () => {
+  const expenses = sanitizeAssistantClientAction({ type: "OPEN_PROJECT", entityId: "project-7", view: "expenses" });
+  assert.deepEqual(expenses, { type: "OPEN_PROJECT", entityId: "project-7", view: "expenses" });
+  assert.equal(pathForAssistantAction(expenses!), "/projects/project-7/expenses");
+  assert.equal(isAssistantActionAllowed(expenses, ["projects.read", "expenses.read"]), true);
+  assert.equal(isAssistantActionAllowed(expenses, ["projects.read"]), false);
+  assert.deepEqual(sanitizeAssistantClientAction({ type: "OPEN_PROJECT", entityId: "project-7", view: "unknown" }), { type: "OPEN_PROJECT", entityId: "project-7" });
+});
+
 test("assistant actions honor optional frontend permissions", () => {
   const reports = { type: "NAVIGATE", routeId: "reports" } as const;
   assert.equal(isAssistantActionAllowed(reports), true);

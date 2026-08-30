@@ -12,6 +12,8 @@ import { executePreparedAction } from "./assistantToolExecutors.ts";
 import { executePreparedEngineeringCoordinationAction, isEngineeringCoordinationTool } from "./engineeringCoordinationAssistant.ts";
 import { executePreparedDailySiteLogsAction, isDailySiteLogsTool } from "./dailySiteLogsAssistant.ts";
 import { executePreparedFinancialSettlementAction, isFinancialSettlementTool } from "./financialSettlementAssistant.ts";
+import { executePreparedCoreHardeningAction, isCoreHardeningTool } from "./coreHardeningAssistant.ts";
+import { executePreparedAssistantOperation, isAssistantOperationTool } from "./assistantOperations.ts";
 import { getAssistantToolDefinition, validateAssistantToolArguments } from "./toolRegistry.ts";
 import { requireCompanyPermissions } from "./toolAuthorization.ts";
 import { boundToolValue, toolOk } from "./toolResults.ts";
@@ -21,10 +23,15 @@ import { CompanyAiError } from "../ai/companyAiTypes.ts";
 
 const ACTION_TTL_MS = 10 * 60 * 1000;
 const UUID_HEADER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_TEXT_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 
 function currencySymbolFor(currency: string) {
   return ({ PHP: "₱", USD: "$", EUR: "€", SGD: "S$", JPY: "¥", GBP: "£" } as Record<string, string>)[currency] || `${currency} `;
+}
+
+export function scrubAssistantMessage(value: string) {
+  return String(value || "").replace(UUID_TEXT_PATTERN, "the referenced record");
 }
 
 export interface AssistantHandlerOptions {
@@ -41,7 +48,7 @@ function firstHeader(value: string | string[] | undefined) {
 function bearerToken(req: Request) {
   const header = firstHeader(req.headers.authorization);
   const match = header.match(/^Bearer\s+([^\s]+)$/i);
-  if (!match) throw new AssistantBackendError("UNAUTHENTICATED", "A valid InvoiceApp session is required.", 401);
+  if (!match) throw new AssistantBackendError("UNAUTHENTICATED", "A valid Engoryx session is required.", 401);
   return match[1];
 }
 
@@ -56,7 +63,7 @@ export async function authenticateAssistantRequest(req: Request, options: Assist
   const accessToken = bearerToken(req);
   const supabase = options.createSupabaseClient ? options.createSupabaseClient(accessToken) : serverSupabaseClient(accessToken);
   const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data.user) throw new AssistantBackendError("UNAUTHENTICATED", "A valid InvoiceApp session is required.", 401);
+  if (error || !data.user) throw new AssistantBackendError("UNAUTHENTICATED", "A valid Engoryx session is required.", 401);
   const companyId = firstHeader(req.headers["x-company-id"]).trim();
   if (!UUID_HEADER_PATTERN.test(companyId)) throw new AssistantBackendError("COMPANY_REQUIRED", "A valid company context is required.", 400);
   const deployment = await supabase.rpc("get_deployment_company_id");
@@ -146,7 +153,7 @@ async function loadThread(auth: AssistantAuthContext, threadId: string | undefin
     await client.from("assistant_threads").update({ context, updated_at: new Date().toISOString() }).eq("id", threadId).eq("company_id", auth.companyId).eq("user_id", auth.user.id);
     return thread.data as { id: string };
   }
-  const created = await client.from("assistant_threads").insert({ company_id: auth.companyId, user_id: auth.user.id, title: "InvoiceApp Assistant", context }).select("id").single();
+  const created = await client.from("assistant_threads").insert({ company_id: auth.companyId, user_id: auth.user.id, title: "Engoryx Assistant", context }).select("id").single();
   if (created.error || !created.data?.id) throw new AssistantBackendError("THREAD_UNAVAILABLE", "The assistant thread could not be created.", 503);
   return created.data as { id: string };
 }
@@ -249,8 +256,9 @@ async function handleAssistantRequest(req: Request, res: Response, options: Assi
     const result = options.createModelClient
       ? await runWithClient(options.createModelClient(auth))
       : await withCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId }, (runtime) => runWithClient(runtime.geminiClient));
-    await persistMessage(auth, thread.id, "assistant", { text: result.message, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions });
-    const data: AssistantResponse = { threadId: thread.id, message: result.message, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions, attachments: attachmentReferences, usage: result.usage, contextGeneration: request.context.generation };
+    const safeMessage = scrubAssistantMessage(result.message);
+    await persistMessage(auth, thread.id, "assistant", { text: safeMessage, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions });
+    const data: AssistantResponse = { threadId: thread.id, message: safeMessage, references: result.references, clientActions: result.clientActions, preparedActions: result.preparedActions, attachments: attachmentReferences, usage: result.usage, contextGeneration: request.context.generation };
     const response: AssistantSuccessResponse = { success: true, data };
     return res.json(response);
   } catch (error) {
@@ -291,11 +299,33 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
   }
   if (action.tool_name === "prepare_process_attached_invoice") {
     const invoiceId = typeof result.invoiceId === "string" ? result.invoiceId : undefined;
-    message = "The attached invoice was extracted and queued for review.";
+    message = invoiceId ? "The attached invoice was already processed and is ready in the review queue." : result.clientExecutionRequired === true ? "The attachment handoff was confirmed. Engoryx will process the invoice through the review queue now." : "The attached invoice was sent to the review queue.";
     if (invoiceId) {
       references.push({ type: "invoice", id: invoiceId, label: "Review invoice" });
       clientActions.push({ type: "OPEN_REVIEW_INVOICE", entityId: invoiceId, label: "Open in Review Queue" });
     }
+  }
+  if (action.tool_name === "create_payroll_run" && result.run && typeof result.run === "object" && !Array.isArray(result.run)) {
+    const run = result.run as Record<string, unknown>;
+    const runId = typeof run.id === "string" ? run.id : undefined;
+    message = "A draft payroll run was created for the selected period.";
+    if (runId) {
+      references.push({ type: "payroll_run", id: runId, label: "Draft payroll run" });
+      clientActions.push({ type: "OPEN_PAYROLL_RUN", entityId: runId, label: "Open payroll run" });
+    }
+  }
+  if (action.tool_name === "create_project_draft" && result.project && typeof result.project === "object" && !Array.isArray(result.project)) {
+    const project = result.project as Record<string, unknown>;
+    const projectId = typeof project.id === "string" ? project.id : undefined;
+    message = "The planning project draft was created.";
+    if (projectId) {
+      references.push({ type: "project", id: projectId, label: "Planning project" });
+      clientActions.push({ type: "OPEN_PROJECT", entityId: projectId, label: "Open project" });
+    }
+  }
+  if (action.tool_name === "create_expense_draft") {
+    message = "The draft expense was created and is ready in Expenses.";
+    clientActions.push({ type: "NAVIGATE", routeId: "expenses", label: "Open Expenses" });
   }
   if (isDailySiteLogsTool(action.tool_name)) {
     const logResult = result.log && typeof result.log === "object" && !Array.isArray(result.log) ? result.log as Record<string, unknown> : undefined;
@@ -330,9 +360,77 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
       clientActions.push({ type: "OPEN_PAYROLL_RUN", entityId: targetId, label: "Open payroll run" });
     }
   }
+  if (isCoreHardeningTool(action.tool_name) || isAssistantOperationTool(action.tool_name) || isEngineeringCoordinationTool(action.tool_name)) {
+    const coordinationRecord = [result.rfi, result.submittal, result.response, result.review].find((value) => value && typeof value === "object" && !Array.isArray(value)) as Record<string, unknown> | undefined;
+    const inferredEntityType = isEngineeringCoordinationTool(action.tool_name) ? action.tool_name.includes("rfi") ? "RFI" : "SUBMITTAL" : "RECORD";
+    const entityType = typeof result.entityType === "string" ? result.entityType : typeof action.preview.entityType === "string" ? action.preview.entityType : inferredEntityType;
+    const resultEntityId = typeof result.entityId === "string" ? result.entityId : typeof coordinationRecord?.id === "string" ? coordinationRecord.id : typeof coordinationRecord?.rfi_id === "string" ? coordinationRecord.rfi_id : typeof coordinationRecord?.submittal_id === "string" ? coordinationRecord.submittal_id : undefined;
+    const entityId = resultEntityId || (typeof action.normalized_args.projectId === "string" ? action.normalized_args.projectId : typeof action.normalized_args.entityId === "string" ? action.normalized_args.entityId : typeof action.normalized_args.workerId === "string" ? action.normalized_args.workerId : typeof action.normalized_args.transactionId === "string" ? action.normalized_args.transactionId : typeof action.normalized_args.accountId === "string" ? action.normalized_args.accountId : undefined);
+    const displayCandidate = typeof result.displayLabel === "string" ? result.displayLabel.trim() : coordinationRecord ? String(coordinationRecord.document_number || coordinationRecord.rfi_number || coordinationRecord.submittal_number || coordinationRecord.report_number || coordinationRecord.title || coordinationRecord.subject || "").trim() : "";
+    const displayLabel = displayCandidate && !isUuid(displayCandidate)
+      ? displayCandidate
+      : typeof action.preview.target === "string" && action.preview.target.trim()
+        ? action.preview.target.trim()
+        : entityType.replaceAll("_", " ");
+    const requestedAction = typeof action.normalized_args.action === "string" ? action.normalized_args.action : action.tool_name === "prepare_site_log_addendum" ? "ADDENDUM" : action.tool_name.includes("reopen") ? "REOPEN" : action.tool_name.includes("authorize") ? "AUTHORIZE" : action.tool_name.includes("revoke") ? "REVOKE" : action.tool_name.includes("snapshot") ? "RECORD_MANUAL_BALANCE" : action.tool_name.includes("import") ? "IMPORT" : action.tool_name.includes("save") ? "SAVE" : action.tool_name.includes("create") ? "CREATE" : action.tool_name.includes("open") ? "OPEN" : action.tool_name.includes("respond") ? "RESPONSE" : action.tool_name.includes("submit") ? "SUBMIT" : action.tool_name.includes("start") ? "START_REVIEW" : action.tool_name.includes("review") ? "REVIEW" : action.tool_name.includes("resubmit") ? "RESUBMIT" : action.tool_name.includes("close") ? "CLOSE" : "UPDATE";
+    const outcome: Record<string, string> = {
+      DELETE_UNUSED: "was permanently deleted because it was unused",
+      ARCHIVE: "was archived and its history was retained",
+      RESTORE: "was restored to the visible directory",
+      REACTIVATE: "was reactivated",
+      OFFBOARD: "was offboarded and its history was retained",
+      END: "was ended and its history was retained",
+      SUPERSEDE: "was superseded and its lineage was retained",
+      DEACTIVATE: "was deactivated and its history was retained",
+      VOID: "was voided and its history was retained",
+      CANCEL: "was cancelled and its history was retained",
+      DELETE_DRAFT: "was deleted as an unused draft",
+      ADDENDUM: "received an append-only correction",
+      UPDATE: "was updated",
+      CONFIRM: "was confirmed",
+      REVERSE: "was reversed while its history was retained",
+      REOPEN: "was reopened for human review",
+      SAVE: "was saved",
+      RECORD_MANUAL_BALANCE: "received a dated manual balance snapshot",
+      AUTHORIZE: "was authorized for signup",
+      ROLE_UPDATED: "had its role updated",
+      OVERRIDES_UPDATED: "had its explicit permissions updated",
+      REVOKE: "was revoked",
+      IMPORT: "was imported into the reviewable ledger",
+      CREATE: "was created",
+      OPEN: "was opened",
+      RESPONSE: "received a response",
+      SUBMIT: "was submitted",
+      START_REVIEW: "entered review",
+      REVIEW: "received a review decision",
+      RESUBMIT: "received a new submission round",
+      CLOSE: "was closed",
+    };
+    message = `${displayLabel} ${outcome[requestedAction] || "was updated safely"}.`;
+    if (entityId) {
+      const referenceType: AssistantResponse["references"][number]["type"] = entityType === "PROJECT" ? "project" : entityType === "INVOICE" ? "invoice" : entityType === "WORKER" ? "worker" : entityType === "DOCUMENT" ? "document" : entityType === "RFI" ? "rfi" : entityType === "SUBMITTAL" ? "submittal" : entityType === "SITE_LOG" ? "report" : entityType === "COMPENSATION_PROFILE" || entityType === "RECURRING_COMPONENT" ? "worker" : "report";
+      references.push({ type: referenceType, id: entityId, label: displayLabel });
+    }
+    const record = result.record && typeof result.record === "object" && !Array.isArray(result.record) ? result.record as Record<string, unknown> : coordinationRecord || {};
+    const projectId = typeof result.projectId === "string" ? result.projectId : typeof record.project_id === "string" ? record.project_id : typeof action.preview.projectId === "string" ? action.preview.projectId : undefined;
+    if (entityType === "PROJECT" && entityId) clientActions.push({ type: "OPEN_PROJECT", entityId, label: "Open project" });
+    else if (entityType === "INVOICE" && entityId) clientActions.push({ type: "OPEN_INVOICE", entityId, label: "Open invoice" });
+    else if (entityType === "DOCUMENT" && entityId && projectId) {
+      const revisionId = typeof record.current_revision_id === "string" ? record.current_revision_id : undefined;
+      clientActions.push({ type: "OPEN_ENGINEERING_DOCUMENT", entityId, projectId, ...(revisionId ? { revisionId } : {}), label: "Open engineering document" });
+    }
+    else if (entityType === "RFI" && entityId && projectId) clientActions.push({ type: "OPEN_RFI", entityId, projectId, label: "Open RFI" });
+    else if (entityType === "SUBMITTAL" && entityId && projectId) clientActions.push({ type: "OPEN_SUBMITTAL", entityId, projectId, label: "Open submittal" });
+    else if (entityType === "SITE_LOG" && entityId && projectId) clientActions.push({ type: "OPEN_SITE_LOG", entityId, projectId, label: "Open Site Log" });
+    else if (entityType === "FINANCIAL_TRANSACTION" && entityId) clientActions.push({ type: "OPEN_FINANCIAL_TRANSACTION", entityId, label: "Open transaction" });
+    else if (entityType === "FINANCIAL_TRANSFER" && typeof action.normalized_args.leftTransactionId === "string") clientActions.push({ type: "OPEN_FINANCIAL_TRANSACTION", entityId: action.normalized_args.leftTransactionId, label: "Open transaction" });
+    else if (entityType === "FINANCIAL_IMPORT" || entityType === "FINANCIAL_SNAPSHOT") clientActions.push({ type: "NAVIGATE", routeId: "cash", label: "Open Cash & Banking" });
+    else if (entityType === "COMPANY" || entityType === "INVITATION" || entityType === "MEMBERSHIP") clientActions.push({ type: "NAVIGATE", routeId: "settings", label: "Open Settings" });
+    else if (["WORKER", "PROJECT_ASSIGNMENT", "COMPENSATION_PROFILE", "RECURRING_COMPONENT", "WORK_ENTRY", "ATTENDANCE", "LEAVE", "OVERTIME"].includes(entityType)) clientActions.push({ type: "NAVIGATE", routeId: "payroll", label: "Open Payroll" });
+  }
   if (typeof workerResult?.id === "string") references.push({ type: "worker", id: String(workerResult.id), label: "View employee" });
   else if (typeof requestResult?.id === "string") references.push({ type: "worker", id: String(requestResult.id), label: "Updated workforce request" });
-  return { threadId: action.thread_id || "", message, references, clientActions, preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
+  return { threadId: action.thread_id || "", message: scrubAssistantMessage(message), references, clientActions, preparedActions: [prepared], attachments: [], usage: { functionCalls: 0, iterations: 0, fallbackUsed: false }, contextGeneration: generation };
 }
 
 async function handleAssistantConfirm(req: Request, res: Response, options: AssistantHandlerOptions) {
@@ -375,6 +473,10 @@ async function handleAssistantConfirm(req: Request, res: Response, options: Assi
           ? await executePreparedDailySiteLogsAction(toolContext, action.tool_name, args)
           : isFinancialSettlementTool(action.tool_name)
             ? await executePreparedFinancialSettlementAction(toolContext, action.tool_name, args)
+            : isCoreHardeningTool(action.tool_name)
+              ? await executePreparedCoreHardeningAction(toolContext, action.tool_name, args)
+              : isAssistantOperationTool(action.tool_name)
+                ? await executePreparedAssistantOperation(toolContext, action.tool_name, args)
             : await executePreparedAction(toolContext, action.tool_name, args, action.id, action.preview);
     } catch (error) {
       const normalized = safeError(error);

@@ -135,7 +135,7 @@ export function validateToolArguments(toolName: string, input: unknown): Record<
     case "get_payroll_exceptions":
     case "get_payroll_summary": return { periodId: requireUuid(args.periodId, "periodId") };
     case "navigate_to": return { routeId: boundedText(args.routeId, "routeId", 64) };
-    case "navigate_to_project": return { projectId: requireUuid(args.projectId, "projectId") };
+    case "navigate_to_project": return { projectId: requireUuid(args.projectId, "projectId"), view: enumValue(args.view, "view", ["overview", "documents", "rfis", "submittals", "site-logs", "invoices", "payroll", "expenses", "people", "reports"] as const, false) };
     case "navigate_to_invoice": return { invoiceId: requireUuid(args.invoiceId, "invoiceId") };
     case "navigate_to_review_invoice": return { invoiceId: requireUuid(args.invoiceId, "invoiceId") };
     case "navigate_to_payroll_period": return { periodId: requireUuid(args.periodId, "periodId") };
@@ -169,6 +169,7 @@ export function validateToolArguments(toolName: string, input: unknown): Record<
     case "reject_overtime": return { requestId: requireUuid(args.requestId, "requestId"), reason: boundedText(args.reason, "reason", 500, false) };
     case "cancel_overtime": return { requestId: requireUuid(args.requestId, "requestId"), reason: boundedText(args.reason, "reason", 500, false) };
     case "prepare_payroll_recalculation": return { periodId: requireUuid(args.periodId, "periodId"), runId: args.runId ? requireUuid(args.runId, "runId") : undefined };
+    case "create_payroll_run": return { periodId: requireUuid(args.periodId, "periodId") };
     case "create_expense_draft": return {
       projectId: args.projectId ? requireUuid(args.projectId, "projectId") : undefined,
       expenseDate: requireDateOnly(args.expenseDate, "expenseDate"), category: boundedText(args.category, "category", 120), description: boundedText(args.description, "description", 500),

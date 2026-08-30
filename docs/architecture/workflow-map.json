@@ -1233,11 +1233,13 @@
         "pathPattern": "/payroll",
         "queryKeys": [
           "runId",
+          "periodId",
+          "attendanceDate",
           "from"
         ],
         "scope": "production-and-demo"
       },
-      "description": "Canonical Payroll and Workforce route; runId selects a payroll-run detail context.",
+      "description": "Canonical Payroll and Workforce route; runId, periodId, or attendanceDate selects an exact context.",
       "fileRefs": [
         "src/utils/routes.ts",
         "src/utils/appRouting.ts",
@@ -1264,11 +1266,13 @@
         "pathPattern": "/payroll",
         "queryKeys": [
           "runId",
+          "periodId",
+          "attendanceDate",
           "from"
         ],
         "scope": "production-and-demo"
       },
-      "description": "Payroll run detail is selected by runId on the canonical Payroll route.",
+      "description": "Payroll run, period, and attendance-date contexts are selected on the canonical Payroll route.",
       "fileRefs": [
         "src/utils/appRouting.ts",
         "src/app/routes/PayrollRoute.tsx",
@@ -4845,12 +4849,20 @@
       "fileRefs": [
         "src/assistant/AssistantProvider.tsx",
         "src/assistant/AssistantPanel.tsx",
-        "src/assistant/AssistantActionCard.tsx"
+        "src/assistant/AssistantActionCard.tsx",
+        "src/assistant/assistantActionPolicy.ts",
+        "src/assistant/assistantNavigation.ts",
+        "src/assistant/helpCatalog.ts",
+        "src/assistant/tourRegistry.ts",
+        "docs/ENGORYX_ASSISTANT_CAPABILITY_MATRIX.md"
       ],
       "testRefs": [
         "tests/assistantClient.test.ts",
         "tests/assistantActionPolicy.test.ts",
-        "tests/assistantMessage.test.ts"
+        "tests/assistantMessage.test.ts",
+        "tests/assistantHelpCatalog.test.ts",
+        "tests/assistantTourRegistry.test.ts",
+        "tests/assistantParityWave3.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",
@@ -4933,7 +4945,16 @@
         "projects.read",
         "invoices.read",
         "cash.summary.read",
+        "cash.transactions.read",
         "payroll.summary.read",
+        "payroll.detail.read",
+        "workers.read",
+        "workers.compensation.read",
+        "engineering.documents.read",
+        "engineering.rfis.read",
+        "engineering.submittals.read",
+        "engineering.sitelogs.read",
+        "company.members.read",
         "reports.financial.read"
       ],
       "confirmationRequirement": "none",
@@ -4941,11 +4962,14 @@
         "src/server/assistant/toolRegistry.ts",
         "src/server/assistant/toolValidation.ts",
         "src/server/assistant/toolAuthorization.ts",
-        "src/server/assistant/assistantToolExecutors.ts"
+        "src/server/assistant/assistantToolExecutors.ts",
+        "src/server/assistant/coreHardeningAssistant.ts",
+        "src/server/assistant/assistantOperations.ts"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/serverAuthorization.test.ts"
+        "tests/serverAuthorization.test.ts",
+        "tests/assistantParityWave3.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative"
@@ -4964,7 +4988,11 @@
         "projects.read",
         "invoices.read",
         "payroll.summary.read",
-        "cash.transactions.read"
+        "cash.transactions.read",
+        "engineering.documents.read",
+        "engineering.rfis.read",
+        "engineering.submittals.read",
+        "engineering.sitelogs.read"
       ],
       "confirmationRequirement": "none",
       "fileRefs": [
@@ -4975,7 +5003,8 @@
       ],
       "testRefs": [
         "tests/assistantActionPolicy.test.ts",
-        "tests/appRouting.test.ts"
+        "tests/appRouting.test.ts",
+        "tests/assistantParityWave3.test.ts"
       ]
     },
     {
@@ -5010,11 +5039,15 @@
       "fileRefs": [
         "src/server/assistant/toolRegistry.ts",
         "src/server/assistant/toolValidation.ts",
-        "src/server/assistant/assistantLoop.ts"
+        "src/server/assistant/toolAuthorization.ts",
+        "src/server/assistant/assistantLoop.ts",
+        "src/server/assistant/coreHardeningAssistant.ts",
+        "src/server/assistant/assistantOperations.ts"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
-        "tests/assistantActionPolicy.test.ts"
+        "tests/assistantActionPolicy.test.ts",
+        "tests/assistantParityWave3.test.ts"
       ],
       "invariantIds": [
         "assistant-mutations-require-confirmation"
@@ -5064,19 +5097,33 @@
         "src/server/assistant/toolAuthorization.ts",
         "src/server/assistant/engineeringCoordinationAssistant.ts",
         "src/server/assistant/dailySiteLogsAssistant.ts",
-        "src/server/assistant/financialSettlementAssistant.ts"
+        "src/server/assistant/financialSettlementAssistant.ts",
+        "src/server/assistant/coreHardeningAssistant.ts",
+        "src/server/assistant/assistantOperations.ts"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
         "tests/assistantFinancialSettlement.test.ts",
-        "tests/assistantAttachedInvoice.test.ts"
+        "tests/assistantAttachedInvoice.test.ts",
+        "tests/assistantParityWave3.test.ts"
       ],
       "permissionKeys": [
         "projects.manage",
         "invoices.manage",
+        "expenses.manage",
+        "workers.manage",
         "payroll.manage",
         "payroll.approve",
-        "cash.reconcile"
+        "cash.accounts.manage",
+        "cash.transactions.manage",
+        "cash.import",
+        "cash.reconcile",
+        "company.settings.manage",
+        "company.members.manage",
+        "engineering.documents.manage",
+        "engineering.rfis.manage",
+        "engineering.submittals.manage",
+        "engineering.sitelogs.manage"
       ],
       "invariantIds": [
         "assistant-mutations-require-confirmation",
@@ -5117,14 +5164,27 @@
       "permissionKeys": [
         "projects.manage",
         "invoices.manage",
+        "expenses.manage",
+        "workers.manage",
         "payroll.manage",
         "payroll.approve",
-        "cash.reconcile"
+        "cash.accounts.manage",
+        "cash.transactions.manage",
+        "cash.import",
+        "cash.reconcile",
+        "company.settings.manage",
+        "company.members.manage",
+        "engineering.documents.manage",
+        "engineering.rfis.manage",
+        "engineering.submittals.manage",
+        "engineering.sitelogs.manage"
       ],
       "confirmationRequirement": "human",
       "fileRefs": [
         "src/server/assistant/assistantHandler.ts",
         "src/server/assistant/assistantToolExecutors.ts",
+        "src/server/assistant/coreHardeningAssistant.ts",
+        "src/server/assistant/assistantOperations.ts",
         "src/server/assistant/engineeringCoordinationAssistant.ts",
         "src/server/assistant/dailySiteLogsAssistant.ts",
         "src/server/assistant/financialSettlementAssistant.ts"
@@ -5132,7 +5192,8 @@
       "testRefs": [
         "tests/assistantBackend.test.ts",
         "tests/assistantFinancialSettlement.test.ts",
-        "tests/assistantAttachedInvoice.test.ts"
+        "tests/assistantAttachedInvoice.test.ts",
+        "tests/assistantParityWave3.test.ts"
       ],
       "invariantIds": [
         "assistant-mutations-require-confirmation",
@@ -5151,12 +5212,15 @@
         "src/server/assistant/engineeringCoordinationAssistant.ts",
         "src/server/assistant/dailySiteLogsAssistant.ts",
         "src/server/assistant/financialSettlementAssistant.ts",
-        "src/server/assistant/assistantToolExecutors.ts"
+        "src/server/assistant/assistantToolExecutors.ts",
+        "src/server/assistant/coreHardeningAssistant.ts",
+        "src/server/assistant/assistantOperations.ts"
       ],
       "testRefs": [
         "tests/assistantBackend.test.ts",
         "tests/assistantFinancialSettlement.test.ts",
-        "tests/assistantAttachedInvoice.test.ts"
+        "tests/assistantAttachedInvoice.test.ts",
+        "tests/assistantParityWave3.test.ts"
       ],
       "invariantIds": [
         "company-rbac-is-authoritative",

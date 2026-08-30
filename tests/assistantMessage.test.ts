@@ -10,3 +10,10 @@ test("user Assistant messages explicitly use the semantic on-dark foreground", (
   assert.match(source, /isUser \? "border-white\/20"/);
   assert.match(readFileSync(new URL("../src/assistant/AssistantMarkdown.ts", import.meta.url), "utf8"), /my-2 text-slate-700/);
 });
+
+test("prepared action cards do not render UUID or internal preview fields", () => {
+  const source = readFileSync(new URL("../src/assistant/AssistantActionCard.tsx", import.meta.url), "utf8");
+  assert.match(source, /identified record/);
+  assert.match(source, /HIDDEN_PREVIEW_KEYS/);
+  assert.match(source, /preparedActionLabel/);
+});

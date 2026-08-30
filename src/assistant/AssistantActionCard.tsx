@@ -14,7 +14,8 @@ function riskLabel(riskTier: AssistantPreparedAction["riskTier"]) {
 
 function valueLabel(value: unknown, depth = 0): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "string") return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? "identified record" : String(value);
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (depth > 1) return "…";
   if (Array.isArray(value)) return value.slice(0, 8).map((item) => valueLabel(item, depth + 1)).join(", ");
   if (typeof value === "object") {
@@ -45,13 +46,61 @@ function previewLabel(key: string) {
   return labels[key] || key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (value) => value.toUpperCase());
 }
 
+const HIDDEN_PREVIEW_KEYS = new Set(["contextGeneration", "expiresAt", "entityId", "projectId", "workerId", "accountId", "transactionId", "snapshotId", "assignmentId", "profileId", "componentId", "entryId", "documentId", "revisionId", "revisionIds", "rfiId", "submittalId", "roundId", "responseId", "reviewId", "siteLogId", "membershipId", "invitationId", "assignedUserId", "leftTransactionId", "rightTransactionId", "transferGroupId", "expectedUpdatedAt", "preflight", "currentRecord"]);
+
+function preparedActionLabel(toolName: string) {
+  const labels: Record<string, string> = {
+    prepare_project_lifecycle: "Project lifecycle",
+    prepare_financial_correction: "Financial correction",
+    prepare_worker_update: "Worker update",
+    prepare_worker_lifecycle: "Worker lifecycle",
+    prepare_assignment_lifecycle: "Project assignment lifecycle",
+    prepare_compensation_profile_lifecycle: "Compensation profile lifecycle",
+    prepare_recurring_component_lifecycle: "Recurring payroll component lifecycle",
+    prepare_workforce_source_lifecycle: "Workforce source correction",
+    prepare_engineering_document_lifecycle: "Engineering document lifecycle",
+    prepare_rfi_lifecycle: "RFI lifecycle",
+    prepare_submittal_lifecycle: "Technical submittal lifecycle",
+    prepare_site_log_lifecycle: "Daily Site Log lifecycle",
+    prepare_site_log_addendum: "Daily Site Log correction",
+    prepare_reopen_invoice_review: "Reopen invoice review",
+    prepare_save_project_assignment: "Save project assignment",
+    prepare_update_project: "Update project",
+    prepare_update_attendance: "Correct attendance",
+    prepare_save_compensation_profile: "Save compensation profile",
+    prepare_save_recurring_component: "Save recurring payroll component",
+    prepare_save_work_entry: "Save work entry",
+    prepare_financial_account: "Save financial account",
+    prepare_financial_account_lifecycle: "Financial account lifecycle",
+    prepare_financial_snapshot: "Record manual balance",
+    create_payroll_run: "Create draft payroll run",
+    prepare_financial_transaction: "Create financial transaction",
+    prepare_financial_transaction_correction: "Correct financial transaction",
+    prepare_financial_transaction_lifecycle: "Financial transaction lifecycle",
+    prepare_import_cash_statement: "Import cash statement",
+    prepare_internal_transfer: "Confirm internal transfer",
+    prepare_internal_transfer_reversal: "Reverse internal transfer",
+    prepare_update_company_profile: "Update company profile",
+    prepare_authorize_company_member: "Authorize company access",
+    prepare_update_company_member: "Update company member",
+    prepare_update_member_permissions: "Update member permissions",
+    prepare_revoke_company_invitation: "Revoke pending access",
+  };
+  if (labels[toolName]) return labels[toolName];
+  return toolName.replace(/^prepare_/, "").replace(/[._:-]+/g, " ").replace(/\b\w/g, (value) => value.toUpperCase());
+}
+
 function clientActionLabel(action: AssistantClientAction) {
   if (action.label) return action.label;
   if (action.type === "OPEN_INVOICE") return "Open invoice";
   if (action.type === "OPEN_REVIEW_INVOICE") return "Review invoice";
   if (action.type === "OPEN_PROJECT") return "Open project";
+  if (action.type === "OPEN_PROJECT_DOCUMENTS") return "Open project documents";
+  if (action.type === "OPEN_ENGINEERING_DOCUMENT") return "Open engineering document";
   if (action.type === "OPEN_SITE_LOG") return "Open Site Log";
   if (action.type === "OPEN_PAYROLL_PERIOD") return "Open payroll";
+  if (action.type === "OPEN_PAYROLL_RUN") return "Open payroll run";
+  if (action.type === "OPEN_FINANCIAL_TRANSACTION") return "Open transaction";
   if (action.type === "OPEN_ATTENDANCE_DATE") return "Open attendance";
   if (action.type === "START_TOUR") return "Start guided tour";
   return "Open workspace";
@@ -78,10 +127,10 @@ export const AssistantActionCard: React.FC<AssistantActionCardProps> = ({ prepar
               <p className="text-sm font-black text-amber-950">{confirmationLabel(preparedAction.riskTier)}</p>
               <span className="rounded-full border border-amber-200 bg-white/70 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-amber-800">{riskLabel(preparedAction.riskTier)}</span>
             </div>
-            <p className="mt-1 text-xs leading-5 text-amber-900">{preparedAction.toolName.replace(/[._:-]+/g, " ")}</p>
-            {Object.keys(preparedAction.preview).length > 0 && (
+            <p className="mt-1 text-xs leading-5 text-amber-900">{preparedActionLabel(preparedAction.toolName)}</p>
+            {Object.keys(preparedAction.preview).some((key) => !HIDDEN_PREVIEW_KEYS.has(key)) && (
               <dl className="mt-2 space-y-1.5 rounded-xl border border-amber-200/80 bg-white/60 p-2.5 text-xs leading-5 text-slate-700">
-                {Object.entries(preparedAction.preview).slice(0, 8).map(([key, value]) => <div key={key} className="flex gap-2"><dt className="min-w-0 flex-1 truncate font-bold text-slate-500">{previewLabel(key)}</dt><dd className="max-w-[65%] truncate text-right font-semibold">{valueLabel(value)}</dd></div>)}
+                {Object.entries(preparedAction.preview).filter(([key]) => !HIDDEN_PREVIEW_KEYS.has(key)).slice(0, 8).map(([key, value]) => <div key={key} className="flex gap-2"><dt className="min-w-0 flex-1 truncate font-bold text-slate-500">{previewLabel(key)}</dt><dd className="max-w-[65%] truncate text-right font-semibold">{valueLabel(value)}</dd></div>)}
               </dl>
             )}
             {preparedAction.status !== "PREPARED" && <p className="mt-2 text-xs font-bold text-slate-600">Status: {preparedAction.status.toLowerCase()}</p>}

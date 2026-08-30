@@ -97,7 +97,7 @@ test("Cash & Banking tools are registered with correct permissions and schemas",
   const summaryDef = getAssistantToolDefinition("get_cash_summary");
   assert.ok(summaryDef);
   assert.equal(summaryDef.riskTier, "READ");
-  assert.deepEqual(summaryDef.permissions, ["cash.summary.read"]);
+  assert.deepEqual(summaryDef.permissions, ["cash.summary.read", "cash.transactions.read"]);
 
   const accountsDef = getAssistantToolDefinition("list_financial_accounts");
   assert.ok(accountsDef);
@@ -107,7 +107,7 @@ test("Cash & Banking tools are registered with correct permissions and schemas",
   const accountDef = getAssistantToolDefinition("get_financial_account");
   assert.ok(accountDef);
   assert.equal(accountDef.riskTier, "READ");
-  assert.deepEqual(accountDef.permissions, ["cash.summary.read"]);
+  assert.deepEqual(accountDef.permissions, ["cash.summary.read", "cash.transactions.read"]);
 
   const transactionsDef = getAssistantToolDefinition("list_financial_transactions");
   assert.ok(transactionsDef);

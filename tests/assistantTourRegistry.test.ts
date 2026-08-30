@@ -11,15 +11,19 @@ import {
 
 test("tour registry contains the stable Wave 1 tour set and valid targets", () => {
   assert.deepEqual([...ASSISTANT_TOUR_IDS], [
-    "invoiceapp-overview",
+    "engoryx-overview",
     "cash-banking",
     "first-invoice",
     "gmail-import",
     "projects-costing",
     "engineering-documents",
+    "project-lifecycle",
     "payroll-basics",
     "attendance-overtime",
     "payroll-run",
+    "workforce-lifecycle",
+    "cash-corrections",
+    "company-access",
     "reports",
     "assistant-basics",
   ]);

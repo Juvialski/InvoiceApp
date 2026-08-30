@@ -9,7 +9,7 @@ import type { ExtractPayload } from "./components/UploadZone";
 import type { SaveState } from "./components/VerificationWorkspace";
 import { AppShell } from "./app/AppShell";
 import { AppRouter } from "./app/routes/AppRouter";
-import { appPathForInvoice, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, parseAppLocation, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
+import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
@@ -3049,13 +3049,13 @@ function InvoiceWorkspace() {
       isAuthenticated={Boolean(isSupabaseConfigured && session)}
       guestMode={guestModeState}
       permissions={permissions}
-       compactContext={{ route: route.pathname, companyName: activeCompany?.name, companyTimezone: activeCompany?.timezone || regionalSettings.timezone, currency: activeCompany?.defaultCurrency || regionalSettings.currency, locale: regionalSettings.locale, selectedInvoiceId: selectedInvoice?.id || undefined, selectedProjectId: selectedProject?.id || undefined, selectedSiteLogId: route.kind === "project" ? route.siteLogId : undefined }}
+       compactContext={{ route: route.pathname, companyName: activeCompany?.name, companyTimezone: activeCompany?.timezone || regionalSettings.timezone, currency: activeCompany?.defaultCurrency || regionalSettings.currency, locale: regionalSettings.locale, selectedInvoiceId: selectedInvoice?.id || undefined, selectedProjectId: selectedProject?.id || undefined, selectedSiteLogId: route.kind === "project" ? route.siteLogId : undefined, selectedPayrollPeriodId: route.kind === "tab" && route.tab === "payroll" ? payrollPeriodIdFromSearch(route.search) : undefined, selectedPayrollRunId: route.kind === "tab" && route.tab === "payroll" ? payrollRunIdFromSearch(route.search) : undefined, attendanceDate: route.kind === "tab" && route.tab === "payroll" ? attendanceDateFromSearch(route.search) : undefined }}
       onNavigate={(path) => navigateToPath(path)}
       onOpenInvoice={(invoiceId) => { const invoice = invoicesRef.current.find((item) => item.id === invoiceId); if (invoice) openInvoice(invoice); else navigateToPath(appPathForInvoice(invoiceId)); }}
       onOpenReviewInvoice={(invoiceId) => { const invoice = invoicesRef.current.find((item) => item.id === invoiceId); if (invoice) openInvoiceForReview(invoice, activeTab); else navigateToPath(appPathForReviewInvoice(invoiceId, appPathForTab(activeTab))); }}
       onOpenProject={(projectId) => { const project = projects.find((item) => item.id === projectId); if (project) projectController.openProject(project); else navigateToPath(appPathForProject(projectId)); }}
-      onOpenPayrollPeriod={() => navigateToPath(appPathForTab("payroll"))}
-      onOpenAttendanceDate={() => navigateToPath(appPathForTab("payroll"))}
+      onOpenPayrollPeriod={(periodId) => navigateToPath(periodId ? appPathForPayrollPeriod(periodId, appPathForTab(activeTab)) : appPathForTab("payroll"))}
+      onOpenAttendanceDate={(date) => navigateToPath(date ? appPathForAttendanceDate(date, appPathForTab(activeTab)) : appPathForTab("payroll"))}
       onProcessAttachedInvoice={async (attachment) => {
         if (!attachment.dataBase64 || !attachment.mimeType || !attachment.fileName) throw new Error("The original invoice attachment is no longer available. Attach it again.");
         const saved = await handleExtract({ fileData: attachment.dataBase64, mimeType: attachment.mimeType, fileName: attachment.fileName, model: "gemini-3.5-flash-lite", sourceType: "UPLOAD" });
