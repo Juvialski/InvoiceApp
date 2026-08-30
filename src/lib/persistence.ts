@@ -832,7 +832,6 @@ function comparableSnapshot(invoice: InvoiceData) {
 export async function updateInvoiceInSupabase(previous: InvoiceData, updated: InvoiceData, eventType = "HUMAN_EDIT"): Promise<InvoiceData> {
   const client = requireSupabase();
   const userId = await requireUserId();
-  const vendorId = await ensureVendor(updated);
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
     .select("current_data,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
@@ -843,6 +842,9 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   if (!expectedUpdatedAt || String(existingRow.updated_at || "") !== expectedUpdatedAt) {
     throw new Error("This invoice changed in another session. Refresh it before saving.");
   }
+  // Check freshness before any related vendor upsert. A stale invoice edit
+  // must not create or rewrite a vendor as a side effect of being rejected.
+  const vendorId = await ensureVendor(updated);
   const durableAiSnapshot = existingRow?.current_data?.aiSnapshot || previous.aiSnapshot || updated.aiSnapshot;
   const persistedBefore = existingRow?.current_data
     ? { ...(existingRow.current_data as Partial<InvoiceData>), id: updated.id }
@@ -910,6 +912,7 @@ function invoiceFromLifecycleRecord(value: Record<string, unknown>): InvoiceData
     reviewStatus: (value.review_status || currentData.reviewStatus || "NEEDS_REVIEW") as InvoiceData["reviewStatus"],
     status: String(value.payment_status || currentData.status || "UNPAID"),
     lifecycleStatus: (value.lifecycle_status || currentData.lifecycleStatus || "ACTIVE") as InvoiceData["lifecycleStatus"],
+    updatedAt: lifecycleValue("updated_at", currentData.updatedAt) as string | undefined,
     archivedAt: lifecycleValue("archived_at", currentData.archivedAt) as string | undefined,
     voidedAt: lifecycleValue("voided_at", currentData.voidedAt) as string | undefined,
     voidedByUserId: lifecycleValue("voided_by_user_id", currentData.voidedByUserId) as string | undefined,

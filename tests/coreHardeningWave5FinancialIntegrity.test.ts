@@ -85,6 +85,8 @@ test("Wave 5 migration closes finalization, stale-replacement, currency, and per
 test("application persistence uses database freshness tokens for invoice, allocation, and expense writes", () => {
   assert.match(persistence, /eq\("updated_at", expectedUpdatedAt\)/);
   assert.match(persistence, /This invoice changed in another session/);
+  assert.match(persistence, /Check freshness before any related vendor upsert/);
+  assert.match(persistence, /updatedAt: lifecycleValue\("updated_at", currentData\.updatedAt\)/);
   assert.match(projects, /p_expected_updated_at: expectedInvoiceUpdatedAt/);
   assert.match(projects, /Invoice freshness is unavailable/);
   assert.match(expenses, /eq\("updated_at", expense\.updatedAt\)/);
@@ -98,4 +100,11 @@ test("Assistant and reporting surfaces use canonical allocation and lifecycle se
   assert.match(assistant, /eq\("updated_at", String\(invoice\.updated_at/);
   assert.match(dashboard, /if \(run\.status === "VOID"\) continue/);
   assert.match(reports, /run\.status === "VOID"\) return \[\]/);
+});
+
+test("invoice lifecycle actions retain the fresh token returned by a database save", () => {
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(app, /verified = invoicesRef\.current\.find\(\(item\) => item\.id === invoice\.id\) \|\| verified/);
+  assert.match(app, /const saved = invoicesRef\.current\.find\(\(item\) => item\.id === reopened\.id\) \|\| reopened/);
+  assert.match(app, /const saved = invoicesRef\.current\.find\(\(item\) => item\.id === reverted\.id\) \|\| reverted/);
 });

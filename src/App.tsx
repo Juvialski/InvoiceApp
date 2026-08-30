@@ -2614,9 +2614,10 @@ function InvoiceWorkspace() {
 
   const handleVerify = async (invoice: InvoiceData) => {
     const initialRevision = editRevisionRef.current.get(invoice.id) || 0;
-    let verified = { ...applyLocalChecks(invoice), reviewStatus: "VERIFIED" as const, verifiedAt: new Date().toISOString() };
+    let verified: InvoiceData = { ...applyLocalChecks(invoice), reviewStatus: "VERIFIED" as const, verifiedAt: new Date().toISOString() };
     const persisted = await flushInvoiceSave(verified, "VERIFIED");
     if (!persisted) throw new Error("Could not save invoice verification.");
+    verified = invoicesRef.current.find((item) => item.id === invoice.id) || verified;
     // If a field edit arrived while verification was saving, verify the latest
     // local values instead of replacing them with the older click snapshot.
     if (editRevisionRef.current.get(invoice.id) !== initialRevision) {
@@ -2624,6 +2625,7 @@ function InvoiceWorkspace() {
       if (!latest) throw new Error("The invoice is no longer available.");
       verified = { ...applyLocalChecks(latest), reviewStatus: "VERIFIED" as const, verifiedAt: new Date().toISOString() };
       if (!await flushInvoiceSave(verified, "VERIFIED")) throw new Error("Could not save invoice verification.");
+      verified = invoicesRef.current.find((item) => item.id === invoice.id) || verified;
     }
     const next = invoicesRef.current.map((item) => item.id === verified.id ? verified : item);
     invoicesRef.current = next;
@@ -2641,11 +2643,12 @@ function InvoiceWorkspace() {
   const handleReopen = async (invoice: InvoiceData) => {
     const reopened = { ...invoice, reviewStatus: "NEEDS_REVIEW" as const, verifiedAt: undefined };
     if (!await flushInvoiceSave(reopened, "REOPENED")) return;
-    const next = invoicesRef.current.map((item) => item.id === reopened.id ? reopened : item);
+    const saved = invoicesRef.current.find((item) => item.id === reopened.id) || reopened;
+    const next = invoicesRef.current.map((item) => item.id === saved.id ? saved : item);
     invoicesRef.current = next;
     setInvoices(next);
-    setSelectedInvoice((current) => current?.id === reopened.id ? reopened : current);
-    showNotification("info", `Reopened ${reopened.invoiceNumber || "invoice"} for review.`);
+    setSelectedInvoice((current) => current?.id === saved.id ? saved : current);
+    showNotification("info", `Reopened ${saved.invoiceNumber || "invoice"} for review.`);
   };
 
   const handleRetryExtraction = async (invoice: InvoiceData): Promise<InvoiceData | null> => {
@@ -2742,11 +2745,12 @@ function InvoiceWorkspace() {
       verifiedAt: undefined,
     });
     if (!await flushInvoiceSave(reverted, "REVERTED_TO_AI")) return;
-    const next = invoicesRef.current.map((item) => item.id === reverted.id ? reverted : item);
+    const saved = invoicesRef.current.find((item) => item.id === reverted.id) || reverted;
+    const next = invoicesRef.current.map((item) => item.id === saved.id ? saved : item);
     invoicesRef.current = next;
     setInvoices(next);
-    setSelectedInvoice((current) => current?.id === reverted.id ? reverted : current);
-    showNotification("info", `Restored ${reverted.invoiceNumber || "invoice"} to its original AI values for review.`);
+    setSelectedInvoice((current) => current?.id === saved.id ? saved : current);
+    showNotification("info", `Restored ${saved.invoiceNumber || "invoice"} to its original AI values for review.`);
   };
 
   const handleRevertField = async (invoice: InvoiceData, path: string) => {
@@ -2754,10 +2758,11 @@ function InvoiceWorkspace() {
     const originalValue = valueAtPath(invoice.aiSnapshot, path);
     const reverted = applyLocalChecks(withPathValue(invoice, path, originalValue));
     if (!await flushInvoiceSave(reverted, "FIELD_REVERTED")) return;
-    const next = invoicesRef.current.map((item) => item.id === reverted.id ? reverted : item);
+    const saved = invoicesRef.current.find((item) => item.id === reverted.id) || reverted;
+    const next = invoicesRef.current.map((item) => item.id === saved.id ? saved : item);
     invoicesRef.current = next;
     setInvoices(next);
-    setSelectedInvoice((current) => current?.id === reverted.id ? reverted : current);
+    setSelectedInvoice((current) => current?.id === saved.id ? saved : current);
     showNotification("info", `Reverted ${path.replaceAll(".", " ")} to the original AI value.`);
   };
 
