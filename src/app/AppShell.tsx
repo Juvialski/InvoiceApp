@@ -9,6 +9,7 @@ import type { PermissionKey } from "../utils/accessControl";
 import type { RouteId } from "../utils/routes";
 import type { DataCompleteness, ProjectCostSource } from "../utils/dataCompleteness.ts";
 import { AppPermissionProvider } from "./AppPermissionContext.tsx";
+import { workspacePresentationState } from "../lib/workspacePresentation.ts";
 
 export interface ShellNotification {
   type: "success" | "error" | "info";
@@ -188,8 +189,11 @@ export const AppShell: React.FC<AppShellProps> = ({
     });
   };
 
-  const workspaceDataPending =
-    workspaceLoading || workspaceSyncStatus === "connecting" || workspaceSyncStatus === "syncing";
+  const workspacePresentation = workspacePresentationState({
+    initialLoadPending: workspaceLoading,
+    syncStatus: workspaceSyncStatus,
+  });
+  const workspaceDataPending = workspacePresentation.blocking;
 
   return (
     <AppPermissionProvider

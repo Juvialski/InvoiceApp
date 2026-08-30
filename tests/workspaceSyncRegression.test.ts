@@ -9,12 +9,16 @@ import {
   type WorkspaceSyncClient,
   type WorkspaceSyncEnvironment,
   type WorkspaceSyncTimers,
+  createWorkspaceLoadCache,
   createWorkspaceSyncController,
   createWorkspaceSyncFallback,
   subscribeToWorkspaceChanges,
 } from "../src/lib/workspaceSync.ts";
 
 import { resolveEntityById as resolveEntityByIdFromConflict } from "../src/utils/remoteConflict.ts";
+import { workspacePresentationState } from "../src/lib/workspacePresentation.ts";
+
+const cacheKey = (companyId = "company-a") => ({ userId: "user-1", companyId, group: "invoices" as const });
 
 function createFakeTimers(): WorkspaceSyncTimers & { advance: (milliseconds: number) => Promise<void> } {
   let now = 0;
@@ -447,4 +451,62 @@ test("selected route identity survives reordered refreshes by stable ID", () => 
 
   // Keep the conflict helper's stable-ID contract covered at the same route boundary.
   assert.equal(resolveEntityByIdFromConflict(snapshots[2], routeId)?.name, "Updated again");
+});
+
+test("background sync is non-blocking while initial hydration remains blocking", () => {
+  assert.deepEqual(
+    workspacePresentationState({ initialLoadPending: true, syncStatus: "connecting" }),
+    { blocking: true, backgroundRefreshing: false },
+  );
+  assert.deepEqual(
+    workspacePresentationState({ initialLoadPending: false, syncStatus: "syncing" }),
+    { blocking: false, backgroundRefreshing: true },
+  );
+  assert.deepEqual(
+    workspacePresentationState({ initialLoadPending: false, syncStatus: "synced" }),
+    { blocking: false, backgroundRefreshing: false },
+  );
+});
+
+test("refresh failure reports an authenticated sync error without losing the cache", async () => {
+  const channel = createFakeChannel("user-1");
+  const controller = createWorkspaceSyncController({
+    client: { channel: () => channel },
+    refresh: async () => { throw new Error("temporary workspace failure"); },
+  });
+
+  await controller.setSession({ user: { id: "user-1" } }, "company-a");
+  controller.requestRefresh("engineering", "focus");
+  await controller.flush();
+
+  assert.equal(controller.getState().status, "error");
+  assert.equal(controller.getState().refreshing, false);
+  assert.equal(controller.getState().error, "temporary workspace failure");
+  await controller.dispose();
+});
+
+test("focus and visibility refreshes retain route data until the fresh cache result is ready", async () => {
+  const cache = createWorkspaceLoadCache<string>({ staleAfterMs: Number.POSITIVE_INFINITY });
+  await cache.load(cacheKey(), () => "before-refresh");
+  let rendered = cache.get(cacheKey())?.data;
+  let resolveRefresh!: (value: string) => void;
+  const refresh = {
+    promise: new Promise<string>((resolve) => { resolveRefresh = resolve; }),
+    resolve: (value: string) => resolveRefresh(value),
+  };
+
+  // Both browser signals request the same exact scope. The cache exposes the
+  // old value while the one background request is pending.
+  const focusRequest = cache.getOrLoad(cacheKey(), () => refresh.promise, { force: true });
+  const visibilityRequest = cache.getOrLoad(cacheKey(), () => "unexpected", { force: true });
+  assert.equal(focusRequest.revalidating, true);
+  assert.equal(visibilityRequest.fromCache, true);
+  assert.strictEqual(focusRequest.promise, visibilityRequest.promise);
+  rendered = focusRequest.data;
+  assert.equal(rendered, "before-refresh");
+
+  refresh.resolve("after-refresh");
+  assert.equal(await focusRequest.promise, "after-refresh");
+  rendered = cache.get(cacheKey())?.data;
+  assert.equal(rendered, "after-refresh");
 });

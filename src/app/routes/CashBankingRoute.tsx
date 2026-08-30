@@ -10,6 +10,7 @@ export const CashBankingRoute: React.FC<CashBankingRouteProps> = (props) => {
       data={props.data}
       candidates={props.reconciliationCandidates || []}
       canReconcile={props.canReconcile}
+      canSettleTarget={props.canSettleTarget}
       onSaveMatch={props.onSaveMatch}
       onSaveMatchBatch={props.onSaveMatchBatch}
       onReverseMatch={props.onReverseMatch}

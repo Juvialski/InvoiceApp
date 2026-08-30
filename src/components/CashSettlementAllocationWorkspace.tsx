@@ -11,6 +11,7 @@ interface Props {
   data: CashBankingWorkspaceData;
   candidates: readonly FinancialReconciliationCandidate[];
   canReconcile?: boolean;
+  canSettleTarget?: (targetType: FinancialReconciliationCandidate["targetType"]) => boolean;
   onSaveMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
   onSaveMatchBatch?: (matches: FinancialTransactionMatch[], transaction: FinancialTransaction) => Promise<void> | void;
   onReverseMatch?: (matchId: string, reason: string) => Promise<void> | void;
@@ -30,7 +31,7 @@ function targetPath(candidate: FinancialReconciliationCandidate) {
   return undefined;
 }
 
-export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candidates, canReconcile = true, onSaveMatch, onSaveMatchBatch, onReverseMatch, canReverseMatch }) => {
+export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candidates, canReconcile = true, canSettleTarget = () => true, onSaveMatch, onSaveMatchBatch, onReverseMatch, canReverseMatch }) => {
   const linkedId = typeof window === "undefined" ? undefined : financialTransactionIdFromSearch(window.location.search);
   const initial = data.transactions.find((transaction) => transaction.id === linkedId)
     || data.transactions.find((transaction) => transaction.status === "POSTED" && transaction.direction === "DEBIT" && !["MATCHED", "IGNORED"].includes(transaction.reconciliationStatus));
@@ -74,9 +75,12 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
     const amount = raw === undefined ? 0 : round(Number(raw));
     return { ...row, amount: Number.isFinite(amount) ? amount : 0 };
   }).filter((row) => row.amount > 0);
+  const canSettle = (targetType: FinancialReconciliationCandidate["targetType"]) => canReconcile && canSettleTarget(targetType);
   const draftTotal = round(selectedDrafts.reduce((sum, row) => sum + row.amount, 0));
   const afterDraft = round(Math.max(0, remaining - draftTotal));
-  const draftInvalid = draftTotal > remaining + 0.005 || selectedDrafts.some((row) => row.amount > row.outstanding + 0.005);
+  const draftInvalid = draftTotal > remaining + 0.005
+    || selectedDrafts.some((row) => row.amount > row.outstanding + 0.005)
+    || selectedDrafts.some((row) => !canSettle(row.candidate.targetType));
 
   const choose = (candidate: FinancialReconciliationCandidate, outstanding: number) => {
     const key = `${candidate.targetType}:${candidate.targetId}`;
@@ -86,7 +90,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
   };
 
   const confirm = async () => {
-    if (!transaction || (!onSaveMatch && !onSaveMatchBatch) || !selectedDrafts.length || draftInvalid) return;
+    if (!transaction || (!onSaveMatch && !onSaveMatchBatch) || !selectedDrafts.length || draftInvalid || selectedDrafts.some((row) => !canSettle(row.candidate.targetType))) return;
     setBusy(true); setNotice(null);
     try {
       let confirmedMatches = activeMatches;
@@ -215,10 +219,11 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, candi
       {transaction.direction !== "DEBIT" || transaction.status !== "POSTED" ? <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">Only POSTED debit transactions can settle supplier invoices or payroll runs.</p> : <div className="mt-3 grid gap-2 lg:grid-cols-2">{rows.slice(0, 20).map(({ candidate, settled, outstanding }) => {
         const key = `${candidate.targetType}:${candidate.targetId}`;
         const href = targetPath(candidate);
-        return <article key={key} className="rounded-xl border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-1.5"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-black text-indigo-700">{candidate.targetType}</span><strong className="truncate text-xs text-slate-900">{candidate.label}</strong></div><p className="mt-1 text-[10px] text-slate-500">{candidate.date || "Date unavailable"}{candidate.reference ? ` · ${candidate.reference}` : ""}</p><p className="mt-1 text-[10px] text-slate-500">Payable {money(candidate.amount, candidate.currency || transaction.currency)} · settled {money(settled, transaction.currency)} · <strong className="text-slate-700">outstanding {money(outstanding, transaction.currency)}</strong></p></div>{href && <a href={href} aria-label="Open settlement target" className="shrink-0 rounded-lg p-2 text-indigo-700 hover:bg-indigo-50"><Link2 className="h-4 w-4" /></a>}</div><div className="mt-3 flex gap-2"><div className="relative min-w-0 flex-1"><span className="pointer-events-none absolute left-3 top-2.5 text-[10px] font-bold text-slate-400">{transaction.currency}</span><input inputMode="decimal" value={draft[key] || ""} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} placeholder="0.00" className="min-h-10 w-full rounded-lg border border-slate-200 pl-12 pr-3 text-right text-xs font-bold tabular-nums outline-none focus:border-indigo-400" /></div><button type="button" onClick={() => choose(candidate, outstanding)} disabled={!canReconcile || remaining <= 0} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-[10px] font-black text-indigo-700 disabled:opacity-40"><Split className="h-3.5 w-3.5" /> Allocate</button></div></article>;
+        const targetCanBeSettled = canSettle(candidate.targetType);
+        return <article key={key} className="rounded-xl border border-slate-200 p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex items-center gap-1.5"><span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[9px] font-black text-indigo-700">{candidate.targetType}</span><strong className="truncate text-xs text-slate-900">{candidate.label}</strong></div><p className="mt-1 text-[10px] text-slate-500">{candidate.date || "Date unavailable"}{candidate.reference ? ` · ${candidate.reference}` : ""}</p><p className="mt-1 text-[10px] text-slate-500">Payable {money(candidate.amount, candidate.currency || transaction.currency)} · settled {money(settled, transaction.currency)} · <strong className="text-slate-700">outstanding {money(outstanding, transaction.currency)}</strong></p></div>{href && <a href={href} aria-label="Open settlement target" className="shrink-0 rounded-lg p-2 text-indigo-700 hover:bg-indigo-50"><Link2 className="h-4 w-4" /></a>}</div><div className="mt-3 flex gap-2"><div className="relative min-w-0 flex-1"><span className="pointer-events-none absolute left-3 top-2.5 text-[10px] font-bold text-slate-400">{transaction.currency}</span><input inputMode="decimal" value={draft[key] || ""} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} placeholder="0.00" disabled={!targetCanBeSettled} className="min-h-10 w-full rounded-lg border border-slate-200 pl-12 pr-3 text-right text-xs font-bold tabular-nums outline-none focus:border-indigo-400 disabled:cursor-not-allowed disabled:bg-slate-50" /></div><button type="button" onClick={() => choose(candidate, outstanding)} disabled={!targetCanBeSettled || remaining <= 0} className="inline-flex min-h-10 items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-[10px] font-black text-indigo-700 disabled:opacity-40"><Split className="h-3.5 w-3.5" /> {targetCanBeSettled ? "Allocate" : "Requires target permission"}</button></div></article>;
       })}{!rows.length && <p className="lg:col-span-2 rounded-xl border border-dashed border-slate-200 p-5 text-center text-xs text-slate-500">No eligible same-currency invoice, payroll, or expense obligation has a remaining balance for this debit.</p>}</div>}
 
-      <div className="mt-4 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="flex items-center gap-1.5 text-xs font-black text-slate-800"><WalletCards className="h-4 w-4" /> Confirmation review</p><p className="mt-1 text-[10px] text-slate-500">{selectedDrafts.length ? `${selectedDrafts.length} allocation${selectedDrafts.length === 1 ? "" : "s"} selected. Server validation is authoritative.` : "Select one or more allocations. Nothing is auto-confirmed."}</p>{draftInvalid && <p className="mt-1 text-[10px] font-bold text-rose-700">Draft allocation exceeds the transaction remaining amount or a target outstanding amount.</p>}</div><button type="button" onClick={() => void confirm()} disabled={!canReconcile || (!onSaveMatch && !onSaveMatchBatch) || busy || !selectedDrafts.length || draftInvalid} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-xs font-black text-white disabled:opacity-40"><CheckCircle2 className="h-4 w-4" /> {busy ? "Confirming…" : "Confirm settlement"}</button></div>
+      <div className="mt-4 flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="flex items-center gap-1.5 text-xs font-black text-slate-800"><WalletCards className="h-4 w-4" /> Confirmation review</p><p className="mt-1 text-[10px] text-slate-500">{selectedDrafts.length ? `${selectedDrafts.length} allocation${selectedDrafts.length === 1 ? "" : "s"} selected. Server validation is authoritative.` : "Select one or more allocations. Nothing is auto-confirmed."}</p>{draftInvalid && <p className="mt-1 text-[10px] font-bold text-rose-700">The allocation exceeds a remaining balance or needs the target domain permission.</p>}</div><button type="button" onClick={() => void confirm()} disabled={!canReconcile || (!onSaveMatch && !onSaveMatchBatch) || busy || !selectedDrafts.length || draftInvalid} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-xs font-black text-white disabled:opacity-40"><CheckCircle2 className="h-4 w-4" /> {busy ? "Confirming…" : "Confirm settlement"}</button></div>
     </>}
     <p className="mt-3 flex items-center gap-1.5 text-[10px] text-slate-400"><Split className="h-3 w-3" /> Internal account transfers continue through the dedicated transfer workflow below and never become invoice/payroll settlement.</p>
 

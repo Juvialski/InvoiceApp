@@ -38,8 +38,8 @@ interface VerificationWorkspaceProps {
   onContinueWithNewItems?: () => void;
   onReturnToDashboard: () => void;
   onViewVerified: () => void;
-  onRevertToAI: () => void;
-  onRevertField: (path: string) => void;
+  onRevertToAI?: () => void;
+  onRevertField?: (path: string) => void;
   projects?: Project[];
   invoiceProjectAllocations?: InvoiceProjectAllocation[];
   onSaveProjectAllocations?: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;

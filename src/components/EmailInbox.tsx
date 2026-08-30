@@ -16,9 +16,10 @@ interface EmailInboxProps {
   onImportGmailMessage: (message: GmailMessageCandidate) => Promise<number>;
   onProcessEmail: (input: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }) => Promise<EmailClassification | null>;
   onOpenInvoice: (invoice: InvoiceData) => void;
+  canProcessInvoices?: boolean;
 }
 
-export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, connection, onConnectGmail, onSignOut, onScanGmail, onSyncGmail, onImportGmailMessage, onProcessEmail, onOpenInvoice }) => {
+export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, connection, onConnectGmail, onSignOut, onScanGmail, onSyncGmail, onImportGmailMessage, onProcessEmail, onOpenInvoice, canProcessInvoices = true }) => {
   const [days, setDays] = useState(30);
   const [scanMode, setScanMode] = useState<"days" | "custom">("days");
   const [customAfter, setCustomAfter] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
@@ -52,6 +53,10 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, 
   };
 
   const importCandidate = async (message: GmailMessageCandidate) => {
+    if (!canProcessInvoices) {
+      setGmailError("Invoice extraction requires invoice management, extraction, and verification permissions in this company.");
+      return;
+    }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
     try {
       await onImportGmailMessage(message);
@@ -65,6 +70,10 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, 
   const handleManualSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setManualError(null);
+    if (!canProcessInvoices) {
+      setManualError("Invoice extraction requires invoice management, extraction, and verification permissions in this company.");
+      return;
+    }
     if (!subject.trim() && !body.trim() && attachments.length === 0) {
       setManualError("Add an email subject/body or at least one invoice attachment.");
       return;
@@ -97,14 +106,15 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({ invoices, isProcessing, 
       {candidates.length > 0 && <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="text-sm font-black">Gmail scan results</h3><p className="text-[10px] text-slate-500 mt-1">Import keeps the email and attachments linked to the invoice, then extracts supported PDF/image documents.</p></div><span className="text-[10px] font-black bg-slate-100 px-2.5 py-1 rounded-full">{candidates.length} candidates</span></div><div className="mt-4 space-y-2.5">{candidates.map((message) => {
         const cls = message.classification;
         const recommended = cls?.isInvoiceLike;
-        return <div key={message.id} className="border border-slate-200 rounded-2xl p-3.5 flex flex-col lg:flex-row lg:items-center gap-3"><div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${recommended ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"}`}><Inbox className="w-4 h-4" /></div><div className="min-w-0 flex-1"><div className="flex gap-2 items-center flex-wrap"><p className="text-xs font-black truncate">{message.subject || "(No subject)"}</p>{cls && <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${recommended ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{cls.documentType}{cls.invoiceSubtype ? ` • ${cls.invoiceSubtype}` : ""} {Math.round(cls.confidence || 0)}%</span>}</div><p className="text-[10px] text-slate-500 mt-1 truncate">{message.sender} • {formatDateTime(message.receivedAt)} • {message.attachments.length} attachment{message.attachments.length === 1 ? "" : "s"}</p>{cls?.reason && <p className="text-[10px] text-slate-600 mt-1 line-clamp-1">{cls.reason}</p>}</div><button disabled={message.importStatus === "IMPORTING" || message.importStatus === "IMPORTED"} onClick={() => void importCandidate(message)} className={`px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 ${recommended ? "bg-indigo-600 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{message.importStatus === "IMPORTING" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : message.importStatus === "IMPORTED" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <UploadCloud className="w-3.5 h-3.5" />}{message.importStatus === "IMPORTED" ? "Imported" : recommended ? "Import & extract" : "Import anyway"}</button></div>;
+        return <div key={message.id} className="border border-slate-200 rounded-2xl p-3.5 flex flex-col lg:flex-row lg:items-center gap-3"><div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${recommended ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"}`}><Inbox className="w-4 h-4" /></div><div className="min-w-0 flex-1"><div className="flex gap-2 items-center flex-wrap"><p className="text-xs font-black truncate">{message.subject || "(No subject)"}</p>{cls && <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${recommended ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{cls.documentType}{cls.invoiceSubtype ? ` • ${cls.invoiceSubtype}` : ""} {Math.round(cls.confidence || 0)}%</span>}</div><p className="text-[10px] text-slate-500 mt-1 truncate">{message.sender} • {formatDateTime(message.receivedAt)} • {message.attachments.length} attachment{message.attachments.length === 1 ? "" : "s"}</p>{cls?.reason && <p className="text-[10px] text-slate-600 mt-1 line-clamp-1">{cls.reason}</p>}</div>{canProcessInvoices ? <button disabled={message.importStatus === "IMPORTING" || message.importStatus === "IMPORTED"} onClick={() => void importCandidate(message)} className={`px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 ${recommended ? "bg-indigo-600 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>{message.importStatus === "IMPORTING" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : message.importStatus === "IMPORTED" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <UploadCloud className="w-3.5 h-3.5" />}{message.importStatus === "IMPORTED" ? "Imported" : recommended ? "Import & extract" : "Import anyway"}</button> : <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">Requires invoice permission</span>}</div>;
       })}</div></section>}
 
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         <div className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-600" /><div><h3 className="text-sm font-black">Manual email fallback</h3><p className="text-[10px] text-slate-500">Keep this for forwarded messages or unsupported mailboxes.</p></div></div>
+        {!canProcessInvoices && <div role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">Invoice extraction requires invoice management, extraction, and verification permissions. Gmail scanning remains available, but this access profile cannot create invoice records.</div>}
         <form onSubmit={handleManualSubmit} className="mt-4 grid lg:grid-cols-2 gap-4">
           <div className="space-y-3"><input value={sender} onChange={(e) => setSender(e.target.value)} placeholder="Sender" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs" /><input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs" /><input type="datetime-local" value={receivedAt} onChange={(e) => setReceivedAt(e.target.value)} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs" /><label className="block rounded-xl border border-dashed border-slate-300 p-3 text-xs text-slate-600 cursor-pointer"><div className="flex items-center gap-2"><Paperclip className="w-4 h-4" /><span>{attachments.length ? `${attachments.length} attachment(s) selected` : "Attach PDF/image invoices"}</span></div><input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,image/*,application/pdf" className="hidden" onChange={(e) => setAttachments(Array.from(e.target.files || []))} /></label></div>
-          <div className="space-y-3"><textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} placeholder="Paste email body..." className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs resize-y" /><button disabled={isProcessing} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50">{isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}Classify & extract</button></div>
+          <div className="space-y-3"><textarea value={body} onChange={(e) => setBody(e.target.value)} rows={8} placeholder="Paste email body..." className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs resize-y" /><button disabled={isProcessing || !canProcessInvoices} className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50">{isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}Classify & extract</button></div>
         </form>
         {manualError && <div className="mt-3 text-xs text-rose-700 flex gap-2"><AlertCircle className="w-4 h-4" />{manualError}</div>}
         {classification && <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs"><b>{classification.documentType}</b>{classification.invoiceSubtype ? ` • ${classification.invoiceSubtype}` : ""} • {Math.round(classification.confidence || 0)}% • {classification.reason}</div>}

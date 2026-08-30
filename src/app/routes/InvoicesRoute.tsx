@@ -19,7 +19,7 @@ import type {
   InvoiceProjectAllocation,
   Project,
 } from "../../types";
-import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import { hasAllPermissions, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import type { AppTab } from "../../utils/routes";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
 import { FinancialCorrectionDialog } from "../../components/financial/FinancialCorrectionDialog.tsx";
@@ -118,8 +118,9 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
 }) => {
   const permissions = useAppPermissions();
   const canManageInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
-  const canVerifyInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesVerify);
-  const canExtractInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesExtract);
+  const canVerifyInvoices = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesVerify]);
+  const canExtractInvoices = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify]);
+  const canManageProjectAllocations = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.projectsWrite]);
   const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const [correctionInvoice, setCorrectionInvoice] = useState<InvoiceData | null>(null);
@@ -192,27 +193,27 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onNext={onNext}
           onSave={canManageInvoices && selectedInvoice.lifecycleStatus !== "VOID" ? onSave : async () => false}
           onVerifyAndNext={canVerifyInvoices ? onVerifyAndNext : async () => false}
-          onReopen={selectedInvoice.lifecycleStatus === "VOID" ? async () => {} : handleReopenCallback}
+          onReopen={canVerifyInvoices && selectedInvoice.lifecycleStatus !== "VOID" ? handleReopenCallback : undefined}
           onContinueWithNewItems={onContinueWithNewItems}
           onReturnToDashboard={onReturnToDashboard}
           onViewVerified={onViewVerified}
-          onRevertToAI={onRevertToAI ? () => void onRevertToAI(selectedInvoice) : () => {}}
-          onRevertField={onRevertField ? (path) => void onRevertField(selectedInvoice, path) : () => {}}
+          onRevertToAI={canManageInvoices && onRevertToAI ? () => void onRevertToAI(selectedInvoice) : undefined}
+          onRevertField={canManageInvoices && onRevertField ? (path) => void onRevertField(selectedInvoice, path) : undefined}
           projects={projects}
           invoiceProjectAllocations={invoiceProjectAllocations}
           preferredProjectId={preferredProjectId}
-          onSaveProjectAllocations={selectedInvoice.lifecycleStatus === "VOID" ? async () => {} : onSaveProjectAllocations}
+          onSaveProjectAllocations={canManageProjectAllocations && selectedInvoice.lifecycleStatus !== "VOID" ? onSaveProjectAllocations : undefined}
         />
         {correctionDialog}
       </div>
     );
   }
-  if (activeSubTab === "extractor") return <div className="space-y-5"><UploadZone onExtract={onExtract} onLoadPreset={onLoadPreset} onBatchComplete={onBatchComplete} isLoading={processingCount > 0} /></div>;
+  if (activeSubTab === "extractor") return <div className="space-y-5">{canExtractInvoices ? <UploadZone onExtract={onExtract} onLoadPreset={onLoadPreset} onBatchComplete={onBatchComplete} isLoading={processingCount > 0} /> : <div role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-950"><strong>Invoice extraction is unavailable for this access profile.</strong><p className="mt-1 text-xs">Creating a reviewable invoice requires invoice management, extraction, and verification permissions so source, invoice, and review history can be persisted together.</p></div>}</div>;
   if (activeSubTab === "inbox") {
     const fallbackConnection: GmailConnectionInfo = { configured: false, signedIn: false, hasGmailToken: false };
     const connection = gmailConnection || fallbackConnection;
     if (!canManageGmail) return <GmailInboxReadOnly invoices={invoices} connection={connection} onOpenInvoice={onSelectInvoice} />;
-    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} />;
+    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} canProcessInvoices={canExtractInvoices} />;
   }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifyInvoices ? onStartReview : undefined} readOnly={!canVerifyInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;

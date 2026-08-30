@@ -24,7 +24,7 @@ import { ProjectSiteLogs } from "../engineering/ProjectSiteLogs";
 import { useEngineeringCoordinationAccess } from "../../features/engineering/useEngineeringCoordinationAccess";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
-import { hasAnyPermission, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import { hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
@@ -148,8 +148,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 }) => {
   const permissions = useAppPermissions();
   const canManageProject = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
+  const canManageInvoiceAllocations = canManageProject && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const canReadInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesRead);
-  const canExtractInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesExtract);
+  const canExtractInvoices = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify]);
   const canReadPayroll = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesRead);
   const canManageExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesWrite);
@@ -246,7 +247,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
       {tab === "site-logs" && (coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div> : <ProjectSiteLogs project={project} companyId={companyId} initialSiteLogId={initialSiteLogId} pathForSiteLog={pathForSiteLog} canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead} canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate} canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate} canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit} canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage} guestMode={engineeringDocumentsGuestMode} controlledData={dailySiteLogsData} onControlledDataChange={onDailySiteLogsDataChange} />)}
 
-      {tab === "invoices" && canReadInvoices && (canManageProject
+      {tab === "invoices" && canReadInvoices && (canManageInvoiceAllocations
         ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />
         : <ProjectInvoicesReadOnly project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} />)}
 

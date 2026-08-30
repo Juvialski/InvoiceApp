@@ -87,7 +87,7 @@ test("prepare_process_attached_invoice definition enforces PREPARE risk tier and
   assert.ok(def);
   assert.equal(def.riskTier, "PREPARE");
   assert.equal(def.requiresConfirmation, true);
-  assert.deepEqual(def.permissions, ["invoices.extract", "invoices.read"]);
+  assert.deepEqual(def.permissions, ["invoices.extract", "invoices.read", "invoices.manage", "invoices.verify"]);
 });
 
 test("prepare_process_attached_invoice prepares action with preview and attachment metadata", async () => {

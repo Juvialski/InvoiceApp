@@ -364,7 +364,8 @@ function pathMatches(selector: string, reference: string): boolean {
 }
 
 function tokenize(value: string): string[] {
-  return uniqueInOrder((value.toLocaleLowerCase().match(/[a-z0-9]+/g) || []).filter((token) => token.length >= 2 && !QUERY_STOP_WORDS.has(token)));
+  const tokens: string[] = value.toLocaleLowerCase().match(/[a-z0-9]+/g) || [];
+  return uniqueInOrder(tokens.filter((token) => token.length >= 2 && !QUERY_STOP_WORDS.has(token)));
 }
 
 function textIncludes(text: string, token: string): boolean {
