@@ -55,6 +55,7 @@ export function useEngineeringCoordinationController({ project, companyId, canRe
   const [hasLoaded, setHasLoaded] = useState(false);
   const scopeKey = `${companyId || ""}:${project.id}:${guestMode}:${canRead}`;
   const loadedScopeRef = useRef<string | null>(null);
+  const loadRequestRef = useRef(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
 
@@ -77,16 +78,28 @@ export function useEngineeringCoordinationController({ project, companyId, canRe
 
   const persistLocal = useCallback((next: EngineeringCoordinationWorkspaceData) => { setData(next); writeEngineeringCoordinationToLocal(next); }, []);
   const reload = useCallback(async () => {
-    if (!canRead) { setData(readEngineeringCoordinationFromLocal()); loadedScopeRef.current = scopeKey; setHasLoaded(true); setIsLoading(false); return; }
+    const requestId = ++loadRequestRef.current;
+    if (!canRead) {
+      setData(readEngineeringCoordinationFromLocal());
+      loadedScopeRef.current = scopeKey;
+      setHasLoaded(true);
+      setLoadError(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true); setLoadError(null);
     try {
       const loaded = guestMode ? readEngineeringCoordinationFromLocal() : await loadEngineeringCoordinationFromSupabase(companyId, project.id);
+      if (loadRequestRef.current !== requestId) return;
       setData(loaded);
       loadedScopeRef.current = scopeKey;
       setHasLoaded(true);
     } catch (error) {
+      if (loadRequestRef.current !== requestId) return;
       setLoadError(message(error, "Engineering coordination records could not be loaded."));
-    } finally { setIsLoading(false); }
+    } finally {
+      if (loadRequestRef.current === requestId) setIsLoading(false);
+    }
   }, [canRead, companyId, guestMode, project.id, scopeKey]);
 
   useEffect(() => { void reload(); }, [reload, generation]);
