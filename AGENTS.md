@@ -141,20 +141,48 @@ If the changed-file set or reasoning surface grows materially beyond the origina
 
 For expensive local runs, a large changed-file count is a **scope warning**, not proof of bad work. If a focused task unexpectedly reaches roughly 25-30+ changed files, explicitly verify that each cluster is required by the objective before continuing. Generated map/docs/test fixtures may legitimately inflate the count.
 
-## Subagent hard limit and usage policy
+==================================================
+CODEX SUBAGENT EXECUTION
+==================================================
 
-Maximum **2 concurrent subagents**.
+Hard maximum: 2 concurrent subagents.
 
-Do **not** spawn subagents by default. A focused wave should normally use the lead alone unless there are genuinely separable, non-overlapping investigations that materially reduce risk or elapsed time.
+For substantial implementation/hardening waves with at least two independent workstreams:
 
-If subagents are useful:
+- after the lead establishes a narrow WM-5/shared-contract context, spawn BOTH available subagent slots early;
+- do not keep the entire wave with the lead when meaningful independent work can run concurrently;
+- assign non-overlapping file/workflow ownership;
+- subagents should IMPLEMENT and add focused tests, not merely investigate/report;
+- avoid assigning shared/conflict-heavy files to multiple agents.
 
-- maximum 2 concurrently;
-- give each a narrow, non-overlapping file/domain boundary;
-- prevent both agents from rereading the same broad architecture surface;
-- require concise findings/decisions, not raw file dumps or full command logs;
-- the lead owns architecture, shared contracts, conflict-heavy files, migrations spanning domains, security-sensitive integration, final diff review, validation, push/PR integration, and handoff;
-- reuse the same agents sequentially if more workstreams exist.
+Lead agent owns:
+
+- shared architecture/contracts;
+- App.tsx/router/providers/shared primitives;
+- conflict-heavy integration files;
+- review of every subagent diff;
+- integration;
+- security/RLS interpretation;
+- final regression review;
+- full tests/lint/build;
+- final browser QA;
+- commit/push/PR.
+
+If more work remains after both agents finish:
+reuse the SAME two slots sequentially.
+
+Never create a third concurrent subagent.
+
+For tiny one-file fixes, trivial follow-ups, or final-validation-only work, subagents are optional.
+
+Future verification/continuation prompts should explicitly tell Codex to use both slots early when meaningful parallel work remains.
+
+Avoid generic wording such as:
+“prefer no subagents”
+for broad implementation/hardening waves, because it causes unnecessary lead-only execution.
+
+The permanent project constraint remains:
+MAXIMUM 2 CONCURRENT SUBAGENTS.
 
 ### Codex subagents: Luna only
 
