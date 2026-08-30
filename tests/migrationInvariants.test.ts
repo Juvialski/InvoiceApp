@@ -116,10 +116,11 @@ test("migration invariant: latest migration contains the authoritative superset 
       "COMPANY_AI_CREDENTIAL_DISABLED", "COMPANY_AI_CREDENTIAL_REMOVED"
     ],
     "Cash & Banking Operations": [
-      "CASH_ACCOUNT_CREATED", "CASH_ACCOUNT_UPDATED", "CASH_ACCOUNT_DEACTIVATED",
+      "CASH_ACCOUNT_CREATED", "CASH_ACCOUNT_UPDATED", "CASH_ACCOUNT_DEACTIVATED", "CASH_ACCOUNT_REACTIVATED",
       "CASH_BALANCE_SNAPSHOT_RECORDED", "CASH_STATEMENT_IMPORTED", "CASH_STATEMENT_REJECTED",
-      "CASH_TRANSACTION_CREATED", "CASH_TRANSACTION_UPDATED",
-      "CASH_RECONCILIATION_CONFIRMED", "CASH_RECONCILIATION_REMOVED", "CASH_TRANSFER_MATCHED",
+      "CASH_TRANSACTION_CREATED", "CASH_TRANSACTION_UPDATED", "CASH_TRANSACTION_CORRECTED",
+      "CASH_TRANSACTION_REVERSED", "CASH_TRANSACTION_IGNORED", "CASH_TRANSACTION_REVIEW_RESTORED",
+      "CASH_RECONCILIATION_CONFIRMED", "CASH_RECONCILIATION_REMOVED", "CASH_TRANSFER_MATCHED", "CASH_TRANSFER_REVERSED",
       "CASH_SETTLEMENT_CONFIRMED", "CASH_SETTLEMENT_REVERSED"
     ],
     "Engineering Documents": [
@@ -173,6 +174,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 102, "Authoritative set must comprise exactly 102 events through email access preauthorization");
-  assert.equal(latestSet.size, 102, `Latest allowlist has ${latestSet.size} unique events, expected 102`);
+  assert.equal(totalExpected, 108, "Authoritative set must comprise exactly 108 events through Wave 2B3 Cash correction lifecycles");
+  assert.equal(latestSet.size, 108, `Latest allowlist has ${latestSet.size} unique events, expected 108`);
 });

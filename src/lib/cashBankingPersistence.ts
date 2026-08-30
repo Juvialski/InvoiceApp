@@ -94,6 +94,9 @@ function transactionFromRow(row: Row): FinancialTransaction {
     importBatchId: text(row.import_batch_id),
     reconciliationStatus: String(row.reconciliation_status || "UNMATCHED") as FinancialTransaction["reconciliationStatus"],
     transferGroupId: text(row.transfer_group_id),
+    reversedByUserId: text(row.reversed_by_user_id),
+    reversedAt: text(row.reversed_at),
+    reversalReason: text(row.reversal_reason),
     createdByUserId: text(row.created_by_user_id),
     createdAt: String(row.created_at || new Date().toISOString()),
     updatedAt: String(row.updated_at || new Date().toISOString()),
@@ -140,6 +143,7 @@ function matchFromRow(row: Row): FinancialTransactionMatch {
     reversedByUserId: text(row.reversed_by_user_id),
     reversedAt: text(row.reversed_at),
     reversalReason: text(row.reversal_reason),
+    transferGroupId: text(row.transfer_group_id),
     notes: text(row.notes),
     createdAt: String(row.created_at || new Date().toISOString()),
     updatedAt: String(row.updated_at || new Date().toISOString()),
@@ -230,24 +234,52 @@ export async function loadCashBankingWorkspaceFromSupabase(): Promise<CashBankin
 export async function saveFinancialAccountToSupabase(account: FinancialAccount): Promise<FinancialAccount> {
   const userId = requireRemoteUser(await currentUserId());
   const companyId = requireActiveCompanyId();
-  const { data, error } = await supabase!.from("financial_accounts").upsert(accountRow(account, userId, companyId)).select("*").single();
+  const row = accountRow(account, userId, companyId);
+  const { data, error } = await supabase!.rpc("save_financial_account", {
+    p_company_id: companyId,
+    p_account_id: row.id,
+    p_account_type: row.account_type,
+    p_institution_code: row.institution_code,
+    p_institution_name: row.institution_name,
+    p_display_name: row.display_name,
+    p_masked_identifier: row.masked_identifier,
+    p_currency: row.currency,
+    p_opening_balance: row.opening_balance,
+    p_opening_balance_date: row.opening_balance_date,
+    p_connection_type: row.connection_type,
+    p_provider: row.provider,
+    p_provider_account_id: row.provider_account_id,
+  });
+  if (error) throw error;
+  void userId;
+  return accountFromRow(data as Row);
+}
+
+export async function deactivateFinancialAccountInSupabase(accountId: string, reason: string): Promise<FinancialAccount> {
+  requireRemoteUser(await currentUserId());
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase!.rpc("deactivate_financial_account", {
+    p_account_id: accountId,
+    p_reason: reason,
+  });
   if (error) throw error;
   return accountFromRow(data as Row);
 }
 
-export async function deactivateFinancialAccountInSupabase(accountId: string): Promise<FinancialAccount> {
-  const userId = requireRemoteUser(await currentUserId());
-  const companyId = requireActiveCompanyId();
-  const { data, error } = await supabase!.from("financial_accounts").update({ active: false, updated_at: new Date().toISOString() }).eq("id", accountId).eq("company_id", companyId).select("*").single();
+export async function reactivateFinancialAccountInSupabase(accountId: string, reason: string): Promise<FinancialAccount> {
+  requireRemoteUser(await currentUserId());
+  const { data, error } = await supabase!.rpc("reactivate_financial_account", {
+    p_account_id: accountId,
+    p_reason: reason,
+  });
   if (error) throw error;
-  void userId;
   return accountFromRow(data as Row);
 }
 
 export async function saveFinancialBalanceSnapshotToSupabase(snapshot: FinancialBalanceSnapshot): Promise<FinancialBalanceSnapshot> {
   const userId = requireRemoteUser(await currentUserId());
   const companyId = requireActiveCompanyId();
-  const { data, error } = await supabase!.from("financial_balance_snapshots").upsert(companyScopedRow({
+  const { data, error } = await supabase!.from("financial_balance_snapshots").insert(companyScopedRow({
     id: persistedId(snapshot.id, "snapshot"),
     company_id: companyId,
     account_id: snapshot.accountId,
@@ -257,43 +289,30 @@ export async function saveFinancialBalanceSnapshotToSupabase(snapshot: Financial
     pending_balance: snapshot.pendingBalance ?? null,
     source: snapshot.source,
     import_batch_id: snapshot.importBatchId || null,
-    created_by_user_id: snapshot.createdByUserId || userId,
+    created_by_user_id: userId,
   })).select("*").single();
   if (error) throw error;
   return snapshotFromRow(data as Row);
 }
 
-function transactionRow(transaction: FinancialTransaction, userId: string, companyId: string) {
-  return companyScopedRow({
-    id: persistedId(transaction.id, "transaction"),
-    user_id: userId,
-    company_id: companyId,
-    account_id: transaction.accountId,
-    transaction_date: transaction.transactionDate,
-    posted_at: transaction.postedAt || null,
-    reference_number: transaction.referenceNumber || null,
-    description: transaction.description.trim(),
-    direction: transaction.direction,
-    amount: transaction.amount,
-    currency: transaction.currency.toUpperCase(),
-    running_balance: transaction.runningBalance ?? null,
-    status: transaction.status,
-    source: transaction.source,
-    provider_transaction_id: transaction.providerTransactionId || null,
-    source_fingerprint: transaction.sourceFingerprint,
-    import_batch_id: transaction.importBatchId || null,
-    reconciliation_status: transaction.reconciliationStatus,
-    transfer_group_id: transaction.transferGroupId || null,
-    created_by_user_id: transaction.createdByUserId || userId,
-    updated_at: new Date().toISOString(),
-  });
-}
-
 export async function saveFinancialTransactionToSupabase(transaction: FinancialTransaction): Promise<FinancialTransaction> {
   const userId = requireRemoteUser(await currentUserId());
   const companyId = requireActiveCompanyId();
-  const { data, error } = await supabase!.from("financial_transactions").upsert(transactionRow(transaction, userId, companyId)).select("*").single();
+  const { data, error } = await supabase!.rpc("create_financial_transaction", {
+    p_company_id: companyId,
+    p_transaction_id: persistedId(transaction.id, "transaction"),
+    p_account_id: transaction.accountId,
+    p_transaction_date: transaction.transactionDate,
+    p_posted_at: transaction.postedAt || null,
+    p_reference_number: transaction.referenceNumber || null,
+    p_description: transaction.description.trim(),
+    p_direction: transaction.direction,
+    p_amount: transaction.amount,
+    p_currency: transaction.currency.toUpperCase(),
+    p_source_fingerprint: transaction.sourceFingerprint,
+  });
   if (error) throw error;
+  void userId;
   return transactionFromRow(data as Row);
 }
 
@@ -380,6 +399,110 @@ export async function confirmFinancialTransferToSupabase(leftId: string, rightId
   });
   if (error) throw error;
   void userId;
+  return data;
+}
+
+export interface FinancialTransactionCorrectionInput {
+  transactionDate: string;
+  referenceNumber?: string;
+  description: string;
+  direction: FinancialTransaction["direction"];
+  amount: number;
+}
+
+export async function correctFinancialTransactionInSupabase(transactionId: string, input: FinancialTransactionCorrectionInput, reason: string): Promise<FinancialTransaction> {
+  requireRemoteUser(await currentUserId());
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase!.rpc("correct_financial_transaction", {
+    p_company_id: companyId,
+    p_transaction_id: transactionId,
+    p_transaction_date: input.transactionDate,
+    p_reference_number: input.referenceNumber || null,
+    p_description: input.description,
+    p_direction: input.direction,
+    p_amount: input.amount,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return transactionFromRow(data as Row);
+}
+
+export async function reverseFinancialTransactionInSupabase(transactionId: string, reason: string): Promise<FinancialTransaction> {
+  requireRemoteUser(await currentUserId());
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase!.rpc("reverse_financial_transaction", {
+    p_company_id: companyId,
+    p_transaction_id: transactionId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return transactionFromRow(data as Row);
+}
+
+export async function ignoreFinancialTransactionInSupabase(transactionId: string, reason: string): Promise<FinancialTransaction> {
+  requireRemoteUser(await currentUserId());
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase!.rpc("ignore_financial_transaction", {
+    p_company_id: companyId,
+    p_transaction_id: transactionId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return transactionFromRow(data as Row);
+}
+
+export async function restoreFinancialTransactionToReviewInSupabase(transactionId: string, reason: string): Promise<FinancialTransaction> {
+  requireRemoteUser(await currentUserId());
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase!.rpc("restore_financial_transaction_to_review", {
+    p_company_id: companyId,
+    p_transaction_id: transactionId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return transactionFromRow(data as Row);
+}
+
+export async function reverseFinancialTransferInSupabase(leftId: string, rightId: string, transferGroupId: string, reason: string) {
+  requireRemoteUser(await currentUserId());
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase!.rpc("reverse_financial_transfer", {
+    p_company_id: companyId,
+    p_transfer_group_id: transferGroupId,
+    p_left_transaction_id: leftId,
+    p_right_transaction_id: rightId,
+    p_reason: reason,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export interface FinancialSettlementBatchAllocation {
+  targetType: string;
+  targetId: string;
+  amount: number;
+  matchId?: string;
+  confidence?: number;
+  notes?: string;
+}
+
+export async function confirmFinancialSettlementBatchToSupabase(transactionId: string, allocations: readonly FinancialSettlementBatchAllocation[]) {
+  requireRemoteUser(await currentUserId());
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase!.rpc("confirm_financial_settlement_batch", {
+    p_company_id: companyId,
+    p_transaction_id: transactionId,
+    p_allocations: allocations.map((allocation) => ({
+      target_type: allocation.targetType,
+      target_id: allocation.targetId,
+      matched_amount: allocation.amount,
+      match_id: allocation.matchId || financialId("settlement"),
+      confidence: allocation.confidence ?? null,
+      notes: allocation.notes || null,
+    })),
+    p_confirmation_source: "RECONCILIATION_UI",
+  });
+  if (error) throw error;
   return data;
 }
 

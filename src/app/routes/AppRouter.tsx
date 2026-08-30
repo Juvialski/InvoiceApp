@@ -188,14 +188,21 @@ export interface AppRouterProps {
   canCashImport?: boolean;
   canCashReconcile?: boolean;
   onSaveFinancialAccount?: (account: FinancialAccount) => Promise<FinancialAccount | void> | FinancialAccount | void;
-  onDeactivateFinancialAccount?: (account: FinancialAccount) => Promise<void> | void;
+  onDeactivateFinancialAccount?: (account: FinancialAccount, reason: string) => Promise<void> | void;
+  onReactivateFinancialAccount?: (account: FinancialAccount, reason: string) => Promise<void> | void;
   onSaveFinancialSnapshot?: (snapshot: FinancialBalanceSnapshot) => Promise<void> | void;
   onSaveFinancialTransaction?: (transaction: FinancialTransaction) => Promise<void> | void;
   onCommitFinancialImport?: (preview: StatementPreview, account: FinancialAccount) => Promise<void> | void;
   onSaveFinancialMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
+  onSaveFinancialMatchBatch?: (matches: FinancialTransactionMatch[], transaction: FinancialTransaction) => Promise<void> | void;
   onReverseFinancialMatch?: (matchId: string, reason: string) => Promise<void> | void;
-  onIgnoreFinancialTransaction?: (transaction: FinancialTransaction) => Promise<void> | void;
+  canReverseFinancialMatch?: (match: FinancialTransactionMatch) => boolean;
+  onCorrectFinancialTransaction?: (transaction: FinancialTransaction, input: { transactionDate: string; referenceNumber?: string; description: string; direction: FinancialTransaction["direction"]; amount: number }, reason: string) => Promise<void> | void;
+  onReverseFinancialTransaction?: (transaction: FinancialTransaction, reason: string) => Promise<void> | void;
+  onIgnoreFinancialTransaction?: (transaction: FinancialTransaction, reason: string) => Promise<void> | void;
+  onRestoreFinancialTransactionToReview?: (transaction: FinancialTransaction, reason: string) => Promise<void> | void;
   onConfirmFinancialTransfer?: (left: FinancialTransaction, right: FinancialTransaction) => Promise<void> | void;
+  onReverseFinancialTransfer?: (left: FinancialTransaction, right: FinancialTransaction, reason: string) => Promise<void> | void;
   onOpenCashDashboard?: () => void;
 
   // Payroll Data & Handlers
@@ -354,13 +361,20 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   canCashReconcile = true,
   onSaveFinancialAccount = () => {},
   onDeactivateFinancialAccount,
+  onReactivateFinancialAccount,
   onSaveFinancialSnapshot,
   onSaveFinancialTransaction = () => {},
   onCommitFinancialImport,
   onSaveFinancialMatch,
+  onSaveFinancialMatchBatch,
   onReverseFinancialMatch,
+  canReverseFinancialMatch,
+  onCorrectFinancialTransaction,
+  onReverseFinancialTransaction,
   onIgnoreFinancialTransaction,
+  onRestoreFinancialTransactionToReview,
   onConfirmFinancialTransfer,
+  onReverseFinancialTransfer,
   onOpenCashDashboard,
   payrollData,
   payrollImportData = { costCenters: [], batches: [], rows: [], templates: [] },
@@ -526,9 +540,16 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSaveTransaction={onSaveFinancialTransaction}
         onCommitImport={onCommitFinancialImport}
         onSaveMatch={onSaveFinancialMatch}
+        onSaveMatchBatch={onSaveFinancialMatchBatch}
         onReverseMatch={onReverseFinancialMatch}
+        canReverseMatch={canReverseFinancialMatch}
+        onCorrectTransaction={onCorrectFinancialTransaction}
+        onReverseTransaction={onReverseFinancialTransaction}
+        onRestoreTransactionToReview={onRestoreFinancialTransactionToReview}
         onIgnoreTransaction={onIgnoreFinancialTransaction}
         onConfirmTransfer={onConfirmFinancialTransfer}
+        onReverseTransfer={onReverseFinancialTransfer}
+        onReactivateAccount={onReactivateFinancialAccount}
         reconciliationCandidates={cashReconciliationCandidates}
         canManageAccounts={canManageCashAccounts}
         canManageTransactions={canManageCashTransactions}

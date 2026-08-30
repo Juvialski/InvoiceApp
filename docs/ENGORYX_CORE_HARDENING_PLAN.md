@@ -222,6 +222,33 @@ authorizes mutation, with verified-invoice voids additionally requiring
 `invoices.verify`. UI and Assistant paths use the same lifecycle semantics and
 cannot bypass the database RPC boundary.
 
+### Wave 2B3 — Cash, banking, and settlement correction completion (implemented)
+
+Cash & Banking now treats account, statement, transaction, reconciliation, and
+settlement data as financial evidence with explicit correction paths. Browser
+clients retain read access and append-only balance snapshot inserts; account,
+transaction, import, transfer, and settlement mutations are routed through
+company-bound RPCs that re-check effective permissions and current dependencies
+under row locks.
+
+| Record state or evidence | Permitted lifecycle outcome | History and financial rule |
+| --- | --- | --- |
+| Account has no financial history | Edit descriptive and identity fields through the guarded account RPC | Account remains company-bound and credentials/full bank numbers are never stored. |
+| Account has transactions, snapshots, imports, or settlement history | Edit display/institution/masked metadata only; identity fields remain locked | Currency, account type, opening balance/date, provider identity, and provenance cannot rewrite history. |
+| Account is inactive | Explicit `REACTIVATE` with a reason | New transactions, imports, and snapshots are refused until reactivation; existing history remains available. |
+| Uncommitted unreconciled `MANUAL` transaction | Correct date, reference, description, direction, or amount with a reason | Source fingerprint and audit metadata remain; imported/provider/used rows cannot use this edit path. |
+| Imported/provider, reconciled, transfer-linked, or otherwise used transaction | `REVERSE` with actor, timestamp, and reason | The original row and import provenance remain; confirmed settlement/transfer evidence is reversed first. |
+| Unresolved legitimate non-business item | `IGNORE` with a reason, or `RETURN_TO_REVIEW` if mistaken | Ignore is an audited state transition and cannot hide confirmed settlement or transfer evidence. |
+| Confirmed supplier/payroll/expense settlement | Existing guarded settlement reversal with a required reason | Match remains `REVERSED`, target totals and transaction reconciliation recompute, and project/payroll cost is unchanged. |
+| Exact confirmed internal transfer pair | Reverse both relationship rows atomically with a required reason | Both ledger transactions remain; only the transfer relationship is reversed and operating cash totals become truthful again. |
+| Committed statement batch or imported transaction | No direct update/delete | Original batch, fingerprint, source row, and resulting transaction remain immutable; correction uses transaction reversal. |
+
+The deterministic Cash UI exposes account edit/deactivate/reactivate, eligible
+manual correction, transaction reversal, Ignore/review restoration, settlement
+reversal, and exact-pair transfer reversal. Split settlement confirmation uses
+the existing atomic batch RPC. The Assistant continues to use its existing
+prepare/confirm settlement paths and has no separate financial lifecycle.
+
 ### Wave 2C — Engineering correction and removal lifecycles (implemented in this change)
 
 The existing Engineering Documents, RFI, Technical Submittal, and Daily Site
@@ -249,8 +276,7 @@ isolated deterministic fixtures and never call production Supabase or Storage.
 
 Deferred from this focused slice:
 
-- Wave 2B3 — cash, banking, and settlement correction semantics;
-- Wave 3 — Assistant project lifecycle/action parity.
+- Wave 3 — Assistant project lifecycle/action parity and any broader new cash actions.
 
 Scheduling/Gantt/CPM remains frozen.
 
@@ -274,9 +300,8 @@ Verify and harmonize existing behavior for:
 - expenses;
 - projects;
 - vendors;
-- cash accounts/transactions;
-- imports;
-- reconciliation/settlements.
+- future provider connectivity beyond metadata;
+- broader Assistant parity beyond the existing settlement prepare/confirm paths.
 
 ### Engineering
 

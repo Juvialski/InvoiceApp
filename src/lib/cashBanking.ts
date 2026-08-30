@@ -62,6 +62,9 @@ export interface FinancialTransaction {
   importBatchId?: string;
   reconciliationStatus: FinancialReconciliationStatus;
   transferGroupId?: string;
+  reversedByUserId?: string;
+  reversedAt?: string;
+  reversalReason?: string;
   createdByUserId?: string;
   createdAt: string;
   updatedAt: string;
@@ -104,6 +107,7 @@ export interface FinancialTransactionMatch {
   reversedByUserId?: string;
   reversedAt?: string;
   reversalReason?: string;
+  transferGroupId?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -836,6 +840,34 @@ export function reconciliationStatusForTransaction(transaction: FinancialTransac
   const matched = confirmedMatchedAmount(transaction.id, matches);
   if (matched <= 0) return matches.some((match) => match.transactionId === transaction.id && match.status === "SUGGESTED") ? "SUGGESTED" : "UNMATCHED";
   return matched + 0.01 >= transaction.amount ? "MATCHED" : "PARTIAL";
+}
+
+export function financialAccountHasHistory(accountId: string, workspace: Pick<CashBankingWorkspaceData, "snapshots" | "transactions" | "importBatches" | "matches">): boolean {
+  return workspace.transactions.some((transaction) => transaction.accountId === accountId)
+    || workspace.snapshots.some((snapshot) => snapshot.accountId === accountId)
+    || workspace.importBatches.some((batch) => batch.accountId === accountId)
+    || workspace.matches.some((match) => {
+      const transaction = workspace.transactions.find((candidate) => candidate.id === match.transactionId);
+      return transaction?.accountId === accountId;
+    });
+}
+
+export function hasConfirmedFinancialEvidence(transactionId: string, matches: readonly FinancialTransactionMatch[]): boolean {
+  return matches.some((match) => match.transactionId === transactionId && match.status === "CONFIRMED");
+}
+
+export function hasFinancialTransactionHistory(transactionId: string, matches: readonly FinancialTransactionMatch[]): boolean {
+  return matches.some((match) => match.transactionId === transactionId && ["CONFIRMED", "REVERSED"].includes(match.status));
+}
+
+export function isManualTransactionCorrectionEligible(transaction: FinancialTransaction, matches: readonly FinancialTransactionMatch[]): boolean {
+  return transaction.source === "MANUAL"
+    && transaction.status !== "REVERSED"
+    && !transaction.importBatchId
+    && !transaction.providerTransactionId
+    && !transaction.transferGroupId
+    && (transaction.reconciliationStatus === "UNMATCHED" || transaction.reconciliationStatus === "SUGGESTED")
+    && !hasFinancialTransactionHistory(transaction.id, matches);
 }
 
 export function findInternalTransferSuggestions(transactions: readonly FinancialTransaction[], matches: readonly FinancialTransactionMatch[] = []): InternalTransferSuggestion[] {
