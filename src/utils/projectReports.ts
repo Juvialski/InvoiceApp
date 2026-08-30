@@ -70,22 +70,24 @@ export function buildProjectInvoiceReport(projects: Project[], invoices: Invoice
 }
 
 export function buildPayrollReport(projects: Project[], workers: Worker[], periods: PayrollPeriod[], runs: PayrollRun[], entries: PayrollEntry[], allocations: PayrollProjectAllocation[]) {
-  const rows = allocations.map((allocation) => {
+  const rows = allocations.flatMap((allocation) => {
     const entry = entries.find((item) => item.id === allocation.payrollEntryId);
     const run = runs.find((item) => item.id === entry?.payrollRunId);
+    if (!entry || !run || run.status === "VOID") return [];
     const period = periods.find((item) => item.id === run?.periodId);
     const worker = workers.find((item) => item.id === entry?.workerId);
     const project = projects.find((item) => item.id === allocation.projectId);
-    return { period: period ? `${period.periodStart} – ${period.periodEnd}` : "", worker: worker?.displayName || "", project: project?.projectName || "", projectCode: project?.projectCode || "", role: worker?.jobTitle || "", grossPay: entry?.grossPay || 0, allocatedLaborCost: allocation.allocationAmount, netPay: entry?.netPay || 0, status: run?.status || "DRAFT" };
+    return [{ period: period ? `${period.periodStart} – ${period.periodEnd}` : "", worker: worker?.displayName || "", project: project?.projectName || "", projectCode: project?.projectCode || "", role: worker?.jobTitle || "", grossPay: entry.grossPay || 0, allocatedLaborCost: allocation.allocationAmount, netPay: entry.netPay || 0, status: run.status }];
   });
 
   const unallocatedRows = entries.flatMap((entry) => {
+    const run = runs.find((item) => item.id === entry.payrollRunId);
+    if (!run || run.status === "VOID") return [];
     const allocatedAmount = allocations
       .filter((allocation) => allocation.payrollEntryId === entry.id)
       .reduce((sum, allocation) => sum + (Number(allocation.allocationAmount) || 0), 0);
     const unallocatedAmount = Math.round(Math.max(0, (Number(entry.projectAllocatedCost) || 0) - allocatedAmount) * 100) / 100;
     if (unallocatedAmount <= 0) return [];
-    const run = runs.find((item) => item.id === entry.payrollRunId);
     const period = periods.find((item) => item.id === run?.periodId);
     const worker = workers.find((item) => item.id === entry.workerId);
     return [{ period: period ? `${period.periodStart} – ${period.periodEnd}` : "", worker: worker?.displayName || "", project: "Unallocated labor", projectCode: "", role: worker?.jobTitle || "", grossPay: entry.grossPay || 0, allocatedLaborCost: unallocatedAmount, netPay: entry.netPay || 0, status: run?.status || "DRAFT" }];
@@ -111,23 +113,28 @@ export function buildPayrollReportWithContext(projects: Project[], workers: Work
     const entry = entries.find((item) => item.id === allocation.payrollEntryId);
     if (!entry) return [];
     const { run, period } = periodLabel(entry);
+    if (!run || run.status === "VOID") return [];
     const worker = workerLabel(entry);
     const project = projects.find((item) => item.id === allocation.projectId);
     return [{ period, worker: worker?.displayName || "", project: project?.projectName || "", projectCode: project?.projectCode || "", role: worker?.jobTitle || "", grossPay: entry.grossPay || 0, allocatedLaborCost: allocation.allocationAmount, netPay: entry.netPay || 0, status: run?.status || "DRAFT", contextKind: entry.costContext?.type || "PROJECT" }];
   });
   const nonProjectRows = entries.flatMap((entry) => {
+    const { run } = periodLabel(entry);
+    if (!run || run.status === "VOID") return [];
     const context = entry.costContext?.type;
     if (!context || context === "PROJECT") return [];
-    const { run, period } = periodLabel(entry);
+    const { period } = periodLabel(entry);
     const worker = workerLabel(entry);
     return [{ period, worker: worker?.displayName || "", project: contextLabel(entry), projectCode: "", role: worker?.jobTitle || "", grossPay: entry.grossPay || 0, allocatedLaborCost: entry.grossPay || 0, netPay: entry.netPay || 0, status: run?.status || "DRAFT", contextKind: context }];
   });
   const unallocatedRows = entries.flatMap((entry) => {
+    const { run } = periodLabel(entry);
+    if (!run || run.status === "VOID") return [];
     if (entry.costContext?.type === "ADMIN_OFFICE" || entry.costContext?.type === "GENERAL_OVERHEAD" || entry.costContext?.type === "UNALLOCATED_REVIEW") return [];
     const allocatedAmount = allocations.filter((allocation) => allocation.payrollEntryId === entry.id).reduce((sum, allocation) => sum + (Number(allocation.allocationAmount) || 0), 0);
     const unallocatedAmount = Math.round(Math.max(0, (Number(entry.projectAllocatedCost) || 0) - allocatedAmount) * 100) / 100;
     if (unallocatedAmount <= 0) return [];
-    const { run, period } = periodLabel(entry);
+    const { period } = periodLabel(entry);
     const worker = workerLabel(entry);
     return [{ period, worker: worker?.displayName || "", project: "Unallocated labor", projectCode: "", role: worker?.jobTitle || "", grossPay: entry.grossPay || 0, allocatedLaborCost: unallocatedAmount, netPay: entry.netPay || 0, status: run?.status || "DRAFT", contextKind: "UNALLOCATED_REVIEW" }];
   });

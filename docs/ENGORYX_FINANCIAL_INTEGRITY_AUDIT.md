@@ -1,0 +1,17 @@
+# Engoryx Financial Integrity Audit — Wave 5
+
+Status: focused checkpoint on `hardening/wave5-financial-integrity`. This record covers confirmed defects only; it is not a claim that every Wave 5 exit criterion has live evidence.
+
+| Boundary | Confirmed adversarial case | Database-authoritative fix | Application/reporting fix | Evidence and remaining risk |
+|---|---|---|---|---|
+| Payroll finalization and period status | A `payroll.manage` writer could finalize a run or use `payroll_periods.status` as an alternate approval path. | Effective `payroll.approve` is required by the run trigger and RLS; period `APPROVED`/`PAID` writes are rejected; finalized payloads are immutable. | Existing UI/Assistant preparation remains permission-based and confirmation-gated. | Focused/static tests and pgTAP coverage added. Live replay and authenticated probes remain pending. |
+| Payroll financial integrity | Open payroll entries could set project labor or net pay above gross pay. | Entry trigger and approval trigger reject those relationships before finalization. | `validatePayrollRunApproval` reports the same bounded failures locally. | Focused tests pass; live constraint/trigger proof remains pending. |
+| Payroll source freshness and replacement | Date-less or reassigned source changes could invalidate the wrong periods; stale replacement could delete current entries. | Source revision updates are bounded to affected open periods; replacement locks run/period and checks the expected revision before deletion. | Payroll UI and Assistant pass the expected period revision. | Focused/static tests pass; concurrent live proof remains pending. |
+| Payroll currency history | Changing deployment currency could relabel historical payroll settlement/labor totals. | A `SECURITY DEFINER` company trigger blocks default-currency changes after payroll history exists. | Settlement continues to use the deployment currency contract. | Static/pgTAP coverage added; live database proof remains pending. |
+| Invoice cash basis and VOID lifecycle | Malformed net-payable evidence could exceed gross; VOID documents could still look active. | SQL payable basis caps to gross and settlement summaries expose `VOID`. | Local settlement/card state preserves VOID; void payroll cost is excluded from dashboard and reports. | Focused tests pass; live settlement replay remains pending. |
+| Stale invoice, allocation, and expense writes | Last-write-wins updates could overwrite a concurrent edit. | Invoice allocation replacement has a locked expected `updated_at` RPC; invoice and expense writes use conditional freshness checks. | Fresh database tokens are loaded and propagated through UI/Assistant paths. | Static/application tests pass; authenticated race testing remains pending. |
+| Assistant project-cost composition | Percentage allocations with a null stored amount could be counted as zero. | No new authority is inferred in the Assistant; it reads the persisted allocation type/percentage and invoice total. | Assistant uses the shared canonical allocation normalization and excludes VOID invoices. | Focused/static tests pass; live Assistant/database probe remains pending. |
+
+## Deliberately held scope
+
+Cash/reconciliation and engineering boundaries were not re-audited in this checkpoint beyond their existing guarded contracts. No new Wave 5 finding was added after the confirmed defect set was fixed. No production or linked database was mutated.

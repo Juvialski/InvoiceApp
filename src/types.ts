@@ -246,6 +246,8 @@ export interface InvoiceData {
   voidedByUserId?: string;
   voidReason?: string;
   exportedAt?: string;
+  /** Database optimistic-concurrency token for persisted invoice edits. */
+  updatedAt?: string;
   aiSnapshot?: Partial<InvoiceData>;
 }
 

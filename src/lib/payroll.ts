@@ -412,6 +412,8 @@ export function validatePayrollRunApproval(run: Pick<PayrollRun, "id" | "status"
     })) {
       if (!Number.isFinite(value) || value < 0) issues.push(`Payroll entry ${entry.id} has an invalid ${field}.`);
     }
+    if (entry.projectAllocatedCost > entry.grossPay + 0.01) issues.push(`Payroll entry ${entry.id} allocates more project labor than its gross pay.`);
+    if (entry.netPay > entry.grossPay + 0.01) issues.push(`Payroll entry ${entry.id} has net pay above gross pay.`);
   }
   return { valid: issues.length === 0, issues };
 }
@@ -856,11 +858,12 @@ export async function savePayrollAdjustmentToSupabase(adjustment: PayrollAdjustm
   return adjustmentFromRow(data as Record<string, unknown>);
 }
 
-export async function replacePayrollRunEntriesToSupabase(runId: string, entries: PayrollEntry[], allocations: PayrollProjectAllocation[]) {
+export async function replacePayrollRunEntriesToSupabase(runId: string, expectedSourceRevision: number, entries: PayrollEntry[], allocations: PayrollProjectAllocation[]) {
   const userId = await currentUserId();
   if (!supabase || !userId) throw new Error("Sign in before recalculating payroll.");
   const { error } = await supabase.rpc("replace_payroll_run_entries", {
     p_run_id: runId,
+    p_expected_source_revision: expectedSourceRevision,
     p_entries: entries,
     p_allocations: allocations,
   });

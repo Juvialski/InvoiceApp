@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { calculatePayrollRunFromWorkEntries } from "../../lib/payrollCalculation.ts";
 import { applyAttendanceBatch, buildDailyRoster, type AttendanceRecordInput } from "../../lib/payrollWorkforce.ts";
+import { normalizedInvoiceAllocationAmount } from "../../utils/projectCosting.ts";
 import type { AssistantClientAction, AssistantReference } from "../../assistant/assistantTypes.ts";
 import { getHelpEntry, getHelpResponse, helpEntryPath, helpEntryReference } from "../../assistant/helpCatalog.ts";
 import { getAssistantTour } from "../../assistant/tourRegistry.ts";
@@ -327,9 +328,9 @@ async function getProjectTool(context: AssistantToolContext, args: Record<string
 async function getProjectCostSummary(context: AssistantToolContext, args: Record<string, unknown>) {
   const projectId = String(args.projectId);
   const project = await getProject(context, projectId);
-  const allocations = await getRows(userCompanyQuery(context, "invoice_project_allocations", "invoice_id,allocation_amount,currency").eq("project_id", projectId).limit(500), "Project invoice allocations");
+  const allocations = await getRows(userCompanyQuery(context, "invoice_project_allocations", "invoice_id,allocation_type,allocation_percentage,allocation_amount,currency").eq("project_id", projectId).limit(500), "Project invoice allocations");
   const invoiceIds = allocations.map((row) => text(row, "invoice_id")).filter(Boolean);
-  const invoices = invoiceIds.length ? await getRows(userCompanyQuery(context, "invoices", "id,review_status,payment_status,invoice_date,currency,archived_at,lifecycle_status").in("id", invoiceIds).limit(500), "Project invoices") : [];
+  const invoices = invoiceIds.length ? await getRows(userCompanyQuery(context, "invoices", "id,review_status,payment_status,invoice_date,currency,grand_total,archived_at,lifecycle_status").in("id", invoiceIds).limit(500), "Project invoices") : [];
   const invoiceById = new Map(invoices.map((row) => [text(row, "id"), row]));
   if (new Set(invoiceIds).size !== invoiceById.size) throw new AssistantToolError("DATA_UNAVAILABLE", "The project invoice-cost source is incomplete.");
   const expenses = await getRows(userCompanyQuery(context, "expenses", "id,amount,currency,status,expense_date,archived_at").eq("project_id", projectId).limit(500), "Project expenses");
@@ -353,9 +354,16 @@ async function getProjectCostSummary(context: AssistantToolContext, args: Record
     const invoice = invoiceById.get(text(allocation, "invoice_id"));
     if (!invoice) continue;
     if (text(invoice, "lifecycle_status", "ACTIVE") === "VOID") continue;
+    const allocationType = text(allocation, "allocation_type").toUpperCase();
+    if (allocationType !== "AMOUNT" && allocationType !== "PERCENTAGE") throw new AssistantToolError("DATA_UNAVAILABLE", "The project invoice-cost source contains an invalid allocation type.");
+    const allocationAmount = normalizedInvoiceAllocationAmount(amount(invoice, "grand_total"), {
+      allocationType: allocationType as "AMOUNT" | "PERCENTAGE",
+      allocationAmount: amount(allocation, "allocation_amount"),
+      allocationPercentage: amount(allocation, "allocation_percentage"),
+    });
     const current = bucket(text(invoice, "currency", "UNKNOWN"));
-    if (text(invoice, "review_status") === "VERIFIED" && text(invoice, "lifecycle_status", "ACTIVE") !== "VOID") current.invoiceConfirmed += amount(allocation, "allocation_amount");
-    else current.invoicePending += amount(allocation, "allocation_amount");
+    if (text(invoice, "review_status") === "VERIFIED" && text(invoice, "lifecycle_status", "ACTIVE") !== "VOID") current.invoiceConfirmed += allocationAmount;
+    else current.invoicePending += allocationAmount;
   }
   for (const expense of expenses) {
     const current = bucket(text(expense, "currency", "UNKNOWN"));
@@ -1258,7 +1266,7 @@ async function executePayrollRecalculation(context: AssistantToolContext, args: 
   const generatedEntries = calculation.entries.map((entry) => ({ id: randomUUID(), payrollRunId: text(run, "id"), workerId: entry.workerId, basePay: entry.basePay, regularPay: entry.regularPay, overtimePay: entry.overtimePay, allowances: entry.allowances, otherEarnings: 0, grossPay: entry.grossPay, deductions: entry.deductions, otherDeductions: 0, employerCosts: 0, netPay: entry.netPay, projectAllocatedCost: entry.projectAllocatedCost, calculationSnapshot: entry.calculationSnapshot, costContext: {}, importRowId: undefined }));
   const entryByWorker = new Map(generatedEntries.map((entry) => [entry.workerId, entry.id]));
   const generatedAllocations = calculation.allocations.filter((allocation) => Boolean(allocation.projectId)).map((allocation) => ({ id: randomUUID(), payrollEntryId: entryByWorker.get(allocation.workerId), projectId: allocation.projectId, allocationAmount: allocation.allocationAmount, allocationPercentage: allocation.allocationPercentage, source: allocation.source })).filter((allocation) => Boolean(allocation.payrollEntryId));
-  const { error: replaceError } = await db(context).rpc("replace_payroll_run_entries", { p_run_id: String(run.id), p_entries: generatedEntries, p_allocations: generatedAllocations });
+  const { error: replaceError } = await db(context).rpc("replace_payroll_run_entries", { p_run_id: String(run.id), p_expected_source_revision: Number(period.source_revision || 0), p_entries: generatedEntries, p_allocations: generatedAllocations });
   if (replaceError) throw new AssistantToolError("WRITE_FAILED", "The calculated payroll entries could not be replaced atomically.");
   const calculatedAt = context.now.toISOString();
   const updatedRun = requireFound(await getOne(db(context).from("payroll_runs").update({ status: "CALCULATED", calculated_at: calculatedAt, calculated_source_revision: calculation.sourceRevision ?? Number(period.source_revision || 0), source_fingerprint: calculation.sourceFingerprint || null }).eq("id", String(run.id)).eq("company_id", context.auth.companyId).select(RUN_SELECT).single(), "Payroll run update"), "The payroll run could not be marked calculated.");
@@ -1332,7 +1340,9 @@ async function executeInvoiceProjectAssignment(context: AssistantToolContext, ar
   const allocations = existing.filter((row) => text(row, "project_id") !== String(args.projectId)).map((row) => ({ id: text(row, "id"), project_id: text(row, "project_id"), allocation_type: text(row, "allocation_type"), allocation_percentage: row.allocation_percentage ?? null, allocation_amount: row.allocation_amount ?? null, notes: row.notes ?? null }));
   const previous = existing.find((row) => text(row, "project_id") === String(args.projectId));
   allocations.push({ id: (previous ? text(previous, "id") : undefined) || actionId || randomUUID(), project_id: String(args.projectId), allocation_type: allocationType, allocation_percentage: allocationType === "PERCENTAGE" ? args.allocationPercentage : null, allocation_amount: allocationType === "AMOUNT" ? args.allocationAmount : null, notes: args.notes || null });
-  const result = await db(context).rpc("replace_invoice_project_allocations", { p_invoice_id: args.invoiceId, p_allocations: allocations });
+  const expectedUpdatedAt = optionalText(invoice, "updated_at");
+  if (!expectedUpdatedAt) throw new AssistantToolError("DATA_UNAVAILABLE", "Invoice freshness is unavailable; prepare the allocation again.");
+  const result = await db(context).rpc("replace_invoice_project_allocations", { p_invoice_id: args.invoiceId, p_allocations: allocations, p_expected_updated_at: expectedUpdatedAt });
   if (result.error) throw new AssistantToolError("WRITE_FAILED", "The invoice project allocation could not be saved through the authoritative allocation workflow.");
   return { operation: "invoice_project_assignment_saved", allocations: result.data || [], invoiceId: args.invoiceId, projectId: args.projectId };
 }
@@ -1347,7 +1357,7 @@ async function executeInvoiceDraftUpdate(context: AssistantToolContext, args: Re
   if (args.dueDate !== undefined) { patch.due_date = args.dueDate; nextData.dueDate = args.dueDate; }
   if (args.projectReference !== undefined) nextData.projectReference = args.projectReference;
   if (args.notes !== undefined) nextData.notes = args.notes;
-  const updated = requireFound(await getOne(db(context).from("invoices").update(patch).eq("id", String(args.invoiceId)).eq("company_id", context.auth.companyId).eq("review_status", "NEEDS_REVIEW").select(INVOICE_SELECT).maybeSingle(), "Invoice update"), "The invoice changed before confirmation; no update was applied.");
+  const updated = requireFound(await getOne(db(context).from("invoices").update(patch).eq("id", String(args.invoiceId)).eq("company_id", context.auth.companyId).eq("review_status", "NEEDS_REVIEW").eq("updated_at", String(invoice.updated_at || "")).select(INVOICE_SELECT).maybeSingle(), "Invoice update"), "The invoice changed before confirmation; no update was applied.");
   const event = await db(context).from("invoice_review_events").insert({ user_id: context.auth.user.id, company_id: context.auth.companyId, invoice_id: args.invoiceId, event_type: "HUMAN_EDIT", previous_value: currentData, new_value: nextData });
   if (event.error) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The invoice was updated, but its review history could not be recorded safely.");
   return { operation: "invoice_draft_updated", invoice: invoiceView(updated) };

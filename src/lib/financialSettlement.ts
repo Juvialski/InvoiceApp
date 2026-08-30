@@ -5,7 +5,7 @@ import { derivePaymentStatus } from "../utils/invoiceLogic.ts";
 export type SettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE";
 export const SETTLEMENT_RECORD_STATUSES = ["CONFIRMED", "REVERSED"] as const;
 export type SettlementRecordStatus = (typeof SETTLEMENT_RECORD_STATUSES)[number];
-export type InvoiceSettlementState = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE";
+export type InvoiceSettlementState = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "VOID";
 export type PayrollSettlementState = "UNSETTLED" | "PARTIALLY_DISBURSED" | "SETTLED";
 
 export interface FinancialSettlementHistoryItem {
@@ -79,12 +79,13 @@ function positive(value: unknown): number | undefined {
  * is not accidentally treated as the original obligation.
  */
 export function invoiceCashPayableBasis(invoice: Pick<InvoiceData, "grandTotal" | "netAmountPayable" | "withholdingTaxAmount" | "philippineTaxDetails">) {
+  const gross = Math.max(0, money(invoice.grandTotal));
   const explicitTopLevel = positive(invoice.netAmountPayable);
-  if (explicitTopLevel !== undefined) return { amount: explicitTopLevel, source: "EXPLICIT_NET_PAYABLE" as const };
+  if (explicitTopLevel !== undefined && explicitTopLevel <= gross + 0.01) return { amount: Math.min(explicitTopLevel, gross), source: "EXPLICIT_NET_PAYABLE" as const };
   const nestedWithholding = positive(invoice.philippineTaxDetails?.withholdingTaxAmount ?? invoice.withholdingTaxAmount);
   const nestedNet = positive(invoice.philippineTaxDetails?.netAmountPayable);
-  if (nestedWithholding !== undefined && nestedNet !== undefined) return { amount: nestedNet, source: "EXPLICIT_NET_PAYABLE" as const };
-  return { amount: Math.max(0, money(invoice.grandTotal)), source: "GROSS_DOCUMENT_AMOUNT" as const };
+  if (nestedWithholding !== undefined && nestedNet !== undefined && nestedNet <= gross + 0.01) return { amount: Math.min(nestedNet, gross), source: "EXPLICIT_NET_PAYABLE" as const };
+  return { amount: gross, source: "GROSS_DOCUMENT_AMOUNT" as const };
 }
 
 export function payrollNetPayBasis(entries: readonly Pick<PayrollEntry, "netPay">[]) {
@@ -122,7 +123,9 @@ export function deriveInvoiceSettlementSummary(
   // SQL settlement summary, while the legacy document payment status remains
   // available separately on the invoice itself.
   const overdue = outstanding > 0.005 && Boolean(invoice.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(invoice.dueDate) && invoice.dueDate < today);
-  const status: InvoiceSettlementState = overdue ? "OVERDUE" : rawStatus === "PAID" || rawStatus === "PARTIALLY_PAID" || rawStatus === "OVERDUE" ? rawStatus : "UNPAID";
+  const status: InvoiceSettlementState = invoice.lifecycleStatus === "VOID"
+    ? "VOID"
+    : overdue ? "OVERDUE" : rawStatus === "PAID" || rawStatus === "PARTIALLY_PAID" || rawStatus === "OVERDUE" ? rawStatus : "UNPAID";
   return {
     targetType: "INVOICE",
     targetId: invoice.id,
@@ -173,7 +176,7 @@ export function deriveExpenseSettlementSummary(
   const basis = money(Math.max(0, expense.amount));
   const bankPaid = Math.min(basis, confirmedSettlementTotal(history));
   const outstanding = money(Math.max(0, basis - bankPaid));
-  const state: InvoiceSettlementState = bankPaid <= 0.005 ? "UNPAID" : outstanding <= 0.005 ? "PAID" : "PARTIALLY_PAID";
+  const state: InvoiceSettlementState = expense.status === "VOID" ? "VOID" : bankPaid <= 0.005 ? "UNPAID" : outstanding <= 0.005 ? "PAID" : "PARTIALLY_PAID";
   return {
     targetType: "EXPENSE",
     targetId: expense.id,
