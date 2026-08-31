@@ -25,7 +25,7 @@ const openDemoDrawingPreview: QaScenarioAction = async (page) => {
 const openDemoTour: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Demo Tour", exact: true }).first().click();
   await page.waitForTimeout(350);
-  const count = await page.locator('[aria-label="Engoryx Demo Tour"]').count();
+  const count = await page.getByRole("dialog", { name: "Engoryx Demo Tour", exact: true }).count();
   return [{ id: "demo-tour-visible", passed: count === 1, details: `tour panels: ${count}` } satisfies QaAssertion];
 };
 

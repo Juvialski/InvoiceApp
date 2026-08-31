@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useRef } from "react";
 import { Archive, Ban, CheckCircle2, RotateCcw, ShieldAlert, Trash2 } from "lucide-react";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview } from "../../lib/financialLifecycle.ts";
+import { useDialogFocus } from "../ui/useDialogFocus.ts";
 
 interface FinancialCorrectionDialogProps {
   entityLabel: "invoice" | "expense";
@@ -28,6 +29,8 @@ function actionLabel(action: FinancialCorrectionAction, entityLabel: string) {
 export const FinancialCorrectionDialog: React.FC<FinancialCorrectionDialogProps> = ({ entityLabel, recordLabel, preview, loading, error, reason, onReasonChange, onApply, onClose }) => {
   const displayLabel = entityLabel === "invoice" ? "Invoice" : "Expense";
   const canApply = (action: FinancialCorrectionAction) => action === "DELETE_UNUSED" || reason.trim().length >= 3;
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useDialogFocus({ open: true, onClose: () => { if (!loading) onClose(); }, initialFocusRef: closeButtonRef });
   const actionCard = (action: FinancialCorrectionAction, enabled: boolean, tone: "danger" | "warning" | "success", description: string, Icon: React.ElementType) => {
     if (!enabled) return null;
     const tones = {
@@ -48,9 +51,9 @@ export const FinancialCorrectionDialog: React.FC<FinancialCorrectionDialogProps>
     </div>;
   };
 
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="financial-correction-title">
+  return <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="financial-correction-title" aria-busy={loading}>
     <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">{displayLabel} correction</p><h2 id="financial-correction-title" className="mt-1 text-lg font-black text-slate-950">{recordLabel}</h2><p className="mt-1 text-xs text-slate-500">Review the checked consequence before changing this financial record.</p></div><button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label={`Close ${entityLabel} correction dialog`}>×</button></div>
+      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">{displayLabel} correction</p><h2 id="financial-correction-title" className="mt-1 break-words text-lg font-black text-slate-950">{recordLabel}</h2><p className="mt-1 text-xs text-slate-500">Review the checked consequence before changing this financial record.</p></div><button ref={closeButtonRef} type="button" onClick={onClose} disabled={loading} className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" aria-label={`Close ${entityLabel} correction dialog`}>×</button></div>
       {loading && !preview && <p role="status" className="mt-5 rounded-xl bg-slate-50 p-4 text-xs font-semibold text-slate-600">Checking {entityLabel} dependencies and settlement evidence…</p>}
       {error && <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800">{error}</p>}
       {preview && <div className="mt-5 space-y-4">

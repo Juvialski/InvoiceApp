@@ -488,12 +488,13 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
       {/* 2. Filter & Search Controls Bar */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           {/* Search Bar */}
-          <div className="relative flex-1 min-w-[240px] max-w-md">
+          <div className="relative w-full min-w-0 max-w-md lg:flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               type="text"
+              aria-label="Search engineering documents"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search drawings, specs, or document #..."
@@ -501,7 +502,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
             />
           </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
             {/* Document Type Dropdown */}
             <select
               value={selectedDocType}
@@ -520,7 +521,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
-                className={`rounded-lg p-1.5 transition ${
+                aria-label="Grid view"
+                aria-pressed={viewMode === "grid"}
+                className={`min-h-10 min-w-10 rounded-lg p-1.5 transition ${
                   viewMode === "grid" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
                 }`}
                 title="Grid view"
@@ -530,7 +533,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
-                className={`rounded-lg p-1.5 transition ${
+                aria-label="Table view"
+                aria-pressed={viewMode === "table"}
+                className={`min-h-10 min-w-10 rounded-lg p-1.5 transition ${
                   viewMode === "table" ? "bg-white text-blue-600 shadow-xs" : "text-slate-500 hover:text-slate-800"
                 }`}
                 title="Table view"
@@ -542,15 +547,15 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
             {/* New Document Action Button */}
               {effectiveCanCreate && (
                 <button
-                type="button"
-                onClick={() => setIsNewDocModalOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition"
+                  type="button"
+                  onClick={() => setIsNewDocModalOpen(true)}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-500"
               >
                 <Plus className="h-4 w-4" />
                 New Document
                 </button>
               )}
-              <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
+              <label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
                 <input
                   type="checkbox"
                   checked={showArchived}
@@ -686,6 +691,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     }}
                     className="px-3 py-1.5 hover:text-slate-900 hover:bg-white rounded-lg transition"
                     title="Revision History"
+                    aria-label={`Open revision history for ${doc.documentNumber}`}
                   >
                     <History className="h-3.5 w-3.5 text-slate-500" />
                   </button>
@@ -698,6 +704,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                         }}
                         className="px-3 py-1.5 hover:text-slate-900 hover:bg-white rounded-lg transition"
                         title="Upload New Revision"
+                        aria-label={`Upload a new revision for ${doc.documentNumber}`}
                       >
                         <Upload className="h-3.5 w-3.5 text-slate-500" />
                       </button>}
@@ -707,6 +714,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                         onClick={() => void openLifecycleReview(doc)}
                         className="px-3 py-1.5 hover:text-rose-600 hover:bg-white rounded-lg transition"
                         title="Review lifecycle"
+                        aria-label={`Review lifecycle for ${doc.documentNumber}`}
                       >
                         <Archive className="h-3.5 w-3.5 text-slate-400 hover:text-rose-600" />
                       </button>}
@@ -717,8 +725,8 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
         </div>
       ) : (
         /* Table View */
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-          <table className="w-full text-left text-xs">
+        <div className="min-w-0 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
+          <table className="min-w-[960px] w-full text-left text-xs">
             <thead className="border-b border-slate-100 bg-slate-50/70 font-bold text-slate-500">
               <tr>
                 <th className="px-4 py-3">Doc Number</th>
@@ -739,7 +747,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                 return (
                   <tr key={doc.id} className="hover:bg-slate-50/80 transition">
                     <td className="px-4 py-3 font-mono font-black text-blue-600">{doc.documentNumber}</td>
-                    <td className="px-4 py-3 font-bold text-slate-900">{doc.title}</td>
+                    <td className="max-w-[280px] px-4 py-3 font-bold text-slate-900"><span className="block truncate" title={doc.title}>{doc.title}</span></td>
                     <td className="px-4 py-3">{getDisciplineBadge(doc.discipline)}</td>
                     <td className="px-4 py-3 text-slate-500 uppercase text-[10px] font-bold">{doc.documentType}</td>
                     <td className="px-4 py-3 font-mono font-bold">
@@ -749,7 +757,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     <td className="px-4 py-3 text-slate-400">
                       {new Date(doc.updatedAt || doc.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-3 text-right space-x-1">
+                    <td className="whitespace-nowrap px-4 py-3 text-right space-x-1">
                       <button
                         type="button"
                         onClick={() => handleOpenViewer(doc, currentRev?.id)}
@@ -765,6 +773,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                         }}
                         className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition"
                         title="Revision History"
+                        aria-label={`Open revision history for ${doc.documentNumber}`}
                       >
                         <History className="h-3.5 w-3.5" />
                       </button>
@@ -776,6 +785,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                             }}
                             className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition"
                             title="Upload New Revision"
+                            aria-label={`Upload a new revision for ${doc.documentNumber}`}
                           >
                             <Upload className="h-3.5 w-3.5" />
                           </button>}
@@ -784,6 +794,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                             onClick={() => void openLifecycleReview(doc)}
                             className="rounded-lg p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
                             title="Review lifecycle"
+                            aria-label={`Review lifecycle for ${doc.documentNumber}`}
                           >
                             <Archive className="h-3.5 w-3.5" />
                           </button>}
@@ -798,17 +809,18 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
       {/* 4. Modal: New Engineering Document */}
       {isNewDocModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-2 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="new-engineering-document-dialog-title" className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Compass className="h-5 w-5 text-blue-600" />
-                <h3 className="text-base font-black text-slate-900">New Engineering Document</h3>
+                <h3 id="new-engineering-document-dialog-title" className="break-words text-base font-black text-slate-900">New Engineering Document</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsNewDocModalOpen(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                aria-label="Close new engineering document dialog"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -937,18 +949,18 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
               {newDocError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{newDocError}</div>}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setIsNewDocModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="w-full rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 sm:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingNewDoc}
-                  className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+                  className="w-full rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50 sm:w-auto"
                 >
                   {isSubmittingNewDoc ? "Creating..." : "Create Document"}
                 </button>
@@ -960,17 +972,18 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
       {/* 5. Modal: Upload New Revision */}
       {isUploadRevModalOpen && modalTargetDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-2 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="upload-engineering-revision-dialog-title" className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-slate-900">Upload New Revision</h3>
-                <p className="text-xs font-mono text-blue-600">{modalTargetDoc.documentNumber} • {modalTargetDoc.title}</p>
+                <h3 id="upload-engineering-revision-dialog-title" className="text-base font-black text-slate-900">Upload New Revision</h3>
+                <p className="break-words text-xs font-mono text-blue-600">{modalTargetDoc.documentNumber} • {modalTargetDoc.title}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsUploadRevModalOpen(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                aria-label="Close upload revision dialog"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1026,18 +1039,18 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
               {revError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{revError}</div>}
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => setIsUploadRevModalOpen(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="w-full rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 sm:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingRev}
-                  className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
+                  className="w-full rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-500 disabled:opacity-50 sm:w-auto"
                 >
                   {isSubmittingRev ? "Uploading..." : "Save Revision"}
                 </button>
@@ -1049,12 +1062,12 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
 
       {/* 6. Modal: Revision History */}
       {isHistoryModalOpen && modalTargetDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-2 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="engineering-revision-history-dialog-title" className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-2xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="text-base font-black text-slate-900">Revision History</h3>
-                <p className="text-xs font-mono text-blue-600">
+                <h3 id="engineering-revision-history-dialog-title" className="text-base font-black text-slate-900">Revision History</h3>
+                <p className="break-words text-xs font-mono text-blue-600">
                   {modalTargetDoc.documentNumber} • {modalTargetDoc.title}
                 </p>
               </div>
@@ -1062,6 +1075,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                 type="button"
                 onClick={() => setIsHistoryModalOpen(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                aria-label="Close revision history dialog"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1071,15 +1085,15 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               {getDocRevisions(modalTargetDoc.id).map((rev) => (
                 <div
                   key={rev.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 hover:bg-slate-100 transition"
+                  className="flex flex-col items-stretch justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 transition hover:bg-slate-100 sm:flex-row sm:items-center"
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-md bg-blue-100 px-2 py-0.5 font-mono text-xs font-black text-blue-700">
                         {formatRevisionNumber(rev.revisionNumber)}
                       </span>
                       {rev.revisionLabel && (
-                        <span className="text-xs font-bold text-slate-800">{rev.revisionLabel}</span>
+                        <span className="break-words text-xs font-bold text-slate-800">{rev.revisionLabel}</span>
                       )}
                       <span className="text-[10px] text-slate-400">
                         {new Date(rev.createdAt).toLocaleString()}
@@ -1087,10 +1101,10 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                     </div>
 
                     {rev.changeSummary && (
-                      <p className="text-xs text-slate-600">{rev.changeSummary}</p>
+                      <p className="break-words text-xs text-slate-600">{rev.changeSummary}</p>
                     )}
 
-                    <p className="text-[10px] text-slate-400">
+                    <p className="break-words text-[10px] text-slate-400">
                       {rev.fileName} • {formatBytes(rev.fileSizeBytes)} • {rev.scale || "Scale metadata not verified"} ({rev.sheetSize || "Sheet size not verified"})
                     </p>
                   </div>
@@ -1101,7 +1115,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                       setIsHistoryModalOpen(false);
                       handleOpenViewer(modalTargetDoc, rev.id);
                     }}
-                    className="inline-flex items-center gap-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition"
+                    className="inline-flex shrink-0 items-center gap-1 self-start rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-500 sm:self-auto"
                   >
                     <Eye className="h-3 w-3" />
                     Open Rev
@@ -1110,7 +1124,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               ))}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-slate-100">
+            <div className="flex justify-end border-t border-slate-100 pt-2">
               <button
                 type="button"
                 onClick={() => setIsHistoryModalOpen(false)}

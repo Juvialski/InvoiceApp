@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useRef } from "react";
 import { ShieldAlert, X } from "lucide-react";
+import { useDialogFocus } from "../ui/useDialogFocus.ts";
 
 export interface FinancialReasonDialogProps {
   title: string;
@@ -29,9 +30,11 @@ export const FinancialReasonDialog: React.FC<FinancialReasonDialogProps> = ({
   onClose,
 }) => {
   const valid = reason.trim().length >= 3;
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const dialogRef = useDialogFocus({ open: true, onClose: () => { if (!loading) onClose(); }, initialFocusRef: reasonRef });
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="financial-reason-dialog-title">
+    <div ref={dialogRef} className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="financial-reason-dialog-title" aria-busy={loading}>
       <section className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -39,7 +42,7 @@ export const FinancialReasonDialog: React.FC<FinancialReasonDialogProps> = ({
             <h2 id="financial-reason-dialog-title" className="mt-1 text-lg font-black text-slate-950">{title}</h2>
             <p className="mt-1 text-xs text-slate-500">{description}</p>
           </div>
-          <button type="button" onClick={onClose} disabled={loading} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40" aria-label="Close correction dialog">
+          <button type="button" onClick={onClose} disabled={loading} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Close correction dialog">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -59,6 +62,7 @@ export const FinancialReasonDialog: React.FC<FinancialReasonDialogProps> = ({
             <label htmlFor="financial-reason-dialog-reason" className="block text-xs font-bold text-slate-800">Reason <span className="text-rose-600">*</span></label>
             <p className="mt-0.5 text-[10px] text-slate-500">A clear reason is required for the append-only financial audit trail.</p>
             <textarea
+              ref={reasonRef}
               id="financial-reason-dialog-reason"
               value={reason}
               onChange={(event) => onReasonChange(event.target.value)}

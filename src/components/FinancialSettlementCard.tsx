@@ -39,6 +39,10 @@ function date(value?: string) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function cashNavigationPath(transactionId: string, path: string) {
+  return transactionId.startsWith("demo-") ? `/demo/app${path}` : path;
+}
+
 export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = ({
   targetType,
   targetId,
@@ -176,8 +180,9 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
     }
   };
 
-  if (loading || (!visibleSummary && !error)) return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading settlement evidence…</section>;
+  if (loading) return <section className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">Loading settlement evidence…</section>;
   if (!visibleSummary && error) return <section className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800"><div className="flex items-center justify-between gap-3"><span>{error}</span><button type="button" onClick={() => void refresh()} className="shrink-0 rounded-md bg-white px-2 py-1 font-black text-rose-800 shadow-sm">Retry</button></div></section>;
+  if (!visibleSummary) return <section className="rounded-xl border border-slate-200 bg-white p-4" aria-label="Settlement evidence"><p className="text-sm font-black text-slate-800">No settlement evidence recorded</p><p className="mt-1 text-xs leading-5 text-slate-500">No confirmed cash or bank reconciliation evidence is available for this obligation yet. The original {targetType.toLowerCase()} remains unchanged.</p></section>;
 
   const active = visibleSummary?.history.filter((item) => item.status === "CONFIRMED") || [];
   const reversed = visibleSummary?.history.filter((item) => item.status === "REVERSED") || [];
@@ -269,7 +274,7 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       <a
-                        href={appPathForCashTransaction(item.transactionId, targetType, targetId)}
+                        href={cashNavigationPath(item.transactionId, appPathForCashTransaction(item.transactionId, targetType, targetId))}
                         onClick={(event) => {
                           if (!onNavigatePath) return;
                           event.preventDefault();

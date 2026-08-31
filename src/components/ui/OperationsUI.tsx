@@ -94,7 +94,7 @@ export function MetricCard({
         {Icon && <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${metricClasses[tone]}`}><Icon aria-hidden="true" className="h-4 w-4" /></span>}
         {emphasis && <span className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">Key</span>}
       </div>
-      <p className="mt-3 max-w-full overflow-x-auto whitespace-nowrap text-lg font-black tabular-nums tracking-tight text-slate-950 sm:text-xl xl:text-2xl" title={valueTitle}>
+      <p className="mt-3 max-w-full break-words whitespace-normal text-lg font-black tabular-nums tracking-tight text-slate-950 sm:text-xl xl:text-2xl" title={valueTitle}>
         {loading ? <span className="inline-block h-6 w-16 animate-pulse rounded-md bg-slate-200 align-middle" /> : value}
       </p>
       <p className="mt-1 text-xs font-semibold leading-5 text-slate-700 sm:text-sm">{label}</p>
