@@ -46,6 +46,7 @@ interface VerificationWorkspaceProps {
   onSaveProjectAllocations?: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
   preferredProjectId?: string;
   vendors?: Vendor[];
+  onOpenExistingInvoice?: (invoiceId: string) => void;
 }
 
 interface ProjectAssignmentPanelProps {
@@ -110,6 +111,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   onSaveProjectAllocations,
   preferredProjectId,
   vendors,
+  onOpenExistingInvoice,
 }) => {
   const [loadedVendors, setLoadedVendors] = useState<Vendor[]>(vendors || []);
   const [mobilePane, setMobilePane] = useState<"details" | "source">("details");
@@ -270,6 +272,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
             onRevertField={needsReview ? onRevertField : undefined}
             vendors={loadedVendors}
             onUpdateInvoice={handleInvoiceUpdate}
+            onOpenExistingInvoice={onOpenExistingInvoice}
           />
           <InvoiceViewer
             invoice={invoice}

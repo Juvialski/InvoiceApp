@@ -99,6 +99,7 @@ export interface EmailSourceMetadata {
   sourceStoragePath?: string;
   sourceSha256?: string;
   rawEmailStoragePath?: string;
+  duplicateReasons?: string[];
 }
 
 export interface FieldConfidence {
@@ -194,6 +195,7 @@ export interface InvoiceData {
   reviewStatus?: ReviewStatus;
   duplicateStatus?: DuplicateStatus;
   duplicateOfId?: string;
+  duplicateReasons?: string[];
 
   invoiceNumber: string;
   invoiceDate: string;

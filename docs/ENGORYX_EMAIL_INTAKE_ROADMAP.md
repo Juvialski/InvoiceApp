@@ -1,6 +1,6 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A merged (PR #52), Phase 4B complete in `feat/email-intake-phase-4b-entity-resolution` (PR #53) — two-stage entity resolution (preliminary mailbox hints + authoritative post-extraction/post-parse resolution) for Invoices, Cash & Banking Statements, and Expenses.
+Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A merged (PR #52), Phase 4B merged (PR #53), Phase 4C implemented in `feat/email-intake-phase-4c-invoice-hardening` — multi-attachment invoice extraction, pre-extraction duplicate short-circuiting, extraction retry quality, and authoritative post-extraction vendor resolution.
 
 Current direction:
 

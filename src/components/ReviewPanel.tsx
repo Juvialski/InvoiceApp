@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   Building2,
   CheckCircle2,
+  Copy,
+  Eye,
   HelpCircle,
   Link2,
   Mail,
@@ -34,6 +36,7 @@ interface ReviewPanelProps {
   verifyLabel?: string;
   vendors?: Vendor[];
   onUpdateInvoice?: (updated: InvoiceData) => void;
+  onOpenExistingInvoice?: (invoiceId: string) => void;
 }
 
 const comparisonFields: Array<{ path: string; label: string }> = [
@@ -126,6 +129,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
   verifyLabel = "Mark verified",
   vendors,
   onUpdateInvoice,
+  onOpenExistingInvoice,
 }) => {
   const [expandedField, setExpandedField] = useState<string | null>(null);
   const [internalVendors, setInternalVendors] = useState<Vendor[]>(vendors || []);
@@ -319,6 +323,50 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {(invoice.duplicateStatus === "POSSIBLE_DUPLICATE" || invoice.duplicateOfId) && (
+        <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 text-xs text-amber-950 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-black text-xs text-amber-900">
+                    {invoice.duplicateOfId
+                      ? `This attachment appears to have already been processed as an invoice.`
+                      : `Potential duplicate invoice detected.`}
+                  </p>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-800">
+                    <Copy className="w-2.5 h-2.5" />
+                    Duplicate Warning
+                  </span>
+                </div>
+                {invoice.duplicateReasons && invoice.duplicateReasons.length > 0 ? (
+                  <ul className="mt-1.5 space-y-1 text-[11px] text-amber-900 list-disc list-inside">
+                    {invoice.duplicateReasons.map((reason, i) => (
+                      <li key={i}>{reason}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-[11px] text-amber-800">
+                    Matches existing company invoice records based on file identity, vendor, date, or invoice number.
+                  </p>
+                )}
+              </div>
+            </div>
+            {invoice.duplicateOfId && onOpenExistingInvoice && (
+              <button
+                type="button"
+                onClick={() => onOpenExistingInvoice(invoice.duplicateOfId!)}
+                className="inline-flex items-center gap-1.5 self-start shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-900 shadow-xs hover:bg-amber-100/60 transition"
+              >
+                <Eye className="w-3.5 h-3.5 text-amber-700" />
+                Open existing invoice
+              </button>
+            )}
+          </div>
         </div>
       )}
 

@@ -488,44 +488,109 @@ function normalizedTaxId(value?: string) {
   return (value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
-async function ensureVendor(invoice: InvoiceData) {
+async function findExistingVendorId(invoice: InvoiceData): Promise<string | null> {
   const client = requireSupabase();
-  const userId = await requireUserId();
+  if (invoice.entityResolution?.proposedAction === "LINK_EXISTING" && invoice.entityResolution.matchedEntityId) {
+    return invoice.entityResolution.matchedEntityId;
+  }
   const name = (invoice.vendor?.registeredName || invoice.vendor?.companyName || invoice.vendor?.name || "").trim();
   const normalized = normalizedVendorName(invoice);
   const taxId = (invoice.vendor?.taxId || "").trim();
-  // Do not merge every uncertain extraction into a fake "Unknown vendor" row.
   if (!name || !normalized) return null;
   if (taxId) {
     const { data: taxMatch, error: taxMatchError } = await client
       .from("vendors")
       .select("id")
-    .eq("company_id", requireActiveCompanyId())
+      .eq("company_id", requireActiveCompanyId())
       .eq("tax_id", taxId)
       .maybeSingle();
     if (taxMatchError) throw taxMatchError;
     if (taxMatch?.id) return taxMatch.id as string;
   }
-  // A TIN-qualified key keeps same-named businesses with different TINs separate.
   const normalizedKey = taxId ? `${normalized} tin ${normalizedTaxId(taxId)}` : normalized;
   const { data, error } = await client
     .from("vendors")
-    .upsert({
-      user_id: userId,
-      company_id: requireActiveCompanyId(),
-      name,
-      normalized_name: normalizedKey,
-      email: invoice.vendor?.email || null,
-      phone: invoice.vendor?.phone || null,
-      tax_id: taxId || null,
-      address: invoice.vendor?.address || null,
-      default_currency: invoice.currency || null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "company_id,normalized_name" })
     .select("id")
-    .single();
+    .eq("company_id", requireActiveCompanyId())
+    .eq("normalized_name", normalizedKey)
+    .maybeSingle();
   if (error) throw error;
-  return data.id as string;
+  return data?.id ? (data.id as string) : null;
+}
+
+export async function findExistingInvoiceBySource(criteria: {
+  sourceSha256?: string;
+  sourceDocumentId?: string;
+  gmailMessageId?: string;
+  gmailAttachmentId?: string;
+}): Promise<InvoiceData | null> {
+  const client = requireSupabase();
+  await requireUserId();
+  const companyId = requireActiveCompanyId();
+
+  if (criteria.sourceDocumentId) {
+    const { data, error } = await client
+      .from("invoices")
+      .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
+      .eq("company_id", companyId)
+      .eq("source_document_id", criteria.sourceDocumentId)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) {
+      return {
+        ...(data.current_data || {}),
+        id: data.id,
+        sourceDocumentId: data.source_document_id || criteria.sourceDocumentId,
+        sourceEmailId: data.source_email_id,
+        reviewStatus: data.review_status || "NEEDS_REVIEW",
+        duplicateStatus: data.duplicate_status || "UNIQUE",
+        duplicateOfId: data.duplicate_of_id,
+        verifiedAt: data.verified_at,
+        lifecycleStatus: data.lifecycle_status || "ACTIVE",
+        status: data.payment_status || data.current_data?.status,
+        updatedAt: data.updated_at,
+      } as InvoiceData;
+    }
+  }
+
+  if (criteria.sourceSha256) {
+    const { data: docs, error: docError } = await client
+      .from("source_documents")
+      .select("id,created_at")
+      .eq("company_id", companyId)
+      .eq("sha256", criteria.sourceSha256)
+      .order("created_at", { ascending: true })
+      .limit(100);
+    if (docError) throw docError;
+    const sourceDocumentIds = (docs || []).map((doc) => doc.id).filter(Boolean);
+    if (sourceDocumentIds.length) {
+      const { data: invoices, error: invError } = await client
+        .from("invoices")
+        .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
+        .eq("company_id", companyId)
+        .in("source_document_id", sourceDocumentIds)
+        .limit(1);
+      if (invError) throw invError;
+      const inv = invoices?.[0];
+      if (inv) {
+        return {
+          ...(inv.current_data || {}),
+          id: inv.id,
+          sourceDocumentId: inv.source_document_id,
+          sourceEmailId: inv.source_email_id,
+          reviewStatus: inv.review_status || "NEEDS_REVIEW",
+          duplicateStatus: inv.duplicate_status || "UNIQUE",
+          duplicateOfId: inv.duplicate_of_id,
+          verifiedAt: inv.verified_at,
+          lifecycleStatus: inv.lifecycle_status || "ACTIVE",
+          status: inv.payment_status || inv.current_data?.status,
+          updatedAt: inv.updated_at,
+        } as InvoiceData;
+      }
+    }
+  }
+
+  return null;
 }
 
 export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceData> {
@@ -551,6 +616,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
         reviewStatus: existing.review_status || existing.current_data?.reviewStatus || "NEEDS_REVIEW",
         duplicateStatus: existing.duplicate_status || existing.current_data?.duplicateStatus || "UNIQUE",
         duplicateOfId: existing.duplicate_of_id || existing.current_data?.duplicateOfId,
+        duplicateReasons: existing.current_data?.duplicateReasons || invoice.duplicateReasons,
         verifiedAt: existing.verified_at || existing.current_data?.verifiedAt,
         archivedAt: existing.archived_at ?? undefined,
         lifecycleStatus: existing.lifecycle_status || existing.current_data?.lifecycleStatus || "ACTIVE",
@@ -563,7 +629,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
     }
   }
 
-  const vendorId = await ensureVendor(invoice);
+  const vendorId = await findExistingVendorId(invoice);
   const aiSnapshot = clone(invoice);
   delete (aiSnapshot as any).aiSnapshot;
   const persistedInvoice: InvoiceData = {
@@ -713,7 +779,7 @@ export async function persistExtractionAttempt(
     aiSnapshot,
   };
 
-  const vendorId = await ensureVendor(activeCandidate) || existingRow.vendor_id || null;
+  const vendorId = (await findExistingVendorId(activeCandidate)) || existingRow.vendor_id || null;
   const { count: existingAttemptCount, error: countError } = await client
     .from("invoice_extractions")
     .select("id", { count: "exact", head: true })
@@ -834,7 +900,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   const userId = await requireUserId();
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
-    .select("current_data,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
+    .select("vendor_id,current_data,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
     .eq("id", updated.id).eq("company_id", requireActiveCompanyId())
     .single();
   if (existingError) throw existingError;
@@ -844,7 +910,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   }
   // Check freshness before any related vendor upsert. A stale invoice edit
   // must not create or rewrite a vendor as a side effect of being rejected.
-  const vendorId = await ensureVendor(updated);
+  const vendorId = (await findExistingVendorId(updated)) || existingRow.vendor_id || null;
   const durableAiSnapshot = existingRow?.current_data?.aiSnapshot || previous.aiSnapshot || updated.aiSnapshot;
   const persistedBefore = existingRow?.current_data
     ? { ...(existingRow.current_data as Partial<InvoiceData>), id: updated.id }

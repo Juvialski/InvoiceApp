@@ -7,6 +7,12 @@ import type {
 } from "../types.ts";
 import { DEFAULT_CURRENCY, currencySymbolFor, formatDate, formatDateTime, formatMoney, getRegionalSettings } from "../config/regional.ts";
 import { normalizeCurrency } from "./extractionQuality.ts";
+import {
+  evaluateInvoiceDuplicateEvidence,
+  findExistingInvoiceForSourcePayload,
+} from "./invoiceDuplicateDetection.ts";
+
+export { evaluateInvoiceDuplicateEvidence, findExistingInvoiceForSourcePayload };
 
 const PH_VAT_RATE = 0.12;
 const roundMoney = (value: number) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
@@ -291,28 +297,16 @@ export function derivePaymentStatus(invoice: Pick<InvoiceData, "grandTotal" | "a
   return "UNPAID";
 }
 
+
 export function findPossibleDuplicate(invoice: InvoiceData, existing: InvoiceData[]): InvoiceData | undefined {
-  const number = (invoice.invoiceNumber || "").trim().toLowerCase();
-  const normalize = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-  const vendor = normalize(invoice.vendor?.registeredName || invoice.vendor?.companyName || invoice.vendor?.name || "");
-  const taxId = normalize(invoice.vendor?.taxId || "");
-  const sourceEmail = invoice.sourceMetadata?.gmailMessageId || invoice.sourceEmailId || "";
-  const sourceAttachment = invoice.sourceMetadata?.gmailAttachmentId || "";
-  const hasFinancialFingerprint = Boolean(vendor && invoice.invoiceDate && invoice.currency && Number(invoice.grandTotal) > 0);
-  return existing.find((candidate) => {
-    if (candidate.id === invoice.id) return false;
-    const candidateVendor = normalize(candidate.vendor?.registeredName || candidate.vendor?.companyName || candidate.vendor?.name || "");
-    const candidateTaxId = normalize(candidate.vendor?.taxId || "");
-    const sameSourceDocument = Boolean(invoice.sourceDocumentId && candidate.sourceDocumentId && invoice.sourceDocumentId === candidate.sourceDocumentId);
-    const sameSourceEmail = Boolean(sourceEmail && (candidate.sourceMetadata?.gmailMessageId || candidate.sourceEmailId) === sourceEmail && sourceAttachment && candidate.sourceMetadata?.gmailAttachmentId === sourceAttachment);
-    const sameFile = Boolean(invoice.sourceSha256 && candidate.sourceSha256 && invoice.sourceSha256 === candidate.sourceSha256);
-    const sameNumber = Boolean(number && (candidate.invoiceNumber || "").trim().toLowerCase() === number);
-    const sameVendor = Boolean(vendor && candidateVendor === vendor && (!taxId || !candidateTaxId || candidateTaxId === taxId));
-    const sameCurrency = (candidate.currency || "").toUpperCase() === (invoice.currency || "").toUpperCase();
-    const sameTotal = Math.abs((Number(candidate.grandTotal) || 0) - (Number(invoice.grandTotal) || 0)) <= 0.05;
-    const sameDate = Boolean(invoice.invoiceDate && candidate.invoiceDate && candidate.invoiceDate === invoice.invoiceDate);
-    return sameSourceDocument || sameSourceEmail || sameFile || (hasFinancialFingerprint && sameVendor && sameDate && sameCurrency && sameTotal) || (sameNumber && sameVendor && sameCurrency && sameTotal);
-  });
+  const result = evaluateInvoiceDuplicateEvidence(invoice, existing);
+  if (result.isDuplicate && result.duplicateOf) {
+    if (result.reasons.length && (!invoice.duplicateReasons || !invoice.duplicateReasons.length)) {
+      invoice.duplicateReasons = result.reasons;
+    }
+    return result.duplicateOf;
+  }
+  return undefined;
 }
 
 export function applyLocalChecks(invoice: InvoiceData): InvoiceData {

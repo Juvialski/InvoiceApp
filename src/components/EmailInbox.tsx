@@ -5,6 +5,7 @@ import {
   Building2,
   CheckCircle2,
   ChevronDown,
+  Copy,
   FileSpreadsheet,
   FileText,
   Inbox,
@@ -787,6 +788,17 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                         ? "bg-amber-100 text-amber-800"
                         : "bg-slate-100 text-slate-600";
 
+                const matchingExistingInvoice = invoices.find(
+                  (inv) =>
+                    (inv.sourceMetadata?.gmailMessageId && inv.sourceMetadata.gmailMessageId === message.id) ||
+                    (inv.sourceEmailId && inv.sourceEmailId === message.id) ||
+                    message.attachments.some(
+                      (att) =>
+                        (inv.sourceMetadata?.gmailAttachmentId && inv.sourceMetadata.gmailAttachmentId === att.attachmentId) ||
+                        (inv.fileName && inv.fileName === att.filename)
+                    )
+                );
+
                 return (
                   <div key={message.id} className="border border-slate-200 rounded-2xl p-3.5 flex flex-col lg:flex-row lg:items-center gap-3">
                     <div
@@ -817,6 +829,15 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                         {cls.matchedProfileName && (
                           <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-sky-50 text-sky-800 border border-sky-200">
                             Rule: {cls.matchedProfileName}
+                          </span>
+                        )}
+                        {matchingExistingInvoice && message.importStatus !== "IMPORTED" && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-800 border border-amber-200"
+                            title={`Already processed as ${matchingExistingInvoice.invoiceNumber || "Invoice"}`}
+                          >
+                            <Copy className="w-2.5 h-2.5" />
+                            <span>Processed ({matchingExistingInvoice.invoiceNumber || "Invoice"})</span>
                           </span>
                         )}
                         {resolution && (

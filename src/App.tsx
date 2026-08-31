@@ -14,7 +14,7 @@ import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/rou
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
-import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
+import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
 import { readAndCleanLocalInvoices } from "./utils/demoCleanup";
 import { enqueueSerializedSave } from "./utils/saveSequencing";
@@ -37,6 +37,7 @@ import { classifyEmailIntakeCandidate, scanConnectedMailbox, syncConnectedMailbo
 import {
   applyInvoiceCorrectionInSupabase,
   ensureWorkspaceProfile,
+  findExistingInvoiceBySource,
   loadGmailSyncState,
   loadInvoicesFromSupabase,
   listCompanyVendors,
@@ -188,7 +189,16 @@ function fileToBase64(file: File): Promise<{ fileData: string; mimeType: string 
 }
 
 function isExtractableAttachment(mimeType: string, filename: string) {
-  return mimeType === "application/pdf" || mimeType.startsWith("image/") || /\.(pdf|png|jpe?g|webp)$/i.test(filename);
+  const normalizedMime = String(mimeType || "").trim().toLowerCase();
+  const normalizedFilename = String(filename || "").trim().toLowerCase();
+  if (normalizedMime === "image/svg+xml" || normalizedFilename.endsWith(".svg")) {
+    return false;
+  }
+  return (
+    normalizedMime === "application/pdf" ||
+    (normalizedMime.startsWith("image/") && !normalizedMime.includes("svg")) ||
+    /\.(pdf|png|jpe?g|webp)$/i.test(normalizedFilename)
+  );
 }
 
 function gmailQueryDate(value: string, exclusive = false) {
@@ -1392,6 +1402,37 @@ function InvoiceWorkspace() {
           sourceType: payload.sourceType === "EMAIL" ? "EMAIL" : "UPLOAD",
         });
       }
+
+      if (storedSource) {
+        const sourceCriteria = {
+          sourceSha256: storedSource.sha256,
+          sourceDocumentId: storedSource.id,
+          fileName: payload.fileName,
+        };
+        const existingMatch = findExistingInvoiceForSourcePayload(sourceCriteria, invoicesRef.current);
+        let existingInvoice = existingMatch.existingInvoice;
+        if (!existingInvoice && session && supabase) {
+          existingInvoice = (await findExistingInvoiceBySource(sourceCriteria).catch(() => null)) || undefined;
+        }
+        if (existingInvoice) {
+          showNotification(
+            "info",
+            `This document appears to have already been processed as Invoice ${existingInvoice.invoiceNumber || existingInvoice.id}. Loaded existing record.`
+          );
+          const matchedCandidate: InvoiceData = {
+            ...existingInvoice,
+            duplicateStatus: "POSSIBLE_DUPLICATE",
+            duplicateOfId: existingInvoice.id,
+            duplicateReasons: existingMatch.reasons.length
+              ? existingMatch.reasons
+              : [`Identical source file already processed as Invoice ${existingInvoice.invoiceNumber || existingInvoice.id}.`],
+            reviewStatus: existingInvoice.reviewStatus || "NEEDS_REVIEW",
+          };
+          sourcePayloadsRef.current.set(matchedCandidate.id, payload);
+          return matchedCandidate;
+        }
+      }
+
       let extracted = await extractPayload(payload);
       if (storedSource) {
         extracted = {
@@ -1399,11 +1440,11 @@ function InvoiceWorkspace() {
           fileSize: storedSource.size,
           fileType: storedSource.mimeType,
           previewUrl: storedSource.previewUrl,
-           sourceDocumentId: storedSource.id,
-           sourceStoragePath: storedSource.storagePath,
-           sourceSha256: storedSource.sha256,
-           sourceEmailId: storedSource.emailMessageId || extracted.sourceEmailId,
-           sourceMetadata: { ...(extracted.sourceMetadata || {}), sourceDocumentId: storedSource.id, sourceStoragePath: storedSource.storagePath, sourceSha256: storedSource.sha256 },
+          sourceDocumentId: storedSource.id,
+          sourceStoragePath: storedSource.storagePath,
+          sourceSha256: storedSource.sha256,
+          sourceEmailId: storedSource.emailMessageId || extracted.sourceEmailId,
+          sourceMetadata: { ...(extracted.sourceMetadata || {}), sourceDocumentId: storedSource.id, sourceStoragePath: storedSource.storagePath, sourceSha256: storedSource.sha256 },
         };
       }
       const prepared = await saveExtracted(extracted, storedSource?.previewUrl || payload.previewUrl);
@@ -1475,23 +1516,58 @@ function InvoiceWorkspace() {
       }
       const manualEmail = session ? await saveManualEmailRecord({ sender, subject, receivedAt, body }) : undefined;
       const extractedInvoices: InvoiceData[] = [];
+      let failureCount = 0;
 
       if (attachments.length > 0) {
         for (const attachment of attachments) {
-          const encoded = await fileToBase64(attachment);
-          const storedSource = session ? await saveManualSourceDocument({ ...encoded, fileName: attachment.name, emailMessageId: manualEmail?.id, sourceType: "EMAIL" }) : undefined;
-          let extracted = await extractPayload({
-            ...encoded,
-            fileName: attachment.name,
-            model: "gemini-3.5-flash-lite",
-            sourceType: "EMAIL",
-            emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath },
-          });
-          extracted = { ...extracted, fileSize: attachment.size, fileType: encoded.mimeType, sourceEmailId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath, sourceSha256: storedSource?.sha256, previewUrl: storedSource?.previewUrl || extracted.previewUrl };
-          const saved = await saveExtracted(extracted, storedSource?.previewUrl);
-          sourcePayloadsRef.current.set(saved.id, { ...encoded, fileName: attachment.name, model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath } });
-          extractedInvoices.push(saved);
-          if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", saved.documentType);
+          if (!isExtractableAttachment(attachment.type || "application/octet-stream", attachment.name)) {
+            continue;
+          }
+          try {
+            const encoded = await fileToBase64(attachment);
+            const storedSource = session ? await saveManualSourceDocument({ ...encoded, fileName: attachment.name, emailMessageId: manualEmail?.id, sourceType: "EMAIL" }) : undefined;
+            const sourceCriteria = {
+              sourceSha256: storedSource?.sha256,
+              sourceDocumentId: storedSource?.id,
+              fileName: attachment.name,
+            };
+            const existingMatch = findExistingInvoiceForSourcePayload(sourceCriteria, invoicesRef.current);
+            let existingInvoice = existingMatch.existingInvoice;
+            if (!existingInvoice && session && supabase && storedSource) {
+              existingInvoice = (await findExistingInvoiceBySource(sourceCriteria).catch(() => null)) || undefined;
+            }
+
+            if (existingInvoice) {
+              const matchedCandidate: InvoiceData = {
+                ...existingInvoice,
+                duplicateStatus: "POSSIBLE_DUPLICATE",
+                duplicateOfId: existingInvoice.id,
+                duplicateReasons: existingMatch.reasons.length
+                  ? existingMatch.reasons
+                  : [`Identical source attachment already processed as Invoice ${existingInvoice.invoiceNumber || existingInvoice.id}.`],
+                reviewStatus: existingInvoice.reviewStatus || "NEEDS_REVIEW",
+              };
+              sourcePayloadsRef.current.set(matchedCandidate.id, { ...encoded, fileName: attachment.name, model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath } });
+              extractedInvoices.push(matchedCandidate);
+              if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", matchedCandidate.documentType);
+            } else {
+              let extracted = await extractPayload({
+                ...encoded,
+                fileName: attachment.name,
+                model: "gemini-3.5-flash-lite",
+                sourceType: "EMAIL",
+                emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath },
+              });
+              extracted = { ...extracted, fileSize: attachment.size, fileType: encoded.mimeType, sourceEmailId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath, sourceSha256: storedSource?.sha256, previewUrl: storedSource?.previewUrl || extracted.previewUrl };
+              const saved = await saveExtracted(extracted, storedSource?.previewUrl);
+              sourcePayloadsRef.current.set(saved.id, { ...encoded, fileName: attachment.name, model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, attachmentName: attachment.name, emailRecordId: manualEmail?.id, sourceDocumentId: storedSource?.id, sourceStoragePath: storedSource?.storagePath } });
+              extractedInvoices.push(saved);
+              if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", saved.documentType);
+            }
+          } catch (attError) {
+            failureCount += 1;
+            console.warn(`Extraction failed for attachment ${attachment.name}:`, attError);
+          }
         }
       } else {
         let extracted = await extractPayload({ textData: body || subject, fileName: subject || "Email invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, emailRecordId: manualEmail?.id } });
@@ -1526,7 +1602,14 @@ function InvoiceWorkspace() {
         }
         startReview(extractedInvoices, undefined, "inbox");
       }
-      showNotification("success", `Email processed: ${classification.documentType || "financial document"} detected and saved for review.`);
+      if (extractedInvoices.length > 0) {
+        const msg = failureCount > 0
+          ? `Processed ${extractedInvoices.length} invoice${extractedInvoices.length === 1 ? "" : "s"} (${failureCount} attachment${failureCount === 1 ? "" : "s"} skipped or failed).`
+          : `Email processed: ${classification.documentType || "financial document"} detected and saved for review.`;
+        showNotification(failureCount > 0 ? "info" : "success", msg);
+      } else if (failureCount > 0) {
+        showNotification("error", `Could not extract invoices from ${failureCount} attachment${failureCount === 1 ? "" : "s"}.`);
+      }
       return classification;
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Email processing failed. Check the message and try again."));
@@ -1598,70 +1681,127 @@ function InvoiceWorkspace() {
       const stored = await saveGmailMessageSource(imported);
       if (candidate.classification) await markEmailClassification(stored.email.id, candidate.classification);
       let extractedCount = 0;
+      let failureCount = 0;
       const extractedInvoices: InvoiceData[] = [];
+
       for (let index = 0; index < imported.attachments.length; index += 1) {
         const attachment = imported.attachments[index];
         if (!attachment.dataBase64 || !isExtractableAttachment(attachment.mimeType, attachment.filename)) continue;
-        const source = stored.documents[index];
-        let extracted = await extractPayload({
-          fileData: attachment.dataBase64,
-          mimeType: attachment.mimeType,
-          fileName: attachment.filename,
-          model: "gemini-3.5-flash-lite",
-          sourceType: "EMAIL",
-          emailContext: {
-            sender: imported.sender,
-            subject: imported.subject,
-            receivedAt: imported.receivedAt,
-            body: imported.bodyText,
-            attachmentName: attachment.filename,
-            gmailAttachmentId: attachment.attachmentId,
-            emailReference: imported.id,
-            gmailMessageId: imported.id,
-            gmailThreadId: imported.threadId,
-            emailRecordId: stored.email.id,
+        const source = stored.documents.find((d) => (attachment.attachmentId && d.gmailAttachmentId === attachment.attachmentId) || d.filename === attachment.filename) || stored.documents[index];
+        try {
+          const sourceCriteria = {
+            sourceSha256: source?.sha256,
             sourceDocumentId: source?.id,
-            sourceStoragePath: source?.storagePath,
-            rawEmailStoragePath: stored.email.rawStoragePath,
-          },
-        });
-        extracted = {
-          ...extracted,
-          fileName: attachment.filename,
-          fileSize: attachment.size,
-          fileType: attachment.mimeType,
-          sourceEmailId: stored.email.id,
-          sourceDocumentId: source?.id,
-          sourceStoragePath: source?.storagePath,
-          sourceSha256: source?.sha256,
-          previewUrl: source?.previewUrl,
-        };
-        const saved = await saveExtracted(extracted, source?.previewUrl);
-        sourcePayloadsRef.current.set(saved.id, {
-          fileData: attachment.dataBase64,
-          mimeType: attachment.mimeType,
-          fileName: attachment.filename,
-          model: "gemini-3.5-flash-lite",
-          sourceType: "EMAIL",
-          emailContext: {
-            sender: imported.sender,
-            subject: imported.subject,
-            receivedAt: imported.receivedAt,
-            body: imported.bodyText,
-            attachmentName: attachment.filename,
-            gmailAttachmentId: attachment.attachmentId,
-            emailReference: imported.id,
             gmailMessageId: imported.id,
-            gmailThreadId: imported.threadId,
-            emailRecordId: stored.email.id,
-            sourceDocumentId: source?.id,
-            sourceStoragePath: source?.storagePath,
-            rawEmailStoragePath: stored.email.rawStoragePath,
-          },
-        });
-        extractedInvoices.push(saved);
-        if (source?.id) await markSourceDocumentStatus(source.id, "EXTRACTED", extracted.documentType);
-        extractedCount += 1;
+            gmailAttachmentId: attachment.attachmentId,
+            fileName: attachment.filename,
+          };
+          const existingMatch = findExistingInvoiceForSourcePayload(sourceCriteria, invoicesRef.current);
+          let existingInvoice = existingMatch.existingInvoice;
+          if (!existingInvoice && session && supabase && source) {
+            existingInvoice = (await findExistingInvoiceBySource(sourceCriteria).catch(() => null)) || undefined;
+          }
+
+          if (existingInvoice) {
+            const matchedCandidate: InvoiceData = {
+              ...existingInvoice,
+              duplicateStatus: "POSSIBLE_DUPLICATE",
+              duplicateOfId: existingInvoice.id,
+              duplicateReasons: existingMatch.reasons.length
+                ? existingMatch.reasons
+                : [`Identical source attachment already processed as Invoice ${existingInvoice.invoiceNumber || existingInvoice.id}.`],
+              reviewStatus: existingInvoice.reviewStatus || "NEEDS_REVIEW",
+            };
+            sourcePayloadsRef.current.set(matchedCandidate.id, {
+              fileData: attachment.dataBase64,
+              mimeType: attachment.mimeType,
+              fileName: attachment.filename,
+              model: "gemini-3.5-flash-lite",
+              sourceType: "EMAIL",
+              emailContext: {
+                sender: imported.sender,
+                subject: imported.subject,
+                receivedAt: imported.receivedAt,
+                body: imported.bodyText,
+                attachmentName: attachment.filename,
+                gmailAttachmentId: attachment.attachmentId,
+                emailReference: imported.id,
+                gmailMessageId: imported.id,
+                gmailThreadId: imported.threadId,
+                emailRecordId: stored.email.id,
+                sourceDocumentId: source?.id,
+                sourceStoragePath: source?.storagePath,
+                rawEmailStoragePath: stored.email.rawStoragePath,
+              },
+            });
+            extractedInvoices.push(matchedCandidate);
+            if (source?.id) await markSourceDocumentStatus(source.id, "EXTRACTED", matchedCandidate.documentType);
+            extractedCount += 1;
+          } else {
+            let extracted = await extractPayload({
+              fileData: attachment.dataBase64,
+              mimeType: attachment.mimeType,
+              fileName: attachment.filename,
+              model: "gemini-3.5-flash-lite",
+              sourceType: "EMAIL",
+              emailContext: {
+                sender: imported.sender,
+                subject: imported.subject,
+                receivedAt: imported.receivedAt,
+                body: imported.bodyText,
+                attachmentName: attachment.filename,
+                gmailAttachmentId: attachment.attachmentId,
+                emailReference: imported.id,
+                gmailMessageId: imported.id,
+                gmailThreadId: imported.threadId,
+                emailRecordId: stored.email.id,
+                sourceDocumentId: source?.id,
+                sourceStoragePath: source?.storagePath,
+                rawEmailStoragePath: stored.email.rawStoragePath,
+              },
+            });
+            extracted = {
+              ...extracted,
+              fileName: attachment.filename,
+              fileSize: attachment.size,
+              fileType: attachment.mimeType,
+              sourceEmailId: stored.email.id,
+              sourceDocumentId: source?.id,
+              sourceStoragePath: source?.storagePath,
+              sourceSha256: source?.sha256,
+              previewUrl: source?.previewUrl,
+            };
+            const saved = await saveExtracted(extracted, source?.previewUrl);
+            sourcePayloadsRef.current.set(saved.id, {
+              fileData: attachment.dataBase64,
+              mimeType: attachment.mimeType,
+              fileName: attachment.filename,
+              model: "gemini-3.5-flash-lite",
+              sourceType: "EMAIL",
+              emailContext: {
+                sender: imported.sender,
+                subject: imported.subject,
+                receivedAt: imported.receivedAt,
+                body: imported.bodyText,
+                attachmentName: attachment.filename,
+                gmailAttachmentId: attachment.attachmentId,
+                emailReference: imported.id,
+                gmailMessageId: imported.id,
+                gmailThreadId: imported.threadId,
+                emailRecordId: stored.email.id,
+                sourceDocumentId: source?.id,
+                sourceStoragePath: source?.storagePath,
+                rawEmailStoragePath: stored.email.rawStoragePath,
+              },
+            });
+            extractedInvoices.push(saved);
+            if (source?.id) await markSourceDocumentStatus(source.id, "EXTRACTED", extracted.documentType);
+            extractedCount += 1;
+          }
+        } catch (attError) {
+          failureCount += 1;
+          console.warn(`Extraction failed for Gmail attachment ${attachment.filename}:`, attError);
+        }
       }
 
       if (extractedCount === 0 && candidate.classification?.isInvoiceLike && imported.bodyText) {
@@ -1701,7 +1841,14 @@ function InvoiceWorkspace() {
             if (resolutions[inv.id]) {
               const res = resolutions[inv.id];
               const preliminaryOverride = (candidate as any).preliminaryResolution as EntityResolutionResult | undefined;
-              if (preliminaryOverride && preliminaryOverride.proposedAction === "LINK_EXISTING" && preliminaryOverride.matchedEntityId) {
+              // Authoritative extracted evidence wins. Only adopt preliminary override if there are no contradictory conflicts
+              if (
+                preliminaryOverride &&
+                preliminaryOverride.proposedAction === "LINK_EXISTING" &&
+                preliminaryOverride.matchedEntityId &&
+                (!res.conflicts || res.conflicts.length === 0) &&
+                (!res.matchedEntityId || res.matchedEntityId === preliminaryOverride.matchedEntityId)
+              ) {
                 const chosenVendor = existingVendors.find((v) => v.id === preliminaryOverride.matchedEntityId);
                 inv.entityResolution = {
                   ...res,
@@ -1720,7 +1867,14 @@ function InvoiceWorkspace() {
         }
         startReview(extractedInvoices, undefined, "inbox");
       }
-      showNotification("success", `Saved original Gmail message and ${stored.documents.length} attachment${stored.documents.length === 1 ? "" : "s"}; created ${extractedCount} invoice extraction${extractedCount === 1 ? "" : "s"}.`);
+      if (extractedInvoices.length > 0) {
+        const msg = failureCount > 0
+          ? `Saved original Gmail message; extracted ${extractedCount} invoice${extractedCount === 1 ? "" : "s"} (${failureCount} attachment${failureCount === 1 ? "" : "s"} failed).`
+          : `Saved original Gmail message and ${stored.documents.length} attachment${stored.documents.length === 1 ? "" : "s"}; created ${extractedCount} invoice extraction${extractedCount === 1 ? "" : "s"}.`;
+        showNotification(failureCount > 0 ? "info" : "success", msg);
+      } else if (failureCount > 0) {
+        showNotification("error", `Could not extract invoices from ${failureCount} attachment${failureCount === 1 ? "" : "s"}.`);
+      }
       return extractedCount;
     } finally {
       setProcessingCount((n) => Math.max(0, n - 1));
