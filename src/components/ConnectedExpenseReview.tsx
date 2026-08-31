@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, FileText, Loader2, Mail, Receipt, Sparkles, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2, FileText, Loader2, Receipt, Sparkles, X } from "lucide-react";
 import type { Expense, ExpenseStatus, Project } from "../types.ts";
 import { EXPENSE_CATEGORIES, createLocalExpense } from "../lib/expenses.ts";
 import {
@@ -36,7 +36,6 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
   const [referenceNumber, setReferenceNumber] = useState("");
   const [projectId, setProjectId] = useState("");
   const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState<ExpenseStatus>("DRAFT");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -55,16 +54,10 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
     setPaymentMethod(suggested.paymentMethod || "");
     setReferenceNumber(suggested.referenceNumber || "");
     setNotes(suggested.notes || "");
-    setStatus("DRAFT");
-
-    // Match suggested project code to real active projects
-    if (suggested.projectId) {
-      const match = projects.find((p) => p.status !== "ARCHIVED" && (p.projectCode.toLowerCase() === suggested.projectId?.toLowerCase() || p.id === suggested.projectId));
-      setProjectId(match?.id || "");
-    } else {
-      setProjectId("");
-    }
-  }, [projects]);
+    // Project context remains advisory. The user must explicitly choose a
+    // project before an allocation can be persisted with the expense.
+    setProjectId("");
+  }, []);
 
   const duplicates = useMemo<ExpenseDuplicateCandidate[]>(() => {
     if (!pending) return [];
@@ -167,7 +160,7 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
       <div className="flex items-start justify-between gap-3">
         <SectionHeader
           title="Review expense from Email Intake"
-          description="The original email and receipt attachment are preserved. Extracted fields are suggestions and remain non-mutating until you explicitly save."
+          description="The original email and receipt attachment are preserved. Suggested fields remain non-mutating until you explicitly save."
           icon={Receipt}
         />
         <button
@@ -186,7 +179,7 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-black text-slate-900">{pending.subject || "Email receipt"}</p>
             <StatusBadge tone="warning" icon={Sparkles}>
-              AI Extracted Suggestions
+              Suggested values
             </StatusBadge>
           </div>
           <p className="mt-1 text-xs text-slate-500">
@@ -217,7 +210,7 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
 
       {error && (
         <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
-          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
           <span>{error}</span>
         </div>
       )}
@@ -268,6 +261,11 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
                     </option>
                   ))}
               </select>
+              {pending.suggestedExpense.projectId && (
+                <p className="text-[10px] leading-4 text-amber-800">
+                  Email hint: {pending.suggestedExpense.projectId}. Choose the matching project explicitly if this receipt belongs to it.
+                </p>
+              )}
             </label>
             <label className="space-y-1 sm:col-span-2">
               <span className="field-label">Category</span>
