@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { isGmailAuthorizationError, resolveGmailConnectionStatus } from "../src/lib/emailIntake.ts";
 import type { GmailConnectionInfo } from "../src/types.ts";
 
@@ -30,6 +31,23 @@ test("Email Intake connection state only treats Gmail authorization failures as 
     resolveGmailConnectionStatus(healthyConnection, "Gmail authorization expired or was revoked. Reconnect Gmail."),
     "RECONNECT_REQUIRED",
   );
+});
+
+test("Gmail reconnect uses OAuth reauthorization once Google identity is already linked", async () => {
+  const { resolveGoogleGmailConnectionMode } = await import("../src/lib/supabase.ts");
+
+  assert.equal(
+    resolveGoogleGmailConnectionMode([{ provider: "email" }, { provider: "google" }]),
+    "REAUTHORIZE_LINKED_IDENTITY",
+  );
+  assert.equal(
+    resolveGoogleGmailConnectionMode([{ provider: "email" }]),
+    "LINK_IDENTITY",
+  );
+
+  const source = readFileSync("src/lib/supabase.ts", "utf8");
+  assert.match(source, /connectionMode === "REAUTHORIZE_LINKED_IDENTITY"[\s\S]*?signInWithOAuth/);
+  assert.match(source, /REAUTHORIZE_LINKED_IDENTITY[\s\S]*?return;[\s\S]*?linkIdentity/);
 });
 
 test("Gmail reconnect lifecycle: captures provider token and transitions from RECONNECT_REQUIRED to HEALTHY", async () => {

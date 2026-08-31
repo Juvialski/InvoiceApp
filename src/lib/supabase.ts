@@ -162,23 +162,60 @@ export function clearGoogleProviderTokens() {
   }
 }
 
+export type GoogleGmailConnectionMode = "REAUTHORIZE_LINKED_IDENTITY" | "LINK_IDENTITY";
+
+/**
+ * Supabase returns provider_token from a normal OAuth sign-in callback, but not
+ * from linkIdentity(). Once Google is already linked, reconnect must therefore
+ * reauthorize that linked identity instead of attempting to link it again.
+ */
+export function resolveGoogleGmailConnectionMode(identities: readonly { provider?: string | null }[]): GoogleGmailConnectionMode {
+  return identities.some((identity) => String(identity.provider || "").toLowerCase() === "google")
+    ? "REAUTHORIZE_LINKED_IDENTITY"
+    : "LINK_IDENTITY";
+}
+
 export async function connectGoogleAndGmail(redirectToPath = "/email-intake") {
   const redirectTo = getAuthRedirectUrl(redirectToPath);
   if (!redirectTo) throw new Error("Google sign-in is only available in a browser.");
   const client = requireSupabase();
-  const { data: currentUser, error: userError } = await client.auth.getUser();
+  const [{ data: currentUser, error: userError }, { data: identityData, error: identityError }] = await Promise.all([
+    client.auth.getUser(),
+    client.auth.getUserIdentities(),
+  ]);
   if (userError || !currentUser.user) throw new Error("Sign in to Invoice Operations before connecting Gmail.");
+  if (identityError) throw identityError;
+
+  const identities = identityData?.identities || [];
+  const linkedGoogleIdentity = identities.find((identity) => String(identity.provider || "").toLowerCase() === "google");
+  const connectionMode = resolveGoogleGmailConnectionMode(identities);
+  const linkedGoogleEmail = typeof linkedGoogleIdentity?.identity_data?.email === "string"
+    ? linkedGoogleIdentity.identity_data.email.trim()
+    : "";
+  const loginHint = linkedGoogleEmail || currentUser.user.email || "";
+  const options = {
+    redirectTo,
+    scopes: "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+    queryParams: {
+      access_type: "offline",
+      prompt: "consent",
+      include_granted_scopes: "true",
+      ...(loginHint ? { login_hint: loginHint } : {}),
+    },
+  };
+
+  if (connectionMode === "REAUTHORIZE_LINKED_IDENTITY") {
+    const { error } = await client.auth.signInWithOAuth({
+      provider: "google",
+      options,
+    });
+    if (error) throw error;
+    return;
+  }
+
   const { error } = await client.auth.linkIdentity({
     provider: "google",
-    options: {
-      redirectTo,
-      scopes: "openid email profile https://www.googleapis.com/auth/gmail.readonly",
-      queryParams: {
-        access_type: "offline",
-        prompt: "consent",
-        include_granted_scopes: "true",
-      },
-    },
+    options,
   });
   if (error) throw error;
 }
