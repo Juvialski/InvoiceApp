@@ -104,6 +104,38 @@ export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> 
   const companyId = requireActiveCompanyId();
   const { data: existing, error: existingError } = await supabase.from("expenses").select("id,updated_at").eq("id", expense.id).eq("company_id", companyId).maybeSingle();
   if (existingError) throw existingError;
+
+  if (!existing && expense.receiptSourceDocumentId) {
+    if (expense.status !== "DRAFT") {
+      throw new Error("Email Intake receipts must be saved as Draft. Approve the expense later through the normal Expense lifecycle.");
+    }
+    if (!Number.isFinite(expense.amount) || expense.amount <= 0) {
+      throw new Error("Confirm a positive receipt amount before saving the expense draft.");
+    }
+    if (!/^[A-Z]{3}$/.test(String(expense.currency || "").trim().toUpperCase())) {
+      throw new Error("Confirm a three-letter receipt currency before saving the expense draft.");
+    }
+
+    const { data: sourceRow, error: sourceError } = await supabase
+      .from("source_documents")
+      .select("id,sha256")
+      .eq("company_id", companyId)
+      .eq("id", expense.receiptSourceDocumentId)
+      .maybeSingle();
+    if (sourceError) throw sourceError;
+    if (!sourceRow) {
+      throw new Error("The preserved receipt source document is no longer available to this company. Reopen the Email Intake review before saving.");
+    }
+
+    const duplicate = await findExistingExpenseBySource({
+      sourceDocumentId: expense.receiptSourceDocumentId,
+      sourceSha256: sourceRow.sha256 || undefined,
+    });
+    if (duplicate && duplicate.id !== expense.id) {
+      throw new Error(`This receipt is already recorded as Expense #${duplicate.id.slice(0, 8)}. Open the existing expense instead of creating a duplicate.`);
+    }
+  }
+
   const row = toRow(expense, userId, companyId);
   let data: Record<string, unknown> | null = null;
   if (existing) {
@@ -198,4 +230,3 @@ export async function findExistingExpenseBySource(criteria: {
 
   return null;
 }
-
