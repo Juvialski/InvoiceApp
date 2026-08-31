@@ -121,7 +121,6 @@ export function classifyEmailIntakeCandidate(message: GmailMessageCandidate): Em
     || (/\b(statement|transactions?|account)\b/i.test(text) && /\b(bank|checking|savings|deposit|ledger|balance)\b/i.test(text));
   const spreadsheetStatementName = /\b(statement|transactions?|account|ledger)\b/i.test(names);
 
-  // Bank statements take precedence when supported spreadsheet attachments match
   if (hasSupportedStatement && (strongBankStatementSignal || spreadsheetStatementName)) {
     return {
       isInvoiceLike: false,
@@ -135,7 +134,6 @@ export function classifyEmailIntakeCandidate(message: GmailMessageCandidate): Em
     };
   }
 
-  // Strong receipt / proof of payment signals
   const strongReceiptSignal = /\b(official receipt|payment receipt|purchase receipt|reimbursement receipt|sales receipt|cash receipt|acknowledgement receipt|acknowledgment receipt|e[- ]?receipt|order receipt|charge slip|petty cash|expense report|expense claim)\b/i.test(text)
     || /\b(official[-_ ]?receipt|payment[-_ ]?receipt|purchase[-_ ]?receipt|e[-_ ]?receipt|receipt[-_ ]?[0-9]|or[-_ ]?[0-9])\b/i.test(names);
 
@@ -145,7 +143,7 @@ export function classifyEmailIntakeCandidate(message: GmailMessageCandidate): Em
   const invoiceSignal = /\b(invoice|sales invoice|service invoice|vat invoice|tax invoice|billing|bill\s*(?:no|number|#)|amount due|credit note)\b/i.test(text)
     || /\binvoice\b/i.test(names);
 
-  if ((strongReceiptSignal || generalReceiptSignal) && hasSupportedExpenseAttachment) {
+  if ((strongReceiptSignal || generalReceiptSignal) && hasSupportedExpenseAttachment && !invoiceSignal) {
     return {
       isInvoiceLike: false,
       documentType: "RECEIPT",
@@ -494,7 +492,6 @@ export function findPossibleExpenseDuplicates(
   for (const exp of existingExpenses) {
     if (exp.status === "VOID") continue;
 
-    // 1. Source document match
     if (candidate.sourceDocumentId && exp.receiptSourceDocumentId === candidate.sourceDocumentId) {
       matches.push({
         expense: exp,
@@ -504,7 +501,6 @@ export function findPossibleExpenseDuplicates(
       continue;
     }
 
-    // 2. Reference number match
     if (candidateRef && exp.referenceNumber && exp.referenceNumber.trim().toLowerCase() === candidateRef) {
       matches.push({
         expense: exp,
@@ -514,7 +510,6 @@ export function findPossibleExpenseDuplicates(
       continue;
     }
 
-    // 3. Exact payee + amount + date match
     if (
       candidatePayee &&
       exp.payee &&
