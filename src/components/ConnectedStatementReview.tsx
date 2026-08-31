@@ -123,6 +123,9 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
           { sender: staged.sender, subject: staged.subject },
           matchingProfile,
         );
+        const hasIndependentParsedAccountIdentity = Boolean(
+          extractedEvidence.accountNumber || extractedEvidence.maskedIdentifier,
+        );
 
         const candidateResolution = resolveFinancialAccountCandidate(
           {
@@ -148,11 +151,12 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
         setAccountEvidence(extractedEvidence);
         setResolution(candidateResolution);
 
-        // Parsed statement identity is authoritative. A legacy staged
-        // confirmedAccountId is honored only when the post-parse resolver
-        // independently reaches the same conflict-free LINK_EXISTING result.
+        // Saved sender/profile links remain advisory. Automatic account
+        // selection requires independent account identity from the parsed
+        // statement (account number/suffix), not merely a conflict-free rule.
         const stagedConfirmedAccountIsStillValid = Boolean(
-          staged.confirmedAccountId
+          hasIndependentParsedAccountIdentity
+          && staged.confirmedAccountId
           && candidateResolution.proposedAction === "LINK_EXISTING"
           && candidateResolution.conflicts.length === 0
           && candidateResolution.matchedEntityId === staged.confirmedAccountId
@@ -161,6 +165,7 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
         if (stagedConfirmedAccountIsStillValid) {
           setAccountId(staged.confirmedAccountId!);
         } else if (
+          hasIndependentParsedAccountIdentity &&
           candidateResolution.proposedAction === "LINK_EXISTING" &&
           candidateResolution.matchedEntityId &&
           candidateResolution.conflicts.length === 0 &&
@@ -168,8 +173,9 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
         ) {
           setAccountId(candidateResolution.matchedEntityId);
         } else {
-          // NEEDS_REVIEW / POSSIBLE_DUPLICATE / CREATE_NEW / conflict / unresolved
-          // all require an explicit destination-review choice.
+          // Profile-only suggestions, NEEDS_REVIEW, POSSIBLE_DUPLICATE,
+          // CREATE_NEW, conflicts, and unresolved cases require an explicit
+          // destination choice.
           setAccountId("");
         }
       } catch (reason) {
