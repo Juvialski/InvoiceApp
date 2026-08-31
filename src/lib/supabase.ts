@@ -13,7 +13,6 @@ function fetchWithCompanyContext(input: RequestInfo | URL, init?: RequestInit) {
   return fetch(input, { ...init, headers });
 }
 
-
 export const supabase = isSupabaseConfigured
   ? createClient(url, publishableKey, {
       auth: {
@@ -115,11 +114,8 @@ export const requestPasswordReset = sendPasswordResetEmail;
 export const updateUserPassword = updatePassword;
 
 const ACCESS_TOKEN_KEY = "invoice_ops_google_provider_token";
-// Legacy builds persisted a Google refresh token in browser storage even though
-// the application never consumes it. Phase 1 removes that credential whenever
-// provider tokens are captured or cleared; only the short-lived access token is
-// retained for the active connected-mailbox session.
 const LEGACY_REFRESH_TOKEN_KEY = "invoice_ops_google_provider_refresh_token";
+export const GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT = "engoryx:google-provider-token-cleared";
 
 let memoryProviderToken = "";
 
@@ -157,9 +153,13 @@ export function getGoogleProviderToken() {
 export function clearGoogleProviderTokens() {
   memoryProviderToken = "";
   const storage = browserStorage();
-  if (!storage) return;
-  storage.removeItem(ACCESS_TOKEN_KEY);
-  storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+  if (storage) {
+    storage.removeItem(ACCESS_TOKEN_KEY);
+    storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(GOOGLE_PROVIDER_TOKEN_CLEARED_EVENT));
+  }
 }
 
 export async function connectGoogleAndGmail(redirectToPath = "/email-intake") {
@@ -201,6 +201,7 @@ export async function getWorkspaceUser(): Promise<User | null> {
   if (error) return null;
   return data.user;
 }
+
 /** Return the Supabase bearer token for authenticated first-party API calls. */
 export async function getSupabaseAccessToken() {
   if (!supabase) return null;
