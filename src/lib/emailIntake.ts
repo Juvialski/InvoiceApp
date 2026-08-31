@@ -250,30 +250,28 @@ export function matchEmailIntakeProfiles(
 
   const parsed = parseSenderAddress(message.sender || "");
   const subjectLower = (message.subject || "").toLowerCase();
-  const text = financeText(message);
   const statementIds = supportedStatementAttachmentIds(message as GmailMessageCandidate);
   const expenseIds = supportedExpenseAttachmentIds(message as GmailMessageCandidate);
 
-  const matched: EmailIntakeProfile[] = [];
+  const exactMatches: EmailIntakeProfile[] = [];
+  const domainMatches: EmailIntakeProfile[] = [];
 
   for (const profile of enabledProfiles) {
     const normEmail = profile.senderEmail ? normalizeEmail(profile.senderEmail) : "";
     const normDomain = profile.senderDomain ? normalizeDomain(profile.senderDomain) : "";
 
-    let senderMatches = false;
-    if (normEmail && parsed.email && normEmail === parsed.email) {
-      senderMatches = true;
+    let matchStrength: "EXACT" | "DOMAIN" | null = null;
+    if (normEmail) {
+      if (parsed.email && normEmail === parsed.email) matchStrength = "EXACT";
     } else if (normDomain && parsed.domain && (parsed.domain === normDomain || parsed.domain.endsWith(`.${normDomain}`))) {
-      senderMatches = true;
+      matchStrength = "DOMAIN";
     }
 
-    if (!senderMatches) continue;
+    if (!matchStrength) continue;
 
     if (profile.subjectContains && profile.subjectContains.trim()) {
       const needle = profile.subjectContains.trim().toLowerCase();
-      if (!subjectLower.includes(needle) && !text.includes(needle)) {
-        continue;
-      }
+      if (!subjectLower.includes(needle)) continue;
     }
 
     if (profile.attachmentCondition && profile.attachmentCondition.trim()) {
@@ -292,10 +290,11 @@ export function matchEmailIntakeProfiles(
       }
     }
 
-    matched.push(profile);
+    if (matchStrength === "EXACT") exactMatches.push(profile);
+    else domainMatches.push(profile);
   }
 
-  return matched;
+  return exactMatches.length > 0 ? exactMatches : domainMatches;
 }
 
 /**
@@ -355,13 +354,13 @@ export function classifyEmailIntakeCandidate(
     const primaryRule = matchingProfiles[0];
 
     // Check for conflict with strong document evidence
-    if (ruleDest === "EXPENSE" && detectedInvoice && /\b(sales invoice|service invoice|vat invoice|tax invoice)\b/i.test(text)) {
+    if (ruleDest !== "INVOICE" && detectedInvoice && /\b(sales invoice|service invoice|vat invoice|tax invoice)\b/i.test(text)) {
       return {
         isInvoiceLike: true,
         documentType: "INVOICE",
         confidence: 70,
-        reason: "Saved sender rule (Expense) conflicts with invoice language found in document. Review required.",
-        conflictReason: "Saved sender rule (Expense) conflicts with explicit invoice document signals.",
+        reason: `Saved sender rule (${ruleDest}) conflicts with invoice language found in document. Review required.`,
+        conflictReason: `Saved sender rule (${ruleDest}) conflicts with explicit invoice document signals.`,
         suggestedDestination: "UNSUPPORTED",
         matchedProfileId: primaryRule.id,
         matchedProfileName: primaryRule.name,
@@ -377,6 +376,21 @@ export function classifyEmailIntakeCandidate(
         confidence: 70,
         reason: `Saved sender rule (${ruleDest}) conflicts with bank statement document signals. Review required.`,
         conflictReason: `Saved sender rule (${ruleDest}) conflicts with bank statement document signals.`,
+        suggestedDestination: "UNSUPPORTED",
+        matchedProfileId: primaryRule.id,
+        matchedProfileName: primaryRule.name,
+        statementAttachmentIds: statementIds,
+        expenseAttachmentIds: expenseIds,
+      };
+    }
+
+    if (ruleDest !== "EXPENSE" && detectedExpense && strongReceiptSignal) {
+      return {
+        isInvoiceLike: false,
+        documentType: "RECEIPT",
+        confidence: 70,
+        reason: `Saved sender rule (${ruleDest}) conflicts with receipt document signals. Review required.`,
+        conflictReason: `Saved sender rule (${ruleDest}) conflicts with explicit receipt document signals.`,
         suggestedDestination: "UNSUPPORTED",
         matchedProfileId: primaryRule.id,
         matchedProfileName: primaryRule.name,
@@ -493,7 +507,7 @@ export function buildSenderProfileQueries(profiles: EmailIntakeProfile[], window
     if (profile.senderEmail && profile.senderEmail.trim()) {
       terms.push(`from:${normalizeEmail(profile.senderEmail)}`);
     } else if (profile.senderDomain && profile.senderDomain.trim()) {
-      terms.push(`from:*@${normalizeDomain(profile.senderDomain)}`);
+      terms.push(`from:${normalizeDomain(profile.senderDomain)}`);
     }
   }
 
@@ -613,7 +627,7 @@ export async function scanConnectedMailbox(
 
   const queries = [
     connectedMailboxFinanceQuery(window),
-    ...buildSenderProfileQueries(profiles, window).slice(0, 2),
+    ...buildSenderProfileQueries(profiles, window),
   ];
 
   const candidateMap = new Map<string, GmailMessageCandidate>();
