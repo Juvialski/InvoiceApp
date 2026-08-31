@@ -151,3 +151,14 @@ test("Email Intake Phase 4A review: database constraints reject malformed or dan
   assert.match(sql, /'outlook\.com'/);
   assert.match(sql, /has_company_permission\(company_id, 'gmail\.manage'\)/);
 });
+
+test("Email Intake Phase 4A review: candidate UI re-evaluates saved-rule routing after profile changes", () => {
+  const source = readFileSync("src/components/EmailInbox.tsx", "utf8");
+
+  assert.match(source, /function effectiveClassification\(/);
+  assert.match(source, /const local = classifyEmailIntakeCandidate\(message, profiles\)/);
+  assert.match(source, /storedIsAiFallback/);
+  assert.match(source, /const cls = effectiveClassification\(message, profiles\)/);
+  assert.match(source, /prepareGmailStatementReview\(\{ \.\.\.message, classification \}/);
+  assert.match(source, /prepareGmailExpenseReview\(\{ \.\.\.message, classification \}/);
+});
