@@ -17,6 +17,7 @@ import {
 import type { EmailIntakeProfile, EmailIntakeProfileInput, Vendor } from "../../types.ts";
 import type { FinancialAccount } from "../../lib/cashBanking.ts";
 import { validateEmailIntakeProfile } from "../../lib/emailIntake.ts";
+import { getBuiltInStatementParserProfiles } from "../../lib/statementParserProfiles.ts";
 
 interface IntakeRulesModalProps {
   isOpen: boolean;
@@ -55,6 +56,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
   );
   const [linkedVendorId, setLinkedVendorId] = useState<string>(initialForm?.linkedVendorId || "");
   const [linkedFinancialAccountId, setLinkedFinancialAccountId] = useState<string>(initialForm?.linkedFinancialAccountId || "");
+  const [statementParserProfile, setStatementParserProfile] = useState<string>(initialForm?.statementParserProfile || "");
+  const [expectedInstitution, setExpectedInstitution] = useState<string>(initialForm?.expectedInstitution || "");
+  const [expectedCurrency, setExpectedCurrency] = useState<string>(initialForm?.expectedCurrency || "");
   const [defaultExpenseCategory, setDefaultExpenseCategory] = useState<string>(initialForm?.defaultExpenseCategory || "");
   const [enabled, setEnabled] = useState(initialForm?.enabled !== undefined ? initialForm.enabled : true);
 
@@ -63,6 +67,8 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  const builtInParserProfiles = React.useMemo(() => getBuiltInStatementParserProfiles(), []);
 
   React.useEffect(() => {
     if (initialForm) {
@@ -75,6 +81,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
       setSuggestedDestination(initialForm.suggestedDestination || "INVOICE");
       setLinkedVendorId(initialForm.linkedVendorId || "");
       setLinkedFinancialAccountId(initialForm.linkedFinancialAccountId || "");
+      setStatementParserProfile(initialForm.statementParserProfile || "");
+      setExpectedInstitution(initialForm.expectedInstitution || "");
+      setExpectedCurrency(initialForm.expectedCurrency || "");
       setDefaultExpenseCategory(initialForm.defaultExpenseCategory || "");
       setEnabled(initialForm.enabled !== undefined ? initialForm.enabled : true);
       setView("form");
@@ -95,6 +104,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
     setSuggestedDestination("INVOICE");
     setLinkedVendorId("");
     setLinkedFinancialAccountId("");
+    setStatementParserProfile("");
+    setExpectedInstitution("");
+    setExpectedCurrency("");
     setDefaultExpenseCategory("");
     setEnabled(true);
     setErrorMessages([]);
@@ -116,6 +128,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
     setSuggestedDestination(profile.suggestedDestination);
     setLinkedVendorId(profile.linkedVendorId || "");
     setLinkedFinancialAccountId(profile.linkedFinancialAccountId || "");
+    setStatementParserProfile(profile.statementParserProfile || "");
+    setExpectedInstitution(profile.expectedInstitution || "");
+    setExpectedCurrency(profile.expectedCurrency || "");
     setDefaultExpenseCategory(profile.defaultExpenseCategory || "");
     setEnabled(profile.enabled);
     setErrorMessages([]);
@@ -138,9 +153,11 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
       subjectContains: subjectContains.trim() || undefined,
       attachmentCondition: attachmentCondition.trim() || undefined,
       suggestedDestination,
-      linkedVendorId: (suggestedDestination === "INVOICE" || suggestedDestination === "EXPENSE") && linkedVendorId ? linkedVendorId : undefined,
-      linkedFinancialAccountId: suggestedDestination === "BANK_STATEMENT" && linkedFinancialAccountId ? linkedFinancialAccountId : undefined,
-      defaultExpenseCategory: suggestedDestination === "EXPENSE" && defaultExpenseCategory ? defaultExpenseCategory.trim() : undefined,
+      linkedVendorId: (suggestedDestination === "INVOICE" || suggestedDestination === "EXPENSE") ? (linkedVendorId || undefined) : undefined,
+      linkedFinancialAccountId: suggestedDestination === "BANK_STATEMENT" ? (linkedFinancialAccountId || undefined) : undefined,
+      statementParserProfile: suggestedDestination === "BANK_STATEMENT" ? (statementParserProfile || undefined) : undefined,
+      expectedInstitution: suggestedDestination === "BANK_STATEMENT" ? (expectedInstitution || undefined) : undefined,
+      expectedCurrency: suggestedDestination === "BANK_STATEMENT" ? (expectedCurrency || undefined) : undefined,
       enabled,
     };
 
@@ -623,25 +640,83 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
               )}
 
               {suggestedDestination === "BANK_STATEMENT" && (
-                <div>
-                  <label className="block text-xs font-black text-slate-800 uppercase mb-1">
-                    Link to Existing Financial Account (Optional)
-                  </label>
-                  <select
-                    value={linkedFinancialAccountId}
-                    onChange={(e) => setLinkedFinancialAccountId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="">No account link (match by statement data)</option>
-                    {financialAccounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.displayName} ({a.institutionName} •••• {a.maskedIdentifier?.slice(-4) || "N/A"} - {a.currency})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Advisory hint for bank statement routing. Contradictory currencies will require review.
-                  </p>
+                <div className="space-y-4 rounded-xl border border-sky-100 bg-sky-50/40 p-3.5">
+                  <div>
+                    <label className="block text-xs font-black text-slate-800 uppercase mb-1">
+                      Link to Existing Financial Account (Optional)
+                    </label>
+                    <select
+                      value={linkedFinancialAccountId}
+                      onChange={(e) => setLinkedFinancialAccountId(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="">No account link (match by statement data)</option>
+                      {financialAccounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.displayName} ({a.institutionName} •••• {a.maskedIdentifier?.replace(/\D/g, "").slice(-4) || "N/A"} - {a.currency})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Advisory hint for bank statement routing. Contradictory currencies or account suffixes will require review.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-black text-slate-800 uppercase mb-1">
+                        Statement Parser Profile (Optional)
+                      </label>
+                      <select
+                        value={statementParserProfile}
+                        onChange={(e) => setStatementParserProfile(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      >
+                        <option value="">Auto-detect / Standard structure detection</option>
+                        {builtInParserProfiles.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Advisory parser format. Validated against actual sheet headers before use.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-black text-slate-800 uppercase mb-1">
+                        Expected Institution / Bank (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. BDO, BPI, Metrobank"
+                        value={expectedInstitution}
+                        onChange={(e) => setExpectedInstitution(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white placeholder:text-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Institution identity hint for account resolution.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black text-slate-800 uppercase mb-1">
+                      Expected Currency (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. PHP, USD (leave empty if not reliably fixed)"
+                      value={expectedCurrency}
+                      onChange={(e) => setExpectedCurrency(e.target.value)}
+                      maxLength={3}
+                      className="w-full sm:w-1/2 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white uppercase placeholder:text-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Never assumed. Missing statement currency remains unknown unless specified here.
+                    </p>
+                  </div>
                 </div>
               )}
 

@@ -1173,7 +1173,7 @@ export async function listEmailIntakeProfiles(companyId?: string): Promise<Email
   const cid = companyId || requireActiveCompanyId();
   const { data, error } = await client
     .from("email_intake_profiles")
-    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,default_expense_category,created_by_user_id,created_at,updated_at")
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,statement_parser_profile,expected_institution,expected_currency,default_expense_category,created_by_user_id,created_at,updated_at")
     .eq("company_id", cid)
     .order("name", { ascending: true });
   if (error) throw error;
@@ -1189,6 +1189,9 @@ export async function listEmailIntakeProfiles(companyId?: string): Promise<Email
     suggestedDestination: row.suggested_destination,
     linkedVendorId: row.linked_vendor_id || undefined,
     linkedFinancialAccountId: row.linked_financial_account_id || undefined,
+    statementParserProfile: row.statement_parser_profile || undefined,
+    expectedInstitution: row.expected_institution || undefined,
+    expectedCurrency: row.expected_currency || undefined,
     defaultExpenseCategory: row.default_expense_category || undefined,
     createdByUserId: row.created_by_user_id || undefined,
     createdAt: row.created_at,
@@ -1211,6 +1214,9 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
     suggested_destination: input.suggestedDestination,
     linked_vendor_id: input.linkedVendorId || null,
     linked_financial_account_id: input.linkedFinancialAccountId || null,
+    statement_parser_profile: input.statementParserProfile ? input.statementParserProfile.trim() : null,
+    expected_institution: input.expectedInstitution ? input.expectedInstitution.trim() : null,
+    expected_currency: input.expectedCurrency ? input.expectedCurrency.trim().toUpperCase() : null,
     default_expense_category: input.defaultExpenseCategory ? input.defaultExpenseCategory.trim() : null,
     created_by_user_id: userId,
     updated_at: new Date().toISOString(),
@@ -1222,7 +1228,7 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
       .update(payload)
       .eq("id", input.id)
       .eq("company_id", cid)
-      .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,default_expense_category,created_by_user_id,created_at,updated_at")
+      .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,statement_parser_profile,expected_institution,expected_currency,default_expense_category,created_by_user_id,created_at,updated_at")
       .single();
     if (error) throw error;
     return {
@@ -1237,6 +1243,9 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
       suggestedDestination: data.suggested_destination,
       linkedVendorId: data.linked_vendor_id || undefined,
       linkedFinancialAccountId: data.linked_financial_account_id || undefined,
+      statementParserProfile: data.statement_parser_profile || undefined,
+      expectedInstitution: data.expected_institution || undefined,
+      expectedCurrency: data.expected_currency || undefined,
       defaultExpenseCategory: data.default_expense_category || undefined,
       createdByUserId: data.created_by_user_id || undefined,
       createdAt: data.created_at,
@@ -1247,7 +1256,7 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
   const { data, error } = await client
     .from("email_intake_profiles")
     .insert(payload)
-    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,default_expense_category,created_by_user_id,created_at,updated_at")
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,statement_parser_profile,expected_institution,expected_currency,default_expense_category,created_by_user_id,created_at,updated_at")
     .single();
   if (error) throw error;
   return {
@@ -1262,6 +1271,9 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
     suggestedDestination: data.suggested_destination,
     linkedVendorId: data.linked_vendor_id || undefined,
     linkedFinancialAccountId: data.linked_financial_account_id || undefined,
+    statementParserProfile: data.statement_parser_profile || undefined,
+    expectedInstitution: data.expected_institution || undefined,
+    expectedCurrency: data.expected_currency || undefined,
     defaultExpenseCategory: data.default_expense_category || undefined,
     createdByUserId: data.created_by_user_id || undefined,
     createdAt: data.created_at,
@@ -1290,7 +1302,7 @@ export async function toggleEmailIntakeProfile(id: string, enabled: boolean, com
     .update({ enabled, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("company_id", cid)
-    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,default_expense_category,created_by_user_id,created_at,updated_at")
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,statement_parser_profile,expected_institution,expected_currency,default_expense_category,created_by_user_id,created_at,updated_at")
     .single();
   if (error) throw error;
   return {
@@ -1305,6 +1317,9 @@ export async function toggleEmailIntakeProfile(id: string, enabled: boolean, com
     suggestedDestination: data.suggested_destination,
     linkedVendorId: data.linked_vendor_id || undefined,
     linkedFinancialAccountId: data.linked_financial_account_id || undefined,
+    statementParserProfile: data.statement_parser_profile || undefined,
+    expectedInstitution: data.expected_institution || undefined,
+    expectedCurrency: data.expected_currency || undefined,
     defaultExpenseCategory: data.default_expense_category || undefined,
     createdByUserId: data.created_by_user_id || undefined,
     createdAt: data.created_at,

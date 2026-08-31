@@ -381,13 +381,15 @@ Current order:
 
 1. **Phase 1:** Gmail reliability + shared intake foundation + Cash & Banking statements — merged.
 2. **Phase 2:** receipts/bills → Expense review — merged.
-3. **Phase 3:** top-level Email Intake + Gmail reconnect/state UX — implemented in PR #51, pending review.
-4. **Phase 4A:** intake efficiency + saved sender/template profiles + deterministic-first classification.
-5. **Phase 4B:** existing-record + same-batch Vendor/FinancialAccount resolution — **complete** (PR #53). Two-stage model: preliminary mailbox sender hints → authoritative post-extraction/post-parse entity resolution. Covers Invoice vendor resolution (TIN/name/profile), Cash & Banking statement account resolution (institution/suffix/currency), Expense payee resolution. Master-data mutation boundary enforced (EXTRACTION ≠ CREATION). Missing currency stays unknown. 20 new integration tests.
-6. **Phase 4C–4G:** Invoice, Bank Statement, Expense, and shared queue hardening in focused PR-sized waves.
-7. **Controlled automation/Assistant integration:** later.
-8. **Engineering/Project Email Intake:** deferred until explicitly re-prioritized.
-9. **Payroll Email Intake:** separate future security-reviewed decision.
+3. **Phase 3:** top-level Email Intake + Gmail reconnect/state UX — merged in PR #51.
+4. **Phase 4A:** intake efficiency + saved sender/template profiles + deterministic-first classification — merged in PR #52.
+5. **Phase 4B:** existing-record + same-batch Vendor/FinancialAccount resolution — merged in PR #53.
+6. **Phase 4C:** Vendor / supplier resolution hardening — merged in PR #54.
+7. **Phase 4D:** Bank statement hardening — implemented in `feat/email-intake-phase-4d-bank-statement-hardening` (deterministic parser profiles, CSV/XLS/XLSX/XLSM support, PDF rejection, FinancialAccount resolution with profile conflict handling, exact duplicate short-circuiting, overlapping statement breakdown, full provenance linking).
+8. **Phase 4E–4G:** Expense hardening, shared queue hardening, and controlled automation in focused PR-sized waves.
+9. **Controlled automation/Assistant integration:** later.
+10. **Engineering/Project Email Intake:** deferred until explicitly re-prioritized.
+11. **Payroll Email Intake:** separate future security-reviewed decision.
 
 Do not collapse Phase 4 into one oversized PR.
 
