@@ -69,8 +69,31 @@ interface EmailInboxProps {
   canManageExpenses?: boolean;
 }
 
+function effectiveClassification(
+  message: GmailMessageCandidate,
+  profiles?: EmailIntakeProfile[],
+): EmailIntakeClassification {
+  const local = classifyEmailIntakeCandidate(message, profiles);
+  const stored = message.classification as EmailIntakeClassification | undefined;
+  const storedIsAiFallback = Boolean(stored?.reason?.startsWith("Ambiguous metadata classified by AI"));
+
+  // Re-evaluate deterministic/profile evidence whenever saved rules change so
+  // disabling/editing a rule has immediate zero effect on existing cards. Keep
+  // a prior AI fallback only while the current deterministic pass is still
+  // genuinely ambiguous and no saved-rule/conflict evidence supersedes it.
+  if (
+    storedIsAiFallback
+    && local.suggestedDestination === "UNSUPPORTED"
+    && !local.matchedProfileId
+    && !local.conflictReason
+  ) {
+    return stored!;
+  }
+  return local;
+}
+
 function destinationFor(message: GmailMessageCandidate, profiles?: EmailIntakeProfile[]): EmailIntakeDestination {
-  const classification = (message.classification || classifyEmailIntakeCandidate(message, profiles)) as EmailIntakeClassification;
+  const classification = effectiveClassification(message, profiles);
   return classification.suggestedDestination || (classification.isInvoiceLike ? "INVOICE" : "UNSUPPORTED");
 }
 
@@ -233,7 +256,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
     try {
-      await onImportGmailMessage(message);
+      await onImportGmailMessage({ ...message, classification: effectiveClassification(message, profiles) });
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
     } catch (error: any) {
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "FAILED" } : item));
@@ -252,9 +275,9 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
     try {
-      const classification = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
+      const classification = effectiveClassification(message, profiles);
       const attachmentId = statementAttachmentSelection[message.id] || classification.statementAttachmentIds?.[0];
-      await prepareGmailStatementReview(message, attachmentId);
+      await prepareGmailStatementReview({ ...message, classification }, attachmentId);
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
       const cashPath = appPathForTab("cash");
       if (onNavigatePath) onNavigatePath(cashPath);
@@ -276,9 +299,9 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
     try {
-      const classification = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
+      const classification = effectiveClassification(message, profiles);
       const attachmentId = expenseAttachmentSelection[message.id] || classification.expenseAttachmentIds?.[0];
-      await prepareGmailExpenseReview(message, attachmentId);
+      await prepareGmailExpenseReview({ ...message, classification }, attachmentId);
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
       const expensesPath = appPathForTab("expenses");
       if (onNavigatePath) onNavigatePath(expensesPath);
@@ -617,8 +640,8 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           ) : (
             <div className="mt-4 space-y-2.5">
               {filteredCandidates.map((message) => {
-                const cls = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
-                const destination = destinationFor(message);
+                const cls = effectiveClassification(message, profiles);
+                const destination = cls.suggestedDestination || (cls.isInvoiceLike ? "INVOICE" : "UNSUPPORTED");
                 const statementAttachments =
                   destination === "BANK_STATEMENT"
                     ? message.attachments.filter((attachment) => cls.statementAttachmentIds?.includes(attachment.attachmentId))
