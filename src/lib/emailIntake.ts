@@ -72,6 +72,19 @@ export function extractEmailDomain(email: string): string {
   return at >= 0 ? clean.slice(at + 1) : "";
 }
 
+export function isExtractableAttachment(mimeType: string, filename: string): boolean {
+  const normalizedMime = String(mimeType || "").trim().toLowerCase();
+  const normalizedFilename = String(filename || "").trim().toLowerCase();
+  if (normalizedMime === "image/svg+xml" || normalizedFilename.endsWith(".svg")) {
+    return false;
+  }
+  return (
+    normalizedMime === "application/pdf" ||
+    (normalizedMime.startsWith("image/") && !normalizedMime.includes("svg")) ||
+    /\.(pdf|png|jpe?g|webp)$/i.test(normalizedFilename)
+  );
+}
+
 export function parseSenderAddress(sender: string): { name: string; email: string; domain: string } {
   const trimmed = String(sender || "").trim();
   const angleMatch = trimmed.match(/^(?:"?([^"<@]+)"?\s*)?<([^>]+)>$/);

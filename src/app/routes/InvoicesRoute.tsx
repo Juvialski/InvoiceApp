@@ -207,6 +207,10 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           invoiceProjectAllocations={invoiceProjectAllocations}
           preferredProjectId={preferredProjectId}
           onSaveProjectAllocations={canManageProjectAllocations && selectedInvoice.lifecycleStatus !== "VOID" ? onSaveProjectAllocations : undefined}
+          onOpenExistingInvoice={(id) => {
+            const match = invoices.find((inv) => inv.id === id);
+            if (match && onSelectInvoice) onSelectInvoice(match);
+          }}
         />
         {correctionDialog}
       </div>
