@@ -54,4 +54,23 @@ test("post-extraction and post-parse resolvers remain authoritative downstream",
   assert.match(expenseReview, /extractVendorEvidenceFromExpense/);
   assert.match(expenseReview, /resolveVendorCandidate/);
   assert.match(app, /resolveBatchVendors\(candidateItems, existingVendors, existingProfiles\)/);
+
+  assert.match(statementReview, /stagedConfirmedAccountIsStillValid/);
+  assert.match(statementReview, /candidateResolution\.matchedEntityId === staged\.confirmedAccountId/);
+  assert.match(statementReview, /candidateResolution\.conflicts\.length === 0/);
+
+  assert.match(expenseReview, /stagedConfirmedVendorIsStillValid/);
+  assert.match(expenseReview, /res\.matchedEntityId === staged\.confirmedVendorId/);
+  assert.match(expenseReview, /res\.conflicts\.length === 0/);
+});
+
+test("automatic expense Vendor matching does not rewrite extracted payee text", () => {
+  const expenseReview = source("src/components/ConnectedExpenseReview.tsx");
+  const resolverStart = expenseReview.indexOf("const res = resolveVendorCandidate");
+  const changeHandlerStart = expenseReview.indexOf("onChange={(e) => {", resolverStart);
+  assert.ok(resolverStart >= 0 && changeHandlerStart > resolverStart);
+  const automaticResolutionBlock = expenseReview.slice(resolverStart, changeHandlerStart);
+
+  assert.doesNotMatch(automaticResolutionBlock, /setPayee\(v\.name\)/);
+  assert.match(expenseReview.slice(changeHandlerStart), /setPayee\(v\.name\)/);
 });
