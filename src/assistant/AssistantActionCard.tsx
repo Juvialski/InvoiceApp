@@ -119,7 +119,7 @@ export const AssistantActionCard: React.FC<AssistantActionCardProps> = ({ prepar
   if (preparedAction) {
     const actionable = preparedAction.status === "PREPARED" && requiresAssistantConfirmation(preparedAction.riskTier);
     return (
-      <section data-tour="assistant-action-card" className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5">
+      <section data-tour="assistant-action-card" role="group" aria-label={`${confirmationLabel(preparedAction.riskTier)} requiring confirmation`} aria-busy={busy} className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5">
         <div className="flex items-start gap-2.5">
           <div className="mt-0.5 rounded-lg bg-amber-100 p-1.5 text-amber-700"><FileCheck2 aria-hidden="true" className="h-4 w-4" /></div>
           <div className="min-w-0 flex-1">
@@ -128,15 +128,16 @@ export const AssistantActionCard: React.FC<AssistantActionCardProps> = ({ prepar
               <span className="rounded-full border border-amber-200 bg-white/70 px-2 py-0.5 text-xs font-black uppercase tracking-wide text-amber-800">{riskLabel(preparedAction.riskTier)}</span>
             </div>
             <p className="mt-1 text-xs leading-5 text-amber-900">{preparedActionLabel(preparedAction.toolName)}</p>
+            {actionable && <p className="mt-1 text-[11px] font-semibold leading-4 text-amber-800">Review the prepared details below. Nothing changes until you explicitly confirm.</p>}
             {Object.keys(preparedAction.preview).some((key) => !HIDDEN_PREVIEW_KEYS.has(key)) && (
               <dl className="mt-2 space-y-1.5 rounded-xl border border-amber-200/80 bg-white/60 p-2.5 text-xs leading-5 text-slate-700">
                 {Object.entries(preparedAction.preview).filter(([key]) => !HIDDEN_PREVIEW_KEYS.has(key)).slice(0, 8).map(([key, value]) => <div key={key} className="flex gap-2"><dt className="min-w-0 flex-1 truncate font-bold text-slate-500">{previewLabel(key)}</dt><dd className="max-w-[65%] truncate text-right font-semibold">{valueLabel(value)}</dd></div>)}
               </dl>
             )}
-            {preparedAction.status !== "PREPARED" && <p className="mt-2 text-xs font-bold text-slate-600">Status: {preparedAction.status.toLowerCase()}</p>}
+            {preparedAction.status !== "PREPARED" && <p className="mt-2 text-xs font-bold text-slate-600" role="status" aria-live="polite">Status: {preparedAction.status.toLowerCase()}</p>}
             {actionable && <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => onConfirm?.(preparedAction)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-700 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"><Check aria-hidden="true" className="h-3.5 w-3.5" /> Confirm</button>
-              <button type="button" onClick={() => onCancel?.(preparedAction)} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"><X aria-hidden="true" className="h-3.5 w-3.5" /> Cancel</button>
+              <button type="button" onClick={() => onConfirm?.(preparedAction)} disabled={busy} aria-busy={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-700 px-3 py-2 text-xs font-black text-white shadow-sm transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"><Check aria-hidden="true" className="h-3.5 w-3.5" /> Confirm</button>
+              <button type="button" onClick={() => onCancel?.(preparedAction)} disabled={busy} aria-busy={busy} className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"><X aria-hidden="true" className="h-3.5 w-3.5" /> Cancel</button>
             </div>}
           </div>
         </div>

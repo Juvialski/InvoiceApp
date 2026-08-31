@@ -10,6 +10,7 @@ import type { RouteId } from "../utils/routes";
 import type { DataCompleteness, ProjectCostSource } from "../utils/dataCompleteness.ts";
 import { AppPermissionProvider } from "./AppPermissionContext.tsx";
 import { workspacePresentationState } from "../lib/workspacePresentation.ts";
+import { ErrorState } from "../components/ui/OperationsUI.tsx";
 
 export interface ShellNotification {
   type: "success" | "error" | "info";
@@ -70,33 +71,13 @@ export class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorB
         return this.props.fallback;
       }
       return (
-        <div role="alert" className="m-4 rounded-2xl border border-rose-200 bg-rose-50 p-6 text-slate-900">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-6 w-6 text-rose-600 shrink-0" />
-            <div>
-              <h2 className="text-base font-black text-rose-950">Something went wrong</h2>
-              <p className="mt-1 text-xs text-rose-900">
-                {this.state.error?.message || "An unexpected rendering error occurred in this section."}
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              onClick={this.reset}
-              className="rounded-xl bg-rose-700 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-800"
-            >
-              Try again
-            </button>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="rounded-xl border border-rose-300 bg-white px-3.5 py-2 text-xs font-bold text-rose-900 shadow-sm hover:bg-rose-50"
-            >
-              Reload page
-            </button>
-          </div>
-        </div>
+        <ErrorState
+          className="m-4"
+          title="This workspace section could not be displayed"
+          description="An unexpected display error interrupted this section. Try again, or reload the page if the problem continues."
+          onRetry={this.reset}
+          onReload={() => window.location.reload()}
+        />
       );
     }
     return this.props.children;
@@ -237,14 +218,14 @@ export const AppShell: React.FC<AppShellProps> = ({
                   type="button"
                   onClick={onReloadRemoteInvoice}
                   disabled={saveState === "saving"}
-                  className="rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Reload latest
                 </button>
                 <button
                   type="button"
                   onClick={onKeepEditingRemoteInvoice}
-                  className="rounded-lg bg-amber-700 px-2.5 py-1.5 text-[10px] font-bold text-white"
+                  className="inline-flex min-h-10 items-center rounded-lg bg-amber-700 px-3 py-2 text-xs font-bold text-white"
                 >
                   Keep editing
                 </button>
@@ -255,7 +236,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           {notification && (
             <div
               role={notification.type === "error" ? "alert" : "status"}
-              className={`mb-5 p-3.5 rounded-2xl text-xs flex items-center justify-between shadow-sm border ${
+              className={`mb-5 flex items-start justify-between gap-3 rounded-2xl border p-3.5 text-sm shadow-sm ${
                 notification.type === "success"
                   ? "bg-emerald-50 text-emerald-900 border-emerald-200"
                   : notification.type === "error"
@@ -263,20 +244,20 @@ export const AppShell: React.FC<AppShellProps> = ({
                     : "bg-white text-slate-800 border-slate-200"
               }`}
             >
-              <div className="flex items-center gap-2.5">
+              <div className="flex min-w-0 items-start gap-2.5">
                 {notification.type === "success" ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 ) : (
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 )}
-                <span className="font-semibold">{notification.message}</span>
+                <span className="min-w-0 break-words font-semibold">{notification.message}</span>
               </div>
               {onDismissNotification && (
                 <button
                   type="button"
                   aria-label="Dismiss notification"
                   onClick={onDismissNotification}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -293,14 +274,14 @@ export const AppShell: React.FC<AppShellProps> = ({
                   Data in this workspace is stored on this device and will not sync to other browsers until you connect or sign in.
                 </p>
               </div>
-              <a href="/demo" className="shrink-0 rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 hover:bg-amber-100">
+              <a href="/demo" className="inline-flex min-h-10 shrink-0 items-center rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-900 hover:bg-amber-100">
                 Try the demo
               </a>
             </div>
           )}
 
           {workspaceLoading && (
-            <div className="mb-5 p-3.5 rounded-2xl border border-slate-200 bg-white text-xs font-semibold flex items-center gap-2">
+            <div className="mb-5 flex min-h-10 items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3.5 text-sm font-semibold">
               <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
               Loading workspace…
             </div>
@@ -315,7 +296,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <button
                   type="button"
                   onClick={onReturnToDashboard}
-                  className="mt-4 rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white"
+                  className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white"
                 >
                   Return to dashboard
                 </button>
@@ -323,7 +304,9 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
           )}
 
-          <AppErrorBoundary>{children}</AppErrorBoundary>
+          <div className="mx-auto w-full max-w-[1600px]">
+            <AppErrorBoundary>{children}</AppErrorBoundary>
+          </div>
         </main>
 
         <footer

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Compass,
   FileText,
@@ -40,6 +40,7 @@ import type { Project } from "../../types";
 import { useEngineeringDocumentsController } from "../../features/engineering/useEngineeringDocumentsController.ts";
 import type { EngineeringLifecycleAction, EngineeringLifecyclePreview } from "../../lib/engineeringLifecycle.ts";
 import { EngineeringLifecycleDialog } from "./EngineeringLifecycleDialog.tsx";
+import { useDialogFocus } from "../ui/useDialogFocus.ts";
 
 const BlueprintViewer = lazy(() => import("./BlueprintViewer").then((module) => ({ default: module.BlueprintViewer })));
 
@@ -164,6 +165,12 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   const [lifecyclePreview, setLifecyclePreview] = useState<EngineeringLifecyclePreview | null>(null);
   const [lifecycleTargetDoc, setLifecycleTargetDoc] = useState<EngineeringDocument | null>(null);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
+  const newDocumentFirstFieldRef = useRef<HTMLInputElement>(null);
+  const uploadRevisionFirstFieldRef = useRef<HTMLInputElement>(null);
+  const historyCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const newDocumentDialogRef = useDialogFocus({ open: isNewDocModalOpen, onClose: () => { if (!isSubmittingNewDoc) setIsNewDocModalOpen(false); }, initialFocusRef: newDocumentFirstFieldRef });
+  const uploadRevisionDialogRef = useDialogFocus({ open: isUploadRevModalOpen, onClose: () => { if (!isSubmittingRev) setIsUploadRevModalOpen(false); }, initialFocusRef: uploadRevisionFirstFieldRef });
+  const historyDialogRef = useDialogFocus({ open: isHistoryModalOpen, onClose: () => setIsHistoryModalOpen(false), initialFocusRef: historyCloseButtonRef });
 
   useEffect(() => {
     setActiveViewerDoc(null);
@@ -223,6 +230,13 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
     }
     return result;
   }, [projectDocuments, searchQuery, selectedDiscipline, selectedDocType, showArchived]);
+  const hasDocumentFilters = Boolean(searchQuery.trim()) || selectedDiscipline !== "ALL" || selectedDocType !== "ALL" || showArchived;
+  const clearDocumentFilters = () => {
+    setSearchQuery("");
+    setSelectedDiscipline("ALL");
+    setSelectedDocType("ALL");
+    setShowArchived(false);
+  };
 
   // Statistics KPI
   const stats = useMemo(() => {
@@ -487,7 +501,8 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       </div>
 
       {/* 2. Filter & Search Controls Bar */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3" aria-labelledby="engineering-document-filters-title">
+        <h2 id="engineering-document-filters-title" className="sr-only">Engineering document filters</h2>
         <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           {/* Search Bar */}
           <div className="relative w-full min-w-0 max-w-md lg:flex-1">
@@ -505,6 +520,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
             <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
             {/* Document Type Dropdown */}
             <select
+              aria-label="Filter engineering documents by type"
               value={selectedDocType}
               onChange={(e) => setSelectedDocType(e.target.value as EngineeringDocumentType | "ALL")}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none cursor-pointer hover:bg-slate-50"
@@ -558,6 +574,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               <label className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600">
                 <input
                   type="checkbox"
+                  aria-label="Show inactive engineering documents"
                   checked={showArchived}
                   onChange={(event) => setShowArchived(event.target.checked)}
                   className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
@@ -568,12 +585,13 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
         </div>
 
         {/* Discipline Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto pt-1 pb-0.5" role="group" aria-label="Filter engineering documents by discipline">
           {DISCIPLINES.map((d) => (
             <button
               key={d.id}
               type="button"
               onClick={() => setSelectedDiscipline(d.id)}
+              aria-pressed={selectedDiscipline === d.id}
               className={`rounded-xl px-3 py-1 text-xs font-bold whitespace-nowrap transition ${
                 selectedDiscipline === d.id
                   ? "bg-slate-900 text-white shadow-xs"
@@ -583,8 +601,10 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
               {d.label}
             </button>
           ))}
+          {hasDocumentFilters && <button type="button" onClick={clearDocumentFilters} className="ml-auto shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-600 transition hover:bg-slate-50">Clear filters</button>}
         </div>
-      </div>
+        <p role="status" aria-live="polite" className="text-[10px] font-semibold text-slate-500">Showing {projectDocs.length} of {projectDocuments.length} document{projectDocuments.length === 1 ? "" : "s"}{hasDocumentFilters ? " for the current filters" : ""}.</p>
+      </section>
 
       {/* 3. Document Items View (Grid or Table) */}
       {isLoading && !hasLoaded ? (
@@ -598,7 +618,9 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
           <h3 className="mt-3 text-sm font-bold text-slate-800">No documents found</h3>
           <p className="mt-1 text-xs text-slate-500">
             {searchQuery
-              ? "No drawings match your search query."
+              ? "No documents match your search query."
+              : hasDocumentFilters
+                ? "No documents match the current filters."
               : "Upload architectural drawings, structural layouts, and engineering specifications."}
           </p>
           {effectiveCanCreate && !searchQuery && (
@@ -810,11 +832,11 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       {/* 4. Modal: New Engineering Document */}
       {isNewDocModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-2 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="new-engineering-document-dialog-title" className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
+          <div ref={newDocumentDialogRef} role="dialog" aria-modal="true" aria-labelledby="new-engineering-document-dialog-title" aria-describedby="new-engineering-document-dialog-description" aria-busy={isSubmittingNewDoc} className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Compass className="h-5 w-5 text-blue-600" />
-                <h3 id="new-engineering-document-dialog-title" className="break-words text-base font-black text-slate-900">New Engineering Document</h3>
+                <div><h3 id="new-engineering-document-dialog-title" className="break-words text-base font-black text-slate-900">New Engineering Document</h3><p id="new-engineering-document-dialog-description" className="mt-1 text-[10px] leading-4 text-slate-500">Create a document shell and its first immutable source revision.</p></div>
               </div>
               <button
                 type="button"
@@ -832,6 +854,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                   <label className="block text-[11px] font-extrabold text-slate-700">Document Number *</label>
                   <input
                     type="text"
+                    ref={newDocumentFirstFieldRef}
                     required
                     value={newDocNumber}
                     onChange={(e) => setNewDocNumber(e.target.value)}
@@ -947,7 +970,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                 </p>
               </div>
 
-              {newDocError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{newDocError}</div>}
+              {newDocError && <div role="alert" aria-live="assertive" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{newDocError}</div>}
 
               <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-2 sm:flex-row sm:justify-end">
                 <button
@@ -973,11 +996,11 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       {/* 5. Modal: Upload New Revision */}
       {isUploadRevModalOpen && modalTargetDoc && (
         <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-2 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="upload-engineering-revision-dialog-title" className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
+          <div ref={uploadRevisionDialogRef} role="dialog" aria-modal="true" aria-labelledby="upload-engineering-revision-dialog-title" aria-describedby="upload-engineering-revision-dialog-description" aria-busy={isSubmittingRev} className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 id="upload-engineering-revision-dialog-title" className="text-base font-black text-slate-900">Upload New Revision</h3>
-                <p className="break-words text-xs font-mono text-blue-600">{modalTargetDoc.documentNumber} • {modalTargetDoc.title}</p>
+                <p id="upload-engineering-revision-dialog-description" className="break-words text-xs font-mono text-blue-600">{modalTargetDoc.documentNumber} • {modalTargetDoc.title}</p>
               </div>
               <button
                 type="button"
@@ -994,6 +1017,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                 <label className="block text-[11px] font-extrabold text-slate-700">New Revision Code *</label>
                 <input
                   type="text"
+                  ref={uploadRevisionFirstFieldRef}
                   required
                   value={revCode}
                   onChange={(e) => setRevCode(e.target.value)}
@@ -1037,7 +1061,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
                 </div>
               </div>
 
-              {revError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{revError}</div>}
+              {revError && <div role="alert" aria-live="assertive" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-5 text-rose-900">{revError}</div>}
 
               <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-2 sm:flex-row sm:justify-end">
                 <button
@@ -1063,16 +1087,17 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
       {/* 6. Modal: Revision History */}
       {isHistoryModalOpen && modalTargetDoc && (
         <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-2 backdrop-blur-xs sm:items-center sm:p-4" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="engineering-revision-history-dialog-title" className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-2xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
+          <div ref={historyDialogRef} role="dialog" aria-modal="true" aria-labelledby="engineering-revision-history-dialog-title" aria-describedby="engineering-revision-history-dialog-description" className="max-h-[min(92vh,54rem)] min-h-0 w-full max-w-2xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl sm:p-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 id="engineering-revision-history-dialog-title" className="text-base font-black text-slate-900">Revision History</h3>
-                <p className="break-words text-xs font-mono text-blue-600">
+                <p id="engineering-revision-history-dialog-description" className="break-words text-xs font-mono text-blue-600">
                   {modalTargetDoc.documentNumber} • {modalTargetDoc.title}
                 </p>
               </div>
               <button
                 type="button"
+                ref={historyCloseButtonRef}
                 onClick={() => setIsHistoryModalOpen(false)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
                 aria-label="Close revision history dialog"

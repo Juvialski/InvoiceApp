@@ -19,6 +19,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   outline-offset: 2px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 .ops-table th { white-space: nowrap; font-weight: 800; }
 .ops-table tbody tr { transition: background-color 120ms ease; }
 .ops-table tbody tr:hover { background: #f8fafc; }
