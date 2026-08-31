@@ -101,6 +101,17 @@ export const BUILT_IN_STATEMENT_PARSER_PROFILES: StatementParserProfile[] = [
     accountSuffixPattern: /(?:gcash|mobile).*?(\d{4})/i,
   },
   {
+    id: "maya-statement-pdf",
+    name: "Maya Statement PDF",
+    institutionCode: "MAYA",
+    institutionName: "Maya Philippines Inc.",
+    description: "Maya business and wallet statement PDF export",
+    fileFormat: "ALL",
+    headerSignature: [/date/i, /description|activity|details/i, /debit|credit|amount/i],
+    expectedCurrency: "PHP",
+    accountSuffixPattern: /(?:account|acct|mobile|wallet|maya).*?(\d{4}|\*\d{4})/i,
+  },
+  {
     id: "maya-statement-csv",
     name: "Maya Statement CSV",
     institutionCode: "MAYA",
@@ -139,10 +150,8 @@ export function findStatementParserProfile(idOrCode?: string): StatementParserPr
     if (pid === normalized) return true;
     if (p.institutionCode?.toLowerCase() === normalized) return true;
     if (pid.replace(/-statement|-standard/, "") === normalized) return true;
-    if (pid.replace(/-standard-csv/, "-csv") === normalized) return true;
-    if (pid.replace(/-statement-csv/, "-csv") === normalized) return true;
-    if (pid.replace(/-statement-csv/, "") === normalized) return true;
-    if (pid.replace(/-standard-csv/, "") === normalized) return true;
+    if (pid.replace(/-standard-csv|-statement-csv|-statement-pdf/, "") === normalized) return true;
+    if (pid.replace(/-csv|-pdf/, "") === normalized) return true;
     return false;
   });
 }

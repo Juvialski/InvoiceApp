@@ -242,7 +242,8 @@ function attachmentNameText(message: GmailMessageCandidate | GmailImportedMessag
 export function isSupportedBankStatementAttachment(attachment: Pick<GmailAttachmentSummary, "filename" | "mimeType">) {
   const filename = String(attachment.filename || "").toLowerCase();
   const mimeType = String(attachment.mimeType || "").toLowerCase();
-  return /\.(csv|xlsx|xls|xlsm)$/i.test(filename)
+  return /\.(csv|xlsx|xls|xlsm|pdf)$/i.test(filename)
+    || mimeType === "application/pdf"
     || mimeType === "text/csv"
     || mimeType === "application/vnd.ms-excel"
     || mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -300,8 +301,25 @@ export function matchEmailIntakeProfiles(
 
     if (profile.attachmentCondition && profile.attachmentCondition.trim()) {
       const cond = profile.attachmentCondition.trim().toUpperCase();
-      if (cond === "SPREADSHEET" || cond === "STATEMENT" || cond === "CSV" || cond === "XLSX") {
+      if (cond === "SPREADSHEET" || cond === "CSV_OR_XLSX") {
+        const hasSpreadsheet = (message.attachments || []).some((a) => {
+          const fn = (a.filename || "").toLowerCase();
+          const mt = (a.mimeType || "").toLowerCase();
+          return /\.(csv|xlsx|xls|xlsm)$/i.test(fn)
+            || mt === "text/csv"
+            || mt === "application/vnd.ms-excel"
+            || mt === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            || mt === "application/vnd.ms-excel.sheet.macroenabled.12";
+        });
+        if (!hasSpreadsheet) continue;
+      } else if (cond === "STATEMENT") {
         if (statementIds.length === 0) continue;
+      } else if (cond === "CSV") {
+        const hasCsv = (message.attachments || []).some((a) => (a.filename || "").toLowerCase().endsWith(".csv") || a.mimeType === "text/csv");
+        if (!hasCsv) continue;
+      } else if (cond === "XLSX" || cond === "XLS") {
+        const hasXlsx = (message.attachments || []).some((a) => /\.(xlsx|xls|xlsm)$/i.test(a.filename || ""));
+        if (!hasXlsx) continue;
       } else if (cond === "PDF") {
         const hasPdf = (message.attachments || []).some((a) => (a.filename || "").toLowerCase().endsWith(".pdf") || a.mimeType === "application/pdf");
         if (!hasPdf) continue;
@@ -463,8 +481,8 @@ export function classifyEmailIntakeCandidate(
       documentType: "STATEMENT",
       confidence: strongBankStatementSignal ? 94 : 84,
       reason: strongBankStatementSignal
-        ? "Mailbox text identifies a bank/transaction statement and a supported CSV/XLSX attachment is available."
-        : "A supported spreadsheet attachment is named like an account or transaction statement.",
+        ? "Mailbox text identifies a bank/transaction statement and a supported PDF/CSV/XLSX attachment is available."
+        : "A supported attachment is named like an account or transaction statement.",
       suggestedDestination: "BANK_STATEMENT",
       statementAttachmentIds: statementIds,
     };
@@ -799,7 +817,12 @@ export async function prepareGmailStatementReview(
   const attachment = requestedAttachmentId
     ? supported.find((item) => item.attachmentId === requestedAttachmentId)
     : supported[0];
-  if (!attachment) throw new Error("No supported CSV/XLSX bank statement attachment was found in this email.");
+  if (!attachment) {
+    if (!imported.attachments || imported.attachments.length === 0) {
+      throw new Error("This email appears to be a statement notification, but no statement file is attached.");
+    }
+    throw new Error("No supported bank statement attachment (PDF, CSV, XLS, XLSX, XLSM) was found in this email.");
+  }
 
   const stored = await saveGmailMessageSource(imported);
   await markEmailClassification(stored.email.id, classification);

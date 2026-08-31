@@ -244,11 +244,27 @@ If several accounts plausibly match, explicit account selection remains required
 
 Never create a duplicate bank account merely because a statement uses a different display name or filename.
 
-Supported spreadsheet statements should continue using the existing deterministic Cash & Banking parser. Known bank/template profiles may improve parser selection/mapping, but must not create a second transaction engine.
+Supported spreadsheet statements (CSV, XLSX, XLS, XLSM) continue using the deterministic Cash & Banking parser with verified column mappings.
 
 No autonomous transaction posting.
 
+## 4D.1 — Password-Protected PDF Bank Statement Support
+
+Status: implemented in feature branch `feat/email-intake-phase-4d1-password-protected-pdf-statements`.
+
+Scope & Implementation:
+
+- **PDF Statement Parsing Engine**: Deterministic extraction of machine-readable text and layout coordinates from text-based PDFs using `pdfjs-dist` (`^4.10.38`) with standard text-position matrix reconstruction, line grouping, and column alignment.
+- **Password Protection UX**: Clean password prompts for encrypted statements (`PASSWORD_REQUIRED`, `INCORRECT_PASSWORD`, `UNLOCKING`) with show/hide password toggle.
+- **Transient Memory Security**: Zero persistent storage of statement passwords. Passwords are never saved in Supabase, `localStorage`, `sessionStorage`, IndexedDB, profiles, or log streams. Stored strictly in transient runtime memory (`statementSessionMemory.ts`) with automatic purging on sign-out or session end. Optional in-memory reuse within the active session.
+- **Scanned / Image-Only Statement Detection**: Safely detects scanned or non-text PDFs and surfaces clear guidance (`SCANNED_OR_IMAGE_ONLY`) without crashing or calling AI.
+- **Pre-Decryption Duplicate Short-Circuiting**: Automatically detects existing imported batches via source document / file provenance before prompting for password.
+- **Institution & Maya Statement Profile**: Deterministic statement parser profile for Maya and standard banking PDF statements with structural validation before applying column mappings.
+- **Human Confirmation Gate**: Full preview and verification before committing import to Cash & Banking.
+
 ## 4E — Invoice intake hardening
+
+Status: PAUSED pending completion of Phase 4D.1.
 
 Improve:
 

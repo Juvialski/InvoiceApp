@@ -10,8 +10,13 @@ import {
   matchStatementParserProfile,
   type StatementParserProfile,
 } from "./statementParserProfiles.ts";
+import {
+  extractPdfStatementDocument,
+  type ExtractedStatementMetadata,
+  type PdfStatementExtractionResult,
+} from "./pdfStatementParser.ts";
 
-function workbookFormat(fileName: string): "CSV" | "XLSX" | "PDF" {
+export function workbookFormat(fileName: string): "CSV" | "XLSX" | "PDF" {
   if (/\.pdf$/i.test(fileName)) return "PDF";
   if (/\.csv$/i.test(fileName)) return "CSV";
   if (/\.(xlsx|xls|xlsm)$/i.test(fileName)) return "XLSX";
@@ -68,25 +73,24 @@ function readStatementRows(input: ArrayBuffer | Uint8Array | string, format: "CS
   return { sheetName: selected.sheetName, rows: selected.rows.map((row) => [...row]) };
 }
 
-export function parseStatementFile(
-  input: ArrayBuffer | Uint8Array | string,
-  fileName = "statement.csv",
+function buildStructuredDocument(
+  rows: StatementCell[][],
+  format: "CSV" | "XLSX" | "PDF",
+  fileName: string,
+  sheetName: string,
   profileHint?: string | StatementParserProfile,
   institutionHint?: string,
+  extractedMetadata?: ExtractedStatementMetadata,
 ): ParsedStatementDocument {
-  const format = workbookFormat(fileName);
-  if (format === "PDF") throw new Error("PDF statement import is not enabled until a reliable institution-specific extractor is available.");
-  const workbook = readStatementRows(input, format);
-  
   const requestedProfileId = typeof profileHint === "string" ? profileHint : profileHint?.id;
-  const matchResult = matchStatementParserProfile(workbook.rows, requestedProfileId, institutionHint);
+  const matchResult = matchStatementParserProfile(rows, requestedProfileId, institutionHint);
   
   let structure: StatementStructure;
   if (matchResult.profile && matchResult.validation?.valid) {
-    const fallbackStructure = detectStatementStructure(workbook.rows);
+    const fallbackStructure = detectStatementStructure(rows);
     structure = {
       headerRowIndex: matchResult.validation.headerRowIndex,
-      headers: (workbook.rows[matchResult.validation.headerRowIndex] || []).map(cellText),
+      headers: (rows[matchResult.validation.headerRowIndex] || []).map(cellText),
       mapping: matchResult.validation.mapping,
       confidence: matchResult.validation.confidence,
       reasons: matchResult.validation.reasons,
@@ -99,7 +103,7 @@ export function parseStatementFile(
       statementEndingBalanceRowIndex: fallbackStructure.statementEndingBalanceRowIndex,
     };
   } else {
-    structure = detectStatementStructure(workbook.rows);
+    structure = detectStatementStructure(rows);
     if (matchResult.isFallback && requestedProfileId) {
       structure.isProfileFallback = true;
       structure.profileValidationWarning = matchResult.reason;
@@ -110,9 +114,76 @@ export function parseStatementFile(
   return {
     format,
     fileName,
-    fileFingerprint: statementFileFingerprint(workbook.rows),
-    sheetName: workbook.sheetName,
-    rawRows: workbook.rows,
+    fileFingerprint: statementFileFingerprint(rows),
+    sheetName,
+    rawRows: rows,
     structure,
+    extractedMetadata,
   };
+}
+
+export function parseStatementFile(
+  input: ArrayBuffer | Uint8Array | string,
+  fileName = "statement.csv",
+  profileHint?: string | StatementParserProfile,
+  institutionHint?: string,
+): ParsedStatementDocument {
+  const format = workbookFormat(fileName);
+  if (format === "PDF") {
+    throw new Error("PDF statements require asynchronous parsing via parseStatementFileAsync. PDF statement import is not enabled until a reliable institution-specific extractor is available synchronously.");
+  }
+  const workbook = readStatementRows(input, format);
+  return buildStructuredDocument(workbook.rows, format, fileName, workbook.sheetName, profileHint, institutionHint);
+}
+
+export async function parseStatementFileAsync(
+  input: ArrayBuffer | Uint8Array | string,
+  fileName = "statement.csv",
+  profileHint?: string | StatementParserProfile,
+  institutionHint?: string,
+  password?: string,
+): Promise<ParsedStatementDocument> {
+  const format = workbookFormat(fileName);
+  if (format !== "PDF") {
+    return parseStatementFile(input, fileName, profileHint, institutionHint);
+  }
+
+  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input instanceof Uint8Array ? input : new Uint8Array(input);
+  const extraction: PdfStatementExtractionResult = await extractPdfStatementDocument(bytes, fileName, password);
+
+  if (extraction.status === "PASSWORD_REQUIRED") {
+    const err = new Error(extraction.errorMessage || "This PDF is password protected. Enter the statement password to continue.");
+    (err as any).code = "PASSWORD_REQUIRED";
+    (err as any).status = "PASSWORD_REQUIRED";
+    throw err;
+  }
+
+  if (extraction.status === "INCORRECT_PASSWORD") {
+    const err = new Error(extraction.errorMessage || "Incorrect statement password. Try again.");
+    (err as any).code = "INCORRECT_PASSWORD";
+    (err as any).status = "INCORRECT_PASSWORD";
+    throw err;
+  }
+
+  if (extraction.status === "SCANNED_OR_IMAGE_ONLY") {
+    const err = new Error(extraction.errorMessage || "This statement appears to be scanned or image-based and cannot yet be parsed reliably.");
+    (err as any).code = "SCANNED_OR_IMAGE_ONLY";
+    (err as any).status = "SCANNED_OR_IMAGE_ONLY";
+    throw err;
+  }
+
+  if (extraction.status !== "SUCCESS" || !extraction.rawRows) {
+    throw new Error(extraction.errorMessage || "The statement PDF could not be read.");
+  }
+
+  const instHint = institutionHint || extraction.extractedMetadata?.institutionName;
+  return buildStructuredDocument(
+    extraction.rawRows,
+    "PDF",
+    fileName,
+    "PDF Statement",
+    profileHint,
+    instHint,
+    extraction.extractedMetadata,
+  );
 }

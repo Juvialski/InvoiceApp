@@ -30,14 +30,16 @@ performed.
 
 ## Statement imports
 
-CSV and XLSX imports use a review-first mapping and preview flow. The preview
+PDF, CSV, XLS, XLSX, and XLSM imports use a review-first mapping and preview flow. The preview
 detects opening/closing balances, validates running balances, reports invalid
 rows and duplicates, and only then commits a batch. Source fingerprints include
 the account, normalized row values, and an occurrence index so two identical
 same-day rows can remain distinct while an exact re-upload is idempotent.
 
-The first release does not parse PDF statements or connect to a bank/GCash API.
-It stores no online-banking password, GCash MPIN, OTP, or provider secret.
+Password-protected PDF statements are unlocked in client memory using standard
+PDF decryption (`pdfjs-dist`). Passwords are never stored in databases, local/session storage,
+logs, or telemetry. Scanned/image-only statements are surfaced safely with explicit guidance.
+Direct bank/e-wallet API syncing does not store online-banking credentials, MPINs, or OTPs.
 
 ## Access and tenancy
 

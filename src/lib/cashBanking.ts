@@ -75,6 +75,7 @@ export interface FinancialImportBatch {
   companyId?: string;
   accountId: string;
   sourceType: FinancialTransactionSource;
+  sourceDocumentId?: string;
   fileName: string;
   fileFingerprint: string;
   statementFrom?: string;
@@ -157,6 +158,16 @@ export interface ParsedStatementDocument {
   sheetName: string;
   rawRows: StatementCell[][];
   structure: StatementStructure;
+  extractedMetadata?: {
+    institutionName?: string;
+    accountNumber?: string;
+    maskedIdentifier?: string;
+    periodFrom?: string;
+    periodTo?: string;
+    currency?: string;
+    startingBalance?: number;
+    endingBalance?: number;
+  };
 }
 
 export interface StatementRowIssue {

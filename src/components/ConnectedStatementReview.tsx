@@ -3,23 +3,29 @@ import {
   AlertTriangle,
   CheckCircle2,
   CreditCard,
+  Eye,
+  EyeOff,
   FileSpreadsheet,
+  FileText,
   Info,
   Loader2,
+  Lock,
   Mail,
   PlusCircle,
   Sparkles,
+  Unlock,
   X,
 } from "lucide-react";
 import {
   buildStatementPreview,
   type CashBankingWorkspaceData,
   type FinancialAccount,
+  type FinancialImportBatch,
   type StatementColumnMapping,
   type StatementPreview,
   type ParsedStatementDocument,
 } from "../lib/cashBanking.ts";
-import { parseStatementFile } from "../lib/cashBankingImport.ts";
+import { parseStatementFileAsync, workbookFormat } from "../lib/cashBankingImport.ts";
 import {
   clearPendingEmailStatementReview,
   linkFinancialImportSource,
@@ -32,6 +38,11 @@ import {
   resolveFinancialAccountCandidate,
 } from "../lib/entityResolution.ts";
 import { listEmailIntakeProfiles } from "../lib/persistence.ts";
+import {
+  clearTransientSessionPassword,
+  getTransientSessionPassword,
+  setTransientSessionPassword,
+} from "../lib/statementSessionMemory.ts";
 import type {
   EmailIntakeProfile,
   EntityResolutionResult,
@@ -77,11 +88,141 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
   const [preview, setPreview] = useState<ProvenancedStatementPreview | null>(null);
   const [importCommitted, setImportCommitted] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [busyMessage, setBusyMessage] = useState("Loading and verifying the preserved statement source…");
   const [error, setError] = useState("");
   const [resolution, setResolution] = useState<EntityResolutionResult | null>(null);
   const [accountEvidence, setAccountEvidence] = useState<FinancialAccountIdentityEvidence | null>(null);
 
+  // Password-Protected PDF and state management
+  const [isProtectedPdf, setIsProtectedPdf] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberSessionPassword, setRememberSessionPassword] = useState(false);
+  const [unlockError, setUnlockError] = useState("");
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
+  const [matchedProfile, setMatchedProfile] = useState<EmailIntakeProfile | undefined>(undefined);
+  const [isScannedPdf, setIsScannedPdf] = useState(false);
+  const [duplicateShortCircuitBatch, setDuplicateShortCircuitBatch] = useState<FinancialImportBatch | null>(null);
+
   const activeAccounts = useMemo(() => data.accounts.filter((account) => account.active), [data.accounts]);
+
+  // Clean transient password inputs on unmount
+  useEffect(() => {
+    return () => {
+      setPasswordInput("");
+      setUnlockError("");
+    };
+  }, []);
+
+  const processLoadedStatement = async (
+    file: File,
+    staged: PendingEmailStatementReview,
+    profile: EmailIntakeProfile | undefined,
+    passwordAttempt?: string,
+  ) => {
+    const isPdf = workbookFormat(file.name) === "PDF";
+    setBusy(true);
+    setBusyMessage(isPdf ? (passwordAttempt ? "Unlocking and parsing PDF statement…" : "Parsing statement…") : "Parsing statement…");
+    setError("");
+    setUnlockError("");
+
+    try {
+      const parsed = await parseStatementFileAsync(
+        await file.arrayBuffer(),
+        file.name,
+        profile?.statementParserProfile,
+        profile?.expectedInstitution,
+        passwordAttempt,
+      );
+
+      // If password succeeded and remember option was chosen, store in memory
+      if (isPdf && passwordAttempt && rememberSessionPassword) {
+        const scopeKey = profile?.expectedInstitution || profile?.statementParserProfile || staged.matchedProfileName || profile?.name || "default";
+        setTransientSessionPassword(scopeKey, passwordAttempt);
+      }
+
+      const extractedEvidence = extractAccountEvidenceFromStatement(
+        {
+          fileName: parsed.fileName,
+          sheetName: parsed.sheetName,
+          rawRows: parsed.rawRows as any,
+          extractedMetadata: (parsed as any).extractedMetadata,
+        },
+        { sender: staged.sender, subject: staged.subject },
+        profile,
+      );
+
+      const hasIndependentParsedAccountIdentity = Boolean(
+        extractedEvidence.accountNumber || extractedEvidence.maskedIdentifier,
+      );
+
+      const candidateResolution = resolveFinancialAccountCandidate(
+        {
+          candidateId: staged.id,
+          evidence: extractedEvidence,
+          sourceRef: {
+            messageId: staged.emailMessageId || staged.gmailMessageId,
+            subject: staged.subject,
+            sender: staged.sender,
+            fileName: staged.fileName,
+            attachmentId: staged.gmailAttachmentId || staged.sourceDocumentId,
+          },
+        },
+        data.accounts,
+        profile ? [profile] : [],
+        data.importBatches,
+      );
+
+      setDocument(parsed);
+      setMapping(parsed.structure.mapping);
+      setAccountEvidence(extractedEvidence);
+      setResolution(candidateResolution);
+      setIsProtectedPdf(false);
+      setIsScannedPdf(false);
+      setPasswordInput("");
+
+      const stagedConfirmedAccountIsStillValid = Boolean(
+        hasIndependentParsedAccountIdentity
+        && staged.confirmedAccountId
+        && candidateResolution.proposedAction === "LINK_EXISTING"
+        && candidateResolution.conflicts.length === 0
+        && candidateResolution.matchedEntityId === staged.confirmedAccountId
+        && activeAccounts.some((a) => a.id === staged.confirmedAccountId),
+      );
+
+      if (stagedConfirmedAccountIsStillValid) {
+        setAccountId(staged.confirmedAccountId!);
+      } else if (
+        hasIndependentParsedAccountIdentity &&
+        candidateResolution.proposedAction === "LINK_EXISTING" &&
+        candidateResolution.matchedEntityId &&
+        candidateResolution.conflicts.length === 0 &&
+        activeAccounts.some((a) => a.id === candidateResolution.matchedEntityId)
+      ) {
+        setAccountId(candidateResolution.matchedEntityId);
+      } else {
+        setAccountId("");
+      }
+    } catch (err: any) {
+      const code = err?.code || err?.status;
+      if (code === "PASSWORD_REQUIRED") {
+        setIsProtectedPdf(true);
+        setUnlockError("");
+      } else if (code === "INCORRECT_PASSWORD") {
+        setIsProtectedPdf(true);
+        setUnlockError("Incorrect statement password. Try again.");
+        const scopeKey = profile?.expectedInstitution || profile?.statementParserProfile || staged.matchedProfileName || profile?.name || "default";
+        clearTransientSessionPassword(scopeKey);
+      } else if (code === "SCANNED_OR_IMAGE_ONLY") {
+        setIsScannedPdf(true);
+        setError("This statement appears to be scanned or image-based and cannot yet be parsed reliably.");
+      } else {
+        setError(err instanceof Error ? err.message : "The preserved email statement could not be prepared for review.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     const staged = readPendingEmailStatementReview();
@@ -90,11 +231,27 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
     setPending(staged);
     setBusy(true);
     setError("");
+    setUnlockError("");
+    setIsProtectedPdf(false);
+    setIsScannedPdf(false);
+    setDuplicateShortCircuitBatch(null);
 
     void (async () => {
       try {
+        // Pre-decryption duplicate short-circuit check using source document id
+        const existingLinkedBatch = data.importBatches.find(
+          (b) => b.sourceDocumentId === staged.sourceDocumentId && b.status === "IMPORTED"
+        );
+        if (existingLinkedBatch) {
+          if (cancelled) return;
+          setDuplicateShortCircuitBatch(existingLinkedBatch);
+          setBusy(false);
+          return;
+        }
+
         const file = await loadPendingEmailStatementFile(staged);
         if (cancelled) return;
+        setStagedFile(file);
 
         const profiles = await listEmailIntakeProfiles().catch(() => [] as EmailIntakeProfile[]);
         if (cancelled) return;
@@ -109,79 +266,19 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
               } as EmailIntakeProfile)
             : undefined
         );
+        setMatchedProfile(matchingProfile);
 
-        const parsed = parseStatementFile(
-          await file.arrayBuffer(),
-          file.name,
-          matchingProfile?.statementParserProfile,
-          matchingProfile?.expectedInstitution,
-        );
-        if (cancelled) return;
+        const scopeKey = matchingProfile?.expectedInstitution || matchingProfile?.statementParserProfile || staged.matchedProfileName || matchingProfile?.name || "default";
+        const sessionPassword = getTransientSessionPassword(scopeKey);
 
-        const extractedEvidence = extractAccountEvidenceFromStatement(
-          { fileName: parsed.fileName, sheetName: parsed.sheetName, rawRows: parsed.rawRows as any },
-          { sender: staged.sender, subject: staged.subject },
-          matchingProfile,
-        );
-        const hasIndependentParsedAccountIdentity = Boolean(
-          extractedEvidence.accountNumber || extractedEvidence.maskedIdentifier,
-        );
-
-        const candidateResolution = resolveFinancialAccountCandidate(
-          {
-            candidateId: staged.id,
-            evidence: extractedEvidence,
-            sourceRef: {
-              messageId: staged.emailMessageId || staged.gmailMessageId,
-              subject: staged.subject,
-              sender: staged.sender,
-              fileName: staged.fileName,
-              attachmentId: staged.gmailAttachmentId || staged.sourceDocumentId,
-            },
-          },
-          data.accounts,
-          profiles.length ? profiles : (matchingProfile ? [matchingProfile] : []),
-          data.importBatches,
-        );
-
-        if (cancelled) return;
-
-        setDocument(parsed);
-        setMapping(parsed.structure.mapping);
-        setAccountEvidence(extractedEvidence);
-        setResolution(candidateResolution);
-
-        // Saved sender/profile links remain advisory. Automatic account
-        // selection requires independent account identity from the parsed
-        // statement (account number/suffix), not merely a conflict-free rule.
-        const stagedConfirmedAccountIsStillValid = Boolean(
-          hasIndependentParsedAccountIdentity
-          && staged.confirmedAccountId
-          && candidateResolution.proposedAction === "LINK_EXISTING"
-          && candidateResolution.conflicts.length === 0
-          && candidateResolution.matchedEntityId === staged.confirmedAccountId
-          && activeAccounts.some((a) => a.id === staged.confirmedAccountId),
-        );
-        if (stagedConfirmedAccountIsStillValid) {
-          setAccountId(staged.confirmedAccountId!);
-        } else if (
-          hasIndependentParsedAccountIdentity &&
-          candidateResolution.proposedAction === "LINK_EXISTING" &&
-          candidateResolution.matchedEntityId &&
-          candidateResolution.conflicts.length === 0 &&
-          activeAccounts.some((a) => a.id === candidateResolution.matchedEntityId)
-        ) {
-          setAccountId(candidateResolution.matchedEntityId);
-        } else {
-          // Profile-only suggestions, NEEDS_REVIEW, POSSIBLE_DUPLICATE,
-          // CREATE_NEW, conflicts, and unresolved cases require an explicit
-          // destination choice.
-          setAccountId("");
+        if (!cancelled) {
+          await processLoadedStatement(file, staged, matchingProfile, sessionPassword);
         }
       } catch (reason) {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : "The preserved email statement could not be prepared for review.");
-      } finally {
-        if (!cancelled) setBusy(false);
+        if (!cancelled) {
+          setError(reason instanceof Error ? reason.message : "The preserved email statement could not be prepared for review.");
+          setBusy(false);
+        }
       }
     })();
 
@@ -194,18 +291,35 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
 
   const dismiss = () => {
     clearPendingEmailStatementReview();
+    setPasswordInput("");
+    setUnlockError("");
     setPending(null);
     setDocument(null);
     setPreview(null);
     setImportCommitted(false);
     setResolution(null);
     setAccountEvidence(null);
+    setStagedFile(null);
+    setIsProtectedPdf(false);
+    setIsScannedPdf(false);
+    setDuplicateShortCircuitBatch(null);
     setError("");
   };
 
   const resetPreview = () => {
     setPreview(null);
     setImportCommitted(false);
+  };
+
+  const handleUnlockPdf = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!stagedFile || !pending) return;
+    const password = passwordInput.trim();
+    if (!password) {
+      setUnlockError("Please enter the statement password.");
+      return;
+    }
+    await processLoadedStatement(stagedFile, pending, matchedProfile, password);
   };
 
   const buildPreview = () => {
@@ -248,6 +362,7 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
       return;
     }
     setBusy(true);
+    setBusyMessage("Importing statement rows into Cash & Banking…");
     setError("");
     try {
       if (!importCommitted) {
@@ -291,17 +406,152 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
         <p className="mt-1 text-[10px] text-slate-400">Source document: {pending.sourceDocumentId}</p>
       </div>
 
+      {/* Exact Duplicate Short-Circuit Banner */}
+      {duplicateShortCircuitBatch && (
+        <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-2">
+          <div className="flex items-center gap-2 font-black text-amber-900 text-xs uppercase tracking-wide">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+            <span>Exact Duplicate Statement Detected</span>
+          </div>
+          <p className="text-xs text-amber-900 leading-relaxed">
+            This statement was already imported into{" "}
+            <strong>
+              {data.accounts.find((a) => a.id === duplicateShortCircuitBatch.accountId)?.displayName || "Cash & Banking"}
+            </strong>
+            {duplicateShortCircuitBatch.createdAt ? ` on ${new Date(duplicateShortCircuitBatch.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}` : ""}{" "}
+            (Batch ID: <code className="bg-amber-100 px-1 py-0.5 rounded text-[11px]">{duplicateShortCircuitBatch.id}</code>).
+          </p>
+          <p className="text-[11px] text-amber-800">
+            Source document provenance confirmed that this exact file has already been imported. No decryption or duplicate import is needed.
+          </p>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-800"
+          >
+            Dismiss Review
+          </button>
+        </div>
+      )}
+
+      {/* Scanned or Image-Only PDF Notice */}
+      {isScannedPdf && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+          <div className="flex items-center gap-2 font-black text-amber-900 text-xs">
+            <FileText className="h-4 w-4 text-amber-600 shrink-0" />
+            <span>Scanned / Image-Based Statement</span>
+          </div>
+          <p className="text-xs text-amber-900 leading-relaxed">
+            This statement appears to be scanned or image-based without a machine-readable text layer.
+          </p>
+          <p className="text-[11px] text-amber-800">
+            You can export a CSV/XLSX file from your bank or enter statement transactions manually in Cash & Banking.
+          </p>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Password Prompt Card */}
+      {isProtectedPdf && !duplicateShortCircuitBatch && !isScannedPdf && (
+        <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4 sm:p-5 space-y-4 shadow-xs" data-testid="protected-statement-prompt">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-slate-900">Protected bank statement</h4>
+              <p className="mt-0.5 text-xs text-slate-600">
+                This PDF is password protected. Enter the statement password to continue.
+              </p>
+            </div>
+          </div>
+
+          {unlockError && (
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-900">
+              {unlockError}
+            </div>
+          )}
+
+          <form onSubmit={handleUnlockPdf} className="space-y-3 max-w-md">
+            <div>
+              <label htmlFor="statement-password-input" className="block text-xs font-bold text-slate-700 mb-1">
+                Statement password
+              </label>
+              <div className="relative">
+                <input
+                  id="statement-password-input"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="off"
+                  disabled={busy}
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="Enter PDF password"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 pr-10 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden disabled:bg-slate-100"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-700">
+              <input
+                type="checkbox"
+                checked={rememberSessionPassword}
+                onChange={(e) => setRememberSessionPassword(e.target.checked)}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>Use this password for other statement PDFs this session</span>
+            </label>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={busy || !passwordInput.trim()}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-2 shadow-xs"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
+                Unlock statement
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={dismiss}
+                className="px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+
+          <p className="text-[10px] text-slate-400 border-t border-indigo-100/80 pt-2">
+            Statement passwords are sensitive credentials. Engoryx never stores passwords in databases, storage, logs, or telemetry.
+          </p>
+        </div>
+      )}
+
       {!activeAccounts.length && (
         <div className="mt-3">
           <Notice tone="warning">Add an active Cash & Banking account before reviewing this statement. The preserved email source will remain staged until you dismiss it.</Notice>
         </div>
       )}
 
-      {error && <div role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">{error}</div>}
+      {error && !isScannedPdf && <div role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">{error}</div>}
       {importCommitted && <Notice tone="warning">The financial import is already committed. The only remaining action is to finalize its preserved email-source link; retrying will not re-import statement rows.</Notice>}
       {busy && !document && (
         <div className="mt-3 flex items-center gap-2 rounded-lg border border-sky-100 bg-white p-3 text-xs font-semibold text-sky-900">
-          <Loader2 className="h-4 w-4 animate-spin" />Loading and verifying the preserved statement source…
+          <Loader2 className="h-4 w-4 animate-spin" />{busyMessage}
         </div>
       )}
 
