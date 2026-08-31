@@ -314,8 +314,8 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
   const handleUnlockPdf = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!stagedFile || !pending) return;
-    const password = passwordInput.trim();
-    if (!password) {
+    const password = passwordInput;
+    if (password.length === 0) {
       setUnlockError("Please enter the statement password.");
       return;
     }
@@ -518,7 +518,7 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="submit"
-                disabled={busy || !passwordInput.trim()}
+                disabled={busy || passwordInput.length === 0}
                 className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold disabled:opacity-50 inline-flex items-center gap-2 shadow-xs"
               >
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
