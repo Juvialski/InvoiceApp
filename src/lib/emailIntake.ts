@@ -2,6 +2,7 @@ import type {
   EmailClassification,
   EmailIntakeProfile,
   EmailIntakeProfileInput,
+  EntityResolutionResult,
   Expense,
   GmailAttachmentSummary,
   GmailConnectionInfo,
@@ -168,6 +169,11 @@ export interface PendingEmailStatementReview {
   subject: string;
   sender: string;
   createdAt: string;
+  confirmedAccountId?: string;
+  preliminaryResolution?: EntityResolutionResult;
+  matchedProfileId?: string;
+  matchedProfileName?: string;
+  linkedProfileAccountId?: string;
 }
 
 export interface SuggestedExpenseFields {
@@ -196,6 +202,11 @@ export interface PendingEmailExpenseReview {
   sender: string;
   createdAt: string;
   suggestedExpense: SuggestedExpenseFields;
+  confirmedVendorId?: string;
+  preliminaryResolution?: EntityResolutionResult;
+  matchedProfileId?: string;
+  matchedProfileName?: string;
+  linkedProfileVendorId?: string;
 }
 
 export interface ExpenseDuplicateCandidate {
@@ -758,7 +769,17 @@ function savePendingEmailStatementReview(value: PendingEmailStatementReview) {
   storage.setItem(PENDING_EMAIL_STATEMENT_KEY, JSON.stringify(value));
 }
 
-export async function prepareGmailStatementReview(message: GmailMessageCandidate, requestedAttachmentId?: string): Promise<PendingEmailStatementReview> {
+export interface PrepareStatementReviewOptions {
+  confirmedAccountId?: string;
+  preliminaryResolution?: EntityResolutionResult;
+  profile?: EmailIntakeProfile;
+}
+
+export async function prepareGmailStatementReview(
+  message: GmailMessageCandidate,
+  requestedAttachmentId?: string,
+  options?: PrepareStatementReviewOptions,
+): Promise<PendingEmailStatementReview> {
   const classification = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
   const imported = await gmailApiRequest("/api/gmail/import", { messageId: message.id }) as GmailImportedMessage;
   const supported = imported.attachments.filter(isSupportedBankStatementAttachment);
@@ -785,6 +806,11 @@ export async function prepareGmailStatementReview(message: GmailMessageCandidate
     subject: imported.subject || message.subject || "Bank statement",
     sender: imported.sender || message.sender || "",
     createdAt: new Date().toISOString(),
+    confirmedAccountId: options?.confirmedAccountId,
+    preliminaryResolution: options?.preliminaryResolution,
+    matchedProfileId: options?.profile?.id || classification.matchedProfileId,
+    matchedProfileName: options?.profile?.name || classification.matchedProfileName,
+    linkedProfileAccountId: options?.profile?.linkedFinancialAccountId,
   };
   savePendingEmailStatementReview(pending);
   return pending;
@@ -1009,9 +1035,16 @@ export function findPossibleExpenseDuplicates(
   return matches;
 }
 
+export interface PrepareExpenseReviewOptions {
+  confirmedVendorId?: string;
+  preliminaryResolution?: EntityResolutionResult;
+  profile?: EmailIntakeProfile;
+}
+
 export async function prepareGmailExpenseReview(
   message: GmailMessageCandidate,
-  requestedAttachmentId?: string
+  requestedAttachmentId?: string,
+  options?: PrepareExpenseReviewOptions,
 ): Promise<PendingEmailExpenseReview> {
   const classification = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
   const imported = await gmailApiRequest("/api/gmail/import", { messageId: message.id }) as GmailImportedMessage;
@@ -1045,6 +1078,11 @@ export async function prepareGmailExpenseReview(
     sender: imported.sender || message.sender || "",
     createdAt: new Date().toISOString(),
     suggestedExpense: suggested,
+    confirmedVendorId: options?.confirmedVendorId,
+    preliminaryResolution: options?.preliminaryResolution,
+    matchedProfileId: options?.profile?.id || classification.matchedProfileId,
+    matchedProfileName: options?.profile?.name || classification.matchedProfileName,
+    linkedProfileVendorId: options?.profile?.linkedVendorId,
   };
   savePendingEmailExpenseReview(pending);
   return pending;

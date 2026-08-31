@@ -16,16 +16,71 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  Link2,
+  Sparkles,
+  PlusCircle,
+  AlertTriangle,
+  HelpCircle,
 } from "lucide-react";
-import { InvoiceData, LineItem } from "../types";
+import {
+  EntityResolutionAction,
+  EntityResolutionConflict,
+  EntityResolutionResult,
+  InvoiceData,
+  LineItem,
+  Vendor,
+} from "../types";
 import {
   exportSingleInvoiceToExcel,
   exportInvoiceLineItemsToCSV,
 } from "../utils/excelExport";
 import { formatDate, formatMoney } from "../config/regional";
+import { listCompanyVendors } from "../lib/persistence";
 
 function valueAtPath(value: any, path: string) {
   return path.split(".").reduce((current, key) => current?.[key], value);
+}
+
+function getResolutionActionBadge(
+  action?: EntityResolutionAction,
+  matchedName?: string,
+  conflicts?: EntityResolutionConflict[],
+) {
+  const conflictSummary =
+    conflicts && conflicts.length > 0 ? conflicts[0].reason : "Conflict detected";
+  switch (action) {
+    case "LINK_EXISTING":
+      return {
+        label: `Link: ${matchedName || "Existing Vendor"}`,
+        bg: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        icon: Link2,
+      };
+    case "ENRICH_EXISTING":
+      return {
+        label: `Enrich: ${matchedName || "Existing Vendor"}`,
+        bg: "bg-blue-100 text-blue-800 border-blue-300",
+        icon: Sparkles,
+      };
+    case "CREATE_NEW":
+      return {
+        label: `New: ${matchedName || "New Vendor"}`,
+        bg: "bg-purple-100 text-purple-800 border-purple-300",
+        icon: PlusCircle,
+      };
+    case "POSSIBLE_DUPLICATE":
+      return {
+        label: `Similar: ${matchedName || "Existing Vendor"}`,
+        bg: "bg-amber-100 text-amber-800 border-amber-300",
+        icon: HelpCircle,
+      };
+    case "NEEDS_REVIEW":
+    default:
+      return {
+        label: `Needs Review: ${conflictSummary}`,
+        bg: "bg-rose-100 text-rose-800 border-rose-300",
+        icon: AlertTriangle,
+      };
+  }
 }
 
 interface InvoiceViewerProps {
@@ -36,6 +91,7 @@ interface InvoiceViewerProps {
   readOnly?: boolean;
   focusFieldPath?: string;
   focusFieldToken?: number;
+  vendors?: Vendor[];
 }
 
 export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
@@ -46,10 +102,21 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   readOnly = false,
   focusFieldPath,
   focusFieldToken,
+  vendors,
 }) => {
   const [copied, setCopied] = useState(false);
   const [activeView, setActiveView] = useState<"details" | "preview">("details");
   const [isEditingHeader, setIsEditingHeader] = useState(false);
+  const [internalVendors, setInternalVendors] = useState<Vendor[]>(vendors || []);
+
+  useEffect(() => {
+    if (vendors && vendors.length > 0) {
+      setInternalVendors(vendors);
+    } else {
+      listCompanyVendors().then(setInternalVendors).catch(() => {});
+    }
+  }, [vendors]);
+
   const readOnlyFieldStyles = readOnly ? "[&_input]:pointer-events-none [&_select]:pointer-events-none [&_input]:bg-transparent [&_input]:border-transparent [&_input]:px-0 [&_input]:shadow-none [&_select]:bg-transparent [&_select]:border-transparent [&_select]:px-0 [&_select]:shadow-none [&_input]:focus:ring-0 [&_select]:focus:ring-0" : "";
   const updateInvoice = (updated: InvoiceData) => {
     if (!readOnly) onUpdateInvoice(updated);
@@ -398,12 +465,91 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
         <div className={compact ? "space-y-4" : "lg:col-span-4 space-y-4"}>
           {/* Vendor Card */}
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center space-x-2 pb-3 border-b border-slate-100 text-slate-800">
-              <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                <Building2 className="w-3.5 h-3.5" />
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-800">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                  <Building2 className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="text-xs font-bold uppercase tracking-wider">Vendor (Seller)</h3>
               </div>
-              <h3 className="text-xs font-bold uppercase tracking-wider">Vendor (Seller)</h3>
+              {invoice.entityResolution && (() => {
+                const badge = getResolutionActionBadge(
+                  invoice.entityResolution.proposedAction,
+                  invoice.entityResolution.matchedEntityName || invoice.vendor?.name,
+                  invoice.entityResolution.conflicts,
+                );
+                const BadgeIcon = badge.icon;
+                return (
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${badge.bg}`}>
+                    <BadgeIcon className="w-2.5 h-2.5" />
+                    {badge.label}
+                  </span>
+                );
+              })()}
             </div>
+            {invoice.entityResolution && !readOnly && (
+              <div className="mt-2.5 rounded-lg border border-indigo-100 bg-indigo-50/50 p-2 text-xs">
+                <label className="text-[9px] text-indigo-900 font-bold block uppercase tracking-wider mb-1">
+                  Master Vendor Record
+                </label>
+                <select
+                  aria-label="Master Vendor Record"
+                  value={invoice.entityResolution.matchedEntityId || ""}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    if (!selectedId) {
+                      onUpdateInvoice({
+                        ...invoice,
+                        entityResolution: {
+                          ...invoice.entityResolution!,
+                          proposedAction: "CREATE_NEW",
+                          matchedEntityId: undefined,
+                          matchedEntityName: invoice.vendor?.registeredName || invoice.vendor?.name || "New Vendor",
+                        },
+                      });
+                    } else {
+                      const v = internalVendors.find((item) => item.id === selectedId);
+                      if (v) {
+                        onUpdateInvoice({
+                          ...invoice,
+                          vendor: {
+                            ...invoice.vendor,
+                            name: v.name,
+                            registeredName: (v as any).registeredName || v.name,
+                            taxId: v.taxId || invoice.vendor?.taxId,
+                            email: v.email || invoice.vendor?.email,
+                            phone: v.phone || invoice.vendor?.phone,
+                            address: v.address || invoice.vendor?.address,
+                          },
+                          entityResolution: {
+                            ...invoice.entityResolution!,
+                            proposedAction: "LINK_EXISTING",
+                            matchedEntityId: v.id,
+                            matchedEntityName: v.name,
+                            matchedEntityDetails: {
+                              taxId: v.taxId,
+                              email: v.email,
+                              phone: v.phone,
+                              address: v.address,
+                            },
+                          },
+                        });
+                      }
+                    }
+                  }}
+                  className="w-full bg-white border border-indigo-200 rounded-md px-2 py-1 text-xs text-slate-800 focus:outline-hidden focus:border-indigo-500"
+                >
+                  <option value="">
+                    -- Propose New: {invoice.vendor?.registeredName || invoice.vendor?.name || invoice.entityResolution.matchedEntityName || "New Vendor"} --
+                  </option>
+                  {internalVendors.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} {v.taxId ? `(TIN: ${v.taxId})` : ""} {v.email ? `• ${v.email}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="mt-3 space-y-2.5 text-xs">
               <div>
                 <label className="text-[10px] text-slate-400 uppercase block font-bold">Business Name</label>

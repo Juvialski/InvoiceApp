@@ -1,15 +1,18 @@
 import type {
   EmailIntakeProfile,
+  EmailSourceMetadata,
   EntityResolutionAction,
   EntityResolutionConflict,
   EntityResolutionEnrichmentField,
   EntityResolutionResult,
+  Expense,
   FinancialAccountIdentityEvidence,
+  InvoiceData,
   Vendor,
   VendorIdentityEvidence,
 } from "../types.ts";
 import type { FinancialAccount } from "./cashBanking.ts";
-import { DISALLOWED_DOMAIN_RULES, normalizeDomain, normalizeEmail } from "./emailIntake.ts";
+import { DISALLOWED_DOMAIN_RULES, normalizeDomain, normalizeEmail, parseSenderAddress } from "./emailIntake.ts";
 
 export interface NormalizedTaxId {
   raw: string;
@@ -585,10 +588,10 @@ function accountDetails(account: FinancialAccount) {
   return { institution: account.institutionName, maskedIdentifier: account.maskedIdentifier, currency: account.currency };
 }
 
-function normalizedAccountEvidence(evidence: FinancialAccountIdentityEvidence) {
+export function normalizedAccountEvidence(evidence: FinancialAccountIdentityEvidence) {
   const institution = normalizeInstitution(evidence.institutionName || evidence.institutionCode);
   const suffix = extractAccountSuffix(evidence.maskedIdentifier || evidence.accountNumber);
-  const currency = String(evidence.currency || "PHP").trim().toUpperCase();
+  const currency = evidence.currency ? String(evidence.currency).trim().toUpperCase() : "";
   return { institution, suffix, currency };
 }
 
@@ -704,7 +707,7 @@ export function resolveFinancialAccountCandidate(
         candidateId,
         "LINK_EXISTING",
         96,
-        [`Institution (${institution.displayName}), account suffix (•••• ${suffix}), and currency (${currency}) uniquely match account: ${account.displayName}.`],
+        [`Institution (${institution.displayName}), account suffix (•••• ${suffix})${currency ? `, and currency (${currency})` : ""} uniquely match account: ${account.displayName}.`],
         [],
         [],
         evidence,
@@ -717,7 +720,7 @@ export function resolveFinancialAccountCandidate(
       return result;
     }
     if (matches.length > 1) {
-      return resultBase("FINANCIAL_ACCOUNT", candidateId, "NEEDS_REVIEW", 70, [`Multiple ${institution.displayName} accounts end in ${suffix} (${currency}). Explicit account selection is required.`], [], [], evidence, normalizedEvidence, sourceRef);
+      return resultBase("FINANCIAL_ACCOUNT", candidateId, "NEEDS_REVIEW", 70, [`Multiple ${institution.displayName} accounts end in ${suffix}${currency ? ` (${currency})` : ""}. Explicit account selection is required.`], [], [], evidence, normalizedEvidence, sourceRef);
     }
   }
 
@@ -734,7 +737,7 @@ export function resolveFinancialAccountCandidate(
         candidateId,
         "NEEDS_REVIEW",
         75,
-        [`Only one active ${institution.displayName} (${currency}) account exists (${account.displayName}), but no account suffix was extracted. Confirm explicitly.`],
+        [`Only one active ${institution.displayName}${currency ? ` (${currency})` : ""} account exists (${account.displayName}), but no account suffix was extracted. Confirm explicitly.`],
         [],
         [],
         evidence,
@@ -756,7 +759,7 @@ export function resolveFinancialAccountCandidate(
     candidateId,
     "CREATE_NEW",
     80,
-    [`No existing ${institution.displayName} account ending in ${suffix || "unknown"} (${currency}) was found. Creation remains a proposal until review.`],
+    [`No existing ${institution.displayName} account ending in ${suffix || "unknown"}${currency ? ` (${currency})` : ""} was found. Creation remains a proposal until review.`],
     [],
     [],
     evidence,
@@ -794,7 +797,7 @@ export function resolveBatchFinancialAccounts(
         && normA.institution.code === normB.institution.code
         && normA.suffix
         && normA.suffix === normB.suffix
-        && normA.currency === normB.currency,
+        && (!normA.currency || !normB.currency || normA.currency === normB.currency),
       );
       if (sameExisting || sameUnseen) {
         adjacency.get(a.candidateId)!.add(b.candidateId);
@@ -832,4 +835,171 @@ export function resolveBatchFinancialAccounts(
   }
 
   return { resolutions, groups };
+}
+
+/**
+ * Extracts post-extraction Vendor identity evidence from an extracted InvoiceData object
+ * combined with source email metadata and any matched saved sender profile.
+ */
+export function extractVendorEvidenceFromInvoice(
+  invoice: InvoiceData,
+  sourceMetadata?: EmailSourceMetadata,
+  profile?: EmailIntakeProfile,
+): VendorIdentityEvidence {
+  const vendor = invoice.vendor || ({} as any);
+  const emailMeta = sourceMetadata || invoice.sourceMetadata;
+  const parsedSender = emailMeta?.sender ? parseSenderAddress(emailMeta.sender) : null;
+  const senderEmail = parsedSender?.email || undefined;
+  const senderDomain = parsedSender?.domain || undefined;
+
+  const directTin = vendor.taxId || undefined;
+  const branchCode = vendor.branchCode || undefined;
+  const fullTin = directTin && branchCode && !directTin.includes(branchCode)
+    ? `${directTin}-${branchCode}`
+    : directTin;
+
+  const name = vendor.registeredName || vendor.name || vendor.tradeName || parsedSender?.name || "Unknown Vendor";
+
+  return {
+    name,
+    companyName: vendor.tradeName || vendor.name || undefined,
+    registeredName: vendor.registeredName || vendor.name || undefined,
+    tradeName: vendor.tradeName || undefined,
+    taxId: fullTin,
+    email: vendor.email || senderEmail,
+    phone: vendor.phone || undefined,
+    address: vendor.address || undefined,
+    senderEmail,
+    senderDomain,
+    matchedProfileId: profile?.id,
+    matchedProfileName: profile?.name,
+    linkedProfileVendorId: profile?.linkedVendorId,
+  };
+}
+
+/**
+ * Extracts post-parse FinancialAccount identity evidence from a parsed statement spreadsheet document
+ * (examining pre-header rows, sheetName, fileName) combined with source email metadata.
+ * Missing currency remains unknown/empty and does not default to PHP.
+ */
+export function extractAccountEvidenceFromStatement(
+  document: { fileName?: string; sheetName?: string; rawRows?: readonly (string | number | Date | null | undefined)[][] },
+  sourceMetadata?: { sender?: string; subject?: string },
+  profile?: EmailIntakeProfile,
+): FinancialAccountIdentityEvidence {
+  const parsedSender = sourceMetadata?.sender ? parseSenderAddress(sourceMetadata.sender) : null;
+  const rows = document.rawRows || [];
+
+  let detectedInstitution: string | undefined;
+  let detectedAccountNumber: string | undefined;
+  let detectedCurrency: string | undefined;
+  let detectedAccountName: string | undefined;
+
+  // Search pre-header rows and all string cells up to row 25
+  for (let r = 0; r < Math.min(rows.length, 25); r++) {
+    const row = rows[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const cell = row[c];
+      if (cell === null || cell === undefined) continue;
+      const text = String(cell).trim();
+      if (!text) continue;
+
+      // Institution check
+      if (!detectedInstitution) {
+        const inst = normalizeInstitution(text);
+        if (inst.code !== "UNKNOWN" && inst.code !== "OTHER") {
+          detectedInstitution = inst.displayName;
+        }
+      }
+
+      // Account number / suffix check
+      if (!detectedAccountNumber) {
+        const acctMatch = text.match(/(?:account(?:\s*no\.?|\s*number)?|acct(?:\s*no\.?|\s*#)?)\s*[:#-]?\s*([0-9*•xX\-]{4,30})/i);
+        if (acctMatch && acctMatch[1]) {
+          detectedAccountNumber = acctMatch[1].trim();
+        } else {
+          const maskedMatch = text.match(/[•*xX]{2,}\s*(\d{4})/);
+          if (maskedMatch && maskedMatch[1]) {
+            detectedAccountNumber = maskedMatch[1];
+          }
+        }
+      }
+
+      // Currency check
+      if (!detectedCurrency) {
+        const currMatch = text.match(/\b(?:currency|curr)\s*[:#-]?\s*([A-Z]{3})\b/i);
+        if (currMatch && currMatch[1]) {
+          detectedCurrency = currMatch[1].toUpperCase();
+        } else if (/^(PHP|USD|EUR|SGD|JPY|AUD|CAD|GBP|HKD)$/i.test(text)) {
+          detectedCurrency = text.toUpperCase();
+        }
+      }
+
+      // Account name check
+      if (!detectedAccountName) {
+        const nameMatch = text.match(/(?:account\s*name|account\s*title)\s*[:#-]?\s*([^\n\r]+)/i);
+        if (nameMatch && nameMatch[1]?.trim()) {
+          detectedAccountName = nameMatch[1].trim();
+        }
+      }
+    }
+  }
+
+  // Also inspect fileName & sheetName for hints if not found in cells
+  if (!detectedInstitution && document.fileName) {
+    const inst = normalizeInstitution(document.fileName);
+    if (inst.code !== "UNKNOWN" && inst.code !== "OTHER") {
+      detectedInstitution = inst.displayName;
+    }
+  }
+  if (!detectedAccountNumber && document.fileName) {
+    const fnMatch = document.fileName.match(/[_\-\s](\d{4})\b/);
+    if (fnMatch && fnMatch[1]) {
+      detectedAccountNumber = fnMatch[1];
+    }
+  }
+  if (!detectedCurrency && document.fileName) {
+    const fnCurr = document.fileName.match(/\b(PHP|USD|EUR|SGD|JPY)\b/i);
+    if (fnCurr && fnCurr[1]) {
+      detectedCurrency = fnCurr[1].toUpperCase();
+    }
+  }
+
+  return {
+    institutionName: detectedInstitution || parsedSender?.name || undefined,
+    accountNumber: detectedAccountNumber,
+    maskedIdentifier: detectedAccountNumber ? extractAccountSuffix(detectedAccountNumber) : undefined,
+    currency: detectedCurrency || undefined, // Must remain undefined if not found
+    displayName: detectedAccountName,
+    senderEmail: parsedSender?.email || undefined,
+    senderDomain: parsedSender?.domain || undefined,
+    matchedProfileId: profile?.id,
+    matchedProfileName: profile?.name,
+    linkedProfileAccountId: profile?.linkedFinancialAccountId,
+  };
+}
+
+/**
+ * Extracts post-extraction Vendor identity evidence from an Expense / Receipt candidate.
+ */
+export function extractVendorEvidenceFromExpense(
+  expense: { payee?: string; amount?: number; currency?: string; description?: string },
+  sourceMetadata?: { sender?: string; subject?: string },
+  profile?: EmailIntakeProfile,
+): VendorIdentityEvidence {
+  const parsedSender = sourceMetadata?.sender ? parseSenderAddress(sourceMetadata.sender) : null;
+  const senderEmail = parsedSender?.email || undefined;
+  const senderDomain = parsedSender?.domain || undefined;
+  const name = expense.payee || parsedSender?.name || "Expense Merchant";
+
+  return {
+    name,
+    companyName: name,
+    registeredName: name,
+    senderEmail,
+    senderDomain,
+    matchedProfileId: profile?.id,
+    matchedProfileName: profile?.name,
+    linkedProfileVendorId: profile?.linkedVendorId,
+  };
 }

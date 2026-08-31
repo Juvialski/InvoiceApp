@@ -13,7 +13,7 @@ import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, a
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
-import type { AttendanceRecord, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
+import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
 import { readAndCleanLocalInvoices } from "./utils/demoCleanup";
@@ -39,6 +39,8 @@ import {
   ensureWorkspaceProfile,
   loadGmailSyncState,
   loadInvoicesFromSupabase,
+  listCompanyVendors,
+  listEmailIntakeProfiles,
   loadSourcePayloadForRetry,
   markEmailClassification,
   markSourceDocumentStatus,
@@ -108,6 +110,11 @@ import {
   writeCashBankingWorkspaceToLocal,
 } from "./lib/cashBankingPersistence.ts";
 import { reverseFinancialSettlement } from "./lib/financialSettlementPersistence.ts";
+import {
+  extractVendorEvidenceFromInvoice,
+  resolveBatchVendors,
+  resolveVendorCandidate,
+} from "./lib/entityResolution.ts";
 import { useProjectController } from "./features/projects/useProjectController.ts";
 
 function revisePayrollSourcePeriods(
@@ -1402,6 +1409,31 @@ function InvoiceWorkspace() {
       const prepared = await saveExtracted(extracted, storedSource?.previewUrl || payload.previewUrl);
       sourcePayloadsRef.current.set(prepared.id, payload);
       if (storedSource) await markSourceDocumentStatus(storedSource.id, "EXTRACTED", prepared.documentType);
+      try {
+        const [existingVendors, existingProfiles] = await Promise.all([
+          listCompanyVendors().catch(() => []),
+          listEmailIntakeProfiles().catch(() => []),
+        ]);
+        const evidence = extractVendorEvidenceFromInvoice(prepared, prepared.sourceMetadata);
+        const resolution = resolveVendorCandidate(
+          {
+            candidateId: prepared.id,
+            evidence,
+            sourceRef: {
+              fileName: prepared.fileName,
+              messageId: prepared.sourceMetadata?.gmailMessageId,
+              subject: prepared.sourceMetadata?.subject,
+              sender: prepared.sourceMetadata?.sender,
+              attachmentId: prepared.sourceMetadata?.gmailAttachmentId,
+            },
+          },
+          existingVendors,
+          existingProfiles,
+        );
+        prepared.entityResolution = resolution;
+      } catch {
+        // Safe fallback
+      }
       return prepared;
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Invoice extraction failed. Check the document and try again."));
@@ -1468,7 +1500,32 @@ function InvoiceWorkspace() {
         sourcePayloadsRef.current.set(saved.id, { textData: body || subject, fileName: subject || "Email invoice", model: "gemini-3.5-flash-lite", sourceType: "EMAIL", emailContext: { sender, subject, receivedAt, body, emailRecordId: manualEmail?.id } });
         extractedInvoices.push(saved);
       }
-      if (extractedInvoices.length) startReview(extractedInvoices, undefined, "inbox");
+      if (extractedInvoices.length) {
+        try {
+          const [existingVendors, existingProfiles] = await Promise.all([
+            listCompanyVendors().catch(() => []),
+            listEmailIntakeProfiles().catch(() => []),
+          ]);
+          const candidateItems = extractedInvoices.map((inv) => ({
+            candidateId: inv.id,
+            evidence: extractVendorEvidenceFromInvoice(inv, inv.sourceMetadata),
+            sourceRef: {
+              fileName: inv.fileName,
+              sender,
+              subject,
+            },
+          }));
+          const { resolutions } = resolveBatchVendors(candidateItems, existingVendors, existingProfiles);
+          for (const inv of extractedInvoices) {
+            if (resolutions[inv.id]) {
+              inv.entityResolution = resolutions[inv.id];
+            }
+          }
+        } catch {
+          // Safe fallback
+        }
+        startReview(extractedInvoices, undefined, "inbox");
+      }
       showNotification("success", `Email processed: ${classification.documentType || "financial document"} detected and saved for review.`);
       return classification;
     } catch (error: any) {
@@ -1621,7 +1678,48 @@ function InvoiceWorkspace() {
         extractedInvoices.push(saved);
         extractedCount = 1;
       }
-      if (extractedInvoices.length) startReview(extractedInvoices, undefined, "inbox");
+      if (extractedInvoices.length) {
+        try {
+          const [existingVendors, existingProfiles] = await Promise.all([
+            listCompanyVendors().catch(() => []),
+            listEmailIntakeProfiles().catch(() => []),
+          ]);
+          const matchingProfile = existingProfiles.find((p) => p.id === candidate.classification?.matchedProfileId);
+          const candidateItems = extractedInvoices.map((inv) => ({
+            candidateId: inv.id,
+            evidence: extractVendorEvidenceFromInvoice(inv, inv.sourceMetadata, matchingProfile),
+            sourceRef: {
+              messageId: candidate.id,
+              subject: candidate.subject,
+              sender: candidate.sender,
+              fileName: inv.fileName,
+              attachmentId: inv.sourceMetadata?.gmailAttachmentId,
+            },
+          }));
+          const { resolutions } = resolveBatchVendors(candidateItems, existingVendors, existingProfiles);
+          for (const inv of extractedInvoices) {
+            if (resolutions[inv.id]) {
+              const res = resolutions[inv.id];
+              const preliminaryOverride = (candidate as any).preliminaryResolution as EntityResolutionResult | undefined;
+              if (preliminaryOverride && preliminaryOverride.proposedAction === "LINK_EXISTING" && preliminaryOverride.matchedEntityId) {
+                const chosenVendor = existingVendors.find((v) => v.id === preliminaryOverride.matchedEntityId);
+                inv.entityResolution = {
+                  ...res,
+                  proposedAction: "LINK_EXISTING",
+                  matchedEntityId: preliminaryOverride.matchedEntityId,
+                  matchedEntityName: chosenVendor?.name || preliminaryOverride.matchedEntityName,
+                  matchReasons: [`User confirmed vendor in Email Intake: ${chosenVendor?.name || preliminaryOverride.matchedEntityId}.`, ...res.matchReasons],
+                };
+              } else {
+                inv.entityResolution = res;
+              }
+            }
+          }
+        } catch {
+          // Safe fallback
+        }
+        startReview(extractedInvoices, undefined, "inbox");
+      }
       showNotification("success", `Saved original Gmail message and ${stored.documents.length} attachment${stored.documents.length === 1 ? "" : "s"}; created ${extractedCount} invoice extraction${extractedCount === 1 ? "" : "s"}.`);
       return extractedCount;
     } finally {
@@ -2807,8 +2905,35 @@ function InvoiceWorkspace() {
     navigateToPath(appPathForInvoice(invoice.id, returnPath));
   };
 
-  const handleBatchComplete = (successful: InvoiceData[], failed: Array<{ name: string; error: string }>) => {
-    if (successful.length) startReview(successful, undefined, "extractor");
+  const handleBatchComplete = async (successful: InvoiceData[], failed: Array<{ name: string; error: string }>) => {
+    if (successful.length) {
+      try {
+        const [existingVendors, existingProfiles] = await Promise.all([
+          listCompanyVendors().catch(() => []),
+          listEmailIntakeProfiles().catch(() => []),
+        ]);
+        const candidateItems = successful.map((inv) => ({
+          candidateId: inv.id,
+          evidence: extractVendorEvidenceFromInvoice(inv, inv.sourceMetadata),
+          sourceRef: {
+            fileName: inv.fileName,
+            messageId: inv.sourceMetadata?.gmailMessageId,
+            subject: inv.sourceMetadata?.subject,
+            sender: inv.sourceMetadata?.sender,
+            attachmentId: inv.sourceMetadata?.gmailAttachmentId,
+          },
+        }));
+        const { resolutions } = resolveBatchVendors(candidateItems, existingVendors, existingProfiles);
+        for (const inv of successful) {
+          if (resolutions[inv.id]) {
+            inv.entityResolution = resolutions[inv.id];
+          }
+        }
+      } catch {
+        // Safe fallback
+      }
+      startReview(successful, undefined, "extractor");
+    }
     if (successful.length || failed.length) {
       const summary = `${successful.length} invoice${successful.length === 1 ? "" : "s"} extracted successfully. ${failed.length} failed.`;
       showNotification(failed.length ? "info" : "success", summary);

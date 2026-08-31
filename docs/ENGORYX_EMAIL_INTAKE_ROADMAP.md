@@ -1,6 +1,6 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A merged (PR #52), Phase 4B implemented in `feat/email-intake-phase-4b-entity-resolution`.
+Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A merged (PR #52), Phase 4B complete in `feat/email-intake-phase-4b-entity-resolution` (PR #53) — two-stage entity resolution (preliminary mailbox hints + authoritative post-extraction/post-parse resolution) for Invoices, Cash & Banking Statements, and Expenses.
 
 Current direction:
 
@@ -383,7 +383,7 @@ Current order:
 2. **Phase 2:** receipts/bills → Expense review — merged.
 3. **Phase 3:** top-level Email Intake + Gmail reconnect/state UX — implemented in PR #51, pending review.
 4. **Phase 4A:** intake efficiency + saved sender/template profiles + deterministic-first classification.
-5. **Phase 4B:** existing-record + same-batch Vendor/FinancialAccount resolution.
+5. **Phase 4B:** existing-record + same-batch Vendor/FinancialAccount resolution — **complete** (PR #53). Two-stage model: preliminary mailbox sender hints → authoritative post-extraction/post-parse entity resolution. Covers Invoice vendor resolution (TIN/name/profile), Cash & Banking statement account resolution (institution/suffix/currency), Expense payee resolution. Master-data mutation boundary enforced (EXTRACTION ≠ CREATION). Missing currency stays unknown. 20 new integration tests.
 6. **Phase 4C–4G:** Invoice, Bank Statement, Expense, and shared queue hardening in focused PR-sized waves.
 7. **Controlled automation/Assistant integration:** later.
 8. **Engineering/Project Email Intake:** deferred until explicitly re-prioritized.

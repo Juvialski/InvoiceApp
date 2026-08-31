@@ -249,6 +249,7 @@ export interface InvoiceData {
   /** Database optimistic-concurrency token for persisted invoice edits. */
   updatedAt?: string;
   aiSnapshot?: Partial<InvoiceData>;
+  entityResolution?: EntityResolutionResult;
 }
 
 export interface ExtractionRequest {

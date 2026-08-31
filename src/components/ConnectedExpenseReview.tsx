@@ -1,6 +1,28 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, FileText, Loader2, Receipt, Sparkles, X } from "lucide-react";
-import type { Expense, ExpenseStatus, Project } from "../types.ts";
+import {
+  AlertCircle,
+  AlertTriangle,
+  Building2,
+  CheckCircle2,
+  FileText,
+  HelpCircle,
+  Link2,
+  Loader2,
+  PlusCircle,
+  Receipt,
+  Sparkles,
+  X,
+} from "lucide-react";
+import type {
+  EmailIntakeProfile,
+  EntityResolutionAction,
+  EntityResolutionConflict,
+  EntityResolutionResult,
+  Expense,
+  ExpenseStatus,
+  Project,
+  Vendor,
+} from "../types.ts";
 import { EXPENSE_CATEGORIES, createLocalExpense } from "../lib/expenses.ts";
 import {
   clearPendingEmailExpenseReview,
@@ -10,13 +32,61 @@ import {
   type ExpenseDuplicateCandidate,
   type PendingEmailExpenseReview,
 } from "../lib/emailIntake.ts";
+import {
+  extractVendorEvidenceFromExpense,
+  resolveVendorCandidate,
+} from "../lib/entityResolution.ts";
+import { listCompanyVendors, listEmailIntakeProfiles } from "../lib/persistence.ts";
 import { Notice, SectionHeader, StatusBadge } from "./ui/OperationsUI.tsx";
+
+function getResolutionActionBadge(
+  action?: EntityResolutionAction,
+  matchedName?: string,
+  conflicts?: EntityResolutionConflict[],
+) {
+  const conflictSummary =
+    conflicts && conflicts.length > 0 ? conflicts[0].reason : "Conflict detected";
+  switch (action) {
+    case "LINK_EXISTING":
+      return {
+        label: `Link: ${matchedName || "Existing Vendor"}`,
+        bg: "bg-emerald-100 text-emerald-800 border-emerald-300",
+        icon: Link2,
+      };
+    case "ENRICH_EXISTING":
+      return {
+        label: `Enrich: ${matchedName || "Existing Vendor"}`,
+        bg: "bg-blue-100 text-blue-800 border-blue-300",
+        icon: Sparkles,
+      };
+    case "CREATE_NEW":
+      return {
+        label: `New: ${matchedName || "New Payee"}`,
+        bg: "bg-purple-100 text-purple-800 border-purple-300",
+        icon: PlusCircle,
+      };
+    case "POSSIBLE_DUPLICATE":
+      return {
+        label: `Similar: ${matchedName || "Existing Vendor"}`,
+        bg: "bg-amber-100 text-amber-800 border-amber-300",
+        icon: HelpCircle,
+      };
+    case "NEEDS_REVIEW":
+    default:
+      return {
+        label: `Needs Review: ${conflictSummary}`,
+        bg: "bg-rose-100 text-rose-800 border-rose-300",
+        icon: AlertTriangle,
+      };
+  }
+}
 
 interface ConnectedExpenseReviewProps {
   projects: Project[];
   existingExpenses: Expense[];
   canManage?: boolean;
   onSaveExpense: (expense: Expense) => Promise<void> | void;
+  vendors?: Vendor[];
 }
 
 export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
@@ -24,6 +94,7 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
   existingExpenses,
   canManage = false,
   onSaveExpense,
+  vendors: propVendors,
 }) => {
   const [pending, setPending] = useState<PendingEmailExpenseReview | null>(null);
   const [expenseDate, setExpenseDate] = useState("");
@@ -39,6 +110,9 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [vendorsList, setVendorsList] = useState<Vendor[]>(propVendors || []);
+  const [vendorResolution, setVendorResolution] = useState<EntityResolutionResult | null>(null);
+  const [selectedVendorId, setSelectedVendorId] = useState("");
 
   useEffect(() => {
     const staged = readPendingEmailExpenseReview();
@@ -57,7 +131,73 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
     // Project context remains advisory. The user must explicitly choose a
     // project before an allocation can be persisted with the expense.
     setProjectId("");
-  }, []);
+
+    void (async () => {
+      try {
+        const [loadedVendors, loadedProfiles] = await Promise.all([
+          propVendors && propVendors.length > 0 ? Promise.resolve(propVendors) : listCompanyVendors().catch(() => [] as Vendor[]),
+          listEmailIntakeProfiles().catch(() => [] as EmailIntakeProfile[]),
+        ]);
+        setVendorsList(loadedVendors);
+
+        const matchingProfile =
+          loadedProfiles.find((p) => p.id === staged.matchedProfileId && p.enabled !== false) ||
+          (staged.matchedProfileId
+            ? ({
+                id: staged.matchedProfileId,
+                name: staged.matchedProfileName || "Matched Profile",
+                linkedVendorId: staged.linkedProfileVendorId,
+                enabled: true,
+              } as EmailIntakeProfile)
+            : undefined);
+
+        const candidateEvidence = extractVendorEvidenceFromExpense(
+          suggested,
+          {
+            sender: staged.sender,
+            subject: staged.subject,
+          },
+          matchingProfile,
+        );
+
+        const res = resolveVendorCandidate(
+          {
+            candidateId: staged.id,
+            evidence: candidateEvidence,
+            sourceRef: {
+              subject: staged.subject,
+              sender: staged.sender,
+              fileName: staged.fileName,
+              attachmentId: staged.sourceDocumentId,
+            },
+          },
+          loadedVendors,
+          loadedProfiles.length ? loadedProfiles : matchingProfile ? [matchingProfile] : [],
+        );
+
+        setVendorResolution(res);
+
+        // Pre-selection:
+        if (staged.confirmedVendorId && loadedVendors.some((v) => v.id === staged.confirmedVendorId)) {
+          setSelectedVendorId(staged.confirmedVendorId);
+          const v = loadedVendors.find((item) => item.id === staged.confirmedVendorId);
+          if (v) setPayee(v.name);
+        } else if (
+          res.proposedAction === "LINK_EXISTING" &&
+          res.matchedEntityId &&
+          loadedVendors.some((v) => v.id === res.matchedEntityId)
+        ) {
+          setSelectedVendorId(res.matchedEntityId);
+          const v = loadedVendors.find((item) => item.id === res.matchedEntityId);
+          if (v) setPayee(v.name);
+        } else {
+          setSelectedVendorId("");
+        }
+      } catch {
+        // Leave suggested values on error
+      }
+    })();
+  }, [propVendors]);
 
   const duplicates = useMemo<ExpenseDuplicateCandidate[]>(() => {
     if (!pending) return [];
@@ -286,7 +426,34 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
         </fieldset>
 
         <fieldset className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4">
-          <legend className="px-1 text-xs font-black uppercase tracking-[0.14em] text-slate-700">Amount & Payee</legend>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
+            <legend className="px-1 text-xs font-black uppercase tracking-[0.14em] text-slate-700">Amount & Payee</legend>
+            {vendorResolution && (() => {
+              const badge = getResolutionActionBadge(
+                vendorResolution.proposedAction,
+                vendorResolution.matchedEntityName || payee,
+                vendorResolution.conflicts,
+              );
+              const BadgeIcon = badge.icon;
+              return (
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold ${badge.bg}`}>
+                  <BadgeIcon className="w-2.5 h-2.5" />
+                  {badge.label}
+                </span>
+              );
+            })()}
+          </div>
+
+          {vendorResolution?.conflicts && vendorResolution.conflicts.length > 0 && (
+            <div className="space-y-1">
+              {vendorResolution.conflicts.map((conflict, i) => (
+                <Notice key={i} tone="danger">
+                  <strong>Identity conflict:</strong> {conflict.reason}
+                </Notice>
+              ))}
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
               <span className="field-label">Amount</span>
@@ -319,6 +486,61 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
                 placeholder="Merchant name"
                 className="field-input"
               />
+            </label>
+            <label className="space-y-1 sm:col-span-2">
+              <span className="field-label">Master Vendor Link (Optional)</span>
+              <select
+                aria-label="Master Vendor Link"
+                value={selectedVendorId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedVendorId(id);
+                  if (!id) {
+                    setVendorResolution((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            proposedAction: "CREATE_NEW",
+                            matchedEntityId: undefined,
+                            matchedEntityName: payee || "New Payee",
+                          }
+                        : null
+                    );
+                  } else {
+                    const v = vendorsList.find((item) => item.id === id);
+                    if (v) {
+                      setPayee(v.name);
+                      setVendorResolution((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              proposedAction: "LINK_EXISTING",
+                              matchedEntityId: v.id,
+                              matchedEntityName: v.name,
+                              matchedEntityDetails: {
+                                taxId: v.taxId,
+                                email: v.email,
+                                phone: v.phone,
+                                address: v.address,
+                              },
+                            }
+                          : null
+                      );
+                    }
+                  }
+                }}
+                className="field-input"
+              >
+                <option value="">-- Free-text Payee (No Master Vendor Link) --</option>
+                {vendorsList.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} {v.taxId ? `(TIN: ${v.taxId})` : ""} {v.email ? `• ${v.email}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400">
+                Linking an existing vendor populates the payee name. Saving will create the expense record without mutating master vendor records.
+              </p>
             </label>
             <label className="space-y-1">
               <span className="field-label">Payment method</span>
