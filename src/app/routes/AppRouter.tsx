@@ -582,7 +582,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   ) {
     return lazyRoute(
       <InvoicesRoute
-        activeSubTab={activeTab}
+        activeSubTab={["extractor", "inbox", "review", "invoices", "vendors"].includes(routeTarget) ? (routeTarget as any) : activeTab}
         onNavigatePath={onNavigatePath}
         invoices={invoices}
         projects={projects}

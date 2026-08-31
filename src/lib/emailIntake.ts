@@ -1,10 +1,33 @@
-import type { EmailClassification, Expense, GmailAttachmentSummary, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow } from "../types.ts";
+import type { EmailClassification, Expense, GmailAttachmentSummary, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow } from "../types.ts";
 import { companyApiRequest } from "./companyApi.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
 import { clearGoogleProviderTokens, getGoogleProviderToken, supabase } from "./supabase.ts";
 import { markEmailClassification, saveGmailMessageSource, saveGmailSyncState } from "./persistence.ts";
 
 export type EmailIntakeDestination = "INVOICE" | "BANK_STATEMENT" | "EXPENSE" | "UNSUPPORTED";
+
+export type GmailConnectionStatus = "HEALTHY" | "RECONNECT_REQUIRED" | "NEVER_CONNECTED" | "UNCONFIGURED";
+
+export function isGmailAuthorizationError(message?: string | null) {
+  const value = String(message || "").trim().toLowerCase();
+  if (!value) return false;
+  return /invalid_grant|re-?authentication|gmail authorization|authorization (?:is )?(?:missing|expired|revoked)|expired or was revoked|reconnect (?:gmail|google \+ gmail)/i.test(value);
+}
+
+export function resolveGmailConnectionStatus(
+  connection: GmailConnectionInfo,
+  activeAuthError?: string | null,
+): GmailConnectionStatus {
+  if (!connection.configured) return "UNCONFIGURED";
+  if (!connection.signedIn) return "NEVER_CONNECTED";
+  const hasAuthError = Boolean(connection.authError || isGmailAuthorizationError(activeAuthError));
+  if (connection.hasGmailToken && !hasAuthError) return "HEALTHY";
+  const hasPriorConnectionContext = Boolean(
+    connection.email || connection.lastSyncedAt || connection.lastHistoryId || hasAuthError
+  );
+  if (hasPriorConnectionContext) return "RECONNECT_REQUIRED";
+  return "NEVER_CONNECTED";
+}
 
 export interface EmailIntakeClassification extends EmailClassification {
   suggestedDestination: EmailIntakeDestination;

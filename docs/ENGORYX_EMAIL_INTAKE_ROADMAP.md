@@ -1,46 +1,37 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 next, Phase 4 planned
+Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 implemented in PR #51 and pending review, Phase 4 planned next.
 
 Current direction:
 
 - repository: `Juvialski/InvoiceApp`
 - product: Engoryx Engineering Operations Platform
 - one deployment serves one client company
-- Email Intake is a shared finance intake capability, not an Invoice-only feature
-- current priorities are Invoices, Cash & Banking, bank accounts/statements, and Expenses
-- Engineering Documents and Payroll email intake are deferred
+- Email Intake is a shared finance capability, not an Invoice-only feature
+- active priorities are Invoices, Cash & Banking / bank accounts / bank statements, and Expenses / receipts
+- Engineering Documents email intake is deferred
+- Payroll email intake is deferred
 
-This document is the durable plan for evolving the connected Gmail mailbox into a shared, auditable financial intake layer.
+This roadmap is the durable high-level sequence. The detailed next-phase design is in `docs/ENGORYX_FINANCIAL_INTAKE_HARDENING_PLAN.md`.
 
 ## Product direction
 
-Engoryx should have one connected mailbox experience for supported finance workflows.
-
-Target architecture:
+Engoryx should have one connected read-only Gmail experience for supported finance workflows.
 
 ```text
 Google Gmail
-    |
-    v
-Top-level Email Intake
-    |
-    v
-Email + attachment preservation
-    |
-    v
-Financial document classification
-    |
-    +----------------------+----------------------+
-    |                      |                      |
-    v                      v                      v
-Invoice Review       Cash & Banking         Expense Review
-                     Statement Preview
+    -> Top-level Email Intake
+    -> bounded candidate discovery
+    -> source preservation
+    -> financial classification
+       -> Invoice Review
+       -> Cash & Banking Statement Preview
+       -> Expense Review
 ```
 
-The shared intake layer owns mailbox connection state, source preservation, classification, provenance, duplicate safety, and routing suggestions. Destination modules retain their own permissions, review rules, lifecycle rules, and commit boundaries.
+The shared intake layer owns mailbox connection state, source preservation, classification, provenance, duplicate safety, and routing suggestions. Destination modules retain their own permissions, lifecycle rules, review rules, and commit boundaries.
 
-AI classification/extraction is advisory. It must never directly commit financial records.
+AI classification/extraction is advisory. Extraction never implies automatic record creation or financial posting.
 
 ---
 
@@ -48,24 +39,24 @@ AI classification/extraction is advisory. It must never directly commit financia
 
 Status: merged in PR #49.
 
-## Delivered direction
+Delivered direction:
 
 - canonical Gmail Bearer-token contract;
 - Gmail authorization separated from Engoryx/Supabase authentication;
 - Gmail failure does not sign the user out of Engoryx;
 - bounded mailbox scanning;
-- invoice routing preserved;
+- Invoice routing preserved;
 - supported bank-statement routing added;
-- original email/attachment source preservation;
+- original email/attachment preservation;
 - existing Cash & Banking parser and `StatementPreview` reused;
 - explicit confirmation required before financial transaction commit;
 - statement import provenance linked to preserved source documents.
 
-## Permanent boundaries
+Permanent boundaries:
 
 - Gmail remains read-only;
-- no raw Gmail token is stored in application records;
-- Gmail access never grants Cash & Banking authority;
+- raw Gmail tokens are never stored in application records;
+- Gmail access never grants Cash & Banking mutation authority;
 - ambiguous FinancialAccount matches require explicit user selection;
 - statement classification alone never creates transactions.
 
@@ -75,255 +66,258 @@ Status: merged in PR #49.
 
 Status: merged in PR #50.
 
-## Delivered direction
+Delivered direction:
 
 - receipt/expense candidate discovery;
-- PDF/image expense attachment support;
-- advisory extraction of payee, date, amount, currency, category, payment method, reference, and project hint;
+- supported PDF/image receipt attachments;
+- advisory payee/date/amount/currency/category/payment/reference/project suggestions;
 - original source preservation and integrity validation;
-- duplicate warnings using source/reference/payee+amount+date signals;
+- duplicate warnings using source/reference/payee+amount+date evidence;
 - explicit Expense review before save;
-- Expense permissions kept separate from Gmail permissions;
-- project hints remain suggestions and are not silently committed;
-- invoice classification retains precedence over ambiguous receipt/invoice mail.
+- Gmail and Expense permissions remain separate;
+- project hints remain advisory and are not silently committed;
+- Invoice classification retains precedence over ambiguous Invoice/receipt mail.
 
-## Permanent boundaries
+Permanent boundaries:
 
 - no automatic approved/paid Expense creation;
 - no silent project allocation;
-- no Gmail-only mutation authority;
-- preserved source must remain recoverable from the review workflow.
+- no Gmail-only Expense authority;
+- preserved source remains recoverable from the review workflow.
 
 ---
 
 # Phase 3 — Top-Level Email Intake + Gmail Reliability UX
 
-## Goal
+Status: implemented in PR #51, pending review/merge.
 
-Finish the product-level transition from an Invoice-specific Gmail page to a true shared financial Email Intake surface.
+Goal:
 
-The current route/navigation still presents Email Intake under `Invoices / Gmail`, which no longer matches the architecture. Phase 3 should make Email Intake a first-class top-level operational surface while preserving backward-compatible deep links.
+Complete the product-level transition from an Invoice-specific Gmail surface to a first-class shared financial Email Intake experience.
 
-## Navigation and information architecture
+Implemented direction:
 
-Add a top-level navigation entry such as:
+- canonical top-level Email Intake navigation;
+- shared page for Invoice, Bank Statement, and Expense candidates;
+- compatibility for the legacy `/inbox` route;
+- removal of the redundant visible Gmail child under Invoices;
+- explicit Gmail connection states: healthy, reconnect required, never connected, unconfigured;
+- Gmail reconnect remains separate from the Engoryx session;
+- scan controls are gated when Gmail authorization is unavailable;
+- reconnect returns to the Email Intake route;
+- candidate destination filters/counts;
+- Manual Invoice Email Fallback made secondary rather than dominating the shared page.
 
-`Email Intake`
+Important state rule:
 
-It should not live only under the Invoice submenu.
+A known mailbox address or previous sync record is metadata only. It must never cause the UI to show a healthy `Connected mailbox` state without currently usable Gmail authorization.
 
-The shared page should be the single mailbox surface for:
+Likewise, ordinary scan/validation/network errors must not be misclassified as expired Gmail authorization. Only actual Gmail authorization failures should move the UI into reconnect-required state.
 
-- Invoice candidates;
-- bank-statement candidates;
-- Expense/receipt candidates.
-
-Do not create separate Gmail pages for each destination.
-
-Existing Invoice/Gmail deep links may redirect or resolve to the same shared Email Intake state.
-
-## Gmail connection/reconnect UX
-
-The UI must clearly distinguish:
-
-1. Engoryx authentication state;
-2. Google/Gmail authorization state;
-3. mailbox scan state.
-
-The app must not simultaneously present a healthy green `Connected mailbox` state while also reporting that Gmail authorization is expired/revoked.
-
-When Gmail authorization expires or is revoked:
-
-- keep the Engoryx session active;
-- mark Gmail as requiring reconnection;
-- show a clear `Reconnect Gmail` action in the connection card;
-- do not require the user to hunt elsewhere for reconnection;
-- prevent or redirect scan actions until Gmail authorization is restored;
-- retain the previously known mailbox address only as informational metadata, not as proof of an active token;
-- show concise recovery guidance rather than a dead-end error banner.
-
-A successful reconnect should return the user to the same shared Email Intake page.
-
-## Shared intake page structure
-
-Recommended structure:
-
-```text
-Email Intake
-
-Connected mailbox / reconnect state
-Scan window + Scan button
-Destination filters / candidate counts
-
-Candidate queue
-    - Invoice
-    - Bank Statement
-    - Expense / Receipt
-
-Explicit Review action per destination
-```
-
-The page should expose:
-
-- connected mailbox address;
-- read-only Gmail scope;
-- reconnect state/action;
-- last successful sync;
-- scan window;
-- candidate type;
-- confidence/reason;
-- attachment/source details;
-- destination;
-- explicit review action;
-- duplicate/suspected-duplicate state where available.
-
-## Manual intake cleanup
-
-The existing `Manual invoice email fallback` may remain for forwarded/unsupported Invoice cases, but it should not dominate the shared Email Intake page.
-
-It should be visually secondary and clearly Invoice-specific.
-
-Do not add manual bank-statement or Expense forms to the Email Intake page when those destination modules already have upload/create workflows.
-
-## Phase 3 completion gate
-
-Before merge:
+Phase 3 completion gate:
 
 - Email Intake is reachable from top-level navigation;
-- Invoice/Gmail compatibility route still works;
-- shared page serves Invoice, Bank Statement, and Expense candidates;
-- expired Gmail authorization produces a clear reconnect state and action;
-- Engoryx authentication remains unaffected by Gmail failure;
-- stale `connected` UI cannot coexist with an expired-token state;
-- scan is blocked or redirected appropriately when Gmail authorization is unavailable;
-- reconnect returns to Email Intake cleanly;
-- mobile/tablet/desktop layout passes browser QA;
-- existing Invoice, Cash & Banking, and Expense workflows remain unchanged at their commit boundaries;
-- full tests/lint/build and repository CI gates pass.
+- old Invoice/Gmail compatibility route still resolves correctly;
+- Invoice, Bank Statement, and Expense handoffs still work;
+- stale `Connected` UI cannot coexist with expired/revoked Gmail authorization;
+- ordinary non-auth scan errors do not force Gmail reconnect state;
+- Gmail failure does not sign the user out of Engoryx;
+- scan gating and reconnect UX are clear;
+- mobile/tablet/desktop browser QA passes;
+- tests/lint/build/workflow-map/required CI gates pass.
 
 ---
 
 # Phase 4 — Financial Intake Hardening
 
-## Goal
+Status: next after Phase 3 is merged.
 
-Deepen the three finance destinations before adding unrelated document domains or broad automation.
+Detailed implementation design:
 
-Priority order:
+`docs/ENGORYX_FINANCIAL_INTAKE_HARDENING_PLAN.md`
 
-1. Invoice intake reliability and review quality;
-2. Bank account / statement routing and reconciliation quality;
-3. Expense/receipt intake quality;
-4. shared queue/duplicate/provenance UX.
+## Core architectural change
 
-## 4A — Invoice intake hardening
+Phase 4 should make Email Intake efficient and existing-record-aware.
 
-Review and improve:
+Target funnel:
 
-- duplicate detection across Gmail/source/invoice identifiers;
-- invoice-vs-receipt classification ambiguity;
-- source preview/recovery from Invoice Review;
-- multi-attachment Invoice emails;
-- extraction failure/retry UX;
-- clear distinction between candidate, extracted draft, verified invoice, and posted financial state.
+```text
+Gmail
+  -> bounded candidate discovery
+  -> saved sender/template matching
+  -> deterministic classification
+  -> AI classification only for ambiguous candidates
+  -> source preservation
+  -> destination-specific extraction/parsing
+  -> normalization
+  -> existing-record + same-batch resolution
+  -> proposed link/update/create/duplicate/review action
+  -> human confirmation
+  -> destination commit
+```
 
-Do not bypass the existing Invoice Review Queue or verification requirements.
+The first stages should normally require zero AI calls.
 
-## 4B — Bank accounts and statement intake hardening
+Do not send every discovered email or attachment to Gemini just to decide whether it is financial.
 
-Improve the Gmail → Cash & Banking path without creating a second transaction engine.
+## 4A — Intake efficiency foundation
 
-Focus on:
+Priorities:
 
-- better FinancialAccount suggestion using safe evidence from sender/statement metadata;
-- explicit account selection when ambiguous;
-- account mismatch warnings;
-- statement date/range hints;
-- duplicate-file and duplicate-transaction visibility;
-- preserved source access from financial import/reconciliation surfaces;
-- clear import batch status and provenance;
-- safe retry after parser/import failure;
-- account balances and reconciliation remaining authoritative in Cash & Banking.
+- consolidate any overlapping classification paths so the shared deterministic classifier is authoritative for obvious cases;
+- use Gmail search/history and deterministic metadata first;
+- add company-scoped saved sender/domain/template profiles for recurring banks, suppliers, partners, utilities, and similar finance senders;
+- allow profiles to suggest destination, existing Vendor, existing FinancialAccount, expected attachment pattern, parser/template profile, or Expense category where appropriate;
+- saved profiles remain advisory and permission-aware;
+- use AI metadata/text classification only for genuinely ambiguous candidates;
+- when safe, batch multiple ambiguous metadata-only candidates into a bounded structured classifier request rather than one AI call per email;
+- preserve source message identity in every classifier result.
+
+Do not hardcode bank sender addresses as globally authoritative. Real sender addresses/templates change and must be company-editable data.
+
+## 4B — Existing-record and same-batch entity resolution
+
+Extraction must never equal creation.
+
+Before proposing new Vendors, FinancialAccounts, or destination records, compare the extracted candidate with:
+
+1. existing company records; and
+2. other candidates in the current intake batch.
+
+Possible proposal states:
+
+```text
+LINK_EXISTING
+ENRICH_EXISTING
+CREATE_NEW
+POSSIBLE_DUPLICATE
+NEEDS_REVIEW
+```
+
+A strong existing match should normally link to the existing entity rather than create a duplicate.
+
+`ENRICH_EXISTING` means a reviewed proposal to add safe information. It must never silently replace conflicting authoritative values.
+
+Multiple emails from the same previously unknown supplier should be able to resolve to one proposed new Vendor instead of independently proposing several duplicate Vendors.
+
+## 4C — Vendor / supplier resolution
+
+Strong matching evidence may include:
+
+- exact normalized TIN/tax identifier;
+- saved sender profile linked to Vendor;
+- exact sender address/domain;
+- registered/legal name;
+- verified address/phone evidence;
+- normalized name similarity as secondary evidence.
+
+Do not auto-merge Vendors based only on similar names.
+
+Conflicting tax/business identity data requires review.
+
+## 4D — FinancialAccount and statement hardening
+
+Bank statement intake must prefer existing FinancialAccounts when identity evidence is strong.
+
+Useful evidence may include:
+
+- bank/institution;
+- account number or safely stored/masked account identity;
+- account suffix;
+- currency;
+- account name;
+- saved bank sender/template profile;
+- previous statement-import relationship.
+
+Example:
+
+```text
+BDO statement + account ending 4821 + PHP
+    -> existing BDO Operating Account ending 4821
+    -> suggest LINK_EXISTING
+```
+
+If several accounts plausibly match, explicit account selection remains required.
+
+Never create a duplicate bank account merely because a statement uses a different display name or filename.
+
+Supported spreadsheet statements should continue using the existing deterministic Cash & Banking parser. Known bank/template profiles may improve parser selection/mapping, but must not create a second transaction engine.
 
 No autonomous transaction posting.
 
-## 4C — Expense/receipt intake hardening
+## 4E — Invoice intake hardening
 
 Improve:
 
-- amount/date/payee/reference extraction quality;
-- category suggestions;
-- merchant normalization;
-- duplicate warnings;
+- source/hash/message/attachment duplicate short-circuiting before expensive extraction where possible;
+- Vendor matching before proposing new Vendor data;
+- multiple Invoice attachments in one email;
+- forwarded copies of the same Invoice;
+- extraction quality/retry behavior;
+- source preview/recovery;
+- clear candidate → extracted draft → verified Invoice boundaries.
+
+Reuse the existing Invoice extraction, duplicate engine, extraction-quality checks, and Review Queue.
+
+Do not bypass verification requirements.
+
+## 4F — Expense / receipt hardening
+
+Improve:
+
+- deterministic extraction for structured electronic receipts where possible;
+- AI fallback for unstructured image/PDF receipts when needed;
+- merchant/payee normalization and existing Vendor linkage;
+- duplicate/source/reference matching;
+- same-email and cross-email overlap handling;
 - multi-receipt email handling;
+- category suggestions;
 - source preview;
-- explicit project suggestion without automatic project assignment;
-- clear Draft versus Approved semantics.
+- explicit Draft versus Approved semantics.
 
-Do not automatically approve or pay expenses.
+Do not automatically approve or pay Expenses.
 
-## 4D — Shared queue UX
+## 4G — Shared batch and queue UX
 
-After the three destination workflows are stable, add useful shared intake controls such as:
+After destination-specific foundations are stable, expose useful shared state such as:
 
-- filters by destination;
-- filters by review status;
-- suspected duplicate filter;
-- failed/preparation-error filter;
-- candidate counts;
-- source-preserved/reviewed status;
+- destination filter;
+- review status;
+- suspected duplicate state;
+- failed preparation/extraction;
+- source-preserved status;
+- existing-entity match;
+- same-batch overlap/grouping;
 - last sync timestamp;
-- safe batch selection for preparation only where destination confirmation rules remain intact.
+- safe batch preparation.
 
-Batch preparation must not become batch autonomous posting.
+Batch preparation must never become autonomous batch posting.
 
 ## Phase 4 completion gate
 
-- finance routing is reliable across Invoice, Bank Statement, and Expense cases;
-- source/provenance is recoverable from destination workflows;
-- duplicate handling is visible and safe;
-- FinancialAccount selection remains explicit where needed;
-- no destination bypasses existing permissions or human confirmation;
+- obvious finance candidates can be discovered/classified without an AI call;
+- recurring sender/template profiles improve routing without becoming mutation authority;
+- AI classification is reserved for ambiguous cases;
+- structured bank statements reuse deterministic parsers;
+- extracted entities are compared with existing Engoryx records before create/update proposals;
+- same-batch candidates cannot independently create obvious duplicate Vendors/accounts;
+- strong FinancialAccount matches reuse existing accounts;
+- conflicts are surfaced instead of silently overwritten;
+- duplicate source/document/import protections remain authoritative;
+- source/provenance remains recoverable;
+- final financial mutations remain permission-aware and human-confirmed;
 - full CI/browser/security validation passes.
-
----
-
-# Deferred — Engineering / Project Email Intake
-
-Engineering/project documents are not a current priority.
-
-Do not implement Gmail routing for:
-
-- drawings;
-- RFIs;
-- submittals;
-- contracts;
-- change orders;
-- project correspondence;
-- other Engineering Documents
-
-until a future explicit product decision reactivates this scope.
-
-If reactivated later, it should reuse existing Engineering Document/RFI/Submittal lifecycle and permission contracts rather than inventing parallel storage.
-
----
-
-# Deferred — Payroll Email Intake
-
-Do not connect Gmail to Payroll by default.
-
-Payroll documents involve more sensitive employee and compensation data. Any future payroll-email feature requires its own security/privacy review and explicit product decision.
 
 ---
 
 # Later — Controlled Automation and Assistant Integration
 
-Only after the finance intake workflows above are stable should Engoryx consider:
+Only after finance intake hardening is stable should Engoryx consider broader automation such as:
 
-- saved sender/domain routing rules;
-- trusted-document heuristics;
+- suggestions to create sender/template profiles after repeated successful reviews;
 - configurable scan schedules;
-- duplicate/suspected-duplicate queues;
+- trusted-document heuristics that remain bounded by destination confirmation rules;
 - Assistant navigation/explanation of Email Intake;
 - Assistant preparation of supported actions under existing confirmation contracts.
 
@@ -331,8 +325,27 @@ Even later automation must not permit:
 
 - autonomous bank transaction posting;
 - autonomous Expense approval/payment;
-- mailbox access that bypasses permissions;
+- silent Invoice verification;
+- mailbox access that bypasses effective permissions;
 - token/secret exposure to the Assistant model.
+
+---
+
+# Deferred — Engineering / Project Email Intake
+
+Engineering/project documents are not a current priority.
+
+Do not implement Gmail routing for drawings, RFIs, submittals, contracts, change orders, project correspondence, or other Engineering Documents until a future explicit product decision reactivates this scope.
+
+If reactivated later, reuse existing Engineering Document/RFI/Submittal lifecycle and permission contracts rather than inventing parallel storage.
+
+---
+
+# Deferred — Payroll Email Intake
+
+Do not connect Gmail to Payroll by default.
+
+Payroll documents contain more sensitive employee and compensation data. Any future payroll-email feature requires its own security/privacy review and explicit product decision.
 
 ---
 
@@ -344,34 +357,39 @@ Even later automation must not permit:
 4. Raw Gmail access tokens must never be logged or stored in application records.
 5. Original emails and attachments remain auditable through existing source-preservation primitives.
 6. AI classifies/extracts/suggests; destination modules decide and commit.
-7. Gmail authorization never grants destination mutation authority.
-8. Existing lifecycle, RLS, permission, and confirmation contracts take precedence over convenience.
-9. Reuse existing parsers/domain models instead of building duplicate subsystems.
-10. Preserve backward compatibility as shared Email Intake evolves.
-11. Do not weaken RLS or Storage isolation.
-12. Browser evidence must distinguish mocked/demo evidence from live Google/Supabase production proof.
-13. Project/account suggestions remain advisory until explicitly selected where destination rules require selection.
-14. Gmail authorization failure never signs the user out of Engoryx.
+7. Extraction is never equivalent to creation.
+8. Gmail authorization never grants destination mutation authority.
+9. Existing lifecycle, RLS, permission, and confirmation contracts take precedence over convenience.
+10. Reuse existing parsers/domain models instead of building duplicate subsystems.
+11. Existing records and same-batch candidates must be considered before proposing new entities.
+12. Conflicting authoritative entity data must be reviewed rather than silently overwritten.
+13. Preserve backward compatibility as shared Email Intake evolves.
+14. Do not weaken RLS or Storage isolation.
+15. Project/account/entity suggestions remain advisory until destination rules authorize an explicit decision.
+16. Gmail authorization failure never signs the user out of Engoryx.
+17. Browser evidence must distinguish mocked/demo evidence from live Google/Supabase production proof.
 
 ---
 
 # Implementation sequencing
 
-Implement and merge one focused phase at a time.
+Implement and merge one focused phase/wave at a time.
 
 Current order:
 
 1. **Phase 1:** Gmail reliability + shared intake foundation + Cash & Banking statements — merged.
 2. **Phase 2:** receipts/bills → Expense review — merged.
-3. **Phase 3:** top-level Email Intake + Gmail reconnect/state UX — next.
-4. **Phase 4:** finance intake hardening across Invoices, Bank Accounts/Statements, and Expenses.
-5. **Controlled automation/Assistant integration:** later.
-6. **Engineering/Project Email Intake:** deferred until explicitly re-prioritized.
-7. **Payroll Email Intake:** separate future security-reviewed decision.
+3. **Phase 3:** top-level Email Intake + Gmail reconnect/state UX — implemented in PR #51, pending review.
+4. **Phase 4A:** intake efficiency + saved sender/template profiles + deterministic-first classification.
+5. **Phase 4B:** existing-record + same-batch Vendor/FinancialAccount resolution.
+6. **Phase 4C–4G:** Invoice, Bank Statement, Expense, and shared queue hardening in focused PR-sized waves.
+7. **Controlled automation/Assistant integration:** later.
+8. **Engineering/Project Email Intake:** deferred until explicitly re-prioritized.
+9. **Payroll Email Intake:** separate future security-reviewed decision.
 
-Do not collapse these into one oversized PR.
+Do not collapse Phase 4 into one oversized PR.
 
-For substantial phases with at least two independent workstreams, follow `AGENTS.md`: maximum 2 concurrent subagents, use non-overlapping ownership, and let the lead agent own shared contracts, conflict-heavy integration, security interpretation, final validation, push, and PR creation.
+For substantial work with at least two independent workstreams, follow `AGENTS.md`: maximum 2 concurrent subagents, use non-overlapping ownership, and let the lead own shared contracts, conflict-heavy integration, security interpretation, final validation, push, and PR creation.
 
 ---
 
@@ -381,9 +399,11 @@ A new implementation chat should begin by:
 
 1. reading `AGENTS.md`;
 2. reading this roadmap;
-3. pulling CURRENT latest `main` rather than trusting an old SHA;
-4. checking whether the previous phase has already been implemented/merged;
-5. implementing only the next incomplete phase;
-6. opening a PR and not merging it during implementation unless explicitly asked later.
+3. reading `docs/ENGORYX_FINANCIAL_INTAKE_HARDENING_PLAN.md` for Phase 4 work;
+4. pulling CURRENT latest `main` instead of trusting an old SHA;
+5. checking whether PR #51 / Phase 3 has merged;
+6. implementing only the next incomplete finance-focused wave;
+7. using WM-5 as the primary navigation layer;
+8. opening a PR and not merging during implementation unless explicitly asked later.
 
-At the current roadmap state, **Phase 3 — Top-Level Email Intake + Gmail Reliability UX is the next implementation phase**.
+If PR #51 is merged and no newer finance-intake work supersedes this roadmap, the next implementation wave is **Phase 4A — Intake Efficiency Foundation**.

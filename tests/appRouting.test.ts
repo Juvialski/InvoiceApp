@@ -63,11 +63,27 @@ test("parses invoice and review-session URLs with safe return paths", () => {
 
 test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForTab("payroll"), "/payroll");
+  assert.equal(appPathForTab("inbox"), "/email-intake");
   assert.equal(appPathForProject("project 42", "expenses"), "/projects/project%2042/expenses");
   assert.equal(appPathForProject("project 42", "documents", { docId: "doc-1", revId: "rev-2" }), "/projects/project%2042/documents?docId=doc-1&revId=rev-2");
   assert.equal(appPathForProject("project 42", "site-logs", { siteLogId: "log-7" }), "/projects/project%2042/site-logs?siteLogId=log-7");
   assert.equal(appPathForInvoice("invoice/7", "/projects/project-42/invoices"), "/invoices/invoice%2F7?from=%2Fprojects%2Fproject-42%2Finvoices");
   assert.equal(appPathForReviewInvoice("invoice-7", "/inbox"), "/review?invoiceId=invoice-7&from=%2Finbox");
+  assert.equal(appPathForReviewInvoice("invoice-7", "/email-intake"), "/review?invoiceId=invoice-7&from=%2Femail-intake");
+});
+
+test("parses email-intake canonical route and legacy /inbox alias", () => {
+  const canonical = parseAppLocation("/email-intake");
+  assert.equal(canonical.kind, "tab");
+  assert.equal(canonical.tab, "inbox");
+  assert.equal(canonical.routeId, "inbox");
+  assert.equal(canonical.pathname, "/email-intake");
+
+  const legacy = parseAppLocation("/inbox");
+  assert.equal(legacy.kind, "tab");
+  assert.equal(legacy.tab, "inbox");
+  assert.equal(legacy.routeId, "inbox");
+  assert.equal(legacy.pathname, "/inbox");
 });
 
 test("payroll run links keep the canonical payroll route and target the exact run", () => {

@@ -49,7 +49,7 @@ Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContract
 | **Project Site Logs route**<br/><small>`route-project-site-logs`</small> | `projects` | `/projects/:projectId/site-logs` | `siteLogId` | `project` |
 | **Site Log detail route**<br/><small>`route-site-log-detail`</small> | `projects` | `/projects/:projectId/site-logs?siteLogId=:siteLogId` | `siteLogId` | `project` |
 | **Invoice extraction route**<br/><small>`route-extract`</small> | `extract` | `/extract` | — | `company` |
-| **Gmail Inbox route**<br/><small>`route-inbox`</small> | `inbox` | `/inbox` | — | `company` |
+| **Email Intake route**<br/><small>`route-inbox`</small> | `inbox` | `/email-intake` | — | `company` |
 | **Invoices route**<br/><small>`route-invoices`</small> | `invoices` | `/invoices` | — | `company` |
 | **Invoice detail route**<br/><small>`route-invoice-detail`</small> | `invoices` | `/invoices/:invoiceId` | `from` | `company` |
 | **Invoice review route**<br/><small>`route-review-invoice`</small> | `review` | `/review?invoiceId=:invoiceId` | `invoiceId`, `from` | `company` |
@@ -415,7 +415,7 @@ Source/extraction/review/verified project allocation alongside separate payable 
 flowchart LR
   subgraph g_finance["Finance"]
     n_route_extract(["Invoice extraction route<br/><small>ROUTE · /extract</small>"])
-    n_route_inbox(["Gmail Inbox route<br/><small>ROUTE · /inbox</small>"])
+    n_route_inbox(["Email Intake route<br/><small>ROUTE · /email-intake</small>"])
     n_route_invoices(["Invoices route<br/><small>ROUTE · /invoices</small>"])
     n_route_invoice_detail(["Invoice detail route<br/><small>ROUTE · /invoices/:invoiceId</small>"])
     n_route_review_invoice(["Invoice review route<br/><small>ROUTE · /review?invoiceId=:invoiceId</small>"])
@@ -887,7 +887,7 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | **Cash & Banking route**<br/><small>`route-cash`</small> | `route` | `company`<br/>`cash`<br/>`/cash`<br/>query: `transactionId`, `fromTargetType`, `fromTargetId` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/CashBankingRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/financialSettlement.test.ts` | `cash-banking--cash--base-route-loaded--desktop-1440`<br/>`cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440`<br/>`cash-banking--cash--base-route-loaded--tablet-768` |
 | **Invoice extraction route**<br/><small>`route-extract`</small> | `route` | `company`<br/>`extract`<br/>`/extract` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/UploadZone.tsx` | `tests/appRouting.test.ts`<br/>`tests/invoiceLogic.test.ts` | — |
-| **Gmail Inbox route**<br/><small>`route-inbox`</small> | `route` | `company`<br/>`inbox`<br/>`/inbox` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/EmailInbox.tsx` | `tests/appRouting.test.ts`<br/>`tests/assistantBackend.test.ts` | — |
+| **Email Intake route**<br/><small>`route-inbox`</small> | `route` | `company`<br/>`inbox`<br/>`/email-intake` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/EmailInbox.tsx` | `tests/appRouting.test.ts`<br/>`tests/assistantBackend.test.ts` | — |
 | **Invoices route**<br/><small>`route-invoices`</small> | `route` | `company`<br/>`invoices`<br/>`/invoices` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/InvoiceDirectory.tsx` | `tests/appRouting.test.ts`<br/>`tests/invoiceDisplay.test.ts` | `invoices--invoices--base-route-loaded--desktop-1440` |
 | **Invoice detail route**<br/><small>`route-invoice-detail`</small> | `route` | `company`<br/>`invoices`<br/>`/invoices/:invoiceId`<br/>query: `from` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/VerificationWorkspace.tsx` | `tests/appRouting.test.ts`<br/>`tests/financialSettlement.test.ts` | `invoices--invoice-detail--invoice-detail-opened--desktop-1440` |
 | **Invoice review route**<br/><small>`route-review-invoice`</small> | `route` | `company`<br/>`review`<br/>`/review?invoiceId=:invoiceId`<br/>query: `invoiceId`, `from` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/VerificationWorkspace.tsx` | `tests/appRouting.test.ts`<br/>`tests/invoiceLogic.test.ts` | `invoices--review--invoice-review-opened--desktop-1440` |

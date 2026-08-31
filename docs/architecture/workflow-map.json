@@ -1088,17 +1088,17 @@
     {
       "sourceClassification": "code-derived",
       "id": "route-inbox",
-      "label": "Gmail Inbox route",
+      "label": "Email Intake route",
       "domain": "finance",
       "type": "route",
       "scope": "company",
       "route": {
         "routeId": "inbox",
-        "canonicalPath": "/inbox",
-        "pathPattern": "/inbox",
+        "canonicalPath": "/email-intake",
+        "pathPattern": "/email-intake",
         "scope": "production-and-demo"
       },
-      "description": "Email metadata and invoice-import route; Gmail remains an external connection boundary.",
+      "description": "Shared financial Email Intake route for invoices, bank statements, and expense receipts; Gmail remains an external connection boundary.",
       "fileRefs": [
         "src/utils/routes.ts",
         "src/app/routes/InvoicesRoute.tsx",

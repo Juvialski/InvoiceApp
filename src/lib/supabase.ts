@@ -140,8 +140,8 @@ export function clearGoogleProviderTokens() {
   storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
 }
 
-export async function connectGoogleAndGmail() {
-  const redirectTo = getAuthRedirectUrl();
+export async function connectGoogleAndGmail(redirectToPath = "/email-intake") {
+  const redirectTo = getAuthRedirectUrl(redirectToPath);
   if (!redirectTo) throw new Error("Google sign-in is only available in a browser.");
   const client = requireSupabase();
   const { data: currentUser, error: userError } = await client.auth.getUser();
