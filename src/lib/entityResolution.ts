@@ -181,7 +181,7 @@ function resultBase(
   reasons: string[],
   conflicts: EntityResolutionConflict[],
   enrichments: EntityResolutionEnrichmentField[],
-  evidence: Record<string, unknown>,
+  evidence: object,
   normalizedEvidence: Record<string, string>,
   sourceRef?: EntityResolutionResult["sourceReference"],
 ): EntityResolutionResult {
@@ -194,7 +194,7 @@ function resultBase(
     matchReasons: reasons,
     conflicts,
     proposedEnrichments: enrichments,
-    extractedEvidence: { ...evidence },
+    extractedEvidence: { ...evidence } as Record<string, any>,
     normalizedEvidence,
     sourceReference: sourceRef,
   };
