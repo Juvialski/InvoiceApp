@@ -177,22 +177,30 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
 
         setVendorResolution(res);
 
-        // Pre-selection:
-        if (staged.confirmedVendorId && loadedVendors.some((v) => v.id === staged.confirmedVendorId)) {
-          setSelectedVendorId(staged.confirmedVendorId);
-          const v = loadedVendors.find((item) => item.id === staged.confirmedVendorId);
-          if (v) setPayee(v.name);
+        // Extracted payee evidence is authoritative. A legacy staged
+        // confirmedVendorId is accepted only if the post-extraction resolver
+        // independently reaches the same conflict-free LINK_EXISTING result.
+        const stagedConfirmedVendorIsStillValid = Boolean(
+          staged.confirmedVendorId
+          && res.proposedAction === "LINK_EXISTING"
+          && res.conflicts.length === 0
+          && res.matchedEntityId === staged.confirmedVendorId
+          && loadedVendors.some((v) => v.id === staged.confirmedVendorId),
+        );
+        if (stagedConfirmedVendorIsStillValid) {
+          setSelectedVendorId(staged.confirmedVendorId!);
         } else if (
           res.proposedAction === "LINK_EXISTING" &&
           res.matchedEntityId &&
           loadedVendors.some((v) => v.id === res.matchedEntityId)
         ) {
           setSelectedVendorId(res.matchedEntityId);
-          const v = loadedVendors.find((item) => item.id === res.matchedEntityId);
-          if (v) setPayee(v.name);
         } else {
           setSelectedVendorId("");
         }
+        // Do not rewrite the extracted/suggested payee merely because an
+        // automatic identity match exists. The reviewer may explicitly choose
+        // a master Vendor below if they want the payee normalized to that name.
       } catch {
         // Leave suggested values on error
       }
@@ -509,6 +517,8 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
                   } else {
                     const v = vendorsList.find((item) => item.id === id);
                     if (v) {
+                      // This is an explicit reviewer action, so normalizing the
+                      // proposed expense payee to the chosen master Vendor is safe.
                       setPayee(v.name);
                       setVendorResolution((prev) =>
                         prev
@@ -539,7 +549,7 @@ export const ConnectedExpenseReview: React.FC<ConnectedExpenseReviewProps> = ({
                 ))}
               </select>
               <p className="text-[10px] text-slate-400">
-                Linking an existing vendor populates the payee name. Saving will create the expense record without mutating master vendor records.
+                Automatic matching does not rewrite the extracted payee. Choosing a Vendor here explicitly may normalize the proposed expense payee; saving never mutates master Vendor records.
               </p>
             </label>
             <label className="space-y-1">
