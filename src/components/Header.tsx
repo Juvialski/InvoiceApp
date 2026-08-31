@@ -162,7 +162,7 @@ const NavigationRouteButton: React.FC<NavigationRouteButtonProps> = ({
   }
 
   const classes = sidebar
-    ? `group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${active ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/7 hover:text-slate-100"}`
+    ? `group flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${active ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/7 hover:text-slate-100"}`
     : `${menuItem ? "w-full justify-start" : ""} relative inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all sm:px-3 ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-white/70 hover:text-slate-900"}`;
 
   return (
@@ -238,7 +238,7 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
   }
 
   const classes = sidebar
-    ? `group flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-bold transition ${active ? "bg-white/12 text-white" : "text-slate-300 hover:bg-white/7 hover:text-white"}`
+    ? `group flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-bold transition ${active ? "bg-white/12 text-white" : "text-slate-300 hover:bg-white/7 hover:text-white"}`
     : `relative inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all sm:px-3 ${active ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:bg-white/70 hover:text-slate-900"}`;
 
   return (
@@ -426,7 +426,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={() => setMobileOpen(false)}
               ref={mobileCloseButtonRef}
-              className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
+              className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white lg:hidden"
               aria-label="Close navigation"
             >
               <X className="h-4 w-4" />
@@ -554,7 +554,7 @@ export const Header: React.FC<HeaderProps> = ({
         }`}
       >
         <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-          <button ref={mobileMenuButtonRef} type="button" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-navigation-drawer"><Menu className="h-4 w-4" /></button>
+          <button ref={mobileMenuButtonRef} type="button" onClick={() => setMobileOpen(true)} className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-navigation-drawer"><Menu className="h-4 w-4" /></button>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-600 sm:text-base">
               <span className="hidden sm:inline"><span className="font-bold text-slate-900">{BRAND.productName}</span><span className="mx-1.5 text-slate-300">/</span></span>
@@ -562,10 +562,10 @@ export const Header: React.FC<HeaderProps> = ({
             </p>
           </div>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 pb-0.5">
-            <div className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold ${syncStatus === "guest" ? "border-amber-200 bg-amber-50 text-amber-800" : syncStatus === "offline" || syncStatus === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`} title={syncTitle} aria-label={syncTitle}><SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} /><span className="hidden md:inline">{syncLabel}</span></div>
-            {invoicesCount > 0 && <button type="button" onClick={onBatchExportExcel} className="hidden items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:inline-flex"><Download aria-hidden="true" className="h-3.5 w-3.5" /> Export</button>}
+            <div className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-semibold ${syncStatus === "guest" ? "border-amber-200 bg-amber-50 text-amber-800" : syncStatus === "offline" || syncStatus === "error" ? "border-rose-200 bg-rose-50 text-rose-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`} title={syncTitle} aria-label={syncTitle}><SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 ${syncStatus === "syncing" ? "animate-spin" : ""}`} /><span className="hidden md:inline">{syncLabel}</span></div>
+            {invoicesCount > 0 && <button type="button" onClick={onBatchExportExcel} className="hidden min-h-10 items-center gap-1.5 whitespace-nowrap rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 sm:inline-flex"><Download aria-hidden="true" className="h-3.5 w-3.5" /> Export</button>}
             {accountHasActions && <div className="relative shrink-0" ref={accountMenuRef}>
-              <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"} aria-expanded={accountOpen} aria-controls="header-account-menu" className="inline-flex max-w-[12rem] items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-indigo-200 hover:text-indigo-700"><UserCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" /><span className="hidden max-w-[9rem] truncate sm:inline">{accountEmail || "Account"}</span></button>
+              <button ref={accountButtonRef} type="button" onClick={() => setAccountOpen((open) => !open)} aria-label={accountEmail ? `Account: ${accountEmail}` : "Account menu"} aria-expanded={accountOpen} aria-controls="header-account-menu" className="inline-flex min-h-10 max-w-[12rem] items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-bold text-slate-700 shadow-sm hover:border-indigo-200 hover:text-indigo-700"><UserCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-indigo-600" /><span className="hidden max-w-[9rem] truncate sm:inline">{accountEmail || "Account"}</span></button>
               {accountOpen && <div id="header-account-menu" role="menu" aria-label="Account menu" className="absolute right-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] w-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
                 {accountEmail && <p className="truncate px-2 py-1.5 text-xs font-bold text-slate-600">{accountEmail}</p>}
                 <p className="px-2 pb-1.5 text-[10px] font-semibold text-slate-400">Account / Workspace</p>
