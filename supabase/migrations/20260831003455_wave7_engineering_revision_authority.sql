@@ -6,8 +6,9 @@
 --     lifecycle state or append to an archived/superseded document;
 --   * finalized payroll source protection also covers holiday-date changes;
 --   * the finalized-source invariant executes independently of caller read RLS
---     so a custom payroll writer cannot bypass history protection by lacking
---     payroll summary visibility.
+--     while remaining bound to the deployment company, so a custom payroll
+--     writer cannot bypass history protection or use the guard as a
+--     cross-company existence probe.
 
 create or replace function public.guard_finalized_payroll_workforce_source()
 returns trigger
@@ -19,6 +20,7 @@ declare
   v_new jsonb := coalesce(to_jsonb(new), '{}'::jsonb);
   v_old jsonb := coalesce(to_jsonb(old), '{}'::jsonb);
   v_company_id uuid := nullif(coalesce(v_new ->> 'company_id', v_old ->> 'company_id'), '')::uuid;
+  v_deployment_company_id uuid := (select private.deployment_company_id());
   v_new_period_id uuid := nullif(v_new ->> 'period_id', '')::uuid;
   v_old_period_id uuid := nullif(v_old ->> 'period_id', '')::uuid;
   v_start_date date := least(
@@ -46,13 +48,17 @@ declare
     nullif(v_old ->> 'work_date', '')::date
   );
 begin
+  if v_company_id is null or v_company_id is distinct from v_deployment_company_id then
+    raise exception 'Payroll source company boundary violation' using errcode = '42501';
+  end if;
+
   if exists (
     select 1
     from public.payroll_periods p
     left join public.payroll_runs r
       on r.company_id = p.company_id
      and r.period_id = p.id
-    where p.company_id = v_company_id
+    where p.company_id = v_deployment_company_id
       and (
         p.status in ('APPROVED', 'PAID')
         or p.locked_at is not null
