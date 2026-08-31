@@ -160,7 +160,7 @@ Phase 1B is covered by the repository's existing validation lanes:
 - historical-data upgrade migration suite
 - Chromium demo visual QA
 
-The Phase 1B PR must remain unmerged until the feature-specific navigation/demo review and acceptance checklist are complete.
+Phase 1B is implemented and merged. Feature-specific navigation/demo review and the acceptance checklist remain release-validation evidence rather than a merge gate.
 
 ## Intentionally deferred
 

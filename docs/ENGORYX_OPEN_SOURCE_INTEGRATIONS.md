@@ -1,13 +1,13 @@
 ﻿# ENGORYX Open-Source Integrations Evaluation
 
-This document evaluates vetted open-source libraries, tools, and frameworks for future engineering capabilities in Engoryx.
+This document evaluates vetted open-source libraries, tools, and frameworks for future engineering capabilities in Engoryx. Library verdicts are technical candidate assessments only; they do not mean the corresponding Engoryx feature is implemented or available. The feature registry and in-app status surface are authoritative for product availability.
 
 Each candidate is assessed against strict production engineering criteria:
 - **Capability & Fit**: Direct alignment with engineering workflows.
 - **License Viability**: Permissive (MIT, Apache 2.0, BSD) or clean self-hosted service boundaries (MPL 2.0, AGPL-3.0 services).
 - **Architecture & Bundle Impact**: Browser runtime efficiency, tree-shaking, lazy-loading, WebAssembly overhead.
 - **Offline & Mobile Readiness**: Performance on field tablets and mobile smartphones.
-- **Evaluation Verdict**: Ready for Integration, Prototype / Sandbox, Deferred / Phase 4+, or Rejected / License Encumbered.
+- **Evaluation Verdict**: Ready for Integration, Prototype / Sandbox, Deferred / roadmap phase, or Rejected / License Encumbered.
 
 ---
 
@@ -19,7 +19,7 @@ Each candidate is assessed against strict production engineering criteria:
 | **Drawing Annotations** | **Konva.js / React-Konva** | MIT | Layered 2D redlining, callouts, clouds, measurements | **Ready for Integration** | High-performance 60fps canvas manipulation; clear coordinate transform model. |
 | **3D CAD Viewer** | **Online3DViewer** | MIT | STEP, IGES, OBJ, STL, GLTF 3D model rendering | **Ready for Integration** | Clean pure JavaScript/Three.js engine; zero external backend required. |
 | **BIM Model Viewer** | **web-ifc (IFC.js)** | MPL-2.0 | Building Information Model (IFC) parsing & geometry | **Prototype / Sandbox** | Fast WebAssembly parser; requires memory-conscious chunking on mobile. |
-| **Gantt & Scheduling** | **Frappe Gantt** | MIT | Interactive project Gantt charts & dependencies | **Ready for Integration** | Ultra-lightweight (<30KB), SVG-based, easy React wrapper, responsive. |
+| **Gantt & Scheduling** | **Frappe Gantt** | MIT | Interactive project Gantt charts & dependencies | **Deferred / Phase 2 (frozen)** | Ultra-lightweight (<30KB), SVG-based, easy React wrapper, responsive; no current product integration. |
 | **Barcode & QR Capture** | **ZXing-js / @zxing/browser** | Apache-2.0 | Camera-based asset & material tracking | **Ready for Integration** | Direct web camera stream processing; excellent barcode format support. |
 | **GIS & Site Mapping** | **MapLibre GL JS** | BSD-3-Clause | Vector map rendering & satellite imagery overlay | **Ready for Integration** | Community fork of Mapbox GL; WebGL performance without vendor lock-in. |
 | **Spatial Analysis** | **Turf.js** | MIT | Geospatial polygon calculations, distance, cut/fill | **Ready for Integration** | Modular GeoJSON operations; runs seamlessly on client and server. |
@@ -46,13 +46,13 @@ Each candidate is assessed against strict production engineering criteria:
 
 ### 2.2 Project Scheduling & Gantt: Frappe Gantt
 - **Target Capability**: Interactive visual project timelines, task dependencies, critical path highlighting, and milestone progress tracking.
-- **Recommended Library**: rappe-gantt (MIT) with a lightweight TypeScript/React wrapper.
+- **Recommended Library**: frappe-gantt (MIT) with a lightweight TypeScript/React wrapper.
 - **Architecture**:
   - Pure SVG rendering ensures crisp lines on high-DPI displays.
   - Native support for custom popups, drag-to-resize, and progress updates.
-  - Interacts directly with Engoryx Project Milestone records and worker assignments.
+  - If Phase 2 is activated, the adapter must use canonical Engoryx schedule records and validated project relationships.
 - **Bundle Size**: Under 25 KB gzipped.
-- **Verdict**: **Ready for Integration (Phase 2)**.
+- **Verdict**: **Deferred / Phase 2 (core-hardening freeze)**. No production schedule route, persistence, RLS, or workspace UI exists yet.
 
 ### 2.3 Field Barcode & QR Code Capture: ZXing-js
 - **Target Capability**: Scanning QR codes and 1D barcodes on material crates, tool tags, equipment badges, and delivery packing slips using device cameras.

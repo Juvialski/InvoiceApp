@@ -9,8 +9,8 @@ The primary goal is a repository-native workflow map that can be rendered as an 
 ## Status and sequencing
 
 - **Status:** **QA-1 Structured Browser Evidence and WM-1 through WM-5 are IMPLEMENTED.** The workflow-map infrastructure track is complete through WM-5; later enhancements are optional and do not renumber the customer-facing Engoryx roadmap.
-- **Priority:** Immediate engineering-infrastructure work, before or alongside Product Phase 2.
-- **Product roadmap effect:** This track does **not** renumber the Engoryx customer-facing phases. Product Phase 2 remains Project Scheduling & Gantt.
+- **Priority:** Immediate engineering-infrastructure work while customer-facing Product Phase 2 remains deferred by the Core Hardening freeze.
+- **Product roadmap effect:** This track does **not** renumber the Engoryx customer-facing phases or activate Product Phase 2, which remains a planned-but-unavailable Project Scheduling & Gantt roadmap item.
 - **Hosting requirement:** None. The first useful version must work from the repository and existing CI/local tooling without a paid automation service.
 - **Implementation rule:** The workflow map is documentation and QA infrastructure. It must not become a second source of business truth that silently drifts from the actual code.
 
@@ -30,7 +30,7 @@ As of the roadmap refresh on 2026-08-28:
 - Phase 0 core operations are established across multi-tenant RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, and the guarded Engoryx Assistant.
 - Phase 1A Engineering Documents, Phase 1B RFIs & Technical Submittals, and Phase 1C Daily Site Logs are implemented and merged to `main`.
 - The Financial Settlement Integration layer is implemented across Cash & Banking, supplier invoices, payroll, demo fixtures, and the Assistant while preserving project-cost and payroll-source semantics.
-- The next customer-facing product phase is **Phase 2: Project Scheduling & Gantt**.
+- The deferred next customer-facing product phase is **Phase 2: Project Scheduling & Gantt**; no delivery date or production access is implied.
 
 WM-1 now maintains one versioned, typed graph contract in `scripts/workflow-map/graph.ts`. It describes meaningful product workflows, states, actions, routes, guards, authoritative/derived data, and cross-domain relationships without attempting to dump every component or SQL function.
 

@@ -1,10 +1,10 @@
 import type { EngoryxFeatureDefinition, FeatureStatus } from "./types.ts";
 
-export type FeatureAvailability = "AVAILABLE_NOW" | "COMING_SOON" | "FUTURE_ROADMAP";
+export type FeatureAvailability = "AVAILABLE_NOW" | "PLANNED_NOT_AVAILABLE" | "FUTURE_ROADMAP";
 
 export function featureAvailabilityForStatus(status: FeatureStatus): FeatureAvailability {
   if (status === "ACTIVE") return "AVAILABLE_NOW";
-  if (status === "PLANNED") return "COMING_SOON";
+  if (status === "PLANNED") return "PLANNED_NOT_AVAILABLE";
   return "FUTURE_ROADMAP";
 }
 
@@ -14,7 +14,7 @@ export function featureAvailability(feature: Pick<EngoryxFeatureDefinition, "sta
 
 export function featureAvailabilityLabel(availability: FeatureAvailability): string {
   if (availability === "AVAILABLE_NOW") return "Available now";
-  if (availability === "COMING_SOON") return "Coming soon";
+  if (availability === "PLANNED_NOT_AVAILABLE") return "Planned — not available";
   return "Future roadmap";
 }
 

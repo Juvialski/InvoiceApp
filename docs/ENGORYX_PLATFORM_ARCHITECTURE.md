@@ -110,7 +110,7 @@ Financials                 Workforce                  Engineering
 - **Phase 1C is complete**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal submission/finalization history.
 - **Financial Settlement Integration is complete** across Cash & Banking, supplier invoices, payroll, supported expenses, and Assistant workflows. Settlement remains payment/disbursement evidence and does not replace project-cost or payroll-source semantics.
 - **Single-company deployment architecture is the production tenancy direction**: one client company per deployment/Supabase project, while `company_id` remains a database defense boundary.
-- **Next customer-facing product phase:** Phase 2 Project Scheduling & Gantt. The tenancy/hardening work does not implement it.
+- **Deferred customer-facing roadmap phase while Core Hardening is active:** Phase 2 Project Scheduling & Gantt. It has no production route, persistence, RLS, or workspace UI yet.
 - **Engineering infrastructure:** QA-1 Structured Browser Evidence and WM-1 through WM-5 are repository infrastructure, not customer-facing roadmap phases.
 
 ### Customer-facing roadmap
@@ -120,7 +120,7 @@ Financials                 Workforce                  Engineering
 | Phase 0 | Core Foundation | Established / Active | Engoryx branding, deployment-scoped RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, Assistant. |
 | Phase 1 | Engineering Documents & Field Workflows | Complete / Active | Phase 1A documents/drawings, Phase 1B RFIs/Submittals, Phase 1C Daily Site Logs. |
 | Cross-domain settlement | Financial Settlement Integration | Complete | Settlement evidence, partial/split settlement, reversals, deep links, demo fixtures, Assistant confirmation flows. |
-| Phase 2 | Project Scheduling & Gantt | Next / Planned | Interactive Gantt, dependencies, CPM, milestones, baseline-vs-actual schedule health. |
+| Phase 2 | Project Scheduling & Gantt | Planned — not available (Core Hardening freeze) | Interactive Gantt, dependencies, CPM, milestones, baseline-vs-actual schedule health. |
 | Phase 3 | Field Capture & Barcode Asset Tagging | Planned | Equipment/tool/material scanning workflows. |
 | Phase 4 | Spatial & Site Operations | Future | BIM/CAD/GIS/drone-oriented inspection and spatial workflows. |
 | Phase 5 | Procurement & Material Requisitions | Future | BOQ/MRO/PO and vendor workflows. |

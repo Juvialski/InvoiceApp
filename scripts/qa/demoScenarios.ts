@@ -49,11 +49,11 @@ const verifyVendorsScreen = assertHeading("Vendors", "vendor-directory-visible")
 
 const verifyFeatureStatusRoadmap: QaScenarioAction = async (page) => {
   const panelCount = await page.locator('[aria-label="Product feature status"]').count();
-  const comingSoonCount = await page.locator('text=Coming soon').count();
+  const plannedNotAvailableCount = await page.locator('text=Planned — not available').count();
   const futureRoadmapCount = await page.locator('text=Future roadmap').count();
   return [
     { id: "feature-status-panel-visible", passed: panelCount === 1, details: `feature status panels: ${panelCount}` },
-    { id: "planned-features-marked-coming-soon", passed: comingSoonCount > 0, details: `Coming soon labels: ${comingSoonCount}` },
+    { id: "planned-features-marked-not-available", passed: plannedNotAvailableCount > 0, details: `Planned-not-available labels: ${plannedNotAvailableCount}` },
     { id: "future-features-marked-roadmap", passed: futureRoadmapCount > 0, details: `Future roadmap labels: ${futureRoadmapCount}` },
   ] satisfies readonly QaAssertion[];
 };

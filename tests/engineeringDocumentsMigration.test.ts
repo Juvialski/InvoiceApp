@@ -12,6 +12,8 @@ const sourceValidationUrl = new URL("../supabase/migrations/20260826235525_engin
 const sourceValidationSql = readFileSync(sourceValidationUrl, "utf8");
 const storagePathPolicyUrl = new URL("../supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql", import.meta.url);
 const storagePathPolicySql = readFileSync(storagePathPolicyUrl, "utf8");
+const wave7AuthorityUrl = new URL("../supabase/migrations/20260831003455_wave7_engineering_revision_authority.sql", import.meta.url);
+const wave7AuthoritySql = readFileSync(wave7AuthorityUrl, "utf8");
 
 test("engineering documents migration defines additive tables, check constraints, and RLS", () => {
   for (const table of ["engineering_documents", "engineering_document_revisions", "drawing_annotations"]) {
@@ -90,6 +92,17 @@ test("hardening exposes authenticated atomic metadata RPCs only", () => {
   assert.match(hardeningSql, /revoke execute on function public\.create_engineering_document_with_revision/);
   assert.match(hardeningSql, /grant execute on function public\.create_engineering_document_with_revision[\s\S]*to authenticated/);
   assert.match(hardeningSql, /grant execute on function public\.create_engineering_revision[\s\S]*to authenticated/);
+});
+
+test("Wave 7 keeps revision uploads out of the guarded lifecycle states", () => {
+  assert.match(wave7AuthoritySql, /create or replace function public\.create_engineering_revision/);
+  assert.match(wave7AuthoritySql, /v_document_status text := coalesce\(nullif\(upper\(btrim\(p_document_status\)\), ''\), 'UNDER_REVIEW'\)/);
+  assert.match(wave7AuthoritySql, /v_revision_status text := coalesce\(nullif\(upper\(btrim\(p_revision_status\)\), ''\), 'PENDING_REVIEW'\)/);
+  assert.match(wave7AuthoritySql, /if v_document_status <> 'UNDER_REVIEW' then/);
+  assert.match(wave7AuthoritySql, /if v_revision_status <> 'PENDING_REVIEW' then/);
+  assert.match(wave7AuthoritySql, /v_doc\.status in \('ARCHIVED', 'SUPERSEDED'\)/);
+  assert.match(wave7AuthoritySql, /revoke all on function public\.create_engineering_revision[\s\S]*from public, anon/);
+  assert.match(wave7AuthoritySql, /grant execute on function public\.create_engineering_revision[\s\S]*to authenticated/);
 });
 
 test("annotation hardening removes physical delete and preserves audit history", () => {

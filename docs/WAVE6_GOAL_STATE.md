@@ -2,9 +2,9 @@
 
 ## Status
 
-Wave 6A is merged in PR #45. Wave 6B implementation and local validation are complete on `hardening/wave6b-responsive-accessibility`; the focused PR is ready to publish and must not be merged by this task.
+Wave 6A is merged in PR #45. Wave 6B is merged in PR #46. Its final repaired head was `7c672874f159f233a3c1156118c3feed152ba65f`, merged into current `main` as `237d1c4549e925b8c540a5250539cef6f5885cf4` on 2026-08-31.
 
-Base `main` was refreshed to `cfb212509be5415e530bacf2f303f20a15fe313a` before branching.
+The Wave 7 branch was based on refreshed `main` at `237d1c4549e925b8c540a5250539cef6f5885cf4`.
 
 ## Wave 6A merged
 
@@ -45,11 +45,12 @@ No database schema, RLS, financial lifecycle, payroll calculation, tenant, or As
 - `npm.cmd run workflow-map:consistency`: passed, 200 nodes, 240 edges, 13 invariants, and 5 diagrams.
 - `npm.cmd run test:workflow-map`: 59 tests passed.
 - `git diff --check`: passed.
+- PR #46 exact-head CI passed for Database Migrations & Upgrade Suite (including the historical upgrade suite), Application Tests/Lint/Build, Graph and Source Contract Consistency, and Demo Visual QA. Supabase Preview was skipped.
 
 ## Bounded risks and exit criteria
 
-Wave 6B exit criteria are met for the scoped implementation and local/demo/browser-only evidence. Release-level Wave 6 proof remains bounded by unavailable authenticated Supabase/RLS/Storage/Realtime/provider/email validation and skipped live migration replay; those limitations must not be presented as production readiness.
+Wave 6B exit criteria are met for the scoped implementation, local/demo/browser-only evidence, and exact-head CI. Authenticated/live-provider evidence remains unavailable in this local record; those limitations must not be presented as production readiness.
 
 ## Exact next step toward Wave 7
 
-Review the complete diff, publish the focused PR, and review exact-head CI plus authenticated/live evidence when available. Merge only after those release gates pass; then record Wave 6 sign-off before scoping Wave 7. Scheduling/Gantt/CPM remains frozen until the user explicitly lifts the freeze.
+Wave 7 production-readiness closure is now auditing the remaining release gates. Scheduling/Gantt/CPM remains frozen until the user explicitly lifts the freeze.

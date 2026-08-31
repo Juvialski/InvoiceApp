@@ -6,7 +6,7 @@ Phase 1A provides company-scoped engineering document control for project worksp
 
 The Phase 1A implementation is an active hardening milestone. The route-layer extraction is complete, but the deeper domain-controller extraction remains technical debt: `AppShell`, `AppRouter`, and route containers exist while `src/App.tsx` still owns substantial cross-domain state and actions.
 
-Phase 1B (RFIs and technical submittals) and Phase 1C (daily site logs, weather, crews, and equipment) are now **ACTIVE** in the engineering project-workspace roadmap.
+Phase 1B (RFIs and technical submittals) and Phase 1C (daily site logs, weather, crews, and equipment) are implemented and merged; the feature registry marks these shipped capabilities **ACTIVE**.
 
 ## Real PDF persistence flow
 
