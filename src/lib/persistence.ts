@@ -1,4 +1,4 @@
-import type { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent, EmailIntakeProfile, EmailIntakeProfileInput } from "../types.ts";
+import type { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent, EmailIntakeProfile, EmailIntakeProfileInput, Vendor } from "../types.ts";
 import { supabase } from "./supabase.ts";
 import { companyStoragePath, requireActiveCompanyId } from "./companyContext.ts";
 import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity.ts";
@@ -1075,16 +1075,43 @@ export async function loadEmailSource(emailId: string): Promise<{
   };
 }
 
-export async function listEmailIntakeProfiles(companyId?: string): Promise<EmailIntakeProfile[]> {
+export async function listCompanyVendors(companyId?: string): Promise<Vendor[]> {
   const client = requireSupabase();
+  await requireUserId();
   const cid = companyId || requireActiveCompanyId();
   const { data, error } = await client
-    .from("email_intake_profiles")
-    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,created_by_user_id,created_at,updated_at")
+    .from("vendors")
+    .select("id,company_id,name,normalized_name,email,phone,tax_id,address,default_currency,default_category,created_at,updated_at")
     .eq("company_id", cid)
     .order("name", { ascending: true });
   if (error) throw error;
-  return (data || []).map((row) => ({
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    companyId: row.company_id,
+    name: row.name,
+    normalizedName: row.normalized_name,
+    email: row.email,
+    phone: row.phone,
+    taxId: row.tax_id,
+    address: row.address,
+    defaultCurrency: row.default_currency,
+    defaultCategory: row.default_category,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function listEmailIntakeProfiles(companyId?: string): Promise<EmailIntakeProfile[]> {
+  const client = requireSupabase();
+  await requireUserId();
+  const cid = companyId || requireActiveCompanyId();
+  const { data, error } = await client
+    .from("email_intake_profiles")
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,default_expense_category,created_by_user_id,created_at,updated_at")
+    .eq("company_id", cid)
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data || []).map((row: any) => ({
     id: row.id,
     companyId: row.company_id,
     name: row.name,
@@ -1094,6 +1121,9 @@ export async function listEmailIntakeProfiles(companyId?: string): Promise<Email
     subjectContains: row.subject_contains || undefined,
     attachmentCondition: row.attachment_condition || undefined,
     suggestedDestination: row.suggested_destination,
+    linkedVendorId: row.linked_vendor_id || undefined,
+    linkedFinancialAccountId: row.linked_financial_account_id || undefined,
+    defaultExpenseCategory: row.default_expense_category || undefined,
     createdByUserId: row.created_by_user_id || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1113,6 +1143,9 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
     subject_contains: input.subjectContains ? input.subjectContains.trim() : null,
     attachment_condition: input.attachmentCondition ? input.attachmentCondition.trim() : null,
     suggested_destination: input.suggestedDestination,
+    linked_vendor_id: input.linkedVendorId || null,
+    linked_financial_account_id: input.linkedFinancialAccountId || null,
+    default_expense_category: input.defaultExpenseCategory ? input.defaultExpenseCategory.trim() : null,
     created_by_user_id: userId,
     updated_at: new Date().toISOString(),
   };
@@ -1123,7 +1156,7 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
       .update(payload)
       .eq("id", input.id)
       .eq("company_id", cid)
-      .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,created_by_user_id,created_at,updated_at")
+      .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,default_expense_category,created_by_user_id,created_at,updated_at")
       .single();
     if (error) throw error;
     return {
@@ -1136,6 +1169,9 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
       subjectContains: data.subject_contains || undefined,
       attachmentCondition: data.attachment_condition || undefined,
       suggestedDestination: data.suggested_destination,
+      linkedVendorId: data.linked_vendor_id || undefined,
+      linkedFinancialAccountId: data.linked_financial_account_id || undefined,
+      defaultExpenseCategory: data.default_expense_category || undefined,
       createdByUserId: data.created_by_user_id || undefined,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
@@ -1145,7 +1181,7 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
   const { data, error } = await client
     .from("email_intake_profiles")
     .insert(payload)
-    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,created_by_user_id,created_at,updated_at")
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,default_expense_category,created_by_user_id,created_at,updated_at")
     .single();
   if (error) throw error;
   return {
@@ -1158,6 +1194,9 @@ export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, com
     subjectContains: data.subject_contains || undefined,
     attachmentCondition: data.attachment_condition || undefined,
     suggestedDestination: data.suggested_destination,
+    linkedVendorId: data.linked_vendor_id || undefined,
+    linkedFinancialAccountId: data.linked_financial_account_id || undefined,
+    defaultExpenseCategory: data.default_expense_category || undefined,
     createdByUserId: data.created_by_user_id || undefined,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
@@ -1185,7 +1224,7 @@ export async function toggleEmailIntakeProfile(id: string, enabled: boolean, com
     .update({ enabled, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("company_id", cid)
-    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,created_by_user_id,created_at,updated_at")
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,linked_vendor_id,linked_financial_account_id,default_expense_category,created_by_user_id,created_at,updated_at")
     .single();
   if (error) throw error;
   return {
@@ -1198,6 +1237,9 @@ export async function toggleEmailIntakeProfile(id: string, enabled: boolean, com
     subjectContains: data.subject_contains || undefined,
     attachmentCondition: data.attachment_condition || undefined,
     suggestedDestination: data.suggested_destination,
+    linkedVendorId: data.linked_vendor_id || undefined,
+    linkedFinancialAccountId: data.linked_financial_account_id || undefined,
+    defaultExpenseCategory: data.default_expense_category || undefined,
     createdByUserId: data.created_by_user_id || undefined,
     createdAt: data.created_at,
     updatedAt: data.updated_at,

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   BookmarkPlus,
+  Building2,
   CheckCircle2,
   ChevronDown,
   FileSpreadsheet,
@@ -21,18 +22,22 @@ import {
   EmailClassification,
   EmailIntakeProfile,
   EmailIntakeProfileInput,
+  EntityResolutionResult,
   GmailConnectionInfo,
   GmailMessageCandidate,
   GmailScanWindow,
   InvoiceData,
+  Vendor,
 } from "../types";
 import { formatDateTime } from "../config/regional";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { appPathForTab } from "../utils/appRouting.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
+import type { FinancialAccount } from "../lib/cashBanking.ts";
 import {
   classifyEmailIntakeCandidate,
   DISALLOWED_DOMAIN_RULES,
+  isGmailAuthorizationError,
   parseSenderAddress,
   prepareGmailExpenseReview,
   prepareGmailStatementReview,
@@ -44,12 +49,19 @@ import {
 } from "../lib/emailIntake.ts";
 import {
   deleteEmailIntakeProfile,
+  listCompanyVendors,
   listEmailIntakeProfiles,
   saveEmailIntakeProfile,
   toggleEmailIntakeProfile,
 } from "../lib/persistence.ts";
+import { listFinancialAccounts } from "../lib/cashBankingPersistence.ts";
+import {
+  resolveBatchFinancialAccounts,
+  resolveBatchVendors,
+} from "../lib/entityResolution.ts";
 import { PageHeader, StatusBadge } from "./ui/OperationsUI";
 import { IntakeRulesModal } from "./email/IntakeRulesModal.tsx";
+import { EntityResolutionModal } from "./email/EntityResolutionModal.tsx";
 
 interface EmailInboxProps {
   invoices: InvoiceData[];
@@ -133,6 +145,11 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   const [manualError, setManualError] = useState<string | null>(null);
 
   const [profiles, setProfiles] = useState<EmailIntakeProfile[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [financialAccounts, setFinancialAccounts] = useState<FinancialAccount[]>([]);
+  const [activeResolutionCandidate, setActiveResolutionCandidate] = useState<GmailMessageCandidate | null>(null);
+  const [activeResolutionResult, setActiveResolutionResult] = useState<EntityResolutionResult | null>(null);
+  const [manualResolutions, setManualResolutions] = useState<Record<string, EntityResolutionResult>>({});
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [editingProfileInput, setEditingProfileInput] = useState<Partial<EmailIntakeProfileInput> | null>(null);
 
@@ -145,9 +162,29 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     }
   }, []);
 
+  const loadEntities = useCallback(async () => {
+    try {
+      const [vList, aList] = await Promise.all([
+        listCompanyVendors().catch(() => []),
+        listFinancialAccounts().catch(() => []),
+      ]);
+      setVendors(vList);
+      setFinancialAccounts(aList);
+    } catch {
+      // Safe fallback
+    }
+  }, []);
+
   useEffect(() => {
     loadProfiles();
-  }, [loadProfiles]);
+    loadEntities();
+  }, [loadProfiles, loadEntities]);
+
+  useEffect(() => {
+    if (connection.hasGmailToken && isGmailAuthorizationError(gmailError)) {
+      setGmailError(null);
+    }
+  }, [connection.hasGmailToken, gmailError]);
 
   const handleSaveProfile = async (input: EmailIntakeProfileInput) => {
     await saveEmailIntakeProfile(input);
@@ -183,6 +220,66 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     });
     setIsRulesModalOpen(true);
   };
+
+  const handleConfirmResolution = (candidateId: string, updated: EntityResolutionResult) => {
+    setManualResolutions((prev) => ({ ...prev, [candidateId]: updated }));
+  };
+
+  const { allEntityResolutions } = useMemo(() => {
+    const vendorCandidates = candidates
+      .filter((c) => {
+        const dest = destinationFor(c, profiles);
+        return dest === "INVOICE" || dest === "EXPENSE";
+      })
+      .map((c) => {
+        const cls = effectiveClassification(c, profiles);
+        const parsed = parseSenderAddress(c.sender);
+        const profile = profiles.find((p) => p.id === cls.matchedProfileId);
+        return {
+          candidateId: c.id,
+          evidence: {
+            name: parsed.name || parsed.email || c.sender,
+            senderEmail: parsed.email || undefined,
+            senderDomain: parsed.domain || undefined,
+            matchedProfileId: profile?.id,
+            linkedProfileVendorId: profile?.linkedVendorId,
+          },
+        };
+      });
+
+    const statementCandidates = candidates
+      .filter((c) => destinationFor(c, profiles) === "BANK_STATEMENT")
+      .map((c) => {
+        const cls = effectiveClassification(c, profiles);
+        const parsed = parseSenderAddress(c.sender);
+        const profile = profiles.find((p) => p.id === cls.matchedProfileId);
+        return {
+          candidateId: c.id,
+          evidence: {
+            institutionName: parsed.name || c.sender,
+            senderEmail: parsed.email || undefined,
+            senderDomain: parsed.domain || undefined,
+            matchedProfileId: profile?.id,
+            linkedProfileAccountId: profile?.linkedFinancialAccountId,
+          },
+        };
+      });
+
+    const vBatch = resolveBatchVendors(vendorCandidates, vendors, profiles);
+    const aBatch = resolveBatchFinancialAccounts(statementCandidates, financialAccounts, profiles);
+
+    const merged: Record<string, EntityResolutionResult> = {
+      ...vBatch.resolutions,
+      ...aBatch.resolutions,
+      ...manualResolutions,
+    };
+
+    return {
+      vendorResolutions: vBatch.resolutions,
+      accountResolutions: aBatch.resolutions,
+      allEntityResolutions: merged,
+    };
+  }, [candidates, profiles, vendors, financialAccounts, manualResolutions]);
 
   const emailInvoices = useMemo(() => invoices.filter((invoice) => invoice.sourceType === "EMAIL").slice(0, 10), [invoices]);
 
@@ -256,7 +353,13 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
     try {
-      await onImportGmailMessage({ ...message, classification: effectiveClassification(message, profiles) });
+      // Mailbox entity matching is intentionally advisory. Do not carry a
+      // sender-only LINK_EXISTING decision into invoice extraction, where it
+      // could override stronger post-extraction TIN/name evidence.
+      await onImportGmailMessage({
+        ...message,
+        classification: effectiveClassification(message, profiles),
+      });
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
     } catch (error: any) {
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "FAILED" } : item));
@@ -277,7 +380,14 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     try {
       const classification = effectiveClassification(message, profiles);
       const attachmentId = statementAttachmentSelection[message.id] || classification.statementAttachmentIds?.[0];
-      await prepareGmailStatementReview({ ...message, classification }, attachmentId);
+      const resolution = allEntityResolutions[message.id];
+      const matchingProfile = profiles.find((p) => p.id === classification.matchedProfileId);
+      await prepareGmailStatementReview({ ...message, classification }, attachmentId, {
+        // Preserve the mailbox result only as explanatory context. Final
+        // account selection comes from parsed statement evidence in Cash & Banking.
+        preliminaryResolution: resolution,
+        profile: matchingProfile,
+      });
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
       const cashPath = appPathForTab("cash");
       if (onNavigatePath) onNavigatePath(cashPath);
@@ -301,7 +411,14 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     try {
       const classification = effectiveClassification(message, profiles);
       const attachmentId = expenseAttachmentSelection[message.id] || classification.expenseAttachmentIds?.[0];
-      await prepareGmailExpenseReview({ ...message, classification }, attachmentId);
+      const resolution = allEntityResolutions[message.id];
+      const matchingProfile = profiles.find((p) => p.id === classification.matchedProfileId);
+      await prepareGmailExpenseReview({ ...message, classification }, attachmentId, {
+        // Preserve the mailbox result only as explanatory context. Final
+        // Vendor resolution comes from extracted receipt/payee evidence.
+        preliminaryResolution: resolution,
+        profile: matchingProfile,
+      });
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
       const expensesPath = appPathForTab("expenses");
       if (onNavigatePath) onNavigatePath(expensesPath);
@@ -641,6 +758,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
             <div className="mt-4 space-y-2.5">
               {filteredCandidates.map((message) => {
                 const cls = effectiveClassification(message, profiles);
+                const resolution = allEntityResolutions[message.id];
                 const destination = cls.suggestedDestination || (cls.isInvoiceLike ? "INVOICE" : "UNSUPPORTED");
                 const statementAttachments =
                   destination === "BANK_STATEMENT"
@@ -701,6 +819,40 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                             Rule: {cls.matchedProfileName}
                           </span>
                         )}
+                        {resolution && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveResolutionCandidate(message);
+                              setActiveResolutionResult(resolution);
+                            }}
+                            className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold transition border ${
+                              resolution.proposedAction === "LINK_EXISTING"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                : resolution.proposedAction === "ENRICH_EXISTING"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                  : resolution.proposedAction === "CREATE_NEW"
+                                    ? "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                    : resolution.proposedAction === "POSSIBLE_DUPLICATE"
+                                      ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                      : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                            }`}
+                            title="Preliminary sender-level match hint. Authoritative entity resolution happens post-extraction."
+                          >
+                            <Building2 className="w-2.5 h-2.5" />
+                            <span>
+                              {resolution.proposedAction === "LINK_EXISTING"
+                                ? `Hint: ${resolution.matchedEntityName}`
+                                : resolution.proposedAction === "ENRICH_EXISTING"
+                                  ? `Enrich hint: ${resolution.matchedEntityName}`
+                                  : resolution.proposedAction === "CREATE_NEW"
+                                    ? `Unmatched sender${resolution.groupMemberCount && resolution.groupMemberCount > 1 ? ` (${resolution.groupMemberCount} in batch)` : ""}`
+                                    : resolution.proposedAction === "POSSIBLE_DUPLICATE"
+                                      ? `Similar hint: ${resolution.matchedEntityName}`
+                                      : `Review: ${resolution.conflicts[0]?.label || "Sender hint"}`}
+                            </span>
+                          </button>
+                        )}
                       </div>
                       <p className="text-[10px] text-slate-500 mt-1 truncate">
                         {message.sender} • {formatDateTime(message.receivedAt)} • {message.attachments.length} attachment
@@ -745,6 +897,20 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                       )}
                     </div>
                     <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
+                      {resolution && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveResolutionCandidate(message);
+                            setActiveResolutionResult(resolution);
+                          }}
+                          className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 inline-flex items-center gap-1.5 shrink-0 transition"
+                          title="Review preliminary entity resolution hint"
+                        >
+                          <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                          Entity hint
+                        </button>
+                      )}
                       {canManageMailbox && (
                         <button
                           type="button"
@@ -966,12 +1132,31 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         isOpen={isRulesModalOpen}
         onClose={() => setIsRulesModalOpen(false)}
         profiles={profiles}
+        vendors={vendors}
+        financialAccounts={financialAccounts}
         onSaveProfile={handleSaveProfile}
         onDeleteProfile={handleDeleteProfile}
         onToggleProfile={handleToggleProfile}
         initialForm={editingProfileInput}
         canManageMailbox={canManageMailbox}
       />
+
+      {activeResolutionCandidate && activeResolutionResult && (
+        <EntityResolutionModal
+          isOpen={Boolean(activeResolutionCandidate && activeResolutionResult)}
+          onClose={() => {
+            setActiveResolutionCandidate(null);
+            setActiveResolutionResult(null);
+          }}
+          candidate={activeResolutionCandidate}
+          resolution={activeResolutionResult}
+          allCandidates={candidates}
+          allResolutions={allEntityResolutions}
+          vendors={vendors}
+          financialAccounts={financialAccounts}
+          onConfirmResolution={handleConfirmResolution}
+        />
+      )}
     </div>
   );
 };

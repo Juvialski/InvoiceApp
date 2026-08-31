@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Keyboard, Loader2, Plus, RotateCcw, Save, ShieldCheck, Trash2 } from "lucide-react";
-import { InvoiceData, InvoiceProjectAllocation, Project } from "../types";
+import { InvoiceData, InvoiceProjectAllocation, Project, Vendor } from "../types";
 import { formatDateTime } from "../config/regional";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { getInvoiceWorkspaceMode } from "../utils/invoiceWorkspace";
@@ -10,6 +10,7 @@ import { SourceComparison } from "./SourceComparison";
 import { normalizedInvoiceAllocationAmount } from "../utils/projectCosting";
 import { validateInvoiceProjectAllocationSet } from "../utils/projectAllocations";
 import { suggestProjectMatches } from "../utils/projectMatching";
+import { listCompanyVendors } from "../lib/persistence";
 
 export type SaveState = "saved" | "saving" | "unsaved" | "error";
 
@@ -44,6 +45,7 @@ interface VerificationWorkspaceProps {
   invoiceProjectAllocations?: InvoiceProjectAllocation[];
   onSaveProjectAllocations?: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
   preferredProjectId?: string;
+  vendors?: Vendor[];
 }
 
 interface ProjectAssignmentPanelProps {
@@ -107,12 +109,22 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   invoiceProjectAllocations = [],
   onSaveProjectAllocations,
   preferredProjectId,
+  vendors,
 }) => {
+  const [loadedVendors, setLoadedVendors] = useState<Vendor[]>(vendors || []);
   const [mobilePane, setMobilePane] = useState<"details" | "source">("details");
   const [warningConfirmation, setWarningConfirmation] = useState(false);
   const [retryConfirmation, setRetryConfirmation] = useState(false);
   const [focusFieldPath, setFocusFieldPath] = useState<string>();
   const [focusFieldToken, setFocusFieldToken] = useState(0);
+
+  useEffect(() => {
+    if (vendors && vendors.length > 0) {
+      setLoadedVendors(vendors);
+    } else {
+      listCompanyVendors().then(setLoadedVendors).catch(() => {});
+    }
+  }, [vendors]);
   const isVoided = invoice.lifecycleStatus === "VOID";
   const isVerified = getInvoiceWorkspaceMode(invoice) === "verified";
   // A voided invoice is a preserved, read-only financial history record even
@@ -131,6 +143,19 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   const verifiedCount = useMemo(() => queue.filter((item) => item.reviewStatus === "VERIFIED").length, [queue]);
   const remainingCount = useMemo(() => queue.filter((item) => item.reviewStatus === "NEEDS_REVIEW").length, [queue]);
   const positionLabel = inReviewSession ? `${Math.min(queueIndex + 1, queue.length)} / ${queue.length}` : "Standalone";
+
+  const handleInvoiceUpdate = (updated: InvoiceData) => {
+    const resolutionChanged = JSON.stringify(updated.entityResolution ?? null) !== JSON.stringify(invoice.entityResolution ?? null);
+    const vendorChanged = JSON.stringify(updated.vendor ?? null) !== JSON.stringify(invoice.vendor ?? null);
+    // Linking a master Vendor is a relationship decision, not an edit to what
+    // the invoice document actually said. Preserve extracted/manual Vendor
+    // fields when a resolution control tries to change both at once.
+    if (resolutionChanged && vendorChanged) {
+      onUpdateInvoice({ ...updated, vendor: invoice.vendor });
+      return;
+    }
+    onUpdateInvoice(updated);
+  };
 
   const focusField = (path: string) => {
     setFocusFieldPath(path);
@@ -223,7 +248,41 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
 
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)] items-stretch lg:h-[calc(100vh-225px)] lg:min-h-[580px]">
       <aside className={`${mobilePane === "source" ? "block" : "hidden"} lg:block min-w-0 min-h-0 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden`}><SourceComparison invoice={invoice} mode="source" /></aside>
-      <section className={`${mobilePane === "details" ? "block" : "hidden"} lg:block min-w-0 min-h-0 overflow-y-auto pr-0.5 pb-24`}><div className="space-y-3">{onSaveProjectAllocations && <ProjectAssignmentPanel invoice={invoice} projects={projects} preferredProject={projects.find((project) => project.id === preferredProjectId)} savedAllocations={invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id)} readOnly={invoice.lifecycleStatus === "VOID"} onSave={(allocations) => onSaveProjectAllocations(invoice, allocations)} />}<ReviewPanel invoice={invoice} onVerify={needsReview ? () => void verifyAndNext() : undefined} verifyLabel={inReviewSession ? "Verify & Next" : "Verify"} onReopen={isVerified && invoice.lifecycleStatus !== "VOID" ? onReopen : undefined} onRevertToAI={needsReview ? onRevertToAI : undefined} onFocusField={focusField} onRevertField={needsReview ? onRevertField : undefined} /><InvoiceViewer invoice={invoice} readOnly={isVerified || invoice.lifecycleStatus === "VOID"} compact focusFieldPath={focusFieldPath} focusFieldToken={focusFieldToken} onUpdateInvoice={onUpdateInvoice} onBack={onBack} /></div></section>
+      <section className={`${mobilePane === "details" ? "block" : "hidden"} lg:block min-w-0 min-h-0 overflow-y-auto pr-0.5 pb-24`}>
+        <div className="space-y-3">
+          {onSaveProjectAllocations && (
+            <ProjectAssignmentPanel
+              invoice={invoice}
+              projects={projects}
+              preferredProject={projects.find((project) => project.id === preferredProjectId)}
+              savedAllocations={invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id)}
+              readOnly={invoice.lifecycleStatus === "VOID"}
+              onSave={(allocations) => onSaveProjectAllocations(invoice, allocations)}
+            />
+          )}
+          <ReviewPanel
+            invoice={invoice}
+            onVerify={needsReview ? () => void verifyAndNext() : undefined}
+            verifyLabel={inReviewSession ? "Verify & Next" : "Verify"}
+            onReopen={isVerified && invoice.lifecycleStatus !== "VOID" ? onReopen : undefined}
+            onRevertToAI={needsReview ? onRevertToAI : undefined}
+            onFocusField={focusField}
+            onRevertField={needsReview ? onRevertField : undefined}
+            vendors={loadedVendors}
+            onUpdateInvoice={handleInvoiceUpdate}
+          />
+          <InvoiceViewer
+            invoice={invoice}
+            readOnly={isVerified || invoice.lifecycleStatus === "VOID"}
+            compact
+            focusFieldPath={focusFieldPath}
+            focusFieldToken={focusFieldToken}
+            onUpdateInvoice={handleInvoiceUpdate}
+            onBack={onBack}
+            vendors={loadedVendors}
+          />
+        </div>
+      </section>
     </div>
 
     {inReviewSession && <div className="sticky bottom-2 z-20 rounded-2xl border border-slate-200 bg-white/95 shadow-lg backdrop-blur p-2.5"><div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => void onPrevious()} disabled={queueIndex <= 0} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40"><ChevronLeft className="w-4 h-4" />Previous <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+P</span></button><span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 px-1"><Clock3 className="w-3.5 h-3.5" />{positionLabel}</span><button type="button" onClick={() => void onNext()} disabled={queueIndex >= queue.length - 1} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 disabled:opacity-40">Next <span className="hidden sm:inline text-[9px] font-normal text-slate-400">Alt+N</span><ChevronRight className="w-4 h-4" /></button>{needsReview ? <><button type="button" onClick={() => void onSave()} disabled={saveState === "saving"} className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-800 disabled:opacity-50"><Save className="w-3.5 h-3.5" />Save</button><div className="hidden md:flex items-center gap-1 text-[9px] text-slate-400"><Keyboard className="w-3.5 h-3.5" />Ctrl/Cmd+Enter</div><button type="button" onClick={() => void verifyAndNext()} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:bg-emerald-800"><ShieldCheck className="w-4 h-4" />Verify &amp; Next <ArrowRight className="w-3.5 h-3.5" /></button></> : <div className="ml-auto inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700"><ShieldCheck className="w-3.5 h-3.5" />Read-only verified · Reopen above</div>}</div>{needsReview && warningConfirmation && <div className="mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-[10px] text-amber-900"><span><strong>{issueCount} validation warning{issueCount === 1 ? "" : "s"} remain.</strong> Verify this invoice anyway?</span><div className="flex items-center gap-2"><button type="button" onClick={() => setWarningConfirmation(false)} className="rounded-lg border border-amber-200 bg-white px-2.5 py-1.5 font-bold text-amber-800">Cancel</button><button type="button" onClick={() => void verifyAndNext()} className="rounded-lg bg-amber-700 px-2.5 py-1.5 font-bold text-white">Verify &amp; Continue</button></div></div>}</div>}
