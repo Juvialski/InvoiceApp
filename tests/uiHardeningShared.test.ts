@@ -13,13 +13,16 @@ test("shared operations UI exposes intentional surface, loading, error, and metr
   assert.match(operationsUi, /role="status" aria-label=\{label\}/);
   assert.match(operationsUi, /export function ErrorState/);
   assert.match(operationsUi, /role="alert"/);
-  assert.match(operationsUi, /aria-label=\{`\$\{label\}: \$\{loading \? "Loading" : value\}`\}/);
+  assert.match(operationsUi, /aria-label=\{metricAriaLabel\}/);
+  assert.match(operationsUi, /Reload page/);
   assert.match(operationsUi, /<header className=/);
 });
 
 test("shell rendering failures use safe recovery copy and retain a bounded content frame", () => {
-  assert.match(shell, /This workspace section needs a refresh/);
-  assert.match(shell, /Your saved records were not changed/);
+  assert.match(shell, /This workspace section could not be displayed/);
+  assert.match(shell, /reload the page if the problem continues/);
+  assert.match(shell, /onReload=\{\(\) => window\.location\.reload\(\)\}/);
+  assert.doesNotMatch(shell, /Your saved records were not changed/);
   assert.doesNotMatch(shell, /this\.state\.error\?\.message/);
   assert.match(shell, /max-w-\[1600px\]/);
 });
