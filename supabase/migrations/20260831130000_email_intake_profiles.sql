@@ -24,9 +24,25 @@ create table if not exists public.email_intake_profiles (
   created_by_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint email_intake_profiles_name_nonblank check (btrim(name) <> ''),
   constraint email_intake_profiles_sender_boundary check (
     (sender_email is not null and btrim(sender_email) <> '') or
     (sender_domain is not null and btrim(sender_domain) <> '')
+  ),
+  constraint email_intake_profiles_sender_email_format check (
+    sender_email is null or btrim(sender_email) = '' or
+    btrim(sender_email) ~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$'
+  ),
+  constraint email_intake_profiles_sender_domain_format check (
+    sender_domain is null or btrim(sender_domain) = '' or (
+      lower(btrim(sender_domain)) ~ '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$'
+      and lower(btrim(sender_domain)) not in (
+        'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.ph', 'hotmail.com',
+        'outlook.com', 'live.com', 'icloud.com', 'aol.com', 'proton.me',
+        'protonmail.com', 'mail.com', 'me.com', 'msn.com', 'com', 'net',
+        'org', 'ph', 'com.ph'
+      )
+    )
   )
 );
 
