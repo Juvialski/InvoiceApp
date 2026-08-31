@@ -353,12 +353,13 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
     try {
-      const resolution = allEntityResolutions[message.id];
+      // Mailbox entity matching is intentionally advisory. Do not carry a
+      // sender-only LINK_EXISTING decision into invoice extraction, where it
+      // could override stronger post-extraction TIN/name evidence.
       await onImportGmailMessage({
         ...message,
         classification: effectiveClassification(message, profiles),
-        ...(resolution ? { preliminaryResolution: resolution } : {}),
-      } as any);
+      });
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
     } catch (error: any) {
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "FAILED" } : item));
@@ -382,7 +383,8 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       const resolution = allEntityResolutions[message.id];
       const matchingProfile = profiles.find((p) => p.id === classification.matchedProfileId);
       await prepareGmailStatementReview({ ...message, classification }, attachmentId, {
-        confirmedAccountId: resolution?.matchedEntityId,
+        // Preserve the mailbox result only as explanatory context. Final
+        // account selection comes from parsed statement evidence in Cash & Banking.
         preliminaryResolution: resolution,
         profile: matchingProfile,
       });
@@ -412,7 +414,8 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       const resolution = allEntityResolutions[message.id];
       const matchingProfile = profiles.find((p) => p.id === classification.matchedProfileId);
       await prepareGmailExpenseReview({ ...message, classification }, attachmentId, {
-        confirmedVendorId: resolution?.matchedEntityId,
+        // Preserve the mailbox result only as explanatory context. Final
+        // Vendor resolution comes from extracted receipt/payee evidence.
         preliminaryResolution: resolution,
         profile: matchingProfile,
       });
