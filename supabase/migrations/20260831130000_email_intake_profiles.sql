@@ -35,7 +35,7 @@ create table if not exists public.email_intake_profiles (
   ),
   constraint email_intake_profiles_sender_domain_format check (
     sender_domain is null or btrim(sender_domain) = '' or (
-      lower(btrim(sender_domain)) ~ '^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$'
+      lower(btrim(sender_domain)) ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
       and lower(btrim(sender_domain)) not in (
         'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.ph', 'hotmail.com',
         'outlook.com', 'live.com', 'icloud.com', 'aol.com', 'proton.me',
