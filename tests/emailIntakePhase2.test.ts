@@ -7,7 +7,6 @@ import {
   extractSuggestedExpense,
   findPossibleExpenseDuplicates,
   isSupportedExpenseAttachment,
-  type PendingEmailExpenseReview,
 } from "../src/lib/emailIntake.ts";
 import type { Expense, GmailMessageCandidate } from "../src/types.ts";
 
@@ -93,6 +92,18 @@ test("shared classifier routes e-receipts and transportation receipts to EXPENSE
   assert.equal(classification.isInvoiceLike, false);
 });
 
+test("attachment-less receipts remain unsupported until a preservable source-document review path exists", () => {
+  const message = candidate({
+    sender: "Grab Philippines <no-reply@grab.com>",
+    subject: "Your Grab E-Receipt",
+    bodyText: "Booking ID: GRB-2026-12. Total Paid: PHP 450.00 via GCash.",
+    attachments: [],
+  });
+  const classification = classifyEmailIntakeCandidate(message);
+  assert.equal(classification.suggestedDestination, "UNSUPPORTED");
+  assert.deepEqual(classification.expenseAttachmentIds, []);
+});
+
 test("shared classifier preserves precedence for BANK_STATEMENT and INVOICE", () => {
   const bankMessage = candidate({
     subject: "Bank statement - August",
@@ -154,31 +165,28 @@ test("findPossibleExpenseDuplicates detects source document, reference number, a
     mockExpense({ id: "exp-4", status: "VOID", amount: 5000, payee: "Wilcon Depot", expenseDate: "2026-08-15" }),
   ];
 
-  // 1. Source doc duplicate
   const match1 = findPossibleExpenseDuplicates({ sourceDocumentId: "source-doc-uuid-1" }, existing);
   assert.equal(match1.length, 1);
   assert.equal(match1[0]?.matchType, "SOURCE_DOCUMENT");
   assert.equal(match1[0]?.expense.id, "exp-1");
 
-  // 2. Reference number duplicate
   const match2 = findPossibleExpenseDuplicates({ referenceNumber: "OR-7788" }, existing);
   assert.equal(match2.length, 1);
   assert.equal(match2[0]?.matchType, "REFERENCE_NUMBER");
   assert.equal(match2[0]?.expense.id, "exp-2");
 
-  // 3. Exact payee + amount + date duplicate
   const match3 = findPossibleExpenseDuplicates({ payee: "Wilcon Depot", amount: 5000, expenseDate: "2026-08-15" }, existing);
   assert.equal(match3.length, 1);
   assert.equal(match3[0]?.matchType, "EXACT_PAYEE_AMOUNT_DATE");
   assert.equal(match3[0]?.expense.id, "exp-3");
 
-  // 4. Non-matching candidate
   const match4 = findPossibleExpenseDuplicates({ payee: "Unknown Merchant", amount: 999, expenseDate: "2026-08-20" }, existing);
   assert.equal(match4.length, 0);
 });
 
-test("expense provenance migration adds index for receipt source document", () => {
+test("expense provenance migration adds index for receipt source document without a UTF-8 BOM", () => {
   const sql = readFileSync(new URL("../supabase/migrations/20260831120000_email_intake_expense_provenance.sql", import.meta.url), "utf8");
+  assert.equal(sql.charCodeAt(0), "-".charCodeAt(0));
   assert.match(sql, /create index if not exists expenses_receipt_source_document_idx/i);
   assert.match(sql, /on public\.expenses\(company_id, receipt_source_document_id\)/i);
 });
