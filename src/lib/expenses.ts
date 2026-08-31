@@ -106,9 +106,6 @@ export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> 
   if (existingError) throw existingError;
 
   if (!existing && expense.receiptSourceDocumentId) {
-    if (expense.status !== "DRAFT") {
-      throw new Error("Email Intake receipts must be saved as Draft. Approve the expense later through the normal Expense lifecycle.");
-    }
     if (!Number.isFinite(expense.amount) || expense.amount <= 0) {
       throw new Error("Confirm a positive receipt amount before saving the expense draft.");
     }
@@ -118,13 +115,16 @@ export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> 
 
     const { data: sourceRow, error: sourceError } = await supabase
       .from("source_documents")
-      .select("id,sha256")
+      .select("id,sha256,source_type")
       .eq("company_id", companyId)
       .eq("id", expense.receiptSourceDocumentId)
       .maybeSingle();
     if (sourceError) throw sourceError;
     if (!sourceRow) {
       throw new Error("The preserved receipt source document is no longer available to this company. Reopen the Email Intake review before saving.");
+    }
+    if (sourceRow.source_type === "EMAIL" && expense.status !== "DRAFT") {
+      throw new Error("Email Intake receipts must be saved as Draft. Approve the expense later through the normal Expense lifecycle.");
     }
 
     const duplicate = await findExistingExpenseBySource({
