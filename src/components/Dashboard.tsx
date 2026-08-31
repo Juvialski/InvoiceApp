@@ -1,12 +1,11 @@
 import React from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Mail, Receipt, WalletCards } from "lucide-react";
-import { Button } from "@astryxdesign/core/Button";
-import { Badge } from "@astryxdesign/core/Badge";
 import { Card } from "@astryxdesign/core/Card";
-import { InvoiceData } from "../types";
+import type { InvoiceData } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { formatMoney, totalVatByCurrency, totalsByCurrency } from "../utils/invoiceLogic";
 import { isVoidedInvoice } from "../utils/projectCosting.ts";
+import { EmptyState, MetricCard, PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 
 interface DashboardProps {
   invoices: InvoiceData[];
@@ -37,107 +36,100 @@ export const Dashboard: React.FC<DashboardProps> = ({ invoices, onOpenInvoice, o
   const foreignEntries = Object.entries(totals).filter(([currency]) => currency !== "PHP" && currency !== "UNK");
 
   return (
-    <div className="space-y-6">
-      <section className="bg-gradient-to-r from-slate-950 to-indigo-950 text-white rounded-2xl px-4 py-4 sm:px-5 shadow-lg overflow-hidden relative">
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-indigo-200">Invoice Overview</p>
-            <p className="text-xs text-slate-300 mt-1">Keep intake moving and resolve the next review item.</p>
-          </div>
-          <div className="flex flex-wrap gap-2 shrink-0 items-center">
-            <button
-              type="button"
-              onClick={() => onNavigate("extractor")}
-              className="px-3.5 py-2 rounded-xl bg-white text-slate-950 text-xs font-bold shadow-sm hover:bg-slate-100 transition"
-            >
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Operations overview"
+        title="Invoice operations"
+        description="Keep intake moving, resolve review work, and monitor invoice totals without combining source currencies."
+        actions={(
+          <>
+            <button type="button" onClick={() => onNavigate("extractor")} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
               Upload invoice
             </button>
-            <button
-              type="button"
-              onClick={() => onNavigate("review")}
-              className="px-3.5 py-2 rounded-xl bg-amber-400 text-amber-950 text-xs font-black shadow-sm hover:bg-amber-300 transition"
-            >
-              Review {needsReview.length}
+            <button type="button" onClick={() => onNavigate("review")} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2.5 text-xs font-black text-amber-900 transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2" aria-label={needsReview.length ? `Open review queue with ${needsReview.length} invoices awaiting action` : "Open the empty review queue"}>
+              <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5" />
+              {needsReview.length ? `Review ${needsReview.length}` : "Review queue"}
             </button>
-            <button
-              type="button"
-              onClick={() => onNavigate("inbox")}
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold flex items-center gap-2 transition"
-            >
-              <Mail className="w-3.5 h-3.5" /> Process email
+            <button type="button" onClick={() => onNavigate("inbox")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
+              <Mail aria-hidden="true" className="h-3.5 w-3.5" /> Process email
             </button>
+          </>
+        )}
+      />
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-white shadow-sm sm:p-5" aria-label="Invoice intake focus">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300">Next best action</p>
+            <h2 className="mt-1 text-base font-black sm:text-lg">{needsReview.length ? `${needsReview.length} invoice${needsReview.length === 1 ? "" : "s"} need human review` : "Review queue is clear"}</h2>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-300">{needsReview.length ? "Open the queue to compare source documents, resolve extraction flags, and verify the next record." : "New uncertain or incomplete extractions will appear here when they need an explicit human decision."}</p>
           </div>
+          <button type="button" onClick={() => onNavigate(needsReview.length ? "review" : "invoices")} className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-3.5 py-2.5 text-xs font-black text-slate-950 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950">
+            {needsReview.length ? "Open review queue" : "View invoice register"}
+          </button>
         </div>
       </section>
 
-      <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        {[
-          { label: "Total Invoice Value", value: formatMoney(phpTotal, "PHP"), icon: WalletCards, tone: "text-indigo-600 bg-indigo-50" },
-          { label: "Outstanding", value: phpOutstanding ? formatMoney(phpOutstanding, "PHP") : "₱0.00", icon: Receipt, tone: "text-amber-700 bg-amber-50" },
-          { label: "Overdue", value: overdue.length, icon: Clock3, tone: "text-rose-700 bg-rose-50" },
-          { label: "VAT Amount", value: phpVat ? formatMoney(phpVat, "PHP") : "₱0.00", icon: Receipt, tone: "text-violet-700 bg-violet-50" },
-          { label: "Needs Review", value: needsReview.length, icon: AlertTriangle, tone: "text-orange-700 bg-orange-50" },
-          { label: "Verified", value: verified.length, icon: CheckCircle2, tone: "text-emerald-700 bg-emerald-50" },
-        ].map(({ label, value, icon: Icon, tone }) => (
-          <Card key={label} className="p-4 shadow-sm min-w-0" elevation="low">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tone}`}><Icon className="w-4 h-4" /></div>
-            <p className="text-lg sm:text-xl font-black font-sans tabular-nums text-slate-900 mt-4 break-words">{value}</p>
-            <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{label}</p>
-          </Card>
-        ))}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label="Invoice summary">
+        <MetricCard label="Total invoice value" value={formatMoney(phpTotal, "PHP")} icon={WalletCards} tone="info" emphasis />
+        <MetricCard label="Outstanding" value={formatMoney(phpOutstanding, "PHP")} detail="PHP only" icon={Receipt} tone="warning" />
+        <MetricCard label="Overdue" value={overdue.length} detail="Active invoices" icon={Clock3} tone="danger" />
+        <MetricCard label="VAT amount" value={formatMoney(phpVat, "PHP")} detail="PHP only" icon={Receipt} tone="info" />
+        <MetricCard label="Needs review" value={needsReview.length} detail="Human action" icon={AlertTriangle} tone="warning" />
+        <MetricCard label="Verified" value={verified.length} detail="Active invoices" icon={CheckCircle2} tone="success" />
       </section>
 
-      <section className="grid lg:grid-cols-2 gap-4">
-        <Card className="p-5 shadow-sm" elevation="low">
-          <div className="flex items-center gap-2 mb-4"><WalletCards className="w-4 h-4 text-indigo-600" /><h3 className="font-bold text-sm">Currency breakdown</h3></div>
-          {Object.keys(totals).length ? <div className="space-y-3">
+      <section className="grid gap-4 lg:grid-cols-2">
+        <Card className="p-4 shadow-sm sm:p-5" elevation="low">
+          <SectionHeader title="Currency breakdown" description="Invoice value and outstanding balance stay separated by source currency." icon={WalletCards} />
+          {Object.keys(totals).length ? <div className="mt-4 space-y-3" role="list" aria-label="Invoice totals by currency">
             {Object.entries(totals).map(([currency, value]) => (
-              <div key={currency} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-                <div><p className="text-xs font-bold text-slate-800">{currency === "UNK" ? "Currency unclear" : currency}</p><p className="text-[11px] text-slate-500 font-sans tabular-nums">Outstanding {currency === "UNK" ? "—" : formatMoney(balances[currency] || 0, currency)}</p></div>
-                <p className="text-sm font-black font-sans tabular-nums text-right break-words">{currency === "UNK" ? "Needs review" : formatMoney(value, currency)}</p>
+              <div key={currency} className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 last:border-0 last:pb-0" role="listitem">
+                <div className="min-w-0"><p className="text-xs font-bold text-slate-800">{currency === "UNK" ? "Currency unclear" : currency}</p><p className="mt-0.5 text-[11px] text-slate-500">Outstanding {currency === "UNK" ? "—" : formatMoney(balances[currency] || 0, currency)}</p></div>
+                <p className="shrink-0 text-right font-sans text-sm font-black tabular-nums break-words">{currency === "UNK" ? "Needs review" : formatMoney(value, currency)}</p>
               </div>
             ))}
-          </div> : <p className="text-xs text-slate-500">Extract an invoice to populate totals.</p>}
-          {foreignEntries.length > 0 && <p className="text-[10px] text-slate-400 mt-4">Foreign currencies are shown separately and are not converted or summed into PHP.</p>}
+          </div> : <EmptyState className="mt-4" icon={WalletCards} title="No invoice totals yet" description="Extracted invoice records will appear here by source currency." />}
+          {foreignEntries.length > 0 && <p className="mt-4 border-t border-slate-100 pt-3 text-[10px] leading-4 text-slate-500">Foreign currencies are shown separately and are not converted or summed into PHP.</p>}
         </Card>
 
-        <Card className="p-5 shadow-sm" elevation="low">
-          <div className="flex items-center gap-2 mb-4"><Receipt className="w-4 h-4 text-violet-600" /><h3 className="font-bold text-sm">Philippine VAT Summary</h3></div>
-          <div className="grid grid-cols-2 gap-2">
+        <Card className="p-4 shadow-sm sm:p-5" elevation="low">
+          <SectionHeader title="Philippine VAT summary" description="Review aid only; this does not produce an official BIR tax return." icon={Receipt} />
+          <div className="mt-4 grid grid-cols-2 gap-2" aria-label="Philippine VAT summary values">
             {[
-              ["VATable Purchases", formatMoney(phVatable, "PHP")],
-              ["VAT Amount", formatMoney(phpVat, "PHP")],
-              ["Zero-Rated", formatMoney(phZeroRated, "PHP")],
-              ["VAT-Exempt", formatMoney(phExempt, "PHP")],
-              ["Missing VAT Details", missingVatDetails.length],
-              ["Invoices Needing Review", needsReview.filter(isPhilippine).length],
-            ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3"><p className="text-[9px] uppercase font-bold text-slate-500">{label}</p><p className="text-sm font-black font-sans tabular-nums mt-1 break-words">{value}</p></div>)}
+              ["VATable purchases", formatMoney(phVatable, "PHP")],
+              ["VAT amount", formatMoney(phpVat, "PHP")],
+              ["Zero-rated", formatMoney(phZeroRated, "PHP")],
+              ["VAT-exempt", formatMoney(phExempt, "PHP")],
+              ["Missing VAT details", missingVatDetails.length],
+              ["Invoices needing review", needsReview.filter(isPhilippine).length],
+            ].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-slate-50 p-3"><p className="text-[9px] font-bold uppercase text-slate-500">{label}</p><p className="mt-1 break-words font-sans text-sm font-black tabular-nums">{value}</p></div>)}
           </div>
-          <p className="text-[10px] text-slate-400 mt-4">Review summary only — this does not produce an official BIR tax return.</p>
+          <p className="mt-4 text-[10px] leading-4 text-slate-500">Tax signals remain separate from project cost and should be reviewed with the source invoice.</p>
         </Card>
       </section>
 
-      <Card className="p-5 shadow-sm" elevation="low">
-        <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-sm">Recent activity</h3><button onClick={() => onNavigate("invoices")} className="text-xs font-bold text-indigo-600">View all</button></div>
-        {latest.length ? <div className="space-y-2">{latest.map((invoice) => {
-          const display = getInvoiceDisplay(invoice);
-          return <button key={invoice.id} onClick={() => onOpenInvoice(invoice)} className="w-full text-left flex items-center justify-between gap-3 rounded-xl p-3 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-xs font-bold text-slate-900 truncate">{display.primaryLabel}</p>
-                <Badge
-                  variant={invoice.reviewStatus === "NEEDS_REVIEW" ? "warning" : "success"}
-                  label={invoice.reviewStatus === "NEEDS_REVIEW" ? "Review" : "Verified"}
-                />
+      <Card className="p-4 shadow-sm sm:p-5" elevation="low">
+        <SectionHeader
+          title="Recent activity"
+          description="Latest active invoice records by extraction time."
+          action={<button type="button" onClick={() => onNavigate("invoices")} className="rounded-lg px-2 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">View register</button>}
+        />
+        {latest.length ? <div className="mt-4 space-y-2" role="list" aria-label="Recent invoice activity">
+          {latest.map((invoice) => {
+            const display = getInvoiceDisplay(invoice);
+            const needsInvoiceReview = invoice.reviewStatus === "NEEDS_REVIEW";
+            return <div key={invoice.id} role="listitem"><button type="button" onClick={() => onOpenInvoice(invoice)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-transparent p-3 text-left transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2" aria-label={`${needsInvoiceReview ? "Review" : "Open"} ${display.primaryLabel}`}>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2"><p className="truncate text-xs font-bold text-slate-900">{display.primaryLabel}</p><StatusBadge tone={needsInvoiceReview ? "warning" : "success"}>{needsInvoiceReview ? "Review" : "Verified"}</StatusBadge></div>
+                <p className="mt-1 truncate text-[11px] text-slate-600">{display.invoiceLabel} · {display.dateLabel}</p>
+                <p className="mt-0.5 truncate text-[10px] text-slate-400">{display.sourceLabel}{display.projectKnown ? ` · ${display.projectLabel}` : ""} · {display.sourceFileLabel}</p>
               </div>
-              <p className="text-[11px] text-slate-600 truncate">{display.invoiceLabel} • {display.dateLabel}</p>
-              <p className="text-[10px] text-slate-400 truncate">{display.sourceLabel}{display.projectKnown ? ` • ${display.projectLabel}` : ""} • {display.sourceFileLabel}</p>
-            </div>
-            <div className="text-right shrink-0"><p className="text-xs font-black font-sans tabular-nums">{display.amountLabel}</p>{display.amountLabel !== display.currencyLabel && <p className="text-[9px] font-semibold text-slate-400 uppercase">{display.currencyLabel}</p>}</div>
-          </button>;
-        })}</div> : <p className="text-xs text-slate-500">No invoice activity yet.</p>}
+              <div className="shrink-0 text-right"><p className="font-sans text-xs font-black tabular-nums">{display.amountLabel}</p>{display.amountLabel !== display.currencyLabel && <p className="text-[9px] font-semibold uppercase text-slate-400">{display.currencyLabel}</p>}</div>
+            </button></div>;
+          })}
+        </div> : <EmptyState className="mt-4" icon={Receipt} title="No recent invoice activity" description="Upload or import an invoice to start the operational register." />}
       </Card>
     </div>
   );
 };
-

@@ -383,9 +383,9 @@ export const Header: React.FC<HeaderProps> = ({
         id="workspace-navigation-drawer"
         role={mobileOpen ? "dialog" : undefined}
         aria-modal={mobileOpen ? "true" : undefined}
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-800 bg-slate-950 text-slate-100 shadow-2xl shadow-slate-950/20 transition-[width,transform] duration-200 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex-col border-r border-slate-800 bg-slate-950 text-slate-100 shadow-2xl shadow-slate-950/20 transition-[width,transform] duration-200 lg:shadow-none ${
           collapsed ? "w-[4.25rem]" : "w-[16.5rem]"
-        } ${mobileOpen ? "translate-x-0 !w-[16.5rem]" : "-translate-x-full lg:translate-x-0"}`}
+        } ${mobileOpen ? "flex translate-x-0 !w-[16.5rem]" : "hidden lg:flex lg:translate-x-0"}`}
         aria-label="Workspace navigation"
       >
         {collapsed && !mobileOpen ? (

@@ -4,6 +4,7 @@ import test from "node:test";
 
 const operationsUi = readFileSync(new URL("../src/components/ui/OperationsUI.tsx", import.meta.url), "utf8");
 const shell = readFileSync(new URL("../src/app/AppShell.tsx", import.meta.url), "utf8");
+const header = readFileSync(new URL("../src/components/Header.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../src/index.css", import.meta.url), "utf8");
 
 test("shared operations UI exposes intentional surface, loading, error, and metric semantics", () => {
@@ -27,4 +28,9 @@ test("global UI honors reduced-motion preferences", () => {
   assert.match(css, /prefers-reduced-motion: reduce/);
   assert.match(css, /transition-duration: 0\.01ms/);
   assert.match(css, /scroll-behavior: auto/);
+});
+
+test("closed mobile navigation is removed from the accessibility tree while desktop stays visible", () => {
+  assert.match(header, /hidden lg:flex lg:translate-x-0/);
+  assert.match(header, /flex translate-x-0 !w-\[16\.5rem\]/);
 });
