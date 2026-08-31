@@ -154,13 +154,11 @@ test("2. Missing currency in statement remains unknown/empty and does NOT defaul
 
   assert.equal(evidence.institutionName, "Metrobank");
   assert.equal(evidence.maskedIdentifier, "5555");
-  // Crucial requirement: missing currency in statement remains undefined / empty
   assert.equal(evidence.currency, undefined);
 
   const normalized = normalizedAccountEvidence(evidence);
   assert.equal(normalized.currency, "");
 
-  // Resolution still links to unique Metrobank 5555 account without conflicting
   const resolution = resolveFinancialAccountCandidate(
     { candidateId: "cand-mbtc-mar", evidence },
     sampleAccounts,
@@ -180,12 +178,11 @@ test("3. Saved profile + conflicting parsed statement suffix / institution -> pr
     enabled: true,
     senderEmail: "statements@bdo.com.ph",
     suggestedDestination: "BANK_STATEMENT",
-    linkedFinancialAccountId: "acc-bdo-usd-1", // Links to BDO USD ending in 1111
+    linkedFinancialAccountId: "acc-bdo-usd-1",
     createdAt: "2026-08-31T00:00:00Z",
     updatedAt: "2026-08-31T00:00:00Z",
   };
 
-  // Case A: Suffix Conflict (Statement is BDO USD ending in 9999, but profile links to 1111)
   const statementWithDifferentSuffix = parseStatementFile([
     "BDO Unibank Statement",
     "Account Number: *******9999",
@@ -211,7 +208,6 @@ test("3. Saved profile + conflicting parsed statement suffix / institution -> pr
   assert.ok(resolutionA.conflicts.some((c) => c.field === "accountSuffix" && c.candidateValue === "9999" && c.existingValue === "1111"));
   assert.match(resolutionA.conflicts[0].reason, /Statement account suffix \(•••• 9999\) conflicts/);
 
-  // Case B: Institution Conflict (Profile is linked to BDO account, but parsed statement is BPI)
   const statementWithDifferentInstitution = parseStatementFile([
     "Bank of the Philippine Islands",
     "Account Number: *******1111",
@@ -236,7 +232,6 @@ test("3. Saved profile + conflicting parsed statement suffix / institution -> pr
   assert.ok(resolutionB.conflicts.some((c) => c.field === "institution"));
   assert.match(resolutionB.conflicts[0].reason, /Statement institution .* conflicts/);
 
-  // Case C: Currency Conflict (Profile linked to USD account, but parsed statement is PHP)
   const statementWithDifferentCurrency = parseStatementFile([
     "BDO Unibank Statement",
     "Account Number: *******1111",
@@ -288,7 +283,6 @@ test("4. Same unseen parsed account across two statements -> groups into ONE pro
 
   const { resolutions, groups } = resolveBatchFinancialAccounts(candidates, sampleAccounts);
 
-  // Assert both statements form exactly 1 group
   assert.equal(Object.keys(groups).length, 1);
   const groupId = Object.keys(groups)[0];
   assert.equal(groups[groupId].length, 2);
@@ -304,7 +298,6 @@ test("4. Same unseen parsed account across two statements -> groups into ONE pro
 
   assert.equal(resJan.batchGroupId, groupId);
   assert.equal(resFeb.batchGroupId, groupId);
-  // Alphabetical sort orders stmt-secbank-feb first as primary
   assert.equal(resFeb.isGroupPrimary, true);
   assert.equal(resJan.isGroupPrimary, false);
   assert.equal(resJan.groupMemberCount, 2);
@@ -313,7 +306,7 @@ test("4. Same unseen parsed account across two statements -> groups into ONE pro
   assert.ok(resFeb.matchReasons.some((r) => r.includes("Grouped with 1 other statement(s)")));
 });
 
-test("5. Confirmed account survives staging and navigation into Cash & Banking import review", () => {
+test("5. Stale staged account selection cannot override contradictory post-parse resolution", () => {
   const stagedReview: PendingEmailStatementReview = {
     id: "staged-review-1",
     sourceDocumentId: "doc-src-123",
@@ -325,14 +318,11 @@ test("5. Confirmed account survives staging and navigation into Cash & Banking i
     subject: "Monthly Statement",
     sender: "statements@bank.example",
     createdAt: new Date().toISOString(),
-    confirmedAccountId: "acc-mbtc-php-1", // User explicitly picked Metrobank in mailbox modal
+    confirmedAccountId: "acc-mbtc-php-1",
     matchedProfileId: "prof-optional",
     matchedProfileName: "Optional Profile",
   };
 
-  // Test account pre-selection resolution logic:
-  // Even if parser detects an unseen account or resolver suggests CREATE_NEW,
-  // explicit confirmedAccountId MUST be preselected when present in active accounts.
   const activeAccounts = sampleAccounts.filter((a) => a.active);
   const unseenEvidence: FinancialAccountIdentityEvidence = {
     institutionName: "Unknown Bank",
@@ -346,21 +336,26 @@ test("5. Confirmed account survives staging and navigation into Cash & Banking i
 
   assert.equal(autoResolution.proposedAction, "CREATE_NEW");
 
-  // Selection resolution rule:
+  const stagedConfirmedAccountIsStillValid = Boolean(
+    stagedReview.confirmedAccountId
+    && autoResolution.proposedAction === "LINK_EXISTING"
+    && autoResolution.conflicts.length === 0
+    && autoResolution.matchedEntityId === stagedReview.confirmedAccountId
+    && activeAccounts.some((a) => a.id === stagedReview.confirmedAccountId),
+  );
+
   let effectiveSelectedAccountId = "";
-  const resolvedAction: string = autoResolution.proposedAction;
-  if (stagedReview.confirmedAccountId && activeAccounts.some((a) => a.id === stagedReview.confirmedAccountId)) {
-    effectiveSelectedAccountId = stagedReview.confirmedAccountId;
-  } else if (resolvedAction === "LINK_EXISTING" && autoResolution.matchedEntityId) {
+  if (stagedConfirmedAccountIsStillValid) {
+    effectiveSelectedAccountId = stagedReview.confirmedAccountId!;
+  } else if (autoResolution.proposedAction === "LINK_EXISTING" && autoResolution.matchedEntityId) {
     effectiveSelectedAccountId = autoResolution.matchedEntityId;
   }
 
-  assert.equal(effectiveSelectedAccountId, "acc-mbtc-php-1");
-  assert.equal(effectiveSelectedAccountId, stagedReview.confirmedAccountId);
+  assert.equal(stagedConfirmedAccountIsStillValid, false);
+  assert.equal(effectiveSelectedAccountId, "");
 });
 
 test("6. Master-data mutation boundary: parsing, evidence extraction, resolution, and preview generation NEVER mutate accounts or transactions", () => {
-  // Deep clone initial state to ensure strict immutability check
   const originalAccounts = JSON.parse(JSON.stringify(sampleAccounts)) as FinancialAccount[];
   const originalTransactions = JSON.parse(JSON.stringify(sampleTransactions)) as FinancialTransaction[];
 
@@ -373,28 +368,23 @@ test("6. Master-data mutation boundary: parsing, evidence extraction, resolution
     "2026-01-20,Customer Payment,,25000.00,515000.00",
   ].join("\n");
 
-  // Step 1: Parse statement file
   const parsed = parseStatementFile(statementContent, "Statement_Jan2026.csv");
 
-  // Step 2: Extract evidence
   const evidence = extractAccountEvidenceFromStatement(parsed as any, {
     sender: "ebanking@securitybank.com.ph",
     subject: "Corporate Statement",
   });
 
-  // Step 3: Single Candidate Resolution
   const resolution = resolveFinancialAccountCandidate(
     { candidateId: "cand-boundary-test", evidence },
     sampleAccounts,
   );
 
-  // Step 4: Batch Resolution
   const batchRes = resolveBatchFinancialAccounts(
     [{ candidateId: "cand-boundary-test", evidence }],
     sampleAccounts,
   );
 
-  // Step 5: Build Statement Preview (for existing account)
   const targetAccount = sampleAccounts[0];
   const preview = buildStatementPreview(
     parsed,
@@ -405,17 +395,14 @@ test("6. Master-data mutation boundary: parsing, evidence extraction, resolution
     [],
   );
 
-  // Assertions: Resolution proposes CREATE_NEW without modifying accounts
   assert.equal(resolution.proposedAction, "CREATE_NEW");
   assert.equal(batchRes.resolutions["cand-boundary-test"].proposedAction, "CREATE_NEW");
   assert.equal(preview.transactionsToImport.length, 2);
   assert.equal(preview.canCommit, true);
 
-  // Verify accounts array and elements were strictly NOT mutated
   assert.equal(sampleAccounts.length, originalAccounts.length);
   assert.deepEqual(sampleAccounts, originalAccounts);
 
-  // Verify transactions array and elements were strictly NOT mutated
   assert.equal(sampleTransactions.length, originalTransactions.length);
   assert.deepEqual(sampleTransactions, originalTransactions);
 });
