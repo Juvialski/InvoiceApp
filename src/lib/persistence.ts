@@ -1,7 +1,7 @@
-import { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent } from "../types";
-import { supabase } from "./supabase";
-import { companyStoragePath, requireActiveCompanyId } from "./companyContext";
-import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity";
+import type { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent } from "../types.ts";
+import { supabase } from "./supabase.ts";
+import { companyStoragePath, requireActiveCompanyId } from "./companyContext.ts";
+import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity.ts";
 import { parseFinancialCorrectionPreview, parseFinancialCorrectionResult, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./financialLifecycle.ts";
 
 const INVOICE_BUCKET = "invoice-originals";

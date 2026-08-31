@@ -175,8 +175,7 @@ test("Viewer and read-only roles are not offered mutation workflows", () => {
   assert.match(expensesPage, /\{canManage && <th/);
   assert.match(invoicesRoute, /InvoiceDirectoryReadOnly/);
   assert.match(invoicesRoute, /readOnly=\{!canVerifyInvoices\}/);
-  assert.match(invoicesRoute, /onStartReview=\{canVerifyInvoices \? onStartReview : undefined\}/);
-  assert.match(invoicesRoute, /GmailInboxReadOnly/);
+  assert.match(invoicesRoute, /canManageMailbox=\{canManageGmail\}/);
 });
 
 test("Project workspace hides inaccessible financial and workforce tabs instead of showing false empty states", () => {

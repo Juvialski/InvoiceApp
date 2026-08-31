@@ -6,7 +6,16 @@ import { assertDeploymentCompanyId } from "./deploymentCompany.ts";
 export interface CompanyApiRequestOptions extends RequestInit {
   /** Compatibility input. It must match the deployment company when supplied. */
   companyId: string;
+  /** Raw short-lived Google provider access token. Never pass a Bearer-prefixed value. */
   googleAccessToken?: string;
+}
+
+export function gmailProviderAuthorizationHeader(accessToken: string) {
+  const token = accessToken.trim();
+  if (!token || /^Bearer\s/i.test(token) || /\s/.test(token)) {
+    throw new Error("The Gmail provider access token is invalid. Reconnect Google + Gmail.");
+  }
+  return `Bearer ${token}`;
 }
 
 /**
@@ -27,7 +36,7 @@ export async function companyApiRequest(path: string, options: CompanyApiRequest
   const headers = new Headers(options.headers || {});
   headers.set("Authorization", `Bearer ${data.session.access_token}`);
   headers.set("X-Company-Id", deploymentCompanyId);
-  if (options.googleAccessToken) headers.set("X-Gmail-Access-Token", options.googleAccessToken);
+  if (options.googleAccessToken) headers.set("X-Gmail-Access-Token", gmailProviderAuthorizationHeader(options.googleAccessToken));
 
   const { companyId: _companyId, googleAccessToken: _googleAccessToken, ...requestInit } = options;
   return fetch(path, { ...requestInit, headers });
