@@ -125,6 +125,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canManageProjectAllocations = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.projectsWrite]);
   const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
   const canImportBankStatements = hasPermission(permissions, PERMISSION_KEYS.cashImport);
+  const canManageExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesWrite);
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const [correctionInvoice, setCorrectionInvoice] = useState<InvoiceData | null>(null);
   const [correctionPreview, setCorrectionPreview] = useState<FinancialCorrectionPreview | null>(null);
@@ -215,7 +216,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   if (activeSubTab === "inbox") {
     const fallbackConnection: GmailConnectionInfo = { configured: false, signedIn: false, hasGmailToken: false };
     const connection = gmailConnection || fallbackConnection;
-    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} onNavigatePath={onNavigatePath} canManageMailbox={canManageGmail} canProcessInvoices={canExtractInvoices} canImportBankStatements={canImportBankStatements} />;
+    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} onNavigatePath={onNavigatePath} canManageMailbox={canManageGmail} canProcessInvoices={canExtractInvoices} canImportBankStatements={canImportBankStatements} canManageExpenses={canManageExpenses} />;
   }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifyInvoices ? onStartReview : undefined} readOnly={!canVerifyInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
