@@ -73,9 +73,10 @@ export class AppErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorB
       return (
         <ErrorState
           className="m-4"
-          title="This workspace section needs a refresh"
-          description="An unexpected display error interrupted this section. Your saved records were not changed."
+          title="This workspace section could not be displayed"
+          description="An unexpected display error interrupted this section. Try again, or reload the page if the problem continues."
           onRetry={this.reset}
+          onReload={() => window.location.reload()}
         />
       );
     }
