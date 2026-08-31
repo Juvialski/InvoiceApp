@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { VerificationWorkspace, type SaveState } from "../../components/VerificationWorkspace";
 import { UploadZone, type ExtractPayload } from "../../components/UploadZone";
 import { EmailInbox } from "../../components/EmailInbox";
-import { GmailInboxReadOnly } from "../../components/GmailInboxReadOnly.tsx";
 import { ReviewQueue } from "../../components/ReviewQueue";
 import { InvoiceDirectory } from "../../components/InvoiceDirectory";
 import { InvoiceDirectoryReadOnly } from "../../components/InvoiceDirectoryReadOnly.tsx";
@@ -112,7 +111,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onLoadPreset,
   onBatchComplete,
   onConnectGmail = () => {},
-  onSignOut,
+  onSignOut = () => {},
   onScanGmail = async () => [],
   onSyncGmail = async () => [],
   onImportGmailMessage = async () => { throw new Error("Gmail import handler not configured."); },
@@ -125,6 +124,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canExtractInvoices = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify]);
   const canManageProjectAllocations = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.projectsWrite]);
   const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
+  const canImportBankStatements = hasPermission(permissions, PERMISSION_KEYS.cashImport);
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const [correctionInvoice, setCorrectionInvoice] = useState<InvoiceData | null>(null);
   const [correctionPreview, setCorrectionPreview] = useState<FinancialCorrectionPreview | null>(null);
@@ -215,8 +215,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   if (activeSubTab === "inbox") {
     const fallbackConnection: GmailConnectionInfo = { configured: false, signedIn: false, hasGmailToken: false };
     const connection = gmailConnection || fallbackConnection;
-    if (!canManageGmail) return <GmailInboxReadOnly invoices={invoices} connection={connection} onOpenInvoice={onSelectInvoice} />;
-    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} canProcessInvoices={canExtractInvoices} />;
+    return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} onNavigatePath={onNavigatePath} canManageMailbox={canManageGmail} canProcessInvoices={canExtractInvoices} canImportBankStatements={canImportBankStatements} />;
   }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifyInvoices ? onStartReview : undefined} readOnly={!canVerifyInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
