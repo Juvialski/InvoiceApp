@@ -144,6 +144,19 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   const remainingCount = useMemo(() => queue.filter((item) => item.reviewStatus === "NEEDS_REVIEW").length, [queue]);
   const positionLabel = inReviewSession ? `${Math.min(queueIndex + 1, queue.length)} / ${queue.length}` : "Standalone";
 
+  const handleInvoiceUpdate = (updated: InvoiceData) => {
+    const resolutionChanged = JSON.stringify(updated.entityResolution ?? null) !== JSON.stringify(invoice.entityResolution ?? null);
+    const vendorChanged = JSON.stringify(updated.vendor ?? null) !== JSON.stringify(invoice.vendor ?? null);
+    // Linking a master Vendor is a relationship decision, not an edit to what
+    // the invoice document actually said. Preserve extracted/manual Vendor
+    // fields when a resolution control tries to change both at once.
+    if (resolutionChanged && vendorChanged) {
+      onUpdateInvoice({ ...updated, vendor: invoice.vendor });
+      return;
+    }
+    onUpdateInvoice(updated);
+  };
+
   const focusField = (path: string) => {
     setFocusFieldPath(path);
     setFocusFieldToken((token) => token + 1);
@@ -256,7 +269,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
             onFocusField={focusField}
             onRevertField={needsReview ? onRevertField : undefined}
             vendors={loadedVendors}
-            onUpdateInvoice={onUpdateInvoice}
+            onUpdateInvoice={handleInvoiceUpdate}
           />
           <InvoiceViewer
             invoice={invoice}
@@ -264,7 +277,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
             compact
             focusFieldPath={focusFieldPath}
             focusFieldToken={focusFieldToken}
-            onUpdateInvoice={onUpdateInvoice}
+            onUpdateInvoice={handleInvoiceUpdate}
             onBack={onBack}
             vendors={loadedVendors}
           />
