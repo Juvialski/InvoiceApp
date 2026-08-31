@@ -150,8 +150,14 @@ async function gmailApiRequest(path: string, body: Record<string, unknown>) {
 
 async function persistSyncState(historyId?: string, emailAddress?: string) {
   if (!historyId) return undefined;
-  const state = await saveGmailSyncState(historyId, emailAddress);
-  return state.lastSyncedAt;
+  try {
+    const state = await saveGmailSyncState(historyId, emailAddress);
+    return state.lastSyncedAt;
+  } catch {
+    // gmail.read permits scanning. Persisting mailbox sync metadata may be
+    // unavailable to a read-only access profile, and must not block the scan.
+    return undefined;
+  }
 }
 
 export async function scanConnectedMailbox(window: GmailScanWindow): Promise<EmailIntakeScanResult> {
@@ -258,4 +264,17 @@ export async function loadPendingEmailStatementFile(pending: PendingEmailStateme
   const actualHash = await sha256(bytes);
   if (row.sha256 && actualHash !== row.sha256) throw new Error("The preserved statement failed its source-integrity check.");
   return new File([bytes], row.filename || pending.fileName, { type: row.mime_type || pending.mimeType || "application/octet-stream" });
+}
+
+export async function linkFinancialImportSource(input: { accountId: string; fileFingerprint: string; sourceDocumentId: string }) {
+  if (!supabase) throw new Error("Sign in before linking statement provenance.");
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase.rpc("link_financial_import_source", {
+    p_company_id: companyId,
+    p_account_id: input.accountId,
+    p_file_fingerprint: input.fileFingerprint,
+    p_source_document_id: input.sourceDocumentId,
+  });
+  if (error) throw error;
+  return data;
 }
