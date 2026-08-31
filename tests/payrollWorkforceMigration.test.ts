@@ -55,6 +55,9 @@ test("payroll safety migration enforces leave lifecycle and project source fresh
 test("Wave 7 protects holidays from finalized payroll-source edits regardless of caller read RLS", () => {
   assert.match(wave7AuthorityMigration, /create or replace function public\.guard_finalized_payroll_workforce_source[\s\S]*?security definer\s+set search_path = ''/i);
   assert.doesNotMatch(wave7AuthorityMigration, /create or replace function public\.guard_finalized_payroll_workforce_source[\s\S]*?security invoker\s+set search_path = ''/i);
+  assert.match(wave7AuthorityMigration, /private\.deployment_company_id\(\)/);
+  assert.match(wave7AuthorityMigration, /v_company_id is distinct from v_deployment_company_id/);
+  assert.match(wave7AuthorityMigration, /p\.company_id = v_deployment_company_id/);
   assert.match(wave7AuthorityMigration, /v_new ->> 'holiday_date'/);
   assert.match(wave7AuthorityMigration, /v_old ->> 'holiday_date'/);
   assert.match(wave7AuthorityMigration, /payroll_holidays_finalized_source_guard/);
