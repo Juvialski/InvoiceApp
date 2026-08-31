@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, FileSpreadsheet, FileText, Inbox, Loader2, Mail, Paperclip, RefreshCw, ScanSearch, Sparkles, UploadCloud } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileSpreadsheet, FileText, Inbox, Loader2, Mail, Paperclip, Receipt, RefreshCw, ScanSearch, Sparkles, UploadCloud } from "lucide-react";
 import { EmailClassification, GmailConnectionInfo, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "../types";
 import { formatDateTime } from "../config/regional";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
@@ -7,6 +7,7 @@ import { appPathForTab } from "../utils/appRouting.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
 import {
   classifyEmailIntakeCandidate,
+  prepareGmailExpenseReview,
   prepareGmailStatementReview,
   scanConnectedMailbox,
   syncConnectedMailbox,
@@ -29,6 +30,7 @@ interface EmailInboxProps {
   canManageMailbox?: boolean;
   canProcessInvoices?: boolean;
   canImportBankStatements?: boolean;
+  canManageExpenses?: boolean;
 }
 
 function destinationFor(message: GmailMessageCandidate) {
@@ -48,6 +50,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   canManageMailbox = true,
   canProcessInvoices = true,
   canImportBankStatements = false,
+  canManageExpenses = true,
 }) => {
   const [days, setDays] = useState(30);
   const [scanMode, setScanMode] = useState<"days" | "custom">("days");
@@ -60,6 +63,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   const [historyId, setHistoryId] = useState(connection.lastHistoryId || "");
   const [lastSyncedAt, setLastSyncedAt] = useState(connection.lastSyncedAt || "");
   const [statementAttachmentSelection, setStatementAttachmentSelection] = useState<Record<string, string>>({});
+  const [expenseAttachmentSelection, setExpenseAttachmentSelection] = useState<Record<string, string>>({});
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
   const [receivedAt, setReceivedAt] = useState(() => new Date().toISOString().slice(0, 16));
@@ -142,6 +146,30 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     }
   };
 
+  const reviewExpense = async (message: GmailMessageCandidate) => {
+    if (!canManageMailbox) {
+      setGmailError("Preserving an expense receipt email requires Gmail management permission.");
+      return;
+    }
+    if (!canManageExpenses) {
+      setGmailError("Reviewing an expense requires expense management permission.");
+      return;
+    }
+    setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
+    try {
+      const classification = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
+      const attachmentId = expenseAttachmentSelection[message.id] || classification.expenseAttachmentIds?.[0];
+      await prepareGmailExpenseReview(message, attachmentId);
+      setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
+      const expensesPath = appPathForTab("expenses");
+      if (onNavigatePath) onNavigatePath(expensesPath);
+      else if (typeof window !== "undefined") window.location.assign(expensesPath);
+    } catch (error: any) {
+      setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "FAILED" } : item));
+      setGmailError(error?.message || `Could not prepare ${message.subject || "expense"} for review.`);
+    }
+  };
+
   const handleManualSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setManualError(null);
@@ -159,7 +187,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow="Operational intake" title="Email Intake" description="Scan a connected read-only Gmail mailbox, classify finance documents, and route supported invoices or bank statements into their existing review workflows." />
+      <PageHeader eyebrow="Operational intake" title="Email Intake" description="Scan a connected read-only Gmail mailbox, classify finance documents, and route supported invoices, bank statements, or expense receipts into their existing review workflows." />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -179,14 +207,16 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         {gmailError && <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-100 text-xs text-rose-700 flex gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{gmailError}</div>}
       </section>
 
-      {candidates.length > 0 && <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="text-sm font-black">Connected mailbox results</h3><p className="text-[10px] text-slate-500 mt-1">Nothing is imported until you choose an invoice extraction or statement review action.</p></div><span className="text-[10px] font-black bg-slate-100 px-2.5 py-1 rounded-full">{candidates.length} candidates</span></div><div className="mt-4 space-y-2.5">{candidates.map((message) => {
+      {candidates.length > 0 && <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="text-sm font-black">Connected mailbox results</h3><p className="text-[10px] text-slate-500 mt-1">Nothing is imported until you choose an invoice extraction, statement review, or expense review action.</p></div><span className="text-[10px] font-black bg-slate-100 px-2.5 py-1 rounded-full">{candidates.length} candidates</span></div><div className="mt-4 space-y-2.5">{candidates.map((message) => {
         const cls = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
         const destination = destinationFor(message);
         const statementAttachments = destination === "BANK_STATEMENT" ? message.attachments.filter((attachment) => cls.statementAttachmentIds?.includes(attachment.attachmentId)) : [];
         const selectedStatementAttachment = statementAttachmentSelection[message.id] || statementAttachments[0]?.attachmentId || "";
-        const destinationLabel = destination === "BANK_STATEMENT" ? "Bank statement" : destination === "INVOICE" ? "Invoice" : "Needs review";
-        const destinationTone = destination === "BANK_STATEMENT" ? "bg-sky-100 text-sky-800" : destination === "INVOICE" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600";
-        return <div key={message.id} className="border border-slate-200 rounded-2xl p-3.5 flex flex-col lg:flex-row lg:items-center gap-3"><div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${destination === "BANK_STATEMENT" ? "bg-sky-50 text-sky-700" : destination === "INVOICE" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"}`}>{destination === "BANK_STATEMENT" ? <FileSpreadsheet className="w-4 h-4" /> : <Inbox className="w-4 h-4" />}</div><div className="min-w-0 flex-1"><div className="flex gap-2 items-center flex-wrap"><p className="text-xs font-black truncate">{message.subject || "(No subject)"}</p><span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${destinationTone}`}>{destinationLabel} {Math.round(cls.confidence || 0)}%</span></div><p className="text-[10px] text-slate-500 mt-1 truncate">{message.sender} • {formatDateTime(message.receivedAt)} • {message.attachments.length} attachment{message.attachments.length === 1 ? "" : "s"}</p>{cls.reason && <p className="text-[10px] text-slate-600 mt-1 line-clamp-2">{cls.reason}</p>}{destination === "BANK_STATEMENT" && statementAttachments.length > 1 && <label className="mt-2 block max-w-sm text-[10px] font-bold uppercase text-slate-500">Statement attachment<select className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold normal-case text-slate-800" value={selectedStatementAttachment} onChange={(event) => setStatementAttachmentSelection((current) => ({ ...current, [message.id]: event.target.value }))}>{statementAttachments.map((attachment) => <option key={attachment.attachmentId} value={attachment.attachmentId}>{attachment.filename}</option>)}</select></label>}</div>{destination === "INVOICE" ? (canManageMailbox && canProcessInvoices ? <button disabled={message.importStatus === "IMPORTING" || message.importStatus === "IMPORTED"} onClick={() => void importCandidate(message)} className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-indigo-600 text-white">{message.importStatus === "IMPORTING" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : message.importStatus === "IMPORTED" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <UploadCloud className="w-3.5 h-3.5" />}{message.importStatus === "IMPORTED" ? "Imported" : "Import & extract"}</button> : <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">{!canManageMailbox && !canProcessInvoices ? "Requires Gmail + invoice permission" : !canManageMailbox ? "Requires Gmail permission" : "Requires invoice permission"}</span>) : destination === "BANK_STATEMENT" ? (canManageMailbox && canImportBankStatements ? <button disabled={message.importStatus === "IMPORTING"} onClick={() => void reviewStatement(message)} className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-sky-700 text-white">{message.importStatus === "IMPORTING" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}Review statement</button> : <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">{!canManageMailbox && !canImportBankStatements ? "Requires Gmail + cash import permission" : !canManageMailbox ? "Requires Gmail permission" : "Requires cash import permission"}</span>) : <span className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600">No automatic destination</span>}</div>;
+        const expenseAttachments = destination === "EXPENSE" ? message.attachments.filter((attachment) => cls.expenseAttachmentIds?.includes(attachment.attachmentId)) : [];
+        const selectedExpenseAttachment = expenseAttachmentSelection[message.id] || expenseAttachments[0]?.attachmentId || "";
+        const destinationLabel = destination === "BANK_STATEMENT" ? "Bank statement" : destination === "INVOICE" ? "Invoice" : destination === "EXPENSE" ? "Receipt" : "Needs review";
+        const destinationTone = destination === "BANK_STATEMENT" ? "bg-sky-100 text-sky-800" : destination === "INVOICE" ? "bg-emerald-100 text-emerald-700" : destination === "EXPENSE" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600";
+        return <div key={message.id} className="border border-slate-200 rounded-2xl p-3.5 flex flex-col lg:flex-row lg:items-center gap-3"><div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${destination === "BANK_STATEMENT" ? "bg-sky-50 text-sky-700" : destination === "INVOICE" ? "bg-emerald-50 text-emerald-600" : destination === "EXPENSE" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{destination === "BANK_STATEMENT" ? <FileSpreadsheet className="w-4 h-4" /> : destination === "EXPENSE" ? <Receipt className="w-4 h-4" /> : <Inbox className="w-4 h-4" />}</div><div className="min-w-0 flex-1"><div className="flex gap-2 items-center flex-wrap"><p className="text-xs font-black truncate">{message.subject || "(No subject)"}</p><span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${destinationTone}`}>{destinationLabel} {Math.round(cls.confidence || 0)}%</span></div><p className="text-[10px] text-slate-500 mt-1 truncate">{message.sender} • {formatDateTime(message.receivedAt)} • {message.attachments.length} attachment{message.attachments.length === 1 ? "" : "s"}</p>{cls.reason && <p className="text-[10px] text-slate-600 mt-1 line-clamp-2">{cls.reason}</p>}{destination === "BANK_STATEMENT" && statementAttachments.length > 1 && <label className="mt-2 block max-w-sm text-[10px] font-bold uppercase text-slate-500">Statement attachment<select className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold normal-case text-slate-800" value={selectedStatementAttachment} onChange={(event) => setStatementAttachmentSelection((current) => ({ ...current, [message.id]: event.target.value }))}>{statementAttachments.map((attachment) => <option key={attachment.attachmentId} value={attachment.attachmentId}>{attachment.filename}</option>)}</select></label>}{destination === "EXPENSE" && expenseAttachments.length > 1 && <label className="mt-2 block max-w-sm text-[10px] font-bold uppercase text-slate-500">Receipt attachment<select className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold normal-case text-slate-800" value={selectedExpenseAttachment} onChange={(event) => setExpenseAttachmentSelection((current) => ({ ...current, [message.id]: event.target.value }))}>{expenseAttachments.map((attachment) => <option key={attachment.attachmentId} value={attachment.attachmentId}>{attachment.filename}</option>)}</select></label>}</div>{destination === "INVOICE" ? (canManageMailbox && canProcessInvoices ? <button disabled={message.importStatus === "IMPORTING" || message.importStatus === "IMPORTED"} onClick={() => void importCandidate(message)} className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-indigo-600 text-white">{message.importStatus === "IMPORTING" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : message.importStatus === "IMPORTED" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <UploadCloud className="w-3.5 h-3.5" />}{message.importStatus === "IMPORTED" ? "Imported" : "Import & extract"}</button> : <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">{!canManageMailbox && !canProcessInvoices ? "Requires Gmail + invoice permission" : !canManageMailbox ? "Requires Gmail permission" : "Requires invoice permission"}</span>) : destination === "BANK_STATEMENT" ? (canManageMailbox && canImportBankStatements ? <button disabled={message.importStatus === "IMPORTING"} onClick={() => void reviewStatement(message)} className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-sky-700 text-white">{message.importStatus === "IMPORTING" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}Review statement</button> : <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">{!canManageMailbox && !canImportBankStatements ? "Requires Gmail + cash import permission" : !canManageMailbox ? "Requires Gmail permission" : "Requires cash import permission"}</span>) : destination === "EXPENSE" ? (canManageMailbox && canManageExpenses ? <button disabled={message.importStatus === "IMPORTING"} onClick={() => void reviewExpense(message)} className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-amber-600 text-white hover:bg-amber-700">{message.importStatus === "IMPORTING" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Receipt className="w-3.5 h-3.5" />}Review expense</button> : <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">{!canManageMailbox && !canManageExpenses ? "Requires Gmail + expense permission" : !canManageMailbox ? "Requires Gmail permission" : "Requires expense permission"}</span>) : <span className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600">No automatic destination</span>}</div>;
       })}</div></section>}
 
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
@@ -204,3 +234,4 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     </div>
   );
 };
+

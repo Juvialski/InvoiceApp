@@ -1,14 +1,15 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: planned
+Status: Phase 1 merged (PR #49), Phase 2 completed (PR pending), Phases 3-4 planned
 
-Current baseline when this roadmap was created:
+Current baseline:
 
 - repository: `Juvialski/InvoiceApp`
 - product: Engoryx Engineering Operations Platform
-- `main`: `e9e68dc8f2b5ebb8d365a7faf23efaf8586f6690`
 - PR #48 (`feat(ui): comprehensive operations UI hardening`) is merged
-- the PR #48 UI foundation should be reused rather than redesigned again
+- PR #49 (`Email Intake Phase 1: Gmail auth and bank statement routing`) is merged
+- Phase 2 (`Email Intake Phase 2: Expenses / Receipts`) implemented
+- the PR #48 UI foundation is reused rather than redesigned again
 
 This document is the durable plan for evolving the existing Gmail invoice connector into a shared, auditable intake layer for multiple Engoryx workflows.
 
