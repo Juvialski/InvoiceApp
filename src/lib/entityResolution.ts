@@ -913,16 +913,26 @@ export function extractVendorEvidenceFromInvoice(
  * Missing currency remains unknown/empty and does not default to PHP.
  */
 export function extractAccountEvidenceFromStatement(
-  document: { fileName?: string; sheetName?: string; rawRows?: readonly (string | number | Date | null | undefined)[][] },
+  document: {
+    fileName?: string;
+    sheetName?: string;
+    rawRows?: readonly (string | number | Date | null | undefined)[][];
+    extractedMetadata?: {
+      institutionName?: string;
+      accountNumber?: string;
+      maskedIdentifier?: string;
+      currency?: string;
+    };
+  },
   sourceMetadata?: { sender?: string; subject?: string },
   profile?: EmailIntakeProfile,
 ): FinancialAccountIdentityEvidence {
   const parsedSender = sourceMetadata?.sender ? parseSenderAddress(sourceMetadata.sender) : null;
   const rows = document.rawRows || [];
 
-  let detectedInstitution: string | undefined;
-  let detectedAccountNumber: string | undefined;
-  let detectedCurrency: string | undefined;
+  let detectedInstitution: string | undefined = document.extractedMetadata?.institutionName;
+  let detectedAccountNumber: string | undefined = document.extractedMetadata?.accountNumber || document.extractedMetadata?.maskedIdentifier;
+  let detectedCurrency: string | undefined = document.extractedMetadata?.currency;
   let detectedAccountName: string | undefined;
 
   // Search pre-header rows and all string cells up to row 25

@@ -57,15 +57,15 @@ test("shared classifier routes supported spreadsheet bank statements to Cash & B
   assert.ok(classification.confidence >= 80);
 });
 
-test("PDF-only bank statements remain unsupported until the cash parser supports them", () => {
+test("PDF bank statements are classified as BANK_STATEMENT when statement signals are present", () => {
   const message = candidate({
     subject: "Monthly bank statement",
     bodyText: "Your bank statement is attached.",
     attachments: [{ attachmentId: "a1", filename: "statement.pdf", mimeType: "application/pdf", size: 2048 }],
   });
   const classification = classifyEmailIntakeCandidate(message);
-  assert.equal(classification.suggestedDestination, "UNSUPPORTED");
-  assert.equal(isSupportedBankStatementAttachment(message.attachments[0]!), false);
+  assert.equal(classification.suggestedDestination, "BANK_STATEMENT");
+  assert.equal(isSupportedBankStatementAttachment(message.attachments[0]!), true);
 });
 
 test("invoice routing remains compatible with the existing invoice extraction path", () => {

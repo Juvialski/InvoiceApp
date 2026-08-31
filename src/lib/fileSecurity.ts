@@ -82,8 +82,50 @@ export function validateGmailRawMessage(bytes: Uint8Array) {
   }
 }
 
+export function validateBankStatementBytes(bytes: Uint8Array, fileName: string, mimeType?: string) {
+  assertNonEmptyWithinLimit(bytes, MAX_GMAIL_ATTACHMENT_BYTES, "Bank statement source");
+  const ext = extension(fileName);
+  const mime = normalizedMime(mimeType);
+
+  if (ext === "pdf" || mime === "application/pdf") {
+    if (!startsWithBytes(bytes, PDF)) {
+      throw new Error("Bank statement PDF signature does not match a valid PDF file.");
+    }
+    return;
+  }
+
+  if (["xlsx", "xlsm"].includes(ext)) {
+    if (!startsWithBytes(bytes, ZIP)) throw new Error("Bank statement workbook signature does not match an XLSX/XLSM file.");
+    return;
+  }
+
+  if (ext === "xls") {
+    if (!startsWithBytes(bytes, OLE)) throw new Error("Bank statement workbook signature does not match an XLS file.");
+    return;
+  }
+
+  if (ext === "csv") {
+    const sample = new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, Math.min(bytes.byteLength, 64 * 1024)));
+    if (sample.includes("\u0000")) throw new Error("Bank statement CSV contains binary data.");
+    if (mime && !["text/csv", "text/plain", "application/csv", "application/vnd.ms-excel"].includes(mime)) {
+      throw new Error("Bank statement CSV MIME type is not supported.");
+    }
+    return;
+  }
+
+  throw new Error("Bank statement files must be PDF, CSV, XLS, XLSX, or XLSM files.");
+}
+
 export function validateGmailAttachmentBytes(bytes: Uint8Array, mimeType: string | undefined, fileName: string | undefined) {
   assertNonEmptyWithinLimit(bytes, MAX_GMAIL_ATTACHMENT_BYTES, "Gmail attachment");
+  const ext = extension(fileName);
+  const mime = normalizedMime(mimeType);
+
+  if (["csv", "xlsx", "xls", "xlsm"].includes(ext) || ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel.sheet.macroenabled.12"].includes(mime)) {
+    validateBankStatementBytes(bytes, fileName || "statement.csv", mimeType);
+    return;
+  }
+
   validateInvoiceDocumentBytes(bytes, mimeType, fileName);
 }
 
