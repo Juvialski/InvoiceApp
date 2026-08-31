@@ -1,6 +1,6 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 implemented in PR #51 and pending review, Phase 4 planned next.
+Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A implemented and pending PR review, Phase 4B planned next.
 
 Current direction:
 
@@ -89,7 +89,7 @@ Permanent boundaries:
 
 # Phase 3 — Top-Level Email Intake + Gmail Reliability UX
 
-Status: implemented in PR #51, pending review/merge.
+Status: merged in PR #51.
 
 Goal:
 
@@ -162,6 +162,8 @@ The first stages should normally require zero AI calls.
 Do not send every discovered email or attachment to Gemini just to decide whether it is financial.
 
 ## 4A — Intake efficiency foundation
+
+Status: implemented in feature branch `feat/email-intake-phase-4a-efficiency-rules`.
 
 Priorities:
 

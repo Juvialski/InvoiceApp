@@ -1,12 +1,126 @@
-import type { EmailClassification, Expense, GmailAttachmentSummary, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow } from "../types.ts";
+import type {
+  EmailClassification,
+  EmailIntakeProfile,
+  EmailIntakeProfileInput,
+  Expense,
+  GmailAttachmentSummary,
+  GmailConnectionInfo,
+  GmailImportedMessage,
+  GmailMessageCandidate,
+  GmailScanWindow,
+} from "../types.ts";
 import { companyApiRequest } from "./companyApi.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
 import { clearGoogleProviderTokens, getGoogleProviderToken, supabase } from "./supabase.ts";
-import { markEmailClassification, saveGmailMessageSource, saveGmailSyncState } from "./persistence.ts";
+import {
+  listEmailIntakeProfiles,
+  markEmailClassification,
+  saveGmailMessageSource,
+  saveGmailSyncState,
+} from "./persistence.ts";
 
 export type EmailIntakeDestination = "INVOICE" | "BANK_STATEMENT" | "EXPENSE" | "UNSUPPORTED";
 
 export type GmailConnectionStatus = "HEALTHY" | "RECONNECT_REQUIRED" | "NEVER_CONNECTED" | "UNCONFIGURED";
+
+export const MAX_SENDER_CHUNK_SIZE = 8;
+export const MAX_SCAN_RESULTS_PER_REQUEST = 30;
+export const MAX_DISCOVERED_MESSAGES = 60;
+export const MAX_AI_BATCH_SIZE = 8;
+
+export const DISALLOWED_DOMAIN_RULES = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "yahoo.com.ph",
+  "hotmail.com",
+  "outlook.com",
+  "live.com",
+  "icloud.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "mail.com",
+  "me.com",
+  "msn.com",
+  "com",
+  "net",
+  "org",
+  "ph",
+  "com.ph",
+]);
+
+export function normalizeEmail(email?: string | null): string {
+  return String(email || "").trim().toLowerCase();
+}
+
+export function normalizeDomain(domain?: string | null): string {
+  return String(domain || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z]+:\/\//, "")
+    .replace(/\/.*$/, "")
+    .replace(/^@+/, "")
+    .replace(/^\*@?/, "")
+    .replace(/^\.+/, "");
+}
+
+export function extractEmailDomain(email: string): string {
+  const clean = normalizeEmail(email);
+  const at = clean.lastIndexOf("@");
+  return at >= 0 ? clean.slice(at + 1) : "";
+}
+
+export function parseSenderAddress(sender: string): { name: string; email: string; domain: string } {
+  const trimmed = String(sender || "").trim();
+  const angleMatch = trimmed.match(/^(?:"?([^"<@]+)"?\s*)?<([^>]+)>$/);
+  if (angleMatch) {
+    const name = (angleMatch[1] || "").trim();
+    const email = normalizeEmail(angleMatch[2]);
+    return { name, email, domain: extractEmailDomain(email) };
+  }
+  const emailMatch = trimmed.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (emailMatch) {
+    const email = normalizeEmail(emailMatch[1]);
+    const name = trimmed.replace(emailMatch[1], "").replace(/[<>()"]/g, "").trim();
+    return { name, email, domain: extractEmailDomain(email) };
+  }
+  return { name: trimmed, email: "", domain: "" };
+}
+
+export function validateEmailIntakeProfile(input: Partial<EmailIntakeProfileInput>): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  const name = String(input.name || "").trim();
+  if (!name) errors.push("Profile name is required.");
+
+  const email = input.senderEmail ? normalizeEmail(input.senderEmail) : "";
+  const domain = input.senderDomain ? normalizeDomain(input.senderDomain) : "";
+
+  if (!email && !domain) {
+    errors.push("Either a specific sender email or a sender domain is required.");
+  }
+
+  if (email) {
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      errors.push("Sender email is not a valid email address.");
+    }
+  }
+
+  if (domain) {
+    if (domain === "*" || domain.startsWith("*.") || domain.includes("*") || domain.length < 3 || !domain.includes(".")) {
+      errors.push("Sender domain cannot be a wildcard or malformed domain.");
+    } else if (DISALLOWED_DOMAIN_RULES.has(domain)) {
+      errors.push(`Domain '@${domain}' is a generic email provider. Use an exact sender email instead of a broad domain rule.`);
+    }
+  }
+
+  const dest = input.suggestedDestination;
+  if (!dest || !["INVOICE", "BANK_STATEMENT", "EXPENSE"].includes(dest)) {
+    errors.push("Suggested destination must be INVOICE, BANK_STATEMENT, or EXPENSE.");
+  }
+
+  return { valid: errors.length === 0, errors };
+}
 
 export function isGmailAuthorizationError(message?: string | null) {
   const value = String(message || "").trim().toLowerCase();
@@ -120,19 +234,79 @@ export function isSupportedExpenseAttachment(attachment: Pick<GmailAttachmentSum
 }
 
 function supportedStatementAttachmentIds(message: GmailMessageCandidate) {
-  return message.attachments.filter(isSupportedBankStatementAttachment).map((attachment) => attachment.attachmentId);
+  return (message.attachments || []).filter(isSupportedBankStatementAttachment).map((attachment) => attachment.attachmentId);
 }
 
 function supportedExpenseAttachmentIds(message: GmailMessageCandidate) {
-  return message.attachments.filter(isSupportedExpenseAttachment).map((attachment) => attachment.attachmentId);
+  return (message.attachments || []).filter(isSupportedExpenseAttachment).map((attachment) => attachment.attachmentId);
+}
+
+export function matchEmailIntakeProfiles(
+  message: GmailMessageCandidate | GmailImportedMessage,
+  profiles?: EmailIntakeProfile[]
+): EmailIntakeProfile[] {
+  const enabledProfiles = (profiles || []).filter((p) => p.enabled !== false);
+  if (!enabledProfiles.length) return [];
+
+  const parsed = parseSenderAddress(message.sender || "");
+  const subjectLower = (message.subject || "").toLowerCase();
+  const statementIds = supportedStatementAttachmentIds(message as GmailMessageCandidate);
+  const expenseIds = supportedExpenseAttachmentIds(message as GmailMessageCandidate);
+
+  const exactMatches: EmailIntakeProfile[] = [];
+  const domainMatches: EmailIntakeProfile[] = [];
+
+  for (const profile of enabledProfiles) {
+    const normEmail = profile.senderEmail ? normalizeEmail(profile.senderEmail) : "";
+    const normDomain = profile.senderDomain ? normalizeDomain(profile.senderDomain) : "";
+
+    let matchStrength: "EXACT" | "DOMAIN" | null = null;
+    if (normEmail) {
+      if (parsed.email && normEmail === parsed.email) matchStrength = "EXACT";
+    } else if (normDomain && parsed.domain && (parsed.domain === normDomain || parsed.domain.endsWith(`.${normDomain}`))) {
+      matchStrength = "DOMAIN";
+    }
+
+    if (!matchStrength) continue;
+
+    if (profile.subjectContains && profile.subjectContains.trim()) {
+      const needle = profile.subjectContains.trim().toLowerCase();
+      if (!subjectLower.includes(needle)) continue;
+    }
+
+    if (profile.attachmentCondition && profile.attachmentCondition.trim()) {
+      const cond = profile.attachmentCondition.trim().toUpperCase();
+      if (cond === "SPREADSHEET" || cond === "STATEMENT" || cond === "CSV" || cond === "XLSX") {
+        if (statementIds.length === 0) continue;
+      } else if (cond === "PDF") {
+        const hasPdf = (message.attachments || []).some((a) => (a.filename || "").toLowerCase().endsWith(".pdf") || a.mimeType === "application/pdf");
+        if (!hasPdf) continue;
+      } else if (cond === "IMAGE" || cond === "RECEIPT") {
+        if (expenseIds.length === 0) continue;
+      } else {
+        const patternLower = profile.attachmentCondition.trim().toLowerCase();
+        const match = (message.attachments || []).some((a) => (a.filename || "").toLowerCase().includes(patternLower));
+        if (!match) continue;
+      }
+    }
+
+    if (matchStrength === "EXACT") exactMatches.push(profile);
+    else domainMatches.push(profile);
+  }
+
+  return exactMatches.length > 0 ? exactMatches : domainMatches;
 }
 
 /**
  * Deterministic first-pass classifier shared by initial scan and incremental
- * sync. Routes supported bank statements, invoices, and expense receipts/bills
- * to their review workflows while preserving advisory non-mutating status.
+ * sync. Integrates saved sender profiles and routes supported bank statements,
+ * invoices, and expense receipts/bills to their review workflows while
+ * preserving advisory non-mutating status.
  */
-export function classifyEmailIntakeCandidate(message: GmailMessageCandidate): EmailIntakeClassification {
+export function classifyEmailIntakeCandidate(
+  message: GmailMessageCandidate,
+  profiles?: EmailIntakeProfile[]
+): EmailIntakeClassification {
   const text = financeText(message);
   const names = attachmentNameText(message);
   const statementIds = supportedStatementAttachmentIds(message);
@@ -143,8 +317,123 @@ export function classifyEmailIntakeCandidate(message: GmailMessageCandidate): Em
   const strongBankStatementSignal = /\b(bank statement|transaction statement|e[- ]?statement|monthly statement)\b/i.test(text)
     || (/\b(statement|transactions?|account)\b/i.test(text) && /\b(bank|checking|savings|deposit|ledger|balance)\b/i.test(text));
   const spreadsheetStatementName = /\b(statement|transactions?|account|ledger)\b/i.test(names);
+  const detectedBankStatement = hasSupportedStatement && (strongBankStatementSignal || spreadsheetStatementName);
 
-  if (hasSupportedStatement && (strongBankStatementSignal || spreadsheetStatementName)) {
+  const strongReceiptSignal = /\b(official receipt|payment receipt|purchase receipt|reimbursement receipt|sales receipt|cash receipt|acknowledgement receipt|acknowledgment receipt|e[- ]?receipt|order receipt|charge slip|petty cash|expense report|expense claim)\b/i.test(text)
+    || /\b(official[-_ ]?receipt|payment[-_ ]?receipt|purchase[-_ ]?receipt|e[-_ ]?receipt|receipt[-_ ]?[0-9]|or[-_ ]?[0-9])\b/i.test(names);
+
+  const generalReceiptSignal = (/\b(receipt|resibo|ticket|fare|petron|shell|caltex|seaoil|grab|uber|taxi|restaurant|jollibee|mcdonalds|hardware)\b/i.test(text)
+    || /\breceipt\b/i.test(names)) && !/\b(sales invoice|service invoice|vat invoice|tax invoice)\b/i.test(text);
+
+  const invoiceSignal = /\b(invoice|sales invoice|service invoice|vat invoice|tax invoice|billing|bill\s*(?:no|number|#)|amount due|credit note)\b/i.test(text)
+    || /\binvoice\b/i.test(names);
+
+  const detectedExpense = (strongReceiptSignal || generalReceiptSignal) && hasSupportedExpenseAttachment && !invoiceSignal;
+  const detectedInvoice = Boolean(invoiceSignal);
+
+  // Evaluate matching profiles
+  const matchingProfiles = matchEmailIntakeProfiles(message, profiles);
+
+  if (matchingProfiles.length > 0) {
+    const distinctDestinations = Array.from(new Set(matchingProfiles.map((p) => p.suggestedDestination)));
+
+    if (distinctDestinations.length > 1) {
+      return {
+        isInvoiceLike: false,
+        documentType: "OTHER",
+        confidence: 65,
+        reason: `Multiple matching sender rules conflict on suggested destinations (${distinctDestinations.join(", ")}). Review required.`,
+        conflictReason: `Multiple matching sender rules conflict on suggested destinations (${distinctDestinations.join(", ")}).`,
+        suggestedDestination: "UNSUPPORTED",
+        statementAttachmentIds: statementIds,
+        expenseAttachmentIds: expenseIds,
+      };
+    }
+
+    const ruleDest = distinctDestinations[0];
+    const primaryRule = matchingProfiles[0];
+
+    // Check for conflict with strong document evidence
+    if (ruleDest !== "INVOICE" && detectedInvoice && /\b(sales invoice|service invoice|vat invoice|tax invoice)\b/i.test(text)) {
+      return {
+        isInvoiceLike: true,
+        documentType: "INVOICE",
+        confidence: 70,
+        reason: `Saved sender rule (${ruleDest}) conflicts with invoice language found in document. Review required.`,
+        conflictReason: `Saved sender rule (${ruleDest}) conflicts with explicit invoice document signals.`,
+        suggestedDestination: "UNSUPPORTED",
+        matchedProfileId: primaryRule.id,
+        matchedProfileName: primaryRule.name,
+        statementAttachmentIds: statementIds,
+        expenseAttachmentIds: expenseIds,
+      };
+    }
+
+    if (ruleDest !== "BANK_STATEMENT" && detectedBankStatement && strongBankStatementSignal) {
+      return {
+        isInvoiceLike: false,
+        documentType: "STATEMENT",
+        confidence: 70,
+        reason: `Saved sender rule (${ruleDest}) conflicts with bank statement document signals. Review required.`,
+        conflictReason: `Saved sender rule (${ruleDest}) conflicts with bank statement document signals.`,
+        suggestedDestination: "UNSUPPORTED",
+        matchedProfileId: primaryRule.id,
+        matchedProfileName: primaryRule.name,
+        statementAttachmentIds: statementIds,
+        expenseAttachmentIds: expenseIds,
+      };
+    }
+
+    if (ruleDest !== "EXPENSE" && detectedExpense && strongReceiptSignal) {
+      return {
+        isInvoiceLike: false,
+        documentType: "RECEIPT",
+        confidence: 70,
+        reason: `Saved sender rule (${ruleDest}) conflicts with receipt document signals. Review required.`,
+        conflictReason: `Saved sender rule (${ruleDest}) conflicts with explicit receipt document signals.`,
+        suggestedDestination: "UNSUPPORTED",
+        matchedProfileId: primaryRule.id,
+        matchedProfileName: primaryRule.name,
+        statementAttachmentIds: statementIds,
+        expenseAttachmentIds: expenseIds,
+      };
+    }
+
+    // Agreement between rule and document signals
+    if (
+      (ruleDest === "INVOICE" && detectedInvoice) ||
+      (ruleDest === "BANK_STATEMENT" && detectedBankStatement) ||
+      (ruleDest === "EXPENSE" && detectedExpense)
+    ) {
+      return {
+        isInvoiceLike: ruleDest === "INVOICE",
+        documentType: ruleDest === "BANK_STATEMENT" ? "STATEMENT" : ruleDest === "EXPENSE" ? "RECEIPT" : "INVOICE",
+        confidence: 96,
+        reason: `Saved sender rule (${primaryRule.name}) and ${ruleDest.toLowerCase()} signals agree.`,
+        suggestedDestination: ruleDest,
+        matchedProfileId: primaryRule.id,
+        matchedProfileName: primaryRule.name,
+        statementAttachmentIds: statementIds,
+        expenseAttachmentIds: expenseIds,
+      };
+    }
+
+    // Rule matches, generic document was ambiguous/unsupported
+    return {
+      isInvoiceLike: ruleDest === "INVOICE",
+      documentType: ruleDest === "BANK_STATEMENT" ? "STATEMENT" : ruleDest === "EXPENSE" ? "RECEIPT" : "INVOICE",
+      confidence: 86,
+      reason: `Matched saved sender rule: ${primaryRule.name}.`,
+      suggestedDestination: ruleDest,
+      matchedProfileId: primaryRule.id,
+      matchedProfileName: primaryRule.name,
+      statementAttachmentIds: statementIds,
+      expenseAttachmentIds: expenseIds,
+    };
+  }
+
+  // Generic deterministic classification when no profile matches
+  if (detectedBankStatement) {
     return {
       isInvoiceLike: false,
       documentType: "STATEMENT",
@@ -157,16 +446,7 @@ export function classifyEmailIntakeCandidate(message: GmailMessageCandidate): Em
     };
   }
 
-  const strongReceiptSignal = /\b(official receipt|payment receipt|purchase receipt|reimbursement receipt|sales receipt|cash receipt|acknowledgement receipt|acknowledgment receipt|e[- ]?receipt|order receipt|charge slip|petty cash|expense report|expense claim)\b/i.test(text)
-    || /\b(official[-_ ]?receipt|payment[-_ ]?receipt|purchase[-_ ]?receipt|e[-_ ]?receipt|receipt[-_ ]?[0-9]|or[-_ ]?[0-9])\b/i.test(names);
-
-  const generalReceiptSignal = (/\b(receipt|resibo|ticket|fare|petron|shell|caltex|seaoil|grab|uber|taxi|restaurant|jollibee|mcdonalds|hardware)\b/i.test(text)
-    || /\breceipt\b/i.test(names)) && !/\b(sales invoice|service invoice|vat invoice|tax invoice)\b/i.test(text);
-
-  const invoiceSignal = /\b(invoice|sales invoice|service invoice|vat invoice|tax invoice|billing|bill\s*(?:no|number|#)|amount due|credit note)\b/i.test(text)
-    || /\binvoice\b/i.test(names);
-
-  if ((strongReceiptSignal || generalReceiptSignal) && hasSupportedExpenseAttachment && !invoiceSignal) {
+  if (detectedExpense) {
     return {
       isInvoiceLike: false,
       documentType: "RECEIPT",
@@ -179,7 +459,7 @@ export function classifyEmailIntakeCandidate(message: GmailMessageCandidate): Em
     };
   }
 
-  if (invoiceSignal) {
+  if (detectedInvoice) {
     return {
       isInvoiceLike: true,
       documentType: "INVOICE",
@@ -219,6 +499,86 @@ export function connectedMailboxFinanceQuery(window: GmailScanWindow) {
   return `${range} {subject:invoice subject:"sales invoice" subject:"service invoice" subject:"VAT invoice" subject:billing subject:SOA "statement of account" "credit note" "tax invoice" BIR VAT TIN "amount due" "bank statement" "account statement" "transaction statement" "e-statement" "monthly statement" subject:receipt subject:"official receipt" subject:"payment receipt" subject:expense subject:bill subject:"purchase receipt" subject:"e-receipt" "official receipt" "sales receipt" "payment receipt" "acknowledgement receipt" "charge slip" filename:pdf filename:png filename:jpg filename:jpeg filename:webp filename:csv filename:xlsx filename:xls filename:xlsm}`;
 }
 
+export function buildSenderProfileQueries(profiles: EmailIntakeProfile[], window: GmailScanWindow): string[] {
+  const enabled = (profiles || []).filter((p) => p.enabled !== false);
+  const terms: string[] = [];
+
+  for (const profile of enabled) {
+    if (profile.senderEmail && profile.senderEmail.trim()) {
+      terms.push(`from:${normalizeEmail(profile.senderEmail)}`);
+    } else if (profile.senderDomain && profile.senderDomain.trim()) {
+      terms.push(`from:${normalizeDomain(profile.senderDomain)}`);
+    }
+  }
+
+  const uniqueTerms = Array.from(new Set(terms));
+  if (!uniqueTerms.length) return [];
+
+  const range = gmailRangeQuery(window);
+  const queries: string[] = [];
+
+  for (let i = 0; i < uniqueTerms.length; i += MAX_SENDER_CHUNK_SIZE) {
+    const chunk = uniqueTerms.slice(i, i + MAX_SENDER_CHUNK_SIZE);
+    const senderClause = chunk.length === 1 ? chunk[0] : `(${chunk.join(" OR ")})`;
+    queries.push(`${range} ${senderClause} {filename:pdf filename:png filename:jpg filename:jpeg filename:webp filename:csv filename:xlsx filename:xls filename:xlsm}`);
+  }
+
+  return queries;
+}
+
+export async function classifyAmbiguousCandidatesWithAi(
+  candidates: GmailMessageCandidate[]
+): Promise<Map<string, EmailIntakeClassification>> {
+  const results = new Map<string, EmailIntakeClassification>();
+  if (!candidates.length) return results;
+
+  for (let i = 0; i < candidates.length; i += MAX_AI_BATCH_SIZE) {
+    const batch = candidates.slice(i, i + MAX_AI_BATCH_SIZE);
+    const items = batch.map((msg) => ({
+      messageId: msg.id,
+      sender: msg.sender,
+      subject: msg.subject,
+      snippet: msg.snippet || (msg.bodyText ? msg.bodyText.slice(0, 300) : ""),
+      attachmentNames: (msg.attachments || []).map((a) => a.filename),
+    }));
+
+    try {
+      const data = await companyApiRequest("/api/classify-email-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, model: "gemini-3.5-flash-lite" }),
+        companyId: requireActiveCompanyId(),
+      });
+      const res = await data.json().catch(() => ({}));
+      if (data.ok && res.success && Array.isArray(res.data?.classifications)) {
+        for (const item of res.data.classifications) {
+          const msgId = String(item.messageId || "").trim();
+          const targetCandidate = batch.find((c) => c.id === msgId);
+          if (!targetCandidate) continue;
+
+          const dest = (item.suggestedDestination || "UNSUPPORTED") as EmailIntakeDestination;
+          const conf = Math.max(0, Math.min(100, Number(item.confidence) || 60));
+          const reasonText = item.reason || (dest === "UNSUPPORTED" ? "Ambiguous email metadata classified by AI." : `Classified as ${dest} by AI.`);
+
+          results.set(msgId, {
+            isInvoiceLike: dest === "INVOICE",
+            documentType: dest === "BANK_STATEMENT" ? "STATEMENT" : dest === "EXPENSE" ? "RECEIPT" : dest === "INVOICE" ? "INVOICE" : "OTHER",
+            confidence: conf,
+            reason: `Ambiguous metadata classified by AI (${reasonText})`,
+            suggestedDestination: conf >= 65 ? dest : "UNSUPPORTED",
+            statementAttachmentIds: supportedStatementAttachmentIds(targetCandidate),
+            expenseAttachmentIds: supportedExpenseAttachmentIds(targetCandidate),
+          });
+        }
+      }
+    } catch {
+      // Safe error recovery: unclassified candidates remain unsupported
+    }
+  }
+
+  return results;
+}
+
 async function gmailApiRequest(path: string, body: Record<string, unknown>) {
   const googleAccessToken = getGoogleProviderToken();
   if (!googleAccessToken) throw new Error("Gmail authorization is missing or expired. Reconnect Google + Gmail; your Engoryx session remains active.");
@@ -252,27 +612,123 @@ async function persistSyncState(historyId?: string, emailAddress?: string) {
   }
 }
 
-export async function scanConnectedMailbox(window: GmailScanWindow): Promise<EmailIntakeScanResult> {
-  const data = await gmailApiRequest("/api/gmail/scan", { query: connectedMailboxFinanceQuery(window), maxResults: 30 });
-  const messages = (data.messages || []).map((message: GmailMessageCandidate) => ({
-    ...message,
-    classification: classifyEmailIntakeCandidate(message),
+export async function scanConnectedMailbox(
+  window: GmailScanWindow,
+  preloadedProfiles?: EmailIntakeProfile[]
+): Promise<EmailIntakeScanResult> {
+  let profiles = preloadedProfiles;
+  if (!profiles) {
+    try {
+      profiles = await listEmailIntakeProfiles();
+    } catch {
+      profiles = [];
+    }
+  }
+
+  const queries = [
+    connectedMailboxFinanceQuery(window),
+    ...buildSenderProfileQueries(profiles, window),
+  ];
+
+  const candidateMap = new Map<string, GmailMessageCandidate>();
+  let lastHistoryId: string | undefined;
+  let emailAddress: string | undefined;
+
+  for (const query of queries) {
+    try {
+      const data = await gmailApiRequest("/api/gmail/scan", { query, maxResults: MAX_SCAN_RESULTS_PER_REQUEST });
+      if (data.historyId) lastHistoryId = data.historyId;
+      if (data.emailAddress) emailAddress = data.emailAddress;
+      for (const msg of data.messages || []) {
+        if (!candidateMap.has(msg.id)) {
+          candidateMap.set(msg.id, msg);
+        }
+      }
+      if (candidateMap.size >= MAX_DISCOVERED_MESSAGES) break;
+    } catch (error) {
+      if (queries.indexOf(query) === 0) throw error;
+    }
+  }
+
+  const rawMessages = Array.from(candidateMap.values()).slice(0, MAX_DISCOVERED_MESSAGES);
+
+  // Deterministic-first classification pass
+  const classifiedMessages: GmailMessageCandidate[] = rawMessages.map((msg) => ({
+    ...msg,
+    classification: classifyEmailIntakeCandidate(msg, profiles),
     importStatus: "READY" as const,
   }));
-  return { messages, historyId: data.historyId, emailAddress: data.emailAddress, lastSyncedAt: await persistSyncState(data.historyId, data.emailAddress) };
+
+  // Identify ambiguous candidates that need AI classification
+  const ambiguous = classifiedMessages.filter((msg) => {
+    const cls = msg.classification as EmailIntakeClassification;
+    return cls.suggestedDestination === "UNSUPPORTED" && cls.confidence <= 70 && !cls.conflictReason;
+  });
+
+  if (ambiguous.length > 0) {
+    const aiResults = await classifyAmbiguousCandidatesWithAi(ambiguous);
+    for (const msg of classifiedMessages) {
+      if (aiResults.has(msg.id)) {
+        msg.classification = aiResults.get(msg.id);
+      }
+    }
+  }
+
+  return {
+    messages: classifiedMessages,
+    historyId: lastHistoryId,
+    emailAddress,
+    lastSyncedAt: await persistSyncState(lastHistoryId, emailAddress),
+  };
 }
 
-export async function syncConnectedMailbox(startHistoryId: string): Promise<EmailIntakeScanResult> {
+export async function syncConnectedMailbox(
+  startHistoryId: string,
+  preloadedProfiles?: EmailIntakeProfile[]
+): Promise<EmailIntakeScanResult> {
+  let profiles = preloadedProfiles;
+  if (!profiles) {
+    try {
+      profiles = await listEmailIntakeProfiles();
+    } catch {
+      profiles = [];
+    }
+  }
+
   try {
     const data = await gmailApiRequest("/api/gmail/history", { startHistoryId });
-    const messages = (data.messages || []).map((message: GmailMessageCandidate) => ({
-      ...message,
-      classification: classifyEmailIntakeCandidate(message),
+    const rawMessages: GmailMessageCandidate[] = data.messages || [];
+
+    const classifiedMessages: GmailMessageCandidate[] = rawMessages.map((msg) => ({
+      ...msg,
+      classification: classifyEmailIntakeCandidate(msg, profiles),
       importStatus: "READY" as const,
     }));
-    return { messages, historyId: data.historyId, emailAddress: data.emailAddress, lastSyncedAt: await persistSyncState(data.historyId, data.emailAddress) };
+
+    const ambiguous = classifiedMessages.filter((msg) => {
+      const cls = msg.classification as EmailIntakeClassification;
+      return cls.suggestedDestination === "UNSUPPORTED" && cls.confidence <= 70 && !cls.conflictReason;
+    });
+
+    if (ambiguous.length > 0) {
+      const aiResults = await classifyAmbiguousCandidatesWithAi(ambiguous);
+      for (const msg of classifiedMessages) {
+        if (aiResults.has(msg.id)) {
+          msg.classification = aiResults.get(msg.id);
+        }
+      }
+    }
+
+    return {
+      messages: classifiedMessages,
+      historyId: data.historyId,
+      emailAddress: data.emailAddress,
+      lastSyncedAt: await persistSyncState(data.historyId, data.emailAddress),
+    };
   } catch (error) {
-    if ((error as Error & { code?: string })?.code === "HISTORY_EXPIRED") return scanConnectedMailbox({ days: 30 });
+    if ((error as Error & { code?: string })?.code === "HISTORY_EXPIRED") {
+      return scanConnectedMailbox({ days: 30 }, profiles);
+    }
     throw error;
   }
 }

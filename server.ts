@@ -432,6 +432,26 @@ const emailClassificationSchema = {
   required: ["isInvoiceLike", "documentType", "confidence", "reason"],
 };
 
+const emailBatchClassificationSchema = {
+  type: Type.OBJECT,
+  properties: {
+    classifications: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          messageId: { type: Type.STRING },
+          suggestedDestination: { type: Type.STRING },
+          confidence: { type: Type.NUMBER },
+          reason: { type: Type.STRING },
+        },
+        required: ["messageId", "suggestedDestination", "confidence", "reason"],
+      },
+    },
+  },
+  required: ["classifications"],
+};
+
 function numeric(value: any, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -798,6 +818,85 @@ app.post("/api/classify-email", async (req, res) => {
     const status = apiErrorStatus(error);
     if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/classify-email: request failed.");
     res.status(status).json({ success: false, error: apiErrorMessage(error, "Email classification failed."), ...apiAiErrorDetails(error) });
+  }
+});
+
+app.post("/api/classify-email-batch", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "gmail.read");
+    const { items = [], model = PRIMARY_MODEL } = req.body || {};
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.json({ success: true, data: { classifications: [] } });
+    }
+
+    const boundedItems = items.slice(0, 10).map((item: any) => ({
+      messageId: String(item.messageId || "").trim(),
+      sender: String(item.sender || "").trim(),
+      subject: String(item.subject || "").trim(),
+      snippet: String(item.snippet || "").trim().slice(0, 300),
+      attachmentNames: Array.isArray(item.attachmentNames) ? item.attachmentNames.map((n: any) => String(n || "").trim()).slice(0, 5) : [],
+    })).filter((item) => Boolean(item.messageId));
+
+    if (boundedItems.length === 0) {
+      return res.json({ success: true, data: { classifications: [] } });
+    }
+
+    const prompt = `You are a financial email classifier for an operations workspace. Classify each email into one of these destinations:
+- "INVOICE": for vendor bills, sales invoices, service invoices, VAT invoices, billing notices demanding payment.
+- "BANK_STATEMENT": for official bank transaction records, monthly account statements, e-statements (usually with attached CSV or XLSX).
+- "EXPENSE": for official receipts, cash receipts, payment proofs, reimbursements, petty cash slips, ride/food/fuel receipts.
+- "UNSUPPORTED": for general correspondence, marketing, non-finance messages, or ambiguous cases.
+
+CRITICAL INSTRUCTIONS:
+1. Every classification object in the output MUST include its exact input messageId.
+2. suggestedDestination must be exactly one of: "INVOICE", "BANK_STATEMENT", "EXPENSE", "UNSUPPORTED".
+3. Confidence should be an integer between 0 and 100.
+4. Reason should be a concise 1-sentence explanation.
+
+Here are the candidate emails to classify:
+${JSON.stringify(boundedItems, null, 2)}`;
+
+    const { response, modelUsed } = await withCompanyAiRuntime(
+      { supabase: auth.supabase, companyId: auth.companyId },
+      (runtime) => generateStructured(
+        runtime.geminiClient,
+        model,
+        { parts: [{ text: prompt }] },
+        "Classify ambiguous finance email candidates conservatively. Always preserve exact messageIds and return structured JSON.",
+        emailBatchClassificationSchema,
+      ),
+    );
+
+    const parsed = JSON.parse(response.text || "{}");
+    const rawClassifications: any[] = Array.isArray(parsed.classifications) ? parsed.classifications : [];
+
+    const validMessageIds = new Set(boundedItems.map((item) => item.messageId));
+    const seenMessageIds = new Set<string>();
+    const classifications: Array<{ messageId: string; suggestedDestination: string; confidence: number; reason: string }> = [];
+
+    for (const item of rawClassifications) {
+      const msgId = String(item.messageId || "").trim();
+      if (!msgId || !validMessageIds.has(msgId) || seenMessageIds.has(msgId)) continue;
+      seenMessageIds.add(msgId);
+
+      const dest = String(item.suggestedDestination || "UNSUPPORTED").toUpperCase();
+      const validDest = ["INVOICE", "BANK_STATEMENT", "EXPENSE", "UNSUPPORTED"].includes(dest) ? dest : "UNSUPPORTED";
+      const confidence = Math.max(0, Math.min(100, Math.round(Number(item.confidence) || 50)));
+      const reason = String(item.reason || "").trim() || (validDest === "UNSUPPORTED" ? "Ambiguous email metadata." : `Classified as ${validDest}.`);
+
+      classifications.push({
+        messageId: msgId,
+        suggestedDestination: validDest,
+        confidence,
+        reason,
+      });
+    }
+
+    res.json({ success: true, data: { classifications }, modelUsed });
+  } catch (error: any) {
+    const status = apiErrorStatus(error);
+    if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/classify-email-batch: request failed.");
+    res.status(status).json({ success: false, error: apiErrorMessage(error, "Email batch classification failed."), ...apiAiErrorDetails(error) });
   }
 });
 
