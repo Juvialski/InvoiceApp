@@ -334,8 +334,6 @@ test("5. Stale staged account selection cannot override contradictory post-parse
     sampleAccounts,
   );
 
-  assert.equal(autoResolution.proposedAction, "CREATE_NEW");
-
   const stagedConfirmedAccountIsStillValid = Boolean(
     stagedReview.confirmedAccountId
     && autoResolution.proposedAction === "LINK_EXISTING"
@@ -351,6 +349,7 @@ test("5. Stale staged account selection cannot override contradictory post-parse
     effectiveSelectedAccountId = autoResolution.matchedEntityId;
   }
 
+  assert.equal(autoResolution.proposedAction, "CREATE_NEW");
   assert.equal(stagedConfirmedAccountIsStillValid, false);
   assert.equal(effectiveSelectedAccountId, "");
 });
