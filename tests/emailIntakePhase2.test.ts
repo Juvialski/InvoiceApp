@@ -104,6 +104,18 @@ test("attachment-less receipts remain unsupported until a preservable source-doc
   assert.deepEqual(classification.expenseAttachmentIds, []);
 });
 
+test("ambiguous receipt and explicit invoice language stays in the invoice review path", () => {
+  const message = candidate({
+    sender: "supplier@example.com",
+    subject: "Official Receipt and VAT Invoice SI-2044",
+    bodyText: "Attached is the VAT invoice and official receipt for your purchase.",
+    attachments: [{ attachmentId: "amb-1", filename: "SI-2044.pdf", mimeType: "application/pdf", size: 1024 }],
+  });
+  const classification = classifyEmailIntakeCandidate(message);
+  assert.equal(classification.suggestedDestination, "INVOICE");
+  assert.equal(classification.isInvoiceLike, true);
+});
+
 test("shared classifier preserves precedence for BANK_STATEMENT and INVOICE", () => {
   const bankMessage = candidate({
     subject: "Bank statement - August",
