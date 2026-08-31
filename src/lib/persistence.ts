@@ -554,27 +554,29 @@ export async function findExistingInvoiceBySource(criteria: {
   }
 
   if (criteria.sourceSha256) {
-    const { data: doc, error: docError } = await client
+    const { data: docs, error: docError } = await client
       .from("source_documents")
-      .select("id")
+      .select("id,created_at")
       .eq("company_id", companyId)
       .eq("sha256", criteria.sourceSha256)
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: true })
+      .limit(100);
     if (docError) throw docError;
-    if (doc?.id) {
-      const { data: inv, error: invError } = await client
+    const sourceDocumentIds = (docs || []).map((doc) => doc.id).filter(Boolean);
+    if (sourceDocumentIds.length) {
+      const { data: invoices, error: invError } = await client
         .from("invoices")
         .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
         .eq("company_id", companyId)
-        .eq("source_document_id", doc.id)
-        .maybeSingle();
+        .in("source_document_id", sourceDocumentIds)
+        .limit(1);
       if (invError) throw invError;
+      const inv = invoices?.[0];
       if (inv) {
         return {
           ...(inv.current_data || {}),
           id: inv.id,
-          sourceDocumentId: inv.source_document_id || doc.id,
+          sourceDocumentId: inv.source_document_id,
           sourceEmailId: inv.source_email_id,
           reviewStatus: inv.review_status || "NEEDS_REVIEW",
           duplicateStatus: inv.duplicate_status || "UNIQUE",
