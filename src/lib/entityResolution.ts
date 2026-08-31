@@ -630,6 +630,7 @@ export function resolveFinancialAccountCandidate(
   },
   existingAccounts: FinancialAccount[],
   matchingProfiles?: EmailIntakeProfile[],
+  importHistory?: readonly { accountId: string; fileFingerprint?: string; fileName?: string }[],
 ): EntityResolutionResult {
   const { candidateId, evidence, sourceRef } = candidate;
   const { institution, suffix, currency } = normalizedAccountEvidence(evidence);
@@ -672,7 +673,14 @@ export function resolveFinancialAccountCandidate(
         });
       }
       if (conflicts.length) {
-        return accountConflictResult(candidateId, account, evidence, conflicts, ["Saved sender profile points to this account, but structured account evidence conflicts."], sourceRef);
+        return accountConflictResult(
+          candidateId,
+          account,
+          evidence,
+          conflicts,
+          [`Saved sender rule suggested ${account.displayName}, but this statement appears to belong to ${institution.displayName !== "Unknown Institution" ? institution.displayName : "an account"} ending in ${suffix || "a different identifier"}.`],
+          sourceRef,
+        );
       }
       const result = resultBase(
         "FINANCIAL_ACCOUNT",
@@ -693,6 +701,24 @@ export function resolveFinancialAccountCandidate(
     }
   }
 
+  // Check import history for advisory correlation
+  let historyMatchedAccount: FinancialAccount | undefined;
+  if (importHistory && importHistory.length > 0) {
+    const historyMatches = importHistory.filter((h) => {
+      const targetAcc = accounts.find((a) => a.id === h.accountId);
+      if (!targetAcc) return false;
+      const accInst = normalizeInstitution(targetAcc.institutionName || targetAcc.institutionCode);
+      const accSuffix = extractAccountSuffix(targetAcc.maskedIdentifier);
+      const instMatches = institution.code === "UNKNOWN" || accInst.code === institution.code;
+      const suffixMatches = !suffix || accSuffix === suffix;
+      return instMatches && suffixMatches;
+    });
+    if (historyMatches.length > 0) {
+      const historyAccountId = historyMatches[0].accountId;
+      historyMatchedAccount = accounts.find((a) => a.id === historyAccountId);
+    }
+  }
+
   if (institution.code !== "UNKNOWN" && suffix) {
     const matches = accounts.filter((account) => {
       const accountInstitution = normalizeInstitution(account.institutionName || account.institutionCode);
@@ -702,12 +728,16 @@ export function resolveFinancialAccountCandidate(
     });
     if (matches.length === 1) {
       const account = matches[0];
+      const matchReasons = [`Institution (${institution.displayName}), account suffix (•••• ${suffix})${currency ? `, and currency (${currency})` : ""} uniquely match account: ${account.displayName}.`];
+      if (historyMatchedAccount && historyMatchedAccount.id === account.id) {
+        matchReasons.push(`Import history supports match with ${account.displayName}.`);
+      }
       const result = resultBase(
         "FINANCIAL_ACCOUNT",
         candidateId,
         "LINK_EXISTING",
-        96,
-        [`Institution (${institution.displayName}), account suffix (•••• ${suffix})${currency ? `, and currency (${currency})` : ""} uniquely match account: ${account.displayName}.`],
+        historyMatchedAccount ? 98 : 96,
+        matchReasons,
         [],
         [],
         evidence,
@@ -927,10 +957,10 @@ export function extractAccountEvidenceFromStatement(
 
       // Currency check
       if (!detectedCurrency) {
-        const currMatch = text.match(/\b(?:currency|curr)\s*[:#-]?\s*([A-Z]{3})\b/i);
+        const currMatch = text.match(/\b(?:currency|curr)\s*[:#-]?\s*(PHP|USD|EUR|SGD|JPY|AUD|CAD|GBP|HKD|CNY|KRW)\b/i);
         if (currMatch && currMatch[1]) {
           detectedCurrency = currMatch[1].toUpperCase();
-        } else if (/^(PHP|USD|EUR|SGD|JPY|AUD|CAD|GBP|HKD)$/i.test(text)) {
+        } else if (/^(PHP|USD|EUR|SGD|JPY|AUD|CAD|GBP|HKD|CNY|KRW)$/i.test(text)) {
           detectedCurrency = text.toUpperCase();
         }
       }
@@ -963,6 +993,17 @@ export function extractAccountEvidenceFromStatement(
     if (fnCurr && fnCurr[1]) {
       detectedCurrency = fnCurr[1].toUpperCase();
     }
+  }
+
+  // Advisory hints from matched profile if not detected from sheet
+  if (!detectedInstitution && profile?.expectedInstitution) {
+    const inst = normalizeInstitution(profile.expectedInstitution);
+    if (inst.code !== "UNKNOWN" && inst.code !== "OTHER") {
+      detectedInstitution = inst.displayName;
+    }
+  }
+  if (!detectedCurrency && profile?.expectedCurrency) {
+    detectedCurrency = profile.expectedCurrency.trim().toUpperCase();
   }
 
   return {

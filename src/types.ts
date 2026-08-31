@@ -310,6 +310,9 @@ export interface EmailIntakeProfile {
   suggestedDestination: EmailIntakeProfileDestination;
   linkedVendorId?: string;
   linkedFinancialAccountId?: string;
+  statementParserProfile?: string;
+  expectedInstitution?: string;
+  expectedCurrency?: string;
   defaultExpenseCategory?: string;
   createdByUserId?: string;
   createdAt: string;
@@ -327,6 +330,9 @@ export interface EmailIntakeProfileInput {
   suggestedDestination: EmailIntakeProfileDestination;
   linkedVendorId?: string;
   linkedFinancialAccountId?: string;
+  statementParserProfile?: string;
+  expectedInstitution?: string;
+  expectedCurrency?: string;
   defaultExpenseCategory?: string;
 }
 

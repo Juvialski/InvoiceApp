@@ -140,6 +140,10 @@ export interface StatementStructure {
   mapping: StatementColumnMapping;
   confidence: "HIGH" | "MEDIUM" | "LOW";
   reasons: string[];
+  appliedProfileId?: string;
+  appliedProfileName?: string;
+  isProfileFallback?: boolean;
+  profileValidationWarning?: string;
   startingBalance?: number;
   startingBalanceRowIndex?: number;
   statementEndingBalance?: number;
@@ -187,6 +191,19 @@ export interface StatementPreview {
   credits: number;
   debits: number;
   duplicateCount: number;
+  isExactDuplicate?: boolean;
+  duplicateBreakdown?: {
+    totalRows: number;
+    newTransactions: number;
+    duplicateTransactions: number;
+    exactFileDuplicate: boolean;
+    existingBatchId?: string;
+    existingImportDate?: string;
+    existingAccountId?: string;
+  };
+  appliedProfileId?: string;
+  appliedProfileName?: string;
+  isProfileFallback?: boolean;
   invalidRows: StatementRowIssue[];
   balanceIssues: StatementRowIssue[];
   transactions: ParsedStatementTransaction[];
@@ -267,14 +284,14 @@ export interface CashDashboardPosition {
 }
 
 const HEADER_PATTERNS: Record<keyof StatementColumnMapping, RegExp[]> = {
-  date: [/^date$/, /posted/, /transaction.*date/, /value.*date/],
+  date: [/^date$/, /post.*date|posted|trans.*date|value.*date|txn.*date/],
   reference: [/reference/, /^ref$/, /check/, /transaction.*(id|no|number)/, /trace/],
   description: [/description/, /transaction/, /details?/, /particular/, /narrative/, /remarks?/],
-  credit: [/^credit/, /income/, /deposit/, /money.*in/, /received/, /credit amount/],
-  debit: [/^debit/, /expense/, /withdraw/, /money.*out/, /paid/, /debit amount/],
+  credit: [/^credit/, /income/, /deposit/, /money.*in/, /inflow/, /received/, /credit amount/],
+  debit: [/^debit/, /expense/, /withdraw/, /money.*out/, /outflow/, /paid/, /debit amount/],
   amount: [/^amount$/, /transaction amount/, /value/],
   direction: [/direction/, /debit.*credit/, /credit.*debit/, /^type$/],
-  runningBalance: [/balance/, /running/, /closing/],
+  runningBalance: [/balance/, /running/, /closing/, /net balance/],
 };
 
 const DEFAULT_NOW = () => new Date().toISOString();
@@ -543,15 +560,21 @@ export function buildStatementPreview(
   currency = "PHP",
   existingTransactions: readonly FinancialTransaction[] = [],
   existingFileFingerprints: readonly string[] = [],
+  existingImportBatches: readonly FinancialImportBatch[] = [],
 ): StatementPreview {
   const parsed = parseStatementRows(document, mapping, accountId, currency);
   const openingBalance = document.structure.startingBalance;
   const transactions = parsed.transactions;
   const balanceTransactions = [...transactions].sort((left, right) => left.transactionDate.localeCompare(right.transactionDate) || left.sourceRow - right.sourceRow);
   const existingFingerprintSet = new Set(existingTransactions.filter((transaction) => transaction.accountId === accountId).map((transaction) => transaction.sourceFingerprint));
-  const exactFileDuplicate = existingFileFingerprints.includes(document.fileFingerprint);
+  
+  const matchingBatch = existingImportBatches.find(
+    (batch) => batch.fileFingerprint === document.fileFingerprint && batch.status === "IMPORTED",
+  );
+  const exactFileDuplicate = existingFileFingerprints.includes(document.fileFingerprint) || Boolean(matchingBatch);
   const transactionsToImport = transactions.filter((transaction) => !exactFileDuplicate && !existingFingerprintSet.has(transaction.sourceFingerprint));
-  const duplicateCount = transactions.length - transactionsToImport.length;
+  const duplicateCount = exactFileDuplicate ? transactions.length : transactions.length - transactionsToImport.length;
+  
   let calculatedEndingBalance: number | undefined;
   let difference: number | undefined;
   const balanceIssues: StatementRowIssue[] = [];
@@ -586,13 +609,26 @@ export function buildStatementPreview(
     credits: roundMoney(transactions.filter((transaction) => transaction.direction === "CREDIT").reduce((sum, transaction) => sum + transaction.amount, 0)),
     debits: roundMoney(transactions.filter((transaction) => transaction.direction === "DEBIT").reduce((sum, transaction) => sum + transaction.amount, 0)),
     duplicateCount,
+    isExactDuplicate: exactFileDuplicate,
+    duplicateBreakdown: {
+      totalRows: transactions.length,
+      newTransactions: transactionsToImport.length,
+      duplicateTransactions: duplicateCount,
+      exactFileDuplicate,
+      existingBatchId: matchingBatch?.id,
+      existingImportDate: matchingBatch?.completedAt || matchingBatch?.createdAt,
+      existingAccountId: matchingBatch?.accountId,
+    },
+    appliedProfileId: document.structure.appliedProfileId,
+    appliedProfileName: document.structure.appliedProfileName,
+    isProfileFallback: document.structure.isProfileFallback,
     invalidRows: parsed.issues,
     balanceIssues,
     transactions,
     transactionsToImport,
     ...(dates[0] ? { statementFrom: dates[0] } : {}),
     ...(dates.at(-1) ? { statementTo: dates.at(-1) } : {}),
-    canCommit: parsed.issues.every((issue) => issue.severity !== "error") && balanceIssues.length === 0 && transactionsToImport.length > 0,
+    canCommit: !exactFileDuplicate && parsed.issues.every((issue) => issue.severity !== "error") && balanceIssues.length === 0 && transactionsToImport.length > 0,
   };
 }
 

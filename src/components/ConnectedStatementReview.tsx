@@ -94,7 +94,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
     void (async () => {
       try {
         const file = await loadPendingEmailStatementFile(staged);
-        const parsed = parseStatementFile(await file.arrayBuffer(), file.name);
         if (cancelled) return;
 
         const profiles = await listEmailIntakeProfiles().catch(() => [] as EmailIntakeProfile[]);
@@ -111,10 +110,21 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
             : undefined
         );
 
+        const parsed = parseStatementFile(
+          await file.arrayBuffer(),
+          file.name,
+          matchingProfile?.statementParserProfile,
+          matchingProfile?.expectedInstitution,
+        );
+        if (cancelled) return;
+
         const extractedEvidence = extractAccountEvidenceFromStatement(
           { fileName: parsed.fileName, sheetName: parsed.sheetName, rawRows: parsed.rawRows as any },
           { sender: staged.sender, subject: staged.subject },
           matchingProfile,
+        );
+        const hasIndependentParsedAccountIdentity = Boolean(
+          extractedEvidence.accountNumber || extractedEvidence.maskedIdentifier,
         );
 
         const candidateResolution = resolveFinancialAccountCandidate(
@@ -131,6 +141,7 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
           },
           data.accounts,
           profiles.length ? profiles : (matchingProfile ? [matchingProfile] : []),
+          data.importBatches,
         );
 
         if (cancelled) return;
@@ -140,11 +151,12 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
         setAccountEvidence(extractedEvidence);
         setResolution(candidateResolution);
 
-        // Parsed statement identity is authoritative. A legacy staged
-        // confirmedAccountId is honored only when the post-parse resolver
-        // independently reaches the same conflict-free LINK_EXISTING result.
+        // Saved sender/profile links remain advisory. Automatic account
+        // selection requires independent account identity from the parsed
+        // statement (account number/suffix), not merely a conflict-free rule.
         const stagedConfirmedAccountIsStillValid = Boolean(
-          staged.confirmedAccountId
+          hasIndependentParsedAccountIdentity
+          && staged.confirmedAccountId
           && candidateResolution.proposedAction === "LINK_EXISTING"
           && candidateResolution.conflicts.length === 0
           && candidateResolution.matchedEntityId === staged.confirmedAccountId
@@ -153,14 +165,17 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
         if (stagedConfirmedAccountIsStillValid) {
           setAccountId(staged.confirmedAccountId!);
         } else if (
+          hasIndependentParsedAccountIdentity &&
           candidateResolution.proposedAction === "LINK_EXISTING" &&
           candidateResolution.matchedEntityId &&
+          candidateResolution.conflicts.length === 0 &&
           activeAccounts.some((a) => a.id === candidateResolution.matchedEntityId)
         ) {
           setAccountId(candidateResolution.matchedEntityId);
         } else {
-          // NEEDS_REVIEW / POSSIBLE_DUPLICATE / CREATE_NEW / unresolved all
-          // require an explicit destination-review choice.
+          // Profile-only suggestions, NEEDS_REVIEW, POSSIBLE_DUPLICATE,
+          // CREATE_NEW, conflicts, and unresolved cases require an explicit
+          // destination choice.
           setAccountId("");
         }
       } catch (reason) {
@@ -173,7 +188,7 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
     return () => {
       cancelled = true;
     };
-  }, [canImport, activeAccounts, data.accounts]);
+  }, [canImport, activeAccounts, data.accounts, data.importBatches]);
 
   if (!pending) return null;
 
@@ -210,6 +225,7 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
       account.currency,
       data.transactions,
       data.importBatches.filter((batch) => batch.accountId === account.id).map((batch) => batch.fileFingerprint),
+      data.importBatches,
     );
     setPreview({ ...built, sourceDocumentId: pending.sourceDocumentId });
     setImportCommitted(false);
@@ -218,8 +234,19 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
 
   const commit = async () => {
     if (!preview || !onCommitImport) return;
+    if (!canImport) {
+      setError("Cash statement import permission is required.");
+      return;
+    }
     const account = data.accounts.find((item) => item.id === accountId && item.active);
-    if (!account) return;
+    if (!account) {
+      setError("The selected Cash & Banking account is no longer active. Please choose an active account.");
+      return;
+    }
+    if (preview.isExactDuplicate || (!importCommitted && data.importBatches.some((b) => b.fileFingerprint === preview.fileFingerprint && b.status === "IMPORTED" && b.id !== preview.duplicateBreakdown?.existingBatchId))) {
+      setError("This statement has already been imported. Cannot commit an exact duplicate statement.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -428,9 +455,22 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
             <div className="rounded-lg border border-slate-200 bg-white p-3">
               <div className="flex items-start gap-2">
                 <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                <div className="min-w-0">
-                  <p className="text-xs font-black text-slate-900">{document.fileName} · {document.sheetName || "Statement"}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <p className="text-xs font-black text-slate-900">{document.fileName} · {document.sheetName || "Statement"}</p>
+                    {document.structure.appliedProfileName && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                        Profile: {document.structure.appliedProfileName}
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-1 text-xs text-slate-500">Detected {document.structure.confidence} confidence. {document.structure.reasons.join(" ") || "Confirm the column mapping below."}</p>
+                  {document.structure.isProfileFallback && document.structure.profileValidationWarning && (
+                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900 flex items-start gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 mt-0.5" />
+                      <span>{document.structure.profileValidationWarning}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -439,7 +479,7 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
           <div>
             <SectionHeader
               title="Confirm statement columns"
-              description="Required: date, description, and either credit/debit or amount + direction. This uses the same parser and validation as manual Cash & Banking imports."
+              description="Required: date, description, and either credit/debit or amount + direction. Deterministic spreadsheet parser with verified structure mapping."
               icon={FileSpreadsheet}
             />
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -479,6 +519,32 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
 
           {preview && (
             <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+              {preview.isExactDuplicate && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-1.5 text-xs text-amber-950">
+                  <div className="flex items-center gap-2 font-black text-amber-900 uppercase tracking-wide text-[11px]">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>Exact Duplicate Statement Detected</span>
+                  </div>
+                  <p className="text-amber-900">
+                    This statement was already imported into {data.accounts.find((a) => a.id === preview.duplicateBreakdown?.existingAccountId)?.displayName || selectedAccount?.displayName || "Cash & Banking"}{preview.duplicateBreakdown?.existingImportDate ? ` on ${new Date(preview.duplicateBreakdown.existingImportDate).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}` : ""} (Batch ID: {preview.duplicateBreakdown?.existingBatchId || preview.fileFingerprint.slice(0, 16)}).
+                  </p>
+                  <p className="text-amber-800 text-[11px]">
+                    Exact duplicate statements cannot be imported again to protect account balance and transaction history integrity.
+                  </p>
+                </div>
+              )}
+
+              {preview.duplicateBreakdown && !preview.isExactDuplicate && preview.duplicateBreakdown.duplicateTransactions > 0 && (
+                <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-3 text-xs text-sky-950 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-sky-600 shrink-0" />
+                    <span>
+                      <strong>{preview.duplicateBreakdown.totalRows}</strong> transactions detected: <strong>{preview.duplicateBreakdown.newTransactions}</strong> new, <strong>{preview.duplicateBreakdown.duplicateTransactions}</strong> already imported / duplicate.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Summary label="Rows found" value={String(preview.rowsFound)} />
                 <Summary label="Money in" value={money(preview.credits, preview.currency)} />
@@ -498,11 +564,11 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
                 </div>
                 <button
                   type="button"
-                  disabled={(!preview.canCommit && !importCommitted) || busy || !onCommitImport}
+                  disabled={preview.isExactDuplicate || (!preview.canCommit && !importCommitted) || busy || !onCommitImport}
                   onClick={() => void commit()}
                   className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {busy ? "Working…" : importCommitted ? "Retry source link" : preview.canCommit ? "Commit statement import" : "Resolve preview issues"}
+                  {busy ? "Working…" : importCommitted ? "Retry source link" : preview.isExactDuplicate ? "Already imported (duplicate)" : preview.canCommit ? "Commit statement import" : "Resolve preview issues"}
                 </button>
               </div>
             </div>
