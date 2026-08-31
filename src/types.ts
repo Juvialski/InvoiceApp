@@ -338,6 +338,7 @@ export interface GmailConnectionInfo {
   displayName?: string;
   lastSyncedAt?: string;
   lastHistoryId?: string;
+  authError?: string;
 }
 
 export interface GmailScanWindow {

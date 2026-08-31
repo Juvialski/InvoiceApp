@@ -1,6 +1,6 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 next, Phase 4 planned
+Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 implemented, Phase 4 next
 
 Current direction:
 
@@ -97,6 +97,8 @@ Status: merged in PR #50.
 ---
 
 # Phase 3 — Top-Level Email Intake + Gmail Reliability UX
+
+Status: implemented.
 
 ## Goal
 

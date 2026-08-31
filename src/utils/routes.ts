@@ -51,7 +51,7 @@ export const ROUTE_DEFINITIONS = [
   { id: "expenses", path: "/expenses", label: "Expenses", appTab: "expenses", navigationGroup: "overflow" },
   { id: "vendors", path: "/vendors", label: "Vendors", appTab: "vendors", navigationGroup: "overflow" },
   { id: "reports", path: "/reports", label: "Reports", appTab: "reports", navigationGroup: "overflow" },
-  { id: "inbox", path: "/inbox", label: "Gmail Inbox", appTab: "inbox", navigationGroup: "overflow" },
+  { id: "inbox", path: "/email-intake", label: "Email Intake", appTab: "inbox", navigationGroup: "primary", aliases: ["/inbox"] },
   { id: "review", path: "/review", label: "Review Queue", appTab: "review", navigationGroup: "primary" },
   { id: "settings", path: "/settings", label: "Settings", appTab: "settings", navigationGroup: "overflow" },
 ] as const satisfies readonly RouteDefinition[];
@@ -59,8 +59,8 @@ export const ROUTE_DEFINITIONS = [
 export const DEFAULT_ROUTE_ID: RouteId = "dashboard";
 export const DEFAULT_ROUTE_PATH = "/dashboard";
 
-export const PRIMARY_NAVIGATION_ROUTE_IDS = ["dashboard", "cash", "extract", "invoices", "review"] as const satisfies readonly RouteId[];
-export const OVERFLOW_NAVIGATION_ROUTE_IDS = ["projects", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const satisfies readonly RouteId[];
+export const PRIMARY_NAVIGATION_ROUTE_IDS = ["dashboard", "cash", "invoices", "inbox", "review", "extract"] as const satisfies readonly RouteId[];
+export const OVERFLOW_NAVIGATION_ROUTE_IDS = ["projects", "payroll", "expenses", "vendors", "reports", "settings"] as const satisfies readonly RouteId[];
 
 export interface RouteResolution {
   readonly route: RouteDefinition | undefined;

@@ -277,7 +277,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleCollapse,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [invoicesExpanded, setInvoicesExpanded] = useState(() => ["invoices", "extractor", "inbox", "review", "vendors"].includes(activeTab));
+  const [invoicesExpanded, setInvoicesExpanded] = useState(() => ["invoices", "extractor", "review", "vendors"].includes(activeTab));
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountBusy, setAccountBusy] = useState(false);
   const accountButtonRef = useRef<HTMLButtonElement>(null);

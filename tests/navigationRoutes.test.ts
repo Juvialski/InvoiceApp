@@ -29,7 +29,7 @@ test("defines one predictable canonical route for every application destination"
   ]);
   assert.equal(new Set(ROUTE_DEFINITIONS.map((route) => route.path)).size, ROUTE_DEFINITIONS.length);
   assert.equal(getRouteForAppTab("extractor")?.id, "extract");
-  assert.equal(getRouteForAppTab("inbox")?.path, "/inbox");
+  assert.equal(getRouteForAppTab("inbox")?.path, "/email-intake");
   assert.equal(getRouteForAppTab("cash")?.path, "/cash");
 });
 
@@ -40,6 +40,8 @@ test("normalizes paths and resolves root and legacy extract aliases", () => {
   assert.equal(getRootRedirect("/projects"), undefined);
   assert.equal(resolveRoute("/").routeId, "dashboard");
   assert.equal(resolveRoute("/extractor").routeId, "extract");
+  assert.equal(resolveRoute("/email-intake").routeId, "inbox");
+  assert.equal(resolveRoute("/inbox").routeId, "inbox");
   assert.equal(resolveRoute("/projects/project-42").routeId, "projects");
 });
 
