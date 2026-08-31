@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
+  BookmarkPlus,
   CheckCircle2,
   ChevronDown,
   FileSpreadsheet,
@@ -12,16 +13,27 @@ import {
   Receipt,
   RefreshCw,
   ScanSearch,
+  SlidersHorizontal,
   Sparkles,
   UploadCloud,
 } from "lucide-react";
-import { EmailClassification, GmailConnectionInfo, GmailMessageCandidate, GmailScanWindow, InvoiceData } from "../types";
+import {
+  EmailClassification,
+  EmailIntakeProfile,
+  EmailIntakeProfileInput,
+  GmailConnectionInfo,
+  GmailMessageCandidate,
+  GmailScanWindow,
+  InvoiceData,
+} from "../types";
 import { formatDateTime } from "../config/regional";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { appPathForTab } from "../utils/appRouting.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
 import {
   classifyEmailIntakeCandidate,
+  DISALLOWED_DOMAIN_RULES,
+  parseSenderAddress,
   prepareGmailExpenseReview,
   prepareGmailStatementReview,
   resolveGmailConnectionStatus,
@@ -30,7 +42,14 @@ import {
   type EmailIntakeClassification,
   type EmailIntakeDestination,
 } from "../lib/emailIntake.ts";
+import {
+  deleteEmailIntakeProfile,
+  listEmailIntakeProfiles,
+  saveEmailIntakeProfile,
+  toggleEmailIntakeProfile,
+} from "../lib/persistence.ts";
 import { PageHeader, StatusBadge } from "./ui/OperationsUI";
+import { IntakeRulesModal } from "./email/IntakeRulesModal.tsx";
 
 interface EmailInboxProps {
   invoices: InvoiceData[];
@@ -50,8 +69,8 @@ interface EmailInboxProps {
   canManageExpenses?: boolean;
 }
 
-function destinationFor(message: GmailMessageCandidate): EmailIntakeDestination {
-  const classification = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
+function destinationFor(message: GmailMessageCandidate, profiles?: EmailIntakeProfile[]): EmailIntakeDestination {
+  const classification = (message.classification || classifyEmailIntakeCandidate(message, profiles)) as EmailIntakeClassification;
   return classification.suggestedDestination || (classification.isInvoiceLike ? "INVOICE" : "UNSUPPORTED");
 }
 
@@ -90,6 +109,58 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   const [classification, setClassification] = useState<EmailClassification | null>(null);
   const [manualError, setManualError] = useState<string | null>(null);
 
+  const [profiles, setProfiles] = useState<EmailIntakeProfile[]>([]);
+  const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
+  const [editingProfileInput, setEditingProfileInput] = useState<Partial<EmailIntakeProfileInput> | null>(null);
+
+  const loadProfiles = useCallback(async () => {
+    try {
+      const list = await listEmailIntakeProfiles();
+      setProfiles(list);
+    } catch {
+      setProfiles([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfiles();
+  }, [loadProfiles]);
+
+  const handleSaveProfile = async (input: EmailIntakeProfileInput) => {
+    await saveEmailIntakeProfile(input);
+    await loadProfiles();
+  };
+
+  const handleDeleteProfile = async (id: string) => {
+    await deleteEmailIntakeProfile(id);
+    await loadProfiles();
+  };
+
+  const handleToggleProfile = async (id: string, enabled: boolean) => {
+    await toggleEmailIntakeProfile(id, enabled);
+    await loadProfiles();
+  };
+
+  const handleOpenRulesModal = () => {
+    setEditingProfileInput(null);
+    setIsRulesModalOpen(true);
+  };
+
+  const handleSaveSenderRuleShortcut = (message: GmailMessageCandidate) => {
+    const parsed = parseSenderAddress(message.sender || "");
+    const dest = destinationFor(message, profiles);
+    const suggestedDest = (dest === "UNSUPPORTED" ? "INVOICE" : dest) as "INVOICE" | "BANK_STATEMENT" | "EXPENSE";
+    const initialDomain = parsed.domain && !DISALLOWED_DOMAIN_RULES.has(parsed.domain) ? parsed.domain : undefined;
+    setEditingProfileInput({
+      name: parsed.name || (initialDomain ? `Rule for ${initialDomain}` : `Rule for ${parsed.email || "sender"}`),
+      senderEmail: parsed.email || undefined,
+      senderDomain: initialDomain,
+      suggestedDestination: suggestedDest,
+      enabled: true,
+    });
+    setIsRulesModalOpen(true);
+  };
+
   const emailInvoices = useMemo(() => invoices.filter((invoice) => invoice.sourceType === "EMAIL").slice(0, 10), [invoices]);
 
   const connectionStatus = resolveGmailConnectionStatus(connection, gmailError);
@@ -99,18 +170,18 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     let statement = 0;
     let expense = 0;
     for (const item of candidates) {
-      const dest = destinationFor(item);
+      const dest = destinationFor(item, profiles);
       if (dest === "INVOICE") invoice++;
       else if (dest === "BANK_STATEMENT") statement++;
       else if (dest === "EXPENSE") expense++;
     }
     return { all: candidates.length, invoice, statement, expense };
-  }, [candidates]);
+  }, [candidates, profiles]);
 
   const filteredCandidates = useMemo(() => {
     if (destinationFilter === "ALL") return candidates;
-    return candidates.filter((item) => destinationFor(item) === destinationFilter);
-  }, [candidates, destinationFilter]);
+    return candidates.filter((item) => destinationFor(item, profiles) === destinationFilter);
+  }, [candidates, destinationFilter, profiles]);
 
   const connectMailbox = async () => {
     if (!canManageMailbox) {
@@ -140,7 +211,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         throw new Error("Choose a valid custom Gmail date range.");
       }
       const scanWindow: GmailScanWindow = scanMode === "custom" ? { after: customAfter, before: customBefore } : { days };
-      const result = incremental && historyId ? await syncConnectedMailbox(historyId) : await scanConnectedMailbox(scanWindow);
+      const result = incremental && historyId ? await syncConnectedMailbox(historyId, profiles) : await scanConnectedMailbox(scanWindow, profiles);
       setCandidates(result.messages);
       if (result.historyId) setHistoryId(result.historyId);
       if (result.lastSyncedAt) setLastSyncedAt(result.lastSyncedAt);
@@ -319,6 +390,21 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           </div>
 
           <div className="flex flex-wrap gap-2 items-center">
+            <button
+              type="button"
+              onClick={handleOpenRulesModal}
+              className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 inline-flex items-center gap-2 hover:bg-slate-50 transition"
+              title="Manage saved company sender and template rules"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              Intake Rules
+              {profiles.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-black">
+                  {profiles.length}
+                </span>
+              )}
+            </button>
+
             {connectionStatus === "HEALTHY" && (
               <>
                 <button
@@ -587,6 +673,11 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                         <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${destinationTone}`}>
                           {destinationLabel} {Math.round(cls.confidence || 0)}%
                         </span>
+                        {cls.matchedProfileName && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                            Rule: {cls.matchedProfileName}
+                          </span>
+                        )}
                       </div>
                       <p className="text-[10px] text-slate-500 mt-1 truncate">
                         {message.sender} • {formatDateTime(message.receivedAt)} • {message.attachments.length} attachment
@@ -630,85 +721,98 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                         </label>
                       )}
                     </div>
-                    {destination === "INVOICE" ? (
-                      canManageMailbox && canProcessInvoices ? (
+                    <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
+                      {canManageMailbox && (
                         <button
                           type="button"
-                          disabled={message.importStatus === "IMPORTING" || message.importStatus === "IMPORTED"}
-                          onClick={() => void importCandidate(message)}
-                          className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-indigo-600 text-white hover:bg-indigo-700"
+                          onClick={() => handleSaveSenderRuleShortcut(message)}
+                          className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 inline-flex items-center gap-1.5 shrink-0 transition"
+                          title="Save a sender/domain rule for this email"
                         >
-                          {message.importStatus === "IMPORTING" ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : message.importStatus === "IMPORTED" ? (
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          ) : (
-                            <UploadCloud className="w-3.5 h-3.5" />
-                          )}
-                          {message.importStatus === "IMPORTED" ? "Imported" : "Import & extract"}
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                          Save rule
                         </button>
+                      )}
+                      {destination === "INVOICE" ? (
+                        canManageMailbox && canProcessInvoices ? (
+                          <button
+                            type="button"
+                            disabled={message.importStatus === "IMPORTING" || message.importStatus === "IMPORTED"}
+                            onClick={() => void importCandidate(message)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-indigo-600 text-white hover:bg-indigo-700"
+                          >
+                            {message.importStatus === "IMPORTING" ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : message.importStatus === "IMPORTED" ? (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            ) : (
+                              <UploadCloud className="w-3.5 h-3.5" />
+                            )}
+                            {message.importStatus === "IMPORTED" ? "Imported" : "Import & extract"}
+                          </button>
+                        ) : (
+                          <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
+                            {!canManageMailbox && !canProcessInvoices
+                              ? "Requires Gmail + invoice permission"
+                              : !canManageMailbox
+                                ? "Requires Gmail permission"
+                                : "Requires invoice permission"}
+                          </span>
+                        )
+                      ) : destination === "BANK_STATEMENT" ? (
+                        canManageMailbox && canImportBankStatements ? (
+                          <button
+                            type="button"
+                            disabled={message.importStatus === "IMPORTING"}
+                            onClick={() => void reviewStatement(message)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-sky-700 text-white hover:bg-sky-800"
+                          >
+                            {message.importStatus === "IMPORTING" ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <FileSpreadsheet className="w-3.5 h-3.5" />
+                            )}
+                            Review statement
+                          </button>
+                        ) : (
+                          <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
+                            {!canManageMailbox && !canImportBankStatements
+                              ? "Requires Gmail + cash import permission"
+                              : !canManageMailbox
+                                ? "Requires Gmail permission"
+                                : "Requires cash import permission"}
+                          </span>
+                        )
+                      ) : destination === "EXPENSE" ? (
+                        canManageMailbox && canManageExpenses ? (
+                          <button
+                            type="button"
+                            disabled={message.importStatus === "IMPORTING"}
+                            onClick={() => void reviewExpense(message)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-amber-600 text-white hover:bg-amber-700"
+                          >
+                            {message.importStatus === "IMPORTING" ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Receipt className="w-3.5 h-3.5" />
+                            )}
+                            Review expense
+                          </button>
+                        ) : (
+                          <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
+                            {!canManageMailbox && !canManageExpenses
+                              ? "Requires Gmail + expense permission"
+                              : !canManageMailbox
+                                ? "Requires Gmail permission"
+                                : "Requires expense permission"}
+                          </span>
+                        )
                       ) : (
-                        <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
-                          {!canManageMailbox && !canProcessInvoices
-                            ? "Requires Gmail + invoice permission"
-                            : !canManageMailbox
-                              ? "Requires Gmail permission"
-                              : "Requires invoice permission"}
+                        <span className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600">
+                          No automatic destination
                         </span>
-                      )
-                    ) : destination === "BANK_STATEMENT" ? (
-                      canManageMailbox && canImportBankStatements ? (
-                        <button
-                          type="button"
-                          disabled={message.importStatus === "IMPORTING"}
-                          onClick={() => void reviewStatement(message)}
-                          className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-sky-700 text-white hover:bg-sky-800"
-                        >
-                          {message.importStatus === "IMPORTING" ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <FileSpreadsheet className="w-3.5 h-3.5" />
-                          )}
-                          Review statement
-                        </button>
-                      ) : (
-                        <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
-                          {!canManageMailbox && !canImportBankStatements
-                            ? "Requires Gmail + cash import permission"
-                            : !canManageMailbox
-                              ? "Requires Gmail permission"
-                              : "Requires cash import permission"}
-                        </span>
-                      )
-                    ) : destination === "EXPENSE" ? (
-                      canManageMailbox && canManageExpenses ? (
-                        <button
-                          type="button"
-                          disabled={message.importStatus === "IMPORTING"}
-                          onClick={() => void reviewExpense(message)}
-                          className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-amber-600 text-white hover:bg-amber-700"
-                        >
-                          {message.importStatus === "IMPORTING" ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Receipt className="w-3.5 h-3.5" />
-                          )}
-                          Review expense
-                        </button>
-                      ) : (
-                        <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
-                          {!canManageMailbox && !canManageExpenses
-                            ? "Requires Gmail + expense permission"
-                            : !canManageMailbox
-                              ? "Requires Gmail permission"
-                              : "Requires expense permission"}
-                        </span>
-                      )
-                    ) : (
-                      <span className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600">
-                        No automatic destination
-                      </span>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -834,6 +938,17 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           </div>
         </section>
       )}
+
+      <IntakeRulesModal
+        isOpen={isRulesModalOpen}
+        onClose={() => setIsRulesModalOpen(false)}
+        profiles={profiles}
+        onSaveProfile={handleSaveProfile}
+        onDeleteProfile={handleDeleteProfile}
+        onToggleProfile={handleToggleProfile}
+        initialForm={editingProfileInput}
+        canManageMailbox={canManageMailbox}
+      />
     </div>
   );
 };

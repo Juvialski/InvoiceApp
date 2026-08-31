@@ -33,6 +33,7 @@ import { companyApiRequest } from "./lib/companyApi.ts";
 import type { PayrollSchedule } from "./lib/payrollSchedule";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "./lib/payrollAutomation";
 import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderToken, isSupabaseConfigured, supabase } from "./lib/supabase";
+import { classifyEmailIntakeCandidate, scanConnectedMailbox, syncConnectedMailbox } from "./lib/emailIntake";
 import {
   applyInvoiceCorrectionInSupabase,
   ensureWorkspaceProfile,
@@ -1413,10 +1414,30 @@ function InvoiceWorkspace() {
     }
     setProcessingCount((n) => n + 1);
     try {
-      const classifyResponse = await companyApiRequest("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender, subject, body, attachmentNames: attachments.map((file) => file.name), model: "gemini-3.5-flash-lite" }), companyId: companyAccess.activeCompanyId || "" });
-      const classifyResult = await classifyResponse.json();
-      if (!classifyResponse.ok || !classifyResult.success) throw new Error(classifyResult.error || "Email classification failed.");
-      const classification: EmailClassification = classifyResult.data;
+      let classification: EmailClassification = classifyEmailIntakeCandidate({
+        id: "manual",
+        threadId: "manual",
+        sender,
+        to: [],
+        cc: [],
+        subject,
+        receivedAt,
+        snippet: body.slice(0, 200),
+        bodyText: body,
+        labels: [],
+        attachments: attachments.map((file, i) => ({ attachmentId: String(i), filename: file.name, mimeType: file.type || "application/octet-stream", size: file.size })),
+      });
+      if (!classification.isInvoiceLike && (classification as any).suggestedDestination === "UNSUPPORTED") {
+        try {
+          const classifyResponse = await companyApiRequest("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender, subject, body, attachmentNames: attachments.map((file) => file.name), model: "gemini-3.5-flash-lite" }), companyId: companyAccess.activeCompanyId || "" });
+          const classifyResult = await classifyResponse.json();
+          if (classifyResponse.ok && classifyResult.success) {
+            classification = classifyResult.data;
+          }
+        } catch {
+          // fallback to deterministic result
+        }
+      }
       const manualEmail = session ? await saveManualEmailRecord({ sender, subject, receivedAt, body }) : undefined;
       const extractedInvoices: InvoiceData[] = [];
 
@@ -1468,40 +1489,17 @@ function InvoiceWorkspace() {
     return result.data;
   };
 
-  const classifyGmailCandidates = async (messages: GmailMessageCandidate[]) => {
-    const output: GmailMessageCandidate[] = [];
-    for (let i = 0; i < messages.length; i += 4) {
-      const batch = messages.slice(i, i + 4);
-      const classified = await Promise.all(batch.map(async (message) => {
-        try {
-          const response = await companyApiRequest("/api/classify-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sender: message.sender, subject: message.subject, body: message.bodyText, attachmentNames: message.attachments.map((item) => item.filename), model: "gemini-3.5-flash-lite" }), companyId: companyAccess.activeCompanyId || "" });
-          const result = await response.json();
-          if (!response.ok || !result.success) throw new Error(result.error || "Classification failed");
-          return { ...message, classification: result.data as EmailClassification, importStatus: result.data.isInvoiceLike ? "READY" as const : "IGNORED" as const };
-        } catch {
-          return { ...message, importStatus: "READY" as const };
-        }
-      }));
-      output.push(...classified);
-    }
-    return output;
-  };
-
   const handleScanGmail = async (window: GmailScanWindow | number): Promise<GmailMessageCandidate[]> => {
     if (!session) throw new Error("Connect Google + Gmail first.");
     setProcessingCount((n) => n + 1);
     try {
       const selectedWindow = typeof window === "number" ? { days: window } : window;
-      const range = selectedWindow.after && selectedWindow.before
-        ? `after:${gmailQueryDate(selectedWindow.after)} before:${gmailQueryDate(selectedWindow.before, true)}`
-        : `newer_than:${selectedWindow.days || 30}d`;
-      const query = `${range} {subject:invoice subject:\"sales invoice\" subject:\"service invoice\" subject:\"VAT invoice\" subject:billing subject:SOA \"statement of account\" \"credit note\" \"tax invoice\" BIR VAT TIN \"amount due\" filename:pdf filename:png filename:jpg filename:jpeg}`;
-      const data = await gmailRequest("/api/gmail/scan", { query, maxResults: 30 });
-      const classified = await classifyGmailCandidates(data.messages || []);
-      const nextSync = await saveGmailSyncState(data.historyId, data.emailAddress);
-      setSyncState(nextSync);
-      showNotification("success", `Scanned Gmail and classified ${classified.length} likely finance email${classified.length === 1 ? "" : "s"}.`);
-      return classified;
+      const result = await scanConnectedMailbox(selectedWindow);
+      if (result.historyId) {
+        setSyncState((curr) => ({ ...curr, lastHistoryId: result.historyId, lastSyncedAt: result.lastSyncedAt }));
+      }
+      showNotification("success", `Scanned Gmail and discovered ${result.messages.length} likely finance email${result.messages.length === 1 ? "" : "s"}.`);
+      return result.messages;
     } finally {
       setProcessingCount((n) => Math.max(0, n - 1));
     }
@@ -1512,12 +1510,12 @@ function InvoiceWorkspace() {
     if (!syncState.lastHistoryId) return handleScanGmail({ days: 30 });
     setProcessingCount((n) => n + 1);
     try {
-      const data = await gmailRequest("/api/gmail/history", { startHistoryId: syncState.lastHistoryId });
-      const classified = await classifyGmailCandidates(data.messages || []);
-      const nextSync = await saveGmailSyncState(data.historyId, data.emailAddress);
-      setSyncState(nextSync);
-      showNotification("success", classified.length ? `Found ${classified.length} new/changed Gmail message${classified.length === 1 ? "" : "s"}.` : "Gmail is up to date.");
-      return classified;
+      const result = await syncConnectedMailbox(syncState.lastHistoryId);
+      if (result.historyId) {
+        setSyncState((curr) => ({ ...curr, lastHistoryId: result.historyId, lastSyncedAt: result.lastSyncedAt }));
+      }
+      showNotification("success", result.messages.length ? `Found ${result.messages.length} new/changed Gmail message${result.messages.length === 1 ? "" : "s"}.` : "Gmail is up to date.");
+      return result.messages;
     } catch (error: any) {
       if (error?.code === "HISTORY_EXPIRED") {
         showNotification("info", "Gmail's incremental cursor expired. Rebuilding it with a fresh 30-day scan.");

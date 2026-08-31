@@ -1,4 +1,4 @@
-import type { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent } from "../types.ts";
+import type { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent, EmailIntakeProfile, EmailIntakeProfileInput } from "../types.ts";
 import { supabase } from "./supabase.ts";
 import { companyStoragePath, requireActiveCompanyId } from "./companyContext.ts";
 import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity.ts";
@@ -1072,5 +1072,134 @@ export async function loadEmailSource(emailId: string): Promise<{
     attachments: (sourceRows || []).map((row) => ({ id: row.id, filename: row.filename, mimeType: row.mime_type, storagePath: row.storage_path || undefined })),
     rawStoragePath: data.raw_storage_path || undefined,
     rawSignedUrl: data.raw_storage_path ? await signedUrl(EMAIL_BUCKET, data.raw_storage_path) : undefined,
+  };
+}
+
+export async function listEmailIntakeProfiles(companyId?: string): Promise<EmailIntakeProfile[]> {
+  const client = requireSupabase();
+  const cid = companyId || requireActiveCompanyId();
+  const { data, error } = await client
+    .from("email_intake_profiles")
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,created_by_user_id,created_at,updated_at")
+    .eq("company_id", cid)
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data || []).map((row) => ({
+    id: row.id,
+    companyId: row.company_id,
+    name: row.name,
+    enabled: Boolean(row.enabled),
+    senderEmail: row.sender_email || undefined,
+    senderDomain: row.sender_domain || undefined,
+    subjectContains: row.subject_contains || undefined,
+    attachmentCondition: row.attachment_condition || undefined,
+    suggestedDestination: row.suggested_destination,
+    createdByUserId: row.created_by_user_id || undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function saveEmailIntakeProfile(input: EmailIntakeProfileInput, companyId?: string): Promise<EmailIntakeProfile> {
+  const client = requireSupabase();
+  const userId = await requireUserId();
+  const cid = companyId || requireActiveCompanyId();
+  const payload = {
+    company_id: cid,
+    name: input.name.trim(),
+    enabled: input.enabled !== undefined ? Boolean(input.enabled) : true,
+    sender_email: input.senderEmail ? input.senderEmail.trim().toLowerCase() : null,
+    sender_domain: input.senderDomain ? input.senderDomain.trim().toLowerCase().replace(/^@/, "") : null,
+    subject_contains: input.subjectContains ? input.subjectContains.trim() : null,
+    attachment_condition: input.attachmentCondition ? input.attachmentCondition.trim() : null,
+    suggested_destination: input.suggestedDestination,
+    created_by_user_id: userId,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (input.id) {
+    const { data, error } = await client
+      .from("email_intake_profiles")
+      .update(payload)
+      .eq("id", input.id)
+      .eq("company_id", cid)
+      .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,created_by_user_id,created_at,updated_at")
+      .single();
+    if (error) throw error;
+    return {
+      id: data.id,
+      companyId: data.company_id,
+      name: data.name,
+      enabled: Boolean(data.enabled),
+      senderEmail: data.sender_email || undefined,
+      senderDomain: data.sender_domain || undefined,
+      subjectContains: data.subject_contains || undefined,
+      attachmentCondition: data.attachment_condition || undefined,
+      suggestedDestination: data.suggested_destination,
+      createdByUserId: data.created_by_user_id || undefined,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  }
+
+  const { data, error } = await client
+    .from("email_intake_profiles")
+    .insert(payload)
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,created_by_user_id,created_at,updated_at")
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    companyId: data.company_id,
+    name: data.name,
+    enabled: Boolean(data.enabled),
+    senderEmail: data.sender_email || undefined,
+    senderDomain: data.sender_domain || undefined,
+    subjectContains: data.subject_contains || undefined,
+    attachmentCondition: data.attachment_condition || undefined,
+    suggestedDestination: data.suggested_destination,
+    createdByUserId: data.created_by_user_id || undefined,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+  };
+}
+
+export async function deleteEmailIntakeProfile(id: string, companyId?: string): Promise<void> {
+  const client = requireSupabase();
+  await requireUserId();
+  const cid = companyId || requireActiveCompanyId();
+  const { error } = await client
+    .from("email_intake_profiles")
+    .delete()
+    .eq("id", id)
+    .eq("company_id", cid);
+  if (error) throw error;
+}
+
+export async function toggleEmailIntakeProfile(id: string, enabled: boolean, companyId?: string): Promise<EmailIntakeProfile> {
+  const client = requireSupabase();
+  await requireUserId();
+  const cid = companyId || requireActiveCompanyId();
+  const { data, error } = await client
+    .from("email_intake_profiles")
+    .update({ enabled, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("company_id", cid)
+    .select("id,company_id,name,enabled,sender_email,sender_domain,subject_contains,attachment_condition,suggested_destination,created_by_user_id,created_at,updated_at")
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    companyId: data.company_id,
+    name: data.name,
+    enabled: Boolean(data.enabled),
+    senderEmail: data.sender_email || undefined,
+    senderDomain: data.sender_domain || undefined,
+    subjectContains: data.subject_contains || undefined,
+    attachmentCondition: data.attachment_condition || undefined,
+    suggestedDestination: data.suggested_destination,
+    createdByUserId: data.created_by_user_id || undefined,
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
   };
 }

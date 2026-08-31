@@ -288,6 +288,37 @@ export interface EmailClassification {
   reason: string;
   suggestedVendor?: string;
   invoiceNumberHint?: string;
+  matchedProfileId?: string;
+  matchedProfileName?: string;
+  conflictReason?: string;
+}
+
+export type EmailIntakeProfileDestination = "INVOICE" | "BANK_STATEMENT" | "EXPENSE";
+
+export interface EmailIntakeProfile {
+  id: string;
+  companyId: string;
+  name: string;
+  enabled: boolean;
+  senderEmail?: string;
+  senderDomain?: string;
+  subjectContains?: string;
+  attachmentCondition?: string;
+  suggestedDestination: EmailIntakeProfileDestination;
+  createdByUserId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailIntakeProfileInput {
+  id?: string;
+  name: string;
+  enabled?: boolean;
+  senderEmail?: string;
+  senderDomain?: string;
+  subjectContains?: string;
+  attachmentCondition?: string;
+  suggestedDestination: EmailIntakeProfileDestination;
 }
 
 export interface GmailAttachmentSummary {
