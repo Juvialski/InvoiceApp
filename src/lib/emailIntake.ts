@@ -115,7 +115,7 @@ export function classifyEmailIntakeCandidate(message: GmailMessageCandidate): Em
   const statementIds = supportedStatementAttachmentIds(message);
   const expenseIds = supportedExpenseAttachmentIds(message);
   const hasSupportedStatement = statementIds.length > 0;
-  const hasSupportedExpenseAttachment = expenseIds.length > 0 || message.attachments.length === 0;
+  const hasSupportedExpenseAttachment = expenseIds.length > 0;
 
   const strongBankStatementSignal = /\b(bank statement|transaction statement|e[- ]?statement|monthly statement)\b/i.test(text)
     || (/\b(statement|transactions?|account)\b/i.test(text) && /\b(bank|checking|savings|deposit|ledger|balance)\b/i.test(text));
@@ -544,16 +544,15 @@ export async function prepareGmailExpenseReview(
   const supported = imported.attachments.filter(isSupportedExpenseAttachment);
   const attachment = requestedAttachmentId
     ? supported.find((item) => item.attachmentId === requestedAttachmentId)
-    : (supported[0] || imported.attachments[0]);
+    : supported[0];
+  if (!attachment) throw new Error("No supported PDF/image expense receipt attachment was found in this email.");
 
   const stored = await saveGmailMessageSource(imported);
   await markEmailClassification(stored.email.id, classification);
 
-  const sourceDocument = attachment
-    ? (stored.documents.find((document) => document.gmailAttachmentId === attachment.attachmentId)
-      || stored.documents.find((document) => document.gmailPartId && document.gmailPartId === attachment.partId)
-      || stored.documents.find((document) => document.attachmentIndex === attachment.attachmentIndex))
-    : stored.documents[0];
+  const sourceDocument = stored.documents.find((document) => document.gmailAttachmentId === attachment.attachmentId)
+    || stored.documents.find((document) => document.gmailPartId && document.gmailPartId === attachment.partId)
+    || stored.documents.find((document) => document.attachmentIndex === attachment.attachmentIndex);
 
   if (!sourceDocument) throw new Error("The selected expense attachment could not be linked to its preserved source document.");
 
@@ -565,9 +564,9 @@ export async function prepareGmailExpenseReview(
     sourceDocumentId: sourceDocument.id,
     emailMessageId: stored.email.id,
     gmailMessageId: imported.id,
-    gmailAttachmentId: attachment?.attachmentId,
-    fileName: attachment?.filename || `${imported.subject || "receipt"}.eml`,
-    mimeType: attachment?.mimeType || "message/rfc822",
+    gmailAttachmentId: attachment.attachmentId,
+    fileName: attachment.filename,
+    mimeType: attachment.mimeType,
     subject: imported.subject || message.subject || "Receipt / Expense",
     sender: imported.sender || message.sender || "",
     createdAt: new Date().toISOString(),
@@ -631,4 +630,3 @@ export async function linkFinancialImportSource(input: { accountId: string; file
   if (error) throw error;
   return data;
 }
-
