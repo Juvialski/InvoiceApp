@@ -140,32 +140,27 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
         setAccountEvidence(extractedEvidence);
         setResolution(candidateResolution);
 
-        // Account pre-selection behavior:
-        // 1. If pending.confirmedAccountId was explicitly set by user in mailbox modal, pre-select that account!
-        if (staged.confirmedAccountId && activeAccounts.some((a) => a.id === staged.confirmedAccountId)) {
-          setAccountId(staged.confirmedAccountId);
-        }
-        // 2. Else if resolution.proposedAction === "LINK_EXISTING" and resolution.matchedEntityId is in active accounts:
-        else if (
+        // Parsed statement identity is authoritative. A legacy staged
+        // confirmedAccountId is honored only when the post-parse resolver
+        // independently reaches the same conflict-free LINK_EXISTING result.
+        const stagedConfirmedAccountIsStillValid = Boolean(
+          staged.confirmedAccountId
+          && candidateResolution.proposedAction === "LINK_EXISTING"
+          && candidateResolution.conflicts.length === 0
+          && candidateResolution.matchedEntityId === staged.confirmedAccountId
+          && activeAccounts.some((a) => a.id === staged.confirmedAccountId),
+        );
+        if (stagedConfirmedAccountIsStillValid) {
+          setAccountId(staged.confirmedAccountId!);
+        } else if (
           candidateResolution.proposedAction === "LINK_EXISTING" &&
           candidateResolution.matchedEntityId &&
           activeAccounts.some((a) => a.id === candidateResolution.matchedEntityId)
         ) {
           setAccountId(candidateResolution.matchedEntityId);
-        }
-        // 3. Else if resolution.proposedAction === "NEEDS_REVIEW" or "POSSIBLE_DUPLICATE":
-        // Do NOT auto-preselect or show clear warning badge / require explicit selection.
-        else if (
-          candidateResolution.proposedAction === "NEEDS_REVIEW" ||
-          candidateResolution.proposedAction === "POSSIBLE_DUPLICATE"
-        ) {
-          setAccountId("");
-        }
-        // 4. Else if resolution.proposedAction === "CREATE_NEW":
-        // Show proposed account banner ("Proposed new account: [Name •••• Suffix]") without auto-creating it.
-        else if (candidateResolution.proposedAction === "CREATE_NEW") {
-          setAccountId("");
         } else {
+          // NEEDS_REVIEW / POSSIBLE_DUPLICATE / CREATE_NEW / unresolved all
+          // require an explicit destination-review choice.
           setAccountId("");
         }
       } catch (reason) {
@@ -285,7 +280,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
 
       {document && (
         <div className="mt-4 space-y-4">
-          {/* Entity Resolution Card */}
           {resolution && (
             <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3 shadow-xs">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
@@ -301,7 +295,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
                 )}
               </div>
 
-              {/* Extracted Account Evidence */}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-xs">
                 <div className="rounded-lg bg-slate-50 p-2 border border-slate-100">
                   <p className="text-[10px] font-bold uppercase text-slate-500">Detected Institution</p>
@@ -329,7 +322,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
                 </div>
               </div>
 
-              {/* Identity Conflicts Alert */}
               {resolution.conflicts.length > 0 && (
                 <div className="rounded-lg border border-rose-200 bg-rose-50/80 p-3 space-y-1.5 text-xs text-rose-950">
                   <div className="flex items-center gap-1.5 font-black text-rose-900 uppercase tracking-wide text-[11px]">
@@ -355,7 +347,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
                 </div>
               )}
 
-              {/* Proposed New Account Banner */}
               {resolution.proposedAction === "CREATE_NEW" && (
                 <div className="rounded-lg border border-purple-200 bg-purple-50/70 p-3 space-y-1 text-xs text-purple-950">
                   <div className="flex items-center gap-1.5 font-black text-purple-900 uppercase tracking-wide text-[11px]">
@@ -368,7 +359,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
                 </div>
               )}
 
-              {/* Explicit Review Required Alert (when no conflict but action is review/duplicate) */}
               {(resolution.proposedAction === "NEEDS_REVIEW" && resolution.conflicts.length === 0) || resolution.proposedAction === "POSSIBLE_DUPLICATE" ? (
                 <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-950 space-y-1">
                   <div className="flex items-center gap-1.5 font-bold text-amber-900">
@@ -383,7 +373,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
                 </div>
               ) : null}
 
-              {/* Match Reasons */}
               {resolution.matchReasons.length > 0 && (
                 <div className="pt-2 border-t border-slate-100">
                   <div className="flex items-center gap-1 text-[11px] font-bold text-slate-600 mb-1">
@@ -400,7 +389,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
             </div>
           )}
 
-          {/* Account Selection & Document Info */}
           <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
             <label className="space-y-1">
               <span className="field-label">Cash account</span>
@@ -424,10 +412,10 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
                 <p className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1 mt-1">
                   <CheckCircle2 className="h-3 w-3" />
                   Target: {selectedAccount.displayName} ({selectedAccount.currency})
-                  {pending.confirmedAccountId === accountId ? (
-                    <span className="text-slate-500 font-normal">· Pre-selected from mailbox review</span>
+                  {pending.confirmedAccountId === accountId && resolution?.matchedEntityId === accountId && resolution?.conflicts.length === 0 ? (
+                    <span className="text-slate-500 font-normal">· Legacy selection confirmed by parsed identity</span>
                   ) : resolution?.matchedEntityId === accountId && resolution?.proposedAction === "LINK_EXISTING" ? (
-                    <span className="text-slate-500 font-normal">· Matched via account identity</span>
+                    <span className="text-slate-500 font-normal">· Matched via parsed account identity</span>
                   ) : null}
                 </p>
               ) : (
@@ -448,7 +436,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
             </div>
           </div>
 
-          {/* Column Mapping Section */}
           <div>
             <SectionHeader
               title="Confirm statement columns"
@@ -490,7 +477,6 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
             </button>
           </div>
 
-          {/* Statement Preview Summary & Commit */}
           {preview && (
             <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -530,4 +516,3 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
 function Summary({ label, value }: { label: string; value: string }) {
   return <div className="rounded-lg bg-slate-50 p-2.5"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 truncate text-xs font-black tabular-nums text-slate-900" title={value}>{value}</p></div>;
 }
-
