@@ -36,6 +36,10 @@ const safetyMigration = readFileSync(
   new URL("../supabase/migrations/20260824120000_payroll_safety_hardening.sql", import.meta.url),
   "utf8",
 );
+const wave7AuthorityMigration = readFileSync(
+  new URL("../supabase/migrations/20260831003455_wave7_engineering_revision_authority.sql", import.meta.url),
+  "utf8",
+);
 
 test("payroll safety migration enforces leave lifecycle and project source freshness without touching history", () => {
   assert.match(safetyMigration, /validate_leave_request_operation/);
@@ -46,4 +50,18 @@ test("payroll safety migration enforces leave lifecycle and project source fresh
   assert.match(safetyMigration, /old\.status is not distinct from new\.status/);
   assert.match(safetyMigration, /p\.status not in \('APPROVED', 'PAID', 'VOID'\)/);
   assert.doesNotMatch(safetyMigration, /drop table/i);
+});
+
+test("Wave 7 protects holidays from finalized payroll-source edits regardless of caller read RLS", () => {
+  assert.match(wave7AuthorityMigration, /create or replace function public\.guard_finalized_payroll_workforce_source[\s\S]*?security definer\s+set search_path = ''/i);
+  assert.doesNotMatch(wave7AuthorityMigration, /create or replace function public\.guard_finalized_payroll_workforce_source[\s\S]*?security invoker\s+set search_path = ''/i);
+  assert.match(wave7AuthorityMigration, /private\.deployment_company_id\(\)/);
+  assert.match(wave7AuthorityMigration, /v_company_id is distinct from v_deployment_company_id/);
+  assert.match(wave7AuthorityMigration, /p\.company_id = v_deployment_company_id/);
+  assert.match(wave7AuthorityMigration, /v_new ->> 'holiday_date'/);
+  assert.match(wave7AuthorityMigration, /v_old ->> 'holiday_date'/);
+  assert.match(wave7AuthorityMigration, /payroll_holidays_finalized_source_guard/);
+  assert.match(wave7AuthorityMigration, /before insert or update or delete on public\.payroll_holidays/);
+  assert.match(wave7AuthorityMigration, /Finalized payroll sources are immutable/);
+  assert.match(wave7AuthorityMigration, /revoke execute on function public\.guard_finalized_payroll_workforce_source\(\) from public, anon, authenticated/);
 });

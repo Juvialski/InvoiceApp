@@ -16,7 +16,7 @@ function sortByPhaseAndName(features: readonly EngoryxFeatureDefinition[]) {
 
 function toneForAvailability(availability: FeatureAvailability): "success" | "warning" | "neutral" {
   if (availability === "AVAILABLE_NOW") return "success";
-  if (availability === "COMING_SOON") return "warning";
+  if (availability === "PLANNED_NOT_AVAILABLE") return "warning";
   return "neutral";
 }
 
@@ -32,7 +32,7 @@ export const FeatureStatusOverview: React.FC = () => (
       <div className="min-w-0 flex-1">
         <SectionHeader
           title="Product feature status"
-          description="Available features are implemented today. Planned work is clearly separated so unfinished roadmap items are never presented as completed functionality."
+          description="Available features are implemented today. Roadmap items are explicitly marked as not available so unfinished work is never presented as completed functionality."
         />
       </div>
     </div>
@@ -63,7 +63,7 @@ export const FeatureStatusOverview: React.FC = () => (
         <Clock3 className="h-4 w-4 text-amber-600" />
         <h3 className="text-xs font-black text-slate-900">Planned development</h3>
       </div>
-      <p className="mt-1 text-xs text-slate-500">These items are not active product features yet. Phase 2 and Phase 3 are planned next; later phases remain longer-term roadmap items.</p>
+      <p className="mt-1 text-xs text-slate-500">These items are not active product features yet. Phase 2 and Phase 3 remain planned roadmap items with no implied delivery date or production access; later phases remain longer-term roadmap items.</p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
         {upcomingFeatures.map((feature) => {

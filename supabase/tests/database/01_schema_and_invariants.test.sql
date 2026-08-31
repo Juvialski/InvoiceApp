@@ -1,5 +1,5 @@
 begin;
-select plan(66);
+select plan(67);
 
 -- 1. Core tables exist across all domains
 select has_table('public', 'companies', 'public.companies exists');
@@ -77,6 +77,13 @@ select isnt_empty(
   $$select 1 from pg_proc where oid = 'public.platform_create_company(text,text,text,text)'::regprocedure
     and pg_get_functiondef(oid) like '%Creating additional companies is disabled%'$$,
   'additional company creation is disabled by the final RPC'
+);
+select isnt_empty(
+  $$select 1 from pg_proc where pronamespace = 'public'::regnamespace
+    and proname = 'create_engineering_revision'
+    and pg_get_functiondef(oid) like '%Engineering revision uploads may only move documents to UNDER_REVIEW%'
+    and pg_get_functiondef(oid) like '%Engineering revision uploads may only create PENDING_REVIEW revisions%'$$,
+  'engineering revision uploads cannot bypass guarded lifecycle states'
 );
 
 -- 4. Check constraints exist
