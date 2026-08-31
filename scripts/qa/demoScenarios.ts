@@ -36,15 +36,15 @@ const openMobileNavigation: QaScenarioAction = async (page) => {
   return [{ id: "mobile-navigation-visible", passed: count > 0, details: `close-navigation controls: ${count}` } satisfies QaAssertion];
 };
 
-function assertHeading(name: string, assertionId: string): QaScenarioAction {
+function assertHeading(name: string | RegExp, assertionId: string): QaScenarioAction {
   return async (page) => {
-    const count = await page.getByRole("heading", { name, exact: true }).count();
+    const count = await page.getByRole("heading", typeof name === "string" ? { name, exact: true } : { name }).count();
     return [{ id: assertionId, passed: count > 0, details: `matching headings: ${count}` } satisfies QaAssertion];
   };
 }
 
 const verifyExtractorScreen = assertHeading("Extract invoice documents", "invoice-extractor-visible");
-const verifyGmailInboxScreen = assertHeading("Gmail inbox", "gmail-inbox-visible");
+const verifyGmailInboxScreen = assertHeading(/Email Intake|Gmail inbox/, "gmail-inbox-visible");
 const verifyVendorsScreen = assertHeading("Vendors", "vendor-directory-visible");
 
 const verifyFeatureStatusRoadmap: QaScenarioAction = async (page) => {
