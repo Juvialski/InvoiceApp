@@ -305,6 +305,9 @@ export interface EmailIntakeProfile {
   subjectContains?: string;
   attachmentCondition?: string;
   suggestedDestination: EmailIntakeProfileDestination;
+  linkedVendorId?: string;
+  linkedFinancialAccountId?: string;
+  defaultExpenseCategory?: string;
   createdByUserId?: string;
   createdAt: string;
   updatedAt: string;
@@ -319,6 +322,113 @@ export interface EmailIntakeProfileInput {
   subjectContains?: string;
   attachmentCondition?: string;
   suggestedDestination: EmailIntakeProfileDestination;
+  linkedVendorId?: string;
+  linkedFinancialAccountId?: string;
+  defaultExpenseCategory?: string;
+}
+
+export interface Vendor {
+  id: string;
+  companyId?: string;
+  name: string;
+  normalizedName: string;
+  email?: string | null;
+  phone?: string | null;
+  taxId?: string | null;
+  address?: string | null;
+  defaultCurrency?: string | null;
+  defaultCategory?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type EntityResolutionType = "VENDOR" | "FINANCIAL_ACCOUNT";
+
+export type EntityResolutionAction =
+  | "LINK_EXISTING"
+  | "ENRICH_EXISTING"
+  | "CREATE_NEW"
+  | "POSSIBLE_DUPLICATE"
+  | "NEEDS_REVIEW";
+
+export type EntityResolutionConfidence = "HIGH" | "MEDIUM" | "LOW";
+
+export interface EntityResolutionConflict {
+  field: string;
+  label: string;
+  existingValue?: string;
+  candidateValue?: string;
+  reason: string;
+}
+
+export interface EntityResolutionEnrichmentField {
+  field: string;
+  label: string;
+  currentValue?: string;
+  proposedValue: string;
+}
+
+export interface VendorIdentityEvidence {
+  name: string;
+  companyName?: string;
+  registeredName?: string;
+  tradeName?: string;
+  taxId?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  senderEmail?: string;
+  senderDomain?: string;
+  matchedProfileId?: string;
+  matchedProfileName?: string;
+  linkedProfileVendorId?: string;
+}
+
+export interface FinancialAccountIdentityEvidence {
+  institutionName?: string;
+  institutionCode?: string;
+  accountNumber?: string;
+  maskedIdentifier?: string;
+  currency?: string;
+  displayName?: string;
+  senderEmail?: string;
+  senderDomain?: string;
+  matchedProfileId?: string;
+  matchedProfileName?: string;
+  linkedProfileAccountId?: string;
+}
+
+export interface EntityResolutionResult {
+  entityType: EntityResolutionType;
+  candidateId: string;
+  proposedAction: EntityResolutionAction;
+  confidence: EntityResolutionConfidence;
+  confidenceScore: number;
+  matchedEntityId?: string;
+  matchedEntityName?: string;
+  matchedEntityDetails?: Record<string, string | number | boolean | null | undefined>;
+  batchGroupId?: string;
+  isGroupPrimary?: boolean;
+  groupMemberCount?: number;
+  matchReasons: string[];
+  conflicts: EntityResolutionConflict[];
+  proposedEnrichments: EntityResolutionEnrichmentField[];
+  extractedEvidence: Record<string, any>;
+  normalizedEvidence: Record<string, string>;
+  sourceReference?: {
+    messageId?: string;
+    subject?: string;
+    sender?: string;
+    fileName?: string;
+    attachmentId?: string;
+  };
+}
+
+export interface BatchEntityResolutionSummary {
+  vendorResolutions: Record<string, EntityResolutionResult>;
+  financialAccountResolutions: Record<string, EntityResolutionResult>;
+  vendorGroups: Record<string, string[]>;
+  financialAccountGroups: Record<string, string[]>;
 }
 
 export interface GmailAttachmentSummary {

@@ -14,13 +14,16 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { EmailIntakeProfile, EmailIntakeProfileInput } from "../../types.ts";
+import type { EmailIntakeProfile, EmailIntakeProfileInput, Vendor } from "../../types.ts";
+import type { FinancialAccount } from "../../lib/cashBanking.ts";
 import { validateEmailIntakeProfile } from "../../lib/emailIntake.ts";
 
 interface IntakeRulesModalProps {
   isOpen: boolean;
   onClose: () => void;
   profiles: EmailIntakeProfile[];
+  vendors?: Vendor[];
+  financialAccounts?: FinancialAccount[];
   onSaveProfile: (input: EmailIntakeProfileInput) => Promise<void>;
   onDeleteProfile: (id: string) => Promise<void>;
   onToggleProfile: (id: string, enabled: boolean) => Promise<void>;
@@ -32,6 +35,8 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
   isOpen,
   onClose,
   profiles,
+  vendors = [],
+  financialAccounts = [],
   onSaveProfile,
   onDeleteProfile,
   onToggleProfile,
@@ -48,6 +53,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
   const [suggestedDestination, setSuggestedDestination] = useState<"INVOICE" | "BANK_STATEMENT" | "EXPENSE">(
     initialForm?.suggestedDestination || "INVOICE"
   );
+  const [linkedVendorId, setLinkedVendorId] = useState<string>(initialForm?.linkedVendorId || "");
+  const [linkedFinancialAccountId, setLinkedFinancialAccountId] = useState<string>(initialForm?.linkedFinancialAccountId || "");
+  const [defaultExpenseCategory, setDefaultExpenseCategory] = useState<string>(initialForm?.defaultExpenseCategory || "");
   const [enabled, setEnabled] = useState(initialForm?.enabled !== undefined ? initialForm.enabled : true);
 
   const [saving, setSaving] = useState(false);
@@ -65,6 +73,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
       setSubjectContains(initialForm.subjectContains || "");
       setAttachmentCondition(initialForm.attachmentCondition || "");
       setSuggestedDestination(initialForm.suggestedDestination || "INVOICE");
+      setLinkedVendorId(initialForm.linkedVendorId || "");
+      setLinkedFinancialAccountId(initialForm.linkedFinancialAccountId || "");
+      setDefaultExpenseCategory(initialForm.defaultExpenseCategory || "");
       setEnabled(initialForm.enabled !== undefined ? initialForm.enabled : true);
       setView("form");
       setErrorMessages([]);
@@ -82,6 +93,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
     setSubjectContains("");
     setAttachmentCondition("");
     setSuggestedDestination("INVOICE");
+    setLinkedVendorId("");
+    setLinkedFinancialAccountId("");
+    setDefaultExpenseCategory("");
     setEnabled(true);
     setErrorMessages([]);
     setFeedback(null);
@@ -100,6 +114,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
     setSubjectContains(profile.subjectContains || "");
     setAttachmentCondition(profile.attachmentCondition || "");
     setSuggestedDestination(profile.suggestedDestination);
+    setLinkedVendorId(profile.linkedVendorId || "");
+    setLinkedFinancialAccountId(profile.linkedFinancialAccountId || "");
+    setDefaultExpenseCategory(profile.defaultExpenseCategory || "");
     setEnabled(profile.enabled);
     setErrorMessages([]);
     setFeedback(null);
@@ -121,6 +138,9 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
       subjectContains: subjectContains.trim() || undefined,
       attachmentCondition: attachmentCondition.trim() || undefined,
       suggestedDestination,
+      linkedVendorId: (suggestedDestination === "INVOICE" || suggestedDestination === "EXPENSE") && linkedVendorId ? linkedVendorId : undefined,
+      linkedFinancialAccountId: suggestedDestination === "BANK_STATEMENT" && linkedFinancialAccountId ? linkedFinancialAccountId : undefined,
+      defaultExpenseCategory: suggestedDestination === "EXPENSE" && defaultExpenseCategory ? defaultExpenseCategory.trim() : undefined,
       enabled,
     };
 
@@ -362,6 +382,28 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
                                 </span>
                               </div>
                             )}
+                            {profile.linkedVendorId && (
+                              <div className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/60">
+                                <span>Linked Vendor:</span>
+                                <span className="font-semibold">
+                                  {vendors.find((v) => v.id === profile.linkedVendorId)?.name || profile.linkedVendorId}
+                                </span>
+                              </div>
+                            )}
+                            {profile.linkedFinancialAccountId && (
+                              <div className="inline-flex items-center gap-1 text-[11px] text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200/60">
+                                <span>Linked Account:</span>
+                                <span className="font-semibold">
+                                  {financialAccounts.find((a) => a.id === profile.linkedFinancialAccountId)?.displayName || profile.linkedFinancialAccountId}
+                                </span>
+                              </div>
+                            )}
+                            {profile.defaultExpenseCategory && (
+                              <div className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
+                                <span>Default Category:</span>
+                                <span className="font-semibold">{profile.defaultExpenseCategory}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -555,6 +597,71 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Linked Entity Options */}
+              {(suggestedDestination === "INVOICE" || suggestedDestination === "EXPENSE") && (
+                <div>
+                  <label className="block text-xs font-black text-slate-800 uppercase mb-1">
+                    Link to Existing Vendor (Optional)
+                  </label>
+                  <select
+                    value={linkedVendorId}
+                    onChange={(e) => setLinkedVendorId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">No vendor link (resolve dynamically)</option>
+                    {vendors.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} {v.taxId ? `(TIN: ${v.taxId})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Advisory hint for entity resolution. Contradictory document tax IDs will still require human review.
+                  </p>
+                </div>
+              )}
+
+              {suggestedDestination === "BANK_STATEMENT" && (
+                <div>
+                  <label className="block text-xs font-black text-slate-800 uppercase mb-1">
+                    Link to Existing Financial Account (Optional)
+                  </label>
+                  <select
+                    value={linkedFinancialAccountId}
+                    onChange={(e) => setLinkedFinancialAccountId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-white focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="">No account link (match by statement data)</option>
+                    {financialAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.displayName} ({a.institutionName} •••• {a.maskedIdentifier?.slice(-4) || "N/A"} - {a.currency})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Advisory hint for bank statement routing. Contradictory currencies will require review.
+                  </p>
+                </div>
+              )}
+
+              {suggestedDestination === "EXPENSE" && (
+                <div>
+                  <label className="block text-xs font-black text-slate-800 uppercase mb-1">
+                    Default Expense Category (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Travel & Transportation, Office Supplies, Meals"
+                    value={defaultExpenseCategory}
+                    onChange={(e) => setDefaultExpenseCategory(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Initial category suggestion for recurring expense receipts
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 pt-1">
                 <input

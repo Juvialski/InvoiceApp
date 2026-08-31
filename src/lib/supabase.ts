@@ -121,19 +121,41 @@ const ACCESS_TOKEN_KEY = "invoice_ops_google_provider_token";
 // retained for the active connected-mailbox session.
 const LEGACY_REFRESH_TOKEN_KEY = "invoice_ops_google_provider_refresh_token";
 
-export function captureGoogleProviderTokens(session: Session | null) {
+let memoryProviderToken = "";
+
+export function captureGoogleProviderTokens(session: Session | null): string {
   const providerToken = (session as any)?.provider_token as string | undefined;
   const storage = browserStorage();
-  if (!storage) return;
-  storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
-  if (providerToken) storage.setItem(ACCESS_TOKEN_KEY, providerToken);
+  if (providerToken) {
+    memoryProviderToken = providerToken;
+    if (storage) {
+      storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+      storage.setItem(ACCESS_TOKEN_KEY, providerToken);
+    }
+    return providerToken;
+  }
+  if (storage) {
+    storage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+    const stored = storage.getItem(ACCESS_TOKEN_KEY);
+    if (stored) {
+      memoryProviderToken = stored;
+      return stored;
+    }
+  }
+  return memoryProviderToken;
 }
 
 export function getGoogleProviderToken() {
-  return browserStorage()?.getItem(ACCESS_TOKEN_KEY) || "";
+  const storage = browserStorage();
+  if (storage) {
+    const stored = storage.getItem(ACCESS_TOKEN_KEY);
+    if (stored) return stored;
+  }
+  return memoryProviderToken;
 }
 
 export function clearGoogleProviderTokens() {
+  memoryProviderToken = "";
   const storage = browserStorage();
   if (!storage) return;
   storage.removeItem(ACCESS_TOKEN_KEY);

@@ -738,8 +738,11 @@ function InvoiceWorkspace() {
     }
   };
 
+  const [googleProviderToken, setGoogleProviderToken] = useState(() => getGoogleProviderToken());
+
   useEffect(() => {
-    captureGoogleProviderTokens(session);
+    const token = captureGoogleProviderTokens(session);
+    setGoogleProviderToken(token || getGoogleProviderToken());
   }, [session]);
   useEffect(() => {
     if (!authResolved) return undefined;
@@ -3008,7 +3011,7 @@ function InvoiceWorkspace() {
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
     signedIn: Boolean(session),
-    hasGmailToken: Boolean(session && getGoogleProviderToken()),
+    hasGmailToken: Boolean(session && (googleProviderToken || (session as any)?.provider_token || getGoogleProviderToken())),
     email: session?.user?.email,
     displayName: session?.user?.user_metadata?.full_name,
     lastHistoryId: syncState.lastHistoryId,

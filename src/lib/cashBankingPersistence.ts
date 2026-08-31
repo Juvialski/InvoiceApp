@@ -210,6 +210,20 @@ function accountRow(account: FinancialAccount, userId: string, companyId: string
   });
 }
 
+export async function listFinancialAccounts(): Promise<FinancialAccount[]> {
+  const userId = await currentUserId();
+  if (!supabase || !userId) return [];
+  const companyId = requireActiveCompanyId();
+  const { data, error } = await supabase
+    .from("financial_accounts")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("active", { ascending: false })
+    .order("display_name");
+  if (error) throw error;
+  return (data || []).map((row) => accountFromRow(row as Row));
+}
+
 export async function loadCashBankingWorkspaceFromSupabase(): Promise<CashBankingWorkspaceData> {
   const userId = await currentUserId();
   if (!supabase || !userId) return emptyCashBankingWorkspaceData();

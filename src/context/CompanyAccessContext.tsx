@@ -29,7 +29,7 @@ import {
 } from "../lib/companyAccess.ts";
 import { clearCompanyContext, setDeploymentCompanyId } from "../lib/companyContext.ts";
 import { assertDeploymentCompanyId, loadDeploymentCompanyId, resolveDeploymentCompanyAccess } from "../lib/deploymentCompany.ts";
-import { isSupabaseConfigured, signOutWorkspace, supabase } from "../lib/supabase.ts";
+import { captureGoogleProviderTokens, isSupabaseConfigured, signOutWorkspace, supabase } from "../lib/supabase.ts";
 import { hasPermission, type PermissionKey } from "../utils/accessControl.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
 
@@ -117,6 +117,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
     let mounted = true;
     const applySession = (nextSession: Session | null) => {
       if (!mounted) return;
+      captureGoogleProviderTokens(nextSession);
       const previousUserId = sessionRef.current?.user?.id || null;
       const nextUserId = nextSession?.user?.id || null;
       if (previousUserId !== nextUserId) {
