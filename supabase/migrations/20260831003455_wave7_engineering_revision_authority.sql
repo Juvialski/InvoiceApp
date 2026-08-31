@@ -1,15 +1,18 @@
 -- Wave 7 production-readiness closure.
 --
--- This migration is forward-only. It closes two authority gaps found by the
+-- This migration is forward-only. It closes authority gaps found by the
 -- integrated audit without rewriting existing engineering or payroll history:
 --   * revision creation is deployment-bound and cannot choose a finalized
 --     lifecycle state or append to an archived/superseded document;
---   * finalized payroll source protection also covers holiday-date changes.
+--   * finalized payroll source protection also covers holiday-date changes;
+--   * the finalized-source invariant executes independently of caller read RLS
+--     so a custom payroll writer cannot bypass history protection by lacking
+--     payroll summary visibility.
 
 create or replace function public.guard_finalized_payroll_workforce_source()
 returns trigger
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
