@@ -1,6 +1,6 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A merged (PR #52), Phase 4B merged (PR #53), Phase 4C implemented in `feat/email-intake-phase-4c-invoice-hardening` — multi-attachment invoice extraction, pre-extraction duplicate short-circuiting, extraction retry quality, and authoritative post-extraction vendor resolution.
+Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A merged (PR #52), Phase 4B merged (PR #53), Phase 4C merged (PR #54), Phase 4D merged (PR #55), Phase 4D.1 merged (PR #57), Phase 4E implemented in `feat/email-intake-phase-4e-expense-receipt-hardening` (Expense / Receipt Intake Hardening).
 
 Current direction:
 
@@ -203,22 +203,23 @@ A strong existing match should normally link to the existing entity rather than 
 
 Multiple emails from the same previously unknown supplier should be able to resolve to one proposed new Vendor instead of independently proposing several duplicate Vendors.
 
-## 4C — Vendor / supplier resolution
+## 4C — Invoice intake hardening
 
-Strong matching evidence may include:
+Status: merged in PR #54.
 
-- exact normalized TIN/tax identifier;
-- saved sender profile linked to Vendor;
-- exact sender address/domain;
-- registered/legal name;
-- verified address/phone evidence;
-- normalized name similarity as secondary evidence.
+Delivered direction:
 
-Do not auto-merge Vendors based only on similar names.
-
-Conflicting tax/business identity data requires review.
+- source/hash/message/attachment duplicate short-circuiting before expensive extraction;
+- Vendor matching before proposing new Vendor data;
+- multiple Invoice attachments in one email;
+- forwarded copies of the same Invoice;
+- extraction quality/retry behavior;
+- source preview/recovery;
+- clear candidate → extracted draft → verified Invoice boundaries.
 
 ## 4D — FinancialAccount and statement hardening
+
+Status: merged in PR #55.
 
 Bank statement intake must prefer existing FinancialAccounts when identity evidence is strong.
 
@@ -242,15 +243,13 @@ BDO statement + account ending 4821 + PHP
 
 If several accounts plausibly match, explicit account selection remains required.
 
-Never create a duplicate bank account merely because a statement uses a different display name or filename.
-
 Supported spreadsheet statements (CSV, XLSX, XLS, XLSM) continue using the deterministic Cash & Banking parser with verified column mappings.
 
 No autonomous transaction posting.
 
 ## 4D.1 — Password-Protected PDF Bank Statement Support
 
-Status: implemented in feature branch `feat/email-intake-phase-4d1-password-protected-pdf-statements`.
+Status: merged in PR #57.
 
 Scope & Implementation:
 
@@ -262,41 +261,25 @@ Scope & Implementation:
 - **Institution & Maya Statement Profile**: Deterministic statement parser profile for Maya and standard banking PDF statements with structural validation before applying column mappings.
 - **Human Confirmation Gate**: Full preview and verification before committing import to Cash & Banking.
 
-## 4E — Invoice intake hardening
+## 4E — Expense / receipt intake hardening
 
-Status: PAUSED pending completion of Phase 4D.1.
+Status: implemented in feature branch `feat/email-intake-phase-4e-expense-receipt-hardening`.
 
-Improve:
+Scope & Implementation:
 
-- source/hash/message/attachment duplicate short-circuiting before expensive extraction where possible;
-- Vendor matching before proposing new Vendor data;
-- multiple Invoice attachments in one email;
-- forwarded copies of the same Invoice;
-- extraction quality/retry behavior;
-- source preview/recovery;
-- clear candidate → extracted draft → verified Invoice boundaries.
+- deterministic-first extraction for machine-readable PDF receipts (`pdfjs-dist`) and email-body receipts with zero AI calls when fields are clear;
+- strict absence of false confidence (missing amounts do not collapse to 0, unknown currency is not falsely coerced to PHP);
+- field-level provenance tracking (`DETECTED`, `SUGGESTED`, `AI_EXTRACTED`, `NOT_DETECTED`, `HINT`);
+- deterministic quality scoring (`GOOD`, `NEEDS_REVIEW`, `FAILED`);
+- pre-extraction duplicate short-circuiting using file SHA-256 and source document ID across company records;
+- strengthened expense duplicate engine with reasons and real-time recalculation in review UX (ignoring `VOID` expenses);
+- multi-receipt handling per attachment;
+- vendor resolution using Phase 4B contracts with receipt evidence outranking stale profile assumptions;
+- dual-pane desktop / stacked mobile review UX with embedded live document preview (`<img>`, PDF embed, email snippet) and text inspector.
 
-Reuse the existing Invoice extraction, duplicate engine, extraction-quality checks, and Review Queue.
+## 4F — Shared batch and queue UX
 
-Do not bypass verification requirements.
-
-## 4F — Expense / receipt hardening
-
-Improve:
-
-- deterministic extraction for structured electronic receipts where possible;
-- AI fallback for unstructured image/PDF receipts when needed;
-- merchant/payee normalization and existing Vendor linkage;
-- duplicate/source/reference matching;
-- same-email and cross-email overlap handling;
-- multi-receipt email handling;
-- category suggestions;
-- source preview;
-- explicit Draft versus Approved semantics.
-
-Do not automatically approve or pay Expenses.
-
-## 4G — Shared batch and queue UX
+Status: next after Phase 4E is merged.
 
 After destination-specific foundations are stable, expose useful shared state such as:
 

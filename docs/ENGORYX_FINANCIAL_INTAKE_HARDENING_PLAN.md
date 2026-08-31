@@ -1,6 +1,6 @@
 # Engoryx Financial Intake Hardening Plan
 
-Status: Phase 4A merged (PR #52); Phase 4B merged (PR #53); Phase 4C implemented in feature branch `feat/email-intake-phase-4c-invoice-hardening`.
+Status: Phase 4A merged (PR #52); Phase 4B merged (PR #53); Phase 4C merged (PR #54); Phase 4D merged (PR #55); Phase 4D.1 merged (PR #57); Phase 4E implemented in feature branch `feat/email-intake-phase-4e-expense-receipt-hardening`.
 
 This document defines the next finance-focused Email Intake hardening work. It covers Invoices, Cash & Banking / bank statements, and Expenses / receipts only. Engineering Documents and Payroll email intake remain deferred.
 

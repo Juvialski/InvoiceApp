@@ -31,6 +31,7 @@ type CompanyPermission =
   | "gmail.read"
   | "gmail.manage"
   | "invoices.extract"
+  | "expenses.manage"
   | "company.members.manage"
   | "company.settings.manage";
 
@@ -1230,9 +1231,174 @@ Rules:
     const status = apiErrorStatus(normalizedError);
     if (normalizedError instanceof CompanyAiError) logCompanyAiFailure(normalizedError, { companyId: extractionCompanyId, stage: "invoice-extraction" });
     if (!(normalizedError instanceof ApiAuthorizationError) && !(normalizedError instanceof CompanyAiError)) console.error("Error in /api/extract-invoice: request failed.");
-    return res.status(status).json({ success: false, error: apiErrorMessage(normalizedError, "Invoice extraction failed. Please retry the document."), ...apiAiErrorDetails(normalizedError) });
+      return res.status(status).json({ success: false, error: apiErrorMessage(normalizedError, "Invoice extraction failed. Please retry the document."), ...apiAiErrorDetails(normalizedError) });
   }
 });
+
+const expenseSchema = {
+  type: "object",
+  properties: {
+    expenseDate: { type: "string", description: "Expense or receipt date in YYYY-MM-DD format" },
+    category: {
+      type: "string",
+      description: "Category matching one of: Fuel, Transportation, Meals, Materials, Equipment Rental, Equipment, Utilities, Communication, Office / Site Supplies, Permits, Professional Fees, Subcontractor, Miscellaneous",
+    },
+    description: { type: "string", description: "Brief description of the expense or purchased items" },
+    payee: { type: "string", description: "Merchant, store, supplier, or payee name" },
+    amount: { type: "number", description: "Total expense amount paid or due as a positive number" },
+    currency: { type: "string", description: "ISO currency code such as PHP, USD, EUR, SGD" },
+    paymentMethod: { type: "string", description: "Payment method such as Cash, GCash, Maya, Credit Card, Debit Card, Bank Transfer, Check" },
+    referenceNumber: { type: "string", description: "Official receipt number, transaction ID, reference number, or invoice number" },
+    projectReference: { type: "string", description: "Project code hint (e.g. PRJ-0017) if explicitly visible" },
+    merchantIdentity: {
+      type: "object",
+      properties: {
+        taxId: { type: "string", description: "Merchant Tax ID / TIN if present" },
+        address: { type: "string", description: "Merchant address if present" },
+        email: { type: "string", description: "Merchant contact email if present" },
+        phone: { type: "string", description: "Merchant phone number if present" },
+      },
+    },
+    confidenceScore: { type: "number", description: "Extraction confidence from 0 to 100" },
+  },
+  required: ["category", "description"],
+};
+
+app.post("/api/extract-expense", async (req, res) => {
+  const startedAt = Date.now();
+  let extractionCompanyId: string | undefined;
+  try {
+    const auth = await authorizeCompanyRequest(req, "expenses.manage");
+    extractionCompanyId = auth.companyId;
+    const {
+      fileData,
+      mimeType,
+      textData,
+      fileName,
+      model = PRIMARY_MODEL,
+      emailContext,
+    } = req.body || {};
+
+    if ((!fileData || !mimeType) && !textData && !emailContext?.body) {
+      return res.status(400).json({ success: false, error: "No receipt file, text, or email content provided." });
+    }
+
+    let aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
+    let authenticationRetryUsed = false;
+    const parts: any[] = [];
+    if (fileData && mimeType) parts.push({ inlineData: { mimeType, data: fileData } });
+    const emailBlock = emailContext
+      ? `\nEMAIL CONTEXT\nSender: ${emailContext.sender || "Unknown"}\nSubject: ${emailContext.subject || ""}\nReceived: ${emailContext.receivedAt || ""}\nAttachment: ${emailContext.attachmentName || fileName || ""}\nEmail body:\n${emailContext.body || ""}\n`
+      : "";
+    parts.push({
+      text: `${emailBlock}\n${textData ? `DOCUMENT TEXT:\n${textData}` : "Analyze the attached receipt/expense document."}\n\nExtract the receipt into the requested structured expense schema.`,
+    });
+
+    const expenseSystemPrompt = `You are a high-precision, internationally capable receipt and expense document extraction system.
+Give special attention to Philippine receipts, official receipts (OR), fuel charge slips, transport receipts, store receipts, and utility bills.
+Rules:
+1. Extract values that are explicitly visible in the receipt document or email context.
+2. Never guess, estimate, or invent missing financial amounts, dates, reference numbers, or currency.
+3. If an amount is not visible, return null (do not return 0 unless the receipt explicitly states 0).
+4. For currency: recognize ₱, PHP, Php as PHP; recognize USD, EUR, SGD, JPY, GBP, CAD, AUD. If currency is not explicitly stated or implied by unambiguous currency symbols, return null.
+5. Category MUST be selected from the standard Engoryx categories: Fuel, Transportation, Meals, Materials, Equipment Rental, Equipment, Utilities, Communication, Office / Site Supplies, Permits, Professional Fees, Subcontractor, Miscellaneous.
+6. Look for merchant / store name, official receipt (OR) number, transaction reference, date, payment method (Cash, GCash, Maya, Credit Card, etc.), and total paid amount.
+7. Return only JSON matching the schema.`;
+
+    const requestedModel = selectModel(model);
+    let response: any;
+    let modelUsed = requestedModel;
+
+    try {
+      response = await generateContentWithTimeout(aiRuntime.geminiClient, requestedModel, { parts }, {
+        systemInstruction: expenseSystemPrompt,
+        responseMimeType: "application/json",
+        responseSchema: expenseSchema,
+      });
+    } catch (error) {
+      if (!authenticationRetryUsed && isCompanyAiAuthenticationError(error)) {
+        authenticationRetryUsed = true;
+        invalidateCompanyAiRuntime(auth.companyId);
+        aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId, forceRefresh: true });
+        response = await generateContentWithTimeout(aiRuntime.geminiClient, requestedModel, { parts }, {
+          systemInstruction: expenseSystemPrompt,
+          responseMimeType: "application/json",
+          responseSchema: expenseSchema,
+        });
+      } else if (requestedModel !== ACCURACY_MODEL && isCompanyAiFallbackEligible(error)) {
+        modelUsed = ACCURACY_MODEL;
+        response = await generateContentWithTimeout(aiRuntime.geminiClient, ACCURACY_MODEL, { parts }, {
+          systemInstruction: expenseSystemPrompt,
+          responseMimeType: "application/json",
+          responseSchema: expenseSchema,
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    const { extracted, responseText } = parseStructuredResponse(response);
+
+    const amount = typeof extracted?.amount === "number" && Number.isFinite(extracted.amount) && extracted.amount > 0
+      ? Number(extracted.amount)
+      : undefined;
+
+    const currency = extracted?.currency && typeof extracted.currency === "string" && /^[A-Z]{3}$/i.test(extracted.currency.trim())
+      ? extracted.currency.trim().toUpperCase()
+      : undefined;
+
+    const expenseDate = extracted?.expenseDate && typeof extracted.expenseDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(extracted.expenseDate.trim())
+      ? extracted.expenseDate.trim()
+      : undefined;
+
+    const payee = extracted?.payee && typeof extracted.payee === "string" ? extracted.payee.trim() : undefined;
+    const category = extracted?.category && typeof extracted.category === "string" && extracted.category.trim()
+      ? extracted.category.trim()
+      : "Miscellaneous";
+    const description = extracted?.description && typeof extracted.description === "string" && extracted.description.trim()
+      ? extracted.description.trim()
+      : (payee ? `${category} expense - ${payee}` : `${category} expense`);
+
+    const paymentMethod = extracted?.paymentMethod && typeof extracted.paymentMethod === "string" ? extracted.paymentMethod.trim() : undefined;
+    const referenceNumber = extracted?.referenceNumber && typeof extracted.referenceNumber === "string" ? extracted.referenceNumber.trim() : undefined;
+    const projectReference = extracted?.projectReference && typeof extracted.projectReference === "string" ? extracted.projectReference.trim() : undefined;
+
+    const resultData = {
+      expenseDate,
+      category,
+      description,
+      payee,
+      amount,
+      currency,
+      paymentMethod,
+      referenceNumber,
+      projectId: projectReference,
+      notes: `Staged from Email Intake AI extraction: ${emailContext?.subject || fileName || "Receipt"}${payee ? ` from ${payee}` : ""}`,
+      confidenceScore: typeof extracted?.confidenceScore === "number" ? Math.max(0, Math.min(100, extracted.confidenceScore)) : 80,
+      merchantIdentity: extracted?.merchantIdentity || {},
+      rawJson: responseText,
+      modelUsed,
+    };
+
+    console.info("expense-extraction-success", {
+      durationMs: Date.now() - startedAt,
+      modelUsed,
+      amountPresent: amount !== undefined,
+      currencyPresent: currency !== undefined,
+      payeePresent: payee !== undefined,
+      datePresent: expenseDate !== undefined,
+    });
+
+    return res.json({ success: true, data: resultData });
+  } catch (error: any) {
+    const normalizedError = error instanceof CompanyAiError ? error : companyAiProviderError(error) || error;
+    const status = apiErrorStatus(normalizedError);
+    if (normalizedError instanceof CompanyAiError) logCompanyAiFailure(normalizedError, { companyId: extractionCompanyId, stage: "expense-extraction" });
+    if (!(normalizedError instanceof ApiAuthorizationError) && !(normalizedError instanceof CompanyAiError)) console.error("Error in /api/extract-expense: request failed.");
+    return res.status(status).json({ success: false, error: apiErrorMessage(normalizedError, "Receipt extraction failed. Please retry the document."), ...apiAiErrorDetails(normalizedError) });
+  }
+});
+
 
 
 
