@@ -1,6 +1,6 @@
 # Engoryx Shared Email Intake Roadmap
 
-Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A merged (PR #52), Phase 4B merged (PR #53), Phase 4C merged (PR #54), Phase 4D merged (PR #55), Phase 4D.1 merged (PR #57), Phase 4E implemented in `feat/email-intake-phase-4e-expense-receipt-hardening` (Expense / Receipt Intake Hardening).
+Status: Phase 1 merged (PR #49), Phase 2 merged (PR #50), Phase 3 merged (PR #51), Phase 4A merged (PR #52), Phase 4B merged (PR #53), Phase 4C merged (PR #54), Phase 4D merged (PR #55), Phase 4D.1 merged (PR #57), Phase 4E merged (PR #58), Phase 4F implemented in `feat/email-intake-phase-4f-shared-queue-hardening` (Shared Queue Hardening).
 
 Current direction:
 
@@ -279,21 +279,18 @@ Scope & Implementation:
 
 ## 4F — Shared batch and queue UX
 
-Status: next after Phase 4E is merged.
+Status: implemented in feature branch `feat/email-intake-phase-4f-shared-queue-hardening`.
 
-After destination-specific foundations are stable, expose useful shared state such as:
+Scope & Implementation:
 
-- destination filter;
-- review status;
-- suspected duplicate state;
-- failed preparation/extraction;
-- source-preserved status;
-- existing-entity match;
-- same-batch overlap/grouping;
-- last sync timestamp;
-- safe batch preparation.
-
-Batch preparation must never become autonomous batch posting.
+- first-class shared review queue unifying candidates across Invoices, Bank Statements, Expenses/Receipts, and Unsupported items;
+- deterministic multi-status queue state derivation (`DISCOVERED`, `PREPARING`, `READY_FOR_REVIEW`, `NEEDS_REVIEW`, `SUSPECTED_DUPLICATE`, `FAILED`, `COMPLETED`);
+- source preservation status tracking (`PRESERVED`, `PENDING`, `FAILED`) without falsely reporting metadata as preserved;
+- duplicate short-circuiting and evidence surfacing across Invoices and Expenses (exact duplicate vs suspected duplicate);
+- advisory entity resolution match presentation (Vendor and FinancialAccount linkage, enrichment, proposed creation, conflicts);
+- same-batch overlap and grouping across same entity or sender domain;
+- real-time operations summary metrics and multi-criteria queue filters (destination, status, duplicateOnly, search);
+- safe batch candidate preparation with per-item error isolation, skipping exact duplicates, and zero autonomous posting/commit.
 
 ## Phase 4 completion gate
 

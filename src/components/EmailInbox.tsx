@@ -1,37 +1,47 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
-  BookmarkPlus,
+  AlertTriangle,
   Building2,
   CheckCircle2,
+  CheckSquare,
   ChevronDown,
+  Clock,
   Copy,
+  ExternalLink,
   FileSpreadsheet,
   FileText,
   Inbox,
+  Layers,
   Loader2,
   Mail,
   Paperclip,
   Receipt,
   RefreshCw,
   ScanSearch,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Square,
   UploadCloud,
+  XCircle,
 } from "lucide-react";
 import {
   EmailClassification,
   EmailIntakeProfile,
   EmailIntakeProfileInput,
   EntityResolutionResult,
+  Expense,
   GmailConnectionInfo,
   GmailMessageCandidate,
   GmailScanWindow,
   InvoiceData,
   Vendor,
-} from "../types";
-import { formatDateTime } from "../config/regional";
-import { getInvoiceDisplay } from "../utils/invoiceDisplay";
+} from "../types.ts";
+import { formatDateTime } from "../config/regional.ts";
+import { getInvoiceDisplay } from "../utils/invoiceDisplay.ts";
 import { appPathForTab } from "../utils/appRouting.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
 import type { FinancialAccount } from "../lib/cashBanking.ts";
@@ -40,6 +50,7 @@ import {
   DISALLOWED_DOMAIN_RULES,
   isGmailAuthorizationError,
   parseSenderAddress,
+  prepareBatchEmailCandidates,
   prepareGmailExpenseReview,
   prepareGmailStatementReview,
   resolveGmailConnectionStatus,
@@ -56,11 +67,15 @@ import {
   toggleEmailIntakeProfile,
 } from "../lib/persistence.ts";
 import { listFinancialAccounts } from "../lib/cashBankingPersistence.ts";
+import { loadExpensesFromSupabase, readExpensesFromLocal } from "../lib/expenses.ts";
 import {
-  resolveBatchFinancialAccounts,
-  resolveBatchVendors,
-} from "../lib/entityResolution.ts";
-import { PageHeader, StatusBadge } from "./ui/OperationsUI";
+  deriveEmailQueueItems,
+  filterEmailQueueItems,
+  type EmailQueueItem,
+  type QueueFilters,
+  type QueueStatus,
+} from "../lib/emailQueue.ts";
+import { PageHeader, StatusBadge } from "./ui/OperationsUI.tsx";
 import { IntakeRulesModal } from "./email/IntakeRulesModal.tsx";
 import { EntityResolutionModal } from "./email/EntityResolutionModal.tsx";
 
@@ -90,10 +105,6 @@ function effectiveClassification(
   const stored = message.classification as EmailIntakeClassification | undefined;
   const storedIsAiFallback = Boolean(stored?.reason?.startsWith("Ambiguous metadata classified by AI"));
 
-  // Re-evaluate deterministic/profile evidence whenever saved rules change so
-  // disabling/editing a rule has immediate zero effect on existing cards. Keep
-  // a prior AI fallback only while the current deterministic pass is still
-  // genuinely ambiguous and no saved-rule/conflict evidence supersedes it.
   if (
     storedIsAiFallback
     && local.suggestedDestination === "UNSUPPORTED"
@@ -106,8 +117,8 @@ function effectiveClassification(
 }
 
 function destinationFor(message: GmailMessageCandidate, profiles?: EmailIntakeProfile[]): EmailIntakeDestination {
-  const classification = effectiveClassification(message, profiles);
-  return classification.suggestedDestination || (classification.isInvoiceLike ? "INVOICE" : "UNSUPPORTED");
+  const cls = effectiveClassification(message, profiles);
+  return cls.suggestedDestination || (cls.isInvoiceLike ? "INVOICE" : "UNSUPPORTED");
 }
 
 export const EmailInbox: React.FC<EmailInboxProps> = ({
@@ -129,14 +140,27 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   const [customAfter, setCustomAfter] = useState(() => new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
   const [customBefore, setCustomBefore] = useState(() => new Date().toISOString().slice(0, 10));
   const [candidates, setCandidates] = useState<GmailMessageCandidate[]>([]);
-  const [destinationFilter, setDestinationFilter] = useState<"ALL" | "INVOICE" | "BANK_STATEMENT" | "EXPENSE">("ALL");
   const [gmailBusy, setGmailBusy] = useState(false);
   const [connectBusy, setConnectBusy] = useState(false);
   const [gmailError, setGmailError] = useState<string | null>(null);
+  const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
   const [historyId, setHistoryId] = useState(connection.lastHistoryId || "");
   const [lastSyncedAt, setLastSyncedAt] = useState(connection.lastSyncedAt || "");
   const [statementAttachmentSelection, setStatementAttachmentSelection] = useState<Record<string, string>>({});
   const [expenseAttachmentSelection, setExpenseAttachmentSelection] = useState<Record<string, string>>({});
+
+  // Filter state
+  const [destinationFilter, setDestinationFilter] = useState<"ALL" | "INVOICE" | "BANK_STATEMENT" | "EXPENSE" | "UNSUPPORTED">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | QueueStatus>("ALL");
+  const [duplicateFilter, setDuplicateFilter] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Safe batch preparation state
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  const [isBatchPreparing, setIsBatchPreparing] = useState(false);
+  const [batchSummaryMessage, setBatchSummaryMessage] = useState<{ title: string; detail: string; tone: "success" | "warning" } | null>(null);
+
+  // Manual fallback state
   const [sender, setSender] = useState("");
   const [subject, setSubject] = useState("");
   const [receivedAt, setReceivedAt] = useState(() => new Date().toISOString().slice(0, 16));
@@ -145,9 +169,11 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   const [classification, setClassification] = useState<EmailClassification | null>(null);
   const [manualError, setManualError] = useState<string | null>(null);
 
+  // Company entities and rules
   const [profiles, setProfiles] = useState<EmailIntakeProfile[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [financialAccounts, setFinancialAccounts] = useState<FinancialAccount[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [activeResolutionCandidate, setActiveResolutionCandidate] = useState<GmailMessageCandidate | null>(null);
   const [activeResolutionResult, setActiveResolutionResult] = useState<EntityResolutionResult | null>(null);
   const [manualResolutions, setManualResolutions] = useState<Record<string, EntityResolutionResult>>({});
@@ -165,12 +191,14 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
 
   const loadEntities = useCallback(async () => {
     try {
-      const [vList, aList] = await Promise.all([
+      const [vList, aList, eList] = await Promise.all([
         listCompanyVendors().catch(() => []),
         listFinancialAccounts().catch(() => []),
+        loadExpensesFromSupabase().catch(() => readExpensesFromLocal()),
       ]);
       setVendors(vList);
       setFinancialAccounts(aList);
+      setExpenses(eList);
     } catch {
       // Safe fallback
     }
@@ -226,83 +254,60 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     setManualResolutions((prev) => ({ ...prev, [candidateId]: updated }));
   };
 
-  const { allEntityResolutions } = useMemo(() => {
-    const vendorCandidates = candidates
-      .filter((c) => {
-        const dest = destinationFor(c, profiles);
-        return dest === "INVOICE" || dest === "EXPENSE";
-      })
-      .map((c) => {
-        const cls = effectiveClassification(c, profiles);
-        const parsed = parseSenderAddress(c.sender);
-        const profile = profiles.find((p) => p.id === cls.matchedProfileId);
-        return {
-          candidateId: c.id,
-          evidence: {
-            name: parsed.name || parsed.email || c.sender,
-            senderEmail: parsed.email || undefined,
-            senderDomain: parsed.domain || undefined,
-            matchedProfileId: profile?.id,
-            linkedProfileVendorId: profile?.linkedVendorId,
-          },
-        };
-      });
+  // 1. Derive Full Shared Queue Items & Metrics
+  const { items: allQueueItems, counts, batchEntityResolutions } = useMemo(() => {
+    return deriveEmailQueueItems(candidates, {
+      profiles,
+      invoices,
+      expenses,
+      vendors,
+      financialAccounts,
+      manualResolutions,
+      canManageMailbox,
+      canProcessInvoices,
+      canImportBankStatements,
+      canManageExpenses,
+      itemErrors,
+      customAttachmentSelections: {
+        statement: statementAttachmentSelection,
+        expense: expenseAttachmentSelection,
+      },
+    });
+  }, [
+    candidates,
+    profiles,
+    invoices,
+    expenses,
+    vendors,
+    financialAccounts,
+    manualResolutions,
+    canManageMailbox,
+    canProcessInvoices,
+    canImportBankStatements,
+    canManageExpenses,
+    itemErrors,
+    statementAttachmentSelection,
+    expenseAttachmentSelection,
+  ]);
 
-    const statementCandidates = candidates
-      .filter((c) => destinationFor(c, profiles) === "BANK_STATEMENT")
-      .map((c) => {
-        const cls = effectiveClassification(c, profiles);
-        const parsed = parseSenderAddress(c.sender);
-        const profile = profiles.find((p) => p.id === cls.matchedProfileId);
-        return {
-          candidateId: c.id,
-          evidence: {
-            institutionName: parsed.name || c.sender,
-            senderEmail: parsed.email || undefined,
-            senderDomain: parsed.domain || undefined,
-            matchedProfileId: profile?.id,
-            linkedProfileAccountId: profile?.linkedFinancialAccountId,
-          },
-        };
-      });
-
-    const vBatch = resolveBatchVendors(vendorCandidates, vendors, profiles);
-    const aBatch = resolveBatchFinancialAccounts(statementCandidates, financialAccounts, profiles);
-
-    const merged: Record<string, EntityResolutionResult> = {
-      ...vBatch.resolutions,
-      ...aBatch.resolutions,
-      ...manualResolutions,
+  // 2. Filter Queue Items
+  const filteredQueueItems = useMemo(() => {
+    const filters: QueueFilters = {
+      destination: destinationFilter,
+      status: statusFilter,
+      duplicateOnly: duplicateFilter,
+      searchQuery,
     };
+    return filterEmailQueueItems(allQueueItems, filters);
+  }, [allQueueItems, destinationFilter, statusFilter, duplicateFilter, searchQuery]);
 
-    return {
-      vendorResolutions: vBatch.resolutions,
-      accountResolutions: aBatch.resolutions,
-      allEntityResolutions: merged,
-    };
-  }, [candidates, profiles, vendors, financialAccounts, manualResolutions]);
+  const eligibleCandidatesCount = useMemo(() => {
+    return allQueueItems.filter((i) => i.isEligibleForBatchPrep).length;
+  }, [allQueueItems]);
 
   const emailInvoices = useMemo(() => invoices.filter((invoice) => invoice.sourceType === "EMAIL").slice(0, 10), [invoices]);
 
   const connectionStatus = resolveGmailConnectionStatus(connection, gmailError);
-
-  const counts = useMemo(() => {
-    let invoice = 0;
-    let statement = 0;
-    let expense = 0;
-    for (const item of candidates) {
-      const dest = destinationFor(item, profiles);
-      if (dest === "INVOICE") invoice++;
-      else if (dest === "BANK_STATEMENT") statement++;
-      else if (dest === "EXPENSE") expense++;
-    }
-    return { all: candidates.length, invoice, statement, expense };
-  }, [candidates, profiles]);
-
-  const filteredCandidates = useMemo(() => {
-    if (destinationFilter === "ALL") return candidates;
-    return candidates.filter((item) => destinationFor(item, profiles) === destinationFilter);
-  }, [candidates, destinationFilter, profiles]);
 
   const connectMailbox = async () => {
     if (!canManageMailbox) {
@@ -327,6 +332,9 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     }
     setGmailBusy(true);
     setGmailError(null);
+    setItemErrors({});
+    setSelectedCandidateIds(new Set());
+    setBatchSummaryMessage(null);
     try {
       if (!incremental && scanMode === "custom" && (!customAfter || !customBefore || customAfter > customBefore)) {
         throw new Error("Choose a valid custom Gmail date range.");
@@ -353,18 +361,21 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       return;
     }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
+    setItemErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[message.id];
+      return copy;
+    });
     try {
-      // Mailbox entity matching is intentionally advisory. Do not carry a
-      // sender-only LINK_EXISTING decision into invoice extraction, where it
-      // could override stronger post-extraction TIN/name evidence.
       await onImportGmailMessage({
         ...message,
         classification: effectiveClassification(message, profiles),
       });
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTED" } : item));
     } catch (error: any) {
+      const errMsg = error?.message || `Could not import ${message.subject || "email"}.`;
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "FAILED" } : item));
-      setGmailError(error?.message || `Could not import ${message.subject || "email"}.`);
+      setItemErrors((prev) => ({ ...prev, [message.id]: errMsg }));
     }
   };
 
@@ -378,14 +389,17 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       return;
     }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
+    setItemErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[message.id];
+      return copy;
+    });
     try {
       const classification = effectiveClassification(message, profiles);
       const attachmentId = statementAttachmentSelection[message.id] || classification.statementAttachmentIds?.[0];
-      const resolution = allEntityResolutions[message.id];
+      const resolution = batchEntityResolutions[message.id];
       const matchingProfile = profiles.find((p) => p.id === classification.matchedProfileId);
       await prepareGmailStatementReview({ ...message, classification }, attachmentId, {
-        // Preserve the mailbox result only as explanatory context. Final
-        // account selection comes from parsed statement evidence in Cash & Banking.
         preliminaryResolution: resolution,
         profile: matchingProfile,
       });
@@ -394,8 +408,9 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       if (onNavigatePath) onNavigatePath(cashPath);
       else if (typeof window !== "undefined") window.location.assign(cashPath);
     } catch (error: any) {
+      const errMsg = error?.message || `Could not prepare ${message.subject || "statement"} for review.`;
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "FAILED" } : item));
-      setGmailError(error?.message || `Could not prepare ${message.subject || "statement"} for review.`);
+      setItemErrors((prev) => ({ ...prev, [message.id]: errMsg }));
     }
   };
 
@@ -409,14 +424,17 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       return;
     }
     setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "IMPORTING" } : item));
+    setItemErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[message.id];
+      return copy;
+    });
     try {
       const classification = effectiveClassification(message, profiles);
       const attachmentId = expenseAttachmentSelection[message.id] || classification.expenseAttachmentIds?.[0];
-      const resolution = allEntityResolutions[message.id];
+      const resolution = batchEntityResolutions[message.id];
       const matchingProfile = profiles.find((p) => p.id === classification.matchedProfileId);
       await prepareGmailExpenseReview({ ...message, classification }, attachmentId, {
-        // Preserve the mailbox result only as explanatory context. Final
-        // Vendor resolution comes from extracted receipt/payee evidence.
         preliminaryResolution: resolution,
         profile: matchingProfile,
       });
@@ -425,8 +443,9 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       if (onNavigatePath) onNavigatePath(expensesPath);
       else if (typeof window !== "undefined") window.location.assign(expensesPath);
     } catch (error: any) {
+      const errMsg = error?.message || `Could not prepare ${message.subject || "expense"} for review.`;
       setCandidates((current) => current.map((item) => item.id === message.id ? { ...item, importStatus: "FAILED" } : item));
-      setGmailError(error?.message || `Could not prepare ${message.subject || "expense"} for review.`);
+      setItemErrors((prev) => ({ ...prev, [message.id]: errMsg }));
     }
   };
 
@@ -445,14 +464,92 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     setClassification(result);
   };
 
+  // Safe Batch Preparation Handler
+  const handleToggleSelectCandidate = (candidateId: string) => {
+    setSelectedCandidateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(candidateId)) next.delete(candidateId);
+      else next.add(candidateId);
+      return next;
+    });
+  };
+
+  const handleSelectAllEligible = () => {
+    const eligibleIds = allQueueItems.filter((i) => i.isEligibleForBatchPrep).map((i) => i.id);
+    if (selectedCandidateIds.size === eligibleIds.length && eligibleIds.length > 0) {
+      setSelectedCandidateIds(new Set());
+    } else {
+      setSelectedCandidateIds(new Set(eligibleIds));
+    }
+  };
+
+  const handleBatchPrepareSelected = async () => {
+    if (selectedCandidateIds.size === 0) return;
+    if (!canManageMailbox) {
+      setGmailError("Batch preparation requires Gmail management permissions.");
+      return;
+    }
+
+    const selectedCandidates = candidates.filter((c) => selectedCandidateIds.has(c.id));
+    setIsBatchPreparing(true);
+    setBatchSummaryMessage(null);
+
+    try {
+      const results = await prepareBatchEmailCandidates(selectedCandidates, {
+        profiles,
+        canManageMailbox,
+        canProcessInvoices,
+        canImportBankStatements,
+        canManageExpenses,
+        onImportInvoice: async (c) => onImportGmailMessage(c),
+        batchEntityResolutions,
+        statementAttachmentSelections: statementAttachmentSelection,
+        expenseAttachmentSelections: expenseAttachmentSelection,
+        onItemProgress: (candidateId, status, error) => {
+          setCandidates((current) =>
+            current.map((item) => {
+              if (item.id !== candidateId) return item;
+              return {
+                ...item,
+                importStatus: status === "PREPARING" ? "IMPORTING" : status === "READY" ? "READY" : "FAILED",
+              };
+            }),
+          );
+          if (error) {
+            setItemErrors((prev) => ({ ...prev, [candidateId]: error }));
+          }
+        },
+      });
+
+      const successCount = results.filter((r) => r.status === "SUCCESS").length;
+      const failCount = results.filter((r) => r.status === "FAILED").length;
+      const skipCount = results.filter((r) => r.status === "SKIPPED").length;
+
+      setBatchSummaryMessage({
+        title: `Batch Preparation Complete: ${successCount} prepared`,
+        detail: `${successCount} items staged for review${failCount > 0 ? `, ${failCount} failed` : ""}${skipCount > 0 ? `, ${skipCount} skipped` : ""}. Review each item in its destination module before committing.`,
+        tone: failCount > 0 ? "warning" : "success",
+      });
+
+      // Clear selection after batch execution
+      setSelectedCandidateIds(new Set());
+      await loadEntities();
+    } catch (error: any) {
+      setGmailError(error?.message || "Batch preparation failed.");
+    } finally {
+      setIsBatchPreparing(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
         eyebrow="Financial operations"
-        title="Email Intake"
-        description="Scan a connected read-only Gmail mailbox, classify finance documents, and route supported invoices, bank statements, or expense receipts into their existing review workflows."
+        title="Email Intake Review Queue"
+        description="Unified finance queue for invoices, bank statements, and expense receipts. Ingest, resolve entities, detect duplicates, and safely prepare candidates for human review."
       />
 
+      {/* Gmail Connection & Scan Control Header */}
       <section
         className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition ${
           connectionStatus === "RECONNECT_REQUIRED"
@@ -502,7 +599,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
               {connectionStatus === "HEALTHY" && (
                 <>
                   <p className="mt-1 text-xs font-semibold text-slate-700">{connection.email || "Authorized Gmail mailbox"}</p>
-                  {lastSyncedAt && <p className="mt-0.5 text-[10px] text-slate-400">Last sync: {formatDateTime(lastSyncedAt)}</p>}
+                  {lastSyncedAt && <p className="mt-0.5 text-[10px] text-slate-400">Last mailbox sync: {formatDateTime(lastSyncedAt)}</p>}
                   {connection.displayName && <p className="mt-0.5 text-[10px] text-slate-400">Connected identity: {connection.displayName}</p>}
                 </>
               )}
@@ -617,7 +714,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         {connectionStatus === "HEALTHY" ? (
           <div className="mt-5 pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-end gap-3">
             <label className="text-[10px] font-bold uppercase text-slate-500">
-              Initial scan window
+              Scan window
               <select
                 value={scanMode === "custom" ? "custom" : String(days)}
                 onChange={(e) => {
@@ -667,7 +764,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
               Scan finance emails
             </button>
             <p className="text-[10px] text-slate-500 sm:pb-2">
-              Search is bounded by date and finance signals. Classification does not import or mutate records.
+              Bounded by date and finance signals. Discovered candidates are not committed or posted.
             </p>
           </div>
         ) : (
@@ -689,339 +786,616 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         )}
       </section>
 
+      {/* Operations Summary Area Cards */}
       {candidates.length > 0 && (
-        <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <section aria-label="Queue summary counts" className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+          <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Discovered</p>
+            <p className="mt-1 text-xl font-black text-slate-900">{counts.total}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">{counts.pending} pending</p>
+          </div>
+          <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-3.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Invoices</p>
+              <FileText className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <p className="mt-1 text-xl font-black text-emerald-950">{counts.invoices}</p>
+            <p className="text-[10px] text-emerald-700 mt-0.5">Billing & AP</p>
+          </div>
+          <div className="bg-sky-50/60 border border-sky-200 rounded-2xl p-3.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-sky-800">Statements</p>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-sky-600" />
+            </div>
+            <p className="mt-1 text-xl font-black text-sky-950">{counts.statements}</p>
+            <p className="text-[10px] text-sky-700 mt-0.5">Cash & Banking</p>
+          </div>
+          <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-3.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Receipts</p>
+              <Receipt className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <p className="mt-1 text-xl font-black text-amber-950">{counts.expenses}</p>
+            <p className="text-[10px] text-amber-700 mt-0.5">Expenses</p>
+          </div>
+          <div className="bg-purple-50/60 border border-purple-200 rounded-2xl p-3.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-purple-800">Needs Review</p>
+              <AlertCircle className="w-3.5 h-3.5 text-purple-600" />
+            </div>
+            <p className="mt-1 text-xl font-black text-purple-950">{counts.needsReview}</p>
+            <p className="text-[10px] text-purple-700 mt-0.5">Ambiguous or rule conflict</p>
+          </div>
+          <div className="bg-amber-50/70 border border-amber-300 rounded-2xl p-3.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-900">Duplicates</p>
+              <Copy className="w-3.5 h-3.5 text-amber-700" />
+            </div>
+            <p className="mt-1 text-xl font-black text-amber-950">{counts.suspectedDuplicates}</p>
+            <p className="text-[10px] text-amber-800 mt-0.5">Exact or suspected</p>
+          </div>
+          <div className="bg-rose-50/60 border border-rose-200 rounded-2xl p-3.5 shadow-sm col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rose-800">Failures</p>
+              <XCircle className="w-3.5 h-3.5 text-rose-600" />
+            </div>
+            <p className="mt-1 text-xl font-black text-rose-950">{counts.failures}</p>
+            <p className="text-[10px] text-rose-700 mt-0.5">Extraction / auth error</p>
+          </div>
+        </section>
+      )}
+
+      {/* Main Review Queue Section */}
+      {candidates.length > 0 && (
+        <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+          {/* Header and Live Filter Controls */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-black text-slate-900">Connected mailbox results</h3>
+              <h3 className="text-sm font-black text-slate-900">Financial Intake Queue</h3>
               <p className="text-[10px] text-slate-500 mt-0.5">
-                Nothing is committed until you choose an invoice extraction, statement review, or expense review action.
+                Review candidates, check source preservation, verify entity matches, and prepare drafts. No records are committed until verified in their review workflows.
               </p>
             </div>
-            <span className="text-[10px] font-black bg-slate-100 px-2.5 py-1 rounded-full text-slate-700 self-start sm:self-auto">
-              {candidates.length} candidates
-            </span>
+            <div className="flex items-center gap-2 self-start lg:self-auto">
+              <span className="text-[10px] font-black bg-slate-100 px-2.5 py-1 rounded-full text-slate-700">
+                {filteredQueueItems.length} of {allQueueItems.length} visible
+              </span>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 mt-4 pb-3 border-b border-slate-100">
-            <span className="text-[10px] font-bold uppercase text-slate-500 mr-1">Filter destination:</span>
-            <button
-              type="button"
-              onClick={() => setDestinationFilter("ALL")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                destinationFilter === "ALL"
-                  ? "bg-slate-900 text-white shadow-sm"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              }`}
-            >
-              All ({counts.all})
-            </button>
-            <button
-              type="button"
-              onClick={() => setDestinationFilter("INVOICE")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                destinationFilter === "INVOICE"
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-              }`}
-            >
-              Invoices ({counts.invoice})
-            </button>
-            <button
-              type="button"
-              onClick={() => setDestinationFilter("BANK_STATEMENT")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                destinationFilter === "BANK_STATEMENT"
-                  ? "bg-sky-700 text-white shadow-sm"
-                  : "bg-sky-50 text-sky-800 hover:bg-sky-100"
-              }`}
-            >
-              Bank Statements ({counts.statement})
-            </button>
-            <button
-              type="button"
-              onClick={() => setDestinationFilter("EXPENSE")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                destinationFilter === "EXPENSE"
-                  ? "bg-amber-600 text-white shadow-sm"
-                  : "bg-amber-50 text-amber-800 hover:bg-amber-100"
-              }`}
-            >
-              Expenses ({counts.expense})
-            </button>
+          {/* Filter Bar */}
+          <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+            {/* Destination Filters */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase text-slate-400 mr-1">Destination:</span>
+              <button
+                type="button"
+                onClick={() => setDestinationFilter("ALL")}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  destinationFilter === "ALL"
+                    ? "bg-slate-900 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                All ({counts.total})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDestinationFilter("INVOICE")}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  destinationFilter === "INVOICE"
+                    ? "bg-emerald-600 text-white shadow-sm"
+                    : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                }`}
+              >
+                Invoices ({counts.invoices})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDestinationFilter("BANK_STATEMENT")}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  destinationFilter === "BANK_STATEMENT"
+                    ? "bg-sky-700 text-white shadow-sm"
+                    : "bg-sky-50 text-sky-800 hover:bg-sky-100"
+                }`}
+              >
+                Statements ({counts.statements})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDestinationFilter("EXPENSE")}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  destinationFilter === "EXPENSE"
+                    ? "bg-amber-600 text-white shadow-sm"
+                    : "bg-amber-50 text-amber-800 hover:bg-amber-100"
+                }`}
+              >
+                Receipts ({counts.expenses})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDestinationFilter("UNSUPPORTED")}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition ${
+                  destinationFilter === "UNSUPPORTED"
+                    ? "bg-purple-700 text-white shadow-sm"
+                    : "bg-purple-50 text-purple-800 hover:bg-purple-100"
+                }`}
+              >
+                Needs Review ({counts.needsReview})
+              </button>
+            </div>
+
+            {/* Status & Search Controls */}
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-1 text-[10px] font-bold uppercase text-slate-500">
+                Status:
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-800"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="DISCOVERED">Pending Preparation</option>
+                  <option value="READY_FOR_REVIEW">Ready for Review</option>
+                  <option value="PREPARING">Preparing</option>
+                  <option value="SUSPECTED_DUPLICATE">Suspected Duplicates</option>
+                  <option value="NEEDS_REVIEW">Needs Review</option>
+                  <option value="FAILED">Failed</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => setDuplicateFilter((prev) => !prev)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition inline-flex items-center gap-1.5 ${
+                  duplicateFilter
+                    ? "bg-amber-100 text-amber-900 border-amber-300 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <Copy className="w-3 h-3" />
+                Duplicates Only
+              </button>
+
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search queue..."
+                  className="pl-8 pr-2.5 py-1 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 w-36 sm:w-48 text-slate-800"
+                />
+              </div>
+            </div>
           </div>
 
-          {filteredCandidates.length === 0 ? (
-            <p className="mt-4 text-xs text-slate-500 py-3 text-center">
-              No candidates match the selected filter.
-            </p>
+          {/* Batch Summary Alert */}
+          {batchSummaryMessage && (
+            <div
+              role="alert"
+              className={`p-3.5 rounded-xl border flex items-start gap-2.5 text-xs ${
+                batchSummaryMessage.tone === "success"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-950"
+                  : "bg-amber-50 border-amber-200 text-amber-950"
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">{batchSummaryMessage.title}</p>
+                <p className="mt-0.5 text-[11px] opacity-90">{batchSummaryMessage.detail}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Safe Batch Preparation Bar */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSelectAllEligible}
+                disabled={eligibleCandidatesCount === 0 || isBatchPreparing}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 disabled:opacity-50"
+              >
+                {selectedCandidateIds.size === eligibleCandidatesCount && eligibleCandidatesCount > 0 ? (
+                  <CheckSquare className="w-4 h-4 text-indigo-600" />
+                ) : (
+                  <Square className="w-4 h-4 text-slate-400" />
+                )}
+                Select all eligible ({eligibleCandidatesCount})
+              </button>
+              {selectedCandidateIds.size > 0 && (
+                <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                  {selectedCandidateIds.size} selected
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBatchPrepareSelected}
+                disabled={selectedCandidateIds.size === 0 || isBatchPreparing || !canManageMailbox}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center gap-2 disabled:opacity-50 shadow-sm transition"
+                title="Prepare selected candidates for human review (does not commit or post transactions)"
+              >
+                {isBatchPreparing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <UploadCloud className="w-3.5 h-3.5" />
+                )}
+                Prepare Selected ({selectedCandidateIds.size})
+              </button>
+              <span className="text-[10px] text-slate-400 hidden md:inline">
+                Preparation only • No automatic posting
+              </span>
+            </div>
+          </div>
+
+          {/* Queue Items List */}
+          {filteredQueueItems.length === 0 ? (
+            <div className="text-center py-8 border border-dashed border-slate-200 rounded-2xl">
+              <Inbox className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="mt-2 text-xs font-bold text-slate-700">No candidates match the selected filters.</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Try changing the destination, status, or search term above.</p>
+            </div>
           ) : (
-            <div className="mt-4 space-y-2.5">
-              {filteredCandidates.map((message) => {
-                const cls = effectiveClassification(message, profiles);
-                const resolution = allEntityResolutions[message.id];
-                const destination = cls.suggestedDestination || (cls.isInvoiceLike ? "INVOICE" : "UNSUPPORTED");
-                const statementAttachments =
-                  destination === "BANK_STATEMENT"
-                    ? message.attachments.filter((attachment) => cls.statementAttachmentIds?.includes(attachment.attachmentId))
-                    : [];
-                const selectedStatementAttachment = statementAttachmentSelection[message.id] || statementAttachments[0]?.attachmentId || "";
-                const expenseAttachments =
-                  destination === "EXPENSE"
-                    ? message.attachments.filter((attachment) => cls.expenseAttachmentIds?.includes(attachment.attachmentId))
-                    : [];
-                const selectedExpenseAttachment = expenseAttachmentSelection[message.id] || expenseAttachments[0]?.attachmentId || "";
-                const destinationLabel =
-                  destination === "BANK_STATEMENT"
-                    ? "Bank statement"
-                    : destination === "INVOICE"
-                      ? "Invoice"
-                      : destination === "EXPENSE"
-                        ? "Receipt"
-                        : "Needs review";
-                const destinationTone =
-                  destination === "BANK_STATEMENT"
-                    ? "bg-sky-100 text-sky-800"
-                    : destination === "INVOICE"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : destination === "EXPENSE"
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-slate-100 text-slate-600";
+            <div className="space-y-3">
+              {filteredQueueItems.map((item) => {
+                const isSelected = selectedCandidateIds.has(item.id);
+                const cls = item.classification;
+                const resolution = batchEntityResolutions[item.id];
 
-                const matchingExistingInvoice = invoices.find(
-                  (inv) =>
-                    (inv.sourceMetadata?.gmailMessageId && inv.sourceMetadata.gmailMessageId === message.id) ||
-                    (inv.sourceEmailId && inv.sourceEmailId === message.id) ||
-                    message.attachments.some(
-                      (att) =>
-                        (inv.sourceMetadata?.gmailAttachmentId && inv.sourceMetadata.gmailAttachmentId === att.attachmentId) ||
-                        (inv.fileName && inv.fileName === att.filename)
-                    )
-                );
+                const statementAttachments =
+                  item.destination === "BANK_STATEMENT"
+                    ? item.candidate.attachments.filter((attachment) => cls.statementAttachmentIds?.includes(attachment.attachmentId))
+                    : [];
+                const selectedStatementAttachment =
+                  statementAttachmentSelection[item.id] || statementAttachments[0]?.attachmentId || "";
+
+                const expenseAttachments =
+                  item.destination === "EXPENSE"
+                    ? item.candidate.attachments.filter((attachment) => cls.expenseAttachmentIds?.includes(attachment.attachmentId))
+                    : [];
+                const selectedExpenseAttachment =
+                  expenseAttachmentSelection[item.id] || expenseAttachments[0]?.attachmentId || "";
 
                 return (
-                  <div key={message.id} className="border border-slate-200 rounded-2xl p-3.5 flex flex-col lg:flex-row lg:items-center gap-3">
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                        destination === "BANK_STATEMENT"
-                          ? "bg-sky-50 text-sky-700"
-                          : destination === "INVOICE"
-                            ? "bg-emerald-50 text-emerald-600"
-                            : destination === "EXPENSE"
-                              ? "bg-amber-50 text-amber-700"
-                              : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {destination === "BANK_STATEMENT" ? (
-                        <FileSpreadsheet className="w-4 h-4" />
-                      ) : destination === "EXPENSE" ? (
-                        <Receipt className="w-4 h-4" />
-                      ) : (
-                        <Inbox className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex gap-2 items-center flex-wrap">
-                        <p className="text-xs font-black truncate text-slate-900">{message.subject || "(No subject)"}</p>
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase ${destinationTone}`}>
-                          {destinationLabel} {Math.round(cls.confidence || 0)}%
-                        </span>
-                        {cls.matchedProfileName && (
-                          <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-sky-50 text-sky-800 border border-sky-200">
-                            Rule: {cls.matchedProfileName}
-                          </span>
-                        )}
-                        {matchingExistingInvoice && message.importStatus !== "IMPORTED" && (
-                          <span
-                            className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-800 border border-amber-200"
-                            title={`Already processed as ${matchingExistingInvoice.invoiceNumber || "Invoice"}`}
-                          >
-                            <Copy className="w-2.5 h-2.5" />
-                            <span>Processed ({matchingExistingInvoice.invoiceNumber || "Invoice"})</span>
-                          </span>
-                        )}
+                  <div
+                    key={item.id}
+                    className={`border rounded-2xl p-4 transition ${
+                      isSelected
+                        ? "border-indigo-300 bg-indigo-50/20"
+                        : item.queueStatus === "FAILED"
+                          ? "border-rose-200 bg-rose-50/20"
+                          : item.duplicate.status !== "NO_KNOWN_DUPLICATE"
+                            ? "border-amber-200 bg-amber-50/10"
+                            : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      {/* Left: Selection + Icon + Details */}
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        {/* Checkbox */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectCandidate(item.id)}
+                          disabled={!item.isEligibleForBatchPrep || isBatchPreparing}
+                          className="mt-1 text-slate-400 hover:text-slate-600 disabled:opacity-30 shrink-0"
+                          aria-label={`Select ${item.subject} for batch preparation`}
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-indigo-600" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+
+                        {/* Destination Icon */}
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                            item.destination === "BANK_STATEMENT"
+                              ? "bg-sky-50 text-sky-700"
+                              : item.destination === "INVOICE"
+                                ? "bg-emerald-50 text-emerald-600"
+                                : item.destination === "EXPENSE"
+                                  ? "bg-amber-50 text-amber-700"
+                                  : "bg-purple-50 text-purple-700"
+                          }`}
+                        >
+                          {item.destination === "BANK_STATEMENT" ? (
+                            <FileSpreadsheet className="w-4 h-4" />
+                          ) : item.destination === "EXPENSE" ? (
+                            <Receipt className="w-4 h-4" />
+                          ) : item.destination === "INVOICE" ? (
+                            <FileText className="w-4 h-4" />
+                          ) : (
+                            <Inbox className="w-4 h-4" />
+                          )}
+                        </div>
+
+                        {/* Core Details */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-xs font-black text-slate-900 truncate">{item.subject}</h4>
+
+                            {/* Destination Badge */}
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase border ${item.destinationTone}`}>
+                              {item.destinationLabel} {Math.round(cls.confidence || 0)}%
+                            </span>
+
+                            {/* Queue Status Badge */}
+                            <StatusBadge tone={item.statusTone}>
+                              {item.statusLabel}
+                            </StatusBadge>
+
+                            {/* Source Preservation Badge */}
+                            <span
+                              className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold border ${
+                                item.sourcePreservation === "PRESERVED"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : item.sourcePreservation === "FAILED"
+                                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                              }`}
+                              title={
+                                item.sourcePreservation === "PRESERVED"
+                                  ? "Original message & attachments stored and verifiable in Supabase storage"
+                                  : item.sourcePreservation === "FAILED"
+                                    ? "Source storage failed"
+                                    : "Gmail metadata discovered; source will be saved upon preparation"
+                              }
+                            >
+                              {item.sourcePreservation === "PRESERVED" ? (
+                                <ShieldCheck className="w-2.5 h-2.5 text-emerald-600" />
+                              ) : item.sourcePreservation === "FAILED" ? (
+                                <ShieldAlert className="w-2.5 h-2.5 text-rose-600" />
+                              ) : (
+                                <Clock className="w-2.5 h-2.5 text-slate-400" />
+                              )}
+                              <span>{item.sourcePreservationLabel}</span>
+                            </span>
+
+                            {/* Duplicate Warning Badge */}
+                            {item.duplicate.status !== "NO_KNOWN_DUPLICATE" && (
+                              <span
+                                className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold border ${
+                                  item.duplicate.status === "EXACT_DUPLICATE"
+                                    ? "bg-amber-100 text-amber-900 border-amber-300"
+                                    : "bg-amber-50 text-amber-800 border-amber-200"
+                                }`}
+                                title={item.duplicate.reasons.join(" ")}
+                              >
+                                <Copy className="w-2.5 h-2.5" />
+                                <span>{item.duplicate.matchedRecordLabel ? `Duplicate: ${item.duplicate.matchedRecordLabel}` : "Suspected duplicate"}</span>
+                              </span>
+                            )}
+
+                            {/* Entity Resolution Match Hint Badge */}
+                            {item.entityMatch.status !== "NOT_APPLICABLE" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (resolution) {
+                                    setActiveResolutionCandidate(item.candidate);
+                                    setActiveResolutionResult(resolution);
+                                  }
+                                }}
+                                className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold transition border ${
+                                  item.entityMatch.status === "MATCHED"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                    : item.entityMatch.status === "POSSIBLE_MATCH"
+                                      ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                                      : item.entityMatch.status === "CONFLICT"
+                                        ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                }`}
+                                title="Advisory entity match hint. Final entity resolution is confirmed during review."
+                              >
+                                <Building2 className="w-2.5 h-2.5" />
+                                <span>{item.entityMatch.summaryLabel}</span>
+                              </button>
+                            )}
+
+                            {/* Same-Batch Overlap Group Badge */}
+                            {item.batchGroup && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                title="Multiple candidates in this scan share the same entity or sender"
+                              >
+                                <Layers className="w-2.5 h-2.5" />
+                                <span>{item.batchGroup.groupLabel}</span>
+                              </span>
+                            )}
+
+                            {/* Saved Rule Match Badge */}
+                            {cls.matchedProfileName && (
+                              <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-sky-50 text-sky-800 border border-sky-200">
+                                Rule: {cls.matchedProfileName}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Sender, Date, Attachments */}
+                          <p className="text-[10px] text-slate-500 mt-1 truncate">
+                            {item.sender} • {formatDateTime(item.receivedAt)} • {item.attachmentsCount} attachment
+                            {item.attachmentsCount === 1 ? "" : "s"}
+                          </p>
+
+                          {/* Reason / Snippet */}
+                          {cls.reason && (
+                            <p className="text-[10px] text-slate-600 mt-1 line-clamp-2">{cls.reason}</p>
+                          )}
+
+                          {/* Item Errors */}
+                          {item.itemErrors.length > 0 && (
+                            <div className="mt-2 p-2 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800 flex items-center gap-1.5">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                              <span>{item.itemErrors[0]}</span>
+                            </div>
+                          )}
+
+                          {/* Statement Attachment Selector */}
+                          {item.destination === "BANK_STATEMENT" && statementAttachments.length > 1 && (
+                            <label className="mt-2 block max-w-sm text-[10px] font-bold uppercase text-slate-500">
+                              Statement attachment
+                              <select
+                                className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold normal-case text-slate-800"
+                                value={selectedStatementAttachment}
+                                onChange={(event) =>
+                                  setStatementAttachmentSelection((current) => ({ ...current, [item.id]: event.target.value }))
+                                }
+                              >
+                                {statementAttachments.map((attachment) => (
+                                  <option key={attachment.attachmentId} value={attachment.attachmentId}>
+                                    {attachment.filename}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+
+                          {/* Expense Attachment Selector */}
+                          {item.destination === "EXPENSE" && expenseAttachments.length > 1 && (
+                            <label className="mt-2 block max-w-sm text-[10px] font-bold uppercase text-slate-500">
+                              Receipt attachment
+                              <select
+                                className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold normal-case text-slate-800"
+                                value={selectedExpenseAttachment}
+                                onChange={(event) =>
+                                  setExpenseAttachmentSelection((current) => ({ ...current, [item.id]: event.target.value }))
+                                }
+                              >
+                                {expenseAttachments.map((attachment) => (
+                                  <option key={attachment.attachmentId} value={attachment.attachmentId}>
+                                    {attachment.filename}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div className="flex flex-wrap items-center gap-2 self-start lg:self-center shrink-0 pl-7 lg:pl-0">
                         {resolution && (
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveResolutionCandidate(message);
+                              setActiveResolutionCandidate(item.candidate);
                               setActiveResolutionResult(resolution);
                             }}
-                            className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold transition border ${
-                              resolution.proposedAction === "LINK_EXISTING"
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                                : resolution.proposedAction === "ENRICH_EXISTING"
-                                  ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                                  : resolution.proposedAction === "CREATE_NEW"
-                                    ? "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                                    : resolution.proposedAction === "POSSIBLE_DUPLICATE"
-                                      ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                                      : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-                            }`}
-                            title="Preliminary sender-level match hint. Authoritative entity resolution happens post-extraction."
+                            className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 inline-flex items-center gap-1.5 shrink-0 transition"
+                            title="Review preliminary entity resolution hint"
                           >
-                            <Building2 className="w-2.5 h-2.5" />
-                            <span>
-                              {resolution.proposedAction === "LINK_EXISTING"
-                                ? `Hint: ${resolution.matchedEntityName}`
-                                : resolution.proposedAction === "ENRICH_EXISTING"
-                                  ? `Enrich hint: ${resolution.matchedEntityName}`
-                                  : resolution.proposedAction === "CREATE_NEW"
-                                    ? `Unmatched sender${resolution.groupMemberCount && resolution.groupMemberCount > 1 ? ` (${resolution.groupMemberCount} in batch)` : ""}`
-                                    : resolution.proposedAction === "POSSIBLE_DUPLICATE"
-                                      ? `Similar hint: ${resolution.matchedEntityName}`
-                                      : `Review: ${resolution.conflicts[0]?.label || "Sender hint"}`}
-                            </span>
+                            <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                            Entity hint
                           </button>
                         )}
+
+                        {canManageMailbox && (
+                          <button
+                            type="button"
+                            onClick={() => handleSaveSenderRuleShortcut(item.candidate)}
+                            className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 inline-flex items-center gap-1.5 shrink-0 transition"
+                            title="Save a sender/domain rule for this email"
+                          >
+                            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                            Save rule
+                          </button>
+                        )}
+
+                        {/* Primary Action Button */}
+                        {item.destination === "INVOICE" ? (
+                          canManageMailbox && canProcessInvoices ? (
+                            <button
+                              type="button"
+                              disabled={item.candidate.importStatus === "IMPORTING"}
+                              onClick={() => void importCandidate(item.candidate)}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 transition ${
+                                item.duplicate.status === "EXACT_DUPLICATE"
+                                  ? "bg-slate-800 text-white hover:bg-slate-900"
+                                  : "bg-indigo-600 text-white hover:bg-indigo-700"
+                              }`}
+                            >
+                              {item.candidate.importStatus === "IMPORTING" ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : item.candidate.importStatus === "IMPORTED" ? (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              ) : (
+                                <UploadCloud className="w-3.5 h-3.5" />
+                              )}
+                              {item.candidate.importStatus === "IMPORTED"
+                                ? "Imported"
+                                : item.duplicate.status === "EXACT_DUPLICATE"
+                                  ? "Re-extract invoice"
+                                  : "Import & extract"}
+                            </button>
+                          ) : (
+                            <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
+                              {!canManageMailbox && !canProcessInvoices
+                                ? "Requires Gmail + invoice permissions"
+                                : !canManageMailbox
+                                  ? "Requires Gmail permission"
+                                  : "Requires invoice permission"}
+                            </span>
+                          )
+                        ) : item.destination === "BANK_STATEMENT" ? (
+                          canManageMailbox && canImportBankStatements ? (
+                            <button
+                              type="button"
+                              disabled={item.candidate.importStatus === "IMPORTING"}
+                              onClick={() => void reviewStatement(item.candidate)}
+                              className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-sky-700 text-white hover:bg-sky-800 transition"
+                            >
+                              {item.candidate.importStatus === "IMPORTING" ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <FileSpreadsheet className="w-3.5 h-3.5" />
+                              )}
+                              Review statement
+                            </button>
+                          ) : (
+                            <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
+                              {!canManageMailbox && !canImportBankStatements
+                                ? "Requires Gmail + cash import permissions"
+                                : !canManageMailbox
+                                  ? "Requires Gmail permission"
+                                  : "Requires cash import permission"}
+                            </span>
+                          )
+                        ) : item.destination === "EXPENSE" ? (
+                          canManageMailbox && canManageExpenses ? (
+                            <button
+                              type="button"
+                              disabled={item.candidate.importStatus === "IMPORTING"}
+                              onClick={() => void reviewExpense(item.candidate)}
+                              className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-amber-600 text-white hover:bg-amber-700 transition"
+                            >
+                              {item.candidate.importStatus === "IMPORTING" ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Receipt className="w-3.5 h-3.5" />
+                              )}
+                              Review expense
+                            </button>
+                          ) : (
+                            <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
+                              {!canManageMailbox && !canManageExpenses
+                                ? "Requires Gmail + expense permissions"
+                                : !canManageMailbox
+                                  ? "Requires Gmail permission"
+                                  : "Requires expense permission"}
+                            </span>
+                          )
+                        ) : (
+                          <span className="rounded-xl border border-purple-200 bg-purple-50 px-3.5 py-2 text-xs font-bold text-purple-900">
+                            Ambiguous / Needs review
+                          </span>
+                        )}
                       </div>
-                      <p className="text-[10px] text-slate-500 mt-1 truncate">
-                        {message.sender} • {formatDateTime(message.receivedAt)} • {message.attachments.length} attachment
-                        {message.attachments.length === 1 ? "" : "s"}
-                      </p>
-                      {cls.reason && <p className="text-[10px] text-slate-600 mt-1 line-clamp-2">{cls.reason}</p>}
-                      {destination === "BANK_STATEMENT" && statementAttachments.length > 1 && (
-                        <label className="mt-2 block max-w-sm text-[10px] font-bold uppercase text-slate-500">
-                          Statement attachment
-                          <select
-                            className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold normal-case text-slate-800"
-                            value={selectedStatementAttachment}
-                            onChange={(event) =>
-                              setStatementAttachmentSelection((current) => ({ ...current, [message.id]: event.target.value }))
-                            }
-                          >
-                            {statementAttachments.map((attachment) => (
-                              <option key={attachment.attachmentId} value={attachment.attachmentId}>
-                                {attachment.filename}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      )}
-                      {destination === "EXPENSE" && expenseAttachments.length > 1 && (
-                        <label className="mt-2 block max-w-sm text-[10px] font-bold uppercase text-slate-500">
-                          Receipt attachment
-                          <select
-                            className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold normal-case text-slate-800"
-                            value={selectedExpenseAttachment}
-                            onChange={(event) =>
-                              setExpenseAttachmentSelection((current) => ({ ...current, [message.id]: event.target.value }))
-                            }
-                          >
-                            {expenseAttachments.map((attachment) => (
-                              <option key={attachment.attachmentId} value={attachment.attachmentId}>
-                                {attachment.filename}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
-                      {resolution && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveResolutionCandidate(message);
-                            setActiveResolutionResult(resolution);
-                          }}
-                          className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 inline-flex items-center gap-1.5 shrink-0 transition"
-                          title="Review preliminary entity resolution hint"
-                        >
-                          <Building2 className="w-3.5 h-3.5 text-slate-500" />
-                          Entity hint
-                        </button>
-                      )}
-                      {canManageMailbox && (
-                        <button
-                          type="button"
-                          onClick={() => handleSaveSenderRuleShortcut(message)}
-                          className="px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 inline-flex items-center gap-1.5 shrink-0 transition"
-                          title="Save a sender/domain rule for this email"
-                        >
-                          <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                          Save rule
-                        </button>
-                      )}
-                      {destination === "INVOICE" ? (
-                        canManageMailbox && canProcessInvoices ? (
-                          <button
-                            type="button"
-                            disabled={message.importStatus === "IMPORTING" || message.importStatus === "IMPORTED"}
-                            onClick={() => void importCandidate(message)}
-                            className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-indigo-600 text-white hover:bg-indigo-700"
-                          >
-                            {message.importStatus === "IMPORTING" ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : message.importStatus === "IMPORTED" ? (
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            ) : (
-                              <UploadCloud className="w-3.5 h-3.5" />
-                            )}
-                            {message.importStatus === "IMPORTED" ? "Imported" : "Import & extract"}
-                          </button>
-                        ) : (
-                          <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
-                            {!canManageMailbox && !canProcessInvoices
-                              ? "Requires Gmail + invoice permission"
-                              : !canManageMailbox
-                                ? "Requires Gmail permission"
-                                : "Requires invoice permission"}
-                          </span>
-                        )
-                      ) : destination === "BANK_STATEMENT" ? (
-                        canManageMailbox && canImportBankStatements ? (
-                          <button
-                            type="button"
-                            disabled={message.importStatus === "IMPORTING"}
-                            onClick={() => void reviewStatement(message)}
-                            className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-sky-700 text-white hover:bg-sky-800"
-                          >
-                            {message.importStatus === "IMPORTING" ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <FileSpreadsheet className="w-3.5 h-3.5" />
-                            )}
-                            Review statement
-                          </button>
-                        ) : (
-                          <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
-                            {!canManageMailbox && !canImportBankStatements
-                              ? "Requires Gmail + cash import permission"
-                              : !canManageMailbox
-                                ? "Requires Gmail permission"
-                                : "Requires cash import permission"}
-                          </span>
-                        )
-                      ) : destination === "EXPENSE" ? (
-                        canManageMailbox && canManageExpenses ? (
-                          <button
-                            type="button"
-                            disabled={message.importStatus === "IMPORTING"}
-                            onClick={() => void reviewExpense(message)}
-                            className="px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 disabled:opacity-60 bg-amber-600 text-white hover:bg-amber-700"
-                          >
-                            {message.importStatus === "IMPORTING" ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <Receipt className="w-3.5 h-3.5" />
-                            )}
-                            Review expense
-                          </button>
-                        ) : (
-                          <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
-                            {!canManageMailbox && !canManageExpenses
-                              ? "Requires Gmail + expense permission"
-                              : !canManageMailbox
-                                ? "Requires Gmail permission"
-                                : "Requires expense permission"}
-                          </span>
-                        )
-                      ) : (
-                        <span className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-600">
-                          No automatic destination
-                        </span>
-                      )}
                     </div>
                   </div>
                 );
@@ -1031,7 +1405,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         </section>
       )}
 
-      {/* Manual invoice fallback is made visually secondary using collapsible disclosure */}
+      {/* Manual Invoice Email Fallback (Secondary Disclosure) */}
       <details className="group rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
         <summary className="flex items-center justify-between cursor-pointer list-none select-none">
           <div className="flex items-center gap-2.5">
@@ -1119,6 +1493,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         </div>
       </details>
 
+      {/* Recently Processed Invoices */}
       {emailInvoices.length > 0 && (
         <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <h3 className="text-sm font-black text-slate-900">Recently imported from email</h3>
@@ -1149,6 +1524,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
         </section>
       )}
 
+      {/* Modals */}
       <IntakeRulesModal
         isOpen={isRulesModalOpen}
         onClose={() => setIsRulesModalOpen(false)}
@@ -1172,7 +1548,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           candidate={activeResolutionCandidate}
           resolution={activeResolutionResult}
           allCandidates={candidates}
-          allResolutions={allEntityResolutions}
+          allResolutions={batchEntityResolutions}
           vendors={vendors}
           financialAccounts={financialAccounts}
           onConfirmResolution={handleConfirmResolution}

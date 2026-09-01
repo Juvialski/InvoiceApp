@@ -448,18 +448,20 @@ Recommended order:
    - deterministic parser profiles;
    - duplicate/import provenance and reconciliation UX.
 
-5. **4E - Expense hardening**
+5. **4E - Expense hardening** (merged in PR #58)
    - deterministic receipt extraction where possible;
    - AI fallback for unstructured sources;
    - merchant/payee normalization;
    - duplicate and entity linkage.
 
-6. **4F - Shared queue hardening**
-   - review status;
-   - suspected duplicates;
-   - failed preparation;
-   - source status;
-   - safe batch preparation without autonomous posting.
+6. **4F - Shared queue hardening** (implemented in `feat/email-intake-phase-4f-shared-queue-hardening`)
+   - unified review queue across Invoices, Statements, Receipts, and Unsupported;
+   - multi-status queue state derivation (`DISCOVERED`, `PREPARING`, `READY_FOR_REVIEW`, `NEEDS_REVIEW`, `SUSPECTED_DUPLICATE`, `FAILED`, `COMPLETED`);
+   - source preservation tracking (`PRESERVED`, `PENDING`, `FAILED`);
+   - duplicate and entity match presentation;
+   - same-batch overlap and grouping;
+   - safe batch preparation without autonomous posting;
+   - operations summary counts and multi-criteria filters.
 
 Each wave must follow the permanent maximum of 2 concurrent subagents in `AGENTS.md`.
 
