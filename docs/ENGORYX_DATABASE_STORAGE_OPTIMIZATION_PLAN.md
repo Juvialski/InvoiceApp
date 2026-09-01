@@ -1,6 +1,6 @@
 # Engoryx Database & Storage Optimization Plan
 
-Status: **Planned next platform optimization initiative after completion of core finance Email Intake.**
+Status: **Wave S1 completed (Current-State Audit & Storage Architecture Foundation established). Wave S2 is the next planned implementation target.**
 
 Repository: `Juvialski/InvoiceApp`
 
@@ -351,26 +351,20 @@ Never delete the original object in the same step that first copies it to a new 
 
 ## Wave S1 — Current-State Audit + Storage Architecture Foundation
 
-**Next implementation target.**
+Status: **COMPLETED** (Deliverables in `docs/ENGORYX_STORAGE_CURRENT_STATE_AUDIT.md`, `scripts/database-storage-audit.sql`, `src/lib/storage/`, `tests/documentStorageFoundation.test.ts`, and `tests/databaseStorageAudit.test.ts`).
 
-Goals:
+Accomplished:
 
-- inventory every current binary/document storage path;
-- identify any durable base64/blob usage in Postgres/local storage;
-- map document producers/consumers across Invoice, Email Intake, Expenses, Cash & Banking, Engineering Documents, Payroll/employee attachments, and other modules;
-- inspect current `source_documents` and related storage schemas;
-- identify high-growth database tables/JSON fields;
-- document actual storage provider calls and permission boundaries;
-- define the canonical `DocumentStorageProvider` interface;
-- define canonical object metadata and object-key strategy;
-- define signed-read authorization contract;
-- define SHA-256 binary dedup semantics;
-- define migration/backfill and orphan-cleanup contracts;
-- add tests for the architectural contracts where useful.
-
-S1 should avoid moving production data unless a tiny isolated compatibility proof is necessary.
-
-Deliverable: an implementation-ready storage architecture grounded in the live repository, plus any low-risk abstraction/refactoring needed to make later provider migration safe.
+- verified zero in-database binary blobs (0 `bytea` columns) and zero durable binary data in `localStorage`;
+- inventoried every current private storage bucket (`invoice-originals`, `email-originals`, `payroll-import-sources`, `engineering-documents`) and mapped producers/consumers across Invoices, Email Intake, Expenses, Cash & Banking, Engineering Documents, and Payroll;
+- verified `source_documents` role as canonical source boundary for Invoices, Expenses, and Cash & Banking, while preserving independent immutable revision lineage for Engineering Documents (`engineering_document_revisions`);
+- audited database growth candidates across all tables and created `scripts/database-storage-audit.sql` for read-only production measurement;
+- identified redundant legacy `user_id` indexes vs single-tenant `company_id` composite indexes;
+- implemented provider-neutral storage contracts and types in `src/lib/storage/types.ts`;
+- implemented canonical company-scoped target object-key builder, filename sanitizer, and legacy path parser in `src/lib/storage/keys.ts`;
+- implemented SHA-256 calculation and domain deduplication vs provenance contracts in `src/lib/storage/dedup.ts`;
+- established signed-read authorization, migration state machine, and conservative orphan cleanup contracts;
+- selected **Manual Invoice Source Documents** (`source_documents` under `invoice-originals`) as the recommended bounded pilot for Wave S2.
 
 ## Wave S2 — Provider Abstraction + Private External Storage Pilot
 

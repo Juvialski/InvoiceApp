@@ -1,0 +1,154 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, "..");
+const AUDIT_SQL_PATH = path.join(ROOT, "scripts", "database-storage-audit.sql");
+
+test("database-storage-audit.sql exists and is non-empty", () => {
+  assert.ok(existsSync(AUDIT_SQL_PATH), "scripts/database-storage-audit.sql must exist");
+  const content = readFileSync(AUDIT_SQL_PATH, "utf8");
+  assert.ok(content.length > 500, "Audit script must contain comprehensive SQL queries");
+});
+
+test("database-storage-audit.sql strictly obeys read-only safety invariants", () => {
+  const content = readFileSync(AUDIT_SQL_PATH, "utf8");
+
+  // Filter out comments to inspect actual SQL keywords
+  const uncommentedSql = content
+    .replace(/--.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "");
+
+  // Mutating DDL / DML patterns that MUST NOT appear
+  const forbiddenPatterns = [
+    /\binsert\s+into\b/i,
+    /\bupdate\s+[a-z0-9_.]+\s+set\b/i,
+    /\bdelete\s+from\b/i,
+    /\bdrop\s+(table|view|schema|database|function|index|trigger)\b/i,
+    /\balter\s+(table|view|schema|database|function|index|trigger|role|user)\b/i,
+    /\bcreate\s+(table|view|schema|database|function|index|trigger|role|user)\b/i,
+    /\btruncate\s+(table)?\b/i,
+    /\bvacuum\s+full\b/i,
+    /\breindex\s+/i,
+    /\bgrant\s+/i,
+    /\brevoke\s+/i,
+    /\bset\s+role\b/i,
+    /\bset\s+session\s+authorization\b/i,
+    /\bdisable\s+row\s+level\s+security\b/i,
+    /\bsecurity\s+definer\b/i,
+    /\bpassword\s*=/i,
+    /postgresql:\/\//i
+  ];
+
+  for (const pattern of forbiddenPatterns) {
+    assert.doesNotMatch(
+      uncommentedSql,
+      pattern,
+      `Forbidden mutating or unsafe SQL pattern found: ${pattern}`
+    );
+  }
+
+  // Verify all statements begin with SELECT or WITH
+  const statements = uncommentedSql
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  assert.ok(statements.length >= 6, "Expected multiple diagnostic query blocks");
+
+  for (const stmt of statements) {
+    const startsWithSelectOrWith = /^(select|with)\b/i.test(stmt);
+    assert.ok(
+      startsWithSelectOrWith,
+      `Diagnostic statement must start with SELECT or WITH, found: ${stmt.slice(0, 40)}...`
+    );
+  }
+});
+
+test("database-storage-audit.sql contains required system catalog and statistics queries", () => {
+  const content = readFileSync(AUDIT_SQL_PATH, "utf8");
+
+  // Section 1 & 2: Database and table sizing catalogs
+  assert.match(content, /pg_database_size/i, "Must measure total database size");
+  assert.match(content, /pg_stat_user_tables/i, "Must query user table statistics");
+  assert.match(content, /pg_class/i, "Must query pg_class for relation metadata");
+  assert.match(content, /pg_table_size/i, "Must query heap size");
+  assert.match(content, /pg_indexes_size/i, "Must query table index size");
+  assert.match(content, /pg_total_relation_size/i, "Must query total relation size including TOAST");
+  assert.match(content, /pg_size_pretty/i, "Must format sizes with pg_size_pretty");
+
+  // Section 3: Index statistics
+  assert.match(content, /pg_stat_user_indexes/i, "Must query user index statistics");
+  assert.match(content, /pg_relation_size/i, "Must measure individual index sizes");
+  assert.match(content, /idx_scan/i, "Must inspect index scan counts");
+  assert.match(content, /pg_get_indexdef/i, "Must retrieve index definitions");
+
+  // Section 4: Data type / Column catalog
+  assert.match(content, /information_schema\.columns/i, "Must inspect column data types");
+  assert.match(content, /'json'/i, "Must inspect json columns");
+  assert.match(content, /'jsonb'/i, "Must inspect jsonb columns");
+  assert.match(content, /'bytea'/i, "Must check for in-database binary bytea columns");
+});
+
+test("database-storage-audit.sql covers high-growth audit and event tables", () => {
+  const content = readFileSync(AUDIT_SQL_PATH, "utf8");
+
+  const requiredEventTables = [
+    "company_audit_events",
+    "project_accounting_events",
+    "invoice_review_events",
+    "assistant_action_events",
+    "assistant_messages",
+    "engineering_daily_site_log_events"
+  ];
+
+  for (const table of requiredEventTables) {
+    assert.match(
+      content,
+      new RegExp(`public\\.${table}`, "i"),
+      `Must inspect high-growth event table: ${table}`
+    );
+  }
+
+  assert.match(content, /event_type/i, "Must analyze event type distribution");
+});
+
+test("database-storage-audit.sql covers staging, temporary, and prunable candidate tables", () => {
+  const content = readFileSync(AUDIT_SQL_PATH, "utf8");
+
+  const requiredCandidateTables = [
+    "payroll_import_rows",
+    "payroll_import_batches",
+    "assistant_action_events",
+    "invoices",
+    "work_entries",
+    "expenses",
+    "source_documents"
+  ];
+
+  for (const table of requiredCandidateTables) {
+    assert.match(
+      content,
+      new RegExp(`public\\.${table}`, "i"),
+      `Must inspect prunable/staging candidates on table: ${table}`
+    );
+  }
+
+  // Specific candidate states
+  assert.match(content, /COMMITTED/i, "Must assess committed import rows");
+  assert.match(content, /STAGED/i, "Must assess staged import rows");
+  assert.match(content, /FAILED/i, "Must assess failed import batches");
+  assert.match(content, /VOID/i, "Must assess voided records");
+});
+
+test("database-storage-audit.sql verifies off-database binary storage references", () => {
+  const content = readFileSync(AUDIT_SQL_PATH, "utf8");
+
+  assert.match(content, /public\.source_documents/i, "Must check source document storage pointers");
+  assert.match(content, /public\.engineering_document_revisions/i, "Must check engineering revision storage pointers");
+  assert.match(content, /file_size/i, "Must aggregate tracked file sizes");
+});
