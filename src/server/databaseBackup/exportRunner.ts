@@ -5,7 +5,6 @@ import { promises as fsp } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  type DatabaseBackupType,
   type LogicalExportOptions,
   type LogicalExportResult,
   DatabaseBackupExportError,
@@ -44,13 +43,16 @@ export function sanitizeLogOutput(
       sanitized = sanitized.split(secret).join("******");
     }
   }
-  // Redact any inline postgres URI credentials
   sanitized = sanitized.replace(/(postgres(?:ql)?:\/\/[^:]+:)([^@]+)(@)/gi, "$1******$3");
   return sanitized;
 }
 
 /**
  * Real PostgreSQL pg_dump runner using safe child_process.spawn (no shell interpolation).
+ *
+ * Scope invariant: ordinary Engoryx application backups include the public application schema
+ * plus private helper definitions, but exclude private-schema table data and do not sweep
+ * Supabase-managed auth/storage/vault schemas into the archive.
  */
 export class PostgresDumpExportRunner implements DatabaseExportRunner {
   private pgDumpBinaryPath: string;
@@ -82,21 +84,26 @@ export class PostgresDumpExportRunner implements DatabaseExportRunner {
 
     try {
       const url = new URL(dbUrl);
+      if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+        throw new Error("unsupported database URL protocol");
+      }
+      if (!url.hostname || !url.pathname || url.pathname === "/") {
+        throw new Error("database URL must include host and database name");
+      }
       if (url.password) {
         parsedPassword = decodeURIComponent(url.password);
         spawnEnv.PGPASSWORD = parsedPassword;
       }
-      if (url.hostname) spawnEnv.PGHOST = url.hostname;
-      if (url.port) spawnEnv.PGPORT = url.port;
+      spawnEnv.PGHOST = url.hostname;
+      spawnEnv.PGPORT = url.port || "5432";
       if (url.username) spawnEnv.PGUSER = decodeURIComponent(url.username);
-      if (url.pathname && url.pathname.length > 1) {
-        spawnEnv.PGDATABASE = decodeURIComponent(url.pathname.slice(1));
-      }
+      spawnEnv.PGDATABASE = decodeURIComponent(url.pathname.slice(1));
       const sslMode = url.searchParams.get("sslmode");
       if (sslMode) spawnEnv.PGSSLMODE = sslMode;
     } catch {
-      // If dbUrl is not a standard URL, pass via connection string with PGPASSWORD
-      spawnEnv.DATABASE_URL = dbUrl;
+      throw new DatabaseBackupExportError(
+        "Database export failed: database URL must be a valid postgres:// or postgresql:// connection URL.",
+      );
     }
 
     const args: string[] = [
@@ -105,6 +112,9 @@ export class PostgresDumpExportRunner implements DatabaseExportRunner {
       "--no-privileges",
       "--clean",
       "--if-exists",
+      "--schema=public",
+      "--schema=private",
+      "--exclude-table-data=private.*",
       "-f",
       tempFilePath,
     ];
@@ -131,10 +141,7 @@ export class PostgresDumpExportRunner implements DatabaseExportRunner {
       args.push(...options.customFlags);
     }
 
-    // Append database name / connection string argument
-    if (spawnEnv.PGDATABASE) {
-      args.push(spawnEnv.PGDATABASE);
-    }
+    args.push(spawnEnv.PGDATABASE!);
 
     let stderrBuffer = "";
 
@@ -147,7 +154,9 @@ export class PostgresDumpExportRunner implements DatabaseExportRunner {
         });
 
         proc.stderr.on("data", (chunk: Buffer) => {
-          stderrBuffer += chunk.toString("utf-8");
+          if (stderrBuffer.length < 1024 * 1024) {
+            stderrBuffer += chunk.toString("utf-8");
+          }
         });
 
         proc.on("error", (err) => {
@@ -168,7 +177,6 @@ export class PostgresDumpExportRunner implements DatabaseExportRunner {
         });
       });
 
-      // Compute hash and size
       const hash = crypto.createHash("sha256");
       const stat = await fsp.stat(tempFilePath);
       const fileStream = fs.createReadStream(tempFilePath);
@@ -195,11 +203,10 @@ export class PostgresDumpExportRunner implements DatabaseExportRunner {
         },
       };
     } catch (err: any) {
-      // Clean up temp file on failure
       try {
         await fsp.unlink(tempFilePath);
       } catch {
-        // Ignore unlink error during failure handler
+        // Ignore unlink error during failure handler.
       }
 
       const rawMsg = err instanceof Error ? err.message : String(err);
@@ -231,7 +238,7 @@ export class MockDatabaseExportRunner implements DatabaseExportRunner {
       `-- Company ID: ${options.companyId}`,
       `-- Backup Type: ${options.backupType}`,
       `-- Export Timestamp: ${nowIso}`,
-      `-- Scope: ${options.targetTables ? options.targetTables.join(", ") : "ALL_PUBLIC_TABLES"}`,
+      `-- Scope: ${options.targetTables ? options.targetTables.join(", ") : "PUBLIC_APPLICATION_DATA_PLUS_PRIVATE_HELPERS"}`,
       `-- Version: 16.2 (Mocked)`,
       `SET statement_timeout = 0;`,
       `SET lock_timeout = 0;`,
@@ -289,9 +296,6 @@ export class MockDatabaseExportRunner implements DatabaseExportRunner {
   }
 }
 
-/**
- * Create a DatabaseExportRunner based on runner type or environment settings.
- */
 export function createDatabaseExportRunner(
   runnerType?: "postgres" | "mock" | "auto",
 ): DatabaseExportRunner {
@@ -302,7 +306,6 @@ export function createDatabaseExportRunner(
     return new MockDatabaseExportRunner();
   }
 
-  // Auto mode
   if (
     process.env.NODE_ENV === "test" ||
     process.env.DATABASE_BACKUP_USE_MOCK_RUNNER === "true" ||
