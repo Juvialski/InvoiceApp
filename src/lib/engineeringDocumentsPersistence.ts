@@ -215,11 +215,14 @@ export function revisionFromRow(row: Row): EngineeringDocumentRevision {
     scale: text(row.scale),
     changeSummary: text(row.change_summary),
     status: String(row.status || "PENDING_REVIEW") as EngineeringDocumentRevision["status"],
+    storageProvider: text(row.storage_provider) || "supabase",
+    storageBucket: text(row.storage_bucket) || "engineering-documents",
     createdByUserId: text(row.created_by_user_id),
     createdAt: String(row.created_at || new Date().toISOString()),
     updatedAt: String(row.updated_at || new Date().toISOString()),
   };
 }
+
 
 export function annotationFromRow(row: Row): DrawingAnnotation {
   return {

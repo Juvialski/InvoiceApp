@@ -35,6 +35,24 @@ export interface StorageEnvironment {
   R2_SECRET_ACCESS_KEY?: string;
   STORAGE_S3_FORCE_PATH_STYLE?: string;
   STORAGE_S3_PUBLIC_READ_URL?: string;
+  // Independent Backup Provider Configuration
+  STORAGE_BACKUP_PROVIDER?: string;
+  STORAGE_BACKUP_ENDPOINT?: string;
+  BACKBLAZE_B2_ENDPOINT?: string;
+  B2_ENDPOINT?: string;
+  STORAGE_BACKUP_BUCKET?: string;
+  BACKBLAZE_B2_BUCKET?: string;
+  B2_BUCKET?: string;
+  STORAGE_BACKUP_REGION?: string;
+  BACKBLAZE_B2_REGION?: string;
+  B2_REGION?: string;
+  STORAGE_BACKUP_ACCESS_KEY_ID?: string;
+  BACKBLAZE_B2_ACCESS_KEY_ID?: string;
+  B2_ACCESS_KEY_ID?: string;
+  STORAGE_BACKUP_SECRET_ACCESS_KEY?: string;
+  BACKBLAZE_B2_SECRET_ACCESS_KEY?: string;
+  B2_SECRET_ACCESS_KEY?: string;
+  STORAGE_BACKUP_FORCE_PATH_STYLE?: string;
   SUPABASE_URL?: string;
   VITE_SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
@@ -68,7 +86,7 @@ export function loadStorageConfig(env: StorageEnvironment = process.env): Storag
     primaryProvider = "memory";
   } else {
     throw new StorageConfigurationError(
-      `Unsupported storage provider: "${providerRaw}". Supported durable providers for Wave S2 are "supabase" and "s3".`,
+      `Unsupported storage provider: "${providerRaw}". Supported durable providers for Wave S3 are "supabase" and "s3".`,
     );
   }
 
@@ -94,14 +112,121 @@ export function loadStorageConfig(env: StorageEnvironment = process.env): Storag
     };
   }
 
+  // Backup Provider Configuration
+  const backupRaw = getEnvValue(env, "STORAGE_BACKUP_PROVIDER").toLowerCase();
+  let backupProvider: StorageProviderId | undefined;
+  if (backupRaw === "s3" || backupRaw === "b2" || backupRaw === "backblaze") {
+    backupProvider = "s3";
+  } else if (backupRaw === "memory") {
+    if (nodeEnv === "production") {
+      throw new StorageConfigurationError("Memory storage provider cannot be used as backup storage in production.");
+    }
+    backupProvider = "memory";
+  } else if (backupRaw === "supabase") {
+    throw new StorageConfigurationError(
+      "Supabase Storage cannot be used as an independent backup provider in Wave S3. Supported backup providers are \"s3\", \"b2\", and \"memory\" (test only).",
+    );
+  } else if (backupRaw) {
+    throw new StorageConfigurationError(
+      `Unsupported backup storage provider: "${backupRaw}". Supported backup providers are "s3", "b2", and "memory" (test only).`,
+    );
+  }
+
+  let backupS3Config: S3ProviderConfig | undefined;
+  if (backupProvider === "s3") {
+    const backupEndpoint = getEnvValue(env, "STORAGE_BACKUP_ENDPOINT", "BACKBLAZE_B2_ENDPOINT", "B2_ENDPOINT");
+    const backupBucket = getEnvValue(env, "STORAGE_BACKUP_BUCKET", "BACKBLAZE_B2_BUCKET", "B2_BUCKET");
+    const backupRegion = getEnvValue(env, "STORAGE_BACKUP_REGION", "BACKBLAZE_B2_REGION", "B2_REGION") || "auto";
+    const backupAccessKeyId = getEnvValue(env, "STORAGE_BACKUP_ACCESS_KEY_ID", "BACKBLAZE_B2_ACCESS_KEY_ID", "B2_ACCESS_KEY_ID");
+    const backupSecretAccessKey = getEnvValue(env, "STORAGE_BACKUP_SECRET_ACCESS_KEY", "BACKBLAZE_B2_SECRET_ACCESS_KEY", "B2_SECRET_ACCESS_KEY");
+    const backupForcePathStyleRaw = getEnvValue(env, "STORAGE_BACKUP_FORCE_PATH_STYLE");
+    const backupForcePathStyle = backupForcePathStyleRaw ? backupForcePathStyleRaw === "true" : true;
+
+    if (!backupEndpoint || !backupBucket || !backupAccessKeyId || !backupSecretAccessKey) {
+      throw new StorageConfigurationError(
+        "Incomplete backup storage provider configuration: STORAGE_BACKUP_ENDPOINT, STORAGE_BACKUP_BUCKET, STORAGE_BACKUP_ACCESS_KEY_ID, and STORAGE_BACKUP_SECRET_ACCESS_KEY (or B2 equivalents) are all required when STORAGE_BACKUP_PROVIDER is configured.",
+      );
+    }
+
+    backupS3Config = {
+      endpoint: backupEndpoint,
+      bucket: backupBucket,
+      region: backupRegion,
+      accessKeyId: backupAccessKeyId,
+      secretAccessKey: backupSecretAccessKey,
+      forcePathStyle: backupForcePathStyle,
+    };
+  }
+
+
   return {
     primaryProvider,
     s3: s3Config,
+    backupProvider,
+    backupS3: backupS3Config,
   };
 }
 
+export interface StorageDescriptor {
+  providerId: StorageProviderId;
+  bucket: string;
+  endpoint?: string;
+  region?: string;
+  isExternal: boolean;
+}
+
+export function getPrimaryStorageDescriptor(env: StorageEnvironment = process.env): StorageDescriptor {
+  const config = loadStorageConfig(env);
+  if (config.primaryProvider === "s3" && config.s3) {
+    return {
+      providerId: "s3",
+      bucket: config.s3.bucket,
+      endpoint: config.s3.endpoint,
+      region: config.s3.region,
+      isExternal: true,
+    };
+  }
+  if (config.primaryProvider === "memory") {
+    return {
+      providerId: "memory",
+      bucket: "test-bucket",
+      isExternal: false,
+    };
+  }
+  return {
+    providerId: "supabase",
+    bucket: "invoice-originals",
+    isExternal: false,
+  };
+}
+
+export function getBackupStorageDescriptor(env: StorageEnvironment = process.env): StorageDescriptor | null {
+  const config = loadStorageConfig(env);
+  if (!config.backupProvider) return null;
+
+  if (config.backupProvider === "s3" && config.backupS3) {
+    return {
+      providerId: "s3",
+      bucket: config.backupS3.bucket,
+      endpoint: config.backupS3.endpoint,
+      region: config.backupS3.region,
+      isExternal: true,
+    };
+  }
+  if (config.backupProvider === "memory") {
+    return {
+      providerId: "memory",
+      bucket: "test-backup-bucket",
+      isExternal: false,
+    };
+  }
+  return null;
+}
+
+
 // Global cached memory provider for shared test contexts
 let globalMemoryProvider: MemoryStorageProvider | null = null;
+let globalBackupMemoryProvider: MemoryStorageProvider | null = null;
 
 export function getSharedMemoryProvider(): MemoryStorageProvider {
   if (!globalMemoryProvider) {
@@ -110,9 +235,18 @@ export function getSharedMemoryProvider(): MemoryStorageProvider {
   return globalMemoryProvider;
 }
 
+export function getSharedBackupMemoryProvider(): MemoryStorageProvider {
+  if (!globalBackupMemoryProvider) {
+    globalBackupMemoryProvider = new MemoryStorageProvider();
+  }
+  return globalBackupMemoryProvider;
+}
+
 export function resetSharedMemoryProvider(): void {
   globalMemoryProvider?.clear();
   globalMemoryProvider = null;
+  globalBackupMemoryProvider?.clear();
+  globalBackupMemoryProvider = null;
 }
 
 /**
@@ -169,11 +303,49 @@ export function getPrimaryStorageProvider(
 }
 
 /**
+ * Get the currently configured backup storage provider if one is configured.
+ */
+export function getBackupStorageProvider(
+  env: StorageEnvironment = process.env,
+  supabaseClientGetter?: () => SupabaseClient,
+): DocumentStorageProvider | null {
+  const config = loadStorageConfig(env);
+  if (!config.backupProvider) return null;
+
+  switch (config.backupProvider) {
+    case "memory": {
+      const nodeEnv = (process.env.NODE_ENV || "").toLowerCase();
+      if (nodeEnv === "production") {
+        throw new StorageConfigurationError("Memory backup storage provider is for test environments only.");
+      }
+      return getSharedBackupMemoryProvider();
+    }
+
+    case "s3": {
+      if (!config.backupS3) {
+        throw new StorageConfigurationError(
+          "S3/B2 backup storage provider is requested but backup configuration (endpoint, accessKeyId, secretAccessKey) is incomplete.",
+        );
+      }
+      return new S3StorageProvider(config.backupS3);
+    }
+
+    default:
+      throw new StorageConfigurationError(`Unsupported backup storage provider: "${config.backupProvider}".`);
+  }
+}
+
+
+/**
  * Inspect storage configuration health without leaking secret keys.
  */
 export function getStorageHealth(env: StorageEnvironment = process.env): StorageHealthStatus {
   const config = loadStorageConfig(env);
   const s3Configured = Boolean(config.s3 && config.s3.endpoint && config.s3.accessKeyId && config.s3.secretAccessKey);
+  const backupConfigured = Boolean(
+    config.backupProvider === "memory" ||
+    (config.backupProvider === "s3" && config.backupS3 && config.backupS3.endpoint && config.backupS3.accessKeyId && config.backupS3.secretAccessKey),
+  );
   const supabaseUrl = getEnvValue(env, "SUPABASE_URL", "VITE_SUPABASE_URL");
   const supabaseConfigured = Boolean(supabaseUrl);
 
@@ -182,15 +354,39 @@ export function getStorageHealth(env: StorageEnvironment = process.env): Storage
     (config.primaryProvider === "supabase" && supabaseConfigured) ||
     (config.primaryProvider === "s3" && s3Configured);
 
+  let backupEndpointOrigin: string | undefined;
+  if (config.backupS3?.endpoint) {
+    try {
+      backupEndpointOrigin = new URL(config.backupS3.endpoint).origin;
+    } catch {
+      backupEndpointOrigin = undefined;
+    }
+  }
+
+  let s3EndpointOrigin: string | undefined;
+  if (config.s3?.endpoint) {
+    try {
+      s3EndpointOrigin = new URL(config.s3.endpoint).origin;
+    } catch {
+      s3EndpointOrigin = undefined;
+    }
+  }
+
   return {
     primaryProvider: config.primaryProvider,
+    backupProvider: config.backupProvider,
     isConfigured,
     details: {
       supabaseConfigured,
       s3Configured,
-      s3Endpoint: config.s3?.endpoint ? new URL(config.s3.endpoint).origin : undefined,
+      s3Endpoint: s3EndpointOrigin,
       s3Bucket: config.s3?.bucket,
       s3Region: config.s3?.region,
+      backupConfigured,
+      backupEndpoint: backupEndpointOrigin,
+      backupBucket: config.backupS3?.bucket,
+      backupRegion: config.backupS3?.region,
     },
   };
 }
+

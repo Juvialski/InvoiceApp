@@ -161,3 +161,23 @@ export function evaluateDedupStrategy(context: DedupContext): DedupDecision {
       };
   }
 }
+
+/**
+ * Determine if physical object bytes can be safely reused for this context.
+ */
+export function shouldReusePhysicalObject(context: DedupContext): boolean {
+  const decision = evaluateDedupStrategy(context);
+  return decision.allowBinarySharing && Boolean(context.existingRecordId);
+}
+
+/**
+ * Validate that domain provenance constraints are respected.
+ * Throws if an operation violates domain provenance immutability (e.g. attempting
+ * to eliminate an engineering revision or payroll batch due to shared hash).
+ */
+export function validateDomainProvenance(context: DedupContext): void {
+  const decision = evaluateDedupStrategy(context);
+  if (decision.requiresDistinctProvenance && decision.action === "REUSE_EXISTING_RECORD" && (context.entityType === "ENGINEERING_REVISION" || context.entityType === "PAYROLL_IMPORT")) {
+    throw new Error(`Domain provenance violation: ${context.entityType} cannot collapse logical records.`);
+  }
+}

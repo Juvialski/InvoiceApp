@@ -112,6 +112,8 @@ export interface PayrollImportBatch {
   fileSize?: number;
   mimeType?: string;
   storagePath: string;
+  storageProvider?: string;
+  storageBucket?: string;
   sheetNames: string[];
   detectedTemplateId?: string;
   duplicateOfBatchId?: string;
@@ -127,6 +129,7 @@ export interface PayrollImportBatch {
   committedAt?: string;
   voidedAt?: string;
 }
+
 
 export interface PayrollImportRow {
   id: string;
@@ -331,13 +334,16 @@ function costCenterFromRow(row: Record<string, unknown>): LaborCostCenter {
 function batchFromRow(row: Record<string, unknown>): PayrollImportBatch {
   return {
     id: String(row.id), userId: text(row.user_id), originalFileName: String(row.original_filename || ""), fileSha256: String(row.file_sha256 || ""),
-    fileSize: row.file_size === null ? undefined : numberValue(row.file_size), mimeType: text(row.mime_type), storagePath: String(row.storage_path || ""), sheetNames: stringArray(row.sheet_names),
+    fileSize: row.file_size === null ? undefined : numberValue(row.file_size), mimeType: text(row.mime_type), storagePath: String(row.storage_path || ""),
+    storageProvider: text(row.storage_provider) || "supabase", storageBucket: text(row.storage_bucket) || "payroll-import-sources",
+    sheetNames: stringArray(row.sheet_names),
     detectedTemplateId: text(row.detected_template_id), duplicateOfBatchId: text(row.duplicate_of_batch_id), status: String(row.status || "UPLOADED") as PayrollImportBatchStatus,
     mappingSnapshot: objectValue(row.mapping_snapshot), rawMetadata: objectValue(row.raw_metadata), warnings: stringArray(row.warnings), errors: stringArray(row.errors),
     committedPayrollPeriodId: text(row.committed_payroll_period_id), committedPayrollRunId: text(row.committed_payroll_run_id),
     createdAt: String(row.created_at || new Date().toISOString()), updatedAt: String(row.updated_at || new Date().toISOString()), committedAt: text(row.committed_at), voidedAt: text(row.voided_at),
   };
 }
+
 
 function templateFromRow(row: Record<string, unknown>): PayrollImportTemplate {
   return {

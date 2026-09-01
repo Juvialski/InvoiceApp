@@ -38,9 +38,13 @@ test("Storage Security: Zero storage secrets exposed in frontend components or V
     /VITE_R2_SECRET/i,
     /VITE_AWS_SECRET/i,
     /VITE_S3_SECRET/i,
+    /VITE_BACKBLAZE_B2_SECRET/i,
+    /VITE_B2_SECRET/i,
     /secretAccessKey/i,
     /STORAGE_S3_SECRET_ACCESS_KEY/i,
     /CLOUDFLARE_R2_SECRET_ACCESS_KEY/i,
+    /BACKBLAZE_B2_SECRET_ACCESS_KEY/i,
+    /STORAGE_BACKUP_SECRET_ACCESS_KEY/i,
   ];
 
   for (const file of clientFiles) {
@@ -80,20 +84,35 @@ test("Storage Security: Path traversal attempts are rejected across all provider
   assert.equal(isCompanyScopedPath(legitimateMultiDotPath, companyId), true);
 });
 
-test("Storage Security: Storage health status never exposes secret access keys", () => {
+test("Storage Security: Storage health status never exposes primary or backup secret access keys", () => {
   const env = {
     STORAGE_PRIMARY_PROVIDER: "s3",
     CLOUDFLARE_R2_ENDPOINT: "https://r2-endpoint-test.cloudflarestorage.com",
-    CLOUDFLARE_R2_BUCKET: "secure-bucket",
-    CLOUDFLARE_R2_ACCESS_KEY_ID: "VERY_SENSITIVE_ACCESS_KEY_ID",
-    CLOUDFLARE_R2_SECRET_ACCESS_KEY: "VERY_SENSITIVE_SECRET_KEY_12345",
+    CLOUDFLARE_R2_BUCKET: "secure-primary-bucket",
+    CLOUDFLARE_R2_ACCESS_KEY_ID: "PRIMARY_ACCESS_KEY_ID_123",
+    CLOUDFLARE_R2_SECRET_ACCESS_KEY: "VERY_SENSITIVE_PRIMARY_SECRET_KEY_12345",
+    STORAGE_BACKUP_PROVIDER: "s3",
+    BACKBLAZE_B2_ENDPOINT: "https://s3.us-west-004.backblazeb2.com",
+    BACKBLAZE_B2_BUCKET: "secure-backup-bucket",
+    BACKBLAZE_B2_ACCESS_KEY_ID: "BACKUP_ACCESS_KEY_ID_789",
+    BACKBLAZE_B2_SECRET_ACCESS_KEY: "VERY_SENSITIVE_BACKUP_SECRET_KEY_67890",
   };
 
   const health = getStorageHealth(env);
   const healthJson = JSON.stringify(health);
 
-  assert.equal(healthJson.includes("VERY_SENSITIVE_SECRET_KEY_12345"), false);
-  assert.equal(healthJson.includes("VERY_SENSITIVE_ACCESS_KEY_ID"), false);
+  // Assert zero secrets leaked
+  assert.equal(healthJson.includes("VERY_SENSITIVE_PRIMARY_SECRET_KEY_12345"), false);
+  assert.equal(healthJson.includes("PRIMARY_ACCESS_KEY_ID_123"), false);
+  assert.equal(healthJson.includes("VERY_SENSITIVE_BACKUP_SECRET_KEY_67890"), false);
+  assert.equal(healthJson.includes("BACKUP_ACCESS_KEY_ID_789"), false);
+
   assert.equal(health.primaryProvider, "s3");
+  assert.equal(health.backupProvider, "s3");
   assert.equal(health.isConfigured, true);
+  assert.equal(health.details.s3Configured, true);
+  assert.equal(health.details.backupConfigured, true);
+  assert.equal(health.details.s3Endpoint, "https://r2-endpoint-test.cloudflarestorage.com");
+  assert.equal(health.details.backupEndpoint, "https://s3.us-west-004.backblazeb2.com");
 });
+

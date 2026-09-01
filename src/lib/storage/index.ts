@@ -7,6 +7,7 @@ export * from "./keys.ts";
 export * from "./dedup.ts";
 export * from "./config.ts";
 export * from "./backup.ts";
+export * from "./migration.ts";
 export * from "./providers/supabaseProvider.ts";
 export * from "./providers/s3Provider.ts";
 export * from "./providers/memoryProvider.ts";
