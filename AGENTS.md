@@ -12,22 +12,36 @@ Each client company receives a separate deployment, Supabase project/database, S
 
 Keep `company_id`, company-prefixed Storage paths, RLS, membership checks, permission checks, and company-bound foreign-key validation as defense in depth.
 
-## Current product mode: CORE HARDENING FREEZE
+## Current product direction: PROJECT CONTROLS + ENGINEERING
 
-Until the user explicitly lifts this freeze, do not implement new planned/future modules such as Scheduling/Gantt/CPM or other roadmap expansion.
+The previous blanket **CORE HARDENING FEATURE FREEZE is no longer the active product roadmap**. The hardening plan remains useful historical/domain guidance, but current implementation priority is defined by:
 
-Prioritize completion and hardening of features that already exist:
+- `docs/ENGORYX_PROJECT_CONTROLS_PRODUCT_DIRECTION.md`
+- `docs/ENGORYX_ACTIVE_ROADMAP.md`
 
-1. deployment-company profile and first-run setup;
-2. invitation delivery and membership lifecycle;
-3. per-member permission customization;
-4. safe correction/removal semantics;
-5. Assistant parity with authorized deterministic workflows;
-6. CRUD/lifecycle completeness;
-7. RBAC/RLS/security and financial-integrity audits;
-8. browser/mobile/UX and production-readiness regression work.
+Engoryx remains an Engineering Operations Platform. Current deployment emphasis is:
 
-See `docs/ENGORYX_CORE_HARDENING_PLAN.md` for the active sequence.
+**Project Controls + Finance + Field Operations + Engineering Documents**
+
+Permanent product-direction rules:
+
+1. Treat **Project** as the operational hub without collapsing Finance, Payroll, Engineering, or document provenance into a giant project row.
+2. Preserve existing `projects.contract_value` and `projects.project_budget` as distinct concepts.
+3. Derive Actual Cost from authoritative allocations/expenses/payroll and later procurement/subcontract postings; do not maintain a manually invented project-cost total.
+4. Do not double count Invoice, Expense, Payroll, Procurement, Subcontract, Billing, or Settlement sources.
+5. Keep Engineering Documents, immutable revisions, RFIs, Submittals, and later engineering-control workflows first-class even when a deployment hides some modules.
+6. Do not delete mature product modules merely because one client does not need them. Use deployment/module visibility in a future reviewed implementation. Feature flags are not authorization.
+7. Scheduling/Gantt/CPM is still **not automatically authorized** by this product-direction change; it requires a separate prioritized wave.
+8. Infrastructure Storage S1-S4 are complete. S5 remains a bounded infrastructure follow-up and must not introduce aggressive deletion without reviewed retention/reference rules.
+
+The active product implementation order is approximately:
+
+- **P1** Project Controls Foundation;
+- **P2** Procurement + Commercial Operations, split into bounded sub-waves;
+- **P3** Project Operations UX / Field Operations / Engineering integration;
+- **S5** storage/backup monitoring and lifecycle readiness as a separate bounded infrastructure stream.
+
+Do not revive the old blanket freeze merely because `docs/ENGORYX_CORE_HARDENING_PLAN.md` still contains historical status language.
 
 ## Lead and tool routing
 
@@ -37,10 +51,11 @@ Use the least expensive tool that can safely complete the work.
 - **Codex**: reserve for difficult multi-file reasoning, local execution, Supabase CLI/Docker, migration replay, complex tests, or runtime debugging where that capability materially helps.
 - **Antigravity**: prefer for browser-driven UI/UX, responsive work, screenshots, and visual QA.
 - **Kilo/OpenRouter/free models**: prefer for tightly bounded mechanical Tier 0 and low-risk Tier 1 changes with an established pattern.
+- **Medium-capability coding models** may implement bounded, well-specified waves or sub-waves, but the lead must retain shared architecture, financial truth, migrations/RLS/security, destructive lifecycle policy, and final validation.
 
 Do not spend Codex/Luna usage on mechanical edits, documentation-only work, CI polling, broad repository rereads, or routine browser checks that another available tool can safely perform.
 
-Kilo/free models must not independently design RLS, authentication/authorization, destructive operations, production migrations, payroll-history semantics, finalized financial history, tenant isolation, or other high-risk shared contracts.
+Kilo/free models and medium-capability agents must not independently redefine RLS, authentication/authorization, destructive operations, production migrations, payroll-history semantics, finalized financial history, tenant isolation, or other high-risk shared contracts without lead review and exact-head validation.
 
 ## Repository freshness
 
@@ -84,7 +99,7 @@ WM-5 is advisory context, not a substitute for source, CI, runtime evidence, RLS
 ### Cross-agent application
 
 - **Antigravity** should use the mapped working set to choose the exact pages/components for browser and responsive QA rather than crawling the whole app.
-- **Kilo/free models** should receive the mapped file/symbol boundary from the lead and stay inside it unless a concrete unresolved dependency requires escalation.
+- **Kilo/free models and medium-capability agents** should receive the mapped file/symbol boundary from the lead and stay inside it unless a concrete unresolved dependency requires escalation.
 - **Codex/Luna** should not repeat broad discovery after WM-5 has already established the relevant boundary.
 - The **lead agent** owns any required expansion of scope and should provide a new narrow packet instead of asking another agent to rediscover the repository.
 
@@ -199,6 +214,19 @@ For current Engoryx modules, use this lifecycle principle unless a stricter doma
 - **Finalized/auditable financial or engineering history**: void, reverse, supersede, or deliberate correction; never silently erase history.
 
 Do not add raw Delete buttons that bypass dependency/history checks.
+
+## Project Controls financial truth
+
+Project Controls must reuse authoritative domain data rather than creating a competing accounting system.
+
+- `contract_value` is client-facing project/contract value; `project_budget` is the internal approved cost budget.
+- Actual Cost must be derived from lifecycle-eligible invoice allocations, expenses, payroll allocations, and later posted procurement/subcontract costs.
+- Committed Cost is distinct from Actual Cost.
+- Client billing is distinct from supplier/vendor invoices and from Actual Cost.
+- Collected values must come from actual settlement/payment records.
+- Forecast Margin must use explicit contract/variation and forecast-cost semantics.
+- Mixed currencies must not be silently summed.
+- Project-level payroll aggregates must not broaden unauthorized payroll-detail visibility.
 
 ## RBAC and Assistant parity
 
