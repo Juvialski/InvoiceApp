@@ -19,12 +19,7 @@ export const MODULE_VISIBILITY_ENV_KEY = "VITE_ENGORYX_HIDDEN_MODULES";
 
 function configuredHiddenModulesValue() {
   const viteValue = import.meta.env?.VITE_ENGORYX_HIDDEN_MODULES;
-  if (typeof viteValue === "string") return viteValue;
-  if (typeof process !== "undefined") {
-    const processValue = process.env?.VITE_ENGORYX_HIDDEN_MODULES;
-    if (typeof processValue === "string") return processValue;
-  }
-  return "";
+  return typeof viteValue === "string" ? viteValue : "";
 }
 
 /**
