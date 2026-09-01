@@ -1,14 +1,28 @@
 # Engoryx Financial Intake Hardening Plan
 
-Status: Phase 4A merged (PR #52); Phase 4B merged (PR #53); Phase 4C merged (PR #54); Phase 4D merged (PR #55); Phase 4D.1 merged (PR #57); Phase 4E implemented in feature branch `feat/email-intake-phase-4e-expense-receipt-hardening`.
+Status: **COMPLETE for the current finance Email Intake scope.**
 
-This document defines the next finance-focused Email Intake hardening work. It covers Invoices, Cash & Banking / bank statements, and Expenses / receipts only. Engineering Documents and Payroll email intake remain deferred.
+Merged waves:
 
-## Product objective
+- Phase 4A — PR #52
+- Phase 4B — PR #53
+- Phase 4C — PR #54
+- Phase 4D — PR #55
+- Phase 4D.1 — PR #57
+- Phase 4E — PR #58
+- Phase 4F — PR #59
 
-Engoryx should not treat every discovered email as a separate AI extraction job, and extraction must never imply creation of a new business entity or financial record.
+This document is now the durable completed architecture baseline for finance Email Intake. It covers Invoices, Cash & Banking / bank statements, and Expenses / receipts. Engineering Documents and Payroll Email Intake remain outside the current scope.
 
-The target flow is a staged funnel:
+The next platform optimization initiative is defined in `docs/ENGORYX_DATABASE_STORAGE_OPTIMIZATION_PLAN.md`.
+
+---
+
+# Product objective
+
+Engoryx must not treat every discovered email as a separate AI job, and extraction must never imply creation of a business entity or financial record.
+
+The completed finance intake funnel is:
 
 ```text
 Gmail
@@ -20,9 +34,11 @@ Gmail
   -> destination-specific extraction/parsing
   -> normalization
   -> existing-record + same-batch resolution
-  -> proposed actions
+  -> duplicate evaluation
+  -> shared review queue
+  -> proposed action
        - link existing
-       - enrich/update existing
+       - enrich existing
        - create new
        - possible duplicate
        - needs review
@@ -30,138 +46,83 @@ Gmail
   -> destination commit
 ```
 
-AI remains advisory. No classifier, extractor, sender rule, or entity matcher may directly post financial transactions, approve expenses, verify invoices, or silently create/replace authoritative master data.
+AI remains advisory. No classifier, extractor, sender rule, queue action, or entity matcher may directly post bank transactions, approve/pay Expenses, verify Invoices, or silently create/replace authoritative master data.
 
 ---
 
-# 1. Candidate discovery should be cheap
+# Completed architectural baseline
 
-The first mailbox stage should normally use zero AI calls.
+## 1. Cheap candidate discovery
 
-Use Gmail search/history plus deterministic metadata filters to identify likely finance messages. Keep searches bounded by date/history and current Gmail read-only scope.
+The first mailbox stage normally requires zero AI calls.
 
-Candidate signals may include:
+Use bounded Gmail search/history and deterministic metadata signals such as:
 
 - sender address/domain;
 - subject terms;
-- filename and MIME type;
-- known Invoice / Statement / Receipt keywords;
-- previously saved company sender profiles.
+- attachment filename and MIME type;
+- Invoice / Statement / Receipt keywords;
+- saved company sender/template profiles.
 
-Initial connection may use a bounded date-window search. Later synchronization should continue using Gmail history IDs so Engoryx evaluates new/changed messages rather than repeatedly rescanning the same mailbox window.
+Do not indiscriminately send mailbox contents or attachments to Gemini.
 
-Do not indiscriminately send mailbox contents to Gemini.
+## 2. Saved sender/template profiles
 
----
+Profiles are company-scoped advisory data. They may suggest:
 
-# 2. Saved sender and template profiles
+- destination;
+- existing Vendor;
+- existing FinancialAccount;
+- expected attachment pattern;
+- parser/template profile;
+- Expense category.
 
-Add company-scoped finance intake profiles for recurring banks, suppliers, partners, utilities, and other trusted senders.
+They never bypass destination permissions, duplicate checks, entity resolution, or human review.
 
-A profile may contain advisory matching information such as:
+Do not hardcode bank or supplier sender addresses as globally authoritative.
 
-- sender email;
-- sender domain;
-- optional subject pattern;
-- optional attachment filename/MIME pattern;
-- suggested destination: Invoice, Bank Statement, or Expense;
-- linked existing Vendor where appropriate;
-- linked existing FinancialAccount where strong bank/account identity is known;
-- expected bank/statement format identifier where a deterministic parser profile exists;
-- default category suggestion for recurring Expense senders;
-- enabled/disabled state.
+## 3. Deterministic-first classification
 
-Example conceptually:
-
-```text
-Known bank statement sender
-  sender/domain + statement subject + XLSX/CSV
-  -> suggest BANK_STATEMENT
-  -> suggest existing BDO Operating Account
-  -> use known statement parser profile when safe
-```
-
-```text
-Known supplier sender
-  billing@known-supplier.example
-  -> suggest INVOICE
-  -> suggest existing Vendor record
-```
-
-Saved rules improve candidate discovery and matching confidence. They do not bypass destination permissions or review.
-
-Do not hardcode a bank's sender address as globally authoritative. Sender/template profiles are deployment/company data and must be editable because real sender addresses and formats can change.
-
-Future UX may suggest creating a sender profile after repeated successful reviews, but the user must explicitly accept the rule before it becomes active.
-
----
-
-# 3. Classification confidence ladder
-
-Prefer deterministic logic before AI.
+Classification preference:
 
 ```text
 Level 1 - known sender/template profile
-Level 2 - generic deterministic finance classifier
-Level 3 - AI metadata/text classification for ambiguous candidates only
-Level 4 - unsupported / manual review when ambiguity remains
+Level 2 - generic deterministic classifier
+Level 3 - AI metadata/text classification only for ambiguity
+Level 4 - unsupported / manual review
 ```
 
-The AI classification stage should use lightweight metadata/text whenever possible:
+AI classification should use bounded metadata/text where possible rather than uploading every attachment merely to decide its destination.
 
-- message ID/reference;
-- sender;
-- subject;
-- bounded snippet/body text;
-- attachment names/MIME types.
+## 4. Destination-specific extraction
 
-Do not upload every PDF/image merely to decide whether an email might be an Invoice, Statement, or Receipt.
+### Invoices
 
-If multiple ambiguous candidates need AI classification, a bounded structured batch request may be used when the provider contract and error handling remain reliable. Each returned result must preserve the source message ID so responses cannot be associated with the wrong email.
+Reuse the established Invoice extraction, quality evaluation, retry/fallback, source preservation, duplicate detection, Vendor resolution, and review workflow.
 
----
+Multiple attachments may represent separate Invoices. One email must not be assumed to equal one Invoice.
 
-# 4. Destination-specific extraction
+### Bank statements
 
-Actual document extraction/parsing occurs only after routing/preparation and remains destination-specific.
+Structured CSV/XLS/XLSX/XLSM statements use deterministic Cash & Banking parsing where supported.
 
-## Invoices
+Text-based PDFs use the deterministic statement parsing path where supported, including password-protected PDFs through transient password handling.
 
-Invoices may require one extraction job per actual invoice document because layouts differ substantially.
+FinancialAccount matching occurs before commit.
 
-Reuse the existing Invoice extraction, extraction-quality evaluation, retry/fallback logic, source preservation, duplicate checks, and Invoice Review Queue.
+No autonomous transaction posting.
 
-Avoid an AI retry when deterministic quality checks say the first extraction is sufficient.
+### Expenses / receipts
 
-Multiple attachments must be treated as separate source documents where they represent separate invoices. Do not assume one email equals one invoice.
+Use deterministic extraction for structured receipts where practical and AI only when required for unstructured/ambiguous sources.
 
-## Bank statements
+Expense review remains explicit. Email Intake does not automatically approve or pay Expenses.
 
-Supported CSV/XLS/XLSX/XLSM statements should prefer the existing deterministic Cash & Banking parser.
+## 5. Extraction is not creation
 
-A known bank/template profile may select or strongly suggest a parser mapping, but must not create a second transaction engine.
+All extracted candidates pass through normalization and entity/record resolution before mutation proposals.
 
-AI should not be required merely to parse a structured spreadsheet when deterministic parsing is available.
-
-FinancialAccount matching occurs before commit and must reuse existing accounts when identity is sufficiently strong.
-
-## Expenses / receipts
-
-Use deterministic email/template/regex extraction first for structured electronic receipts where practical.
-
-Use AI extraction only when important values are missing/ambiguous or the source is an unstructured image/PDF that needs document understanding.
-
-Expense review remains explicit and cannot automatically approve or pay the Expense.
-
----
-
-# 5. Extraction is not creation
-
-Every extracted candidate must pass through normalization and entity/record resolution before Engoryx proposes mutations.
-
-The system should produce a proposed action, not immediately create records.
-
-Possible actions:
+Possible resolution actions include:
 
 ```text
 LINK_EXISTING
@@ -171,314 +132,215 @@ POSSIBLE_DUPLICATE
 NEEDS_REVIEW
 ```
 
-A strong existing match should normally prefer `LINK_EXISTING` rather than creating a duplicate.
+A strong existing match should prefer linking to the existing entity.
 
-`ENRICH_EXISTING` means proposing safe additional data. It must not silently replace conflicting authoritative values.
+`ENRICH_EXISTING` is a proposal for reviewed safe additions. It must never silently replace conflicting authoritative data.
 
-Example:
+## 6. Batch-aware entity resolution
 
-```text
-Existing Vendor
-  ABC Steel Corporation
-  TIN: 123...
-  billing email: blank
-
-New source
-  same TIN
-  billing@abcsteel.example
-
-Proposal
-  link existing Vendor
-  optionally add billing email after review
-```
-
-If the new document conflicts with an existing authoritative value, show the conflict and require review. Never use last-write-wins behavior for extracted business identity data.
-
----
-
-# 6. Batch-aware entity resolution
-
-When several emails/documents are prepared together, Engoryx must compare each candidate against:
+Candidate resolution considers:
 
 1. existing company records; and
-2. the other candidates in the same intake batch.
+2. other candidates in the current intake batch.
 
-This prevents five emails from the same previously unknown supplier from proposing five new Vendors simply because the records do not exist yet.
+This prevents several documents from the same new supplier/account from independently proposing duplicate entities.
 
-The batch resolver should accumulate evidence and create a shared proposed entity when appropriate.
+Contradictory evidence lowers confidence or requires review. Processing order must never silently overwrite another candidate's extracted identity evidence.
 
-Conceptual resolution result:
-
-```text
-entityType
-matchedEntityId?
-matchConfidence
-matchReasons[]
-conflictingFields[]
-suggestedUpdates[]
-proposedAction
-batchGroupId?
-```
-
-More source documents may increase confidence, but contradictory evidence must lower confidence or require review.
-
-No candidate should silently overwrite another candidate's extracted values merely because it was processed later.
-
----
-
-# 7. Vendor / supplier resolution
-
-For Invoice and recurring Expense sources, compare extracted supplier identity with existing Vendors before proposing a new Vendor.
+## 7. Vendor resolution
 
 Strong evidence may include:
 
-- exact normalized tax/TIN identifier;
+- tax/TIN identity;
 - exact known sender address;
-- saved sender profile linked to Vendor;
-- exact/verified company email domain;
-- registered name;
-- address/phone evidence;
-- normalized legal/trade-name similarity.
+- saved Vendor-linked profile;
+- verified company email/domain;
+- registered/trade name;
+- address/phone evidence.
 
-TIN/tax identity should outweigh fuzzy display-name similarity when reliable evidence is available.
+Reliable TIN/tax identity outweighs fuzzy display-name similarity.
 
-Do not auto-merge Vendors based only on similar names.
+Never auto-merge Vendors based only on similar names.
 
-When multiple same-batch documents resolve to one Vendor, surface them as one entity relationship rather than multiple proposed Vendor creations.
+## 8. FinancialAccount resolution
 
----
+Useful evidence may include:
 
-# 8. FinancialAccount resolution
-
-Bank statement intake must be strongly existing-record-aware.
-
-Before proposing a new FinancialAccount, compare available evidence such as:
-
-- bank/institution;
-- account number or safely stored/masked account identity;
-- account suffix;
+- institution;
+- account number or safely masked identifier;
+- suffix;
 - currency;
 - account name;
-- known bank sender/template profile;
-- existing statement-import history.
+- bank sender/template profile;
+- prior statement-import relationships.
 
-A high-confidence existing match should reuse the existing account.
+Strong existing matches reuse existing accounts. Ambiguous masked identities require explicit review.
 
-Example:
+## 9. Duplicate resolution
 
-```text
-Statement
-  Bank: BDO
-  account ending: 4821
-  currency: PHP
+Entity resolution and record/document duplicate detection remain separate concerns.
 
-Existing account
-  BDO Operating Account
-  ending: 4821
-  PHP
+### Invoice evidence
 
-Proposal
-  LINK_EXISTING -> BDO Operating Account
-```
-
-If multiple accounts could match, require explicit account selection.
-
-Never create a second bank account solely because a newly imported statement uses a different display name or filename.
-
-Never automatically merge accounts on ambiguous masked identifiers.
-
----
-
-# 9. Record duplicate resolution
-
-Entity resolution and transaction/document duplicate detection are separate concerns.
-
-Preserve and strengthen destination-specific duplicate evidence.
-
-## Invoice duplicate evidence
-
-Use available authoritative signals such as:
-
-- preserved source document/hash;
-- Gmail message + attachment identity;
+- preserved source/hash;
+- Gmail message/attachment identity;
 - Vendor identity;
 - invoice number;
-- date/amount where appropriate;
-- existing Invoice duplicate engine.
+- date/amount where appropriate.
 
-## Expense duplicate evidence
+### Expense evidence
 
-Use:
-
-- source document;
+- source document/hash;
 - receipt/reference number;
 - resolved payee/vendor;
 - date + amount;
-- existing Expense lifecycle status.
+- lifecycle status.
 
-## Statement/import duplicate evidence
+### Statement/import evidence
 
-Keep the existing Cash & Banking file-fingerprint/import-batch/transaction duplicate protections authoritative.
+Cash & Banking file-fingerprint, source/import-batch, and transaction protections remain authoritative.
 
-A known sender/profile must never bypass duplicate checks.
+Known senders never bypass duplicate checks.
 
----
+## 10. Same-email and cross-email overlap
 
-# 10. Same-email and cross-email overlap
-
-The intake layer must handle overlap at several levels:
+The intake layer handles:
 
 - multiple attachments in one email;
-- the same attachment forwarded in another email;
+- forwarded copies;
 - repeated statement delivery;
-- duplicate invoices sent by supplier and forwarded internally;
-- receipt and invoice evidence referring to the same business event;
-- multiple emails from one new supplier in the same scan.
+- duplicate supplier/internal forwards;
+- multiple emails from one new supplier in one scan.
 
-Source identity/hash should be checked before expensive extraction when possible.
+Check strong source identity/hash evidence before expensive extraction where possible.
 
-When an already-preserved source or strong duplicate is detected, show the existing record/link rather than re-running expensive extraction unless an explicit retry/reprocess action is justified.
+## 11. AI cost discipline
 
----
-
-# 11. AI usage and cost discipline
-
-The default strategy is:
+Default strategy:
 
 ```text
 candidate discovery       -> no AI
 known sender matching     -> no AI
 generic classification    -> no AI
-ambiguous classification  -> cheap AI only when needed
-bank spreadsheet parsing  -> no AI when deterministic parser applies
-invoice document extract  -> AI per required document
+ambiguous classification  -> AI only when needed
+structured bank parsing   -> no AI when deterministic parser applies
+invoice extraction        -> AI when document extraction requires it
 structured receipt parse  -> no AI when deterministic extraction is sufficient
 unstructured receipt      -> AI when required
 ```
 
-The system should avoid an AI call merely because a candidate exists.
+Do not sacrifice correctness merely to reduce calls.
 
-Do not sacrifice correctness to reduce calls. AI fallback remains appropriate for genuinely ambiguous or unstructured sources.
+## 12. Shared review queue
 
----
+Phase 4F adds the shared operations layer across finance candidates.
 
-# 12. Review UX
+The queue surfaces:
 
-The review experience should explain why Engoryx is proposing an action.
+- destination;
+- preparation/review status;
+- source preservation status;
+- duplicate evidence;
+- Vendor/FinancialAccount hints;
+- same-batch grouping;
+- item errors;
+- received/discovered time;
+- primary review action;
+- safe batch preparation eligibility.
 
-Examples:
+Safe batch preparation is preparation only. It must not become batch posting.
 
-```text
-Matched existing Vendor - high confidence
-- same TIN
-- sender domain matches saved profile
-- registered name matches
+Exact duplicates are not eligible for normal batch preparation.
 
-No new Vendor will be created.
-```
+One item failure does not have to abort unrelated eligible candidates.
 
-```text
-Possible FinancialAccount match
-- BDO
-- ending 4821
-- PHP
+## 13. Permission and audit boundaries
 
-[Use BDO Operating Account]
-[Choose another account]
-```
+Keep authorization concerns separate:
 
-```text
-Potential duplicate
-This source appears to match Invoice INV-2048.
-
-[Open existing]
-[Review anyway]
-```
-
-Conflicts should be visible, not silently resolved.
-
----
-
-# 13. Permission and audit boundaries
-
-Saved sender profiles, entity resolution, and matching confidence do not grant mutation authority.
-
-Continue separating:
-
-- `gmail.read`;
-- `gmail.manage`;
+- Gmail authorization;
+- Gmail management capability;
 - Invoice permissions;
 - Cash & Banking permissions;
 - Expense permissions;
-- Vendor/account management permissions where authoritative master-data changes are proposed.
+- Vendor/account master-data authority.
 
-Source preservation, proposed links/updates, final user decisions, and committed destination records should remain auditable and company-scoped.
+Mailbox access never grants destination mutation permission.
 
----
-
-# 14. Recommended implementation waves
-
-Implement Phase 4 in focused PR-sized waves rather than one oversized change.
-
-Recommended order:
-
-1. **4A - Intake efficiency foundation**
-   - consolidate classification paths;
-   - deterministic-first classification;
-   - known sender/template profile contract;
-   - bounded Gmail query expansion using saved sender profiles;
-   - AI classification only for ambiguous candidates.
-
-2. **4B - Entity resolution foundation**
-   - Vendor matching;
-   - FinancialAccount matching;
-   - same-batch grouping;
-   - proposed `link / enrich / create / duplicate / review` actions;
-   - conflict reporting.
-
-3. **4C - Invoice hardening**
-   - multi-attachment handling;
-   - duplicate/source short-circuiting;
-   - extraction retry quality;
-   - Vendor linkage.
-
-4. **4D - Bank statement hardening**
-   - bank/template profiles;
-   - existing-account matching;
-   - deterministic parser profiles;
-   - duplicate/import provenance and reconciliation UX.
-
-5. **4E - Expense hardening** (merged in PR #58)
-   - deterministic receipt extraction where possible;
-   - AI fallback for unstructured sources;
-   - merchant/payee normalization;
-   - duplicate and entity linkage.
-
-6. **4F - Shared queue hardening** (implemented in `feat/email-intake-phase-4f-shared-queue-hardening`)
-   - unified review queue across Invoices, Statements, Receipts, and Unsupported;
-   - multi-status queue state derivation (`DISCOVERED`, `PREPARING`, `READY_FOR_REVIEW`, `NEEDS_REVIEW`, `SUSPECTED_DUPLICATE`, `FAILED`, `COMPLETED`);
-   - source preservation tracking (`PRESERVED`, `PENDING`, `FAILED`);
-   - duplicate and entity match presentation;
-   - same-batch overlap and grouping;
-   - safe batch preparation without autonomous posting;
-   - operations summary counts and multi-criteria filters.
-
-Each wave must follow the permanent maximum of 2 concurrent subagents in `AGENTS.md`.
+Source preservation, proposed links/updates, user decisions, and committed financial records remain auditable and company-scoped.
 
 ---
 
-# Completion principles
+# Completion criteria
 
-Phase 4 hardening is successful when:
+The current Phase 4 finance intake hardening is complete because the merged implementation is designed and tested around these criteria:
 
-- obvious finance candidates can be discovered/classified without an AI call;
-- recurring senders/templates improve routing without becoming authoritative mutation rules;
+- obvious finance candidates can be discovered/classified without AI;
+- recurring sender/template profiles improve routing without becoming mutation authority;
 - ambiguous classification uses AI only when needed;
 - structured bank statements reuse deterministic parsers;
-- extraction results are compared with existing Engoryx data before create/update proposals;
-- same-batch candidates cannot independently create obvious duplicate Vendors/accounts;
-- FinancialAccount matches reuse existing accounts when evidence is strong;
-- conflicting entity data is surfaced rather than silently overwritten;
+- encrypted text-based PDF statements have a bounded transient-password path;
+- extracted entities are compared with existing records before create/update proposals;
+- same-batch candidates are considered before proposing new entities;
+- strong FinancialAccount matches reuse existing accounts;
+- conflicts are surfaced rather than silently overwritten;
 - duplicate source/document/import protections remain authoritative;
-- final financial mutations remain permission-aware and human-confirmed;
-- source and decision provenance remain auditable.
+- source/provenance remains recoverable;
+- shared queue status is explicit;
+- batch preparation remains non-posting and permission-aware;
+- final financial mutations remain human-confirmed;
+- required tests, migration checks, build, workflow-map validation, and browser QA pass on merged Phase 4F.
+
+---
+
+# Frozen invariants for future work
+
+Future platform optimization, Assistant features, or automation must preserve these rules:
+
+1. Gmail remains read-only under the current product decision.
+2. Raw Gmail access tokens are never persisted in business records or logs.
+3. Gmail authorization failure does not sign the user out of Engoryx.
+4. Ordinary parser/extraction/network failures are not Gmail reconnect events.
+5. Source preservation is not implied by Gmail metadata alone.
+6. Extraction is not creation.
+7. Duplicate checks remain authoritative before unnecessary expensive processing.
+8. Existing-record and same-batch entity resolution precede new-entity proposals.
+9. Conflicting authoritative values require review.
+10. No autonomous bank posting, Expense approval/payment, or Invoice verification.
+11. One deployment serves one client company.
+12. Persisted data remains company-scoped and existing RLS/Storage isolation must not be weakened.
+
+---
+
+# Deferred / optional follow-on work
+
+## Controlled automation and Assistant integration
+
+Optional later work may include scheduled scans, profile suggestions, Assistant navigation/explanation, or Assistant preparation of supported actions.
+
+Those features must use the existing permission and confirmation boundaries and must not create a second Email Intake architecture.
+
+## Engineering / Project Email Intake
+
+Deferred until explicitly re-prioritized.
+
+## Payroll Email Intake
+
+Deferred and requires a separate security/privacy review before implementation.
+
+---
+
+# Current engineering handoff
+
+Phase 4 finance Email Intake is no longer the next implementation target.
+
+For the next platform optimization initiative:
+
+1. pull CURRENT latest `main`;
+2. read `AGENTS.md`;
+3. use WM-5 to inspect current storage/data workflows;
+4. read `docs/ENGORYX_DATABASE_STORAGE_OPTIMIZATION_PLAN.md`;
+5. treat this document as a compatibility baseline that storage/database changes must preserve;
+6. use at most 2 concurrent subagents;
+7. implement optimization in focused PR-sized waves;
+8. do not merge implementation PRs until exact-head required CI is clean.
