@@ -62,6 +62,8 @@ test("Storage Security: Path traversal attempts are rejected across all provider
     `companies/${companyId}/objects/..%2f..%2fsecret.key`,
     `../companies/${companyId}/invoices/sample.pdf`,
     `companies/${companyId}/invoices/manual/../../other-company/file.pdf`,
+    `companies/${companyId}/invoices/..\\..\\secret.pdf`,
+    `companies/${companyId}/invoices/manual/2026/09/../secret.pdf`,
   ];
 
   for (const dangerousPath of dangerousPaths) {
@@ -69,6 +71,13 @@ test("Storage Security: Path traversal attempts are rejected across all provider
     assert.equal(parsed.isValid, false, `Dangerous path should be invalid: "${dangerousPath}"`);
     assert.equal(isCompanyScopedPath(dangerousPath, companyId), false);
   }
+
+  // Legitimate filenames with multiple dots MUST remain valid
+  const legitimateMultiDotPath = `companies/${companyId}/invoices/manual/2026/09/abc123-uuid-invoice..final.pdf`;
+  const validParsed = parseStorageKey(legitimateMultiDotPath);
+  assert.equal(validParsed.isValid, true);
+  assert.equal(validParsed.fileName, "abc123-uuid-invoice..final.pdf");
+  assert.equal(isCompanyScopedPath(legitimateMultiDotPath, companyId), true);
 });
 
 test("Storage Security: Storage health status never exposes secret access keys", () => {

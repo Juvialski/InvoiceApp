@@ -1,8 +1,17 @@
 /**
- * S3-compatible DocumentStorageProvider implementation.
- * Supports Cloudflare R2, MinIO, AWS S3, and other S3-compatible private object stores.
+ * Production S3-compatible DocumentStorageProvider implementation.
+ * Uses official modular @aws-sdk/client-s3 and @aws-sdk/s3-request-presigner.
+ * Configured for Cloudflare R2, AWS S3, and other S3-compatible private object stores.
  */
 
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   type DocumentStorageProvider,
   type GetObjectResult,
@@ -19,13 +28,13 @@ import {
 } from "../types.ts";
 import { calculateSha256Hex, normalizeSha256 } from "../dedup.ts";
 import { isCompanyScopedPath } from "../keys.ts";
-import { createPresignedS3Url, signS3Request } from "../s3Signer.ts";
 
 export class S3StorageProvider implements DocumentStorageProvider {
   readonly id = "s3" as const;
   private readonly config: S3ProviderConfig;
+  private readonly client: S3Client;
 
-  constructor(config: S3ProviderConfig) {
+  constructor(config: S3ProviderConfig, injectedClient?: S3Client) {
     if (!config.endpoint) throw new StorageConfigurationError("S3 storage endpoint is required.");
     if (!config.accessKeyId) throw new StorageConfigurationError("S3 accessKeyId is required.");
     if (!config.secretAccessKey) throw new StorageConfigurationError("S3 secretAccessKey is required.");
@@ -34,8 +43,20 @@ export class S3StorageProvider implements DocumentStorageProvider {
       ...config,
       endpoint: config.endpoint.replace(/\/+$/, ""),
       region: config.region || "auto",
-      forcePathStyle: config.forcePathStyle ?? true, // Cloudflare R2 and MinIO use path-style by default
+      forcePathStyle: config.forcePathStyle ?? true, // Cloudflare R2 default
     };
+
+    this.client =
+      injectedClient ||
+      new S3Client({
+        endpoint: this.config.endpoint,
+        region: this.config.region,
+        credentials: {
+          accessKeyId: this.config.accessKeyId,
+          secretAccessKey: this.config.secretAccessKey,
+        },
+        forcePathStyle: this.config.forcePathStyle,
+      });
   }
 
   private validateCompanyBoundary(companyId: string, key: string): void {
@@ -46,19 +67,7 @@ export class S3StorageProvider implements DocumentStorageProvider {
   }
 
   /**
-   * Build the full URL for an S3 object key.
-   */
-  private buildObjectUrl(bucket: string, key: string): string {
-    const cleanKey = key.replace(/^\/+/, "");
-    if (this.config.forcePathStyle) {
-      return `${this.config.endpoint}/${encodeURIComponent(bucket)}/${cleanKey}`;
-    }
-    const endpointUrl = new URL(this.config.endpoint);
-    return `${endpointUrl.protocol}//${bucket}.${endpointUrl.host}/${cleanKey}`;
-  }
-
-  /**
-   * Sanitize error message to ensure no secret access keys or credentials leak into logs or responses.
+   * Sanitize error message to prevent access keys or secret keys from leaking in logs.
    */
   private sanitizeError(error: unknown): string {
     let message = error instanceof Error ? error.message : String(error || "unknown error");
@@ -83,46 +92,29 @@ export class S3StorageProvider implements DocumentStorageProvider {
     }
 
     const bucket = input.bucket || this.config.bucket;
-    const url = this.buildObjectUrl(bucket, input.key);
-
-    const customHeaders: Record<string, string> = {
-      "content-type": input.contentType,
-      "x-amz-meta-company-id": input.companyId,
-      "x-amz-meta-sha256": calculatedHash,
+    const metadata: Record<string, string> = {
+      "company-id": input.companyId,
+      "sha256": calculatedHash,
     };
 
     if (input.customMetadata) {
       for (const [k, v] of Object.entries(input.customMetadata)) {
-        customHeaders[`x-amz-meta-${k.toLowerCase()}`] = String(v);
+        metadata[k.toLowerCase()] = String(v);
       }
     }
 
     try {
-      const signed = await signS3Request({
-        method: "PUT",
-        url,
-        headers: customHeaders,
-        bodyBytes: input.bytes,
-        credentials: {
-          accessKeyId: this.config.accessKeyId,
-          secretAccessKey: this.config.secretAccessKey,
-          region: this.config.region,
-          service: "s3",
-        },
+      const command = new PutObjectCommand({
+        Bucket: bucket,
+        Key: input.key,
+        Body: input.bytes,
+        ContentType: input.contentType,
+        Metadata: metadata,
       });
 
-      const response = await fetch(signed.url, {
-        method: "PUT",
-        headers: signed.headers,
-        body: input.bytes as unknown as BodyInit,
-      });
+      await this.client.send(command);
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new StorageError(`S3 PUT object failed (${response.status}): ${this.sanitizeError(errorText)}`, "S3_UPLOAD_FAILED", response.status);
-      }
-
-      const metadata: ObjectMetadata = {
+      const objectMeta: ObjectMetadata = {
         companyId: input.companyId,
         bucket,
         key: input.key,
@@ -143,7 +135,7 @@ export class S3StorageProvider implements DocumentStorageProvider {
           sizeBytes: input.bytes.byteLength,
           contentType: input.contentType,
         },
-        metadata,
+        metadata: objectMeta,
       };
     } catch (err) {
       if (err instanceof StorageError) throw err;
@@ -155,53 +147,50 @@ export class S3StorageProvider implements DocumentStorageProvider {
     this.validateCompanyBoundary(query.companyId, query.key);
 
     const bucket = query.bucket || this.config.bucket;
-    const url = this.buildObjectUrl(bucket, query.key);
 
     try {
-      const signed = await signS3Request({
-        method: "GET",
-        url,
-        credentials: {
-          accessKeyId: this.config.accessKeyId,
-          secretAccessKey: this.config.secretAccessKey,
-          region: this.config.region,
-          service: "s3",
-        },
+      const command = new GetObjectCommand({
+        Bucket: bucket,
+        Key: query.key,
       });
 
-      const response = await fetch(signed.url, {
-        method: "GET",
-        headers: signed.headers,
-      });
+      const response = await this.client.send(command);
+      const byteArray = await response.Body?.transformToByteArray();
 
-      if (response.status === 404) {
+      if (!byteArray) {
         throw new ObjectNotFoundError(bucket, query.key);
       }
 
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => "");
-        throw new StorageError(`S3 GET object failed (${response.status}): ${this.sanitizeError(errorText)}`, "S3_GET_FAILED", response.status);
+      const bytes = new Uint8Array(byteArray);
+      const calculatedHash = await calculateSha256Hex(bytes);
+
+      // Verify metadata hash if present
+      const storedSha256 = response.Metadata?.["sha256"];
+      if (storedSha256 && calculatedHash !== normalizeSha256(storedSha256)) {
+        throw new StorageIntegrityError(`S3 object failed SHA-256 integrity check: expected ${storedSha256}, calculated ${calculatedHash}`);
       }
 
-      const arrayBuf = await response.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuf);
-      const hash = await calculateSha256Hex(bytes);
-
-      const contentType = response.headers.get("content-type") || "application/octet-stream";
+      const contentType = response.ContentType || "application/octet-stream";
+      const etag = response.ETag?.replace(/["']/g, "") || undefined;
 
       return {
         bytes,
         metadata: {
-          companyId: query.companyId,
+          companyId: response.Metadata?.["company-id"] || query.companyId,
           bucket,
           key: query.key,
           sizeBytes: bytes.byteLength,
           contentType,
-          sha256: hash,
+          sha256: calculatedHash,
+          etag,
+          customMetadata: response.Metadata,
         },
       };
-    } catch (err) {
+    } catch (err: any) {
       if (err instanceof StorageError) throw err;
+      if (err.name === "NotFound" || err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
+        throw new ObjectNotFoundError(bucket, query.key);
+      }
       throw new StorageError(`S3 getObject error: ${this.sanitizeError(err)}`);
     }
   }
@@ -210,57 +199,41 @@ export class S3StorageProvider implements DocumentStorageProvider {
     this.validateCompanyBoundary(query.companyId, query.key);
 
     const bucket = query.bucket || this.config.bucket;
-    const baseUrl = this.buildObjectUrl(bucket, query.key);
-    const parsed = new URL(baseUrl);
+    const expiresIn = options?.expiresInSeconds || 3600;
 
+    let responseContentDisposition: string | undefined;
     if (options?.disposition === "attachment" && options.downloadFilename) {
-      parsed.searchParams.set("response-content-disposition", `attachment; filename="${encodeURIComponent(options.downloadFilename)}"`);
+      responseContentDisposition = `attachment; filename="${encodeURIComponent(options.downloadFilename)}"`;
     } else if (options?.disposition === "inline") {
-      parsed.searchParams.set("response-content-disposition", "inline");
+      responseContentDisposition = "inline";
     }
 
-    return createPresignedS3Url({
-      method: "GET",
-      url: parsed.toString(),
-      credentials: {
-        accessKeyId: this.config.accessKeyId,
-        secretAccessKey: this.config.secretAccessKey,
-        region: this.config.region,
-        service: "s3",
-      },
-      expiresInSeconds: options?.expiresInSeconds || 3600,
-    });
+    try {
+      const command = new GetObjectCommand({
+        Bucket: bucket,
+        Key: query.key,
+        ResponseContentDisposition: responseContentDisposition,
+      });
+
+      return await getSignedUrl(this.client, command, { expiresIn });
+    } catch (err) {
+      throw new StorageError(`Failed to generate presigned S3 URL: ${this.sanitizeError(err)}`);
+    }
   }
 
   async deleteObject(query: ObjectLookupQuery): Promise<void> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
     const bucket = query.bucket || this.config.bucket;
-    const url = this.buildObjectUrl(bucket, query.key);
 
     try {
-      const signed = await signS3Request({
-        method: "DELETE",
-        url,
-        credentials: {
-          accessKeyId: this.config.accessKeyId,
-          secretAccessKey: this.config.secretAccessKey,
-          region: this.config.region,
-          service: "s3",
-        },
+      const command = new DeleteObjectCommand({
+        Bucket: bucket,
+        Key: query.key,
       });
 
-      const response = await fetch(signed.url, {
-        method: "DELETE",
-        headers: signed.headers,
-      });
-
-      if (!response.ok && response.status !== 404 && response.status !== 204) {
-        const errorText = await response.text().catch(() => "");
-        throw new StorageError(`S3 DELETE object failed (${response.status}): ${this.sanitizeError(errorText)}`, "S3_DELETE_FAILED", response.status);
-      }
+      await this.client.send(command);
     } catch (err) {
-      if (err instanceof StorageError) throw err;
       throw new StorageError(`S3 deleteObject error: ${this.sanitizeError(err)}`);
     }
   }
@@ -269,47 +242,32 @@ export class S3StorageProvider implements DocumentStorageProvider {
     this.validateCompanyBoundary(query.companyId, query.key);
 
     const bucket = query.bucket || this.config.bucket;
-    const url = this.buildObjectUrl(bucket, query.key);
 
     try {
-      const signed = await signS3Request({
-        method: "HEAD",
-        url,
-        credentials: {
-          accessKeyId: this.config.accessKeyId,
-          secretAccessKey: this.config.secretAccessKey,
-          region: this.config.region,
-          service: "s3",
-        },
+      const command = new HeadObjectCommand({
+        Bucket: bucket,
+        Key: query.key,
       });
 
-      const response = await fetch(signed.url, {
-        method: "HEAD",
-        headers: signed.headers,
-      });
-
-      if (response.status === 404) return null;
-      if (!response.ok) {
-        throw new StorageError(`S3 HEAD object failed (${response.status})`, "S3_HEAD_FAILED", response.status);
-      }
-
-      const contentLength = Number(response.headers.get("content-length") || 0);
-      const contentType = response.headers.get("content-type") || "application/octet-stream";
-      const sha256 = response.headers.get("x-amz-meta-sha256") || response.headers.get("etag")?.replace(/["']/g, "") || "";
-      const lastModified = response.headers.get("last-modified") || undefined;
+      const response = await this.client.send(command);
+      const storedSha256 = response.Metadata?.["sha256"] || "";
+      const etag = response.ETag?.replace(/["']/g, "") || undefined;
 
       return {
-        companyId: query.companyId,
+        companyId: response.Metadata?.["company-id"] || query.companyId,
         bucket,
         key: query.key,
-        sizeBytes: contentLength,
-        contentType,
-        sha256,
-        updatedAt: lastModified ? new Date(lastModified).toISOString() : undefined,
+        sizeBytes: response.ContentLength || 0,
+        contentType: response.ContentType || "application/octet-stream",
+        sha256: storedSha256,
+        etag,
+        updatedAt: response.LastModified ? response.LastModified.toISOString() : undefined,
+        customMetadata: response.Metadata,
       };
-    } catch (err) {
-      if (err instanceof ObjectNotFoundError) return null;
-      if (err instanceof StorageError) throw err;
+    } catch (err: any) {
+      if (err.name === "NotFound" || err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
+        return null;
+      }
       throw new StorageError(`S3 headObject error: ${this.sanitizeError(err)}`);
     }
   }

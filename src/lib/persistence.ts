@@ -212,86 +212,22 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
 export async function saveManualSourceDocument(input: { fileData: string; mimeType: string; fileName: string; emailMessageId?: string; sourceType?: "UPLOAD" | "EMAIL" }): Promise<StoredSourceDocument> {
   const companyId = requireActiveCompanyId();
 
-  // Try server-mediated storage API first (allows routing to configured primary provider e.g. S3/R2)
-  try {
-    const res = await companyApiRequest("/api/documents/manual-source", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-      companyId,
-    });
-    if (res.ok) {
-      const doc: StoredSourceDocument = await res.json();
-      return doc;
-    }
-    if (res.status === 400 || res.status === 403 || res.status === 422) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `Storage upload failed with status ${res.status}`);
-    }
-  } catch (apiErr: any) {
-    if (apiErr?.message && (apiErr.message.includes("must be valid") || apiErr.message.includes("exceeds") || apiErr.message.includes("permission"))) {
-      throw apiErr;
-    }
-    // Fall back to direct Supabase client upload in standalone/offline environments
+  // Route through the authoritative server storage API
+  const res = await companyApiRequest("/api/documents/manual-source", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    companyId,
+  });
+
+  if (res.ok) {
+    const doc: StoredSourceDocument = await res.json();
+    return doc;
   }
 
-  const client = requireSupabase();
-  const userId = await requireUserId();
-  const bytes = decodeBase64(input.fileData);
-  validateInvoiceDocumentBytes(bytes, input.mimeType, input.fileName);
-  const hash = await sha256(bytes);
-
-  const { data: existingRows, error: existingError } = await client
-    .from("source_documents")
-    .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256,processing_status,document_type,created_at")
-    .eq("company_id", companyId)
-    .eq("sha256", hash)
-    .order("created_at", { ascending: false })
-    .limit(1);
-  if (existingError) throw existingError;
-  if (existingRows?.[0]) return sourceDocumentFromRow(existingRows[0]);
-
-  const now = new Date();
-  const storagePath = `${companyStoragePath("invoices", "manual", String(now.getUTCFullYear()), String(now.getUTCMonth() + 1).padStart(2, "0"))}/${hash.slice(0, 12)}-${crypto.randomUUID().slice(0, 8)}-${safeName(input.fileName)}`;
-  const { error: uploadError } = await client.storage.from(INVOICE_BUCKET).upload(storagePath, bytes, {
-    contentType: input.mimeType,
-    upsert: false,
-  });
-  if (uploadError) throw uploadError;
-
-  const { data, error } = await client
-    .from("source_documents")
-    .insert({
-      user_id: userId,
-      company_id: companyId,
-      source_type: input.sourceType || "UPLOAD",
-      email_message_id: input.emailMessageId || null,
-      filename: input.fileName,
-      mime_type: input.mimeType,
-      file_size: bytes.byteLength,
-      storage_path: storagePath,
-      storage_provider: "supabase",
-      storage_bucket: INVOICE_BUCKET,
-      sha256: hash,
-      processing_status: "STORED",
-    })
-    .select("id")
-    .single();
-  if (error) return cleanupUploadedObject(INVOICE_BUCKET, storagePath, error);
-
-  return {
-    id: data.id,
-    emailMessageId: input.emailMessageId,
-    filename: input.fileName,
-    mimeType: input.mimeType,
-    size: bytes.byteLength,
-    storagePath,
-    storageProvider: "supabase",
-    storageBucket: INVOICE_BUCKET,
-    sha256: hash,
-    processingStatus: "STORED",
-    previewUrl: await signedUrl(INVOICE_BUCKET, storagePath),
-  };
+  const errData = await res.json().catch(() => ({}));
+  const errorMessage = errData.error || `Document storage upload failed with status ${res.status}`;
+  throw new Error(errorMessage);
 }
 
 export async function loadSourcePayloadForRetry(invoice: InvoiceData): Promise<OriginalSourcePayload | null> {

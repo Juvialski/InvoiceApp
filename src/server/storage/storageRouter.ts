@@ -7,17 +7,17 @@ import express, { type Request, type Response, type Router } from "express";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import {
+  type DocumentStorageProvider,
+  type StorageProviderId,
   createStorageProvider,
   getPrimaryStorageProvider,
-  getStorageHealth,
-  loadStorageConfig,
-  type StorageProviderId,
   StorageIntegrityError,
   StorageError,
 } from "../../lib/storage/index.ts";
 import { calculateSha256Hex } from "../../lib/storage/dedup.ts";
 import { sanitizeStorageFileName } from "../../lib/storage/keys.ts";
 import { validateInvoiceDocumentBytes } from "../../lib/fileSecurity.ts";
+import { compensateFailedUpload, type CompensationInput } from "./storageCompensation.ts";
 import type { StoredSourceDocument } from "../../types.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -40,6 +40,13 @@ export interface StorageAuthContext {
   companyId: string;
   supabase: SupabaseClient;
   user: User;
+}
+
+export interface StorageRouterOptions {
+  authorizer?: (req: Request, permission: "invoices.manage" | "invoices.read") => Promise<StorageAuthContext>;
+  primaryProviderSupplier?: (env?: any, supabaseClientGetter?: () => SupabaseClient) => DocumentStorageProvider;
+  providerSupplier?: (providerId: StorageProviderId, supabaseClientGetter?: () => SupabaseClient) => DocumentStorageProvider;
+  compensator?: (input: CompensationInput) => Promise<{ compensated: boolean; reason?: string }>;
 }
 
 function firstHeader(value: string | string[] | undefined): string {
@@ -76,7 +83,7 @@ function getServerSupabaseClient(accessToken: string): SupabaseClient {
 
 export async function authorizeStorageRequest(
   req: Request,
-  permission: "invoices.extract" | "invoices.read" | "invoices.manage",
+  permission: "invoices.read" | "invoices.manage",
 ): Promise<StorageAuthContext> {
   const accessToken = getBearerToken(req);
   const client = getServerSupabaseClient(accessToken);
@@ -119,19 +126,15 @@ export async function authorizeStorageRequest(
   };
 }
 
-export function createStorageRouter(): Router {
+export function createStorageRouter(options?: StorageRouterOptions): Router {
   const router = express.Router();
-
-  // Health check endpoint
-  router.get("/health", (_req: Request, res: Response) => {
-    const health = getStorageHealth(process.env);
-    res.json(health);
-  });
+  const authorizer = options?.authorizer || authorizeStorageRequest;
 
   // Upload manual invoice source document
+  // Authoritative permission: invoices.manage (required for creating source_documents)
   router.post("/manual-source", async (req: Request, res: Response) => {
     try {
-      const auth = await authorizeStorageRequest(req, "invoices.extract");
+      const auth = await authorizer(req, "invoices.manage");
       const { fileData, mimeType, fileName, emailMessageId, sourceType } = req.body || {};
 
       if (!fileData || typeof fileData !== "string") {
@@ -164,7 +167,10 @@ export function createStorageRouter(): Router {
       if (existingRows?.[0]) {
         const row = existingRows[0];
         const rowProviderId = (row.storage_provider as StorageProviderId) || "supabase";
-        const provider = createStorageProvider(rowProviderId, undefined, () => auth.supabase);
+        const provider = options?.providerSupplier
+          ? options.providerSupplier(rowProviderId, () => auth.supabase)
+          : createStorageProvider(rowProviderId, undefined, () => auth.supabase);
+
         const previewUrl = await provider.getSignedUrl({
           companyId: auth.companyId,
           bucket: row.storage_bucket || INVOICE_BUCKET,
@@ -192,7 +198,10 @@ export function createStorageRouter(): Router {
       }
 
       // Store new object via active primary provider
-      const provider = getPrimaryStorageProvider(process.env, () => auth.supabase);
+      const provider = options?.primaryProviderSupplier
+        ? options.primaryProviderSupplier(process.env, () => auth.supabase)
+        : getPrimaryStorageProvider(process.env, () => auth.supabase);
+
       const now = new Date();
       const year = String(now.getUTCFullYear());
       const month = String(now.getUTCMonth() + 1).padStart(2, "0");
@@ -229,14 +238,19 @@ export function createStorageRouter(): Router {
         .single();
 
       if (insertError) {
-        // Compensate: delete the uploaded object on database failure
-        await provider.deleteObject({
-          companyId: auth.companyId,
-          bucket: INVOICE_BUCKET,
-          key: storagePath,
-        }).catch((err) => {
-          console.error("[Storage Compensation Failure]", err);
-        });
+        // Compensate: safely delete the uploaded object on database failure
+        const compensatorFn = options?.compensator || compensateFailedUpload;
+        try {
+          await compensatorFn({
+            companyId: auth.companyId,
+            bucket: INVOICE_BUCKET,
+            key: storagePath,
+            providerId: provider.id,
+            supabase: auth.supabase,
+          });
+        } catch (compErr) {
+          console.error("[Storage Compensation Failure]", compErr);
+        }
         throw new StorageApiError(500, "METADATA_INSERT_FAILED", `Document metadata persistence failed: ${insertError.message}`);
       }
 
@@ -278,7 +292,7 @@ export function createStorageRouter(): Router {
   // Get signed preview URL for an existing source document
   router.get("/:id/preview-url", async (req: Request, res: Response) => {
     try {
-      const auth = await authorizeStorageRequest(req, "invoices.read");
+      const auth = await authorizer(req, "invoices.read");
       const docId = req.params.id;
 
       if (!UUID_PATTERN.test(docId)) {
@@ -296,7 +310,9 @@ export function createStorageRouter(): Router {
       if (!row) return res.status(404).json({ error: "Document not found." });
 
       const providerId = (row.storage_provider as StorageProviderId) || "supabase";
-      const provider = createStorageProvider(providerId, undefined, () => auth.supabase);
+      const provider = options?.providerSupplier
+        ? options.providerSupplier(providerId, () => auth.supabase)
+        : createStorageProvider(providerId, undefined, () => auth.supabase);
 
       const previewUrl = await provider.getSignedUrl({
         companyId: auth.companyId,
@@ -316,7 +332,7 @@ export function createStorageRouter(): Router {
   // Get source payload for retry / extraction
   router.get("/:id/content", async (req: Request, res: Response) => {
     try {
-      const auth = await authorizeStorageRequest(req, "invoices.read");
+      const auth = await authorizer(req, "invoices.read");
       const docId = req.params.id;
 
       if (!UUID_PATTERN.test(docId)) {
@@ -334,9 +350,11 @@ export function createStorageRouter(): Router {
       if (!row) return res.status(404).json({ error: "Document not found." });
 
       const providerId = (row.storage_provider as StorageProviderId) || "supabase";
-      const provider = createStorageProvider(providerId, undefined, () => auth.supabase);
+      const provider = options?.providerSupplier
+        ? options.providerSupplier(providerId, () => auth.supabase)
+        : createStorageProvider(providerId, undefined, () => auth.supabase);
 
-      const { bytes, metadata } = await provider.getObject({
+      const { bytes } = await provider.getObject({
         companyId: auth.companyId,
         bucket: row.storage_bucket || INVOICE_BUCKET,
         key: row.storage_path,

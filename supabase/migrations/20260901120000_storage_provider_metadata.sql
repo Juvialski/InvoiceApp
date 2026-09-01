@@ -6,7 +6,7 @@ alter table public.source_documents
   add column if not exists storage_provider text not null default 'supabase',
   add column if not exists storage_bucket text not null default 'invoice-originals';
 
--- Add check constraint for valid storage provider identifiers
+-- Add check constraint for valid durable storage provider identifiers in Wave S2
 do $$
 begin
   if not exists (
@@ -15,7 +15,7 @@ begin
   ) then
     alter table public.source_documents
       add constraint source_documents_storage_provider_check
-      check (storage_provider in ('supabase', 's3', 'memory', 'gcs', 'custom'));
+      check (storage_provider in ('supabase', 's3'));
   end if;
 end $$;
 

@@ -166,7 +166,8 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
       key: query.key,
       sizeBytes: match.metadata?.size || 0,
       contentType: match.metadata?.mimetype || "application/octet-stream",
-      sha256: match.metadata?.eTag || "",
+      sha256: (match.metadata as Record<string, any>)?.sha256 || "",
+      etag: match.metadata?.eTag?.replace(/["']/g, "") || undefined,
       createdAt: match.created_at,
       updatedAt: match.updated_at,
     };

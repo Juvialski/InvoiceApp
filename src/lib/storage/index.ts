@@ -5,7 +5,6 @@
 export * from "./types.ts";
 export * from "./keys.ts";
 export * from "./dedup.ts";
-export * from "./s3Signer.ts";
 export * from "./config.ts";
 export * from "./backup.ts";
 export * from "./providers/supabaseProvider.ts";

@@ -1,12 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  createPresignedS3Url,
   createStorageProvider,
   getPrimaryStorageProvider,
   getStorageHealth,
   loadStorageConfig,
-  signS3Request,
   MemoryStorageProvider,
   ObjectNotFoundError,
   S3StorageProvider,
@@ -14,53 +12,6 @@ import {
   StorageIntegrityError,
   SupabaseStorageProvider,
 } from "../src/lib/storage/index.ts";
-
-test("s3Signer creates valid AWS SigV4 authorization headers", async () => {
-  const options = {
-    method: "PUT",
-    url: "https://my-account.r2.cloudflarestorage.com/my-bucket/companies/11111111-2222-3333-4444-555555555555/objects/doc-1/v1/inv.pdf",
-    credentials: {
-      accessKeyId: "TEST_ACCESS_KEY",
-      secretAccessKey: "TEST_SECRET_KEY_12345",
-      region: "auto",
-    },
-    bodyBytes: new TextEncoder().encode("Hello S3 SigV4"),
-    timestamp: new Date("2026-09-01T12:00:00Z"),
-  };
-
-  const signed = await signS3Request(options);
-  assert.ok(signed.headers.authorization);
-  assert.match(
-    signed.headers.authorization,
-    /^AWS4-HMAC-SHA256 Credential=TEST_ACCESS_KEY\/20260901\/auto\/s3\/aws4_request, SignedHeaders=/,
-  );
-  assert.equal(signed.headers["x-amz-date"], "20260901T120000Z");
-  assert.ok(signed.headers["x-amz-content-sha256"]);
-});
-
-test("createPresignedS3Url creates valid presigned URL query parameters", async () => {
-  const url = await createPresignedS3Url({
-    method: "GET",
-    url: "https://my-account.r2.cloudflarestorage.com/my-bucket/companies/11111111-2222-3333-4444-555555555555/objects/doc-1/v1/inv.pdf",
-    credentials: {
-      accessKeyId: "TEST_ACCESS_KEY",
-      secretAccessKey: "TEST_SECRET_KEY_12345",
-      region: "auto",
-    },
-    expiresInSeconds: 1800,
-    timestamp: new Date("2026-09-01T12:00:00Z"),
-  });
-
-  const parsed = new URL(url);
-  assert.equal(parsed.searchParams.get("X-Amz-Algorithm"), "AWS4-HMAC-SHA256");
-  assert.equal(
-    parsed.searchParams.get("X-Amz-Credential"),
-    "TEST_ACCESS_KEY/20260901/auto/s3/aws4_request",
-  );
-  assert.equal(parsed.searchParams.get("X-Amz-Date"), "20260901T120000Z");
-  assert.equal(parsed.searchParams.get("X-Amz-Expires"), "1800");
-  assert.ok(parsed.searchParams.get("X-Amz-Signature"));
-});
 
 test("MemoryStorageProvider handles full CRUD lifecycle and integrity", async () => {
   const provider = new MemoryStorageProvider();
@@ -118,102 +69,129 @@ test("MemoryStorageProvider handles full CRUD lifecycle and integrity", async ()
   );
 });
 
-test("S3StorageProvider works with mock HTTP fetch and redacts credentials", async () => {
+test("S3StorageProvider works with mock client and preserves sha256/etag metadata", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
   const bucket = "test-bucket";
   const key = `companies/${companyId}/objects/doc-100/v1/inv.pdf`;
   const bytes = new TextEncoder().encode("%PDF-1.4 Mock S3 content");
 
-  const mockStore = new Map<string, { bytes: Uint8Array; headers: Record<string, string> }>();
+  const mockStore = new Map<string, { bytes: Uint8Array; metadata: Record<string, string>; contentType: string }>();
 
-  // Mock global fetch for S3 tests
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const urlStr = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-    const method = init?.method || "GET";
+  // Mock S3Client instance
+  const { S3Client } = await import("@aws-sdk/client-s3");
+  const mockClient = new S3Client({
+    endpoint: "https://test-account.r2.cloudflarestorage.com",
+    region: "auto",
+    credentials: {
+      accessKeyId: "SECRET_KEY_ID_ABCD",
+      secretAccessKey: "SUPER_SECRET_ACCESS_KEY_XYZ",
+    },
+  });
 
-    if (method === "PUT") {
-      const body = init?.body as unknown as Uint8Array;
-      mockStore.set(urlStr.split("?")[0], {
-        bytes: body || new Uint8Array(),
-        headers: {
-          "content-type": (init?.headers as Record<string, string>)?.[("content-type")] || "application/octet-stream",
-          "content-length": String(body?.byteLength || 0),
+  mockClient.send = (async (command: any): Promise<any> => {
+    const name = command.constructor.name;
+    const input = command.input;
+
+    if (name === "PutObjectCommand") {
+      mockStore.set(`${input.Bucket}/${input.Key}`, {
+        bytes: input.Body as Uint8Array,
+        metadata: input.Metadata || {},
+        contentType: input.ContentType || "application/octet-stream",
+      });
+      return {
+        ETag: '"mock-s3-etag-12345"',
+      };
+    }
+
+    if (name === "GetObjectCommand") {
+      const item = mockStore.get(`${input.Bucket}/${input.Key}`);
+      if (!item) {
+        const notFoundErr = new Error("NoSuchKey");
+        notFoundErr.name = "NoSuchKey";
+        throw notFoundErr;
+      }
+      return {
+        Body: {
+          transformToByteArray: async () => item.bytes,
         },
-      });
-      return new Response(null, { status: 200 });
+        ContentType: item.contentType,
+        Metadata: item.metadata,
+        ETag: '"mock-s3-etag-12345"',
+        ContentLength: item.bytes.byteLength,
+      };
     }
 
-    if (method === "GET") {
-      const item = mockStore.get(urlStr.split("?")[0]);
-      if (!item) return new Response("NoSuchKey", { status: 404 });
-      return new Response(item.bytes.buffer as ArrayBuffer, {
-        status: 200,
-        headers: item.headers,
-      });
+    if (name === "HeadObjectCommand") {
+      const item = mockStore.get(`${input.Bucket}/${input.Key}`);
+      if (!item) {
+        const notFoundErr = new Error("NotFound");
+        notFoundErr.name = "NotFound";
+        throw notFoundErr;
+      }
+      return {
+        ContentLength: item.bytes.byteLength,
+        ContentType: item.contentType,
+        Metadata: item.metadata,
+        ETag: '"mock-s3-etag-12345"',
+        LastModified: new Date(),
+      };
     }
 
-    if (method === "HEAD") {
-      const item = mockStore.get(urlStr.split("?")[0]);
-      if (!item) return new Response(null, { status: 404 });
-      return new Response(null, {
-        status: 200,
-        headers: item.headers,
-      });
+    if (name === "DeleteObjectCommand") {
+      mockStore.delete(`${input.Bucket}/${input.Key}`);
+      return {};
     }
 
-    if (method === "DELETE") {
-      mockStore.delete(urlStr.split("?")[0]);
-      return new Response(null, { status: 204 });
-    }
+    throw new Error(`Unhandled mock command: ${name}`);
+  }) as any;
 
-    return new Response("Not found", { status: 404 });
-  }) as typeof fetch;
-
-  try {
-    const s3Provider = new S3StorageProvider({
+  const s3Provider = new S3StorageProvider(
+    {
       endpoint: "https://test-account.r2.cloudflarestorage.com",
       bucket,
       accessKeyId: "SECRET_KEY_ID_ABCD",
       secretAccessKey: "SUPER_SECRET_ACCESS_KEY_XYZ",
       region: "auto",
       forcePathStyle: true,
-    });
+    },
+    mockClient,
+  );
 
-    // 1. Put
-    const putRes = await s3Provider.putObject({
-      companyId,
-      bucket,
-      key,
-      bytes,
-      contentType: "application/pdf",
-    });
-    assert.equal(putRes.ref.companyId, companyId);
-    assert.equal(putRes.ref.providerId, "s3");
+  // 1. Put
+  const putRes = await s3Provider.putObject({
+    companyId,
+    bucket,
+    key,
+    bytes,
+    contentType: "application/pdf",
+  });
+  assert.equal(putRes.ref.companyId, companyId);
+  assert.equal(putRes.ref.providerId, "s3");
 
-    // 2. Head
-    const headRes = await s3Provider.headObject({ companyId, bucket, key });
-    assert.ok(headRes);
-    assert.equal(headRes.sizeBytes, bytes.byteLength);
+  // 2. Head - verifies explicit sha256 is preserved and etag is distinct
+  const headRes = await s3Provider.headObject({ companyId, bucket, key });
+  assert.ok(headRes);
+  assert.equal(headRes.sizeBytes, bytes.byteLength);
+  assert.ok(headRes.sha256);
+  assert.equal(headRes.etag, "mock-s3-etag-12345");
 
-    // 3. Get
-    const getRes = await s3Provider.getObject({ companyId, bucket, key });
-    assert.equal(getRes.bytes.byteLength, bytes.byteLength);
+  // 3. Get
+  const getRes = await s3Provider.getObject({ companyId, bucket, key });
+  assert.equal(getRes.bytes.byteLength, bytes.byteLength);
+  assert.equal(getRes.metadata.etag, "mock-s3-etag-12345");
 
-    // 4. Presigned URL
-    const presignedUrl = await s3Provider.getSignedUrl({ companyId, bucket, key }, { expiresInSeconds: 600 });
-    assert.ok(presignedUrl.includes("X-Amz-Signature"));
+  // 4. Presigned URL via AWS SDK presigner
+  const presignedUrl = await s3Provider.getSignedUrl({ companyId, bucket, key }, { expiresInSeconds: 600 });
+  assert.ok(presignedUrl.includes("X-Amz-Signature"));
+  assert.ok(presignedUrl.includes("X-Amz-Credential"));
 
-    // 5. Delete
-    await s3Provider.deleteObject({ companyId, bucket, key });
-    const afterDelete = await s3Provider.headObject({ companyId, bucket, key });
-    assert.equal(afterDelete, null);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  // 5. Delete
+  await s3Provider.deleteObject({ companyId, bucket, key });
+  const afterDelete = await s3Provider.headObject({ companyId, bucket, key });
+  assert.equal(afterDelete, null);
 });
 
-test("loadStorageConfig correctly parses provider selection and S3 options", () => {
+test("loadStorageConfig strictly validates provider selection and fails closed on invalid configs", () => {
   // Default to supabase
   const defaultCfg = loadStorageConfig({});
   assert.equal(defaultCfg.primaryProvider, "supabase");
@@ -232,9 +210,29 @@ test("loadStorageConfig correctly parses provider selection and S3 options", () 
   assert.equal(r2Cfg.s3.bucket, "engoryx-test-bucket");
   assert.equal(r2Cfg.s3.accessKeyId, "key123");
 
-  // In-memory
-  const memCfg = loadStorageConfig({ STORAGE_PRIMARY_PROVIDER: "memory" });
+  // In-memory allowed only in non-production
+  const memCfg = loadStorageConfig({ STORAGE_PRIMARY_PROVIDER: "memory", NODE_ENV: "test" });
   assert.equal(memCfg.primaryProvider, "memory");
+
+  // In-memory strictly forbidden in production
+  assert.throws(
+    () => loadStorageConfig({ STORAGE_PRIMARY_PROVIDER: "memory", NODE_ENV: "production" }),
+    StorageConfigurationError,
+  );
+
+  // Unsupported provider IDs must fail closed, never silently default
+  assert.throws(
+    () => loadStorageConfig({ STORAGE_PRIMARY_PROVIDER: "gcs" }),
+    StorageConfigurationError,
+  );
+  assert.throws(
+    () => loadStorageConfig({ STORAGE_PRIMARY_PROVIDER: "custom" }),
+    StorageConfigurationError,
+  );
+  assert.throws(
+    () => loadStorageConfig({ STORAGE_PRIMARY_PROVIDER: "azure" }),
+    StorageConfigurationError,
+  );
 
   // Health summary does NOT leak secrets
   const health = getStorageHealth({
@@ -249,13 +247,17 @@ test("loadStorageConfig correctly parses provider selection and S3 options", () 
   assert.equal(health.isConfigured, true);
 });
 
-test("createStorageProvider fails safely on incomplete configuration", () => {
+test("createStorageProvider fails safely on incomplete or unsupported configuration", () => {
   assert.throws(
     () => createStorageProvider("s3", { primaryProvider: "s3" }),
     StorageConfigurationError,
   );
   assert.throws(
     () => createStorageProvider("supabase"),
+    StorageConfigurationError,
+  );
+  assert.throws(
+    () => createStorageProvider("gcs" as any),
     StorageConfigurationError,
   );
 });

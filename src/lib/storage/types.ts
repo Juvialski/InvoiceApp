@@ -38,6 +38,7 @@ export interface ObjectMetadata {
   sizeBytes: number;
   contentType: string;
   sha256: string;
+  etag?: string;
   createdAt?: string;
   updatedAt?: string;
   customMetadata?: Record<string, string>;

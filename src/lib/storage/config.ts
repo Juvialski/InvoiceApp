@@ -17,6 +17,7 @@ import { S3StorageProvider } from "./providers/s3Provider.ts";
 import { MemoryStorageProvider } from "./providers/memoryProvider.ts";
 
 export interface StorageEnvironment {
+  NODE_ENV?: string;
   STORAGE_PRIMARY_PROVIDER?: string;
   STORAGE_S3_ENDPOINT?: string;
   CLOUDFLARE_R2_ENDPOINT?: string;
@@ -53,14 +54,22 @@ function getEnvValue(env: StorageEnvironment, ...keys: (keyof StorageEnvironment
  */
 export function loadStorageConfig(env: StorageEnvironment = process.env): StorageConfig {
   const providerRaw = getEnvValue(env, "STORAGE_PRIMARY_PROVIDER").toLowerCase();
-  let primaryProvider: StorageProviderId = "supabase";
+  const nodeEnv = (env.NODE_ENV || process.env.NODE_ENV || "").toLowerCase();
+  let primaryProvider: StorageProviderId;
 
-  if (providerRaw === "s3" || providerRaw === "r2" || providerRaw === "cloudflare") {
+  if (!providerRaw || providerRaw === "supabase") {
+    primaryProvider = "supabase";
+  } else if (providerRaw === "s3" || providerRaw === "r2" || providerRaw === "cloudflare") {
     primaryProvider = "s3";
   } else if (providerRaw === "memory") {
+    if (nodeEnv === "production") {
+      throw new StorageConfigurationError("Memory storage provider cannot be used as primary storage in production.");
+    }
     primaryProvider = "memory";
-  } else if (providerRaw === "supabase" || !providerRaw) {
-    primaryProvider = "supabase";
+  } else {
+    throw new StorageConfigurationError(
+      `Unsupported storage provider: "${providerRaw}". Supported durable providers for Wave S2 are "supabase" and "s3".`,
+    );
   }
 
   const endpoint = getEnvValue(env, "STORAGE_S3_ENDPOINT", "CLOUDFLARE_R2_ENDPOINT", "R2_ENDPOINT");
@@ -91,7 +100,7 @@ export function loadStorageConfig(env: StorageEnvironment = process.env): Storag
   };
 }
 
-// Global cached memory provider for shared test contexts if needed
+// Global cached memory provider for shared test contexts
 let globalMemoryProvider: MemoryStorageProvider | null = null;
 
 export function getSharedMemoryProvider(): MemoryStorageProvider {
@@ -117,8 +126,13 @@ export function createStorageProvider(
   const loadedConfig = config || loadStorageConfig();
 
   switch (providerId) {
-    case "memory":
+    case "memory": {
+      const nodeEnv = (process.env.NODE_ENV || "").toLowerCase();
+      if (nodeEnv === "production") {
+        throw new StorageConfigurationError("Memory storage provider is for test environments only.");
+      }
       return getSharedMemoryProvider();
+    }
 
     case "s3": {
       if (!loadedConfig.s3) {
@@ -129,13 +143,17 @@ export function createStorageProvider(
       return new S3StorageProvider(loadedConfig.s3);
     }
 
-    case "supabase":
-    default: {
+    case "supabase": {
       if (!supabaseClientGetter) {
         throw new StorageConfigurationError("SupabaseStorageProvider requires a SupabaseClient supplier.");
       }
       return new SupabaseStorageProvider(supabaseClientGetter);
     }
+
+    default:
+      throw new StorageConfigurationError(
+        `Unsupported storage provider: "${providerId}". Supported providers are "supabase" and "s3".`,
+      );
   }
 }
 

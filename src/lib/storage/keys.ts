@@ -149,28 +149,17 @@ export function parseStorageKey(rawPath: string): ParsedStorageKey {
     decoded = normalized;
   }
 
-  // Check for path traversal attempts in raw and decoded forms
-  const checkPaths = [normalized, decoded];
-  for (const p of checkPaths) {
-    if (
-      p.includes("/../") ||
-      p.startsWith("../") ||
-      p.endsWith("/..") ||
-      p.includes("\\..\\") ||
-      p.startsWith("..\\") ||
-      p.endsWith("\\..") ||
-      p.includes("..") ||
-      p.includes("\0")
-    ) {
-      return {
-        kind: "INVALID",
-        isValid: false,
-        rawPath: normalized,
-        segments: [],
-      };
-    }
+  // Check for null bytes in raw or decoded paths
+  if (normalized.includes("\0") || decoded.includes("\0")) {
+    return {
+      kind: "INVALID",
+      isValid: false,
+      rawPath: normalized,
+      segments: [],
+    };
   }
 
+  // Split on all path separators (forward and backslash)
   const segments = decoded.split(/[\\/]/).filter(Boolean);
   if (segments.length === 0) {
     return {
@@ -179,6 +168,24 @@ export function parseStorageKey(rawPath: string): ParsedStorageKey {
       rawPath: normalized,
       segments: [],
     };
+  }
+
+  // Check each path segment for exact traversal tokens (. or .. or traversal sequences)
+  for (const segment of segments) {
+    const trimmed = segment.trim();
+    if (
+      trimmed === "." ||
+      trimmed === ".." ||
+      trimmed === "..." ||
+      trimmed.includes("\0")
+    ) {
+      return {
+        kind: "INVALID",
+        isValid: false,
+        rawPath: normalized,
+        segments: [],
+      };
+    }
   }
 
   // 1. Company-scoped standard paths: companies/<companyId>/...
