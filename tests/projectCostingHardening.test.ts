@@ -56,7 +56,7 @@ test("exact invoice and expense source provenance is counted once", () => {
 
 test("confirmed linked expense wins over an unverified invoice from the same source", () => {
   const summary = calculateProjectCost(project("project-a"), {
-    invoices: [{ id: "invoice-1", sourceDocumentId: "source-1", grandTotal: 100_000, amountPaid: 0, currency: "PHP", reviewStatus: "PENDING", status: "UNPAID", allocations: [allocation("a", "project-a", 100_000)] }],
+    invoices: [{ id: "invoice-1", sourceDocumentId: "source-1", grandTotal: 100_000, amountPaid: 0, currency: "PHP", reviewStatus: "NEEDS_REVIEW", status: "UNPAID", allocations: [allocation("a", "project-a", 100_000)] }],
     expenses: [expense({ receiptSourceDocumentId: "source-1" })],
   });
   assert.equal(summary.pendingInvoiceCost, 0);
