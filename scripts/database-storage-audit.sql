@@ -96,32 +96,70 @@ order by pg_relation_size(i.indexrelid) desc;
 -- ============================================================================
 -- SECTION 3B: POTENTIALLY REDUNDANT OR LOW-USAGE INDEXES
 -- ============================================================================
--- Flags non-primary-key, non-unique indexes with 0 scans on tables that have rows,
--- or legacy single-tenant indexes remaining after tenancy transition.
+-- Flags non-primary-key, non-unique indexes with 0 scans, plus legacy
+-- user_id-scoped indexes where the same table also has a company_id-scoped
+-- index. Detection is based on indexed columns, never naming conventions.
 
+with index_column_flags as (
+    select
+        i.schemaname,
+        i.relid,
+        i.relname,
+        i.indexrelid,
+        i.indexrelname,
+        i.idx_scan,
+        idx.indisunique,
+        idx.indisprimary,
+        bool_or(a.attname = 'user_id') filter (where key_column.attnum > 0) as has_user_id,
+        bool_or(a.attname = 'company_id') filter (where key_column.attnum > 0) as has_company_id
+    from pg_stat_user_indexes i
+    join pg_index idx on idx.indexrelid = i.indexrelid
+    left join lateral unnest(idx.indkey) as key_column(attnum) on true
+    left join pg_attribute a
+      on a.attrelid = idx.indrelid
+     and a.attnum = key_column.attnum
+    where i.schemaname = 'public'
+    group by
+        i.schemaname,
+        i.relid,
+        i.relname,
+        i.indexrelid,
+        i.indexrelname,
+        i.idx_scan,
+        idx.indisunique,
+        idx.indisprimary
+),
+classified_indexes as (
+    select
+        current_index.*,
+        exists (
+            select 1
+            from index_column_flags company_index
+            where company_index.relid = current_index.relid
+              and company_index.indexrelid <> current_index.indexrelid
+              and company_index.has_company_id
+        ) as has_company_index_counterpart
+    from index_column_flags current_index
+)
 select
-    i.relname as table_name,
-    i.indexrelname as index_name,
-    pg_size_pretty(pg_relation_size(i.indexrelid)) as index_size,
-    i.idx_scan as total_scans,
+    relname as table_name,
+    indexrelname as index_name,
+    pg_size_pretty(pg_relation_size(indexrelid)) as index_size,
+    idx_scan as total_scans,
     case
-        when i.indexrelname ~ 'user_id' and exists (
-            select 1 from pg_stat_user_indexes i2
-            where i2.relname = i.relname
-              and i2.indexrelname ~ 'company_id'
-        ) then 'LEGACY_USER_INDEX_HAS_COMPANY_COUNTERPART'
-        when i.idx_scan = 0 and not idx.indisunique and not idx.indisprimary then 'ZERO_SCANS_NON_UNIQUE'
+        when has_user_id
+             and not has_company_id
+             and has_company_index_counterpart
+          then 'LEGACY_USER_INDEX_HAS_COMPANY_COUNTERPART'
+        when idx_scan = 0 and not indisunique and not indisprimary
+          then 'ZERO_SCANS_NON_UNIQUE'
         else 'ACTIVE_OR_CONSTRAINT'
     end as diagnostic_hint,
-    pg_get_indexdef(i.indexrelid) as index_definition
-from pg_stat_user_indexes i
-join pg_index idx on idx.indexrelid = i.indexrelid
-where i.schemaname = 'public'
-  and (
-      (i.idx_scan = 0 and not idx.indisunique and not idx.indisprimary)
-      or (i.indexrelname ~ 'user_id' and i.indexrelname !~ 'company_id')
-  )
-order by pg_relation_size(i.indexrelid) desc;
+    pg_get_indexdef(indexrelid) as index_definition
+from classified_indexes
+where (idx_scan = 0 and not indisunique and not indisprimary)
+   or (has_user_id and not has_company_id and has_company_index_counterpart)
+order by pg_relation_size(indexrelid) desc;
 
 
 -- ============================================================================
@@ -374,4 +412,3 @@ select
     coalesce(sum(file_size), 0)::bigint as total_file_size_bytes
 from public.payroll_import_batches
 where storage_path is not null;
-
