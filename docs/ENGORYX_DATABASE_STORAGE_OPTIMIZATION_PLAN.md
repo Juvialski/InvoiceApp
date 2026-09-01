@@ -359,7 +359,7 @@ Accomplished:
 - inventoried every current private storage bucket (`invoice-originals`, `email-originals`, `payroll-import-sources`, `engineering-documents`) and mapped producers/consumers across Invoices, Email Intake, Expenses, Cash & Banking, Engineering Documents, and Payroll;
 - verified `source_documents` role as canonical source boundary for Invoices, Expenses, and Cash & Banking, while preserving independent immutable revision lineage for Engineering Documents (`engineering_document_revisions`);
 - audited database growth candidates across all tables and created `scripts/database-storage-audit.sql` for read-only production measurement;
-- identified redundant legacy `user_id` indexes vs single-tenant `company_id` composite indexes;
+- identified potentially redundant legacy `user_id` index candidates alongside single-tenant `company_id` indexes, pending production scan and query-plan measurements before any removal;
 - implemented provider-neutral storage contracts and types in `src/lib/storage/types.ts`;
 - implemented canonical company-scoped target object-key builder, filename sanitizer, and legacy path parser in `src/lib/storage/keys.ts`;
 - implemented SHA-256 calculation and domain deduplication vs provenance contracts in `src/lib/storage/dedup.ts`;
