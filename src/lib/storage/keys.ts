@@ -141,24 +141,37 @@ export function parseStorageKey(rawPath: string): ParsedStorageKey {
     };
   }
 
-  // Check for path traversal attempts
-  if (
-    normalized.includes("/../") ||
-    normalized.startsWith("../") ||
-    normalized.endsWith("/..") ||
-    normalized.includes("\\..\\") ||
-    normalized.startsWith("..\\") ||
-    normalized.includes("\0")
-  ) {
-    return {
-      kind: "INVALID",
-      isValid: false,
-      rawPath: normalized,
-      segments: [],
-    };
+  // Decode URI components if encoded to catch %2e%2e%2f and %2f tricks
+  let decoded = normalized;
+  try {
+    decoded = decodeURIComponent(normalized);
+  } catch {
+    decoded = normalized;
   }
 
-  const segments = normalized.split(/[\\/]/).filter(Boolean);
+  // Check for path traversal attempts in raw and decoded forms
+  const checkPaths = [normalized, decoded];
+  for (const p of checkPaths) {
+    if (
+      p.includes("/../") ||
+      p.startsWith("../") ||
+      p.endsWith("/..") ||
+      p.includes("\\..\\") ||
+      p.startsWith("..\\") ||
+      p.endsWith("\\..") ||
+      p.includes("..") ||
+      p.includes("\0")
+    ) {
+      return {
+        kind: "INVALID",
+        isValid: false,
+        rawPath: normalized,
+        segments: [],
+      };
+    }
+  }
+
+  const segments = decoded.split(/[\\/]/).filter(Boolean);
   if (segments.length === 0) {
     return {
       kind: "INVALID",

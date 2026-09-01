@@ -1,6 +1,7 @@
 import type { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent, EmailIntakeProfile, EmailIntakeProfileInput, Vendor } from "../types.ts";
 import { supabase } from "./supabase.ts";
 import { companyStoragePath, requireActiveCompanyId } from "./companyContext.ts";
+import { companyApiRequest } from "./companyApi.ts";
 import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity.ts";
 import { parseFinancialCorrectionPreview, parseFinancialCorrectionResult, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./financialLifecycle.ts";
 
@@ -113,6 +114,28 @@ function encodeBase64(bytes: Uint8Array) {
 }
 
 async function sourceDocumentFromRow(row: any): Promise<StoredSourceDocument> {
+  const provider = row.storage_provider || "supabase";
+  const bucket = row.storage_bucket || INVOICE_BUCKET;
+  let preview: string | undefined;
+
+  if (provider === "supabase") {
+    preview = await signedUrl(bucket, row.storage_path);
+  } else {
+    try {
+      const companyId = requireActiveCompanyId();
+      const res = await companyApiRequest(`/api/documents/${row.id}/preview-url`, {
+        method: "GET",
+        companyId,
+      });
+      if (res.ok) {
+        const json = await res.json();
+        preview = json.previewUrl;
+      }
+    } catch {
+      // Fallback if preview API call fails
+    }
+  }
+
   return {
     id: row.id,
     emailMessageId: row.email_message_id || undefined,
@@ -123,10 +146,12 @@ async function sourceDocumentFromRow(row: any): Promise<StoredSourceDocument> {
     mimeType: row.mime_type,
     size: Number(row.file_size || 0),
     storagePath: row.storage_path,
+    storageProvider: provider,
+    storageBucket: bucket,
     sha256: row.sha256,
     processingStatus: row.processing_status || undefined,
     documentType: row.document_type || undefined,
-    previewUrl: await signedUrl(INVOICE_BUCKET, row.storage_path),
+    previewUrl: preview,
   };
 }
 
@@ -185,16 +210,40 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
 }
 
 export async function saveManualSourceDocument(input: { fileData: string; mimeType: string; fileName: string; emailMessageId?: string; sourceType?: "UPLOAD" | "EMAIL" }): Promise<StoredSourceDocument> {
+  const companyId = requireActiveCompanyId();
+
+  // Try server-mediated storage API first (allows routing to configured primary provider e.g. S3/R2)
+  try {
+    const res = await companyApiRequest("/api/documents/manual-source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      companyId,
+    });
+    if (res.ok) {
+      const doc: StoredSourceDocument = await res.json();
+      return doc;
+    }
+    if (res.status === 400 || res.status === 403 || res.status === 422) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Storage upload failed with status ${res.status}`);
+    }
+  } catch (apiErr: any) {
+    if (apiErr?.message && (apiErr.message.includes("must be valid") || apiErr.message.includes("exceeds") || apiErr.message.includes("permission"))) {
+      throw apiErr;
+    }
+    // Fall back to direct Supabase client upload in standalone/offline environments
+  }
+
   const client = requireSupabase();
   const userId = await requireUserId();
-  const companyId = requireActiveCompanyId();
   const bytes = decodeBase64(input.fileData);
   validateInvoiceDocumentBytes(bytes, input.mimeType, input.fileName);
   const hash = await sha256(bytes);
 
   const { data: existingRows, error: existingError } = await client
     .from("source_documents")
-    .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,sha256,processing_status,document_type,created_at")
+    .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256,processing_status,document_type,created_at")
     .eq("company_id", companyId)
     .eq("sha256", hash)
     .order("created_at", { ascending: false })
@@ -221,6 +270,8 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
       mime_type: input.mimeType,
       file_size: bytes.byteLength,
       storage_path: storagePath,
+      storage_provider: "supabase",
+      storage_bucket: INVOICE_BUCKET,
       sha256: hash,
       processing_status: "STORED",
     })
@@ -228,24 +279,66 @@ export async function saveManualSourceDocument(input: { fileData: string; mimeTy
     .single();
   if (error) return cleanupUploadedObject(INVOICE_BUCKET, storagePath, error);
 
-  return { id: data.id, emailMessageId: input.emailMessageId, filename: input.fileName, mimeType: input.mimeType, size: bytes.byteLength, storagePath, sha256: hash, processingStatus: "STORED", previewUrl: await signedUrl(INVOICE_BUCKET, storagePath) };
+  return {
+    id: data.id,
+    emailMessageId: input.emailMessageId,
+    filename: input.fileName,
+    mimeType: input.mimeType,
+    size: bytes.byteLength,
+    storagePath,
+    storageProvider: "supabase",
+    storageBucket: INVOICE_BUCKET,
+    sha256: hash,
+    processingStatus: "STORED",
+    previewUrl: await signedUrl(INVOICE_BUCKET, storagePath),
+  };
 }
 
 export async function loadSourcePayloadForRetry(invoice: InvoiceData): Promise<OriginalSourcePayload | null> {
   const client = requireSupabase();
   await requireUserId();
+  const companyId = requireActiveCompanyId();
+
   if (invoice.sourceDocumentId) {
     const { data: row, error: rowError } = await client
       .from("source_documents")
-      .select("id,source_type,filename,mime_type,file_size,storage_path,sha256")
+      .select("id,source_type,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256")
       .eq("id", invoice.sourceDocumentId)
-      .eq("company_id", requireActiveCompanyId())
+      .eq("company_id", companyId)
       .maybeSingle();
     if (rowError) throw rowError;
     if (row) {
-      const { data: blob, error: downloadError } = await client.storage.from(INVOICE_BUCKET).download(row.storage_path);
-      if (downloadError) throw downloadError;
-      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let bytes: Uint8Array;
+      if (row.storage_provider === "s3" || row.storage_provider === "memory") {
+        try {
+          const res = await companyApiRequest(`/api/documents/${row.id}/content`, {
+            method: "GET",
+            companyId,
+          });
+          if (!res.ok) {
+            throw new Error(`Failed to retrieve document content: status ${res.status}`);
+          }
+          const contentJson = await res.json();
+          if (contentJson.textData) {
+            return {
+              textData: contentJson.textData,
+              fileName: row.filename,
+              sourceType: row.source_type as OriginalSourcePayload["sourceType"],
+              model: "gemini-3.7-flash",
+              emailContext: invoice.sourceMetadata,
+            };
+          }
+          bytes = decodeBase64(contentJson.fileData || "");
+        } catch (fetchErr) {
+          throw new Error(`External storage payload retrieval failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
+        }
+      } else {
+        const bucket = row.storage_bucket || INVOICE_BUCKET;
+        const { data: blob, error: downloadError } = await client.storage.from(bucket).download(row.storage_path);
+        if (downloadError) throw downloadError;
+        bytes = new Uint8Array(await blob.arrayBuffer());
+      }
+
       const actualHash = await sha256(bytes);
       if (row.sha256 && actualHash !== row.sha256) throw new Error("The preserved source document failed its integrity check.");
       if (row.mime_type === "text/plain") {

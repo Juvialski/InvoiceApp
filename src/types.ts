@@ -521,6 +521,8 @@ export interface StoredSourceDocument {
   mimeType: string;
   size: number;
   storagePath: string;
+  storageProvider?: string;
+  storageBucket?: string;
   sha256: string;
   processingStatus?: string;
   documentType?: string;

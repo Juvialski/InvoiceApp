@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import { randomUUID } from "crypto";
 import type { InvoiceData } from "./src/types.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
+import { createStorageRouter } from "./src/server/storage/storageRouter.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
 import { disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
 import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, isCompanyAiFallbackEligible, logCompanyAiFailure, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
@@ -796,6 +797,8 @@ app.use("/api/assistant", (req, res, next) => {
   return next();
 });
 app.use("/api/assistant", createAssistantRouter());
+app.use("/api/documents", createStorageRouter());
+app.use("/api/storage", createStorageRouter());
 
 app.post("/api/classify-email", async (req, res) => {
   try {
