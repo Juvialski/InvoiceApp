@@ -9,6 +9,11 @@ import {
   type RouteDefinition,
   type RouteId,
 } from "../utils/routes.ts";
+import {
+  DEPLOYMENT_HIDDEN_MODULES,
+  isDeploymentModuleVisible,
+  type DeploymentModuleKey,
+} from "../config/moduleVisibility.ts";
 
 export type PrimaryModuleId =
   | "dashboard"
@@ -22,10 +27,12 @@ export type PrimaryModuleId =
   | "engineering-documents";
 
 export interface NavigationFilter {
-  /** Omit for an unauthenticated/browser-only workspace with no filtering. */
+  /** Omit for an unauthenticated/browser-only workspace with no permission filtering. */
   readonly permissions?: Iterable<PermissionKey> | null;
   /** The App-level permission-filtered route list remains authoritative when supplied. */
   readonly visibleRouteIds?: readonly RouteId[];
+  /** Presentation-only deployment visibility; this never grants or revokes permission. */
+  readonly hiddenModules?: ReadonlySet<DeploymentModuleKey>;
 }
 
 export interface NavigationRoute extends RouteDefinition {
@@ -80,6 +87,14 @@ function asNavigationRoute(route: RouteDefinition): NavigationRoute {
   return { ...route, label: contextualLabel(route) };
 }
 
+function hiddenModulesFor(filter: NavigationFilter) {
+  return filter.hiddenModules || DEPLOYMENT_HIDDEN_MODULES;
+}
+
+function moduleIsVisible(moduleId: DeploymentModuleKey, filter: NavigationFilter = {}) {
+  return isDeploymentModuleVisible(moduleId, hiddenModulesFor(filter));
+}
+
 function routeIsVisible(route: RouteDefinition, filter: NavigationFilter = {}) {
   if (filter.visibleRouteIds && !filter.visibleRouteIds.includes(route.id)) return false;
   if (filter.permissions === undefined) return true;
@@ -87,6 +102,7 @@ function routeIsVisible(route: RouteDefinition, filter: NavigationFilter = {}) {
 }
 
 function routesForDefinition(definition: NavigationModuleDefinition, filter: NavigationFilter = {}) {
+  if (!moduleIsVisible(definition.id, filter)) return [];
   return definition.routeIds
     .map((routeId) => getRouteDefinition(routeId))
     .filter((route): route is RouteDefinition => Boolean(route) && routeIsVisible(route, filter))
@@ -113,8 +129,9 @@ export function getNavigationRoutes(moduleId: PrimaryModuleId, filter: Navigatio
 }
 
 /**
- * Select a module's preferred child after permission filtering. If its
- * configured default is unavailable, the first visible child is used.
+ * Select a module's preferred child after permission and deployment visibility
+ * filtering. If its configured default is unavailable, the first visible child
+ * is used. Route resolution itself is intentionally unchanged for deep links.
  */
 export function getDefaultChildRoute(moduleId: PrimaryModuleId, filter: NavigationFilter = {}) {
   const definition = getNavigationModule(moduleId);
@@ -142,7 +159,9 @@ export function getNavigationModel(filter: NavigationFilter = {}): NavigationMod
   const settings = getRouteDefinition("settings");
   return {
     modules,
-    settingsRoute: settings && routeIsVisible(settings, filter) ? asNavigationRoute(settings) : undefined,
+    settingsRoute: settings && moduleIsVisible("settings", filter) && routeIsVisible(settings, filter)
+      ? asNavigationRoute(settings)
+      : undefined,
   };
 }
 
