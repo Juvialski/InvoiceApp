@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import type { ProcessEnv } from "node:process";
 import { promises as fs } from "node:fs";
 import { StorageError } from "../../lib/storage/types.ts";
 import type { RestoreRunner, RestoreRunnerOptions } from "./restoreDrillService.ts";
@@ -141,10 +140,7 @@ export class PostgresRestoreRunner implements RestoreRunner {
     );
 
     if (result.exitCode !== 0) {
-      const secretCandidates = [
-        targetDatabaseUrl,
-        env.PGPASSWORD,
-      ];
+      const secretCandidates = [targetDatabaseUrl, env.PGPASSWORD];
       const safeError = sanitizeLogOutput(result.stderr || result.stdout, secretCandidates);
       throw new StorageError(
         `PostgreSQL restore verification command failed with exit code ${result.exitCode}: ${safeError || "unknown psql error"}`,
@@ -185,13 +181,11 @@ export class PostgresRestoreRunner implements RestoreRunner {
         );
       }
 
-      // Apply the authenticated plaintext dump to the isolated non-production target.
       await this.runPsql(options.targetDatabaseUrl, [
         "--file",
         options.decryptedFilePath,
       ]);
 
-      // Enumerate restored application tables.
       const tableResult = await this.runPsql(options.targetDatabaseUrl, [
         "--tuples-only",
         "--no-align",
