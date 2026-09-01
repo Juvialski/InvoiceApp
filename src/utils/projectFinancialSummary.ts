@@ -40,6 +40,12 @@ const RECEIVABLE_REASON = "Current project invoice records are supplier/AP costs
  * Builds the P1A project financial truth view from existing authoritative
  * records. It deliberately withholds metrics whose source model is absent and
  * never converts foreign currency amounts.
+ *
+ * ProjectCostSummary currently aggregates unconverted foreign actual and
+ * pending costs into one currency bucket. Until that lower-level costing model
+ * preserves status provenance, this view must not assign those foreign amounts
+ * to either actual cost or pending exposure. Base-currency amounts remain useful
+ * but are explicitly partial whenever an unclassified foreign source exists.
  */
 export function buildProjectFinancialTruth(
   project: Pick<Project, "projectBudget" | "contractValue" | "currency">,
@@ -53,12 +59,8 @@ export function buildProjectFinancialTruth(
   >,
 ): ProjectFinancialTruth {
   const currency = normalizeCurrency(project.currency);
-  const foreignAmounts = Object.fromEntries(
-    Object.entries(summary.foreignCosts || {})
-      .map(([code, amount]) => [normalizeCurrency(code), roundMoney(amount)] as const)
-      .filter(([, amount]) => amount !== 0),
-  );
-  const hasForeignAmounts = Object.keys(foreignAmounts).length > 0;
+  const hasForeignAmounts = Object.entries(summary.foreignCosts || {})
+    .some(([, amount]) => roundMoney(amount) !== 0);
   const actualBase = roundMoney(summary.totalActualCost);
   const pendingBase = roundMoney(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
   const budget = roundMoney(project.projectBudget);
@@ -68,8 +70,7 @@ export function buildProjectFinancialTruth(
         status: "partial",
         amount: actualBase,
         currency,
-        foreignAmounts,
-        reason: `Actual-cost sources include amounts outside ${currency}. They remain separate because Engoryx has no authoritative FX conversion model.`,
+        reason: `Unconverted foreign-currency cost sources are present, but the current costing summary does not preserve whether they are confirmed or pending. Actual cost therefore shows only the authoritative ${currency} amount.`,
       }
     : available(actualBase, currency);
 
@@ -78,8 +79,7 @@ export function buildProjectFinancialTruth(
         status: "partial",
         amount: pendingBase,
         currency,
-        foreignAmounts,
-        reason: `Unconverted foreign-currency source amounts are present. Pending exposure is shown only for ${currency}.`,
+        reason: `Unconverted foreign-currency cost sources are present, but the current costing summary does not preserve whether they are confirmed or pending. Pending exposure therefore shows only the authoritative ${currency} amount.`,
       }
     : available(pendingBase, currency);
 
@@ -92,7 +92,7 @@ export function buildProjectFinancialTruth(
     actualCost,
     committedCost: unavailable(COMMITMENT_REASON),
     remainingBudget: hasForeignAmounts
-      ? unavailable("Remaining budget cannot be stated as a complete aggregate while foreign-currency cost sources are unconverted.")
+      ? unavailable("Remaining budget cannot be stated as a complete aggregate while foreign-currency cost sources are unconverted and their confirmed/pending status is not preserved.")
       : available(budget - actualBase, currency),
     billed: unavailable(RECEIVABLE_REASON),
     collected: unavailable(RECEIVABLE_REASON),
