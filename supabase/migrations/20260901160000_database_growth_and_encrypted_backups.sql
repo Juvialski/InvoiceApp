@@ -50,6 +50,13 @@ create index if not exists database_backup_runs_company_created_idx
 create index if not exists database_backup_runs_company_sha_idx
   on public.database_backup_runs(company_id, encrypted_sha256);
 
+-- Prevent overlapping scheduler/operator executions from creating two simultaneous
+-- active recovery points for the same single-company deployment. Terminal VERIFIED
+-- and FAILED runs are intentionally excluded so historical backups remain unlimited.
+create unique index if not exists database_backup_runs_one_active_per_company_idx
+  on public.database_backup_runs(company_id)
+  where status in ('PENDING', 'EXPORTING', 'ENCRYPTING', 'UPLOADING', 'VERIFYING');
+
 -- Enforce company boundary and update timestamp on database_backup_runs
 drop trigger if exists database_backup_runs_company_boundary on public.database_backup_runs;
 create trigger database_backup_runs_company_boundary
