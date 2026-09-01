@@ -353,7 +353,9 @@ export class MigrationService {
       .eq("company_id", companyId);
 
     if (typeof query.or === "function") {
-      query = query.or(`migration_state.in.(DISCOVERED,RETRY_PENDING),last_attempted_at.is.null,last_attempted_at.lt.${staleThreshold}`);
+      query = query.or(
+        `migration_state.in.(DISCOVERED,RETRY_PENDING),and(migration_state.in.(COPYING,VERIFYING),last_attempted_at.is.null),and(migration_state.in.(COPYING,VERIFYING),last_attempted_at.lt.${staleThreshold})`,
+      );
     } else if (typeof query.in === "function") {
       query = query.in("migration_state", ["DISCOVERED", "RETRY_PENDING", "COPYING", "VERIFYING"]);
     }
@@ -375,26 +377,28 @@ export class MigrationService {
     for (const row of rows || []) {
       const record = rowToMigrationRecord(row);
 
-      // Atomic claim: Transition to COPYING and only continue if exactly one row was returned
+      // Atomic claim: Transition to COPYING and only continue if exactly one row was returned.
+      // Only fresh DISCOVERED/RETRY_PENDING rows or stale in-progress leases are eligible;
+      // terminal migration states must never be reclaimed because of an old timestamp.
       let updateQuery: any = client
         .from("document_migration_records")
         .update({
           migration_state: "COPYING",
           last_attempted_at: now,
-          attempts: record.attempts + 1,
           updated_at: now,
         })
         .eq("id", record.id)
         .eq("company_id", companyId);
 
       if (typeof updateQuery.or === "function") {
-        updateQuery = updateQuery.or(`migration_state.in.(DISCOVERED,RETRY_PENDING),last_attempted_at.is.null,last_attempted_at.lt.${staleThreshold}`);
+        updateQuery = updateQuery.or(
+          `migration_state.in.(DISCOVERED,RETRY_PENDING),and(migration_state.in.(COPYING,VERIFYING),last_attempted_at.is.null),and(migration_state.in.(COPYING,VERIFYING),last_attempted_at.lt.${staleThreshold})`,
+        );
       } else if (typeof updateQuery.in === "function") {
         updateQuery = updateQuery.in("migration_state", ["DISCOVERED", "RETRY_PENDING", "COPYING", "VERIFYING"]);
       }
 
       const { data: claimedRows, error: claimError } = await updateQuery.select("*");
-
 
       if (claimError || !claimedRows || claimedRows.length === 0) {
         // Another worker claimed this row or active lease is still valid; skip processing
@@ -450,7 +454,7 @@ export class MigrationService {
             targetKey: targetKeyToUse,
             migrationState: "PRIMARY_SWITCH",
             verificationStatus: "MATCHED",
-            attempts: activeRecord.attempts,
+            attempts: activeRecord.attempts + 1,
             lastAttemptedAt: stepNow,
             verifiedAt: stepNow,
             switchedAt: stepNow,
