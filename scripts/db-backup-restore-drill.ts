@@ -1,10 +1,11 @@
-﻿/**
+/**
  * CLI Operator Script: Execute Non-Production Database Restore Drill.
  * Usage:
  *   npx tsx scripts/db-backup-restore-drill.ts --company-id <uuid> --backup-id <uuid> [--target-db-url <url>]
  */
 
 import { RestoreDrillService } from "../src/server/databaseBackup/restoreDrillService.ts";
+import { PostgresRestoreRunner } from "../src/server/databaseBackup/postgresRestoreRunner.ts";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -30,9 +31,16 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`[Engoryx Database Restore Drill] Initiating non-production restore drill for backup ${backupRunId}...`);
+  if (!targetDbUrl) {
+    console.error("Error: DATABASE_RESTORE_TARGET_URL or --target-db-url is required.");
+    process.exit(1);
+  }
 
-  const service = new RestoreDrillService();
+  console.log(`[Engoryx Database Restore Drill] Initiating real non-production PostgreSQL restore drill for backup ${backupRunId}...`);
+
+  const service = new RestoreDrillService({
+    restoreRunner: new PostgresRestoreRunner(),
+  });
   const result = await service.executeRestoreDrill({
     companyId,
     backupRunId,
@@ -45,7 +53,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`[Engoryx Database Restore Drill] Drill successfully completed and verified!`);
+  console.log("[Engoryx Database Restore Drill] Drill successfully completed and verified against the non-production PostgreSQL target.");
   console.log(JSON.stringify(result.drillRecord, null, 2));
 }
 
