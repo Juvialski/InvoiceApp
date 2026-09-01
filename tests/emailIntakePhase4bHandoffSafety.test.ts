@@ -70,10 +70,15 @@ test("post-extraction and post-parse resolvers remain authoritative downstream",
 test("automatic expense Vendor matching does not rewrite extracted payee text", () => {
   const expenseReview = source("src/components/ConnectedExpenseReview.tsx");
   const resolverStart = expenseReview.indexOf("resolveVendorCandidate(");
-  const changeHandlerStart = expenseReview.indexOf("onChange={(e) => {", resolverStart);
-  assert.ok(resolverStart >= 0 && changeHandlerStart > resolverStart);
-  const automaticResolutionBlock = expenseReview.slice(resolverStart, changeHandlerStart);
+  const effectEnd = expenseReview.indexOf("}, [propVendors]);", resolverStart);
+  assert.ok(resolverStart >= 0 && effectEnd > resolverStart);
+  const automaticResolutionBlock = expenseReview.slice(resolverStart, effectEnd);
 
-  assert.doesNotMatch(automaticResolutionBlock, /setPayee\(v\.name\)/);
-  assert.match(expenseReview.slice(changeHandlerStart), /setPayee\(v\.name\)/);
+  assert.doesNotMatch(automaticResolutionBlock, /setPayee\(/);
+
+  const manualVendorStart = expenseReview.indexOf('aria-label="Master Vendor Link"');
+  assert.ok(manualVendorStart > effectEnd);
+  const manualVendorBlock = expenseReview.slice(manualVendorStart);
+  assert.match(manualVendorBlock, /setPayee\(\s*\w+\.name\s*\)/);
 });
+
