@@ -1,4 +1,4 @@
-﻿-- Wave S4: Database Growth Optimization + Encrypted Database Backups
+-- Wave S4: Database Growth Optimization + Encrypted Database Backups
 -- Forward migration creating database backup manifests, restore drill tracking, and performance indexes.
 
 -- 1. Performance Indexes for High-Value Query Paths
@@ -10,13 +10,14 @@ create index if not exists work_entries_company_worker_date_idx
   on public.work_entries(company_id, worker_id, work_date desc);
 
 -- 2. Database Backup Runs (Durable Manifest for Encrypted Database Exports)
+-- Test-only in-memory providers must never be persisted as durable recovery points.
 create table if not exists public.database_backup_runs (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
   backup_type text not null default 'LOGICAL_FULL'
     check (backup_type in ('LOGICAL_FULL', 'SCHEMA_ONLY', 'DATA_ONLY')),
-  database_scope text not null default 'ALL_PUBLIC_TABLES',
-  storage_provider text not null check (storage_provider in ('s3', 'memory')),
+  database_scope text not null default 'PUBLIC_APPLICATION_DATA',
+  storage_provider text not null check (storage_provider = 's3'),
   storage_bucket text not null,
   storage_key text not null,
   encryption_algorithm text not null default 'AES-256-GCM'
