@@ -8,6 +8,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
 const AUDIT_SQL_PATH = path.join(ROOT, "scripts", "database-storage-audit.sql");
+const PAYROLL_IMPORT_MIGRATION_PATH = path.join(
+  ROOT,
+  "supabase",
+  "migrations",
+  "20260823160000_adaptive_payroll_import_domain.sql",
+);
 
 test("database-storage-audit.sql exists and is non-empty", () => {
   assert.ok(existsSync(AUDIT_SQL_PATH), "scripts/database-storage-audit.sql must exist");
@@ -93,6 +99,37 @@ test("database-storage-audit.sql contains required system catalog and statistics
   assert.match(content, /'json'/i, "Must inspect json columns");
   assert.match(content, /'jsonb'/i, "Must inspect jsonb columns");
   assert.match(content, /'bytea'/i, "Must check for in-database binary bytea columns");
+});
+
+test("database-storage-audit.sql detects legacy user indexes by indexed columns, not index names", () => {
+  const content = readFileSync(AUDIT_SQL_PATH, "utf8");
+  const payrollMigration = readFileSync(PAYROLL_IMPORT_MIGRATION_PATH, "utf8");
+  const legacyIndexName = "payroll_import_rows_batch_source_idx";
+
+  assert.equal(
+    legacyIndexName.includes("user_id"),
+    false,
+    "Regression fixture must prove the legacy index name itself does not expose user_id",
+  );
+  assert.match(
+    payrollMigration,
+    /create index if not exists payroll_import_rows_batch_source_idx\s+on public\.payroll_import_rows\(user_id, batch_id, source_sheet, source_row\)/i,
+    "Regression fixture must remain a real user_id-scoped index whose name omits user_id",
+  );
+  assert.match(content, /unnest\(idx\.indkey\)/i, "Audit must inspect index key columns");
+  assert.match(content, /pg_attribute/i, "Audit must resolve indexed column names from pg_attribute");
+  assert.match(content, /a\.attname = 'user_id'/i, "Audit must detect user_id from indexed columns");
+  assert.match(content, /a\.attname = 'company_id'/i, "Audit must detect company_id from indexed columns");
+  assert.doesNotMatch(
+    content,
+    /indexrelname\s*~\s*'user_id'/i,
+    "Audit must not infer user_id membership from the index name",
+  );
+  assert.doesNotMatch(
+    content,
+    /indexrelname\s*~\s*'company_id'/i,
+    "Audit must not infer company_id membership from the index name",
+  );
 });
 
 test("database-storage-audit.sql covers high-growth audit and event tables", () => {
