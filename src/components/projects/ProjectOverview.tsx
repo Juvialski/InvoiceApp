@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, ArrowLeft, ArrowUpRight, BarChart3, BriefcaseBusiness, CalendarDays, CheckCircle2, MapPin, Pencil, Receipt, ShieldCheck, WalletCards } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowUpRight, BarChart3, BriefcaseBusiness, CalendarDays, CheckCircle2, MapPin, Pencil, Receipt, ShieldCheck } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
@@ -9,6 +9,7 @@ import type { ProjectDashboardAttention, ProjectDashboardViewData } from "../../
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI";
+import { ProjectFinancialSummaryPanel } from "./ProjectFinancialSummaryPanel.tsx";
 
 interface ProjectView {
   id: string;
@@ -19,6 +20,7 @@ interface ProjectView {
   siteAddress?: string;
   projectManager?: string;
   status: string;
+  contractValue?: number;
   projectBudget: number;
   currency: string;
   description?: string;
@@ -142,11 +144,11 @@ function RestrictedProjectOverview({ project, onBack, onEdit, onArchive, hideHea
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><ShieldCheck className="h-5 w-5" /></div>
           <div className="min-w-0">
             <h3 className="text-sm font-black text-slate-950">Combined project financial position withheld</h3>
-            <p className="mt-1 text-xs leading-5 text-slate-600">Required project-cost sources are unavailable or incomplete: {missingSources.join(", ")}. Confirmed cost, pending cost, available after commitments, utilization, health, composition, cost trend, and cumulative burn are not shown because they would be incomplete.</p>
+            <p className="mt-1 text-xs leading-5 text-slate-600">Required project-cost sources are unavailable or incomplete: {missingSources.join(", ")}. Actual cost, pending exposure, budget balance, utilization, health, composition, cost trend, and cumulative burn are not shown because they would be incomplete.</p>
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-semibold text-slate-500">Project budget</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(project.projectBudget, project.currency)}</p></div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-semibold text-slate-500">Approved cost budget</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(project.projectBudget, project.currency)}</p></div>
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-semibold text-slate-500">Client</p><p className="mt-1 text-sm font-black text-slate-900">{project.clientName || "Not set"}</p></div>
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-semibold text-slate-500">Location</p><p className="mt-1 text-sm font-black text-slate-900">{project.location || project.siteAddress || "Not set"}</p></div>
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4"><p className="text-[10px] font-semibold text-slate-500">Project manager</p><p className="mt-1 text-sm font-black text-slate-900">{project.projectManager || "Not set"}</p></div>
@@ -182,19 +184,6 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
     { name: "Project payroll", value: dashboard.composition.payroll, color: "#8b5cf6" },
     { name: "Direct expenses", value: dashboard.composition.expenses, color: "#f59e0b" },
   ].filter((item) => item.value > 0);
-
-  const cards: Array<[string, string, string]> = [
-    ["Budget", money(dashboard.budget, project.currency), "text-indigo-700 bg-indigo-50"],
-    ["Confirmed cost", money(dashboard.confirmed, project.currency), "text-emerald-700 bg-emerald-50"],
-    ["Pending cost", money(dashboard.pending, project.currency), "text-amber-700 bg-amber-50"],
-    [
-      "Available after commitments",
-      money(dashboard.availableAfterCommitments, project.currency),
-      dashboard.availableAfterCommitments < 0 ? "text-rose-700 bg-rose-50" : "text-violet-700 bg-violet-50",
-    ],
-    ["Budget utilization", percent(dashboard.confirmedUtilization), "text-sky-700 bg-sky-50"],
-    ["Outstanding payables", money(dashboard.outstandingPayables, project.currency), "text-orange-700 bg-orange-50"],
-  ];
 
   const openAttention = (item: ProjectDashboardAttention) => onOpenTab?.(item.tab);
 
@@ -254,23 +243,21 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             </div>
             <p className="max-w-2xl text-xs leading-5 text-slate-400">{project.description || project.notes || "No project description or notes have been recorded."}</p>
           </div>
-          <div className="lg:text-right"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Health</p><p className={`text-lg font-black ${healthTone(dashboard.health)}`}>{dashboard.health}</p><p className="mt-0.5 text-xs text-slate-400">{percent(dashboard.confirmedUtilization)} confirmed · {percent(dashboard.commitmentUtilization)} committed</p></div>
+          <div className="lg:text-right"><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Cost health</p><p className={`text-lg font-black ${healthTone(dashboard.health)}`}>{dashboard.health}</p><p className="mt-0.5 text-xs text-slate-400">{percent(dashboard.confirmedUtilization)} actual · {percent(dashboard.commitmentUtilization)} including pending exposure</p></div>
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {cards.map(([label, value, tone]) => <Card key={label} className="min-w-0 p-4 shadow-sm" elevation="low"><div className={`flex h-8 w-8 items-center justify-center rounded-xl ${tone}`}><WalletCards className="h-4 w-4" /></div><p className="mt-3 break-words text-sm font-black tabular-nums">{value}</p><p className="mt-1 text-[10px] font-semibold text-slate-500">{label}</p></Card>)}
-      </section>
+      <ProjectFinancialSummaryPanel project={project} summary={summary} />
 
       <Card className="p-4 shadow-sm sm:p-5" elevation="low">
-        <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-black">Project budget position</h3><p className="mt-1 text-[10px] text-slate-500">Confirmed, pending, remaining, and excess reconcile to the company project row.</p></div><BarChart3 className="h-4 w-4 text-indigo-500" aria-hidden="true" /></div>
-        {dashboard.budget <= 0 && dashboard.confirmed === 0 && dashboard.pending === 0 ? <ChartEmpty message="No project budget or cost activity yet." /> : <div className="mt-4 h-[150px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={budgetPosition} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 0 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" /><XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(value) => money(Number(value), project.currency)} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="label" hide /><Tooltip formatter={(value: number | string) => money(Number(value), project.currency)} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="confirmed" stackId="position" fill="#4f46e5" name="Confirmed" /><Bar dataKey="pending" stackId="position" fill="#f59e0b" name="Pending" /><Bar dataKey="remaining" stackId="position" fill="#cbd5e1" name="Remaining" /><Bar dataKey="excess" stackId="position" fill="#e11d48" name="Over commitment" /></BarChart></ResponsiveContainer></div>}
+        <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-black">Project budget position</h3><p className="mt-1 text-[10px] text-slate-500">Actual cost, pending/unconfirmed exposure, remaining base-currency budget, and excess reconcile to the project cost row.</p></div><BarChart3 className="h-4 w-4 text-indigo-500" aria-hidden="true" /></div>
+        {dashboard.budget <= 0 && dashboard.confirmed === 0 && dashboard.pending === 0 ? <ChartEmpty message="No project budget or cost activity yet." /> : <div className="mt-4 h-[150px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={budgetPosition} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 0 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" /><XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(value) => money(Number(value), project.currency)} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="label" hide /><Tooltip formatter={(value: number | string) => money(Number(value), project.currency)} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="confirmed" stackId="position" fill="#4f46e5" name="Actual" /><Bar dataKey="pending" stackId="position" fill="#f59e0b" name="Pending exposure" /><Bar dataKey="remaining" stackId="position" fill="#cbd5e1" name="Remaining" /><Bar dataKey="excess" stackId="position" fill="#e11d48" name="Over budget" /></BarChart></ResponsiveContainer></div>}
       </Card>
 
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="p-4 shadow-sm sm:p-5" elevation="low">
-          <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-black">Confirmed cost composition</h3><p className="mt-1 text-[10px] text-slate-500">Supplier invoices, project payroll, and direct expenses only.</p></div><Receipt className="h-4 w-4 text-violet-500" aria-hidden="true" /></div>
-          {!compositionTotal ? <ChartEmpty message="No confirmed project costs yet." /> : <><div className="h-[190px] w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={composition} dataKey="value" nameKey="name" innerRadius={52} outerRadius={72} paddingAngle={2}>{composition.map((item) => <Cell key={item.name} fill={item.color} />)}</Pie><Tooltip formatter={(value: number | string) => money(Number(value), project.currency)} /></PieChart></ResponsiveContainer></div><div className="space-y-2">{composition.map((item) => <div key={item.name} className="flex items-center justify-between gap-3 text-xs"><span className="flex items-center gap-2 text-slate-600"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.name}</span><strong className="tabular-nums">{money(item.value, project.currency)}{" "}<span className="font-semibold text-slate-400">{percent((item.value / compositionTotal) * 100)}</span></strong></div>)}</div></>}
+          <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-black">Actual cost composition</h3><p className="mt-1 text-[10px] text-slate-500">Verified supplier invoices, approved/finalized project payroll, and approved direct expenses only.</p></div><Receipt className="h-4 w-4 text-violet-500" aria-hidden="true" /></div>
+          {!compositionTotal ? <ChartEmpty message="No actual project costs yet." /> : <><div className="h-[190px] w-full"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={composition} dataKey="value" nameKey="name" innerRadius={52} outerRadius={72} paddingAngle={2}>{composition.map((item) => <Cell key={item.name} fill={item.color} />)}</Pie><Tooltip formatter={(value: number | string) => money(Number(value), project.currency)} /></PieChart></ResponsiveContainer></div><div className="space-y-2">{composition.map((item) => <div key={item.name} className="flex items-center justify-between gap-3 text-xs"><span className="flex items-center gap-2 text-slate-600"><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />{item.name}</span><strong className="tabular-nums">{money(item.value, project.currency)}{" "}<span className="font-semibold text-slate-400">{percent((item.value / compositionTotal) * 100)}</span></strong></div>)}</div></>}
         </Card>
 
         <Card className="p-4 shadow-sm sm:p-5" elevation="low">
@@ -282,12 +269,12 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
       <section className="grid gap-4 lg:grid-cols-2">
         <Card className="p-4 shadow-sm sm:p-5" elevation="low">
           <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-black">Monthly project cost trend</h3><p className="mt-1 text-[10px] text-slate-500">Source dates: invoice date, payroll period end, and expense date.</p></div><BarChart3 className="h-4 w-4 text-indigo-500" aria-hidden="true" /></div>
-          {!dashboard.trend.some((point) => point.total > 0) ? <ChartEmpty message="No confirmed project costs yet." /> : <div className="mt-4 h-[240px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={dashboard.trend} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => money(Number(value), project.currency)} axisLine={false} tickLine={false} /><Tooltip formatter={(value: number | string) => money(Number(value), project.currency)} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="invoices" stackId="cost" fill="#4f46e5" name="Supplier invoices" /><Bar dataKey="payroll" stackId="cost" fill="#8b5cf6" name="Project payroll" /><Bar dataKey="expenses" stackId="cost" fill="#f59e0b" name="Direct expenses" /><Line type="monotone" dataKey="total" stroke="#0f172a" strokeWidth={2} dot={false} name="Total" /></ComposedChart></ResponsiveContainer></div>}
+          {!dashboard.trend.some((point) => point.total > 0) ? <ChartEmpty message="No actual project costs yet." /> : <div className="mt-4 h-[240px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={dashboard.trend} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => money(Number(value), project.currency)} axisLine={false} tickLine={false} /><Tooltip formatter={(value: number | string) => money(Number(value), project.currency)} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="invoices" stackId="cost" fill="#4f46e5" name="Supplier invoices" /><Bar dataKey="payroll" stackId="cost" fill="#8b5cf6" name="Project payroll" /><Bar dataKey="expenses" stackId="cost" fill="#f59e0b" name="Direct expenses" /><Line type="monotone" dataKey="total" stroke="#0f172a" strokeWidth={2} dot={false} name="Total" /></ComposedChart></ResponsiveContainer></div>}
         </Card>
 
         <Card className="p-4 shadow-sm sm:p-5" elevation="low">
-          <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-black">Cumulative budget burn</h3><p className="mt-1 text-[10px] text-slate-500">Historical cumulative confirmed project cost. This is not a forecast.</p></div><BarChart3 className="h-4 w-4 text-violet-500" aria-hidden="true" /></div>
-          {!dashboard.trend.some((point) => point.cumulative > 0) ? <ChartEmpty message="No cumulative project cost yet." /> : <div className="mt-4 h-[240px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={dashboard.trend} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => money(Number(value), project.currency)} axisLine={false} tickLine={false} /><Tooltip formatter={(value: number | string) => money(Number(value), project.currency)} /><ReferenceLine y={dashboard.budget} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: "Budget", position: "top", fontSize: 9 }} /><Line type="monotone" dataKey="cumulative" stroke="#4f46e5" strokeWidth={2.5} dot={false} name="Cumulative confirmed cost" /><Line type="monotone" dataKey="cumulativeCommitted" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="Cumulative confirmed + pending" /></ComposedChart></ResponsiveContainer></div>}
+          <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-black">Cumulative budget burn</h3><p className="mt-1 text-[10px] text-slate-500">Historical cumulative actual project cost. This is not a forecast.</p></div><BarChart3 className="h-4 w-4 text-violet-500" aria-hidden="true" /></div>
+          {!dashboard.trend.some((point) => point.cumulative > 0) ? <ChartEmpty message="No cumulative project cost yet." /> : <div className="mt-4 h-[240px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={dashboard.trend} margin={{ top: 4, right: 12, bottom: 4, left: 0 }}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" /><XAxis dataKey="label" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => money(Number(value), project.currency)} axisLine={false} tickLine={false} /><Tooltip formatter={(value: number | string) => money(Number(value), project.currency)} /><ReferenceLine y={dashboard.budget} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: "Budget", position: "top", fontSize: 9 }} /><Line type="monotone" dataKey="cumulative" stroke="#4f46e5" strokeWidth={2.5} dot={false} name="Cumulative actual cost" /><Line type="monotone" dataKey="cumulativeCommitted" stroke="#f59e0b" strokeWidth={1.5} dot={false} name="Cumulative actual + pending exposure" /></ComposedChart></ResponsiveContainer></div>}
         </Card>
       </section>
 
