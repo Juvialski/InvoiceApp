@@ -199,20 +199,23 @@ export class BackupService {
     const now = new Date().toISOString();
     const staleThreshold = new Date(Date.now() - STALE_BACKUP_LEASE_TIMEOUT_MS).toISOString();
 
-    // Atomic claim: Transition to COPYING and only continue if exactly one row was returned
+    // Atomic claim: Transition to COPYING and only continue if exactly one row was returned.
+    // Only fresh PENDING/RETRY_PENDING rows or stale in-progress leases are eligible;
+    // terminal VERIFIED/FAILED rows must never be reclaimed because of an old timestamp.
     let updateQuery: any = client
       .from("document_backup_replicas")
       .update({
         replication_state: "COPYING",
         last_attempted_at: now,
-        attempts: manifest.attempts + 1,
         updated_at: now,
       })
       .eq("id", manifest.id)
       .eq("company_id", manifest.companyId);
 
     if (typeof updateQuery.or === "function") {
-      updateQuery = updateQuery.or(`replication_state.in.(PENDING,RETRY_PENDING),last_attempted_at.is.null,last_attempted_at.lt.${staleThreshold}`);
+      updateQuery = updateQuery.or(
+        `replication_state.in.(PENDING,RETRY_PENDING),and(replication_state.in.(COPYING,VERIFYING),last_attempted_at.is.null),and(replication_state.in.(COPYING,VERIFYING),last_attempted_at.lt.${staleThreshold})`,
+      );
     } else if (typeof updateQuery.in === "function") {
       updateQuery = updateQuery.in("replication_state", ["PENDING", "RETRY_PENDING", "COPYING", "VERIFYING"]);
     }
@@ -290,7 +293,9 @@ export class BackupService {
       .eq("company_id", companyId);
 
     if (typeof query.or === "function") {
-      query = query.or(`replication_state.in.(PENDING,RETRY_PENDING),last_attempted_at.is.null,last_attempted_at.lt.${staleThreshold}`);
+      query = query.or(
+        `replication_state.in.(PENDING,RETRY_PENDING),and(replication_state.in.(COPYING,VERIFYING),last_attempted_at.is.null),and(replication_state.in.(COPYING,VERIFYING),last_attempted_at.lt.${staleThreshold})`,
+      );
     } else if (typeof query.in === "function") {
       query = query.in("replication_state", ["PENDING", "RETRY_PENDING", "COPYING", "VERIFYING"]);
     }
