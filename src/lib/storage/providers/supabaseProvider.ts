@@ -19,6 +19,8 @@ import {
 import { calculateSha256Hex, normalizeSha256 } from "../dedup.ts";
 import { isCompanyScopedPath } from "../keys.ts";
 
+const DEFAULT_INVOICE_BUCKET = "invoice-originals";
+
 export class SupabaseStorageProvider implements DocumentStorageProvider {
   readonly id = "supabase" as const;
   private readonly getClient: () => SupabaseClient;
@@ -45,9 +47,10 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
       }
     }
 
+    const bucket = input.bucket || DEFAULT_INVOICE_BUCKET;
     const client = this.getClient();
     const { error: uploadError } = await client.storage
-      .from(input.bucket)
+      .from(bucket)
       .upload(input.key, input.bytes, {
         contentType: input.contentType,
         upsert: input.upsert ?? false,
@@ -59,7 +62,7 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
 
     const metadata: ObjectMetadata = {
       companyId: input.companyId,
-      bucket: input.bucket,
+      bucket,
       key: input.key,
       sizeBytes: input.bytes.byteLength,
       contentType: input.contentType,
@@ -71,7 +74,7 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
     return {
       ref: {
         providerId: this.id,
-        bucket: input.bucket,
+        bucket,
         key: input.key,
         companyId: input.companyId,
         sha256: calculatedHash,
@@ -85,7 +88,7 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
   async getObject(query: ObjectLookupQuery): Promise<GetObjectResult> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
-    const bucket = query.bucket || "invoice-originals";
+    const bucket = query.bucket || DEFAULT_INVOICE_BUCKET;
     const client = this.getClient();
     const { data: blob, error: downloadError } = await client.storage
       .from(bucket)
@@ -117,7 +120,7 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
   async getSignedUrl(query: ObjectLookupQuery, options?: ReadUrlOptions): Promise<string> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
-    const bucket = query.bucket || "invoice-originals";
+    const bucket = query.bucket || DEFAULT_INVOICE_BUCKET;
     const client = this.getClient();
     const expiresIn = options?.expiresInSeconds || 3600;
 
@@ -137,7 +140,7 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
   async deleteObject(query: ObjectLookupQuery): Promise<void> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
-    const bucket = query.bucket || "invoice-originals";
+    const bucket = query.bucket || DEFAULT_INVOICE_BUCKET;
     const client = this.getClient();
     const { error } = await client.storage.from(bucket).remove([query.key]);
     if (error) {
@@ -148,7 +151,7 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
   async headObject(query: ObjectLookupQuery): Promise<ObjectMetadata | null> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
-    const bucket = query.bucket || "invoice-originals";
+    const bucket = query.bucket || DEFAULT_INVOICE_BUCKET;
     const client = this.getClient();
     // Supabase storage list API to check object existence and metadata
     const pathParts = query.key.split("/");
@@ -166,7 +169,7 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
 
     return {
       companyId: query.companyId,
-      bucket: query.bucket,
+      bucket,
       key: query.key,
       sizeBytes: match.metadata?.size || 0,
       contentType: match.metadata?.mimetype || "application/octet-stream",
