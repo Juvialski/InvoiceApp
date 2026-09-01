@@ -149,10 +149,22 @@ function createMockSupabase(initialRuns: Array<Record<string, any>> = []): {
 }
 
 const COMPANY_ID = "33333333-3333-4333-8333-333333333333";
-const TEST_DESCRIPTOR_KEY = generateEncryptionKey().keyHex;
+const previousNodeEnv = process.env.NODE_ENV;
+const previousBackupKey = process.env.DATABASE_BACKUP_ENCRYPTION_KEY;
+const previousBackupProvider = process.env.DATABASE_BACKUP_STORAGE_PROVIDER;
+
 process.env.NODE_ENV = "test";
-process.env.DATABASE_BACKUP_ENCRYPTION_KEY = TEST_DESCRIPTOR_KEY;
+process.env.DATABASE_BACKUP_ENCRYPTION_KEY = generateEncryptionKey().keyHex;
 process.env.DATABASE_BACKUP_STORAGE_PROVIDER = "memory";
+
+test.after(() => {
+  if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+  else process.env.NODE_ENV = previousNodeEnv;
+  if (previousBackupKey === undefined) delete process.env.DATABASE_BACKUP_ENCRYPTION_KEY;
+  else process.env.DATABASE_BACKUP_ENCRYPTION_KEY = previousBackupKey;
+  if (previousBackupProvider === undefined) delete process.env.DATABASE_BACKUP_STORAGE_PROVIDER;
+  else process.env.DATABASE_BACKUP_STORAGE_PROVIDER = previousBackupProvider;
+});
 
 function createTestConfig(): DatabaseBackupConfig {
   const { key } = generateEncryptionKey();
