@@ -100,8 +100,9 @@ export function evaluateDedupStrategy(context: DedupContext): DedupDecision {
     case "ENGINEERING_REVISION":
       // Every revision upload must produce a distinct revision record even if the file fingerprint matches
       // an older revision or draft, because annotations and revision history attach to the specific revision ID.
+      // Engineering revisions never reuse existing records.
       return {
-        action: context.existingRecordId ? "REUSE_EXISTING_RECORD" : "CREATE_PROVENANCE_RECORD",
+        action: "CREATE_PROVENANCE_RECORD",
         sha256: normalizedHash,
         reason: "Engineering document revisions maintain immutable per-revision provenance.",
         allowBinarySharing: false,

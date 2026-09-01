@@ -45,9 +45,9 @@ with table_sizes as (
         c.relname as table_name,
         coalesce(s.n_live_tup, c.reltuples::bigint) as estimated_live_rows,
         coalesce(s.n_dead_tup, 0) as estimated_dead_rows,
-        pg_table_size(c.oid) as heap_size_bytes,
+        pg_relation_size(c.oid) as heap_size_bytes,
         pg_indexes_size(c.oid) as index_size_bytes,
-        pg_total_relation_size(c.oid) - pg_table_size(c.oid) - pg_indexes_size(c.oid) as toast_size_bytes,
+        coalesce(pg_total_relation_size(c.reltoastrelid), 0) as toast_size_bytes,
         pg_total_relation_size(c.oid) as total_size_bytes
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
@@ -356,22 +356,22 @@ select * from unlinked_source_documents;
 select
     'source_documents' as entity_type,
     count(*) as document_count,
-    pg_size_pretty(coalesce(sum(file_size), 0)) as total_file_size,
-    coalesce(sum(file_size), 0) as total_file_size_bytes
+    pg_size_pretty(coalesce(sum(file_size), 0)::bigint) as total_file_size,
+    coalesce(sum(file_size), 0)::bigint as total_file_size_bytes
 from public.source_documents
 union all
 select
     'engineering_document_revisions' as entity_type,
     count(*) as document_count,
-    pg_size_pretty(coalesce(sum(file_size), 0)) as total_file_size,
-    coalesce(sum(file_size), 0) as total_file_size_bytes
+    pg_size_pretty(coalesce(sum(file_size_bytes), 0)::bigint) as total_file_size,
+    coalesce(sum(file_size_bytes), 0)::bigint as total_file_size_bytes
 from public.engineering_document_revisions
 union all
 select
     'payroll_import_batches' as entity_type,
     count(*) as document_count,
-    'N/A (tracked in storage)' as total_file_size,
-    0 as total_file_size_bytes
+    pg_size_pretty(coalesce(sum(file_size), 0)::bigint) as total_file_size,
+    coalesce(sum(file_size), 0)::bigint as total_file_size_bytes
 from public.payroll_import_batches
 where storage_path is not null;
 

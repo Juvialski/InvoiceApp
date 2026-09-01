@@ -160,7 +160,19 @@ test("evaluateDedupStrategy preserves domain provenance invariants", () => {
     entityType: "ENGINEERING_REVISION",
   });
   assert.equal(engStrategy.requiresDistinctProvenance, true);
+  assert.equal(engStrategy.allowBinarySharing, false);
   assert.equal(engStrategy.action, "CREATE_PROVENANCE_RECORD");
+
+  // Engineering Revisions regression: even with existingRecordId supplied, NEVER return REUSE_EXISTING_RECORD
+  const engStrategyWithExisting = evaluateDedupStrategy({
+    companyId,
+    sha256,
+    entityType: "ENGINEERING_REVISION",
+    existingRecordId: "existing-revision-record-id",
+  });
+  assert.equal(engStrategyWithExisting.requiresDistinctProvenance, true);
+  assert.equal(engStrategyWithExisting.allowBinarySharing, false);
+  assert.equal(engStrategyWithExisting.action, "CREATE_PROVENANCE_RECORD");
 
   // Payroll Import Batches MUST preserve separate batch records
   const payrollStrategy = evaluateDedupStrategy({

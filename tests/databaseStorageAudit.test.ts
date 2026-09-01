@@ -76,9 +76,10 @@ test("database-storage-audit.sql contains required system catalog and statistics
   assert.match(content, /pg_database_size/i, "Must measure total database size");
   assert.match(content, /pg_stat_user_tables/i, "Must query user table statistics");
   assert.match(content, /pg_class/i, "Must query pg_class for relation metadata");
-  assert.match(content, /pg_table_size/i, "Must query heap size");
-  assert.match(content, /pg_indexes_size/i, "Must query table index size");
-  assert.match(content, /pg_total_relation_size/i, "Must query total relation size including TOAST");
+  assert.match(content, /pg_relation_size\(c\.oid\)/i, "Must query table heap size via pg_relation_size");
+  assert.match(content, /reltoastrelid/i, "Must query TOAST relation via reltoastrelid");
+  assert.match(content, /pg_indexes_size\(c\.oid\)/i, "Must query table index size via pg_indexes_size");
+  assert.match(content, /pg_total_relation_size\(c\.oid\)/i, "Must query total relation size via pg_total_relation_size");
   assert.match(content, /pg_size_pretty/i, "Must format sizes with pg_size_pretty");
 
   // Section 3: Index statistics
@@ -145,10 +146,36 @@ test("database-storage-audit.sql covers staging, temporary, and prunable candida
   assert.match(content, /VOID/i, "Must assess voided records");
 });
 
-test("database-storage-audit.sql verifies off-database binary storage references", () => {
+test("database-storage-audit.sql verifies off-database binary storage references with exact schema columns", () => {
   const content = readFileSync(AUDIT_SQL_PATH, "utf8");
 
+  // Section 7 must query source_documents, engineering_document_revisions, and payroll_import_batches
   assert.match(content, /public\.source_documents/i, "Must check source document storage pointers");
   assert.match(content, /public\.engineering_document_revisions/i, "Must check engineering revision storage pointers");
-  assert.match(content, /file_size/i, "Must aggregate tracked file sizes");
+  assert.match(content, /public\.payroll_import_batches/i, "Must check payroll import batch storage pointers");
+
+  // Verify exact schema column names:
+  // - source_documents uses file_size
+  // - engineering_document_revisions uses file_size_bytes (NOT file_size)
+  // - payroll_import_batches uses file_size (tracked in DB, not hardcoded 0 or N/A)
+  assert.match(
+    content,
+    /from\s+public\.engineering_document_revisions[\s\S]*?sum\(file_size_bytes\)|sum\(file_size_bytes\)[\s\S]*?from\s+public\.engineering_document_revisions/i,
+    "engineering_document_revisions must aggregate file_size_bytes column"
+  );
+  assert.doesNotMatch(
+    content,
+    /sum\(file_size\)\s+as\s+total_file_size_bytes\s+from\s+public\.engineering_document_revisions/i,
+    "engineering_document_revisions must not reference nonexistent file_size column"
+  );
+  assert.match(
+    content,
+    /from\s+public\.source_documents[\s\S]*?sum\(file_size\)|sum\(file_size\)[\s\S]*?from\s+public\.source_documents/i,
+    "source_documents must aggregate file_size column"
+  );
+  assert.match(
+    content,
+    /from\s+public\.payroll_import_batches[\s\S]*?sum\(file_size\)|sum\(file_size\)[\s\S]*?from\s+public\.payroll_import_batches/i,
+    "payroll_import_batches must aggregate actual tracked file_size column"
+  );
 });
