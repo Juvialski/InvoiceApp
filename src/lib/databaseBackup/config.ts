@@ -8,11 +8,9 @@ import {
 
 export interface DatabaseBackupEnvironment {
   NODE_ENV?: string;
-  // Encryption configuration
   DATABASE_BACKUP_ENCRYPTION_KEY?: string;
   DATABASE_BACKUP_KEY_ID?: string;
 
-  // Storage provider configuration
   DATABASE_BACKUP_STORAGE_PROVIDER?: string;
   STORAGE_BACKUP_PROVIDER?: string;
   DATABASE_BACKUP_S3_ENDPOINT?: string;
@@ -38,7 +36,6 @@ export interface DatabaseBackupEnvironment {
   DATABASE_BACKUP_S3_FORCE_PATH_STYLE?: string;
   STORAGE_BACKUP_FORCE_PATH_STYLE?: string;
 
-  // Restore drill and database connectivity
   DATABASE_RESTORE_DRILLS_ENABLED?: string;
   DATABASE_RESTORE_TARGET_URL?: string;
   DATABASE_URL?: string;
@@ -54,15 +51,11 @@ function getEnvValue(env: DatabaseBackupEnvironment, ...keys: (keyof DatabaseBac
   return "";
 }
 
-/**
- * Load and validate database backup configuration from environment variables.
- */
 export function loadDatabaseBackupConfig(
   env: DatabaseBackupEnvironment = process.env,
 ): DatabaseBackupConfig {
   const nodeEnv = (env.NODE_ENV || process.env.NODE_ENV || "").toLowerCase();
 
-  // 1. Encryption Key & Key ID
   const rawKey = getEnvValue(env, "DATABASE_BACKUP_ENCRYPTION_KEY");
   if (!rawKey) {
     throw new DatabaseBackupConfigurationError(
@@ -81,30 +74,34 @@ export function loadDatabaseBackupConfig(
 
   const keyId = getEnvValue(env, "DATABASE_BACKUP_KEY_ID") || "engoryx-db-primary-v1";
 
-  // 2. Storage Provider
   const providerRaw = getEnvValue(
     env,
     "DATABASE_BACKUP_STORAGE_PROVIDER",
     "STORAGE_BACKUP_PROVIDER",
   ).toLowerCase();
 
+  if (!providerRaw) {
+    throw new DatabaseBackupConfigurationError(
+      "Database backup storage is not configured. Set DATABASE_BACKUP_STORAGE_PROVIDER=s3 (or reuse STORAGE_BACKUP_PROVIDER) and provide the independent S3/B2 endpoint, bucket, and credentials.",
+    );
+  }
+
   let storageProvider: "s3" | "memory";
-  if (!providerRaw || providerRaw === "s3" || providerRaw === "b2" || providerRaw === "backblaze") {
+  if (providerRaw === "s3" || providerRaw === "b2" || providerRaw === "backblaze") {
     storageProvider = "s3";
   } else if (providerRaw === "memory") {
-    if (nodeEnv === "production") {
+    if (nodeEnv !== "test") {
       throw new DatabaseBackupConfigurationError(
-        "Memory storage provider cannot be used for database backups in production.",
+        "Memory storage provider is test-only and cannot be used for durable database backups outside NODE_ENV=test.",
       );
     }
     storageProvider = "memory";
   } else {
     throw new DatabaseBackupConfigurationError(
-      `Unsupported database backup storage provider: "${providerRaw}". Supported providers are "s3" and "memory" (test only).`,
+      `Unsupported database backup storage provider: "${providerRaw}". Supported durable provider is "s3"; "memory" is test-only.`,
     );
   }
 
-  // 3. S3 / B2 Provider Credentials
   let s3Config: S3ProviderConfig | undefined;
   if (storageProvider === "s3") {
     const endpoint = getEnvValue(
@@ -114,14 +111,13 @@ export function loadDatabaseBackupConfig(
       "BACKBLAZE_B2_ENDPOINT",
       "B2_ENDPOINT",
     );
-    const bucket =
-      getEnvValue(
-        env,
-        "DATABASE_BACKUP_S3_BUCKET",
-        "STORAGE_BACKUP_BUCKET",
-        "BACKBLAZE_B2_BUCKET",
-        "B2_BUCKET",
-      ) || "database-backups";
+    const bucket = getEnvValue(
+      env,
+      "DATABASE_BACKUP_S3_BUCKET",
+      "STORAGE_BACKUP_BUCKET",
+      "BACKBLAZE_B2_BUCKET",
+      "B2_BUCKET",
+    );
     const region =
       getEnvValue(
         env,
@@ -151,29 +147,24 @@ export function loadDatabaseBackupConfig(
     );
     const forcePathStyle = forcePathStyleRaw ? forcePathStyleRaw === "true" : true;
 
-    // In production, S3 credentials are strictly required
-    if (nodeEnv === "production" && (!endpoint || !accessKeyId || !secretAccessKey)) {
+    if (!endpoint || !bucket || !accessKeyId || !secretAccessKey) {
       throw new DatabaseBackupConfigurationError(
-        "Incomplete S3/B2 storage credentials for database backups: endpoint, accessKeyId, and secretAccessKey are required in production.",
+        "Incomplete S3/B2 database-backup configuration: endpoint, bucket, access key ID, and secret access key are all required when a durable backup provider is selected.",
       );
     }
 
-    if (endpoint && accessKeyId && secretAccessKey) {
-      s3Config = {
-        endpoint,
-        bucket,
-        region,
-        accessKeyId,
-        secretAccessKey,
-        forcePathStyle,
-      };
-    }
+    s3Config = {
+      endpoint,
+      bucket,
+      region,
+      accessKeyId,
+      secretAccessKey,
+      forcePathStyle,
+    };
   }
 
-  // 4. Restore Drills and Database Connection
   const restoreDrillsEnabled =
-    getEnvValue(env, "DATABASE_RESTORE_DRILLS_ENABLED").toLowerCase() === "true" ||
-    getEnvValue(env, "DATABASE_RESTORE_DRILLS_ENABLED") === "1";
+    getEnvValue(env, "DATABASE_RESTORE_DRILLS_ENABLED").toLowerCase() === "true";
   const restoreTargetUrl = getEnvValue(env, "DATABASE_RESTORE_TARGET_URL") || undefined;
   const databaseUrl =
     getEnvValue(env, "DATABASE_URL", "SUPABASE_DB_URL", "POSTGRES_URL") || undefined;
@@ -192,9 +183,6 @@ export function loadDatabaseBackupConfig(
   };
 }
 
-/**
- * Inspect database backup subsystem health without leaking secrets.
- */
 export function getDatabaseBackupHealth(
   env: DatabaseBackupEnvironment = process.env,
 ): DatabaseBackupHealthStatus {
@@ -218,8 +206,10 @@ export function getDatabaseBackupHealth(
     "STORAGE_BACKUP_PROVIDER",
   ).toLowerCase();
 
-  let storageProvider: "s3" | "memory" = "s3";
-  if (providerRaw === "memory") {
+  let storageProvider: "s3" | "memory" | undefined;
+  if (providerRaw === "s3" || providerRaw === "b2" || providerRaw === "backblaze") {
+    storageProvider = "s3";
+  } else if (providerRaw === "memory") {
     storageProvider = "memory";
   }
 
@@ -230,14 +220,13 @@ export function getDatabaseBackupHealth(
     "BACKBLAZE_B2_ENDPOINT",
     "B2_ENDPOINT",
   );
-  const bucket =
-    getEnvValue(
-      env,
-      "DATABASE_BACKUP_S3_BUCKET",
-      "STORAGE_BACKUP_BUCKET",
-      "BACKBLAZE_B2_BUCKET",
-      "B2_BUCKET",
-    ) || "database-backups";
+  const bucket = getEnvValue(
+    env,
+    "DATABASE_BACKUP_S3_BUCKET",
+    "STORAGE_BACKUP_BUCKET",
+    "BACKBLAZE_B2_BUCKET",
+    "B2_BUCKET",
+  );
   const accessKeyId = getEnvValue(
     env,
     "DATABASE_BACKUP_S3_ACCESS_KEY_ID",
@@ -253,9 +242,10 @@ export function getDatabaseBackupHealth(
     "B2_SECRET_ACCESS_KEY",
   );
 
+  const nodeEnv = (env.NODE_ENV || process.env.NODE_ENV || "").toLowerCase();
   const storageConfigured =
-    storageProvider === "memory" ||
-    Boolean(endpoint && bucket && accessKeyId && secretAccessKey);
+    (storageProvider === "s3" && Boolean(endpoint && bucket && accessKeyId && secretAccessKey)) ||
+    (storageProvider === "memory" && nodeEnv === "test");
 
   let storageEndpointOrigin: string | undefined;
   if (endpoint) {
@@ -267,22 +257,19 @@ export function getDatabaseBackupHealth(
   }
 
   const restoreDrillsEnabled =
-    getEnvValue(env, "DATABASE_RESTORE_DRILLS_ENABLED").toLowerCase() === "true" ||
-    getEnvValue(env, "DATABASE_RESTORE_DRILLS_ENABLED") === "1";
+    getEnvValue(env, "DATABASE_RESTORE_DRILLS_ENABLED").toLowerCase() === "true";
   const hasRestoreTarget = Boolean(getEnvValue(env, "DATABASE_RESTORE_TARGET_URL"));
   const hasSourceDatabaseUrl = Boolean(
     getEnvValue(env, "DATABASE_URL", "SUPABASE_DB_URL", "POSTGRES_URL"),
   );
 
-  const isConfigured = encryptionConfigured && storageConfigured;
-
   return {
-    isConfigured,
+    isConfigured: encryptionConfigured && storageConfigured,
     encryptionConfigured,
     keyId,
     storageProvider,
     storageConfigured,
-    storageBucket: storageConfigured ? bucket : undefined,
+    storageBucket: storageConfigured ? bucket || "database-backups" : undefined,
     storageEndpoint: storageEndpointOrigin,
     restoreDrillsEnabled,
     hasRestoreTarget,
@@ -290,9 +277,6 @@ export function getDatabaseBackupHealth(
   };
 }
 
-/**
- * Resolve database backup storage descriptor (bucket, providerId, endpoint, region).
- */
 export function getDatabaseBackupStorageDescriptor(
   env: DatabaseBackupEnvironment = process.env,
 ): {
@@ -302,13 +286,9 @@ export function getDatabaseBackupStorageDescriptor(
   region?: string;
   isExternal: boolean;
 } {
-  const providerRaw = getEnvValue(
-    env,
-    "DATABASE_BACKUP_STORAGE_PROVIDER",
-    "STORAGE_BACKUP_PROVIDER",
-  ).toLowerCase();
+  const config = loadDatabaseBackupConfig(env);
 
-  if (providerRaw === "memory") {
+  if (config.storageProvider === "memory") {
     return {
       providerId: "memory",
       bucket: "database-backups",
@@ -316,36 +296,17 @@ export function getDatabaseBackupStorageDescriptor(
     };
   }
 
-  const endpoint = getEnvValue(
-    env,
-    "DATABASE_BACKUP_S3_ENDPOINT",
-    "STORAGE_BACKUP_ENDPOINT",
-    "BACKBLAZE_B2_ENDPOINT",
-    "B2_ENDPOINT",
-  );
-  const bucket =
-    getEnvValue(
-      env,
-      "DATABASE_BACKUP_S3_BUCKET",
-      "STORAGE_BACKUP_BUCKET",
-      "BACKBLAZE_B2_BUCKET",
-      "B2_BUCKET",
-    ) || "database-backups";
-  const region =
-    getEnvValue(
-      env,
-      "DATABASE_BACKUP_S3_REGION",
-      "STORAGE_BACKUP_REGION",
-      "BACKBLAZE_B2_REGION",
-      "B2_REGION",
-    ) || "auto";
+  if (!config.s3Config) {
+    throw new DatabaseBackupConfigurationError(
+      "Durable database backup provider was selected but S3/B2 configuration is unavailable.",
+    );
+  }
 
   return {
     providerId: "s3",
-    bucket,
-    endpoint: endpoint || undefined,
-    region,
+    bucket: config.s3Config.bucket,
+    endpoint: config.s3Config.endpoint,
+    region: config.s3Config.region,
     isExternal: true,
   };
 }
-
