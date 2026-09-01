@@ -29,6 +29,7 @@ import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
+import { isProjectWorkspaceTabDeploymentVisible } from "./projectWorkspaceVisibility.ts";
 
 export type WorkspaceTab = "overview" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
@@ -178,15 +179,15 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
   const tabs: Array<[WorkspaceTab, string, React.ElementType]> = [
     ["overview", "Overview", BarChart3],
-    ["documents", "Documents", Compass],
-    ["rfis", "RFIs", FileQuestion],
-    ["submittals", "Submittals", ClipboardCheck],
+    ...(isProjectWorkspaceTabDeploymentVisible("documents") ? [["documents", "Documents", Compass] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(isProjectWorkspaceTabDeploymentVisible("rfis") ? [["rfis", "RFIs", FileQuestion] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(isProjectWorkspaceTabDeploymentVisible("submittals") ? [["submittals", "Submittals", ClipboardCheck] as [WorkspaceTab, string, React.ElementType]] : []),
     ["site-logs", "Site Logs", ClipboardList],
-    ...(canReadInvoices ? [["invoices", "Invoices", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
-    ...(canReadPayroll ? [["payroll", "Payroll", HardHat] as [WorkspaceTab, string, React.ElementType]] : []),
-    ...(canReadExpenses ? [["expenses", "Expenses", Receipt] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadInvoices && isProjectWorkspaceTabDeploymentVisible("invoices") ? [["invoices", "Invoices", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadPayroll && isProjectWorkspaceTabDeploymentVisible("payroll") ? [["payroll", "Payroll", HardHat] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadExpenses && isProjectWorkspaceTabDeploymentVisible("expenses") ? [["expenses", "Expenses", Receipt] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadWorkers ? [["people", "People", Users] as [WorkspaceTab, string, React.ElementType]] : []),
-    ...(canReadReports ? [["reports", "Reports", BarChart3] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadReports && isProjectWorkspaceTabDeploymentVisible("reports") ? [["reports", "Reports", BarChart3] as [WorkspaceTab, string, React.ElementType]] : []),
   ];
   const visibleTabIds = useMemo(() => new Set(tabs.map(([id]) => id)), [canReadExpenses, canReadInvoices, canReadPayroll, canReadReports, canReadWorkers]);
 
