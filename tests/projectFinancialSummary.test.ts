@@ -49,12 +49,29 @@ test("financial truth keeps revenue, budget, actual, payable, and pending concep
   assert.equal(truth.outstandingReceivables.status, "unavailable");
 });
 
-test("mixed-currency costs never produce a fabricated complete aggregate", () => {
+test("mixed-currency costs never fabricate confirmed or pending classification", () => {
   const truth = buildProjectFinancialTruth(project, { ...summary, foreignCosts: { USD: 1_000 } });
+
   assert.equal(truth.actualCost.status, "partial");
   assert.equal(truth.actualCost.amount, 500_000);
-  assert.deepEqual(truth.actualCost.foreignAmounts, { USD: 1_000 });
+  assert.equal(truth.actualCost.currency, "PHP");
+  assert.equal(truth.actualCost.foreignAmounts, undefined);
+  assert.match(truth.actualCost.reason || "", /does not preserve whether they are confirmed or pending/);
+
+  assert.equal(truth.pendingCostExposure.status, "partial");
+  assert.equal(truth.pendingCostExposure.amount, 40_000);
+  assert.equal(truth.pendingCostExposure.currency, "PHP");
+  assert.equal(truth.pendingCostExposure.foreignAmounts, undefined);
+  assert.match(truth.pendingCostExposure.reason || "", /does not preserve whether they are confirmed or pending/);
+
   assert.equal(truth.remainingBudget.status, "unavailable");
+});
+
+test("zero-valued foreign buckets do not degrade otherwise complete metrics", () => {
+  const truth = buildProjectFinancialTruth(project, { ...summary, foreignCosts: { USD: 0 } });
+  assert.deepEqual(truth.actualCost, { status: "available", amount: 500_000, currency: "PHP" });
+  assert.deepEqual(truth.pendingCostExposure, { status: "available", amount: 40_000, currency: "PHP" });
+  assert.deepEqual(truth.remainingBudget, { status: "available", amount: 500_000, currency: "PHP" });
 });
 
 test("missing contract value remains explicitly unavailable instead of becoming zero", () => {
