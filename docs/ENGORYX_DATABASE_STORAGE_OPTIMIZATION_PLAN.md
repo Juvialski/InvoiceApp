@@ -1,6 +1,6 @@
 # Engoryx Database & Storage Optimization Plan
 
-Status: **Wave S1 completed. Wave S2 completed (Provider Abstraction & Private External Storage Pilot implemented). Wave S3 is the next planned implementation target.**
+Status: **Wave S1 completed. Wave S2 completed. Wave S3 completed. Wave S4 completed (Database Growth Optimization + Encrypted Database Backups implemented). Wave S5 is the next planned implementation target.**
 
 Repository: `Juvialski/InvoiceApp`
 
@@ -538,6 +538,51 @@ Goals:
 - optionally replicate encrypted database archives to an additional archival target such as Google Drive or OneDrive;
 - document retention, rotation, encryption, and schema/application-version metadata;
 - perform at least one non-production restore verification before calling database backup implementation complete.
+
+### Wave S4 Implementation Record
+
+Wave S4 delivers production-ready database growth optimization, safe conservative data retention/pruning, high-value index tuning, and an independent authenticated AES-256-GCM encrypted logical database backup and disaster recovery restore drill pipeline.
+
+#### 1. Encrypted Database Backup Architecture
+- **Authenticated Encryption**: Envelope encryption using AES-256-GCM (`crypto.createCipheriv("aes-256-gcm")`).
+- **Binary Header Envelope (`ENGORYX_ENC_DB_V1`)**:
+  `[MAGIC 17B: ENGORYX_ENC_DB_V1][KEY_ID_LEN 2B uint16BE][KEY_ID utf8][IV 12B][AUTH_TAG 16B][CIPHERTEXT]`
+- **AAD Integrity Binding**: Additional Authenticated Data binds the versioned header and key ID to the cipher authentication tag.
+- **Key Validation**: Enforces exact 256-bit (32-byte) key length (supports 64-char Hex, 44-char Base64, raw Buffer, or 32-char string). Zero secret leakage in log outputs and error messages.
+- **Company-Scoped Storage Paths**: Encrypted database archives are stored in independent S3/B2 storage (bucket `database-backups`) under:
+  `companies/<companyId>/database-backups/<YYYY-MM-DD>/<backupId>.engoryx.enc`
+- **Durable Manifest Persistence (`database_backup_runs`)**:
+  Tracks lifecycle state (`PENDING` -> `EXPORTING` -> `ENCRYPTING` -> `UPLOADING` -> `VERIFYING` -> `VERIFIED` / `FAILED`), hashes (`plaintext_sha256`, `encrypted_sha256`), encryption metadata (`key_id`, `algorithm`), and verification status (`MATCHED`, `CORRUPTED`, `MISSING`).
+  Secured by PostgreSQL RLS (`storage.read` / `storage.manage` only, DELETE revoked).
+
+#### 2. Disaster Recovery Restore Drills (`database_restore_drills`)
+- **Non-Production Safety Guards (Fail Closed)**:
+  1. Strictly forbidden when `NODE_ENV === "production"`.
+  2. Requires explicit operator opt-in `DATABASE_RESTORE_DRILLS_ENABLED=true`.
+  3. `DATABASE_RESTORE_TARGET_URL` is required and strictly forbidden from matching live source database connection URL.
+- **Verification Workflow**:
+  Downloads ciphertext from independent storage, verifies sha256 checksum, decrypts authenticated archive, restores into designated test target database, inspects restored tables/row counts/RLS policies, and durably records drill verification in `database_restore_drills`.
+- **Guaranteed Cleanup**: Temporary decrypted plaintext dump files are securely cleaned up immediately after restore verification.
+
+#### 3. Database Growth Analysis & Conservative Retention Pruning
+- **Dry-Run by Default**: Retention evaluations default to dry-run reporting candidate count, byte savings, and category breakdown without executing deletions.
+- **Strict Multi-Company Boundary**: All queries and operations are scoped by `company_id`.
+- **Auditable Safety Rules**:
+  - `assistant_action_events`: Prunes expired prepared actions older than 7 days where `status in ('FAILED', 'CANCELLED', 'EXECUTED')`. Never deletes pending/recent actions.
+  - `payroll_import_batches`: Prunes unreferenced `FAILED` or `SUPERSEDED` batches older than 30 days only if NOT referenced by any `payroll_runs`, `payroll_entries`, or duplicate checksum history.
+  - `source_documents`: Prunes unlinked ephemeral temp documents (`source_type = 'TEMP_UPLOAD'`) created > 7 days ago with zero foreign key references across invoices, expenses, or financial import batches. Never deletes live or auditable documents.
+- **Audit Logging**: Successful pruning runs record structured summary events in `company_audit_events`.
+
+#### 4. High-Value Index Optimization
+- Added composite index on `work_entries(company_id, project_id, work_date desc)`.
+- Added composite index on `work_entries(company_id, worker_id, work_date desc)`.
+- Analyzed and documented legacy indexes without making speculative destructive drops.
+
+#### 5. Operator CLI Commands
+- `npm.cmd run db:backup:create -- --company-id <uuid> [--backup-type LOGICAL_FULL]`
+- `npm.cmd run db:backup:verify -- --backup-id <uuid>`
+- `npm.cmd run db:backup:restore-drill -- --company-id <uuid> --backup-id <uuid> [--target-db-url <url>]`
+- `npm.cmd run db:retention:prune -- --company-id <uuid> [--execute] [--limit 100]`
 
 ## Wave S5 — Usage Monitoring + Lifecycle Cleanup + Restore Readiness
 

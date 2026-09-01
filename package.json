@@ -20,6 +20,10 @@
     "test:visual": "tsx scripts/test-visual-canvas.ts",
     "test:migrations": "tsx scripts/test-migrations.ts",
     "test:migrations:upgrade": "tsx scripts/test-migration-upgrade.ts",
+    "db:backup:create": "tsx scripts/db-backup-create.ts",
+    "db:backup:verify": "tsx scripts/db-backup-verify.ts",
+    "db:backup:restore-drill": "tsx scripts/db-backup-restore-drill.ts",
+    "db:retention:prune": "tsx scripts/db-retention-prune.ts",
     "astryx": "astryx",
     "astryx:theme": "astryx theme build src/ui/engoryxTheme.ts --out src/ui/engoryx.css --icons-specifier ./icons.ts"
   },

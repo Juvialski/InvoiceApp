@@ -1,4 +1,4 @@
-﻿# Engoryx Document Storage & Database Growth Audit (Wave S1)
+# Engoryx Document Storage & Database Growth Audit (Wave S1)
 
 Status: **Completed Wave S1 Baseline**  
 Repository: `Juvialski/InvoiceApp`  
@@ -334,3 +334,34 @@ An object is **never** an orphan merely because:
 - `npm.cmd run test:migrations`: **75 static migration invariant tests passed**.
 - `npm.cmd run workflow-map:check`: **Valid (200 nodes, 240 edges)**.
 - `npm.cmd run workflow-map:consistency`: **Consistent (200 nodes, 240 edges, 13 invariants, 5 diagrams)**.
+
+---
+
+## 8. Wave S4 Database Growth & Encrypted Backup Audit (September 2026)
+
+### 8.1 Database Growth & Query Index Optimization
+- **Measured High-Growth Tables**: Identified high-frequency append patterns on `work_entries`, `payroll_entries`, `company_audit_events`, `assistant_action_events`, and `source_documents`.
+- **Composite Index Additions**:
+  - `work_entries_company_project_date_idx (company_id, project_id, work_date desc)`
+  - `work_entries_company_worker_date_idx (company_id, worker_id, work_date desc)`
+- **Legacy Index Retention**: Preserved existing individual indexes to avoid speculative schema churn in production.
+
+### 8.2 Conservative Data Retention & Safe Pruning
+- **Dry-run First**: `RetentionService` defaults to dry-run reporting candidate count and byte savings before any deletion.
+- **Strict Multi-Company Boundary**: All candidate discovery and deletions are strictly scoped by `company_id`.
+- **Pruning Scope & Safety Rules**:
+  - `assistant_action_events`: Prunes expired prepared actions (`FAILED`, `CANCELLED`, `EXECUTED`) older than 7 days.
+  - `payroll_import_batches`: Prunes unreferenced `FAILED` or `SUPERSEDED` batches older than 30 days only if unreferenced by any `payroll_runs` or `payroll_entries`.
+  - `source_documents`: Prunes unlinked ephemeral temp documents (`TEMP_UPLOAD`) created > 7 days ago with zero foreign key references across invoices, expenses, or financial batches.
+- **Auditing**: Records summary event in `company_audit_events`.
+
+### 8.3 Encrypted PostgreSQL Backup Pipeline
+- **Envelope Encryption**: AES-256-GCM authenticated encryption with versioned binary header `ENGORYX_ENC_DB_V1`, unique 12-byte IV per backup, 16-byte auth tag, and 256-bit key enforcement.
+- **Storage Layout**: Company-scoped storage in independent S3/B2 bucket `database-backups`:
+  `companies/<companyId>/database-backups/<YYYY-MM-DD>/<backupId>.engoryx.enc`
+- **Durable Tracking (`database_backup_runs`)**: State machine (`PENDING` -> `EXPORTING` -> `ENCRYPTING` -> `UPLOADING` -> `VERIFYING` -> `VERIFIED` / `FAILED`), protected by RLS (`storage.read` / `storage.manage`, DELETE revoked).
+
+### 8.4 Non-Production Disaster Recovery Restore Drills (`database_restore_drills`)
+- **Strict Non-Production Guards**: Fails closed in production (`NODE_ENV === "production"`), requires explicit opt-in (`DATABASE_RESTORE_DRILLS_ENABLED === "true"`), and rejects if target database URL matches live database URL.
+- **Full Verification**: Authenticated ciphertext download, SHA-256 validation, decryption, test database schema/table restoration, and immediate secure cleanup of decrypted temporary plaintext dump files.
+
