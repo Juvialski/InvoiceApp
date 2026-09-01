@@ -1,0 +1,36 @@
+import {
+  DEPLOYMENT_HIDDEN_MODULES,
+  isDeploymentModuleVisible,
+  type DeploymentModuleKey,
+} from "../../config/moduleVisibility.ts";
+
+export type ProjectWorkspaceVisibilityTab =
+  | "overview"
+  | "documents"
+  | "rfis"
+  | "submittals"
+  | "site-logs"
+  | "invoices"
+  | "payroll"
+  | "expenses"
+  | "people"
+  | "reports";
+
+const TAB_MODULES: Partial<Record<ProjectWorkspaceVisibilityTab, DeploymentModuleKey>> = {
+  documents: "engineering-documents",
+  rfis: "engineering-documents",
+  submittals: "engineering-documents",
+  invoices: "invoices",
+  payroll: "payroll",
+  expenses: "expenses",
+  reports: "reports",
+};
+
+/** Deployment visibility only; callers must still perform normal permission checks. */
+export function isProjectWorkspaceTabDeploymentVisible(
+  tab: ProjectWorkspaceVisibilityTab,
+  hiddenModules: ReadonlySet<DeploymentModuleKey> = DEPLOYMENT_HIDDEN_MODULES,
+) {
+  const moduleKey = TAB_MODULES[tab];
+  return moduleKey ? isDeploymentModuleVisible(moduleKey, hiddenModules) : true;
+}
