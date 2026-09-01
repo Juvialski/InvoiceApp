@@ -38,6 +38,7 @@ export interface ObjectMetadata {
   sizeBytes: number;
   contentType: string;
   sha256: string;
+  etag?: string;
   createdAt?: string;
   updatedAt?: string;
   customMetadata?: Record<string, string>;
@@ -49,8 +50,8 @@ export interface ObjectMetadata {
 export interface PutObjectInput {
   /** Target tenant company ID. */
   companyId: string;
-  /** Destination bucket. */
-  bucket: string;
+  /** Destination bucket (optional; defaults to provider's configured bucket). */
+  bucket?: string;
   /** Target path or key. */
   key: string;
   /** Raw binary data. */
@@ -97,7 +98,7 @@ export interface GetObjectResult {
  * Target reference key lookup payload.
  */
 export interface ObjectLookupQuery {
-  bucket: string;
+  bucket?: string;
   key: string;
   companyId: string;
 }
@@ -153,3 +154,75 @@ export type DocumentImmutabilityPolicy =
   | "REVERSIBLE_LIFECYCLE"      // Document status can transition (e.g. ARCHIVE/SUPERSEDE) but binary is preserved
   | "TRANSIENT_CLEANUP_ONLY"    // Binary can only be deleted during failure compensation
   | "UNPROVENANCED_EPHEMERAL";  // In-memory or temporary upload not yet linked to DB record
+
+/**
+ * Standard Storage Errors.
+ */
+export class StorageError extends Error {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(message: string, code = "STORAGE_ERROR", status = 500) {
+    super(message);
+    this.name = "StorageError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export class ObjectNotFoundError extends StorageError {
+  constructor(bucket: string, key: string) {
+    super(`Object not found: "${bucket}/${key}"`, "OBJECT_NOT_FOUND", 404);
+    this.name = "ObjectNotFoundError";
+  }
+}
+
+export class StorageIntegrityError extends StorageError {
+  constructor(message: string) {
+    super(message, "STORAGE_INTEGRITY_ERROR", 422);
+    this.name = "StorageIntegrityError";
+  }
+}
+
+export class StorageConfigurationError extends StorageError {
+  constructor(message: string) {
+    super(message, "STORAGE_CONFIGURATION_ERROR", 503);
+    this.name = "StorageConfigurationError";
+  }
+}
+
+/**
+ * S3-compatible provider configuration options.
+ */
+export interface S3ProviderConfig {
+  endpoint: string;
+  bucket: string;
+  region?: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  forcePathStyle?: boolean;
+  publicReadUrl?: string;
+}
+
+/**
+ * Server-level storage subsystem configuration.
+ */
+export interface StorageConfig {
+  primaryProvider: StorageProviderId;
+  s3?: S3ProviderConfig;
+}
+
+/**
+ * Storage health diagnostic summary.
+ */
+export interface StorageHealthStatus {
+  primaryProvider: StorageProviderId;
+  isConfigured: boolean;
+  details: {
+    supabaseConfigured: boolean;
+    s3Configured: boolean;
+    s3Endpoint?: string;
+    s3Bucket?: string;
+    s3Region?: string;
+  };
+}
