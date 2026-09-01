@@ -268,11 +268,13 @@ export async function loadSourcePayloadForRetry(invoice: InvoiceData): Promise<O
         } catch (fetchErr) {
           throw new Error(`External storage payload retrieval failed: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
         }
-      } else {
+      } else if (row.storage_provider === "supabase" || !row.storage_provider) {
         const bucket = row.storage_bucket || INVOICE_BUCKET;
         const { data: blob, error: downloadError } = await client.storage.from(bucket).download(row.storage_path);
         if (downloadError) throw downloadError;
         bytes = new Uint8Array(await blob.arrayBuffer());
+      } else {
+        throw new Error(`Unsupported storage provider "${row.storage_provider}" for source document "${row.id}".`);
       }
 
       const actualHash = await sha256(bytes);

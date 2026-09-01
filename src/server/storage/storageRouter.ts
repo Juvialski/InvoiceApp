@@ -17,11 +17,14 @@ import {
 import { calculateSha256Hex } from "../../lib/storage/dedup.ts";
 import { sanitizeStorageFileName } from "../../lib/storage/keys.ts";
 import { validateInvoiceDocumentBytes } from "../../lib/fileSecurity.ts";
-import { compensateFailedUpload, type CompensationInput } from "./storageCompensation.ts";
+import {
+  compensateFailedUpload,
+  getStorageServerServiceRoleClient,
+  type CompensationInput,
+} from "./storageCompensation.ts";
 import type { StoredSourceDocument } from "../../types.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const INVOICE_BUCKET = "invoice-originals";
 
 export class StorageApiError extends Error {
   readonly status: number;
@@ -47,6 +50,7 @@ export interface StorageRouterOptions {
   primaryProviderSupplier?: (env?: any, supabaseClientGetter?: () => SupabaseClient) => DocumentStorageProvider;
   providerSupplier?: (providerId: StorageProviderId, supabaseClientGetter?: () => SupabaseClient) => DocumentStorageProvider;
   compensator?: (input: CompensationInput) => Promise<{ compensated: boolean; reason?: string }>;
+  serverSupabaseSupplier?: () => SupabaseClient;
 }
 
 function firstHeader(value: string | string[] | undefined): string {
@@ -138,17 +142,23 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
       const { fileData, mimeType, fileName, emailMessageId, sourceType } = req.body || {};
 
       if (!fileData || typeof fileData !== "string") {
-        return res.status(400).json({ error: "fileData (base64) is required." });
+        return res.status(400).json({ code: "INVALID_DOCUMENT", error: "fileData (base64) is required." });
       }
       if (!mimeType || typeof mimeType !== "string") {
-        return res.status(400).json({ error: "mimeType is required." });
+        return res.status(400).json({ code: "INVALID_DOCUMENT", error: "mimeType is required." });
       }
       if (!fileName || typeof fileName !== "string") {
-        return res.status(400).json({ error: "fileName is required." });
+        return res.status(400).json({ code: "INVALID_DOCUMENT", error: "fileName is required." });
       }
 
-      const bytes = new Uint8Array(Buffer.from(fileData, "base64"));
-      validateInvoiceDocumentBytes(bytes, mimeType, fileName);
+      let bytes: Uint8Array;
+      try {
+        bytes = new Uint8Array(Buffer.from(fileData, "base64"));
+        validateInvoiceDocumentBytes(bytes, mimeType, fileName);
+      } catch (valErr: any) {
+        return res.status(400).json({ code: "INVALID_DOCUMENT", error: valErr.message || "Invalid document payload." });
+      }
+
       const hash = await calculateSha256Hex(bytes);
 
       // Check existing document in company
@@ -173,7 +183,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
 
         const previewUrl = await provider.getSignedUrl({
           companyId: auth.companyId,
-          bucket: row.storage_bucket || INVOICE_BUCKET,
+          bucket: row.storage_bucket,
           key: row.storage_path,
         });
 
@@ -188,7 +198,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
           size: Number(row.file_size || 0),
           storagePath: row.storage_path,
           storageProvider: rowProviderId,
-          storageBucket: row.storage_bucket || INVOICE_BUCKET,
+          storageBucket: row.storage_bucket,
           sha256: row.sha256,
           processingStatus: row.processing_status || undefined,
           documentType: row.document_type || undefined,
@@ -197,7 +207,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         return res.json(existingDoc);
       }
 
-      // Store new object via active primary provider
+      // Store new object via active primary provider (allows provider to resolve its native bucket)
       const provider = options?.primaryProviderSupplier
         ? options.primaryProviderSupplier(process.env, () => auth.supabase)
         : getPrimaryStorageProvider(process.env, () => auth.supabase);
@@ -208,16 +218,18 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
       const safeName = sanitizeStorageFileName(fileName);
       const storagePath = `companies/${auth.companyId}/invoices/manual/${year}/${month}/${hash.slice(0, 12)}-${randomUUID().slice(0, 8)}-${safeName}`;
 
-      await provider.putObject({
+      const putResult = await provider.putObject({
         companyId: auth.companyId,
-        bucket: INVOICE_BUCKET,
         key: storagePath,
         bytes,
         contentType: mimeType,
         sha256: hash,
       });
 
-      // Insert DB metadata
+      const actualProvider = putResult.ref.providerId;
+      const actualBucket = putResult.ref.bucket;
+
+      // Insert DB metadata with actual physical provider and bucket
       const { data: inserted, error: insertError } = await auth.supabase
         .from("source_documents")
         .insert({
@@ -229,8 +241,8 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
           mime_type: mimeType,
           file_size: bytes.byteLength,
           storage_path: storagePath,
-          storage_provider: provider.id,
-          storage_bucket: INVOICE_BUCKET,
+          storage_provider: actualProvider,
+          storage_bucket: actualBucket,
           sha256: hash,
           processing_status: "STORED",
         })
@@ -238,15 +250,16 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         .single();
 
       if (insertError) {
-        // Compensate: safely delete the uploaded object on database failure
+        // Compensate: safely delete the uncommitted object on database failure
         const compensatorFn = options?.compensator || compensateFailedUpload;
         try {
           await compensatorFn({
             companyId: auth.companyId,
-            bucket: INVOICE_BUCKET,
+            bucket: actualBucket,
             key: storagePath,
-            providerId: provider.id,
+            providerId: actualProvider,
             supabase: auth.supabase,
+            serverSupabaseSupplier: options?.serverSupabaseSupplier || getStorageServerServiceRoleClient,
           });
         } catch (compErr) {
           console.error("[Storage Compensation Failure]", compErr);
@@ -256,7 +269,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
 
       const previewUrl = await provider.getSignedUrl({
         companyId: auth.companyId,
-        bucket: INVOICE_BUCKET,
+        bucket: actualBucket,
         key: storagePath,
       });
 
@@ -267,8 +280,8 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         mimeType,
         size: bytes.byteLength,
         storagePath,
-        storageProvider: provider.id,
-        storageBucket: INVOICE_BUCKET,
+        storageProvider: actualProvider,
+        storageBucket: actualBucket,
         sha256: hash,
         processingStatus: "STORED",
         previewUrl,
@@ -316,7 +329,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
 
       const previewUrl = await provider.getSignedUrl({
         companyId: auth.companyId,
-        bucket: row.storage_bucket || INVOICE_BUCKET,
+        bucket: row.storage_bucket,
         key: row.storage_path,
       });
 
@@ -356,7 +369,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
 
       const { bytes } = await provider.getObject({
         companyId: auth.companyId,
-        bucket: row.storage_bucket || INVOICE_BUCKET,
+        bucket: row.storage_bucket,
         key: row.storage_path,
       });
 

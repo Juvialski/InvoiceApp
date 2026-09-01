@@ -42,6 +42,7 @@ export class S3StorageProvider implements DocumentStorageProvider {
     this.config = {
       ...config,
       endpoint: config.endpoint.replace(/\/+$/, ""),
+      bucket: config.bucket || "invoice-originals",
       region: config.region || "auto",
       forcePathStyle: config.forcePathStyle ?? true, // Cloudflare R2 default
     };
@@ -92,16 +93,21 @@ export class S3StorageProvider implements DocumentStorageProvider {
     }
 
     const bucket = input.bucket || this.config.bucket;
-    const metadata: Record<string, string> = {
-      "company-id": input.companyId,
-      "sha256": calculatedHash,
-    };
+    const metadata: Record<string, string> = {};
 
+    // Copy custom metadata while strictly protecting reserved integrity/ownership keys
     if (input.customMetadata) {
       for (const [k, v] of Object.entries(input.customMetadata)) {
-        metadata[k.toLowerCase()] = String(v);
+        const lower = k.toLowerCase();
+        if (lower !== "company-id" && lower !== "sha256") {
+          metadata[lower] = String(v);
+        }
       }
     }
+
+    // Reserved metadata fields override caller input
+    metadata["company-id"] = input.companyId;
+    metadata["sha256"] = calculatedHash;
 
     try {
       const command = new PutObjectCommand({
@@ -164,6 +170,16 @@ export class S3StorageProvider implements DocumentStorageProvider {
       const bytes = new Uint8Array(byteArray);
       const calculatedHash = await calculateSha256Hex(bytes);
 
+      // Verify tenant isolation metadata if present on object
+      const storedCompanyId = response.Metadata?.["company-id"];
+      if (storedCompanyId && storedCompanyId !== query.companyId) {
+        throw new StorageError(
+          `Storage object company mismatch: expected company "${query.companyId}", found "${storedCompanyId}".`,
+          "TENANT_ISOLATION_VIOLATION",
+          403,
+        );
+      }
+
       // Verify metadata hash if present
       const storedSha256 = response.Metadata?.["sha256"];
       if (storedSha256 && calculatedHash !== normalizeSha256(storedSha256)) {
@@ -176,7 +192,7 @@ export class S3StorageProvider implements DocumentStorageProvider {
       return {
         bytes,
         metadata: {
-          companyId: response.Metadata?.["company-id"] || query.companyId,
+          companyId: storedCompanyId || query.companyId,
           bucket,
           key: query.key,
           sizeBytes: bytes.byteLength,
@@ -252,9 +268,10 @@ export class S3StorageProvider implements DocumentStorageProvider {
       const response = await this.client.send(command);
       const storedSha256 = response.Metadata?.["sha256"] || "";
       const etag = response.ETag?.replace(/["']/g, "") || undefined;
+      const storedCompanyId = response.Metadata?.["company-id"] || query.companyId;
 
       return {
-        companyId: response.Metadata?.["company-id"] || query.companyId,
+        companyId: storedCompanyId,
         bucket,
         key: query.key,
         sizeBytes: response.ContentLength || 0,

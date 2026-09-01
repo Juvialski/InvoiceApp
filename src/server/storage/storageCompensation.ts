@@ -4,7 +4,7 @@
  * deletion of any committed, auditable, or referenced business documents.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isCompanyScopedPath } from "../../lib/storage/keys.ts";
 import { type StorageProviderId, StorageError } from "../../lib/storage/types.ts";
 import { createStorageProvider } from "../../lib/storage/config.ts";
@@ -16,6 +16,40 @@ export interface CompensationInput {
   providerId: StorageProviderId;
   supabase: SupabaseClient;
   serverSupabaseSupplier?: () => SupabaseClient;
+}
+
+/**
+ * Creates a server-only privileged Supabase client for storage compensation cleanup.
+ * Strictly uses server-side service-role key and rejects public/publishable keys.
+ */
+export function getStorageServerServiceRoleClient(): SupabaseClient {
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
+  const serviceKey = (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_STORAGE_SERVER_KEY ||
+    ""
+  ).trim();
+
+  if (!url || !serviceKey) {
+    throw new StorageError(
+      "Privileged Supabase storage cleanup client is not configured on the server (missing server service role key).",
+      "SERVER_CLEANUP_UNAVAILABLE",
+      503,
+    );
+  }
+
+  // Reject public/publishable/anon keys from being misused as service keys
+  if (/^pk_|^anon_|_anon_|publishable/i.test(serviceKey)) {
+    throw new StorageError(
+      "Invalid storage server key: cannot use publishable/anon key for privileged storage compensation.",
+      "INVALID_SERVER_KEY",
+      500,
+    );
+  }
+
+  return createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
 }
 
 /**
@@ -32,7 +66,7 @@ export async function compensateFailedUpload(input: CompensationInput): Promise<
     throw new StorageError(`Compensation rejected: key "${key}" violates company boundary for "${companyId}".`);
   }
 
-  // 1. Invariant: Check whether this object is referenced in source_documents
+  // 1. Authoritative Invariant: Check whether this object is referenced in source_documents
   const { data: sourceDocRows, error: docError } = await supabase
     .from("source_documents")
     .select("id")
@@ -51,26 +85,7 @@ export async function compensateFailedUpload(input: CompensationInput): Promise<
     );
   }
 
-  // 2. Invariant: Check whether this object is referenced in invoices
-  const { data: invoiceRows, error: invoiceError } = await supabase
-    .from("invoices")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("source_storage_path", key)
-    .limit(1);
-
-  if (invoiceError) {
-    console.error("[Storage Compensation] DB check error on invoices:", invoiceError);
-    throw new StorageError(`Compensation aborted: could not verify invoice provenance (${invoiceError.message}).`);
-  }
-
-  if (invoiceRows && invoiceRows.length > 0) {
-    throw new StorageError(
-      `Compensation rejected: object "${key}" is referenced by committed invoice "${invoiceRows[0].id}".`,
-    );
-  }
-
-  // 3. The object is proven uncommitted/orphaned. Delete from the target provider.
+  // 2. The object is proven uncommitted/orphaned. Execute deletion using server authority.
   if (providerId === "s3") {
     const s3Provider = createStorageProvider("s3");
     await s3Provider.deleteObject({ companyId, bucket, key });
@@ -78,7 +93,7 @@ export async function compensateFailedUpload(input: CompensationInput): Promise<
   }
 
   if (providerId === "supabase") {
-    const client = input.serverSupabaseSupplier ? input.serverSupabaseSupplier() : supabase;
+    const client = input.serverSupabaseSupplier ? input.serverSupabaseSupplier() : getStorageServerServiceRoleClient();
     const { error: removeError } = await client.storage.from(bucket).remove([key]);
     if (removeError) {
       console.error("[Storage Compensation] Supabase object removal failed:", removeError);

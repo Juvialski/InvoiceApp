@@ -85,14 +85,15 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
   async getObject(query: ObjectLookupQuery): Promise<GetObjectResult> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
+    const bucket = query.bucket || "invoice-originals";
     const client = this.getClient();
     const { data: blob, error: downloadError } = await client.storage
-      .from(query.bucket)
+      .from(bucket)
       .download(query.key);
 
     if (downloadError || !blob) {
       if (downloadError && /not found|404/i.test(downloadError.message)) {
-        throw new ObjectNotFoundError(query.bucket, query.key);
+        throw new ObjectNotFoundError(bucket, query.key);
       }
       throw new StorageError(`Supabase Storage download failed: ${downloadError?.message || "Object not found"}`);
     }
@@ -104,7 +105,7 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
       bytes,
       metadata: {
         companyId: query.companyId,
-        bucket: query.bucket,
+        bucket,
         key: query.key,
         sizeBytes: bytes.byteLength,
         contentType: blob.type || "application/octet-stream",
@@ -116,11 +117,12 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
   async getSignedUrl(query: ObjectLookupQuery, options?: ReadUrlOptions): Promise<string> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
+    const bucket = query.bucket || "invoice-originals";
     const client = this.getClient();
     const expiresIn = options?.expiresInSeconds || 3600;
 
     const { data, error } = await client.storage
-      .from(query.bucket)
+      .from(bucket)
       .createSignedUrl(query.key, expiresIn, {
         download: options?.disposition === "attachment" ? (options.downloadFilename || true) : undefined,
       });
@@ -135,8 +137,9 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
   async deleteObject(query: ObjectLookupQuery): Promise<void> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
+    const bucket = query.bucket || "invoice-originals";
     const client = this.getClient();
-    const { error } = await client.storage.from(query.bucket).remove([query.key]);
+    const { error } = await client.storage.from(bucket).remove([query.key]);
     if (error) {
       throw new StorageError(`Supabase Storage deletion failed: ${error.message}`);
     }
@@ -145,13 +148,14 @@ export class SupabaseStorageProvider implements DocumentStorageProvider {
   async headObject(query: ObjectLookupQuery): Promise<ObjectMetadata | null> {
     this.validateCompanyBoundary(query.companyId, query.key);
 
+    const bucket = query.bucket || "invoice-originals";
     const client = this.getClient();
     // Supabase storage list API to check object existence and metadata
     const pathParts = query.key.split("/");
     const fileName = pathParts.pop() || "";
     const folder = pathParts.join("/");
 
-    const { data, error } = await client.storage.from(query.bucket).list(folder, {
+    const { data, error } = await client.storage.from(bucket).list(folder, {
       search: fileName,
       limit: 1,
     });

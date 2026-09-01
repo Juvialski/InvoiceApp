@@ -50,8 +50,8 @@ export interface ObjectMetadata {
 export interface PutObjectInput {
   /** Target tenant company ID. */
   companyId: string;
-  /** Destination bucket. */
-  bucket: string;
+  /** Destination bucket (optional; defaults to provider's configured bucket). */
+  bucket?: string;
   /** Target path or key. */
   key: string;
   /** Raw binary data. */
@@ -98,7 +98,7 @@ export interface GetObjectResult {
  * Target reference key lookup payload.
  */
 export interface ObjectLookupQuery {
-  bucket: string;
+  bucket?: string;
   key: string;
   companyId: string;
 }

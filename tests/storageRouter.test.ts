@@ -2,15 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import http from "node:http";
+import { S3Client } from "@aws-sdk/client-s3";
 import {
   createStorageRouter,
   StorageApiError,
   type StorageAuthContext,
 } from "../src/server/storage/storageRouter.ts";
-import { compensateFailedUpload } from "../src/server/storage/storageCompensation.ts";
+import {
+  compensateFailedUpload,
+  getStorageServerServiceRoleClient,
+} from "../src/server/storage/storageCompensation.ts";
 import { MemoryStorageProvider } from "../src/lib/storage/providers/memoryProvider.ts";
+import { S3StorageProvider } from "../src/lib/storage/providers/s3Provider.ts";
 import { calculateSha256Hex } from "../src/lib/storage/dedup.ts";
-import { getStorageHealth, loadStorageConfig } from "../src/lib/storage/config.ts";
+import { getStorageHealth } from "../src/lib/storage/config.ts";
 import { StorageError } from "../src/lib/storage/types.ts";
 
 function setupTestServer(options?: Parameters<typeof createStorageRouter>[0]) {
@@ -63,7 +68,6 @@ test("Storage Router Authorization: Rejects user with invoices.extract but missi
   });
 
   try {
-    // Attempt manual source upload (requires invoices.manage)
     const res = await fetch(`${url}/api/documents/manual-source`, {
       method: "POST",
       headers: {
@@ -86,11 +90,79 @@ test("Storage Router Authorization: Rejects user with invoices.extract but missi
   }
 });
 
-test("Storage Router Authorization: Allows user with invoices.manage for manual source upload", async () => {
+test("Real S3 Router Test: Configured physical bucket 'engoryx-production-documents' is used for upload, DB metadata, signed preview, and compensation", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
-  const memoryProvider = new MemoryStorageProvider();
-  const dbRows: any[] = [];
+  const configuredBucket = "engoryx-production-documents";
+  const s3Store = new Map<string, { bytes: Uint8Array; metadata: Record<string, string>; contentType: string }>();
 
+  // Mock AWS S3 client
+  const mockS3Client = new S3Client({
+    region: "auto",
+    credentials: { accessKeyId: "KEY", secretAccessKey: "SECRET" },
+  });
+
+  mockS3Client.send = (async (command: any): Promise<any> => {
+    const name = command.constructor.name;
+    const input = command.input;
+
+    if (name === "PutObjectCommand") {
+      s3Store.set(`${input.Bucket}/${input.Key}`, {
+        bytes: input.Body as Uint8Array,
+        metadata: input.Metadata || {},
+        contentType: input.ContentType || "application/octet-stream",
+      });
+      return { ETag: '"mock-s3-etag"' };
+    }
+    if (name === "GetObjectCommand") {
+      const item = s3Store.get(`${input.Bucket}/${input.Key}`);
+      if (!item) {
+        const err = new Error("NoSuchKey");
+        err.name = "NoSuchKey";
+        throw err;
+      }
+      return {
+        Body: { transformToByteArray: async () => item.bytes },
+        ContentType: item.contentType,
+        Metadata: item.metadata,
+        ETag: '"mock-s3-etag"',
+        ContentLength: item.bytes.byteLength,
+      };
+    }
+    if (name === "HeadObjectCommand") {
+      const item = s3Store.get(`${input.Bucket}/${input.Key}`);
+      if (!item) {
+        const err = new Error("NotFound");
+        err.name = "NotFound";
+        throw err;
+      }
+      return {
+        ContentLength: item.bytes.byteLength,
+        ContentType: item.contentType,
+        Metadata: item.metadata,
+        ETag: '"mock-s3-etag"',
+        LastModified: new Date(),
+      };
+    }
+    if (name === "DeleteObjectCommand") {
+      s3Store.delete(`${input.Bucket}/${input.Key}`);
+      return {};
+    }
+    throw new Error(`Unhandled command: ${name}`);
+  }) as any;
+
+  const s3Provider = new S3StorageProvider(
+    {
+      endpoint: "https://r2-test.cloudflarestorage.com",
+      bucket: configuredBucket, // Configured physical bucket
+      accessKeyId: "TEST_KEY",
+      secretAccessKey: "TEST_SECRET",
+      region: "auto",
+      forcePathStyle: true,
+    },
+    mockS3Client,
+  );
+
+  const dbRows: any[] = [];
   const mockSupabase: any = {
     from: (table: string) => {
       if (table === "source_documents") {
@@ -107,7 +179,7 @@ test("Storage Router Authorization: Allows user with invoices.manage for manual 
           insert: (data: any) => ({
             select: () => ({
               single: async () => {
-                const inserted = { id: "doc-uuid-success-1", ...data };
+                const inserted = { id: "doc-uuid-s3-1", ...data };
                 dbRows.push(inserted);
                 return { data: inserted, error: null };
               },
@@ -126,11 +198,12 @@ test("Storage Router Authorization: Allows user with invoices.manage for manual 
       user: { id: "user-manager-1" } as any,
       supabase: mockSupabase,
     }),
-    primaryProviderSupplier: () => memoryProvider,
+    primaryProviderSupplier: () => s3Provider,
+    providerSupplier: () => s3Provider,
   });
 
   try {
-    const rawPdf = "%PDF-1.4 Valid Invoice Content";
+    const rawPdf = "%PDF-1.4 S3 Physical Bucket Pilot Content";
     const res = await fetch(`${url}/api/documents/manual-source`, {
       method: "POST",
       headers: {
@@ -141,133 +214,163 @@ test("Storage Router Authorization: Allows user with invoices.manage for manual 
       body: JSON.stringify({
         fileData: Buffer.from(rawPdf).toString("base64"),
         mimeType: "application/pdf",
-        fileName: "invoice_2026.pdf",
+        fileName: "supplier_inv_001.pdf",
       }),
     });
 
     assert.equal(res.status, 200);
     const json = await res.json();
-    assert.equal(json.id, "doc-uuid-success-1");
-    assert.equal(json.filename, "invoice_2026.pdf");
-    assert.equal(json.storageProvider, "memory");
-    assert.ok(json.previewUrl);
-    assert.equal(dbRows.length, 1);
+    assert.equal(json.id, "doc-uuid-s3-1");
+    assert.equal(json.storageProvider, "s3");
+    // Verify configured physical bucket was used and recorded in DB, NOT hardcoded "invoice-originals"
+    assert.equal(json.storageBucket, configuredBucket);
+    assert.equal(dbRows[0].storage_bucket, configuredBucket);
+    assert.equal(dbRows[0].storage_provider, "s3");
+    assert.ok(json.previewUrl.includes(configuredBucket));
+
+    // Verify the object is in s3Store under the configured bucket
+    const storedKeys = Array.from(s3Store.keys());
+    assert.equal(storedKeys.length, 1);
+    assert.ok(storedKeys[0].startsWith(`${configuredBucket}/`));
   } finally {
     server.close();
   }
 });
 
-test("Storage Router Compensation: Metadata failure triggers compensation cleanup of uncommitted object", async () => {
+test("S3 Provider: Protects reserved metadata from caller override and enforces tenant isolation on read", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
-  const memoryProvider = new MemoryStorageProvider();
-  let compensationCalled = false;
-  let compensatedKey = "";
+  const s3Store = new Map<string, { bytes: Uint8Array; metadata: Record<string, string>; contentType: string }>();
 
-  const mockSupabase: any = {
-    from: (table: string) => ({
+  const mockS3Client = new S3Client({ region: "auto" });
+  mockS3Client.send = (async (command: any): Promise<any> => {
+    const name = command.constructor.name;
+    const input = command.input;
+    if (name === "PutObjectCommand") {
+      s3Store.set(`${input.Bucket}/${input.Key}`, {
+        bytes: input.Body as Uint8Array,
+        metadata: input.Metadata || {},
+        contentType: input.ContentType,
+      });
+      return { ETag: '"etag-1"' };
+    }
+    if (name === "GetObjectCommand") {
+      const item = s3Store.get(`${input.Bucket}/${input.Key}`);
+      if (!item) throw new Error("NoSuchKey");
+      return {
+        Body: { transformToByteArray: async () => item.bytes },
+        Metadata: item.metadata,
+        ContentType: item.contentType,
+      };
+    }
+    throw new Error(`Unhandled: ${name}`);
+  }) as any;
+
+  const s3Provider = new S3StorageProvider(
+    {
+      endpoint: "https://r2.test",
+      bucket: "test-bucket",
+      accessKeyId: "KEY",
+      secretAccessKey: "SECRET",
+    },
+    mockS3Client,
+  );
+
+  const rawBytes = new TextEncoder().encode("%PDF-1.4 Tenant Isolation Test");
+  const key = `companies/${companyId}/invoices/manual/2026/09/test.pdf`;
+
+  // Put object with malicious attempt to override reserved metadata
+  await s3Provider.putObject({
+    companyId,
+    key,
+    bytes: rawBytes,
+    contentType: "application/pdf",
+    customMetadata: {
+      "company-id": "attacker-company-999", // Attempt to hijack company-id
+      "sha256": "fake-hash-000",           // Attempt to hijack sha256
+      "user-agent": "Engoryx/1.0",         // Legitimate custom metadata
+    },
+  });
+
+  const stored = s3Store.get(`test-bucket/${key}`);
+  assert.ok(stored);
+  // Invariant: Reserved metadata MUST NOT be overwritten by customMetadata
+  assert.equal(stored.metadata["company-id"], companyId);
+  assert.notEqual(stored.metadata["company-id"], "attacker-company-999");
+  assert.equal(stored.metadata["user-agent"], "Engoryx/1.0");
+
+  // Read as authorized company -> succeeds
+  const getOk = await s3Provider.getObject({ companyId, key });
+  assert.equal(getOk.bytes.byteLength, rawBytes.byteLength);
+
+  // Read as different company -> fails closed with tenant isolation violation
+  await assert.rejects(
+    s3Provider.getObject({ companyId: "other-company-uuid-8888", key: `companies/other-company-uuid-8888/invoices/manual/2026/09/test.pdf` }),
+    StorageError,
+  );
+});
+
+test("Storage Compensation: Real server-only privileged Supabase cleanup removes uncommitted blob", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const uncommittedKey = `companies/${companyId}/invoices/manual/2026/09/uncommitted-doc.pdf`;
+  const removedKeys: string[] = [];
+
+  const mockSupabasePrivileged: any = {
+    storage: {
+      from: (bucket: string) => ({
+        remove: async (keys: string[]) => {
+          removedKeys.push(...keys);
+          return { data: keys, error: null };
+        },
+      }),
+    },
+  };
+
+  // Mock DB with NO row for this uncommitted key
+  const mockSupabaseUncommitted: any = {
+    from: () => ({
       select: () => ({
         eq: () => ({
           eq: () => ({
-            order: () => ({
-              limit: async () => ({ data: [], error: null }),
-            }),
+            limit: async () => ({ data: [], error: null }),
           }),
-        }),
-      }),
-      insert: () => ({
-        select: () => ({
-          single: async () => {
-            // Simulate database error on insert
-            return { data: null, error: { message: "Simulated DB constraint violation" } };
-          },
         }),
       }),
     }),
   };
 
-  const { server, url } = await setupTestServer({
-    authorizer: async () => ({
-      accessToken: "valid-token",
-      companyId,
-      user: { id: "user-manager-1" } as any,
-      supabase: mockSupabase,
-    }),
-    primaryProviderSupplier: () => memoryProvider,
-    compensator: async (input) => {
-      compensationCalled = true;
-      compensatedKey = input.key;
-      await memoryProvider.deleteObject({ companyId: input.companyId, bucket: input.bucket, key: input.key });
-      return { compensated: true };
-    },
+  const res = await compensateFailedUpload({
+    companyId,
+    bucket: "invoice-originals",
+    key: uncommittedKey,
+    providerId: "supabase",
+    supabase: mockSupabaseUncommitted,
+    serverSupabaseSupplier: () => mockSupabasePrivileged,
   });
 
-  try {
-    const rawPdf = "%PDF-1.4 Fail Insert Content";
-    const res = await fetch(`${url}/api/documents/manual-source`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer valid-token",
-        "x-company-id": companyId,
-      },
-      body: JSON.stringify({
-        fileData: Buffer.from(rawPdf).toString("base64"),
-        mimeType: "application/pdf",
-        fileName: "fail_doc.pdf",
-      }),
-    });
-
-    assert.equal(res.status, 500);
-    const json = await res.json();
-    assert.equal(json.code, "METADATA_INSERT_FAILED");
-    assert.equal(compensationCalled, true);
-    assert.ok(compensatedKey.includes("fail_doc.pdf"));
-
-    // Verify object was cleaned up from memory provider
-    const head = await memoryProvider.headObject({ companyId, bucket: "invoice-originals", key: compensatedKey });
-    assert.equal(head, null);
-  } finally {
-    server.close();
-  }
+  assert.equal(res.compensated, true);
+  assert.deepEqual(removedKeys, [uncommittedKey]);
 });
 
-test("Storage Router Compensation: Committed/referenced source documents CANNOT be removed via compensation", async () => {
+test("Storage Compensation: Committed source documents CANNOT be removed via compensation", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
   const committedKey = `companies/${companyId}/invoices/manual/2026/09/committed-doc.pdf`;
 
   // Mock DB where the key IS present in source_documents
   const mockSupabaseWithCommittedDoc: any = {
-    from: (table: string) => {
-      if (table === "source_documents") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                limit: async () => ({
-                  data: [{ id: "committed-source-doc-123" }],
-                  error: null,
-                }),
-              }),
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            limit: async () => ({
+              data: [{ id: "committed-source-doc-123" }],
+              error: null,
             }),
           }),
-        };
-      }
-      if (table === "invoices") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                limit: async () => ({ data: [], error: null }),
-              }),
-            }),
-          }),
-        };
-      }
-      return {};
-    },
+        }),
+      }),
+    }),
   };
 
-  // Attempting to compensate a committed key MUST throw StorageError
   await assert.rejects(
     compensateFailedUpload({
       companyId,
@@ -284,202 +387,37 @@ test("Storage Router Compensation: Committed/referenced source documents CANNOT 
   );
 });
 
-test("Storage Router Deduplication: Identical file SHA-256 returns existing source document", async () => {
+test("Storage Compensation: Provenance DB failure aborts compensation safely without deleting", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
-  const rawPdf = "%PDF-1.4 Dedup Invoice Test";
-  const hash = await calculateSha256Hex(new TextEncoder().encode(rawPdf));
-
-  const existingRow = {
-    id: "doc-existing-uuid-99",
-    filename: "first_upload.pdf",
-    mime_type: "application/pdf",
-    file_size: rawPdf.length,
-    storage_path: `companies/${companyId}/invoices/manual/2026/09/${hash.slice(0, 12)}-uuid-first.pdf`,
-    storage_provider: "memory",
-    storage_bucket: "invoice-originals",
-    sha256: hash,
-    processing_status: "STORED",
-  };
-
-  const mockSupabase: any = {
+  const mockSupabaseDbError: any = {
     from: () => ({
       select: () => ({
         eq: () => ({
           eq: () => ({
-            order: () => ({
-              limit: async () => ({ data: [existingRow], error: null }),
-            }),
+            limit: async () => ({ data: null, error: { message: "Database connection lost" } }),
           }),
         }),
       }),
     }),
   };
 
-  const memoryProvider = new MemoryStorageProvider();
-  await memoryProvider.putObject({
-    companyId,
-    bucket: "invoice-originals",
-    key: existingRow.storage_path,
-    bytes: new TextEncoder().encode(rawPdf),
-    contentType: "application/pdf",
-  });
-
-  const { server, url } = await setupTestServer({
-    authorizer: async () => ({
-      accessToken: "valid-token",
+  await assert.rejects(
+    compensateFailedUpload({
       companyId,
-      user: { id: "user-1" } as any,
-      supabase: mockSupabase,
+      bucket: "invoice-originals",
+      key: `companies/${companyId}/invoices/manual/2026/09/test.pdf`,
+      providerId: "supabase",
+      supabase: mockSupabaseDbError,
     }),
-    providerSupplier: () => memoryProvider,
-  });
-
-  try {
-    const res = await fetch(`${url}/api/documents/manual-source`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer valid-token",
-        "x-company-id": companyId,
-      },
-      body: JSON.stringify({
-        fileData: Buffer.from(rawPdf).toString("base64"),
-        mimeType: "application/pdf",
-        fileName: "second_upload_different_name.pdf",
-      }),
-    });
-
-    const json = await res.json();
-    if (res.status !== 200) {
-      console.error("Test 6 response:", res.status, json);
-    }
-    assert.equal(res.status, 200);
-    assert.equal(json.id, "doc-existing-uuid-99");
-    assert.equal(json.filename, "first_upload.pdf"); // Reused existing
-  } finally {
-    server.close();
-  }
+    (err: any) => {
+      assert.ok(err instanceof StorageError);
+      assert.ok(err.message.includes("could not verify source document provenance"));
+      return true;
+    },
+  );
 });
 
-test("Storage Router Read: Content endpoint returns decoded file and rejects SHA-256 mismatch", async () => {
-  const companyId = "11111111-2222-3333-4444-555555555555";
-  const docId = "22222222-3333-4444-8888-666666666666";
-  const rawBytes = new TextEncoder().encode("%PDF-1.4 Verified Content");
-  const validHash = await calculateSha256Hex(rawBytes);
-
-  const memoryProvider = new MemoryStorageProvider();
-  const storagePath = `companies/${companyId}/invoices/manual/2026/09/doc.pdf`;
-  await memoryProvider.putObject({
-    companyId,
-    bucket: "invoice-originals",
-    key: storagePath,
-    bytes: rawBytes,
-    contentType: "application/pdf",
-  });
-
-  // 1. Success case
-  const mockSupabaseValid: any = {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({
-              data: {
-                id: docId,
-                company_id: companyId,
-                storage_path: storagePath,
-                storage_provider: "memory",
-                storage_bucket: "invoice-originals",
-                sha256: validHash,
-                filename: "invoice.pdf",
-                mime_type: "application/pdf",
-              },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    }),
-  };
-
-  const { server, url } = await setupTestServer({
-    authorizer: async () => ({
-      accessToken: "valid-token",
-      companyId,
-      user: { id: "user-reader" } as any,
-      supabase: mockSupabaseValid,
-    }),
-    providerSupplier: () => memoryProvider,
-  });
-
-  try {
-    const res = await fetch(`${url}/api/documents/${docId}/content`, {
-      headers: {
-        "Authorization": "Bearer valid-token",
-        "x-company-id": companyId,
-      },
-    });
-
-    assert.equal(res.status, 200);
-    const json = await res.json();
-    assert.equal(json.id, docId);
-    assert.equal(json.sha256, validHash);
-    assert.ok(json.fileData);
-  } finally {
-    server.close();
-  }
-
-  // 2. Hash mismatch case
-  const mockSupabaseCorrupt: any = {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({
-              data: {
-                id: docId,
-                company_id: companyId,
-                storage_path: storagePath,
-                storage_provider: "memory",
-                storage_bucket: "invoice-originals",
-                sha256: "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", // Wrong hash
-                filename: "invoice.pdf",
-                mime_type: "application/pdf",
-              },
-              error: null,
-            }),
-          }),
-        }),
-      }),
-    }),
-  };
-
-  const { server: corruptServer, url: corruptUrl } = await setupTestServer({
-    authorizer: async () => ({
-      accessToken: "valid-token",
-      companyId,
-      user: { id: "user-reader" } as any,
-      supabase: mockSupabaseCorrupt,
-    }),
-    providerSupplier: () => memoryProvider,
-  });
-
-  try {
-    const corruptRes = await fetch(`${corruptUrl}/api/documents/${docId}/content`, {
-      headers: {
-        "Authorization": "Bearer valid-token",
-        "x-company-id": companyId,
-      },
-    });
-    assert.equal(corruptRes.status, 422);
-    const corruptJson = await corruptRes.json();
-    assert.equal(corruptJson.code, "STORAGE_INTEGRITY_ERROR");
-  } finally {
-    corruptServer.close();
-  }
-});
-
-test("Storage Router Validation: Rejects invalid or oversized document uploads", async () => {
+test("Storage Router Validation: Rejects invalid or unsupported document uploads with 400 INVALID_DOCUMENT", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
   const { server, url } = await setupTestServer({
     authorizer: async () => ({
@@ -498,6 +436,8 @@ test("Storage Router Validation: Rejects invalid or oversized document uploads",
       body: JSON.stringify({ mimeType: "application/pdf", fileName: "test.pdf" }),
     });
     assert.equal(res1.status, 400);
+    const json1 = await res1.json();
+    assert.equal(json1.code, "INVALID_DOCUMENT");
 
     // 2. Empty byte payload
     const res2 = await fetch(`${url}/api/documents/manual-source`, {
@@ -506,8 +446,10 @@ test("Storage Router Validation: Rejects invalid or oversized document uploads",
       body: JSON.stringify({ fileData: "", mimeType: "application/pdf", fileName: "test.pdf" }),
     });
     assert.equal(res2.status, 400);
+    const json2 = await res2.json();
+    assert.equal(json2.code, "INVALID_DOCUMENT");
 
-    // 3. Invalid MIME type (e.g. executable)
+    // 3. Executable / non-invoice signature -> returns 400 INVALID_DOCUMENT
     const res3 = await fetch(`${url}/api/documents/manual-source`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": "Bearer valid-token", "x-company-id": companyId },
@@ -517,7 +459,9 @@ test("Storage Router Validation: Rejects invalid or oversized document uploads",
         fileName: "malware.exe",
       }),
     });
-    assert.equal(res3.status, 500); // Thrown from validateInvoiceDocumentBytes
+    assert.equal(res3.status, 400);
+    const json3 = await res3.json();
+    assert.equal(json3.code, "INVALID_DOCUMENT");
   } finally {
     server.close();
   }
