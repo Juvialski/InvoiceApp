@@ -30,7 +30,8 @@ async function main() {
     path.join(ROOT, "tests", "coreHardeningWave2B2.test.ts"),
     path.join(ROOT, "tests", "coreHardeningWave2B3CashCorrections.test.ts"),
     path.join(ROOT, "tests", "coreHardeningWave2C.test.ts"),
-    path.join(ROOT, "tests", "coreHardeningWave5FinancialIntegrity.test.ts")
+    path.join(ROOT, "tests", "coreHardeningWave5FinancialIntegrity.test.ts"),
+    path.join(ROOT, "tests", "databaseBackupMigration.test.ts")
   ];
 
   const nodeCmd = "node";
