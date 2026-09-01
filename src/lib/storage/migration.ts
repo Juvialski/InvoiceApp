@@ -137,20 +137,42 @@ export async function executeMigrationStep(
       );
     }
 
-    // 3. Put to target provider
-    await targetProvider.putObject({
-      companyId: record.companyId,
-      bucket: record.targetBucket,
-      key: record.targetKey,
-      bytes: sourceObj.bytes,
-      contentType: sourceObj.metadata.contentType || "application/octet-stream",
-      sha256: record.sha256,
-      customMetadata: {
-        "migrated-from-provider": record.sourceProvider,
-        "migrated-from-bucket": record.sourceBucket,
-        "document-id": record.documentId,
-      },
-    });
+    // 3. Check if target object already exists and is verified (crash/restart safety)
+    let targetAlreadyExists = false;
+    try {
+      const existingTargetObj = await targetProvider.getObject({
+        companyId: record.companyId,
+        bucket: record.targetBucket,
+        key: record.targetKey,
+      });
+      const existingHash = await calculateSha256Hex(existingTargetObj.bytes);
+      if (existingHash === record.sha256 && existingTargetObj.bytes.byteLength === record.sizeBytes) {
+        targetAlreadyExists = true;
+      } else {
+        throw new StorageIntegrityError(
+          `Target object already exists at "${record.targetKey}" but does not match expected SHA-256 hash or size.`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof StorageIntegrityError) throw err;
+      // Object not found on target yet; proceed to copy
+    }
+
+    if (!targetAlreadyExists) {
+      await targetProvider.putObject({
+        companyId: record.companyId,
+        bucket: record.targetBucket,
+        key: record.targetKey,
+        bytes: sourceObj.bytes,
+        contentType: sourceObj.metadata.contentType || "application/octet-stream",
+        sha256: record.sha256,
+        customMetadata: {
+          "migrated-from-provider": record.sourceProvider,
+          "migrated-from-bucket": record.sourceBucket,
+          "document-id": record.documentId,
+        },
+      });
+    }
 
     // 4. Verify target object on targetProvider
     const targetObj = await targetProvider.getObject({
@@ -165,6 +187,7 @@ export async function executeMigrationStep(
         `Target object verification failed after migration copy: expected hash ${record.sha256}, got ${targetHash}`,
       );
     }
+
 
     // Invariant: Migration never deletes source object in S3 (grace period retention).
     return {

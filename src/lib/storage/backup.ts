@@ -140,34 +140,57 @@ export async function replicateObjectToBackup(
   const attempts = record.attempts + 1;
 
   try {
-    // 1. Fetch source object bytes
-    const sourceObj = await sourceProvider.getObject({
-      companyId: record.companyId,
-      bucket: record.sourceBucket,
-      key: record.sourceKey,
-    });
-
-    const calculatedSourceHash = await calculateSha256Hex(sourceObj.bytes);
-    if (calculatedSourceHash !== record.sha256) {
-      throw new StorageIntegrityError(
-        `Source object corrupted before backup: expected ${record.sha256}, got ${calculatedSourceHash}`,
-      );
+    // 1. Check if replica object already exists on backupProvider (restart safety)
+    let replicaAlreadyExists = false;
+    try {
+      const existingReplica = await backupProvider.getObject({
+        companyId: record.companyId,
+        bucket: record.replicaBucket,
+        key: record.replicaKey,
+      });
+      const existingHash = await calculateSha256Hex(existingReplica.bytes);
+      if (existingHash === record.sha256 && existingReplica.bytes.byteLength === record.sizeBytes) {
+        replicaAlreadyExists = true;
+      } else {
+        throw new StorageIntegrityError(
+          `Backup replica already exists at "${record.replicaKey}" in bucket "${record.replicaBucket}" but fails integrity check (hash/size mismatch).`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof StorageIntegrityError) throw err;
+      // Object not found on backup provider yet; proceed to copy
     }
 
-    // 2. Put to backup provider
-    await backupProvider.putObject({
-      companyId: record.companyId,
-      bucket: record.replicaBucket,
-      key: record.replicaKey,
-      bytes: sourceObj.bytes,
-      contentType: sourceObj.metadata.contentType || "application/octet-stream",
-      sha256: record.sha256,
-      customMetadata: {
-        "source-provider": record.sourceProvider,
-        "source-bucket": record.sourceBucket,
-        "document-id": record.documentId,
-      },
-    });
+    if (!replicaAlreadyExists) {
+      // 2. Fetch source object bytes
+      const sourceObj = await sourceProvider.getObject({
+        companyId: record.companyId,
+        bucket: record.sourceBucket,
+        key: record.sourceKey,
+      });
+
+      const calculatedSourceHash = await calculateSha256Hex(sourceObj.bytes);
+      if (calculatedSourceHash !== record.sha256 || sourceObj.bytes.byteLength !== record.sizeBytes) {
+        throw new StorageIntegrityError(
+          `Source object corrupted before backup: expected ${record.sha256}, got ${calculatedSourceHash}`,
+        );
+      }
+
+      // 3. Put to backup provider
+      await backupProvider.putObject({
+        companyId: record.companyId,
+        bucket: record.replicaBucket,
+        key: record.replicaKey,
+        bytes: sourceObj.bytes,
+        contentType: sourceObj.metadata.contentType || "application/octet-stream",
+        sha256: record.sha256,
+        customMetadata: {
+          "source-provider": record.sourceProvider,
+          "source-bucket": record.sourceBucket,
+          "document-id": record.documentId,
+        },
+      });
+    }
 
     return {
       ...record,
@@ -178,6 +201,7 @@ export async function replicateObjectToBackup(
       lastError: undefined,
       updatedAt: now,
     };
+
   } catch (err: any) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     const nextState: ReplicationState = attempts >= record.maxAttempts ? "FAILED" : "RETRY_PENDING";

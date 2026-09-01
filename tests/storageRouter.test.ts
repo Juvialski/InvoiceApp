@@ -508,49 +508,59 @@ test("Storage Router: Backup Replication and Restore Drill API Endpoints", async
   const mockSupabase: any = {
     from: (_table: string) => ({
       select: () => {
+        const filters: Record<string, any> = {};
         const queryObj: any = {
-          filters: {} as Record<string, any>,
           eq(col: string, val: any) {
-            this.filters[col] = val;
-            return this;
+            filters[col] = val;
+            return queryObj;
           },
           in(col: string, vals: any[]) {
-            this.filters[col + "_in"] = vals;
-            return this;
+            filters[col + "_in"] = vals;
+            return queryObj;
           },
-          order() { return this; },
+          or() {
+            return queryObj;
+          },
+          order() {
+            return queryObj;
+          },
           async limit() {
             let list = [...dbReplicas];
-            if (this.filters.company_id) list = list.filter((r) => r.company_id === this.filters.company_id);
-            if (this.filters.replication_state_in) list = list.filter((r) => this.filters.replication_state_in.includes(r.replication_state));
+            if (filters.company_id) list = list.filter((r) => r.company_id === filters.company_id);
+            if (filters.replication_state_in) list = list.filter((r) => filters.replication_state_in.includes(r.replication_state));
             return { data: list, error: null };
           },
           async maybeSingle() {
-            const match = dbReplicas.find((r) => r.id === this.filters.id && r.company_id === this.filters.company_id);
+            const match = dbReplicas.find((r) => r.id === filters.id && r.company_id === filters.company_id);
             return { data: match || null, error: null };
           },
-          then(resolve: any) { return this.limit().then(resolve); },
+          then(resolve: any) {
+            return queryObj.limit().then(resolve);
+          },
         };
         return queryObj;
       },
       update: (data: any) => {
+        const filters: Record<string, any> = {};
         const updateObj: any = {
-          filters: {} as Record<string, any>,
           eq(col: string, val: any) {
-            this.filters[col] = val;
-            return this;
+            filters[col] = val;
+            return updateObj;
           },
           in(col: string, vals: any[]) {
-            this.filters[col + "_in"] = vals;
-            return this;
+            filters[col + "_in"] = vals;
+            return updateObj;
+          },
+          or() {
+            return updateObj;
           },
           async select() {
-            const item = dbReplicas.find((r) => r.id === this.filters.id);
+            const item = dbReplicas.find((r) => r.id === filters.id);
             if (item) Object.assign(item, data);
             return { data: item ? [item] : [], error: null };
           },
           then(resolve: any) {
-            const item = dbReplicas.find((r) => r.id === this.filters.id);
+            const item = dbReplicas.find((r) => r.id === filters.id);
             if (item) Object.assign(item, data);
             return resolve({ error: null, data: item ? [item] : [] });
           },
@@ -559,6 +569,7 @@ test("Storage Router: Backup Replication and Restore Drill API Endpoints", async
       },
     }),
   };
+
 
 
   const { server, url } = await setupTestServer({
@@ -595,23 +606,30 @@ test("Storage Router: Backup Replication and Restore Drill API Endpoints", async
     const listJson = await listRes.json();
     assert.equal(listJson.backups.length, 1);
 
-    // 3. Execute restore drill
-    const drillRes = await fetch(`${url}/api/documents/restore-drill`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": "Bearer valid-token", "x-company-id": companyId },
-      body: JSON.stringify({
-        manifestId: "bak-router-1",
-        testTargetKey: `companies/${companyId}/restore/test/drill-doc.pdf`,
-      }),
-    });
-    assert.equal(drillRes.status, 200);
-    const drillJson = await drillRes.json();
-    assert.equal(drillJson.success, true);
-    assert.equal(drillJson.restoredSha256, putRes.ref.sha256);
+    // 3. Execute restore drill (requires explicit opt-in)
+    const prevFlag = process.env.STORAGE_RESTORE_DRILLS_ENABLED;
+    try {
+      process.env.STORAGE_RESTORE_DRILLS_ENABLED = "true";
+      const drillRes = await fetch(`${url}/api/documents/restore-drill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer valid-token", "x-company-id": companyId },
+        body: JSON.stringify({
+          manifestId: "bak-router-1",
+          testTargetKey: `companies/${companyId}/restore/test/drill-doc.pdf`,
+        }),
+      });
+      assert.equal(drillRes.status, 200);
+      const drillJson = await drillRes.json();
+      assert.equal(drillJson.success, true);
+      assert.equal(drillJson.restoredSha256, putRes.ref.sha256);
+    } finally {
+      process.env.STORAGE_RESTORE_DRILLS_ENABLED = prevFlag;
+    }
   } finally {
     server.close();
   }
 });
+
 
 test("Storage Router: Strict Authorization - invoice roles cannot operate or inspect generic storage", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
@@ -673,16 +691,284 @@ test("Storage Router: Strict Authorization - invoice roles cannot operate or ins
     const bakJson = await bakRes.json();
     assert.equal(bakJson.code, "FORBIDDEN");
 
-    // 5. invoices.read cannot list storage migrations
-    const migListRes = await fetch(`${url}/api/documents/migrations`, {
-      method: "GET",
-      headers: { "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+    // 6. invoices.manage cannot call reconcile-backups
+    const recRes = await fetch(`${url}/api/documents/reconcile-backups`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+      body: JSON.stringify({ limit: 10 }),
     });
-    assert.equal(migListRes.status, 403);
-    const migListJson = await migListRes.json();
-    assert.equal(migListJson.code, "FORBIDDEN");
+    assert.equal(recRes.status, 403);
+    const recJson = await recRes.json();
+    assert.equal(recJson.code, "FORBIDDEN");
   } finally {
     server.close();
   }
 });
+
+test("Storage Router: Internal backup registration succeeds with invoices.manage using server authority while RLS remains strict", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const primaryProvider = new MemoryStorageProvider();
+  const backupProvider = new MemoryStorageProvider();
+
+  const sourceDocs: any[] = [];
+  const backupReplicas: any[] = [];
+
+  // User-scoped Supabase client (fails on document_backup_replicas if user lacks storage.manage)
+  const userSupabase: any = {
+    from: (table: string) => ({
+      select: () => {
+        const query: any = {
+          eq() { return query; },
+          neq() { return query; },
+          in() { return query; },
+          or() { return query; },
+          order() { return query; },
+          async limit() { return { data: [], error: null }; },
+          then(resolve: any) { return query.limit().then(resolve); },
+        };
+        return query;
+      },
+      insert: (record: any) => {
+        if (table === "document_backup_replicas") {
+          // RLS failure: user does NOT have storage.manage
+          return {
+            select: () => ({
+              single: async () => ({ data: null, error: { message: "new row violates row-level security policy for table document_backup_replicas" } }),
+            }),
+          };
+        }
+        if (table === "source_documents") {
+          const row = { id: "doc-invoice-user-1", ...record, created_at: new Date().toISOString() };
+          sourceDocs.push(row);
+          return {
+            select: () => ({
+              single: async () => ({ data: row, error: null }),
+            }),
+          };
+        }
+        return { select: () => ({ single: async () => ({ data: null, error: null }) }) };
+      },
+    }),
+  };
+
+  // Privileged server Supabase client (service role)
+  const serverSupabase: any = {
+    from: (table: string) => ({
+      select: () => {
+        const filters: Record<string, any> = {};
+        const query: any = {
+          eq(col: string, val: any) { filters[col] = val; return query; },
+          neq(col: string, val: any) { filters[col + "_neq"] = val; return query; },
+          in(col: string, vals: any[]) { filters[col + "_in"] = vals; return query; },
+          or() { return query; },
+          order() { return query; },
+          async limit() {
+            let list = [...backupReplicas];
+            if (filters.company_id) list = list.filter((r) => r.company_id === filters.company_id);
+            if (filters.source_key) list = list.filter((r) => r.source_key === filters.source_key);
+            if (filters.replica_bucket) list = list.filter((r) => r.replica_bucket === filters.replica_bucket);
+            return { data: list, error: null };
+          },
+          then(resolve: any) { return query.limit().then(resolve); },
+        };
+        return query;
+      },
+      insert: (record: any) => {
+        const row = { id: `bak-server-${backupReplicas.length + 1}`, ...record, created_at: new Date().toISOString() };
+        backupReplicas.push(row);
+        return {
+          select: () => ({
+            single: async () => ({ data: row, error: null }),
+          }),
+        };
+      },
+    }),
+  };
+
+  const prevEnv = process.env.STORAGE_BACKUP_PROVIDER;
+  const prevBucket = process.env.STORAGE_BACKUP_BUCKET;
+  const prevEndpoint = process.env.STORAGE_BACKUP_ENDPOINT;
+  const prevKey = process.env.STORAGE_BACKUP_ACCESS_KEY_ID;
+  const prevSec = process.env.STORAGE_BACKUP_SECRET_ACCESS_KEY;
+  try {
+    process.env.STORAGE_BACKUP_PROVIDER = "s3";
+    process.env.STORAGE_BACKUP_BUCKET = "engoryx-test-b2-bucket";
+    process.env.STORAGE_BACKUP_ENDPOINT = "https://s3.us-west-004.backblazeb2.com";
+    process.env.STORAGE_BACKUP_ACCESS_KEY_ID = "key-test";
+    process.env.STORAGE_BACKUP_SECRET_ACCESS_KEY = "secret-test";
+
+    const { server, url } = await setupTestServer({
+      authorizer: async (_req, permission) => {
+        if (permission === "invoices.manage" || permission === "invoices.read") {
+          return {
+            accessToken: "invoice-token",
+            companyId,
+            user: { id: "user-finance" } as any,
+            supabase: userSupabase,
+          };
+        }
+        throw new StorageApiError(403, "FORBIDDEN", "You do not have permission for this company storage operation.");
+      },
+      serverSupabaseSupplier: () => serverSupabase,
+      primaryProviderSupplier: () => primaryProvider,
+      backupProviderSupplier: () => backupProvider,
+    });
+
+    try {
+      const pdfBytes = new TextEncoder().encode("%PDF-1.4 Invoice Content From Finance User");
+      const uploadRes = await fetch(`${url}/api/documents/manual-source`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+        body: JSON.stringify({
+          fileData: Buffer.from(pdfBytes).toString("base64"),
+          mimeType: "application/pdf",
+          fileName: "invoice-finance.pdf",
+        }),
+      });
+
+      assert.equal(uploadRes.status, 200);
+      const json = await uploadRes.json();
+      assert.ok(json.id);
+
+      // INVARIANT 1: Backup replica was durably registered in DB through server authority!
+      assert.equal(backupReplicas.length, 1);
+      assert.equal(backupReplicas[0].document_id, json.id);
+      assert.equal(backupReplicas[0].company_id, companyId);
+      assert.equal(backupReplicas[0].replica_bucket, "engoryx-test-b2-bucket");
+
+      // INVARIANT 2: Finance user still CANNOT access storage administrative endpoints
+      const repRes = await fetch(`${url}/api/documents/replicate-backup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+        body: JSON.stringify({ limit: 10 }),
+      });
+      assert.equal(repRes.status, 403);
+    } finally {
+      server.close();
+    }
+  } finally {
+    process.env.STORAGE_BACKUP_PROVIDER = prevEnv;
+    process.env.STORAGE_BACKUP_BUCKET = prevBucket;
+    process.env.STORAGE_BACKUP_ENDPOINT = prevEndpoint;
+    process.env.STORAGE_BACKUP_ACCESS_KEY_ID = prevKey;
+    process.env.STORAGE_BACKUP_SECRET_ACCESS_KEY = prevSec;
+  }
+});
+
+test("Storage Router: POST /reconcile-backups discovers unbacked primary documents and registers manifests", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const sourceStore = new MemoryStorageProvider();
+  const backupStore = new MemoryStorageProvider();
+
+  const backupReplicas: any[] = [];
+  const sourceDocs = [
+    {
+      id: "doc-unbacked-1",
+      company_id: companyId,
+      source_type: "UPLOAD",
+      document_type: "INVOICE",
+      storage_provider: "s3",
+      storage_bucket: "invoice-originals",
+      storage_path: `companies/${companyId}/invoices/manual/doc-unbacked-1.pdf`,
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      file_size: 1024,
+    },
+  ];
+
+  const serverSupabase: any = {
+    from: (table: string) => ({
+      select: () => {
+        const filters: Record<string, any> = {};
+        const query: any = {
+          eq(col: string, val: any) { filters[col] = val; return query; },
+          neq(col: string, val: any) { filters[col + "_neq"] = val; return query; },
+          in(col: string, vals: any[]) { filters[col + "_in"] = vals; return query; },
+          or() { return query; },
+          order() { return query; },
+          async limit() {
+            if (table === "source_documents") {
+              let list = [...sourceDocs];
+              if (filters.company_id) list = list.filter((d) => d.company_id === filters.company_id);
+              if (filters.storage_provider) list = list.filter((d) => d.storage_provider === filters.storage_provider);
+              return { data: list, error: null };
+            }
+            if (table === "document_backup_replicas") {
+              let list = [...backupReplicas];
+              if (filters.company_id) list = list.filter((r) => r.company_id === filters.company_id);
+              if (filters.source_key) list = list.filter((r) => r.source_key === filters.source_key);
+              if (filters.replica_bucket) list = list.filter((r) => r.replica_bucket === filters.replica_bucket);
+              return { data: list, error: null };
+            }
+            return { data: [], error: null };
+          },
+          then(resolve: any) { return query.limit().then(resolve); },
+        };
+        return query;
+      },
+      insert: (record: any) => {
+        const row = { id: `bak-rec-${backupReplicas.length + 1}`, ...record, created_at: new Date().toISOString() };
+        backupReplicas.push(row);
+        return {
+          select: () => ({
+            single: async () => ({ data: row, error: null }),
+          }),
+        };
+      },
+    }),
+  };
+
+  const prevEnv = process.env.STORAGE_BACKUP_PROVIDER;
+  const prevBucket = process.env.STORAGE_BACKUP_BUCKET;
+  const prevEndpoint = process.env.STORAGE_BACKUP_ENDPOINT;
+  const prevKey = process.env.STORAGE_BACKUP_ACCESS_KEY_ID;
+  const prevSec = process.env.STORAGE_BACKUP_SECRET_ACCESS_KEY;
+  try {
+    process.env.STORAGE_BACKUP_PROVIDER = "s3";
+    process.env.STORAGE_BACKUP_BUCKET = "engoryx-test-b2-bucket";
+    process.env.STORAGE_BACKUP_ENDPOINT = "https://s3.us-west-004.backblazeb2.com";
+    process.env.STORAGE_BACKUP_ACCESS_KEY_ID = "key-test";
+    process.env.STORAGE_BACKUP_SECRET_ACCESS_KEY = "secret-test";
+
+    const { server, url } = await setupTestServer({
+      authorizer: async (_req, permission) => {
+        if (permission === "storage.manage") {
+          return {
+            accessToken: "admin-token",
+            companyId,
+            user: { id: "user-admin" } as any,
+            supabase: serverSupabase,
+          };
+        }
+        throw new StorageApiError(403, "FORBIDDEN", "Unauthorized");
+      },
+      serverSupabaseSupplier: () => serverSupabase,
+      primaryProviderSupplier: () => sourceStore,
+      backupProviderSupplier: () => backupStore,
+    });
+
+    try {
+      const res = await fetch(`${url}/api/documents/reconcile-backups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer admin-token", "x-company-id": companyId },
+        body: JSON.stringify({ limit: 10 }),
+      });
+
+      assert.equal(res.status, 200);
+      const json = await res.json();
+      assert.equal(json.reconciled, 1);
+      assert.equal(backupReplicas.length, 1);
+      assert.equal(backupReplicas[0].document_id, "doc-unbacked-1");
+    } finally {
+      server.close();
+    }
+  } finally {
+    process.env.STORAGE_BACKUP_PROVIDER = prevEnv;
+    process.env.STORAGE_BACKUP_BUCKET = prevBucket;
+    process.env.STORAGE_BACKUP_ENDPOINT = prevEndpoint;
+    process.env.STORAGE_BACKUP_ACCESS_KEY_ID = prevKey;
+    process.env.STORAGE_BACKUP_SECRET_ACCESS_KEY = prevSec;
+  }
+});
+
+
 

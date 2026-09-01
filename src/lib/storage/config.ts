@@ -132,16 +132,22 @@ export function loadStorageConfig(env: StorageEnvironment = process.env): Storag
     );
   }
 
-  const backupEndpoint = getEnvValue(env, "STORAGE_BACKUP_ENDPOINT", "BACKBLAZE_B2_ENDPOINT", "B2_ENDPOINT");
-  const backupBucket = getEnvValue(env, "STORAGE_BACKUP_BUCKET", "BACKBLAZE_B2_BUCKET", "B2_BUCKET") || "engoryx-backups";
-  const backupRegion = getEnvValue(env, "STORAGE_BACKUP_REGION", "BACKBLAZE_B2_REGION", "B2_REGION") || "auto";
-  const backupAccessKeyId = getEnvValue(env, "STORAGE_BACKUP_ACCESS_KEY_ID", "BACKBLAZE_B2_ACCESS_KEY_ID", "B2_ACCESS_KEY_ID");
-  const backupSecretAccessKey = getEnvValue(env, "STORAGE_BACKUP_SECRET_ACCESS_KEY", "BACKBLAZE_B2_SECRET_ACCESS_KEY", "B2_SECRET_ACCESS_KEY");
-  const backupForcePathStyleRaw = getEnvValue(env, "STORAGE_BACKUP_FORCE_PATH_STYLE");
-  const backupForcePathStyle = backupForcePathStyleRaw ? backupForcePathStyleRaw === "true" : true;
-
   let backupS3Config: S3ProviderConfig | undefined;
-  if (backupEndpoint && backupAccessKeyId && backupSecretAccessKey) {
+  if (backupProvider === "s3") {
+    const backupEndpoint = getEnvValue(env, "STORAGE_BACKUP_ENDPOINT", "BACKBLAZE_B2_ENDPOINT", "B2_ENDPOINT");
+    const backupBucket = getEnvValue(env, "STORAGE_BACKUP_BUCKET", "BACKBLAZE_B2_BUCKET", "B2_BUCKET");
+    const backupRegion = getEnvValue(env, "STORAGE_BACKUP_REGION", "BACKBLAZE_B2_REGION", "B2_REGION") || "auto";
+    const backupAccessKeyId = getEnvValue(env, "STORAGE_BACKUP_ACCESS_KEY_ID", "BACKBLAZE_B2_ACCESS_KEY_ID", "B2_ACCESS_KEY_ID");
+    const backupSecretAccessKey = getEnvValue(env, "STORAGE_BACKUP_SECRET_ACCESS_KEY", "BACKBLAZE_B2_SECRET_ACCESS_KEY", "B2_SECRET_ACCESS_KEY");
+    const backupForcePathStyleRaw = getEnvValue(env, "STORAGE_BACKUP_FORCE_PATH_STYLE");
+    const backupForcePathStyle = backupForcePathStyleRaw ? backupForcePathStyleRaw === "true" : true;
+
+    if (!backupEndpoint || !backupBucket || !backupAccessKeyId || !backupSecretAccessKey) {
+      throw new StorageConfigurationError(
+        "Incomplete backup storage provider configuration: STORAGE_BACKUP_ENDPOINT, STORAGE_BACKUP_BUCKET, STORAGE_BACKUP_ACCESS_KEY_ID, and STORAGE_BACKUP_SECRET_ACCESS_KEY (or B2 equivalents) are all required when STORAGE_BACKUP_PROVIDER is configured.",
+      );
+    }
+
     backupS3Config = {
       endpoint: backupEndpoint,
       bucket: backupBucket,
@@ -151,6 +157,7 @@ export function loadStorageConfig(env: StorageEnvironment = process.env): Storag
       forcePathStyle: backupForcePathStyle,
     };
   }
+
 
   return {
     primaryProvider,

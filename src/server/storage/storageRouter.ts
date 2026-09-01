@@ -1,7 +1,7 @@
 /**
  * Storage API router handling authenticated document operations,
  * provider-neutral manual invoice source uploads, secure signed previews,
- * asynchronous backup replication, and incremental document migrations.
+ * asynchronous backup replication, operator reconciliation, and incremental document migrations.
  */
 
 import express, { type Request, type Response, type Router } from "express";
@@ -28,7 +28,7 @@ import { BackupService } from "./backupService.ts";
 import { MigrationService, type MigrationSupportedDomain } from "./migrationService.ts";
 import type { StoredSourceDocument } from "../../types.ts";
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_MIGRATION_DOMAINS: MigrationSupportedDomain[] = [
   "INVOICES",
   "EMAIL_INTAKE",
@@ -158,6 +158,18 @@ export async function authorizeStorageRequest(
 export function createStorageRouter(options?: StorageRouterOptions): Router {
   const router = express.Router();
   const authorizer = options?.authorizer || authorizeStorageRequest;
+
+  // Helper to obtain server-only privileged Supabase client for internal manifest registration
+  const getPrivilegedClient = (auth: StorageAuthContext): SupabaseClient => {
+    if (options?.serverSupabaseSupplier) {
+      return options.serverSupabaseSupplier();
+    }
+    try {
+      return getStorageServerServiceRoleClient();
+    } catch {
+      return auth.supabase;
+    }
+  };
 
   // Upload manual invoice source document
   // Authoritative permission: invoices.manage (required for creating source_documents)
@@ -292,9 +304,11 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         throw new StorageApiError(500, "METADATA_INSERT_FAILED", `Document metadata persistence failed: ${insertError.message}`);
       }
 
-      // Durably register backup intent before returning (replication itself stays async)
+      // Durably register backup intent using server-only authority before returning (replication stays async)
+      const serverSupabase = getPrivilegedClient(auth);
       const backupSvc = options?.backupService || new BackupService({
         supabaseClientSupplier: () => auth.supabase,
+        privilegedClientSupplier: () => serverSupabase,
         primaryProviderSupplier: options?.primaryProviderSupplier,
         backupProviderSupplier: options?.backupProviderSupplier,
         providerSupplier: options?.providerSupplier,
@@ -455,8 +469,10 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
       const auth = await authorizer(req, "storage.manage");
       const limit = Math.max(1, Math.min(Number(req.body?.limit) || 10, 100));
 
+      const serverSupabase = getPrivilegedClient(auth);
       const backupSvc = options?.backupService || new BackupService({
         supabaseClientSupplier: () => auth.supabase,
+        privilegedClientSupplier: () => serverSupabase,
         primaryProviderSupplier: options?.primaryProviderSupplier,
         backupProviderSupplier: options?.backupProviderSupplier,
         providerSupplier: options?.providerSupplier,
@@ -469,6 +485,31 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         return res.status(err.status).json({ code: err.code, error: err.message });
       }
       return res.status(500).json({ error: err?.message || "Backup replication processing failed." });
+    }
+  });
+
+  // Reconcile unbacked primary documents for company (Strictly storage.manage)
+  router.post("/reconcile-backups", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "storage.manage");
+      const limit = Math.max(1, Math.min(Number(req.body?.limit) || 50, 100));
+
+      const serverSupabase = getPrivilegedClient(auth);
+      const backupSvc = options?.backupService || new BackupService({
+        supabaseClientSupplier: () => auth.supabase,
+        privilegedClientSupplier: () => serverSupabase,
+        primaryProviderSupplier: options?.primaryProviderSupplier,
+        backupProviderSupplier: options?.backupProviderSupplier,
+        providerSupplier: options?.providerSupplier,
+      });
+
+      const records = await backupSvc.discoverUnbackedObjects(auth.companyId, limit);
+      return res.json({ reconciled: records.length, records });
+    } catch (err: any) {
+      if (err instanceof StorageApiError) {
+        return res.status(err.status).json({ code: err.code, error: err.message });
+      }
+      return res.status(500).json({ error: err?.message || "Backup reconciliation failed." });
     }
   });
 
@@ -485,8 +526,10 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         return res.status(400).json({ error: "testTargetKey must contain '/restore/' or '/test/' to protect production." });
       }
 
+      const serverSupabase = getPrivilegedClient(auth);
       const backupSvc = options?.backupService || new BackupService({
         supabaseClientSupplier: () => auth.supabase,
+        privilegedClientSupplier: () => serverSupabase,
         primaryProviderSupplier: options?.primaryProviderSupplier,
         backupProviderSupplier: options?.backupProviderSupplier,
         providerSupplier: options?.providerSupplier,
@@ -552,9 +595,11 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
       }
 
       const clampedLimit = Math.max(1, Math.min(Number(limit) || 10, 100));
+      const serverSupabase = getPrivilegedClient(auth);
 
       const backupSvc = options?.backupService || new BackupService({
         supabaseClientSupplier: () => auth.supabase,
+        privilegedClientSupplier: () => serverSupabase,
         primaryProviderSupplier: options?.primaryProviderSupplier,
         backupProviderSupplier: options?.backupProviderSupplier,
         providerSupplier: options?.providerSupplier,

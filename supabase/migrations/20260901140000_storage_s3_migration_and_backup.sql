@@ -28,7 +28,7 @@ begin
   ) then
     alter table public.engineering_document_revisions
       add constraint engineering_document_revisions_storage_provider_check
-      check (storage_provider in ('supabase', 's3', 'memory'));
+      check (storage_provider in ('supabase', 's3'));
   end if;
 end $$;
 
@@ -48,7 +48,7 @@ begin
   ) then
     alter table public.payroll_import_batches
       add constraint payroll_import_batches_storage_provider_check
-      check (storage_provider in ('supabase', 's3', 'memory'));
+      check (storage_provider in ('supabase', 's3'));
   end if;
 end $$;
 
@@ -62,12 +62,12 @@ create table if not exists public.document_backup_replicas (
   document_domain text not null default 'INVOICES'
     check (document_domain in ('INVOICES', 'EMAIL_INTAKE', 'CASH_BANKING', 'PAYROLL', 'ENGINEERING', 'SOURCE_DOCUMENTS')),
   document_id text not null,
-  source_provider text not null check (source_provider in ('supabase', 's3', 'memory')),
+  source_provider text not null check (source_provider in ('supabase', 's3')),
   source_bucket text not null,
   source_key text not null,
   source_sha256 text not null check (source_sha256 ~ '^[0-9a-f]{64}$'),
   source_size_bytes bigint not null check (source_size_bytes >= 0),
-  replica_provider text not null check (replica_provider in ('s3', 'b2', 'memory')),
+  replica_provider text not null check (replica_provider in ('s3')),
   replica_bucket text not null,
   replica_key text not null,
   replication_state text not null default 'PENDING'
@@ -98,7 +98,7 @@ create index if not exists document_backup_replicas_company_sha_idx
   on public.document_backup_replicas(company_id, source_sha256);
 
 create unique index if not exists document_backup_replicas_unique_active_idx
-  on public.document_backup_replicas(company_id, document_domain, document_id, replica_provider, replica_bucket, replica_key)
+  on public.document_backup_replicas(company_id, source_provider, source_bucket, source_key, source_sha256, replica_provider, replica_bucket, replica_key)
   where replication_state not in ('FAILED');
 
 -- Boundary and update triggers for document_backup_replicas
@@ -146,10 +146,10 @@ create table if not exists public.document_migration_records (
   document_domain text not null default 'INVOICES'
     check (document_domain in ('INVOICES', 'EMAIL_INTAKE', 'CASH_BANKING', 'PAYROLL', 'ENGINEERING', 'SOURCE_DOCUMENTS')),
   document_id text not null,
-  source_provider text not null check (source_provider in ('supabase', 's3', 'memory')),
+  source_provider text not null check (source_provider in ('supabase', 's3')),
   source_bucket text not null,
   source_key text not null,
-  target_provider text not null check (target_provider in ('s3', 'memory')),
+  target_provider text not null check (target_provider in ('s3')),
   target_bucket text not null,
   target_key text not null,
   sha256 text not null check (sha256 ~ '^[0-9a-f]{64}$'),

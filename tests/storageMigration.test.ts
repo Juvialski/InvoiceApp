@@ -394,3 +394,165 @@ test("Physical Deduplication during Migration: Identical Engineering Revision by
   assert.equal(engRevisions[0].id, "rev-1");
   assert.equal(engRevisions[1].id, "rev-2");
 });
+
+test("Storage Migration: Crash/Resume - verifies existing target object without re-uploading duplicate bytes", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const sourceStore = new MemoryStorageProvider();
+  const targetStore = new MemoryStorageProvider();
+
+  const key = `companies/${companyId}/invoices/manual/2026/09/crash-resume.pdf`;
+  const bytes = new TextEncoder().encode("%PDF-1.4 Crash resume document content");
+
+  const putRes = await sourceStore.putObject({
+    companyId,
+    bucket: "invoice-originals",
+    key,
+    bytes,
+    contentType: "application/pdf",
+  });
+
+  // Target object was already successfully written before crash
+  await targetStore.putObject({
+    companyId,
+    bucket: "engoryx-custom-r2-bucket",
+    key,
+    bytes,
+    contentType: "application/pdf",
+  });
+
+  const record = createInitialMigrationRecord({
+    companyId,
+    documentDomain: "INVOICES",
+    documentId: "doc-crash-1",
+    sourceProvider: "supabase",
+    sourceBucket: "invoice-originals",
+    sourceKey: key,
+    targetProvider: "s3",
+    targetBucket: "engoryx-custom-r2-bucket",
+    sha256: putRes.ref.sha256!,
+    sizeBytes: bytes.byteLength,
+  });
+
+  // Re-run migration step after crash
+  const stepResult = await executeMigrationStep(record, sourceProvider(sourceStore), targetStore);
+
+  assert.equal(stepResult.success, true);
+  assert.equal(stepResult.record.migrationState, "PRIMARY_SWITCH");
+  assert.equal(stepResult.record.verificationStatus, "MATCHED");
+});
+
+function sourceProvider(store: MemoryStorageProvider) {
+  return store;
+}
+
+test("Storage Migration: Concurrency - atomic claim allows only one concurrent worker to process a record", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const sourceStore = new MemoryStorageProvider();
+  const targetStore = new MemoryStorageProvider();
+
+  const key = `companies/${companyId}/invoices/manual/2026/09/conc-mig.pdf`;
+  const bytes = new TextEncoder().encode("%PDF-1.4 Concurrency migration test");
+
+  const putRes = await sourceStore.putObject({
+    companyId,
+    bucket: "invoice-originals",
+    key,
+    bytes,
+    contentType: "application/pdf",
+  });
+
+  const sourceDocs = [
+    { id: "doc-conc-mig", company_id: companyId, storage_path: key, storage_provider: "supabase", storage_bucket: "invoice-originals" },
+  ];
+
+  const migrationRecords: any[] = [
+    {
+      id: "mig-conc-1",
+      company_id: companyId,
+      document_domain: "INVOICES",
+      document_id: "doc-conc-mig",
+      source_provider: "supabase",
+      source_bucket: "invoice-originals",
+      source_key: key,
+      target_provider: "s3",
+      target_bucket: "engoryx-custom-r2-bucket",
+      target_key: key,
+      sha256: putRes.ref.sha256,
+      size_bytes: bytes.byteLength,
+      migration_state: "DISCOVERED",
+      verification_status: "UNVERIFIED",
+      attempts: 0,
+      max_attempts: 5,
+      created_at: new Date().toISOString(),
+    },
+  ];
+
+  let claimAttempts = 0;
+  const mockSupabase: any = {
+    from: (table: string) => ({
+      select: () => {
+        const queryObj: any = {
+          filters: {} as Record<string, any>,
+          eq(col: string, val: any) { this.filters[col] = val; return this; },
+          or() { return this; },
+          order() { return this; },
+          async limit() { return { data: [...migrationRecords], error: null }; },
+          then(resolve: any) { return this.limit().then(resolve); },
+        };
+        return queryObj;
+      },
+      update: (data: any) => ({
+        eq: (_col1: string, _val1: any) => ({
+          eq: (_col2: string, _val2: any) => ({
+            or: (_filterStr: string) => ({
+              select: async () => {
+                if (table === "document_migration_records") {
+                  claimAttempts += 1;
+                  if (claimAttempts === 1) {
+                    Object.assign(migrationRecords[0], data);
+                    return { data: [{ ...migrationRecords[0] }], error: null };
+                  }
+                  // Second concurrent worker gets 0 rows
+                  return { data: [], error: null };
+                }
+                if (table === "source_documents") {
+                  Object.assign(sourceDocs[0], data);
+                  return { data: [{ id: "doc-conc-mig" }], error: null };
+                }
+                return { data: [], error: null };
+              },
+            }),
+            select: async () => {
+              if (table === "source_documents") {
+                Object.assign(sourceDocs[0], data);
+                return { data: [{ id: "doc-conc-mig" }], error: null };
+              }
+              if (table === "document_migration_records") {
+                Object.assign(migrationRecords[0], data);
+                return { data: [{ ...migrationRecords[0] }], error: null };
+              }
+              return { data: [], error: null };
+            },
+          }),
+        }),
+      }),
+    }),
+  };
+
+  const migrationService = new MigrationService({
+    supabaseClientSupplier: () => mockSupabase,
+    primaryProviderSupplier: () => targetStore,
+    providerSupplier: (id) => (id === "supabase" ? sourceStore : targetStore),
+  });
+
+  // Run two concurrent migration batches
+  const [res1, res2] = await Promise.all([
+    migrationService.processPendingMigrations(companyId, "INVOICES", 10),
+    migrationService.processPendingMigrations(companyId, "INVOICES", 10),
+  ]);
+
+  // One worker claimed and succeeded; the other skipped
+  assert.equal(res1.success + res2.success, 1);
+  assert.equal(res1.processed + res2.processed, 1);
+});
+
