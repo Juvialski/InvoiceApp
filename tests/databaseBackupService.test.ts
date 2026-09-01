@@ -1,9 +1,6 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { promises as fs } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import {
   DatabaseBackupService,
 } from "../src/server/databaseBackup/databaseBackupService.ts";
@@ -15,7 +12,6 @@ import {
 } from "../src/lib/databaseBackup/crypto.ts";
 import {
   type DatabaseBackupConfig,
-  type DatabaseBackupRunRecord,
 } from "../src/lib/databaseBackup/types.ts";
 import { MemoryStorageProvider } from "../src/lib/storage/providers/memoryProvider.ts";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -153,6 +149,10 @@ function createMockSupabase(initialRuns: Array<Record<string, any>> = []): {
 }
 
 const COMPANY_ID = "33333333-3333-4333-8333-333333333333";
+const TEST_DESCRIPTOR_KEY = generateEncryptionKey().keyHex;
+process.env.NODE_ENV = "test";
+process.env.DATABASE_BACKUP_ENCRYPTION_KEY = TEST_DESCRIPTOR_KEY;
+process.env.DATABASE_BACKUP_STORAGE_PROVIDER = "memory";
 
 function createTestConfig(): DatabaseBackupConfig {
   const { key } = generateEncryptionKey();
@@ -186,11 +186,10 @@ test("DatabaseBackupService: Successful end-to-end logical export, encryption, a
     configSupplier: () => config,
   });
 
-  // 1. Register and Execute
   const result = await service.createAndExecuteBackup({
     companyId: COMPANY_ID,
     backupType: "LOGICAL_FULL",
-    databaseScope: "ALL_PUBLIC_TABLES",
+    databaseScope: "PUBLIC_APPLICATION_DATA",
   });
 
   assert.equal(result.success, true);
@@ -204,7 +203,6 @@ test("DatabaseBackupService: Successful end-to-end logical export, encryption, a
   assert.ok(result.record.completedAt);
   assert.ok(result.record.lastVerifiedAt);
 
-  // 2. Assert independent storage object exists and is encrypted
   const storedObject = await memoryProvider.getObject({
     companyId: COMPANY_ID,
     bucket: result.record.storageBucket,
@@ -213,10 +211,8 @@ test("DatabaseBackupService: Successful end-to-end logical export, encryption, a
 
   assert.ok(storedObject);
   assert.equal(storedObject.bytes.length, result.record.encryptedSizeBytes);
-  // Verify encrypted header prefix
   assert.equal(Buffer.from(storedObject.bytes).subarray(0, 17).toString("utf-8"), "ENGORYX_ENC_DB_V1");
 
-  // 3. Verify DB state matches
   assert.equal(state.database_backup_runs.length, 1);
   assert.equal(state.database_backup_runs[0].status, "VERIFIED");
   assert.equal(state.database_backup_runs[0].verification_status, "MATCHED");
@@ -268,7 +264,6 @@ test("DatabaseBackupService: Re-verifying a backup detects corrupted remote arch
   const { record } = await service.createAndExecuteBackup({ companyId: COMPANY_ID });
   assert.equal(record.verificationStatus, "MATCHED");
 
-  // Tamper with remote object on backup storage
   const corruptedBuffer = Buffer.from("TAMPERED_DATA_BYTES");
   await memoryProvider.putObject({
     bucket: record.storageBucket,
@@ -278,7 +273,6 @@ test("DatabaseBackupService: Re-verifying a backup detects corrupted remote arch
     companyId: COMPANY_ID,
   });
 
-  // Re-verify
   const reverified = await service.verifyBackupRun(record.id);
   assert.equal(reverified.verificationStatus, "CORRUPTED");
 });
