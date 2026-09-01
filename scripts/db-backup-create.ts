@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CLI Operator Script: Create Encrypted Database Backup.
  * Usage:
  *   npx tsx scripts/db-backup-create.ts --company-id <uuid> [--backup-type LOGICAL_FULL]
@@ -28,12 +28,13 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`[Engoryx Database Backup] Starting encrypted logical backup for company ${companyId}...`);
+  console.log(`[Engoryx Database Backup] Starting encrypted logical application-data backup for company ${companyId}...`);
 
   const service = new DatabaseBackupService();
   const result = await service.createAndExecuteBackup({
     companyId,
     backupType,
+    databaseScope: "PUBLIC_APPLICATION_DATA",
   });
 
   if (!result.success) {
@@ -46,6 +47,7 @@ async function main() {
   console.log(JSON.stringify({
     id: result.record.id,
     companyId: result.record.companyId,
+    databaseScope: result.record.databaseScope,
     status: result.record.status,
     verificationStatus: result.record.verificationStatus,
     storageBucket: result.record.storageBucket,
