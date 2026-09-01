@@ -42,6 +42,10 @@ test("Database Backup Migration: Defines database_backup_runs with constraints a
   assert.match(sql, /encrypted_sha256 text not null check \(encrypted_sha256 ~ '\^\[0-9a-f\]\{64\}\$'\)/i);
   assert.match(sql, /status in \('PENDING', 'EXPORTING', 'ENCRYPTING', 'UPLOADING', 'VERIFYING', 'VERIFIED', 'FAILED'\)/i);
   assert.match(sql, /verification_status in \('UNVERIFIED', 'MATCHED', 'CORRUPTED', 'MISSING'\)/i);
+  assert.match(
+    sql,
+    /create unique index if not exists database_backup_runs_one_active_per_company_idx\s+on public\.database_backup_runs\(company_id\)\s+where status in \('PENDING', 'EXPORTING', 'ENCRYPTING', 'UPLOADING', 'VERIFYING'\)/i,
+  );
 
   assert.match(sql, /create trigger database_backup_runs_company_boundary/i);
   assert.match(sql, /create trigger database_backup_runs_updated_at/i);
