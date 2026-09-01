@@ -1,18 +1,10 @@
 #!/usr/bin/env node
 /**
- * Database Growth & Retention Pruning CLI.
- * Safely evaluates or executes conservative retention policies for transient/prunable database rows.
+ * Database Growth & Retention Candidate Discovery CLI.
  *
- * Usage:
- *   npx.cmd tsx scripts/db-retention-prune.ts [options]
- *
- * Options:
- *   --company-id <uuid>   Deployment company UUID (or from COMPANY_ID env)
- *   --dry-run             Dry-run mode (default, prints candidates without pruning)
- *   --execute             Execute actual deletion and record audit log
- *   --limit <number>      Maximum candidates to evaluate (default: 50, max: 100)
- *   --json                Output results strictly as formatted JSON
- *   -h, --help            Show this help guide
+ * Wave S4 intentionally remains non-destructive. It identifies bounded, company-scoped
+ * retention candidates but does not delete them until S5 defines and reviews explicit
+ * retention/lifecycle policy for each domain and associated object-storage cleanup.
  */
 
 import "dotenv/config";
@@ -26,7 +18,6 @@ import {
 
 interface ParsedCliArgs {
   companyId?: string;
-  dryRun: boolean;
   limit: number;
   json: boolean;
   help: boolean;
@@ -39,7 +30,6 @@ function parseCliArgs(argv: string[]): ParsedCliArgs {
     process.env.ENGORYX_COMPANY_ID ||
     process.env.VITE_COMPANY_ID ||
     undefined;
-  let dryRun = true;
   let limit = DEFAULT_PRUNE_LIMIT;
   let json = false;
   let help = false;
@@ -50,9 +40,11 @@ function parseCliArgs(argv: string[]): ParsedCliArgs {
     if (arg === "--help" || arg === "-h") {
       help = true;
     } else if (arg === "--dry-run") {
-      dryRun = true;
+      // Retained as a compatibility no-op because S4 is always dry-run.
     } else if (arg === "--execute") {
-      dryRun = false;
+      throw new Error(
+        "Destructive retention execution is intentionally disabled in Wave S4. Use dry-run candidate discovery; reviewed deletion policy and object cleanup move to S5.",
+      );
     } else if (arg === "--json") {
       json = true;
     } else if (arg === "--company-id") {
@@ -80,31 +72,28 @@ function parseCliArgs(argv: string[]): ParsedCliArgs {
     }
   }
 
-  return { companyId, dryRun, limit, json, help };
+  return { companyId, limit, json, help };
 }
 
 function printUsage(): void {
   console.log(`
-Engoryx Database Growth & Retention Pruning CLI
+Engoryx Database Retention Candidate Discovery
 ==============================================
 
-Evaluates or executes conservative retention pruning against transient, unreferenced database records.
-
-Invariants:
-- Scoped strictly to the target company_id.
-- Dry-run mode by default (dryRun: true).
-- Protects all records linked to invoices, expenses, payroll runs, work entries, or audit history.
+Wave S4 provides bounded, company-scoped retention analysis only. It does not delete records.
+Physical/object cleanup and reviewed retention execution are intentionally deferred to S5.
 
 Usage:
   npx.cmd tsx scripts/db-retention-prune.ts [options]
 
 Options:
   --company-id <uuid>   Deployment company UUID (or set COMPANY_ID in env)
-  --dry-run             Evaluate eligible records without deleting (default)
-  --execute             Perform deletion of eligible transient records
+  --dry-run             Compatibility flag; S4 is always dry-run
   --limit <number>      Maximum candidate records to evaluate (default: 50, max: 100)
-  --json                Output strictly structured JSON summary
+  --json                Output structured JSON summary
   -h, --help            Display this usage guide
+
+The legacy --execute flag is rejected intentionally.
 `);
 }
 
@@ -133,10 +122,10 @@ async function main(): Promise<void> {
 
   if (!parsed.json) {
     console.log("============================================================");
-    console.log(" Engoryx Conservative Database Retention Pruning");
+    console.log(" Engoryx Database Retention Candidate Discovery");
     console.log("============================================================");
     console.log(`Company ID : ${parsed.companyId}`);
-    console.log(`Mode       : ${parsed.dryRun ? "DRY-RUN (Safe evaluation only)" : "EXECUTE (Permanent deletion)"}`);
+    console.log("Mode       : DRY-RUN ONLY (no database rows are deleted in S4)");
     console.log(`Limit      : ${parsed.limit}`);
     console.log("------------------------------------------------------------");
   }
@@ -144,7 +133,7 @@ async function main(): Promise<void> {
   try {
     const result = await service.pruneRetention({
       companyId: parsed.companyId,
-      dryRun: parsed.dryRun,
+      dryRun: true,
       limit: parsed.limit,
     });
 
@@ -153,11 +142,11 @@ async function main(): Promise<void> {
     } else {
       console.log("\n[Summary]");
       console.log(`Total Candidates Found : ${result.candidatesCount}`);
-      console.log(`Total Records Pruned   : ${result.prunedCount}`);
+      console.log("Total Records Pruned   : 0 (S4 execution disabled)");
       console.log("\n[Category Breakdown]");
-      console.log(`- Assistant Actions    : ${result.categories.assistantActions.candidatesCount} candidate(s), ${result.categories.assistantActions.prunedCount} pruned`);
-      console.log(`- Payroll Batches      : ${result.categories.payrollBatches.candidatesCount} candidate(s), ${result.categories.payrollBatches.prunedCount} pruned`);
-      console.log(`- Source Documents     : ${result.categories.sourceDocuments.candidatesCount} candidate(s), ${result.categories.sourceDocuments.prunedCount} pruned`);
+      console.log(`- Assistant Actions    : ${result.categories.assistantActions.candidatesCount} candidate(s)`);
+      console.log(`- Payroll Batches      : ${result.categories.payrollBatches.candidatesCount} candidate(s)`);
+      console.log(`- Source Documents     : ${result.categories.sourceDocuments.candidatesCount} candidate(s)`);
 
       if (result.errors.length > 0) {
         console.warn("\n[Warnings / Non-fatal Errors]");
@@ -166,24 +155,17 @@ async function main(): Promise<void> {
         }
       }
 
-      if (parsed.dryRun) {
-        console.log("\n✓ Dry-run completed successfully. No rows were deleted.");
-      } else {
-        console.log(`\n✓ Retention pruning executed successfully. ${result.prunedCount} record(s) removed.`);
-        if (result.executionProof?.auditEventLogged) {
-          console.log("✓ Audit event recorded in company_audit_events.");
-        }
-      }
+      console.log("\nDry-run completed. No rows were deleted. Review candidates before S5 retention policy is implemented.");
     }
 
-    if (result.errors.length > 0 && result.prunedCount === 0 && result.candidatesCount === 0) {
+    if (result.errors.length > 0 && result.candidatesCount === 0) {
       process.exit(1);
     }
   } catch (err: any) {
     if (parsed.json) {
       console.error(JSON.stringify({ error: err.message || String(err), code: err.code || "FATAL_ERROR" }));
     } else {
-      console.error(`\n✖ Fatal retention pruning error: ${err.message || String(err)}`);
+      console.error(`\nFatal retention discovery error: ${err.message || String(err)}`);
     }
     process.exit(1);
   }
