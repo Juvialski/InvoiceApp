@@ -466,3 +466,131 @@ test("Storage Router Validation: Rejects invalid or unsupported document uploads
     server.close();
   }
 });
+
+test("Storage Router: Backup Replication and Restore Drill API Endpoints", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const primaryProvider = new MemoryStorageProvider();
+  const backupProvider = new MemoryStorageProvider();
+
+  const key = `companies/${companyId}/invoices/manual/2026/09/router-bak.pdf`;
+  const bytes = new TextEncoder().encode("%PDF-1.4 Router backup test content");
+  const putRes = await primaryProvider.putObject({
+    companyId,
+    bucket: "engoryx-production-documents",
+    key,
+    bytes,
+    contentType: "application/pdf",
+  });
+
+  const dbReplicas: any[] = [
+    {
+      id: "bak-router-1",
+      company_id: companyId,
+      document_domain: "INVOICES",
+      document_id: "doc-1",
+      source_provider: "s3",
+      source_bucket: "engoryx-production-documents",
+      source_key: key,
+      source_sha256: putRes.ref.sha256,
+      source_size_bytes: bytes.byteLength,
+      replica_provider: "b2",
+      replica_bucket: "engoryx-backups",
+      replica_key: key,
+      replication_state: "PENDING",
+      verification_status: "UNVERIFIED",
+      attempts: 0,
+      max_attempts: 5,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ];
+
+  const mockSupabase: any = {
+    from: (table: string) => ({
+      select: () => ({
+        eq: (_col1: string, val1: any) => ({
+          in: (_col2: string, states: string[]) => ({
+            order: () => ({
+              limit: async () => ({
+                data: dbReplicas.filter((r) => r.company_id === val1 && states.includes(r.replication_state)),
+                error: null,
+              }),
+            }),
+          }),
+          eq: (_col2: string, val2: any) => ({
+            maybeSingle: async () => ({
+              data: dbReplicas.find((r) => r.id === val1 && r.company_id === val2),
+              error: null,
+            }),
+          }),
+          order: () => ({
+            limit: async () => ({
+              data: dbReplicas.filter((r) => r.company_id === val1),
+              error: null,
+            }),
+          }),
+        }),
+      }),
+      update: (data: any) => ({
+        eq: (_col1: string, val1: any) => ({
+          eq: async () => {
+            const item = dbReplicas.find((r) => r.id === val1);
+            if (item) Object.assign(item, data);
+            return { error: null };
+          },
+        }),
+      }),
+    }),
+  };
+
+  const { server, url } = await setupTestServer({
+    authorizer: async () => ({
+      accessToken: "valid-token",
+      companyId,
+      user: { id: "user-admin" } as any,
+      supabase: mockSupabase,
+    }),
+    primaryProviderSupplier: () => primaryProvider,
+    backupProviderSupplier: () => backupProvider,
+    providerSupplier: (id) => (id === "s3" ? primaryProvider : backupProvider),
+  });
+
+  try {
+    // 1. Trigger backup replication batch
+    const repRes = await fetch(`${url}/api/documents/replicate-backup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer valid-token", "x-company-id": companyId },
+      body: JSON.stringify({ limit: 10 }),
+    });
+    assert.equal(repRes.status, 200);
+    const repJson = await repRes.json();
+    assert.equal(repJson.processed, 1);
+    assert.equal(repJson.verified, 1);
+    assert.equal(dbReplicas[0].replication_state, "VERIFIED");
+
+    // 2. List backup replicas
+    const listRes = await fetch(`${url}/api/documents/backups`, {
+      method: "GET",
+      headers: { "Authorization": "Bearer valid-token", "x-company-id": companyId },
+    });
+    assert.equal(listRes.status, 200);
+    const listJson = await listRes.json();
+    assert.equal(listJson.backups.length, 1);
+
+    // 3. Execute restore drill
+    const drillRes = await fetch(`${url}/api/documents/restore-drill`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer valid-token", "x-company-id": companyId },
+      body: JSON.stringify({
+        manifestId: "bak-router-1",
+        testTargetKey: `companies/${companyId}/restore/test/drill-doc.pdf`,
+      }),
+    });
+    assert.equal(drillRes.status, 200);
+    const drillJson = await drillRes.json();
+    assert.equal(drillJson.success, true);
+    assert.equal(drillJson.restoredSha256, putRes.ref.sha256);
+  } finally {
+    server.close();
+  }
+});

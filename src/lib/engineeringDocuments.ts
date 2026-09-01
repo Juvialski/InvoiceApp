@@ -128,10 +128,13 @@ export interface EngineeringDocumentRevision {
   scale?: string;
   changeSummary?: string;
   status: RevisionStatus;
+  storageProvider?: string;
+  storageBucket?: string;
   createdByUserId?: string;
   createdAt: string;
   updatedAt: string;
 }
+
 
 export interface EngineeringDocument {
   id: string;

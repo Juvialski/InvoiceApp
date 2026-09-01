@@ -1,6 +1,7 @@
 /**
  * Storage API router handling authenticated document operations,
- * provider-neutral manual invoice source uploads, and secure signed previews.
+ * provider-neutral manual invoice source uploads, secure signed previews,
+ * asynchronous backup replication, and incremental document migrations.
  */
 
 import express, { type Request, type Response, type Router } from "express";
@@ -22,6 +23,8 @@ import {
   getStorageServerServiceRoleClient,
   type CompensationInput,
 } from "./storageCompensation.ts";
+import { BackupService } from "./backupService.ts";
+import { MigrationService } from "./migrationService.ts";
 import type { StoredSourceDocument } from "../../types.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -45,12 +48,25 @@ export interface StorageAuthContext {
   user: User;
 }
 
+export type StoragePermissionKey =
+  | "invoices.manage"
+  | "invoices.read"
+  | "storage.manage"
+  | "storage.read"
+  | "expenses.manage"
+  | "expenses.read"
+  | "engineering.documents.read"
+  | "payroll.import";
+
 export interface StorageRouterOptions {
-  authorizer?: (req: Request, permission: "invoices.manage" | "invoices.read") => Promise<StorageAuthContext>;
+  authorizer?: (req: Request, permission: StoragePermissionKey) => Promise<StorageAuthContext>;
   primaryProviderSupplier?: (env?: any, supabaseClientGetter?: () => SupabaseClient) => DocumentStorageProvider;
+  backupProviderSupplier?: (env?: any, supabaseClientGetter?: () => SupabaseClient) => DocumentStorageProvider | null;
   providerSupplier?: (providerId: StorageProviderId, supabaseClientGetter?: () => SupabaseClient) => DocumentStorageProvider;
   compensator?: (input: CompensationInput) => Promise<{ compensated: boolean; reason?: string }>;
   serverSupabaseSupplier?: () => SupabaseClient;
+  backupService?: BackupService;
+  migrationService?: MigrationService;
 }
 
 function firstHeader(value: string | string[] | undefined): string {
@@ -87,7 +103,7 @@ function getServerSupabaseClient(accessToken: string): SupabaseClient {
 
 export async function authorizeStorageRequest(
   req: Request,
-  permission: "invoices.read" | "invoices.manage",
+  permission: StoragePermissionKey,
 ): Promise<StorageAuthContext> {
   const accessToken = getBearerToken(req);
   const client = getServerSupabaseClient(accessToken);
@@ -119,6 +135,24 @@ export async function authorizeStorageRequest(
     throw new StorageApiError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is temporarily unavailable.");
   }
   if (allowed !== true) {
+    // If checking storage.read or storage.manage, fallback to checking invoices.manage/invoices.read
+    if (permission === "storage.manage") {
+      const { data: invoiceManageAllowed } = await client.rpc("has_company_permission", {
+        p_company_id: companyId,
+        p_permission_key: "invoices.manage",
+      });
+      if (invoiceManageAllowed === true) {
+        return { accessToken, companyId, supabase: client, user: userData.user };
+      }
+    } else if (permission === "storage.read") {
+      const { data: invoiceReadAllowed } = await client.rpc("has_company_permission", {
+        p_company_id: companyId,
+        p_permission_key: "invoices.read",
+      });
+      if (invoiceReadAllowed === true) {
+        return { accessToken, companyId, supabase: client, user: userData.user };
+      }
+    }
     throw new StorageApiError(403, "FORBIDDEN", "You do not have permission for this company storage operation.");
   }
 
@@ -267,6 +301,29 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         throw new StorageApiError(500, "METADATA_INSERT_FAILED", `Document metadata persistence failed: ${insertError.message}`);
       }
 
+      // Enqueue asynchronous backup intent after primary upload succeeds
+      const backupSvc = options?.backupService || new BackupService({
+        supabaseClientSupplier: () => auth.supabase,
+        primaryProviderSupplier: options?.primaryProviderSupplier,
+        backupProviderSupplier: options?.backupProviderSupplier,
+        providerSupplier: options?.providerSupplier,
+      });
+
+      backupSvc.registerBackupIntent({
+        companyId: auth.companyId,
+        documentDomain: "INVOICES",
+        documentId: inserted.id,
+        sourceProvider: actualProvider,
+        sourceBucket: actualBucket,
+        sourceKey: storagePath,
+        sha256: hash,
+        sizeBytes: bytes.byteLength,
+        replicaProvider: "s3",
+        replicaBucket: "engoryx-backups",
+      }).catch((err) => {
+        console.warn("[Storage Router] Asynchronous backup registration notice:", err);
+      });
+
       const previewUrl = await provider.getSignedUrl({
         companyId: auth.companyId,
         bucket: actualBucket,
@@ -342,7 +399,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
     }
   });
 
-  // Get source payload for retry / extraction
+  // Get source payload for retry / extraction (Dual-read compatible)
   router.get("/:id/content", async (req: Request, res: Response) => {
     try {
       const auth = await authorizer(req, "invoices.read");
@@ -397,6 +454,156 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         return res.status(422).json({ code: "STORAGE_INTEGRITY_ERROR", error: err.message });
       }
       return res.status(500).json({ error: err?.message || "Failed to load document content" });
+    }
+  });
+
+  // Execute backup replication batch for company
+  router.post("/replicate-backup", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "storage.manage");
+      const limit = Number(req.body?.limit) || 10;
+
+      const backupSvc = options?.backupService || new BackupService({
+        supabaseClientSupplier: () => auth.supabase,
+        primaryProviderSupplier: options?.primaryProviderSupplier,
+        backupProviderSupplier: options?.backupProviderSupplier,
+        providerSupplier: options?.providerSupplier,
+      });
+
+      const summary = await backupSvc.processPendingReplications(auth.companyId, limit);
+      return res.json(summary);
+    } catch (err: any) {
+      if (err instanceof StorageApiError) {
+        return res.status(err.status).json({ code: err.code, error: err.message });
+      }
+      return res.status(500).json({ error: err?.message || "Backup replication processing failed." });
+    }
+  });
+
+  // Execute restore verification drill (test/non-production only)
+  router.post("/restore-drill", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "storage.manage");
+      const { manifestId, testTargetKey } = req.body || {};
+
+      if (!manifestId || typeof manifestId !== "string") {
+        return res.status(400).json({ error: "manifestId is required for restore drill." });
+      }
+      if (!testTargetKey || typeof testTargetKey !== "string" || (!testTargetKey.includes("/restore/") && !testTargetKey.includes("/test/"))) {
+        return res.status(400).json({ error: "testTargetKey must contain '/restore/' or '/test/' to protect production." });
+      }
+
+      const backupSvc = options?.backupService || new BackupService({
+        supabaseClientSupplier: () => auth.supabase,
+        primaryProviderSupplier: options?.primaryProviderSupplier,
+        backupProviderSupplier: options?.backupProviderSupplier,
+        providerSupplier: options?.providerSupplier,
+      });
+
+      const drillResult = await backupSvc.runRestoreDrill(auth.companyId, manifestId, testTargetKey);
+      return res.json(drillResult);
+    } catch (err: any) {
+      if (err instanceof StorageApiError) {
+        return res.status(err.status).json({ code: err.code, error: err.message });
+      }
+      if (err instanceof StorageIntegrityError) {
+        return res.status(422).json({ code: "STORAGE_INTEGRITY_ERROR", error: err.message });
+      }
+      return res.status(500).json({ error: err?.message || "Restore drill execution failed." });
+    }
+  });
+
+  // Query backup replicas for company
+  router.get("/backups", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "storage.read");
+      const domain = req.query.domain ? String(req.query.domain) : undefined;
+      const limit = Number(req.query.limit) || 50;
+
+      let query = auth.supabase
+        .from("document_backup_replicas")
+        .select("*")
+        .eq("company_id", auth.companyId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (domain) {
+        query = query.eq("document_domain", domain);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new StorageApiError(500, "DATABASE_ERROR", error.message);
+
+      return res.json({ backups: data || [] });
+    } catch (err: any) {
+      if (err instanceof StorageApiError) {
+        return res.status(err.status).json({ code: err.code, error: err.message });
+      }
+      return res.status(500).json({ error: err?.message || "Failed to load backup replicas." });
+    }
+  });
+
+  // Execute incremental document migration batch for company
+  router.post("/migrate", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "storage.manage");
+      const { domain = "INVOICES", limit = 10, autoDiscover = true } = req.body || {};
+
+      const backupSvc = options?.backupService || new BackupService({
+        supabaseClientSupplier: () => auth.supabase,
+        primaryProviderSupplier: options?.primaryProviderSupplier,
+        backupProviderSupplier: options?.backupProviderSupplier,
+        providerSupplier: options?.providerSupplier,
+      });
+
+      const migrationSvc = options?.migrationService || new MigrationService({
+        supabaseClientSupplier: () => auth.supabase,
+        primaryProviderSupplier: options?.primaryProviderSupplier,
+        providerSupplier: options?.providerSupplier,
+        backupService: backupSvc,
+      });
+
+      if (autoDiscover) {
+        await migrationSvc.discoverEligibleDocuments(auth.companyId, domain, 50);
+      }
+
+      const result = await migrationSvc.processPendingMigrations(auth.companyId, limit);
+      return res.json(result);
+    } catch (err: any) {
+      if (err instanceof StorageApiError) {
+        return res.status(err.status).json({ code: err.code, error: err.message });
+      }
+      return res.status(500).json({ error: err?.message || "Document migration failed." });
+    }
+  });
+
+  // Query migration records for company
+  router.get("/migrations", async (req: Request, res: Response) => {
+    try {
+      const auth = await authorizer(req, "storage.read");
+      const domain = req.query.domain ? String(req.query.domain) : undefined;
+      const limit = Number(req.query.limit) || 50;
+
+      let query = auth.supabase
+        .from("document_migration_records")
+        .select("*")
+        .eq("company_id", auth.companyId)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (domain) {
+        query = query.eq("document_domain", domain);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new StorageApiError(500, "DATABASE_ERROR", error.message);
+
+      return res.json({ migrations: data || [] });
+    } catch (err: any) {
+      if (err instanceof StorageApiError) {
+        return res.status(err.status).json({ code: err.code, error: err.message });
+      }
+      return res.status(500).json({ error: err?.message || "Failed to load migration records." });
     }
   });
 

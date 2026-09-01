@@ -210,6 +210,8 @@ export interface S3ProviderConfig {
 export interface StorageConfig {
   primaryProvider: StorageProviderId;
   s3?: S3ProviderConfig;
+  backupProvider?: StorageProviderId;
+  backupS3?: S3ProviderConfig;
 }
 
 /**
@@ -217,6 +219,7 @@ export interface StorageConfig {
  */
 export interface StorageHealthStatus {
   primaryProvider: StorageProviderId;
+  backupProvider?: StorageProviderId;
   isConfigured: boolean;
   details: {
     supabaseConfigured: boolean;
@@ -224,5 +227,10 @@ export interface StorageHealthStatus {
     s3Endpoint?: string;
     s3Bucket?: string;
     s3Region?: string;
+    backupConfigured?: boolean;
+    backupEndpoint?: string;
+    backupBucket?: string;
+    backupRegion?: string;
   };
 }
+
