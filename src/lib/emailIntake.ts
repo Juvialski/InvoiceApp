@@ -19,6 +19,25 @@ import {
   saveGmailMessageSource,
   saveGmailSyncState,
 } from "./persistence.ts";
+import { findExistingExpenseBySource } from "./expenses.ts";
+import {
+  extractDeterministicReceiptFields,
+  extractTextFromPdfReceipt,
+  evaluateReceiptExtractionQuality,
+  cleanMerchantPayeeName,
+  extractReceiptDate,
+  extractReceiptAmountAndCurrency,
+  extractReceiptCategory,
+  extractReceiptPaymentMethod,
+  extractReceiptReferenceNumber,
+  type DeterministicReceiptExtractionResult,
+  type ExpenseFieldProvenanceMap,
+  type FieldProvenance,
+  type MerchantIdentityEvidence,
+  type ReceiptExtractionQuality,
+} from "./receiptExtraction.ts";
+
+export type { FieldProvenance, ExpenseFieldProvenanceMap, ReceiptExtractionQuality, MerchantIdentityEvidence };
 
 export type EmailIntakeDestination = "INVOICE" | "BANK_STATEMENT" | "EXPENSE" | "UNSUPPORTED";
 
@@ -201,6 +220,12 @@ export interface SuggestedExpenseFields {
   projectId?: string;
   receiptSourceDocumentId?: string;
   notes?: string;
+  fieldProvenance?: ExpenseFieldProvenanceMap;
+  extractionQuality?: ReceiptExtractionQuality;
+  merchantIdentityEvidence?: MerchantIdentityEvidence;
+  isMachineReadable?: boolean;
+  isAiExtracted?: boolean;
+  sourceSha256?: string;
 }
 
 export interface PendingEmailExpenseReview {
@@ -220,12 +245,22 @@ export interface PendingEmailExpenseReview {
   matchedProfileId?: string;
   matchedProfileName?: string;
   linkedProfileVendorId?: string;
+  fieldProvenance?: ExpenseFieldProvenanceMap;
+  extractionQuality?: ReceiptExtractionQuality;
+  isAiExtracted?: boolean;
+  duplicateCandidates?: ExpenseDuplicateCandidate[];
+  sourceSha256?: string;
+  rawText?: string;
+  emailSnippet?: string;
+  emailBody?: string;
+  receivedAt?: string;
+  exactDuplicateExpense?: Expense;
 }
 
 export interface ExpenseDuplicateCandidate {
   expense: Expense;
   reason: string;
-  matchType: "SOURCE_DOCUMENT" | "EXACT_PAYEE_AMOUNT_DATE" | "REFERENCE_NUMBER";
+  matchType: "SOURCE_DOCUMENT" | "SOURCE_SHA" | "REFERENCE_NUMBER" | "EXACT_PAYEE_AMOUNT_DATE" | "PROBABLE_MATCH";
 }
 
 const PENDING_EMAIL_STATEMENT_KEY = "engoryx_pending_email_statement_review_v1";
@@ -989,22 +1024,113 @@ function extractReferenceNumber(text: string): string | undefined {
   return undefined;
 }
 
-export function extractSuggestedExpense(
-  message: GmailMessageCandidate | GmailImportedMessage,
-  attachment?: Pick<GmailAttachmentSummary, "filename">
-): SuggestedExpenseFields {
-  const fullText = `${message.subject || ""}\n${message.sender || ""}\n${("snippet" in message ? message.snippet : "") || ""}\n${message.bodyText || ""}\n${attachment?.filename || ""}`;
-  const payee = cleanPayeeName(message.sender || "", message.subject || "", message.bodyText || "");
-  const expenseDate = extractDate(fullText, message.receivedAt || new Date().toISOString());
-  const { amount, currency } = extractAmountAndCurrency(fullText);
-  const category = extractCategory(fullText);
-  const paymentMethod = extractPaymentMethod(fullText);
-  const referenceNumber = extractReferenceNumber(fullText);
-  const subjectClean = (message.subject || "").trim();
-  const description = subjectClean || (payee ? `${category} expense - ${payee}` : `${category} expense`);
+export async function extractExpenseWithAi(payload: {
+  fileData?: string;
+  mimeType?: string;
+  textData?: string;
+  fileName?: string;
+  model?: string;
+  emailContext?: {
+    sender?: string;
+    subject?: string;
+    receivedAt?: string;
+    attachmentName?: string;
+    body?: string;
+  };
+}): Promise<any> {
+  const response = await companyApiRequest("/api/extract-expense", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    companyId: requireActiveCompanyId(),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.success) {
+    throw new Error(result.error || "Expense AI extraction failed.");
+  }
+  return result.data;
+}
 
-  const projectCodeMatch = fullText.match(/\b(PRJ-[A-Za-z0-9-]+)\b/i);
-  const projectId = projectCodeMatch ? projectCodeMatch[1] : undefined;
+function aiDataToSuggestedExpense(
+  aiData: any,
+  deterministicFallback?: DeterministicReceiptExtractionResult,
+  sourceDocumentId?: string,
+  sourceSha256?: string
+): SuggestedExpenseFields {
+  const expenseDate = aiData?.expenseDate || deterministicFallback?.expenseDate || new Date().toISOString().slice(0, 10);
+  const payee = aiData?.payee || deterministicFallback?.payee;
+  const category = aiData?.category || deterministicFallback?.category || "Miscellaneous";
+  const amount = typeof aiData?.amount === "number" && aiData.amount > 0 ? Number(aiData.amount) : (typeof deterministicFallback?.amount === "number" ? deterministicFallback.amount : 0);
+  const currency = aiData?.currency || deterministicFallback?.currency || "PHP";
+  const paymentMethod = aiData?.paymentMethod || deterministicFallback?.paymentMethod;
+  const referenceNumber = aiData?.referenceNumber || deterministicFallback?.referenceNumber;
+  const projectId = aiData?.projectId || deterministicFallback?.projectId;
+  const description = aiData?.description || deterministicFallback?.description || (payee ? `${category} expense - ${payee}` : `${category} expense`);
+
+  const quality = evaluateReceiptExtractionQuality({
+    expenseDate,
+    amount,
+    currency: aiData?.currency || deterministicFallback?.currency,
+    payee,
+    description,
+    referenceNumber,
+  }, true);
+
+  const fieldProvenance: ExpenseFieldProvenanceMap = {
+    expenseDate: {
+      state: aiData?.expenseDate ? "AI_EXTRACTED" : (deterministicFallback?.fieldProvenance.expenseDate?.state || "NOT_DETECTED"),
+      source: aiData?.expenseDate ? `AI extracted date: ${aiData.expenseDate}` : (deterministicFallback?.fieldProvenance.expenseDate?.source || "Date not detected"),
+      rawExtractedValue: aiData?.expenseDate || deterministicFallback?.fieldProvenance.expenseDate?.rawExtractedValue,
+    },
+    amount: {
+      state: typeof aiData?.amount === "number" && aiData.amount > 0 ? "AI_EXTRACTED" : (typeof deterministicFallback?.amount === "number" && deterministicFallback.amount > 0 ? "DETECTED" : "NOT_DETECTED"),
+      source: typeof aiData?.amount === "number" && aiData.amount > 0 ? `AI extracted amount: ${aiData.amount}` : (deterministicFallback?.fieldProvenance.amount?.source || "Amount not detected"),
+      rawExtractedValue: aiData?.amount || deterministicFallback?.fieldProvenance.amount?.rawExtractedValue,
+    },
+    currency: {
+      state: aiData?.currency ? "AI_EXTRACTED" : (deterministicFallback?.currency ? "DETECTED" : "NOT_DETECTED"),
+      source: aiData?.currency ? `AI extracted currency: ${aiData.currency}` : (deterministicFallback?.fieldProvenance.currency?.source || "Currency not detected"),
+      rawExtractedValue: aiData?.currency || deterministicFallback?.fieldProvenance.currency?.rawExtractedValue,
+    },
+    payee: {
+      state: aiData?.payee ? "AI_EXTRACTED" : (deterministicFallback?.payee ? "DETECTED" : "NOT_DETECTED"),
+      source: aiData?.payee ? `AI extracted merchant: ${aiData.payee}` : (deterministicFallback?.fieldProvenance.payee?.source || "Merchant not detected"),
+      rawExtractedValue: aiData?.payee || deterministicFallback?.payee,
+    },
+    category: {
+      state: aiData?.category ? "AI_EXTRACTED" : (deterministicFallback?.fieldProvenance.category?.state || "SUGGESTED"),
+      source: aiData?.category ? `AI suggested category: ${aiData.category}` : (deterministicFallback?.fieldProvenance.category?.source || "Default category"),
+      rawExtractedValue: category,
+    },
+    description: {
+      state: aiData?.description ? "AI_EXTRACTED" : "SUGGESTED",
+      source: aiData?.description ? "Extracted description" : "Suggested description",
+      rawExtractedValue: description,
+    },
+    paymentMethod: {
+      state: paymentMethod ? (aiData?.paymentMethod ? "AI_EXTRACTED" : "DETECTED") : "NOT_DETECTED",
+      source: paymentMethod ? `Payment method: ${paymentMethod}` : "Payment method not detected",
+      rawExtractedValue: paymentMethod,
+    },
+    referenceNumber: {
+      state: referenceNumber ? (aiData?.referenceNumber ? "AI_EXTRACTED" : "DETECTED") : "NOT_DETECTED",
+      source: referenceNumber ? `Reference: ${referenceNumber}` : "Reference not detected",
+      rawExtractedValue: referenceNumber,
+    },
+    projectId: {
+      state: projectId ? "HINT" : "NOT_DETECTED",
+      source: projectId ? `Project code hint "${projectId}" (unconfirmed)` : "No project hint",
+      rawExtractedValue: projectId,
+    },
+  };
+
+  const merchantIdentityEvidence: MerchantIdentityEvidence = {
+    rawName: payee,
+    taxId: aiData?.merchantIdentity?.taxId || deterministicFallback?.merchantIdentityEvidence?.taxId,
+    address: aiData?.merchantIdentity?.address || deterministicFallback?.merchantIdentityEvidence?.address,
+    email: aiData?.merchantIdentity?.email || deterministicFallback?.merchantIdentityEvidence?.email,
+    phone: aiData?.merchantIdentity?.phone || deterministicFallback?.merchantIdentityEvidence?.phone,
+  };
 
   return {
     expenseDate,
@@ -1013,26 +1139,85 @@ export function extractSuggestedExpense(
     payee: payee || undefined,
     amount,
     currency,
-    paymentMethod,
-    referenceNumber,
-    projectId,
-    notes: `Staged from Email Intake: ${message.subject || "Email Receipt"}${message.sender ? ` from ${message.sender}` : ""}`,
+    paymentMethod: paymentMethod || undefined,
+    referenceNumber: referenceNumber || undefined,
+    projectId: projectId || undefined,
+    notes: aiData?.notes || deterministicFallback?.notes || "Staged from Email Intake AI extraction",
+    fieldProvenance,
+    extractionQuality: quality,
+    merchantIdentityEvidence,
+    isMachineReadable: deterministicFallback?.isMachineReadable ?? false,
+    isAiExtracted: true,
+    receiptSourceDocumentId: sourceDocumentId,
+    sourceSha256,
+  };
+}
+
+export function extractSuggestedExpense(
+  message: GmailMessageCandidate | GmailImportedMessage,
+  attachment?: Pick<GmailAttachmentSummary, "filename">,
+  options?: { profile?: EmailIntakeProfile; rawAttachmentText?: string }
+): SuggestedExpenseFields {
+  const fullText = [
+    message.subject || "",
+    message.sender || "",
+    ("snippet" in message ? message.snippet : "") || "",
+    message.bodyText || "",
+    attachment?.filename || "",
+    options?.rawAttachmentText || "",
+  ].filter(Boolean).join("\n");
+
+  const deterministic = extractDeterministicReceiptFields(fullText, {
+    sender: message.sender,
+    subject: message.subject,
+    receivedAt: message.receivedAt,
+    fileName: attachment?.filename,
+    profile: options?.profile,
+  });
+
+  return {
+    expenseDate: deterministic.expenseDate || (message.receivedAt ? message.receivedAt.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+    category: deterministic.category || "Miscellaneous",
+    description: deterministic.description || "Expense receipt",
+    payee: deterministic.payee || undefined,
+    amount: typeof deterministic.amount === "number" ? deterministic.amount : 0,
+    currency: deterministic.currency || "PHP",
+    paymentMethod: deterministic.paymentMethod || undefined,
+    referenceNumber: deterministic.referenceNumber || undefined,
+    projectId: deterministic.projectId || undefined,
+    notes: deterministic.notes,
+    fieldProvenance: deterministic.fieldProvenance,
+    extractionQuality: deterministic.quality,
+    merchantIdentityEvidence: deterministic.merchantIdentityEvidence,
+    isMachineReadable: deterministic.isMachineReadable,
+    isAiExtracted: false,
   };
 }
 
 export function findPossibleExpenseDuplicates(
-  candidate: { payee?: string; amount?: number; currency?: string; expenseDate?: string; referenceNumber?: string; sourceDocumentId?: string },
-  existingExpenses: Expense[]
+  candidate: {
+    payee?: string;
+    amount?: number;
+    currency?: string;
+    expenseDate?: string;
+    referenceNumber?: string;
+    sourceDocumentId?: string;
+    sourceSha256?: string;
+  },
+  existingExpenses: Expense[],
+  matchingSourceShaExpenseIds?: string[]
 ): ExpenseDuplicateCandidate[] {
   const matches: ExpenseDuplicateCandidate[] = [];
   const candidateDate = candidate.expenseDate?.slice(0, 10);
   const candidateRef = candidate.referenceNumber?.trim().toLowerCase();
   const candidatePayee = candidate.payee?.trim().toLowerCase();
   const candidateAmount = candidate.amount ? Number(candidate.amount) : 0;
+  const candidateCurrency = candidate.currency?.trim().toUpperCase();
 
   for (const exp of existingExpenses) {
     if (exp.status === "VOID") continue;
 
+    // 1. Same source document ID
     if (candidate.sourceDocumentId && exp.receiptSourceDocumentId === candidate.sourceDocumentId) {
       matches.push({
         expense: exp,
@@ -1042,15 +1227,27 @@ export function findPossibleExpenseDuplicates(
       continue;
     }
 
-    if (candidateRef && exp.referenceNumber && exp.referenceNumber.trim().toLowerCase() === candidateRef) {
+    // 2. Same source file SHA-256 (across forwarded emails)
+    if (matchingSourceShaExpenseIds?.includes(exp.id)) {
       matches.push({
         expense: exp,
-        matchType: "REFERENCE_NUMBER",
-        reason: `Expense #${exp.id.slice(0, 8)} has the same reference/receipt number (${exp.referenceNumber}).`,
+        matchType: "SOURCE_SHA",
+        reason: `Expense #${exp.id.slice(0, 8)} was created from the exact same receipt file (matching SHA-256).`,
       });
       continue;
     }
 
+    // 3. Same reference number
+    if (candidateRef && exp.referenceNumber && exp.referenceNumber.trim().toLowerCase() === candidateRef) {
+      matches.push({
+        expense: exp,
+        matchType: "REFERENCE_NUMBER",
+        reason: `Expense #${exp.id.slice(0, 8)} has the same receipt/reference number (${exp.referenceNumber}).`,
+      });
+      continue;
+    }
+
+    // 4. Exact Payee + Amount + Date match
     if (
       candidatePayee &&
       exp.payee &&
@@ -1058,12 +1255,13 @@ export function findPossibleExpenseDuplicates(
       candidateAmount > 0 &&
       Math.abs(exp.amount - candidateAmount) < 0.001 &&
       candidateDate &&
-      exp.expenseDate.slice(0, 10) === candidateDate
+      exp.expenseDate.slice(0, 10) === candidateDate &&
+      (!candidateCurrency || !exp.currency || exp.currency.toUpperCase() === candidateCurrency)
     ) {
       matches.push({
         expense: exp,
         matchType: "EXACT_PAYEE_AMOUNT_DATE",
-        reason: `Expense #${exp.id.slice(0, 8)} has matching payee (${exp.payee}), amount (${exp.amount}), and date (${exp.expenseDate}).`,
+        reason: `Expense #${exp.id.slice(0, 8)} has matching payee (${exp.payee}), amount (${exp.amount} ${exp.currency}), and date (${exp.expenseDate}).`,
       });
     }
   }
@@ -1084,32 +1282,232 @@ export async function prepareGmailExpenseReview(
 ): Promise<PendingEmailExpenseReview> {
   const classification = (message.classification || classifyEmailIntakeCandidate(message)) as EmailIntakeClassification;
   const imported = await gmailApiRequest("/api/gmail/import", { messageId: message.id }) as GmailImportedMessage;
-  const supported = imported.attachments.filter(isSupportedExpenseAttachment);
+  const supported = (imported.attachments || []).filter(isSupportedExpenseAttachment);
   const attachment = requestedAttachmentId
     ? supported.find((item) => item.attachmentId === requestedAttachmentId)
     : supported[0];
-  if (!attachment) throw new Error("No supported PDF/image expense receipt attachment was found in this email.");
 
+  const matchingProfile = options?.profile;
+
+  // Preserve original source in Supabase
   const stored = await saveGmailMessageSource(imported);
   await markEmailClassification(stored.email.id, classification);
 
-  const sourceDocument = stored.documents.find((document) => document.gmailAttachmentId === attachment.attachmentId)
-    || stored.documents.find((document) => document.gmailPartId && document.gmailPartId === attachment.partId)
-    || stored.documents.find((document) => document.attachmentIndex === attachment.attachmentIndex);
+  const sourceDocument = attachment
+    ? (stored.documents.find((document) => document.gmailAttachmentId === attachment.attachmentId)
+      || stored.documents.find((document) => document.gmailPartId && document.gmailPartId === attachment.partId)
+      || stored.documents.find((document) => document.attachmentIndex === attachment.attachmentIndex))
+    : stored.documents[0];
 
-  if (!sourceDocument) throw new Error("The selected expense attachment could not be linked to its preserved source document.");
+  const sourceDocumentId = sourceDocument?.id || stored.email.id;
+  const sourceSha256 = sourceDocument?.sha256;
 
-  const suggested = extractSuggestedExpense(imported, attachment);
-  suggested.receiptSourceDocumentId = sourceDocument.id;
+  // Pre-extraction duplicate check: Look for existing non-void expenses matching sourceDocumentId or sourceSha256
+  let existingDuplicateExpense: Expense | null = null;
+  if (sourceSha256 || sourceDocumentId) {
+    try {
+      existingDuplicateExpense = await findExistingExpenseBySource({
+        sourceDocumentId,
+        sourceSha256,
+      });
+    } catch {
+      // Non-blocking fallback
+    }
+  }
+
+  let suggested: SuggestedExpenseFields;
+  let isAiExtracted = false;
+  let rawText = "";
+
+  // If exact duplicate already exists, short-circuit immediately without calling AI!
+  if (existingDuplicateExpense) {
+    suggested = extractSuggestedExpense(imported, attachment, { profile: matchingProfile });
+    suggested.receiptSourceDocumentId = sourceDocumentId;
+    suggested.sourceSha256 = sourceSha256;
+  } else if (attachment && (attachment.mimeType === "application/pdf" || attachment.filename.toLowerCase().endsWith(".pdf"))) {
+    // PDF receipt: extract text locally via pdfjs-dist
+    let fileBytes: Uint8Array | null = null;
+    try {
+      if (attachment.dataBase64) {
+        fileBytes = new Uint8Array(Buffer.from(attachment.dataBase64, "base64"));
+      } else if (sourceDocument) {
+        const file = await loadPendingEmailExpenseFile({
+          id: "",
+          sourceDocumentId: sourceDocument.id,
+          fileName: attachment.filename,
+          mimeType: attachment.mimeType,
+        } as any);
+        fileBytes = new Uint8Array(await file.arrayBuffer());
+      }
+    } catch {
+      // Non-blocking
+    }
+
+    if (fileBytes && fileBytes.length > 0) {
+      const pdfTextResult = await extractTextFromPdfReceipt(fileBytes, attachment.filename);
+      rawText = pdfTextResult.text;
+
+      if (pdfTextResult.isMachineReadable) {
+        const deterministic = extractDeterministicReceiptFields(pdfTextResult.text, {
+          sender: imported.sender || message.sender,
+          subject: imported.subject || message.subject,
+          receivedAt: imported.receivedAt || message.receivedAt,
+          fileName: attachment.filename,
+          profile: matchingProfile,
+          isMachineReadable: true,
+        });
+
+        if (deterministic.quality.status === "GOOD") {
+          // Machine readable PDF with all critical fields: ZERO AI calls!
+          suggested = {
+            expenseDate: deterministic.expenseDate || (message.receivedAt ? message.receivedAt.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+            category: deterministic.category || "Miscellaneous",
+            description: deterministic.description || "Expense receipt",
+            payee: deterministic.payee || undefined,
+            amount: typeof deterministic.amount === "number" ? deterministic.amount : 0,
+            currency: deterministic.currency || "PHP",
+            paymentMethod: deterministic.paymentMethod || undefined,
+            referenceNumber: deterministic.referenceNumber || undefined,
+            projectId: deterministic.projectId || undefined,
+            notes: deterministic.notes,
+            fieldProvenance: deterministic.fieldProvenance,
+            extractionQuality: deterministic.quality,
+            merchantIdentityEvidence: deterministic.merchantIdentityEvidence,
+            isMachineReadable: true,
+            isAiExtracted: false,
+            receiptSourceDocumentId: sourceDocumentId,
+            sourceSha256,
+          };
+        } else {
+          // Machine readable with missing/ambiguous fields: Bounded AI fallback
+          try {
+            const base64Data = Buffer.from(fileBytes).toString("base64");
+            const aiData = await extractExpenseWithAi({
+              fileData: base64Data,
+              mimeType: "application/pdf",
+              fileName: attachment.filename,
+              emailContext: {
+                sender: imported.sender || message.sender,
+                subject: imported.subject || message.subject,
+                receivedAt: imported.receivedAt || message.receivedAt,
+                attachmentName: attachment.filename,
+                body: imported.bodyText || message.bodyText,
+              },
+            });
+            isAiExtracted = true;
+            suggested = aiDataToSuggestedExpense(aiData, deterministic, sourceDocumentId, sourceSha256);
+          } catch {
+            suggested = {
+              expenseDate: deterministic.expenseDate || (message.receivedAt ? message.receivedAt.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+              category: deterministic.category || "Miscellaneous",
+              description: deterministic.description || "Expense receipt",
+              payee: deterministic.payee || undefined,
+              amount: typeof deterministic.amount === "number" ? deterministic.amount : 0,
+              currency: deterministic.currency || "PHP",
+              paymentMethod: deterministic.paymentMethod || undefined,
+              referenceNumber: deterministic.referenceNumber || undefined,
+              projectId: deterministic.projectId || undefined,
+              notes: deterministic.notes,
+              fieldProvenance: deterministic.fieldProvenance,
+              extractionQuality: deterministic.quality,
+              merchantIdentityEvidence: deterministic.merchantIdentityEvidence,
+              isMachineReadable: true,
+              isAiExtracted: false,
+              receiptSourceDocumentId: sourceDocumentId,
+              sourceSha256,
+            };
+          }
+        }
+      } else {
+        // Scanned / image-only PDF: call AI fallback
+        try {
+          const base64Data = Buffer.from(fileBytes).toString("base64");
+          const aiData = await extractExpenseWithAi({
+            fileData: base64Data,
+            mimeType: "application/pdf",
+            fileName: attachment.filename,
+            emailContext: {
+              sender: imported.sender || message.sender,
+              subject: imported.subject || message.subject,
+              receivedAt: imported.receivedAt || message.receivedAt,
+              attachmentName: attachment.filename,
+              body: imported.bodyText || message.bodyText,
+            },
+          });
+          isAiExtracted = true;
+          suggested = aiDataToSuggestedExpense(aiData, undefined, sourceDocumentId, sourceSha256);
+        } catch {
+          suggested = extractSuggestedExpense(imported, attachment, { profile: matchingProfile });
+          suggested.receiptSourceDocumentId = sourceDocumentId;
+          suggested.sourceSha256 = sourceSha256;
+        }
+      }
+    } else {
+      suggested = extractSuggestedExpense(imported, attachment, { profile: matchingProfile });
+      suggested.receiptSourceDocumentId = sourceDocumentId;
+      suggested.sourceSha256 = sourceSha256;
+    }
+  } else if (attachment && isSupportedExpenseAttachment(attachment)) {
+    // Image receipt (PNG, JPG, WEBP): call AI fallback
+    let fileBytes: Uint8Array | null = null;
+    try {
+      if (attachment.dataBase64) {
+        fileBytes = new Uint8Array(Buffer.from(attachment.dataBase64, "base64"));
+      } else if (sourceDocument) {
+        const file = await loadPendingEmailExpenseFile({
+          id: "",
+          sourceDocumentId: sourceDocument.id,
+          fileName: attachment.filename,
+          mimeType: attachment.mimeType,
+        } as any);
+        fileBytes = new Uint8Array(await file.arrayBuffer());
+      }
+    } catch {
+      // Non-blocking
+    }
+
+    if (fileBytes && fileBytes.length > 0) {
+      try {
+        const base64Data = Buffer.from(fileBytes).toString("base64");
+        const aiData = await extractExpenseWithAi({
+          fileData: base64Data,
+          mimeType: attachment.mimeType || "image/png",
+          fileName: attachment.filename,
+          emailContext: {
+            sender: imported.sender || message.sender,
+            subject: imported.subject || message.subject,
+            receivedAt: imported.receivedAt || message.receivedAt,
+            attachmentName: attachment.filename,
+            body: imported.bodyText || message.bodyText,
+          },
+        });
+        isAiExtracted = true;
+        suggested = aiDataToSuggestedExpense(aiData, undefined, sourceDocumentId, sourceSha256);
+      } catch {
+        suggested = extractSuggestedExpense(imported, attachment, { profile: matchingProfile });
+        suggested.receiptSourceDocumentId = sourceDocumentId;
+        suggested.sourceSha256 = sourceSha256;
+      }
+    } else {
+      suggested = extractSuggestedExpense(imported, attachment, { profile: matchingProfile });
+      suggested.receiptSourceDocumentId = sourceDocumentId;
+      suggested.sourceSha256 = sourceSha256;
+    }
+  } else {
+    // Electronic receipt in email body (no attachment)
+    suggested = extractSuggestedExpense(imported, undefined, { profile: matchingProfile });
+    suggested.receiptSourceDocumentId = sourceDocumentId;
+    suggested.sourceSha256 = sourceSha256;
+  }
 
   const pending: PendingEmailExpenseReview = {
     id: crypto.randomUUID(),
-    sourceDocumentId: sourceDocument.id,
+    sourceDocumentId,
     emailMessageId: stored.email.id,
     gmailMessageId: imported.id,
-    gmailAttachmentId: attachment.attachmentId,
-    fileName: attachment.filename,
-    mimeType: attachment.mimeType,
+    gmailAttachmentId: attachment?.attachmentId,
+    fileName: attachment?.filename || "electronic-receipt.txt",
+    mimeType: attachment?.mimeType || "text/plain",
     subject: imported.subject || message.subject || "Receipt / Expense",
     sender: imported.sender || message.sender || "",
     createdAt: new Date().toISOString(),
@@ -1119,7 +1517,17 @@ export async function prepareGmailExpenseReview(
     matchedProfileId: options?.profile?.id || classification.matchedProfileId,
     matchedProfileName: options?.profile?.name || classification.matchedProfileName,
     linkedProfileVendorId: options?.profile?.linkedVendorId,
+    fieldProvenance: suggested.fieldProvenance,
+    extractionQuality: suggested.extractionQuality,
+    isAiExtracted,
+    sourceSha256,
+    rawText,
+    emailSnippet: imported.snippet || message.snippet,
+    emailBody: imported.bodyText || message.bodyText,
+    receivedAt: imported.receivedAt || message.receivedAt,
+    exactDuplicateExpense: existingDuplicateExpense || undefined,
   };
+
   savePendingEmailExpenseReview(pending);
   return pending;
 }

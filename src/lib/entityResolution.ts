@@ -1034,19 +1034,36 @@ export function extractAccountEvidenceFromStatement(
  * Extracts post-extraction Vendor identity evidence from an Expense / Receipt candidate.
  */
 export function extractVendorEvidenceFromExpense(
-  expense: { payee?: string; amount?: number; currency?: string; description?: string },
+  expense: {
+    payee?: string;
+    amount?: number;
+    currency?: string;
+    description?: string;
+    merchantIdentityEvidence?: {
+      rawName?: string;
+      taxId?: string;
+      address?: string;
+      email?: string;
+      phone?: string;
+    };
+  },
   sourceMetadata?: { sender?: string; subject?: string },
   profile?: EmailIntakeProfile,
 ): VendorIdentityEvidence {
   const parsedSender = sourceMetadata?.sender ? parseSenderAddress(sourceMetadata.sender) : null;
-  const senderEmail = parsedSender?.email || undefined;
+  const senderEmail = expense.merchantIdentityEvidence?.email || parsedSender?.email || undefined;
   const senderDomain = parsedSender?.domain || undefined;
-  const name = expense.payee || parsedSender?.name || "Expense Merchant";
+  const directTin = expense.merchantIdentityEvidence?.taxId || undefined;
+  const name = expense.merchantIdentityEvidence?.rawName || expense.payee || parsedSender?.name || "Expense Merchant";
 
   return {
     name,
     companyName: name,
-    registeredName: name,
+    registeredName: expense.merchantIdentityEvidence?.rawName || name,
+    taxId: directTin,
+    email: senderEmail,
+    phone: expense.merchantIdentityEvidence?.phone || undefined,
+    address: expense.merchantIdentityEvidence?.address || undefined,
     senderEmail,
     senderDomain,
     matchedProfileId: profile?.id,

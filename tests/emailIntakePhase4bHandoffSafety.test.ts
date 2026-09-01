@@ -60,17 +60,25 @@ test("post-extraction and post-parse resolvers remain authoritative downstream",
   assert.match(statementReview, /candidateResolution\.conflicts\.length === 0/);
 
   assert.match(expenseReview, /stagedConfirmedVendorIsStillValid/);
-  assert.match(expenseReview, /res\.matchedEntityId === staged\.confirmedVendorId/);
-  assert.match(expenseReview, /res\.conflicts\.length === 0/);
+  const stagedVendorStart = expenseReview.indexOf("const stagedConfirmedVendorIsStillValid");
+  assert.ok(stagedVendorStart >= 0);
+  const stagedVendorBlock = expenseReview.slice(stagedVendorStart, stagedVendorStart + 900);
+  assert.match(stagedVendorBlock, /\.matchedEntityId === staged\.confirmedVendorId/);
+  assert.match(stagedVendorBlock, /\.conflicts\.length === 0/);
 });
 
 test("automatic expense Vendor matching does not rewrite extracted payee text", () => {
   const expenseReview = source("src/components/ConnectedExpenseReview.tsx");
-  const resolverStart = expenseReview.indexOf("const res = resolveVendorCandidate");
-  const changeHandlerStart = expenseReview.indexOf("onChange={(e) => {", resolverStart);
-  assert.ok(resolverStart >= 0 && changeHandlerStart > resolverStart);
-  const automaticResolutionBlock = expenseReview.slice(resolverStart, changeHandlerStart);
+  const resolverStart = expenseReview.indexOf("resolveVendorCandidate(");
+  const effectEnd = expenseReview.indexOf("}, [propVendors]);", resolverStart);
+  assert.ok(resolverStart >= 0 && effectEnd > resolverStart);
+  const automaticResolutionBlock = expenseReview.slice(resolverStart, effectEnd);
 
-  assert.doesNotMatch(automaticResolutionBlock, /setPayee\(v\.name\)/);
-  assert.match(expenseReview.slice(changeHandlerStart), /setPayee\(v\.name\)/);
+  assert.doesNotMatch(automaticResolutionBlock, /setPayee\(/);
+
+  const manualVendorStart = expenseReview.indexOf('aria-label="Master Vendor Link"');
+  assert.ok(manualVendorStart > effectEnd);
+  const manualVendorBlock = expenseReview.slice(manualVendorStart);
+  assert.match(manualVendorBlock, /setPayee\(\s*\w+\.name\s*\)/);
 });
+

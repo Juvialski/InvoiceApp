@@ -1,6 +1,6 @@
-import type { Expense, ExpenseStatus } from "../types";
-import { supabase } from "./supabase";
-import { companyScopedRow, requireActiveCompanyId } from "./companyContext";
+import type { Expense, ExpenseStatus } from "../types.ts";
+import { supabase } from "./supabase.ts";
+import { companyScopedRow, requireActiveCompanyId } from "./companyContext.ts";
 import { parseFinancialCorrectionPreview, parseFinancialCorrectionResult, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./financialLifecycle.ts";
 
 const EXPENSES_STORAGE_KEY = "engineering_expenses";
@@ -104,6 +104,38 @@ export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> 
   const companyId = requireActiveCompanyId();
   const { data: existing, error: existingError } = await supabase.from("expenses").select("id,updated_at").eq("id", expense.id).eq("company_id", companyId).maybeSingle();
   if (existingError) throw existingError;
+
+  if (!existing && expense.receiptSourceDocumentId) {
+    if (!Number.isFinite(expense.amount) || expense.amount <= 0) {
+      throw new Error("Confirm a positive receipt amount before saving the expense draft.");
+    }
+    if (!/^[A-Z]{3}$/.test(String(expense.currency || "").trim().toUpperCase())) {
+      throw new Error("Confirm a three-letter receipt currency before saving the expense draft.");
+    }
+
+    const { data: sourceRow, error: sourceError } = await supabase
+      .from("source_documents")
+      .select("id,sha256,source_type")
+      .eq("company_id", companyId)
+      .eq("id", expense.receiptSourceDocumentId)
+      .maybeSingle();
+    if (sourceError) throw sourceError;
+    if (!sourceRow) {
+      throw new Error("The preserved receipt source document is no longer available to this company. Reopen the Email Intake review before saving.");
+    }
+    if (sourceRow.source_type === "EMAIL" && expense.status !== "DRAFT") {
+      throw new Error("Email Intake receipts must be saved as Draft. Approve the expense later through the normal Expense lifecycle.");
+    }
+
+    const duplicate = await findExistingExpenseBySource({
+      sourceDocumentId: expense.receiptSourceDocumentId,
+      sourceSha256: sourceRow.sha256 || undefined,
+    });
+    if (duplicate && duplicate.id !== expense.id) {
+      throw new Error(`This receipt is already recorded as Expense #${duplicate.id.slice(0, 8)}. Open the existing expense instead of creating a duplicate.`);
+    }
+  }
+
   const row = toRow(expense, userId, companyId);
   let data: Record<string, unknown> | null = null;
   if (existing) {
@@ -150,9 +182,51 @@ export async function applyExpenseCorrectionInSupabase(
   };
 }
 
-/** Compatibility wrapper for callers that still request an explicit archive. */
-export async function archiveExpenseInSupabase(expenseId: string): Promise<Expense> {
-  const result = await applyExpenseCorrectionInSupabase(expenseId, "ARCHIVE", "Confirmed expense archive");
-  if (!result.record || !("expenseDate" in result.record)) throw new Error("Expense archive did not return the preserved expense record.");
-  return result.record as Expense;
+export { fromRow as expenseFromRow };
+
+export async function findExistingExpenseBySource(criteria: {
+  sourceSha256?: string;
+  sourceDocumentId?: string;
+}): Promise<Expense | null> {
+  const userId = await currentUserId();
+  if (!supabase || !userId) return null;
+  const companyId = requireActiveCompanyId();
+
+  if (criteria.sourceDocumentId) {
+    const { data, error } = await supabase
+      .from("expenses")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("receipt_source_document_id", criteria.sourceDocumentId)
+      .neq("status", "VOID")
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return fromRow(data as Record<string, unknown>);
+  }
+
+  if (criteria.sourceSha256) {
+    const { data: docs, error: docError } = await supabase
+      .from("source_documents")
+      .select("id,created_at")
+      .eq("company_id", companyId)
+      .eq("sha256", criteria.sourceSha256)
+      .order("created_at", { ascending: true })
+      .limit(100);
+    if (docError) throw docError;
+    const sourceDocumentIds = (docs || []).map((doc) => doc.id).filter(Boolean);
+    if (sourceDocumentIds.length) {
+      const { data: expenses, error: expError } = await supabase
+        .from("expenses")
+        .select("*")
+        .eq("company_id", companyId)
+        .in("receipt_source_document_id", sourceDocumentIds)
+        .neq("status", "VOID")
+        .limit(1);
+      if (expError) throw expError;
+      const exp = expenses?.[0];
+      if (exp) return fromRow(exp as Record<string, unknown>);
+    }
+  }
+
+  return null;
 }

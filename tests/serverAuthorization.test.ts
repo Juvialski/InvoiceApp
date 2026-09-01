@@ -18,6 +18,7 @@ test("company-specific AI and Gmail routes require a database permission check",
   for (const [path, permission] of [
     ["/api/classify-email", "invoices.extract"],
     ["/api/extract-invoice", "invoices.extract"],
+    ["/api/extract-expense", "expenses.manage"],
     ["/api/gmail/profile", "gmail.read"],
     ["/api/gmail/scan", "gmail.read"],
     ["/api/gmail/history", "gmail.read"],
