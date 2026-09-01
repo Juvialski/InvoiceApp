@@ -1586,3 +1586,135 @@ export async function linkFinancialImportSource(input: { accountId: string; file
   if (error) throw error;
   return data;
 }
+
+export interface BatchPreparationItemResult {
+  candidateId: string;
+  destination: EmailIntakeDestination;
+  status: "SUCCESS" | "FAILED" | "SKIPPED";
+  error?: string;
+  invoiceCount?: number;
+  statementReviewId?: string;
+  expenseReviewId?: string;
+}
+
+export interface BatchPreparationOptions {
+  profiles?: EmailIntakeProfile[];
+  onItemProgress?: (candidateId: string, status: "PREPARING" | "READY" | "FAILED", error?: string) => void;
+  canManageMailbox?: boolean;
+  canProcessInvoices?: boolean;
+  canImportBankStatements?: boolean;
+  canManageExpenses?: boolean;
+  onImportInvoice?: (candidate: GmailMessageCandidate) => Promise<number | void>;
+  batchEntityResolutions?: Record<string, EntityResolutionResult>;
+  statementAttachmentSelections?: Record<string, string>;
+  expenseAttachmentSelections?: Record<string, string>;
+}
+
+export async function prepareBatchEmailCandidates(
+  candidates: GmailMessageCandidate[],
+  options: BatchPreparationOptions = {},
+): Promise<BatchPreparationItemResult[]> {
+  const {
+    profiles = [],
+    onItemProgress,
+    canManageMailbox = true,
+    canProcessInvoices = true,
+    canImportBankStatements = false,
+    canManageExpenses = true,
+    onImportInvoice,
+    batchEntityResolutions = {},
+    statementAttachmentSelections = {},
+    expenseAttachmentSelections = {},
+  } = options;
+
+  if (!canManageMailbox) {
+    throw new Error("Mailbox management permission is required to prepare intake candidates.");
+  }
+
+  const results: BatchPreparationItemResult[] = [];
+
+  for (const candidate of candidates) {
+    const classification = (candidate.classification || classifyEmailIntakeCandidate(candidate, profiles)) as EmailIntakeClassification;
+    const destination: EmailIntakeDestination =
+      classification.suggestedDestination || (classification.isInvoiceLike ? "INVOICE" : "UNSUPPORTED");
+
+    if (destination === "UNSUPPORTED") {
+      results.push({
+        candidateId: candidate.id,
+        destination,
+        status: "SKIPPED",
+        error: "Candidate has unsupported or ambiguous destination.",
+      });
+      continue;
+    }
+
+    onItemProgress?.(candidate.id, "PREPARING");
+
+    try {
+      if (destination === "INVOICE") {
+        if (!canProcessInvoices) {
+          throw new Error("Invoice extraction requires invoice permissions.");
+        }
+        if (!onImportInvoice) {
+          throw new Error("Invoice import handler is not configured.");
+        }
+        const count = await onImportInvoice({ ...candidate, classification });
+        results.push({
+          candidateId: candidate.id,
+          destination,
+          status: "SUCCESS",
+          invoiceCount: typeof count === "number" ? count : 1,
+        });
+        onItemProgress?.(candidate.id, "READY");
+      } else if (destination === "BANK_STATEMENT") {
+        if (!canImportBankStatements) {
+          throw new Error("Statement preparation requires Cash & Banking permissions.");
+        }
+        const attachmentId = statementAttachmentSelections[candidate.id] || classification.statementAttachmentIds?.[0];
+        const resolution = batchEntityResolutions[candidate.id];
+        const matchingProfile = profiles.find((p) => p.id === classification.matchedProfileId);
+        const review = await prepareGmailStatementReview({ ...candidate, classification }, attachmentId, {
+          preliminaryResolution: resolution,
+          profile: matchingProfile,
+        });
+        results.push({
+          candidateId: candidate.id,
+          destination,
+          status: "SUCCESS",
+          statementReviewId: review.id,
+        });
+        onItemProgress?.(candidate.id, "READY");
+      } else if (destination === "EXPENSE") {
+        if (!canManageExpenses) {
+          throw new Error("Expense preparation requires expense management permissions.");
+        }
+        const attachmentId = expenseAttachmentSelections[candidate.id] || classification.expenseAttachmentIds?.[0];
+        const resolution = batchEntityResolutions[candidate.id];
+        const matchingProfile = profiles.find((p) => p.id === classification.matchedProfileId);
+        const review = await prepareGmailExpenseReview({ ...candidate, classification }, attachmentId, {
+          preliminaryResolution: resolution,
+          profile: matchingProfile,
+        });
+        results.push({
+          candidateId: candidate.id,
+          destination,
+          status: "SUCCESS",
+          expenseReviewId: review.id,
+        });
+        onItemProgress?.(candidate.id, "READY");
+      }
+    } catch (error: any) {
+      const errMsg = error?.message || `Preparation failed for ${candidate.subject || "email"}`;
+      results.push({
+        candidateId: candidate.id,
+        destination,
+        status: "FAILED",
+        error: errMsg,
+      });
+      onItemProgress?.(candidate.id, "FAILED", errMsg);
+    }
+  }
+
+  return results;
+}
+
