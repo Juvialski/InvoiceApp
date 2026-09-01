@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -34,18 +34,18 @@ test("Database Backup Migration: File exists and has valid timestamp ordering", 
 test("Database Backup Migration: Defines database_backup_runs with constraints and RLS", async () => {
   const sql = await fs.readFile(MIGRATION_PATH, "utf-8");
 
-  // 1. Table structure
   assert.match(sql, /create table if not exists public\.database_backup_runs/i);
   assert.match(sql, /company_id uuid not null references public\.companies\(id\) on delete cascade/i);
+  assert.match(sql, /database_scope text not null default 'PUBLIC_APPLICATION_DATA'/i);
+  assert.match(sql, /storage_provider text not null check \(storage_provider = 's3'\)/i);
+  assert.doesNotMatch(sql, /storage_provider[^\n]*memory/i);
   assert.match(sql, /encrypted_sha256 text not null check \(encrypted_sha256 ~ '\^\[0-9a-f\]\{64\}\$'\)/i);
   assert.match(sql, /status in \('PENDING', 'EXPORTING', 'ENCRYPTING', 'UPLOADING', 'VERIFYING', 'VERIFIED', 'FAILED'\)/i);
   assert.match(sql, /verification_status in \('UNVERIFIED', 'MATCHED', 'CORRUPTED', 'MISSING'\)/i);
 
-  // 2. Triggers
   assert.match(sql, /create trigger database_backup_runs_company_boundary/i);
   assert.match(sql, /create trigger database_backup_runs_updated_at/i);
 
-  // 3. RLS
   assert.match(sql, /alter table public\.database_backup_runs enable row level security/i);
   assert.match(sql, /public\.has_company_permission\(company_id, 'storage\.read'\)/i);
   assert.match(sql, /public\.has_company_permission\(company_id, 'storage\.manage'\)/i);
@@ -55,17 +55,14 @@ test("Database Backup Migration: Defines database_backup_runs with constraints a
 test("Database Backup Migration: Defines database_restore_drills with constraints and RLS", async () => {
   const sql = await fs.readFile(MIGRATION_PATH, "utf-8");
 
-  // 1. Table structure
   assert.match(sql, /create table if not exists public\.database_restore_drills/i);
   assert.match(sql, /company_id uuid not null references public\.companies\(id\) on delete cascade/i);
   assert.match(sql, /backup_run_id uuid not null references public\.database_backup_runs\(id\) on delete cascade/i);
   assert.match(sql, /drill_status in \('STARTED', 'SUCCESS', 'FAILED'\)/i);
 
-  // 2. Triggers
   assert.match(sql, /create trigger database_restore_drills_company_boundary/i);
   assert.match(sql, /create trigger database_restore_drills_updated_at/i);
 
-  // 3. RLS
   assert.match(sql, /alter table public\.database_restore_drills enable row level security/i);
   assert.match(sql, /public\.has_company_permission\(company_id, 'storage\.read'\)/i);
   assert.match(sql, /public\.has_company_permission\(company_id, 'storage\.manage'\)/i);
