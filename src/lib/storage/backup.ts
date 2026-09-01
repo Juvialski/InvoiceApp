@@ -22,13 +22,21 @@ export type BackupVerificationStatus =
   | "CORRUPTED"
   | "MISSING";
 
+export type BackupDocumentDomain =
+  | "INVOICES"
+  | "EMAIL_INTAKE"
+  | "CASH_BANKING"
+  | "PAYROLL"
+  | "ENGINEERING"
+  | "SOURCE_DOCUMENTS";
+
 /**
  * Manifest record representing an independent backup replica of a primary object.
  */
 export interface BackupReplicaRecord {
   id: string;
   companyId: string;
-  documentDomain?: "INVOICES" | "EMAIL_INTAKE" | "CASH_BANKING" | "PAYROLL" | "ENGINEERING";
+  documentDomain?: BackupDocumentDomain;
   documentId: string;
   sourceProvider: StorageProviderId;
   sourceBucket: string;
@@ -56,7 +64,8 @@ export interface BackupReplicaRecord {
  */
 export interface RegisterBackupInput {
   companyId: string;
-  documentDomain?: "INVOICES" | "EMAIL_INTAKE" | "CASH_BANKING" | "PAYROLL" | "ENGINEERING";
+  documentDomain?: BackupDocumentDomain;
+
   documentId: string;
   sourceProvider: StorageProviderId;
   sourceBucket: string;

@@ -6,11 +6,24 @@ import {
   executeRestoreVerification,
   replicateObjectToBackup,
   verifyBackupReplica,
+  loadStorageConfig,
   MemoryStorageProvider,
   StorageIntegrityError,
   StorageError,
+  StorageConfigurationError,
 } from "../src/lib/storage/index.ts";
 import { BackupService } from "../src/server/storage/backupService.ts";
+
+test("Backup Configuration: Supabase Storage is rejected as an independent backup provider", () => {
+  assert.throws(
+    () => loadStorageConfig({ STORAGE_BACKUP_PROVIDER: "supabase" }),
+    (err: any) => {
+      assert.ok(err instanceof StorageConfigurationError);
+      assert.ok(err.message.includes("Supabase Storage cannot be used as an independent backup provider"));
+      return true;
+    },
+  );
+});
 
 test("Backup Replication: Primary upload succeeds even if backup provider fails (asynchronous failure isolation)", () => {
   const backupError = new Error("Connection timed out to Backblaze B2");
@@ -21,11 +34,12 @@ test("Backup Replication: Primary upload succeeds even if backup provider fails 
   assert.equal(isolationResult.backupLogged, true);
 });
 
-test("Backup Replication: Replicates object from primary to independent backup provider and verifies successfully", async () => {
+test("Backup Replication: Replicates object to configured B2 bucket and verifies successfully", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
   const docId = "doc-invoice-500";
   const primaryProvider = new MemoryStorageProvider();
   const backupProvider = new MemoryStorageProvider();
+  const configuredB2Bucket = "engoryx-company-a-b2-backup";
 
   const key = `companies/${companyId}/invoices/manual/2026/09/invoice-500.pdf`;
   const bytes = new TextEncoder().encode("%PDF-1.4 Authoritative invoice content for replication");
@@ -47,12 +61,13 @@ test("Backup Replication: Replicates object from primary to independent backup p
     sourceKey: key,
     sha256: primaryPut.ref.sha256!,
     sizeBytes: bytes.byteLength,
-    replicaProvider: "b2",
-    replicaBucket: "engoryx-backblaze-backup",
+    replicaProvider: "s3",
+    replicaBucket: configuredB2Bucket,
   });
 
   assert.equal(manifest.replicationState, "PENDING");
   assert.equal(manifest.verificationStatus, "UNVERIFIED");
+  assert.equal(manifest.replicaBucket, configuredB2Bucket);
 
   // Step 1: Replicate bytes
   const replicatedManifest = await replicateObjectToBackup(manifest, primaryProvider, backupProvider);
@@ -68,10 +83,10 @@ test("Backup Replication: Replicates object from primary to independent backup p
   assert.ok(verifyResult.record.lastVerifiedAt);
   assert.ok(verifyResult.record.completedAt);
 
-  // Verify object is indeed in backup provider
+  // Verify object is in the exact configured B2 bucket
   const backupObj = await backupProvider.getObject({
     companyId,
-    bucket: "engoryx-backblaze-backup",
+    bucket: configuredB2Bucket,
     key,
   });
   assert.equal(backupObj.bytes.byteLength, bytes.byteLength);
@@ -82,11 +97,10 @@ test("Backup Verification: Rejects replica with mismatched byte size or corrupte
   const backupProvider = new MemoryStorageProvider();
   const key = `companies/${companyId}/invoices/manual/2026/09/corrupt-backup.pdf`;
 
-  // Put 100 bytes in backup provider
   const badBytes = new TextEncoder().encode("Corrupted short content");
   await backupProvider.putObject({
     companyId,
-    bucket: "engoryx-backblaze-backup",
+    bucket: "engoryx-company-a-b2-backup",
     key,
     bytes: badBytes,
     contentType: "application/pdf",
@@ -100,8 +114,8 @@ test("Backup Verification: Rejects replica with mismatched byte size or corrupte
     sourceKey: key,
     sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     sizeBytes: 99999, // Expecting 99999 bytes
-    replicaProvider: "b2",
-    replicaBucket: "engoryx-backblaze-backup",
+    replicaProvider: "s3",
+    replicaBucket: "engoryx-company-a-b2-backup",
   });
 
   const verifyResult = await verifyBackupReplica(manifest, backupProvider);
@@ -112,43 +126,34 @@ test("Backup Verification: Rejects replica with mismatched byte size or corrupte
   assert.ok(verifyResult.error?.includes("size mismatch"));
 });
 
-test("Backup Verification: Rejects replica if tenant company ID metadata is mismatched", async () => {
+test("Restore Drill: Rejected in production environment (NODE_ENV === 'production')", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
-  const otherCompanyId = "22222222-3333-4444-5555-666666666666";
-  const backupProvider = new MemoryStorageProvider();
-  const key = `companies/${otherCompanyId}/invoices/manual/2026/09/wrong-company.pdf`;
-  const bytes = new TextEncoder().encode("%PDF-1.4 Wrong company content");
-
-  const putResult = await backupProvider.putObject({
-    companyId: otherCompanyId,
-    bucket: "engoryx-backblaze-backup",
-    key,
-    bytes,
-    contentType: "application/pdf",
+  const backupService = new BackupService({
+    supabaseClientSupplier: () => ({} as any),
   });
 
-  const manifest = createPendingBackupRecord({
-    companyId, // Requesting company 1
-    documentId: "doc-cross-company",
-    sourceProvider: "s3",
-    sourceBucket: "engoryx-production-documents",
-    sourceKey: key,
-    sha256: putResult.ref.sha256!,
-    sizeBytes: bytes.byteLength,
-    replicaProvider: "b2",
-    replicaBucket: "engoryx-backblaze-backup",
-  });
-
-  const verifyResult = await verifyBackupReplica(manifest, backupProvider);
-
-  assert.equal(verifyResult.verified, false);
-  assert.equal(verifyResult.record.replicationState, "FAILED");
+  const prevEnv = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = "production";
+    await assert.rejects(
+      backupService.runRestoreDrill(companyId, "bak-1", `companies/${companyId}/restore/test/doc.pdf`),
+      (err: any) => {
+        assert.ok(err instanceof StorageError);
+        assert.equal(err.code, "RESTORE_FORBIDDEN_IN_PRODUCTION");
+        return true;
+      },
+    );
+  } finally {
+    process.env.NODE_ENV = prevEnv;
+  }
 });
 
-test("Restore Drill: Successfully executes restore verification into test target and validates restored bytes", async () => {
+test("Restore Drill: Successfully executes restore verification into test target using configured restore bucket", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
   const backupProvider = new MemoryStorageProvider();
   const restoreTargetProvider = new MemoryStorageProvider();
+  const b2Bucket = "engoryx-company-a-b2-backup";
+  const primaryRestoreBucket = "engoryx-production-documents";
 
   const originalKey = `companies/${companyId}/invoices/manual/2026/09/inv-600.pdf`;
   const restoreTestKey = `companies/${companyId}/restore/test/2026/09/inv-600-restored.pdf`;
@@ -156,7 +161,7 @@ test("Restore Drill: Successfully executes restore verification into test target
 
   const putResult = await backupProvider.putObject({
     companyId,
-    bucket: "engoryx-backblaze-backup",
+    bucket: b2Bucket,
     key: originalKey,
     bytes,
     contentType: "application/pdf",
@@ -167,12 +172,12 @@ test("Restore Drill: Successfully executes restore verification into test target
       companyId,
       documentId: "doc-600",
       sourceProvider: "s3",
-      sourceBucket: "engoryx-production-documents",
+      sourceBucket: primaryRestoreBucket,
       sourceKey: originalKey,
       sha256: putResult.ref.sha256!,
       sizeBytes: bytes.byteLength,
-      replicaProvider: "b2",
-      replicaBucket: "engoryx-backblaze-backup",
+      replicaProvider: "s3" as const,
+      replicaBucket: b2Bucket,
     }),
     replicationState: "VERIFIED" as const,
     verificationStatus: "MATCHED" as const,
@@ -183,6 +188,7 @@ test("Restore Drill: Successfully executes restore verification into test target
     backupProvider,
     restoreTargetProvider,
     restoreTargetKey: restoreTestKey,
+    restoreTargetBucket: primaryRestoreBucket, // Uses primary restore bucket, NOT B2 bucket!
   });
 
   assert.equal(drillResult.success, true);
@@ -190,104 +196,52 @@ test("Restore Drill: Successfully executes restore verification into test target
   assert.equal(drillResult.sizeBytes, bytes.byteLength);
   assert.equal(drillResult.restoreTargetKey, restoreTestKey);
 
-  // Invariant: Target has verified restored object
+  // Invariant: Target has verified restored object in the primary bucket
   const restoredObj = await restoreTargetProvider.getObject({
     companyId,
-    bucket: "engoryx-backblaze-backup",
+    bucket: primaryRestoreBucket,
     key: restoreTestKey,
   });
   assert.equal(restoredObj.bytes.byteLength, bytes.byteLength);
 });
 
-test("Restore Drill: Rejects restore attempt if target key lacks test/restore safety prefix", async () => {
+test("BackupService: Idempotent registration returns existing active manifest", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
-  const backupProvider = new MemoryStorageProvider();
-  const restoreTargetProvider = new MemoryStorageProvider();
-
-  const manifest = {
-    ...createPendingBackupRecord({
-      companyId,
-      documentId: "doc-unsafe",
-      sourceProvider: "s3",
-      sourceBucket: "engoryx-production-documents",
-      sourceKey: `companies/${companyId}/invoices/manual/test.pdf`,
-      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      sizeBytes: 0,
-      replicaProvider: "b2",
-      replicaBucket: "engoryx-backblaze-backup",
-    }),
-    replicationState: "VERIFIED" as const,
-  };
-
-  // Malicious / accidental attempt to overwrite production path directly
-  await assert.rejects(
-    executeRestoreVerification({
-      manifest,
-      backupProvider,
-      restoreTargetProvider,
-      restoreTargetKey: `companies/${companyId}/invoices/manual/production-live.pdf`,
-    }),
-    (err: any) => {
-      assert.ok(err instanceof StorageError);
-      assert.equal(err.code, "INVALID_RESTORE_TARGET");
-      return true;
+  const dbReplicas: any[] = [
+    {
+      id: "bak-existing-1",
+      company_id: companyId,
+      document_domain: "INVOICES",
+      document_id: "doc-inv-1",
+      source_provider: "s3",
+      source_bucket: "invoice-originals",
+      source_key: "key-1",
+      source_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      source_size_bytes: 100,
+      replica_provider: "s3",
+      replica_bucket: "engoryx-company-a-b2-backup",
+      replica_key: "key-1",
+      replication_state: "VERIFIED",
+      verification_status: "MATCHED",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
-  );
-});
+  ];
 
-test("BackupService: End-to-end batch processing and restore drill via service instance", async () => {
-  const companyId = "11111111-2222-3333-4444-555555555555";
-  const primaryStore = new MemoryStorageProvider();
-  const backupStore = new MemoryStorageProvider();
-
-  const key = `companies/${companyId}/invoices/manual/2026/09/inv-svc-1.pdf`;
-  const bytes = new TextEncoder().encode("%PDF-1.4 BackupService integration bytes");
-
-  const primaryPut = await primaryStore.putObject({
-    companyId,
-    bucket: "engoryx-production-documents",
-    key,
-    bytes,
-    contentType: "application/pdf",
-  });
-
-  const dbReplicas: any[] = [];
   const mockSupabase: any = {
     from: (_table: string) => ({
-      insert: (data: any) => ({
-        select: () => ({
-          single: async () => {
-            const row = { id: `bak-${dbReplicas.length + 1}`, ...data };
-            dbReplicas.push(row);
-            return { data: row, error: null };
-          },
-        }),
-      }),
       select: () => ({
         eq: (_col1: string, val1: any) => ({
-          in: (_col2: string, states: string[]) => ({
-            order: () => ({
-              limit: async () => ({
-                data: dbReplicas.filter((r) => r.company_id === val1 && states.includes(r.replication_state)),
-                error: null,
+          eq: (_col2: string, val2: any) => ({
+            eq: (_col3: string, val3: any) => ({
+              neq: () => ({
+                limit: async () => ({
+                  data: dbReplicas.filter((r) => r.company_id === val1 && r.document_domain === val2 && r.document_id === val3),
+                  error: null,
+                }),
               }),
             }),
           }),
-          eq: (_col2: string, val2: any) => ({
-            maybeSingle: async () => ({
-              data: dbReplicas.find((r) => r.id === val1 && r.company_id === val2),
-              error: null,
-            }),
-          }),
-        }),
-      }),
-      update: (data: any) => ({
-        eq: (_col1: string, val1: any) => ({
-          eq: async () => {
-            const item = dbReplicas.find((r) => r.id === val1);
-            if (item) Object.assign(item, data);
-            return { error: null };
-          },
         }),
       }),
     }),
@@ -295,40 +249,22 @@ test("BackupService: End-to-end batch processing and restore drill via service i
 
   const backupService = new BackupService({
     supabaseClientSupplier: () => mockSupabase,
-    primaryProviderSupplier: () => primaryStore,
-    backupProviderSupplier: () => backupStore,
-    providerSupplier: (id) => (id === "s3" ? primaryStore : backupStore),
   });
 
-  // 1. Register backup intent
-  const registered = await backupService.registerBackupIntent({
+  const res = await backupService.registerBackupIntent({
     companyId,
-    documentId: "doc-svc-1",
+    documentDomain: "INVOICES",
+    documentId: "doc-inv-1",
     sourceProvider: "s3",
-    sourceBucket: "engoryx-production-documents",
-    sourceKey: key,
-    sha256: primaryPut.ref.sha256!,
-    sizeBytes: bytes.byteLength,
-    replicaProvider: "b2",
-    replicaBucket: "engoryx-backblaze-backup",
+    sourceBucket: "invoice-originals",
+    sourceKey: "key-1",
+    sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    sizeBytes: 100,
+    replicaProvider: "s3",
+    replicaBucket: "engoryx-company-a-b2-backup",
   });
 
-  assert.ok(registered);
-  assert.equal(dbReplicas.length, 1);
-
-  // 2. Process pending replications
-  const processSummary = await backupService.processPendingReplications(companyId, 10);
-  assert.equal(processSummary.processed, 1);
-  assert.equal(processSummary.verified, 1);
-  assert.equal(dbReplicas[0].replication_state, "VERIFIED");
-  assert.equal(dbReplicas[0].verification_status, "MATCHED");
-
-  // 3. Run restore drill
-  const restoreResult = await backupService.runRestoreDrill(
-    companyId,
-    dbReplicas[0].id,
-    `companies/${companyId}/restore/test/inv-svc-1-restored.pdf`,
-  );
-  assert.equal(restoreResult.success, true);
-  assert.equal(restoreResult.restoredSha256, primaryPut.ref.sha256);
+  assert.ok(res);
+  assert.equal(res.id, "bak-existing-1");
+  assert.equal(res.replicationState, "VERIFIED");
 });

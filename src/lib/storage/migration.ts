@@ -27,10 +27,19 @@ export type MigrationState =
   | "FAILED"
   | "RETRY_PENDING";
 
+export type DocumentMigrationDomain =
+  | "INVOICES"
+  | "EMAIL_INTAKE"
+  | "CASH_BANKING"
+  | "PAYROLL"
+  | "ENGINEERING"
+  | "SOURCE_DOCUMENTS";
+
 export interface DocumentMigrationRecord {
   id: string;
   companyId: string;
-  documentDomain: "INVOICES" | "EMAIL_INTAKE" | "CASH_BANKING" | "PAYROLL" | "ENGINEERING";
+  documentDomain: DocumentMigrationDomain;
+
   documentId: string;
   sourceProvider: StorageProviderId;
   sourceBucket: string;

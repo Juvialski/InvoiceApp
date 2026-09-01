@@ -1,7 +1,7 @@
 /**
  * Server-side Document Migration Service.
- * Manages discovery, incremental execution, verification, and primary switch
- * across source_documents, engineering_document_revisions, and payroll_import_batches.
+ * Manages discovery, incremental execution, verification, physical deduplication,
+ * and atomic primary switch across source_documents, engineering_document_revisions, and payroll_import_batches.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -13,14 +13,24 @@ import {
 import {
   createStorageProvider,
   getPrimaryStorageProvider,
+  getPrimaryStorageDescriptor,
+  getBackupStorageDescriptor,
 } from "../../lib/storage/config.ts";
 import {
   type DocumentStorageProvider,
   type StorageProviderId,
   StorageError,
 } from "../../lib/storage/types.ts";
-
+import { calculateSha256Hex } from "../../lib/storage/dedup.ts";
 import type { BackupService } from "./backupService.ts";
+
+export type MigrationSupportedDomain =
+  | "INVOICES"
+  | "EMAIL_INTAKE"
+  | "CASH_BANKING"
+  | "PAYROLL"
+  | "ENGINEERING"
+  | "SOURCE_DOCUMENTS";
 
 export interface MigrationServiceOptions {
   supabaseClientSupplier: () => SupabaseClient;
@@ -71,34 +81,69 @@ export class MigrationService {
 
   /**
    * Discover unmigrated documents stored in legacy Supabase Storage and register migration records.
+   * Idempotent invariant: Reuses existing active migration records and prevents duplicate entries.
    */
   async discoverEligibleDocuments(
     companyId: string,
-    domain: DocumentMigrationRecord["documentDomain"] = "INVOICES",
+    domain: MigrationSupportedDomain = "INVOICES",
     limit = 50,
   ): Promise<DocumentMigrationRecord[]> {
+    const primaryDesc = getPrimaryStorageDescriptor(process.env);
+    if (!primaryDesc.isExternal && primaryDesc.providerId === "supabase") {
+      throw new StorageError(
+        "Primary storage provider is currently configured as Supabase. Wave S3 migration from legacy Supabase storage requires a configured external S3/R2 primary provider.",
+        "EXTERNAL_PROVIDER_REQUIRED",
+        400,
+      );
+    }
+
+    const clampedLimit = Math.max(1, Math.min(limit, 100));
     const client = this.getSupabase();
-    const primaryProvider = this.getPrimaryProvider(process.env, () => client);
-    const targetProviderId = primaryProvider.id;
-    const targetBucket = (primaryProvider as any).config?.bucket || "engoryx-production-documents";
+    const targetProviderId = primaryDesc.providerId;
+    const targetBucket = primaryDesc.bucket;
 
     const discoveredRecords: DocumentMigrationRecord[] = [];
 
-    if (domain === "INVOICES" || domain === "EMAIL_INTAKE" || domain === "CASH_BANKING") {
-      const { data: rows, error } = await client
+    if (domain === "INVOICES" || domain === "EMAIL_INTAKE" || domain === "CASH_BANKING" || domain === "SOURCE_DOCUMENTS") {
+      let query = client
         .from("source_documents")
-        .select("id,company_id,storage_path,storage_provider,storage_bucket,sha256,file_size,filename")
+        .select("id,company_id,source_type,document_type,email_message_id,gmail_attachment_id,storage_path,storage_provider,storage_bucket,sha256,file_size,filename")
         .eq("company_id", companyId)
-        .eq("storage_provider", "supabase")
-        .limit(limit);
+        .eq("storage_provider", "supabase");
 
+      // Apply real domain-specific classification filters
+      if (domain === "EMAIL_INTAKE") {
+        query = query.or("source_type.eq.EMAIL,email_message_id.not.is.null,gmail_attachment_id.not.is.null");
+      } else if (domain === "INVOICES") {
+        query = query.eq("source_type", "UPLOAD").eq("document_type", "INVOICE");
+      } else if (domain === "CASH_BANKING") {
+        query = query.or("source_type.eq.BANK_IMPORT,document_type.eq.BANK_STATEMENT");
+      }
+
+      const { data: rows, error } = await query.limit(clampedLimit);
       if (error) throw new StorageError(`Failed to discover eligible source documents: ${error.message}`);
 
       for (const row of rows || []) {
         if (!row.storage_path || !row.sha256) continue;
+
+        // Check if active migration record already exists
+        const { data: existing } = await client
+          .from("document_migration_records")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("document_domain", domain)
+          .eq("document_id", row.id)
+          .neq("migration_state", "FAILED")
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          discoveredRecords.push(rowToMigrationRecord(existing[0]));
+          continue;
+        }
+
         const initial = createInitialMigrationRecord({
           companyId,
-          documentDomain: domain,
+          documentDomain: domain as any,
           documentId: row.id,
           sourceProvider: "supabase",
           sourceBucket: row.storage_bucket || "invoice-originals",
@@ -140,12 +185,28 @@ export class MigrationService {
         .select("id,company_id,file_path,storage_provider,storage_bucket,file_fingerprint,file_size_bytes")
         .eq("company_id", companyId)
         .eq("storage_provider", "supabase")
-        .limit(limit);
+        .limit(clampedLimit);
 
       if (error) throw new StorageError(`Failed to discover eligible engineering revisions: ${error.message}`);
 
       for (const row of rows || []) {
         if (!row.file_path || !row.file_fingerprint) continue;
+
+        // Check if active migration record already exists
+        const { data: existing } = await client
+          .from("document_migration_records")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("document_domain", "ENGINEERING")
+          .eq("document_id", row.id)
+          .neq("migration_state", "FAILED")
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          discoveredRecords.push(rowToMigrationRecord(existing[0]));
+          continue;
+        }
+
         const rawSha = row.file_fingerprint.replace(/^sha256:/i, "");
         const initial = createInitialMigrationRecord({
           companyId,
@@ -191,12 +252,28 @@ export class MigrationService {
         .select("id,company_id,storage_path,storage_provider,storage_bucket,file_sha256,file_size")
         .eq("company_id", companyId)
         .eq("storage_provider", "supabase")
-        .limit(limit);
+        .limit(clampedLimit);
 
       if (error) throw new StorageError(`Failed to discover eligible payroll batches: ${error.message}`);
 
       for (const row of rows || []) {
         if (!row.storage_path || !row.file_sha256) continue;
+
+        // Check if active migration record already exists
+        const { data: existing } = await client
+          .from("document_migration_records")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("document_domain", "PAYROLL")
+          .eq("document_id", row.id)
+          .neq("migration_state", "FAILED")
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          discoveredRecords.push(rowToMigrationRecord(existing[0]));
+          continue;
+        }
+
         const initial = createInitialMigrationRecord({
           companyId,
           documentDomain: "PAYROLL",
@@ -241,10 +318,12 @@ export class MigrationService {
   }
 
   /**
-   * Process a batch of pending migrations.
+   * Process a batch of pending migrations scoped strictly to the requested domain.
+   * Resumes safely from existing target uploads and performs conservative physical deduplication.
    */
   async processPendingMigrations(
     companyId: string,
+    domain?: MigrationSupportedDomain,
     limit = 10,
   ): Promise<{
     processed: number;
@@ -252,16 +331,24 @@ export class MigrationService {
     failed: number;
     records: DocumentMigrationRecord[];
   }> {
+    const clampedLimit = Math.max(1, Math.min(limit, 100));
     const client = this.getSupabase();
-    const { data: rows, error } = await client
+
+    let query = client
       .from("document_migration_records")
       .select("*")
       .eq("company_id", companyId)
-      .in("migration_state", ["DISCOVERED", "RETRY_PENDING", "COPYING", "VERIFYING"])
-      .order("created_at", { ascending: true })
-      .limit(limit);
+      .in("migration_state", ["DISCOVERED", "RETRY_PENDING", "COPYING", "VERIFYING"]);
 
+    if (domain) {
+      query = query.eq("document_domain", domain);
+    }
+
+    const { data: rows, error } = await query
+      .order("created_at", { ascending: true })
+      .limit(clampedLimit);
     if (error) throw new StorageError(`Failed to load pending migrations: ${error.message}`);
+
 
     const records: DocumentMigrationRecord[] = [];
     let successCount = 0;
@@ -272,51 +359,169 @@ export class MigrationService {
       const sourceProvider = this.getProviderById(record.sourceProvider, () => client);
       const targetProvider = this.getProviderById(record.targetProvider, () => client);
 
-      const stepResult = await executeMigrationStep(record, sourceProvider, targetProvider);
+      // Atomic claim: set state to COPYING
+      await client
+        .from("document_migration_records")
+        .update({
+          migration_state: "COPYING",
+          last_attempted_at: new Date().toISOString(),
+        })
+        .eq("id", record.id)
+        .eq("company_id", companyId)
+        .in("migration_state", ["DISCOVERED", "RETRY_PENDING"]);
+
+      // Physical Deduplication Check:
+      // Look for already verified target object with matching hash within the company
+      let targetKeyToUse = record.targetKey;
+      let isDedupReused = false;
+
+      const { data: matchingVerified } = await client
+        .from("document_migration_records")
+        .select("target_key, target_bucket, target_provider, sha256, size_bytes")
+        .eq("company_id", companyId)
+        .eq("sha256", record.sha256)
+        .eq("target_provider", record.targetProvider)
+        .eq("target_bucket", record.targetBucket)
+        .eq("migration_state", "PRIMARY_SWITCH")
+        .eq("verification_status", "MATCHED")
+        .limit(1);
+
+      if (matchingVerified && matchingVerified.length > 0) {
+        const candidate = matchingVerified[0];
+        try {
+          const verifiedTargetObj = await targetProvider.getObject({
+            companyId,
+            bucket: candidate.target_bucket,
+            key: candidate.target_key,
+          });
+          const actualHash = await calculateSha256Hex(verifiedTargetObj.bytes);
+          if (actualHash === record.sha256 && verifiedTargetObj.bytes.byteLength === record.sizeBytes) {
+            targetKeyToUse = candidate.target_key;
+            isDedupReused = true;
+          }
+        } catch {
+          // Physical reuse verification failed; proceed to normal copy
+        }
+      }
+
+      let stepResult: { success: boolean; error?: string; record: DocumentMigrationRecord };
+
+      if (isDedupReused) {
+        const now = new Date().toISOString();
+        stepResult = {
+          success: true,
+          record: {
+            ...record,
+            targetKey: targetKeyToUse,
+            migrationState: "PRIMARY_SWITCH",
+            verificationStatus: "MATCHED",
+            attempts: record.attempts + 1,
+            lastAttemptedAt: now,
+            verifiedAt: now,
+            switchedAt: now,
+            lastError: undefined,
+            updatedAt: now,
+          },
+        };
+      } else {
+        stepResult = await executeMigrationStep(
+          { ...record, targetKey: targetKeyToUse },
+          sourceProvider,
+          targetProvider,
+        );
+      }
+
       records.push(stepResult.record);
 
       if (stepResult.success && stepResult.record.migrationState === "PRIMARY_SWITCH") {
-        successCount += 1;
+        // Atomic Domain Update: Verify update success and exact row count before marking PRIMARY_SWITCH
+        let domainUpdateSuccess = false;
+        let domainUpdateError: string | undefined;
 
-        // 1. Update domain table with new primary provider reference
-        if (record.documentDomain === "INVOICES" || record.documentDomain === "EMAIL_INTAKE" || record.documentDomain === "CASH_BANKING") {
-          await client
+        if (record.documentDomain === "INVOICES" || record.documentDomain === "EMAIL_INTAKE" || record.documentDomain === "CASH_BANKING" || record.documentDomain === "SOURCE_DOCUMENTS") {
+          const { data: updatedRows, error: updateErr } = await client
             .from("source_documents")
             .update({
               storage_provider: record.targetProvider,
               storage_bucket: record.targetBucket,
-              storage_path: record.targetKey,
+              storage_path: targetKeyToUse,
             })
             .eq("id", record.documentId)
-            .eq("company_id", companyId);
+            .eq("company_id", companyId)
+            .select("id");
+
+          if (updateErr || !updatedRows || updatedRows.length === 0) {
+            domainUpdateSuccess = false;
+            domainUpdateError = updateErr?.message || "Failed to update source_documents row during primary switch.";
+          } else {
+            domainUpdateSuccess = true;
+          }
         } else if (record.documentDomain === "ENGINEERING") {
-          await client
+          const { data: updatedRows, error: updateErr } = await client
             .from("engineering_document_revisions")
             .update({
               storage_provider: record.targetProvider,
               storage_bucket: record.targetBucket,
-              file_path: record.targetKey,
+              file_path: targetKeyToUse,
             })
             .eq("id", record.documentId)
-            .eq("company_id", companyId);
+            .eq("company_id", companyId)
+            .select("id");
+
+          if (updateErr || !updatedRows || updatedRows.length === 0) {
+            domainUpdateSuccess = false;
+            domainUpdateError = updateErr?.message || "Failed to update engineering_document_revisions row during primary switch.";
+          } else {
+            domainUpdateSuccess = true;
+          }
         } else if (record.documentDomain === "PAYROLL") {
-          await client
+          const { data: updatedRows, error: updateErr } = await client
             .from("payroll_import_batches")
             .update({
               storage_provider: record.targetProvider,
               storage_bucket: record.targetBucket,
-              storage_path: record.targetKey,
+              storage_path: targetKeyToUse,
             })
             .eq("id", record.documentId)
-            .eq("company_id", companyId);
+            .eq("company_id", companyId)
+            .select("id");
+
+          if (updateErr || !updatedRows || updatedRows.length === 0) {
+            domainUpdateSuccess = false;
+            domainUpdateError = updateErr?.message || "Failed to update payroll_import_batches row during primary switch.";
+          } else {
+            domainUpdateSuccess = true;
+          }
         }
 
-        // 2. Update migration record state
+        if (!domainUpdateSuccess) {
+          failedCount += 1;
+          stepResult.record.migrationState = "RETRY_PENDING";
+          stepResult.record.lastError = domainUpdateError;
+
+          await client
+            .from("document_migration_records")
+            .update({
+              migration_state: "RETRY_PENDING",
+              target_key: targetKeyToUse,
+              last_error: domainUpdateError,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", record.id)
+            .eq("company_id", companyId);
+
+          continue;
+        }
+
+        successCount += 1;
+
+        // Update migration record state to confirmed PRIMARY_SWITCH
         await client
           .from("document_migration_records")
           .update({
             migration_state: "PRIMARY_SWITCH",
             verification_status: "MATCHED",
+            target_key: targetKeyToUse,
             verified_at: stepResult.record.verifiedAt,
             switched_at: stepResult.record.switchedAt,
             attempts: stepResult.record.attempts,
@@ -326,22 +531,23 @@ export class MigrationService {
           .eq("id", record.id)
           .eq("company_id", companyId);
 
-        // 3. Register asynchronous backup intent for newly migrated object
+        // Register asynchronous backup intent for newly migrated object
         if (this.backupService) {
-          this.backupService.registerBackupIntent({
-            companyId,
-            documentDomain: record.documentDomain,
-            documentId: record.documentId,
-            sourceProvider: record.targetProvider,
-            sourceBucket: record.targetBucket,
-            sourceKey: record.targetKey,
-            sha256: record.sha256,
-            sizeBytes: record.sizeBytes,
-            replicaProvider: "s3",
-            replicaBucket: "engoryx-backups",
-          }).catch((err) => {
-            console.warn("[Migration Service] Backup registration warning:", err);
-          });
+          const backupDesc = getBackupStorageDescriptor(process.env);
+          if (backupDesc) {
+            await this.backupService.registerBackupIntent({
+              companyId,
+              documentDomain: record.documentDomain,
+              documentId: record.documentId,
+              sourceProvider: record.targetProvider,
+              sourceBucket: record.targetBucket,
+              sourceKey: targetKeyToUse,
+              sha256: record.sha256,
+              sizeBytes: record.sizeBytes,
+              replicaProvider: backupDesc.providerId === "memory" ? "memory" : "s3",
+              replicaBucket: backupDesc.bucket,
+            });
+          }
         }
       } else {
         failedCount += 1;

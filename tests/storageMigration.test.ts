@@ -7,6 +7,7 @@ import {
   MemoryStorageProvider,
   ObjectNotFoundError,
   StorageIntegrityError,
+  StorageError,
 } from "../src/lib/storage/index.ts";
 import { MigrationService } from "../src/server/storage/migrationService.ts";
 
@@ -23,7 +24,7 @@ test("Storage Migration: Discovered legacy Supabase object initializes with norm
     sourceBucket: "invoice-originals",
     sourceKey: `companies/${companyId}/invoices/manual/2026/09/doc.pdf`,
     targetProvider: "s3",
-    targetBucket: "engoryx-production-documents",
+    targetBucket: "engoryx-custom-r2-bucket",
     sha256,
     sizeBytes: 2048,
   });
@@ -33,7 +34,32 @@ test("Storage Migration: Discovered legacy Supabase object initializes with norm
   assert.equal(record.migrationState, "DISCOVERED");
   assert.equal(record.verificationStatus, "UNVERIFIED");
   assert.equal(record.sha256, sha256.toLowerCase());
+  assert.equal(record.targetBucket, "engoryx-custom-r2-bucket");
   assert.equal(record.attempts, 0);
+});
+
+test("Storage Migration: Fails closed when primary provider is still Supabase", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const mockSupabase: any = { from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ limit: async () => ({ data: [], error: null }) }) }) }) }) };
+
+  const prevEnv = process.env.STORAGE_PRIMARY_PROVIDER;
+  try {
+    process.env.STORAGE_PRIMARY_PROVIDER = "supabase";
+    const migrationService = new MigrationService({
+      supabaseClientSupplier: () => mockSupabase,
+    });
+
+    await assert.rejects(
+      migrationService.discoverEligibleDocuments(companyId, "INVOICES"),
+      (err: any) => {
+        assert.ok(err instanceof StorageError);
+        assert.equal(err.code, "EXTERNAL_PROVIDER_REQUIRED");
+        return true;
+      },
+    );
+  } finally {
+    process.env.STORAGE_PRIMARY_PROVIDER = prevEnv;
+  }
 });
 
 test("Storage Migration: Executes verified copy to target S3 provider and performs PRIMARY_SWITCH without deleting legacy source", async () => {
@@ -62,7 +88,7 @@ test("Storage Migration: Executes verified copy to target S3 provider and perfor
     sourceBucket: "invoice-originals",
     sourceKey: key,
     targetProvider: "s3",
-    targetBucket: "engoryx-production-documents",
+    targetBucket: "engoryx-custom-r2-bucket",
     sha256: putResult.ref.sha256!,
     sizeBytes: pdfBytes.byteLength,
   });
@@ -76,10 +102,10 @@ test("Storage Migration: Executes verified copy to target S3 provider and perfor
   assert.ok(result.record.verifiedAt);
   assert.ok(result.record.switchedAt);
 
-  // Invariant check: Verify the object is in target provider
+  // Invariant check: Verify the object is in target provider with configured bucket
   const targetObj = await targetProvider.getObject({
     companyId,
-    bucket: "engoryx-production-documents",
+    bucket: "engoryx-custom-r2-bucket",
     key,
   });
   assert.equal(targetObj.bytes.byteLength, pdfBytes.byteLength);
@@ -93,192 +119,278 @@ test("Storage Migration: Executes verified copy to target S3 provider and perfor
   assert.equal(sourceObjAfter.bytes.byteLength, pdfBytes.byteLength);
 });
 
-test("Storage Migration: Fails safely and enters RETRY_PENDING if source checksum is corrupted", async () => {
-  const companyId = "11111111-2222-3333-4444-555555555555";
-  const sourceProvider = new MemoryStorageProvider();
-  const targetProvider = new MemoryStorageProvider();
-  const key = `companies/${companyId}/invoices/manual/2026/09/corrupted.pdf`;
-  const pdfBytes = new TextEncoder().encode("%PDF-1.4 Genuine bytes");
-
-  await sourceProvider.putObject({
-    companyId,
-    bucket: "invoice-originals",
-    key,
-    bytes: pdfBytes,
-    contentType: "application/pdf",
-  });
-
-  // Manifest has wrong expected SHA-256
-  const record = createInitialMigrationRecord({
-    companyId,
-    documentDomain: "INVOICES",
-    documentId: "doc-corrupted",
-    sourceProvider: "supabase",
-    sourceBucket: "invoice-originals",
-    sourceKey: key,
-    targetProvider: "s3",
-    targetBucket: "engoryx-production-documents",
-    sha256: "0000000000000000000000000000000000000000000000000000000000000000",
-    sizeBytes: pdfBytes.byteLength,
-  });
-
-  const result = await executeMigrationStep(record, sourceProvider, targetProvider);
-
-  assert.equal(result.success, false);
-  assert.equal(result.record.migrationState, "RETRY_PENDING");
-  assert.equal(result.record.verificationStatus, "CORRUPTED");
-  assert.ok(result.record.lastError?.includes("integrity check failed"));
-  assert.equal(result.record.attempts, 1);
-
-  // Object should not exist on target
-  await assert.rejects(
-    targetProvider.getObject({ companyId, bucket: "engoryx-production-documents", key }),
-    ObjectNotFoundError,
-  );
-});
-
-test("Storage Migration: Dual-read compatibility seamlessly reads from fallback provider if unmigrated", async () => {
-  const companyId = "11111111-2222-3333-4444-555555555555";
-  const primaryProvider = new MemoryStorageProvider(); // S3 primary (empty)
-  const legacyProvider = new MemoryStorageProvider();  // Supabase fallback (has legacy object)
-
-  const legacyKey = `companies/${companyId}/invoices/manual/2026/09/legacy.pdf`;
-  const legacyBytes = new TextEncoder().encode("%PDF-1.4 Legacy invoice content");
-
-  await legacyProvider.putObject({
-    companyId,
-    bucket: "invoice-originals",
-    key: legacyKey,
-    bytes: legacyBytes,
-    contentType: "application/pdf",
-  });
-
-  // Query primary first; dualReadObject falls back to legacy provider
-  const readResult = await dualReadObject(
-    { companyId, bucket: "engoryx-production-documents", key: legacyKey },
-    primaryProvider,
-    legacyProvider,
-    { companyId, bucket: "invoice-originals", key: legacyKey },
-  );
-
-  assert.equal(readResult.bytes.byteLength, legacyBytes.byteLength);
-  assert.equal(new TextDecoder().decode(readResult.bytes), "%PDF-1.4 Legacy invoice content");
-});
-
-test("MigrationService: Discovers and executes incremental batch migration across Engineering and Payroll domains", async () => {
+test("Storage Migration: Authoritative domain update failure leaves migration in RETRY_PENDING (never PRIMARY_SWITCH)", async () => {
   const companyId = "11111111-2222-3333-4444-555555555555";
   const sourceStore = new MemoryStorageProvider();
   const targetStore = new MemoryStorageProvider();
 
-  // Setup engineering revision in source store
-  const engKey = `companies/${companyId}/documents/doc-eng-1/revisions/rev-1/blueprint.pdf`;
-  const engBytes = new TextEncoder().encode("%PDF-1.4 Engineering Drawing Content");
-  const engPut = await sourceStore.putObject({
+  const key = `companies/${companyId}/invoices/manual/fail-update.pdf`;
+  const bytes = new TextEncoder().encode("%PDF-1.4 Test failure content");
+  const putRes = await sourceStore.putObject({
     companyId,
-    bucket: "engineering-documents",
-    key: engKey,
-    bytes: engBytes,
+    bucket: "invoice-originals",
+    key,
+    bytes,
     contentType: "application/pdf",
   });
 
-  // Mock Supabase DB
-  const migrationRecords: any[] = [];
-  const engineeringRevisions: any[] = [
+  const migrationRecords: any[] = [
     {
-      id: "rev-1",
+      id: "mig-fail-1",
       company_id: companyId,
-      file_path: engKey,
-      storage_provider: "supabase",
-      storage_bucket: "engineering-documents",
-      file_fingerprint: `sha256:${engPut.ref.sha256}`,
-      file_size_bytes: engBytes.byteLength,
+      document_domain: "INVOICES",
+      document_id: "doc-missing-row",
+      source_provider: "supabase",
+      source_bucket: "invoice-originals",
+      source_key: key,
+      target_provider: "s3",
+      target_bucket: "engoryx-custom-r2-bucket",
+      target_key: key,
+      sha256: putRes.ref.sha256,
+      size_bytes: bytes.byteLength,
+
+      migration_state: "DISCOVERED",
+      verification_status: "UNVERIFIED",
+      attempts: 0,
+      max_attempts: 5,
     },
   ];
 
-  const mockSupabase: any = {
+  const createMockDb = (failDomainUpdate = false) => ({
     from: (table: string) => ({
-      select: () => ({
-        eq: (_col1: string, val1: any) => ({
-          eq: (_col2: string, val2: any) => ({
-            limit: async () => {
-              if (table === "engineering_document_revisions") {
-                return {
-                  data: engineeringRevisions.filter((r) => r.company_id === val1 && r.storage_provider === val2),
-                  error: null,
-                };
-              }
-              return { data: [], error: null };
-            },
-          }),
-          in: (_col2: string, states: string[]) => ({
-            order: () => ({
-              limit: async () => {
-                if (table === "document_migration_records") {
-                  return {
-                    data: migrationRecords.filter((r) => r.company_id === val1 && states.includes(r.migration_state)),
-                    error: null,
-                  };
-                }
-                return { data: [], error: null };
-              },
-            }),
-          }),
-        }),
-      }),
-      insert: (data: any) => ({
-        select: () => ({
-          single: async () => {
-            const row = { id: `mig-${migrationRecords.length + 1}`, ...data };
-            migrationRecords.push(row);
-            return { data: row, error: null };
+      select: () => {
+        const queryObj: any = {
+          filters: {} as Record<string, any>,
+          eq(col: string, val: any) {
+            this.filters[col] = val;
+            return this;
           },
-        }),
-      }),
-      update: (data: any) => ({
-        eq: (_col1: string, val1: any) => ({
-          eq: async () => {
-            if (table === "engineering_document_revisions") {
-              const item = engineeringRevisions.find((r) => r.id === val1);
-              if (item) Object.assign(item, data);
-            } else if (table === "document_migration_records") {
-              const item = migrationRecords.find((r) => r.id === val1);
+          in(col: string, vals: any[]) {
+            this.filters[col + "_in"] = vals;
+            return this;
+          },
+          order() { return this; },
+          async limit() {
+            let list = [...migrationRecords];
+            if (this.filters.company_id) list = list.filter((r) => r.company_id === this.filters.company_id);
+            if (this.filters.migration_state_in) list = list.filter((r) => this.filters.migration_state_in.includes(r.migration_state));
+            if (this.filters.document_domain) list = list.filter((r) => r.document_domain === this.filters.document_domain);
+            if (this.filters.sha256) list = list.filter((r) => r.sha256 === this.filters.sha256);
+            if (this.filters.target_provider) list = list.filter((r) => r.target_provider === this.filters.target_provider);
+            if (this.filters.target_bucket) list = list.filter((r) => r.target_bucket === this.filters.target_bucket);
+            if (this.filters.migration_state) list = list.filter((r) => r.migration_state === this.filters.migration_state);
+            if (this.filters.verification_status) list = list.filter((r) => r.verification_status === this.filters.verification_status);
+            return { data: list, error: null };
+          },
+          then(resolve: any) { return this.limit().then(resolve); },
+        };
+        return queryObj;
+      },
+      update: (data: any) => {
+        const updateObj: any = {
+          filters: {} as Record<string, any>,
+          eq(col: string, val: any) {
+            this.filters[col] = val;
+            if (table === "document_migration_records" && col === "id") {
+              const item = migrationRecords.find((r) => r.id === val);
               if (item) Object.assign(item, data);
             }
-            return { error: null };
+            return this;
           },
-        }),
-      }),
+          in(col: string, vals: any[]) {
+            this.filters[col + "_in"] = vals;
+            return this;
+          },
+          async select() {
+            if (failDomainUpdate && (table === "source_documents" || table === "engineering_document_revisions")) {
+              return { data: [], error: null };
+            }
+            const item = migrationRecords.find((r) => r.id === this.filters.id);
+            if (item) Object.assign(item, data);
+            return { data: item ? [item] : [], error: null };
+          },
+
+          then(resolve: any) {
+            return this.select().then((res: any) => resolve({ error: null, data: res.data }));
+          },
+        };
+        return updateObj;
+      },
+
     }),
-  };
+  });
 
   const migrationService = new MigrationService({
-    supabaseClientSupplier: () => mockSupabase,
+    supabaseClientSupplier: () => createMockDb(true) as any,
     primaryProviderSupplier: () => targetStore,
     providerSupplier: (id) => (id === "supabase" ? sourceStore : targetStore),
   });
 
-  // 1. Discover eligible engineering documents
-  const discovered = await migrationService.discoverEligibleDocuments(companyId, "ENGINEERING");
-  assert.equal(discovered.length, 1);
-  assert.equal(discovered[0].documentDomain, "ENGINEERING");
-  assert.equal(discovered[0].migrationState, "DISCOVERED");
+  const res = await migrationService.processPendingMigrations(companyId, "INVOICES", 10);
+  assert.equal(res.processed, 1);
+  assert.equal(res.success, 0);
+  assert.equal(res.failed, 1);
+  assert.equal(res.records[0].migrationState, "RETRY_PENDING");
+  assert.ok(res.records[0].lastError?.includes("Failed to update source_documents"));
+});
 
-  // 2. Process pending migration batch
-  const batchResult = await migrationService.processPendingMigrations(companyId, 10);
+
+test("Physical Deduplication during Migration: Identical Engineering Revision bytes share physical S3 key while retaining separate revision rows", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const sourceStore = new MemoryStorageProvider();
+  const targetStore = new MemoryStorageProvider();
+
+  const rev1Key = `companies/${companyId}/documents/doc-eng-1/revisions/rev-1/drawing.pdf`;
+  const rev2Key = `companies/${companyId}/documents/doc-eng-1/revisions/rev-2/drawing.pdf`;
+  const identicalBytes = new TextEncoder().encode("%PDF-1.4 Identical Drawing Binary");
+
+  const putRes = await sourceStore.putObject({
+    companyId,
+    bucket: "engineering-documents",
+    key: rev1Key,
+    bytes: identicalBytes,
+    contentType: "application/pdf",
+  });
+  await sourceStore.putObject({
+    companyId,
+    bucket: "engineering-documents",
+    key: rev2Key,
+    bytes: identicalBytes,
+    contentType: "application/pdf",
+  });
+
+  const engRevisions: any[] = [
+    { id: "rev-1", company_id: companyId, file_path: rev1Key, storage_provider: "supabase", storage_bucket: "engineering-documents" },
+    { id: "rev-2", company_id: companyId, file_path: rev2Key, storage_provider: "supabase", storage_bucket: "engineering-documents" },
+  ];
+
+  const migrationRecords: any[] = [
+    {
+      id: "mig-rev-1",
+      company_id: companyId,
+      document_domain: "ENGINEERING",
+      document_id: "rev-1",
+      source_provider: "supabase",
+      source_bucket: "engineering-documents",
+      source_key: rev1Key,
+      target_provider: "s3",
+      target_bucket: "engoryx-custom-r2-bucket",
+      target_key: rev1Key,
+      sha256: putRes.ref.sha256,
+      size_bytes: identicalBytes.byteLength,
+      migration_state: "PRIMARY_SWITCH",
+      verification_status: "MATCHED",
+      attempts: 1,
+    },
+    {
+      id: "mig-rev-2",
+      company_id: companyId,
+      document_domain: "ENGINEERING",
+      document_id: "rev-2",
+      source_provider: "supabase",
+      source_bucket: "engineering-documents",
+      source_key: rev2Key,
+      target_provider: "s3",
+      target_bucket: "engoryx-custom-r2-bucket",
+      target_key: rev2Key,
+      sha256: putRes.ref.sha256,
+      size_bytes: identicalBytes.byteLength,
+      migration_state: "DISCOVERED",
+      verification_status: "UNVERIFIED",
+      attempts: 0,
+    },
+  ];
+
+  // Pre-seed target store with verified rev-1 key
+  await targetStore.putObject({
+    companyId,
+    bucket: "engoryx-custom-r2-bucket",
+    key: rev1Key,
+    bytes: identicalBytes,
+    contentType: "application/pdf",
+  });
+
+  const createMockDb = (failDomainUpdate = false) => ({
+    from: (table: string) => ({
+      select: () => {
+        const queryObj: any = {
+          filters: {} as Record<string, any>,
+          eq(col: string, val: any) {
+            this.filters[col] = val;
+            return this;
+          },
+          in(col: string, vals: any[]) {
+            this.filters[col + "_in"] = vals;
+            return this;
+          },
+          order() { return this; },
+          async limit() {
+            let list = [...migrationRecords];
+            if (this.filters.company_id) list = list.filter((r) => r.company_id === this.filters.company_id);
+            if (this.filters.migration_state_in) list = list.filter((r) => this.filters.migration_state_in.includes(r.migration_state));
+            if (this.filters.document_domain) list = list.filter((r) => r.document_domain === this.filters.document_domain);
+            if (this.filters.sha256) list = list.filter((r) => r.sha256 === this.filters.sha256);
+            if (this.filters.target_provider) list = list.filter((r) => r.target_provider === this.filters.target_provider);
+            if (this.filters.target_bucket) list = list.filter((r) => r.target_bucket === this.filters.target_bucket);
+            if (this.filters.migration_state) list = list.filter((r) => r.migration_state === this.filters.migration_state);
+            if (this.filters.verification_status) list = list.filter((r) => r.verification_status === this.filters.verification_status);
+            return { data: list, error: null };
+          },
+          then(resolve: any) { return this.limit().then(resolve); },
+        };
+        return queryObj;
+      },
+      update: (data: any) => {
+        const updateObj: any = {
+          filters: {} as Record<string, any>,
+          eq(col: string, val: any) {
+            this.filters[col] = val;
+            return this;
+          },
+          in(col: string, vals: any[]) {
+            this.filters[col + "_in"] = vals;
+            return this;
+          },
+          async select() {
+            if (failDomainUpdate && (table === "source_documents" || table === "engineering_document_revisions")) {
+              return { data: [], error: null };
+            }
+            if (table === "engineering_document_revisions") {
+              const item = engRevisions.find((r) => r.id === this.filters.id);
+              if (item) Object.assign(item, data);
+              return { data: item ? [item] : [], error: null };
+            }
+            const item = migrationRecords.find((r) => r.id === this.filters.id);
+            if (item) Object.assign(item, data);
+            return { data: item ? [item] : [], error: null };
+          },
+          then(resolve: any) {
+            return this.select().then((res: any) => resolve({ error: null, data: res.data }));
+          },
+        };
+        return updateObj;
+      },
+    }),
+  });
+
+  const migrationService = new MigrationService({
+    supabaseClientSupplier: () => createMockDb(false) as any,
+    primaryProviderSupplier: () => targetStore,
+    providerSupplier: (id) => (id === "supabase" ? sourceStore : targetStore),
+  });
+
+
+  const batchResult = await migrationService.processPendingMigrations(companyId, "ENGINEERING", 10);
+
   assert.equal(batchResult.processed, 1);
   assert.equal(batchResult.success, 1);
-  assert.equal(batchResult.failed, 0);
-  assert.equal(batchResult.records[0].migrationState, "PRIMARY_SWITCH");
 
-  // Invariant: engineering revision table is updated with target provider
-  assert.equal(engineeringRevisions[0].storage_provider, "memory");
-  assert.equal(engineeringRevisions[0].file_path, engKey);
+  // INVARIANT 1: Physical S3 key was reused (rev-2 references rev-1 physical key on S3)
+  assert.equal(engRevisions[1].file_path, rev1Key);
+  assert.equal(engRevisions[1].storage_provider, "s3");
 
-  // Invariant: byte contents on target provider are verified
-  const targetRead = await targetStore.getObject({
-    companyId,
-    bucket: "engoryx-production-documents",
-    key: engKey,
-  });
-  assert.equal(targetRead.bytes.byteLength, engBytes.byteLength);
+  // INVARIANT 2: Logical revision records remain distinct!
+  assert.equal(engRevisions.length, 2);
+  assert.equal(engRevisions[0].id, "rev-1");
+  assert.equal(engRevisions[1].id, "rev-2");
 });

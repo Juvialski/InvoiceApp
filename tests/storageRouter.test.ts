@@ -506,42 +506,60 @@ test("Storage Router: Backup Replication and Restore Drill API Endpoints", async
   ];
 
   const mockSupabase: any = {
-    from: (table: string) => ({
-      select: () => ({
-        eq: (_col1: string, val1: any) => ({
-          in: (_col2: string, states: string[]) => ({
-            order: () => ({
-              limit: async () => ({
-                data: dbReplicas.filter((r) => r.company_id === val1 && states.includes(r.replication_state)),
-                error: null,
-              }),
-            }),
-          }),
-          eq: (_col2: string, val2: any) => ({
-            maybeSingle: async () => ({
-              data: dbReplicas.find((r) => r.id === val1 && r.company_id === val2),
-              error: null,
-            }),
-          }),
-          order: () => ({
-            limit: async () => ({
-              data: dbReplicas.filter((r) => r.company_id === val1),
-              error: null,
-            }),
-          }),
-        }),
-      }),
-      update: (data: any) => ({
-        eq: (_col1: string, val1: any) => ({
-          eq: async () => {
-            const item = dbReplicas.find((r) => r.id === val1);
-            if (item) Object.assign(item, data);
-            return { error: null };
+    from: (_table: string) => ({
+      select: () => {
+        const queryObj: any = {
+          filters: {} as Record<string, any>,
+          eq(col: string, val: any) {
+            this.filters[col] = val;
+            return this;
           },
-        }),
-      }),
+          in(col: string, vals: any[]) {
+            this.filters[col + "_in"] = vals;
+            return this;
+          },
+          order() { return this; },
+          async limit() {
+            let list = [...dbReplicas];
+            if (this.filters.company_id) list = list.filter((r) => r.company_id === this.filters.company_id);
+            if (this.filters.replication_state_in) list = list.filter((r) => this.filters.replication_state_in.includes(r.replication_state));
+            return { data: list, error: null };
+          },
+          async maybeSingle() {
+            const match = dbReplicas.find((r) => r.id === this.filters.id && r.company_id === this.filters.company_id);
+            return { data: match || null, error: null };
+          },
+          then(resolve: any) { return this.limit().then(resolve); },
+        };
+        return queryObj;
+      },
+      update: (data: any) => {
+        const updateObj: any = {
+          filters: {} as Record<string, any>,
+          eq(col: string, val: any) {
+            this.filters[col] = val;
+            return this;
+          },
+          in(col: string, vals: any[]) {
+            this.filters[col + "_in"] = vals;
+            return this;
+          },
+          async select() {
+            const item = dbReplicas.find((r) => r.id === this.filters.id);
+            if (item) Object.assign(item, data);
+            return { data: item ? [item] : [], error: null };
+          },
+          then(resolve: any) {
+            const item = dbReplicas.find((r) => r.id === this.filters.id);
+            if (item) Object.assign(item, data);
+            return resolve({ error: null, data: item ? [item] : [] });
+          },
+        };
+        return updateObj;
+      },
     }),
   };
+
 
   const { server, url } = await setupTestServer({
     authorizer: async () => ({
@@ -594,3 +612,77 @@ test("Storage Router: Backup Replication and Restore Drill API Endpoints", async
     server.close();
   }
 });
+
+test("Storage Router: Strict Authorization - invoice roles cannot operate or inspect generic storage", async () => {
+  const companyId = "11111111-2222-3333-4444-555555555555";
+  const primaryProvider = new MemoryStorageProvider();
+
+  // Authorizer simulates a user having ONLY 'invoices.manage' and 'invoices.read' (e.g. INVOICE_MANAGER role)
+  const { server, url } = await setupTestServer({
+    authorizer: async (_req, permission) => {
+      if (permission === "invoices.manage" || permission === "invoices.read") {
+        return {
+          accessToken: "invoice-token",
+          companyId,
+          user: { id: "user-invoice-manager" } as any,
+          supabase: {} as any,
+        };
+      }
+      throw new StorageApiError(403, "FORBIDDEN", "You do not have permission for this company storage operation.");
+    },
+    primaryProviderSupplier: () => primaryProvider,
+  });
+
+  try {
+    // 1. invoices.manage cannot call storage migration
+    const migRes = await fetch(`${url}/api/documents/migrate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+      body: JSON.stringify({ domain: "INVOICES" }),
+    });
+    assert.equal(migRes.status, 403);
+    const migJson = await migRes.json();
+    assert.equal(migJson.code, "FORBIDDEN");
+
+    // 2. invoices.manage cannot call backup replication
+    const repRes = await fetch(`${url}/api/documents/replicate-backup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+      body: JSON.stringify({ limit: 10 }),
+    });
+    assert.equal(repRes.status, 403);
+    const repJson = await repRes.json();
+    assert.equal(repJson.code, "FORBIDDEN");
+
+    // 3. invoices.manage cannot execute restore drill
+    const drillRes = await fetch(`${url}/api/documents/restore-drill`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+      body: JSON.stringify({ manifestId: "bak-1", testTargetKey: `companies/${companyId}/restore/test/doc.pdf` }),
+    });
+    assert.equal(drillRes.status, 403);
+    const drillJson = await drillRes.json();
+    assert.equal(drillJson.code, "FORBIDDEN");
+
+    // 4. invoices.read cannot list storage backups
+    const bakRes = await fetch(`${url}/api/documents/backups`, {
+      method: "GET",
+      headers: { "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+    });
+    assert.equal(bakRes.status, 403);
+    const bakJson = await bakRes.json();
+    assert.equal(bakJson.code, "FORBIDDEN");
+
+    // 5. invoices.read cannot list storage migrations
+    const migListRes = await fetch(`${url}/api/documents/migrations`, {
+      method: "GET",
+      headers: { "Authorization": "Bearer invoice-token", "x-company-id": companyId },
+    });
+    assert.equal(migListRes.status, 403);
+    const migListJson = await migListRes.json();
+    assert.equal(migListJson.code, "FORBIDDEN");
+  } finally {
+    server.close();
+  }
+});
+

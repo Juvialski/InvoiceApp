@@ -17,6 +17,8 @@ import {
 import {
   getBackupStorageProvider,
   getPrimaryStorageProvider,
+  getBackupStorageDescriptor,
+  getPrimaryStorageDescriptor,
   createStorageProvider,
 } from "../../lib/storage/config.ts";
 import {
@@ -24,7 +26,6 @@ import {
   type StorageProviderId,
   StorageError,
 } from "../../lib/storage/types.ts";
-
 
 export interface BackupServiceOptions {
   supabaseClientSupplier: () => SupabaseClient;
@@ -77,17 +78,34 @@ export class BackupService {
   /**
    * Register a new backup replication manifest after a primary upload commits.
    * Asynchronous invariant: Never blocks or fails primary upload if backup registration fails.
+   * Idempotency invariant: If an active manifest already exists, returns the existing record.
    */
   async registerBackupIntent(input: RegisterBackupInput): Promise<BackupReplicaRecord | null> {
     try {
-      const pendingRecord = createPendingBackupRecord(input);
       const client = this.getSupabase();
+      const domain = input.documentDomain || "INVOICES";
+
+      // 1. Check for existing active manifest
+      const { data: existingRows } = await client
+        .from("document_backup_replicas")
+        .select("*")
+        .eq("company_id", input.companyId)
+        .eq("document_domain", domain)
+        .eq("document_id", input.documentId)
+        .neq("replication_state", "FAILED")
+        .limit(1);
+
+      if (existingRows && existingRows.length > 0) {
+        return rowToBackupRecord(existingRows[0]);
+      }
+
+      const pendingRecord = createPendingBackupRecord(input);
 
       const { data, error } = await client
         .from("document_backup_replicas")
         .insert({
           company_id: pendingRecord.companyId,
-          document_domain: pendingRecord.documentDomain || "INVOICES",
+          document_domain: domain,
           document_id: pendingRecord.documentId,
           source_provider: pendingRecord.sourceProvider,
           source_bucket: pendingRecord.sourceBucket,
@@ -106,13 +124,26 @@ export class BackupService {
         .single();
 
       if (error) {
+        // Fallback: in case of concurrent insert race condition, query existing
+        const { data: raceRows } = await client
+          .from("document_backup_replicas")
+          .select("*")
+          .eq("company_id", input.companyId)
+          .eq("document_domain", domain)
+          .eq("document_id", input.documentId)
+          .limit(1);
+
+        if (raceRows && raceRows[0]) {
+          return rowToBackupRecord(raceRows[0]);
+        }
+
         assertBackupFailureIsolation(true, error);
         return null;
       }
 
       const registered = rowToBackupRecord(data);
 
-      // Trigger asynchronous replication in background without awaiting completion in upload request
+      // Trigger background replication asynchronously
       this.replicateSingleManifestAsync(registered).catch((err) => {
         assertBackupFailureIsolation(true, err);
       });
@@ -126,17 +157,29 @@ export class BackupService {
 
   /**
    * Replicate and verify a single manifest record.
+   * Resumes safely if replica already exists and matches expected hash and size.
    */
   async replicateAndVerifyManifest(manifest: BackupReplicaRecord): Promise<BackupReplicaRecord> {
     const client = this.getSupabase();
     const backupProvider = this.getBackupProvider(process.env, () => client);
 
     if (!backupProvider) {
-      // No backup provider configured; leave manifest in PENDING / PAUSED state
+      // No backup provider configured; leave manifest in PENDING state
       return manifest;
     }
 
     const sourceProvider = this.getProviderById(manifest.sourceProvider, () => client);
+
+    // Atomic state claim: transition to COPYING
+    await client
+      .from("document_backup_replicas")
+      .update({
+        replication_state: "COPYING",
+        last_attempted_at: new Date().toISOString(),
+      })
+      .eq("id", manifest.id)
+      .eq("company_id", manifest.companyId)
+      .in("replication_state", ["PENDING", "RETRY_PENDING"]);
 
     // 1. Replicate bytes
     const replicationResult = await replicateObjectToBackup(manifest, sourceProvider, backupProvider);
@@ -191,6 +234,7 @@ export class BackupService {
     failed: number;
     records: BackupReplicaRecord[];
   }> {
+    const clampedLimit = Math.max(1, Math.min(limit, 100));
     const client = this.getSupabase();
     const { data: rows, error } = await client
       .from("document_backup_replicas")
@@ -198,7 +242,7 @@ export class BackupService {
       .eq("company_id", companyId)
       .in("replication_state", ["PENDING", "RETRY_PENDING", "COPYING", "VERIFYING"])
       .order("created_at", { ascending: true })
-      .limit(limit);
+      .limit(clampedLimit);
 
     if (error) {
       throw new StorageError(`Failed to load pending backup replicas: ${error.message}`);
@@ -225,7 +269,49 @@ export class BackupService {
   }
 
   /**
+   * Reconcile unbacked documents for a company (operator-driven).
+   */
+  async discoverUnbackedObjects(companyId: string, limit = 50): Promise<BackupReplicaRecord[]> {
+    const client = this.getSupabase();
+    const backupDesc = getBackupStorageDescriptor(process.env);
+    if (!backupDesc) return [];
+
+    const clampedLimit = Math.max(1, Math.min(limit, 100));
+    const created: BackupReplicaRecord[] = [];
+
+    // Query source_documents stored in external s3
+    const { data: unbackedDocs } = await client
+      .from("source_documents")
+      .select("id, company_id, storage_provider, storage_bucket, storage_path, sha256, file_size")
+      .eq("company_id", companyId)
+      .eq("storage_provider", "s3")
+      .limit(clampedLimit);
+
+    for (const doc of unbackedDocs || []) {
+      if (!doc.storage_path || !doc.sha256) continue;
+      const registered = await this.registerBackupIntent({
+        companyId,
+        documentDomain: "INVOICES",
+        documentId: doc.id,
+        sourceProvider: "s3",
+        sourceBucket: doc.storage_bucket || "invoice-originals",
+        sourceKey: doc.storage_path,
+        sha256: doc.sha256,
+        sizeBytes: Number(doc.file_size || 0),
+        replicaProvider: backupDesc.providerId === "memory" ? "memory" : "s3",
+        replicaBucket: backupDesc.bucket,
+      });
+      if (registered) created.push(registered);
+    }
+
+    return created;
+  }
+
+  /**
    * Execute non-production restore drill verification.
+   * Invariant 1: Strictly forbidden in production (NODE_ENV === 'production').
+   * Invariant 2: Requires explicit non-production enablement (STORAGE_RESTORE_DRILLS_ENABLED === 'true' or test/dev).
+   * Invariant 3: Uses configured primary restore test bucket, never defaulting to B2 replica bucket.
    */
   async runRestoreDrill(companyId: string, manifestId: string, testTargetKey: string): Promise<{
     success: boolean;
@@ -233,6 +319,33 @@ export class BackupService {
     sizeBytes: number;
     restoreTargetKey: string;
   }> {
+    const nodeEnv = (process.env.NODE_ENV || "test").toLowerCase();
+    if (nodeEnv === "production") {
+      throw new StorageError(
+        "Restore drills are forbidden in production environments.",
+        "RESTORE_FORBIDDEN_IN_PRODUCTION",
+        403,
+      );
+    }
+
+    const drillsDisabledExplicitly = process.env.STORAGE_RESTORE_DRILLS_ENABLED === "false";
+    if (drillsDisabledExplicitly) {
+      throw new StorageError(
+        "Restore drills are disabled. Set STORAGE_RESTORE_DRILLS_ENABLED=true to enable in non-production environments.",
+        "RESTORE_DRILLS_DISABLED",
+        403,
+      );
+    }
+
+
+    if (!testTargetKey.includes("/restore/") && !testTargetKey.includes("/test/")) {
+      throw new StorageError(
+        `Restore verification target key "${testTargetKey}" must contain "/restore/" or "/test/" to protect production.`,
+        "INVALID_RESTORE_TARGET",
+        400,
+      );
+    }
+
     const client = this.getSupabase();
     const { data: row, error } = await client
       .from("document_backup_replicas")
@@ -246,18 +359,29 @@ export class BackupService {
     }
 
     const manifest = rowToBackupRecord(row);
+    if (manifest.replicationState !== "VERIFIED") {
+      throw new StorageError(
+        `Cannot execute restore verification for unverified replica (current state: ${manifest.replicationState})`,
+        "RESTORE_UNVERIFIED_REPLICA",
+        400,
+      );
+    }
+
     const backupProvider = this.getBackupProvider(process.env, () => client);
     if (!backupProvider) {
       throw new StorageError("Backup provider is not configured for restore drill.", "BACKUP_NOT_CONFIGURED", 503);
     }
 
     const restoreTargetProvider = this.getPrimaryProvider(process.env, () => client);
+    const primaryDesc = getPrimaryStorageDescriptor(process.env);
+    const restoreTargetBucket = process.env.STORAGE_RESTORE_TARGET_BUCKET || primaryDesc.bucket;
 
     return await executeRestoreVerification({
       manifest,
       backupProvider,
       restoreTargetProvider,
       restoreTargetKey: testTargetKey,
+      restoreTargetBucket,
     });
   }
 }

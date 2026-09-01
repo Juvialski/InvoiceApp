@@ -123,7 +123,9 @@ export function loadStorageConfig(env: StorageEnvironment = process.env): Storag
     }
     backupProvider = "memory";
   } else if (backupRaw === "supabase") {
-    backupProvider = "supabase";
+    throw new StorageConfigurationError(
+      "Supabase Storage cannot be used as an independent backup provider in Wave S3. Supported backup providers are \"s3\", \"b2\", and \"memory\" (test only).",
+    );
   } else if (backupRaw) {
     throw new StorageConfigurationError(
       `Unsupported backup storage provider: "${backupRaw}". Supported backup providers are "s3", "b2", and "memory" (test only).`,
@@ -157,6 +159,63 @@ export function loadStorageConfig(env: StorageEnvironment = process.env): Storag
     backupS3: backupS3Config,
   };
 }
+
+export interface StorageDescriptor {
+  providerId: StorageProviderId;
+  bucket: string;
+  endpoint?: string;
+  region?: string;
+  isExternal: boolean;
+}
+
+export function getPrimaryStorageDescriptor(env: StorageEnvironment = process.env): StorageDescriptor {
+  const config = loadStorageConfig(env);
+  if (config.primaryProvider === "s3" && config.s3) {
+    return {
+      providerId: "s3",
+      bucket: config.s3.bucket,
+      endpoint: config.s3.endpoint,
+      region: config.s3.region,
+      isExternal: true,
+    };
+  }
+  if (config.primaryProvider === "memory") {
+    return {
+      providerId: "memory",
+      bucket: "test-bucket",
+      isExternal: false,
+    };
+  }
+  return {
+    providerId: "supabase",
+    bucket: "invoice-originals",
+    isExternal: false,
+  };
+}
+
+export function getBackupStorageDescriptor(env: StorageEnvironment = process.env): StorageDescriptor | null {
+  const config = loadStorageConfig(env);
+  if (!config.backupProvider) return null;
+
+  if (config.backupProvider === "s3" && config.backupS3) {
+    return {
+      providerId: "s3",
+      bucket: config.backupS3.bucket,
+      endpoint: config.backupS3.endpoint,
+      region: config.backupS3.region,
+      isExternal: true,
+    };
+  }
+  if (config.backupProvider === "memory") {
+    return {
+      providerId: "memory",
+      bucket: "test-backup-bucket",
+      isExternal: false,
+    };
+  }
+  return null;
+}
+
 
 // Global cached memory provider for shared test contexts
 let globalMemoryProvider: MemoryStorageProvider | null = null;
@@ -264,17 +323,11 @@ export function getBackupStorageProvider(
       return new S3StorageProvider(config.backupS3);
     }
 
-    case "supabase": {
-      if (!supabaseClientGetter) {
-        throw new StorageConfigurationError("SupabaseStorageProvider requires a SupabaseClient supplier.");
-      }
-      return new SupabaseStorageProvider(supabaseClientGetter);
-    }
-
     default:
       throw new StorageConfigurationError(`Unsupported backup storage provider: "${config.backupProvider}".`);
   }
 }
+
 
 /**
  * Inspect storage configuration health without leaking secret keys.

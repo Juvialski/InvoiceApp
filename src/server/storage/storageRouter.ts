@@ -12,6 +12,7 @@ import {
   type StorageProviderId,
   createStorageProvider,
   getPrimaryStorageProvider,
+  getBackupStorageDescriptor,
   StorageIntegrityError,
   StorageError,
 } from "../../lib/storage/index.ts";
@@ -24,10 +25,18 @@ import {
   type CompensationInput,
 } from "./storageCompensation.ts";
 import { BackupService } from "./backupService.ts";
-import { MigrationService } from "./migrationService.ts";
+import { MigrationService, type MigrationSupportedDomain } from "./migrationService.ts";
 import type { StoredSourceDocument } from "../../types.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ALLOWED_MIGRATION_DOMAINS: MigrationSupportedDomain[] = [
+  "INVOICES",
+  "EMAIL_INTAKE",
+  "CASH_BANKING",
+  "PAYROLL",
+  "ENGINEERING",
+  "SOURCE_DOCUMENTS",
+];
 
 export class StorageApiError extends Error {
   readonly status: number;
@@ -135,24 +144,6 @@ export async function authorizeStorageRequest(
     throw new StorageApiError(503, "SERVER_AUTH_UNAVAILABLE", "Company authorization is temporarily unavailable.");
   }
   if (allowed !== true) {
-    // If checking storage.read or storage.manage, fallback to checking invoices.manage/invoices.read
-    if (permission === "storage.manage") {
-      const { data: invoiceManageAllowed } = await client.rpc("has_company_permission", {
-        p_company_id: companyId,
-        p_permission_key: "invoices.manage",
-      });
-      if (invoiceManageAllowed === true) {
-        return { accessToken, companyId, supabase: client, user: userData.user };
-      }
-    } else if (permission === "storage.read") {
-      const { data: invoiceReadAllowed } = await client.rpc("has_company_permission", {
-        p_company_id: companyId,
-        p_permission_key: "invoices.read",
-      });
-      if (invoiceReadAllowed === true) {
-        return { accessToken, companyId, supabase: client, user: userData.user };
-      }
-    }
     throw new StorageApiError(403, "FORBIDDEN", "You do not have permission for this company storage operation.");
   }
 
@@ -301,7 +292,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         throw new StorageApiError(500, "METADATA_INSERT_FAILED", `Document metadata persistence failed: ${insertError.message}`);
       }
 
-      // Enqueue asynchronous backup intent after primary upload succeeds
+      // Durably register backup intent before returning (replication itself stays async)
       const backupSvc = options?.backupService || new BackupService({
         supabaseClientSupplier: () => auth.supabase,
         primaryProviderSupplier: options?.primaryProviderSupplier,
@@ -309,20 +300,21 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         providerSupplier: options?.providerSupplier,
       });
 
-      backupSvc.registerBackupIntent({
-        companyId: auth.companyId,
-        documentDomain: "INVOICES",
-        documentId: inserted.id,
-        sourceProvider: actualProvider,
-        sourceBucket: actualBucket,
-        sourceKey: storagePath,
-        sha256: hash,
-        sizeBytes: bytes.byteLength,
-        replicaProvider: "s3",
-        replicaBucket: "engoryx-backups",
-      }).catch((err) => {
-        console.warn("[Storage Router] Asynchronous backup registration notice:", err);
-      });
+      const backupDesc = getBackupStorageDescriptor(process.env);
+      if (backupDesc) {
+        await backupSvc.registerBackupIntent({
+          companyId: auth.companyId,
+          documentDomain: "INVOICES",
+          documentId: inserted.id,
+          sourceProvider: actualProvider,
+          sourceBucket: actualBucket,
+          sourceKey: storagePath,
+          sha256: hash,
+          sizeBytes: bytes.byteLength,
+          replicaProvider: backupDesc.providerId === "memory" ? "memory" : "s3",
+          replicaBucket: backupDesc.bucket,
+        });
+      }
 
       const previewUrl = await provider.getSignedUrl({
         companyId: auth.companyId,
@@ -457,11 +449,11 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
     }
   });
 
-  // Execute backup replication batch for company
+  // Execute backup replication batch for company (Strictly storage.manage)
   router.post("/replicate-backup", async (req: Request, res: Response) => {
     try {
       const auth = await authorizer(req, "storage.manage");
-      const limit = Number(req.body?.limit) || 10;
+      const limit = Math.max(1, Math.min(Number(req.body?.limit) || 10, 100));
 
       const backupSvc = options?.backupService || new BackupService({
         supabaseClientSupplier: () => auth.supabase,
@@ -480,7 +472,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
     }
   });
 
-  // Execute restore verification drill (test/non-production only)
+  // Execute restore verification drill (Strictly storage.manage; non-production only)
   router.post("/restore-drill", async (req: Request, res: Response) => {
     try {
       const auth = await authorizer(req, "storage.manage");
@@ -509,16 +501,19 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
       if (err instanceof StorageIntegrityError) {
         return res.status(422).json({ code: "STORAGE_INTEGRITY_ERROR", error: err.message });
       }
+      if (err instanceof StorageError) {
+        return res.status(err.status || 500).json({ code: err.code, error: err.message });
+      }
       return res.status(500).json({ error: err?.message || "Restore drill execution failed." });
     }
   });
 
-  // Query backup replicas for company
+  // Query backup replicas for company (Strictly storage.read)
   router.get("/backups", async (req: Request, res: Response) => {
     try {
       const auth = await authorizer(req, "storage.read");
       const domain = req.query.domain ? String(req.query.domain) : undefined;
-      const limit = Number(req.query.limit) || 50;
+      const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
 
       let query = auth.supabase
         .from("document_backup_replicas")
@@ -543,11 +538,20 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
     }
   });
 
-  // Execute incremental document migration batch for company
+  // Execute incremental document migration batch for company (Strictly storage.manage)
   router.post("/migrate", async (req: Request, res: Response) => {
     try {
       const auth = await authorizer(req, "storage.manage");
       const { domain = "INVOICES", limit = 10, autoDiscover = true } = req.body || {};
+
+      if (!ALLOWED_MIGRATION_DOMAINS.includes(domain)) {
+        return res.status(400).json({
+          code: "INVALID_DOMAIN",
+          error: `Domain must be one of: ${ALLOWED_MIGRATION_DOMAINS.join(", ")}`,
+        });
+      }
+
+      const clampedLimit = Math.max(1, Math.min(Number(limit) || 10, 100));
 
       const backupSvc = options?.backupService || new BackupService({
         supabaseClientSupplier: () => auth.supabase,
@@ -564,25 +568,35 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
       });
 
       if (autoDiscover) {
-        await migrationSvc.discoverEligibleDocuments(auth.companyId, domain, 50);
+        await migrationSvc.discoverEligibleDocuments(auth.companyId, domain, clampedLimit);
       }
 
-      const result = await migrationSvc.processPendingMigrations(auth.companyId, limit);
+      const result = await migrationSvc.processPendingMigrations(auth.companyId, domain, clampedLimit);
       return res.json(result);
     } catch (err: any) {
       if (err instanceof StorageApiError) {
         return res.status(err.status).json({ code: err.code, error: err.message });
       }
+      if (err instanceof StorageError) {
+        return res.status(err.status || 500).json({ code: err.code, error: err.message });
+      }
       return res.status(500).json({ error: err?.message || "Document migration failed." });
     }
   });
 
-  // Query migration records for company
+  // Query migration records for company (Strictly storage.read)
   router.get("/migrations", async (req: Request, res: Response) => {
     try {
       const auth = await authorizer(req, "storage.read");
       const domain = req.query.domain ? String(req.query.domain) : undefined;
-      const limit = Number(req.query.limit) || 50;
+      const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 100));
+
+      if (domain && !ALLOWED_MIGRATION_DOMAINS.includes(domain as any)) {
+        return res.status(400).json({
+          code: "INVALID_DOMAIN",
+          error: `Domain must be one of: ${ALLOWED_MIGRATION_DOMAINS.join(", ")}`,
+        });
+      }
 
       let query = auth.supabase
         .from("document_migration_records")
