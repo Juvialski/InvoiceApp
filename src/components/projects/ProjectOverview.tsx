@@ -1,9 +1,9 @@
 import React from "react";
-import { AlertTriangle, ArrowLeft, ArrowUpRight, BarChart3, BriefcaseBusiness, CalendarDays, CheckCircle2, MapPin, Pencil, Receipt, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowUpRight, BarChart3, BriefcaseBusiness, Calculator, CalendarDays, CheckCircle2, MapPin, Pencil, Receipt, ShieldCheck } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
-import type { ProjectCostSummary } from "../../types";
+import type { ProjectCostCode, ProjectCostSummary } from "../../types";
 import { projectHealth } from "../../utils/projectCosting";
 import type { ProjectDashboardAttention, ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
@@ -42,11 +42,12 @@ interface CostSummaryView extends ProjectCostSummary {
   foreignCosts: Record<string, number>;
 }
 
-export type ProjectOverviewTab = "overview" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type ProjectOverviewTab = "overview" | "budget" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 interface ProjectOverviewProps {
   project: ProjectView;
   summary: CostSummaryView;
   dashboard?: ProjectDashboardViewData;
+  costCodes?: readonly ProjectCostCode[];
   onBack?: () => void;
   onEdit?: () => void;
   onArchive?: () => void;
@@ -163,6 +164,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   project,
   summary,
   dashboard: suppliedDashboard,
+  costCodes,
   onBack,
   onEdit,
   onArchive,
@@ -262,6 +264,55 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
       </section>
 
       <ProjectFinancialSummaryPanel project={project} summary={summary} />
+
+      {/* Budget Control Summary Widget */}
+      <Card className="p-4 shadow-sm sm:p-5" elevation="low">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+              <Calculator className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-950">Budget Control & Work Packages</h3>
+              <p className="mt-0.5 text-[10px] text-slate-500">
+                Work package cost codes, budget allocations, and coded vs. uncoded actual costs.
+              </p>
+            </div>
+          </div>
+          {onOpenTab && (
+            <Button
+              variant="secondary"
+              label="Open Budget Control →"
+              onClick={() => onOpenTab("budget")}
+            />
+          )}
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Approved Budget</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(project.projectBudget, project.currency)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Allocated to Codes</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">
+              {costCodes ? money(costCodes.filter(c => c.projectId === project.id && c.status === "ACTIVE").reduce((sum, c) => sum + (Number(c.approvedBudgetAmount) || 0), 0), project.currency) : "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Unallocated Budget</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">
+              {costCodes ? money(Math.max(0, project.projectBudget - costCodes.filter(c => c.projectId === project.id && c.status === "ACTIVE").reduce((sum, c) => sum + (Number(c.approvedBudgetAmount) || 0), 0)), project.currency) : "—"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Active Cost Codes</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">
+              {costCodes ? costCodes.filter(c => c.projectId === project.id && c.status === "ACTIVE").length : "—"}
+            </p>
+          </div>
+        </div>
+      </Card>
 
       <Card className="p-4 shadow-sm sm:p-5" elevation="low">
         <div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-black">Project budget position</h3><p className="mt-1 text-[10px] text-slate-500">Actual cost, pending/unconfirmed exposure, remaining base-currency budget, and excess reconcile to the project cost row.</p></div><BarChart3 className="h-4 w-4 text-indigo-500" aria-hidden="true" /></div>

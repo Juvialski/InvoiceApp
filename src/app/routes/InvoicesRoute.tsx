@@ -17,6 +17,7 @@ import type {
   InvoiceData,
   InvoiceProjectAllocation,
   Project,
+  ProjectCostCode,
 } from "../../types";
 import { hasAllPermissions, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import type { AppTab } from "../../utils/routes";
@@ -30,6 +31,7 @@ export interface InvoicesRouteProps {
   activeSubTab?: AppTab | "invoices" | "extractor" | "inbox" | "review" | "vendors";
   invoices: InvoiceData[];
   projects?: Project[];
+  costCodes?: ProjectCostCode[];
   invoiceProjectAllocations?: InvoiceProjectAllocation[];
   preferredProjectId?: string;
   reviewQueue?: InvoiceData[];
@@ -77,6 +79,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   activeSubTab = "invoices",
   invoices,
   projects = [],
+  costCodes = [],
   invoiceProjectAllocations = [],
   preferredProjectId,
   reviewQueue = [],
@@ -204,6 +207,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onRevertToAI={canManageInvoices && onRevertToAI ? () => void onRevertToAI(selectedInvoice) : undefined}
           onRevertField={canManageInvoices && onRevertField ? (path) => void onRevertField(selectedInvoice, path) : undefined}
           projects={projects}
+          costCodes={costCodes}
           invoiceProjectAllocations={invoiceProjectAllocations}
           preferredProjectId={preferredProjectId}
           onSaveProjectAllocations={canManageProjectAllocations && selectedInvoice.lifecycleStatus !== "VOID" ? onSaveProjectAllocations : undefined}

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AlertTriangle, Calculator, CheckCircle2, Clock3, HardHat, LockKeyhole, WalletCards } from "lucide-react";
-import type { PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
+import type { PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
 import { validatePayrollProjectAllocations } from "../../lib/payrollCalculation";
 import { calculatePayrollRunFromWorkEntries } from "../../lib/payrollCalculation";
 import { payrollNetPayBasis } from "../../lib/financialSettlement.ts";
@@ -17,6 +17,7 @@ interface PayrollRunViewProps {
   allocations: PayrollProjectAllocation[];
   workers: Worker[];
   projects?: Project[];
+  costCodes?: ProjectCostCode[];
   workEntries?: WorkEntry[];
   assignments?: ProjectWorkerAssignment[];
   selectedPeriodId: string;
@@ -31,7 +32,7 @@ function money(value: number) { return new Intl.NumberFormat("en-PH", { style: "
 function isLocked(status: PayrollRun["status"]) { return status === "APPROVED" || status === "PAID" || status === "VOID"; }
 function statusStyle(status: PayrollRun["status"]) { if (status === "PAID") return "bg-indigo-50 text-indigo-700"; if (status === "APPROVED") return "bg-emerald-50 text-emerald-700"; if (status === "CALCULATED") return "bg-violet-50 text-violet-700"; if (status === "VOID") return "bg-slate-100 text-slate-500"; return "bg-amber-50 text-amber-800"; }
 
-export const PayrollRunView: React.FC<PayrollRunViewProps> = ({ runs, periods, entries, allocations, workers, projects = [], workEntries = [], assignments = [], selectedPeriodId, onCreateRun, onSaveEntry, onUpdateRun, onCalculateRun, onNavigatePath }) => {
+export const PayrollRunView: React.FC<PayrollRunViewProps> = ({ runs, periods, entries, allocations, workers, projects = [], costCodes = [], workEntries = [], assignments = [], selectedPeriodId, onCreateRun, onSaveEntry, onUpdateRun, onCalculateRun, onNavigatePath }) => {
   const [message, setMessage] = useState<{ tone: "error" | "info"; text: string } | null>(null);
   const permissions = useAppPermissions();
   const canManagePayroll = hasPermission(permissions, PERMISSION_KEYS.payrollWrite);
@@ -57,7 +58,7 @@ export const PayrollRunView: React.FC<PayrollRunViewProps> = ({ runs, periods, e
   };
 
   return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-tour="payroll-runs">
-    <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-black">Payroll runs</h3><p className="mt-1 text-xs text-slate-500">Review a selected period, calculate its snapshot, approve it, then reconcile employee net-pay disbursement in Cash & Banking.</p></div><div className="flex flex-wrap gap-2">{canManagePayroll && onSaveEntry && <PayrollEntryForm runs={editableRuns} workers={workers} projects={projects} onSave={onSaveEntry} />}{canManagePayroll && onCreateRun && period && <button onClick={() => onCreateRun(period.id)} className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white"><HardHat className="mr-1 inline h-3.5 w-3.5" /> Create run</button>}</div></div>
+    <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-black">Payroll runs</h3><p className="mt-1 text-xs text-slate-500">Review a selected period, calculate its snapshot, approve it, then reconcile employee net-pay disbursement in Cash & Banking.</p></div><div className="flex flex-wrap gap-2">{canManagePayroll && onSaveEntry && <PayrollEntryForm runs={editableRuns} workers={workers} projects={projects} costCodes={costCodes} onSave={onSaveEntry} />}{canManagePayroll && onCreateRun && period && <button onClick={() => onCreateRun(period.id)} className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white"><HardHat className="mr-1 inline h-3.5 w-3.5" /> Create run</button>}</div></div>
     {message && <div className={`flex items-start gap-2 border-b px-5 py-3 text-xs ${message.tone === "error" ? "border-rose-100 bg-rose-50 text-rose-800" : "border-indigo-100 bg-indigo-50 text-indigo-800"}`}><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{message.text}</div>}
     {!period && <div className="p-10 text-center"><Clock3 className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">Select a payroll period</p><p className="mt-1 text-xs text-slate-500">Payroll history and lifecycle actions are scoped to an explicit period.</p></div>}
     {period && !periodRuns.length && <div className="p-10 text-center"><HardHat className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">No runs for {period.periodStart} – {period.periodEnd}.</p><p className="mt-1 text-xs text-slate-500">Create a draft run, add linked time, then calculate it.</p></div>}

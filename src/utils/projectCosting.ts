@@ -8,6 +8,8 @@ import type {
   PayrollProjectAllocation,
   PayrollRunStatus,
   Project,
+  ProjectCostCode,
+  ProjectCostCodeStatus,
   ProjectCostSummary,
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
@@ -601,3 +603,284 @@ export function aggregateProjectCostsByCurrency(summaries: ProjectCostSummary[])
   }
   return Object.fromEntries(Object.entries(groups).map(([code, items]) => [code, aggregateProjectCosts(items, code)])) as Record<string, AggregatedProjectCostSummary>;
 }
+
+export interface CostCodeFinancialSummary {
+  costCodeId: string;
+  code: string;
+  name: string;
+  description?: string;
+  status: ProjectCostCodeStatus;
+  currency: string;
+  budgetAmount: number;
+  actualCost: number;
+  pendingCost: number;
+  committedCost: number | null;
+  forecastAmount: number | null;
+  actualVariance: number;
+  forecastVariance: number | null;
+  budgetUsedPercent: number;
+  invoiceCost: number;
+  payrollCost: number;
+  otherExpenseCost: number;
+  foreignCosts: Record<string, number>;
+  hasForeignAmounts: boolean;
+}
+
+export interface ProjectBudgetControlSummary {
+  projectId: string;
+  currency: string;
+  projectBudget: number;
+  allocatedCostCodeBudget: number;
+  unallocatedBudget: number;
+  totalActualCost: number;
+  codedActualCost: number;
+  uncodedActualCost: number;
+  totalPendingCost: number;
+  codedPendingCost: number;
+  uncodedPendingCost: number;
+  costCodes: CostCodeFinancialSummary[];
+  uncodedSummary: {
+    actualCost: number;
+    pendingCost: number;
+    invoiceCost: number;
+    payrollCost: number;
+    otherExpenseCost: number;
+    foreignCosts: Record<string, number>;
+  };
+  foreignCosts: Record<string, number>;
+  hasForeignAmounts: boolean;
+  baseCostSummary: ProjectCostSummaryWithCurrency;
+}
+
+/**
+ * P1B Budget Control Aggregation.
+ * Classifies authoritative actual costs and pending exposure into project cost codes.
+ *
+ * Guarantees:
+ * - Reconciles exactly to P1A calculateProjectCost:
+ *   codedActualCost + uncodedActualCost === totalActualCost
+ * - Deduplication via linkedSourceOwners applies first before classification.
+ * - Non-confirmed invoices, unapproved payroll, and voided expenses are excluded from actual cost.
+ * - Committed cost is always null ("Unavailable") until P2 procurement is implemented.
+ * - Explicit forecast variance = budgetAmount - forecastAmount. If forecast is null -> "Not set".
+ * - Unconverted foreign currency costs are kept in foreignCosts without implicit FX conversion.
+ */
+export function calculateProjectBudgetControl(
+  project: Pick<Project, "id" | "projectBudget" | "currency">,
+  costCodes: readonly ProjectCostCode[],
+  input: ProjectCostInput,
+): ProjectBudgetControlSummary {
+  const projectId = project.id;
+  const baseCurrency = normalizeCurrency(project.currency || input.baseCurrency || "PHP");
+  const baseSummary = calculateProjectCost(project, input);
+  const sourceOwners = linkedSourceOwners(projectId, input);
+  const laborSource = input.laborSource || (input.projectLaborAggregates ? "aggregate" : "detail");
+
+  const validCostCodes = costCodes.filter((cc) => cc.projectId === projectId);
+  const validCostCodeIds = new Set(validCostCodes.map((cc) => cc.id));
+
+  interface CodeAccumulator {
+    invoiceCost: number;
+    payrollCost: number;
+    otherExpenseCost: number;
+    actualCost: number;
+    pendingCost: number;
+    foreignCosts: Record<string, number>;
+  }
+
+  const codeAccumulators = new Map<string, CodeAccumulator>();
+  for (const cc of validCostCodes) {
+    codeAccumulators.set(cc.id, {
+      invoiceCost: 0,
+      payrollCost: 0,
+      otherExpenseCost: 0,
+      actualCost: 0,
+      pendingCost: 0,
+      foreignCosts: {},
+    });
+  }
+
+  const uncodedAccumulator: CodeAccumulator = {
+    invoiceCost: 0,
+    payrollCost: 0,
+    otherExpenseCost: 0,
+    actualCost: 0,
+    pendingCost: 0,
+    foreignCosts: {},
+  };
+
+  const addAmount = (
+    costCodeId: string | undefined | null,
+    kind: "invoice" | "payroll" | "expense",
+    amount: number,
+    currency: string,
+    isConfirmed: boolean,
+  ) => {
+    const value = positiveMoney(amount);
+    if (!value) return;
+    const target = (costCodeId && validCostCodeIds.has(costCodeId))
+      ? codeAccumulators.get(costCodeId)!
+      : uncodedAccumulator;
+
+    const normalizedCodeCurrency = normalizeCurrency(currency);
+    if (normalizedCodeCurrency !== baseCurrency) {
+      target.foreignCosts[normalizedCodeCurrency] = roundMoney((target.foreignCosts[normalizedCodeCurrency] || 0) + value);
+      return;
+    }
+
+    if (isConfirmed) {
+      target.actualCost = roundMoney(target.actualCost + value);
+      if (kind === "invoice") target.invoiceCost = roundMoney(target.invoiceCost + value);
+      else if (kind === "payroll") target.payrollCost = roundMoney(target.payrollCost + value);
+      else if (kind === "expense") target.otherExpenseCost = roundMoney(target.otherExpenseCost + value);
+    } else {
+      target.pendingCost = roundMoney(target.pendingCost + value);
+    }
+  };
+
+  // 1. Invoices
+  for (const invoice of input.invoices || []) {
+    if (isVoidedInvoice(invoice)) continue;
+    const sourceId = normalizedSourceDocumentId(invoice.sourceDocumentId);
+    if (sourceId && sourceOwners.get(sourceId) === "expense") continue;
+    const invoiceCurrency = normalizeCurrency(invoice.currency);
+    const confirmed = isConfirmedInvoice(invoice);
+
+    for (const allocation of invoice.allocations || []) {
+      if (allocation.projectId !== projectId) continue;
+      const allocAmount = normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation);
+      if (allocAmount <= 0) continue;
+      const targetCodeId = allocation.projectCostCodeId || (allocation as { costCodeId?: string }).costCodeId;
+      addAmount(targetCodeId, "invoice", allocAmount, invoiceCurrency, confirmed);
+    }
+  }
+
+  // 2. Payroll
+  if (laborSource === "detail") {
+    for (const payroll of input.payroll || []) {
+      if (isVoidedPayroll(payroll.status)) continue;
+      const recordCurrency = normalizeCurrency(payroll.currency || baseCurrency);
+      const confirmed = isConfirmedPayroll(payroll.status);
+      const entries = payroll.entries || [];
+      const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+
+      for (const allocation of payroll.allocations || []) {
+        if (allocation.projectId !== projectId) continue;
+        const entry = entriesById.get(allocation.payrollEntryId);
+        if (entry?.costContext?.type === "ADMIN_OFFICE" || entry?.costContext?.type === "GENERAL_OVERHEAD") continue;
+        const allocAmount = positiveMoney(allocation.allocationAmount);
+        if (!allocAmount) continue;
+        const targetCodeId = allocation.projectCostCodeId || (allocation as { costCodeId?: string }).costCodeId;
+        addAmount(targetCodeId, "payroll", allocAmount, recordCurrency, confirmed);
+      }
+    }
+  } else if (laborSource === "aggregate") {
+    for (const aggregate of input.projectLaborAggregates || []) {
+      if (aggregate.projectId !== projectId) continue;
+      const confirmed = positiveMoney(aggregate.confirmedLaborCost);
+      const pending = positiveMoney(aggregate.pendingLaborCost);
+      const aggCurrency = normalizeCurrency(aggregate.currency);
+      if (confirmed > 0) addAmount(undefined, "payroll", confirmed, aggCurrency, true);
+      if (pending > 0) addAmount(undefined, "payroll", pending, aggCurrency, false);
+    }
+  }
+
+  // 3. Expenses
+  for (const expense of input.expenses || []) {
+    if (expense.projectId !== projectId || expense.status === "VOID") continue;
+    const amount = positiveMoney(expense.amount);
+    if (!amount) continue;
+    const sourceId = normalizedSourceDocumentId(expense.receiptSourceDocumentId);
+    if (sourceId && sourceOwners.get(sourceId) === "invoice") continue;
+    const expenseCurrency = normalizeCurrency(expense.currency);
+    const confirmed = isConfirmedExpense(expense.status);
+    const targetCodeId = expense.projectCostCodeId || (expense as { costCodeId?: string }).costCodeId;
+    addAmount(targetCodeId, "expense", amount, expenseCurrency, confirmed);
+  }
+
+  const costCodeSummaries: CostCodeFinancialSummary[] = validCostCodes.map((cc) => {
+    const acc = codeAccumulators.get(cc.id)!;
+    const budgetAmount = roundMoney(cc.approvedBudgetAmount || 0);
+    const actualCost = roundMoney(acc.actualCost);
+    const pendingCost = roundMoney(acc.pendingCost);
+    const committedCost = null; // Always null / unavailable until P2 procurement
+    const forecastAmount = cc.forecastAmount != null && Number.isFinite(Number(cc.forecastAmount))
+      ? roundMoney(cc.forecastAmount)
+      : null;
+    const actualVariance = roundMoney(budgetAmount - actualCost);
+    const forecastVariance = forecastAmount != null ? roundMoney(budgetAmount - forecastAmount) : null;
+    const budgetUsedPercent = budgetAmount > 0 ? roundMoney((actualCost / budgetAmount) * 100) : 0;
+    const hasForeign = Object.entries(acc.foreignCosts).some(([, val]) => roundMoney(val) > 0);
+
+    return {
+      costCodeId: cc.id,
+      code: cc.code,
+      name: cc.name,
+      description: cc.description,
+      status: cc.status,
+      currency: baseCurrency,
+      budgetAmount,
+      actualCost,
+      pendingCost,
+      committedCost,
+      forecastAmount,
+      actualVariance,
+      forecastVariance,
+      budgetUsedPercent,
+      invoiceCost: roundMoney(acc.invoiceCost),
+      payrollCost: roundMoney(acc.payrollCost),
+      otherExpenseCost: roundMoney(acc.otherExpenseCost),
+      foreignCosts: acc.foreignCosts,
+      hasForeignAmounts: hasForeign,
+    };
+  });
+
+  const projectBudget = roundMoney(project.projectBudget || 0);
+  const allocatedCostCodeBudget = roundMoney(
+    validCostCodes
+      .filter((cc) => cc.status === "ACTIVE")
+      .reduce((sum, cc) => sum + roundMoney(cc.approvedBudgetAmount || 0), 0),
+  );
+  const unallocatedBudget = roundMoney(projectBudget - allocatedCostCodeBudget);
+
+  const codedActualCost = roundMoney(costCodeSummaries.reduce((sum, s) => sum + s.actualCost, 0));
+  const uncodedActualCost = roundMoney(baseSummary.totalActualCost - codedActualCost);
+
+  const totalPendingCost = roundMoney(
+    baseSummary.pendingInvoiceCost + baseSummary.pendingPayrollCost + baseSummary.pendingExpenseCost,
+  );
+  const codedPendingCost = roundMoney(costCodeSummaries.reduce((sum, s) => sum + s.pendingCost, 0));
+  const uncodedPendingCost = roundMoney(totalPendingCost - codedPendingCost);
+
+  const uncodedForeignCosts = uncodedAccumulator.foreignCosts;
+  const hasForeignAmounts = Object.entries(baseSummary.foreignCosts || {}).some(
+    ([, val]) => roundMoney(val) > 0,
+  );
+
+  return {
+    projectId,
+    currency: baseCurrency,
+    projectBudget,
+    allocatedCostCodeBudget,
+    unallocatedBudget,
+    totalActualCost: baseSummary.totalActualCost,
+    codedActualCost,
+    uncodedActualCost,
+    totalPendingCost,
+    codedPendingCost,
+    uncodedPendingCost,
+    costCodes: costCodeSummaries,
+    uncodedSummary: {
+      actualCost: uncodedActualCost,
+      pendingCost: uncodedPendingCost,
+      invoiceCost: roundMoney(uncodedAccumulator.invoiceCost),
+      payrollCost: roundMoney(uncodedAccumulator.payrollCost),
+      otherExpenseCost: roundMoney(uncodedAccumulator.otherExpenseCost),
+      foreignCosts: uncodedForeignCosts,
+    },
+    foreignCosts: baseSummary.foreignCosts,
+    hasForeignAmounts,
+    baseCostSummary: baseSummary,
+  };
+}
+

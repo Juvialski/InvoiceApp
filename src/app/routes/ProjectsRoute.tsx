@@ -8,6 +8,7 @@ import type {
   PayrollPeriod,
   PayrollProjectAllocation,
   Project,
+  ProjectCostCode,
   ProjectCostSummary,
   ProjectWorkerAssignment,
   Worker,
@@ -22,6 +23,7 @@ export interface ProjectsRouteProps {
   selectedProject?: Project | null;
   summaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
+  costCodes?: readonly ProjectCostCode[];
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
@@ -64,6 +66,18 @@ export interface ProjectsRouteProps {
   onArchiveProject: (project: Project) => Promise<void> | void;
   onReactivateProject: (project: Project) => Promise<void> | void;
   onEditProject?: () => void;
+  onSaveCostCode?: (costCode: {
+    id?: string;
+    projectId: string;
+    code: string;
+    name: string;
+    description?: string;
+    approvedBudgetAmount: number;
+    forecastAmount?: number;
+    status: ProjectCostCode["status"];
+  }) => Promise<void> | void;
+  onArchiveCostCode?: (costCodeId: string) => Promise<void> | void;
+  onReactivateCostCode?: (costCodeId: string) => Promise<void> | void;
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
   onBack: () => void;
   onOpenInvoice: (invoice: InvoiceData) => void;
@@ -78,6 +92,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   selectedProject,
   summaries,
   projectDashboard,
+  costCodes = [],
   invoices,
   invoiceAllocations,
   expenses,
@@ -120,6 +135,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onArchiveProject,
   onReactivateProject,
   onEditProject,
+  onSaveCostCode,
+  onArchiveCostCode,
+  onReactivateCostCode,
   onSaveInvoiceAllocations,
   onBack,
   onOpenInvoice,
@@ -152,6 +170,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         project={selectedProject}
         summary={summary}
         dashboard={projectDashboard}
+        costCodes={costCodes}
         invoices={invoices}
         invoiceAllocations={invoiceAllocations}
         expenses={expenses}
@@ -196,6 +215,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onAddExpense={onAddExpense}
         onOpenExpenseCorrection={onOpenExpenseCorrection}
         onOpenPayroll={onOpenPayroll}
+        onSaveCostCode={onSaveCostCode}
+        onArchiveCostCode={onArchiveCostCode}
+        onReactivateCostCode={onReactivateCostCode}
       />
     );
   }

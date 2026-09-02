@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -62,6 +62,14 @@ import {
   replaceInvoiceProjectAllocationsOnSupabase,
   writeInvoiceProjectAllocationsToLocal,
 } from "./lib/projects";
+import {
+  archiveProjectCostCodeInSupabase,
+  loadProjectCostCodesFromSupabase,
+  reactivateProjectCostCodeInSupabase,
+  readProjectCostCodesFromLocal,
+  saveProjectCostCodeToSupabase,
+  writeProjectCostCodesToLocal,
+} from "./lib/projectCostCodes";
 import { applyExpenseCorrectionInSupabase, createLocalExpense, loadExpensesFromSupabase, previewExpenseCorrectionInSupabase, readExpensesFromLocal, saveExpenseToSupabase, writeExpensesToLocal } from "./lib/expenses";
 import { buildLocalExpenseCorrectionPreview, buildLocalInvoiceCorrectionPreview, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./lib/financialLifecycle.ts";
 import { applyPayrollLifecycleToSupabase, canTransitionPayrollRun, deletePayrollPeriodToSupabase, deletePayrollRunToSupabase, emptyPayrollWorkspaceData, loadPayrollWorkspaceFromSupabase, PayrollWorkspaceData, previewWorkerLifecycleToSupabase, readPayrollWorkspaceFromLocal, replacePayrollRunEntriesToSupabase, saveAssignmentToSupabase, saveAttendanceRecordToSupabase, saveAttendanceRecordsToSupabase, saveDepartmentToSupabase, saveLeaveRequestToSupabase, saveOvertimeRequestToSupabase, savePayrollEntryToSupabase, savePayrollHolidayToSupabase, savePayrollPeriodToSupabase, savePayrollRunToSupabase, savePayrollScheduleToSupabase, saveRecurringPayrollComponentToSupabase, saveWorkerCompensationProfileToSupabase, saveWorkEntryToSupabase, saveWorkerToSupabase, validatePayrollAllocations, validatePayrollRunApproval, writePayrollWorkspaceToLocal } from "./lib/payroll";
@@ -322,6 +330,7 @@ function InvoiceWorkspace() {
   const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(() => isSupabaseConfigured ? { costCenters: [], batches: [], rows: [], templates: [] } : readPayrollImportWorkspaceFromLocal());
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(() => isSupabaseConfigured ? [] : readInvoiceProjectAllocationsFromLocal());
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
+  const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [projectLaborAggregates, setProjectLaborAggregates] = useState<ProjectLaborCostAggregate[]>([]);
   const [projectCostDomainLoadState, setProjectCostDomainLoadState] = useState<ProjectCostDomainLoadState>(isSupabaseConfigured ? "not-loaded" : "loaded");
   const [projectLaborAggregateLoadState, setProjectLaborAggregateLoadState] = useState<ProjectLaborAggregateLoadState>(isSupabaseConfigured ? "not-loaded" : "unavailable");
@@ -478,6 +487,7 @@ function InvoiceWorkspace() {
     projectController.reset();
     setInvoiceProjectAllocations([]);
     setExpenses([]);
+    setCostCodes([]);
     setExpenseCorrectionContext(null);
     setProjectLaborAggregates([]);
     setProjectCostDomainLoadState(isSupabaseConfigured ? "not-loaded" : "loaded");
@@ -531,7 +541,7 @@ function InvoiceWorkspace() {
             ? can(PERMISSION_KEYS.gmailRead)
             : false);
 
-  type EngineeringWorkspaceGroup = { projects: Project[]; allocations: InvoiceProjectAllocation[]; expenses: Expense[]; laborAggregates: ProjectLaborCostAggregate[]; laborAggregateLoadState: ProjectLaborAggregateLoadState };
+  type EngineeringWorkspaceGroup = { projects: Project[]; allocations: InvoiceProjectAllocation[]; expenses: Expense[]; costCodes: ProjectCostCode[]; laborAggregates: ProjectLaborCostAggregate[]; laborAggregateLoadState: ProjectLaborAggregateLoadState };
   type WorkspaceGroupData = InvoiceData[] | EngineeringWorkspaceGroup | PayrollWorkspaceData | PayrollImportWorkspaceData | CashBankingWorkspaceData | { lastHistoryId?: string; lastSyncedAt?: string };
 
   const applyInvoicesForWorkspace = (prepared: InvoiceData[], token: { generation: number; userId: string; companyId: string }) => {
@@ -586,6 +596,7 @@ function InvoiceWorkspace() {
     projectController.applyProjects(data.projects);
     setInvoiceProjectAllocations(data.allocations);
     setExpenses(data.expenses);
+    setCostCodes(data.costCodes);
     setProjectLaborAggregates(data.laborAggregates);
     setProjectLaborAggregateLoadState(data.laborAggregateLoadState);
     setProjectCostDomainLoadState("loaded");
@@ -596,14 +607,17 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.projectsRead) ? loadProjectsFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
+      can(PERMISSION_KEYS.projectsRead) ? loadProjectCostCodesFromSupabase() : Promise.resolve([]),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
     const allocations = results[1].status === "fulfilled" ? results[1].value : [];
     const expenses = results[2].status === "fulfilled" ? results[2].value : [];
+    const costCodes = results[3].status === "fulfilled" ? results[3].value : [];
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("expenses");
+    if (results[3].status !== "fulfilled") failures.push("cost codes");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -628,7 +642,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, expenses, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, expenses, costCodes, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -784,6 +798,7 @@ function InvoiceWorkspace() {
       setSyncState({});
       setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
       setExpenses(readExpensesFromLocal());
+      setCostCodes(readProjectCostCodesFromLocal());
       const localCash = readCashBankingWorkspaceFromLocal();
       cashDataRef.current = localCash;
       setCashData(localCash);
@@ -1917,6 +1932,103 @@ function InvoiceWorkspace() {
       showNotification("success", "Expense saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save expense."));
+    }
+  };
+
+  const handleSaveCostCode = async (costCode: {
+    id?: string;
+    projectId: string;
+    code: string;
+    name: string;
+    description?: string;
+    approvedBudgetAmount: number;
+    forecastAmount?: number;
+    status: ProjectCostCode["status"];
+  }) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) {
+        throw new Error("You do not have permission to manage project cost codes.");
+      }
+      if (session && supabase) {
+        const saved = await saveProjectCostCodeToSupabase(costCode);
+        setCostCodes((prev) => {
+          const index = prev.findIndex((c) => c.id === saved.id);
+          return index >= 0 ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev];
+        });
+        showNotification("success", `Cost code ${saved.code} saved.`);
+      } else {
+        const now = new Date().toISOString();
+        const id = costCode.id || `costcode-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const localRecord: ProjectCostCode = {
+          id,
+          companyId: "guest-company",
+          projectId: costCode.projectId,
+          code: costCode.code.trim().toUpperCase(),
+          name: costCode.name.trim(),
+          description: costCode.description?.trim() || undefined,
+          approvedBudgetAmount: Number(costCode.approvedBudgetAmount) || 0,
+          forecastAmount: costCode.forecastAmount !== undefined && costCode.forecastAmount !== null ? Number(costCode.forecastAmount) : undefined,
+          status: costCode.status || "ACTIVE",
+          createdAt: now,
+          updatedAt: now,
+        };
+        setCostCodes((prev) => {
+          const index = prev.findIndex((c) => c.id === id);
+          const next = index >= 0 ? prev.map((c) => (c.id === id ? localRecord : c)) : [localRecord, ...prev];
+          writeProjectCostCodesToLocal(next);
+          return next;
+        });
+        showNotification("success", `Cost code ${localRecord.code} saved.`);
+      }
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save cost code."));
+      throw error;
+    }
+  };
+
+  const handleArchiveCostCode = async (costCodeId: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) {
+        throw new Error("You do not have permission to manage project cost codes.");
+      }
+      if (session && supabase) {
+        const archived = await archiveProjectCostCodeInSupabase(costCodeId);
+        setCostCodes((prev) => prev.map((c) => (c.id === archived.id ? archived : c)));
+        showNotification("success", `Cost code ${archived.code} archived.`);
+      } else {
+        setCostCodes((prev) => {
+          const next = prev.map((c) => (c.id === costCodeId ? { ...c, status: "ARCHIVED" as const, updatedAt: new Date().toISOString() } : c));
+          writeProjectCostCodesToLocal(next);
+          return next;
+        });
+        showNotification("success", "Cost code archived.");
+      }
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not archive cost code."));
+      throw error;
+    }
+  };
+
+  const handleReactivateCostCode = async (costCodeId: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) {
+        throw new Error("You do not have permission to manage project cost codes.");
+      }
+      if (session && supabase) {
+        const reactivated = await reactivateProjectCostCodeInSupabase(costCodeId);
+        setCostCodes((prev) => prev.map((c) => (c.id === reactivated.id ? reactivated : c)));
+        showNotification("success", `Cost code ${reactivated.code} reactivated.`);
+      } else {
+        setCostCodes((prev) => {
+          const next = prev.map((c) => (c.id === costCodeId ? { ...c, status: "ACTIVE" as const, updatedAt: new Date().toISOString() } : c));
+          writeProjectCostCodesToLocal(next);
+          return next;
+        });
+        showNotification("success", "Cost code reactivated.");
+      }
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not reactivate cost code."));
+      throw error;
     }
   };
 
@@ -3429,6 +3541,7 @@ function InvoiceWorkspace() {
           selectedProject={selectedProject}
           projectSummaries={projectSummaries}
           projectDashboard={projectDashboard}
+          costCodes={costCodes}
           projectLaborAggregates={projectLaborAggregates}
           laborSource={projectLaborSource}
           projectFormSeed={projectFormSeed}
@@ -3439,6 +3552,9 @@ function InvoiceWorkspace() {
            onArchiveProject={(project) => void projectController.archiveProject(project)}
            onReactivateProject={(project) => void projectController.reactivateProject(project)}
            onEditProject={() => { if (selectedProject) projectController.editProject(selectedProject); }}
+           onSaveCostCode={handleSaveCostCode}
+           onArchiveCostCode={handleArchiveCostCode}
+           onReactivateCostCode={handleReactivateCostCode}
           onProjectTabChange={(tab) => {
             if (route.kind === "project" && selectedProject) {
               navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView));

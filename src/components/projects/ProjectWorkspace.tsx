@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, ClipboardCheck, ClipboardList, Compass, FileQuestion, FileText, HardHat, Receipt, Users } from "lucide-react";
+import { AlertTriangle, BarChart3, Calculator, ClipboardCheck, ClipboardList, Compass, FileQuestion, FileText, HardHat, Receipt, Users } from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type {
@@ -9,6 +9,7 @@ import type {
   PayrollPeriod,
   PayrollProjectAllocation,
   Project,
+  ProjectCostCode,
   ProjectCostSummary,
   ProjectWorkerAssignment,
   Worker,
@@ -17,6 +18,7 @@ import { ProjectExpenses } from "../expenses/ProjectExpenses";
 import { ProjectInvoices } from "./ProjectInvoices";
 import { ProjectInvoicesReadOnly } from "./ProjectInvoicesReadOnly.tsx";
 import { ProjectOverview } from "./ProjectOverview";
+import { ProjectBudgetControlPanel } from "./ProjectBudgetControlPanel.tsx";
 import { ProjectDocuments } from "../engineering/ProjectDocuments";
 import { ProjectRfis } from "../engineering/ProjectRfis";
 import { ProjectSubmittals } from "../engineering/ProjectSubmittals";
@@ -31,12 +33,13 @@ import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts"
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 import { isProjectWorkspaceTabDeploymentVisible } from "./projectWorkspaceVisibility.ts";
 
-export type WorkspaceTab = "overview" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type WorkspaceTab = "overview" | "budget" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 interface ProjectWorkspaceProps {
   project: Project;
   summary: ProjectCostSummary;
   dashboard?: ProjectDashboardViewData;
+  costCodes?: readonly ProjectCostCode[];
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
@@ -80,6 +83,18 @@ interface ProjectWorkspaceProps {
   onAddExpense?: () => void;
   onOpenExpenseCorrection?: (expense: Expense) => void;
   onOpenPayroll?: () => void;
+  onSaveCostCode?: (costCode: {
+    id?: string;
+    projectId: string;
+    code: string;
+    name: string;
+    description?: string;
+    approvedBudgetAmount: number;
+    forecastAmount?: number;
+    status: ProjectCostCode["status"];
+  }) => Promise<void> | void;
+  onArchiveCostCode?: (costCodeId: string) => Promise<void> | void;
+  onReactivateCostCode?: (costCodeId: string) => Promise<void> | void;
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
 }
 
@@ -105,6 +120,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   project,
   summary,
   dashboard,
+  costCodes = [],
   invoices,
   invoiceAllocations,
   expenses,
@@ -148,6 +164,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onAddExpense,
   onOpenPayroll,
   onOpenExpenseCorrection,
+  onSaveCostCode,
+  onArchiveCostCode,
+  onReactivateCostCode,
   onSaveInvoiceAllocations,
 }) => {
   const permissions = useAppPermissions();
@@ -179,6 +198,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
   const tabs: Array<[WorkspaceTab, string, React.ElementType]> = [
     ["overview", "Overview", BarChart3],
+    ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [["budget", "Budget Control", Calculator] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("documents") ? [["documents", "Documents", Compass] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("rfis") ? [["rfis", "RFIs", FileQuestion] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("submittals") ? [["submittals", "Submittals", ClipboardCheck] as [WorkspaceTab, string, React.ElementType]] : []),
@@ -208,6 +228,13 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const projectExpenses = useMemo(() => expenses.filter((expense) => expense.projectId === project.id), [expenses, project.id]);
   const projectAssignments = assignments.filter((assignment) => assignment.projectId === project.id && assignment.active);
   const projectPayroll = payrollAllocations.filter((allocation) => allocation.projectId === project.id);
+  const budgetControlLaborAggregate = useMemo(() => [{
+    projectId: project.id,
+    currency: project.currency,
+    confirmedLaborCost: summary.payrollCost,
+    pendingLaborCost: summary.pendingPayrollCost,
+    status: summary.payrollCost > 0 || summary.pendingPayrollCost > 0 ? ("AVAILABLE" as const) : ("ZERO" as const),
+  }], [project.id, project.currency, summary.payrollCost, summary.pendingPayrollCost]);
 
   return (
     <div className="space-y-5">
@@ -241,7 +268,25 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         ))}
       </nav>
 
-      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
+      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
+
+      {tab === "budget" && (
+        <ProjectBudgetControlPanel
+          project={project}
+          costCodes={costCodes}
+          invoices={invoices}
+          invoiceAllocations={invoiceAllocations}
+          expenses={expenses}
+          payrollAllocations={payrollAllocations}
+          payrollPeriods={payrollPeriods}
+          projectLaborAggregates={budgetControlLaborAggregate}
+          laborSource="aggregate"
+          canManageProject={canManageProject}
+          onSaveCostCode={onSaveCostCode || (async () => {})}
+          onArchiveCostCode={onArchiveCostCode || (async () => {})}
+          onReactivateCostCode={onReactivateCostCode || (async () => {})}
+        />
+      )}
 
       {tab === "documents" && (projectDocumentsContent ?? <ProjectDocuments project={project} companyId={companyId} initialDocumentId={initialDocumentId} initialRevisionId={initialRevisionId} canRead={engineeringDocumentsCanRead} canCreate={engineeringDocumentsCanCreate} canAnnotate={engineeringDocumentsCanAnnotate} canManage={engineeringDocumentsCanManage} guestMode={engineeringDocumentsGuestMode} />)}
 
@@ -252,7 +297,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       {tab === "site-logs" && (coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div> : <ProjectSiteLogs project={project} companyId={companyId} initialSiteLogId={initialSiteLogId} pathForSiteLog={pathForSiteLog} onNavigatePath={onNavigatePath} canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead} canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate} canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate} canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit} canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage} guestMode={engineeringDocumentsGuestMode} controlledData={dailySiteLogsData} onControlledDataChange={onDailySiteLogsDataChange} />)}
 
       {tab === "invoices" && canReadInvoices && (canManageInvoiceAllocations
-        ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />
+        ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} costCodes={costCodes as ProjectCostCode[]} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />
         : <ProjectInvoicesReadOnly project={project} invoices={invoices} allocations={invoiceAllocations} onOpenInvoice={onOpenInvoice} />)}
 
       {tab === "expenses" && canReadExpenses && <ProjectExpenses projectId={project.id} currency={project.currency} expenses={projectExpenses} onAdd={canManageExpenses ? onAddExpense : undefined} onOpenCorrection={canManageExpenses ? onOpenExpenseCorrection : undefined} />}

@@ -1,7 +1,7 @@
 import type { InvoiceProjectAllocation } from "../types.ts";
 
 export type InvoiceProjectAllocationInput = Pick<InvoiceProjectAllocation, "projectId" | "allocationType"> &
-  Partial<Pick<InvoiceProjectAllocation, "id" | "invoiceId" | "allocationPercentage" | "allocationAmount" | "notes" | "createdAt" | "updatedAt">>;
+  Partial<Pick<InvoiceProjectAllocation, "id" | "invoiceId" | "projectCostCodeId" | "allocationPercentage" | "allocationAmount" | "notes" | "createdAt" | "updatedAt">>;
 
 export interface InvoiceProjectAllocationValidation {
   valid: boolean;
@@ -17,6 +17,7 @@ export interface InvoiceProjectAllocationValidation {
 export interface InvoiceProjectAllocationPersistenceRow {
   id?: string;
   project_id: string;
+  project_cost_code_id?: string | null;
   allocation_type: InvoiceProjectAllocation["allocationType"];
   allocation_percentage: number | null;
   allocation_amount: number | null;
@@ -138,6 +139,7 @@ export function normalizeInvoiceProjectAllocations(invoiceId: string, invoiceTot
         id: allocation.id || deterministicLocalInvoiceAllocationId(invoiceId, projectId),
         invoiceId,
         projectId,
+        projectCostCodeId: allocation.projectCostCodeId || undefined,
         allocationPercentage: percentage,
         allocationAmount: amount,
       };
@@ -149,6 +151,7 @@ export function toInvoiceProjectAllocationPersistenceRows(invoiceId: string, inv
   return normalizeInvoiceProjectAllocations(invoiceId, invoiceTotal, allocations).map((allocation) => ({
     ...(allocation.id && !allocation.id.startsWith("local-") ? { id: allocation.id } : {}),
     project_id: allocation.projectId,
+    project_cost_code_id: allocation.projectCostCodeId || null,
     allocation_type: allocation.allocationType,
     allocation_percentage: allocation.allocationType === "PERCENTAGE" ? allocation.allocationPercentage ?? null : null,
     allocation_amount: allocation.allocationType === "AMOUNT" ? allocation.allocationAmount : null,

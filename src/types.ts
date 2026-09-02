@@ -570,10 +570,30 @@ export interface Project {
   archivedFromStatus?: Exclude<ProjectStatus, "ARCHIVED">;
 }
 
+export type ProjectCostCodeStatus = "ACTIVE" | "ARCHIVED";
+
+export interface ProjectCostCode {
+  id: string;
+  companyId?: string;
+  projectId: string;
+  code: string;
+  name: string;
+  description?: string;
+  status: ProjectCostCodeStatus;
+  approvedBudgetAmount: number;
+  forecastAmount?: number;
+  createdByUserId?: string;
+  updatedByUserId?: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
 export interface InvoiceProjectAllocation {
   id: string;
   invoiceId: string;
   projectId: string;
+  projectCostCodeId?: string;
   allocationType: AllocationType;
   allocationPercentage?: number;
   allocationAmount: number;
@@ -588,6 +608,7 @@ export interface Expense {
   id: string;
   userId?: string;
   projectId?: string;
+  projectCostCodeId?: string;
   expenseDate: string;
   category: string;
   description: string;
@@ -859,6 +880,7 @@ export interface PayrollProjectAllocation {
   id: string;
   payrollEntryId: string;
   projectId: string;
+  projectCostCodeId?: string;
   allocationAmount: number;
   allocationPercentage?: number;
   source: PayrollAllocationSource;
