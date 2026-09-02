@@ -125,6 +125,31 @@ const mockInvoice: InvoiceData = {
   ],
 };
 
+function confirmedMatch(): PurchaseOrderInvoiceMatch {
+  return {
+    id: "match-001",
+    companyId: "comp-1",
+    invoiceId: "inv-201",
+    purchaseOrderId: "po-101",
+    matchSource: "PO_NUMBER_EXACT",
+    status: "CONFIRMED",
+    confirmedByUserId: "user-1",
+    confirmedAt: "2026-08-26T10:00:00Z",
+    lines: [
+      {
+        id: "m-line-1",
+        companyId: "comp-1",
+        matchId: "match-001",
+        invoiceLineId: "inv-line-1",
+        purchaseOrderLineId: "po-line-1",
+        lineNumber: 1,
+        matchedQuantity: 800,
+        matchedAmount: 520000,
+      },
+    ],
+  };
+}
+
 test("PurchaseOrderMatchSection renders unmatched candidates with confidence and line association table", () => {
   const markup = renderToStaticMarkup(
     <PurchaseOrderMatchSection
@@ -138,46 +163,18 @@ test("PurchaseOrderMatchSection renders unmatched candidates with confidence and
     />,
   );
 
-  // Extracted PO badge verification
   assert.match(markup, /PO-25-0012/);
   assert.match(markup, /System Verified/);
-
-  // Candidate section
   assert.match(markup, /Match Candidates/);
   assert.match(markup, /HIGH/);
   assert.match(markup, /Prime Electrical Trading Inc/);
   assert.match(markup, /Configure Match: PO-25-0012/);
-
-  // Line mapping controls
   assert.match(markup, /Line Item Associations/);
   assert.match(markup, /Galvanized Steel Rails 4.2m/);
   assert.match(markup, /Confirm Match/);
 });
 
 test("PurchaseOrderMatchSection renders confirmed match with goods receipt progress and line verification", () => {
-  const confirmedMatch: PurchaseOrderInvoiceMatch = {
-    id: "match-001",
-    companyId: "comp-1",
-    invoiceId: "inv-201",
-    purchaseOrderId: "po-101",
-    matchSource: "PO_NUMBER_EXACT",
-    status: "CONFIRMED",
-    confirmedByUserId: "user-1",
-    confirmedAt: "2026-08-26T10:00:00Z",
-    lines: [
-      {
-        id: "m-line-1",
-        companyId: "comp-1",
-        matchId: "match-001",
-        invoiceLineId: "inv-line-1",
-        purchaseOrderLineId: "po-line-1",
-        lineNumber: 1,
-        matchedQuantity: 800,
-        matchedAmount: 520000,
-      },
-    ],
-  };
-
   const markup = renderToStaticMarkup(
     <PurchaseOrderMatchSection
       invoice={mockInvoice}
@@ -185,53 +182,77 @@ test("PurchaseOrderMatchSection renders confirmed match with goods receipt progr
       receipts={[mockReceipt]}
       vendors={[mockVendor]}
       projects={[mockProject]}
-      matches={[confirmedMatch]}
+      matches={[confirmedMatch()]}
       canManage={true}
       onUnmatch={async () => {}}
     />,
   );
 
-  // Confirmed match badges
   assert.match(markup, /MATCHED/);
   assert.match(markup, /Source: PO_NUMBER_EXACT/);
   assert.match(markup, /PO-25-0012/);
-
-  // Delivery progress
   assert.match(markup, /Goods Receipts Progress/);
   assert.match(markup, /Fully Delivered/);
   assert.match(markup, /100%/);
-
-  // Line verification breakdown
+  assert.match(markup, /Ordered:.*800.*pcs/);
   assert.match(markup, /Matched Line Item Breakdown/);
   assert.match(markup, /PO Line #1/);
   assert.match(markup, /Valid/);
   assert.match(markup, /Unmatch/);
 });
 
-test("PurchaseOrderEditorModal renders linked supplier invoices section", () => {
-  const confirmedMatch: PurchaseOrderInvoiceMatch = {
-    id: "match-001",
-    companyId: "comp-1",
-    invoiceId: "inv-201",
-    purchaseOrderId: "po-101",
-    matchSource: "PO_NUMBER_EXACT",
-    status: "CONFIRMED",
-    confirmedByUserId: "user-1",
-    confirmedAt: "2026-08-26T10:00:00Z",
+test("PurchaseOrderMatchSection does not aggregate unlike receipt units", () => {
+  const mixedPo: PurchaseOrder = {
+    ...mockPo,
+    totalAmount: 530000,
     lines: [
+      ...mockPo.lines,
       {
-        id: "m-line-1",
+        id: "po-line-2",
         companyId: "comp-1",
-        matchId: "match-001",
-        invoiceLineId: "inv-line-1",
-        purchaseOrderLineId: "po-line-1",
-        lineNumber: 1,
-        matchedQuantity: 800,
-        matchedAmount: 520000,
+        purchaseOrderId: "po-101",
+        lineNumber: 2,
+        description: "Installation supervision",
+        quantity: 2,
+        unit: "days",
+        unitPrice: 5000,
+        amount: 10000,
+      },
+    ],
+  };
+  const mixedReceipt: PurchaseOrderReceipt = {
+    ...mockReceipt,
+    lines: [
+      ...mockReceipt.lines,
+      {
+        id: "rec-line-2",
+        companyId: "comp-1",
+        purchaseOrderReceiptId: "rec-1",
+        purchaseOrderLineId: "po-line-2",
+        lineNumber: 2,
+        receivedQuantity: 1,
       },
     ],
   };
 
+  const markup = renderToStaticMarkup(
+    <PurchaseOrderMatchSection
+      invoice={mockInvoice}
+      purchaseOrders={[mixedPo]}
+      receipts={[mixedReceipt]}
+      vendors={[mockVendor]}
+      projects={[mockProject]}
+      matches={[confirmedMatch()]}
+      canManage={true}
+    />,
+  );
+
+  assert.match(markup, /Mixed units: aggregate quantities are not comparable/);
+  assert.doesNotMatch(markup, /Ordered:.*0.*units/);
+  assert.match(markup, /800 pcs/);
+});
+
+test("PurchaseOrderEditorModal renders linked supplier invoices section", () => {
   const markup = renderToStaticMarkup(
     <PurchaseOrderEditorModal
       open={true}
@@ -240,7 +261,7 @@ test("PurchaseOrderEditorModal renders linked supplier invoices section", () => 
       projects={[mockProject]}
       vendors={[mockVendor]}
       costCodes={[]}
-      matches={[confirmedMatch]}
+      matches={[confirmedMatch()]}
       invoices={[mockInvoice]}
       onSave={() => {}}
       onTransition={() => {}}
@@ -249,11 +270,8 @@ test("PurchaseOrderEditorModal renders linked supplier invoices section", () => 
     />,
   );
 
-  // Supplier Invoices header
   assert.match(markup, /Supplier Invoices/);
   assert.match(markup, /1 linked/);
-
-  // Linked invoice line details
   assert.match(markup, /INV-PET-9941/);
   assert.match(markup, /Needs Review/);
   assert.match(markup, /Supplier Consistent/);
