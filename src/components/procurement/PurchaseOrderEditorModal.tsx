@@ -1,13 +1,16 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle, FileText, Plus, Trash2, X, Send, Ban, CheckCheck } from "lucide-react";
-import type { Project, ProjectCostCode, PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus, Vendor } from "../../types.ts";
+import { AlertCircle, CheckCircle, FileText, Plus, Trash2, X, Send, Ban, CheckCheck, Truck, PackageCheck, AlertTriangle } from "lucide-react";
+import type { Project, ProjectCostCode, PurchaseOrder, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor } from "../../types.ts";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
-import { formatMoney } from "../../utils/invoiceLogic.ts";
+import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { isCommittedPurchaseOrder } from "../../utils/projectCosting.ts";
+import { calculatePOReceiptProgress, getReceiptsForPO } from "../../utils/purchaseOrderReceipts.ts";
+import { RecordReceiptModal } from "./RecordReceiptModal.tsx";
 
 export interface PurchaseOrderEditorModalProps {
   open: boolean;
   purchaseOrder?: PurchaseOrder | null;
+  receipts?: readonly PurchaseOrderReceipt[];
   projects: readonly Project[];
   vendors: readonly Vendor[];
   costCodes: readonly ProjectCostCode[];
@@ -21,6 +24,11 @@ export interface PurchaseOrderEditorModalProps {
   ) => Promise<void> | void;
   onTransition: (poId: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void> | void;
   onDelete: (poId: string) => Promise<void> | void;
+  onRecordReceipt?: (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+  ) => Promise<void> | void;
+  onVoidReceipt?: (receiptId: string, reason: string) => Promise<void> | void;
   onClose: () => void;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
 }
@@ -47,6 +55,7 @@ function emptyLine(): EditableLine {
 export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> = ({
   open,
   purchaseOrder,
+  receipts = [],
   projects,
   vendors,
   costCodes,
@@ -57,6 +66,8 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
   onSave,
   onTransition,
   onDelete,
+  onRecordReceipt,
+  onVoidReceipt,
   onClose,
   onAddVendor,
 }) => {
@@ -86,11 +97,24 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
   const [newVendorName, setNewVendorName] = useState("");
   const [showAddVendor, setShowAddVendor] = useState(false);
 
+  // Delivery & Receipt state
+  const [showRecordReceiptModal, setShowRecordReceiptModal] = useState(false);
+  const [voidReceiptTarget, setVoidReceiptTarget] = useState<PurchaseOrderReceipt | null>(null);
+  const [voidReasonText, setVoidReasonText] = useState("");
+
+  const poReceipts = useMemo(() => {
+    return purchaseOrder?.id ? getReceiptsForPO(purchaseOrder.id, receipts) : [];
+  }, [purchaseOrder?.id, receipts]);
+
+  const poReceiptProgress = useMemo(() => {
+    return purchaseOrder ? calculatePOReceiptProgress(purchaseOrder, receipts) : null;
+  }, [purchaseOrder, receipts]);
+
   const poNumberInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useDialogFocus({
     open,
     onClose: () => {
-      if (!isSubmitting && !loading) onClose();
+      if (!isSubmitting && !loading && !showRecordReceiptModal) onClose();
     },
     initialFocusRef: poNumberInputRef,
   });
@@ -301,6 +325,33 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
       onClose();
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to delete draft purchase order");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRecordReceipt = async (
+    receiptInput: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lineInputs: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+  ) => {
+    if (!onRecordReceipt) return;
+    await onRecordReceipt(receiptInput, lineInputs);
+    setShowRecordReceiptModal(false);
+  };
+
+  const handleConfirmVoidReceipt = async () => {
+    if (!voidReceiptTarget || !onVoidReceipt) return;
+    if (!voidReasonText.trim() || voidReasonText.trim().length < 3) {
+      setErrorMessage("Void reason must contain at least 3 characters.");
+      return;
+    }
+    try {
+      setIsSubmitting(true);
+      await onVoidReceipt(voidReceiptTarget.id, voidReasonText.trim());
+      setVoidReceiptTarget(null);
+      setVoidReasonText("");
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to void receipt");
     } finally {
       setIsSubmitting(false);
     }
@@ -645,6 +696,285 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
             />
           </div>
 
+          {/* Delivery & Goods Receipts Section for Non-Draft POs */}
+          {isEditing && !isDraft && (
+            <div className="space-y-4 rounded-xl border border-indigo-100 bg-indigo-50/20 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-indigo-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">
+                    <Truck className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                      Delivery & Goods Receipts Tracking
+                    </h3>
+                    <div className="text-[11px] text-slate-500">
+                      Track physical items received against this purchase order
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {isIssued && canManage && (poReceiptProgress?.totalRemainingQuantity || 0) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowRecordReceiptModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
+                    >
+                      <PackageCheck className="h-4 w-4" />
+                      Record Delivery / Receipt
+                    </button>
+                  )}
+                  {poReceiptProgress?.deliveryStatus === "FULLY_RECEIVED" && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                      <CheckCircle className="h-3.5 w-3.5" /> Fully Received
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Summary Cards */}
+              {poReceiptProgress && (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Ordered</div>
+                    <div className="text-base font-black text-slate-900 tabular-nums">
+                      {poReceiptProgress.totalOrderedQuantity}
+                    </div>
+                    <div className="text-[10px] text-slate-400">Total item units</div>
+                  </div>
+
+                  <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Total Received</div>
+                    <div className="text-base font-black text-emerald-900 tabular-nums">
+                      {poReceiptProgress.totalReceivedQuantity}
+                    </div>
+                    <div className="text-[10px] text-emerald-600">Across valid receipts</div>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-100 bg-amber-50/40 p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Remaining Outstanding</div>
+                    <div className="text-base font-black text-amber-900 tabular-nums">
+                      {poReceiptProgress.totalRemainingQuantity}
+                    </div>
+                    <div className="text-[10px] text-amber-600">To be delivered</div>
+                  </div>
+
+                  <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Receipt Progress</div>
+                    <div className="text-base font-black text-indigo-900 tabular-nums">
+                      {poReceiptProgress.overallProgressPercent}%
+                    </div>
+                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-indigo-200/60">
+                      <div
+                        className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+                        style={{ width: `${poReceiptProgress.overallProgressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Line Items Delivery Breakdown */}
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                  Line Items Delivery Breakdown
+                </div>
+                <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2"># Description</th>
+                        <th className="px-3 py-2 text-right">Ordered</th>
+                        <th className="px-3 py-2 text-right">Received</th>
+                        <th className="px-3 py-2 text-right">Remaining</th>
+                        <th className="px-3 py-2 min-w-[120px]">Progress</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(purchaseOrder?.lines || []).map((line, idx) => {
+                        const lineProg = poReceiptProgress?.lines[line.id];
+                        const ord = lineProg?.orderedQuantity ?? line.quantity;
+                        const rec = lineProg?.receivedQuantity ?? 0;
+                        const rem = lineProg?.remainingQuantity ?? line.quantity;
+                        const pct = lineProg?.progressPercent ?? 0;
+                        return (
+                          <tr key={line.id} className="hover:bg-slate-50/60">
+                            <td className="px-3 py-2">
+                              <span className="font-mono text-slate-400 mr-1">{idx + 1}.</span>
+                              <span className="font-semibold text-slate-800">{line.description}</span>
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-600">
+                              {ord} {line.unit}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono tabular-nums text-emerald-700 font-semibold">
+                              {rec} {line.unit}
+                            </td>
+                            <td className="px-3 py-2 text-right font-mono tabular-nums text-amber-700 font-semibold">
+                              {rem} {line.unit}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      rem === 0 ? "bg-emerald-500" : "bg-indigo-600"
+                                    }`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className="font-mono text-[10px] text-slate-500 w-8 text-right">{pct}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Delivery History */}
+              <div className="space-y-2 pt-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                  Delivery History ({poReceipts.length} record{poReceipts.length === 1 ? "" : "s"})
+                </div>
+
+                {poReceipts.length > 0 ? (
+                  <div className="space-y-2">
+                    {poReceipts.map((receipt) => {
+                      const isVoided = receipt.status === "VOIDED";
+                      return (
+                        <div
+                          key={receipt.id}
+                          className={`rounded-xl border p-3.5 text-xs transition ${
+                            isVoided
+                              ? "border-slate-200 bg-slate-50/80 opacity-75"
+                              : "border-slate-200 bg-white shadow-sm"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono font-bold ${isVoided ? "line-through text-slate-500" : "text-slate-900"}`}>
+                                {receipt.receiptNumber}
+                              </span>
+                              <span
+                                className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                                  isVoided
+                                    ? "bg-rose-100 text-rose-800"
+                                    : "bg-emerald-100 text-emerald-800"
+                                }`}
+                              >
+                                {receipt.status}
+                              </span>
+                              <span className="text-slate-500 text-[11px]">
+                                Date: <strong className="text-slate-700">{formatDate(receipt.receiptDate, "short")}</strong>
+                              </span>
+                              {receipt.supplierDeliveryReference && (
+                                <span className="text-slate-500 text-[11px]">
+                                  DR Ref: <strong className="text-slate-700 font-mono">{receipt.supplierDeliveryReference}</strong>
+                                </span>
+                              )}
+                            </div>
+
+                            {!isVoided && canManage && onVoidReceipt && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setVoidReceiptTarget(receipt);
+                                  setVoidReasonText("");
+                                }}
+                                className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 hover:underline"
+                              >
+                                Void Receipt
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Line items in receipt */}
+                          <div className="space-y-1">
+                            {(receipt.lines || []).map((rLine) => {
+                              const matchingPoLine = (purchaseOrder?.lines || []).find(
+                                (l) => l.id === rLine.purchaseOrderLineId,
+                              );
+                              return (
+                                <div key={rLine.id} className="flex items-center justify-between text-slate-700">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-slate-400">•</span>
+                                    <span>{matchingPoLine?.description || "PO Line Item"}</span>
+                                    {rLine.notes && (
+                                      <span className="text-[10px] text-slate-400">({rLine.notes})</span>
+                                    )}
+                                  </div>
+                                  <div className="font-mono font-semibold text-slate-900 tabular-nums">
+                                    +{rLine.receivedQuantity} {matchingPoLine?.unit || "units"}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {receipt.notes && (
+                            <div className="mt-2 text-[11px] text-slate-500 italic">
+                              "{receipt.notes}"
+                            </div>
+                          )}
+
+                          {isVoided && receipt.voidReason && (
+                            <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-rose-700 bg-rose-50 p-2 rounded-lg border border-rose-100">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                              <span>Voided: {receipt.voidReason}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-xs text-slate-500">
+                    No delivery receipts recorded yet against this purchase order.
+                  </div>
+                )}
+              </div>
+
+              {/* Void Prompt Dialog */}
+              {voidReceiptTarget && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3 mt-3">
+                  <div className="text-xs font-bold text-rose-900">
+                    Void Goods Receipt {voidReceiptTarget.receiptNumber}?
+                  </div>
+                  <p className="text-xs text-rose-700">
+                    Voiding this receipt will deduct its received quantities from the PO delivery progress and restore remaining balance. Please provide an auditable reason.
+                  </p>
+                  <textarea
+                    rows={2}
+                    value={voidReasonText}
+                    onChange={(e) => setVoidReasonText(e.target.value)}
+                    placeholder="Reason for voiding (e.g. entered wrong delivery note, rejected delivery on inspection)"
+                    className="w-full rounded-lg border border-rose-300 bg-white p-2.5 text-xs text-slate-900 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleConfirmVoidReceipt}
+                      disabled={!voidReasonText.trim() || isSubmitting}
+                      className="px-3 py-1.5 text-xs font-semibold rounded bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
+                    >
+                      {isSubmitting ? "Voiding..." : "Confirm Void"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVoidReceiptTarget(null)}
+                      className="px-3 py-1.5 text-xs font-semibold rounded text-slate-600 border border-slate-200 hover:bg-rose-50"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Cancel Reason Modal Area */}
           {showCancelPrompt && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
@@ -733,6 +1063,18 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
           </div>
         </footer>
       </div>
+
+      {/* Record Receipt Modal Sub-dialog */}
+      {showRecordReceiptModal && purchaseOrder && (
+        <RecordReceiptModal
+          open={showRecordReceiptModal}
+          purchaseOrder={purchaseOrder}
+          existingReceipts={poReceipts}
+          onRecordReceipt={handleRecordReceipt}
+          onClose={() => setShowRecordReceiptModal(false)}
+        />
+      )}
     </div>
   );
 };
+

@@ -966,3 +966,36 @@ export interface PurchaseOrder {
   closedAt?: string | null;
 }
 
+export type PurchaseOrderReceiptStatus = "RECEIVED" | "VOIDED";
+
+export interface PurchaseOrderReceiptLine {
+  id: string;
+  companyId?: string;
+  purchaseOrderReceiptId: string;
+  purchaseOrderLineId: string;
+  lineNumber: number;
+  receivedQuantity: number;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PurchaseOrderReceipt {
+  id: string;
+  companyId?: string;
+  purchaseOrderId: string;
+  receiptNumber: string;
+  receiptDate: string;
+  supplierDeliveryReference?: string | null;
+  notes?: string | null;
+  status: PurchaseOrderReceiptStatus;
+  voidReason?: string | null;
+  voidedByUserId?: string | null;
+  voidedAt?: string | null;
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  lines?: PurchaseOrderReceiptLine[];
+}
+

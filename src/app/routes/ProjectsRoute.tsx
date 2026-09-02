@@ -13,6 +13,7 @@ import type {
   ProjectWorkerAssignment,
   PurchaseOrder,
   PurchaseOrderLine,
+  PurchaseOrderReceipt,
   PurchaseOrderStatus,
   Vendor,
   Worker,
@@ -32,6 +33,7 @@ export interface ProjectsRouteProps {
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
   purchaseOrders?: PurchaseOrder[];
+  receipts?: PurchaseOrderReceipt[];
   vendors?: Vendor[];
   workers?: Worker[];
   assignments?: ProjectWorkerAssignment[];
@@ -91,6 +93,11 @@ export interface ProjectsRouteProps {
   ) => Promise<void>;
   onTransitionPO?: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   onDeletePO?: (id: string) => Promise<void>;
+  onRecordReceipt?: (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+  ) => Promise<void>;
+  onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
   onBack: () => void;
   onOpenInvoice: (invoice: InvoiceData) => void;
@@ -110,6 +117,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   invoiceAllocations,
   expenses,
   purchaseOrders = [],
+  receipts = [],
   vendors = [],
   workers = [],
   assignments = [],
@@ -157,6 +165,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onSavePO,
   onTransitionPO,
   onDeletePO,
+  onRecordReceipt,
+  onVoidReceipt,
   onAddVendor,
   onBack,
   onOpenInvoice,
@@ -194,6 +204,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         invoiceAllocations={invoiceAllocations}
         expenses={expenses}
         purchaseOrders={purchaseOrders}
+        receipts={receipts}
         vendors={vendors}
         workers={workers}
         assignments={assignments}
@@ -242,6 +253,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onSavePO={onSavePO}
         onTransitionPO={onTransitionPO}
         onDeletePO={onDeletePO}
+        onRecordReceipt={onRecordReceipt}
+        onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}
       />
     );

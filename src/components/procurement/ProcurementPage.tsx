@@ -11,15 +11,19 @@ import {
   Plus,
   Search,
   ShoppingCart,
+  Truck,
+  PackageCheck,
 } from "lucide-react";
-import type { Project, ProjectCostCode, PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus, Vendor } from "../../types.ts";
+import type { Project, ProjectCostCode, PurchaseOrder, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor } from "../../types.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { isCommittedPurchaseOrder } from "../../utils/projectCosting.ts";
+import { calculatePOReceiptProgress, type PODeliveryStatus } from "../../utils/purchaseOrderReceipts.ts";
 import { EmptyState, PageHeader, StatusBadge } from "../ui/OperationsUI.tsx";
 import { PurchaseOrderEditorModal } from "./PurchaseOrderEditorModal.tsx";
 
 export interface ProcurementPageProps {
   purchaseOrders: PurchaseOrder[];
+  receipts?: readonly PurchaseOrderReceipt[];
   projects: Project[];
   vendors: Vendor[];
   costCodes: ProjectCostCode[];
@@ -33,11 +37,17 @@ export interface ProcurementPageProps {
   ) => Promise<void>;
   onTransitionPO: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   onDeletePO: (id: string) => Promise<void>;
+  onRecordReceipt?: (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+  ) => Promise<void>;
+  onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
 }
 
 export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   purchaseOrders,
+  receipts = [],
   projects,
   vendors,
   costCodes,
@@ -48,21 +58,38 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   onSavePO,
   onTransitionPO,
   onDeletePO,
+  onRecordReceipt,
+  onVoidReceipt,
   onAddVendor,
 }) => {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [deliveryFilter, setDeliveryFilter] = useState<string>("ALL");
   const [projectFilter, setProjectFilter] = useState<string>(selectedProjectId || "ALL");
   const [activePo, setActivePo] = useState<PurchaseOrder | null | undefined>(undefined);
 
   const vendorMap = useMemo(() => new Map(vendors.map((v) => [v.id, v])), [vendors]);
   const projectMap = useMemo(() => new Map(projects.map((p) => [p.id, p])), [projects]);
 
+  // Precompute delivery progress for each PO
+  const poProgressMap = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof calculatePOReceiptProgress>>();
+    for (const po of purchaseOrders) {
+      map.set(po.id, calculatePOReceiptProgress(po, receipts));
+    }
+    return map;
+  }, [purchaseOrders, receipts]);
+
   const filteredOrders = useMemo(() => {
     return purchaseOrders.filter((po) => {
       if (selectedProjectId && po.projectId !== selectedProjectId) return false;
       if (projectFilter !== "ALL" && po.projectId !== projectFilter) return false;
       if (statusFilter !== "ALL" && po.status !== statusFilter) return false;
+
+      if (deliveryFilter !== "ALL") {
+        const prog = poProgressMap.get(po.id);
+        if (prog?.deliveryStatus !== deliveryFilter) return false;
+      }
 
       if (query.trim()) {
         const q = query.trim().toLowerCase();
@@ -76,7 +103,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
       }
       return true;
     });
-  }, [purchaseOrders, selectedProjectId, projectFilter, statusFilter, query, vendorMap, projectMap]);
+  }, [purchaseOrders, selectedProjectId, projectFilter, statusFilter, deliveryFilter, query, vendorMap, projectMap, poProgressMap]);
 
   // KPI Metrics
   const activeCommittedTotal = useMemo(() => {
@@ -219,6 +246,17 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
             <option value="CLOSED">Closed</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
+
+          <select
+            value={deliveryFilter}
+            onChange={(e) => setDeliveryFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+          >
+            <option value="ALL">All Delivery States</option>
+            <option value="NOT_RECEIVED">Pending Delivery (0%)</option>
+            <option value="PARTIALLY_RECEIVED">Partially Delivered</option>
+            <option value="FULLY_RECEIVED">Fully Delivered (100%)</option>
+          </select>
         </div>
       </div>
 
@@ -231,6 +269,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                 <tr>
                   <th className="px-4 py-3">PO Number</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Delivery Progress</th>
                   <th className="px-4 py-3">Supplier / Vendor</th>
                   <th className="px-4 py-3">Project</th>
                   <th className="px-4 py-3">Issue Date</th>
@@ -243,6 +282,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                 {filteredOrders.map((po) => {
                   const vendor = vendorMap.get(po.vendorId);
                   const proj = projectMap.get(po.projectId);
+                  const prog = poProgressMap.get(po.id);
                   return (
                     <tr
                       key={po.id}
@@ -273,6 +313,37 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                         >
                           {po.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {po.status === "ISSUED" || po.status === "CLOSED" ? (
+                          <div className="space-y-0.5">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                                prog?.deliveryStatus === "FULLY_RECEIVED"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : prog?.deliveryStatus === "PARTIALLY_RECEIVED"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              <Truck className="h-3 w-3" />
+                              {prog?.deliveryStatus === "FULLY_RECEIVED"
+                                ? "Fully Delivered"
+                                : prog?.deliveryStatus === "PARTIALLY_RECEIVED"
+                                ? `${prog.overallProgressPercent}% Received`
+                                : "0% Delivered"}
+                            </span>
+                            {prog && prog.totalOrderedQuantity > 0 && (
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {prog.totalReceivedQuantity} / {prog.totalOrderedQuantity} units
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">
+                            {po.status === "DRAFT" ? "Draft" : po.status === "APPROVED" ? "Not issued" : "—"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-800">{vendor?.name || "Unknown Vendor"}</div>
@@ -312,7 +383,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
       ) : (
         <EmptyState
           icon={ShoppingCart}
-          title={query || statusFilter !== "ALL" || projectFilter !== "ALL" ? "No purchase orders match your filter" : "No purchase orders yet"}
+          title={query || statusFilter !== "ALL" || projectFilter !== "ALL" || deliveryFilter !== "ALL" ? "No purchase orders match your filter" : "No purchase orders yet"}
           description="Create purchase orders to establish authoritative commitments for materials, equipment, and subcontracts."
         />
       )}
@@ -322,6 +393,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
         <PurchaseOrderEditorModal
           open={true}
           purchaseOrder={activePo}
+          receipts={receipts}
           projects={projects}
           vendors={vendors}
           costCodes={costCodes}
@@ -331,6 +403,8 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           onSave={onSavePO}
           onTransition={onTransitionPO}
           onDelete={onDeletePO}
+          onRecordReceipt={onRecordReceipt}
+          onVoidReceipt={onVoidReceipt}
           onClose={() => setActivePo(undefined)}
           onAddVendor={onAddVendor}
         />
@@ -338,3 +412,4 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     </div>
   );
 };
+
