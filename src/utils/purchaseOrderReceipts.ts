@@ -1,4 +1,4 @@
-import type { PurchaseOrder, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderReceiptLine } from "../types.ts";
+import type { PurchaseOrder, PurchaseOrderLine, PurchaseOrderReceipt } from "../types.ts";
 
 export interface LineReceiptProgress {
   purchaseOrderLineId: string;
@@ -14,9 +14,15 @@ export type PODeliveryStatus = "NOT_RECEIVED" | "PARTIALLY_RECEIVED" | "FULLY_RE
 
 export interface POReceiptProgress {
   purchaseOrderId: string;
+  /** True only when every PO line uses the same normalized unit. */
+  quantitiesComparable: boolean;
+  /** Shared display unit when quantitiesComparable is true; otherwise null. */
+  aggregateUnit: string | null;
+  /** Aggregate quantities are meaningful only when quantitiesComparable is true. */
   totalOrderedQuantity: number;
   totalReceivedQuantity: number;
   totalRemainingQuantity: number;
+  /** Quantity-weighted for one-unit POs; average per-line completion for mixed-unit POs. */
   overallProgressPercent: number;
   deliveryStatus: PODeliveryStatus;
   lines: Record<string, LineReceiptProgress>;
@@ -51,7 +57,7 @@ export function calculateLineReceiptProgress(
 ): LineReceiptProgress {
   const orderedQuantity = Math.max(0, Number(line.quantity) || 0);
 
-  // Filter only active, non-voided receipts belonging to this PO
+  // Filter only active, non-voided receipts belonging to this PO.
   const relevantReceipts = receipts.filter(
     (r) => r.purchaseOrderId === line.purchaseOrderId && isValidReceipt(r),
   );
@@ -84,16 +90,28 @@ export function calculateLineReceiptProgress(
   };
 }
 
+function normalizedUnit(line: PurchaseOrderLine): string {
+  return String(line.unit || "").trim().toLowerCase();
+}
+
 export function calculatePOReceiptProgress(
   po: PurchaseOrder,
   receipts: readonly PurchaseOrderReceipt[] = [],
 ): POReceiptProgress {
   const poLines = po.lines || [];
   const linesMap: Record<string, LineReceiptProgress> = {};
+  const unitKeys = new Set(poLines.map(normalizedUnit));
+  const quantitiesComparable = unitKeys.size <= 1;
+  const aggregateUnit = quantitiesComparable && poLines.length > 0
+    ? String(poLines[0].unit || "").trim() || null
+    : null;
 
   let totalOrderedQuantity = 0;
   let totalReceivedQuantity = 0;
   let totalRemainingQuantity = 0;
+  let lineProgressPercentTotal = 0;
+  let hasAnyReceived = false;
+  let allFullyReceived = poLines.length > 0;
 
   const relevantReceipts = receipts.filter(
     (r) => r.purchaseOrderId === po.id && isValidReceipt(r),
@@ -102,28 +120,42 @@ export function calculatePOReceiptProgress(
   for (const line of poLines) {
     const lineProgress = calculateLineReceiptProgress(line, relevantReceipts);
     linesMap[line.id] = lineProgress;
-    totalOrderedQuantity += lineProgress.orderedQuantity;
-    totalReceivedQuantity += lineProgress.receivedQuantity;
-    totalRemainingQuantity += lineProgress.remainingQuantity;
+    lineProgressPercentTotal += lineProgress.progressPercent;
+    hasAnyReceived ||= lineProgress.receivedQuantity > 0;
+    allFullyReceived &&= lineProgress.isFullyReceived;
+
+    if (quantitiesComparable) {
+      totalOrderedQuantity += lineProgress.orderedQuantity;
+      totalReceivedQuantity += lineProgress.receivedQuantity;
+      totalRemainingQuantity += lineProgress.remainingQuantity;
+    }
   }
 
-  totalOrderedQuantity = roundQuantity(totalOrderedQuantity);
-  totalReceivedQuantity = roundQuantity(totalReceivedQuantity);
-  totalRemainingQuantity = roundQuantity(totalRemainingQuantity);
+  totalOrderedQuantity = quantitiesComparable ? roundQuantity(totalOrderedQuantity) : 0;
+  totalReceivedQuantity = quantitiesComparable ? roundQuantity(totalReceivedQuantity) : 0;
+  totalRemainingQuantity = quantitiesComparable ? roundQuantity(totalRemainingQuantity) : 0;
 
-  const overallProgressPercent = totalOrderedQuantity > 0
-    ? Math.min(100, Math.round((totalReceivedQuantity / totalOrderedQuantity) * 100))
-    : 0;
+  // Unlike quantities (for example cu.m and days) must never be numerically added.
+  // For mixed-unit POs, use a dimensionless average of each line's completion.
+  const overallProgressPercent = quantitiesComparable
+    ? (totalOrderedQuantity > 0
+        ? Math.min(100, Math.round((totalReceivedQuantity / totalOrderedQuantity) * 100))
+        : 0)
+    : (poLines.length > 0
+        ? Math.min(100, Math.round(lineProgressPercentTotal / poLines.length))
+        : 0);
 
   let deliveryStatus: PODeliveryStatus = "NOT_RECEIVED";
-  if (totalReceivedQuantity > 0 && totalRemainingQuantity === 0) {
+  if (allFullyReceived) {
     deliveryStatus = "FULLY_RECEIVED";
-  } else if (totalReceivedQuantity > 0) {
+  } else if (hasAnyReceived) {
     deliveryStatus = "PARTIALLY_RECEIVED";
   }
 
   return {
     purchaseOrderId: po.id,
+    quantitiesComparable,
+    aggregateUnit,
     totalOrderedQuantity,
     totalReceivedQuantity,
     totalRemainingQuantity,
