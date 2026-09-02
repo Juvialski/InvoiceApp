@@ -425,10 +425,18 @@ export const PurchaseOrderMatchSection: React.FC<PurchaseOrderMatchSectionProps>
                 />
               </div>
 
-              <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-0.5">
-                <div>Ordered: <strong className="text-slate-700">{poReceiptProgress.totalOrderedQuantity}</strong> units</div>
-                <div>Received: <strong className="text-emerald-700">{poReceiptProgress.totalReceivedQuantity}</strong> units</div>
-                <div>Remaining: <strong className="text-amber-700">{poReceiptProgress.totalRemainingQuantity}</strong> units</div>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 pt-0.5">
+                {poReceiptProgress.quantitiesComparable ? (
+                  <>
+                    <div>Ordered: <strong className="text-slate-700">{poReceiptProgress.totalOrderedQuantity}</strong> {poReceiptProgress.aggregateUnit || "units"}</div>
+                    <div>Received: <strong className="text-emerald-700">{poReceiptProgress.totalReceivedQuantity}</strong> {poReceiptProgress.aggregateUnit || "units"}</div>
+                    <div>Remaining: <strong className="text-amber-700">{poReceiptProgress.totalRemainingQuantity}</strong> {poReceiptProgress.aggregateUnit || "units"}</div>
+                  </>
+                ) : (
+                  <div className="text-slate-600">
+                    Mixed units: aggregate quantities are not comparable. See the line breakdown for exact ordered and received quantities.
+                  </div>
+                )}
                 <div>Active Receipts: <strong className="text-slate-700">{poReceiptProgress.activeReceiptsCount}</strong></div>
               </div>
             </div>
