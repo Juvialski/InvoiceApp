@@ -233,7 +233,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     currency: project.currency,
     confirmedLaborCost: summary.payrollCost,
     pendingLaborCost: summary.pendingPayrollCost,
-    status: (summary.payrollCost > 0 || summary.pendingPayrollCost > 0 ? "AVAILABLE" : "ZERO") as const,
+    status: summary.payrollCost > 0 || summary.pendingPayrollCost > 0 ? ("AVAILABLE" as const) : ("ZERO" as const),
   }], [project.id, project.currency, summary.payrollCost, summary.pendingPayrollCost]);
 
   return (
