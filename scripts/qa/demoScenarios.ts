@@ -9,7 +9,7 @@ import {
 const PROJECT_ROOT = "/demo/app/projects/demo-project-warehouse";
 
 const openProjectFromDirectory: QaScenarioAction = async (page) => {
-  await page.getByRole("button", { name: "Open Quezon City Warehouse Expansion", exact: true }).first().click();
+  await page.getByRole("button", { name: /Quezon City Warehouse Expansion/ }).first().click();
   await page.waitForTimeout(350);
   const count = await page.getByRole("heading", { name: "Quezon City Warehouse Expansion", exact: true }).count();
   return [{ id: "project-workspace-visible", passed: count === 1, details: `matching project headings: ${count}` } satisfies QaAssertion];
