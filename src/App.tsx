@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -36,7 +36,10 @@ import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderTo
 import { classifyEmailIntakeCandidate, scanConnectedMailbox, syncConnectedMailbox } from "./lib/emailIntake";
 import {
   applyInvoiceCorrectionInSupabase,
+  deleteDraftPurchaseOrder,
   ensureWorkspaceProfile,
+  fetchPurchaseOrders,
+  fetchVendors,
   findExistingInvoiceBySource,
   loadGmailSyncState,
   loadInvoicesFromSupabase,
@@ -48,11 +51,18 @@ import {
   persistNewInvoice,
   persistExtractionAttempt,
   previewInvoiceCorrectionInSupabase,
+  readPurchaseOrdersFromLocal,
+  readVendorsFromLocal,
   saveGmailMessageSource,
   saveGmailSyncState,
   saveManualEmailRecord,
   saveManualSourceDocument,
+  savePurchaseOrder,
+  saveVendor,
+  transitionPurchaseOrderStatus,
   updateInvoiceInSupabase,
+  writePurchaseOrdersToLocal,
+  writeVendorsToLocal,
 } from "./lib/persistence";
 import {
   loadInvoiceProjectAllocationsFromSupabase,
@@ -331,6 +341,8 @@ function InvoiceWorkspace() {
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(() => isSupabaseConfigured ? [] : readInvoiceProjectAllocationsFromLocal());
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
+  const [vendors, setVendors] = useState<Vendor[]>(() => isSupabaseConfigured ? [] : readVendorsFromLocal());
   const [projectLaborAggregates, setProjectLaborAggregates] = useState<ProjectLaborCostAggregate[]>([]);
   const [projectCostDomainLoadState, setProjectCostDomainLoadState] = useState<ProjectCostDomainLoadState>(isSupabaseConfigured ? "not-loaded" : "loaded");
   const [projectLaborAggregateLoadState, setProjectLaborAggregateLoadState] = useState<ProjectLaborAggregateLoadState>(isSupabaseConfigured ? "not-loaded" : "unavailable");
@@ -541,7 +553,16 @@ function InvoiceWorkspace() {
             ? can(PERMISSION_KEYS.gmailRead)
             : false);
 
-  type EngineeringWorkspaceGroup = { projects: Project[]; allocations: InvoiceProjectAllocation[]; expenses: Expense[]; costCodes: ProjectCostCode[]; laborAggregates: ProjectLaborCostAggregate[]; laborAggregateLoadState: ProjectLaborAggregateLoadState };
+  type EngineeringWorkspaceGroup = {
+    projects: Project[];
+    allocations: InvoiceProjectAllocation[];
+    expenses: Expense[];
+    costCodes: ProjectCostCode[];
+    purchaseOrders: PurchaseOrder[];
+    vendors: Vendor[];
+    laborAggregates: ProjectLaborCostAggregate[];
+    laborAggregateLoadState: ProjectLaborAggregateLoadState;
+  };
   type WorkspaceGroupData = InvoiceData[] | EngineeringWorkspaceGroup | PayrollWorkspaceData | PayrollImportWorkspaceData | CashBankingWorkspaceData | { lastHistoryId?: string; lastSyncedAt?: string };
 
   const applyInvoicesForWorkspace = (prepared: InvoiceData[], token: { generation: number; userId: string; companyId: string }) => {
@@ -597,6 +618,8 @@ function InvoiceWorkspace() {
     setInvoiceProjectAllocations(data.allocations);
     setExpenses(data.expenses);
     setCostCodes(data.costCodes);
+    setPurchaseOrders(data.purchaseOrders);
+    setVendors(data.vendors);
     setProjectLaborAggregates(data.laborAggregates);
     setProjectLaborAggregateLoadState(data.laborAggregateLoadState);
     setProjectCostDomainLoadState("loaded");
@@ -608,16 +631,22 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.projectsRead) ? loadProjectCostCodesFromSupabase() : Promise.resolve([]),
+      can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.projectsRead) ? fetchPurchaseOrders() : Promise.resolve([]),
+      can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.invoicesRead) ? fetchVendors() : Promise.resolve([]),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
     const allocations = results[1].status === "fulfilled" ? results[1].value : [];
     const expenses = results[2].status === "fulfilled" ? results[2].value : [];
     const costCodes = results[3].status === "fulfilled" ? results[3].value : [];
+    const purchaseOrders = results[4].status === "fulfilled" ? results[4].value : [];
+    const vendors = results[5].status === "fulfilled" ? results[5].value : [];
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("expenses");
     if (results[3].status !== "fulfilled") failures.push("cost codes");
+    if (results[4].status !== "fulfilled") failures.push("purchase orders");
+    if (results[5].status !== "fulfilled") failures.push("vendors");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -642,7 +671,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, expenses, costCodes, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, expenses, costCodes, purchaseOrders, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -2032,6 +2061,89 @@ function InvoiceWorkspace() {
     }
   };
 
+  const handleSavePO = useCallback(async (
+    po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
+    lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+  ) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to create or edit purchase orders.");
+      }
+      const saved = await savePurchaseOrder(po, lines);
+      setPurchaseOrders((prev) => {
+        const index = prev.findIndex((p) => p.id === saved.id);
+        const next = index >= 0 ? prev.map((p) => (p.id === saved.id ? saved : p)) : [saved, ...prev];
+        if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
+        return next;
+      });
+      showNotification("success", `Purchase order ${saved.poNumber} saved.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save purchase order."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleTransitionPO = useCallback(async (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => {
+    try {
+      if (isSupabaseConfigured) {
+        if (targetStatus === "APPROVED" && !can(PERMISSION_KEYS.procurementApprove)) {
+          throw new Error("You do not have permission to approve purchase orders.");
+        }
+        if (targetStatus !== "APPROVED" && !can(PERMISSION_KEYS.procurementWrite)) {
+          throw new Error("You do not have permission to manage purchase orders.");
+        }
+      }
+      const updated = await transitionPurchaseOrderStatus(id, targetStatus, reason);
+      setPurchaseOrders((prev) => {
+        const next = prev.map((p) => (p.id === updated.id ? updated : p));
+        if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
+        return next;
+      });
+      showNotification("success", `Purchase order ${updated.poNumber} transitioned to ${targetStatus}.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not transition purchase order."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleDeletePO = useCallback(async (id: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to delete draft purchase orders.");
+      }
+      await deleteDraftPurchaseOrder(id);
+      setPurchaseOrders((prev) => {
+        const next = prev.filter((p) => p.id !== id);
+        if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
+        return next;
+      });
+      showNotification("success", "Draft purchase order deleted.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not delete draft purchase order."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleAddVendor = useCallback(async (vendor: Partial<Vendor> & { name: string }) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite) && !can(PERMISSION_KEYS.invoicesWrite)) {
+        throw new Error("You do not have permission to add vendors.");
+      }
+      const saved = await saveVendor(vendor);
+      setVendors((prev) => {
+        const index = prev.findIndex((v) => v.id === saved.id);
+        const next = index >= 0 ? prev.map((v) => (v.id === saved.id ? saved : v)) : [...prev, saved];
+        if (!isSupabaseConfigured) writeVendorsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Vendor "${saved.name}" created.`);
+      return saved;
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not create vendor."));
+      throw error;
+    }
+  }, [permissions, session]);
+
   const previewInvoiceCorrection = async (invoice: InvoiceData): Promise<FinancialCorrectionPreview> => {
     if (session && supabase) return previewInvoiceCorrectionInSupabase(invoice.id);
     const matches = cashData.matches.filter((match) => match.targetType === "INVOICE" && match.targetId === invoice.id);
@@ -3364,14 +3476,15 @@ function InvoiceWorkspace() {
         invoices: costInvoices,
         payroll: detailPayrollForProjectCost,
         expenses,
+        purchaseOrders,
         projectLaborAggregates,
         laborSource: projectLaborSource,
       });
     });
-    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses });
+    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses, purchaseOrders });
     next.__unallocated__ = unallocated;
     return next;
-  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, projectLaborAggregates, projectLaborSource]);
+  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, purchaseOrders, projectLaborAggregates, projectLaborSource]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
     ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
     ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
@@ -3542,6 +3655,8 @@ function InvoiceWorkspace() {
           projectSummaries={projectSummaries}
           projectDashboard={projectDashboard}
           costCodes={costCodes}
+          purchaseOrders={purchaseOrders}
+          vendors={vendors}
           projectLaborAggregates={projectLaborAggregates}
           laborSource={projectLaborSource}
           projectFormSeed={projectFormSeed}
@@ -3555,6 +3670,10 @@ function InvoiceWorkspace() {
            onSaveCostCode={handleSaveCostCode}
            onArchiveCostCode={handleArchiveCostCode}
            onReactivateCostCode={handleReactivateCostCode}
+           onSavePO={handleSavePO}
+           onTransitionPO={handleTransitionPO}
+           onDeletePO={handleDeletePO}
+           onAddVendor={handleAddVendor}
           onProjectTabChange={(tab) => {
             if (route.kind === "project" && selectedProject) {
               navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView));

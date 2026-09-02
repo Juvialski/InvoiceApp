@@ -26,6 +26,7 @@ import type {
   PayrollRun,
   Project,
   ProjectCostCode,
+  PurchaseOrder,
 } from "../../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import {
@@ -44,6 +45,7 @@ export interface ProjectBudgetControlPanelProps {
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
+  purchaseOrders?: PurchaseOrder[];
   payrollAllocations?: PayrollProjectAllocation[];
   payrollPeriods?: PayrollPeriod[];
   payrollRuns?: PayrollRun[];
@@ -82,6 +84,7 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
   invoices,
   invoiceAllocations,
   expenses,
+  purchaseOrders = [],
   payrollAllocations = [],
   payrollPeriods = [],
   payrollRuns = [],
@@ -127,11 +130,12 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
         allocations: payrollAllocations,
       }],
       expenses,
+      purchaseOrders,
       projectLaborAggregates,
       laborSource,
       baseCurrency: project.currency,
     };
-  }, [invoices, invoiceAllocations, expenses, payrollRuns, payrollPeriods, payrollAllocations, projectLaborAggregates, laborSource, project.currency]);
+  }, [invoices, invoiceAllocations, expenses, purchaseOrders, payrollRuns, payrollPeriods, payrollAllocations, projectLaborAggregates, laborSource, project.currency]);
 
   // 2. Compute P1B Budget Control Summary
   const budgetControl: ProjectBudgetControlSummary = useMemo(() => {
@@ -469,9 +473,13 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
                           )}
                         </td>
 
-                        {/* Committed Cost (Always Unavailable until P2) */}
-                        <td className="px-4 py-3.5 text-right font-semibold text-slate-400 italic">
-                          Unavailable
+                        {/* Committed Cost */}
+                        <td className="px-4 py-3.5 text-right font-black tabular-nums text-purple-700">
+                          {cc.hasForeignAmounts ? (
+                            <span className="font-semibold text-slate-400 italic">Partial</span>
+                          ) : (
+                            money(cc.committedCost || 0, currency)
+                          )}
                         </td>
 
                         {/* Forecast Cost */}
@@ -650,7 +658,13 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
                       </div>
                       <div>
                         <span className="text-[10px] font-semibold text-slate-500">Committed Cost:</span>
-                        <p className="font-semibold text-slate-400 italic">Unavailable</p>
+                        <p className="font-black tabular-nums text-purple-700">
+                          {cc.hasForeignAmounts ? (
+                            <span className="font-semibold text-slate-400 italic">Partial</span>
+                          ) : (
+                            money(cc.committedCost || 0, currency)
+                          )}
+                        </p>
                       </div>
                       <div>
                         <span className="text-[10px] font-semibold text-slate-500">Forecast Cost:</span>

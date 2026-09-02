@@ -52,6 +52,7 @@ export function buildProjectFinancialTruth(
   project: Pick<Project, "projectBudget" | "contractValue" | "currency">,
   summary: Pick<ProjectCostSummary,
     | "totalActualCost"
+    | "committedCost"
     | "pendingInvoiceCost"
     | "pendingPayrollCost"
     | "pendingExpenseCost"
@@ -63,6 +64,7 @@ export function buildProjectFinancialTruth(
   const hasForeignAmounts = Object.entries(summary.foreignCosts || {})
     .some(([, amount]) => roundMoney(amount) !== 0);
   const actualBase = roundMoney(summary.totalActualCost);
+  const committedBase = roundMoney(summary.committedCost || 0);
   const pendingBase = roundMoney(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
   const payableBase = roundMoney(summary.unpaidInvoiceCost);
   const budget = roundMoney(project.projectBudget);
@@ -75,6 +77,15 @@ export function buildProjectFinancialTruth(
         reason: `Unconverted foreign-currency cost sources are present, but the current costing summary does not preserve whether they are confirmed or pending. Actual cost therefore shows only the authoritative ${currency} amount.`,
       }
     : available(actualBase, currency);
+
+  const committedCost: ProjectFinancialMetric = hasForeignAmounts
+    ? {
+        status: "partial",
+        amount: committedBase,
+        currency,
+        reason: `Unconverted foreign-currency cost sources are present. Committed cost shows the authoritative ${currency} amount.`,
+      }
+    : available(committedBase, currency);
 
   const pendingCostExposure: ProjectFinancialMetric = hasForeignAmounts
     ? {
@@ -101,7 +112,7 @@ export function buildProjectFinancialTruth(
       : unavailable("No contract value has been recorded for this project."),
     approvedCostBudget: available(budget, currency),
     actualCost,
-    committedCost: unavailable(COMMITMENT_REASON),
+    committedCost,
     remainingBudget: hasForeignAmounts
       ? unavailable("Remaining budget cannot be stated as a complete aggregate while foreign-currency cost sources are unconverted and their confirmed/pending status is not preserved.")
       : available(budget - actualBase, currency),

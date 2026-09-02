@@ -691,13 +691,13 @@ test("18. forecast cost separate from actual cost; missing forecast is null", ()
   assert.equal(mech?.forecastVariance, null);
 });
 
-test("19. committed cost remains null (unavailable)", () => {
+test("19. committed cost is 0 when no purchase orders exist (P2A)", () => {
   const project = createMockProject();
   const costCodes = createMockCostCodes("proj-1");
   const summary = calculateProjectBudgetControl(project, costCodes, {});
 
   for (const cc of summary.costCodes) {
-    assert.equal(cc.committedCost, null, "Committed cost must be null (unavailable) until P2");
+    assert.equal(cc.committedCost, 0, "Committed cost must be 0 when no purchase orders exist");
   }
 });
 

@@ -11,6 +11,10 @@ import type {
   ProjectCostCode,
   ProjectCostSummary,
   ProjectWorkerAssignment,
+  PurchaseOrder,
+  PurchaseOrderLine,
+  PurchaseOrderStatus,
+  Vendor,
   Worker,
 } from "../../types";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
@@ -27,6 +31,8 @@ export interface ProjectsRouteProps {
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
+  purchaseOrders?: PurchaseOrder[];
+  vendors?: Vendor[];
   workers?: Worker[];
   assignments?: ProjectWorkerAssignment[];
   payrollAllocations?: PayrollProjectAllocation[];
@@ -79,6 +85,13 @@ export interface ProjectsRouteProps {
   onArchiveCostCode?: (costCodeId: string) => Promise<void> | void;
   onReactivateCostCode?: (costCodeId: string) => Promise<void> | void;
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
+  onSavePO?: (
+    po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
+    lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+  ) => Promise<void>;
+  onTransitionPO?: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
+  onDeletePO?: (id: string) => Promise<void>;
+  onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
   onBack: () => void;
   onOpenInvoice: (invoice: InvoiceData) => void;
   onUploadInvoice: () => void;
@@ -96,6 +109,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   invoices,
   invoiceAllocations,
   expenses,
+  purchaseOrders = [],
+  vendors = [],
   workers = [],
   assignments = [],
   payrollAllocations = [],
@@ -139,6 +154,10 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onArchiveCostCode,
   onReactivateCostCode,
   onSaveInvoiceAllocations,
+  onSavePO,
+  onTransitionPO,
+  onDeletePO,
+  onAddVendor,
   onBack,
   onOpenInvoice,
   onUploadInvoice,
@@ -174,6 +193,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         invoices={invoices}
         invoiceAllocations={invoiceAllocations}
         expenses={expenses}
+        purchaseOrders={purchaseOrders}
+        vendors={vendors}
         workers={workers}
         assignments={assignments}
         payrollAllocations={payrollAllocations}
@@ -218,6 +239,10 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onSaveCostCode={onSaveCostCode}
         onArchiveCostCode={onArchiveCostCode}
         onReactivateCostCode={onReactivateCostCode}
+        onSavePO={onSavePO}
+        onTransitionPO={onTransitionPO}
+        onDeletePO={onDeletePO}
+        onAddVendor={onAddVendor}
       />
     );
   }

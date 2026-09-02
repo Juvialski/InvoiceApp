@@ -3,7 +3,7 @@ import type { EngineeringCoordinationWorkspaceData } from "../lib/engineeringCoo
 import type { EngineeringDailySiteLogsWorkspaceData } from "../lib/dailySiteLogs.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../lib/engineeringDocuments.ts";
 import type { PayrollWorkspaceData } from "../lib/payroll.ts";
-import type { Expense, InvoiceData, InvoiceProjectAllocation, Project } from "../types.ts";
+import type { Expense, InvoiceData, InvoiceProjectAllocation, Project, PurchaseOrder, Vendor } from "../types.ts";
 
 export const DEMO_COMPANY_ID = "demo-company-meridian" as const;
 export const DEMO_STORAGE_KEY = "engoryx:client-demo:v1" as const;
@@ -40,6 +40,8 @@ export interface DemoWorkspaceData {
   engineering: EngineeringDocumentsWorkspaceData;
   coordination: EngineeringCoordinationWorkspaceData;
   siteLogs: EngineeringDailySiteLogsWorkspaceData;
+  vendors?: Vendor[];
+  purchaseOrders?: PurchaseOrder[];
 }
 
 export type DemoAssistantActionKind = "ADD_WORKER";

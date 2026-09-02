@@ -7,6 +7,7 @@ import {
 export type ProjectWorkspaceVisibilityTab =
   | "overview"
   | "budget"
+  | "procurement"
   | "documents"
   | "rfis"
   | "submittals"
@@ -18,6 +19,7 @@ export type ProjectWorkspaceVisibilityTab =
   | "reports";
 
 const TAB_MODULES: Partial<Record<ProjectWorkspaceVisibilityTab, DeploymentModuleKey>> = {
+  procurement: "procurement",
   documents: "engineering-documents",
   rfis: "engineering-documents",
   submittals: "engineering-documents",

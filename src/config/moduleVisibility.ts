@@ -4,6 +4,7 @@ export const DEPLOYMENT_MODULE_KEYS = [
   "invoices",
   "email-intake",
   "projects",
+  "procurement",
   "expenses",
   "payroll",
   "reports",

@@ -20,6 +20,7 @@ import {
   Pencil,
   Receipt,
   ShieldCheck,
+  ShoppingCart,
   Users,
   Wallet,
 } from "lucide-react";
@@ -481,7 +482,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {/* 1. Contract Value */}
           <Card className="p-4 shadow-sm" elevation="low">
             <div className="flex items-center justify-between text-slate-500">
@@ -524,7 +525,21 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             </p>
           </Card>
 
-          {/* 4. Pending Cost Exposure */}
+          {/* 4. Committed Cost (P2A) */}
+          <Card className="p-4 shadow-sm" elevation="low">
+            <div className="flex items-center justify-between text-purple-700">
+              <span className="text-[10px] font-bold">Committed Cost</span>
+              <ShoppingCart className="h-3.5 w-3.5 text-purple-600" aria-hidden="true" />
+            </div>
+            <p className="mt-2 text-base font-black tabular-nums text-purple-800">
+              {money(managementView.committedCost, managementView.currency)}
+            </p>
+            <p className="mt-1 text-[9px] text-slate-500">
+              Active PO obligations (Approved / Issued)
+            </p>
+          </Card>
+
+          {/* 5. Pending Cost Exposure */}
           <Card className="p-4 shadow-sm" elevation="low">
             <div className="flex items-center justify-between text-amber-700">
               <span className="text-[10px] font-bold">Pending Exposure</span>
@@ -536,7 +551,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             <p className="mt-1 text-[9px] text-slate-500">Unconfirmed invoices & draft costs</p>
           </Card>
 
-          {/* 5. Budget Remaining / Variance */}
+          {/* 6. Budget Remaining / Variance */}
           <Card className="p-4 shadow-sm col-span-2 sm:col-span-1" elevation="low">
             <div className="flex items-center justify-between text-slate-500">
               <span className="text-[10px] font-semibold">Budget Remaining</span>

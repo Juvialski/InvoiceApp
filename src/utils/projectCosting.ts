@@ -11,6 +11,9 @@ import type {
   ProjectCostCode,
   ProjectCostCodeStatus,
   ProjectCostSummary,
+  PurchaseOrder,
+  PurchaseOrderLine,
+  PurchaseOrderStatus,
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
@@ -38,6 +41,7 @@ export interface ProjectCostInput {
   invoices?: CostInvoice[];
   payroll?: CostPayrollRecord[];
   expenses?: Expense[];
+  purchaseOrders?: PurchaseOrder[];
   /** Safe project-level labor totals used when payroll detail is unavailable. */
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   /** Explicitly selects detail rows or the safe aggregate source. */
@@ -224,6 +228,32 @@ export function isVoidedPayroll(status: string) {
 
 export function isConfirmedExpense(status: ExpenseStatus) {
   return status === "APPROVED" || status === "PAID";
+}
+
+export function isCommittedPurchaseOrder(statusOrPO?: PurchaseOrderStatus | string | { status?: PurchaseOrderStatus | string | null } | null): boolean {
+  if (!statusOrPO) return false;
+  const raw = typeof statusOrPO === "object" && "status" in statusOrPO ? statusOrPO.status : statusOrPO;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "APPROVED" || normalized === "ISSUED";
+}
+
+export function isVoidedPurchaseOrder(statusOrPO?: PurchaseOrderStatus | string | { status?: PurchaseOrderStatus | string | null } | null): boolean {
+  if (!statusOrPO) return false;
+  const raw = typeof statusOrPO === "object" && "status" in statusOrPO ? statusOrPO.status : statusOrPO;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "CANCELLED";
+}
+
+export function purchaseOrderTotal(po: Pick<PurchaseOrder, "totalAmount" | "lines">): number {
+  if (po.lines && po.lines.length > 0) {
+    return roundMoney(
+      po.lines.reduce(
+        (sum, line) => sum + roundMoney(line.amount != null && Number.isFinite(Number(line.amount)) ? Number(line.amount) : (Number(line.quantity || 0) * Number(line.unitPrice || 0))),
+        0,
+      ),
+    );
+  }
+  return positiveMoney(po.totalAmount);
 }
 
 function payrollEntryBasis(entry: CostPayrollEntry) {
@@ -517,6 +547,23 @@ export function calculateProjectCost(
     }
   }
 
+  for (const po of input.purchaseOrders || []) {
+    if (!isCommittedPurchaseOrder(po.status)) continue;
+    const poAmount = purchaseOrderTotal(po);
+    if (!poAmount) continue;
+    const poCurrency = normalizeCurrency(po.currency);
+
+    if (projectId) {
+      if (po.projectId !== projectId) continue;
+      if (poCurrency !== baseCurrency) {
+        addForeign(poCurrency, poAmount);
+      } else {
+        summary.committedCost = roundMoney(summary.committedCost + poAmount);
+      }
+      continue;
+    }
+  }
+
   summary.totalActualCost = roundMoney(summary.invoiceCost + summary.payrollCost + summary.otherExpenseCost);
   summary.remainingBudget = roundMoney(summary.budget - summary.totalActualCost);
   summary.budgetUsedPercent = summary.budget > 0 ? roundMoney(summary.totalActualCost / summary.budget * 100) : 0;
@@ -638,10 +685,14 @@ export interface ProjectBudgetControlSummary {
   totalPendingCost: number;
   codedPendingCost: number;
   uncodedPendingCost: number;
+  totalCommittedCost: number;
+  codedCommittedCost: number;
+  uncodedCommittedCost: number;
   costCodes: CostCodeFinancialSummary[];
   uncodedSummary: {
     actualCost: number;
     pendingCost: number;
+    committedCost: number;
     invoiceCost: number;
     payrollCost: number;
     otherExpenseCost: number;
@@ -653,15 +704,15 @@ export interface ProjectBudgetControlSummary {
 }
 
 /**
- * P1B Budget Control Aggregation.
- * Classifies authoritative actual costs and pending exposure into project cost codes.
+ * P1B Budget Control Aggregation & P2A Procurement Commitment Integration.
+ * Classifies authoritative actual costs, pending exposure, and purchase order commitments into project cost codes.
  *
  * Guarantees:
  * - Reconciles exactly to P1A calculateProjectCost:
  *   codedActualCost + uncodedActualCost === totalActualCost
  * - Deduplication via linkedSourceOwners applies first before classification.
  * - Non-confirmed invoices, unapproved payroll, and voided expenses are excluded from actual cost.
- * - Committed cost is always null ("Unavailable") until P2 procurement is implemented.
+ * - Committed cost is derived from active approved/issued purchase orders (status APPROVED or ISSUED).
  * - Explicit forecast variance = budgetAmount - forecastAmount. If forecast is null -> "Not set".
  * - Unconverted foreign currency costs are kept in foreignCosts without implicit FX conversion.
  */
@@ -685,6 +736,7 @@ export function calculateProjectBudgetControl(
     otherExpenseCost: number;
     actualCost: number;
     pendingCost: number;
+    committedCost: number;
     foreignCosts: Record<string, number>;
   }
 
@@ -696,6 +748,7 @@ export function calculateProjectBudgetControl(
       otherExpenseCost: 0,
       actualCost: 0,
       pendingCost: 0,
+      committedCost: 0,
       foreignCosts: {},
     });
   }
@@ -706,6 +759,7 @@ export function calculateProjectBudgetControl(
     otherExpenseCost: 0,
     actualCost: 0,
     pendingCost: 0,
+    committedCost: 0,
     foreignCosts: {},
   };
 
@@ -798,12 +852,45 @@ export function calculateProjectBudgetControl(
     addAmount(targetCodeId, "expense", amount, expenseCurrency, confirmed);
   }
 
+  // 4. Purchase Orders (Commitments)
+  for (const po of input.purchaseOrders || []) {
+    if (po.projectId !== projectId || !isCommittedPurchaseOrder(po.status)) continue;
+    const poCurrency = normalizeCurrency(po.currency);
+    const isBaseCurrency = poCurrency === baseCurrency;
+
+    if (po.lines && po.lines.length > 0) {
+      for (const line of po.lines) {
+        const lineAmount = roundMoney(line.amount != null && Number.isFinite(Number(line.amount)) ? Number(line.amount) : (Number(line.quantity || 0) * Number(line.unitPrice || 0)));
+        if (lineAmount <= 0) continue;
+        const targetCodeId = line.projectCostCodeId || (line as { costCodeId?: string }).costCodeId;
+        const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
+          ? codeAccumulators.get(targetCodeId)!
+          : uncodedAccumulator;
+
+        if (!isBaseCurrency) {
+          target.foreignCosts[poCurrency] = roundMoney((target.foreignCosts[poCurrency] || 0) + lineAmount);
+        } else {
+          target.committedCost = roundMoney(target.committedCost + lineAmount);
+        }
+      }
+    } else {
+      const poAmount = purchaseOrderTotal(po);
+      if (poAmount > 0) {
+        if (!isBaseCurrency) {
+          uncodedAccumulator.foreignCosts[poCurrency] = roundMoney((uncodedAccumulator.foreignCosts[poCurrency] || 0) + poAmount);
+        } else {
+          uncodedAccumulator.committedCost = roundMoney(uncodedAccumulator.committedCost + poAmount);
+        }
+      }
+    }
+  }
+
   const costCodeSummaries: CostCodeFinancialSummary[] = validCostCodes.map((cc) => {
     const acc = codeAccumulators.get(cc.id)!;
     const budgetAmount = roundMoney(cc.approvedBudgetAmount || 0);
     const actualCost = roundMoney(acc.actualCost);
     const pendingCost = roundMoney(acc.pendingCost);
-    const committedCost = null; // Always null / unavailable until P2 procurement
+    const committedCost = roundMoney(acc.committedCost);
     const forecastAmount = cc.forecastAmount != null && Number.isFinite(Number(cc.forecastAmount))
       ? roundMoney(cc.forecastAmount)
       : null;
@@ -852,6 +939,10 @@ export function calculateProjectBudgetControl(
   const codedPendingCost = roundMoney(costCodeSummaries.reduce((sum, s) => sum + s.pendingCost, 0));
   const uncodedPendingCost = roundMoney(totalPendingCost - codedPendingCost);
 
+  const totalCommittedCost = roundMoney(baseSummary.committedCost);
+  const codedCommittedCost = roundMoney(costCodeSummaries.reduce((sum, s) => sum + (s.committedCost || 0), 0));
+  const uncodedCommittedCost = roundMoney(totalCommittedCost - codedCommittedCost);
+
   const uncodedForeignCosts = uncodedAccumulator.foreignCosts;
   const hasForeignAmounts = Object.entries(baseSummary.foreignCosts || {}).some(
     ([, val]) => roundMoney(val) > 0,
@@ -869,10 +960,14 @@ export function calculateProjectBudgetControl(
     totalPendingCost,
     codedPendingCost,
     uncodedPendingCost,
+    totalCommittedCost,
+    codedCommittedCost,
+    uncodedCommittedCost,
     costCodes: costCodeSummaries,
     uncodedSummary: {
       actualCost: uncodedActualCost,
       pendingCost: uncodedPendingCost,
+      committedCost: uncodedCommittedCost,
       invoiceCost: roundMoney(uncodedAccumulator.invoiceCost),
       payrollCost: roundMoney(uncodedAccumulator.payrollCost),
       otherExpenseCost: roundMoney(uncodedAccumulator.otherExpenseCost),
