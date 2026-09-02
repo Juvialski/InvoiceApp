@@ -7,7 +7,6 @@ import type {
 } from "../types.ts";
 import {
   calculateProjectBudgetControl,
-  calculateProjectCost,
   normalizeCurrency,
   projectHealth,
   roundMoney,
@@ -16,11 +15,9 @@ import {
   type CostPayrollRecord,
   type ProjectBudgetControlSummary,
   type ProjectCostInput,
-  type ProjectCostSummaryWithCurrency,
 } from "./projectCosting.ts";
 import {
   buildProjectFinancialTruth,
-  type ProjectFinancialMetric,
   type ProjectFinancialTruth,
 } from "./projectFinancialSummary.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
@@ -70,12 +67,13 @@ export interface ProjectManagementView {
   // Work Package / Budget Control Context
   allocatedCostCodeBudget: number;
   unallocatedBudget: number;
-  codedActualCost: number;
-  uncodedActualCost: number;
+  codedActualCost: number | null; // null if authoritative P1B source inputs are unavailable
+  uncodedActualCost: number | null; // null if authoritative P1B source inputs are unavailable
+  costClassificationAvailable: boolean; // true only when authoritative transaction-level sources were evaluated
   activeCostCodesCount: number;
-  forecastFinalCost: number | null;
-  forecastVariance: number | null;
-  hasExplicitForecast: boolean;
+  forecastFinalCost: number | null; // null if incomplete/partial forecast
+  forecastVariance: number | null; // null if incomplete/partial forecast
+  hasExplicitForecast: boolean; // true ONLY when every active cost code has a numeric forecast
 
   // Explainable Attention Flags
   attentionFlags: ProjectAttentionItem[];
@@ -93,6 +91,7 @@ export interface BuildProjectManagementViewOptions {
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   costInput?: ProjectCostInput;
+  financialDataComplete?: boolean;
 }
 
 /**
@@ -111,10 +110,11 @@ export function buildProjectManagementView(
     ? roundMoney(Number(project.contractValue))
     : null;
 
+  const financialDataComplete = options?.financialDataComplete !== false;
   const financialTruth = buildProjectFinancialTruth(project, summary);
   const foreignCosts = summary.foreignCosts || {};
   const hasForeignAmounts = Object.entries(foreignCosts).some(([, val]) => roundMoney(val) !== 0);
-  const isPartial = financialTruth.actualCost.status === "partial" || hasForeignAmounts;
+  const isPartial = !financialDataComplete || financialTruth.actualCost.status === "partial" || hasForeignAmounts;
 
   const actualCost = roundMoney(summary.totalActualCost || 0);
   const pendingCostExposure = roundMoney(
@@ -132,7 +132,11 @@ export function buildProjectManagementView(
 
   // Health: If partial, cost health is PARTIAL. Otherwise use standard projectHealth.
   const rawHealth = projectHealth(summary);
-  const health: ProjectManagementHealth = hasForeignAmounts ? "PARTIAL" : rawHealth;
+  const health: ProjectManagementHealth = isPartial
+    ? "PARTIAL"
+    : budget <= 0
+      ? "NO BUDGET"
+      : rawHealth;
 
   // Work Package / Cost Codes computation
   const projectCostCodes = (options?.costCodes || []).filter((cc) => cc.projectId === project.id);
@@ -142,13 +146,54 @@ export function buildProjectManagementView(
   let budgetControlSummary: ProjectBudgetControlSummary | undefined;
   let allocatedCostCodeBudget = 0;
   let unallocatedBudget = budget;
-  let codedActualCost = 0;
-  let uncodedActualCost = actualCost;
+  let codedActualCost: number | null = null;
+  let uncodedActualCost: number | null = null;
+  let costClassificationAvailable = false;
   let forecastFinalCost: number | null = null;
   let forecastVariance: number | null = null;
   let hasExplicitForecast = false;
 
-  if (options?.costCodes && options.costCodes.length > 0) {
+  // 1. Budget structure derived safely from cost codes alone
+  if (activeCodes.length > 0) {
+    allocatedCostCodeBudget = roundMoney(
+      activeCodes.reduce((sum, c) => sum + (Number(c.approvedBudgetAmount) || 0), 0),
+    );
+    unallocatedBudget = roundMoney(budget - allocatedCostCodeBudget);
+
+    // Forecast: Authoritative ONLY when EVERY active cost code has an explicit numeric forecast
+    const allActiveForecasted = activeCodes.every(
+      (c) => c.forecastAmount !== null && c.forecastAmount !== undefined && Number.isFinite(Number(c.forecastAmount)),
+    );
+
+    if (allActiveForecasted) {
+      hasExplicitForecast = true;
+      forecastFinalCost = roundMoney(
+        activeCodes.reduce((sum, c) => sum + Number(c.forecastAmount), 0),
+      );
+      forecastVariance = roundMoney(budget - forecastFinalCost);
+    } else {
+      hasExplicitForecast = false;
+      forecastFinalCost = null;
+      forecastVariance = null;
+    }
+  } else {
+    allocatedCostCodeBudget = 0;
+    unallocatedBudget = budget;
+    hasExplicitForecast = false;
+    forecastFinalCost = null;
+    forecastVariance = null;
+  }
+
+  // 2. Cost-classification (coded vs uncoded actuals) requiring authoritative transaction-level source inputs
+  const hasAuthoritativeSourceInputs = Boolean(
+    options?.costInput ||
+    options?.invoices !== undefined ||
+    options?.expenses !== undefined ||
+    options?.payroll !== undefined ||
+    options?.projectLaborAggregates !== undefined,
+  );
+
+  if (hasAuthoritativeSourceInputs && options?.costCodes && options.costCodes.length > 0) {
     const input: ProjectCostInput = options.costInput || {
       invoices: options.invoices,
       expenses: options.expenses,
@@ -162,30 +207,32 @@ export function buildProjectManagementView(
     unallocatedBudget = budgetControlSummary.unallocatedBudget;
     codedActualCost = budgetControlSummary.codedActualCost;
     uncodedActualCost = budgetControlSummary.uncodedActualCost;
-
-    // Check forecasts on active cost codes
-    const codesWithForecast = activeCodes.filter((c) => c.forecastAmount != null && Number.isFinite(Number(c.forecastAmount)));
-    if (codesWithForecast.length > 0) {
-      if (codesWithForecast.length === activeCodes.length) {
-        hasExplicitForecast = true;
-        forecastFinalCost = roundMoney(codesWithForecast.reduce((sum, c) => sum + (Number(c.forecastAmount) || 0), 0));
-        forecastVariance = roundMoney(budget - forecastFinalCost);
-      } else {
-        hasExplicitForecast = false;
-        forecastFinalCost = roundMoney(codesWithForecast.reduce((sum, c) => sum + (Number(c.forecastAmount) || 0), 0));
-        forecastVariance = roundMoney(budget - forecastFinalCost);
-      }
-    }
-  } else {
-    // If no cost codes exist, allocated is 0 and all actual is uncoded
-    allocatedCostCodeBudget = 0;
-    unallocatedBudget = budget;
+    costClassificationAvailable = true;
+  } else if (options?.costCodes !== undefined && options.costCodes.length === 0) {
+    // Zero cost codes explicitly defined: trivially, coded is 0 and uncoded is total actual
     codedActualCost = 0;
     uncodedActualCost = actualCost;
+    costClassificationAvailable = true;
+  } else {
+    // Cost codes exist or are unprovided, but authoritative transaction-level inputs were not provided
+    codedActualCost = null;
+    uncodedActualCost = null;
+    costClassificationAvailable = false;
   }
 
   // Attention Flags
   const attentionFlags: ProjectAttentionItem[] = [];
+
+  if (!financialDataComplete) {
+    attentionFlags.push({
+      id: "partial-data",
+      flag: "PARTIAL_DATA",
+      label: "Financial data incomplete",
+      detail: "One or more project cost sources are withheld or inaccessible for this role.",
+      tone: "warning",
+      tab: "overview",
+    });
+  }
 
   if (hasForeignAmounts) {
     attentionFlags.push({
@@ -198,24 +245,27 @@ export function buildProjectManagementView(
     });
   }
 
-  if (budget > 0 && actualCost > budget) {
-    attentionFlags.push({
-      id: "over-budget",
-      flag: "OVER_BUDGET",
-      label: "Over budget",
-      detail: `Actual cost exceeds approved cost budget by ${roundMoney(actualCost - budget).toFixed(2)} ${currency}.`,
-      tone: "danger",
-      tab: "budget",
-    });
-  } else if (budget > 0 && confirmedUtilization >= PROJECT_HEALTH_THRESHOLD_PERCENT && actualCost <= budget) {
-    attentionFlags.push({
-      id: "near-budget",
-      flag: "NEAR_BUDGET",
-      label: "Near budget limit",
-      detail: `Actual cost has reached ${confirmedUtilization.toFixed(1)}% of approved budget.`,
-      tone: "warning",
-      tab: "budget",
-    });
+  // OVER_BUDGET and NEAR_BUDGET must only fire on complete, authoritative cost data
+  if (!isPartial && budget > 0) {
+    if (actualCost > budget) {
+      attentionFlags.push({
+        id: "over-budget",
+        flag: "OVER_BUDGET",
+        label: "Over budget",
+        detail: `Actual cost exceeds approved cost budget by ${roundMoney(actualCost - budget).toFixed(2)} ${currency}.`,
+        tone: "danger",
+        tab: "budget",
+      });
+    } else if (confirmedUtilization >= PROJECT_HEALTH_THRESHOLD_PERCENT && actualCost <= budget) {
+      attentionFlags.push({
+        id: "near-budget",
+        flag: "NEAR_BUDGET",
+        label: "Near budget limit",
+        detail: `Actual cost has reached ${confirmedUtilization.toFixed(1)}% of approved budget.`,
+        tone: "warning",
+        tab: "budget",
+      });
+    }
   }
 
   if (pendingCostExposure > 0) {
@@ -229,7 +279,7 @@ export function buildProjectManagementView(
     });
   }
 
-  if (activeCostCodesCount > 0 && uncodedActualCost > 0) {
+  if (costClassificationAvailable && activeCostCodesCount > 0 && uncodedActualCost !== null && uncodedActualCost > 0) {
     attentionFlags.push({
       id: "uncoded-cost",
       flag: "UNCODED_COST",
@@ -262,7 +312,7 @@ export function buildProjectManagementView(
     });
   }
 
-  if (forecastVariance != null && forecastVariance < 0) {
+  if (hasExplicitForecast && forecastVariance !== null && forecastVariance < 0) {
     attentionFlags.push({
       id: "forecast-over-budget",
       flag: "FORECAST_OVER_BUDGET",
@@ -304,6 +354,7 @@ export function buildProjectManagementView(
     unallocatedBudget,
     codedActualCost,
     uncodedActualCost,
+    costClassificationAvailable,
     activeCostCodesCount,
     forecastFinalCost,
     forecastVariance,
@@ -322,6 +373,7 @@ export interface PortfolioCurrencyGroup {
   totalActualCost: number;
   totalPendingExposure: number;
   isComplete: boolean;
+  contractValueComplete: boolean;
 }
 
 export interface PortfolioManagementSummary {
@@ -382,7 +434,9 @@ export function buildPortfolioManagementSummary(
     // Attention counts
     if (view.health === "NEAR LIMIT") projectsNearBudgetCount += 1;
     if (view.health === "OVER BUDGET") projectsOverBudgetCount += 1;
-    if (view.uncodedActualCost > 0 && view.activeCostCodesCount > 0) projectsWithUncodedCostCount += 1;
+    if (view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && view.activeCostCodesCount > 0) {
+      projectsWithUncodedCostCount += 1;
+    }
     if (view.activeCostCodesCount > 0 && !view.hasExplicitForecast) projectsMissingForecastCount += 1;
     if (view.pendingCostExposure > 0) projectsWithPendingExposureCount += 1;
     if (view.hasForeignAmounts) projectsWithMixedCurrencyCount += 1;
@@ -401,17 +455,23 @@ export function buildPortfolioManagementSummary(
         totalActualCost: 0,
         totalPendingExposure: 0,
         isComplete: true,
+        contractValueComplete: true,
       };
     }
     const group = currencyGroups[curr]!;
     group.projectCount += 1;
-    if (view.contractValue != null) {
+
+    if (view.contractValue !== null && view.contractValue !== undefined) {
       group.totalContractValue = roundMoney(group.totalContractValue + view.contractValue);
+    } else {
+      group.contractValueComplete = false;
     }
+
     group.totalApprovedBudget = roundMoney(group.totalApprovedBudget + view.approvedCostBudget);
     group.totalActualCost = roundMoney(group.totalActualCost + view.actualCost);
     group.totalPendingExposure = roundMoney(group.totalPendingExposure + view.pendingCostExposure);
-    if (view.hasForeignAmounts) {
+
+    if (view.isPartial || view.hasForeignAmounts) {
       group.isComplete = false;
     }
   }
@@ -476,6 +536,9 @@ export interface FilterAndSortOptions {
 /**
  * Filters and sorts ProjectManagementViews safely according to search query,
  * status filter, health filter, and multi-field sorting.
+ *
+ * For financial numeric fields (contractValue, projectBudget, actualCost, remainingBudget):
+ * Sorts by currency first, then numeric value within currency, preventing misleading cross-currency comparison.
  */
 export function filterAndSortProjectViews(
   views: readonly ProjectManagementView[],
@@ -500,8 +563,12 @@ export function filterAndSortProjectViews(
       if (healthFilter === "NEAR_BUDGET" && view.health !== "NEAR LIMIT") return false;
       if (healthFilter === "OVER_BUDGET" && view.health !== "OVER BUDGET") return false;
       if (healthFilter === "NO_BUDGET" && view.health !== "NO BUDGET") return false;
-      if (healthFilter === "UNCODED_COST" && !(view.uncodedActualCost > 0 && view.activeCostCodesCount > 0)) return false;
-      if (healthFilter === "MISSING_FORECAST" && !(view.activeCostCodesCount > 0 && !view.hasExplicitForecast)) return false;
+      if (healthFilter === "UNCODED_COST" && !(view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && view.activeCostCodesCount > 0)) {
+        return false;
+      }
+      if (healthFilter === "MISSING_FORECAST" && !(view.activeCostCodesCount > 0 && !view.hasExplicitForecast)) {
+        return false;
+      }
       if (healthFilter === "PENDING_EXPOSURE" && view.pendingCostExposure <= 0) return false;
       if (healthFilter === "MIXED_CURRENCY" && !view.hasForeignAmounts) return false;
       if (healthFilter === "PARTIAL_DATA" && !view.isPartial) return false;
@@ -532,50 +599,83 @@ export function filterAndSortProjectViews(
 
   // 2. Sort
   return [...filtered].sort((a, b) => {
-    let cmp = 0;
-    switch (sortField) {
-      case "code":
-        cmp = (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
-        break;
-      case "name":
-        cmp = (a.project.projectName || "").localeCompare(b.project.projectName || "");
-        break;
-      case "client":
-        cmp = (a.project.clientName || "").localeCompare(b.project.clientName || "");
-        break;
-      case "status":
-        cmp = (a.project.status || "").localeCompare(b.project.status || "");
-        break;
-      case "contractValue": {
-        const valA = a.contractValue ?? -Infinity;
-        const valB = b.contractValue ?? -Infinity;
-        cmp = valA - valB;
-        break;
-      }
-      case "projectBudget":
-        cmp = a.approvedCostBudget - b.approvedCostBudget;
-        break;
-      case "actualCost":
-        cmp = a.actualCost - b.actualCost;
-        break;
-      case "remainingBudget": {
-        const remA = a.remainingBudget ?? -Infinity;
-        const remB = b.remainingBudget ?? -Infinity;
-        cmp = remA - remB;
-        break;
-      }
-      case "utilization":
-        cmp = a.confirmedUtilization - b.confirmedUtilization;
-        break;
-      default:
-        cmp = (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
+    // Non-financial fields
+    if (sortField === "code") {
+      const cmp = (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
+      if (cmp !== 0) return sortDirection === "desc" ? -cmp : cmp;
+      return a.project.id.localeCompare(b.project.id);
+    }
+    if (sortField === "name") {
+      const cmp = (a.project.projectName || "").localeCompare(b.project.projectName || "");
+      if (cmp !== 0) return sortDirection === "desc" ? -cmp : cmp;
+      return (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
+    }
+    if (sortField === "client") {
+      const cmp = (a.project.clientName || "").localeCompare(b.project.clientName || "");
+      if (cmp !== 0) return sortDirection === "desc" ? -cmp : cmp;
+      return (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
+    }
+    if (sortField === "status") {
+      const cmp = (a.project.status || "").localeCompare(b.project.status || "");
+      if (cmp !== 0) return sortDirection === "desc" ? -cmp : cmp;
+      return (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
     }
 
-    if (cmp === 0) {
-      // Secondary deterministic sort by projectCode
-      cmp = (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
+    // Utilization: dimensionless percentage
+    if (sortField === "utilization") {
+      const aValid = !a.isPartial && a.approvedCostBudget > 0;
+      const bValid = !b.isPartial && b.approvedCostBudget > 0;
+
+      if (!aValid && !bValid) {
+        return (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
+      }
+      if (!aValid) return 1; // invalid/partial goes to the end
+      if (!bValid) return -1; // invalid/partial goes to the end
+
+      const cmp = a.confirmedUtilization - b.confirmedUtilization;
+      if (cmp !== 0) return sortDirection === "desc" ? -cmp : cmp;
+      return (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
     }
 
-    return sortDirection === "desc" ? -cmp : cmp;
+    // Financial fields (contractValue, projectBudget, actualCost, remainingBudget)
+    // 1. Group by currency first to avoid cross-currency numerical comparison
+    const currCmp = a.currency.localeCompare(b.currency);
+    if (currCmp !== 0) {
+      return currCmp;
+    }
+
+    // 2. Inside same currency group, compare numeric values
+    let valA: number | null | undefined;
+    let valB: number | null | undefined;
+
+    if (sortField === "contractValue") {
+      valA = a.contractValue;
+      valB = b.contractValue;
+    } else if (sortField === "projectBudget") {
+      valA = a.approvedCostBudget;
+      valB = b.approvedCostBudget;
+    } else if (sortField === "actualCost") {
+      valA = a.actualCost;
+      valB = b.actualCost;
+    } else if (sortField === "remainingBudget") {
+      valA = a.remainingBudget;
+      valB = b.remainingBudget;
+    }
+
+    const aValid = valA !== null && valA !== undefined && Number.isFinite(Number(valA));
+    const bValid = valB !== null && valB !== undefined && Number.isFinite(Number(valB));
+
+    if (!aValid && !bValid) {
+      return (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
+    }
+    if (!aValid) return 1; // unavailable goes to end
+    if (!bValid) return -1; // unavailable goes to end
+
+    const diff = Number(valA) - Number(valB);
+    if (diff !== 0) {
+      return sortDirection === "desc" ? -diff : diff;
+    }
+
+    return (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
   });
 }

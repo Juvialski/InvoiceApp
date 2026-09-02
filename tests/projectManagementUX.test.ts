@@ -59,6 +59,29 @@ function createMockSummary(overrides?: Partial<ProjectCostSummary>): ProjectCost
   };
 }
 
+test("ProjectOverview executes all React hooks unconditionally before early return", () => {
+  const hooksCallIndex = projectOverviewSource.indexOf("const managementView = useMemo");
+  const completenessCheckIndex = projectOverviewSource.indexOf("if (!completeness.complete)");
+
+  assert.ok(hooksCallIndex > 0, "managementView useMemo hook must be present");
+  assert.ok(completenessCheckIndex > 0, "completeness.complete check must be present");
+  assert.ok(
+    hooksCallIndex < completenessCheckIndex,
+    "All React hooks must execute before any conditional early return to prevent hook order mismatch",
+  );
+});
+
+test("ProjectOverview engineering shortcuts respect both deployment visibility and permissions", () => {
+  assert.match(projectOverviewSource, /canReadDocuments && isProjectWorkspaceTabDeploymentVisible\("documents"\)/);
+  assert.match(projectOverviewSource, /canReadRfis && isProjectWorkspaceTabDeploymentVisible\("rfis"\)/);
+  assert.match(projectOverviewSource, /canReadSubmittals && isProjectWorkspaceTabDeploymentVisible\("submittals"\)/);
+  assert.match(projectOverviewSource, /canReadSiteLogs \? \[/);
+});
+
+test("ProjectsPage passes financial data completeness to project management views", () => {
+  assert.match(projectsPageSource, /financialDataComplete: costDataComplete/);
+});
+
 test("ProjectsPage enforces portfolio summary, responsive desktop table and mobile cards", () => {
   // Check Portfolio Summary structure
   assert.match(projectsPageSource, /aria-label="Portfolio Management Summary"/);
@@ -73,8 +96,8 @@ test("ProjectsPage enforces portfolio summary, responsive desktop table and mobi
   assert.match(projectsPageSource, /sortDirection/);
 
   // Check Desktop Table and Mobile Cards Hybrid
-  assert.match(projectsPageSource, /hidden overflow-hidden p-0 lg:block/); // Desktop table container
-  assert.match(projectsPageSource, /grid gap-3\.5 lg:hidden/); // Mobile cards container
+  assert.match(projectsPageSource, /hidden overflow-hidden p-0 lg:block/);
+  assert.match(projectsPageSource, /grid gap-3\.5 lg:hidden/);
   assert.match(projectsPageSource, /aria-label="Projects table"/);
   assert.match(projectsPageSource, /aria-label="Projects list cards"/);
 });

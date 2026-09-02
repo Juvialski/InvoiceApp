@@ -15,14 +15,10 @@ import {
   FileQuestion,
   FileText,
   HardHat,
-  HelpCircle,
-  Layers,
   Lock,
   MapPin,
   Pencil,
-  PieChart as PieChartIcon,
   Receipt,
-  ShieldAlert,
   ShieldCheck,
   Users,
   Wallet,
@@ -47,7 +43,7 @@ import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type { Project, ProjectCostCode, ProjectCostSummary } from "../../types.ts";
 import { projectHealth } from "../../utils/projectCosting.ts";
-import type { ProjectDashboardAttention, ProjectDashboardViewData } from "../../utils/projectDashboardViewModel.ts";
+import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
@@ -57,7 +53,6 @@ import {
   buildProjectManagementView,
   type ProjectAttentionItem,
   type ProjectManagementHealth,
-  type ProjectManagementView,
 } from "../../utils/projectManagementViewModel.ts";
 
 interface ProjectView {
@@ -293,30 +288,20 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   onOpenTab,
   hideHeader = false,
 }) => {
+  // Unconditional React hooks (must all run before any early return)
   const permissions = useAppPermissions();
   const completeness = useProjectCostCompleteness();
 
-  if (!completeness.complete) {
-    return (
-      <RestrictedProjectOverview
-        project={project}
-        onBack={onBack}
-        onEdit={onEdit}
-        onArchive={onArchive}
-        hideHeader={hideHeader}
-        missingSources={projectCostMissingSourceLabels(completeness)}
-      />
-    );
-  }
-
-  // 1. Unified Management View Model (Single Source of Truth)
   const managementView = useMemo(() => {
     return buildProjectManagementView(
       project as unknown as Project,
       summary,
-      { costCodes },
+      {
+        costCodes,
+        financialDataComplete: completeness.complete,
+      },
     );
-  }, [project, summary, costCodes]);
+  }, [project, summary, costCodes, completeness.complete]);
 
   const dashboard = suppliedDashboard || fallbackDashboard(summary);
   const pendingBase = managementView.pendingCostExposure;
@@ -353,7 +338,11 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
     { name: "Direct expenses", value: dashboard.composition.expenses, color: "#f59e0b" },
   ].filter((item) => item.value > 0);
 
-  // Accessible shortcut tabs check
+  // Permission- and deployment-gated shortcuts
+  const canReadDocuments = hasPermission(permissions, PERMISSION_KEYS.engineeringDocumentsRead);
+  const canReadRfis = hasPermission(permissions, PERMISSION_KEYS.engineeringRfisRead);
+  const canReadSubmittals = hasPermission(permissions, PERMISSION_KEYS.engineeringSubmittalsRead);
+  const canReadSiteLogs = hasPermission(permissions, PERMISSION_KEYS.engineeringSiteLogsRead);
   const canReadInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesRead);
   const canReadExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesRead);
   const canReadPayroll = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
@@ -362,16 +351,30 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
 
   const shortcuts: Array<{ tab: ProjectOverviewTab; label: string; icon: React.ElementType }> = [
     ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [{ tab: "budget" as const, label: "Budget Control", icon: Calculator }] : []),
-    ...(isProjectWorkspaceTabDeploymentVisible("documents") ? [{ tab: "documents" as const, label: "Engineering Docs", icon: Compass }] : []),
-    ...(isProjectWorkspaceTabDeploymentVisible("rfis") ? [{ tab: "rfis" as const, label: "RFIs", icon: FileQuestion }] : []),
-    ...(isProjectWorkspaceTabDeploymentVisible("submittals") ? [{ tab: "submittals" as const, label: "Submittals", icon: ClipboardCheck }] : []),
-    { tab: "site-logs", label: "Daily Site Logs", icon: ClipboardList },
+    ...(canReadDocuments && isProjectWorkspaceTabDeploymentVisible("documents") ? [{ tab: "documents" as const, label: "Engineering Docs", icon: Compass }] : []),
+    ...(canReadRfis && isProjectWorkspaceTabDeploymentVisible("rfis") ? [{ tab: "rfis" as const, label: "RFIs", icon: FileQuestion }] : []),
+    ...(canReadSubmittals && isProjectWorkspaceTabDeploymentVisible("submittals") ? [{ tab: "submittals" as const, label: "Submittals", icon: ClipboardCheck }] : []),
+    ...(canReadSiteLogs ? [{ tab: "site-logs" as const, label: "Daily Site Logs", icon: ClipboardList }] : []),
     ...(canReadInvoices && isProjectWorkspaceTabDeploymentVisible("invoices") ? [{ tab: "invoices" as const, label: "Invoices", icon: FileText }] : []),
     ...(canReadExpenses && isProjectWorkspaceTabDeploymentVisible("expenses") ? [{ tab: "expenses" as const, label: "Expenses", icon: Receipt }] : []),
     ...(canReadPayroll && isProjectWorkspaceTabDeploymentVisible("payroll") ? [{ tab: "payroll" as const, label: "Payroll", icon: HardHat }] : []),
     ...(canReadPeople ? [{ tab: "people" as const, label: "People", icon: Users }] : []),
     ...(canReadReports && isProjectWorkspaceTabDeploymentVisible("reports") ? [{ tab: "reports" as const, label: "Reports", icon: BarChart3 }] : []),
   ];
+
+  // If financial data completeness is incomplete, fail closed to restricted view after hooks have executed
+  if (!completeness.complete) {
+    return (
+      <RestrictedProjectOverview
+        project={project}
+        onBack={onBack}
+        onEdit={onEdit}
+        onArchive={onArchive}
+        hideHeader={hideHeader}
+        missingSources={projectCostMissingSourceLabels(completeness)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5" data-project-cost-completeness="complete">
@@ -451,7 +454,9 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             <p className="mt-0.5 text-xs text-slate-400">
               {hasForeignAmounts
                 ? "Complete cost health is withheld while unconverted foreign-currency costs are present."
-                : `${percent(managementView.confirmedUtilization)} budget used · ${percent(managementView.commitmentUtilization)} with pending exposure`}
+                : managementView.isPartial
+                  ? "Partial aggregate due to withheld or incomplete cost sources."
+                  : `${percent(managementView.confirmedUtilization)} budget used · ${percent(managementView.commitmentUtilization)} with pending exposure`}
             </p>
           </div>
         </div>
@@ -511,7 +516,11 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
               {money(managementView.actualCost, managementView.currency)}
             </p>
             <p className="mt-1 text-[9px] text-slate-500">
-              {hasForeignAmounts ? "Authoritative base total" : `${percent(managementView.confirmedUtilization)} of budget`}
+              {hasForeignAmounts
+                ? "Authoritative base total"
+                : managementView.isPartial
+                  ? "Partial cost aggregate"
+                  : `${percent(managementView.confirmedUtilization)} of budget`}
             </p>
           </Card>
 
@@ -544,7 +553,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             </p>
             <p className="mt-1 text-[9px] text-slate-400">
               {managementView.isPartial
-                ? "Withheld due to foreign FX"
+                ? "Withheld due to foreign FX or incomplete sources"
                 : managementView.remainingBudget !== null && managementView.remainingBudget < 0
                   ? "Exceeds approved budget"
                   : "Remaining cost headroom"}
@@ -598,19 +607,27 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-[10px] font-semibold text-slate-500">Coded Actual Cost</p>
             <p className="mt-1 text-sm font-black tabular-nums text-slate-900">
-              {money(managementView.codedActualCost, managementView.currency)}
+              {managementView.costClassificationAvailable && managementView.codedActualCost !== null
+                ? money(managementView.codedActualCost, managementView.currency)
+                : "Unavailable in overview"}
             </p>
           </div>
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-[10px] font-semibold text-slate-500">Uncoded Actual Cost</p>
-            <p className={`mt-1 text-sm font-black tabular-nums ${managementView.uncodedActualCost > 0 && managementView.activeCostCodesCount > 0 ? "text-amber-700" : "text-slate-900"}`}>
-              {money(managementView.uncodedActualCost, managementView.currency)}
+            <p className={`mt-1 text-sm font-black tabular-nums ${managementView.uncodedActualCost !== null && managementView.uncodedActualCost > 0 && managementView.activeCostCodesCount > 0 ? "text-amber-700" : "text-slate-900"}`}>
+              {managementView.costClassificationAvailable && managementView.uncodedActualCost !== null
+                ? money(managementView.uncodedActualCost, managementView.currency)
+                : "Unavailable in overview"}
             </p>
           </div>
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-[10px] font-semibold text-slate-500">Forecast Final Cost</p>
             <p className={`mt-1 text-sm font-black tabular-nums ${managementView.forecastVariance !== null && managementView.forecastVariance < 0 ? "text-rose-700" : "text-slate-900"}`}>
-              {managementView.forecastFinalCost != null ? money(managementView.forecastFinalCost, managementView.currency) : "Not set"}
+              {managementView.hasExplicitForecast && managementView.forecastFinalCost !== null
+                ? money(managementView.forecastFinalCost, managementView.currency)
+                : managementView.activeCostCodesCount > 0
+                  ? "Incomplete / Not set"
+                  : "Not set"}
             </p>
           </div>
         </div>

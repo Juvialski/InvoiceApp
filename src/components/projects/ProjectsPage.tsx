@@ -1,38 +1,53 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle,
   Archive,
-  ArrowDownUp,
-  ArrowUpRight,
+  ArrowUpDown,
   BriefcaseBusiness,
+  Building2,
   Calculator,
-  ChevronRight,
+  ChevronDown,
   Coins,
   DollarSign,
   Filter,
   Layers,
+  MapPin,
   Pencil,
+  PieChart as PieChartIcon,
   Plus,
   RotateCcw,
   Search,
   ShieldAlert,
+  SlidersHorizontal,
+  Trash2,
+  Users,
   Wallet,
   X,
 } from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
-import type { Project, ProjectCostCode, ProjectCostSummary, ProjectStatus } from "../../types.ts";
-import { createLocalProject, type ProjectLifecycleAction, type ProjectLifecyclePreview } from "../../lib/projects.ts";
-import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
-import { useAppPermissions, useProjectCostCompleteness, useWorkspaceDataPending } from "../../app/AppPermissionContext.tsx";
+import type {
+  Project,
+  ProjectCostCode,
+  ProjectCostSummary,
+  ProjectStatus,
+} from "../../types.ts";
+import type {
+  ProjectLifecycleAction,
+  ProjectLifecyclePreview,
+} from "../../lib/projects.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
-import { EmptyState, MetricCard, PageHeader, SectionHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
+import {
+  useAppPermissions,
+  useProjectCostCompleteness,
+  useWorkspaceDataPending,
+} from "../../app/AppPermissionContext.tsx";
+import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import { MetricCard, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
 import {
   buildPortfolioManagementSummary,
   buildProjectManagementView,
   filterAndSortProjectViews,
-  type ProjectAttentionItem,
   type ProjectHealthFilter,
   type ProjectManagementHealth,
   type ProjectManagementView,
@@ -40,40 +55,56 @@ import {
   type ProjectSortField,
 } from "../../utils/projectManagementViewModel.ts";
 
+const PROJECT_STATUSES: readonly ProjectStatus[] = [
+  "PLANNING",
+  "ACTIVE",
+  "ON_HOLD",
+  "COMPLETED",
+  "CANCELLED",
+  "ARCHIVED",
+];
+
 interface ProjectsPageProps {
   projects: Project[];
   summaries: Record<string, ProjectCostSummary>;
   costCodes?: readonly ProjectCostCode[];
+  initialEditingProject?: Project | null;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => void;
   onPreviewProjectLifecycle: (project: Project) => Promise<ProjectLifecyclePreview>;
-  onApplyProjectLifecycle: (project: Project, action: ProjectLifecycleAction, reason?: string) => Promise<void>;
-  initialEditingProject?: Project | null;
+  onApplyProjectLifecycle: (
+    project: Project,
+    action: ProjectLifecycleAction,
+    reason?: string,
+  ) => Promise<void>;
 }
 
-const blankProject = (): Project =>
-  createLocalProject({
+function blankProject(): Project {
+  return {
+    id: "",
     projectCode: "",
     projectName: "",
-    description: "",
     clientName: "",
-    clientReference: "",
     location: "",
     siteAddress: "",
     projectManager: "",
-    status: "PLANNING",
+    status: "ACTIVE",
     contractValue: 0,
     projectBudget: 0,
     currency: "PHP",
+    description: "",
     notes: "",
-  });
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
 
 function money(value: number | null | undefined, currency: string) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
   try {
-    return new Intl.NumberFormat("en-PH", { style: "currency", currency, maximumFractionDigits: 0 }).format(Number(value));
+    return new Intl.NumberFormat("en-PH", { style: "currency", currency, maximumFractionDigits: 2 }).format(Number(value));
   } catch {
-    return `${currency} ${Number(value).toFixed(0)}`;
+    return `${currency} ${(Number(value) || 0).toFixed(2)}`;
   }
 }
 
@@ -81,8 +112,8 @@ function percent(value: number) {
   return `${(Number.isFinite(value) ? value : 0).toFixed(1)}%`;
 }
 
-function statusTone(status: ProjectStatus): StatusTone {
-  return status === "ACTIVE" || (status as string) === "IN_PROGRESS"
+function statusTone(status: string): StatusTone {
+  return status === "ACTIVE" || status === "IN_PROGRESS"
     ? "success"
     : status === "ARCHIVED" || status === "CANCELLED"
       ? "neutral"
@@ -92,25 +123,28 @@ function statusTone(status: ProjectStatus): StatusTone {
 }
 
 function healthBadgeTone(health: ProjectManagementHealth): StatusTone {
-  return health === "OVER BUDGET"
-    ? "danger"
-    : health === "NEAR LIMIT"
-      ? "warning"
-      : health === "PARTIAL"
-        ? "warning"
-        : health === "NO BUDGET"
-          ? "neutral"
-          : "success";
+  switch (health) {
+    case "OVER BUDGET":
+      return "danger";
+    case "NEAR LIMIT":
+      return "warning";
+    case "PARTIAL":
+      return "warning";
+    case "NO BUDGET":
+      return "neutral";
+    default:
+      return "success";
+  }
 }
 
-function attentionTone(tone: ProjectAttentionItem["tone"]): string {
+function attentionTone(tone: "danger" | "warning" | "info" | "neutral") {
   switch (tone) {
     case "danger":
-      return "bg-rose-50 text-rose-700 border-rose-200";
+      return "bg-rose-50 text-rose-800 border-rose-200";
     case "warning":
-      return "bg-amber-50 text-amber-700 border-amber-200";
+      return "bg-amber-50 text-amber-800 border-amber-200";
     case "info":
-      return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      return "bg-indigo-50 text-indigo-800 border-indigo-200";
     default:
       return "bg-slate-50 text-slate-700 border-slate-200";
   }
@@ -120,11 +154,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   projects,
   summaries,
   costCodes = [],
+  initialEditingProject,
   onOpenProject,
   onSaveProject,
   onPreviewProjectLifecycle,
   onApplyProjectLifecycle,
-  initialEditingProject,
 }) => {
   const permissions = useAppPermissions();
   const canManage = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
@@ -175,9 +209,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         unallocatedExpenseCost: 0,
       } as ProjectCostSummary);
 
-      return buildProjectManagementView(p, summary, { costCodes });
+      return buildProjectManagementView(p, summary, {
+        costCodes,
+        financialDataComplete: costDataComplete,
+      });
     });
-  }, [projects, summaries, costCodes]);
+  }, [projects, summaries, costCodes, costDataComplete]);
 
   // 2. Portfolio Management Summary (Multi-currency safe)
   const portfolio = useMemo(() => {
@@ -279,13 +316,25 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditing(blankProject())} /> : undefined}
       />
 
-      {!costDataComplete && !workspaceDataPending && (
-        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs leading-5 text-amber-950">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-          <div>
-            <strong>Partial cost visibility.</strong> Financial figures below exclude {hiddenCostSources.join(", ")} because those sources are unavailable or incomplete.
-          </div>
+      {isHydrating && (
+        <div role="status" aria-live="polite" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold text-slate-600">
+          Loading projects…
         </div>
+      )}
+
+      {!costDataComplete && !workspaceDataPending && (
+        <Card className="border-dashed border-amber-200 bg-amber-50/70 p-4" elevation="low">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="h-5 w-5 shrink-0 text-amber-700" />
+            <div className="min-w-0 text-xs">
+              <strong className="block font-bold text-amber-950">Combined project financial position withheld</strong>
+              <p className="mt-0.5 text-amber-900">
+                Required cost sources are unavailable for this role: {hiddenCostSources.join(", ")}. Complete cost health,
+                budget remaining, and utilization are withheld across projects.
+              </p>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Top Portfolio Management Summary */}
@@ -312,14 +361,17 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                     </span>
                     {!group.isComplete && (
                       <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
-                        Partial FX
+                        Partial Data / FX
                       </span>
                     )}
                   </div>
                   <div className="mt-3 space-y-1.5 text-xs">
                     <div className="flex justify-between">
                       <span className="text-slate-500">Contract Value:</span>
-                      <strong className="font-sans font-bold tabular-nums text-slate-900">{money(group.totalContractValue, currencyCode)}</strong>
+                      <strong className="font-sans font-bold tabular-nums text-slate-900">
+                        {money(group.totalContractValue, currencyCode)}
+                        {!group.contractValueComplete && <span className="ml-1 text-[9px] font-normal text-amber-700">(incomplete)</span>}
+                      </strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Approved Budget:</span>
@@ -377,88 +429,111 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         )}
       </section>
 
-      {/* Filter and Sort Toolbar */}
-      <Card className="p-3 sm:p-4" elevation="low" aria-label="Project filters and sorting">
-        <SectionHeader
-          title="Project Register"
-          description="Search, filter, and inspect projects by financial position, work package status, and operational health."
-          icon={BriefcaseBusiness}
-          action={<span className="text-xs font-semibold text-slate-500" role="status" aria-live="polite">{projectResultLabel}</span>}
-        />
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" />
-            <span className="sr-only">Search projects</span>
+      {/* Filter and Search Toolbar */}
+      <Card className="p-4 shadow-sm space-y-3" elevation="low">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Search Query */}
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
             <input
+              type="text"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search code, name, client, location, manager…"
-              className="w-full bg-transparent text-xs outline-none placeholder:text-slate-400 focus-visible:outline-none"
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search code, name, client, PM, location..."
+              className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              aria-label="Search projects"
             />
-          </label>
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
 
-          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-            <Filter aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            <span className="sr-only">Project status</span>
+          {/* Status Filter */}
+          <div className="relative">
             <select
               value={status}
-              onChange={(event) => setStatus(event.target.value as "ALL" | ProjectStatus)}
-              className="w-full bg-transparent text-xs font-semibold outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              onChange={(e) => setStatus(e.target.value as "ALL" | ProjectStatus)}
+              className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              aria-label="Filter by project status"
             >
               <option value="ALL">All Statuses</option>
-              {["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED", "ARCHIVED"].map((val) => (
-                <option key={val} value={val}>{val.replaceAll("_", " ")}</option>
+              {PROJECT_STATUSES.map((st) => (
+                <option key={st} value={st}>
+                  {st.replaceAll("_", " ")}
+                </option>
               ))}
             </select>
-          </label>
+            <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+          </div>
 
-          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-            <ShieldAlert aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            <span className="sr-only">Financial health filter</span>
+          {/* Health & Attention Filter */}
+          <div className="relative">
             <select
               value={healthFilter}
-              onChange={(event) => setHealthFilter(event.target.value as ProjectHealthFilter)}
-              className="w-full bg-transparent text-xs font-semibold outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              onChange={(e) => setHealthFilter(e.target.value as ProjectHealthFilter)}
+              className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              aria-label="Filter by financial health and attention signals"
             >
               <option value="ALL">All Financial States</option>
               <option value="ON_BUDGET">On Budget</option>
-              <option value="NEAR_BUDGET">Near Budget Limit (≥90%)</option>
+              <option value="NEAR_BUDGET">Near Limit (≥90%)</option>
               <option value="OVER_BUDGET">Over Budget</option>
+              <option value="NO_BUDGET">No Budget Set</option>
               <option value="UNCODED_COST">Has Uncoded Cost</option>
-              <option value="MISSING_FORECAST">Missing Work-Package Forecast</option>
+              <option value="MISSING_FORECAST">Missing Forecast</option>
               <option value="PENDING_EXPOSURE">Has Pending Exposure</option>
-              <option value="MIXED_CURRENCY">Mixed FX / Partial</option>
+              <option value="MIXED_CURRENCY">Mixed Currency</option>
+              <option value="PARTIAL_DATA">Partial Data</option>
             </select>
-          </label>
+            <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+          </div>
 
-          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-            <ArrowDownUp aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            <span className="sr-only">Sort by</span>
-            <select
-              value={`${sortField}-${sortDirection}`}
-              onChange={(event) => {
-                const [f, d] = event.target.value.split("-") as [ProjectSortField, ProjectSortDirection];
-                setSortField(f);
-                setSortDirection(d);
-              }}
-              className="w-full bg-transparent text-xs font-semibold outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          {/* Sort Selector */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <select
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value as ProjectSortField)}
+                className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                aria-label="Sort projects by field"
+              >
+                <option value="code">Sort by Code</option>
+                <option value="name">Sort by Name</option>
+                <option value="client">Sort by Client</option>
+                <option value="status">Sort by Status</option>
+                <option value="contractValue">Sort by Contract Value</option>
+                <option value="projectBudget">Sort by Cost Budget</option>
+                <option value="actualCost">Sort by Actual Cost</option>
+                <option value="remainingBudget">Sort by Remaining Budget</option>
+                <option value="utilization">Sort by Utilization %</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              title={`Sort direction: ${sortDirection.toUpperCase()}`}
+              aria-label={`Toggle sort direction, currently ${sortDirection}`}
             >
-              <option value="code-asc">Code (A → Z)</option>
-              <option value="code-desc">Code (Z → A)</option>
-              <option value="name-asc">Name (A → Z)</option>
-              <option value="contractValue-desc">Contract Value (Highest)</option>
-              <option value="projectBudget-desc">Approved Budget (Highest)</option>
-              <option value="actualCost-desc">Actual Cost (Highest)</option>
-              <option value="remainingBudget-asc">Remaining Budget (Lowest)</option>
-              <option value="utilization-desc">Budget Utilization (Highest)</option>
-              <option value="status-asc">Status</option>
-            </select>
-          </label>
+              <ArrowUpDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
 
+        {/* Filter Summary & Reset Bar */}
         {hasProjectFilters && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] font-semibold text-slate-500">
-            <span>Filtered results active. Clear filters to see full portfolio.</span>
+          <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-slate-500">
+            <span>
+              Showing {projectResultLabel}
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -466,7 +541,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 setStatus("ALL");
                 setHealthFilter("ALL");
               }}
-              className="font-bold text-indigo-600 hover:text-indigo-800"
+              className="text-indigo-600 hover:text-indigo-800 font-semibold"
             >
               Reset filters
             </button>
@@ -615,12 +690,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                                 <span className="font-semibold">{view.activeCostCodesCount} codes:</span>{" "}
                                 {money(view.allocatedCostCodeBudget, view.currency)} alloc
                               </div>
-                              {view.uncodedActualCost > 0 && (
+                              {view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && (
                                 <div className="text-amber-700 font-medium">
                                   Uncoded: {money(view.uncodedActualCost, view.currency)}
                                 </div>
                               )}
-                              {view.forecastFinalCost != null ? (
+                              {view.hasExplicitForecast && view.forecastFinalCost != null ? (
                                 <div className={view.forecastVariance !== null && view.forecastVariance < 0 ? "text-rose-700 font-bold" : "text-slate-500"}>
                                   Fcst: {money(view.forecastFinalCost, view.currency)}
                                 </div>
@@ -639,17 +714,17 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenProject(project)}
-                              className="rounded-lg p-2 text-indigo-600 transition hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-                              aria-label={`Open ${project.projectName}`}
+                              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                             >
-                              <ChevronRight className="h-4 w-4" />
+                              Open
                             </button>
                             {canManage && (
                               <button
                                 type="button"
                                 onClick={() => setEditing(project)}
-                                className="rounded-lg p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-                                aria-label={`Edit ${project.projectName}`}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                title="Edit project"
+                                aria-label={`Edit project ${project.projectCode}`}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>
@@ -657,10 +732,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                             {canManage && project.status !== "ARCHIVED" && (
                               <button
                                 type="button"
-                                onClick={() => void openLifecycle(project)}
-                                className="rounded-lg p-2 text-slate-400 transition hover:bg-amber-50 hover:text-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
-                                title="Review archive or delete-unused options"
-                                aria-label={`Review lifecycle for ${project.projectName}`}
+                                onClick={() => openLifecycle(project)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-700"
+                                title="Project lifecycle"
+                                aria-label={`Project lifecycle for ${project.projectCode}`}
                               >
                                 <Archive className="h-3.5 w-3.5" />
                               </button>
@@ -668,10 +743,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                             {canManage && project.status === "ARCHIVED" && (
                               <button
                                 type="button"
-                                onClick={() => void openLifecycle(project)}
-                                className="rounded-lg p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-                                title="Review archived project options"
-                                aria-label={`Review archived project options for ${project.projectName}`}
+                                onClick={() => openLifecycle(project)}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-700"
+                                title="Reactivate project"
+                                aria-label={`Reactivate project ${project.projectCode}`}
                               >
                                 <RotateCcw className="h-3.5 w-3.5" />
                               </button>
@@ -756,7 +831,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   {view.activeCostCodesCount > 0 && (
                     <div className="flex flex-wrap justify-between gap-1 text-[10px] text-slate-600 px-1">
                       <span>{view.activeCostCodesCount} active work packages ({money(view.allocatedCostCodeBudget, view.currency)} allocated)</span>
-                      {view.uncodedActualCost > 0 && (
+                      {view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && (
                         <span className="font-semibold text-amber-700">Uncoded: {money(view.uncodedActualCost, view.currency)}</span>
                       )}
                     </div>
@@ -769,19 +844,17 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                         <Button
                           variant="secondary"
                           label="Edit"
-                          icon={<Pencil className="h-3 w-3" />}
+                          icon={<Pencil className="h-3.5 w-3.5" />}
                           onClick={() => setEditing(project)}
                         />
                       )}
                       {canManage && (
-                        <button
-                          type="button"
-                          onClick={() => void openLifecycle(project)}
-                          className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-                          title="Review lifecycle options"
-                        >
-                          {project.status === "ARCHIVED" ? <RotateCcw className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-                        </button>
+                        <Button
+                          variant="secondary"
+                          label={project.status === "ARCHIVED" ? "Reactivate" : "Lifecycle"}
+                          icon={project.status === "ARCHIVED" ? <RotateCcw className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                          onClick={() => openLifecycle(project)}
+                        />
                       )}
                     </div>
                     <Button
@@ -795,181 +868,165 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             })}
           </div>
         </div>
-      ) : workspaceDataPending ? (
-        <div id="projects-results" role="status" aria-live="polite" className="p-8 text-center text-xs font-semibold text-slate-500">
-          Loading projects…
-        </div>
       ) : (
-        <div id="projects-results">
-          <EmptyState
-            icon={BriefcaseBusiness}
-            title={projects.length ? "No projects match this filter" : "No projects yet"}
-            description={
-              canManage
-                ? "Create a project to connect supplier invoices, payroll, and direct costs."
-                : "No projects are available for the current filter."
-            }
-            action={
-              canManage ? (
-                <Button
-                  variant="primary"
-                  label="Create project"
-                  icon={<Plus className="h-3.5 w-3.5" />}
-                  onClick={() => setEditing(blankProject())}
-                />
-              ) : undefined
-            }
-          />
-        </div>
+        <Card className="p-8 text-center text-xs text-slate-500" elevation="low">
+          <p className="font-semibold text-slate-700">No projects match the current filters.</p>
+          <p className="mt-1">Try adjusting your search query, status, or financial health filter.</p>
+        </Card>
       )}
 
-      {/* Edit / New Project Modal */}
+      {/* Editing Dialog Modal */}
       {canManage && editing && (
         <div
           ref={editingDialogRef}
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="project-form-title"
+          aria-labelledby="project-dialog-title"
         >
           <form
             onSubmit={save}
-            className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl space-y-4"
           >
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Project Register</p>
-                <h2 id="project-form-title" className="mt-1 text-lg font-black text-slate-950">
-                  {projects.some((p) => p.id === editing.id) ? "Edit Project" : "New Project"}
+                <h2 id="project-dialog-title" className="text-lg font-black text-slate-950">
+                  {editing.id ? `Edit ${editing.projectCode}` : "Create New Project"}
                 </h2>
-                <p className="mt-1 text-xs text-slate-500">Project code and identity are unique within the workspace.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setEditing(null)}
-                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Close project form"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close project modal"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1">
-                <span className="field-label">Project Code</span>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Project Code *</label>
                 <input
                   ref={projectCodeInputRef}
                   required
                   value={editing.projectCode}
                   onChange={(e) => setEditing({ ...editing, projectCode: e.target.value })}
-                  className="field-input"
+                  placeholder="e.g. PRJ-2026-001"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                 />
-              </label>
-
-              <label className="space-y-1">
-                <span className="field-label">Project Name</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Currency *</label>
                 <input
                   required
-                  value={editing.projectName}
-                  onChange={(e) => setEditing({ ...editing, projectName: e.target.value })}
-                  className="field-input"
+                  value={editing.currency}
+                  onChange={(e) => setEditing({ ...editing, currency: e.target.value.toUpperCase() })}
+                  placeholder="PHP"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                 />
-              </label>
+              </div>
+            </div>
 
-              <label className="space-y-1">
-                <span className="field-label">Client Name</span>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-700">Project Name *</label>
+              <input
+                required
+                value={editing.projectName}
+                onChange={(e) => setEditing({ ...editing, projectName: e.target.value })}
+                placeholder="e.g. Water Treatment Plant Upgrade"
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+              />
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Contract Value (Awarded)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editing.contractValue ?? ""}
+                  onChange={(e) => setEditing({ ...editing, contractValue: Number(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Approved Cost Budget</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editing.projectBudget ?? ""}
+                  onChange={(e) => setEditing({ ...editing, projectBudget: Number(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Client Name</label>
                 <input
                   value={editing.clientName || ""}
                   onChange={(e) => setEditing({ ...editing, clientName: e.target.value })}
-                  className="field-input"
+                  placeholder="e.g. Metro Water District"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                 />
-              </label>
-
-              <label className="space-y-1">
-                <span className="field-label">Location / Site Address</span>
-                <input
-                  value={editing.location || editing.siteAddress || ""}
-                  onChange={(e) => setEditing({ ...editing, location: e.target.value, siteAddress: e.target.value })}
-                  className="field-input"
-                />
-              </label>
-
-              <label className="space-y-1">
-                <span className="field-label">Project Manager</span>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Project Manager</label>
                 <input
                   value={editing.projectManager || ""}
                   onChange={(e) => setEditing({ ...editing, projectManager: e.target.value })}
-                  className="field-input"
+                  placeholder="e.g. Engr. Santos"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                 />
-              </label>
+              </div>
+            </div>
 
-              <label className="space-y-1">
-                <span className="field-label">Currency</span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Location / City</label>
                 <input
-                  value={editing.currency || "PHP"}
-                  onChange={(e) => setEditing({ ...editing, currency: e.target.value })}
-                  className="field-input uppercase"
+                  value={editing.location || ""}
+                  onChange={(e) => setEditing({ ...editing, location: e.target.value })}
+                  placeholder="e.g. Quezon City"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                 />
-              </label>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Status</label>
+                <select
+                  value={editing.status}
+                  onChange={(e) => setEditing({ ...editing, status: e.target.value as ProjectStatus })}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                >
+                  {PROJECT_STATUSES.map((st) => (
+                    <option key={st} value={st}>
+                      {st.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-              <label className="space-y-1">
-                <span className="field-label">Contract Value (Client-Facing)</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editing.contractValue || ""}
-                  onChange={(e) => setEditing({ ...editing, contractValue: Number(e.target.value) })}
-                  className="field-input"
-                />
-              </label>
-
-              <label className="space-y-1">
-                <span className="field-label">Approved Cost Budget (Internal Ceiling)</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={editing.projectBudget || ""}
-                  onChange={(e) => setEditing({ ...editing, projectBudget: Number(e.target.value) })}
-                  className="field-input"
-                />
-              </label>
-
-              {editing.status === "ARCHIVED" ? (
-                <div className="space-y-1 sm:col-span-2">
-                  <span className="field-label">Status</span>
-                  <div className="field-input flex items-center bg-slate-50 font-bold text-slate-600">ARCHIVED</div>
-                  <p className="text-[10px] text-slate-500">Use the lifecycle action to reactivate this project.</p>
-                </div>
-              ) : (
-                <label className="space-y-1 sm:col-span-2">
-                  <span className="field-label">Status</span>
-                  <select
-                    value={editing.status}
-                    onChange={(e) => setEditing({ ...editing, status: e.target.value as ProjectStatus })}
-                    className="field-input"
-                  >
-                    {["PLANNING", "ACTIVE", "ON_HOLD", "COMPLETED", "CANCELLED"].map((val) => (
-                      <option key={val} value={val}>{val.replaceAll("_", " ")}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              <label className="space-y-1 sm:col-span-2">
-                <span className="field-label">Description / Notes</span>
-                <textarea
-                  value={editing.description || editing.notes || ""}
-                  onChange={(e) => setEditing({ ...editing, description: e.target.value, notes: e.target.value })}
-                  rows={3}
-                  className="field-input resize-y"
-                />
-              </label>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-700">Operational Notes / Scope</label>
+              <textarea
+                value={editing.description || editing.notes || ""}
+                onChange={(e) => setEditing({ ...editing, description: e.target.value, notes: e.target.value })}
+                rows={2}
+                placeholder="Scope description or operational context..."
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+              />
             </div>
 
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
-              <Button variant="secondary" label="Cancel" onClick={() => setEditing(null)} />
+              <Button variant="secondary" type="button" label="Cancel" onClick={() => setEditing(null)} />
               <Button variant="primary" type="submit" label="Save project" />
             </div>
           </form>
@@ -1039,11 +1096,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   {lifecyclePreview.totalDependencyCount > 0 && (
                     <ul className="mt-2 grid gap-1 text-[10px] sm:grid-cols-2">
                       {Object.entries(lifecyclePreview.dependencies)
-                        .filter(([, count]) => count > 0)
+                        .filter(([, count]) => Number(count) > 0)
                         .map(([k, count]) => (
                           <li key={k} className="flex justify-between gap-2">
                             <span>{k.replaceAll(/([a-z])([A-Z])/g, "$1 $2")}</span>
-                            <strong>{count}</strong>
+                            <strong>{Number(count)}</strong>
                           </li>
                         ))}
                     </ul>

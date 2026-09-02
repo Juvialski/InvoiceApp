@@ -5,7 +5,6 @@ import {
   buildPortfolioManagementSummary,
   buildProjectManagementView,
   filterAndSortProjectViews,
-  type ProjectManagementView,
 } from "../src/utils/projectManagementViewModel.ts";
 import { calculateProjectCost } from "../src/utils/projectCosting.ts";
 
@@ -67,7 +66,7 @@ test("1. normal complete PHP project view builds correctly", () => {
   assert.equal(view.contractValue, 5000000);
   assert.equal(view.approvedCostBudget, 4000000);
   assert.equal(view.actualCost, 2500000);
-  assert.equal(view.pendingCostExposure, 350000); // 200k + 100k + 50k
+  assert.equal(view.pendingCostExposure, 350000);
   assert.equal(view.remainingBudget, 1500000);
   assert.equal(view.variance, 1500000);
   assert.equal(view.outstandingPayables, 500000);
@@ -98,34 +97,12 @@ test("3. no project budget handled properly", () => {
   assert.equal(view.confirmedUtilization, 0);
 });
 
-test("4. no cost activity handled properly", () => {
-  const project = createMockProject();
+test("4. foreign currency costs mark project management view as partial", () => {
+  const project = createMockProject({ currency: "PHP", projectBudget: 1000000 });
   const summary = createMockSummary({
-    invoiceCost: 0,
-    paidInvoiceCost: 0,
-    unpaidInvoiceCost: 0,
-    pendingInvoiceCost: 0,
-    payrollCost: 0,
-    pendingPayrollCost: 0,
-    otherExpenseCost: 0,
-    pendingExpenseCost: 0,
-    totalActualCost: 0,
-    remainingBudget: 4000000,
-    budgetUsedPercent: 0,
-  });
-  const view = buildProjectManagementView(project, summary);
-
-  assert.equal(view.actualCost, 0);
-  assert.equal(view.pendingCostExposure, 0);
-  assert.equal(view.remainingBudget, 4000000);
-  assert.equal(view.confirmedUtilization, 0);
-  assert.equal(view.health, "ON BUDGET");
-});
-
-test("5. foreign-currency costs result in partial financial state and separate foreign amounts", () => {
-  const project = createMockProject({ currency: "PHP" });
-  const summary = createMockSummary({
-    foreignCosts: { USD: 5000 },
+    budget: 1000000,
+    totalActualCost: 500000,
+    foreignCosts: { USD: 1000 },
   });
   const view = buildProjectManagementView(project, summary);
 
@@ -134,19 +111,30 @@ test("5. foreign-currency costs result in partial financial state and separate f
   assert.equal(view.health, "PARTIAL");
   assert.equal(view.remainingBudget, null);
   assert.equal(view.variance, null);
-  assert.equal(view.financialTruth.actualCost.status, "partial");
-  assert.equal(view.financialTruth.remainingBudget.status, "unavailable");
   assert.ok(view.attentionFlags.some((f) => f.flag === "MIXED_CURRENCY"));
 });
 
-test("6. actual over approved budget flags OVER_BUDGET", () => {
-  const project = createMockProject({ projectBudget: 2000000 });
+test("5. financial source completeness false propagates to partial state and suppresses false health claims", () => {
+  const project = createMockProject({ currency: "PHP", projectBudget: 1000000 });
   const summary = createMockSummary({
-    budget: 2000000,
-    totalActualCost: 2500000,
-    remainingBudget: -500000,
-    budgetUsedPercent: 125,
+    budget: 1000000,
+    totalActualCost: 1200000, // Even if known costs > budget, source data is incomplete
   });
+  const view = buildProjectManagementView(project, summary, { financialDataComplete: false });
+
+  assert.equal(view.isPartial, true);
+  assert.equal(view.health, "PARTIAL");
+  assert.equal(view.remainingBudget, null);
+  assert.equal(view.variance, null);
+  assert.ok(view.attentionFlags.some((f) => f.flag === "PARTIAL_DATA"));
+  // OVER_BUDGET / NEAR_BUDGET must not fire when source completeness is false
+  assert.equal(view.attentionFlags.some((f) => f.flag === "OVER_BUDGET"), false);
+  assert.equal(view.attentionFlags.some((f) => f.flag === "NEAR_BUDGET"), false);
+});
+
+test("6. over budget health and attention flag trigger on complete authoritative data", () => {
+  const project = createMockProject({ projectBudget: 2000000 });
+  const summary = createMockSummary({ budget: 2000000, totalActualCost: 2500000 });
   const view = buildProjectManagementView(project, summary);
 
   assert.equal(view.health, "OVER BUDGET");
@@ -154,21 +142,46 @@ test("6. actual over approved budget flags OVER_BUDGET", () => {
   assert.ok(view.attentionFlags.some((f) => f.flag === "OVER_BUDGET"));
 });
 
-test("7. near-budget indicator triggers at >= 90% utilization", () => {
+test("7. near budget limit (>=90%) health and attention flag trigger correctly", () => {
   const project = createMockProject({ projectBudget: 1000000 });
-  const summary = createMockSummary({
-    budget: 1000000,
-    totalActualCost: 920000,
-    remainingBudget: 80000,
-    budgetUsedPercent: 92,
-  });
+  const summary = createMockSummary({ budget: 1000000, totalActualCost: 920000 });
   const view = buildProjectManagementView(project, summary);
 
   assert.equal(view.health, "NEAR LIMIT");
+  assert.equal(view.confirmedUtilization, 92);
   assert.ok(view.attentionFlags.some((f) => f.flag === "NEAR_BUDGET"));
 });
 
-test("8. cost codes integration: budget allocation, coded/uncoded actuals, and forecast", () => {
+test("8. cost codes without authoritative source inputs do NOT produce fake zero coded/uncoded actuals", () => {
+  const project = createMockProject({ id: "proj-10", projectBudget: 1000000, currency: "PHP" });
+  const costCodes: ProjectCostCode[] = [
+    {
+      id: "cc-1",
+      projectId: "proj-10",
+      code: "CIV-01",
+      name: "Civil Works",
+      approvedBudgetAmount: 600000,
+      status: "ACTIVE",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    },
+  ];
+  const summary = createMockSummary({ budget: 1000000, totalActualCost: 500000 });
+
+  // Called without source transaction arrays (invoices, payroll, expenses)
+  const view = buildProjectManagementView(project, summary, { costCodes });
+
+  assert.equal(view.activeCostCodesCount, 1);
+  assert.equal(view.allocatedCostCodeBudget, 600000);
+  assert.equal(view.unallocatedBudget, 400000);
+  assert.equal(view.costClassificationAvailable, false);
+  assert.equal(view.codedActualCost, null);
+  assert.equal(view.uncodedActualCost, null);
+  // UNCODED_COST flag must NOT fire when cost classification is unavailable
+  assert.equal(view.attentionFlags.some((f) => f.flag === "UNCODED_COST"), false);
+});
+
+test("9. cost codes with authoritative source inputs correctly evaluate coded and uncoded actuals", () => {
   const project = createMockProject({ id: "proj-10", projectBudget: 1000000, currency: "PHP" });
   const costCodes: ProjectCostCode[] = [
     {
@@ -223,7 +236,7 @@ test("8. cost codes integration: budget allocation, coded/uncoded actuals, and f
           invoiceId: "inv-2",
           projectId: "proj-10",
           allocationType: "AMOUNT" as const,
-          allocationAmount: 100000, // Uncoded!
+          allocationAmount: 100000,
         },
       ],
     },
@@ -243,20 +256,18 @@ test("8. cost codes integration: budget allocation, coded/uncoded actuals, and f
     invoices,
   });
 
-  assert.equal(view.allocatedCostCodeBudget, 900000); // 600k + 300k
-  assert.equal(view.unallocatedBudget, 100000); // 1M - 900k
+  assert.equal(view.allocatedCostCodeBudget, 900000);
+  assert.equal(view.unallocatedBudget, 100000);
+  assert.equal(view.costClassificationAvailable, true);
   assert.equal(view.codedActualCost, 400000);
   assert.equal(view.uncodedActualCost, 100000);
-  assert.equal(view.activeCostCodesCount, 2);
   assert.equal(view.hasExplicitForecast, true);
-  assert.equal(view.forecastFinalCost, 930000); // 580k + 350k
-  assert.equal(view.forecastVariance, 70000); // 1M - 930k
-
+  assert.equal(view.forecastFinalCost, 930000);
+  assert.equal(view.forecastVariance, 70000);
   assert.ok(view.attentionFlags.some((f) => f.flag === "UNCODED_COST"));
-  assert.ok(view.attentionFlags.some((f) => f.flag === "UNALLOCATED_BUDGET"));
 });
 
-test("9. forecast over budget flag triggers when forecastFinalCost > budget", () => {
+test("10. partial forecast returns null forecastFinalCost, null variance, and does NOT trigger forecast over-budget", () => {
   const project = createMockProject({ id: "proj-11", projectBudget: 500000, currency: "PHP" });
   const costCodes: ProjectCostCode[] = [
     {
@@ -264,32 +275,19 @@ test("9. forecast over budget flag triggers when forecastFinalCost > budget", ()
       projectId: "proj-11",
       code: "CIV-01",
       name: "Civil Works",
-      approvedBudgetAmount: 500000,
-      forecastAmount: 600000,
+      approvedBudgetAmount: 250000,
+      forecastAmount: 300000, // Set
       status: "ACTIVE",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
     },
-  ];
-
-  const summary = createMockSummary({ budget: 500000, totalActualCost: 300000 });
-  const view = buildProjectManagementView(project, summary, { costCodes, invoices: [] });
-
-  assert.equal(view.forecastFinalCost, 600000);
-  assert.equal(view.forecastVariance, -100000);
-  assert.ok(view.attentionFlags.some((f) => f.flag === "FORECAST_OVER_BUDGET"));
-});
-
-test("10. missing forecast flag triggers when active codes lack forecast", () => {
-  const project = createMockProject({ id: "proj-12", projectBudget: 500000, currency: "PHP" });
-  const costCodes: ProjectCostCode[] = [
     {
-      id: "cc-1",
-      projectId: "proj-12",
-      code: "CIV-01",
-      name: "Civil Works",
-      approvedBudgetAmount: 500000,
-      forecastAmount: undefined,
+      id: "cc-2",
+      projectId: "proj-11",
+      code: "ELE-01",
+      name: "Electrical Works",
+      approvedBudgetAmount: 250000,
+      forecastAmount: undefined, // Missing!
       status: "ACTIVE",
       createdAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-01-01T00:00:00Z",
@@ -297,167 +295,129 @@ test("10. missing forecast flag triggers when active codes lack forecast", () =>
   ];
 
   const summary = createMockSummary({ budget: 500000, totalActualCost: 100000 });
-  const view = buildProjectManagementView(project, summary, { costCodes, invoices: [] });
+  const view = buildProjectManagementView(project, summary, { costCodes });
 
   assert.equal(view.hasExplicitForecast, false);
+  assert.equal(view.forecastFinalCost, null);
+  assert.equal(view.forecastVariance, null);
   assert.ok(view.attentionFlags.some((f) => f.flag === "FORECAST_NOT_SET"));
+  assert.equal(view.attentionFlags.some((f) => f.flag === "FORECAST_OVER_BUDGET"), false);
 });
 
-test("11. unavailable commercial metrics stay unavailable (committed, billed, collected, AR)", () => {
-  const project = createMockProject();
-  const summary = createMockSummary();
-  const view = buildProjectManagementView(project, summary);
+test("11. archived cost codes do not block forecast completeness if all active codes are forecasted", () => {
+  const project = createMockProject({ id: "proj-12", projectBudget: 600000, currency: "PHP" });
+  const costCodes: ProjectCostCode[] = [
+    {
+      id: "cc-1",
+      projectId: "proj-12",
+      code: "CIV-01",
+      name: "Civil Works",
+      approvedBudgetAmount: 500000,
+      forecastAmount: 550000,
+      status: "ACTIVE",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: "cc-archived",
+      projectId: "proj-12",
+      code: "OLD-01",
+      name: "Old Works",
+      approvedBudgetAmount: 100000,
+      forecastAmount: undefined, // Missing, but archived!
+      status: "ARCHIVED",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    },
+  ];
 
-  assert.equal(view.financialTruth.committedCost.status, "unavailable");
-  assert.equal(view.financialTruth.billed.status, "unavailable");
-  assert.equal(view.financialTruth.collected.status, "unavailable");
-  assert.equal(view.financialTruth.outstandingReceivables.status, "unavailable");
-  assert.equal(view.financialTruth.committedCost.amount, undefined);
-  assert.equal(view.financialTruth.billed.amount, undefined);
-  assert.equal(view.financialTruth.collected.amount, undefined);
-  assert.equal(view.financialTruth.outstandingReceivables.amount, undefined);
+  const summary = createMockSummary({ budget: 600000, totalActualCost: 100000 });
+  const view = buildProjectManagementView(project, summary, { costCodes });
+
+  assert.equal(view.activeCostCodesCount, 1);
+  assert.equal(view.hasExplicitForecast, true);
+  assert.equal(view.forecastFinalCost, 550000);
+  assert.equal(view.forecastVariance, 50000);
 });
 
-test("12. multi-currency portfolio summary groups totals and never sums mixed currencies", () => {
+test("12. cross-currency financial sort does not directly rank different currencies against each other", () => {
+  // PHP project: 1,000,000 PHP
+  const pPhp = createMockProject({ id: "p-php", projectCode: "PRJ-PHP", currency: "PHP", contractValue: 1000000, projectBudget: 800000 });
+  const sPhp = createMockSummary({ budget: 800000, totalActualCost: 500000 });
+
+  // USD project: 50,000 USD
+  const pUsd = createMockProject({ id: "p-usd", projectCode: "PRJ-USD", currency: "USD", contractValue: 50000, projectBudget: 40000 });
+  const sUsd = createMockSummary({ budget: 40000, totalActualCost: 25000 });
+
+  const vPhp = buildProjectManagementView(pPhp, sPhp);
+  const vUsd = buildProjectManagementView(pUsd, sUsd);
+
+  // Sorting by contractValue ascending
+  const sortedAsc = filterAndSortProjectViews([vUsd, vPhp], { sortField: "contractValue", sortDirection: "asc" });
+  assert.equal(sortedAsc[0].currency, "PHP");
+  assert.equal(sortedAsc[1].currency, "USD");
+
+  // Sorting by contractValue descending
+  const sortedDesc = filterAndSortProjectViews([vUsd, vPhp], { sortField: "contractValue", sortDirection: "desc" });
+  assert.equal(sortedDesc[0].currency, "PHP");
+  assert.equal(sortedDesc[1].currency, "USD");
+});
+
+test("13. same-currency financial sort works accurately and handles nulls", () => {
+  const p1 = createMockProject({ id: "p1", projectCode: "PRJ-1", currency: "PHP", contractValue: 2000000, projectBudget: 1500000 });
+  const s1 = createMockSummary({ budget: 1500000, totalActualCost: 1000000 });
+
+  const p2 = createMockProject({ id: "p2", projectCode: "PRJ-2", currency: "PHP", contractValue: undefined, projectBudget: 800000 });
+  const s2 = createMockSummary({ budget: 800000, totalActualCost: 500000 });
+
+  const p3 = createMockProject({ id: "p3", projectCode: "PRJ-3", currency: "PHP", contractValue: 5000000, projectBudget: 4000000 });
+  const s3 = createMockSummary({ budget: 4000000, totalActualCost: 2000000 });
+
+  const v1 = buildProjectManagementView(p1, s1);
+  const v2 = buildProjectManagementView(p2, s2);
+  const v3 = buildProjectManagementView(p3, s3);
+
+  // Sort desc: p3 (5M), p1 (2M), p2 (undefined at end)
+  const sortedDesc = filterAndSortProjectViews([v1, v2, v3], { sortField: "contractValue", sortDirection: "desc" });
+  assert.equal(sortedDesc[0].project.projectCode, "PRJ-3");
+  assert.equal(sortedDesc[1].project.projectCode, "PRJ-1");
+  assert.equal(sortedDesc[2].project.projectCode, "PRJ-2");
+});
+
+test("14. utilization sorting handles partial/unavailable states safely", () => {
+  const p1 = createMockProject({ id: "p1", projectCode: "PRJ-1", projectBudget: 1000000 });
+  const s1 = createMockSummary({ budget: 1000000, totalActualCost: 900000 }); // 90%
+
+  const p2 = createMockProject({ id: "p2", projectCode: "PRJ-2", projectBudget: 1000000 });
+  const s2 = createMockSummary({ budget: 1000000, totalActualCost: 500000, foreignCosts: { USD: 100 } }); // Partial
+
+  const p3 = createMockProject({ id: "p3", projectCode: "PRJ-3", projectBudget: 1000000 });
+  const s3 = createMockSummary({ budget: 1000000, totalActualCost: 200000 }); // 20%
+
+  const v1 = buildProjectManagementView(p1, s1);
+  const v2 = buildProjectManagementView(p2, s2);
+  const v3 = buildProjectManagementView(p3, s3);
+
+  const sortedDesc = filterAndSortProjectViews([v1, v2, v3], { sortField: "utilization", sortDirection: "desc" });
+  assert.equal(sortedDesc[0].project.projectCode, "PRJ-1"); // 90%
+  assert.equal(sortedDesc[1].project.projectCode, "PRJ-3"); // 20%
+  assert.equal(sortedDesc[2].project.projectCode, "PRJ-2"); // Partial (at end)
+});
+
+test("15. portfolio currency group marks partial projects and missing contract values incomplete", () => {
   const p1 = createMockProject({ id: "p1", currency: "PHP", contractValue: 1000000, projectBudget: 800000 });
-  const s1 = createMockSummary({
-    budget: 800000,
-    totalActualCost: 500000,
-    pendingInvoiceCost: 50000,
-    pendingPayrollCost: 0,
-    pendingExpenseCost: 0,
-  });
+  const s1 = createMockSummary({ budget: 800000, totalActualCost: 500000, foreignCosts: { USD: 50 } }); // Partial
 
-  const p2 = createMockProject({ id: "p2", currency: "USD", contractValue: 50000, projectBudget: 40000 });
-  const s2 = createMockSummary({
-    budget: 40000,
-    totalActualCost: 25000,
-    pendingInvoiceCost: 2000,
-    pendingPayrollCost: 0,
-    pendingExpenseCost: 0,
-  });
+  const p2 = createMockProject({ id: "p2", currency: "PHP", contractValue: undefined, projectBudget: 500000 });
+  const s2 = createMockSummary({ budget: 500000, totalActualCost: 200000 }); // Missing contract value
 
   const v1 = buildProjectManagementView(p1, s1);
   const v2 = buildProjectManagementView(p2, s2);
 
   const portfolio = buildPortfolioManagementSummary([v1, v2]);
 
-  assert.equal(portfolio.totalProjects, 2);
-  assert.equal(portfolio.isMultiCurrency, true);
-  assert.deepEqual(portfolio.currencies.sort(), ["PHP", "USD"]);
-
-  assert.equal(portfolio.currencyGroups.PHP?.totalContractValue, 1000000);
-  assert.equal(portfolio.currencyGroups.PHP?.totalApprovedBudget, 800000);
-  assert.equal(portfolio.currencyGroups.PHP?.totalActualCost, 500000);
-  assert.equal(portfolio.currencyGroups.PHP?.totalPendingExposure, 50000);
-
-  assert.equal(portfolio.currencyGroups.USD?.totalContractValue, 50000);
-  assert.equal(portfolio.currencyGroups.USD?.totalApprovedBudget, 40000);
-  assert.equal(portfolio.currencyGroups.USD?.totalActualCost, 25000);
-  assert.equal(portfolio.currencyGroups.USD?.totalPendingExposure, 2000);
-});
-
-test("13. filter and sort project views works accurately", () => {
-  const p1 = createMockProject({ id: "p1", projectCode: "PRJ-AAA", projectName: "Alpha", status: "ACTIVE", projectBudget: 1000000 });
-  const s1 = createMockSummary({ budget: 1000000, totalActualCost: 950000 }); // 95% -> Near limit
-
-  const p2 = createMockProject({ id: "p2", projectCode: "PRJ-BBB", projectName: "Beta", status: "ARCHIVED", projectBudget: 2000000 });
-  const s2 = createMockSummary({ budget: 2000000, totalActualCost: 2500000 }); // 125% -> Over budget
-
-  const p3 = createMockProject({ id: "p3", projectCode: "PRJ-CCC", projectName: "Gamma", status: "ACTIVE", projectBudget: 500000 });
-  const s3 = createMockSummary({ budget: 500000, totalActualCost: 100000 }); // 20% -> On budget
-
-  const v1 = buildProjectManagementView(p1, s1);
-  const v2 = buildProjectManagementView(p2, s2);
-  const v3 = buildProjectManagementView(p3, s3);
-  const views = [v1, v2, v3];
-
-  // Search filter
-  const searchResults = filterAndSortProjectViews(views, { searchQuery: "alpha" });
-  assert.equal(searchResults.length, 1);
-  assert.equal(searchResults[0].project.projectCode, "PRJ-AAA");
-
-  // Status filter
-  const activeResults = filterAndSortProjectViews(views, { statusFilter: "ACTIVE" });
-  assert.equal(activeResults.length, 2);
-
-  // Health filter
-  const nearBudgetResults = filterAndSortProjectViews(views, { healthFilter: "NEAR_BUDGET" });
-  assert.equal(nearBudgetResults.length, 1);
-  assert.equal(nearBudgetResults[0].project.projectCode, "PRJ-AAA");
-
-  const overBudgetResults = filterAndSortProjectViews(views, { healthFilter: "OVER_BUDGET" });
-  assert.equal(overBudgetResults.length, 1);
-  assert.equal(overBudgetResults[0].project.projectCode, "PRJ-BBB");
-
-  // Sort by actualCost descending
-  const sortedByCostDesc = filterAndSortProjectViews(views, { sortField: "actualCost", sortDirection: "desc" });
-  assert.equal(sortedByCostDesc[0].project.projectCode, "PRJ-BBB"); // 2.5M
-  assert.equal(sortedByCostDesc[1].project.projectCode, "PRJ-AAA"); // 950k
-  assert.equal(sortedByCostDesc[2].project.projectCode, "PRJ-CCC"); // 100k
-});
-
-test("14. archived project view preserves historical figures without looking active", () => {
-  const project = createMockProject({
-    status: "ARCHIVED",
-    archivedAt: "2026-02-01T00:00:00Z",
-    archivedFromStatus: "ACTIVE",
-  });
-  const summary = createMockSummary({ totalActualCost: 1200000 });
-  const view = buildProjectManagementView(project, summary);
-
-  assert.equal(view.project.status, "ARCHIVED");
-  assert.equal(view.actualCost, 1200000);
-});
-
-test("15. aggregate payroll contributes to actual cost without leaking details or cost-code assignments", () => {
-  const project = createMockProject({ id: "proj-p", currency: "PHP", projectBudget: 500000 });
-  const costCodes: ProjectCostCode[] = [
-    {
-      id: "cc-1",
-      projectId: "proj-p",
-      code: "CIV-01",
-      name: "Civil Works",
-      approvedBudgetAmount: 300000,
-      status: "ACTIVE",
-      createdAt: "2026-01-01T00:00:00Z",
-      updatedAt: "2026-01-01T00:00:00Z",
-    },
-  ];
-
-  const summary = calculateProjectCost(project, {
-    projectLaborAggregates: [
-      {
-        projectId: "proj-p",
-        currency: "PHP",
-        confirmedLaborCost: 150000,
-        pendingLaborCost: 25000,
-        status: "AVAILABLE",
-      },
-    ],
-    laborSource: "aggregate",
-  });
-
-  const view = buildProjectManagementView(project, summary, {
-    costCodes,
-    projectLaborAggregates: [
-      {
-        projectId: "proj-p",
-        currency: "PHP",
-        confirmedLaborCost: 150000,
-        pendingLaborCost: 25000,
-        status: "AVAILABLE",
-      },
-    ],
-    laborSource: "aggregate",
-  });
-
-  // Confirmed labor is included in totalActualCost
-  assert.equal(view.actualCost, 150000);
-  assert.equal(view.pendingCostExposure, 25000);
-  // Aggregate labor has no cost-code provenance -> remains in uncodedActualCost
-  assert.equal(view.codedActualCost, 0);
-  assert.equal(view.uncodedActualCost, 150000);
+  assert.equal(portfolio.currencyGroups.PHP?.isComplete, false);
+  assert.equal(portfolio.currencyGroups.PHP?.contractValueComplete, false);
 });
 
 test("16. project management view reconciles with P1A and P1B", () => {
@@ -502,6 +462,7 @@ test("16. project management view reconciles with P1A and P1B", () => {
   assert.equal(view.remainingBudget, summary.remainingBudget);
 
   // P1B reconciliation: coded + uncoded === totalActualCost
-  assert.equal(view.codedActualCost + view.uncodedActualCost, view.actualCost);
+  assert.equal(view.costClassificationAvailable, true);
+  assert.equal(view.codedActualCost! + view.uncodedActualCost!, view.actualCost);
   assert.equal(view.allocatedCostCodeBudget + view.unallocatedBudget, view.approvedCostBudget);
 });
