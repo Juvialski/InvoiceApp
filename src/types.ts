@@ -21,6 +21,7 @@ export interface TaxBreakdown {
 
 export interface PartyDetails {
   name: string;
+  vendorId?: string;
   companyName?: string;
   registeredName?: string;
   tradeName?: string;
@@ -997,5 +998,72 @@ export interface PurchaseOrderReceipt {
   createdAt?: string;
   updatedAt?: string;
   lines?: PurchaseOrderReceiptLine[];
+}
+
+export type PurchaseOrderInvoiceMatchStatus = "CONFIRMED" | "UNMATCHED";
+export type PurchaseOrderInvoiceMatchSource = "MANUAL" | "PO_NUMBER_EXACT" | "SUGGESTED_CONFIRMED";
+
+export interface PurchaseOrderInvoiceMatchLine {
+  id: string;
+  companyId?: string;
+  matchId: string;
+  purchaseOrderLineId: string;
+  invoiceLineId: string;
+  lineNumber: number;
+  matchedQuantity?: number | null;
+  matchedAmount?: number | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PurchaseOrderInvoiceMatch {
+  id: string;
+  companyId?: string;
+  invoiceId: string;
+  purchaseOrderId: string;
+  matchSource: PurchaseOrderInvoiceMatchSource | string;
+  status: PurchaseOrderInvoiceMatchStatus;
+  confirmedByUserId?: string | null;
+  confirmedAt: string;
+  unmatchedByUserId?: string | null;
+  unmatchedAt?: string | null;
+  unmatchReason?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  lines?: PurchaseOrderInvoiceMatchLine[];
+}
+
+export interface LineItemComparison {
+  invoiceLineId: string;
+  invoiceLineIndex?: number;
+  invoiceDescription: string;
+  invoiceQuantity: number;
+  invoiceUnitPrice: number;
+  invoiceAmount: number;
+  purchaseOrderLineId?: string;
+  purchaseOrderDescription?: string;
+  purchaseOrderOrderedQuantity?: number;
+  purchaseOrderUnitPrice?: number;
+  purchaseOrderAmount?: number;
+  receivedQuantity?: number;
+  remainingReceiptQuantity?: number;
+  isFullyReceived?: boolean;
+  isPartiallyReceived?: boolean;
+  warnings: string[];
+}
+
+export interface PurchaseOrderMatchCandidate {
+  purchaseOrder: PurchaseOrder;
+  score: number;
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  matchReasons: string[];
+  warnings: string[];
+  isEligibleForConfirmation: boolean;
+  ineligibilityReason?: string;
+  vendorMatch: "EXACT" | "NAME_ONLY" | "UNRESOLVED" | "MISMATCH";
+  currencyMatch: boolean;
+  lineComparisons: LineItemComparison[];
 }
 

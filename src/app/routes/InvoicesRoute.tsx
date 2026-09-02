@@ -18,6 +18,9 @@ import type {
   InvoiceProjectAllocation,
   Project,
   ProjectCostCode,
+  PurchaseOrder,
+  PurchaseOrderInvoiceMatch,
+  PurchaseOrderReceipt,
 } from "../../types";
 import { hasAllPermissions, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import type { AppTab } from "../../utils/routes";
@@ -72,6 +75,21 @@ export interface InvoicesRouteProps {
   onImportGmailMessage?: (message: GmailMessageCandidate) => Promise<number>;
   onProcessEmail?: (input: { sender: string; subject: string; receivedAt: string; body: string; attachments: File[] }) => Promise<EmailClassification | null>;
   onNavigatePath?: AppNavigate;
+  purchaseOrders?: PurchaseOrder[];
+  purchaseOrderReceipts?: PurchaseOrderReceipt[];
+  purchaseOrderMatches?: PurchaseOrderInvoiceMatch[];
+  onConfirmPurchaseOrderMatch?: (
+    poId: string,
+    lines: Array<{
+      invoiceLineId: string;
+      purchaseOrderLineId: string;
+      matchedQuantity?: number;
+      matchedAmount?: number;
+    }>,
+    notes?: string,
+  ) => Promise<void>;
+  onUnmatchPurchaseOrderMatch?: (matchId: string, reason: string) => Promise<void>;
+  onOpenPurchaseOrder?: (purchaseOrderId: string) => void;
 }
 
 export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
@@ -120,12 +138,20 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onImportGmailMessage = async () => { throw new Error("Gmail import handler not configured."); },
   onProcessEmail = async () => { throw new Error("Process email handler not configured."); },
   onNavigatePath,
+  purchaseOrders,
+  purchaseOrderReceipts,
+  purchaseOrderMatches,
+  onConfirmPurchaseOrderMatch,
+  onUnmatchPurchaseOrderMatch,
+  onOpenPurchaseOrder,
 }) => {
   const permissions = useAppPermissions();
   const canManageInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const canVerifyInvoices = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesVerify]);
   const canExtractInvoices = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify]);
   const canManageProjectAllocations = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.projectsWrite]);
+  const canReadProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementRead);
+  const canManageProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementWrite);
   const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
   const canImportBankStatements = hasPermission(permissions, PERMISSION_KEYS.cashImport);
   const canManageExpenses = hasAllPermissions(permissions, [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite]);
@@ -151,7 +177,6 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
       setCorrectionLoading(false);
     }
   };
-
   const closeCorrection = () => {
     setCorrectionInvoice(null);
     setCorrectionPreview(null);
@@ -215,6 +240,14 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
             const match = invoices.find((inv) => inv.id === id);
             if (match && onSelectInvoice) onSelectInvoice(match);
           }}
+          purchaseOrders={purchaseOrders}
+          purchaseOrderReceipts={purchaseOrderReceipts}
+          purchaseOrderMatches={purchaseOrderMatches}
+          onConfirmPurchaseOrderMatch={onConfirmPurchaseOrderMatch}
+          onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
+          onOpenPurchaseOrder={onOpenPurchaseOrder}
+          canReadProcurement={canReadProcurement}
+          canManageProcurement={canManageInvoices && canManageProcurement}
         />
         {correctionDialog}
       </div>

@@ -110,8 +110,8 @@ P2 is split into bounded implementation waves:
 ### P2A — Suppliers, quotations, Purchase Orders, deliveries
 
 - **P2A-1 Purchase Orders Foundation & Commitments**: **COMPLETE** (Vendor reuse, PO lines, DRAFT/APPROVED/ISSUED/CLOSED/CANCELLED lifecycle, Committed Cost calculation, RBAC, module gating).
-- **P2A-2 Delivery / Goods Receipt Tracking**: **IMPLEMENTED** (receipt headers & lines, over-receipt triggers with row-locking, status/progress tracking, voiding workflow, Project Lifecycle preflight integration).
-- **P2A-3 Supplier Invoice Matching**: Next sub-wave (linking incoming supplier invoices to PO lines/receipts).
+- **P2A-2 Delivery / Goods Receipt Tracking**: **COMPLETE** (receipt headers & lines, over-receipt triggers with row-locking, status/progress tracking, voiding workflow, Project Lifecycle preflight integration).
+- **P2A-3 Supplier Invoice ↔ Purchase Order Matching**: **IMPLEMENTED** (match header & line mapping, candidate ranking engine with deterministic signals, delivery/receipt progress integration, cross-company & currency & lifecycle validation, guarded RPCs, unmatching with mandatory reason, dual-permission RLS & UI integration in Invoice Verification and Procurement).
 
 Financial rule: an approved commitment is not automatically an Actual Cost until the authoritative posting/invoice/payment rule says it is. Receipts are operational delivery records and do NOT generate Actual Cost or duplicate supplier invoices.
 

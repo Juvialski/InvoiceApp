@@ -95,6 +95,7 @@ export function createDemoInvoices(anchorDate: string): { invoices: InvoiceData[
       invoiceNumber: spec.number,
       invoiceDate,
       dueDate,
+      purchaseOrderNumber: spec.id === "17" ? "PO-25-0012" : undefined,
       projectReference: spec.projectId,
       currency: "PHP",
       currencySymbol: "₱",

@@ -1,4 +1,4 @@
-import type { PurchaseOrder, PurchaseOrderReceipt, Vendor } from "../../types.ts";
+import type { PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, Vendor } from "../../types.ts";
 import { DEMO_COMPANY_ID } from "../demoTypes.ts";
 import { addDemoDays, demoTimestamp } from "./demoDates.ts";
 import { DEMO_PROJECT_IDS } from "./projects.ts";
@@ -568,6 +568,40 @@ export function createDemoPurchaseOrderReceipts(anchorDate: string): PurchaseOrd
       ],
       createdAt: demoTimestamp(addDemoDays(anchorDate, -190), 11, 0),
       updatedAt: demoTimestamp(addDemoDays(anchorDate, -190), 11, 0),
+    },
+  ];
+}
+
+export function createDemoPurchaseOrderMatches(anchorDate: string): PurchaseOrderInvoiceMatch[] {
+  const confirmedAt = demoTimestamp(addDemoDays(anchorDate, -2), 11, 30);
+  return [
+    {
+      id: "demo-po-match-001",
+      companyId: DEMO_COMPANY_ID,
+      invoiceId: "demo-invoice-17",
+      purchaseOrderId: "demo-po-sol-001",
+      matchSource: "PO_NUMBER_EXACT",
+      status: "CONFIRMED",
+      confirmedByUserId: "demo-user-finance-01",
+      confirmedAt,
+      notes: "Confirmed match against PO-25-0012 for solar electrical conduit package.",
+      createdAt: confirmedAt,
+      updatedAt: confirmedAt,
+      lines: [
+        {
+          id: "demo-po-match-line-001",
+          companyId: DEMO_COMPANY_ID,
+          matchId: "demo-po-match-001",
+          purchaseOrderLineId: "demo-po-line-sol-01",
+          invoiceLineId: "demo-invoice-17-line-1",
+          lineNumber: 1,
+          matchedQuantity: 800,
+          matchedAmount: 520_000,
+          notes: "Full conduit lot delivery matching invoice line 1",
+          createdAt: confirmedAt,
+          updatedAt: confirmedAt,
+        },
+      ],
     },
   ];
 }
