@@ -92,10 +92,14 @@ begin
 
     -- Historical rows may keep their archived code while unrelated fields are
     -- corrected. New or changed assignments must target an active code.
-    if v_cost_code_status <> 'ACTIVE'
-       and (tg_op = 'INSERT' or old.project_cost_code_id is distinct from new.project_cost_code_id) then
-      raise exception 'Archived cost codes cannot receive new invoice assignments'
-        using errcode = '42501';
+    if v_cost_code_status <> 'ACTIVE' then
+      if tg_op = 'INSERT' then
+        raise exception 'Archived cost codes cannot receive new invoice assignments'
+          using errcode = '42501';
+      elsif old.project_cost_code_id is distinct from new.project_cost_code_id then
+        raise exception 'Archived cost codes cannot receive new invoice assignments'
+          using errcode = '42501';
+      end if;
     end if;
   end if;
 
@@ -135,10 +139,14 @@ begin
       raise exception 'Cost code does not belong to the same project and company';
     end if;
 
-    if v_cost_code_status <> 'ACTIVE'
-       and (tg_op = 'INSERT' or old.project_cost_code_id is distinct from new.project_cost_code_id) then
-      raise exception 'Archived cost codes cannot receive new payroll assignments'
-        using errcode = '42501';
+    if v_cost_code_status <> 'ACTIVE' then
+      if tg_op = 'INSERT' then
+        raise exception 'Archived cost codes cannot receive new payroll assignments'
+          using errcode = '42501';
+      elsif old.project_cost_code_id is distinct from new.project_cost_code_id then
+        raise exception 'Archived cost codes cannot receive new payroll assignments'
+          using errcode = '42501';
+      end if;
     end if;
   end if;
 
@@ -183,10 +191,14 @@ begin
       raise exception 'Cost code does not belong to the same project and company';
     end if;
 
-    if v_cost_code_status <> 'ACTIVE'
-       and (tg_op = 'INSERT' or old.project_cost_code_id is distinct from new.project_cost_code_id) then
-      raise exception 'Archived cost codes cannot receive new expense assignments'
-        using errcode = '42501';
+    if v_cost_code_status <> 'ACTIVE' then
+      if tg_op = 'INSERT' then
+        raise exception 'Archived cost codes cannot receive new expense assignments'
+          using errcode = '42501';
+      elsif old.project_cost_code_id is distinct from new.project_cost_code_id then
+        raise exception 'Archived cost codes cannot receive new expense assignments'
+          using errcode = '42501';
+      end if;
     end if;
   end if;
 
