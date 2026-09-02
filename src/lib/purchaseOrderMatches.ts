@@ -9,7 +9,7 @@ import type {
 import { supabase } from "./supabase.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
 import { readPurchaseOrdersFromLocal } from "./purchaseOrders.ts";
-import { validateMatchLineAssociations } from "../utils/purchaseOrderMatching.ts";
+import { resolvedInvoiceVendorId, validateMatchLineAssociations } from "../utils/purchaseOrderMatching.ts";
 
 export const MATCH_STORAGE_KEY = "engineering_purchase_order_invoice_matches";
 type Row = Record<string, unknown>;
@@ -189,7 +189,7 @@ export async function confirmPurchaseOrderMatch(
     // 3. Validate invoice if provided
     const inv = params.invoice;
     if (inv) {
-      if (inv.lifecycleStatus === "VOID" || (inv as any).voidedAt) {
+      if (inv.lifecycleStatus === "VOID" || inv.voidedAt) {
         throw new Error("Cannot match a void invoice");
       }
 
@@ -205,7 +205,7 @@ export async function confirmPurchaseOrderMatch(
         );
       }
 
-      const invVendorId = (inv as any).vendorId || (inv as any).vendor_id;
+      const invVendorId = resolvedInvoiceVendorId(inv);
       if (!invVendorId) {
         throw new Error("Invoice vendor must be resolved before matching");
       }
