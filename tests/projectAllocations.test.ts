@@ -57,7 +57,7 @@ test("replacement normalization and local fallback are deterministic", () => {
   assert.equal(replaced.filter((item) => item.invoiceId === "other-invoice").length, 1);
 
   assert.deepEqual(toInvoiceProjectAllocationPersistenceRows("invoice-1", 100, next), [
-    { project_id: "project-a", allocation_type: "PERCENTAGE", allocation_percentage: 20, allocation_amount: null, notes: null },
-    { project_id: "project-b", allocation_type: "AMOUNT", allocation_percentage: null, allocation_amount: 40, notes: null },
+    { project_id: "project-a", project_cost_code_id: null, allocation_type: "PERCENTAGE", allocation_percentage: 20, allocation_amount: null, notes: null },
+    { project_id: "project-b", project_cost_code_id: null, allocation_type: "AMOUNT", allocation_percentage: null, allocation_amount: 40, notes: null },
   ]);
 });

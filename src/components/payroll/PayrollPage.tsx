@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AlertTriangle, CalendarDays, ChevronDown, HardHat, Users, WalletCards } from "lucide-react";
-import { PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
+import { PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectWorkerAssignment, Worker, WorkEntry } from "../../types";
 import { PayrollPeriods } from "./PayrollPeriods";
 import { PayrollRunView } from "./PayrollRunView";
 import { WorkersTable } from "./WorkersTable";
@@ -20,6 +20,7 @@ export interface PayrollPageProps {
   allocations: PayrollProjectAllocation[];
   workEntries?: WorkEntry[];
   projects: Project[];
+  costCodes?: ProjectCostCode[];
   onSaveWorker: (worker: Worker) => void;
   onSavePeriod: (period: PayrollPeriod) => void;
   onSaveAssignment?: (assignment: ProjectWorkerAssignment) => void;
@@ -38,7 +39,7 @@ export interface PayrollPageProps {
 
 type PayrollTab = "workers" | "time" | "runs" | "import";
 
-export const PayrollPage: React.FC<PayrollPageProps> = ({ workers, assignments, periods, runs, entries, allocations, workEntries = [], projects, importBatches = [], importTemplates = [], onSaveWorker, onSavePeriod, onSaveAssignment, onSaveWorkEntry, onSavePayrollEntry, onUpdateRun, onCreateRun, onCalculateRun, onStagePayrollImport, onSavePayrollImportTemplate, onCommitPayrollImport }) => {
+export const PayrollPage: React.FC<PayrollPageProps> = ({ workers, assignments, periods, runs, entries, allocations, workEntries = [], projects, costCodes = [], importBatches = [], importTemplates = [], onSaveWorker, onSavePeriod, onSaveAssignment, onSaveWorkEntry, onSavePayrollEntry, onUpdateRun, onCreateRun, onCalculateRun, onStagePayrollImport, onSavePayrollImportTemplate, onCommitPayrollImport }) => {
   const [tab, setTab] = useState<PayrollTab>("workers");
   const [selectedPeriodId, setSelectedPeriodId] = useState("");
   const selectedPeriod = periods.find((period) => period.id === selectedPeriodId);
@@ -71,7 +72,7 @@ export const PayrollPage: React.FC<PayrollPageProps> = ({ workers, assignments, 
     {tab === "workers" && <div className="space-y-4"><WorkersTable workers={workers} onSave={onSaveWorker} />{onSaveAssignment && <ProjectAssignments assignments={assignments} workers={workers} projects={projects} onSave={onSaveAssignment} />}<PayrollPeriods periods={periods} onSave={onSavePeriod} /></div>}
     {tab === "import" && onStagePayrollImport && onSavePayrollImportTemplate && onCommitPayrollImport && <PayrollImportWorkflow workers={workers} projects={projects} batches={importBatches} templates={importTemplates} onStage={onStagePayrollImport} onSaveTemplate={onSavePayrollImportTemplate} onCommit={onCommitPayrollImport} />}
     {tab === "time" && (onSaveWorkEntry ? <TimeEntries entries={workEntries} workers={workers} projects={projects} periods={periods} assignments={assignments} runs={runs} selectedPeriodId={selectedPeriodId} onSave={onSaveWorkEntry} /> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-xs text-slate-500">Time entry persistence is not available in this workspace.</div>)}
-    {tab === "runs" && <PayrollRunView runs={runs} periods={periods} entries={entries} allocations={allocations} workers={workers} projects={projects} workEntries={workEntries} assignments={assignments} selectedPeriodId={selectedPeriodId} onSaveEntry={onSavePayrollEntry} onUpdateRun={onUpdateRun} onCreateRun={onCreateRun} onCalculateRun={onCalculateRun} />}
+    {tab === "runs" && <PayrollRunView runs={runs} periods={periods} entries={entries} allocations={allocations} workers={workers} projects={projects} costCodes={costCodes} workEntries={workEntries} assignments={assignments} selectedPeriodId={selectedPeriodId} onSaveEntry={onSavePayrollEntry} onUpdateRun={onUpdateRun} onCreateRun={onCreateRun} onCalculateRun={onCalculateRun} />}
     {periodHasLockedRun && <p className="text-[10px] text-slate-500">This period contains a locked run. Approved, paid, or void run data is read-only.</p>}
   </div>;
 };

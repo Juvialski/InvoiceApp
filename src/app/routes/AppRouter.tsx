@@ -23,6 +23,7 @@ import type {
   PayrollProjectAllocation,
   PayrollRun,
   Project,
+  ProjectCostCode,
   ProjectCostSummary,
   ProjectWorkerAssignment,
   WorkEntry,
@@ -105,6 +106,7 @@ export interface AppRouterProps {
   selectedProject?: Project | null;
   projectSummaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
+  costCodes?: readonly ProjectCostCode[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   projectFormSeed?: Project | null;
@@ -125,6 +127,18 @@ export interface AppRouterProps {
   onArchiveProject: (project: Project) => Promise<void> | void;
   onReactivateProject: (project: Project) => Promise<void> | void;
   onEditProject?: () => void;
+  onSaveCostCode?: (costCode: {
+    id?: string;
+    projectId: string;
+    code: string;
+    name: string;
+    description?: string;
+    approvedBudgetAmount: number;
+    forecastAmount?: number;
+    status: ProjectCostCode["status"];
+  }) => Promise<void> | void;
+  onArchiveCostCode?: (costCodeId: string) => Promise<void> | void;
+  onReactivateCostCode?: (costCodeId: string) => Promise<void> | void;
   onProjectTabChange?: (tab: WorkspaceTab) => void;
   onProjectBack?: () => void;
   onProjectUploadInvoice?: () => void;
@@ -290,6 +304,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   selectedProject,
   projectSummaries,
   projectDashboard,
+  costCodes = [],
   projectLaborAggregates = [],
   laborSource,
   projectFormSeed,
@@ -310,6 +325,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onArchiveProject,
   onReactivateProject,
   onEditProject,
+  onSaveCostCode,
+  onArchiveCostCode,
+  onReactivateCostCode,
   onProjectTabChange,
   onProjectBack = () => {},
   onProjectUploadInvoice = () => {},
@@ -479,6 +497,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         selectedProject={selectedProject}
         summaries={projectSummaries}
         projectDashboard={projectDashboard}
+        costCodes={costCodes}
         invoices={invoices}
         invoiceAllocations={invoiceProjectAllocations}
         expenses={expenses}
@@ -510,6 +529,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onArchiveProject={onArchiveProject}
         onReactivateProject={onReactivateProject}
         onEditProject={onEditProject}
+        onSaveCostCode={onSaveCostCode}
+        onArchiveCostCode={onArchiveCostCode}
+        onReactivateCostCode={onReactivateCostCode}
         onSaveInvoiceAllocations={onSaveInvoiceProjectAllocations}
         onBack={onProjectBack}
         onOpenInvoice={(invoice) => onSelectInvoice?.(invoice)}
@@ -586,6 +608,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onNavigatePath={onNavigatePath}
         invoices={invoices}
         projects={projects}
+        costCodes={costCodes as ProjectCostCode[]}
         invoiceProjectAllocations={invoiceProjectAllocations}
         preferredProjectId={uploadProjectContextId || undefined}
         reviewQueue={reviewQueue}
@@ -628,6 +651,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         overtimeRequests={payrollData.overtimeRequests || []}
         holidays={payrollData.holidays || []}
         projects={projects}
+        costCodes={costCodes as ProjectCostCode[]}
         schedules={payrollData.schedules || []}
         compensationProfiles={payrollData.compensationProfiles || []}
         recurringComponents={payrollData.recurringComponents || []}
@@ -676,6 +700,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
       <ExpensesRoute
         expenses={expenses}
         projects={projects}
+        costCodes={costCodes as ProjectCostCode[]}
         initialProjectId={expenseFormContext || undefined}
         initialExpenseId={expenseCorrectionContext}
         onSave={onSaveExpense}

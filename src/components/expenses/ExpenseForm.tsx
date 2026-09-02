@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import { Expense, ExpenseStatus, Project } from "../../types";
+import { Expense, ExpenseStatus, Project, ProjectCostCode } from "../../types";
 import { EXPENSE_CATEGORIES, createLocalExpense } from "../../lib/expenses";
+import { formatCostCodeOptionLabel, getSelectableCostCodes } from "../../lib/projectCostCodes";
 
 interface ExpenseFormProps {
   projects: Project[];
+  costCodes?: ProjectCostCode[];
   initial?: Expense;
   projectId?: string;
   onSave: (expense: Expense) => void;
   onCancel: () => void;
 }
 
-export const ExpenseForm: React.FC<ExpenseFormProps> = ({ projects, initial, projectId, onSave, onCancel }) => {
+export const ExpenseForm: React.FC<ExpenseFormProps> = ({ projects, costCodes = [], initial, projectId, onSave, onCancel }) => {
   const [expense, setExpense] = useState<Expense>(initial || createLocalExpense({ projectId, expenseDate: new Date().toISOString().slice(0, 10), category: "Miscellaneous", description: "", payee: "", amount: 0, currency: "PHP", paymentMethod: "", referenceNumber: "", status: "DRAFT", notes: "" }));
   const [validationError, setValidationError] = useState<string | null>(null);
   const update = (patch: Partial<Expense>) => { setExpense((current) => ({ ...current, ...patch })); setValidationError(null); };
@@ -22,8 +24,19 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ projects, initial, pro
     if (!Number.isFinite(expense.amount) || expense.amount < 0) { setValidationError("Enter a valid non-negative expense amount."); return; }
     if (!/^[A-Z]{3}$/.test(currency)) { setValidationError("Enter a three-letter currency code such as PHP."); return; }
     setValidationError(null);
-    onSave({ ...expense, description, category: expense.category.trim() || "Miscellaneous", currency, amount: Number(expense.amount) || 0 });
+    onSave({
+      ...expense,
+      description,
+      category: expense.category.trim() || "Miscellaneous",
+      currency,
+      amount: Number(expense.amount) || 0,
+      projectCostCodeId: expense.projectId ? expense.projectCostCodeId : undefined,
+    });
   };
+
+  const selectableCostCodes = expense.projectId
+    ? getSelectableCostCodes(costCodes, expense.projectId, expense.projectCostCodeId)
+    : [];
 
   return <form noValidate onSubmit={submit} className="space-y-5">
     {validationError && <p id="expense-form-error" role="alert" aria-live="assertive" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold leading-5 text-rose-800">{validationError}</p>}
@@ -32,7 +45,18 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ projects, initial, pro
       <legend className="px-1 text-xs font-black uppercase tracking-[0.14em] text-slate-700">Cost details</legend>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1"><span className="field-label">Date</span><input type="date" aria-label="Expense date" value={expense.expenseDate} onChange={(event) => update({ expenseDate: event.target.value })} className="field-input" /></label>
-        <label className="space-y-1"><span className="field-label">Project</span><select aria-label="Expense project" value={expense.projectId || ""} onChange={(event) => update({ projectId: event.target.value || undefined })} className="field-input"><option value="">Unallocated</option>{projects.filter((project) => project.status !== "ARCHIVED").map((project) => <option key={project.id} value={project.id}>{project.projectCode} — {project.projectName}</option>)}</select></label>
+        <label className="space-y-1"><span className="field-label">Project</span><select aria-label="Expense project" value={expense.projectId || ""} onChange={(event) => { const nextProjectId = event.target.value || undefined; const currentCode = costCodes.find((cc) => cc.id === expense.projectCostCodeId); const nextCostCodeId = currentCode && currentCode.projectId === nextProjectId ? expense.projectCostCodeId : undefined; update({ projectId: nextProjectId, projectCostCodeId: nextCostCodeId }); }} className="field-input"><option value="">Unallocated</option>{projects.filter((project) => project.status !== "ARCHIVED" || project.id === expense.projectId).map((project) => <option key={project.id} value={project.id}>{project.projectCode} — {project.projectName}{project.status === "ARCHIVED" ? " (archived)" : ""}</option>)}</select></label>
+        {expense.projectId && (
+          <label className="space-y-1 sm:col-span-2">
+            <span className="field-label">Cost code</span>
+            <select aria-label="Expense cost code" value={expense.projectCostCodeId || ""} onChange={(event) => update({ projectCostCodeId: event.target.value || undefined })} className="field-input">
+              <option value="">Uncoded</option>
+              {selectableCostCodes.map((cc) => (
+                <option key={cc.id} value={cc.id}>{formatCostCodeOptionLabel(cc)}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="space-y-1 sm:col-span-2"><span className="field-label">Category</span><input list="expense-categories" aria-label="Expense category" value={expense.category} onChange={(event) => update({ category: event.target.value })} className="field-input" /><datalist id="expense-categories">{EXPENSE_CATEGORIES.map((category) => <option key={category} value={category} />)}</datalist></label>
       </div>
     </fieldset>
@@ -57,3 +81,4 @@ export const ExpenseForm: React.FC<ExpenseFormProps> = ({ projects, initial, pro
     <div className="flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3"><button type="button" onClick={onCancel} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Cancel</button><button type="submit" className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">Save expense</button></div>
   </form>;
 };
+

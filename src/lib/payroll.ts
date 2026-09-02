@@ -93,7 +93,7 @@ function entryFromRow(row: Record<string, unknown>): PayrollEntry {
 }
 
 function allocationFromRow(row: Record<string, unknown>): PayrollProjectAllocation {
-  return { id: String(row.id), payrollEntryId: String(row.payroll_entry_id), projectId: String(row.project_id), allocationAmount: numberValue(row.allocation_amount), allocationPercentage: row.allocation_percentage === null ? undefined : numberValue(row.allocation_percentage), source: String(row.source || "MANUAL") as PayrollProjectAllocation["source"] };
+  return { id: String(row.id), payrollEntryId: String(row.payroll_entry_id), projectId: String(row.project_id), projectCostCodeId: text(row.project_cost_code_id || row.cost_code_id), allocationAmount: numberValue(row.allocation_amount), allocationPercentage: row.allocation_percentage === null ? undefined : numberValue(row.allocation_percentage), source: String(row.source || "MANUAL") as PayrollProjectAllocation["source"] };
 }
 
 function workEntryFromRow(row: Record<string, unknown>): WorkEntry {
@@ -837,7 +837,7 @@ export async function savePayrollEntryToSupabase(entry: PayrollEntry, allocation
   if (entryError) throw entryError;
   const { error: deleteError } = await supabase.from("payroll_project_allocations").delete().eq("payroll_entry_id", entryId).eq("company_id", requireActiveCompanyId());
   if (deleteError) throw deleteError;
-  const rows = allocations.map((allocation) => ({ id: allocation.id && !allocation.id.startsWith("local-") ? allocation.id : undefined, user_id: userId, payroll_entry_id: entryId, project_id: allocation.projectId, allocation_amount: allocation.allocationAmount, allocation_percentage: allocation.allocationPercentage ?? null, source: allocation.source }));
+  const rows = allocations.map((allocation) => ({ id: allocation.id && !allocation.id.startsWith("local-") ? allocation.id : undefined, user_id: userId, payroll_entry_id: entryId, project_id: allocation.projectId, project_cost_code_id: allocation.projectCostCodeId || null, allocation_amount: allocation.allocationAmount, allocation_percentage: allocation.allocationPercentage ?? null, source: allocation.source }));
   const { data: allocationRows, error: allocationError } = rows.length ? await supabase.from("payroll_project_allocations").insert(rows).select("*") : { data: [], error: null };
   if (allocationError) throw allocationError;
   return { entry: entryFromRow(entryRow as Record<string, unknown>), allocations: (allocationRows || []).map((row) => allocationFromRow(row as Record<string, unknown>)) };

@@ -81,6 +81,7 @@ export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
         allocations={props.allocations}
         workers={props.workers}
         projects={props.projects}
+        costCodes={props.costCodes}
         workEntries={props.workEntries || []}
         assignments={props.assignments}
         selectedPeriodId={requestedPeriod.id}
