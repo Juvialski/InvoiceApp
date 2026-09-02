@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -37,11 +37,15 @@ import { classifyEmailIntakeCandidate, scanConnectedMailbox, syncConnectedMailbo
 import {
   applyInvoiceCorrectionInSupabase,
   confirmPurchaseOrderMatch,
+  convertQuotationToDraftPO,
   deleteDraftPurchaseOrder,
+  deleteDraftRFQ,
   ensureWorkspaceProfile,
   fetchPurchaseOrderMatches,
   fetchPurchaseOrderReceipts,
   fetchPurchaseOrders,
+  fetchRFQs,
+  fetchSupplierQuotations,
   fetchVendors,
   findExistingInvoiceBySource,
   loadGmailSyncState,
@@ -57,21 +61,30 @@ import {
   readPurchaseOrderMatchesFromLocal,
   readPurchaseOrderReceiptsFromLocal,
   readPurchaseOrdersFromLocal,
+  readRFQsFromLocal,
+  readSupplierQuotationsFromLocal,
   readVendorsFromLocal,
   recordPurchaseOrderReceipt,
+  revertSupplierQuotationSelection,
   saveGmailMessageSource,
   saveGmailSyncState,
   saveManualEmailRecord,
   saveManualSourceDocument,
   savePurchaseOrder,
+  saveRFQ,
+  saveSupplierQuotation,
   saveVendor,
+  selectSupplierQuotation,
   transitionPurchaseOrderStatus,
+  transitionRFQStatus,
   unmatchPurchaseOrderMatch,
   updateInvoiceInSupabase,
   voidPurchaseOrderReceipt,
   writePurchaseOrderMatchesToLocal,
   writePurchaseOrderReceiptsToLocal,
   writePurchaseOrdersToLocal,
+  writeRFQsToLocal,
+  writeSupplierQuotationsToLocal,
   writeVendorsToLocal,
 } from "./lib/persistence";
 import {
@@ -354,6 +367,8 @@ function InvoiceWorkspace() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
   const [purchaseOrderReceipts, setPurchaseOrderReceipts] = useState<PurchaseOrderReceipt[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderReceiptsFromLocal());
   const [purchaseOrderMatches, setPurchaseOrderMatches] = useState<PurchaseOrderInvoiceMatch[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderMatchesFromLocal());
+  const [rfqs, setRfqs] = useState<RFQ[]>(() => isSupabaseConfigured ? [] : readRFQsFromLocal());
+  const [supplierQuotations, setSupplierQuotations] = useState<SupplierQuotation[]>(() => isSupabaseConfigured ? [] : readSupplierQuotationsFromLocal());
   const [vendors, setVendors] = useState<Vendor[]>(() => isSupabaseConfigured ? [] : readVendorsFromLocal());
   const [projectLaborAggregates, setProjectLaborAggregates] = useState<ProjectLaborCostAggregate[]>([]);
   const [projectCostDomainLoadState, setProjectCostDomainLoadState] = useState<ProjectCostDomainLoadState>(isSupabaseConfigured ? "not-loaded" : "loaded");
@@ -573,6 +588,8 @@ function InvoiceWorkspace() {
     purchaseOrders: PurchaseOrder[];
     receipts: PurchaseOrderReceipt[];
     purchaseOrderMatches: PurchaseOrderInvoiceMatch[];
+    rfqs: RFQ[];
+    supplierQuotations: SupplierQuotation[];
     vendors: Vendor[];
     laborAggregates: ProjectLaborCostAggregate[];
     laborAggregateLoadState: ProjectLaborAggregateLoadState;
@@ -635,6 +652,8 @@ function InvoiceWorkspace() {
     setPurchaseOrders(data.purchaseOrders);
     setPurchaseOrderReceipts(data.receipts);
     setPurchaseOrderMatches(data.purchaseOrderMatches);
+    setRfqs(data.rfqs || []);
+    setSupplierQuotations(data.supplierQuotations || []);
     setVendors(data.vendors);
     setProjectLaborAggregates(data.laborAggregates);
     setProjectLaborAggregateLoadState(data.laborAggregateLoadState);
@@ -651,6 +670,8 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.invoicesRead) ? fetchVendors() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.projectsRead) ? fetchPurchaseOrderReceipts() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.invoicesRead) ? fetchPurchaseOrderMatches() : Promise.resolve([]),
+      can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.projectsRead) ? fetchRFQs() : Promise.resolve([]),
+      can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.projectsRead) ? fetchSupplierQuotations() : Promise.resolve([]),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -661,6 +682,8 @@ function InvoiceWorkspace() {
     const vendors = results[5].status === "fulfilled" ? results[5].value : [];
     const receipts = results[6].status === "fulfilled" ? results[6].value : [];
     const purchaseOrderMatches = results[7].status === "fulfilled" ? results[7].value : [];
+    const rfqs = results[8].status === "fulfilled" ? results[8].value : [];
+    const supplierQuotations = results[9].status === "fulfilled" ? results[9].value : [];
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("expenses");
@@ -669,6 +692,8 @@ function InvoiceWorkspace() {
     if (results[5].status !== "fulfilled") failures.push("vendors");
     if (results[6].status !== "fulfilled") failures.push("purchase order receipts");
     if (results[7].status !== "fulfilled") failures.push("purchase order matches");
+    if (results[8].status !== "fulfilled") failures.push("rfqs");
+    if (results[9].status !== "fulfilled") failures.push("supplier quotations");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -693,7 +718,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, expenses, costCodes, purchaseOrders, receipts, purchaseOrderMatches, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, expenses, costCodes, purchaseOrders, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -2259,6 +2284,155 @@ function InvoiceWorkspace() {
     }
   }, [permissions, session]);
 
+  const handleSaveRFQ = useCallback(async (
+    rfq: Partial<RFQ> & { rfqNumber: string; title: string },
+    lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
+    invitedVendorIds?: string[],
+  ) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to create or edit RFQs.");
+      }
+      const saved = await saveRFQ(rfq, lines, invitedVendorIds);
+      setRfqs((prev) => {
+        const index = prev.findIndex((r) => r.id === saved.id);
+        const next = index >= 0 ? prev.map((r) => (r.id === saved.id ? saved : r)) : [saved, ...prev];
+        if (!isSupabaseConfigured) writeRFQsToLocal(next);
+        return next;
+      });
+      showNotification("success", `RFQ ${saved.rfqNumber} saved.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save RFQ."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleTransitionRFQ = useCallback(async (id: string, targetStatus: RFQStatus, reason?: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to transition RFQ status.");
+      }
+      const updated = await transitionRFQStatus(id, targetStatus, reason);
+      setRfqs((prev) => {
+        const next = prev.map((r) => (r.id === updated.id ? updated : r));
+        if (!isSupabaseConfigured) writeRFQsToLocal(next);
+        return next;
+      });
+      showNotification("success", `RFQ ${updated.rfqNumber} transitioned to ${targetStatus}.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not transition RFQ."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleDeleteRFQ = useCallback(async (id: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to delete draft RFQs.");
+      }
+      await deleteDraftRFQ(id);
+      setRfqs((prev) => {
+        const next = prev.filter((r) => r.id !== id);
+        if (!isSupabaseConfigured) writeRFQsToLocal(next);
+        return next;
+      });
+      showNotification("success", "Draft RFQ deleted.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not delete draft RFQ."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleSaveSupplierQuotation = useCallback(async (
+    quotation: Partial<SupplierQuotation> & { rfqId: string; vendorId: string; quotationNumber: string },
+    lines: Array<Partial<SupplierQuotationLine> & { description: string; quantity: number; unitPrice: number }>,
+  ) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to record supplier quotations.");
+      }
+      const saved = await saveSupplierQuotation(quotation, lines);
+      setSupplierQuotations((prev) => {
+        const index = prev.findIndex((q) => q.id === saved.id);
+        const next = index >= 0 ? prev.map((q) => (q.id === saved.id ? saved : q)) : [saved, ...prev];
+        if (!isSupabaseConfigured) writeSupplierQuotationsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Supplier quotation ${saved.quotationNumber} saved.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save supplier quotation."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleSelectSupplierQuotation = useCallback(async (quotationId: string, reason: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to select preferred suppliers.");
+      }
+      const selected = await selectSupplierQuotation(quotationId, reason);
+      setSupplierQuotations((prev) => {
+        const next = prev.map((q) => {
+          if (q.id === quotationId) return selected;
+          if (q.rfqId === selected.rfqId && q.status === "SELECTED") return { ...q, status: "SUBMITTED" as const };
+          return q;
+        });
+        if (!isSupabaseConfigured) writeSupplierQuotationsToLocal(next);
+        return next;
+      });
+      setRfqs((prev) => {
+        const next = prev.map((r) => (r.id === selected.rfqId ? { ...r, selectedQuotationId: selected.id } : r));
+        if (!isSupabaseConfigured) writeRFQsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Supplier quotation ${selected.quotationNumber} selected.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not select supplier quotation."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleRevertSupplierQuotationSelection = useCallback(async (rfqId: string, reason: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to revert supplier selections.");
+      }
+      const updatedRfq = await revertSupplierQuotationSelection(rfqId, reason);
+      setSupplierQuotations((prev) => {
+        const next = prev.map((q) => (q.rfqId === rfqId && q.status === "SELECTED" ? { ...q, status: "SUBMITTED" as const } : q));
+        if (!isSupabaseConfigured) writeSupplierQuotationsToLocal(next);
+        return next;
+      });
+      setRfqs((prev) => {
+        const next = prev.map((r) => (r.id === rfqId ? updatedRfq : r));
+        if (!isSupabaseConfigured) writeRFQsToLocal(next);
+        return next;
+      });
+      showNotification("success", "Supplier selection reverted.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not revert supplier selection."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleConvertQuotationToPO = useCallback(async (quotationId: string, poNumber: string, notes?: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to convert quotations to purchase orders.");
+      }
+      const draftPo = await convertQuotationToDraftPO(quotationId, poNumber, notes);
+      setPurchaseOrders((prev) => {
+        const next = [draftPo, ...prev.filter((p) => p.id !== draftPo.id)];
+        if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
+        return next;
+      });
+      showNotification("success", `Draft purchase order ${draftPo.poNumber} created from quotation.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not convert quotation to purchase order."));
+      throw error;
+    }
+  }, [permissions, session]);
+
   const previewInvoiceCorrection = async (invoice: InvoiceData): Promise<FinancialCorrectionPreview> => {
     if (session && supabase) return previewInvoiceCorrectionInSupabase(invoice.id);
     const matches = cashData.matches.filter((match) => match.targetType === "INVOICE" && match.targetId === invoice.id);
@@ -3796,6 +3970,15 @@ function InvoiceWorkspace() {
            onConfirmPurchaseOrderMatch={handleConfirmPurchaseOrderMatch}
            onUnmatchPurchaseOrderMatch={handleUnmatchPurchaseOrderMatch}
            onOpenPurchaseOrder={(_id) => navigateToPath(appPathForTab("procurement"))}
+           rfqs={rfqs}
+           supplierQuotations={supplierQuotations}
+           onSaveRFQ={handleSaveRFQ}
+           onTransitionRFQ={handleTransitionRFQ}
+           onDeleteRFQ={handleDeleteRFQ}
+           onSaveSupplierQuotation={handleSaveSupplierQuotation}
+           onSelectSupplierQuotation={handleSelectSupplierQuotation}
+           onRevertSupplierQuotationSelection={handleRevertSupplierQuotationSelection}
+           onConvertQuotationToPO={handleConvertQuotationToPO}
           onProjectTabChange={(tab) => {
             if (route.kind === "project" && selectedProject) {
               navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView));

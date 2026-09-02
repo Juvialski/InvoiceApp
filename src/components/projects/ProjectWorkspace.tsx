@@ -16,6 +16,11 @@ import type {
   PurchaseOrderLine,
   PurchaseOrderReceipt,
   PurchaseOrderStatus,
+  RFQ,
+  RFQLine,
+  RFQStatus,
+  SupplierQuotation,
+  SupplierQuotationLine,
   Vendor,
   Worker,
 } from "../../types";
@@ -117,6 +122,22 @@ interface ProjectWorkspaceProps {
   ) => Promise<void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
+  rfqs?: RFQ[];
+  supplierQuotations?: SupplierQuotation[];
+  onSaveRFQ?: (
+    rfq: Partial<RFQ> & { rfqNumber: string; title: string },
+    lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
+    invitedVendorIds?: string[],
+  ) => Promise<void>;
+  onTransitionRFQ?: (id: string, targetStatus: RFQStatus, reason?: string) => Promise<void>;
+  onDeleteRFQ?: (id: string) => Promise<void>;
+  onSaveSupplierQuotation?: (
+    quotation: Partial<SupplierQuotation> & { rfqId: string; vendorId: string; quotationNumber: string },
+    lines: Array<Partial<SupplierQuotationLine> & { description: string; quantity: number; unitPrice: number }>,
+  ) => Promise<void>;
+  onSelectSupplierQuotation?: (quotationId: string, reason: string) => Promise<void>;
+  onRevertSupplierQuotationSelection?: (rfqId: string, reason: string) => Promise<void>;
+  onConvertQuotationToPO?: (quotationId: string, poNumber: string, notes?: string) => Promise<void>;
 }
 
 function money(value: number, currency: string) {
@@ -198,6 +219,15 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onRecordReceipt,
   onVoidReceipt,
   onAddVendor,
+  rfqs,
+  supplierQuotations,
+  onSaveRFQ,
+  onTransitionRFQ,
+  onDeleteRFQ,
+  onSaveSupplierQuotation,
+  onSelectSupplierQuotation,
+  onRevertSupplierQuotationSelection,
+  onConvertQuotationToPO,
 }) => {
   const permissions = useAppPermissions();
   const canManageProject = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
@@ -340,6 +370,15 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           onRecordReceipt={onRecordReceipt}
           onVoidReceipt={onVoidReceipt}
           onAddVendor={onAddVendor}
+          rfqs={rfqs ? rfqs.filter((r) => r.projectId === project.id) : undefined}
+          supplierQuotations={supplierQuotations}
+          onSaveRFQ={onSaveRFQ}
+          onTransitionRFQ={onTransitionRFQ}
+          onDeleteRFQ={onDeleteRFQ}
+          onSaveSupplierQuotation={onSaveSupplierQuotation}
+          onSelectSupplierQuotation={onSelectSupplierQuotation}
+          onRevertSupplierQuotationSelection={onRevertSupplierQuotationSelection}
+          onConvertQuotationToPO={onConvertQuotationToPO}
         />
       )}
 
