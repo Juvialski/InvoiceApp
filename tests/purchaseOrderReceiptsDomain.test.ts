@@ -53,329 +53,151 @@ function createMockPO(overrides: Partial<PurchaseOrder> = {}): PurchaseOrder {
   };
 }
 
-test("calculateLineReceiptProgress: calculates 0% progress when no receipts exist", () => {
-  const po = createMockPO();
-  const line1 = po.lines![0];
-  const prog = calculateLineReceiptProgress(line1, []);
-  assert.equal(prog.orderedQuantity, 100);
-  assert.equal(prog.receivedQuantity, 0);
-  assert.equal(prog.remainingQuantity, 100);
-  assert.equal(prog.progressPercent, 0);
-  assert.equal(prog.isFullyReceived, false);
-  assert.equal(prog.isPartiallyReceived, false);
-});
-
-test("calculateLineReceiptProgress: calculates partial progress accurately", () => {
-  const po = createMockPO();
-  const line1 = po.lines![0];
-  const receipts: PurchaseOrderReceipt[] = [
-    {
-      id: "rec-1",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-24-0001",
-      receiptDate: "2026-03-05",
-      status: "RECEIVED",
+function receipt(
+  id: string,
+  lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number }>,
+  status: PurchaseOrderReceipt["status"] = "RECEIVED",
+  purchaseOrderId = "po-101",
+): PurchaseOrderReceipt {
+  return {
+    id,
+    purchaseOrderId,
+    receiptNumber: id.toUpperCase(),
+    receiptDate: "2026-03-05",
+    status,
+    createdAt: "2026-03-05T00:00:00Z",
+    updatedAt: "2026-03-05T00:00:00Z",
+    lines: lines.map((line, index) => ({
+      id: `${id}-line-${index + 1}`,
+      purchaseOrderReceiptId: id,
+      purchaseOrderLineId: line.purchaseOrderLineId,
+      lineNumber: index + 1,
+      receivedQuantity: line.receivedQuantity,
       createdAt: "2026-03-05T00:00:00Z",
       updatedAt: "2026-03-05T00:00:00Z",
-      lines: [
-        {
-          id: "rl-1",
-          purchaseOrderReceiptId: "rec-1",
-          purchaseOrderLineId: "line-1",
-          lineNumber: 1,
-          receivedQuantity: 40,
-          createdAt: "2026-03-05T00:00:00Z",
-          updatedAt: "2026-03-05T00:00:00Z",
-        },
-      ],
-    },
-  ];
+    })),
+  };
+}
 
-  const prog = calculateLineReceiptProgress(line1, receipts);
-  assert.equal(prog.orderedQuantity, 100);
-  assert.equal(prog.receivedQuantity, 40);
-  assert.equal(prog.remainingQuantity, 60);
-  assert.equal(prog.progressPercent, 40);
-  assert.equal(prog.isFullyReceived, false);
-  assert.equal(prog.isPartiallyReceived, true);
+test("calculateLineReceiptProgress: calculates zero, partial, cumulative, and void-safe progress", () => {
+  const line = createMockPO().lines![0];
+
+  const zero = calculateLineReceiptProgress(line, []);
+  assert.equal(zero.orderedQuantity, 100);
+  assert.equal(zero.receivedQuantity, 0);
+  assert.equal(zero.remainingQuantity, 100);
+  assert.equal(zero.progressPercent, 0);
+  assert.equal(zero.isFullyReceived, false);
+  assert.equal(zero.isPartiallyReceived, false);
+
+  const partial = calculateLineReceiptProgress(line, [receipt("rec-1", [
+    { purchaseOrderLineId: "line-1", receivedQuantity: 40 },
+  ])]);
+  assert.equal(partial.receivedQuantity, 40);
+  assert.equal(partial.remainingQuantity, 60);
+  assert.equal(partial.progressPercent, 40);
+  assert.equal(partial.isPartiallyReceived, true);
+
+  const complete = calculateLineReceiptProgress(line, [
+    receipt("rec-1", [{ purchaseOrderLineId: "line-1", receivedQuantity: 60 }]),
+    receipt("rec-2", [{ purchaseOrderLineId: "line-1", receivedQuantity: 40 }]),
+  ]);
+  assert.equal(complete.receivedQuantity, 100);
+  assert.equal(complete.remainingQuantity, 0);
+  assert.equal(complete.progressPercent, 100);
+  assert.equal(complete.isFullyReceived, true);
+
+  const voided = calculateLineReceiptProgress(line, [
+    receipt("rec-void", [{ purchaseOrderLineId: "line-1", receivedQuantity: 100 }], "VOIDED"),
+  ]);
+  assert.equal(voided.receivedQuantity, 0);
+  assert.equal(voided.remainingQuantity, 100);
 });
 
-test("calculateLineReceiptProgress: calculates cumulative progress across multiple batches", () => {
+test("calculatePOReceiptProgress: never adds unlike units and uses average line completion for mixed-unit POs", () => {
   const po = createMockPO();
-  const line1 = po.lines![0];
+
+  const empty = calculatePOReceiptProgress(po, []);
+  assert.equal(empty.quantitiesComparable, false);
+  assert.equal(empty.aggregateUnit, null);
+  assert.equal(empty.totalOrderedQuantity, 0);
+  assert.equal(empty.totalReceivedQuantity, 0);
+  assert.equal(empty.totalRemainingQuantity, 0);
+  assert.equal(empty.overallProgressPercent, 0);
+  assert.equal(empty.deliveryStatus, "NOT_RECEIVED");
+
+  // 80/100 cu.m = 80% and 2/5 days = 40%; the truthful cross-line signal is
+  // their dimensionless average (60%), never the invalid 82/105 quantity sum.
+  const partial = calculatePOReceiptProgress(po, [receipt("rec-1", [
+    { purchaseOrderLineId: "line-1", receivedQuantity: 80 },
+    { purchaseOrderLineId: "line-2", receivedQuantity: 2 },
+  ])]);
+  assert.equal(partial.quantitiesComparable, false);
+  assert.equal(partial.totalOrderedQuantity, 0);
+  assert.equal(partial.totalReceivedQuantity, 0);
+  assert.equal(partial.totalRemainingQuantity, 0);
+  assert.equal(partial.overallProgressPercent, 60);
+  assert.equal(partial.deliveryStatus, "PARTIALLY_RECEIVED");
+
+  const complete = calculatePOReceiptProgress(po, [receipt("rec-full", [
+    { purchaseOrderLineId: "line-1", receivedQuantity: 100 },
+    { purchaseOrderLineId: "line-2", receivedQuantity: 5 },
+  ])]);
+  assert.equal(complete.quantitiesComparable, false);
+  assert.equal(complete.overallProgressPercent, 100);
+  assert.equal(complete.deliveryStatus, "FULLY_RECEIVED");
+});
+
+test("calculatePOReceiptProgress: preserves quantity aggregation when every line uses the same unit", () => {
+  const mixed = createMockPO();
+  const po = createMockPO({
+    lines: [
+      mixed.lines![0],
+      {
+        ...mixed.lines![1],
+        unit: "cu.m",
+        quantity: 20,
+        description: "Additional concrete pour",
+      },
+    ],
+  });
+
+  const progress = calculatePOReceiptProgress(po, [receipt("rec-same-unit", [
+    { purchaseOrderLineId: "line-1", receivedQuantity: 50 },
+    { purchaseOrderLineId: "line-2", receivedQuantity: 10 },
+  ])]);
+
+  assert.equal(progress.quantitiesComparable, true);
+  assert.equal(progress.aggregateUnit, "cu.m");
+  assert.equal(progress.totalOrderedQuantity, 120);
+  assert.equal(progress.totalReceivedQuantity, 60);
+  assert.equal(progress.totalRemainingQuantity, 60);
+  assert.equal(progress.overallProgressPercent, 50);
+  assert.equal(progress.deliveryStatus, "PARTIALLY_RECEIVED");
+});
+
+test("validateReceiptLineInput: accepts valid remaining quantity and rejects invalid or excessive quantities", () => {
+  const line = createMockPO().lines![0];
+
+  assert.equal(validateReceiptLineInput(line, 50, []).valid, true);
+  assert.equal(validateReceiptLineInput(line, 0, []).valid, false);
+  assert.equal(validateReceiptLineInput(line, -5, []).valid, false);
+  assert.match(validateReceiptLineInput(line, 101, []).message || "", /Over-receipt rejected/);
+
+  const existing = [receipt("rec-existing", [
+    { purchaseOrderLineId: "line-1", receivedQuantity: 80 },
+  ])];
+  assert.equal(validateReceiptLineInput(line, 20, existing).valid, true);
+  assert.equal(validateReceiptLineInput(line, 21, existing).valid, false);
+});
+
+test("getReceiptsForPO: filters by PO and sorts latest receipt first", () => {
   const receipts: PurchaseOrderReceipt[] = [
-    {
-      id: "rec-1",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-24-0001",
-      receiptDate: "2026-03-05",
-      status: "RECEIVED",
-      createdAt: "2026-03-05T00:00:00Z",
-      updatedAt: "2026-03-05T00:00:00Z",
-      lines: [
-        {
-          id: "rl-1",
-          purchaseOrderReceiptId: "rec-1",
-          purchaseOrderLineId: "line-1",
-          lineNumber: 1,
-          receivedQuantity: 60,
-          createdAt: "2026-03-05T00:00:00Z",
-          updatedAt: "2026-03-05T00:00:00Z",
-        },
-      ],
-    },
-    {
-      id: "rec-2",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-24-0002",
-      receiptDate: "2026-03-06",
-      status: "RECEIVED",
-      createdAt: "2026-03-06T00:00:00Z",
-      updatedAt: "2026-03-06T00:00:00Z",
-      lines: [
-        {
-          id: "rl-2",
-          purchaseOrderReceiptId: "rec-2",
-          purchaseOrderLineId: "line-1",
-          lineNumber: 1,
-          receivedQuantity: 40,
-          createdAt: "2026-03-06T00:00:00Z",
-          updatedAt: "2026-03-06T00:00:00Z",
-        },
-      ],
-    },
-  ];
-
-  const prog = calculateLineReceiptProgress(line1, receipts);
-  assert.equal(prog.orderedQuantity, 100);
-  assert.equal(prog.receivedQuantity, 100);
-  assert.equal(prog.remainingQuantity, 0);
-  assert.equal(prog.progressPercent, 100);
-  assert.equal(prog.isFullyReceived, true);
-  assert.equal(prog.isPartiallyReceived, false);
-});
-
-test("calculateLineReceiptProgress: ignores VOIDED receipts in calculation", () => {
-  const po = createMockPO();
-  const line1 = po.lines![0];
-  const receipts: PurchaseOrderReceipt[] = [
-    {
-      id: "rec-1",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-24-0001",
-      receiptDate: "2026-03-05",
-      status: "VOIDED",
-      voidReason: "Recorded against wrong PO",
-      createdAt: "2026-03-05T00:00:00Z",
-      updatedAt: "2026-03-05T00:00:00Z",
-      lines: [
-        {
-          id: "rl-1",
-          purchaseOrderReceiptId: "rec-1",
-          purchaseOrderLineId: "line-1",
-          lineNumber: 1,
-          receivedQuantity: 100,
-          createdAt: "2026-03-05T00:00:00Z",
-          updatedAt: "2026-03-05T00:00:00Z",
-        },
-      ],
-    },
-  ];
-
-  const prog = calculateLineReceiptProgress(line1, receipts);
-  assert.equal(prog.receivedQuantity, 0);
-  assert.equal(prog.remainingQuantity, 100);
-  assert.equal(prog.progressPercent, 0);
-  assert.equal(prog.isFullyReceived, false);
-});
-
-test("calculatePOReceiptProgress: derives NOT_RECEIVED when no receipts exist", () => {
-  const po = createMockPO();
-  const prog = calculatePOReceiptProgress(po, []);
-  assert.equal(prog.totalOrderedQuantity, 105);
-  assert.equal(prog.totalReceivedQuantity, 0);
-  assert.equal(prog.totalRemainingQuantity, 105);
-  assert.equal(prog.overallProgressPercent, 0);
-  assert.equal(prog.deliveryStatus, "NOT_RECEIVED");
-});
-
-test("calculatePOReceiptProgress: derives PARTIALLY_RECEIVED when some lines/quantities are delivered", () => {
-  const po = createMockPO();
-  const receipts: PurchaseOrderReceipt[] = [
-    {
-      id: "rec-1",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-24-0001",
-      receiptDate: "2026-03-05",
-      status: "RECEIVED",
-      createdAt: "2026-03-05T00:00:00Z",
-      updatedAt: "2026-03-05T00:00:00Z",
-      lines: [
-        {
-          id: "rl-1",
-          purchaseOrderReceiptId: "rec-1",
-          purchaseOrderLineId: "line-1",
-          lineNumber: 1,
-          receivedQuantity: 80,
-          createdAt: "2026-03-05T00:00:00Z",
-          updatedAt: "2026-03-05T00:00:00Z",
-        },
-        {
-          id: "rl-2",
-          purchaseOrderReceiptId: "rec-1",
-          purchaseOrderLineId: "line-2",
-          lineNumber: 2,
-          receivedQuantity: 2,
-          createdAt: "2026-03-05T00:00:00Z",
-          updatedAt: "2026-03-05T00:00:00Z",
-        },
-      ],
-    },
-  ];
-
-  const prog = calculatePOReceiptProgress(po, receipts);
-  assert.equal(prog.totalOrderedQuantity, 105);
-  assert.equal(prog.totalReceivedQuantity, 82);
-  assert.equal(prog.totalRemainingQuantity, 23);
-  assert.equal(prog.overallProgressPercent, 78);
-  assert.equal(prog.deliveryStatus, "PARTIALLY_RECEIVED");
-});
-
-test("calculatePOReceiptProgress: derives FULLY_RECEIVED when all lines are 100% delivered", () => {
-  const po = createMockPO();
-  const receipts: PurchaseOrderReceipt[] = [
-    {
-      id: "rec-1",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-24-0001",
-      receiptDate: "2026-03-05",
-      status: "RECEIVED",
-      createdAt: "2026-03-05T00:00:00Z",
-      updatedAt: "2026-03-05T00:00:00Z",
-      lines: [
-        {
-          id: "rl-1",
-          purchaseOrderReceiptId: "rec-1",
-          purchaseOrderLineId: "line-1",
-          lineNumber: 1,
-          receivedQuantity: 100,
-          createdAt: "2026-03-05T00:00:00Z",
-          updatedAt: "2026-03-05T00:00:00Z",
-        },
-        {
-          id: "rl-2",
-          purchaseOrderReceiptId: "rec-1",
-          purchaseOrderLineId: "line-2",
-          lineNumber: 2,
-          receivedQuantity: 5,
-          createdAt: "2026-03-05T00:00:00Z",
-          updatedAt: "2026-03-05T00:00:00Z",
-        },
-      ],
-    },
-  ];
-
-  const prog = calculatePOReceiptProgress(po, receipts);
-  assert.equal(prog.totalOrderedQuantity, 105);
-  assert.equal(prog.totalReceivedQuantity, 105);
-  assert.equal(prog.totalRemainingQuantity, 0);
-  assert.equal(prog.overallProgressPercent, 100);
-  assert.equal(prog.deliveryStatus, "FULLY_RECEIVED");
-});
-
-test("validateReceiptLineInput: validates correct positive quantity within remaining", () => {
-  const po = createMockPO();
-  const line1 = po.lines![0];
-  const res = validateReceiptLineInput(line1, 50, []);
-  assert.equal(res.valid, true);
-  assert.equal(res.message, undefined);
-});
-
-test("validateReceiptLineInput: rejects non-positive quantity", () => {
-  const po = createMockPO();
-  const line1 = po.lines![0];
-  const resZero = validateReceiptLineInput(line1, 0, []);
-  assert.equal(resZero.valid, false);
-  assert.match(resZero.message || "", /greater than zero/);
-
-  const resNeg = validateReceiptLineInput(line1, -5, []);
-  assert.equal(resNeg.valid, false);
-  assert.match(resNeg.message || "", /greater than zero/);
-});
-
-test("validateReceiptLineInput: rejects quantity exceeding remaining (over-receipt guard)", () => {
-  const po = createMockPO();
-  const line1 = po.lines![0];
-  const res = validateReceiptLineInput(line1, 101, []);
-  assert.equal(res.valid, false);
-  assert.match(res.message || "", /Over-receipt rejected/);
-});
-
-test("validateReceiptLineInput: considers existing receipts when checking over-receipt", () => {
-  const po = createMockPO();
-  const line1 = po.lines![0];
-  const existing: PurchaseOrderReceipt[] = [
-    {
-      id: "r-1",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-1",
-      receiptDate: "2026-03-01",
-      status: "RECEIVED",
-      createdAt: "2026-03-01T00:00:00Z",
-      updatedAt: "2026-03-01T00:00:00Z",
-      lines: [
-        {
-          id: "rl-1",
-          purchaseOrderReceiptId: "r-1",
-          purchaseOrderLineId: "line-1",
-          lineNumber: 1,
-          receivedQuantity: 80,
-          createdAt: "2026-03-01T00:00:00Z",
-          updatedAt: "2026-03-01T00:00:00Z",
-        },
-      ],
-    },
-  ];
-
-  assert.equal(validateReceiptLineInput(line1, 20, existing).valid, true);
-  assert.equal(validateReceiptLineInput(line1, 21, existing).valid, false);
-});
-
-test("getReceiptsForPO: filters receipts matching PO id and sorts latest first", () => {
-  const receipts: PurchaseOrderReceipt[] = [
-    {
-      id: "r-1",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-1",
-      receiptDate: "2026-03-01",
-      status: "RECEIVED",
-      createdAt: "2026-03-01T00:00:00Z",
-      updatedAt: "2026-03-01T00:00:00Z",
-    },
-    {
-      id: "r-2",
-      purchaseOrderId: "po-999",
-      receiptNumber: "REC-2",
-      receiptDate: "2026-03-02",
-      status: "RECEIVED",
-      createdAt: "2026-03-02T00:00:00Z",
-      updatedAt: "2026-03-02T00:00:00Z",
-    },
-    {
-      id: "r-3",
-      purchaseOrderId: "po-101",
-      receiptNumber: "REC-3",
-      receiptDate: "2026-03-05",
-      status: "RECEIVED",
-      createdAt: "2026-03-05T00:00:00Z",
-      updatedAt: "2026-03-05T00:00:00Z",
-    },
+    { ...receipt("r-1", []), receiptDate: "2026-03-01" },
+    { ...receipt("r-2", [], "RECEIVED", "po-999"), receiptDate: "2026-03-02" },
+    { ...receipt("r-3", []), receiptDate: "2026-03-05" },
   ];
 
   const poReceipts = getReceiptsForPO("po-101", receipts);
-  assert.equal(poReceipts.length, 2);
-  assert.equal(poReceipts[0].receiptNumber, "REC-3");
-  assert.equal(poReceipts[1].receiptNumber, "REC-1");
+  assert.deepEqual(poReceipts.map((item) => item.id), ["r-3", "r-1"]);
 });
-
-
