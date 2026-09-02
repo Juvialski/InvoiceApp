@@ -23,6 +23,15 @@ export interface LineValidationInput {
   notes?: string | null;
 }
 
+export function resolvedInvoiceVendorId(invoice: InvoiceData): string | undefined {
+  const legacyInvoice = invoice as InvoiceData & {
+    vendorId?: string;
+    vendor_id?: string;
+    vendor: InvoiceData["vendor"] & { id?: string };
+  };
+  return invoice.vendor?.vendorId || legacyInvoice.vendor?.id || legacyInvoice.vendorId || legacyInvoice.vendor_id;
+}
+
 /**
  * Normalizes a purchase order number for strict, whitespace/punctuation-insensitive comparison.
  * e.g., "PO-2026-001" -> "PO2026001", " #po 2026 001 " -> "PO2026001"
@@ -201,8 +210,7 @@ export function evaluatePurchaseOrderMatch(
   }
 
   // 3. Signal 2: Vendor match (+25 / +15 / conflict)
-  const invoiceVendorId =
-    (invoice as any).vendorId || (invoice as any).vendor_id || (invoice as any).vendor?.id;
+  const invoiceVendorId = resolvedInvoiceVendorId(invoice);
   const poVendorId = po.vendorId;
 
   let vendorMatch: "EXACT" | "NAME_ONLY" | "UNRESOLVED" | "MISMATCH" = "UNRESOLVED";
