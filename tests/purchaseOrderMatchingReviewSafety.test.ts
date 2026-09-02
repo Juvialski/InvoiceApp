@@ -113,3 +113,11 @@ test("purchaseOrderMatchingReviewSafety: guarded RPCs use definer privileges whi
   assert.match(hardeningSql, /revoke all on function public\.confirm_purchase_order_invoice_match[\s\S]*from public, anon/i);
   assert.match(hardeningSql, /grant execute on function public\.confirm_purchase_order_invoice_match[\s\S]*to authenticated/i);
 });
+
+test("purchaseOrderMatchingReviewSafety: invoice review exposes mutation only with both manage permissions", () => {
+  const route = fs.readFileSync(
+    path.resolve(process.cwd(), "src/app/routes/InvoicesRoute.tsx"),
+    "utf8",
+  );
+  assert.match(route, /canManageProcurement=\{canManageInvoices && canManageProcurement\}/);
+});
