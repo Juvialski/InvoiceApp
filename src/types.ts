@@ -920,3 +920,49 @@ export interface ProjectCostSummary {
   unallocatedInvoiceCost: number;
   unallocatedExpenseCost: number;
 }
+
+export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "ISSUED" | "CLOSED" | "CANCELLED";
+
+export interface PurchaseOrderLine {
+  id: string;
+  companyId?: string;
+  purchaseOrderId: string;
+  lineNumber: number;
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  amount: number;
+  projectCostCodeId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  companyId?: string;
+  poNumber: string;
+  vendorId: string;
+  projectId: string;
+  currency: string;
+  status: PurchaseOrderStatus;
+  issueDate?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  cancellationReason?: string | null;
+  totalAmount?: number;
+  lines?: PurchaseOrderLine[];
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  approvedByUserId?: string | null;
+  issuedByUserId?: string | null;
+  cancelledByUserId?: string | null;
+  closedByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  approvedAt?: string | null;
+  issuedAt?: string | null;
+  cancelledAt?: string | null;
+  closedAt?: string | null;
+}
+

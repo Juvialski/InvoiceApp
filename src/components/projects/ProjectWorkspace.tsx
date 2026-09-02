@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, Calculator, ClipboardCheck, ClipboardList, Compass, FileQuestion, FileText, HardHat, Receipt, Users } from "lucide-react";
+import { AlertTriangle, BarChart3, Calculator, ClipboardCheck, ClipboardList, Compass, FileQuestion, FileText, HardHat, Receipt, ShoppingCart, Users } from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type {
@@ -12,6 +12,10 @@ import type {
   ProjectCostCode,
   ProjectCostSummary,
   ProjectWorkerAssignment,
+  PurchaseOrder,
+  PurchaseOrderLine,
+  PurchaseOrderStatus,
+  Vendor,
   Worker,
 } from "../../types";
 import { ProjectExpenses } from "../expenses/ProjectExpenses";
@@ -19,6 +23,7 @@ import { ProjectInvoices } from "./ProjectInvoices";
 import { ProjectInvoicesReadOnly } from "./ProjectInvoicesReadOnly.tsx";
 import { ProjectOverview } from "./ProjectOverview";
 import { ProjectBudgetControlPanel } from "./ProjectBudgetControlPanel.tsx";
+import { ProcurementPage } from "../procurement/ProcurementPage.tsx";
 import { ProjectDocuments } from "../engineering/ProjectDocuments";
 import { ProjectRfis } from "../engineering/ProjectRfis";
 import { ProjectSubmittals } from "../engineering/ProjectSubmittals";
@@ -33,7 +38,7 @@ import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts"
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 import { isProjectWorkspaceTabDeploymentVisible } from "./projectWorkspaceVisibility.ts";
 
-export type WorkspaceTab = "overview" | "budget" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type WorkspaceTab = "overview" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 interface ProjectWorkspaceProps {
   project: Project;
@@ -43,6 +48,8 @@ interface ProjectWorkspaceProps {
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
+  purchaseOrders?: PurchaseOrder[];
+  vendors?: Vendor[];
   workers?: Worker[];
   assignments?: ProjectWorkerAssignment[];
   payrollAllocations?: PayrollProjectAllocation[];
@@ -96,6 +103,13 @@ interface ProjectWorkspaceProps {
   onArchiveCostCode?: (costCodeId: string) => Promise<void> | void;
   onReactivateCostCode?: (costCodeId: string) => Promise<void> | void;
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
+  onSavePO?: (
+    po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
+    lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+  ) => Promise<void>;
+  onTransitionPO?: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
+  onDeletePO?: (id: string) => Promise<void>;
+  onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
 }
 
 function money(value: number, currency: string) {
@@ -124,6 +138,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   invoices,
   invoiceAllocations,
   expenses,
+  purchaseOrders = [],
+  vendors = [],
   workers = [],
   assignments = [],
   payrollAllocations = [],
@@ -168,6 +184,10 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onArchiveCostCode,
   onReactivateCostCode,
   onSaveInvoiceAllocations,
+  onSavePO,
+  onTransitionPO,
+  onDeletePO,
+  onAddVendor,
 }) => {
   const permissions = useAppPermissions();
   const canManageProject = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
@@ -177,6 +197,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const canReadPayroll = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesRead);
   const canManageExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesWrite);
+  const canReadProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementRead);
+  const canManageProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementWrite);
+  const canApproveProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementApprove);
   const canReadWorkers = hasPermission(permissions, PERMISSION_KEYS.workersRead);
   const canReadReports = hasAnyPermission(permissions, [PERMISSION_KEYS.reportsRead, PERMISSION_KEYS.reportsPayrollRead]);
   const completeness = useProjectCostCompleteness();
@@ -199,6 +222,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const tabs: Array<[WorkspaceTab, string, React.ElementType]> = [
     ["overview", "Overview", BarChart3],
     ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [["budget", "Budget Control", Calculator] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") ? [["procurement", "Procurement", ShoppingCart] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("documents") ? [["documents", "Documents", Compass] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("rfis") ? [["rfis", "RFIs", FileQuestion] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("submittals") ? [["submittals", "Submittals", ClipboardCheck] as [WorkspaceTab, string, React.ElementType]] : []),
@@ -209,7 +233,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     ...(canReadWorkers ? [["people", "People", Users] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadReports && isProjectWorkspaceTabDeploymentVisible("reports") ? [["reports", "Reports", BarChart3] as [WorkspaceTab, string, React.ElementType]] : []),
   ];
-  const visibleTabIds = useMemo(() => new Set(tabs.map(([id]) => id)), [canReadExpenses, canReadInvoices, canReadPayroll, canReadReports, canReadWorkers]);
+  const visibleTabIds = useMemo(() => new Set(tabs.map(([id]) => id)), [canReadExpenses, canReadInvoices, canReadPayroll, canReadProcurement, canReadReports, canReadWorkers]);
 
   useEffect(() => {
     if (visibleTabIds.has(initialTab)) setTab(initialTab);
@@ -277,6 +301,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           invoices={invoices}
           invoiceAllocations={invoiceAllocations}
           expenses={expenses}
+          purchaseOrders={purchaseOrders}
           payrollAllocations={payrollAllocations}
           payrollPeriods={payrollPeriods}
           projectLaborAggregates={budgetControlLaborAggregate}
@@ -285,6 +310,23 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           onSaveCostCode={onSaveCostCode || (async () => {})}
           onArchiveCostCode={onArchiveCostCode || (async () => {})}
           onReactivateCostCode={onReactivateCostCode || (async () => {})}
+        />
+      )}
+
+      {tab === "procurement" && canReadProcurement && (
+        <ProcurementPage
+          purchaseOrders={purchaseOrders}
+          projects={[project]}
+          vendors={vendors}
+          costCodes={costCodes as ProjectCostCode[]}
+          selectedProjectId={project.id}
+          canRead={canReadProcurement}
+          canManage={canManageProcurement}
+          canApprove={canApproveProcurement}
+          onSavePO={onSavePO || (async () => {})}
+          onTransitionPO={onTransitionPO || (async () => {})}
+          onDeletePO={onDeletePO || (async () => {})}
+          onAddVendor={onAddVendor}
         />
       )}
 

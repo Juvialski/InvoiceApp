@@ -4,6 +4,7 @@ import type {
   ProjectCostCode,
   ProjectCostSummary,
   ProjectStatus,
+  PurchaseOrder,
 } from "../types.ts";
 import {
   calculateProjectBudgetControl,
@@ -40,7 +41,7 @@ export interface ProjectAttentionItem {
   label: string;
   detail: string;
   tone: "danger" | "warning" | "info" | "neutral";
-  tab?: "overview" | "budget" | "invoices" | "payroll" | "expenses" | "reports";
+  tab?: "overview" | "budget" | "invoices" | "payroll" | "expenses" | "reports" | "procurement";
 }
 
 export type ProjectManagementHealth = "ON BUDGET" | "NEAR LIMIT" | "OVER BUDGET" | "NO BUDGET" | "PARTIAL";
@@ -59,6 +60,7 @@ export interface ProjectManagementView {
   contractValue: number | null;
   approvedCostBudget: number;
   actualCost: number;
+  committedCost: number;
   pendingCostExposure: number;
   remainingBudget: number | null; // null if partial/mixed currency or unavailable
   variance: number | null; // budget - actual (null if partial/mixed currency)
@@ -88,6 +90,7 @@ export interface BuildProjectManagementViewOptions {
   invoices?: CostInvoice[];
   expenses?: Expense[];
   payroll?: CostPayrollRecord[];
+  purchaseOrders?: PurchaseOrder[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   costInput?: ProjectCostInput;
@@ -117,6 +120,7 @@ export function buildProjectManagementView(
   const isPartial = !financialDataComplete || financialTruth.actualCost.status === "partial" || hasForeignAmounts;
 
   const actualCost = roundMoney(summary.totalActualCost || 0);
+  const committedCost = roundMoney(summary.committedCost || 0);
   const pendingCostExposure = roundMoney(
     (summary.pendingInvoiceCost || 0) +
     (summary.pendingPayrollCost || 0) +
@@ -128,7 +132,7 @@ export function buildProjectManagementView(
   const variance = isPartial ? null : roundMoney(budget - actualCost);
 
   const confirmedUtilization = budget > 0 ? roundMoney((actualCost / budget) * 100) : 0;
-  const commitmentUtilization = budget > 0 ? roundMoney(((actualCost + pendingCostExposure) / budget) * 100) : 0;
+  const commitmentUtilization = budget > 0 ? roundMoney(((actualCost + committedCost) / budget) * 100) : 0;
 
   // Health: If partial, cost health is PARTIAL. Otherwise use standard projectHealth.
   const rawHealth = projectHealth(summary);
@@ -190,6 +194,7 @@ export function buildProjectManagementView(
     options?.invoices !== undefined ||
     options?.expenses !== undefined ||
     options?.payroll !== undefined ||
+    options?.purchaseOrders !== undefined ||
     options?.projectLaborAggregates !== undefined,
   );
 
@@ -198,6 +203,7 @@ export function buildProjectManagementView(
       invoices: options.invoices,
       expenses: options.expenses,
       payroll: options.payroll,
+      purchaseOrders: options.purchaseOrders,
       projectLaborAggregates: options.projectLaborAggregates,
       laborSource: options.laborSource,
       baseCurrency: currency,
@@ -346,6 +352,7 @@ export function buildProjectManagementView(
     contractValue,
     approvedCostBudget: budget,
     actualCost,
+    committedCost,
     pendingCostExposure,
     remainingBudget,
     variance,

@@ -16,6 +16,7 @@ test("exposes Cash & Banking and Email Intake as primary modules while keeping s
     "invoices",
     "email-intake",
     "projects",
+    "procurement",
     "expenses",
     "payroll",
     "reports",

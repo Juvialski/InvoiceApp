@@ -2,6 +2,7 @@ export type AppTab =
   | "dashboard"
   | "cash"
   | "projects"
+  | "procurement"
   | "extractor"
   | "inbox"
   | "review"
@@ -16,6 +17,7 @@ export type RouteId =
   | "dashboard"
   | "cash"
   | "projects"
+  | "procurement"
   | "extract"
   | "invoices"
   | "payroll"
@@ -45,6 +47,7 @@ export const ROUTE_DEFINITIONS = [
   { id: "dashboard", path: "/dashboard", label: "Dashboard", appTab: "dashboard", navigationGroup: "primary", aliases: ["/"] },
   { id: "cash", path: "/cash", label: "Cash & Banking", appTab: "cash", navigationGroup: "primary" },
   { id: "projects", path: "/projects", label: "Projects", appTab: "projects", navigationGroup: "overflow" },
+  { id: "procurement", path: "/procurement", label: "Procurement", appTab: "procurement", navigationGroup: "overflow", aliases: ["/purchase-orders"] },
   { id: "extract", path: "/extract", label: "Extract", appTab: "extractor", navigationGroup: "primary", aliases: ["/extractor"] },
   { id: "invoices", path: "/invoices", label: "Invoices", appTab: "invoices", navigationGroup: "primary" },
   { id: "payroll", path: "/payroll", label: "Payroll", appTab: "payroll", navigationGroup: "overflow" },

@@ -2,7 +2,7 @@ import type { AppTab } from "./routes.ts";
 import { getRouteForAppTab, normalizeRoutePath, resolveRoute, type RouteId } from "./routes.ts";
 import { getAppRouteContract } from "./appRouteContracts.ts";
 
-export type ProjectWorkspaceView = "overview" | "budget" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type ProjectWorkspaceView = "overview" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 export type AppLocation =
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
@@ -14,7 +14,7 @@ export type AppLocation =
   | { kind: "review-invoice"; tab: "review"; routeId: "review"; invoiceId: string; returnTo?: string; pathname: string; search: string }
   | { kind: "unknown"; tab: AppTab; routeId: null; pathname: string; search: string };
 
-const PROJECT_VIEWS = new Set<ProjectWorkspaceView>(["overview", "budget", "documents", "rfis", "submittals", "site-logs", "invoices", "payroll", "expenses", "people", "reports"]);
+const PROJECT_VIEWS = new Set<ProjectWorkspaceView>(["overview", "budget", "procurement", "documents", "rfis", "submittals", "site-logs", "invoices", "payroll", "expenses", "people", "reports"]);
 
 function safeDecode(value: string) {
   try { return decodeURIComponent(value); } catch { return value; }

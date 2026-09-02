@@ -26,6 +26,10 @@ import type {
   ProjectCostCode,
   ProjectCostSummary,
   ProjectWorkerAssignment,
+  PurchaseOrder,
+  PurchaseOrderLine,
+  PurchaseOrderStatus,
+  Vendor,
   WorkEntry,
   Worker,
 } from "../../types";
@@ -73,6 +77,7 @@ import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
 
 const CashBankingRoute = lazy(() => import("./CashBankingRoute"));
 const ProjectsRoute = lazy(() => import("./ProjectsRoute").then(({ ProjectsRoute }) => ({ default: ProjectsRoute })));
+const ProcurementRoute = lazy(() => import("./ProcurementRoute"));
 const InvoicesRoute = lazy(() => import("./InvoicesRoute"));
 const PayrollRoute = lazy(() => import("./PayrollRoute"));
 const ExpensesRoute = lazy(() => import("./ExpensesRoute"));
@@ -279,6 +284,17 @@ export interface AppRouterProps {
   onApplyExpenseCorrection?: (expense: Expense, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
   onExpenseCorrectionContextConsumed?: () => void;
 
+  // Procurement Data & Handlers
+  purchaseOrders?: PurchaseOrder[];
+  vendors?: Vendor[];
+  onSavePO?: (
+    po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
+    lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
+  ) => Promise<void>;
+  onTransitionPO?: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
+  onDeletePO?: (id: string) => Promise<void>;
+  onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
+
   // Reports
   onExportReportsWorkbook?: () => void;
 
@@ -305,6 +321,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   projectSummaries,
   projectDashboard,
   costCodes = [],
+  purchaseOrders = [],
+  vendors = [],
+  onSavePO,
+  onTransitionPO,
+  onDeletePO,
+  onAddVendor,
   projectLaborAggregates = [],
   laborSource,
   projectFormSeed,
@@ -501,6 +523,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         invoices={invoices}
         invoiceAllocations={invoiceProjectAllocations}
         expenses={expenses}
+        purchaseOrders={purchaseOrders}
+        vendors={vendors}
         workers={payrollData.workers}
         assignments={payrollData.assignments}
         payrollAllocations={payrollData.allocations}
@@ -533,6 +557,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onArchiveCostCode={onArchiveCostCode}
         onReactivateCostCode={onReactivateCostCode}
         onSaveInvoiceAllocations={onSaveInvoiceProjectAllocations}
+        onSavePO={onSavePO}
+        onTransitionPO={onTransitionPO}
+        onDeletePO={onDeletePO}
+        onAddVendor={onAddVendor}
         onBack={onProjectBack}
         onOpenInvoice={(invoice) => onSelectInvoice?.(invoice)}
         onUploadInvoice={onProjectUploadInvoice}
@@ -711,7 +739,23 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     );
   }
 
-  // 8. Reports Route
+  // 8. Procurement Route (P2A)
+  if (routeTarget === "procurement") {
+    return lazyRoute(
+      <ProcurementRoute
+        purchaseOrders={purchaseOrders}
+        projects={projects}
+        vendors={vendors}
+        costCodes={costCodes as ProjectCostCode[]}
+        onSavePO={onSavePO || (async () => {})}
+        onTransitionPO={onTransitionPO || (async () => {})}
+        onDeletePO={onDeletePO || (async () => {})}
+        onAddVendor={onAddVendor}
+      />
+    );
+  }
+
+  // 9. Reports Route
   if (routeTarget === "reports") {
     return lazyRoute(
       <ReportsRoute
