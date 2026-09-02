@@ -177,7 +177,6 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
       setCorrectionLoading(false);
     }
   };
-
   const closeCorrection = () => {
     setCorrectionInvoice(null);
     setCorrectionPreview(null);
@@ -248,7 +247,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
           onOpenPurchaseOrder={onOpenPurchaseOrder}
           canReadProcurement={canReadProcurement}
-          canManageProcurement={canManageProcurement}
+          canManageProcurement={canManageInvoices && canManageProcurement}
         />
         {correctionDialog}
       </div>
