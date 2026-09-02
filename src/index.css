@@ -92,3 +92,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 639px) {
   section[aria-label="Cash summary"] { grid-template-columns: minmax(0, 1fr) !important; }
 }
+
+/* A PO can contain unlike units (for example cu.m, pcs, and days). Do not show
+   a fabricated cross-unit ordered/received/remaining total in the PO dialog.
+   Exact quantities remain visible per line; the single aggregate is the
+   dimensionless receipt-progress percentage. */
+div[role="dialog"][aria-labelledby="po-modal-title"]
+  .space-y-4.rounded-xl.border.border-indigo-100.bg-indigo-50\/20.p-4
+  > .grid.grid-cols-2.gap-3.sm\:grid-cols-4 {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+div[role="dialog"][aria-labelledby="po-modal-title"]
+  .space-y-4.rounded-xl.border.border-indigo-100.bg-indigo-50\/20.p-4
+  > .grid.grid-cols-2.gap-3.sm\:grid-cols-4
+  > div:nth-child(-n+3) {
+  display: none;
+}
