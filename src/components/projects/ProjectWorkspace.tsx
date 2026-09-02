@@ -228,6 +228,13 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const projectExpenses = useMemo(() => expenses.filter((expense) => expense.projectId === project.id), [expenses, project.id]);
   const projectAssignments = assignments.filter((assignment) => assignment.projectId === project.id && assignment.active);
   const projectPayroll = payrollAllocations.filter((allocation) => allocation.projectId === project.id);
+  const budgetControlLaborAggregate = useMemo(() => [{
+    projectId: project.id,
+    currency: project.currency,
+    confirmedLaborCost: summary.payrollCost,
+    pendingLaborCost: summary.pendingPayrollCost,
+    status: (summary.payrollCost > 0 || summary.pendingPayrollCost > 0 ? "AVAILABLE" : "ZERO") as const,
+  }], [project.id, project.currency, summary.payrollCost, summary.pendingPayrollCost]);
 
   return (
     <div className="space-y-5">
@@ -272,6 +279,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           expenses={expenses}
           payrollAllocations={payrollAllocations}
           payrollPeriods={payrollPeriods}
+          projectLaborAggregates={budgetControlLaborAggregate}
+          laborSource="aggregate"
           canManageProject={canManageProject}
           onSaveCostCode={onSaveCostCode || (async () => {})}
           onArchiveCostCode={onArchiveCostCode || (async () => {})}
