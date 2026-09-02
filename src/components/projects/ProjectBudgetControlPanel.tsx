@@ -210,6 +210,7 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
 
   const hasCostCodes = budgetControl.costCodes.length > 0;
   const currency = project.currency || "PHP";
+  const aggregatePayroll = laborSource === "aggregate";
 
   return (
     <div className="space-y-5">
@@ -240,14 +241,20 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
         <MetricCard
           label="Coded Actual Cost"
           value={money(budgetControl.codedActualCost, currency)}
-          detail="Authoritative costs assigned to codes"
+          detail={budgetControl.hasForeignAmounts ? "Base-currency coded actual; foreign costs stay separate" : "Authoritative costs assigned to codes"}
           icon={DollarSign}
           tone="neutral"
         />
         <MetricCard
           label="Uncoded Actual Cost"
           value={money(budgetControl.uncodedActualCost, currency)}
-          detail={budgetControl.uncodedActualCost > 0 ? "Requires cost-code assignment" : "All costs categorized"}
+          detail={aggregatePayroll
+            ? "Includes aggregate payroll without detail-level cost-code provenance"
+            : budgetControl.hasForeignAmounts
+              ? "Base-currency uncoded actual; foreign costs stay separate"
+              : budgetControl.uncodedActualCost > 0
+                ? "Requires cost-code assignment"
+                : "All costs categorized"}
           icon={budgetControl.uncodedActualCost > 0 ? AlertTriangle : CheckCircle2}
           tone={budgetControl.uncodedActualCost > 0 ? "warning" : "success"}
         />
@@ -265,8 +272,9 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
                 Uncoded Actual Cost: {money(budgetControl.uncodedActualCost, currency)}
               </h3>
               <p className="mt-1 leading-5">
-                Authoritative costs have been incurred on this project that are not yet assigned to a cost code.
-                Assign cost codes when creating invoice allocations, approving payroll, or logging direct expenses.
+                {aggregatePayroll
+                  ? "Invoice and expense costs can be classified by cost code. Payroll is included here from the permission-safe authoritative aggregate, so its detail-level cost-code provenance is intentionally not exposed in this view."
+                  : "Authoritative costs have been incurred on this project that are not yet assigned to a cost code. Assign cost codes when creating invoice allocations, approving payroll, or logging direct expenses."}
               </p>
               <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-semibold text-amber-900">
                 <span>Invoices: <strong className="tabular-nums">{money(budgetControl.uncodedSummary.invoiceCost, currency)}</strong></span>
@@ -286,12 +294,19 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
         </Card>
       )}
 
+      {aggregatePayroll && (budgetControl.uncodedSummary.payrollCost > 0 || budgetControl.baseCostSummary.pendingPayrollCost > 0) && (
+        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 p-3.5 text-xs text-indigo-950">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-indigo-700" />
+          <div><strong>Payroll is aggregate-only in Budget Control.</strong> Confirmed and pending labor remain part of the authoritative project total, but individual payroll cost-code assignments are not exposed without detail-level lifecycle context.</div>
+        </div>
+      )}
+
       {/* Mixed Currency Notification */}
       {budgetControl.hasForeignAmounts && (
         <div role="status" className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50 p-3.5 text-xs text-sky-950">
           <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" />
           <div>
-            <strong>Foreign currency costs detected.</strong> Foreign currency amounts remain recorded in their original currency and are not converted to {currency}.
+            <strong>Foreign currency costs detected.</strong> Foreign currency amounts remain recorded in their original currency and are not converted to {currency}. Base-currency actuals are partial, so actual variance and utilization are withheld where a cost code contains foreign amounts.
             {Object.entries(budgetControl.foreignCosts).map(([curr, amt]) => (
               <span key={curr} className="ml-2 font-mono font-bold">{curr} {Number(amt).toFixed(2)}</span>
             ))}
@@ -449,7 +464,7 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
                           {money(cc.actualCost, currency)}
                           {cc.budgetAmount > 0 && (
                             <span className="block text-[10px] font-semibold text-slate-400">
-                              {cc.budgetUsedPercent.toFixed(1)}% used
+                              {cc.hasForeignAmounts ? "Base-currency actual · partial" : `${cc.budgetUsedPercent.toFixed(1)}% used`}
                             </span>
                           )}
                         </td>
@@ -470,9 +485,13 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
 
                         {/* Actual Variance */}
                         <td className="px-4 py-3.5 text-right font-black tabular-nums">
-                          <span className={cc.actualVariance >= 0 ? "text-emerald-700" : "text-rose-600"}>
-                            {cc.actualVariance >= 0 ? "+" : ""}{money(cc.actualVariance, currency)}
-                          </span>
+                          {cc.hasForeignAmounts ? (
+                            <span className="font-semibold text-slate-400 italic">Unavailable</span>
+                          ) : (
+                            <span className={cc.actualVariance >= 0 ? "text-emerald-700" : "text-rose-600"}>
+                              {cc.actualVariance >= 0 ? "+" : ""}{money(cc.actualVariance, currency)}
+                            </span>
+                          )}
                         </td>
 
                         {/* Forecast Variance */}
@@ -617,12 +636,17 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
                       <div>
                         <span className="text-[10px] font-semibold text-slate-500">Actual Cost:</span>
                         <p className="font-black tabular-nums text-slate-900">{money(cc.actualCost, currency)}</p>
+                        {cc.hasForeignAmounts && <p className="text-[9px] font-semibold text-slate-400">Base-currency actual · partial</p>}
                       </div>
                       <div>
                         <span className="text-[10px] font-semibold text-slate-500">Actual Variance:</span>
-                        <p className={`font-black tabular-nums ${cc.actualVariance >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
-                          {cc.actualVariance >= 0 ? "+" : ""}{money(cc.actualVariance, currency)}
-                        </p>
+                        {cc.hasForeignAmounts ? (
+                          <p className="font-semibold text-slate-400 italic">Unavailable</p>
+                        ) : (
+                          <p className={`font-black tabular-nums ${cc.actualVariance >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                            {cc.actualVariance >= 0 ? "+" : ""}{money(cc.actualVariance, currency)}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <span className="text-[10px] font-semibold text-slate-500">Committed Cost:</span>
