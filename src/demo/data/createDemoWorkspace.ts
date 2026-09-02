@@ -9,7 +9,7 @@ import { createDemoPayroll } from "./workforcePayroll.ts";
 import { createDemoEngineeringDocuments } from "./engineeringDocuments.ts";
 import { createDemoEngineeringCoordination } from "./engineeringCoordination.ts";
 import { createDemoDailySiteLogs } from "./dailySiteLogs.ts";
-import { createDemoPurchaseOrders, createDemoPurchaseOrderReceipts, createDemoVendors } from "./procurement.ts";
+import { createDemoPurchaseOrderMatches, createDemoPurchaseOrders, createDemoPurchaseOrderReceipts, createDemoVendors } from "./procurement.ts";
 
 const DEMO_OVERTIME_QUEUE_STATUSES = ["PENDING", "PENDING", "REJECTED", "CANCELLED", "PENDING"] as const;
 
@@ -60,5 +60,6 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     vendors: createDemoVendors(anchorDate),
     purchaseOrders: createDemoPurchaseOrders(anchorDate),
     purchaseOrderReceipts: createDemoPurchaseOrderReceipts(anchorDate),
+    purchaseOrderMatches: createDemoPurchaseOrderMatches(anchorDate),
   };
 }

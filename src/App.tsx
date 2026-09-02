@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -36,8 +36,10 @@ import { captureGoogleProviderTokens, connectGoogleAndGmail, getGoogleProviderTo
 import { classifyEmailIntakeCandidate, scanConnectedMailbox, syncConnectedMailbox } from "./lib/emailIntake";
 import {
   applyInvoiceCorrectionInSupabase,
+  confirmPurchaseOrderMatch,
   deleteDraftPurchaseOrder,
   ensureWorkspaceProfile,
+  fetchPurchaseOrderMatches,
   fetchPurchaseOrderReceipts,
   fetchPurchaseOrders,
   fetchVendors,
@@ -52,6 +54,7 @@ import {
   persistNewInvoice,
   persistExtractionAttempt,
   previewInvoiceCorrectionInSupabase,
+  readPurchaseOrderMatchesFromLocal,
   readPurchaseOrderReceiptsFromLocal,
   readPurchaseOrdersFromLocal,
   readVendorsFromLocal,
@@ -63,8 +66,10 @@ import {
   savePurchaseOrder,
   saveVendor,
   transitionPurchaseOrderStatus,
+  unmatchPurchaseOrderMatch,
   updateInvoiceInSupabase,
   voidPurchaseOrderReceipt,
+  writePurchaseOrderMatchesToLocal,
   writePurchaseOrderReceiptsToLocal,
   writePurchaseOrdersToLocal,
   writeVendorsToLocal,
@@ -348,6 +353,7 @@ function InvoiceWorkspace() {
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
   const [purchaseOrderReceipts, setPurchaseOrderReceipts] = useState<PurchaseOrderReceipt[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderReceiptsFromLocal());
+  const [purchaseOrderMatches, setPurchaseOrderMatches] = useState<PurchaseOrderInvoiceMatch[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderMatchesFromLocal());
   const [vendors, setVendors] = useState<Vendor[]>(() => isSupabaseConfigured ? [] : readVendorsFromLocal());
   const [projectLaborAggregates, setProjectLaborAggregates] = useState<ProjectLaborCostAggregate[]>([]);
   const [projectCostDomainLoadState, setProjectCostDomainLoadState] = useState<ProjectCostDomainLoadState>(isSupabaseConfigured ? "not-loaded" : "loaded");
@@ -566,6 +572,7 @@ function InvoiceWorkspace() {
     costCodes: ProjectCostCode[];
     purchaseOrders: PurchaseOrder[];
     receipts: PurchaseOrderReceipt[];
+    purchaseOrderMatches: PurchaseOrderInvoiceMatch[];
     vendors: Vendor[];
     laborAggregates: ProjectLaborCostAggregate[];
     laborAggregateLoadState: ProjectLaborAggregateLoadState;
@@ -627,6 +634,7 @@ function InvoiceWorkspace() {
     setCostCodes(data.costCodes);
     setPurchaseOrders(data.purchaseOrders);
     setPurchaseOrderReceipts(data.receipts);
+    setPurchaseOrderMatches(data.purchaseOrderMatches);
     setVendors(data.vendors);
     setProjectLaborAggregates(data.laborAggregates);
     setProjectLaborAggregateLoadState(data.laborAggregateLoadState);
@@ -642,6 +650,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.projectsRead) ? fetchPurchaseOrders() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.invoicesRead) ? fetchVendors() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.projectsRead) ? fetchPurchaseOrderReceipts() : Promise.resolve([]),
+      can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.invoicesRead) ? fetchPurchaseOrderMatches() : Promise.resolve([]),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -651,6 +660,7 @@ function InvoiceWorkspace() {
     const purchaseOrders = results[4].status === "fulfilled" ? results[4].value : [];
     const vendors = results[5].status === "fulfilled" ? results[5].value : [];
     const receipts = results[6].status === "fulfilled" ? results[6].value : [];
+    const purchaseOrderMatches = results[7].status === "fulfilled" ? results[7].value : [];
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("expenses");
@@ -658,6 +668,7 @@ function InvoiceWorkspace() {
     if (results[4].status !== "fulfilled") failures.push("purchase orders");
     if (results[5].status !== "fulfilled") failures.push("vendors");
     if (results[6].status !== "fulfilled") failures.push("purchase order receipts");
+    if (results[7].status !== "fulfilled") failures.push("purchase order matches");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -682,7 +693,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, expenses, costCodes, purchaseOrders, receipts, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, expenses, costCodes, purchaseOrders, receipts, purchaseOrderMatches, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -2190,6 +2201,60 @@ function InvoiceWorkspace() {
       showNotification("success", `Goods receipt ${voided.receiptNumber} has been voided.`);
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not void delivery receipt."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleConfirmPurchaseOrderMatch = useCallback(async (
+    poId: string,
+    lines: Array<{
+      invoiceLineId: string;
+      purchaseOrderLineId: string;
+      matchedQuantity?: number;
+      matchedAmount?: number;
+    }>,
+    notes?: string,
+  ) => {
+    try {
+      if (isSupabaseConfigured && (!can(PERMISSION_KEYS.procurementWrite) || !can(PERMISSION_KEYS.invoicesWrite))) {
+        throw new Error("You do not have permission to match supplier invoices to purchase orders.");
+      }
+      if (!selectedInvoice) {
+        throw new Error("No invoice selected to match.");
+      }
+      const match = await confirmPurchaseOrderMatch({
+        invoiceId: selectedInvoice.id,
+        purchaseOrderId: poId,
+        matchSource: "MANUAL",
+        notes,
+        lines,
+      });
+      setPurchaseOrderMatches((prev) => {
+        const next = [match, ...prev.filter((m) => m.id !== match.id && !(m.invoiceId === selectedInvoice.id && m.status === "CONFIRMED"))];
+        if (!isSupabaseConfigured) writePurchaseOrderMatchesToLocal(next);
+        return next;
+      });
+      showNotification("success", "Supplier invoice matched to purchase order.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not match purchase order."));
+      throw error;
+    }
+  }, [permissions, session, selectedInvoice]);
+
+  const handleUnmatchPurchaseOrderMatch = useCallback(async (matchId: string, reason: string) => {
+    try {
+      if (isSupabaseConfigured && (!can(PERMISSION_KEYS.procurementWrite) || !can(PERMISSION_KEYS.invoicesWrite))) {
+        throw new Error("You do not have permission to unmatch supplier invoices.");
+      }
+      const unmatchResult = await unmatchPurchaseOrderMatch(matchId, reason);
+      setPurchaseOrderMatches((prev) => {
+        const next = prev.map((m) => (m.id === matchId ? unmatchResult : m));
+        if (!isSupabaseConfigured) writePurchaseOrderMatchesToLocal(next);
+        return next;
+      });
+      showNotification("success", "Purchase order match removed.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not unmatch purchase order."));
       throw error;
     }
   }, [permissions, session]);
@@ -3727,6 +3792,10 @@ function InvoiceWorkspace() {
            onRecordReceipt={handleRecordReceipt}
            onVoidReceipt={handleVoidReceipt}
            onAddVendor={handleAddVendor}
+           purchaseOrderMatches={purchaseOrderMatches}
+           onConfirmPurchaseOrderMatch={handleConfirmPurchaseOrderMatch}
+           onUnmatchPurchaseOrderMatch={handleUnmatchPurchaseOrderMatch}
+           onOpenPurchaseOrder={(_id) => navigateToPath(appPathForTab("procurement"))}
           onProjectTabChange={(tab) => {
             if (route.kind === "project" && selectedProject) {
               navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView));

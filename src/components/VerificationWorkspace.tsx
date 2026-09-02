@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Keyboard, Loader2, Plus, RotateCcw, Save, ShieldCheck, Trash2 } from "lucide-react";
-import { InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, Vendor } from "../types";
+import { InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, Vendor } from "../types";
 import { formatDateTime } from "../config/regional";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { getInvoiceWorkspaceMode } from "../utils/invoiceWorkspace";
 import { InvoiceViewer } from "./InvoiceViewer";
 import { ReviewPanel } from "./ReviewPanel";
 import { SourceComparison } from "./SourceComparison";
+import { PurchaseOrderMatchSection } from "./invoices/PurchaseOrderMatchSection";
 import { normalizedInvoiceAllocationAmount } from "../utils/projectCosting";
 import { validateInvoiceProjectAllocationSet } from "../utils/projectAllocations";
 import { suggestProjectMatches } from "../utils/projectMatching";
@@ -49,6 +50,23 @@ interface VerificationWorkspaceProps {
   preferredProjectId?: string;
   vendors?: Vendor[];
   onOpenExistingInvoice?: (invoiceId: string) => void;
+  purchaseOrders?: readonly PurchaseOrder[];
+  purchaseOrderReceipts?: readonly PurchaseOrderReceipt[];
+  purchaseOrderMatches?: readonly PurchaseOrderInvoiceMatch[];
+  onConfirmPurchaseOrderMatch?: (
+    poId: string,
+    lines: Array<{
+      invoiceLineId: string;
+      purchaseOrderLineId: string;
+      matchedQuantity?: number;
+      matchedAmount?: number;
+    }>,
+    notes?: string,
+  ) => Promise<void>;
+  onUnmatchPurchaseOrderMatch?: (matchId: string, reason: string) => Promise<void>;
+  onOpenPurchaseOrder?: (purchaseOrderId: string) => void;
+  canReadProcurement?: boolean;
+  canManageProcurement?: boolean;
 }
 
 interface ProjectAssignmentPanelProps {
@@ -116,6 +134,14 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   preferredProjectId,
   vendors,
   onOpenExistingInvoice,
+  purchaseOrders = [],
+  purchaseOrderReceipts = [],
+  purchaseOrderMatches = [],
+  onConfirmPurchaseOrderMatch,
+  onUnmatchPurchaseOrderMatch,
+  onOpenPurchaseOrder,
+  canReadProcurement = true,
+  canManageProcurement = true,
 }) => {
   const [loadedVendors, setLoadedVendors] = useState<Vendor[]>(vendors || []);
   const [mobilePane, setMobilePane] = useState<"details" | "source">("details");
@@ -265,6 +291,21 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
               savedAllocations={invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id)}
               readOnly={invoice.lifecycleStatus === "VOID"}
               onSave={(allocations) => onSaveProjectAllocations(invoice, allocations)}
+            />
+          )}
+          {canReadProcurement && purchaseOrders.length > 0 && (
+            <PurchaseOrderMatchSection
+              invoice={invoice}
+              purchaseOrders={purchaseOrders}
+              receipts={purchaseOrderReceipts}
+              vendors={loadedVendors}
+              projects={projects || []}
+              matches={purchaseOrderMatches}
+              readOnly={invoice.lifecycleStatus === "VOID"}
+              canManage={canManageProcurement && invoice.lifecycleStatus !== "VOID"}
+              onConfirmMatch={onConfirmPurchaseOrderMatch}
+              onUnmatch={onUnmatchPurchaseOrderMatch}
+              onOpenPurchaseOrder={onOpenPurchaseOrder}
             />
           )}
           <ReviewPanel

@@ -27,6 +27,7 @@ import type {
   ProjectCostSummary,
   ProjectWorkerAssignment,
   PurchaseOrder,
+  PurchaseOrderInvoiceMatch,
   PurchaseOrderLine,
   PurchaseOrderReceipt,
   PurchaseOrderStatus,
@@ -301,6 +302,19 @@ export interface AppRouterProps {
   ) => Promise<void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
+  purchaseOrderMatches?: PurchaseOrderInvoiceMatch[];
+  onConfirmPurchaseOrderMatch?: (
+    poId: string,
+    lines: Array<{
+      invoiceLineId: string;
+      purchaseOrderLineId: string;
+      matchedQuantity?: number;
+      matchedAmount?: number;
+    }>,
+    notes?: string,
+  ) => Promise<void>;
+  onUnmatchPurchaseOrderMatch?: (matchId: string, reason: string) => Promise<void>;
+  onOpenPurchaseOrder?: (purchaseOrderId: string) => void;
 
   // Reports
   onExportReportsWorkbook?: () => void;
@@ -337,6 +351,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onRecordReceipt,
   onVoidReceipt,
   onAddVendor,
+  purchaseOrderMatches = [],
+  onConfirmPurchaseOrderMatch,
+  onUnmatchPurchaseOrderMatch,
+  onOpenPurchaseOrder,
   projectLaborAggregates = [],
   laborSource,
   projectFormSeed,
@@ -517,6 +535,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSaveProjectAllocations={onSaveInvoiceProjectAllocations}
         onPreviewCorrection={onPreviewInvoiceCorrection}
         onApplyCorrection={onApplyInvoiceCorrection}
+        purchaseOrders={purchaseOrders}
+        purchaseOrderReceipts={receipts}
+        purchaseOrderMatches={purchaseOrderMatches}
+        onConfirmPurchaseOrderMatch={onConfirmPurchaseOrderMatch}
+        onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
+        onOpenPurchaseOrder={onOpenPurchaseOrder}
       />
     );
   }
@@ -670,6 +694,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSyncGmail={onSyncGmail}
         onImportGmailMessage={onImportGmailMessage}
         onProcessEmail={onProcessEmail}
+        purchaseOrders={purchaseOrders}
+        purchaseOrderReceipts={receipts}
+        purchaseOrderMatches={purchaseOrderMatches}
+        onConfirmPurchaseOrderMatch={onConfirmPurchaseOrderMatch}
+        onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
+        onOpenPurchaseOrder={onOpenPurchaseOrder}
       />
     );
   }
@@ -767,6 +797,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onRecordReceipt={onRecordReceipt}
         onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}
+        matches={purchaseOrderMatches}
+        invoices={invoices}
+        onOpenInvoice={(id) => onNavigatePath?.(`/invoices/${id}`)}
       />
     );
   }

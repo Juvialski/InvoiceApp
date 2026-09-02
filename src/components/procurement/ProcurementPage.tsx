@@ -14,7 +14,7 @@ import {
   Truck,
   PackageCheck,
 } from "lucide-react";
-import type { Project, ProjectCostCode, PurchaseOrder, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor } from "../../types.ts";
+import type { InvoiceData, Project, ProjectCostCode, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor } from "../../types.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { isCommittedPurchaseOrder } from "../../utils/projectCosting.ts";
 import { calculatePOReceiptProgress, type PODeliveryStatus } from "../../utils/purchaseOrderReceipts.ts";
@@ -31,6 +31,8 @@ export interface ProcurementPageProps {
   canRead?: boolean;
   canManage?: boolean;
   canApprove?: boolean;
+  matches?: readonly PurchaseOrderInvoiceMatch[];
+  invoices?: readonly InvoiceData[];
   onSavePO: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
@@ -43,6 +45,7 @@ export interface ProcurementPageProps {
   ) => Promise<void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
+  onOpenInvoice?: (invoiceId: string) => void;
 }
 
 export const ProcurementPage: React.FC<ProcurementPageProps> = ({
@@ -55,12 +58,15 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   canRead = true,
   canManage = true,
   canApprove = true,
+  matches = [],
+  invoices = [],
   onSavePO,
   onTransitionPO,
   onDeletePO,
   onRecordReceipt,
   onVoidReceipt,
   onAddVendor,
+  onOpenInvoice,
 }) => {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -400,6 +406,8 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           defaultProjectId={selectedProjectId}
           canApprove={canApprove}
           canManage={canManage}
+          matches={matches}
+          invoices={invoices}
           onSave={onSavePO}
           onTransition={onTransitionPO}
           onDelete={onDeletePO}
@@ -407,6 +415,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           onVoidReceipt={onVoidReceipt}
           onClose={() => setActivePo(undefined)}
           onAddVendor={onAddVendor}
+          onOpenInvoice={onOpenInvoice}
         />
       )}
     </div>
