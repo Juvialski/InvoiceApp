@@ -12,7 +12,7 @@ import type {
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
-export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid" | "lifecycleStatus" | "archivedAt"> {
+export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid" | "lifecycleStatus" | "archivedAt" | "sourceDocumentId"> {
   allocations?: InvoiceProjectAllocation[];
   invoiceDate?: string;
   dueDate?: string;
@@ -309,6 +309,54 @@ export function payrollRecordCostBreakdown(record: CostPayrollRecord, baseCurren
   return result;
 }
 
+type LinkedSourceOwner = "invoice" | "expense";
+
+function normalizedSourceDocumentId(value?: string | null) {
+  return String(value || "").trim();
+}
+
+function invoiceAmountForBucket(invoice: CostInvoice, projectId?: string) {
+  if (projectId) return invoiceAllocationAmountsByProject(invoice).get(projectId) || 0;
+  return invoiceResidualAmount(invoice);
+}
+
+function expenseBelongsToBucket(expense: Expense, projectId?: string) {
+  return projectId ? expense.projectId === projectId : !expense.projectId;
+}
+
+/**
+ * Exact source-document provenance is the only automatic invoice/expense
+ * deduplication rule. When both records represent the same captured source,
+ * prefer a verified invoice; otherwise prefer a confirmed expense over an
+ * unverified invoice. No vendor/date/amount heuristic is used.
+ */
+function linkedSourceOwners(projectId: string | undefined, input: ProjectCostInput) {
+  const invoiceStates = new Map<string, boolean>();
+  const expenseStates = new Map<string, boolean>();
+
+  for (const invoice of input.invoices || []) {
+    if (isVoidedInvoice(invoice) || invoiceAmountForBucket(invoice, projectId) <= 0) continue;
+    const sourceId = normalizedSourceDocumentId(invoice.sourceDocumentId);
+    if (!sourceId) continue;
+    invoiceStates.set(sourceId, Boolean(invoiceStates.get(sourceId)) || isConfirmedInvoice(invoice));
+  }
+
+  for (const expense of input.expenses || []) {
+    if (expense.status === "VOID" || positiveMoney(expense.amount) <= 0 || !expenseBelongsToBucket(expense, projectId)) continue;
+    const sourceId = normalizedSourceDocumentId(expense.receiptSourceDocumentId);
+    if (!sourceId) continue;
+    expenseStates.set(sourceId, Boolean(expenseStates.get(sourceId)) || isConfirmedExpense(expense.status));
+  }
+
+  const owners = new Map<string, LinkedSourceOwner>();
+  for (const [sourceId, invoiceConfirmed] of invoiceStates) {
+    if (!expenseStates.has(sourceId)) continue;
+    const expenseConfirmed = expenseStates.get(sourceId) || false;
+    owners.set(sourceId, invoiceConfirmed || !expenseConfirmed ? "invoice" : "expense");
+  }
+  return owners;
+}
+
 /**
  * Central project-cost semantics. Verified invoice allocations are confirmed
  * regardless of payment status; payment only affects the separate paid and
@@ -321,6 +369,7 @@ export function calculateProjectCost(
   const projectId = project?.id;
   const baseCurrency = normalizeCurrency(project?.currency || input.baseCurrency || "PHP");
   const laborSource = input.laborSource || (input.projectLaborAggregates ? "aggregate" : "detail");
+  const sourceOwners = linkedSourceOwners(projectId, input);
   const summary: ProjectCostSummaryWithCurrency = {
     projectId,
     currency: baseCurrency,
@@ -358,6 +407,8 @@ export function calculateProjectCost(
 
   for (const invoice of input.invoices || []) {
     if (isVoidedInvoice(invoice)) continue;
+    const sourceId = normalizedSourceDocumentId(invoice.sourceDocumentId);
+    if (sourceId && sourceOwners.get(sourceId) === "expense") continue;
     const invoiceCurrency = normalizeCurrency(invoice.currency);
     const byProject = invoiceAllocationAmountsByProject(invoice);
     const allocationTotal = invoiceAllocationTotal(invoice);
@@ -380,7 +431,6 @@ export function calculateProjectCost(
       summary.paidInvoiceCost = roundMoney(summary.paidInvoiceCost + paidAmount);
       summary.unpaidInvoiceCost = roundMoney(summary.unpaidInvoiceCost + payableAmount);
       summary.payableCost = roundMoney(summary.payableCost + payableAmount);
-      summary.committedCost = roundMoney(summary.committedCost + payableAmount);
       continue;
     }
 
@@ -441,6 +491,8 @@ export function calculateProjectCost(
   for (const expense of input.expenses || []) {
     const amount = positiveMoney(expense.amount);
     if (!amount || expense.status === "VOID") continue;
+    const sourceId = normalizedSourceDocumentId(expense.receiptSourceDocumentId);
+    if (sourceId && sourceOwners.get(sourceId) === "invoice") continue;
     const expenseCurrency = normalizeCurrency(expense.currency);
     if (projectId) {
       if (expense.projectId !== projectId) continue;

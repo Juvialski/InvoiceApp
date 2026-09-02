@@ -160,7 +160,7 @@ test("incomplete Dashboard, project Overview, and Reports suppress authoritative
   assert.match(dashboardRoute, /filter\(\(\{ tab \}\) => canAccessAppTab\(tab, permissions\)\)/);
   assert.match(projectOverview, /if \(!completeness\.complete\)/);
   assert.match(projectOverview, /Combined project financial position withheld/);
-  assert.match(projectOverview, /Confirmed cost, pending cost, available after commitments, utilization, health, composition, cost trend, and cumulative burn are not shown/);
+  assert.match(projectOverview, /Actual cost, pending exposure, budget balance, utilization, health, composition, cost trend, and cumulative burn are not shown/);
   assert.match(reportsRoute, /transientRefreshGap = !projectCostCompleteness\.complete/);
   assert.match(reportsRoute, /projectCostCompleteness\.reason === "load-error"/);
   assert.match(reportsRoute, /projectCostCompleteness\.complete \|\| transientRefreshGap/);
@@ -179,9 +179,9 @@ test("Viewer and read-only roles are not offered mutation workflows", () => {
 });
 
 test("Project workspace hides inaccessible financial and workforce tabs instead of showing false empty states", () => {
-  assert.match(projectWorkspace, /\.\.\.\(canReadInvoices \?/);
-  assert.match(projectWorkspace, /\.\.\.\(canReadPayroll \?/);
-  assert.match(projectWorkspace, /\.\.\.\(canReadExpenses \?/);
+  assert.match(projectWorkspace, /canReadInvoices && isProjectWorkspaceTabDeploymentVisible/);
+  assert.match(projectWorkspace, /canReadPayroll && isProjectWorkspaceTabDeploymentVisible/);
+  assert.match(projectWorkspace, /canReadExpenses && isProjectWorkspaceTabDeploymentVisible/);
   assert.match(projectWorkspace, /\.\.\.\(canReadWorkers \?/);
   assert.match(projectWorkspace, /if \(visibleTabIds\.has\(initialTab\)\)/);
   assert.match(projectWorkspace, /Partial cost visibility/);

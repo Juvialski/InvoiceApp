@@ -6,6 +6,7 @@ import {
   getInvoiceContextualLabels,
   NAVIGATION_MODULES,
 } from "../src/navigation/navigationModel.ts";
+import { parseHiddenDeploymentModules } from "../src/config/moduleVisibility.ts";
 import { PERMISSION_KEYS } from "../src/utils/accessControl.ts";
 
 test("exposes Cash & Banking and Email Intake as primary modules while keeping settings outside the module row", () => {
@@ -42,6 +43,24 @@ test("filters modules and invoice subtabs by permissions", () => {
 
   const emailModel = getNavigationModel({ permissions: [PERMISSION_KEYS.gmailRead] });
   assert.deepEqual(emailModel.modules.map((module) => module.id), ["email-intake"]);
+});
+
+test("deployment visibility hides navigation without changing permission or route vocabulary", () => {
+  const hiddenModules = parseHiddenDeploymentModules("cash,payroll,settings");
+  const model = getNavigationModel({ hiddenModules });
+  assert.equal(model.modules.some((module) => module.id === "cash"), false);
+  assert.equal(model.modules.some((module) => module.id === "payroll"), false);
+  assert.equal(model.modules.some((module) => module.id === "projects"), true);
+  assert.equal(model.settingsRoute, undefined);
+
+  const hiddenPayroll = getDefaultChildRoute("payroll", { hiddenModules });
+  assert.equal(hiddenPayroll, undefined);
+
+  const visiblePayroll = getDefaultChildRoute("payroll", {
+    hiddenModules: parseHiddenDeploymentModules("cash"),
+    permissions: [PERMISSION_KEYS.payrollRead],
+  });
+  assert.equal(visiblePayroll?.id, "payroll");
 });
 
 test("selects a usable default child when the preferred child is hidden", () => {
