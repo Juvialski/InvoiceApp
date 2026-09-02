@@ -28,6 +28,7 @@ import type {
   ProjectWorkerAssignment,
   PurchaseOrder,
   PurchaseOrderLine,
+  PurchaseOrderReceipt,
   PurchaseOrderStatus,
   Vendor,
   WorkEntry,
@@ -286,6 +287,7 @@ export interface AppRouterProps {
 
   // Procurement Data & Handlers
   purchaseOrders?: PurchaseOrder[];
+  receipts?: PurchaseOrderReceipt[];
   vendors?: Vendor[];
   onSavePO?: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
@@ -293,6 +295,11 @@ export interface AppRouterProps {
   ) => Promise<void>;
   onTransitionPO?: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   onDeletePO?: (id: string) => Promise<void>;
+  onRecordReceipt?: (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+  ) => Promise<void>;
+  onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
 
   // Reports
@@ -322,10 +329,13 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   projectDashboard,
   costCodes = [],
   purchaseOrders = [],
+  receipts = [],
   vendors = [],
   onSavePO,
   onTransitionPO,
   onDeletePO,
+  onRecordReceipt,
+  onVoidReceipt,
   onAddVendor,
   projectLaborAggregates = [],
   laborSource,
@@ -524,6 +534,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         invoiceAllocations={invoiceProjectAllocations}
         expenses={expenses}
         purchaseOrders={purchaseOrders}
+        receipts={receipts}
         vendors={vendors}
         workers={payrollData.workers}
         assignments={payrollData.assignments}
@@ -560,6 +571,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSavePO={onSavePO}
         onTransitionPO={onTransitionPO}
         onDeletePO={onDeletePO}
+        onRecordReceipt={onRecordReceipt}
+        onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}
         onBack={onProjectBack}
         onOpenInvoice={(invoice) => onSelectInvoice?.(invoice)}
@@ -744,12 +757,15 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <ProcurementRoute
         purchaseOrders={purchaseOrders}
+        receipts={receipts}
         projects={projects}
         vendors={vendors}
         costCodes={costCodes as ProjectCostCode[]}
         onSavePO={onSavePO || (async () => {})}
         onTransitionPO={onTransitionPO || (async () => {})}
         onDeletePO={onDeletePO || (async () => {})}
+        onRecordReceipt={onRecordReceipt}
+        onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}
       />
     );

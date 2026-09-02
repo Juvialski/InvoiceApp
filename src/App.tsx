@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus, Vendor, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -38,6 +38,7 @@ import {
   applyInvoiceCorrectionInSupabase,
   deleteDraftPurchaseOrder,
   ensureWorkspaceProfile,
+  fetchPurchaseOrderReceipts,
   fetchPurchaseOrders,
   fetchVendors,
   findExistingInvoiceBySource,
@@ -51,8 +52,10 @@ import {
   persistNewInvoice,
   persistExtractionAttempt,
   previewInvoiceCorrectionInSupabase,
+  readPurchaseOrderReceiptsFromLocal,
   readPurchaseOrdersFromLocal,
   readVendorsFromLocal,
+  recordPurchaseOrderReceipt,
   saveGmailMessageSource,
   saveGmailSyncState,
   saveManualEmailRecord,
@@ -61,6 +64,8 @@ import {
   saveVendor,
   transitionPurchaseOrderStatus,
   updateInvoiceInSupabase,
+  voidPurchaseOrderReceipt,
+  writePurchaseOrderReceiptsToLocal,
   writePurchaseOrdersToLocal,
   writeVendorsToLocal,
 } from "./lib/persistence";
@@ -342,6 +347,7 @@ function InvoiceWorkspace() {
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
+  const [purchaseOrderReceipts, setPurchaseOrderReceipts] = useState<PurchaseOrderReceipt[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderReceiptsFromLocal());
   const [vendors, setVendors] = useState<Vendor[]>(() => isSupabaseConfigured ? [] : readVendorsFromLocal());
   const [projectLaborAggregates, setProjectLaborAggregates] = useState<ProjectLaborCostAggregate[]>([]);
   const [projectCostDomainLoadState, setProjectCostDomainLoadState] = useState<ProjectCostDomainLoadState>(isSupabaseConfigured ? "not-loaded" : "loaded");
@@ -559,6 +565,7 @@ function InvoiceWorkspace() {
     expenses: Expense[];
     costCodes: ProjectCostCode[];
     purchaseOrders: PurchaseOrder[];
+    receipts: PurchaseOrderReceipt[];
     vendors: Vendor[];
     laborAggregates: ProjectLaborCostAggregate[];
     laborAggregateLoadState: ProjectLaborAggregateLoadState;
@@ -619,6 +626,7 @@ function InvoiceWorkspace() {
     setExpenses(data.expenses);
     setCostCodes(data.costCodes);
     setPurchaseOrders(data.purchaseOrders);
+    setPurchaseOrderReceipts(data.receipts);
     setVendors(data.vendors);
     setProjectLaborAggregates(data.laborAggregates);
     setProjectLaborAggregateLoadState(data.laborAggregateLoadState);
@@ -633,6 +641,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.projectsRead) ? loadProjectCostCodesFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.projectsRead) ? fetchPurchaseOrders() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.invoicesRead) ? fetchVendors() : Promise.resolve([]),
+      can(PERMISSION_KEYS.procurementRead) || can(PERMISSION_KEYS.projectsRead) ? fetchPurchaseOrderReceipts() : Promise.resolve([]),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -641,12 +650,14 @@ function InvoiceWorkspace() {
     const costCodes = results[3].status === "fulfilled" ? results[3].value : [];
     const purchaseOrders = results[4].status === "fulfilled" ? results[4].value : [];
     const vendors = results[5].status === "fulfilled" ? results[5].value : [];
+    const receipts = results[6].status === "fulfilled" ? results[6].value : [];
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("expenses");
     if (results[3].status !== "fulfilled") failures.push("cost codes");
     if (results[4].status !== "fulfilled") failures.push("purchase orders");
     if (results[5].status !== "fulfilled") failures.push("vendors");
+    if (results[6].status !== "fulfilled") failures.push("purchase order receipts");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -671,7 +682,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, expenses, costCodes, purchaseOrders, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, expenses, costCodes, purchaseOrders, receipts, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -2140,6 +2151,45 @@ function InvoiceWorkspace() {
       return saved;
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not create vendor."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleRecordReceipt = useCallback(async (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+  ) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to record purchase order delivery receipts.");
+      }
+      const saved = await recordPurchaseOrderReceipt(receipt, lines);
+      setPurchaseOrderReceipts((prev) => {
+        const next = [saved, ...prev.filter((r) => r.id !== saved.id)];
+        if (!isSupabaseConfigured) writePurchaseOrderReceiptsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Goods receipt ${saved.receiptNumber} recorded successfully.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not record delivery receipt."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleVoidReceipt = useCallback(async (receiptId: string, reason: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to void purchase order receipts.");
+      }
+      const voided = await voidPurchaseOrderReceipt(receiptId, reason);
+      setPurchaseOrderReceipts((prev) => {
+        const next = prev.map((r) => (r.id === voided.id ? voided : r));
+        if (!isSupabaseConfigured) writePurchaseOrderReceiptsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Goods receipt ${voided.receiptNumber} has been voided.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not void delivery receipt."));
       throw error;
     }
   }, [permissions, session]);
@@ -3656,6 +3706,7 @@ function InvoiceWorkspace() {
           projectDashboard={projectDashboard}
           costCodes={costCodes}
           purchaseOrders={purchaseOrders}
+          receipts={purchaseOrderReceipts}
           vendors={vendors}
           projectLaborAggregates={projectLaborAggregates}
           laborSource={projectLaborSource}
@@ -3673,6 +3724,8 @@ function InvoiceWorkspace() {
            onSavePO={handleSavePO}
            onTransitionPO={handleTransitionPO}
            onDeletePO={handleDeletePO}
+           onRecordReceipt={handleRecordReceipt}
+           onVoidReceipt={handleVoidReceipt}
            onAddVendor={handleAddVendor}
           onProjectTabChange={(tab) => {
             if (route.kind === "project" && selectedProject) {

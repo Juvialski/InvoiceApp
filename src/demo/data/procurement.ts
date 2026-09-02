@@ -1,4 +1,4 @@
-import type { PurchaseOrder, Vendor } from "../../types.ts";
+import type { PurchaseOrder, PurchaseOrderReceipt, Vendor } from "../../types.ts";
 import { DEMO_COMPANY_ID } from "../demoTypes.ts";
 import { addDemoDays, demoTimestamp } from "./demoDates.ts";
 import { DEMO_PROJECT_IDS } from "./projects.ts";
@@ -433,3 +433,142 @@ export function createDemoPurchaseOrders(anchorDate: string): PurchaseOrder[] {
     },
   ];
 }
+
+export function createDemoPurchaseOrderReceipts(anchorDate: string): PurchaseOrderReceipt[] {
+  return [
+    {
+      id: "demo-po-rec-wh-01",
+      companyId: DEMO_COMPANY_ID,
+      purchaseOrderId: "demo-po-wh-002",
+      receiptNumber: "REC-24-0015",
+      receiptDate: addDemoDays(anchorDate, -60),
+      supplierDeliveryReference: "DR-BM-89201",
+      notes: "First batch pouring for loading dock gridlines 1-4. Slump test 145mm verified and approved on site.",
+      status: "RECEIVED",
+      lines: [
+        {
+          id: "demo-po-rec-line-wh-01",
+          companyId: DEMO_COMPANY_ID,
+          purchaseOrderReceiptId: "demo-po-rec-wh-01",
+          purchaseOrderLineId: "demo-po-line-wh-04",
+          lineNumber: 1,
+          receivedQuantity: 80,
+          notes: "Ready-mix concrete 28 MPa - 8 transit mixer trucks (10 cu.m each)",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -60), 10, 30),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -60), 10, 30),
+        },
+        {
+          id: "demo-po-rec-line-wh-02",
+          companyId: DEMO_COMPANY_ID,
+          purchaseOrderReceiptId: "demo-po-rec-wh-01",
+          purchaseOrderLineId: "demo-po-line-wh-05",
+          lineNumber: 2,
+          receivedQuantity: 2,
+          notes: "Concrete pump operating day 1 and 2",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -60), 10, 30),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -60), 10, 30),
+        },
+      ],
+      createdAt: demoTimestamp(addDemoDays(anchorDate, -60), 10, 30),
+      updatedAt: demoTimestamp(addDemoDays(anchorDate, -60), 10, 30),
+    },
+    {
+      id: "demo-po-rec-sol-01",
+      companyId: DEMO_COMPANY_ID,
+      purchaseOrderId: "demo-po-sol-001",
+      receiptNumber: "REC-25-0003",
+      receiptDate: addDemoDays(anchorDate, -15),
+      supplierDeliveryReference: "DR-PR-1102",
+      notes: "Initial delivery batch: 500 pcs conduits and full reel 500m bare copper wire.",
+      status: "RECEIVED",
+      lines: [
+        {
+          id: "demo-po-rec-line-sol-01",
+          companyId: DEMO_COMPANY_ID,
+          purchaseOrderReceiptId: "demo-po-rec-sol-01",
+          purchaseOrderLineId: "demo-po-line-sol-01",
+          lineNumber: 1,
+          receivedQuantity: 500,
+          notes: "110mm Heavy Duty PVC Conduit orange",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -15), 14, 0),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -15), 14, 0),
+        },
+        {
+          id: "demo-po-rec-line-sol-02",
+          companyId: DEMO_COMPANY_ID,
+          purchaseOrderReceiptId: "demo-po-rec-sol-01",
+          purchaseOrderLineId: "demo-po-line-sol-02",
+          lineNumber: 2,
+          receivedQuantity: 500,
+          notes: "Bare copper ground wire 100mm2 (1 wooden reel)",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -15), 14, 0),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -15), 14, 0),
+        },
+      ],
+      createdAt: demoTimestamp(addDemoDays(anchorDate, -15), 14, 0),
+      updatedAt: demoTimestamp(addDemoDays(anchorDate, -15), 14, 0),
+    },
+    {
+      id: "demo-po-rec-sol-02",
+      companyId: DEMO_COMPANY_ID,
+      purchaseOrderId: "demo-po-sol-001",
+      receiptNumber: "REC-25-0008",
+      receiptDate: addDemoDays(anchorDate, -8),
+      supplierDeliveryReference: "DR-PR-1188",
+      notes: "Final delivery batch completing balance of 300 pcs conduits. Purchase order fully received.",
+      status: "RECEIVED",
+      lines: [
+        {
+          id: "demo-po-rec-line-sol-03",
+          companyId: DEMO_COMPANY_ID,
+          purchaseOrderReceiptId: "demo-po-rec-sol-02",
+          purchaseOrderLineId: "demo-po-line-sol-01",
+          lineNumber: 1,
+          receivedQuantity: 300,
+          notes: "110mm Heavy Duty PVC Conduit orange - final balance",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -8), 9, 15),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -8), 9, 15),
+        },
+      ],
+      createdAt: demoTimestamp(addDemoDays(anchorDate, -8), 9, 15),
+      updatedAt: demoTimestamp(addDemoDays(anchorDate, -8), 9, 15),
+    },
+    {
+      id: "demo-po-rec-ceb-01",
+      companyId: DEMO_COMPANY_ID,
+      purchaseOrderId: "demo-po-ceb-001",
+      receiptNumber: "REC-24-0002",
+      receiptDate: addDemoDays(anchorDate, -190),
+      supplierDeliveryReference: "DR-LF-7712",
+      notes: "Complete delivery received and inspected at Cebu site warehouse prior to project closeout.",
+      status: "RECEIVED",
+      lines: [
+        {
+          id: "demo-po-rec-line-ceb-01",
+          companyId: DEMO_COMPANY_ID,
+          purchaseOrderReceiptId: "demo-po-rec-ceb-01",
+          purchaseOrderLineId: "demo-po-line-ceb-01",
+          lineNumber: 1,
+          receivedQuantity: 350,
+          notes: "Main tee and cross tee ceiling grid system",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -190), 11, 0),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -190), 11, 0),
+        },
+        {
+          id: "demo-po-rec-line-ceb-02",
+          companyId: DEMO_COMPANY_ID,
+          purchaseOrderReceiptId: "demo-po-rec-ceb-01",
+          purchaseOrderLineId: "demo-po-line-ceb-02",
+          lineNumber: 2,
+          receivedQuantity: 70,
+          notes: "Self-drilling drywall screws and anchor expansion bolts",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -190), 11, 0),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -190), 11, 0),
+        },
+      ],
+      createdAt: demoTimestamp(addDemoDays(anchorDate, -190), 11, 0),
+      updatedAt: demoTimestamp(addDemoDays(anchorDate, -190), 11, 0),
+    },
+  ];
+}
+

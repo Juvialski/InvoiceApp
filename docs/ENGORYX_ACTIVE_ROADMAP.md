@@ -88,75 +88,32 @@ No schema/UI feature expansion belongs in A0.
 
 ## P1 — Project Controls Foundation
 
-Status: **NEXT PRODUCT IMPLEMENTATION WAVE**
+Status: **COMPLETE**
 
 Primary objective: make the existing Project domain a trustworthy management/control surface before adding large new commercial modules.
 
 ### P1A — Module visibility and project summary contract
-
-- design deployment-level module visibility/feature configuration;
-- feature gating must remain separate from RBAC authorization;
-- define project summary DTO/query/RPC contracts;
-- distinguish `contract_value` from `project_budget` in UI and APIs;
-- rename ambiguous UI labels such as generic "Recorded Cost" where needed;
-- derive Actual Cost from existing authoritative invoice/payroll/expense allocations;
-- preserve aggregate-only payroll visibility where users lack payroll-detail permission;
-- establish currency/completeness semantics;
-- add project financial drill-down without duplicating accounting rows.
+Status: **COMPLETE**
 
 ### P1B — Cost codes and budget control
-
-Introduce project cost codes / budget categories only after inspecting current category/allocation usage.
-
-Target concepts:
-
-- cost code/work package;
-- approved budget amount;
-- actual cost;
-- committed cost placeholder/contract for P2 procurement;
-- forecast amount;
-- variance;
-- lifecycle/status where needed;
-- audit/correction semantics.
-
-Do not migrate existing expenses/invoice/payroll records into duplicate cost rows. Link/aggregate them.
+Status: **COMPLETE**
 
 ### P1C — Project management UX
-
-Evolve Projects list/detail to show useful controls such as:
-
-- Contract Value;
-- Approved Budget;
-- Actual Cost;
-- Budget Remaining/Variance;
-- later Committed Cost;
-- later Billed / Collected;
-- later Forecast Margin.
-
-Keep responsive/mobile behavior and existing project editing/lifecycle behavior intact.
+Status: **COMPLETE**
 
 ## P2 — Procurement + Commercial Operations
 
-Status: **AFTER P1**
+Status: **ACTIVE**
 
-P2 should be split into bounded PRs rather than one giant implementation.
+P2 is split into bounded implementation waves:
 
 ### P2A — Suppliers, quotations, Purchase Orders, deliveries
 
-Target domain:
+- **P2A-1 Purchase Orders Foundation & Commitments**: **COMPLETE** (Vendor reuse, PO lines, DRAFT/APPROVED/ISSUED/CLOSED/CANCELLED lifecycle, Committed Cost calculation, RBAC, module gating).
+- **P2A-2 Delivery / Goods Receipt Tracking**: **IMPLEMENTED** (receipt headers & lines, over-receipt triggers with row-locking, status/progress tracking, voiding workflow, Project Lifecycle preflight integration).
+- **P2A-3 Supplier Invoice Matching**: Next sub-wave (linking incoming supplier invoices to PO lines/receipts).
 
-- suppliers/vendors;
-- supplier contacts/basic status;
-- quotation/request comparison where justified;
-- Purchase Orders;
-- PO line items;
-- project + cost-code assignment;
-- approved/issued/cancelled/closed lifecycle;
-- committed-cost contribution;
-- delivery/receipt tracking;
-- supplier invoice matching to PO/project without duplicating the invoice system.
-
-Financial rule: an approved commitment is not automatically an Actual Cost until the authoritative posting/invoice/payment rule says it is.
+Financial rule: an approved commitment is not automatically an Actual Cost until the authoritative posting/invoice/payment rule says it is. Receipts are operational delivery records and do NOT generate Actual Cost or duplicate supplier invoices.
 
 ### P2B — Subcontracts, variations, client billing
 

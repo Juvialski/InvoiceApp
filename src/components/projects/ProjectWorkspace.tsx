@@ -14,6 +14,7 @@ import type {
   ProjectWorkerAssignment,
   PurchaseOrder,
   PurchaseOrderLine,
+  PurchaseOrderReceipt,
   PurchaseOrderStatus,
   Vendor,
   Worker,
@@ -49,6 +50,7 @@ interface ProjectWorkspaceProps {
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
   purchaseOrders?: PurchaseOrder[];
+  receipts?: PurchaseOrderReceipt[];
   vendors?: Vendor[];
   workers?: Worker[];
   assignments?: ProjectWorkerAssignment[];
@@ -109,6 +111,11 @@ interface ProjectWorkspaceProps {
   ) => Promise<void>;
   onTransitionPO?: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   onDeletePO?: (id: string) => Promise<void>;
+  onRecordReceipt?: (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+  ) => Promise<void>;
+  onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
 }
 
@@ -139,6 +146,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   invoiceAllocations,
   expenses,
   purchaseOrders = [],
+  receipts = [],
   vendors = [],
   workers = [],
   assignments = [],
@@ -187,6 +195,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onSavePO,
   onTransitionPO,
   onDeletePO,
+  onRecordReceipt,
+  onVoidReceipt,
   onAddVendor,
 }) => {
   const permissions = useAppPermissions();
@@ -316,6 +326,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       {tab === "procurement" && canReadProcurement && (
         <ProcurementPage
           purchaseOrders={purchaseOrders}
+          receipts={receipts}
           projects={[project]}
           vendors={vendors}
           costCodes={costCodes as ProjectCostCode[]}
@@ -326,6 +337,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           onSavePO={onSavePO || (async () => {})}
           onTransitionPO={onTransitionPO || (async () => {})}
           onDeletePO={onDeletePO || (async () => {})}
+          onRecordReceipt={onRecordReceipt}
+          onVoidReceipt={onVoidReceipt}
           onAddVendor={onAddVendor}
         />
       )}

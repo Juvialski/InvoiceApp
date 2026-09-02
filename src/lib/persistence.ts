@@ -1359,5 +1359,6 @@ export async function toggleEmailIntakeProfile(id: string, enabled: boolean, com
 }
 
 export * from "./purchaseOrders.ts";
+export * from "./purchaseOrderReceipts.ts";
 export * from "./vendors.ts";
 
