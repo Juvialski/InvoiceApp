@@ -44,8 +44,9 @@ const RECEIVABLE_REASON = "Current project invoice records are supplier/AP costs
  * ProjectCostSummary currently aggregates unconverted foreign actual and
  * pending costs into one currency bucket. Until that lower-level costing model
  * preserves status provenance, this view must not assign those foreign amounts
- * to either actual cost or pending exposure. Base-currency amounts remain useful
- * but are explicitly partial whenever an unclassified foreign source exists.
+ * to either actual cost, pending exposure, or supplier payables. Base-currency
+ * amounts remain useful but are explicitly partial whenever an unclassified
+ * foreign source exists.
  */
 export function buildProjectFinancialTruth(
   project: Pick<Project, "projectBudget" | "contractValue" | "currency">,
@@ -63,6 +64,7 @@ export function buildProjectFinancialTruth(
     .some(([, amount]) => roundMoney(amount) !== 0);
   const actualBase = roundMoney(summary.totalActualCost);
   const pendingBase = roundMoney(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
+  const payableBase = roundMoney(summary.unpaidInvoiceCost);
   const budget = roundMoney(project.projectBudget);
 
   const actualCost: ProjectFinancialMetric = hasForeignAmounts
@@ -83,6 +85,15 @@ export function buildProjectFinancialTruth(
       }
     : available(pendingBase, currency);
 
+  const outstandingPayables: ProjectFinancialMetric = hasForeignAmounts
+    ? {
+        status: "partial",
+        amount: payableBase,
+        currency,
+        reason: `Unconverted foreign-currency cost sources are present, but the current costing summary does not preserve which foreign amounts are supplier invoice payables. Outstanding payables therefore shows only the authoritative ${currency} amount.`,
+      }
+    : available(payableBase, currency);
+
   return {
     currency,
     contractValue: Number.isFinite(Number(project.contractValue))
@@ -98,6 +109,6 @@ export function buildProjectFinancialTruth(
     collected: unavailable(RECEIVABLE_REASON),
     outstandingReceivables: unavailable(RECEIVABLE_REASON),
     pendingCostExposure,
-    outstandingPayables: available(summary.unpaidInvoiceCost, currency),
+    outstandingPayables,
   };
 }
