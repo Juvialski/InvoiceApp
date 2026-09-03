@@ -30,7 +30,7 @@ test("getCanvasPresets produces curated diagrams, domain views, and full archite
   assert.equal(allPreset.category, "all");
 
   const domainPresets = presets.filter((p) => p.category === "domain");
-  assert.equal(domainPresets.length, 8);
+  assert.equal(domainPresets.length, WORKFLOW_GRAPH.domains.length);
 });
 
 test("filterGraph respects curated preset definitions and does not show all 183 nodes by default", () => {
@@ -263,4 +263,3 @@ test("buildReactFlowElements and getNodeDetails integrate evidence model data co
   assert.equal(details.evidence?.nodeId, "route-dashboard");
   assert.equal(details.screenshotUrls?.["screenshots/sample.png"], "blob:sample");
 });
-
