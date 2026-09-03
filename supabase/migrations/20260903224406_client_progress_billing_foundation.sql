@@ -439,7 +439,7 @@ create policy client_billing_events_company_select on public.client_billing_even
   for select to authenticated
   using ((select public.has_company_permission(company_id, 'projects.read')));
 
-revoke all on table public.client_billings, public.client_billing_lines, public.client_billing_events from public, anon;
+revoke all on table public.client_billings, public.client_billing_lines, public.client_billing_events from public, anon, authenticated;
 grant select, insert, update on table public.client_billings to authenticated;
 grant select, insert, update, delete on table public.client_billing_lines to authenticated;
 grant select on table public.client_billing_events to authenticated;
