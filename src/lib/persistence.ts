@@ -1363,5 +1363,6 @@ export * from "./purchaseOrderReceipts.ts";
 export * from "./purchaseOrderMatches.ts";
 export * from "./vendors.ts";
 export * from "./rfqs.ts";
+export * from "./subcontracts.ts";
 
 

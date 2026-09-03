@@ -1,4 +1,4 @@
-import type { Expense, InvoiceProjectAllocation, PayrollPeriod, Project } from "../types.ts";
+import type { Expense, InvoiceProjectAllocation, PayrollPeriod, Project, PurchaseOrder, Subcontract } from "../types.ts";
 import type { CostInvoice, CostPayrollRecord } from "./projectCosting.ts";
 import { calculateProjectCost, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth } from "./projectCosting.ts";
 import { unpaidBalance } from "./dashboardStats.ts";
@@ -25,6 +25,7 @@ export interface ProjectDashboardAttention {
 export interface ProjectDashboardViewData {
   budget: number;
   confirmed: number;
+  committed: number;
   pending: number;
   availableAfterCommitments: number;
   remaining: number;
@@ -43,6 +44,8 @@ interface ProjectDashboardInput {
   invoices: CostInvoice[];
   expenses: Expense[];
   payroll: Array<CostPayrollRecord & { periodEnd?: string }>;
+  purchaseOrders?: PurchaseOrder[];
+  subcontracts?: Subcontract[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   periods?: PayrollPeriod[];
@@ -63,12 +66,15 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
     invoices: input.invoices,
     expenses: input.expenses,
     payroll: input.payroll,
+    purchaseOrders: input.purchaseOrders,
+    subcontracts: input.subcontracts,
     projectLaborAggregates: input.projectLaborAggregates,
     laborSource: input.laborSource,
   });
   const pending = round(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
   const confirmed = round(summary.totalActualCost);
-  const availableAfterCommitments = round(summary.budget - confirmed - pending);
+  const committed = round(summary.committedCost);
+  const availableAfterCommitments = round(summary.budget - confirmed - committed - pending);
   const invoiceDates = input.invoices.filter((invoice) => projectInvoiceAmount(invoice, input.project.id) > 0).map((invoice) => dateOnly((invoice as CostInvoice & { invoiceDate?: string }).invoiceDate));
   const payrollDates = input.payroll.filter((run) => (run.allocations || []).some((allocation) => allocation.projectId === input.project.id)).map((run) => dateOnly(run.periodEnd));
   const expenseDates = input.expenses.filter((expense) => expense.projectId === input.project.id).map((expense) => dateOnly(expense.expenseDate));
@@ -115,6 +121,6 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
   if (overdue) attention.push({ id: "project-overdue", label: "Overdue supplier invoices", detail: `${overdue} allocated supplier invoice${overdue === 1 ? "" : "s"} has an unpaid balance.`, tab: "invoices" });
   if (pendingPayroll) attention.push({ id: "project-pending-payroll", label: "Pending project payroll", detail: "Draft or calculated project labor is not yet confirmed.", tab: "payroll" });
   if (pendingExpenses) attention.push({ id: "project-pending-expenses", label: "Pending project expenses", detail: "Draft direct expenses remain pending exposure until approved or paid.", tab: "expenses" });
-  if (availableAfterCommitments < 0) attention.push({ id: "project-budget-pressure", label: "Actual plus pending exposure exceeds budget", detail: "Actual cost plus pending exposure is above the project budget.", tab: "overview" });
-  return { budget: summary.budget, confirmed, pending, availableAfterCommitments, remaining: Math.max(0, round(summary.budget - confirmed)), excess: Math.max(0, round(confirmed + pending - summary.budget)), confirmedUtilization: summary.budget > 0 ? round(confirmed / summary.budget * 100) : 0, commitmentUtilization: summary.budget > 0 ? round((confirmed + pending) / summary.budget * 100) : 0, health: projectHealth(summary), outstandingPayables: summary.unpaidInvoiceCost, composition: { invoices: summary.invoiceCost, payroll: summary.payrollCost, expenses: summary.otherExpenseCost }, trend, attention };
+  if (availableAfterCommitments < 0) attention.push({ id: "project-budget-pressure", label: "Actual, committed, and pending exposure exceeds budget", detail: "Actual cost, approved commitments, and pending exposure are above the project budget.", tab: "overview" });
+  return { budget: summary.budget, confirmed, committed, pending, availableAfterCommitments, remaining: Math.max(0, availableAfterCommitments), excess: Math.max(0, round(confirmed + committed + pending - summary.budget)), confirmedUtilization: summary.budget > 0 ? round(confirmed / summary.budget * 100) : 0, commitmentUtilization: summary.budget > 0 ? round((confirmed + committed + pending) / summary.budget * 100) : 0, health: projectHealth(summary), outstandingPayables: summary.unpaidInvoiceCost, composition: { invoices: summary.invoiceCost, payroll: summary.payrollCost, expenses: summary.otherExpenseCost }, trend, attention };
 }

@@ -18,6 +18,9 @@ import type {
   RFQ,
   RFQLine,
   RFQStatus,
+  Subcontract,
+  SubcontractLine,
+  SubcontractStatus,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
@@ -38,6 +41,7 @@ export interface ProjectsRouteProps {
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
   purchaseOrders?: PurchaseOrder[];
+  subcontracts?: Subcontract[];
   receipts?: PurchaseOrderReceipt[];
   vendors?: Vendor[];
   workers?: Worker[];
@@ -98,6 +102,12 @@ export interface ProjectsRouteProps {
   ) => Promise<void>;
   onTransitionPO?: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   onDeletePO?: (id: string) => Promise<void>;
+  onSaveSubcontract?: (
+    subcontract: Partial<Subcontract> & { subcontractNumber: string; vendorId: string; projectId: string; title: string },
+    lines: Array<Partial<SubcontractLine> & { description: string; amount: number }>,
+  ) => Promise<void>;
+  onTransitionSubcontract?: (id: string, targetStatus: SubcontractStatus, reason?: string) => Promise<void>;
+  onDeleteSubcontract?: (id: string) => Promise<void>;
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
@@ -138,6 +148,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   invoiceAllocations,
   expenses,
   purchaseOrders = [],
+  subcontracts = [],
   receipts = [],
   vendors = [],
   workers = [],
@@ -186,6 +197,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onSavePO,
   onTransitionPO,
   onDeletePO,
+  onSaveSubcontract,
+  onTransitionSubcontract,
+  onDeleteSubcontract,
   onRecordReceipt,
   onVoidReceipt,
   onAddVendor,
@@ -234,6 +248,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         invoiceAllocations={invoiceAllocations}
         expenses={expenses}
         purchaseOrders={purchaseOrders}
+        subcontracts={subcontracts}
         receipts={receipts}
         vendors={vendors}
         workers={workers}
@@ -283,6 +298,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onSavePO={onSavePO}
         onTransitionPO={onTransitionPO}
         onDeletePO={onDeletePO}
+        onSaveSubcontract={onSaveSubcontract}
+        onTransitionSubcontract={onTransitionSubcontract}
+        onDeleteSubcontract={onDeleteSubcontract}
         onRecordReceipt={onRecordReceipt}
         onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}

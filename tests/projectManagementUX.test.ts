@@ -102,7 +102,7 @@ test("ProjectsPage enforces portfolio summary, responsive desktop table and mobi
   assert.match(projectsPageSource, /aria-label="Projects list cards"/);
 });
 
-test("ProjectOverview enforces single-source management snapshot and deferred commercial controls notice", () => {
+test("ProjectOverview enforces single-source management snapshot and truthful commercial controls notice", () => {
   // Check buildProjectManagementView integration
   assert.match(projectOverviewSource, /buildProjectManagementView/);
 
@@ -118,8 +118,8 @@ test("ProjectOverview enforces single-source management snapshot and deferred co
   assert.match(projectOverviewSource, /Work Package Budget Control \(P1B\)/);
   assert.match(projectOverviewSource, /Open Budget Control Tab →/);
 
-  // Check Commercial Controls Explanatory Notice (P2 Deferred)
-  assert.match(projectOverviewSource, /Commercial Controls Deferred to P2/);
+  // Check Commercial Controls Explanatory Notice (committed cost is implemented; later billing remains deferred)
+  assert.match(projectOverviewSource, /Commercial Controls/);
   assert.match(projectOverviewSource, /Committed Cost/);
   assert.match(projectOverviewSource, /Client Progress Billing/);
   assert.match(projectOverviewSource, /Collections/);

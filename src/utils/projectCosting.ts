@@ -14,6 +14,9 @@ import type {
   PurchaseOrder,
   PurchaseOrderLine,
   PurchaseOrderStatus,
+  Subcontract,
+  SubcontractLine,
+  SubcontractStatus,
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
@@ -42,6 +45,7 @@ export interface ProjectCostInput {
   payroll?: CostPayrollRecord[];
   expenses?: Expense[];
   purchaseOrders?: PurchaseOrder[];
+  subcontracts?: Subcontract[];
   /** Safe project-level labor totals used when payroll detail is unavailable. */
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   /** Explicitly selects detail rows or the safe aggregate source. */
@@ -248,12 +252,44 @@ export function purchaseOrderTotal(po: Pick<PurchaseOrder, "totalAmount" | "line
   if (po.lines && po.lines.length > 0) {
     return roundMoney(
       po.lines.reduce(
-        (sum, line) => sum + roundMoney(line.amount != null && Number.isFinite(Number(line.amount)) ? Number(line.amount) : (Number(line.quantity || 0) * Number(line.unitPrice || 0))),
+        (sum, line) => sum + positiveMoney(line.amount != null && Number.isFinite(Number(line.amount)) ? Number(line.amount) : (Number(line.quantity || 0) * Number(line.unitPrice || 0))),
         0,
       ),
     );
   }
   return positiveMoney(po.totalAmount);
+}
+
+export function isCommittedSubcontract(statusOrSC?: SubcontractStatus | string | { status?: SubcontractStatus | string | null } | null): boolean {
+  if (!statusOrSC) return false;
+  const raw = typeof statusOrSC === "object" && "status" in statusOrSC ? statusOrSC.status : statusOrSC;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "APPROVED" || normalized === "ACTIVE";
+}
+
+export function isVoidedSubcontract(statusOrSC?: SubcontractStatus | string | { status?: SubcontractStatus | string | null } | null): boolean {
+  if (!statusOrSC) return false;
+  const raw = typeof statusOrSC === "object" && "status" in statusOrSC ? statusOrSC.status : statusOrSC;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "CANCELLED";
+}
+
+export function subcontractTotal(sc: Pick<Subcontract, "originalAmount" | "lines">): number {
+  if (sc.lines && sc.lines.length > 0) {
+    return roundMoney(
+      sc.lines.reduce(
+        (sum, line) =>
+          sum +
+          positiveMoney(
+            line.amount != null && Number.isFinite(Number(line.amount))
+              ? Number(line.amount)
+              : (Number(line.quantity || 0) * Number(line.unitRate || 0)),
+          ),
+        0,
+      ),
+    );
+  }
+  return positiveMoney(sc.originalAmount);
 }
 
 function payrollEntryBasis(entry: CostPayrollEntry) {
@@ -392,7 +428,8 @@ function linkedSourceOwners(projectId: string | undefined, input: ProjectCostInp
 /**
  * Central project-cost semantics. Verified invoice allocations are confirmed
  * regardless of payment status; payment only affects the separate paid and
- * payable fields. All numeric totals are kept in the requested currency.
+ * payable fields. Approved PO and subcontract obligations are committed cost,
+ * never actual cost. All numeric totals are kept in the requested currency.
  */
 export function calculateProjectCost(
   project: Pick<Project, "id" | "projectBudget" | "currency"> | undefined,
@@ -564,6 +601,23 @@ export function calculateProjectCost(
     }
   }
 
+  for (const sc of input.subcontracts || []) {
+    if (!isCommittedSubcontract(sc.status)) continue;
+    const scAmount = subcontractTotal(sc);
+    if (!scAmount) continue;
+    const scCurrency = normalizeCurrency(sc.currency);
+
+    if (projectId) {
+      if (sc.projectId !== projectId) continue;
+      if (scCurrency !== baseCurrency) {
+        addForeign(scCurrency, scAmount);
+      } else {
+        summary.committedCost = roundMoney(summary.committedCost + scAmount);
+      }
+      continue;
+    }
+  }
+
   summary.totalActualCost = roundMoney(summary.invoiceCost + summary.payrollCost + summary.otherExpenseCost);
   summary.remainingBudget = roundMoney(summary.budget - summary.totalActualCost);
   summary.budgetUsedPercent = summary.budget > 0 ? roundMoney(summary.totalActualCost / summary.budget * 100) : 0;
@@ -704,7 +758,7 @@ export interface ProjectBudgetControlSummary {
 }
 
 /**
- * P1B Budget Control Aggregation & P2A Procurement Commitment Integration.
+ * P1B Budget Control Aggregation & P2A/P2B Procurement Commitment Integration.
  * Classifies authoritative actual costs, pending exposure, and purchase order commitments into project cost codes.
  *
  * Guarantees:
@@ -712,7 +766,8 @@ export interface ProjectBudgetControlSummary {
  *   codedActualCost + uncodedActualCost === totalActualCost
  * - Deduplication via linkedSourceOwners applies first before classification.
  * - Non-confirmed invoices, unapproved payroll, and voided expenses are excluded from actual cost.
- * - Committed cost is derived from active approved/issued purchase orders (status APPROVED or ISSUED).
+ * - Committed cost is derived only from APPROVED/ISSUED purchase orders plus APPROVED/ACTIVE subcontracts;
+ *   DRAFT, CLOSED, and CANCELLED commitment records contribute zero.
  * - Explicit forecast variance = budgetAmount - forecastAmount. If forecast is null -> "Not set".
  * - Unconverted foreign currency costs are kept in foreignCosts without implicit FX conversion.
  */
@@ -880,6 +935,43 @@ export function calculateProjectBudgetControl(
           uncodedAccumulator.foreignCosts[poCurrency] = roundMoney((uncodedAccumulator.foreignCosts[poCurrency] || 0) + poAmount);
         } else {
           uncodedAccumulator.committedCost = roundMoney(uncodedAccumulator.committedCost + poAmount);
+        }
+      }
+    }
+  }
+
+  // 5. Subcontracts (Commitments)
+  for (const sc of input.subcontracts || []) {
+    if (sc.projectId !== projectId || !isCommittedSubcontract(sc.status)) continue;
+    const scCurrency = normalizeCurrency(sc.currency);
+    const isBaseCurrency = scCurrency === baseCurrency;
+
+    if (sc.lines && sc.lines.length > 0) {
+      for (const line of sc.lines) {
+        const lineAmount = roundMoney(
+          line.amount != null && Number.isFinite(Number(line.amount))
+            ? Number(line.amount)
+            : (Number(line.quantity || 0) * Number(line.unitRate || 0)),
+        );
+        if (lineAmount <= 0) continue;
+        const targetCodeId = line.projectCostCodeId || (line as { costCodeId?: string }).costCodeId;
+        const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
+          ? codeAccumulators.get(targetCodeId)!
+          : uncodedAccumulator;
+
+        if (!isBaseCurrency) {
+          target.foreignCosts[scCurrency] = roundMoney((target.foreignCosts[scCurrency] || 0) + lineAmount);
+        } else {
+          target.committedCost = roundMoney(target.committedCost + lineAmount);
+        }
+      }
+    } else {
+      const scAmount = subcontractTotal(sc);
+      if (scAmount > 0) {
+        if (!isBaseCurrency) {
+          uncodedAccumulator.foreignCosts[scCurrency] = roundMoney((uncodedAccumulator.foreignCosts[scCurrency] || 0) + scAmount);
+        } else {
+          uncodedAccumulator.committedCost = roundMoney(uncodedAccumulator.committedCost + scAmount);
         }
       }
     }

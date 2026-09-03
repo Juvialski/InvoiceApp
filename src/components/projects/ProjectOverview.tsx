@@ -128,20 +128,30 @@ function percent(value: number) {
 }
 
 function fallbackDashboard(summary: CostSummaryView): ProjectDashboardViewData {
-  const health = projectHealth(summary);
+  const budget = Number(summary.budget) || 0;
+  const confirmed = Number(summary.totalActualCost) || 0;
+  const committed = Number(summary.committedCost) || 0;
+  const pending = (Number(summary.pendingInvoiceCost) || 0) +
+    (Number(summary.pendingPayrollCost) || 0) +
+    (Number(summary.pendingExpenseCost) || 0);
+  const availableAfterCommitments = budget - confirmed - committed - pending;
+  const health = projectHealth({
+    budget,
+    remainingBudget: budget - confirmed,
+    budgetUsedPercent: budget > 0 ? (confirmed / budget) * 100 : 0,
+  });
   return {
-    budget: summary.budget,
-    confirmed: summary.totalActualCost,
-    pending: summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost,
-    availableAfterCommitments:
-      summary.budget - summary.totalActualCost - summary.pendingInvoiceCost - summary.pendingPayrollCost - summary.pendingExpenseCost,
-    remaining: Math.max(0, summary.remainingBudget),
-    excess: Math.max(0, -summary.remainingBudget),
-    confirmedUtilization: summary.budgetUsedPercent,
+    budget,
+    confirmed,
+    committed,
+    pending,
+    availableAfterCommitments,
+    remaining: Math.max(0, availableAfterCommitments),
+    excess: Math.max(0, -availableAfterCommitments),
+    confirmedUtilization: budget > 0 ? (confirmed / budget) * 100 : 0,
     commitmentUtilization:
-      summary.budget > 0
-        ? ((summary.totalActualCost + summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost) /
-            summary.budget) *
+      budget > 0
+        ? ((confirmed + committed + pending) / budget) *
           100
         : 0,
     health,
@@ -327,9 +337,10 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
     {
       label: project.projectCode,
       confirmed: managementView.actualCost,
+      committed: managementView.committedCost,
       pending: managementView.pendingCostExposure,
-      remaining: Math.max(0, managementView.remainingBudget || 0),
-      excess: managementView.remainingBudget !== null && managementView.remainingBudget < 0 ? Math.abs(managementView.remainingBudget) : 0,
+      remaining: Math.max(0, managementView.approvedCostBudget - managementView.actualCost - managementView.committedCost - managementView.pendingCostExposure),
+      excess: Math.max(0, managementView.actualCost + managementView.committedCost + managementView.pendingCostExposure - managementView.approvedCostBudget),
     },
   ];
 
@@ -455,9 +466,9 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             <p className="mt-0.5 text-xs text-slate-400">
               {hasForeignAmounts
                 ? "Complete cost health is withheld while unconverted foreign-currency costs are present."
-                : managementView.isPartial
-                  ? "Partial aggregate due to withheld or incomplete cost sources."
-                  : `${percent(managementView.confirmedUtilization)} budget used · ${percent(managementView.commitmentUtilization)} with pending exposure`}
+                  : managementView.isPartial
+                    ? "Partial aggregate due to withheld or incomplete cost sources."
+                  : `${percent(managementView.confirmedUtilization)} budget used · ${percent(managementView.commitmentUtilization)} including approved commitments and pending exposure`}
             </p>
           </div>
         </div>
@@ -535,7 +546,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
               {money(managementView.committedCost, managementView.currency)}
             </p>
             <p className="mt-1 text-[9px] text-slate-500">
-              Active PO obligations (Approved / Issued)
+              Active PO and subcontract obligations
             </p>
           </Card>
 
@@ -648,18 +659,18 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         </div>
       </Card>
 
-      {/* 5. Commercial Controls Explanatory Notice (P2 Deferred) */}
+      {/* 5. Commercial Controls Explanatory Notice */}
       <Card className="border-dashed border-slate-200 bg-slate-50/70 p-4 shadow-none" elevation="low">
         <div className="flex items-start gap-3">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-slate-600">
             <Lock className="h-3.5 w-3.5" aria-hidden="true" />
           </div>
           <div className="min-w-0 text-xs">
-            <h4 className="font-bold text-slate-800">Commercial Controls Deferred to P2</h4>
+            <h4 className="font-bold text-slate-800">Commercial Controls</h4>
             <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-              <strong>Committed Cost</strong> (PO/Subcontract commitments), <strong>Client Progress Billing</strong>,{" "}
-              <strong>Collections</strong>, and <strong>Outstanding Receivables</strong> remain intentionally unavailable
-              until P2 Commercial Operations are implemented. Engoryx does not fabricate zero values for unbuilt modules.
+              <strong>Committed Cost</strong> (approved PO and subcontract commitments) is included above. <strong>Client Progress Billing</strong>,{" "}
+              <strong>Collections</strong>, and <strong>Outstanding Receivables</strong> remain deferred until their corresponding
+              commercial workflows are implemented. Engoryx does not fabricate values for unbuilt modules.
             </p>
           </div>
         </div>
@@ -694,14 +705,14 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           <div>
             <h3 className="text-sm font-black">Project Budget Position</h3>
             <p className="mt-1 text-[10px] text-slate-500">
-              Actual cost, pending exposure, remaining base-currency budget, and over-budget excess reconcile to the project cost row.
+              Actual cost, approved commitments, pending exposure, remaining base-currency budget, and over-budget excess reconcile to the project cost row.
             </p>
           </div>
           <BarChart3 className="h-4 w-4 text-indigo-500" aria-hidden="true" />
         </div>
         {hasForeignAmounts ? (
           <ChartEmpty message="Complete budget position withheld while unconverted foreign-currency costs are present." />
-        ) : dashboard.budget <= 0 && dashboard.confirmed === 0 && dashboard.pending === 0 ? (
+        ) : dashboard.budget <= 0 && dashboard.confirmed === 0 && dashboard.committed === 0 && dashboard.pending === 0 ? (
           <ChartEmpty message="No project budget or cost activity yet." />
         ) : (
           <div className="mt-4 h-[140px] w-full">
@@ -719,6 +730,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
                 <Tooltip formatter={(val: number | string) => money(Number(val), project.currency)} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 <Bar dataKey="confirmed" stackId="position" fill="#4f46e5" name="Actual Cost" />
+                <Bar dataKey="committed" stackId="position" fill="#7c3aed" name="Committed Cost" />
                 <Bar dataKey="pending" stackId="position" fill="#f59e0b" name="Pending Exposure" />
                 <Bar dataKey="remaining" stackId="position" fill="#cbd5e1" name="Remaining Budget" />
                 <Bar dataKey="excess" stackId="position" fill="#e11d48" name="Over Budget" />

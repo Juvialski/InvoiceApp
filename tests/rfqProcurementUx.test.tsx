@@ -64,6 +64,7 @@ test("ProcurementPage renders sub-tabs for Purchase Orders and Requests for Quot
       projects={mockProjects}
       vendors={mockVendors}
       costCodes={mockCostCodes}
+      canRead={true}
       rfqs={demoRfqs}
       supplierQuotations={demoQuotes}
       onSavePO={async () => {}}

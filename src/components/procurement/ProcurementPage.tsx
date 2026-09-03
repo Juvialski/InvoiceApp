@@ -31,20 +31,34 @@ import type {
   RFQ,
   RFQLine,
   RFQStatus,
+  Subcontract,
+  SubcontractLine,
+  SubcontractStatus,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
 } from "../../types.ts";
-import { createDemoRFQs, createDemoSupplierQuotations } from "../../demo/data/procurement.ts";
+import { createDemoRFQs, createDemoSubcontracts, createDemoSupplierQuotations } from "../../demo/data/procurement.ts";
 import { defaultDemoAnchorDate } from "../../demo/data/demoDates.ts";
+import { isDemoApplicationPath } from "../../app/applicationMode.ts";
+import {
+  applySubcontractTransition,
+  buildLocalSubcontract,
+  deleteDraftSubcontract,
+  readSubcontractsFromLocal,
+  saveSubcontract,
+  transitionSubcontract,
+} from "../../lib/subcontracts.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
-import { isCommittedPurchaseOrder } from "../../utils/projectCosting.ts";
+import { isCommittedPurchaseOrder, isCommittedSubcontract, purchaseOrderTotal, subcontractTotal } from "../../utils/projectCosting.ts";
 import { calculatePOReceiptProgress, type PODeliveryStatus } from "../../utils/purchaseOrderReceipts.ts";
 import { EmptyState, PageHeader } from "../ui/OperationsUI.tsx";
 import { PurchaseOrderEditorModal } from "./PurchaseOrderEditorModal.tsx";
 import { RFQEditorModal } from "./RFQEditorModal.tsx";
 import { SupplierQuotationModal } from "./SupplierQuotationModal.tsx";
 import { RFQComparisonModal } from "./RFQComparisonModal.tsx";
+import { SubcontractEditorModal } from "./SubcontractEditorModal.tsx";
+import { SubcontractCancellationModal } from "./SubcontractCancellationModal.tsx";
 
 export interface ProcurementPageProps {
   purchaseOrders: PurchaseOrder[];
@@ -60,6 +74,7 @@ export interface ProcurementPageProps {
   invoices?: readonly InvoiceData[];
   rfqs?: RFQ[];
   supplierQuotations?: SupplierQuotation[];
+  subcontracts?: Subcontract[];
   onSavePO: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
@@ -87,6 +102,12 @@ export interface ProcurementPageProps {
   onSelectSupplierQuotation?: (quotationId: string, reason: string) => Promise<void>;
   onRevertSupplierQuotationSelection?: (rfqId: string, reason: string) => Promise<void>;
   onConvertQuotationToPO?: (quotationId: string, poNumber: string, notes?: string) => Promise<void>;
+  onSaveSubcontract?: (
+    sc: Partial<Subcontract> & { subcontractNumber: string; vendorId: string; projectId: string; title: string },
+    lines: Array<Partial<SubcontractLine> & { description: string; amount: number }>,
+  ) => Promise<void>;
+  onTransitionSubcontract?: (id: string, targetStatus: SubcontractStatus, reason?: string) => Promise<void>;
+  onDeleteSubcontract?: (id: string) => Promise<void>;
 }
 
 export const ProcurementPage: React.FC<ProcurementPageProps> = ({
@@ -96,13 +117,14 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   vendors,
   costCodes,
   selectedProjectId,
-  canRead = true,
-  canManage = true,
-  canApprove = true,
+  canRead = false,
+  canManage = false,
+  canApprove = false,
   matches = [],
   invoices = [],
   rfqs: initialRfqs,
   supplierQuotations: initialQuotations,
+  subcontracts: initialSubcontracts,
   onSavePO,
   onTransitionPO,
   onDeletePO,
@@ -117,9 +139,12 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   onSelectSupplierQuotation,
   onRevertSupplierQuotationSelection,
   onConvertQuotationToPO,
+  onSaveSubcontract,
+  onTransitionSubcontract,
+  onDeleteSubcontract,
 }) => {
   // Top-level Navigation Sub-Tabs
-  const [activeTab, setActiveTab] = useState<"purchase_orders" | "rfqs">("purchase_orders");
+  const [activeTab, setActiveTab] = useState<"purchase_orders" | "rfqs" | "subcontracts">("purchase_orders");
 
   // Search & Filters
   const [query, setQuery] = useState("");
@@ -144,6 +169,32 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   useEffect(() => {
     if (initialQuotations) setLocalQuotations(initialQuotations);
   }, [initialQuotations]);
+
+  // Subcontract State. An empty production prop is authoritative; only the
+  // explicit demo route may seed the public demo fixture when its parent has
+  // not mounted the demo collection yet.
+  const isDemoMode = typeof window !== "undefined" && isDemoApplicationPath(window.location.pathname);
+  const useProvidedSubcontracts = initialSubcontracts !== undefined;
+  const [localSubcontracts, setLocalSubcontracts] = useState<Subcontract[]>(
+    () => useProvidedSubcontracts
+      ? initialSubcontracts || []
+      : isDemoMode
+        ? createDemoSubcontracts(defaultAnchor)
+        : readSubcontractsFromLocal(),
+  );
+
+  useEffect(() => {
+    if (useProvidedSubcontracts) setLocalSubcontracts(initialSubcontracts || []);
+  }, [initialSubcontracts, useProvidedSubcontracts]);
+
+  useEffect(() => {
+    setProjectFilter(selectedProjectId || "ALL");
+  }, [selectedProjectId]);
+
+  const [activeSubcontractModal, setActiveSubcontractModal] = useState<Subcontract | null | undefined>(undefined);
+  const [cancellationSubcontract, setCancellationSubcontract] = useState<Subcontract | null>(null);
+  const [subcontractActionId, setSubcontractActionId] = useState<string | null>(null);
+  const [subcontractActionError, setSubcontractActionError] = useState<string | null>(null);
 
   // Active Modals for RFQ
   const [activeRfqModal, setActiveRfqModal] = useState<RFQ | null | undefined>(undefined);
@@ -236,11 +287,125 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     });
   }, [localRfqs, selectedProjectId, projectFilter, statusFilter, query, projectMap]);
 
+  // Filtered Subcontracts
+  const filteredSubcontracts = useMemo(() => {
+    return localSubcontracts.filter((sc) => {
+      if (selectedProjectId && sc.projectId !== selectedProjectId) return false;
+      if (projectFilter !== "ALL" && sc.projectId !== projectFilter) return false;
+      if (statusFilter !== "ALL" && sc.status !== statusFilter) return false;
+
+      if (query.trim()) {
+        const q = query.trim().toLowerCase();
+        const vendor = vendorMap.get(sc.vendorId);
+        const proj = projectMap.get(sc.projectId);
+        const matchNum = sc.subcontractNumber.toLowerCase().includes(q);
+        const matchTitle = sc.title.toLowerCase().includes(q);
+        const matchNotes = (sc.notes || "").toLowerCase().includes(q);
+        const matchVendor = (vendor?.name || "").toLowerCase().includes(q);
+        const matchProj =
+          (proj?.projectName || "").toLowerCase().includes(q) ||
+          (proj?.projectCode || "").toLowerCase().includes(q);
+        if (!matchNum && !matchTitle && !matchNotes && !matchVendor && !matchProj) return false;
+      }
+      return true;
+    });
+  }, [localSubcontracts, selectedProjectId, projectFilter, statusFilter, query, vendorMap, projectMap]);
+
+  // Subcontract KPI Metrics
+  const activeCommittedSubcontractTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const sc of filteredSubcontracts) {
+      if (!isCommittedSubcontract(sc.status)) continue;
+      const currency = String(sc.currency || "PHP").trim().toUpperCase();
+      totals.set(currency, (totals.get(currency) || 0) + subcontractTotal(sc));
+    }
+    return [...totals.entries()].map(([currency, amount]) => [currency, Math.round(amount * 100) / 100] as const);
+  }, [filteredSubcontracts]);
+
+  const handleSaveSubcontractInternal = async (
+    sc: Partial<Subcontract> & { subcontractNumber: string; vendorId: string; projectId: string; title: string },
+    lines: Array<Partial<SubcontractLine> & { description: string; amount: number }>,
+  ) => {
+    if (onSaveSubcontract) {
+      await onSaveSubcontract(sc, lines);
+      return;
+    }
+
+    if (isDemoMode) {
+      const existing = sc.id ? localSubcontracts.find((item) => item.id === sc.id) : undefined;
+      const saved = buildLocalSubcontract(sc, lines, existing, existing?.companyId || null);
+      setLocalSubcontracts((prev) => {
+        const index = prev.findIndex((item) => item.id === saved.id);
+        return index >= 0 ? prev.map((item) => item.id === saved.id ? saved : item) : [saved, ...prev];
+      });
+      return;
+    }
+
+    const saved = await saveSubcontract(sc, lines);
+    setLocalSubcontracts((prev) => {
+      const index = prev.findIndex((item) => item.id === saved.id);
+      return index >= 0 ? prev.map((item) => item.id === saved.id ? saved : item) : [saved, ...prev];
+    });
+  };
+
+  const handleTransitionSubcontractInternal = async (
+    id: string,
+    targetStatus: SubcontractStatus,
+    reason?: string,
+  ) => {
+    if (onTransitionSubcontract) {
+      await onTransitionSubcontract(id, targetStatus, reason);
+      return;
+    }
+
+    if (isDemoMode) {
+      const current = localSubcontracts.find((item) => item.id === id);
+      if (!current) throw new Error("Subcontract not found");
+      const updated = applySubcontractTransition(current, targetStatus, reason);
+      setLocalSubcontracts((prev) => prev.map((item) => item.id === id ? updated : item));
+      return;
+    }
+
+    const updated = await transitionSubcontract(id, targetStatus, reason);
+    setLocalSubcontracts((prev) => prev.map((item) => item.id === updated.id ? updated : item));
+  };
+
+  const handleDeleteSubcontractInternal = async (id: string) => {
+    if (onDeleteSubcontract) {
+      await onDeleteSubcontract(id);
+      return;
+    }
+
+    if (!isDemoMode) await deleteDraftSubcontract(id);
+    setLocalSubcontracts((prev) => prev.filter((sc) => sc.id !== id));
+  };
+
+  const runSubcontractAction = async (id: string, action: () => Promise<void>, fallbackMessage: string) => {
+    setSubcontractActionId(id);
+    setSubcontractActionError(null);
+    try {
+      await action();
+    } catch (error) {
+      setSubcontractActionError(error instanceof Error ? error.message : fallbackMessage);
+      throw error;
+    } finally {
+      setSubcontractActionId(null);
+    }
+  };
+
+  const runSubcontractRowAction = (id: string, action: () => Promise<void>, fallbackMessage: string) => {
+    void runSubcontractAction(id, action, fallbackMessage).catch(() => undefined);
+  };
+
   // Purchase Order KPI Metrics
-  const activeCommittedTotal = useMemo(() => {
-    return filteredOrders
-      .filter((po) => isCommittedPurchaseOrder(po.status))
-      .reduce((sum, po) => sum + (Number(po.totalAmount) || 0), 0);
+  const activeCommittedPurchaseOrderTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const po of filteredOrders) {
+      if (!isCommittedPurchaseOrder(po.status)) continue;
+      const currency = String(po.currency || "PHP").trim().toUpperCase();
+      totals.set(currency, (totals.get(currency) || 0) + purchaseOrderTotal(po));
+    }
+    return [...totals.entries()].map(([currency, amount]) => [currency, Math.round(amount * 100) / 100] as const);
   }, [filteredOrders]);
 
   const poCounts = useMemo(() => {
@@ -545,6 +710,14 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     );
   };
 
+  if (!canRead) {
+    return (
+      <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm font-semibold text-amber-900">
+        Procurement records are not available for your current permission set.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -556,6 +729,10 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
               ? selectedProject
                 ? `${selectedProject.projectName} RFQs & Quotations`
                 : "Requests for Quotation & Comparison"
+              : activeTab === "subcontracts"
+              ? selectedProject
+                ? `${selectedProject.projectName} Subcontracts`
+                : "Trade Subcontracts & Commitments"
               : selectedProject
               ? `${selectedProject.projectName} Procurement`
               : "Procurement & Purchase Orders"
@@ -563,6 +740,8 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           description={
             activeTab === "rfqs"
               ? "Solicit competitive supplier bids, evaluate line-item pricing side-by-side, and audit selection reasons before generating purchase orders."
+              : activeTab === "subcontracts"
+              ? "Manage specialized trade subcontract commitments, schedule milestones, and track committed liabilities linked to project cost codes."
               : "Manage supplier commitments, track purchase orders, and monitor committed cost obligations without distorting actual cost."
           }
         />
@@ -576,6 +755,15 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
               >
                 <Plus className="h-4 w-4" />
                 New RFQ
+              </button>
+            ) : activeTab === "subcontracts" ? (
+              <button
+                type="button"
+                onClick={() => setActiveSubcontractModal(null)}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
+              >
+                <Plus className="h-4 w-4" />
+                New Subcontract
               </button>
             ) : (
               <button
@@ -591,7 +779,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
         )}
       </div>
 
-      {/* Sub-Tabs: [Purchase Orders] [Requests for Quotation (RFQs)] */}
+      {/* Sub-Tabs: [Purchase Orders] [Requests for Quotation (RFQs)] [Subcontracts] */}
       <div className="flex items-center gap-2 border-b border-slate-200">
         <button
           type="button"
@@ -638,6 +826,29 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
             {filteredRfqs.length}
           </span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("subcontracts");
+            setStatusFilter("ALL");
+          }}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-xs font-bold transition ${
+            activeTab === "subcontracts"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          <Building2 className="h-4 w-4" />
+          Subcontracts
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+              activeTab === "subcontracts" ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            {filteredSubcontracts.length}
+          </span>
+        </button>
       </div>
 
       {/* ========================================================================= */}
@@ -653,9 +864,17 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                 <ShoppingCart className="h-4 w-4" />
               </div>
               <div className="text-lg font-black text-slate-900 tabular-nums">
-                {formatMoney(activeCommittedTotal, selectedProject?.currency || "PHP")}
+                {activeCommittedPurchaseOrderTotals.length > 0 ? (
+                  <div className="space-y-0.5">
+                    {activeCommittedPurchaseOrderTotals.map(([currency, amount]) => (
+                      <div key={currency}>{formatMoney(amount, currency)}</div>
+                    ))}
+                  </div>
+                ) : (
+                  "—"
+                )}
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Approved & Issued orders</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Approved &amp; Issued orders; currencies shown separately</div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1211,6 +1430,363 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
       )}
 
       {/* ========================================================================= */}
+      {/* VIEW 3: SUBCONTRACTS TAB */}
+      {/* ========================================================================= */}
+      {activeTab === "subcontracts" && (
+        <>
+          {/* Subcontracts KPI Cards */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-white p-4 shadow-sm">
+              <div className="flex items-center justify-between text-indigo-600 mb-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Total Subcontracts
+                </span>
+                <Building2 className="h-4 w-4 text-indigo-500" />
+              </div>
+              <div className="text-2xl font-black text-slate-900 tabular-nums">
+                {filteredSubcontracts.length}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-500">
+                Registered trade packages
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white p-4 shadow-sm">
+              <div className="flex items-center justify-between text-emerald-600 mb-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Active Commitments
+                </span>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="text-2xl font-black text-slate-900 tabular-nums">
+                {filteredSubcontracts.filter((sc) => sc.status === "ACTIVE").length}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-500">
+                In-progress commitments
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-white p-4 shadow-sm">
+              <div className="flex items-center justify-between text-blue-600 mb-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Total Committed Amount
+                </span>
+                <DollarSign className="h-4 w-4 text-blue-500" />
+              </div>
+              <div className="text-2xl font-black text-slate-900 tabular-nums">
+                {activeCommittedSubcontractTotals.length > 0 ? (
+                  <div className="space-y-0.5">
+                    {activeCommittedSubcontractTotals.map(([currency, amount]) => (
+                      <div key={currency}>{formatMoney(amount, currency)}</div>
+                    ))}
+                  </div>
+                ) : (
+                  "—"
+                )}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-500">
+                Approved & Active liability; currencies shown separately
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/50 to-white p-4 shadow-sm">
+              <div className="flex items-center justify-between text-amber-600 mb-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Draft Subcontracts
+                </span>
+                <Clock className="h-4 w-4 text-amber-500" />
+              </div>
+              <div className="text-2xl font-black text-slate-900 tabular-nums">
+                {filteredSubcontracts.filter((sc) => sc.status === "DRAFT").length}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-500">
+                Pending review / approval
+              </div>
+            </div>
+          </div>
+
+          {subcontractActionError && (
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{subcontractActionError}</span>
+            </div>
+          )}
+
+          {/* Subcontracts Filters Bar */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-1.5 focus-within:border-indigo-500 focus-within:bg-white focus-within:ring-1 focus-within:ring-indigo-500">
+              <Search className="h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search subcontract #, vendor, project, scope title..."
+                className="w-full bg-transparent text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {!selectedProjectId && (
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="ALL">All Projects</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.projectCode} — {p.projectName}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="DRAFT">Draft</option>
+                <option value="APPROVED">Approved</option>
+                <option value="ACTIVE">Active Commitments</option>
+                <option value="CLOSED">Closed</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Subcontracts Register Table */}
+          {filteredSubcontracts.length > 0 ? (
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th scope="col" className="px-4 py-3">Subcontract #</th>
+                      <th scope="col" className="px-4 py-3">Vendor</th>
+                      <th scope="col" className="px-4 py-3">Project</th>
+                      <th scope="col" className="px-4 py-3">Scope Title</th>
+                      <th scope="col" className="px-4 py-3 text-right">Amount</th>
+                      <th scope="col" className="px-4 py-3 text-center">Status</th>
+                      <th scope="col" className="px-4 py-3">Schedule (Start - Target)</th>
+                      <th scope="col" className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredSubcontracts.map((sc) => {
+                      const vendor = vendorMap.get(sc.vendorId);
+                      const proj = projectMap.get(sc.projectId);
+                      const totalAmt = subcontractTotal(sc);
+                      const isDraft = sc.status === "DRAFT";
+                      const isApproved = sc.status === "APPROVED";
+                      const isActive = sc.status === "ACTIVE";
+                      const isTerminal = sc.status === "CLOSED" || sc.status === "CANCELLED";
+                      const isBusy = subcontractActionId !== null;
+                      const isApprovalReady = Boolean(sc.lines && sc.lines.length > 0) && subcontractTotal(sc) > 0;
+
+                      return (
+                        <tr key={sc.id} className="hover:bg-slate-50/80 transition-colors">
+                          {/* Subcontract # */}
+                          <td className="px-4 py-3 font-mono font-bold text-slate-900">
+                            {sc.subcontractNumber}
+                            {sc.notes && (
+                              <div className="font-sans font-normal text-[10px] text-slate-400 truncate max-w-xs mt-0.5">
+                                {sc.notes}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Vendor */}
+                          <td className="px-4 py-3 font-semibold text-slate-800">
+                            {vendor?.name || sc.vendorId}
+                          </td>
+
+                          {/* Project */}
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-slate-800">{proj?.projectCode || "General"}</div>
+                            <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
+                              {proj?.projectName || "Unscoped"}
+                            </div>
+                          </td>
+
+                          {/* Scope Title */}
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-slate-900 max-w-xs">{sc.title}</div>
+                            {sc.lines && sc.lines.length > 0 && (
+                              <div className="text-[10px] text-slate-400">
+                                {sc.lines.length} {sc.lines.length === 1 ? "line item" : "line items"}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Amount */}
+                          <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                            {formatMoney(totalAmt, sc.currency || "PHP")}
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                                sc.status === "ACTIVE"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : sc.status === "APPROVED"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : sc.status === "CLOSED"
+                                  ? "bg-slate-100 text-slate-700"
+                                  : sc.status === "CANCELLED"
+                                  ? "bg-rose-100 text-rose-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {sc.status}
+                            </span>
+                          </td>
+
+                          {/* Schedule (Start - Target) */}
+                          <td className="px-4 py-3 text-slate-600 font-mono text-[11px]">
+                            {sc.startDate || sc.targetCompletionDate ? (
+                              <span>
+                                {sc.startDate ? formatDate(sc.startDate, "short") : "—"} to{" "}
+                                {sc.targetCompletionDate ? formatDate(sc.targetCompletionDate, "short") : "—"}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">Not scheduled</span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* View / Edit */}
+                              <button
+                                type="button"
+                                onClick={() => setActiveSubcontractModal(sc)}
+                                disabled={isBusy}
+                                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+                              >
+                                {isDraft && canManage ? "Edit" : "View"}
+                              </button>
+
+                              {/* Approve */}
+                              {isDraft && canApprove && (
+                                <button
+                                  type="button"
+                                  onClick={() => runSubcontractRowAction(sc.id, () => handleTransitionSubcontractInternal(sc.id, "APPROVED"), "Could not approve subcontract.")}
+                                  disabled={isBusy || !isApprovalReady}
+                                  className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  title={isApprovalReady ? "Approve Subcontract" : "Add a positive scope line before approval"}
+                                  aria-label={`Approve subcontract ${sc.subcontractNumber}`}
+                                  aria-busy={subcontractActionId === sc.id || undefined}
+                                >
+                                  {subcontractActionId === sc.id ? "Working…" : "Approve"}
+                                </button>
+                              )}
+
+                              {/* Activate */}
+                              {isApproved && canApprove && (
+                                <button
+                                  type="button"
+                                  onClick={() => runSubcontractRowAction(sc.id, () => handleTransitionSubcontractInternal(sc.id, "ACTIVE"), "Could not activate subcontract.")}
+                                  disabled={isBusy}
+                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Activate Commitment (requires procurement.approve)"
+                                  aria-label={`Activate subcontract ${sc.subcontractNumber}`}
+                                  aria-busy={subcontractActionId === sc.id || undefined}
+                                >
+                                  {subcontractActionId === sc.id ? "Working…" : "Activate"}
+                                </button>
+                              )}
+
+                              {/* Close */}
+                              {isActive && canApprove && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (typeof window !== "undefined" && !window.confirm(`Close subcontract ${sc.subcontractNumber}? It will become terminal and no longer contribute to committed cost.`)) return;
+                                    runSubcontractRowAction(sc.id, () => handleTransitionSubcontractInternal(sc.id, "CLOSED"), "Could not close subcontract.");
+                                  }}
+                                  disabled={isBusy}
+                                  className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Close Subcontract (requires procurement.approve)"
+                                  aria-label={`Close subcontract ${sc.subcontractNumber}`}
+                                  aria-busy={subcontractActionId === sc.id || undefined}
+                                >
+                                  {subcontractActionId === sc.id ? "Working…" : "Close"}
+                                </button>
+                              )}
+
+                              {/* Cancel */}
+                              {!isTerminal && canApprove && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSubcontractActionError(null);
+                                    setCancellationSubcontract(sc);
+                                  }}
+                                  disabled={isBusy}
+                                  className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Cancel Subcontract (requires procurement.approve)"
+                                  aria-label={`Cancel subcontract ${sc.subcontractNumber}`}
+                                >
+                                  Cancel
+                                </button>
+                              )}
+
+                              {/* Delete */}
+                              {isDraft && canManage && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm(`Delete draft subcontract ${sc.subcontractNumber}?`)) {
+                                      runSubcontractRowAction(sc.id, () => handleDeleteSubcontractInternal(sc.id), "Could not delete draft subcontract.");
+                                    }
+                                  }}
+                                  disabled={isBusy}
+                                  className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Delete Draft"
+                                  aria-label={`Delete draft subcontract ${sc.subcontractNumber}`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              icon={Building2}
+              title="No subcontracts found"
+              description={
+                query || statusFilter !== "ALL" || projectFilter !== "ALL"
+                  ? "No subcontracts matched your current search filters."
+                  : "No subcontract commitments have been established yet."
+              }
+              action={
+                canManage ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveSubcontractModal(null)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create First Subcontract
+                  </button>
+                ) : undefined
+              }
+            />
+          )}
+        </>
+      )}
+
+      {/* ========================================================================= */}
       {/* MODALS */}
       {/* ========================================================================= */}
 
@@ -1341,6 +1917,37 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 6. Subcontract Editor Modal */}
+      {activeSubcontractModal !== undefined && (
+        <SubcontractEditorModal
+          isOpen={true}
+          onClose={() => setActiveSubcontractModal(undefined)}
+          subcontract={activeSubcontractModal}
+          projects={projects}
+          vendors={vendors}
+          costCodes={costCodes}
+          selectedProjectId={selectedProjectId}
+          canManage={canManage}
+          onSave={handleSaveSubcontractInternal}
+        />
+      )}
+
+      {/* 7. Subcontract Cancellation Modal */}
+      {cancellationSubcontract && (
+        <SubcontractCancellationModal
+          isOpen={true}
+          onClose={() => setCancellationSubcontract(null)}
+          subcontract={cancellationSubcontract}
+          onConfirm={async (id, reason) => {
+            await runSubcontractAction(
+              id,
+              () => handleTransitionSubcontractInternal(id, "CANCELLED", reason),
+              "Could not cancel subcontract.",
+            );
+          }}
+        />
       )}
     </div>
   );

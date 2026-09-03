@@ -7,11 +7,12 @@ import type { DashboardActivityPeriod } from "../components/engineering/Engineer
 import type { AppTab } from "../utils/routes.ts";
 import type { AppLocation, ProjectWorkspaceView } from "../utils/appRouting.ts";
 import type { FinancialAccount, FinancialBalanceSnapshot, FinancialTransaction } from "../lib/cashBanking.ts";
-import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectWorkerAssignment, WorkEntry, Worker } from "../types.ts";
+import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectWorkerAssignment, Subcontract, SubcontractLine, SubcontractStatus, WorkEntry, Worker } from "../types.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction, type ProjectLifecyclePreview } from "../lib/projects.ts";
 import { buildLocalExpenseCorrectionPreview, buildLocalInvoiceCorrectionPreview, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "../lib/financialLifecycle.ts";
+import { applySubcontractTransition, buildLocalSubcontract } from "../lib/subcontracts.ts";
 import { DemoAssistant } from "./DemoAssistant.tsx";
 import { DemoEngineeringDocuments } from "./DemoEngineeringDocuments.tsx";
 import { DemoTour } from "./DemoTour.tsx";
@@ -20,6 +21,7 @@ import { buildDemoDashboard, buildDemoProjectDashboard, buildDemoProjectSummarie
 import { DEMO_COMPANY_ID } from "./demoTypes.ts";
 import { demoAssistantPath, demoDocumentsPath, demoPathForAppPath, demoPathForInvoice, demoPathForProject, demoPathForTab, type DemoLocation } from "./demoRouting.ts";
 import { projectCostDataCompleteness } from "../utils/dataCompleteness.ts";
+import { demoTimestamp } from "./data/demoDates.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -68,6 +70,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     engineeringRfis: data.coordination.rfis.filter((rfi) => rfi.projectId === project.id).length,
     engineeringSubmittals: data.coordination.submittals.filter((submittal) => submittal.projectId === project.id).length,
     engineeringDailySiteLogs: data.siteLogs.logs.filter((log) => log.projectId === project.id).length,
+    purchaseOrders: (data.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
+    subcontracts: (data.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
   }, { source: "demo" });
 
   const applyProjectLifecycle = async (project: Project, action: ProjectLifecycleAction, _reason?: string) => {
@@ -85,6 +89,38 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const reactivateProject = async (project: Project) => {
     if (!window.confirm("Reactivate this project? It will return to active workflows, and historical records will remain unchanged.")) return;
     await applyProjectLifecycle(project, "REACTIVATE", "Confirmed project reactivation");
+  };
+
+  const saveSubcontract = async (
+    subcontract: Partial<Subcontract> & { subcontractNumber: string; vendorId: string; projectId: string; title: string },
+    lines: Array<Partial<SubcontractLine> & { description: string; amount: number }>,
+  ) => {
+    const existing = subcontract.id ? (data.subcontracts || []).find((item) => item.id === subcontract.id) : undefined;
+    const normalizedNumber = subcontract.subcontractNumber.trim().toUpperCase();
+    if ((data.subcontracts || []).some((item) => item.id !== subcontract.id && item.subcontractNumber.trim().toUpperCase() === normalizedNumber)) {
+      throw new Error("Subcontract number already exists in the demo workspace.");
+    }
+    const value = buildLocalSubcontract(
+      { ...subcontract, status: existing?.status || "DRAFT" },
+      lines,
+      existing,
+      DEMO_COMPANY_ID,
+      demoTimestamp(data.anchorDate, 16, 30),
+    );
+    dispatch({ type: "SAVE_SUBCONTRACT", value });
+  };
+
+  const transitionSubcontract = async (id: string, targetStatus: SubcontractStatus, reason?: string) => {
+    const current = (data.subcontracts || []).find((item) => item.id === id);
+    if (!current) throw new Error("Subcontract not found in the demo workspace.");
+    applySubcontractTransition(current, targetStatus, reason, demoTimestamp(data.anchorDate, 16, 30));
+    dispatch({ type: "TRANSITION_SUBCONTRACT", id, targetStatus, reason });
+  };
+
+  const deleteSubcontract = async (id: string) => {
+    const current = (data.subcontracts || []).find((item) => item.id === id);
+    if (current && current.status !== "DRAFT") throw new Error("Only draft subcontracts may be deleted.");
+    dispatch({ type: "DELETE_SUBCONTRACT", id });
   };
 
   useEffect(() => {
@@ -170,6 +206,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onDashboardCurrencyChange={setDashboardCurrency}
             onNavigateTab={navigateTab}
             projects={data.projects}
+            costCodes={data.costCodes || []}
+            purchaseOrders={data.purchaseOrders || []}
+            subcontracts={data.subcontracts || []}
+            vendors={data.vendors || []}
             selectedProject={selectedProject}
             projectSummaries={summaries}
             projectDashboard={projectDashboard}
@@ -195,6 +235,9 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onProjectAddExpense={() => onNavigate(demoPathForTab("expenses"))}
             onProjectOpenExpenseCorrection={(expense) => { setExpenseCorrectionContext(expense.id); onNavigate(demoPathForTab("expenses")); }}
             onProjectOpenPayroll={() => onNavigate(demoPathForTab("payroll"))}
+            onSaveSubcontract={saveSubcontract}
+            onTransitionSubcontract={transitionSubcontract}
+            onDeleteSubcontract={deleteSubcontract}
             invoices={data.invoices}
             selectedInvoice={selectedInvoice}
             invoiceProjectAllocations={data.invoiceAllocations}
