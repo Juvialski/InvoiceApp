@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { WORKFLOW_GRAPH } from "../scripts/workflow-map/graph.ts";
 import {
+  ALL_DOMAINS,
   computeNeighborhood,
   DEFAULT_FILTER,
   filterGraph,
@@ -30,8 +31,8 @@ test("getCanvasPresets produces curated diagrams, domain views, and full archite
   assert.equal(allPreset.category, "all");
 
   const domainPresets = presets.filter((p) => p.category === "domain");
-  const graphDomainCount = new Set(WORKFLOW_GRAPH.nodes.map((node) => node.domain)).size;
-  assert.equal(domainPresets.length, graphDomainCount);
+  const expectedDomainCount = ALL_DOMAINS.length;
+  assert.equal(domainPresets.length, expectedDomainCount);
 });
 
 test("filterGraph respects curated preset definitions and does not show all 183 nodes by default", () => {
