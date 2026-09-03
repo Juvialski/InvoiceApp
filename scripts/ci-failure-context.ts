@@ -27,7 +27,7 @@ export interface FailurePacketOptions extends FailureContextOptions {
   command?: string;
 }
 
-const FAILURE_MARKER = /(?:\bnot ok\b|\bERR_[A-Z0-9_]+\b|AssertionError|failureType:|error:|Error:|npm error|Process completed with exit code|\bfailed\b|\bfailure\b)/i;
+const FAILURE_MARKER = /(?:\bnot ok\b|\bERR_[A-Z0-9_]+\b|AssertionError|failureType:|error:|Error:|npm error|Process completed with exit code|(?:^|\s)(?:FAIL|FAILED)(?:\s|:|$))/i;
 const WARNING_MARKER = /(?:\bwarning\b|ExperimentalWarning|DeprecationWarning|npm warn)/i;
 const SUMMARY_LINE = /^\s*#\s+(?:tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\s+/;
 
