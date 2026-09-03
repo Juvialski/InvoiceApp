@@ -1,6 +1,7 @@
 import React from "react";
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ProcurementPage } from "../src/components/procurement/ProcurementPage.tsx";
 import { SubcontractEditorModal } from "../src/components/procurement/SubcontractEditorModal.tsx";
@@ -60,6 +61,12 @@ test("createDemoWorkspace integrates subcontracts cleanly", () => {
   const ws = createDemoWorkspace(anchorDate);
   assert.ok(ws.subcontracts, "Workspace should have subcontracts");
   assert.ok(ws.subcontracts.length >= 2, "Workspace should contain demo subcontracts");
+});
+
+test("DemoWorkspace routes subcontract lifecycle changes through the transition reducer action", () => {
+  const source = readFileSync(new URL("../src/demo/DemoWorkspace.tsx", import.meta.url), "utf8");
+  assert.match(source, /applySubcontractTransition\(current, targetStatus, reason,/);
+  assert.match(source, /dispatch\(\{ type: "TRANSITION_SUBCONTRACT", id, targetStatus, reason \}\);/);
 });
 
 test("ProcurementPage renders navigation sub-tabs including Subcontracts with badge", () => {
