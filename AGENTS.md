@@ -256,6 +256,21 @@ Do not merge a critical security/data PR until required exact-head CI has been r
 
 After pushing a PR, a local Codex/Luna run should normally stop. GitHub-native tooling/lead handles CI monitoring. Resume the expensive local run only when CI exposes a failure that actually requires local implementation/debugging.
 
+## Test Execution & Impact Optimization
+
+Engoryx uses impact-based test selection to keep iteration fast and prevent wasteful full-suite reruns on focused changes. Standard developer and agent validation workflow:
+
+1. **Run new tests first**: Test newly authored or edited test files directly (`node --test ...` or `tsx --test ...`).
+2. **Run affected tests while iterating**: Use `npm run test:affected` to run only tests impacted by the current change set and its dependency graph.
+3. **Run smoke suite for fast cross-cutting validation**: Use `npm run test:smoke` to quickly verify critical core invariants and workflows.
+4. **No redundant full re-runs**: A previously green historical test does NOT need to be manually rerun on every coding iteration when neither it nor its dependency graph is affected.
+5. **Run full application suite (`npm run test:full`) when**:
+   - Impact analysis falls back (e.g. root configuration or broad shared contract modifications);
+   - Architecture changes are unusually broad;
+   - Explicitly requested by the user or lead;
+   - Preparing a release or deep scheduled regression.
+6. **Database validation scope**: Full database replay (`supabase start`, `supabase db reset`, `supabase test db`, `test:migrations:upgrade`) remains mandatory only when migrations or database contracts change.
+
 ## Validation
 
 Use the actual scripts in current `package.json`. Typical substantial validation includes:
