@@ -42,6 +42,34 @@ function normalizeDomainSelection(input: WorkflowContextSelectionInput): {
   };
 }
 
+function validateExtensionDomainCoverage(
+  graph: WorkflowGraph,
+  input: WorkflowContextSelectionInput,
+  requestedDomain?: WorkflowDomain,
+  requestedQuery?: string,
+): void {
+  if (!requestedDomain || !requestedQuery || !EXTENSION_DOMAINS.has(requestedDomain)) return;
+
+  const scopedNodeIds = new Set(
+    graph.nodes.filter((node) => node.domain === requestedDomain).map((node) => node.id),
+  );
+  const scopedGraph: WorkflowGraph = {
+    ...graph,
+    nodes: graph.nodes.filter((node) => scopedNodeIds.has(node.id)),
+    edges: graph.edges.filter((edge) => scopedNodeIds.has(edge.source) && scopedNodeIds.has(edge.target)),
+  };
+  const { domain: _domain, query: _query, ...rest } = input;
+
+  // Extension domains currently pass through the legacy context engine by
+  // injecting the domain as a query term. Preflight the user's actual query
+  // against that domain first so the injected term cannot turn a true map
+  // coverage gap into misleading generic domain context.
+  selectBaseWorkflowContextSeeds(scopedGraph, {
+    ...rest,
+    query: requestedQuery,
+  });
+}
+
 function restoredRequestedScope(
   scope: WorkflowContextRequestedScope,
   requestedDomain: WorkflowDomain,
@@ -87,6 +115,7 @@ function restoreRequestedScope(
 
 export function selectP2WorkflowContextSeeds(graph: WorkflowGraph, input: WorkflowContextSelectionInput) {
   const normalized = normalizeDomainSelection(input);
+  validateExtensionDomainCoverage(graph, input, normalized.requestedDomain, normalized.requestedQuery);
   const selection = selectBaseWorkflowContextSeeds(graph, normalized.delegated);
   if (!normalized.requestedDomain) return selection;
   return {
@@ -101,6 +130,7 @@ export function generateP2WorkflowContext(
   repository?: RepositoryMetadata,
 ): WorkflowContextResult {
   const normalized = normalizeDomainSelection(input);
+  validateExtensionDomainCoverage(graph, input, normalized.requestedDomain, normalized.requestedQuery);
   const result = generateBaseWorkflowContext(graph, normalized.delegated, repository);
   return restoreRequestedScope(result, normalized.requestedDomain, normalized.requestedQuery);
 }
