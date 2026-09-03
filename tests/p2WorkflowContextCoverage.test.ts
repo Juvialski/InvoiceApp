@@ -25,7 +25,7 @@ function expectCoverageGap(selection: WorkflowContextSelectionInput): void {
 test("P2 extension domains preserve a true coverage gap for future unmapped work", () => {
   expectCoverageGap({
     domain: "commercial",
-    query: "client billing collections settlement",
+    query: "client billing collections",
   });
 });
 
