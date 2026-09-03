@@ -54,7 +54,7 @@ jobs:
         run: npm run lint
 
       - name: Run Affected Application Tests & Smoke Suite
-        run: npm run test:affected -- --github-summary
+        run: npm run test:affected:agent -- --github-summary
 
       - name: Production Bundle Build
         run: npm run build

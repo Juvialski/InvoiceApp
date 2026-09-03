@@ -76,32 +76,34 @@ Run baseline tests before editing only when there is concrete reason to distrust
 
 Do not overwrite newer work or recreate an active implementation branch without reason.
 
-## WM-5 is the primary navigation layer
+## WM-5 / agent context is the primary navigation layer
 
-For substantial feature, debugging, security, financial, or architecture work, use WM-5 before broad exploration.
-
-Example:
+For substantial feature, debugging, security, financial, or architecture work, generate one bounded repository-native packet before broad exploration:
 
 ```text
-npm.cmd run workflow-map:context -- --domain workforce --query "worker removal" --hops 1 --budget 8000
+npm.cmd run agent:context -- --task "worker removal" --domain workforce --hops 1 --budget 10000
 ```
+
+`agent:context` combines WM-5 navigation with current Git provenance, changed-path impact, database-affecting state, selected-test counts, first files/tests to inspect, and protected boundaries. Use raw `workflow-map:context` only when a map-specific packet is explicitly needed.
 
 Required orientation:
 
-1. Run **one narrow packet first** using an exact node, route, file, or domain+query selector.
-2. Default to **0-1 hops** and roughly **6,000-10,000 characters**. Increase only when the first packet is genuinely insufficient.
-3. Establish a compact working set: primary source files, permission/RLS boundary, persistence/RPC boundary, key invariants, and focused tests.
+1. Run **one bounded `agent:context` packet first** using a task plus an exact node, route, file, or domain/query when known.
+2. Default to **0-1 hops** and roughly **8,000-12,000 characters**. Increase only when a named unresolved dependency or safety boundary requires it.
+3. Establish a compact working set: normally no more than about **6-8 primary source files** on the first pass, plus permission/RLS, persistence/RPC, invariants, and focused tests supplied by the packet.
 4. Inspect actual source before editing, but use exact symbols, targeted `rg`, and bounded ranges inside that working set.
 5. Repository-wide search is fallback for a specific unresolved dependency, not routine orientation.
-6. Open a second WM-5 packet only for a concrete adjacent boundary.
+6. Open a second packet only for a concrete adjacent boundary.
 7. Do not load complete generated workflow maps for ordinary scoped work.
 8. If scope expands across unrelated domains, split the work into PR-sized waves.
 
-WM-5 is navigation context, not a substitute for source, CI, runtime evidence, RLS, migration replay, or database validation.
+WM-5 and `agent:context` are navigation context, not substitutes for source, CI, runtime evidence, RLS, migration replay, or database validation.
+
+Detailed low-context command behavior is documented in `docs/AGENT_EXECUTION_EFFICIENCY.md`.
 
 ### Cross-agent use
 
-- Give Codex/Luna, Antigravity, and lower-cost agents the already identified working set; do not make each agent rediscover the repository.
+- Give Codex/Luna, Antigravity, and lower-cost agents the already generated packet/working set; do not make each agent rediscover the repository.
 - Antigravity should browser-test exact affected pages/components rather than crawl the whole app.
 - Lower-cost agents should stay inside the supplied file/symbol boundary unless a concrete dependency requires escalation.
 - The lead owns scope expansion and supplies another narrow packet when necessary.
@@ -113,7 +115,7 @@ After implementation:
 1. inspect changed filenames/statistics;
 2. review changed hunks and shared contracts;
 3. run focused/new tests;
-4. run impact-selected validation;
+4. run compact impact-selected validation;
 5. run only broader checks justified by the changed surface;
 6. rely on exact-head CI as the final automated PR gate.
 
@@ -124,8 +126,8 @@ Do not perform a second broad repository audit after targeted tests pass unless 
 All agents must actively minimize context and output without reducing correctness.
 
 - Do not dump whole large files when symbols/ranges are enough.
-- Do not ingest full successful logs; retain command, exit status, counts, and relevant warnings.
-- On failure, inspect only the failing step and smallest useful error region first.
+- Do not ingest full successful logs; retain command, exit status, counts, and relevant warnings. Prefer `npm.cmd run test:affected:agent` for agent-facing application validation.
+- On failure, inspect only the failing step and smallest useful error region first. Use `npm.cmd run ci:failure-context -- --file <log>` when a saved log is large.
 - Do not repeatedly reopen unchanged files, logs, generated maps, or CI pages.
 - Prefer `git diff`, changed hunks, exact symbols, and focused contract checks.
 - Do not continuously watch GitHub CI after push; the GitHub-native lead handles CI monitoring.
@@ -160,9 +162,9 @@ If a focused task unexpectedly reaches roughly 25-30+ changed files, verify ever
 
 **Hard maximum: 2 concurrent subagents.**
 
-For substantial work with two genuinely independent workstreams, use both slots early **after** the lead establishes the shared contract and narrow working set. Assign non-overlapping ownership and ask subagents to implement + add focused tests, not merely investigate.
+**One implementation subagent is the default.** Use the second slot only when there are two genuinely independent implementation workstreams with non-overlapping ownership **after** the lead establishes the shared contract and bounded working set. Assign implementation + focused tests, not duplicate investigation.
 
-Do not spawn subagents for tiny one-file fixes, documentation-only work, CI polling, or work the lead can complete more cheaply than coordinating agents.
+Do not spawn subagents for tiny one-file fixes, documentation-only work, CI polling, duplicate discovery, or work the lead can complete more cheaply than coordinating agents.
 
 Lead owns:
 
@@ -180,7 +182,7 @@ If additional work remains, reuse the same two slots sequentially. Never create 
 
 Every Codex-spawned subagent must use **Luna at the highest reasoning level available**. Never substitute Terra, Sol, Opus, Gemini, or automatic fallback models. If Luna is unavailable, reuse an available Luna sequentially or let the lead do the work.
 
-Because Luna is expensive/slow, prompts must give Luna an already bounded working set, acceptance criteria, relevant tests, and explicit out-of-scope items. Do not ask Luna to “audit the whole repo first.”
+Because Luna is expensive/slow, prompts must give Luna the bounded `agent:context` working set, acceptance criteria, relevant tests, and explicit out-of-scope items. Do not ask Luna to “audit the whole repo first.”
 
 ## Existing-data correction and removal
 
@@ -237,7 +239,7 @@ Use the cheapest sufficient step and escalate only as evidence requires:
 
 1. **New/edited tests directly**: run newly authored or modified test files first.
 2. **Focused domain tests**: run the smallest existing tests that prove the changed contract.
-3. **Affected suite**: `npm.cmd run test:affected`.
+3. **Affected suite for agents/CI**: `npm.cmd run test:affected:agent`; it uses the same selector while suppressing successful TAP detail and retaining bounded failure evidence. Use verbose `npm.cmd run test:affected` only when detailed runner output is explicitly useful.
 4. **Smoke suite when useful**: `npm.cmd run test:smoke` for quick core invariant coverage.
 5. **Lint/typecheck**: `npm.cmd run lint`, normally once after the implementation stabilizes rather than after every edit.
 6. **Build**: `npm.cmd run build` when production/runtime/UI integration is affected or before PR handoff when required by the workflow.
@@ -284,21 +286,21 @@ A good implementation prompt should:
 1. Tell the agent to pull/inspect the current latest `main` and confirm the starting SHA/CI state.
 2. State that the previous phase was merged only after green validation, so **do not begin by rerunning the full historical suite** unless the baseline is untrusted.
 3. Give the phase objective, acceptance criteria, and explicit out-of-scope items before asking for exploration.
-4. Tell the agent to use one narrow WM-5 packet and inspect only the resulting working set.
+4. Tell the agent to generate one bounded `agent:context` packet for the objective and inspect only that working set; use a second packet only for a named adjacent boundary.
 5. Name likely files/tests when the lead already knows them; do not make Luna rediscover known context.
-6. Require focused/new tests during implementation and `test:affected` after integration.
+6. Require focused/new tests during implementation and `test:affected:agent` after integration.
 7. Require lint/build/database/browser checks only when relevant to the changed surface.
 8. Reserve `test:full` for impact fallback, broad shared-contract change, explicit request, or other justified escalation.
-9. Tell Codex to use at most 2 concurrent Luna subagents and only when there are real independent implementation workstreams.
+9. Tell Codex to use one Luna implementation subagent by default; use a second only for a real independent workstream, with a hard maximum of 2 concurrent Luna subagents.
 10. Tell subagents to return concise implementation results, changed files, tests, and blockers instead of long narrative reports.
 11. Tell the lead to review diffs, integrate shared files, push the PR, then stop local Luna; GitHub-native tooling handles CI monitoring.
-12. Treat exact-head CI as the final automated gate. Fix only concrete failures; do not launch another broad audit after green CI.
+12. Treat exact-head CI as the final automated gate. Fix only concrete failures; for large logs extract the failed step/bounded failure context rather than ingesting the full log.
 
 ### Default phase-prompt validation wording
 
 Use wording equivalent to:
 
-> Start from the current latest `main`. Confirm the base SHA and that its required CI is green. Because this phase starts from an already validated merged baseline, do **not** run the full historical test suite before implementation. Use focused/new tests while iterating, then `npm.cmd run test:affected` after integration. Run lint/build/database/workflow-map/browser checks only when the changed surface requires them. Run `npm.cmd run test:full` only if impact analysis falls back, a broad shared contract changed, or concrete evidence requires wider regression coverage. Exact-head PR CI is the final automated gate.
+> Start from the current latest `main`. Confirm the base SHA and that its required CI is green. Because this phase starts from an already validated merged baseline, do **not** run the full historical test suite before implementation. Generate one bounded `npm.cmd run agent:context -- ...` packet for this objective and use it as the initial working set; inspect current source inside that scope and expand only for a concrete dependency. Use one Luna implementation subagent by default and a second only for a genuinely independent workstream, never more than two concurrently. Use focused/new tests while iterating, then `npm.cmd run test:affected:agent` after integration. Run lint/build/database/workflow-map/browser checks only when the changed surface requires them. Run `npm.cmd run test:full` only if impact analysis falls back, a broad shared contract changed, or concrete evidence requires wider regression coverage. If CI fails, inspect only the failed exact-head step and bounded failure evidence. Exact-head PR CI is the final automated gate.
 
 This rule applies to ChatGPT-generated Codex prompts as well as instructions written by repository agents.
 
@@ -309,7 +311,7 @@ This rule applies to ChatGPT-generated Codex prompts as well as instructions wri
 - Prefer one implementation pass + one integration review over repeated “audit then re-audit” cycles.
 - Run expensive commands after code stabilizes, not after every small edit.
 - Cache/reuse already established architecture facts within the same phase.
-- When CI fails, inspect only the failed exact-head job/step first.
+- When CI fails, inspect only the failed exact-head job/step first; use `ci:failure-context` for oversized saved logs.
 - If CI failure is infrastructure/test-runner-only, patch that path without reopening product-domain review unless evidence points there.
 - Keep PR descriptions and handoffs factual and compact; avoid repeating the entire roadmap or unchanged architecture.
 
@@ -331,7 +333,7 @@ For substantial work report concisely:
 - tests/checks actually run and results;
 - skipped/unavailable validation;
 - remaining limitations/follow-up;
-- WM-5 selector(s) used and scope expansion if any;
+- agent-context/WM-5 selector(s) used and scope expansion if any;
 - tools/subagents used.
 
 If Codex subagents were used, report count and confirm all were Luna.
