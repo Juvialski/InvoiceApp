@@ -9,7 +9,7 @@ begin
     select 1 from pg_publication
     where pubname = 'supabase_realtime' and not puballtables
   ) then
-    foreach table_name in array[
+    foreach table_name in array array[
       'client_billings',
       'client_billing_lines',
       'client_billing_events'
