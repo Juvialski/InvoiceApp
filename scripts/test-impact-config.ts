@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 /**
  * Test Impact Selector Configuration for Engoryx
  * Defines smoke suite, static contract mappings, domain clusters,
@@ -91,6 +95,52 @@ export const DOMAIN_TEST_PATTERNS: Record<string, string[]> = {
   ]
 };
 
+/**
+ * Source-path ownership for the domain safety nets above. The AST graph remains the
+ * primary selector; these clusters deliberately add same-domain integration/static
+ * tests that may inspect behavior without importing the exact changed module.
+ */
+export const DOMAIN_SOURCE_PATTERNS: Record<string, string[]> = {
+  subcontracts: [
+    'src/lib/subcontract*.ts',
+    'src/components/procurement/Subcontract*.tsx'
+  ],
+  procurement: [
+    'src/lib/purchaseOrder*.ts',
+    'src/lib/rfq*.ts',
+    'src/components/procurement/**'
+  ],
+  projectCosting: [
+    'src/utils/projectCosting.ts',
+    'src/lib/project*.ts',
+    'src/components/projects/**'
+  ],
+  payroll: [
+    'src/lib/payroll*.ts',
+    'src/components/payroll/**'
+  ],
+  assistant: [
+    'src/lib/assistant*.ts',
+    'src/components/assistant/**'
+  ],
+  storage: [
+    'src/lib/storage*.ts',
+    'src/lib/documentStorage*.ts',
+    'src/lib/databaseBackup*.ts',
+    'src/lib/databaseRestore*.ts',
+    'src/lib/databaseRetention*.ts'
+  ],
+  emailIntake: [
+    'src/lib/emailIntake*.ts',
+    'src/components/email/**'
+  ],
+  engineering: [
+    'src/lib/engineering*.ts',
+    'src/lib/dailySiteLogs*.ts',
+    'src/components/engineering/**'
+  ]
+};
+
 export const FALLBACK_FILE_PATTERNS: readonly string[] = [
   'tsconfig.json',
   'scripts/test-impact.ts',
@@ -155,6 +205,30 @@ export function globToRegExp(pattern: string): RegExp {
 export function matchesPattern(filePath: string, pattern: string): boolean {
   const normalized = normalizePath(filePath);
   return globToRegExp(pattern).test(normalized);
+}
+
+function discoverTestsMatching(patterns: readonly string[]): string[] {
+  const configDir = path.dirname(fileURLToPath(import.meta.url));
+  const testsDir = path.resolve(configDir, '../tests');
+  if (!fs.existsSync(testsDir)) return [];
+
+  return fs.readdirSync(testsDir, { withFileTypes: true })
+    .filter(entry => entry.isFile() && (entry.name.endsWith('.test.ts') || entry.name.endsWith('.test.tsx')))
+    .map(entry => `tests/${entry.name}`)
+    .filter(testFile => patterns.some(pattern => matchesPattern(testFile, pattern)))
+    .sort();
+}
+
+/**
+ * Materialize the domain safety nets into the selector's existing static contract
+ * mapping so they cannot become dead configuration. This keeps one selection path
+ * and makes the configured domain clusters auditable in testReasons.
+ */
+for (const [domain, sourcePatterns] of Object.entries(DOMAIN_SOURCE_PATTERNS)) {
+  const domainTests = discoverTestsMatching(DOMAIN_TEST_PATTERNS[domain] || []);
+  for (const sourcePattern of sourcePatterns) {
+    STATIC_CONTRACT_MAPPINGS[sourcePattern] = domainTests;
+  }
 }
 
 /**
