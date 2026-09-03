@@ -1254,6 +1254,7 @@ export type SubcontractVariationStatus =
 export interface SubcontractVariationLine {
   id: string;
   companyId?: string;
+  projectId?: string;
   variationId?: string;
   subcontractVariationId?: string;
   subcontractId?: string;

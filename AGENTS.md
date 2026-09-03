@@ -267,6 +267,8 @@ A prior green test does not need manual rerun when neither it nor its dependency
 
 Full database replay (`supabase start`, `supabase db reset`, `supabase test db`, `test:migrations:upgrade`) is mandatory only when migrations/RLS/database contracts require it. Do not start Supabase containers for UI-only or unrelated application changes.
 
+**Migration-sensitive rule**: If a task changes `supabase/migrations/**`, the agent must run an actual local database migration replay (`supabase start`, `supabase db reset`, and `supabase test db`) before reporting implementation completion or opening/finalizing the PR. Static migration tests alone are not enough.
+
 ### Browser scope
 
 For significant user-facing work, test the changed workflow and important responsive states in a capable environment. Do not convert targeted browser QA into a whole-app regression crawl.

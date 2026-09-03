@@ -281,6 +281,7 @@ export function buildLocalSubcontractVariation(
   const mappedLines: SubcontractVariationLine[] = normalized.lines.map((line, idx) => ({
     id: line.id || globalThis.crypto?.randomUUID?.() || `scvl-${id}-${idx + 1}`,
     companyId: companyId || existing?.companyId || undefined,
+    projectId: normalized.projectId,
     variationId: id,
     subcontractId: normalized.subcontractId,
     lineNumber: idx + 1,
@@ -476,6 +477,7 @@ export function subcontractVariationLineFromRow(row: Row): SubcontractVariationL
   return {
     id: String(row.id),
     companyId: text(row.company_id),
+    projectId: text(row.project_id) || undefined,
     variationId: String(row.variation_id),
     subcontractId: String(row.subcontract_id),
     lineNumber: numberValue(row.line_number, 1),

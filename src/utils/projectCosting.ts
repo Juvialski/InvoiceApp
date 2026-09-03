@@ -1082,6 +1082,21 @@ export function calculateProjectBudgetControl(
     }
   }
 
+  // Map cumulative approved claims across project for standalone variation lines
+  const approvedClaimsByVarLineId = new Map<string, number>();
+  for (const claim of input.subcontractClaims || []) {
+    if (claim.projectId === projectId && isApprovedSubcontractClaim(claim.status)) {
+      for (const cl of claim.lines || []) {
+        if (cl.subcontractVariationLineId) {
+          approvedClaimsByVarLineId.set(
+            cl.subcontractVariationLineId,
+            roundMoney((approvedClaimsByVarLineId.get(cl.subcontractVariationLineId) || 0) + positiveMoney(cl.approvedAmount)),
+          );
+        }
+      }
+    }
+  }
+
   for (const sc of input.subcontracts || []) {
     if (sc.projectId !== projectId || !isCommittedSubcontract(sc.status)) continue;
     const scCurrency = normalizeCurrency(sc.currency);
@@ -1090,7 +1105,6 @@ export function calculateProjectBudgetControl(
 
     // Map cumulative approved amount per subcontract line and variation line
     const approvedByLineId = new Map<string, number>();
-    const approvedByVarLineId = new Map<string, number>();
     for (const claim of approvedClaims) {
       for (const cl of claim.lines || []) {
         if (cl.subcontractLineId) {
@@ -1098,12 +1112,15 @@ export function calculateProjectBudgetControl(
             cl.subcontractLineId,
             roundMoney((approvedByLineId.get(cl.subcontractLineId) || 0) + positiveMoney(cl.approvedAmount)),
           );
-        }
-        if (cl.subcontractVariationLineId) {
-          approvedByVarLineId.set(
-            cl.subcontractVariationLineId,
-            roundMoney((approvedByVarLineId.get(cl.subcontractVariationLineId) || 0) + positiveMoney(cl.approvedAmount)),
-          );
+        } else if (cl.subcontractVariationLineId) {
+          const varLine = varLinesById.get(cl.subcontractVariationLineId);
+          // If claim directly references a linked variation line, attribute to the parent subcontract line
+          if (varLine?.subcontractLineId) {
+            approvedByLineId.set(
+              varLine.subcontractLineId,
+              roundMoney((approvedByLineId.get(varLine.subcontractLineId) || 0) + positiveMoney(cl.approvedAmount)),
+            );
+          }
         }
       }
     }
@@ -1159,7 +1176,12 @@ export function calculateProjectBudgetControl(
           targetCodeId = scLine?.projectCostCodeId || (scLine as { costCodeId?: string })?.costCodeId;
         } else if (cl.subcontractVariationLineId) {
           const varLine = varLinesById.get(cl.subcontractVariationLineId);
-          targetCodeId = varLine?.projectCostCodeId || (varLine as { costCodeId?: string })?.costCodeId;
+          if (varLine?.subcontractLineId) {
+            const scLine = (sc.lines || []).find((l) => l.id === varLine.subcontractLineId);
+            targetCodeId = scLine?.projectCostCodeId || (scLine as { costCodeId?: string })?.costCodeId || varLine?.projectCostCodeId;
+          } else {
+            targetCodeId = varLine?.projectCostCodeId || (varLine as { costCodeId?: string })?.costCodeId;
+          }
         }
 
         const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
@@ -1182,18 +1204,7 @@ export function calculateProjectBudgetControl(
     const varLineAmount = roundMoney(Number(varLine.amount || 0));
     if (varLineAmount <= 0) continue;
 
-    // Approved claims on this standalone line across claims on this project
-    let approvedOnVl = 0;
-    for (const claimsList of approvedClaimsBySubcontract.values()) {
-      for (const c of claimsList) {
-        for (const cl of c.lines || []) {
-          if (cl.subcontractVariationLineId === varLine.id) {
-            approvedOnVl = roundMoney(approvedOnVl + positiveMoney(cl.approvedAmount));
-          }
-        }
-      }
-    }
-
+    const approvedOnVl = approvedClaimsByVarLineId.get(varLine.id) || 0;
     const remainingVarCommitment = roundMoney(Math.max(0, varLineAmount - approvedOnVl));
     if (remainingVarCommitment <= 0) continue;
 

@@ -781,7 +781,7 @@ export async function saveSubcontractClaim(
     claimNumber: string;
     valuationDate: string;
   },
-  lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId: string; claimedAmount: number }>,
+  lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number }>,
 ): Promise<SubcontractProgressClaim> {
   const companyId = getActiveCompanyId();
   const normalized = normalizeClaimDraftInput(claim, lines);

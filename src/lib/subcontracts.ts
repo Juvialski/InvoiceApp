@@ -293,6 +293,7 @@ export function applySubcontractTransition(
   targetStatus: SubcontractStatus,
   reason?: string,
   now = new Date().toISOString(),
+  variations?: Array<{ subcontractId: string; status: string }>,
 ): Subcontract {
   const currentStatus = normalizeStatus(existing.status);
   const normalizedTarget = normalizeStatus(targetStatus);
@@ -312,6 +313,18 @@ export function applySubcontractTransition(
     }
     if (localSubcontractTotal(existing) <= 0) {
       throw new Error("Subcontract original amount must be positive before approval");
+    }
+  }
+  if (normalizedTarget === "CLOSED" || normalizedTarget === "CANCELLED") {
+    if (variations && variations.length > 0) {
+      const unresolved = variations.filter(
+        (v) => v.subcontractId === existing.id && (v.status === "DRAFT" || v.status === "SUBMITTED"),
+      );
+      if (unresolved.length > 0) {
+        throw new Error(
+          `Resolve ${unresolved.length} draft/submitted variation(s) before closing or cancelling the subcontract`,
+        );
+      }
     }
   }
 

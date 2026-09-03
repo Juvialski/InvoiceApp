@@ -35,6 +35,12 @@ test("subcontract variations migration creates required tables with composite te
     /FOREIGN KEY \(company_id, variation_id\)\s+REFERENCES public\.subcontract_variations\(company_id, id\)/i,
   );
 
+  // Composite foreign key to project_cost_codes with (company_id, project_id, project_cost_code_id)
+  assert.match(
+    content,
+    /FOREIGN KEY \(company_id, project_id, project_cost_code_id\)\s+REFERENCES public\.project_cost_codes\(company_id, project_id, id\)/i,
+  );
+
   // Line not zero check
   assert.match(content, /amount numeric\(18,2\) not null check \(amount <> 0\)/i);
 
@@ -113,7 +119,35 @@ test("transition_subcontract_variation enforces negative variation over-claim pr
   );
 });
 
-test("project lifecycle preflight includes subcontract variations count", () => {
+test("claim line validation trigger validates both original lines and approved standalone variation lines", () => {
+  const content = fs.readFileSync(migrationFilePath, "utf8");
+
+  assert.match(content, /create or replace function private\.validate_subcontract_claim_line/i);
+  assert.match(content, /Cannot claim unapproved variation scope/i);
+  assert.match(content, /Cannot claim negative or zero variation line/i);
+  assert.match(content, /Linked variation lines must be claimed through the original subcontract line/i);
+  assert.match(content, /Claimed terms on non-draft claims are immutable/i);
+});
+
+test("create_or_update_subcontract_variation enforces line ownership and active cost code rules", () => {
+  const content = fs.readFileSync(migrationFilePath, "utf8");
+
+  // Cross-variation line ownership check
+  assert.match(content, /Line % does not belong to this variation/i);
+
+  // Active cost code check
+  assert.match(content, /Archived cost code % cannot receive new variation line assignments/i);
+});
+
+test("subcontracts wind-down guard prevents closing or cancelling while unresolved variations exist", () => {
+  const content = fs.readFileSync(migrationFilePath, "utf8");
+
+  assert.match(content, /create or replace function private\.guard_subcontract_unresolved_variations/i);
+  assert.match(content, /Resolve % draft\/submitted variation\(s\) before closing or cancelling the subcontract/i);
+  assert.match(content, /create trigger guard_subcontract_unresolved_variations_trigger/i);
+});
+
+test("project lifecycle preflight includes subcontract variations count and preserves P2B-2 return shape", () => {
   const content = fs.readFileSync(migrationFilePath, "utf8");
 
   assert.match(
@@ -127,5 +161,13 @@ test("project lifecycle preflight includes subcontract variations count", () => 
   assert.match(
     content,
     /'subcontractVariations',\s*v_subcontract_variations/i,
+  );
+  assert.match(
+    content,
+    /'projectCode',\s*v_project\.project_code/i,
+  );
+  assert.match(
+    content,
+    /'projectName',\s*v_project\.project_name/i,
   );
 });

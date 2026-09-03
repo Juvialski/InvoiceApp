@@ -389,3 +389,196 @@ test("foreign currency subcontract variations remain truthful and isolated from 
   assert.ok(summary.foreignCosts);
   assert.equal(summary.foreignCosts["USD"], 125000);
 });
+
+test("project-level and cost-code-level commitments strictly reconcile with zero double-counting across linked and standalone variations and claims", () => {
+  // Setup:
+  // Subcontract: 4,000,000 on cc-hvac
+  // Linked positive variation: +500,000 on cc-hvac (revised sc line = 4,500,000)
+  // Linked negative variation: -200,000 on cc-hvac (revised sc line = 4,300,000)
+  // Standalone variation: +300,000 on cc-elec
+  // Total revised subcontract commitment = 4,300,000 + 300,000 = 4,600,000
+  //
+  // Claim 1:
+  // Claims 1,000,000 on original line (revised scope) -> approved 1,000,000
+  // Claims 100,000 on standalone variation line -> approved 100,000
+  // Remaining sc line commitment = 4,300,000 - 1,000,000 = 3,300,000 (on cc-hvac)
+  // Remaining standalone var commitment = 300,000 - 100,000 = 200,000 (on cc-elec)
+  // Total remaining project commitment = 3,300,000 + 200,000 = 3,500,000
+
+  const variations: SubcontractVariation[] = [
+    {
+      id: "var-pos-1",
+      companyId: "company-1",
+      subcontractId: "sc-hvac-1",
+      projectId: "proj-skyline",
+      variationNumber: "VO-POS-01",
+      title: "Add extra ductwork",
+      status: "APPROVED",
+      netAmount: 500000,
+      lines: [
+        {
+          id: "vl-pos-1",
+          companyId: "company-1",
+          subcontractVariationId: "var-pos-1",
+          subcontractLineId: "scl-1",
+          projectCostCodeId: "cc-hvac",
+          lineNumber: 1,
+          description: "Extra ductwork",
+          amount: 500000,
+          createdAt: "2026-02-01T00:00:00Z",
+          updatedAt: "2026-02-01T00:00:00Z",
+        },
+      ],
+      createdAt: "2026-02-01T00:00:00Z",
+      updatedAt: "2026-02-01T00:00:00Z",
+    },
+    {
+      id: "var-neg-1",
+      companyId: "company-1",
+      subcontractId: "sc-hvac-1",
+      projectId: "proj-skyline",
+      variationNumber: "VO-NEG-01",
+      title: "Scope reduction",
+      status: "APPROVED",
+      netAmount: -200000,
+      lines: [
+        {
+          id: "vl-neg-1",
+          companyId: "company-1",
+          subcontractVariationId: "var-neg-1",
+          subcontractLineId: "scl-1",
+          projectCostCodeId: "cc-hvac",
+          lineNumber: 1,
+          description: "Omitted diffusers",
+          amount: -200000,
+          createdAt: "2026-02-05T00:00:00Z",
+          updatedAt: "2026-02-05T00:00:00Z",
+        },
+      ],
+      createdAt: "2026-02-05T00:00:00Z",
+      updatedAt: "2026-02-05T00:00:00Z",
+    },
+    {
+      id: "var-standalone-1",
+      companyId: "company-1",
+      subcontractId: "sc-hvac-1",
+      projectId: "proj-skyline",
+      variationNumber: "VO-STANDALONE-01",
+      title: "BMS Integration Panel",
+      status: "APPROVED",
+      netAmount: 300000,
+      lines: [
+        {
+          id: "vl-standalone-1",
+          companyId: "company-1",
+          subcontractVariationId: "var-standalone-1",
+          projectCostCodeId: "cc-elec",
+          lineNumber: 1,
+          description: "BMS Panel & Cabling",
+          amount: 300000,
+          createdAt: "2026-02-10T00:00:00Z",
+          updatedAt: "2026-02-10T00:00:00Z",
+        },
+      ],
+      createdAt: "2026-02-10T00:00:00Z",
+      updatedAt: "2026-02-10T00:00:00Z",
+    },
+  ];
+
+  const claims: SubcontractProgressClaim[] = [
+    {
+      id: "claim-1",
+      companyId: "company-1",
+      subcontractId: "sc-hvac-1",
+      projectId: "proj-skyline",
+      claimNumber: "SC-HVAC-01-CLM-01",
+      valuationDate: "2026-02-28",
+      claimedGrossAmount: 1100000,
+      approvedGrossAmount: 1100000,
+      retentionRate: 0.1, // 10%
+      retentionAmount: 110000,
+      netCertifiedAmount: 990000,
+      status: "APPROVED",
+      lines: [
+        {
+          id: "cl-1",
+          companyId: "company-1",
+          claimId: "claim-1",
+          lineNumber: 1,
+          subcontractLineId: "scl-1",
+          claimedAmount: 1000000,
+          approvedAmount: 1000000,
+          createdAt: "2026-02-28T00:00:00Z",
+          updatedAt: "2026-02-28T00:00:00Z",
+        },
+        {
+          id: "cl-2",
+          companyId: "company-1",
+          claimId: "claim-1",
+          lineNumber: 2,
+          subcontractVariationLineId: "vl-standalone-1",
+          claimedAmount: 100000,
+          approvedAmount: 100000,
+          createdAt: "2026-02-28T00:00:00Z",
+          updatedAt: "2026-02-28T00:00:00Z",
+        },
+      ],
+      createdAt: "2026-02-28T00:00:00Z",
+      updatedAt: "2026-02-28T00:00:00Z",
+    },
+  ];
+
+  // 1. Calculate project cost summary
+  const projectSummary = calculateProjectCost(project, {
+    invoices: [],
+    expenses: [],
+    payroll: [],
+    purchaseOrders: [],
+    subcontracts: [subcontract],
+    subcontractClaims: claims,
+    subcontractVariations: variations,
+  });
+
+  // Project committed cost must be exactly remaining commitment: 4.6M revised - 1.1M approved claims = 3.5M
+  assert.equal(projectSummary.committedCost, 3500000);
+
+  // 2. Calculate budget control breakdown per cost code
+  const budgetControl = calculateProjectBudgetControl(project, costCodes, {
+    invoices: [],
+    expenses: [],
+    payroll: [],
+    purchaseOrders: [],
+    subcontracts: [subcontract],
+    subcontractClaims: claims,
+    subcontractVariations: variations,
+  });
+
+  const hvacCode = budgetControl.costCodes.find((c) => c.costCodeId === "cc-hvac")!;
+  const elecCode = budgetControl.costCodes.find((c) => c.costCodeId === "cc-elec")!;
+
+  assert.ok(hvacCode, "cc-hvac must exist in summary");
+  assert.ok(elecCode, "cc-elec must exist in summary");
+
+  // HVAC: Revised 4.3M - 1.0M approved = 3.3M remaining commitment
+  assert.equal(hvacCode.committedCost, 3300000);
+  assert.equal(hvacCode.certifiedSubcontractCost, 1000000);
+  assert.equal(hvacCode.retentionHeldCost, 100000);
+
+  // Electrical: Revised 300k - 100k approved = 200k remaining commitment
+  assert.equal(elecCode.committedCost, 200000);
+  assert.equal(elecCode.certifiedSubcontractCost, 100000);
+  assert.equal(elecCode.retentionHeldCost, 10000);
+
+  // 3. Strict reconciliation: sum of cost-code committed costs matches project committed cost
+  const totalCostCodeCommitted = budgetControl.costCodes.reduce((s, c) => s + c.committedCost, 0);
+  assert.equal(
+    totalCostCodeCommitted,
+    projectSummary.committedCost,
+    "Cost-code committed costs must strictly reconcile with project committed cost",
+  );
+
+  // Total certified work matches approved claims gross
+  const totalCostCodeCertified = budgetControl.costCodes.reduce((s, c) => s + (c.certifiedSubcontractCost || 0), 0);
+  assert.equal(totalCostCodeCertified, 1100000);
+});
+

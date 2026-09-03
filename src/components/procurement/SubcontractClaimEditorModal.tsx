@@ -43,7 +43,13 @@ export interface SubcontractClaimEditorModalProps {
       claimNumber: string;
       valuationDate: string;
     },
-    lines: Array<{ subcontractLineId: string; claimedAmount: number; notes?: string }>,
+    lines: Array<{
+      id?: string;
+      subcontractLineId?: string;
+      subcontractVariationLineId?: string;
+      claimedAmount: number;
+      notes?: string;
+    }>,
   ) => Promise<void>;
   onTransition?: (
     id: string,
@@ -55,9 +61,13 @@ export interface SubcontractClaimEditorModalProps {
 
 interface EditableClaimLine {
   id?: string;
-  subcontractLineId: string;
+  subcontractLineId?: string;
+  subcontractVariationLineId?: string;
+  variationNumber?: string;
+  scopeType: "ORIGINAL" | "VARIATION";
   lineNumber: number;
   description: string;
+  projectCostCodeId?: string;
   subcontractAmount: number;
   previouslyApproved: number;
   remainingClaimable: number;
@@ -70,52 +80,112 @@ function getInitialClaimLines(
   claim: SubcontractProgressClaim | null,
   subcontract: Subcontract,
   metrics: ReturnType<typeof computeSubcontractClaimMetrics>,
+  existingVariations: SubcontractVariation[] = [],
 ): EditableClaimLine[] {
-  if (claim) {
-    const claimLinesMap = new Map((claim.lines || []).map((l) => [l.subcontractLineId, l]));
-    return (subcontract.lines || []).map((scLine) => {
-      const cl = claimLinesMap.get(scLine.id);
-      const lineMetric = metrics.lines.get(scLine.id);
-      const prevApprovedExcludingThis = roundMoney(
-        (lineMetric?.cumulativeApproved || 0) -
-          (claim.status === "APPROVED" ? roundMoney(Number(cl?.approvedAmount || 0)) : 0),
-      );
-      const lineEffectiveAmount = lineMetric?.revisedLineAmount ?? Number(scLine.amount || 0);
-      const remainingClaimable = roundMoney(Math.max(0, lineEffectiveAmount - prevApprovedExcludingThis));
+  const claimLines = claim?.lines || [];
+  const claimLinesByScLine = new Map<string, typeof claimLines[0]>();
+  const claimLinesByVarLine = new Map<string, typeof claimLines[0]>();
 
-      return {
-        id: cl?.id,
-        subcontractLineId: scLine.id,
-        lineNumber: scLine.lineNumber,
-        description: scLine.description,
-        subcontractAmount: lineEffectiveAmount,
-        previouslyApproved: prevApprovedExcludingThis,
-        remainingClaimable,
-        claimedAmount: cl ? String(cl.claimedAmount) : "0",
-        approvedAmount: cl ? String(cl.approvedAmount) : "0",
-        notes: cl?.notes || "",
-      };
-    });
+  for (const cl of claimLines) {
+    if (cl.subcontractLineId) {
+      claimLinesByScLine.set(cl.subcontractLineId, cl);
+    }
+    if (cl.subcontractVariationLineId) {
+      claimLinesByVarLine.set(cl.subcontractVariationLineId, cl);
+    }
   }
 
-  return (subcontract.lines || []).map((scLine) => {
+  // 1. Original Subcontract Lines (with linked variation adjustments)
+  const originalRows: EditableClaimLine[] = (subcontract.lines || []).map((scLine) => {
+    const cl = claimLinesByScLine.get(scLine.id);
     const lineMetric = metrics.lines.get(scLine.id);
+    const prevApprovedExcludingThis = roundMoney(
+      (lineMetric?.cumulativeApproved || 0) -
+        (claim?.status === "APPROVED" ? roundMoney(Number(cl?.approvedAmount || 0)) : 0),
+    );
     const lineEffectiveAmount = lineMetric?.revisedLineAmount ?? Number(scLine.amount || 0);
-    const previouslyApproved = lineMetric?.cumulativeApproved || 0;
-    const remainingClaimable = lineMetric?.remainingClaimable ?? lineEffectiveAmount;
+    const remainingClaimable = roundMoney(Math.max(0, lineEffectiveAmount - prevApprovedExcludingThis));
 
     return {
+      id: cl?.id,
       subcontractLineId: scLine.id,
+      scopeType: "ORIGINAL",
       lineNumber: scLine.lineNumber,
       description: scLine.description,
+      projectCostCodeId: scLine.projectCostCodeId || (scLine as { costCodeId?: string })?.costCodeId,
       subcontractAmount: lineEffectiveAmount,
-      previouslyApproved,
+      previouslyApproved: prevApprovedExcludingThis,
       remainingClaimable,
-      claimedAmount: "0",
-      approvedAmount: "0",
-      notes: "",
+      claimedAmount: cl ? String(cl.claimedAmount) : "0",
+      approvedAmount: cl ? String(cl.approvedAmount) : "0",
+      notes: cl?.notes || "",
     };
   });
+
+  // 2. Approved Standalone Variation Lines
+  const approvedVariations = existingVariations.filter(
+    (v) => v.subcontractId === subcontract.id && v.status === "APPROVED",
+  );
+
+  let nextLineNumber = (subcontract.lines || []).length + 1;
+  const variationRows: EditableClaimLine[] = [];
+  const seenVarLineIds = new Set<string>();
+
+  for (const v of approvedVariations) {
+    for (const vl of v.lines || []) {
+      if (!vl.subcontractLineId && Number(vl.amount || 0) > 0) {
+        seenVarLineIds.add(vl.id);
+        const cl = claimLinesByVarLine.get(vl.id);
+        const vlMetric = metrics.variationLines?.get(vl.id);
+        const prevApprovedExcludingThis = roundMoney(
+          (vlMetric?.cumulativeApproved || 0) -
+            (claim?.status === "APPROVED" ? roundMoney(Number(cl?.approvedAmount || 0)) : 0),
+        );
+        const lineAmount = Number(vl.amount || 0);
+        const remainingClaimable = roundMoney(Math.max(0, lineAmount - prevApprovedExcludingThis));
+
+        variationRows.push({
+          id: cl?.id,
+          subcontractVariationLineId: vl.id,
+          variationNumber: v.variationNumber,
+          scopeType: "VARIATION",
+          lineNumber: nextLineNumber++,
+          description: vl.description,
+          projectCostCodeId: vl.projectCostCodeId || (vl as { costCodeId?: string })?.costCodeId,
+          subcontractAmount: lineAmount,
+          previouslyApproved: prevApprovedExcludingThis,
+          remainingClaimable,
+          claimedAmount: cl ? String(cl.claimedAmount) : "0",
+          approvedAmount: cl ? String(cl.approvedAmount) : "0",
+          notes: cl?.notes || "",
+        });
+      }
+    }
+  }
+
+  // 3. Historical Claim Lines: if viewing a historical claim with variation line not currently in approvedVariations
+  if (claim) {
+    for (const cl of claim.lines || []) {
+      if (cl.subcontractVariationLineId && !seenVarLineIds.has(cl.subcontractVariationLineId)) {
+        variationRows.push({
+          id: cl.id,
+          subcontractVariationLineId: cl.subcontractVariationLineId,
+          variationNumber: "HISTORICAL",
+          scopeType: "VARIATION",
+          lineNumber: nextLineNumber++,
+          description: `Variation Scope (${cl.subcontractVariationLineId.slice(0, 8)})`,
+          subcontractAmount: roundMoney(Number(cl.claimedAmount || 0)),
+          previouslyApproved: 0,
+          remainingClaimable: roundMoney(Number(cl.claimedAmount || 0)),
+          claimedAmount: String(cl.claimedAmount),
+          approvedAmount: String(cl.approvedAmount || 0),
+          notes: cl.notes || "",
+        });
+      }
+    }
+  }
+
+  return [...originalRows, ...variationRows];
 }
 
 export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalProps> = ({
@@ -156,7 +226,9 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
     () => (claim ? String(roundMoney((claim.retentionRate ?? 0) * 100)) : "0"),
   );
   const [notes, setNotes] = useState(() => claim?.notes || "");
-  const [lines, setLines] = useState<EditableClaimLine[]>(() => getInitialClaimLines(claim, subcontract, metrics));
+  const [lines, setLines] = useState<EditableClaimLine[]>(() =>
+    getInitialClaimLines(claim, subcontract, metrics, existingVariations),
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -177,33 +249,7 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
       setPeriodEnd(claim.periodEnd ? claim.periodEnd.slice(0, 10) : "");
       setRetentionPercent(String(roundMoney((claim.retentionRate ?? 0) * 100)));
       setNotes(claim.notes || "");
-
-      const claimLinesMap = new Map((claim.lines || []).map((l) => [l.subcontractLineId, l]));
-
-      const mappedLines: EditableClaimLine[] = (subcontract.lines || []).map((scLine) => {
-        const cl = claimLinesMap.get(scLine.id);
-        const lineMetric = metrics.lines.get(scLine.id);
-        const prevApprovedExcludingThis = roundMoney(
-          (lineMetric?.cumulativeApproved || 0) - (claim.status === "APPROVED" ? roundMoney(Number(cl?.approvedAmount || 0)) : 0),
-        );
-        const remainingClaimable = roundMoney(Math.max(0, Number(scLine.amount || 0) - prevApprovedExcludingThis));
-
-        return {
-          id: cl?.id,
-          subcontractLineId: scLine.id,
-          lineNumber: scLine.lineNumber,
-          description: scLine.description,
-          subcontractAmount: Number(scLine.amount || 0),
-          previouslyApproved: prevApprovedExcludingThis,
-          remainingClaimable,
-          claimedAmount: cl ? String(cl.claimedAmount) : "0",
-          approvedAmount: cl ? String(cl.approvedAmount) : "0",
-          notes: cl?.notes || "",
-        };
-      });
-      setLines(mappedLines);
     } else {
-      // New claim draft
       const nextNum = `${subcontract.subcontractNumber}-CLM-${String(existingClaims.length + 1).padStart(2, "0")}`;
       setClaimNumber(nextNum);
       const today = new Date().toISOString().slice(0, 10);
@@ -212,27 +258,10 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
       setPeriodEnd("");
       setRetentionPercent("0");
       setNotes("");
-
-      const initialLines: EditableClaimLine[] = (subcontract.lines || []).map((scLine) => {
-        const lineMetric = metrics.lines.get(scLine.id);
-        const previouslyApproved = lineMetric?.cumulativeApproved || 0;
-        const remainingClaimable = lineMetric?.remainingClaimable ?? Number(scLine.amount || 0);
-
-        return {
-          subcontractLineId: scLine.id,
-          lineNumber: scLine.lineNumber,
-          description: scLine.description,
-          subcontractAmount: Number(scLine.amount || 0),
-          previouslyApproved,
-          remainingClaimable,
-          claimedAmount: "0",
-          approvedAmount: "0",
-          notes: "",
-        };
-      });
-      setLines(initialLines);
     }
-  }, [isOpen, claim, subcontract, metrics, existingClaims.length]);
+
+    setLines(getInitialClaimLines(claim, subcontract, metrics, existingVariations));
+  }, [isOpen, claim, subcontract, metrics, existingVariations, existingClaims.length]);
 
   const retentionRate = useMemo(() => {
     const parsed = parseFloat(retentionPercent);
@@ -318,7 +347,9 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
           notes: notes.trim() || null,
         },
         lines.map((l) => ({
+          id: l.id,
           subcontractLineId: l.subcontractLineId,
+          subcontractVariationLineId: l.subcontractVariationLineId,
           claimedAmount: roundMoney(parseFloat(l.claimedAmount) || 0),
           notes: l.notes.trim() || undefined,
         })),
@@ -613,10 +644,24 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
                     const isExceeded = roundMoney(claimedNum) > roundMoney(line.remainingClaimable);
 
                     return (
-                      <tr key={line.subcontractLineId} className={isExceeded ? "bg-rose-50/50" : undefined}>
+                      <tr
+                        key={line.subcontractLineId || line.subcontractVariationLineId || String(idx)}
+                        className={isExceeded ? "bg-rose-50/50" : undefined}
+                      >
                         <td className="px-3 py-2 text-center font-mono text-slate-500">{line.lineNumber}</td>
                         <td className="px-3 py-2">
-                          <div className="font-medium text-slate-900">{line.description}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {line.scopeType === "VARIATION" ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                Variation {line.variationNumber}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                                Contract Scope
+                              </span>
+                            )}
+                            <span className="font-medium text-slate-900">{line.description}</span>
+                          </div>
                           {isDraft && canManage && (
                             <input
                               type="text"

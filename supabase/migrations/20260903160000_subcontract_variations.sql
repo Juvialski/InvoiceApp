@@ -66,6 +66,7 @@ create index if not exists subcontract_variations_company_status_idx
 create table if not exists public.subcontract_variation_lines (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete restrict,
+  project_id uuid not null,
   variation_id uuid not null,
   subcontract_id uuid not null,
   line_number integer not null default 1 check (line_number >= 1),
@@ -80,6 +81,9 @@ create table if not exists public.subcontract_variation_lines (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint subcontract_var_lines_company_id_id_key unique (company_id, id),
+  constraint subcontract_var_lines_company_project_fk
+    foreign key (company_id, project_id)
+    references public.projects(company_id, id) on delete restrict,
   constraint subcontract_var_lines_company_var_fk
     foreign key (company_id, variation_id)
     references public.subcontract_variations(company_id, id) on delete cascade,
@@ -90,8 +94,8 @@ create table if not exists public.subcontract_variation_lines (
     foreign key (company_id, subcontract_line_id)
     references public.subcontract_lines(company_id, id) on delete restrict,
   constraint subcontract_var_lines_company_pcc_fk
-    foreign key (company_id, project_cost_code_id)
-    references public.project_cost_codes(company_id, id) on delete restrict,
+    foreign key (company_id, project_id, project_cost_code_id)
+    references public.project_cost_codes(company_id, project_id, id) on delete restrict,
   constraint subcontract_var_lines_company_var_line_num_key
     unique (company_id, variation_id, line_number)
 );
@@ -105,8 +109,11 @@ create index if not exists subcontract_var_lines_sc_idx
 create index if not exists subcontract_var_lines_sc_line_idx
   on public.subcontract_variation_lines (company_id, subcontract_line_id);
 
+create index if not exists subcontract_var_lines_project_idx
+  on public.subcontract_variation_lines (company_id, project_id);
+
 create index if not exists subcontract_var_lines_pcc_idx
-  on public.subcontract_variation_lines (company_id, project_cost_code_id);
+  on public.subcontract_variation_lines (company_id, project_id, project_cost_code_id);
 
 -- 3. Register in tenant policy catalog and set RLS
 insert into private.company_tenant_policy_catalog (
@@ -155,7 +162,194 @@ create policy subcontract_variation_lines_tenant_read on public.subcontract_vari
     )
   );
 
--- 4. Trigger to sync net_amount on variation header from lines
+-- 4. Triggers on variation header and lines
+
+-- 4a. Trigger to validate variation scope and transitions
+create or replace function private.validate_subcontract_variation_scope()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_subcontract record;
+  v_project record;
+begin
+  if tg_op = 'DELETE' then
+    if old.status <> 'DRAFT' then
+      raise exception 'Only draft subcontract variations may be deleted' using errcode = '42501';
+    end if;
+    return old;
+  end if;
+
+  select sc.company_id, sc.project_id, sc.status, sc.currency
+    into v_subcontract
+  from public.subcontracts sc
+  where sc.id = new.subcontract_id and sc.company_id = new.company_id;
+
+  if v_subcontract.company_id is null then
+    raise exception 'Parent subcontract does not exist in company' using errcode = '23503';
+  end if;
+
+  if new.project_id is distinct from v_subcontract.project_id then
+    raise exception 'Variation project does not match parent subcontract project' using errcode = '42501';
+  end if;
+
+  if tg_op = 'INSERT' then
+    if v_subcontract.status not in ('APPROVED', 'ACTIVE') then
+      raise exception 'Variations can only be created for approved or active subcontracts' using errcode = '22023';
+    end if;
+  end if;
+
+  select p.status, p.archived_at into v_project
+  from public.projects p
+  where p.id = new.project_id and p.company_id = new.company_id;
+
+  if v_project.status = 'ARCHIVED' or v_project.archived_at is not null then
+    if tg_op = 'INSERT' then
+      raise exception 'Archived projects cannot receive new subcontract variations' using errcode = '42501';
+    elsif tg_op = 'UPDATE' and new.status not in ('REJECTED', 'CANCELLED') then
+      raise exception 'Archived projects only permit variation wind-down to REJECTED or CANCELLED' using errcode = '42501';
+    end if;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if new.status is not distinct from old.status then
+      if old.status <> 'DRAFT' and (
+        new.variation_number is distinct from old.variation_number or
+        new.title is distinct from old.title or
+        new.description is distinct from old.description or
+        new.reason is distinct from old.reason or
+        new.variation_date is distinct from old.variation_date or
+        new.currency is distinct from old.currency or
+        new.subcontract_id is distinct from old.subcontract_id or
+        new.project_id is distinct from old.project_id or
+        new.notes is distinct from old.notes
+      ) then
+        raise exception 'Non-draft subcontract variations cannot be modified directly' using errcode = '42501';
+      end if;
+    else
+      if old.status in ('APPROVED', 'REJECTED', 'CANCELLED') then
+        raise exception 'Terminal variation cannot undergo further transitions' using errcode = '22023';
+      end if;
+
+      if old.status = 'DRAFT' and new.status not in ('SUBMITTED', 'CANCELLED') then
+        raise exception 'Draft variations can only be submitted or cancelled' using errcode = '22023';
+      end if;
+
+      if old.status = 'SUBMITTED' and new.status not in ('APPROVED', 'REJECTED', 'CANCELLED') then
+        raise exception 'Submitted variations can only be approved, rejected, or cancelled' using errcode = '22023';
+      end if;
+
+      if new.status = 'REJECTED' and (new.rejection_reason is null or btrim(new.rejection_reason) = '') then
+        raise exception 'Rejection reason is required' using errcode = '22023';
+      end if;
+
+      if new.status = 'CANCELLED' and (new.cancellation_reason is null or btrim(new.cancellation_reason) = '') then
+        raise exception 'Cancellation reason is required' using errcode = '22023';
+      end if;
+    end if;
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_subcontract_variation_scope_trigger on public.subcontract_variations;
+create trigger validate_subcontract_variation_scope_trigger
+  before insert or update or delete on public.subcontract_variations
+  for each row execute function private.validate_subcontract_variation_scope();
+
+-- 4b. Trigger to validate variation line scope and active cost codes
+create or replace function private.validate_subcontract_variation_line_scope()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_var record;
+  v_sc_line record;
+  v_pcc record;
+begin
+  select v.company_id, v.project_id, v.subcontract_id, v.status
+    into v_var
+  from public.subcontract_variations v
+  where v.id = coalesce(new.variation_id, old.variation_id);
+
+  if v_var.company_id is null then
+    raise exception 'Variation line requires an existing variation' using errcode = '23503';
+  end if;
+
+  if tg_op = 'DELETE' then
+    if v_var.status <> 'DRAFT' then
+      raise exception 'Lines of non-draft variations cannot be deleted' using errcode = '42501';
+    end if;
+    return old;
+  end if;
+
+  if v_var.status <> 'DRAFT' then
+    raise exception 'Lines can only be inserted or modified for DRAFT variations' using errcode = '42501';
+  end if;
+
+  -- Ensure company, project, and subcontract match parent variation
+  new.company_id := v_var.company_id;
+  new.project_id := v_var.project_id;
+  new.subcontract_id := v_var.subcontract_id;
+
+  -- Validate linked subcontract line if specified
+  if new.subcontract_line_id is not null then
+    select scl.company_id, scl.subcontract_id
+      into v_sc_line
+    from public.subcontract_lines scl
+    where scl.id = new.subcontract_line_id;
+
+    if v_sc_line.company_id is null then
+      raise exception 'Linked subcontract line does not exist' using errcode = '23503';
+    end if;
+    if v_sc_line.company_id is distinct from new.company_id or v_sc_line.subcontract_id is distinct from new.subcontract_id then
+      raise exception 'Linked subcontract line belongs to a different subcontract or company' using errcode = '42501';
+    end if;
+  end if;
+
+  -- Validate cost code if specified
+  if new.project_cost_code_id is not null then
+    select pcc.company_id, pcc.project_id, pcc.status, pcc.code
+      into v_pcc
+    from public.project_cost_codes pcc
+    where pcc.id = new.project_cost_code_id;
+
+    if v_pcc.company_id is null then
+      raise exception 'Referenced cost code does not exist' using errcode = '23503';
+    end if;
+    if v_pcc.company_id is distinct from new.company_id or v_pcc.project_id is distinct from new.project_id then
+      raise exception 'Cost code does not belong to the variation project or company' using errcode = '42501';
+    end if;
+
+    -- Active cost code rule for new assignments
+    if (tg_op = 'INSERT' or old.project_cost_code_id is distinct from new.project_cost_code_id) and v_pcc.status <> 'ACTIVE' then
+      raise exception 'Archived cost code % cannot receive new variation line assignments', v_pcc.code using errcode = '42501';
+    end if;
+  end if;
+
+  if tg_op = 'INSERT' then
+    new.created_at := coalesce(new.created_at, now());
+  else
+    new.created_at := old.created_at;
+  end if;
+  new.updated_at := now();
+
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_subcontract_variation_line_scope_trigger on public.subcontract_variation_lines;
+create trigger validate_subcontract_variation_line_scope_trigger
+  before insert or update or delete on public.subcontract_variation_lines
+  for each row execute function private.validate_subcontract_variation_line_scope();
+
+-- 4c. Trigger to sync net_amount on variation header from lines
 create or replace function private.sync_subcontract_variation_net_amount()
 returns trigger
 language plpgsql
@@ -239,7 +433,156 @@ create unique index if not exists subcontract_claim_lines_var_line_uidx
 create index if not exists subcontract_claim_lines_var_line_idx
   on public.subcontract_progress_claim_lines (company_id, subcontract_variation_line_id);
 
--- 6. Update private.project_lifecycle_preflight to include variation history
+-- 5b. Update private.validate_subcontract_claim_line to validate both original lines and variation lines
+create or replace function private.validate_subcontract_claim_line()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_claim_status text;
+  v_claim_company_id uuid;
+  v_claim_sc_id uuid;
+  v_claim_project_id uuid;
+  v_scl_company_id uuid;
+  v_scl_subcontract_id uuid;
+  v_svl_company_id uuid;
+  v_svl_subcontract_id uuid;
+  v_svl_project_id uuid;
+  v_svl_var_status text;
+  v_svl_amount numeric(18,2);
+  v_svl_linked_scl_id uuid;
+begin
+  select c.status, c.company_id, c.subcontract_id, c.project_id
+    into v_claim_status, v_claim_company_id, v_claim_sc_id, v_claim_project_id
+  from public.subcontract_progress_claims c
+  where c.id = coalesce(new.claim_id, old.claim_id);
+
+  if v_claim_status is null then
+    raise exception 'Claim line requires an existing claim' using errcode = '23503';
+  end if;
+
+  if tg_op = 'DELETE' then
+    if v_claim_status <> 'DRAFT' then
+      raise exception 'Lines of non-draft progress claims cannot be deleted' using errcode = '42501';
+    end if;
+    return old;
+  end if;
+
+  if v_claim_company_id is distinct from new.company_id then
+    raise exception 'Claim line company does not match claim company' using errcode = '42501';
+  end if;
+
+  if (new.subcontract_line_id is null and new.subcontract_variation_line_id is null) or
+     (new.subcontract_line_id is not null and new.subcontract_variation_line_id is not null) then
+    raise exception 'Claim line must reference exactly one source (subcontract line or variation line)' using errcode = '23514';
+  end if;
+
+  if new.subcontract_line_id is not null then
+    select scl.company_id, scl.subcontract_id
+      into v_scl_company_id, v_scl_subcontract_id
+    from public.subcontract_lines scl
+    where scl.id = new.subcontract_line_id;
+
+    if v_scl_company_id is null then
+      raise exception 'Claim line references a non-existent subcontract line' using errcode = '23503';
+    end if;
+    if v_scl_company_id is distinct from new.company_id then
+      raise exception 'Subcontract line is outside company boundary' using errcode = '42501';
+    end if;
+    if v_scl_subcontract_id is distinct from v_claim_sc_id then
+      raise exception 'Subcontract line belongs to a different subcontract' using errcode = '42501';
+    end if;
+  elsif new.subcontract_variation_line_id is not null then
+    select svl.company_id, svl.subcontract_id, svl.project_id, sv.status, svl.amount, svl.subcontract_line_id
+      into v_svl_company_id, v_svl_subcontract_id, v_svl_project_id, v_svl_var_status, v_svl_amount, v_svl_linked_scl_id
+    from public.subcontract_variation_lines svl
+    join public.subcontract_variations sv on svl.variation_id = sv.id and svl.company_id = sv.company_id
+    where svl.id = new.subcontract_variation_line_id;
+
+    if v_svl_company_id is null then
+      raise exception 'Claim line references a non-existent variation line' using errcode = '23503';
+    end if;
+    if v_svl_company_id is distinct from new.company_id then
+      raise exception 'Variation line is outside company boundary' using errcode = '42501';
+    end if;
+    if v_svl_subcontract_id is distinct from v_claim_sc_id then
+      raise exception 'Variation line belongs to a different subcontract' using errcode = '42501';
+    end if;
+    if v_svl_project_id is distinct from v_claim_project_id then
+      raise exception 'Variation line belongs to a different project' using errcode = '42501';
+    end if;
+    if v_svl_var_status <> 'APPROVED' then
+      raise exception 'Cannot claim unapproved variation scope' using errcode = '22023';
+    end if;
+    if v_svl_amount <= 0 then
+      raise exception 'Cannot claim negative or zero variation line' using errcode = '22023';
+    end if;
+    if v_svl_linked_scl_id is not null then
+      raise exception 'Linked variation lines must be claimed through the original subcontract line' using errcode = '23514';
+    end if;
+  end if;
+
+  if tg_op = 'UPDATE' and v_claim_status <> 'DRAFT' then
+    if new.claimed_amount is distinct from old.claimed_amount or
+       new.subcontract_line_id is distinct from old.subcontract_line_id or
+       new.subcontract_variation_line_id is distinct from old.subcontract_variation_line_id or
+       new.line_number is distinct from old.line_number then
+      raise exception 'Claimed terms on non-draft claims are immutable' using errcode = '42501';
+    end if;
+  end if;
+
+  if tg_op = 'INSERT' and v_claim_status <> 'DRAFT' then
+    raise exception 'Lines can only be added to DRAFT claims' using errcode = '42501';
+  end if;
+
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists validate_subcontract_claim_line_trigger on public.subcontract_progress_claim_lines;
+create trigger validate_subcontract_claim_line_trigger
+  before insert or update or delete on public.subcontract_progress_claim_lines
+  for each row execute function private.validate_subcontract_claim_line();
+
+-- 5c. Subcontract wind-down guard: cannot close/cancel subcontract while unresolved DRAFT/SUBMITTED variations exist
+create or replace function private.guard_subcontract_unresolved_variations()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_open_vars bigint;
+begin
+  if new.status is distinct from old.status and new.status in ('CLOSED', 'CANCELLED') then
+    select count(*)
+      into v_open_vars
+    from public.subcontract_variations v
+    where v.company_id = new.company_id
+      and v.subcontract_id = new.id
+      and v.status in ('DRAFT', 'SUBMITTED');
+
+    if v_open_vars > 0 then
+      raise exception 'Resolve % draft/submitted variation(s) before closing or cancelling the subcontract', v_open_vars
+        using errcode = '23514';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists guard_subcontract_unresolved_variations_trigger on public.subcontracts;
+create trigger guard_subcontract_unresolved_variations_trigger
+  before update on public.subcontracts
+  for each row execute function private.guard_subcontract_unresolved_variations();
+
+revoke execute on function private.guard_subcontract_unresolved_variations() from public, anon, authenticated;
+
+-- 6. Update private.project_lifecycle_preflight to include variation history with full P2B-2 contract parity
 create or replace function private.project_lifecycle_preflight(
   p_project_id uuid,
   p_company_id uuid
@@ -388,66 +731,60 @@ begin
     + v_daily_site_logs + v_accounting_events + v_purchase_orders + v_subcontracts
     + v_subcontract_claims + v_subcontract_variations;
 
-  v_can_delete := (v_total = 0) and (v_project.status = 'PLANNING');
-  v_can_reactivate := (v_project.status = 'ARCHIVED');
+  v_can_delete := v_total = 0;
+  v_can_reactivate := coalesce(
+    v_project.status = 'ARCHIVED'
+      and v_project.archived_at is not null
+      and v_project.archived_from_status in ('PLANNING', 'ACTIVE', 'ON_HOLD'),
+    false
+  );
 
   return jsonb_build_object(
-    'projectId', v_project.id,
-    'code', v_project.code,
-    'name', v_project.name,
+    'projectId', p_project_id,
+    'projectCode', v_project.project_code,
+    'projectName', v_project.project_name,
     'status', v_project.status,
+    'archivedAt', v_project.archived_at,
+    'archivedFromStatus', v_project.archived_from_status,
     'canDelete', v_can_delete,
     'canReactivate', v_can_reactivate,
-    'blockingReasons', case
-      when v_can_delete then '[]'::jsonb
-      else jsonb_build_array(
-        case when v_project.status <> 'PLANNING' then 'Project status is not PLANNING' else null end,
-        case when v_invoice_allocations > 0 then 'Has ' || v_invoice_allocations || ' invoice allocation(s)' else null end,
-        case when v_expenses > 0 then 'Has ' || v_expenses || ' expense(s)' else null end,
-        case when v_assignments > 0 then 'Has ' || v_assignments || ' worker assignment(s)' else null end,
-        case when v_work_entries > 0 then 'Has ' || v_work_entries || ' work entry(ies)' else null end,
-        case when v_overtime_requests > 0 then 'Has ' || v_overtime_requests || ' overtime request(s)' else null end,
-        case when v_payroll_allocations > 0 then 'Has ' || v_payroll_allocations || ' payroll allocation(s)' else null end,
-        case when v_payroll_entry_contexts > 0 then 'Has ' || v_payroll_entry_contexts || ' payroll cost context(s)' else null end,
-        case when v_import_rows > 0 then 'Has ' || v_import_rows || ' payroll import row(s)' else null end,
-        case when v_worker_defaults > 0 then 'Has ' || v_worker_defaults || ' default worker assignment(s)' else null end,
-        case when v_compensation_defaults > 0 then 'Has ' || v_compensation_defaults || ' worker compensation profile(s)' else null end,
-        case when v_engineering_documents > 0 then 'Has ' || v_engineering_documents || ' engineering document(s)' else null end,
-        case when v_engineering_rfis > 0 then 'Has ' || v_engineering_rfis || ' engineering RFI(s)' else null end,
-        case when v_engineering_submittals > 0 then 'Has ' || v_engineering_submittals || ' engineering submittal(s)' else null end,
-        case when v_daily_site_logs > 0 then 'Has ' || v_daily_site_logs || ' daily site log(s)' else null end,
-        case when v_accounting_events > 0 then 'Has ' || v_accounting_events || ' project accounting event(s)' else null end,
-        case when v_purchase_orders > 0 then 'Has ' || v_purchase_orders || ' purchase order(s)' else null end,
-        case when v_subcontracts > 0 then 'Has ' || v_subcontracts || ' subcontract(s)' else null end,
-        case when v_subcontract_claims > 0 then 'Has ' || v_subcontract_claims || ' subcontract claim(s)' else null end,
-        case when v_subcontract_variations > 0 then 'Has ' || v_subcontract_variations || ' subcontract variation(s)' else null end
-      ) - 'null'
+    'recommendedAction', case
+      when v_can_delete then 'DELETE_UNUSED'
+      when v_can_reactivate then 'REACTIVATE'
+      else 'ARCHIVE'
     end,
-    'dependencyCounts', jsonb_build_object(
-      'invoiceAllocations', v_invoice_allocations,
+    'blockedReason', case
+      when v_can_delete then null
+      when v_project.status = 'ARCHIVED' and not v_can_reactivate then 'This project is archived and its prior state is unavailable or terminal; keep it archived.'
+      else 'This project has operational or financial history and cannot be permanently deleted. Archive it instead.'
+    end,
+    'totalDependencyCount', v_total,
+    'dependencies', jsonb_build_object(
+      'invoiceProjectAllocations', v_invoice_allocations,
       'expenses', v_expenses,
-      'workerAssignments', v_assignments,
+      'projectWorkerAssignments', v_assignments,
       'workEntries', v_work_entries,
       'overtimeRequests', v_overtime_requests,
-      'payrollAllocations', v_payroll_allocations,
-      'payrollCostContexts', v_payroll_entry_contexts,
+      'payrollProjectAllocations', v_payroll_allocations,
+      'payrollEntryProjectContexts', v_payroll_entry_contexts,
       'payrollImportRows', v_import_rows,
-      'workerDefaults', v_worker_defaults,
-      'workerCompensationProfiles', v_compensation_defaults,
+      'workerDefaultProjects', v_worker_defaults,
+      'compensationProfileDefaultProjects', v_compensation_defaults,
       'engineeringDocuments', v_engineering_documents,
       'engineeringRfis', v_engineering_rfis,
       'engineeringSubmittals', v_engineering_submittals,
-      'dailySiteLogs', v_daily_site_logs,
+      'engineeringDailySiteLogs', v_daily_site_logs,
       'projectAccountingEvents', v_accounting_events,
       'purchaseOrders', v_purchase_orders,
       'subcontracts', v_subcontracts,
-      'subcontractClaims', v_subcontract_claims,
-      'subcontractVariations', v_subcontract_variations,
-      'totalDependencies', v_total
+      'subcontractProgressClaims', v_subcontract_claims,
+      'subcontractVariations', v_subcontract_variations
     )
   );
 end;
 $$;
+
+revoke execute on function private.project_lifecycle_preflight(uuid, uuid) from public, anon, authenticated;
 
 -- 7. Guarded RPC: create_or_update_subcontract_variation
 create or replace function public.create_or_update_subcontract_variation(
@@ -466,6 +803,7 @@ declare
   v_subcontract record;
   v_project record;
   v_existing record;
+  v_existing_line record;
   v_line_row jsonb;
   v_line_idx integer := 0;
   v_line_id uuid;
@@ -487,7 +825,7 @@ begin
     raise exception 'Authentication is required' using errcode = '42501';
   end if;
 
-  v_company_id := nullif(p_variation->>'company_id', '')::uuid;
+  v_company_id := nullif(coalesce(p_variation->>'companyId', p_variation->>'company_id', ''), '')::uuid;
   if v_company_id is null then
     v_company_id := (select private.deployment_company_id());
   end if;
@@ -499,36 +837,7 @@ begin
     raise exception 'Unauthorized to manage subcontract variations' using errcode = '42501';
   end if;
 
-  -- Lock and validate parent subcontract
-  select * into v_subcontract
-  from public.subcontracts
-  where id = (p_variation->>'subcontract_id')::uuid
-    and company_id = v_company_id
-  for key share;
-
-  if v_subcontract.id is null then
-    raise exception 'Parent subcontract not found in company' using errcode = '23503';
-  end if;
-
-  if v_subcontract.status not in ('APPROVED', 'ACTIVE') then
-    raise exception 'Variations can only be created for approved or active subcontracts' using errcode = '22023';
-  end if;
-
-  -- Validate project status
-  select * into v_project
-  from public.projects
-  where id = v_subcontract.project_id and company_id = v_company_id
-  for key share;
-
-  if v_project.status = 'ARCHIVED' or v_project.archived_at is not null then
-    raise exception 'Archived projects cannot receive new subcontract variations' using errcode = '42501';
-  end if;
-
-  if jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then
-    raise exception 'At least one variation line item is required' using errcode = '22023';
-  end if;
-
-  v_var_id := nullif(p_variation->>'id', '')::uuid;
+  v_var_id := nullif(coalesce(p_variation->>'id', ''), '')::uuid;
 
   if v_var_id is not null then
     select * into v_existing
@@ -544,14 +853,50 @@ begin
       raise exception 'Only draft variations can be edited' using errcode = '22023';
     end if;
 
+    -- Lock and validate parent subcontract using existing immutable reference
+    select * into v_subcontract
+    from public.subcontracts
+    where id = v_existing.subcontract_id and company_id = v_company_id
+    for key share;
+  else
+    -- Creating a new variation
+    select * into v_subcontract
+    from public.subcontracts
+    where id = nullif(coalesce(p_variation->>'subcontractId', p_variation->>'subcontract_id', ''), '')::uuid
+      and company_id = v_company_id
+    for key share;
+  end if;
+
+  if v_subcontract.id is null then
+    raise exception 'Parent subcontract not found in company' using errcode = '23503';
+  end if;
+
+  if v_subcontract.status not in ('APPROVED', 'ACTIVE') then
+    raise exception 'Variations can only be created for approved or active subcontracts' using errcode = '22023';
+  end if;
+
+  select * into v_project
+  from public.projects
+  where id = v_subcontract.project_id and company_id = v_company_id
+  for key share;
+
+  if v_project.status = 'ARCHIVED' or v_project.archived_at is not null then
+    raise exception 'Archived projects cannot receive new subcontract variations' using errcode = '42501';
+  end if;
+
+  if jsonb_typeof(p_lines) <> 'array' or jsonb_array_length(p_lines) = 0 then
+    raise exception 'At least one variation line item is required' using errcode = '22023';
+  end if;
+
+  if v_var_id is not null then
     update public.subcontract_variations
-    set variation_number = upper(btrim(p_variation->>'variation_number')),
-        title = btrim(p_variation->>'title'),
-        description = nullif(btrim(p_variation->>'description'), ''),
-        reason = nullif(btrim(p_variation->>'reason'), ''),
-        variation_date = coalesce((p_variation->>'variation_date')::date, current_date),
+    set variation_number = upper(btrim(coalesce(p_variation->>'variationNumber', p_variation->>'variation_number', ''))),
+        title = btrim(coalesce(p_variation->>'title', '')),
+        description = nullif(btrim(coalesce(p_variation->>'description', '')), ''),
+        reason = nullif(btrim(coalesce(p_variation->>'reason', '')), ''),
+        variation_date = coalesce(nullif(coalesce(p_variation->>'variationDate', p_variation->>'variation_date', ''), '')::date, current_date),
         currency = v_subcontract.currency,
-        notes = nullif(btrim(p_variation->>'notes'), ''),
+        notes = nullif(btrim(coalesce(p_variation->>'notes', '')), ''),
         updated_by_user_id = v_user_id,
         updated_at = now()
     where id = v_var_id and company_id = v_company_id;
@@ -566,15 +911,15 @@ begin
       v_company_id,
       v_subcontract.project_id,
       v_subcontract.id,
-      upper(btrim(p_variation->>'variation_number')),
-      btrim(p_variation->>'title'),
-      nullif(btrim(p_variation->>'description'), ''),
-      nullif(btrim(p_variation->>'reason'), ''),
-      coalesce((p_variation->>'variation_date')::date, current_date),
+      upper(btrim(coalesce(p_variation->>'variationNumber', p_variation->>'variation_number', ''))),
+      btrim(coalesce(p_variation->>'title', '')),
+      nullif(btrim(coalesce(p_variation->>'description', '')), ''),
+      nullif(btrim(coalesce(p_variation->>'reason', '')), ''),
+      coalesce(nullif(coalesce(p_variation->>'variationDate', p_variation->>'variation_date', ''), '')::date, current_date),
       'DRAFT',
       0.00,
       v_subcontract.currency,
-      nullif(btrim(p_variation->>'notes'), ''),
+      nullif(btrim(coalesce(p_variation->>'notes', '')), ''),
       v_user_id,
       v_user_id,
       now(),
@@ -582,30 +927,27 @@ begin
     );
   end if;
 
-  -- Upsert lines
+  -- Process lines strictly bounded to this variation and company
   for v_line_row in select value from jsonb_array_elements(p_lines) loop
     v_line_idx := v_line_idx + 1;
-    v_line_id := nullif(v_line_row->>'id', '')::uuid;
-    if v_line_id is null then
-      v_line_id := gen_random_uuid();
-    end if;
+    v_line_id := nullif(coalesce(v_line_row->>'id', ''), '')::uuid;
 
-    v_desc := btrim(v_line_row->>'description');
+    v_desc := btrim(coalesce(v_line_row->>'description', ''));
     if v_desc is null or length(v_desc) = 0 then
       raise exception 'Line %: Description is required', v_line_idx using errcode = '22023';
     end if;
 
     v_amount := (v_line_row->>'amount')::numeric;
-    if v_amount is null then
-      raise exception 'Line %: Amount is required', v_line_idx using errcode = '22023';
+    if v_amount is null or v_amount = 0 then
+      raise exception 'Line %: Amount is required and cannot be zero', v_line_idx using errcode = '22023';
     end if;
 
-    v_qty := nullif(v_line_row->>'quantity', '')::numeric;
-    v_rate := nullif(v_line_row->>'unit_rate', '')::numeric;
-    v_unit := nullif(btrim(v_line_row->>'unit'), '');
-    v_notes := nullif(btrim(v_line_row->>'notes'), '');
+    v_qty := nullif(coalesce(v_line_row->>'quantity', ''), '')::numeric;
+    v_rate := nullif(coalesce(v_line_row->>'unitRate', v_line_row->>'unit_rate', ''), '')::numeric;
+    v_unit := nullif(btrim(coalesce(v_line_row->>'unit', '')), '');
+    v_notes := nullif(btrim(coalesce(v_line_row->>'notes', '')), '');
 
-    v_sc_line_id := nullif(v_line_row->>'subcontract_line_id', '')::uuid;
+    v_sc_line_id := nullif(coalesce(v_line_row->>'subcontractLineId', v_line_row->>'subcontract_line_id', ''), '')::uuid;
     if v_sc_line_id is not null then
       select * into v_sc_line
       from public.subcontract_lines
@@ -616,7 +958,25 @@ begin
       end if;
     end if;
 
-    v_pcc_id := nullif(v_line_row->>'project_cost_code_id', '')::uuid;
+    v_pcc_id := nullif(coalesce(v_line_row->>'projectCostCodeId', v_line_row->>'project_cost_code_id', ''), '')::uuid;
+
+    -- Security & Integrity Check: if line ID is supplied, verify it belongs strictly to this variation
+    v_existing_line := null;
+    if v_line_id is not null then
+      select * into v_existing_line
+      from public.subcontract_variation_lines
+      where id = v_line_id;
+
+      if v_existing_line.id is not null then
+        if v_existing_line.company_id is distinct from v_company_id or v_existing_line.variation_id is distinct from v_var_id then
+          raise exception 'Line % does not belong to this variation', v_line_id using errcode = '42501';
+        end if;
+      end if;
+    else
+      v_line_id := gen_random_uuid();
+    end if;
+
+    -- Active cost code check for new lines or modified cost code assignments
     if v_pcc_id is not null then
       select * into v_pcc
       from public.project_cost_codes
@@ -625,45 +985,54 @@ begin
       if v_pcc.id is null then
         raise exception 'Line %: Cost code does not belong to this project', v_line_idx using errcode = '23503';
       end if;
+
+      if (v_existing_line.id is null or v_existing_line.project_cost_code_id is distinct from v_pcc_id) and v_pcc.status <> 'ACTIVE' then
+        raise exception 'Line %: Archived cost code % cannot receive new variation line assignments', v_line_idx, v_pcc.code using errcode = '42501';
+      end if;
     end if;
 
-    insert into public.subcontract_variation_lines (
-      id, company_id, variation_id, subcontract_id, line_number, description,
-      amount, quantity, unit, unit_rate, subcontract_line_id, project_cost_code_id,
-      notes, created_at, updated_at
-    ) values (
-      v_line_id,
-      v_company_id,
-      v_var_id,
-      v_subcontract.id,
-      v_line_idx,
-      v_desc,
-      round(v_amount, 2),
-      v_qty,
-      v_unit,
-      v_rate,
-      v_sc_line_id,
-      v_pcc_id,
-      v_notes,
-      now(),
-      now()
-    )
-    on conflict (company_id, id) do update set
-      line_number = excluded.line_number,
-      description = excluded.description,
-      amount = excluded.amount,
-      quantity = excluded.quantity,
-      unit = excluded.unit,
-      unit_rate = excluded.unit_rate,
-      subcontract_line_id = excluded.subcontract_line_id,
-      project_cost_code_id = excluded.project_cost_code_id,
-      notes = excluded.notes,
-      updated_at = now();
+    if v_existing_line.id is not null then
+      update public.subcontract_variation_lines
+      set line_number = v_line_idx,
+          description = v_desc,
+          amount = round(v_amount, 2),
+          quantity = v_qty,
+          unit = v_unit,
+          unit_rate = v_rate,
+          subcontract_line_id = v_sc_line_id,
+          project_cost_code_id = v_pcc_id,
+          notes = v_notes,
+          updated_at = now()
+      where id = v_line_id and variation_id = v_var_id and company_id = v_company_id;
+    else
+      insert into public.subcontract_variation_lines (
+        id, company_id, project_id, variation_id, subcontract_id, line_number,
+        description, amount, quantity, unit, unit_rate, subcontract_line_id,
+        project_cost_code_id, notes, created_at, updated_at
+      ) values (
+        v_line_id,
+        v_company_id,
+        v_subcontract.project_id,
+        v_var_id,
+        v_subcontract.id,
+        v_line_idx,
+        v_desc,
+        round(v_amount, 2),
+        v_qty,
+        v_unit,
+        v_rate,
+        v_sc_line_id,
+        v_pcc_id,
+        v_notes,
+        now(),
+        now()
+      );
+    end if;
 
     v_inserted_line_ids := array_append(v_inserted_line_ids, v_line_id);
   end loop;
 
-  -- Delete removed lines
+  -- Delete removed lines strictly within this variation and company
   delete from public.subcontract_variation_lines
   where variation_id = v_var_id
     and company_id = v_company_id
@@ -726,7 +1095,6 @@ begin
 
   v_company_id := v_var.company_id;
 
-  -- Lock parent subcontract for update
   select * into v_subcontract
   from public.subcontracts
   where id = v_var.subcontract_id and company_id = v_company_id
@@ -741,12 +1109,10 @@ begin
   where id = v_subcontract.project_id and company_id = v_company_id
   for key share;
 
-  -- Check terminal states
   if v_var.status in ('APPROVED', 'REJECTED', 'CANCELLED') then
     raise exception 'Terminal variation cannot undergo further transitions' using errcode = '22023';
   end if;
 
-  -- Archived project guard: only wind-down allowed
   if (v_project.status = 'ARCHIVED' or v_project.archived_at is not null) then
     if v_target_status not in ('REJECTED', 'CANCELLED') then
       raise exception 'Archived projects only permit variation wind-down to REJECTED or CANCELLED' using errcode = '42501';
@@ -804,7 +1170,6 @@ begin
         raise exception 'Parent subcontract must be approved or active to approve variations' using errcode = '22023';
       end if;
 
-      -- Check 1: Contract-level over-claim protection
       select coalesce(sum(net_amount), 0.00)
         into v_existing_approved_variations
       from public.subcontract_variations
@@ -827,7 +1192,6 @@ begin
           v_revised_subcontract_value, v_total_certified_gross using errcode = '23514';
       end if;
 
-      -- Check 2: Line-level over-claim protection for any negative variation lines linked to subcontract lines
       for v_var_line in
         select *
         from public.subcontract_variation_lines
@@ -995,7 +1359,6 @@ begin
 
   v_company_id := v_claim.company_id;
 
-  -- Lock the parent subcontract to guard against concurrent over-claiming
   select * into v_subcontract
   from public.subcontracts
   where id = v_claim.subcontract_id and company_id = v_company_id
@@ -1010,7 +1373,6 @@ begin
       raise exception 'Approval requires procurement.approve permission' using errcode = '42501';
     end if;
 
-    -- If line approvals are passed, update line approved amounts first
     if p_line_approvals is not null and jsonb_typeof(p_line_approvals) = 'array' then
       for v_approval_row in select value from jsonb_array_elements(p_line_approvals) loop
         v_app_line_id := nullif(coalesce(v_approval_row->>'id', v_approval_row->>'claimLineId', v_approval_row->>'claim_line_id', ''), '')::uuid;
@@ -1023,7 +1385,6 @@ begin
         end if;
       end loop;
     else
-      -- Default: approve claimed amount if not explicitly passed
       update public.subcontract_progress_claim_lines
       set approved_amount = claimed_amount
       where claim_id = p_claim_id and company_id = v_company_id;
@@ -1044,7 +1405,6 @@ begin
       end if;
 
       if v_line.subcontract_line_id is not null then
-        -- Cumulative approved against subcontract line + any approved variation lines on this line
         select scl.amount into v_effective_sc_line_amount
         from public.subcontract_lines scl
         where scl.id = v_line.subcontract_line_id and scl.company_id = v_company_id;
@@ -1074,7 +1434,6 @@ begin
         end if;
 
       elsif v_line.subcontract_variation_line_id is not null then
-        -- Must reference an APPROVED variation line
         select vl.*, v.status as var_status into v_var_line
         from public.subcontract_variation_lines vl
         join public.subcontract_variations v on vl.variation_id = v.id and vl.company_id = v.company_id
@@ -1154,10 +1513,10 @@ begin
 end;
 $$;
 
--- 11. Update create_or_update_subcontract_claim to support subcontract_variation_line_id
+-- 11. Update create_or_update_subcontract_claim to support subcontract_variation_line_id and camelCase/snake_case inputs
 create or replace function public.create_or_update_subcontract_claim(
   p_claim jsonb,
-  p_lines jsonb
+  p_lines jsonb default '[]'::jsonb
 )
 returns jsonb
 language plpgsql
@@ -1190,7 +1549,7 @@ begin
     raise exception 'Authentication is required' using errcode = '42501';
   end if;
 
-  v_company_id := nullif(p_claim->>'company_id', '')::uuid;
+  v_company_id := nullif(coalesce(p_claim->>'companyId', p_claim->>'company_id', ''), '')::uuid;
   if v_company_id is null then
     v_company_id := (select private.deployment_company_id());
   end if;
@@ -1202,15 +1561,15 @@ begin
     raise exception 'Unauthorized to create or edit progress claims' using errcode = '42501';
   end if;
 
-  v_claim_id := nullif(p_claim->>'id', '')::uuid;
-  v_subcontract_id := (p_claim->>'subcontract_id')::uuid;
-  v_project_id := (p_claim->>'project_id')::uuid;
-  v_claim_number := upper(btrim(p_claim->>'claim_number'));
-  v_valuation_date := (p_claim->>'valuation_date')::date;
-  v_period_start := nullif(p_claim->>'period_start', '')::date;
-  v_period_end := nullif(p_claim->>'period_end', '')::date;
-  v_retention_rate := coalesce((p_claim->>'retention_rate')::numeric, 0.0000);
-  v_notes := nullif(btrim(p_claim->>'notes'), '');
+  v_claim_id := nullif(coalesce(p_claim->>'id', ''), '')::uuid;
+  v_subcontract_id := nullif(coalesce(p_claim->>'subcontractId', p_claim->>'subcontract_id', ''), '')::uuid;
+  v_project_id := nullif(coalesce(p_claim->>'projectId', p_claim->>'project_id', ''), '')::uuid;
+  v_claim_number := upper(btrim(coalesce(p_claim->>'claimNumber', p_claim->>'claim_number', '')));
+  v_valuation_date := nullif(coalesce(p_claim->>'valuationDate', p_claim->>'valuation_date', ''), '')::date;
+  v_period_start := nullif(coalesce(p_claim->>'periodStart', p_claim->>'period_start', ''), '')::date;
+  v_period_end := nullif(coalesce(p_claim->>'periodEnd', p_claim->>'period_end', ''), '')::date;
+  v_retention_rate := coalesce((p_claim->>'retentionRate')::numeric, (p_claim->>'retention_rate')::numeric, 0.0000);
+  v_notes := nullif(btrim(coalesce(p_claim->>'notes', '')), '');
 
   if v_subcontract_id is null then
     raise exception 'Subcontract reference is required' using errcode = '22023';
@@ -1322,4 +1681,3 @@ grant execute on function public.create_or_update_subcontract_claim(jsonb, jsonb
 
 revoke all on function public.transition_subcontract_claim(uuid, text, text, jsonb) from public, anon;
 grant execute on function public.transition_subcontract_claim(uuid, text, text, jsonb) to authenticated;
-

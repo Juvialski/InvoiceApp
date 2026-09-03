@@ -146,7 +146,7 @@ export interface ProcurementPageProps {
       claimNumber: string;
       valuationDate: string;
     },
-    lines: Array<{ subcontractLineId: string; claimedAmount: number; notes?: string }>,
+    lines: Array<{ subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number; notes?: string }>,
   ) => Promise<void>;
   onTransitionSubcontractClaim?: (
     id: string,
@@ -458,7 +458,13 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
       claimNumber: string;
       valuationDate: string;
     },
-    lines: Array<{ subcontractLineId: string; claimedAmount: number; notes?: string }>,
+    lines: Array<{
+      id?: string;
+      subcontractLineId?: string;
+      subcontractVariationLineId?: string;
+      claimedAmount: number;
+      notes?: string;
+    }>,
   ) => {
     if (onSaveSubcontractClaim) {
       await onSaveSubcontractClaim(claim, lines);
@@ -626,7 +632,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     if (isDemoMode) {
       const current = localSubcontracts.find((item) => item.id === id);
       if (!current) throw new Error("Subcontract not found");
-      const updated = applySubcontractTransition(current, targetStatus, reason);
+      const updated = applySubcontractTransition(current, targetStatus, reason, undefined, localVariations);
       setLocalSubcontracts((prev) => prev.map((item) => item.id === id ? updated : item));
       return;
     }
