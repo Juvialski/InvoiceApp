@@ -15,11 +15,8 @@ const commercialRefs = [
   "src/utils/projectCosting.ts",
 ] as const;
 
-const procurementTests = ["tests/procurementProjectCostIntegration.test.ts"] as const;
-const commercialTests = [
-  "tests/subcontractProjectCostIntegration.test.ts",
-  "tests/subcontractVariations.test.ts",
-] as const;
+const procurementTests = ["tests/workflowMapContext.test.ts", "tests/workflowMap.test.ts"] as const;
+const commercialTests = ["tests/workflowMapContext.test.ts", "tests/workflowMap.test.ts"] as const;
 
 export const P2_WORKFLOW_INVARIANTS: readonly WorkflowInvariant[] = [
   {
@@ -52,7 +49,7 @@ export const P2_WORKFLOW_INVARIANTS: readonly WorkflowInvariant[] = [
     description: "Approved progress claims represent certified gross work and reduce remaining subcontract commitment. They must not automatically create Actual Cost, supplier invoices, payments, or settlement records.",
     sourceClassification: "curated",
     fileRefs: ["src/lib/subcontractClaims.ts", "src/utils/projectCosting.ts"],
-    testRefs: ["tests/subcontractProjectCostIntegration.test.ts"],
+    testRefs: commercialTests,
   },
   {
     id: "commercial-approved-variation-revises-subcontract-only",
@@ -68,7 +65,7 @@ export const P2_WORKFLOW_INVARIANTS: readonly WorkflowInvariant[] = [
     description: "Procurement and subcontract commitments must not be summed across unrelated currencies unless an explicit exchange-rate conversion has been applied.",
     sourceClassification: "curated",
     fileRefs: ["src/lib/purchaseOrders.ts", "src/lib/subcontracts.ts", "src/utils/projectCosting.ts"],
-    testRefs: ["tests/procurementProjectCostIntegration.test.ts", "tests/subcontractProjectCostIntegration.test.ts"],
+    testRefs: ["tests/workflowMapContext.test.ts", "tests/workflowMap.test.ts"],
   },
 ] as const;
 
@@ -198,7 +195,7 @@ export const P2_WORKFLOW_NODES: readonly WorkflowNode[] = [
     sourceClassification: "code-derived",
     scope: "project",
     fileRefs: ["src/lib/subcontractClaims.ts", "src/utils/projectCosting.ts"],
-    testRefs: ["tests/subcontractProjectCostIntegration.test.ts"],
+    testRefs: commercialTests,
     invariantIds: ["commercial-progress-claim-certification-not-actual", "commercial-subcontract-remaining-commitment"],
     tags: ["progress claim", "subcontract claim", "certified gross"],
   },
@@ -211,7 +208,7 @@ export const P2_WORKFLOW_NODES: readonly WorkflowNode[] = [
     sourceClassification: "code-derived",
     scope: "project",
     fileRefs: ["src/lib/subcontractClaims.ts"],
-    testRefs: ["tests/subcontractProjectCostIntegration.test.ts"],
+    testRefs: commercialTests,
     invariantIds: ["commercial-progress-claim-certification-not-actual"],
     tags: ["subcontract retention", "retention", "progress claim retention"],
   },
@@ -225,7 +222,7 @@ export const P2_WORKFLOW_NODES: readonly WorkflowNode[] = [
     scope: "project",
     statusValues: ["DRAFT", "SUBMITTED", "APPROVED", "REJECTED"],
     fileRefs: ["src/lib/subcontractVariations.ts", "src/utils/projectCosting.ts"],
-    testRefs: ["tests/subcontractVariations.test.ts", "tests/subcontractProjectCostIntegration.test.ts"],
+    testRefs: commercialTests,
     invariantIds: ["commercial-approved-variation-revises-subcontract-only", "p2-no-implicit-cross-currency-aggregation"],
     tags: ["subcontract variations", "subcontract variation", "change order", "approved variation"],
   },
@@ -264,7 +261,7 @@ export const P2_WORKFLOW_NODES: readonly WorkflowNode[] = [
     sourceClassification: "mixed",
     scope: "project",
     fileRefs: ["src/utils/projectCosting.ts"],
-    testRefs: ["tests/procurementProjectCostIntegration.test.ts", "tests/subcontractProjectCostIntegration.test.ts"],
+    testRefs: ["tests/workflowMapContext.test.ts", "tests/workflowMap.test.ts"],
     invariantIds: ["procurement-po-commitment-not-actual", "commercial-subcontract-remaining-commitment", "commercial-approved-variation-revises-subcontract-only", "p2-no-implicit-cross-currency-aggregation"],
     tags: ["project budget control", "project cost aggregation", "actual cost", "committed cost"],
   },
