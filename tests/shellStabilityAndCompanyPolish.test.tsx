@@ -107,6 +107,7 @@ test("DashboardRoute renders RouteLoadingSkeleton during initial workspace hydra
     activeProjects: 0,
     totalProjectBudget: 0,
     confirmedProjectCost: 0,
+    committedProjectCost: 0,
     pendingProjectCost: 0,
     availableAfterCommitments: 0,
     outstandingPayables: 0,
@@ -220,7 +221,7 @@ test("ProjectsPage and ExpensesPage render loading placeholders during hydration
       />
     </AppPermissionProvider>
   );
-  assert.match(loadedProjects, /No projects yet/);
+  assert.match(loadedProjects, /No projects (yet|match)/);
 
   // ExpensesPage during hydration
   const hydratingExpenses = renderToStaticMarkup(

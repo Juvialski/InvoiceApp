@@ -34,6 +34,9 @@ import type {
   RFQ,
   RFQLine,
   RFQStatus,
+  Subcontract,
+  SubcontractLine,
+  SubcontractStatus,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
@@ -293,6 +296,7 @@ export interface AppRouterProps {
 
   // Procurement Data & Handlers
   purchaseOrders?: PurchaseOrder[];
+  subcontracts?: Subcontract[];
   receipts?: PurchaseOrderReceipt[];
   vendors?: Vendor[];
   onSavePO?: (
@@ -301,6 +305,12 @@ export interface AppRouterProps {
   ) => Promise<void>;
   onTransitionPO?: (id: string, targetStatus: PurchaseOrderStatus, reason?: string) => Promise<void>;
   onDeletePO?: (id: string) => Promise<void>;
+  onSaveSubcontract?: (
+    subcontract: Partial<Subcontract> & { subcontractNumber: string; vendorId: string; projectId: string; title: string },
+    lines: Array<Partial<SubcontractLine> & { description: string; amount: number }>,
+  ) => Promise<void>;
+  onTransitionSubcontract?: (id: string, targetStatus: SubcontractStatus, reason?: string) => Promise<void>;
+  onDeleteSubcontract?: (id: string) => Promise<void>;
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
@@ -364,11 +374,15 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   projectDashboard,
   costCodes = [],
   purchaseOrders = [],
+  subcontracts = [],
   receipts = [],
   vendors = [],
   onSavePO,
   onTransitionPO,
   onDeletePO,
+  onSaveSubcontract,
+  onTransitionSubcontract,
+  onDeleteSubcontract,
   onRecordReceipt,
   onVoidReceipt,
   onAddVendor,
@@ -588,6 +602,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         invoiceAllocations={invoiceProjectAllocations}
         expenses={expenses}
         purchaseOrders={purchaseOrders}
+        subcontracts={subcontracts}
         receipts={receipts}
         vendors={vendors}
         workers={payrollData.workers}
@@ -625,6 +640,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSavePO={onSavePO}
         onTransitionPO={onTransitionPO}
         onDeletePO={onDeletePO}
+        onSaveSubcontract={onSaveSubcontract}
+        onTransitionSubcontract={onTransitionSubcontract}
+        onDeleteSubcontract={onDeleteSubcontract}
         onRecordReceipt={onRecordReceipt}
         onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}
@@ -826,6 +844,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <ProcurementRoute
         purchaseOrders={purchaseOrders}
+        subcontracts={subcontracts}
         receipts={receipts}
         projects={projects}
         vendors={vendors}
@@ -833,6 +852,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSavePO={onSavePO || (async () => {})}
         onTransitionPO={onTransitionPO || (async () => {})}
         onDeletePO={onDeletePO || (async () => {})}
+        onSaveSubcontract={onSaveSubcontract}
+        onTransitionSubcontract={onTransitionSubcontract}
+        onDeleteSubcontract={onDeleteSubcontract}
         onRecordReceipt={onRecordReceipt}
         onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}

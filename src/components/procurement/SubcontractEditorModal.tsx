@@ -54,6 +54,20 @@ function createEmptyLine(): EditableSubcontractLine {
   };
 }
 
+function editableLinesFromSubcontract(subcontract?: Subcontract | null): EditableSubcontractLine[] {
+  if (!subcontract?.lines || subcontract.lines.length === 0) return [createEmptyLine()];
+  return subcontract.lines.map((line) => ({
+    id: line.id,
+    description: line.description,
+    amount: String(line.amount ?? 0),
+    quantity: line.quantity != null ? String(line.quantity) : "",
+    unit: line.unit || "",
+    unitRate: line.unitRate != null ? String(line.unitRate) : "",
+    projectCostCodeId: line.projectCostCodeId || "",
+    notes: line.notes || "",
+  }));
+}
+
 function formatStatusTone(status: SubcontractStatus): { bg: string; text: string; border: string } {
   switch (status) {
     case "DRAFT":
@@ -79,28 +93,35 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
   vendors,
   costCodes,
   selectedProjectId,
-  canManage = true,
+  canManage = false,
   onSave,
 }) => {
   const titleId = useId();
-  const dialogRef = useDialogFocus({ open: isOpen, onClose });
 
   const isEditing = Boolean(subcontract?.id);
   const status: SubcontractStatus = subcontract?.status || "DRAFT";
   const isDraft = status === "DRAFT";
   const isReadOnly = !isDraft || !canManage;
 
-  const [subcontractNumber, setSubcontractNumber] = useState("");
-  const [vendorId, setVendorId] = useState("");
-  const [projectId, setProjectId] = useState(selectedProjectId || "");
-  const [title, setTitle] = useState("");
-  const [currency, setCurrency] = useState("PHP");
-  const [startDate, setStartDate] = useState("");
-  const [targetCompletionDate, setTargetCompletionDate] = useState("");
-  const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<EditableSubcontractLine[]>([createEmptyLine()]);
+  const [subcontractNumber, setSubcontractNumber] = useState(subcontract?.subcontractNumber || "");
+  const [vendorId, setVendorId] = useState(subcontract?.vendorId || "");
+  const [projectId, setProjectId] = useState(subcontract?.projectId || selectedProjectId || "");
+  const [title, setTitle] = useState(subcontract?.title || "");
+  const [currency, setCurrency] = useState(subcontract?.currency || "PHP");
+  const [startDate, setStartDate] = useState(subcontract?.startDate || "");
+  const [targetCompletionDate, setTargetCompletionDate] = useState(subcontract?.targetCompletionDate || "");
+  const [notes, setNotes] = useState(subcontract?.notes || "");
+  const [lines, setLines] = useState<EditableSubcontractLine[]>(() => editableLinesFromSubcontract(subcontract));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const descriptionId = useId();
+  const handleClose = () => {
+    if (!isSubmitting) onClose();
+  };
+  const dialogRef = useDialogFocus({
+    open: isOpen,
+    onClose: handleClose,
+  });
 
   // Initialize or reset form state on open / subcontract change
   useEffect(() => {
@@ -115,18 +136,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
       setNotes(subcontract.notes || "");
 
       if (subcontract.lines && subcontract.lines.length > 0) {
-        setLines(
-          subcontract.lines.map((l) => ({
-            id: l.id,
-            description: l.description,
-            amount: String(l.amount ?? 0),
-            quantity: l.quantity != null ? String(l.quantity) : "",
-            unit: l.unit || "",
-            unitRate: l.unitRate != null ? String(l.unitRate) : "",
-            projectCostCodeId: l.projectCostCodeId || "",
-            notes: l.notes || "",
-          })),
-        );
+        setLines(editableLinesFromSubcontract(subcontract));
       } else {
         setLines([createEmptyLine()]);
       }
@@ -149,8 +159,19 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
   // Filter cost codes for the selected project
   const availableCostCodes = useMemo(() => {
     if (!projectId) return [];
-    return costCodes.filter((cc) => cc.projectId === projectId && cc.status === "ACTIVE");
-  }, [costCodes, projectId]);
+    const selectedHistoricalIds = new Set(lines.map((line) => line.projectCostCodeId).filter(Boolean));
+    return costCodes.filter((cc) => cc.projectId === projectId && (cc.status === "ACTIVE" || selectedHistoricalIds.has(cc.id)));
+  }, [costCodes, lines, projectId]);
+
+  const availableProjects = useMemo(
+    () => projects.filter((candidate) => candidate.status !== "ARCHIVED" || (isEditing && candidate.id === projectId)),
+    [isEditing, projectId, projects],
+  );
+
+  const missingHistoricalCostCodeIds = useMemo(() => {
+    const knownIds = new Set(availableCostCodes.map((costCode) => costCode.id));
+    return [...new Set(lines.map((line) => line.projectCostCodeId).filter((id): id is string => Boolean(id && !knownIds.has(id))))];
+  }, [availableCostCodes, lines]);
 
   // Calculated total amount across all lines
   const totalAmount = useMemo(() => {
@@ -203,6 +224,10 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
       setErrorMessage("Subcontract number is required");
       return;
     }
+    if (trimmedNumber.length > 60) {
+      setErrorMessage("Subcontract number must be 60 characters or fewer");
+      return;
+    }
 
     if (!vendorId) {
       setErrorMessage("Please select a vendor");
@@ -219,6 +244,20 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
       setErrorMessage("Scope title is required");
       return;
     }
+    if (trimmedTitle.length > 255) {
+      setErrorMessage("Scope title must be 255 characters or fewer");
+      return;
+    }
+
+    const normalizedCurrency = currency.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(normalizedCurrency)) {
+      setErrorMessage("Currency must be a 3-letter ISO code");
+      return;
+    }
+    if (startDate && targetCompletionDate && targetCompletionDate < startDate) {
+      setErrorMessage("Target completion date cannot be before the start date");
+      return;
+    }
 
     if (lines.length === 0) {
       setErrorMessage("At least one scope line item is required");
@@ -227,14 +266,44 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (!line.description.trim()) {
+      const description = line.description.trim();
+      if (!description) {
         setErrorMessage(`Line ${i + 1}: Description is required`);
         return;
       }
-      const amountVal = parseFloat(line.amount);
-      if (isNaN(amountVal) || amountVal < 0) {
+      if (description.length > 500) {
+        setErrorMessage(`Line ${i + 1}: Description must be 500 characters or fewer`);
+        return;
+      }
+      const amountVal = Number(line.amount);
+      if (!line.amount.trim() || !Number.isFinite(amountVal) || amountVal < 0) {
         setErrorMessage(`Line ${i + 1}: Amount must be a valid non-negative number`);
         return;
+      }
+      if (line.quantity.trim()) {
+        const quantity = Number(line.quantity);
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          setErrorMessage(`Line ${i + 1}: Quantity must be positive when provided`);
+          return;
+        }
+      }
+      if (line.unitRate.trim()) {
+        const unitRate = Number(line.unitRate);
+        if (!Number.isFinite(unitRate) || unitRate < 0) {
+          setErrorMessage(`Line ${i + 1}: Unit rate must be non-negative when provided`);
+          return;
+        }
+      }
+      if (line.unit.trim().length > 50) {
+        setErrorMessage(`Line ${i + 1}: Unit must be 50 characters or fewer`);
+        return;
+      }
+      if (line.projectCostCodeId) {
+        const costCode = costCodes.find((candidate) => candidate.id === line.projectCostCodeId && candidate.projectId === projectId);
+        if (!costCode || costCode.status !== "ACTIVE") {
+          setErrorMessage(`Line ${i + 1}: Select an active project cost code before saving`);
+          return;
+        }
       }
     }
 
@@ -244,15 +313,15 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
     try {
       const payloadLines: Array<Partial<SubcontractLine> & { description: string; amount: number }> = lines.map(
         (l) => {
-          const qty = l.quantity ? parseFloat(l.quantity) : null;
-          const rate = l.unitRate ? parseFloat(l.unitRate) : null;
+          const qty = l.quantity.trim() ? Number(l.quantity) : null;
+          const rate = l.unitRate.trim() ? Number(l.unitRate) : null;
           return {
             id: l.id,
             description: l.description.trim(),
-            amount: Math.round(parseFloat(l.amount) * 100) / 100,
-            quantity: qty != null && !isNaN(qty) ? qty : null,
+            amount: Math.round(Number(l.amount) * 100) / 100,
+            quantity: qty != null && Number.isFinite(qty) ? qty : null,
             unit: l.unit.trim() || null,
-            unitRate: rate != null && !isNaN(rate) ? rate : null,
+            unitRate: rate != null && Number.isFinite(rate) ? rate : null,
             projectCostCodeId: l.projectCostCodeId || null,
             notes: l.notes.trim() || null,
           };
@@ -266,7 +335,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
           vendorId,
           projectId,
           title: trimmedTitle,
-          currency: currency.trim().toUpperCase() || "PHP",
+          currency: normalizedCurrency,
           startDate: startDate || null,
           targetCompletionDate: targetCompletionDate || null,
           notes: notes.trim() || null,
@@ -292,7 +361,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-150"
       role="presentation"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) onClose();
+        if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div
@@ -300,6 +369,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={descriptionId}
         className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-150 my-8 flex flex-col max-h-[90vh]"
       >
         {/* Header */}
@@ -319,16 +389,18 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                   {status}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium">
+              <p id={descriptionId} className="text-xs text-slate-500 font-medium">
                 {isReadOnly
-                  ? "Read-only mode. Approved or active commitments cannot be edited directly."
+                  ? !isDraft
+                    ? "Read-only mode. Approved, active, closed, and cancelled commitments cannot be edited directly."
+                    : "Read-only mode. Procurement management permission is required to edit this draft."
                   : "Draft trade subcontract commitment linked to project controls."}
               </p>
             </div>
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSubmitting}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition disabled:opacity-50"
             aria-label="Close dialog"
@@ -340,8 +412,8 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {errorMessage && (
-            <div className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-700">
-              <AlertCircle className="h-4 w-4 shrink-0" />
+            <div id={`${descriptionId}-error`} role="alert" aria-live="assertive" className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-semibold text-rose-700">
+              <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -399,6 +471,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                 value={subcontractNumber}
                 onChange={(e) => setSubcontractNumber(e.target.value.toUpperCase())}
                 disabled={isReadOnly || isSubmitting}
+                maxLength={60}
                 placeholder="SC-2026-001"
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:bg-slate-50"
               />
@@ -414,9 +487,12 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                 onChange={(e) => setVendorId(e.target.value)}
                 disabled={isReadOnly || isSubmitting}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:bg-slate-50"
-              >
-                <option value="">Select Subcontractor...</option>
-                {vendors.map((v) => (
+                >
+                  <option value="">Select Subcontractor...</option>
+                  {vendorId && !vendors.some((vendor) => vendor.id === vendorId) && (
+                    <option value={vendorId}>{vendorId} (current vendor unavailable)</option>
+                  )}
+                  {vendors.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
                   </option>
@@ -434,9 +510,9 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                 onChange={(e) => setProjectId(e.target.value)}
                 disabled={isReadOnly || isSubmitting || Boolean(selectedProjectId)}
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:bg-slate-50"
-              >
-                <option value="">Select Project...</option>
-                {projects.map((p) => (
+                >
+                  <option value="">Select Project...</option>
+                  {availableProjects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.projectCode ? `[${p.projectCode}] ` : ""}
                     {p.projectName}
@@ -458,6 +534,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={isReadOnly || isSubmitting}
+                maxLength={255}
                 placeholder="e.g. HVAC & Mechanical Piping Installation Package"
                 className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:bg-slate-50"
               />
@@ -543,14 +620,14 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/80 font-bold text-slate-600 text-[11px] uppercase tracking-wider">
-                    <th className="py-2.5 px-3 w-10 text-center">#</th>
-                    <th className="py-2.5 px-3 min-w-[200px]">Scope / Description *</th>
-                    <th className="py-2.5 px-3 min-w-[160px]">Cost Code</th>
-                    <th className="py-2.5 px-3 w-24">Qty</th>
-                    <th className="py-2.5 px-3 w-20">Unit</th>
-                    <th className="py-2.5 px-3 w-28">Unit Rate</th>
-                    <th className="py-2.5 px-3 w-32 text-right">Amount ({currency}) *</th>
-                    {!isReadOnly && <th className="py-2.5 px-3 w-10 text-center"></th>}
+                    <th scope="col" className="py-2.5 px-3 w-10 text-center">#</th>
+                    <th scope="col" className="py-2.5 px-3 min-w-[200px]">Scope / Description *</th>
+                    <th scope="col" className="py-2.5 px-3 min-w-[160px]">Cost Code</th>
+                    <th scope="col" className="py-2.5 px-3 w-24">Qty</th>
+                    <th scope="col" className="py-2.5 px-3 w-20">Unit</th>
+                    <th scope="col" className="py-2.5 px-3 w-28">Unit Rate</th>
+                    <th scope="col" className="py-2.5 px-3 w-32 text-right">Amount ({currency}) *</th>
+                    {!isReadOnly && <th scope="col" className="py-2.5 px-3 w-10 text-center"></th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -563,6 +640,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                           value={line.description}
                           onChange={(e) => handleLineChange(idx, "description", e.target.value)}
                           disabled={isReadOnly || isSubmitting}
+                          maxLength={500}
                           placeholder="Trade deliverable or scope item..."
                           className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-transparent disabled:border-transparent"
                         />
@@ -576,18 +654,23 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                         >
                           <option value="">(No Cost Code)</option>
                           {availableCostCodes.map((cc) => (
-                            <option key={cc.id} value={cc.id}>
-                              {cc.code} - {cc.name}
+                            <option key={cc.id} value={cc.id} disabled={isDraft && cc.status !== "ACTIVE"}>
+                              {cc.code} - {cc.name}{cc.status !== "ACTIVE" ? " (Archived — historical)" : ""}
+                            </option>
+                          ))}
+                          {missingHistoricalCostCodeIds.map((id) => (
+                            <option key={id} value={id} disabled={isDraft}>
+                              {id} (historical code unavailable)
                             </option>
                           ))}
                         </select>
                       </td>
                       <td className="py-2.5 px-3">
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          value={line.quantity}
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.0001"
+                            value={line.quantity}
                           onChange={(e) => handleLineChange(idx, "quantity", e.target.value)}
                           disabled={isReadOnly || isSubmitting}
                           placeholder="1"
@@ -600,6 +683,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                           value={line.unit}
                           onChange={(e) => handleLineChange(idx, "unit", e.target.value)}
                           disabled={isReadOnly || isSubmitting}
+                          maxLength={50}
                           placeholder="lot"
                           className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-transparent disabled:border-transparent"
                         />
@@ -636,6 +720,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
                             disabled={isSubmitting}
                             className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
                             title="Remove line"
+                            aria-label={`Remove line ${idx + 1}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -685,7 +770,7 @@ export const SubcontractEditorModal: React.FC<SubcontractEditorModalProps> = ({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition disabled:opacity-50"
             >

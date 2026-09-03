@@ -48,6 +48,7 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
       address: "18 Meridian Drive, Brgy. Bagumbayan, Quezon City, Metro Manila",
     },
     projects: projectData.projects,
+    costCodes: projectData.costCodes,
     projectPresentation: projectData.presentation,
     invoices: invoiceData.invoices,
     invoiceAllocations: invoiceData.allocations,

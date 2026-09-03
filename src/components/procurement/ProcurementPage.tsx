@@ -40,8 +40,17 @@ import type {
 } from "../../types.ts";
 import { createDemoRFQs, createDemoSubcontracts, createDemoSupplierQuotations } from "../../demo/data/procurement.ts";
 import { defaultDemoAnchorDate } from "../../demo/data/demoDates.ts";
+import { isDemoApplicationPath } from "../../app/applicationMode.ts";
+import {
+  applySubcontractTransition,
+  buildLocalSubcontract,
+  deleteDraftSubcontract,
+  readSubcontractsFromLocal,
+  saveSubcontract,
+  transitionSubcontract,
+} from "../../lib/subcontracts.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
-import { isCommittedPurchaseOrder, isCommittedSubcontract, subcontractTotal } from "../../utils/projectCosting.ts";
+import { isCommittedPurchaseOrder, isCommittedSubcontract, purchaseOrderTotal, subcontractTotal } from "../../utils/projectCosting.ts";
 import { calculatePOReceiptProgress, type PODeliveryStatus } from "../../utils/purchaseOrderReceipts.ts";
 import { EmptyState, PageHeader } from "../ui/OperationsUI.tsx";
 import { PurchaseOrderEditorModal } from "./PurchaseOrderEditorModal.tsx";
@@ -108,9 +117,9 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   vendors,
   costCodes,
   selectedProjectId,
-  canRead = true,
-  canManage = true,
-  canApprove = true,
+  canRead = false,
+  canManage = false,
+  canApprove = false,
   matches = [],
   invoices = [],
   rfqs: initialRfqs,
@@ -161,17 +170,31 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     if (initialQuotations) setLocalQuotations(initialQuotations);
   }, [initialQuotations]);
 
-  // Subcontract State (with graceful fallback to demo seed when not provided)
+  // Subcontract State. An empty production prop is authoritative; only the
+  // explicit demo route may seed the public demo fixture when its parent has
+  // not mounted the demo collection yet.
+  const isDemoMode = typeof window !== "undefined" && isDemoApplicationPath(window.location.pathname);
+  const useProvidedSubcontracts = initialSubcontracts !== undefined;
   const [localSubcontracts, setLocalSubcontracts] = useState<Subcontract[]>(
-    () => initialSubcontracts || createDemoSubcontracts(defaultAnchor),
+    () => useProvidedSubcontracts
+      ? initialSubcontracts || []
+      : isDemoMode
+        ? createDemoSubcontracts(defaultAnchor)
+        : readSubcontractsFromLocal(),
   );
 
   useEffect(() => {
-    if (initialSubcontracts) setLocalSubcontracts(initialSubcontracts);
-  }, [initialSubcontracts]);
+    if (useProvidedSubcontracts) setLocalSubcontracts(initialSubcontracts || []);
+  }, [initialSubcontracts, useProvidedSubcontracts]);
+
+  useEffect(() => {
+    setProjectFilter(selectedProjectId || "ALL");
+  }, [selectedProjectId]);
 
   const [activeSubcontractModal, setActiveSubcontractModal] = useState<Subcontract | null | undefined>(undefined);
   const [cancellationSubcontract, setCancellationSubcontract] = useState<Subcontract | null>(null);
+  const [subcontractActionId, setSubcontractActionId] = useState<string | null>(null);
+  const [subcontractActionError, setSubcontractActionError] = useState<string | null>(null);
 
   // Active Modals for RFQ
   const [activeRfqModal, setActiveRfqModal] = useState<RFQ | null | undefined>(undefined);
@@ -289,10 +312,14 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   }, [localSubcontracts, selectedProjectId, projectFilter, statusFilter, query, vendorMap, projectMap]);
 
   // Subcontract KPI Metrics
-  const activeCommittedSubcontractsTotal = useMemo(() => {
-    return filteredSubcontracts
-      .filter((sc) => isCommittedSubcontract(sc.status))
-      .reduce((sum, sc) => sum + subcontractTotal(sc), 0);
+  const activeCommittedSubcontractTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const sc of filteredSubcontracts) {
+      if (!isCommittedSubcontract(sc.status)) continue;
+      const currency = String(sc.currency || "PHP").trim().toUpperCase();
+      totals.set(currency, (totals.get(currency) || 0) + subcontractTotal(sc));
+    }
+    return [...totals.entries()].map(([currency, amount]) => [currency, Math.round(amount * 100) / 100] as const);
   }, [filteredSubcontracts]);
 
   const handleSaveSubcontractInternal = async (
@@ -301,50 +328,24 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   ) => {
     if (onSaveSubcontract) {
       await onSaveSubcontract(sc, lines);
-    } else {
-      const now = new Date().toISOString();
-      const scId = sc.id || `sc-${Date.now()}`;
-      const mappedLines: SubcontractLine[] = lines.map((l, idx) => ({
-        id: l.id || `scl-${scId}-${idx + 1}`,
-        subcontractId: scId,
-        lineNumber: idx + 1,
-        description: l.description.trim(),
-        amount: Number(l.amount) || 0,
-        quantity: l.quantity != null ? Number(l.quantity) : null,
-        unit: l.unit || null,
-        unitRate: l.unitRate != null ? Number(l.unitRate) : null,
-        projectCostCodeId: l.projectCostCodeId || null,
-        notes: l.notes || null,
-        createdAt: now,
-        updatedAt: now,
-      }));
-      const originalAmount = mappedLines.reduce((sum, l) => sum + l.amount, 0);
-      const newSc: Subcontract = {
-        id: scId,
-        subcontractNumber: sc.subcontractNumber,
-        vendorId: sc.vendorId,
-        projectId: sc.projectId,
-        title: sc.title,
-        currency: sc.currency || "PHP",
-        status: sc.status || "DRAFT",
-        originalAmount,
-        startDate: sc.startDate || null,
-        targetCompletionDate: sc.targetCompletionDate || null,
-        notes: sc.notes || null,
-        lines: mappedLines,
-        createdAt: now,
-        updatedAt: now,
-      };
-      setLocalSubcontracts((prev) => {
-        const idx = prev.findIndex((s) => s.id === sc.id);
-        if (idx >= 0) {
-          const updated = [...prev];
-          updated[idx] = { ...prev[idx], ...newSc, updatedAt: now };
-          return updated;
-        }
-        return [newSc, ...prev];
-      });
+      return;
     }
+
+    if (isDemoMode) {
+      const existing = sc.id ? localSubcontracts.find((item) => item.id === sc.id) : undefined;
+      const saved = buildLocalSubcontract(sc, lines, existing, existing?.companyId || null);
+      setLocalSubcontracts((prev) => {
+        const index = prev.findIndex((item) => item.id === saved.id);
+        return index >= 0 ? prev.map((item) => item.id === saved.id ? saved : item) : [saved, ...prev];
+      });
+      return;
+    }
+
+    const saved = await saveSubcontract(sc, lines);
+    setLocalSubcontracts((prev) => {
+      const index = prev.findIndex((item) => item.id === saved.id);
+      return index >= 0 ? prev.map((item) => item.id === saved.id ? saved : item) : [saved, ...prev];
+    });
   };
 
   const handleTransitionSubcontractInternal = async (
@@ -354,39 +355,57 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   ) => {
     if (onTransitionSubcontract) {
       await onTransitionSubcontract(id, targetStatus, reason);
-    } else {
-      const now = new Date().toISOString();
-      setLocalSubcontracts((prev) =>
-        prev.map((sc) =>
-          sc.id === id
-            ? {
-                ...sc,
-                status: targetStatus,
-                updatedAt: now,
-                ...(targetStatus === "APPROVED" ? { approvedAt: now } : {}),
-                ...(targetStatus === "ACTIVE" ? { activatedAt: now } : {}),
-                ...(targetStatus === "CLOSED" ? { closedAt: now } : {}),
-                ...(targetStatus === "CANCELLED" ? { cancelledAt: now, cancellationReason: reason || null } : {}),
-              }
-            : sc,
-        ),
-      );
+      return;
     }
+
+    if (isDemoMode) {
+      const current = localSubcontracts.find((item) => item.id === id);
+      if (!current) throw new Error("Subcontract not found");
+      const updated = applySubcontractTransition(current, targetStatus, reason);
+      setLocalSubcontracts((prev) => prev.map((item) => item.id === id ? updated : item));
+      return;
+    }
+
+    const updated = await transitionSubcontract(id, targetStatus, reason);
+    setLocalSubcontracts((prev) => prev.map((item) => item.id === updated.id ? updated : item));
   };
 
   const handleDeleteSubcontractInternal = async (id: string) => {
     if (onDeleteSubcontract) {
       await onDeleteSubcontract(id);
-    } else {
-      setLocalSubcontracts((prev) => prev.filter((sc) => sc.id !== id));
+      return;
+    }
+
+    if (!isDemoMode) await deleteDraftSubcontract(id);
+    setLocalSubcontracts((prev) => prev.filter((sc) => sc.id !== id));
+  };
+
+  const runSubcontractAction = async (id: string, action: () => Promise<void>, fallbackMessage: string) => {
+    setSubcontractActionId(id);
+    setSubcontractActionError(null);
+    try {
+      await action();
+    } catch (error) {
+      setSubcontractActionError(error instanceof Error ? error.message : fallbackMessage);
+      throw error;
+    } finally {
+      setSubcontractActionId(null);
     }
   };
 
+  const runSubcontractRowAction = (id: string, action: () => Promise<void>, fallbackMessage: string) => {
+    void runSubcontractAction(id, action, fallbackMessage).catch(() => undefined);
+  };
+
   // Purchase Order KPI Metrics
-  const activeCommittedTotal = useMemo(() => {
-    return filteredOrders
-      .filter((po) => isCommittedPurchaseOrder(po.status))
-      .reduce((sum, po) => sum + (Number(po.totalAmount) || 0), 0);
+  const activeCommittedPurchaseOrderTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const po of filteredOrders) {
+      if (!isCommittedPurchaseOrder(po.status)) continue;
+      const currency = String(po.currency || "PHP").trim().toUpperCase();
+      totals.set(currency, (totals.get(currency) || 0) + purchaseOrderTotal(po));
+    }
+    return [...totals.entries()].map(([currency, amount]) => [currency, Math.round(amount * 100) / 100] as const);
   }, [filteredOrders]);
 
   const poCounts = useMemo(() => {
@@ -691,6 +710,14 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     );
   };
 
+  if (!canRead) {
+    return (
+      <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm font-semibold text-amber-900">
+        Procurement records are not available for your current permission set.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -837,9 +864,17 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                 <ShoppingCart className="h-4 w-4" />
               </div>
               <div className="text-lg font-black text-slate-900 tabular-nums">
-                {formatMoney(activeCommittedTotal, selectedProject?.currency || "PHP")}
+                {activeCommittedPurchaseOrderTotals.length > 0 ? (
+                  <div className="space-y-0.5">
+                    {activeCommittedPurchaseOrderTotals.map(([currency, amount]) => (
+                      <div key={currency}>{formatMoney(amount, currency)}</div>
+                    ))}
+                  </div>
+                ) : (
+                  "—"
+                )}
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">Approved & Issued orders</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Approved &amp; Issued orders; currencies shown separately</div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1439,10 +1474,18 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                 <DollarSign className="h-4 w-4 text-blue-500" />
               </div>
               <div className="text-2xl font-black text-slate-900 tabular-nums">
-                {formatMoney(activeCommittedSubcontractsTotal, "PHP")}
+                {activeCommittedSubcontractTotals.length > 0 ? (
+                  <div className="space-y-0.5">
+                    {activeCommittedSubcontractTotals.map(([currency, amount]) => (
+                      <div key={currency}>{formatMoney(amount, currency)}</div>
+                    ))}
+                  </div>
+                ) : (
+                  "—"
+                )}
               </div>
               <div className="mt-1 text-[10px] text-slate-500">
-                Approved & Active liability
+                Approved & Active liability; currencies shown separately
               </div>
             </div>
 
@@ -1461,6 +1504,13 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
               </div>
             </div>
           </div>
+
+          {subcontractActionError && (
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{subcontractActionError}</span>
+            </div>
+          )}
 
           {/* Subcontracts Filters Bar */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -1513,14 +1563,14 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="px-4 py-3">Subcontract #</th>
-                      <th className="px-4 py-3">Vendor</th>
-                      <th className="px-4 py-3">Project</th>
-                      <th className="px-4 py-3">Scope Title</th>
-                      <th className="px-4 py-3 text-right">Amount (PHP)</th>
-                      <th className="px-4 py-3 text-center">Status</th>
-                      <th className="px-4 py-3">Schedule (Start - Target)</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                      <th scope="col" className="px-4 py-3">Subcontract #</th>
+                      <th scope="col" className="px-4 py-3">Vendor</th>
+                      <th scope="col" className="px-4 py-3">Project</th>
+                      <th scope="col" className="px-4 py-3">Scope Title</th>
+                      <th scope="col" className="px-4 py-3 text-right">Amount</th>
+                      <th scope="col" className="px-4 py-3 text-center">Status</th>
+                      <th scope="col" className="px-4 py-3">Schedule (Start - Target)</th>
+                      <th scope="col" className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1532,6 +1582,8 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                       const isApproved = sc.status === "APPROVED";
                       const isActive = sc.status === "ACTIVE";
                       const isTerminal = sc.status === "CLOSED" || sc.status === "CANCELLED";
+                      const isBusy = subcontractActionId !== null;
+                      const isApprovalReady = Boolean(sc.lines && sc.lines.length > 0) && subcontractTotal(sc) > 0;
 
                       return (
                         <tr key={sc.id} className="hover:bg-slate-50/80 transition-colors">
@@ -1611,6 +1663,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                               <button
                                 type="button"
                                 onClick={() => setActiveSubcontractModal(sc)}
+                                disabled={isBusy}
                                 className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
                               >
                                 {isDraft && canManage ? "Edit" : "View"}
@@ -1620,45 +1673,62 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                               {isDraft && canApprove && (
                                 <button
                                   type="button"
-                                  onClick={() => handleTransitionSubcontractInternal(sc.id, "APPROVED")}
-                                  className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition shadow-sm"
-                                  title="Approve Subcontract"
+                                  onClick={() => runSubcontractRowAction(sc.id, () => handleTransitionSubcontractInternal(sc.id, "APPROVED"), "Could not approve subcontract.")}
+                                  disabled={isBusy || !isApprovalReady}
+                                  className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  title={isApprovalReady ? "Approve Subcontract" : "Add a positive scope line before approval"}
+                                  aria-label={`Approve subcontract ${sc.subcontractNumber}`}
+                                  aria-busy={subcontractActionId === sc.id || undefined}
                                 >
-                                  Approve
+                                  {subcontractActionId === sc.id ? "Working…" : "Approve"}
                                 </button>
                               )}
 
                               {/* Activate */}
-                              {isApproved && canManage && (
+                              {isApproved && canApprove && (
                                 <button
                                   type="button"
-                                  onClick={() => handleTransitionSubcontractInternal(sc.id, "ACTIVE")}
-                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition shadow-sm"
-                                  title="Activate Commitment"
+                                  onClick={() => runSubcontractRowAction(sc.id, () => handleTransitionSubcontractInternal(sc.id, "ACTIVE"), "Could not activate subcontract.")}
+                                  disabled={isBusy}
+                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Activate Commitment (requires procurement.approve)"
+                                  aria-label={`Activate subcontract ${sc.subcontractNumber}`}
+                                  aria-busy={subcontractActionId === sc.id || undefined}
                                 >
-                                  Activate
+                                  {subcontractActionId === sc.id ? "Working…" : "Activate"}
                                 </button>
                               )}
 
                               {/* Close */}
-                              {isActive && canManage && (
+                              {isActive && canApprove && (
                                 <button
                                   type="button"
-                                  onClick={() => handleTransitionSubcontractInternal(sc.id, "CLOSED")}
-                                  className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition shadow-sm"
-                                  title="Close Subcontract"
+                                  onClick={() => {
+                                    if (typeof window !== "undefined" && !window.confirm(`Close subcontract ${sc.subcontractNumber}? It will become terminal and no longer contribute to committed cost.`)) return;
+                                    runSubcontractRowAction(sc.id, () => handleTransitionSubcontractInternal(sc.id, "CLOSED"), "Could not close subcontract.");
+                                  }}
+                                  disabled={isBusy}
+                                  className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Close Subcontract (requires procurement.approve)"
+                                  aria-label={`Close subcontract ${sc.subcontractNumber}`}
+                                  aria-busy={subcontractActionId === sc.id || undefined}
                                 >
-                                  Close
+                                  {subcontractActionId === sc.id ? "Working…" : "Close"}
                                 </button>
                               )}
 
                               {/* Cancel */}
-                              {!isTerminal && canManage && (
+                              {!isTerminal && canApprove && (
                                 <button
                                   type="button"
-                                  onClick={() => setCancellationSubcontract(sc)}
-                                  className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition shadow-sm"
-                                  title="Cancel Subcontract"
+                                  onClick={() => {
+                                    setSubcontractActionError(null);
+                                    setCancellationSubcontract(sc);
+                                  }}
+                                  disabled={isBusy}
+                                  className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Cancel Subcontract (requires procurement.approve)"
+                                  aria-label={`Cancel subcontract ${sc.subcontractNumber}`}
                                 >
                                   Cancel
                                 </button>
@@ -1670,11 +1740,13 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                                   type="button"
                                   onClick={() => {
                                     if (confirm(`Delete draft subcontract ${sc.subcontractNumber}?`)) {
-                                      handleDeleteSubcontractInternal(sc.id);
+                                      runSubcontractRowAction(sc.id, () => handleDeleteSubcontractInternal(sc.id), "Could not delete draft subcontract.");
                                     }
                                   }}
-                                  className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                                  disabled={isBusy}
+                                  className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition disabled:cursor-not-allowed disabled:opacity-50"
                                   title="Delete Draft"
+                                  aria-label={`Delete draft subcontract ${sc.subcontractNumber}`}
                                 >
                                   <X className="h-4 w-4" />
                                 </button>
@@ -1869,7 +1941,11 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           onClose={() => setCancellationSubcontract(null)}
           subcontract={cancellationSubcontract}
           onConfirm={async (id, reason) => {
-            await handleTransitionSubcontractInternal(id, "CANCELLED", reason);
+            await runSubcontractAction(
+              id,
+              () => handleTransitionSubcontractInternal(id, "CANCELLED", reason),
+              "Could not cancel subcontract.",
+            );
           }}
         />
       )}

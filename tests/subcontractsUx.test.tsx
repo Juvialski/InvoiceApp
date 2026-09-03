@@ -6,6 +6,7 @@ import { ProcurementPage } from "../src/components/procurement/ProcurementPage.t
 import { SubcontractEditorModal } from "../src/components/procurement/SubcontractEditorModal.tsx";
 import { SubcontractCancellationModal } from "../src/components/procurement/SubcontractCancellationModal.tsx";
 import { ProjectWorkspace } from "../src/components/projects/ProjectWorkspace.tsx";
+import { AppPermissionProvider } from "../src/app/AppPermissionContext.tsx";
 import { createDemoSubcontracts } from "../src/demo/data/procurement.ts";
 import { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";
 import { defaultDemoAnchorDate } from "../src/demo/data/demoDates.ts";
@@ -68,6 +69,7 @@ test("ProcurementPage renders navigation sub-tabs including Subcontracts with ba
       projects={mockProjects}
       vendors={mockVendors}
       costCodes={mockCostCodes}
+      canRead={true}
       subcontracts={demoSubcontracts}
       onSavePO={async () => {}}
       onTransitionPO={async () => {}}
@@ -148,27 +150,29 @@ test("SubcontractCancellationModal renders danger confirmation with reason requi
 test("ProjectWorkspace passes down subcontracts prop to ProcurementPage", () => {
   const project = mockProjects[0];
   const markup = renderToStaticMarkup(
-    <ProjectWorkspace
-      project={project}
-      summary={{
-        actualCost: 100000,
-        committedCost: 500000,
-        contractValue: 18437650,
-        projectBudget: 15320000,
-      } as any}
-      invoices={[]}
-      invoiceAllocations={[]}
-      expenses={[]}
-      subcontracts={demoSubcontracts}
-      initialTab="procurement"
-      costCodes={mockCostCodes}
-      onBack={() => {}}
-      onOpenInvoice={() => {}}
-      onUploadInvoice={() => {}}
-      onEditProject={() => {}}
-      onArchiveProject={() => {}}
-      onSaveInvoiceAllocations={async () => {}}
-    />,
+    <AppPermissionProvider permissions={["*"]}>
+      <ProjectWorkspace
+        project={project}
+        summary={{
+          actualCost: 100000,
+          committedCost: 500000,
+          contractValue: 18437650,
+          projectBudget: 15320000,
+        } as any}
+        invoices={[]}
+        invoiceAllocations={[]}
+        expenses={[]}
+        subcontracts={demoSubcontracts}
+        initialTab="procurement"
+        costCodes={mockCostCodes}
+        onBack={() => {}}
+        onOpenInvoice={() => {}}
+        onUploadInvoice={() => {}}
+        onEditProject={() => {}}
+        onArchiveProject={() => {}}
+        onSaveInvoiceAllocations={async () => {}}
+      />
+    </AppPermissionProvider>,
   );
 
   assert.match(markup, /Subcontracts/);

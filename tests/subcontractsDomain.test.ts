@@ -18,6 +18,8 @@ import {
   calculateProjectCost,
   calculateProjectBudgetControl,
 } from "../src/utils/projectCosting.ts";
+import { buildProjectDashboardViewData } from "../src/utils/projectDashboardViewModel.ts";
+import { buildDashboardViewData } from "../src/utils/dashboardViewModel.ts";
 
 function sampleSubcontract(overrides: Partial<Subcontract> = {}): Subcontract {
   return {
@@ -127,6 +129,19 @@ test("subcontractTotal falls back to quantity * unitRate if amount is null or mi
 test("subcontractTotal falls back to originalAmount if lines array is empty", () => {
   const sc = sampleSubcontract({ lines: [], originalAmount: 750_000 });
   assert.equal(subcontractTotal(sc), 750_000);
+});
+
+test("subcontractTotal never turns malformed negative line data into negative commitment", () => {
+  const sc = sampleSubcontract({
+    lines: [{
+      id: "scl-negative",
+      subcontractId: "sc-1",
+      lineNumber: 1,
+      description: "Malformed imported line",
+      amount: -50,
+    }],
+  });
+  assert.equal(subcontractTotal(sc), 0);
 });
 
 test("isCommittedSubcontract returns true ONLY for APPROVED and ACTIVE statuses", () => {
@@ -396,4 +411,65 @@ test("calculateProjectBudgetControl classifies subcontract lines to matched proj
   assert.equal(budgetControl.codedCommittedCost, 600_000);
   assert.equal(budgetControl.uncodedCommittedCost, 100_000);
   assert.equal(budgetControl.totalCommittedCost, 700_000);
+});
+
+test("project dashboard uses the same PO plus subcontract commitment predicate", () => {
+  const dashboard = buildProjectDashboardViewData({
+    project: mockProject,
+    invoices: [],
+    expenses: [],
+    payroll: [],
+    purchaseOrders: [{
+      id: "po-dashboard",
+      poNumber: "PO-DASHBOARD",
+      vendorId: "vendor-po",
+      projectId: mockProject.id,
+      currency: "PHP",
+      status: "APPROVED",
+      totalAmount: 100_000,
+      lines: [],
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-01",
+    }],
+    subcontracts: [sampleSubcontract({ status: "ACTIVE", originalAmount: 250_000, lines: [] })],
+  });
+
+  assert.equal(dashboard.committed, 350_000);
+  assert.equal(dashboard.availableAfterCommitments, 7_150_000);
+  assert.equal(dashboard.excess, 0);
+});
+
+test("executive dashboard keeps committed cost separate from pending exposure", () => {
+  const purchaseOrder: PurchaseOrder = {
+    id: "po-executive-dashboard",
+    poNumber: "PO-EXECUTIVE",
+    vendorId: "vendor-po",
+    projectId: mockProject.id,
+    currency: "PHP",
+    status: "ISSUED",
+    totalAmount: 125_000,
+    lines: [],
+    createdAt: "2026-01-01",
+    updatedAt: "2026-01-01",
+  };
+  const dashboard = buildDashboardViewData({
+    projects: [mockProject],
+    invoices: [],
+    expenses: [],
+    payroll: [],
+    periods: [],
+    workers: [],
+    payrollEntries: [],
+    payrollAllocations: [],
+    payrollRuns: [],
+    purchaseOrders: [purchaseOrder],
+    subcontracts: [sampleSubcontract({ status: "APPROVED", originalAmount: 75_000, lines: [] })],
+    activityPeriod: "YEAR",
+    selectedCurrency: "PHP",
+  });
+
+  assert.equal(dashboard.committedProjectCost, 200_000);
+  assert.equal(dashboard.pendingProjectCost, 0);
+  assert.equal(dashboard.projectRows[0]?.committed, 200_000);
+  assert.equal(dashboard.availableAfterCommitments, 7_300_000);
 });

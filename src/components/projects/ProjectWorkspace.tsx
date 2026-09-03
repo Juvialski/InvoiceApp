@@ -356,6 +356,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           invoiceAllocations={invoiceAllocations}
           expenses={expenses}
           purchaseOrders={purchaseOrders}
+          subcontracts={subcontracts ? subcontracts.filter((s) => s.projectId === project.id) : []}
           payrollAllocations={payrollAllocations}
           payrollPeriods={payrollPeriods}
           projectLaborAggregates={budgetControlLaborAggregate}

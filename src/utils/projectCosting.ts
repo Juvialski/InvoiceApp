@@ -252,7 +252,7 @@ export function purchaseOrderTotal(po: Pick<PurchaseOrder, "totalAmount" | "line
   if (po.lines && po.lines.length > 0) {
     return roundMoney(
       po.lines.reduce(
-        (sum, line) => sum + roundMoney(line.amount != null && Number.isFinite(Number(line.amount)) ? Number(line.amount) : (Number(line.quantity || 0) * Number(line.unitPrice || 0))),
+        (sum, line) => sum + positiveMoney(line.amount != null && Number.isFinite(Number(line.amount)) ? Number(line.amount) : (Number(line.quantity || 0) * Number(line.unitPrice || 0))),
         0,
       ),
     );
@@ -280,7 +280,7 @@ export function subcontractTotal(sc: Pick<Subcontract, "originalAmount" | "lines
       sc.lines.reduce(
         (sum, line) =>
           sum +
-          roundMoney(
+          positiveMoney(
             line.amount != null && Number.isFinite(Number(line.amount))
               ? Number(line.amount)
               : (Number(line.quantity || 0) * Number(line.unitRate || 0)),
@@ -428,7 +428,8 @@ function linkedSourceOwners(projectId: string | undefined, input: ProjectCostInp
 /**
  * Central project-cost semantics. Verified invoice allocations are confirmed
  * regardless of payment status; payment only affects the separate paid and
- * payable fields. All numeric totals are kept in the requested currency.
+ * payable fields. Approved PO and subcontract obligations are committed cost,
+ * never actual cost. All numeric totals are kept in the requested currency.
  */
 export function calculateProjectCost(
   project: Pick<Project, "id" | "projectBudget" | "currency"> | undefined,
@@ -757,7 +758,7 @@ export interface ProjectBudgetControlSummary {
 }
 
 /**
- * P1B Budget Control Aggregation & P2A Procurement Commitment Integration.
+ * P1B Budget Control Aggregation & P2A/P2B Procurement Commitment Integration.
  * Classifies authoritative actual costs, pending exposure, and purchase order commitments into project cost codes.
  *
  * Guarantees:
@@ -765,7 +766,8 @@ export interface ProjectBudgetControlSummary {
  *   codedActualCost + uncodedActualCost === totalActualCost
  * - Deduplication via linkedSourceOwners applies first before classification.
  * - Non-confirmed invoices, unapproved payroll, and voided expenses are excluded from actual cost.
- * - Committed cost is derived from active approved/issued purchase orders (status APPROVED or ISSUED).
+ * - Committed cost is derived only from APPROVED/ISSUED purchase orders plus APPROVED/ACTIVE subcontracts;
+ *   DRAFT, CLOSED, and CANCELLED commitment records contribute zero.
  * - Explicit forecast variance = budgetAmount - forecastAmount. If forecast is null -> "Not set".
  * - Unconverted foreign currency costs are kept in foreignCosts without implicit FX conversion.
  */

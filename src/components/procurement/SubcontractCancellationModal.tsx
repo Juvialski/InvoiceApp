@@ -1,4 +1,4 @@
-import React, { useId, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import { AlertTriangle, Ban, X } from "lucide-react";
 import type { Subcontract } from "../../types.ts";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
@@ -17,10 +17,23 @@ export const SubcontractCancellationModal: React.FC<SubcontractCancellationModal
   onConfirm,
 }) => {
   const titleId = useId();
-  const dialogRef = useDialogFocus({ open: isOpen, onClose });
+  const reasonId = useId();
+  const warningId = useId();
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setReason("");
+    setError(null);
+    setIsSubmitting(false);
+  }, [isOpen, subcontract?.id]);
+
+  const handleClose = () => {
+    if (!isSubmitting) onClose();
+  };
+  const dialogRef = useDialogFocus({ open: isOpen, onClose: handleClose });
 
   if (!isOpen || !subcontract) return null;
 
@@ -47,7 +60,7 @@ export const SubcontractCancellationModal: React.FC<SubcontractCancellationModal
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-150"
       role="presentation"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) onClose();
+        if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div
@@ -55,6 +68,7 @@ export const SubcontractCancellationModal: React.FC<SubcontractCancellationModal
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={warningId}
         className="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-rose-100 overflow-hidden animate-in zoom-in-95 duration-150"
       >
         {/* Header */}
@@ -74,7 +88,7 @@ export const SubcontractCancellationModal: React.FC<SubcontractCancellationModal
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSubmitting}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-slate-600 transition disabled:opacity-50"
             aria-label="Close dialog"
@@ -85,24 +99,24 @@ export const SubcontractCancellationModal: React.FC<SubcontractCancellationModal
 
         {/* Body */}
         <div className="px-6 py-5 space-y-4">
-          <div className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-4 text-xs text-rose-800 leading-relaxed">
+          <div id={warningId} className="rounded-xl border border-rose-200/80 bg-rose-50/50 p-4 text-xs text-rose-800 leading-relaxed">
             <p className="font-semibold text-rose-900 mb-1">Warning: Consequential Action</p>
             Cancelling this subcontract will immediately terminate its operational commitment.
-            Cancelled subcontracts cannot be re-activated or transitioned again. All related committed costs will be voided in project costing.
+            Cancelled subcontracts cannot be re-activated or transitioned again. Its commitment will be released from project costing while the cancelled record remains auditable.
           </div>
 
           {error && (
-            <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-medium text-rose-700">
+            <div role="alert" aria-live="assertive" className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-medium text-rose-700">
               {error}
             </div>
           )}
 
           <div>
-            <label htmlFor="cancellation-reason" className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label htmlFor={reasonId} className="block text-xs font-bold text-slate-700 mb-1.5">
               Cancellation Reason <span className="text-rose-500">*</span>
             </label>
             <textarea
-              id="cancellation-reason"
+              id={reasonId}
               rows={3}
               value={reason}
               onChange={(e) => {
@@ -120,7 +134,7 @@ export const SubcontractCancellationModal: React.FC<SubcontractCancellationModal
         <div className="flex items-center justify-end gap-3 border-t border-slate-200/80 bg-slate-50 px-6 py-4">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={isSubmitting}
             className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition disabled:opacity-50"
           >

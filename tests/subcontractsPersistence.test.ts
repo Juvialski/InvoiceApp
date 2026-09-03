@@ -8,9 +8,12 @@ import {
   transitionSubcontract,
   deleteDraftSubcontract,
   clearSubcontractMemoryStore,
+  fetchSubcontracts,
+  applySubcontractTransition,
   subcontractFromRow,
   subcontractLineFromRow,
 } from "../src/lib/subcontracts.ts";
+import { clearCompanyContext, setActiveCompanyId } from "../src/lib/companyContext.ts";
 
 function createMockStorage(): Storage {
   const store = new Map<string, string>();
@@ -309,4 +312,94 @@ test("deleteDraftSubcontract deletes draft but throws on non-draft subcontract",
     },
     { message: /Only draft subcontracts may be deleted/ },
   );
+});
+
+test("local subcontract persistence rejects injected status, invalid transitions, and duplicate references", async () => {
+  clearSubcontractMemoryStore();
+
+  await assert.rejects(
+    () => saveSubcontract(
+      { subcontractNumber: "SC-DATE-001", vendorId: "vendor-1", projectId: "project-1", title: "Invalid dates", startDate: "2026-03-10", targetCompletionDate: "2026-03-09" },
+      [{ description: "Scope", amount: 100 }],
+    ),
+    { message: /Target completion date cannot be before the start date/ },
+  );
+
+  await assert.rejects(
+    () => saveSubcontract(
+      { subcontractNumber: "SC-STATUS-001", vendorId: "vendor-1", projectId: "project-1", title: "Injected approval", status: "APPROVED" },
+      [{ description: "Scope", amount: 100 }],
+    ),
+    { message: /saved as DRAFT/ },
+  );
+
+  const draft = await saveSubcontract(
+    { subcontractNumber: "SC-STATUS-001", vendorId: "vendor-1", projectId: "project-1", title: "Guarded scope" },
+    [{ description: "Scope", amount: 100 }],
+  );
+
+  await assert.rejects(
+    () => saveSubcontract(
+      { subcontractNumber: "sc-status-001", vendorId: "vendor-2", projectId: "project-2", title: "Duplicate reference" },
+      [{ description: "Scope", amount: 50 }],
+    ),
+    { message: /already exists in company/ },
+  );
+
+  await assert.rejects(
+    () => transitionSubcontract(draft.id, "ACTIVE"),
+    { message: /Draft subcontracts can only be approved or cancelled/ },
+  );
+
+  const emptyDraft = await saveSubcontract(
+    { subcontractNumber: "SC-STATUS-002", vendorId: "vendor-1", projectId: "project-1", title: "Zero scope" },
+    [{ description: "Zero value scope", amount: 0 }],
+  );
+  await assert.rejects(
+    () => transitionSubcontract(emptyDraft.id, "APPROVED"),
+    { message: /original amount must be positive/ },
+  );
+});
+
+test("local fallback is deployment-company scoped and preserves other company records", async () => {
+  clearSubcontractMemoryStore();
+  clearCompanyContext();
+  setActiveCompanyId("company-a");
+  const companyA = await saveSubcontract(
+    { subcontractNumber: "SC-COMPANY-A", vendorId: "vendor-a", projectId: "project-a", title: "Company A scope" },
+    [{ description: "A scope", amount: 10 }],
+  );
+
+  clearCompanyContext();
+  setActiveCompanyId("company-b");
+  const companyB = await saveSubcontract(
+    { subcontractNumber: "SC-COMPANY-B", vendorId: "vendor-b", projectId: "project-b", title: "Company B scope" },
+    [{ description: "B scope", amount: 20 }],
+  );
+
+  assert.deepEqual((await fetchSubcontracts()).map((item) => item.id), [companyB.id]);
+  await assert.rejects(
+    () => transitionSubcontract(companyA.id, "APPROVED"),
+    { message: /Subcontract not found/ },
+  );
+
+  clearCompanyContext();
+  assert.deepEqual((await fetchSubcontracts()).map((item) => item.id), [companyB.id, companyA.id]);
+  clearSubcontractMemoryStore();
+});
+
+test("shared local transition helper enforces approval and cancellation guards", () => {
+  const base: Subcontract = {
+    id: "sc-helper",
+    subcontractNumber: "SC-HELPER",
+    vendorId: "vendor-1",
+    projectId: "project-1",
+    title: "Helper scope",
+    currency: "PHP",
+    status: "DRAFT",
+    originalAmount: 100,
+    lines: [{ id: "line-1", subcontractId: "sc-helper", lineNumber: 1, description: "Scope", amount: 100 }],
+  };
+  assert.equal(applySubcontractTransition(base, "APPROVED", undefined, "2026-01-01T00:00:00Z").status, "APPROVED");
+  assert.throws(() => applySubcontractTransition(base, "CANCELLED"), /Cancellation reason is required/);
 });

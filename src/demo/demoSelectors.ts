@@ -50,7 +50,13 @@ function demoDashboardPayroll(data: DemoWorkspaceData) {
 export function buildDemoProjectSummaries(data: DemoWorkspaceData): Record<string, ProjectCostSummary> {
   const invoices = demoCostInvoices(data);
   const payroll = demoCostPayroll(data);
-  return Object.fromEntries(data.projects.map((project) => [project.id, calculateProjectCost(project, { invoices, expenses: data.expenses, payroll })]));
+  return Object.fromEntries(data.projects.map((project) => [project.id, calculateProjectCost(project, {
+    invoices,
+    expenses: data.expenses,
+    payroll,
+    purchaseOrders: data.purchaseOrders,
+    subcontracts: data.subcontracts,
+  })]));
 }
 
 export function buildDemoDashboard(data: DemoWorkspaceData, options?: { activityPeriod?: DashboardActivityPeriod; selectedProjectId?: string; selectedCurrency?: string; customStart?: string; customEnd?: string }): DashboardViewData {
@@ -59,6 +65,8 @@ export function buildDemoDashboard(data: DemoWorkspaceData, options?: { activity
     invoices: data.invoices.map((invoice) => ({ ...invoice, allocations: data.invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id) })),
     expenses: data.expenses,
     payroll: demoDashboardPayroll(data),
+    purchaseOrders: data.purchaseOrders,
+    subcontracts: data.subcontracts,
     periods: data.payroll.periods,
     workers: data.payroll.workers,
     payrollEntries: data.payroll.entries,
@@ -82,6 +90,8 @@ export function buildDemoProjectDashboard(data: DemoWorkspaceData, projectId: st
     invoices: demoCostInvoices(data),
     expenses: data.expenses,
     payroll: demoCostPayroll(data),
+    purchaseOrders: data.purchaseOrders,
+    subcontracts: data.subcontracts,
     periods: data.payroll.periods,
     today: data.anchorDate,
   });

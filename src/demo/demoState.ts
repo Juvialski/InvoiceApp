@@ -15,6 +15,7 @@ import type {
   PayrollRun,
   Project,
   ProjectWorkerAssignment,
+  Subcontract,
   Worker,
   WorkEntry,
 } from "../types.ts";
@@ -24,6 +25,7 @@ import { DEMO_COMPANY_ID, type DemoPreparedAssistantAction, type DemoWorkspaceDa
 import { assignmentDependencySummary, assignmentForLifecycle, componentForLifecycle, isCompensationProfileConsumed, isRecurringComponentConsumed, profileForLifecycle, workerDependencySummary, workerForLifecycle, type PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction } from "../lib/projects.ts";
 import type { FinancialCorrectionAction } from "../lib/financialLifecycle.ts";
+import { applySubcontractTransition } from "../lib/subcontracts.ts";
 
 export type DemoWorkspaceMutation =
   | { type: "SAVE_PROJECT"; value: Project }
@@ -35,6 +37,9 @@ export type DemoWorkspaceMutation =
   | { type: "FINANCIAL_CORRECTION"; entity: "INVOICE" | "EXPENSE"; id: string; action: FinancialCorrectionAction; reason?: string }
   | { type: "SAVE_INVOICE_ALLOCATIONS"; invoiceId: string; value: InvoiceProjectAllocation[] }
   | { type: "SAVE_EXPENSE"; value: Expense }
+  | { type: "SAVE_SUBCONTRACT"; value: Subcontract }
+  | { type: "TRANSITION_SUBCONTRACT"; id: string; targetStatus: Subcontract["status"]; reason?: string }
+  | { type: "DELETE_SUBCONTRACT"; id: string }
   | { type: "SAVE_WORKER"; value: Worker }
   | { type: "SAVE_ASSIGNMENT"; value: ProjectWorkerAssignment }
   | { type: "SAVE_COMPENSATION_PROFILE"; value: WorkerCompensationProfile }
@@ -83,6 +88,8 @@ function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: Project)
     engineeringRfis: state.coordination.rfis.filter((rfi) => rfi.projectId === project.id).length,
     engineeringSubmittals: state.coordination.submittals.filter((submittal) => submittal.projectId === project.id).length,
     engineeringDailySiteLogs: state.siteLogs.logs.filter((log) => log.projectId === project.id).length,
+    purchaseOrders: (state.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
+    subcontracts: (state.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
   });
 }
 
@@ -130,6 +137,26 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, invoiceAllocations: [...state.invoiceAllocations.filter((allocation) => allocation.invoiceId !== mutation.invoiceId), ...mutation.value] };
     case "SAVE_EXPENSE":
       return { ...state, expenses: upsert(state.expenses, mutation.value) };
+    case "SAVE_SUBCONTRACT": {
+      const existing = (state.subcontracts || []).find((subcontract) => subcontract.id === mutation.value.id);
+      if (existing && existing.status !== "DRAFT") return state;
+      return { ...state, subcontracts: upsert(state.subcontracts || [], mutation.value) };
+    }
+    case "TRANSITION_SUBCONTRACT": {
+      const current = (state.subcontracts || []).find((subcontract) => subcontract.id === mutation.id);
+      if (!current) return state;
+      try {
+        const updated = applySubcontractTransition(current, mutation.targetStatus, mutation.reason, demoTimestamp(state.anchorDate, 16, 30));
+        return { ...state, subcontracts: (state.subcontracts || []).map((subcontract) => subcontract.id === current.id ? updated : subcontract) };
+      } catch {
+        return state;
+      }
+    }
+    case "DELETE_SUBCONTRACT": {
+      const current = (state.subcontracts || []).find((subcontract) => subcontract.id === mutation.id);
+      if (!current || current.status !== "DRAFT") return state;
+      return { ...state, subcontracts: (state.subcontracts || []).filter((subcontract) => subcontract.id !== mutation.id) };
+    }
     case "SAVE_WORKER":
       return { ...state, payroll: { ...state.payroll, workers: upsert(state.payroll.workers, mutation.value) } };
     case "SAVE_ASSIGNMENT":

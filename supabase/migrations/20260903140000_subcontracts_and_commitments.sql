@@ -35,12 +35,18 @@ create table if not exists public.subcontracts (
   activated_at timestamptz,
   closed_at timestamptz,
   cancelled_at timestamptz,
+  constraint subcontracts_completion_after_start_check
+    check (target_completion_date is null or start_date is null or target_completion_date >= start_date),
   constraint subcontracts_company_id_id_key unique (company_id, id),
   constraint subcontracts_company_project_id_key unique (company_id, project_id, id)
 );
 
 create unique index if not exists subcontracts_company_subcontract_number_unique
   on public.subcontracts (company_id, lower(subcontract_number));
+create index if not exists subcontracts_project_id_fk_idx
+  on public.subcontracts (project_id);
+create index if not exists subcontracts_vendor_id_fk_idx
+  on public.subcontracts (vendor_id);
 create index if not exists subcontracts_company_project_status_idx
   on public.subcontracts (company_id, project_id, status, updated_at desc);
 create index if not exists subcontracts_company_vendor_idx
@@ -48,10 +54,26 @@ create index if not exists subcontracts_company_vendor_idx
 create index if not exists subcontracts_company_status_idx
   on public.subcontracts (company_id, status, updated_at desc);
 
+-- Keep the newly introduced check constraint safe to reapply if an earlier
+-- attempt created the table but did not finish the migration transaction.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.subcontracts'::regclass
+      and conname = 'subcontracts_completion_after_start_check'
+  ) then
+    alter table public.subcontracts
+      add constraint subcontracts_completion_after_start_check
+      check (target_completion_date is null or start_date is null or target_completion_date >= start_date);
+  end if;
+end $$;
+
 create table if not exists public.subcontract_lines (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete restrict,
-  subcontract_id uuid not null references public.subcontracts(id) on delete cascade,
+  subcontract_id uuid not null,
   line_number integer not null default 1 check (line_number >= 1),
   description text not null check (length(btrim(description)) between 1 and 500),
   amount numeric(18,2) not null default 0 check (amount >= 0),
@@ -62,13 +84,37 @@ create table if not exists public.subcontract_lines (
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint subcontract_lines_company_sc_line_key unique (company_id, subcontract_id, line_number)
+  constraint subcontract_lines_company_sc_line_key unique (company_id, subcontract_id, line_number),
+  constraint subcontract_lines_company_subcontract_fk
+    foreign key (company_id, subcontract_id)
+    references public.subcontracts(company_id, id) on delete cascade
 );
 
 create index if not exists subcontract_lines_company_sc_idx
   on public.subcontract_lines (company_id, subcontract_id, line_number asc);
+create index if not exists subcontract_lines_project_cost_code_id_fk_idx
+  on public.subcontract_lines (project_cost_code_id)
+  where project_cost_code_id is not null;
 create index if not exists subcontract_lines_cost_code_idx
   on public.subcontract_lines (company_id, project_cost_code_id);
+
+-- The inline declaration covers a clean install; this guard also repairs a
+-- partially applied earlier version without relying on ADD CONSTRAINT IF NOT
+-- EXISTS, which PostgreSQL does not support.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.subcontract_lines'::regclass
+      and conname = 'subcontract_lines_company_subcontract_fk'
+  ) then
+    alter table public.subcontract_lines
+      add constraint subcontract_lines_company_subcontract_fk
+      foreign key (company_id, subcontract_id)
+      references public.subcontracts(company_id, id) on delete cascade;
+  end if;
+end $$;
 
 -- 2. Tenant policy catalog registration & RLS
 insert into private.company_tenant_policy_catalog (table_name, read_permission, write_permission, allow_insert, allow_update, allow_delete)
@@ -97,6 +143,7 @@ declare
   v_vendor_company_id uuid;
   v_has_manage boolean;
   v_has_approve boolean;
+  v_lines_total numeric(18,2);
 begin
   if v_user_id is null then
     raise exception 'Authentication is required for subcontract activity' using errcode = '42501';
@@ -105,7 +152,8 @@ begin
   select p.company_id, p.status, p.archived_at
     into v_project_company_id, v_project_status, v_project_archived_at
   from public.projects p
-  where p.id = new.project_id;
+  where p.id = new.project_id
+  for key share;
 
   if v_project_company_id is null then
     raise exception 'Subcontract requires an existing project' using errcode = '23503';
@@ -139,6 +187,12 @@ begin
       raise exception 'Subcontracts must be created as DRAFT and transitioned through the guarded lifecycle' using errcode = '42501';
     end if;
 
+    -- These fields are database-owned provenance/derived values. A client may
+    -- provide them in a direct table INSERT, but cannot backdate or pre-load a
+    -- draft commitment total.
+    new.created_at := now();
+    new.updated_at := now();
+    new.original_amount := 0;
     new.created_by_user_id := v_user_id;
     new.updated_by_user_id := v_user_id;
     new.approved_by_user_id := null;
@@ -163,6 +217,16 @@ begin
   if new.status is not distinct from old.status then
     if not v_has_manage then
       raise exception 'Unauthorized to edit subcontracts' using errcode = '42501';
+    end if;
+    if new.original_amount is distinct from old.original_amount then
+      select coalesce(sum(scl.amount), 0)
+        into v_lines_total
+      from public.subcontract_lines scl
+      where scl.subcontract_id = old.id and scl.company_id = old.company_id;
+
+      if new.original_amount is distinct from v_lines_total then
+        raise exception 'Subcontract original amount must equal the line-item total' using errcode = '23514';
+      end if;
     end if;
     if old.status <> 'DRAFT' and (
       new.subcontract_number is distinct from old.subcontract_number or
@@ -222,6 +286,14 @@ begin
   end if;
 
   if new.status = 'APPROVED' then
+    select coalesce(sum(scl.amount), 0)
+      into v_lines_total
+    from public.subcontract_lines scl
+    where scl.subcontract_id = old.id and scl.company_id = old.company_id;
+
+    if new.original_amount is distinct from v_lines_total then
+      raise exception 'Subcontract original amount must equal the line-item total' using errcode = '23514';
+    end if;
     if not exists (
       select 1 from public.subcontract_lines scl
       where scl.subcontract_id = old.id and scl.company_id = old.company_id
@@ -301,12 +373,25 @@ declare
   v_sc_company_id uuid;
   v_sc_project_id uuid;
   v_sc_status text;
+  v_project_company_id uuid;
+  v_project_status text;
+  v_project_archived_at timestamptz;
   v_cost_code_status text;
 begin
   if tg_op = 'DELETE' then
-    select sc.company_id, sc.status into v_sc_company_id, v_sc_status
+    select sc.company_id, sc.project_id, sc.status
+      into v_sc_company_id, v_sc_project_id, v_sc_status
     from public.subcontracts sc
-    where sc.id = old.subcontract_id;
+    where sc.id = old.subcontract_id
+    for update;
+
+    if v_sc_company_id is not null and v_sc_company_id is distinct from old.company_id then
+      raise exception 'Subcontract line is outside the company' using errcode = '42501';
+    end if;
+    if (select auth.uid()) is null
+       or not (select public.has_company_permission(coalesce(v_sc_company_id, old.company_id), 'procurement.manage')) then
+      raise exception 'Unauthorized to modify subcontract lines' using errcode = '42501';
+    end if;
 
     if v_sc_status is not null and v_sc_status <> 'DRAFT' then
       raise exception 'Cannot delete lines from a non-draft subcontract' using errcode = '42501';
@@ -317,13 +402,18 @@ begin
   select sc.company_id, sc.project_id, sc.status
     into v_sc_company_id, v_sc_project_id, v_sc_status
   from public.subcontracts sc
-  where sc.id = new.subcontract_id;
+  where sc.id = new.subcontract_id
+  for update;
 
   if v_sc_company_id is null then
     raise exception 'Subcontract line requires an existing subcontract' using errcode = '23503';
   end if;
   if v_sc_company_id is distinct from new.company_id then
     raise exception 'Subcontract line is outside the company' using errcode = '42501';
+  end if;
+  if (select auth.uid()) is null
+     or not (select public.has_company_permission(new.company_id, 'procurement.manage')) then
+    raise exception 'Unauthorized to modify subcontract lines' using errcode = '42501';
   end if;
 
   if tg_op = 'INSERT' and v_sc_status <> 'DRAFT' then
@@ -339,6 +429,25 @@ begin
     end if;
   end if;
 
+  -- Project lifecycle and cost-code status changes lock in project-then-code
+  -- order. Use a locking read so a line cannot rely on a stale ACTIVE project
+  -- or cost code after a concurrent archival transaction commits.
+  select p.company_id, p.status, p.archived_at
+    into v_project_company_id, v_project_status, v_project_archived_at
+  from public.projects p
+  where p.id = v_sc_project_id
+  for share;
+
+  if v_project_company_id is null then
+    raise exception 'Subcontract line requires an existing project' using errcode = '23503';
+  end if;
+  if v_project_company_id is distinct from new.company_id then
+    raise exception 'Subcontract line project is outside the company' using errcode = '42501';
+  end if;
+  if v_project_status = 'ARCHIVED' or v_project_archived_at is not null then
+    raise exception 'Archived projects cannot receive subcontract activity' using errcode = '42501';
+  end if;
+
   if new.quantity is not null and new.unit_rate is not null and (new.amount is null or new.amount = 0) then
     new.amount := round(new.quantity * new.unit_rate, 2);
   else
@@ -350,7 +459,8 @@ begin
     from public.project_cost_codes cc
     where cc.id = new.project_cost_code_id
       and cc.project_id = v_sc_project_id
-      and cc.company_id = new.company_id;
+      and cc.company_id = new.company_id
+    for share;
 
     if v_cost_code_status is null then
       raise exception 'Cost code does not belong to the same project and company' using errcode = '42501';
@@ -358,6 +468,13 @@ begin
     if v_cost_code_status <> 'ACTIVE' and (tg_op = 'INSERT' or old.project_cost_code_id is distinct from new.project_cost_code_id) then
       raise exception 'Archived cost codes cannot receive new subcontract line assignments' using errcode = '42501';
     end if;
+  end if;
+
+  if tg_op = 'INSERT' then
+    new.created_at := now();
+    new.updated_at := now();
+  elsif new.created_at is distinct from old.created_at then
+    raise exception 'Subcontract line creation provenance is immutable' using errcode = '42501';
   end if;
 
   return new;
@@ -384,6 +501,11 @@ begin
   else
     v_sc_id := new.subcontract_id;
     v_company_id := new.company_id;
+  end if;
+
+  if (select auth.uid()) is null
+     or not (select public.has_company_permission(v_company_id, 'procurement.manage')) then
+    raise exception 'Unauthorized to recalculate subcontract totals' using errcode = '42501';
   end if;
 
   select coalesce(sum(scl.amount), 0)
@@ -498,6 +620,7 @@ create policy subcontract_lines_company_delete on public.subcontract_lines
   for delete to authenticated
   using ((select public.has_company_permission(company_id, 'procurement.manage')));
 
+revoke all on table public.subcontracts, public.subcontract_lines from public, anon;
 grant select, insert, update, delete on table public.subcontracts to authenticated;
 grant select, insert, update, delete on table public.subcontract_lines to authenticated;
 
@@ -659,7 +782,7 @@ begin
   if not (select public.has_company_permission(v_company_id, 'procurement.approve')) then
     raise exception 'Unauthorized to change subcontract lifecycle status' using errcode = '42501';
   end if;
-  if v_target_status not in ('APPROVED', 'ACTIVE', 'CLOSED', 'CANCELLED') then
+  if v_target_status is null or v_target_status not in ('APPROVED', 'ACTIVE', 'CLOSED', 'CANCELLED') then
     raise exception 'Invalid target status: %', v_target_status using errcode = '22023';
   end if;
 
@@ -749,6 +872,7 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_user_id uuid := (select auth.uid());
   v_project public.projects;
   v_invoice_allocations bigint;
   v_expenses bigint;
@@ -771,6 +895,17 @@ declare
   v_can_delete boolean;
   v_can_reactivate boolean;
 begin
+  if v_user_id is null
+     or p_company_id is null
+     or p_company_id is distinct from (select private.deployment_company_id())
+     or not (
+       (select private.has_company_permission(p_company_id, 'projects.read'))
+       or (select private.has_company_permission(p_company_id, 'projects.manage'))
+     ) then
+    raise exception 'The current user is not authorized for project lifecycle preflight'
+      using errcode = '42501';
+  end if;
+
   select p.*
     into v_project
   from public.projects p
