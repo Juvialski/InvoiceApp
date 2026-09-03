@@ -21,10 +21,11 @@ The default flow is:
 
 Use `agent:context` before broad exploration for substantial scoped work.
 
-Example:
+Examples:
 
 ```text
-npm.cmd run agent:context -- --task "procurement purchase-order approval" --domain finance --hops 1 --budget 10000
+npm.cmd run agent:context -- --task "purchase order approval" --domain procurement --hops 1 --budget 10000
+npm.cmd run agent:context -- --task "subcontract variations" --domain commercial --hops 1 --budget 10000
 ```
 
 Useful selectors:
@@ -33,7 +34,7 @@ Useful selectors:
 --task <objective>
 --query <workflow keywords>
 --node <exact workflow node>
---domain <platform-tenancy|dashboard|projects|engineering|finance|workforce|reporting|assistant>
+--domain <platform-tenancy|dashboard|projects|procurement|commercial|engineering|finance|workforce|reporting|assistant>
 --route <route id or path>
 --file <repo path>
 --changed
@@ -54,6 +55,20 @@ The packet combines, within a hard character budget:
 - required verification reminders.
 
 Default packet budget is 12,000 characters. Normal task prompts should target 8,000-12,000 characters. Increase context only for a named unresolved dependency or safety boundary.
+
+### Workflow-map coverage gaps
+
+A task/query that does not yet resolve to a Workflow Map node is a navigation coverage gap, not an implementation blocker. `agent:context` emits a small changed-file/impact fallback packet instead of failing and includes the warning:
+
+```text
+Workflow-map match: unavailable; using changed-file / impact context.
+```
+
+The fallback packet must remain bounded and explicitly state that no workflow node matched. It includes provenance, changed paths, directly supplied file paths, deterministic graph mappings where available, unmatched paths, impact-selected tests, database-affecting state, and the validation recommendation.
+
+Do not weaken exact selector diagnostics. An invalid explicit `--node`, a clearly invalid explicit route, or an unsupported domain remains an error.
+
+Do not run speculative keyword retry loops after a task/query miss. Use the fallback packet and inspect the bounded working set. Retry Workflow Map once only when inspection reveals an exact known node or repository-relative file reference; otherwise continue targeted source inspection.
 
 ### Exploration budget
 
@@ -139,23 +154,32 @@ The reviewer expands scope only when a changed dependency, security/financial bo
 
 A normal phase starting from recently merged green `main` must not begin with `test:full`.
 
-Use:
+For normal UI/application changes use:
 
 1. new/edited tests directly;
 2. focused domain tests while iterating;
 3. `npm.cmd run test:affected:agent` after integration;
 4. `npm.cmd run lint` once code stabilizes;
 5. build only for production/runtime/UI integration or required PR handoff;
-6. database replay only for migrations/RLS/database contracts;
-7. workflow-map validation only when mapped contracts/inputs changed;
-8. full regression only when the selector falls back or broader evidence requires it;
-9. exact-head PR CI as the final automated gate.
+6. workflow-map validation only when mapped contracts/inputs changed;
+7. full regression only when the selector falls back or broader evidence requires it;
+8. exact-head PR CI as the final automated gate.
+
+For database-affecting changes, including `supabase/migrations/**`, RLS, RPCs, triggers, or database contracts:
+
+1. use focused/static tests during iteration;
+2. run the applicable real local database/migration replay ladder before completion and final PR handoff;
+3. for changes to existing RPC/trigger/RLS behavior, include runtime/database integration coverage that executes the affected behavior;
+4. do not treat static migration tests as sufficient runtime evidence;
+5. then use exact-head PR CI as the final automated gate.
+
+The permanent `AGENTS.md` rule remains authoritative: any change under `supabase/migrations/**` requires actual local migration replay before completion/final PR handoff.
 
 ## 7. Prompt-creation default
 
 Future implementation prompts should use wording equivalent to:
 
-> Start from current latest `main` and confirm its exact SHA and prior required green CI. Do not rerun the historical full suite before implementation. Generate one bounded `npm.cmd run agent:context -- ...` packet for this objective and use it as the initial working set. Inspect current source only inside that scope unless a concrete dependency requires expansion. Use one Luna implementation agent by default; use a second only for a genuinely independent workstream, never more than two concurrently. Run focused/new tests while iterating, then `npm.cmd run test:affected:agent` after integration. Run lint/build/database/workflow-map/browser validation only when the changed surface requires it. If CI fails, inspect only the failed exact-head step and a bounded failure excerpt. Exact-head PR CI is the final automated gate.
+> Start from current latest `main` and confirm its exact SHA and prior required green CI. Do not rerun the historical full suite before implementation. Generate one bounded `npm.cmd run agent:context -- ...` packet for this objective and use it as the initial working set. If a bounded task/query has no Workflow Map match, use the changed-file/impact fallback packet rather than retrying speculative keywords. Inspect current source only inside that scope unless a concrete dependency requires expansion. Use one Luna implementation agent by default; use a second only for a genuinely independent workstream, never more than two concurrently. Run focused/new tests while iterating, then `npm.cmd run test:affected:agent` after integration. For DB-affecting work, perform the required real local migration/runtime ladder before completion. Run lint/build/workflow-map/browser validation only when the changed surface requires it. If CI fails, inspect only the failed exact-head step and a bounded failure excerpt. Exact-head PR CI is the final automated gate.
 
 ## 8. Efficiency evidence
 

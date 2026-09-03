@@ -1,11 +1,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import { WORKFLOW_GRAPH } from "./graph.ts";
+import { WORKFLOW_GRAPH } from "./p2-graph.ts";
 import { WORKFLOW_MAP_REPOSITORY_ROOT } from "./generate.ts";
 import {
-  generateWorkflowContext,
+  generateP2WorkflowContext,
   type WorkflowContextSelectionInput,
-} from "./context.ts";
+} from "./p2-context.ts";
 import { readRepositoryMetadata } from "./repositoryContext.ts";
 import type { WorkflowDomain } from "./types.ts";
 
@@ -36,7 +36,7 @@ export function contextCliUsage(): string {
     "",
     "Selectors:",
     "  --node <id>                 Exact workflow node ID",
-    "  --domain <domain>           Workflow domain; combine with --query for scope",
+    "  --domain <domain>           Workflow domain; includes procurement and commercial",
     "  --route <id-or-path>         Route ID, canonical path, or path pattern",
     "  --file <repo/path>           Source/test reference; repeatable",
     "  --query <keywords>           Deterministic lexical task search",
@@ -50,6 +50,10 @@ export function contextCliUsage(): string {
     "  --json                       Shorthand for --format json",
     "  --out <path>                 Write an explicitly requested output file",
     "  --help                       Show this help",
+    "",
+    "Examples:",
+    "  npm.cmd run workflow-map:context -- --domain procurement --query \"purchase order approval\"",
+    "  npm.cmd run workflow-map:context -- --domain commercial --query \"subcontract variations\"",
   ].join("\n");
 }
 
@@ -135,7 +139,7 @@ export function runContextCli(args: readonly string[] = process.argv.slice(2)): 
     ...(parsed.selection.changedFilePaths || []),
     ...(parsed.includeRepositoryChanges ? repository.changedFilePaths : []),
   ];
-  const result = generateWorkflowContext(
+  const result = generateP2WorkflowContext(
     WORKFLOW_GRAPH,
     {
       ...parsed.selection,

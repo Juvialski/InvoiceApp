@@ -112,7 +112,7 @@ P2 is split into bounded implementation waves:
 - **P2A-1 Purchase Orders Foundation & Commitments**: **COMPLETE** (Vendor reuse, PO lines, DRAFT/APPROVED/ISSUED/CLOSED/CANCELLED lifecycle, Committed Cost calculation, RBAC, module gating).
 - **P2A-2 Delivery / Goods Receipt Tracking**: **COMPLETE** (receipt headers & lines, over-receipt triggers with row-locking, status/progress tracking, voiding workflow, Project Lifecycle preflight integration).
 - **P2A-3 Supplier Invoice ↔ Purchase Order Matching**: **COMPLETE** (match header & line mapping, candidate ranking engine with deterministic signals, delivery/receipt progress integration, cross-company & currency & lifecycle validation, guarded RPCs, unmatching with mandatory reason, dual-permission RLS & UI integration in Invoice Verification and Procurement).
-- **P2A-4 RFQ & Supplier Quotation Comparison**: **IMPLEMENTED** (company-scoped RFQ domain, line items with cost-code context, supplier quotation submissions, deterministic side-by-side comparison with lowest-bid highlighting and technical/commercial warnings, auditable human supplier selection, conversion to uncommitted DRAFT purchase orders, strict pre-commitment financial invariants preserving Actual and Committed Cost separation, and full Project Workspace procurement integration).
+- **P2A-4 RFQ & Supplier Quotation Comparison**: **COMPLETE** (company-scoped RFQ domain, line items with cost-code context, supplier quotation submissions, deterministic side-by-side comparison with lowest-bid highlighting and technical/commercial warnings, auditable human supplier selection, conversion to uncommitted DRAFT purchase orders, strict pre-commitment financial invariants preserving Actual and Committed Cost separation, and full Project Workspace procurement integration).
 
 Financial rule: an approved commitment is not automatically an Actual Cost until the authoritative posting/invoice/payment rule says it is. Receipts are operational delivery records and do NOT generate Actual Cost or duplicate supplier invoices.
 
@@ -133,6 +133,9 @@ Target domain:
 P2B is split into bounded implementation waves:
 - **P2B-1 Subcontract Packages & Commitment Foundation**: **COMPLETE** (company-scoped trade contractor subcontracts, line-level cost codes, committed liability calculation, DRAFT/APPROVED/ACTIVE/CLOSED/CANCELLED lifecycle, project lifecycle protection).
 - **P2B-2 Subcontract Progress Claims & Retention**: **COMPLETE** (progress claim valuation headers and lines, line-level and contract-level cumulative over-claim guards, configurable retention calculation, commercial status lifecycle DRAFT/SUBMITTED/APPROVED/REJECTED/CANCELLED/VOIDED, remaining subcontract commitment reduction, certified subcontract work & retention tracking without altering Actual Cost, dedicated claims register drawer and valuation editor, project budget control and performance integration, migration & project lifecycle preflight blocker).
+- **P2B-3 Subcontract Variations / Change Orders & Revised Commitments**: **COMPLETE** (DRAFT/SUBMITTED/APPROVED/REJECTED variation lifecycle, approved-only revised subcontract value, remaining commitment integration after certified progress, and preserved separation from project contract value, project budget, Actual Cost, invoice, payment, and settlement truth).
+
+Future client billing, collections, and settlement-linkage waves remain uncompleted and are not implied by P2B-3.
 
 Do not infer legal/accounting/tax treatment beyond explicit product requirements.
 

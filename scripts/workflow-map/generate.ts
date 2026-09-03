@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WORKFLOW_DOMAIN_ORDER } from "./domain-registry.ts";
 import { WORKFLOW_GRAPH } from "./graph.ts";
 import type { WorkflowDiagram, WorkflowDomain, WorkflowGraph, WorkflowNode } from "./types.ts";
 
@@ -13,6 +14,8 @@ const DOMAIN_LABELS: Record<WorkflowDomain, string> = {
   "platform-tenancy": "Platform / Tenancy",
   dashboard: "Dashboard",
   projects: "Projects",
+  procurement: "Procurement",
+  commercial: "Commercial",
   engineering: "Engineering",
   finance: "Finance",
   workforce: "Workforce",
@@ -24,6 +27,8 @@ const DOMAIN_CLASS_NAMES: Record<WorkflowDomain, string> = {
   "platform-tenancy": "platformTenancy",
   dashboard: "dashboard",
   projects: "projects",
+  procurement: "procurement",
+  commercial: "commercial",
   engineering: "engineering",
   finance: "finance",
   workforce: "workforce",
@@ -107,6 +112,8 @@ export function renderMermaid(graph: WorkflowGraph, diagram: WorkflowDiagram): s
     "  classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;",
     "  classDef assistant fill:#fdf2f8,stroke:#db2777,color:#831843;",
   );
+  if (domains.includes("procurement")) lines.push("  classDef procurement fill:#f0fdfa,stroke:#0f766e,color:#134e4a;");
+  if (domains.includes("commercial")) lines.push("  classDef commercial fill:#faf5ff,stroke:#9333ea,color:#581c87;");
   for (const node of selectedNodes) {
     lines.push(`  class ${mermaidId(node.id)} ${DOMAIN_CLASS_NAMES[node.domain]}`);
   }
@@ -214,7 +221,8 @@ export function renderWorkflowMapMarkdown(graph: WorkflowGraph): string {
   }
 
   lines.push("## Workflow and source index", "", "State nodes are rendered in the lifecycle diagrams; the index below keeps the supporting workflow, route, screen, data, guard, action, and boundary context discoverable without listing every component or SQL function.", "");
-  for (const domain of Object.keys(DOMAIN_LABELS) as WorkflowDomain[]) lines.push(...renderNodeTable(graph, domain), "");
+  const presentDomains = WORKFLOW_DOMAIN_ORDER.filter((domain) => graph.nodes.some((node) => node.domain === domain));
+  for (const domain of presentDomains) lines.push(...renderNodeTable(graph, domain), "");
 
   lines.push(
     "## QA-1 linkage seam",

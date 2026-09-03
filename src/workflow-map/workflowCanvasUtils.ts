@@ -1,6 +1,7 @@
 import dagre from "dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { WORKFLOW_GRAPH } from "../../scripts/workflow-map/graph.ts";
+import { WORKFLOW_DOMAIN_ORDER } from "../../scripts/workflow-map/domain-registry.ts";
 import type {
   WorkflowDomain,
   WorkflowEdge,
@@ -58,6 +59,28 @@ export const DOMAIN_META: Record<WorkflowDomain, DomainVisualMeta> = {
     colorBadge: "bg-indigo-100 text-indigo-800 border-indigo-300 dark:bg-indigo-900/60 dark:text-indigo-300 dark:border-indigo-700",
     colorDot: "bg-indigo-500",
     colorRing: "ring-indigo-400",
+  },
+  procurement: {
+    id: "procurement",
+    label: "Procurement",
+    description: "Purchase orders, receipts, supplier matching, RFQs, quotations, and sourcing commitments",
+    colorBg: "bg-cyan-50 dark:bg-cyan-950/40",
+    colorBorder: "border-cyan-300 dark:border-cyan-800",
+    colorText: "text-cyan-800 dark:text-cyan-200",
+    colorBadge: "bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-900/60 dark:text-cyan-300 dark:border-cyan-700",
+    colorDot: "bg-cyan-500",
+    colorRing: "ring-cyan-400",
+  },
+  commercial: {
+    id: "commercial",
+    label: "Commercial",
+    description: "Subcontract commitments, progress claims, retention, variations, and revised commitments",
+    colorBg: "bg-fuchsia-50 dark:bg-fuchsia-950/40",
+    colorBorder: "border-fuchsia-300 dark:border-fuchsia-800",
+    colorText: "text-fuchsia-800 dark:text-fuchsia-200",
+    colorBadge: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300 dark:bg-fuchsia-900/60 dark:text-fuchsia-300 dark:border-fuchsia-700",
+    colorDot: "bg-fuchsia-500",
+    colorRing: "ring-fuchsia-400",
   },
   engineering: {
     id: "engineering",
@@ -117,223 +140,43 @@ export const DOMAIN_META: Record<WorkflowDomain, DomainVisualMeta> = {
 };
 
 export const NODE_TYPE_META: Record<WorkflowNodeType, NodeTypeVisualMeta> = {
-  route: {
-    id: "route",
-    label: "Route",
-    description: "URL-addressable page or subview path",
-    colorBg: "bg-blue-100 dark:bg-blue-900/50",
-    colorText: "text-blue-700 dark:text-blue-300",
-    colorBorder: "border-blue-300 dark:border-blue-700",
-    iconName: "Compass",
-  },
-  screen: {
-    id: "screen",
-    label: "Screen",
-    description: "Interactive visual UI workspace or register",
-    colorBg: "bg-indigo-100 dark:bg-indigo-900/50",
-    colorText: "text-indigo-700 dark:text-indigo-300",
-    colorBorder: "border-indigo-300 dark:border-indigo-700",
-    iconName: "Monitor",
-  },
-  workflow: {
-    id: "workflow",
-    label: "Workflow",
-    description: "Multi-step business process or orchestrator",
-    colorBg: "bg-purple-100 dark:bg-purple-900/50",
-    colorText: "text-purple-700 dark:text-purple-300",
-    colorBorder: "border-purple-300 dark:border-purple-700",
-    iconName: "GitMerge",
-  },
-  state: {
-    id: "state",
-    label: "State",
-    description: "Discrete lifecycle state in a domain entity",
-    colorBg: "bg-emerald-100 dark:bg-emerald-900/50",
-    colorText: "text-emerald-700 dark:text-emerald-300",
-    colorBorder: "border-emerald-300 dark:border-emerald-700",
-    iconName: "CircleDot",
-  },
-  action: {
-    id: "action",
-    label: "Action",
-    description: "User or system action triggering state changes",
-    colorBg: "bg-amber-100 dark:bg-amber-900/50",
-    colorText: "text-amber-700 dark:text-amber-300",
-    colorBorder: "border-amber-300 dark:border-amber-700",
-    iconName: "Zap",
-  },
-  data: {
-    id: "data",
-    label: "Data",
-    description: "Authoritative persisted repository / database data",
-    colorBg: "bg-cyan-100 dark:bg-cyan-900/50",
-    colorText: "text-cyan-700 dark:text-cyan-300",
-    colorBorder: "border-cyan-300 dark:border-cyan-700",
-    iconName: "Database",
-  },
-  "derived-data": {
-    id: "derived-data",
-    label: "Derived",
-    description: "Computed, aggregated, or non-authoritative read model",
-    colorBg: "bg-teal-100 dark:bg-teal-900/50",
-    colorText: "text-teal-700 dark:text-teal-300",
-    colorBorder: "border-teal-300 dark:border-teal-700",
-    iconName: "BarChart3",
-  },
-  guard: {
-    id: "guard",
-    label: "Guard",
-    description: "Safety check, confirmation gate, or validation barrier",
-    colorBg: "bg-orange-100 dark:bg-orange-900/50",
-    colorText: "text-orange-700 dark:text-orange-300",
-    colorBorder: "border-orange-300 dark:border-orange-700",
-    iconName: "ShieldAlert",
-  },
-  "external-boundary": {
-    id: "external-boundary",
-    label: "Boundary",
-    description: "External system, AI model, or storage boundary",
-    colorBg: "bg-rose-100 dark:bg-rose-900/50",
-    colorText: "text-rose-700 dark:text-rose-300",
-    colorBorder: "border-rose-300 dark:border-rose-700",
-    iconName: "Lock",
-  },
+  route: { id: "route", label: "Route", description: "URL-addressable page or subview path", colorBg: "bg-blue-100 dark:bg-blue-900/50", colorText: "text-blue-700 dark:text-blue-300", colorBorder: "border-blue-300 dark:border-blue-700", iconName: "Compass" },
+  screen: { id: "screen", label: "Screen", description: "Interactive visual UI workspace or register", colorBg: "bg-indigo-100 dark:bg-indigo-900/50", colorText: "text-indigo-700 dark:text-indigo-300", colorBorder: "border-indigo-300 dark:border-indigo-700", iconName: "Monitor" },
+  workflow: { id: "workflow", label: "Workflow", description: "Multi-step business process or orchestrator", colorBg: "bg-purple-100 dark:bg-purple-900/50", colorText: "text-purple-700 dark:text-purple-300", colorBorder: "border-purple-300 dark:border-purple-700", iconName: "GitMerge" },
+  state: { id: "state", label: "State", description: "Discrete lifecycle state in a domain entity", colorBg: "bg-emerald-100 dark:bg-emerald-900/50", colorText: "text-emerald-700 dark:text-emerald-300", colorBorder: "border-emerald-300 dark:border-emerald-700", iconName: "CircleDot" },
+  action: { id: "action", label: "Action", description: "User or system action triggering state changes", colorBg: "bg-amber-100 dark:bg-amber-900/50", colorText: "text-amber-700 dark:text-amber-300", colorBorder: "border-amber-300 dark:border-amber-700", iconName: "Zap" },
+  data: { id: "data", label: "Data", description: "Authoritative persisted repository / database data", colorBg: "bg-cyan-100 dark:bg-cyan-900/50", colorText: "text-cyan-700 dark:text-cyan-300", colorBorder: "border-cyan-300 dark:border-cyan-700", iconName: "Database" },
+  "derived-data": { id: "derived-data", label: "Derived", description: "Computed, aggregated, or non-authoritative read model", colorBg: "bg-teal-100 dark:bg-teal-900/50", colorText: "text-teal-700 dark:text-teal-300", colorBorder: "border-teal-300 dark:border-teal-700", iconName: "BarChart3" },
+  guard: { id: "guard", label: "Guard", description: "Safety check, confirmation gate, or validation barrier", colorBg: "bg-orange-100 dark:bg-orange-900/50", colorText: "text-orange-700 dark:text-orange-300", colorBorder: "border-orange-300 dark:border-orange-700", iconName: "ShieldAlert" },
+  "external-boundary": { id: "external-boundary", label: "Boundary", description: "External system, AI model, or storage boundary", colorBg: "bg-rose-100 dark:bg-rose-900/50", colorText: "text-rose-700 dark:text-rose-300", colorBorder: "border-rose-300 dark:border-rose-700", iconName: "Lock" },
 };
 
 export const EDGE_KIND_META: Record<WorkflowEdgeKind, EdgeKindVisualMeta> = {
-  guard: {
-    id: "guard",
-    label: "Guard / Validation",
-    color: "#f59e0b",
-    strokeDasharray: "5 5",
-    isDashed: true,
-  },
-  confirmation: {
-    id: "confirmation",
-    label: "Human Confirmation Gate",
-    color: "#ea580c",
-    strokeDasharray: "6 4",
-    isDashed: true,
-  },
-  permission: {
-    id: "permission",
-    label: "Permission Check",
-    color: "#d97706",
-    strokeDasharray: "4 4",
-    isDashed: true,
-  },
-  mutation: {
-    id: "mutation",
-    label: "State Mutation / Write",
-    color: "#4f46e5",
-    isDashed: false,
-  },
-  "state-transition": {
-    id: "state-transition",
-    label: "Lifecycle State Transition",
-    color: "#0284c7",
-    isDashed: false,
-  },
-  "derived-data": {
-    id: "derived-data",
-    label: "Derived Data Flow",
-    color: "#0d9488",
-    strokeDasharray: "3 3",
-    isDashed: true,
-  },
-  "read-flow": {
-    id: "read-flow",
-    label: "Read / Query Flow",
-    color: "#0369a1",
-    isDashed: false,
-  },
-  navigation: {
-    id: "navigation",
-    label: "User Navigation",
-    color: "#64748b",
-    isDashed: false,
-  },
-  separation: {
-    id: "separation",
-    label: "Architectural Separation",
-    color: "#e11d48",
-    strokeDasharray: "6 6",
-    isDashed: true,
-  },
-  "external-boundary": {
-    id: "external-boundary",
-    label: "External / Auth Boundary",
-    color: "#9333ea",
-    strokeDasharray: "5 5",
-    isDashed: true,
-  },
-  history: {
-    id: "history",
-    label: "Immutable History / Audit",
-    color: "#475569",
-    strokeDasharray: "2 2",
-    isDashed: true,
-  },
-  context: {
-    id: "context",
-    label: "Scope / Context",
-    color: "#94a3b8",
-    isDashed: false,
-  },
+  guard: { id: "guard", label: "Guard / Validation", color: "#f59e0b", strokeDasharray: "5 5", isDashed: true },
+  confirmation: { id: "confirmation", label: "Human Confirmation Gate", color: "#ea580c", strokeDasharray: "6 4", isDashed: true },
+  permission: { id: "permission", label: "Permission Check", color: "#d97706", strokeDasharray: "4 4", isDashed: true },
+  mutation: { id: "mutation", label: "State Mutation / Write", color: "#4f46e5", isDashed: false },
+  "state-transition": { id: "state-transition", label: "Lifecycle State Transition", color: "#0284c7", isDashed: false },
+  "derived-data": { id: "derived-data", label: "Derived Data Flow", color: "#0d9488", strokeDasharray: "3 3", isDashed: true },
+  "read-flow": { id: "read-flow", label: "Read / Query Flow", color: "#0369a1", isDashed: false },
+  navigation: { id: "navigation", label: "User Navigation", color: "#64748b", isDashed: false },
+  separation: { id: "separation", label: "Architectural Separation", color: "#e11d48", strokeDasharray: "6 6", isDashed: true },
+  "external-boundary": { id: "external-boundary", label: "External / Auth Boundary", color: "#9333ea", strokeDasharray: "5 5", isDashed: true },
+  history: { id: "history", label: "Immutable History / Audit", color: "#475569", strokeDasharray: "2 2", isDashed: true },
+  context: { id: "context", label: "Scope / Context", color: "#94a3b8", isDashed: false },
 };
 
-export const ALL_DOMAINS: readonly WorkflowDomain[] = [
-  "platform-tenancy",
-  "dashboard",
-  "projects",
-  "engineering",
-  "finance",
-  "workforce",
-  "reporting",
-  "assistant",
-];
-
-export const ALL_NODE_TYPES: readonly WorkflowNodeType[] = [
-  "route",
-  "screen",
-  "workflow",
-  "state",
-  "action",
-  "data",
-  "derived-data",
-  "guard",
-  "external-boundary",
-];
+export const ALL_DOMAINS: readonly WorkflowDomain[] = WORKFLOW_DOMAIN_ORDER;
+export const ALL_NODE_TYPES: readonly WorkflowNodeType[] = ["route", "screen", "workflow", "state", "action", "data", "derived-data", "guard", "external-boundary"];
 
 export function getCanvasPresets(graph: WorkflowGraph = WORKFLOW_GRAPH): readonly WorkflowCanvasPreset[] {
-  const curated: WorkflowCanvasPreset[] = graph.diagrams.map((d) => ({
-    id: d.id,
-    title: d.title,
-    description: d.description,
-    category: "curated",
-    nodeIds: d.nodeIds,
-  }));
-
+  const curated: WorkflowCanvasPreset[] = graph.diagrams.map((d) => ({ id: d.id, title: d.title, description: d.description, category: "curated", nodeIds: d.nodeIds }));
   const domains: WorkflowCanvasPreset[] = ALL_DOMAINS.map((domain) => {
     const meta = DOMAIN_META[domain];
     const nodeIds = graph.nodes.filter((n) => n.domain === domain).map((n) => n.id);
-    return {
-      id: `domain-${domain}`,
-      title: `${meta.label} Domain`,
-      description: meta.description,
-      category: "domain",
-      domain,
-      nodeIds,
-    };
+    return { id: `domain-${domain}`, title: `${meta.label} Domain`, description: meta.description, category: "domain", domain, nodeIds };
   });
-
-  const allPreset: WorkflowCanvasPreset = {
-    id: "all",
-    title: "All Nodes (Complete Architecture)",
-    description: `Full platform graph containing all ${graph.nodes.length} nodes and ${graph.edges.length} edges across all domains`,
-    category: "all",
-  };
-
+  const allPreset: WorkflowCanvasPreset = { id: "all", title: "All Nodes (Complete Architecture)", description: `Full platform graph containing all ${graph.nodes.length} nodes and ${graph.edges.length} edges across all domains`, category: "all" };
   return [...curated, ...domains, allPreset];
 }
 
@@ -349,58 +192,25 @@ export const DEFAULT_FILTER: WorkflowCanvasFilter = {
   evidenceMode: "off",
 };
 
-export function computeNeighborhood(
-  graph: WorkflowGraph,
-  selectedNodeId: string,
-  hops: 1 | 2 = 1,
-): NodeNeighborhood {
+export function computeNeighborhood(graph: WorkflowGraph, selectedNodeId: string, hops: 1 | 2 = 1): NodeNeighborhood {
   const directIncoming = new Set<string>();
   const directOutgoing = new Set<string>();
   const incidentEdges = new Set<string>();
   const neighbors = new Set<string>([selectedNodeId]);
-
   for (const edge of graph.edges) {
-    if (edge.target === selectedNodeId) {
-      directIncoming.add(edge.source);
-      neighbors.add(edge.source);
-      incidentEdges.add(edge.id);
-    }
-    if (edge.source === selectedNodeId) {
-      directOutgoing.add(edge.target);
-      neighbors.add(edge.target);
-      incidentEdges.add(edge.id);
-    }
+    if (edge.target === selectedNodeId) { directIncoming.add(edge.source); neighbors.add(edge.source); incidentEdges.add(edge.id); }
+    if (edge.source === selectedNodeId) { directOutgoing.add(edge.target); neighbors.add(edge.target); incidentEdges.add(edge.id); }
   }
-
   if (hops === 2) {
     const hop1Nodes = Array.from(neighbors);
-    for (const h1Id of hop1Nodes) {
-      for (const edge of graph.edges) {
-        if (edge.target === h1Id || edge.source === h1Id) {
-          neighbors.add(edge.source);
-          neighbors.add(edge.target);
-          incidentEdges.add(edge.id);
-        }
-      }
-    }
+    for (const h1Id of hop1Nodes) for (const edge of graph.edges) if (edge.target === h1Id || edge.source === h1Id) { neighbors.add(edge.source); neighbors.add(edge.target); incidentEdges.add(edge.id); }
   }
-
-  return {
-    selectedNodeId,
-    directIncomingNodeIds: directIncoming,
-    directOutgoingNodeIds: directOutgoing,
-    neighborNodeIds: neighbors,
-    incidentEdgeIds: incidentEdges,
-  };
+  return { selectedNodeId, directIncomingNodeIds: directIncoming, directOutgoingNodeIds: directOutgoing, neighborNodeIds: neighbors, incidentEdgeIds: incidentEdges };
 }
 
-export function searchNodes(
-  nodes: readonly WorkflowNode[],
-  query: string,
-): readonly WorkflowNode[] {
+export function searchNodes(nodes: readonly WorkflowNode[], query: string): readonly WorkflowNode[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return nodes;
-
   const scoreNode = (node: WorkflowNode): number => {
     let score = 0;
     const labelLower = node.label.toLowerCase();
@@ -410,364 +220,126 @@ export function searchNodes(
     const routeLower = (node.route?.canonicalPath || "").toLowerCase();
     const statusesLower = (node.statusValues || []).join(" ").toLowerCase();
     const invariantsLower = (node.invariantIds || []).join(" ").toLowerCase();
-
-    if (idLower === normalized) score += 100;
-    else if (idLower.startsWith(normalized)) score += 60;
-    else if (idLower.includes(normalized)) score += 30;
-
-    if (labelLower === normalized) score += 90;
-    else if (labelLower.startsWith(normalized)) score += 50;
-    else if (labelLower.includes(normalized)) score += 40;
-
+    if (idLower === normalized) score += 100; else if (idLower.startsWith(normalized)) score += 60; else if (idLower.includes(normalized)) score += 30;
+    if (labelLower === normalized) score += 90; else if (labelLower.startsWith(normalized)) score += 50; else if (labelLower.includes(normalized)) score += 40;
     if (routeLower.includes(normalized)) score += 45;
     if (domainLower.includes(normalized)) score += 20;
     if (statusesLower.includes(normalized)) score += 25;
     if (invariantsLower.includes(normalized)) score += 35;
     if (descLower.includes(normalized)) score += 15;
-
     return score;
   };
-
-  return [...nodes]
-    .map((node) => ({ node, score: scoreNode(node) }))
-    .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map((item) => item.node);
+  return [...nodes].map((node) => ({ node, score: scoreNode(node) })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score).map((item) => item.node);
 }
 
-export function filterGraph(
-  graph: WorkflowGraph,
-  filter: WorkflowCanvasFilter,
-): { nodes: readonly WorkflowNode[]; edges: readonly WorkflowEdge[] } {
+export function filterGraph(graph: WorkflowGraph, filter: WorkflowCanvasFilter): { nodes: readonly WorkflowNode[]; edges: readonly WorkflowEdge[] } {
   let candidateNodeIds: Set<string>;
-
-  if (filter.presetId === "all") {
-    candidateNodeIds = new Set(graph.nodes.map((n) => n.id));
-  } else if (filter.presetId.startsWith("domain-")) {
+  if (filter.presetId === "all") candidateNodeIds = new Set(graph.nodes.map((n) => n.id));
+  else if (filter.presetId.startsWith("domain-")) {
     const domain = filter.presetId.replace("domain-", "") as WorkflowDomain;
     candidateNodeIds = new Set(graph.nodes.filter((n) => n.domain === domain).map((n) => n.id));
   } else {
     const diagram = graph.diagrams.find((d) => d.id === filter.presetId);
-    if (diagram) {
-      candidateNodeIds = new Set(diagram.nodeIds);
-    } else {
-      // Fallback: if preset matches a domain or default to overview
-      const fallbackDiagram = graph.diagrams[0];
-      candidateNodeIds = new Set(fallbackDiagram ? fallbackDiagram.nodeIds : graph.nodes.map((n) => n.id));
-    }
+    const fallbackDiagram = graph.diagrams[0];
+    candidateNodeIds = new Set(diagram ? diagram.nodeIds : fallbackDiagram ? fallbackDiagram.nodeIds : graph.nodes.map((n) => n.id));
   }
-
-  // If a node is explicitly selected and focusNeighborhood is ON, restrict candidate set to neighborhood
-  if (filter.focusNeighborhood && filter.selectedNodeId) {
-    const neighborhood = computeNeighborhood(graph, filter.selectedNodeId, filter.neighborhoodHops);
-    candidateNodeIds = new Set(Array.from(neighborhood.neighborNodeIds));
-  }
-
-  // If a node is selected from search or deep link, make sure it is included even if outside current preset
-  if (filter.selectedNodeId && !candidateNodeIds.has(filter.selectedNodeId)) {
-    candidateNodeIds.add(filter.selectedNodeId);
-  }
-
+  if (filter.focusNeighborhood && filter.selectedNodeId) candidateNodeIds = new Set(Array.from(computeNeighborhood(graph, filter.selectedNodeId, filter.neighborhoodHops).neighborNodeIds));
+  if (filter.selectedNodeId && !candidateNodeIds.has(filter.selectedNodeId)) candidateNodeIds.add(filter.selectedNodeId);
   let nodes = graph.nodes.filter((n) => candidateNodeIds.has(n.id));
-
-  // Apply domain filter
-  if (filter.selectedDomains.length > 0) {
-    const domainSet = new Set(filter.selectedDomains);
-    nodes = nodes.filter((n) => domainSet.has(n.domain) || n.id === filter.selectedNodeId);
-  }
-
-  // Apply node type filter
-  if (filter.selectedNodeTypes.length > 0) {
-    const typeSet = new Set(filter.selectedNodeTypes);
-    nodes = nodes.filter((n) => typeSet.has(n.type) || n.id === filter.selectedNodeId);
-  }
-
-  // Apply invariant only filter
-  if (filter.filterInvariantOnly) {
-    nodes = nodes.filter((n) => (n.invariantIds && n.invariantIds.length > 0) || n.id === filter.selectedNodeId);
-  }
-
+  if (filter.selectedDomains.length > 0) { const set = new Set(filter.selectedDomains); nodes = nodes.filter((n) => set.has(n.domain) || n.id === filter.selectedNodeId); }
+  if (filter.selectedNodeTypes.length > 0) { const set = new Set(filter.selectedNodeTypes); nodes = nodes.filter((n) => set.has(n.type) || n.id === filter.selectedNodeId); }
+  if (filter.filterInvariantOnly) nodes = nodes.filter((n) => (n.invariantIds && n.invariantIds.length > 0) || n.id === filter.selectedNodeId);
   const finalNodeIds = new Set(nodes.map((n) => n.id));
-
-  // Include edges whose source and target are both in finalNodeIds
   const edges = graph.edges.filter((e) => finalNodeIds.has(e.source) && finalNodeIds.has(e.target));
-
   return { nodes, edges };
 }
 
-export interface LayoutOptions {
-  readonly rankdir?: "LR" | "TB" | "RL" | "BT";
-  readonly nodeWidth?: number;
-  readonly nodeHeight?: number;
-  readonly nodesep?: number;
-  readonly ranksep?: number;
-}
-
-export function layoutGraph(
-  nodes: readonly WorkflowNode[],
-  edges: readonly WorkflowEdge[],
-  options: LayoutOptions = {},
-): { nodePositions: Map<string, { x: number; y: number }> } {
+export interface LayoutOptions { readonly rankdir?: "LR" | "TB" | "RL" | "BT"; readonly nodeWidth?: number; readonly nodeHeight?: number; readonly nodesep?: number; readonly ranksep?: number; }
+export function layoutGraph(nodes: readonly WorkflowNode[], edges: readonly WorkflowEdge[], options: LayoutOptions = {}): { nodePositions: Map<string, { x: number; y: number }> } {
   const rankdir = options.rankdir || "LR";
   const nodeWidth = options.nodeWidth || 290;
   const nodeHeight = options.nodeHeight || 135;
   const nodesep = options.nodesep || 50;
   const ranksep = options.ranksep || 90;
-
   const g = new dagre.graphlib.Graph();
-  g.setGraph({
-    rankdir,
-    nodesep,
-    ranksep,
-    marginx: 40,
-    marginy: 40,
-  });
+  g.setGraph({ rankdir, nodesep, ranksep, marginx: 40, marginy: 40 });
   g.setDefaultEdgeLabel(() => ({}));
-
-  for (const n of nodes) {
-    g.setNode(n.id, { width: nodeWidth, height: nodeHeight });
-  }
-
-  for (const e of edges) {
-    g.setEdge(e.source, e.target);
-  }
-
+  for (const n of nodes) g.setNode(n.id, { width: nodeWidth, height: nodeHeight });
+  for (const e of edges) g.setEdge(e.source, e.target);
   dagre.layout(g);
-
   const nodePositions = new Map<string, { x: number; y: number }>();
   for (const n of nodes) {
     const pos = g.node(n.id);
-    if (pos) {
-      // dagre returns center coordinates, React Flow expects top-left
-      nodePositions.set(n.id, {
-        x: Math.round(pos.x - nodeWidth / 2),
-        y: Math.round(pos.y - nodeHeight / 2),
-      });
-    } else {
-      nodePositions.set(n.id, { x: 0, y: 0 });
-    }
+    nodePositions.set(n.id, pos ? { x: Math.round(pos.x - nodeWidth / 2), y: Math.round(pos.y - nodeHeight / 2) } : { x: 0, y: 0 });
   }
-
   return { nodePositions };
 }
 
-export function buildReactFlowElements(
-  nodes: readonly WorkflowNode[],
-  edges: readonly WorkflowEdge[],
-  graph: WorkflowGraph,
-  filter: WorkflowCanvasFilter,
-  handlers: {
-    onSelectNode: (nodeId: string) => void;
-    onFocusNeighborhood: (nodeId: string) => void;
-  },
-  positions: Map<string, { x: number; y: number }>,
-  evidenceModel?: WorkflowMapEvidenceModel | null,
-): { flowNodes: Node<WorkflowCustomNodeData>[]; flowEdges: Edge<WorkflowCustomEdgeData>[] } {
+export function buildReactFlowElements(nodes: readonly WorkflowNode[], edges: readonly WorkflowEdge[], graph: WorkflowGraph, filter: WorkflowCanvasFilter, handlers: { onSelectNode: (nodeId: string) => void; onFocusNeighborhood: (nodeId: string) => void; }, positions: Map<string, { x: number; y: number }>, evidenceModel?: WorkflowMapEvidenceModel | null): { flowNodes: Node<WorkflowCustomNodeData>[]; flowEdges: Edge<WorkflowCustomEdgeData>[] } {
   const invariantsById = new Map(graph.invariants.map((i) => [i.id, i]));
-
   const incomingCounts = new Map<string, number>();
   const outgoingCounts = new Map<string, number>();
-  for (const edge of edges) {
-    outgoingCounts.set(edge.source, (outgoingCounts.get(edge.source) || 0) + 1);
-    incomingCounts.set(edge.target, (incomingCounts.get(edge.target) || 0) + 1);
-  }
-
-  const neighborhood = filter.selectedNodeId
-    ? computeNeighborhood(graph, filter.selectedNodeId, filter.neighborhoodHops)
-    : null;
-
+  for (const edge of edges) { outgoingCounts.set(edge.source, (outgoingCounts.get(edge.source) || 0) + 1); incomingCounts.set(edge.target, (incomingCounts.get(edge.target) || 0) + 1); }
+  const neighborhood = filter.selectedNodeId ? computeNeighborhood(graph, filter.selectedNodeId, filter.neighborhoodHops) : null;
   const hasSelection = Boolean(filter.selectedNodeId);
-
   const flowNodes: Node<WorkflowCustomNodeData>[] = nodes.map((node) => {
     const isSelected = node.id === filter.selectedNodeId;
-    const isDirectNeighbor = neighborhood
-      ? neighborhood.directIncomingNodeIds.has(node.id) || neighborhood.directOutgoingNodeIds.has(node.id)
-      : false;
+    const isDirectNeighbor = neighborhood ? neighborhood.directIncomingNodeIds.has(node.id) || neighborhood.directOutgoingNodeIds.has(node.id) : false;
     const isIncomingNeighbor = neighborhood ? neighborhood.directIncomingNodeIds.has(node.id) : false;
     const isOutgoingNeighbor = neighborhood ? neighborhood.directOutgoingNodeIds.has(node.id) : false;
-    
     const nodeEvidence = evidenceModel?.evidenceForNode(node.id);
-    
     let isHighlighted = isSelected || isDirectNeighbor;
     let isDimmed = hasSelection && !isHighlighted;
-
     if (filter.evidenceMode === "failures" && evidenceModel) {
-      if (nodeEvidence?.state === "FAIL") {
-        isHighlighted = true;
-        isDimmed = false;
-      } else if (!hasSelection) {
-        isDimmed = true;
-      }
+      if (nodeEvidence?.state === "FAIL") { isHighlighted = true; isDimmed = false; }
+      else if (!hasSelection) isDimmed = true;
     }
-
-    const nodeInvariants = (node.invariantIds || [])
-      .map((id) => invariantsById.get(id))
-      .filter((i): i is WorkflowInvariant => Boolean(i));
-
+    const nodeInvariants = (node.invariantIds || []).map((id) => invariantsById.get(id)).filter((i): i is WorkflowInvariant => Boolean(i));
     const domainMeta = DOMAIN_META[node.domain] || DOMAIN_META["platform-tenancy"];
     const typeMeta = NODE_TYPE_META[node.type] || NODE_TYPE_META.workflow;
-
-    const pos = positions.get(node.id) || { x: 0, y: 0 };
-
-    return {
-      id: node.id,
-      type: "workflowNode",
-      position: pos,
-      data: {
-        node,
-        domainMeta,
-        typeMeta,
-        isSelected,
-        isHighlighted,
-        isDimmed,
-        isDirectNeighbor,
-        isIncomingNeighbor,
-        isOutgoingNeighbor,
-        invariants: nodeInvariants,
-        incomingCount: incomingCounts.get(node.id) || 0,
-        outgoingCount: outgoingCounts.get(node.id) || 0,
-        evidence: nodeEvidence,
-        evidenceMode: filter.evidenceMode,
-        onSelectNode: handlers.onSelectNode,
-        onFocusNeighborhood: handlers.onFocusNeighborhood,
-      },
-    };
+    return { id: node.id, type: "workflowNode", position: positions.get(node.id) || { x: 0, y: 0 }, data: { node, domainMeta, typeMeta, isSelected, isHighlighted, isDimmed, isDirectNeighbor, isIncomingNeighbor, isOutgoingNeighbor, invariants: nodeInvariants, incomingCount: incomingCounts.get(node.id) || 0, outgoingCount: outgoingCounts.get(node.id) || 0, evidence: nodeEvidence, evidenceMode: filter.evidenceMode, onSelectNode: handlers.onSelectNode, onFocusNeighborhood: handlers.onFocusNeighborhood } };
   });
-
   const flowEdges: Edge<WorkflowCustomEdgeData>[] = edges.map((edge) => {
-    const isConnectedToSelected = Boolean(
-      filter.selectedNodeId && (edge.source === filter.selectedNodeId || edge.target === filter.selectedNodeId),
-    );
-    const isHighlighted = isConnectedToSelected;
-    const isDimmed = hasSelection && !isHighlighted;
-
-    const edgeInvariants = (edge.invariantIds || [])
-      .map((id) => invariantsById.get(id))
-      .filter((i): i is WorkflowInvariant => Boolean(i));
-
-    const kindMeta = EDGE_KIND_META[edge.kind] || EDGE_KIND_META.context;
-
-    return {
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      type: "workflowEdge",
-      animated: isConnectedToSelected || edge.kind === "guard" || edge.kind === "confirmation",
-      data: {
-        edge,
-        isSelected: isConnectedToSelected,
-        isHighlighted,
-        isDimmed,
-        kindMeta,
-        invariants: edgeInvariants,
-      },
-    };
+    const isConnectedToSelected = Boolean(filter.selectedNodeId && (edge.source === filter.selectedNodeId || edge.target === filter.selectedNodeId));
+    const edgeInvariants = (edge.invariantIds || []).map((id) => invariantsById.get(id)).filter((i): i is WorkflowInvariant => Boolean(i));
+    return { id: edge.id, source: edge.source, target: edge.target, type: "workflowEdge", animated: isConnectedToSelected || edge.kind === "guard" || edge.kind === "confirmation", data: { edge, isSelected: isConnectedToSelected, isHighlighted: isConnectedToSelected, isDimmed: hasSelection && !isConnectedToSelected, kindMeta: EDGE_KIND_META[edge.kind] || EDGE_KIND_META.context, invariants: edgeInvariants } };
   });
-
   return { flowNodes, flowEdges };
 }
 
-export function getNodeDetails(
-  graph: WorkflowGraph,
-  nodeId: string,
-  evidenceModel?: WorkflowMapEvidenceModel | null,
-  screenshotUrls?: Record<string, string>,
-): NodeDetailViewData | null {
+export function getNodeDetails(graph: WorkflowGraph, nodeId: string, evidenceModel?: WorkflowMapEvidenceModel | null, screenshotUrls?: Record<string, string>): NodeDetailViewData | null {
   const node = graph.nodes.find((n) => n.id === nodeId);
   if (!node) return null;
-
   const invariantsById = new Map(graph.invariants.map((i) => [i.id, i]));
   const nodesById = new Map(graph.nodes.map((n) => [n.id, n]));
-
-  const invariants = (node.invariantIds || [])
-    .map((id) => invariantsById.get(id))
-    .filter((i): i is WorkflowInvariant => Boolean(i));
-
-  const incomingEdges = graph.edges
-    .filter((e) => e.target === nodeId)
-    .map((e) => ({ edge: e, sourceNode: nodesById.get(e.source)! }))
-    .filter((item) => Boolean(item.sourceNode));
-
-  const outgoingEdges = graph.edges
-    .filter((e) => e.source === nodeId)
-    .map((e) => ({ edge: e, targetNode: nodesById.get(e.target)! }))
-    .filter((item) => Boolean(item.targetNode));
-
-  const domainMeta = DOMAIN_META[node.domain] || DOMAIN_META["platform-tenancy"];
-  const typeMeta = NODE_TYPE_META[node.type] || NODE_TYPE_META.workflow;
-
-  return {
-    node,
-    domainMeta,
-    typeMeta,
-    invariants,
-    incomingEdges,
-    outgoingEdges,
-    fileRefs: node.fileRefs || [],
-    testRefs: node.testRefs || [],
-    qaScenarioIds: node.qaScenarioIds || [],
-    evidence: evidenceModel?.evidenceForNode(nodeId),
-    screenshotUrls,
-  };
+  const invariants = (node.invariantIds || []).map((id) => invariantsById.get(id)).filter((i): i is WorkflowInvariant => Boolean(i));
+  const incomingEdges = graph.edges.filter((e) => e.target === nodeId).map((e) => ({ edge: e, sourceNode: nodesById.get(e.source)! })).filter((item) => Boolean(item.sourceNode));
+  const outgoingEdges = graph.edges.filter((e) => e.source === nodeId).map((e) => ({ edge: e, targetNode: nodesById.get(e.target)! })).filter((item) => Boolean(item.targetNode));
+  return { node, domainMeta: DOMAIN_META[node.domain] || DOMAIN_META["platform-tenancy"], typeMeta: NODE_TYPE_META[node.type] || NODE_TYPE_META.workflow, invariants, incomingEdges, outgoingEdges, fileRefs: node.fileRefs || [], testRefs: node.testRefs || [], qaScenarioIds: node.qaScenarioIds || [], evidence: evidenceModel?.evidenceForNode(nodeId), screenshotUrls };
 }
 
 export function parseWorkflowMapUrlState(search = window.location.search): Partial<Writable<WorkflowCanvasFilter>> {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   const result: Partial<Writable<WorkflowCanvasFilter>> = {};
-
-  const preset = params.get("preset");
-  if (preset) result.presetId = preset;
-
-  const node = params.get("node");
-  if (node) result.selectedNodeId = node;
-
-  const domain = params.get("domain");
-  if (domain && ALL_DOMAINS.includes(domain as WorkflowDomain)) {
-    result.selectedDomains = [domain as WorkflowDomain];
-  }
-
-  const query = params.get("q") || params.get("search");
-  if (query) result.searchQuery = query;
-
-  const focus = params.get("focus");
-  if (focus === "true" || focus === "1") result.focusNeighborhood = true;
-
-  const hops = params.get("hops");
-  if (hops === "2") result.neighborhoodHops = 2;
-
-  const evidence = params.get("evidence");
-  if (evidence === "status" || evidence === "failures" || evidence === "off") {
-    result.evidenceMode = evidence;
-  }
-
+  const preset = params.get("preset"); if (preset) result.presetId = preset;
+  const node = params.get("node"); if (node) result.selectedNodeId = node;
+  const domain = params.get("domain"); if (domain && ALL_DOMAINS.includes(domain as WorkflowDomain)) result.selectedDomains = [domain as WorkflowDomain];
+  const query = params.get("q") || params.get("search"); if (query) result.searchQuery = query;
+  const focus = params.get("focus"); if (focus === "true" || focus === "1") result.focusNeighborhood = true;
+  const hops = params.get("hops"); if (hops === "2") result.neighborhoodHops = 2;
+  const evidence = params.get("evidence"); if (evidence === "status" || evidence === "failures" || evidence === "off") result.evidenceMode = evidence;
   return result;
 }
 
 export function formatWorkflowMapUrlQuery(filter: WorkflowCanvasFilter): string {
   const params = new URLSearchParams();
-
-  if (filter.presetId && filter.presetId !== "overview") {
-    params.set("preset", filter.presetId);
-  }
-  if (filter.selectedNodeId) {
-    params.set("node", filter.selectedNodeId);
-  }
-  if (filter.selectedDomains.length === 1) {
-    params.set("domain", filter.selectedDomains[0]);
-  }
-  if (filter.searchQuery.trim()) {
-    params.set("q", filter.searchQuery.trim());
-  }
-  if (filter.focusNeighborhood) {
-    params.set("focus", "1");
-  }
-  if (filter.neighborhoodHops === 2) {
-    params.set("hops", "2");
-  }
-  if (filter.evidenceMode && filter.evidenceMode !== "off") {
-    params.set("evidence", filter.evidenceMode);
-  }
-
+  if (filter.presetId && filter.presetId !== "overview") params.set("preset", filter.presetId);
+  if (filter.selectedNodeId) params.set("node", filter.selectedNodeId);
+  if (filter.selectedDomains.length === 1) params.set("domain", filter.selectedDomains[0]);
+  if (filter.searchQuery.trim()) params.set("q", filter.searchQuery.trim());
+  if (filter.focusNeighborhood) params.set("focus", "1");
+  if (filter.neighborhoodHops === 2) params.set("hops", "2");
+  if (filter.evidenceMode && filter.evidenceMode !== "off") params.set("evidence", filter.evidenceMode);
   const queryStr = params.toString();
   return queryStr ? `?${queryStr}` : "";
 }

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { WORKFLOW_GRAPH } from "../scripts/workflow-map/graph.ts";
 import {
+  ALL_DOMAINS,
   computeNeighborhood,
   DEFAULT_FILTER,
   filterGraph,
@@ -30,7 +31,8 @@ test("getCanvasPresets produces curated diagrams, domain views, and full archite
   assert.equal(allPreset.category, "all");
 
   const domainPresets = presets.filter((p) => p.category === "domain");
-  assert.equal(domainPresets.length, 8);
+  const expectedDomainCount = ALL_DOMAINS.length;
+  assert.equal(domainPresets.length, expectedDomainCount);
 });
 
 test("filterGraph respects curated preset definitions and does not show all 183 nodes by default", () => {
@@ -263,4 +265,3 @@ test("buildReactFlowElements and getNodeDetails integrate evidence model data co
   assert.equal(details.evidence?.nodeId, "route-dashboard");
   assert.equal(details.screenshotUrls?.["screenshots/sample.png"], "blob:sample");
 });
-
