@@ -43,10 +43,10 @@ select
   'aaaaaaaa-0000-4000-8000-000000000302'::uuid as company_a,
   'bbbbbbbb-0000-4000-8000-000000000303'::uuid as company_b,
   '10000000-0000-4000-8000-000000000302'::uuid as project_a,
-  '20000000-0000-4000-8000-000000000303'::uuid as project_b,
-  '30000000-0000-4000-8000-000000000302'::uuid as billing_one,
-  '40000000-0000-4000-8000-000000000302'::uuid as billing_two;
+  '20000000-0000-4000-8000-000000000303'::uuid as project_b;
 grant select on client_billing_ids to authenticated, service_role;
+create temp table client_billing_created_ids (slot text primary key, billing_id uuid not null);
+grant insert, select on client_billing_created_ids to authenticated;
 
 insert into auth.users (id, email, encrypted_password, created_at, updated_at)
 select id, email, 'x', now(), now()
@@ -81,67 +81,70 @@ select set_config('request.jwt.claim.sub', (select admin_user::text from client_
 
 -- Draft save derives the returned total from line values and snapshots the
 -- project context. Drafts are intentionally absent from billed-to-date.
-select is(
-  (public.create_or_update_client_billing(
-    jsonb_build_object('companyId', (select company_a from client_billing_ids), 'projectId', (select project_a from client_billing_ids), 'id', (select billing_one from client_billing_ids), 'billingNumber', 'CB-PB-001', 'billingDate', '2026-09-04', 'currency', 'PHP'),
+with saved as (
+  select public.create_or_update_client_billing(
+    jsonb_build_object('companyId', (select company_a from client_billing_ids), 'projectId', (select project_a from client_billing_ids), 'billingNumber', 'CB-PB-001', 'billingDate', '2026-09-04', 'currency', 'PHP'),
     jsonb_build_array(jsonb_build_object('description', 'Mobilization', 'amount', 600), jsonb_build_object('description', 'Site progress', 'amount', 0))
-  )->>'totalAmount')::numeric,
-  600::numeric,
-  'draft RPC total is the sum of billing lines'
-);
-select is((select status from public.client_billings where id = (select billing_one from client_billing_ids)), 'DRAFT', 'new client billing is created as DRAFT');
-select is((select client_name_snapshot from public.client_billings where id = (select billing_one from client_billing_ids)), 'Client A', 'project client name is snapshotted');
+  ) as response
+)
+insert into client_billing_created_ids(slot, billing_id)
+select 'one', (response->'billing'->>'id')::uuid from saved;
+select is((select sum(amount) from public.client_billing_lines where billing_id = (select billing_id from client_billing_created_ids where slot = 'one')), 600::numeric, 'draft RPC total is the sum of billing lines');
+select is((select status from public.client_billings where id = (select billing_id from client_billing_created_ids where slot = 'one')), 'DRAFT', 'new client billing is created as DRAFT');
+select is((select client_name_snapshot from public.client_billings where id = (select billing_id from client_billing_created_ids where slot = 'one')), 'Client A', 'project client name is snapshotted');
 select is((public.preview_project_lifecycle((select project_a from client_billing_ids))->'dependencies'->>'clientBillings')::bigint, 1::bigint, 'project preflight counts client billing history');
 select is((public.preview_project_lifecycle((select project_a from client_billing_ids))->>'canDelete')::boolean, false, 'client billing history blocks unused project deletion');
 
-select lives_ok($$select public.transition_client_billing((select billing_one from client_billing_ids), 'SUBMITTED', null)$$, 'draft billing can be submitted');
-select lives_ok($$select public.transition_client_billing((select billing_one from client_billing_ids), 'ISSUED', null)$$, 'submitted billing can be issued');
-select is((select status from public.client_billings where id = (select billing_one from client_billing_ids)), 'ISSUED', 'issued lifecycle state is persisted');
-select is((select sum(amount) from public.client_billing_lines where billing_id = (select billing_one from client_billing_ids)), 600::numeric, 'issued billing retains line amount');
-select is((select count(*) from public.client_billing_events where billing_id = (select billing_one from client_billing_ids) and event_type in ('CREATED', 'SUBMITTED', 'ISSUED')), 3::bigint, 'billing lifecycle history is append-only and complete');
-select is((select count(*) from public.company_audit_events where target_id = (select billing_one from client_billing_ids) and event_type = 'CLIENT_BILLING_ISSUED'), 1::bigint, 'issued billing writes company audit history');
+select lives_ok($$select public.transition_client_billing((select billing_id from client_billing_created_ids where slot = 'one'), 'SUBMITTED', null)$$, 'draft billing can be submitted');
+select lives_ok($$select public.transition_client_billing((select billing_id from client_billing_created_ids where slot = 'one'), 'ISSUED', null)$$, 'submitted billing can be issued');
+select is((select status from public.client_billings where id = (select billing_id from client_billing_created_ids where slot = 'one')), 'ISSUED', 'issued lifecycle state is persisted');
+select is((select sum(amount) from public.client_billing_lines where billing_id = (select billing_id from client_billing_created_ids where slot = 'one')), 600::numeric, 'issued billing retains line amount');
+select is((select count(*) from public.client_billing_events where billing_id = (select billing_id from client_billing_created_ids where slot = 'one') and event_type in ('CREATED', 'SUBMITTED', 'ISSUED')), 3::bigint, 'billing lifecycle history is append-only and complete');
+select is((select count(*) from public.company_audit_events where target_id = (select billing_id from client_billing_created_ids where slot = 'one') and event_type = 'CLIENT_BILLING_ISSUED'), 1::bigint, 'issued billing writes company audit history');
 
 -- A second submitted billing cannot cross the locked project contract ceiling.
-select lives_ok(
-  $$select public.create_or_update_client_billing(
-    jsonb_build_object('companyId', (select company_a from client_billing_ids), 'projectId', (select project_a from client_billing_ids), 'id', (select billing_two from client_billing_ids), 'billingNumber', 'CB-PB-002', 'currency', 'PHP'),
+with saved as (
+  select public.create_or_update_client_billing(
+    jsonb_build_object('companyId', (select company_a from client_billing_ids), 'projectId', (select project_a from client_billing_ids), 'billingNumber', 'CB-PB-002', 'currency', 'PHP'),
     jsonb_build_array(jsonb_build_object('description', 'Final progress', 'amount', 500))
-  )$$,
-  'second billing draft can be prepared'
-);
-select lives_ok($$select public.transition_client_billing((select billing_two from client_billing_ids), 'SUBMITTED', null)$$, 'second billing can be submitted before issuance');
+  ) as response
+)
+insert into client_billing_created_ids(slot, billing_id)
+select 'two', (response->'billing'->>'id')::uuid from saved;
+select is((select count(*) from public.client_billings where id = (select billing_id from client_billing_created_ids where slot = 'two') and status = 'DRAFT'), 1::bigint, 'second billing draft can be prepared');
+select lives_ok($$select public.transition_client_billing((select billing_id from client_billing_created_ids where slot = 'two'), 'SUBMITTED', null)$$, 'second billing can be submitted before issuance');
 select throws_ok(
-  $$select public.transition_client_billing((select billing_two from client_billing_ids), 'ISSUED', null)$$,
+  $$select public.transition_client_billing((select billing_id from client_billing_created_ids where slot = 'two'), 'ISSUED', null)$$,
   '23514', null,
   'concurrent-safe issuance check rejects cumulative over-billing'
 );
-select is((select status from public.client_billings where id = (select billing_two from client_billing_ids)), 'SUBMITTED', 'failed issuance leaves the second billing submitted');
+select is((select status from public.client_billings where id = (select billing_id from client_billing_created_ids where slot = 'two')), 'SUBMITTED', 'failed issuance leaves the second billing submitted');
 
 -- Finalized terms and direct lifecycle writes are not mutable; voiding is the
 -- explicit reason-gated correction path and removes the row from billed truth.
 select throws_ok(
-  $$update public.client_billings set status = 'ISSUED' where id = (select billing_two from client_billing_ids)$$,
+  $$update public.client_billings set status = 'ISSUED' where id = (select billing_id from client_billing_created_ids where slot = 'two')$$,
   '42501', null,
   'direct status update cannot bypass the lifecycle RPC'
 );
 select throws_ok(
-  $$update public.client_billing_lines set amount = 601 where billing_id = (select billing_one from client_billing_ids)$$,
+  $$update public.client_billing_lines set amount = 601 where billing_id = (select billing_id from client_billing_created_ids where slot = 'one')$$,
   '42501', null,
   'issued billing lines are immutable'
 );
 select throws_ok(
-  $$delete from public.client_billings where id = (select billing_one from client_billing_ids)$$,
+  $$delete from public.client_billings where id = (select billing_id from client_billing_created_ids where slot = 'one')$$,
   '42501', null,
   'client billing header history cannot be silently deleted'
 );
 select throws_ok(
-  $$select public.transition_client_billing((select billing_one from client_billing_ids), 'VOIDED', null)$$,
+  $$select public.transition_client_billing((select billing_id from client_billing_created_ids where slot = 'one'), 'VOIDED', null)$$,
   '22023', null,
   'voiding requires an explicit reason'
 );
-select lives_ok($$select public.transition_client_billing((select billing_one from client_billing_ids), 'VOIDED', 'Duplicate client billing')$$, 'issued billing can be voided with a reason');
-select is((select status from public.client_billings where id = (select billing_one from client_billing_ids)), 'VOIDED', 'voided lifecycle state is persisted');
-select is((select count(*) from public.client_billing_events where billing_id = (select billing_one from client_billing_ids) and event_type = 'VOIDED'), 1::bigint, 'voiding appends billing lifecycle history');
+select lives_ok($$select public.transition_client_billing((select billing_id from client_billing_created_ids where slot = 'one'), 'VOIDED', 'Duplicate client billing')$$, 'issued billing can be voided with a reason');
+select is((select status from public.client_billings where id = (select billing_id from client_billing_created_ids where slot = 'one')), 'VOIDED', 'voided lifecycle state is persisted');
+select is((select count(*) from public.client_billing_events where billing_id = (select billing_id from client_billing_created_ids where slot = 'one') and event_type = 'VOIDED'), 1::bigint, 'voiding appends billing lifecycle history');
 
 -- Currency and company/project boundaries are database enforced.
 select throws_ok(
