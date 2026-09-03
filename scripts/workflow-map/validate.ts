@@ -34,6 +34,9 @@ export const REQUIRED_WORKFLOW_IDS = [
   "purchase-order-lifecycle",
   "subcontract-packages",
   "subcontract-variations",
+  "client-billing-workspace",
+  "client-billing-lifecycle",
+  "client-billing-overbilling-guard",
   "project-budget-control",
 ] as const;
 

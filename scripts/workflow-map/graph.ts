@@ -786,7 +786,7 @@ const nodes: readonly WorkflowNode[] = [
     domain: "projects",
     type: "screen",
     scope: "project",
-    description: "Project aggregate shell containing Overview, Documents, RFIs, Submittals, Site Logs, Invoices, Payroll, Expenses, People, and Reports tabs.",
+    description: "Project aggregate shell containing Overview, Client Billing, Documents, RFIs, Submittals, Site Logs, Invoices, Payroll, Expenses, People, and Reports tabs.",
     sourceClassification: "mixed",
     fileRefs: ["src/components/projects/ProjectWorkspace.tsx", "src/app/routes/ProjectsRoute.tsx"],
     testRefs: ["tests/projectWorkspaceNavigation.test.ts", "tests/projects.test.ts"],
@@ -2720,6 +2720,17 @@ const commercialRefs = [
   "src/utils/projectCosting.ts",
 ] as const;
 
+const clientBillingRefs = [
+  "src/lib/clientBilling.ts",
+  "src/components/projects/ClientBillingPanel.tsx",
+  "src/components/projects/ProjectWorkspace.tsx",
+  "src/components/projects/ProjectOverview.tsx",
+  "src/app/routes/ProjectsRoute.tsx",
+  "src/utils/projectFinancialSummary.ts",
+  "supabase/migrations/20260903224406_client_progress_billing_foundation.sql",
+  "supabase/migrations/20260903232024_client_billing_realtime.sql",
+] as const;
+
 const procurementTests = [
   "tests/purchaseOrdersCommittedCost.test.ts",
   "tests/purchaseOrdersDomain.test.ts",
@@ -2736,6 +2747,12 @@ const commercialTests = [
   "tests/subcontractVariationsDomain.test.ts",
   "tests/subcontractVariationsFinancialInvariants.test.ts",
   "tests/subcontractVariationsClaimIntegration.test.ts",
+] as const;
+
+const clientBillingTests = [
+  ...commercialTests,
+  "tests/clientProgressBilling.test.ts",
+  "tests/clientProgressBillingMigration.test.ts",
 ] as const;
 
 const p2Invariants: readonly WorkflowInvariant[] = [
@@ -2786,6 +2803,22 @@ const p2Invariants: readonly WorkflowInvariant[] = [
     sourceClassification: "curated",
     fileRefs: ["src/lib/purchaseOrders.ts", "src/lib/subcontracts.ts", "src/utils/projectCosting.ts"],
     testRefs: [...procurementTests, ...commercialTests],
+  }),
+  invariant({
+    id: "commercial-client-billing-issued-only",
+    label: "Only issued client billing contributes to billed-to-date",
+    description: "Client progress billing is project revenue-side history. Header totals derive from billing lines, and only ISSUED records contribute to Billed to Date; drafts, submitted, cancelled, and voided records remain excluded. Issuance is bounded by the authoritative project contract value.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/clientBilling.ts", "src/components/projects/ClientBillingPanel.tsx", "src/components/projects/ProjectOverview.tsx", "supabase/migrations/20260903224406_client_progress_billing_foundation.sql"],
+    testRefs: clientBillingTests,
+  }),
+  invariant({
+    id: "commercial-client-billing-cash-separation",
+    label: "Client billing is separate from collection and settlement",
+    description: "Creating, submitting, issuing, cancelling, or voiding client billing does not create cash transactions, settlement matches, bank balances, accounting postings, or collected/outstanding receivables truth.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/clientBilling.ts", "src/components/projects/ClientBillingPanel.tsx", "src/utils/projectCosting.ts", "supabase/migrations/20260903224406_client_progress_billing_foundation.sql"],
+    testRefs: clientBillingTests,
   }),
 ] as const;
 
@@ -2973,6 +3006,90 @@ const p2Nodes: readonly WorkflowNode[] = [
     tags: ["remaining subcontract commitment", "remaining commitment", "certified gross"],
   }),
   node({
+    id: "client-billing-workspace",
+    label: "Client Progress Billing Workspace",
+    domain: "commercial",
+    type: "screen",
+    description: "Project Workspace commercial register for client progress billing headers, line-derived current amounts, lifecycle actions, and billing-specific history.",
+    sourceClassification: "mixed",
+    scope: "project",
+    fileRefs: clientBillingRefs,
+    testRefs: clientBillingTests,
+    permissionKeys: ["projects.read", "projects.manage"],
+    invariantIds: ["company-rbac-is-authoritative", "commercial-client-billing-issued-only", "commercial-client-billing-cash-separation"],
+    tags: ["client billing", "progress billing", "commercial register"],
+  }),
+  node({
+    id: "client-billing-lifecycle",
+    label: "Client Billing Lifecycle",
+    domain: "commercial",
+    type: "workflow",
+    description: "Project client billings move through DRAFT, SUBMITTED, ISSUED, CANCELLED, and VOIDED states with draft-only editing and reason-gated correction transitions.",
+    sourceClassification: "mixed",
+    scope: "company-and-project",
+    statusValues: ["DRAFT", "SUBMITTED", "ISSUED", "CANCELLED", "VOIDED"],
+    fileRefs: clientBillingRefs,
+    testRefs: clientBillingTests,
+    permissionKeys: ["projects.manage"],
+    confirmationRequirement: "human",
+    invariantIds: ["commercial-client-billing-issued-only", "commercial-client-billing-cash-separation"],
+    tags: ["client billing lifecycle", "issued billing", "voided billing"],
+  }),
+  node({
+    id: "client-billing-issued",
+    label: "Issued Client Billing",
+    domain: "commercial",
+    type: "state",
+    description: "The authoritative final billing state that contributes its line-derived amount to project Billed to Date.",
+    sourceClassification: "mixed",
+    scope: "company-and-project",
+    statusValues: ["ISSUED"],
+    fileRefs: ["src/lib/clientBilling.ts", "supabase/migrations/20260903224406_client_progress_billing_foundation.sql"],
+    testRefs: clientBillingTests,
+    invariantIds: ["commercial-client-billing-issued-only"],
+    tags: ["issued billing", "billed to date"],
+  }),
+  node({
+    id: "project-billed-to-date",
+    label: "Project Billed to Date",
+    domain: "commercial",
+    type: "derived-data",
+    description: "Sum of line-derived amounts from ISSUED client billings for one project and its currency; drafts and correction-excluded states do not inflate the value.",
+    sourceClassification: "mixed",
+    scope: "project",
+    fileRefs: ["src/lib/clientBilling.ts", "src/components/projects/ProjectOverview.tsx", "src/components/projects/ClientBillingPanel.tsx"],
+    testRefs: clientBillingTests,
+    invariantIds: ["commercial-client-billing-issued-only", "commercial-client-billing-cash-separation"],
+    tags: ["billed to date", "remaining to bill", "project commercial position"],
+  }),
+  node({
+    id: "client-billing-overbilling-guard",
+    label: "Contract Value Over-Billing Guard",
+    domain: "commercial",
+    type: "guard",
+    description: "Before issuance, the guarded database RPC locks the project row, rechecks the current project contract value, sums other ISSUED billing lines, and rejects cumulative over-billing.",
+    sourceClassification: "mixed",
+    scope: "company-and-project",
+    fileRefs: ["src/lib/clientBilling.ts", "supabase/migrations/20260903224406_client_progress_billing_foundation.sql"],
+    testRefs: clientBillingTests,
+    permissionKeys: ["projects.manage"],
+    invariantIds: ["commercial-client-billing-issued-only", "company-rbac-is-authoritative"],
+    tags: ["over billing", "contract value guard", "project lock"],
+  }),
+  node({
+    id: "client-billing-cash-boundary",
+    label: "Client Billing / Cash Boundary",
+    domain: "commercial",
+    type: "external-boundary",
+    description: "Client billing records remain revenue-side commercial history. Collections, settlement linkage, receivables, accounting postings, and revenue recognition are separate deferred boundaries.",
+    sourceClassification: "mixed",
+    scope: "company-and-project",
+    fileRefs: ["src/lib/clientBilling.ts", "src/components/projects/ClientBillingPanel.tsx", "supabase/migrations/20260903224406_client_progress_billing_foundation.sql"],
+    testRefs: clientBillingTests,
+    invariantIds: ["commercial-client-billing-cash-separation"],
+    tags: ["cash separation", "collections deferred", "settlement deferred"],
+  }),
+  node({
     id: "project-budget-control",
     label: "Project Budget Control",
     domain: "projects",
@@ -3006,6 +3123,12 @@ const p2Edges: readonly WorkflowEdge[] = [
   edge({ id: "p2-revised-value-remaining-commitment", source: "revised-subcontract-value", target: "remaining-subcontract-commitment", type: "derives", kind: "derived-data", label: "revised subcontract value is the commitment basis", invariantIds: ["commercial-approved-variation-revises-subcontract-only"] }),
   edge({ id: "p2-subcontract-project-cost", source: "remaining-subcontract-commitment", target: "project-cost-aggregation", type: "feeds", kind: "derived-data", label: "remaining subcontract value contributes committed cost", invariantIds: ["commercial-subcontract-remaining-commitment"] }),
   edge({ id: "p2-cost-budget-control", source: "project-cost-aggregation", target: "project-budget-control", type: "feeds", kind: "derived-data", label: "actual and committed project costs feed budget control" }),
+  edge({ id: "p2-project-client-billing", source: "project-workspace", target: "client-billing-workspace", type: "contains", kind: "context", label: "Client Billing tab" }),
+  edge({ id: "p2-client-billing-lifecycle", source: "client-billing-workspace", target: "client-billing-lifecycle", type: "contains", kind: "state-transition", label: "draft, submission, issue, and correction actions", permissionKeys: ["projects.manage"], confirmationRequirement: "human", invariantIds: ["commercial-client-billing-issued-only", "commercial-client-billing-cash-separation"] }),
+  edge({ id: "p2-client-billing-issued-state", source: "client-billing-lifecycle", target: "client-billing-issued", type: "transitions", kind: "state-transition", label: "SUBMITTED → ISSUED", invariantIds: ["commercial-client-billing-issued-only"] }),
+  edge({ id: "p2-issued-billed-to-date", source: "client-billing-issued", target: "project-billed-to-date", type: "derives", kind: "derived-data", label: "line-derived issued amount contributes", invariantIds: ["commercial-client-billing-issued-only"] }),
+  edge({ id: "p2-billing-overbilling-guard", source: "client-billing-lifecycle", target: "client-billing-overbilling-guard", type: "guards", kind: "guard", label: "project lock and cumulative contract ceiling", permissionKeys: ["projects.manage"], invariantIds: ["commercial-client-billing-issued-only", "company-rbac-is-authoritative"] }),
+  edge({ id: "p2-billing-cash-separation", source: "client-billing-issued", target: "client-billing-cash-boundary", type: "separates", kind: "separation", label: "no collection or settlement side effect", invariantIds: ["commercial-client-billing-cash-separation"] }),
 ] as const;
 
 const diagrams = [
@@ -3026,10 +3149,19 @@ const diagrams = [
     description: "Project aggregate, Engineering Documents, RFIs, Submittals, and Daily Site Logs with lifecycle/history boundaries.",
     nodeIds: [
       "route-projects", "project-directory", "project-selection", "route-project-workspace", "project-workspace", "project-aggregate", "project-correction-lifecycle", "project-lifecycle-rpc-boundary", "project-activity-guard", "project-overview", "project-cost-aggregation", "project-labor-aggregate-rpc",
+      "client-billing-workspace", "client-billing-lifecycle", "client-billing-issued", "project-billed-to-date", "client-billing-overbilling-guard", "client-billing-cash-boundary",
       "route-project-documents", "engineering-documents-screen", "engineering-document", "engineering-document-revision", "blueprint-viewer", "drawing-annotations",
       "route-project-rfis", "route-rfi-detail", "rfi-register-screen", "rfi-record", "rfi-state-draft", "rfi-state-open", "rfi-state-answered", "rfi-state-closed", "rfi-state-void", "rfi-response-history", "rfi-document-links",
       "route-project-submittals", "route-submittal-detail", "submittal-register-screen", "submittal-record", "submittal-state-draft", "submittal-state-submitted", "submittal-state-under-review", "submittal-state-approved", "submittal-state-approved-as-noted", "submittal-state-revise", "submittal-state-rejected", "submittal-state-closed", "submittal-state-void", "submittal-rounds", "submittal-review-history", "submittal-document-links",
       "route-project-site-logs", "route-site-log-detail", "site-log-register-screen", "site-log-aggregate", "site-log-state-draft", "site-log-state-submitted", "site-log-state-finalized", "site-log-state-void", "site-log-weather-observation", "site-log-crew-observation", "site-log-equipment-observation", "site-log-safety-observation", "site-log-event-history", "site-log-correction-addendum", "site-log-payroll-boundary",
+    ],
+  },
+  {
+    id: "commercial-client-billing",
+    title: "Client Progress Billing flow",
+    description: "Project-level revenue-side billing register from draft line editing through issued-only billed-to-date, with contract ceiling and cash/settlement separation.",
+    nodeIds: [
+      "project-workspace", "client-billing-workspace", "client-billing-lifecycle", "client-billing-issued", "project-billed-to-date", "client-billing-overbilling-guard", "client-billing-cash-boundary", "project-aggregate",
     ],
   },
   {
@@ -3061,7 +3193,7 @@ const diagrams = [
 export const WORKFLOW_GRAPH: WorkflowGraph = {
   schemaVersion: WORKFLOW_MAP_SCHEMA_VERSION,
   graphId: "engoryx-product-workflow",
-  version: "wm-1+p2-procurement-commercial",
+  version: "wm-1+p2-procurement-commercial-client-billing",
   product: "Engoryx Engineering Operations Platform",
   purpose: "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   canonicalSource: "scripts/workflow-map/graph.ts",

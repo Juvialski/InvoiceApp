@@ -283,6 +283,7 @@ test("realtime migration is additive, ordered, and covers only mapped persisted 
     new URL("../supabase/migrations/20260823180000_workspace_sync_realtime.sql", import.meta.url),
     new URL("../supabase/migrations/20260823192000_payroll_automation_realtime.sql", import.meta.url),
     new URL("../supabase/migrations/20260826122000_cash_banking_realtime.sql", import.meta.url),
+    new URL("../supabase/migrations/20260903232024_client_billing_realtime.sql", import.meta.url),
   ];
   const scheduleUrl = new URL("../supabase/migrations/20260823190000_payroll_schedule_domain.sql", import.meta.url);
   const realtimeSql = realtimeUrls.map((migrationUrl) => readFileSync(migrationUrl, "utf8")).join("\n");

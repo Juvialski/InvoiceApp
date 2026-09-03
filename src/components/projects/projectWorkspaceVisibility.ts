@@ -6,6 +6,7 @@ import {
 
 export type ProjectWorkspaceVisibilityTab =
   | "overview"
+  | "billing"
   | "budget"
   | "procurement"
   | "documents"

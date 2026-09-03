@@ -11,6 +11,7 @@ on:
       - 'tests/cashBankingMigration.test.ts'
       - 'tests/coreHardeningWave2B2.test.ts'
       - 'tests/coreHardeningWave2C.test.ts'
+      - 'tests/clientProgressBillingMigration.test.ts'
       - '.github/workflows/database-tests.yml'
       - 'package*.json'
   push:
@@ -54,7 +55,7 @@ jobs:
         run: npm ci
 
       - name: Step 1 - Static Migration Invariants & Naming Safety
-        run: node --test --experimental-strip-types tests/migrationInvariants.test.ts tests/cashBankingMigration.test.ts tests/coreHardeningWave2B2.test.ts tests/coreHardeningWave2C.test.ts
+        run: node --test --experimental-strip-types tests/migrationInvariants.test.ts tests/cashBankingMigration.test.ts tests/coreHardeningWave2B2.test.ts tests/coreHardeningWave2C.test.ts tests/clientProgressBillingMigration.test.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1

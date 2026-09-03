@@ -29,10 +29,16 @@ import type {
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
+import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ProjectsRouteProps {
   projects: Project[];
+  clientBillings?: ClientBilling[];
+  clientBillingEvents?: ClientBillingEvent[];
+  clientBillingLoading?: boolean;
+  onSaveClientBilling?: (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => Promise<void> | void;
+  onTransitionClientBilling?: (id: string, targetStatus: ClientBillingStatus, reason?: string) => Promise<void> | void;
   selectedProject?: Project | null;
   summaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
@@ -140,6 +146,11 @@ export interface ProjectsRouteProps {
 
 export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   projects,
+  clientBillings = [],
+  clientBillingEvents = [],
+  clientBillingLoading = false,
+  onSaveClientBilling = async () => {},
+  onTransitionClientBilling = async () => {},
   selectedProject,
   summaries,
   projectDashboard,
@@ -242,6 +253,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
       <ProjectWorkspace
         project={selectedProject}
         summary={summary}
+        clientBillings={clientBillings}
+        clientBillingEvents={clientBillingEvents}
+        clientBillingLoading={clientBillingLoading}
         dashboard={projectDashboard}
         costCodes={costCodes}
         invoices={invoices}
@@ -283,6 +297,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
         onTabChange={onTabChange}
         onSaveInvoiceAllocations={onSaveInvoiceAllocations}
+        onSaveClientBilling={onSaveClientBilling}
+        onTransitionClientBilling={onTransitionClientBilling}
         onBack={onBack}
         onOpenInvoice={onOpenInvoice}
         onUploadInvoice={onUploadInvoice}

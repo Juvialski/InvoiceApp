@@ -46,6 +46,7 @@ import type {
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import type { WorkspaceTab } from "../../components/projects/ProjectWorkspace";
+import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
@@ -118,6 +119,11 @@ export interface AppRouterProps {
 
   // Projects Data & Handlers
   projects: Project[];
+  clientBillings?: ClientBilling[];
+  clientBillingEvents?: ClientBillingEvent[];
+  clientBillingLoading?: boolean;
+  onSaveClientBilling?: (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => Promise<void> | void;
+  onTransitionClientBilling?: (id: string, targetStatus: ClientBillingStatus, reason?: string) => Promise<void> | void;
   selectedProject?: Project | null;
   projectSummaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
@@ -369,6 +375,11 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onDashboardCurrencyChange = () => {},
   onNavigateTab = (_tab: AppTab) => {},
   projects,
+  clientBillings = [],
+  clientBillingEvents = [],
+  clientBillingLoading = false,
+  onSaveClientBilling = async () => {},
+  onTransitionClientBilling = async () => {},
   selectedProject,
   projectSummaries,
   projectDashboard,
@@ -594,6 +605,11 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     return lazyRoute(
       <ProjectsRoute
         projects={projects}
+        clientBillings={clientBillings}
+        clientBillingEvents={clientBillingEvents}
+        clientBillingLoading={clientBillingLoading}
+        onSaveClientBilling={onSaveClientBilling}
+        onTransitionClientBilling={onTransitionClientBilling}
         selectedProject={selectedProject}
         summaries={projectSummaries}
         projectDashboard={projectDashboard}

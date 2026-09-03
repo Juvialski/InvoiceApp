@@ -22,6 +22,7 @@ import { DEMO_COMPANY_ID } from "./demoTypes.ts";
 import { demoAssistantPath, demoDocumentsPath, demoPathForAppPath, demoPathForInvoice, demoPathForProject, demoPathForTab, type DemoLocation } from "./demoRouting.ts";
 import { projectCostDataCompleteness } from "../utils/dataCompleteness.ts";
 import { demoTimestamp } from "./data/demoDates.ts";
+import { applyLocalClientBillingTransition, buildLocalClientBilling, type ClientBillingInput, type ClientBillingLineInput, type ClientBillingStatus } from "../lib/clientBilling.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -53,6 +54,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const summaries = useMemo(() => buildDemoProjectSummaries(data), [data]);
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
+  const clientBillings = data.clientBillings || [];
   const reviewQueue = useMemo(() => data.invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID"), [data.invoices]);
   const demoProjectCostCompleteness = useMemo(() => projectCostDataCompleteness(["*"]), []);
 
@@ -72,6 +74,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     engineeringDailySiteLogs: data.siteLogs.logs.filter((log) => log.projectId === project.id).length,
     purchaseOrders: (data.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
     subcontracts: (data.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
+    clientBillings: clientBillings.filter((billing) => billing.projectId === project.id).length,
   }, { source: "demo" });
 
   const applyProjectLifecycle = async (project: Project, action: ProjectLifecycleAction, _reason?: string) => {
@@ -89,6 +92,40 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const reactivateProject = async (project: Project) => {
     if (!window.confirm("Reactivate this project? It will return to active workflows, and historical records will remain unchanged.")) return;
     await applyProjectLifecycle(project, "REACTIVATE", "Confirmed project reactivation");
+  };
+
+  const saveClientBilling = async (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => {
+    const existing = input.id ? clientBillings.find((billing) => billing.id === input.id) : undefined;
+    const normalizedNumber = input.billingNumber.trim().toUpperCase();
+    if (!normalizedNumber) throw new Error("Billing number is required.");
+    if (clientBillings.some((billing) => billing.id !== input.id && billing.billingNumber.trim().toUpperCase() === normalizedNumber)) {
+      throw new Error("Billing number already exists in the demo workspace.");
+    }
+    const project = data.projects.find((candidate) => candidate.id === input.projectId);
+    if (!project) throw new Error("Project was not found in the demo workspace.");
+    const value = buildLocalClientBilling({ ...input, clientNameSnapshot: input.clientNameSnapshot || project.clientName, currency: project.currency }, lines, existing, DEMO_COMPANY_ID, demoTimestamp(data.anchorDate, 17, 25));
+    dispatch({
+      type: "SAVE_CLIENT_BILLING",
+      value,
+      event: {
+        id: `${value.id}-updated-${value.updatedAt}`,
+        companyId: DEMO_COMPANY_ID,
+        billingId: value.id,
+        eventType: existing ? "UPDATED" : "CREATED",
+        fromStatus: existing?.status,
+        toStatus: value.status,
+        actorUserId: "demo-user-finance",
+        createdAt: value.updatedAt,
+      },
+    });
+  };
+
+  const transitionClientBilling = async (id: string, targetStatus: ClientBillingStatus, reason?: string) => {
+    const current = clientBillings.find((billing) => billing.id === id);
+    const project = current ? data.projects.find((candidate) => candidate.id === current.projectId) : undefined;
+    if (!current || !project) throw new Error("Client billing was not found in the demo workspace.");
+    applyLocalClientBillingTransition(current, targetStatus, project, clientBillings, reason, demoTimestamp(data.anchorDate, 17, 30));
+    dispatch({ type: "TRANSITION_CLIENT_BILLING", id, targetStatus, reason });
   };
 
   const saveSubcontract = async (
@@ -209,6 +246,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             costCodes={data.costCodes || []}
             purchaseOrders={data.purchaseOrders || []}
             subcontracts={data.subcontracts || []}
+            clientBillings={clientBillings}
+            clientBillingEvents={data.clientBillingEvents || []}
             vendors={data.vendors || []}
             selectedProject={selectedProject}
             projectSummaries={summaries}
@@ -235,6 +274,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onProjectAddExpense={() => onNavigate(demoPathForTab("expenses"))}
             onProjectOpenExpenseCorrection={(expense) => { setExpenseCorrectionContext(expense.id); onNavigate(demoPathForTab("expenses")); }}
             onProjectOpenPayroll={() => onNavigate(demoPathForTab("payroll"))}
+            onSaveClientBilling={saveClientBilling}
+            onTransitionClientBilling={transitionClientBilling}
             onSaveSubcontract={saveSubcontract}
             onTransitionSubcontract={transitionSubcontract}
             onDeleteSubcontract={deleteSubcontract}

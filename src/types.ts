@@ -571,6 +571,62 @@ export interface Project {
   archivedFromStatus?: Exclude<ProjectStatus, "ARCHIVED">;
 }
 
+export type ClientBillingStatus = "DRAFT" | "SUBMITTED" | "ISSUED" | "CANCELLED" | "VOIDED";
+export type ClientBillingEventType = "CREATED" | "UPDATED" | "SUBMITTED" | "RETURNED_TO_DRAFT" | "ISSUED" | "CANCELLED" | "VOIDED";
+
+export interface ClientBillingLine {
+  id: string;
+  billingId: string;
+  lineNumber: number;
+  description: string;
+  amount: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ClientBilling {
+  id: string;
+  companyId?: string;
+  projectId: string;
+  billingNumber: string;
+  billingDate: string;
+  periodStart?: string;
+  periodEnd?: string;
+  clientNameSnapshot?: string;
+  clientReferenceSnapshot?: string;
+  currency: string;
+  status: ClientBillingStatus;
+  notes?: string;
+  lines: ClientBillingLine[];
+  createdByUserId?: string;
+  updatedByUserId?: string;
+  submittedByUserId?: string;
+  submittedAt?: string;
+  issuedByUserId?: string;
+  issuedAt?: string;
+  cancelledByUserId?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
+  voidedByUserId?: string;
+  voidedAt?: string;
+  voidReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientBillingEvent {
+  id: string;
+  companyId?: string;
+  billingId: string;
+  eventType: ClientBillingEventType;
+  fromStatus?: ClientBillingStatus;
+  toStatus: ClientBillingStatus;
+  reason?: string;
+  actorUserId?: string;
+  createdAt: string;
+}
+
 export type ProjectCostCodeStatus = "ACTIVE" | "ARCHIVED";
 
 export interface ProjectCostCode {

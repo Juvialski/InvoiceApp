@@ -33,6 +33,7 @@ import type {
   Worker,
 } from "../../types";
 import { ProjectExpenses } from "../expenses/ProjectExpenses";
+import { ClientBillingPanel } from "./ClientBillingPanel.tsx";
 import { ProjectInvoices } from "./ProjectInvoices";
 import { ProjectInvoicesReadOnly } from "./ProjectInvoicesReadOnly.tsx";
 import { ProjectOverview } from "./ProjectOverview";
@@ -51,12 +52,16 @@ import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPerm
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 import { isProjectWorkspaceTabDeploymentVisible } from "./projectWorkspaceVisibility.ts";
+import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
 
-export type WorkspaceTab = "overview" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type WorkspaceTab = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 interface ProjectWorkspaceProps {
   project: Project;
   summary: ProjectCostSummary;
+  clientBillings?: readonly ClientBilling[];
+  clientBillingEvents?: readonly ClientBillingEvent[];
+  clientBillingLoading?: boolean;
   dashboard?: ProjectDashboardViewData;
   costCodes?: readonly ProjectCostCode[];
   invoices: InvoiceData[];
@@ -121,6 +126,8 @@ interface ProjectWorkspaceProps {
   onArchiveCostCode?: (costCodeId: string) => Promise<void> | void;
   onReactivateCostCode?: (costCodeId: string) => Promise<void> | void;
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
+  onSaveClientBilling?: (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => Promise<void> | void;
+  onTransitionClientBilling?: (id: string, targetStatus: ClientBillingStatus, reason?: string) => Promise<void> | void;
   onSavePO?: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
@@ -210,6 +217,9 @@ function projectStatusTone(status: string): StatusTone {
 export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   project,
   summary,
+  clientBillings = [],
+  clientBillingEvents = [],
+  clientBillingLoading = false,
   dashboard,
   costCodes = [],
   invoices,
@@ -262,6 +272,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onArchiveCostCode,
   onReactivateCostCode,
   onSaveInvoiceAllocations,
+  onSaveClientBilling = async () => {},
+  onTransitionClientBilling = async () => {},
   onSavePO,
   onTransitionPO,
   onDeletePO,
@@ -292,6 +304,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 }) => {
   const permissions = useAppPermissions();
   const canManageProject = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
+  const canReadClientBilling = hasPermission(permissions, PERMISSION_KEYS.projectsRead);
   const canManageInvoiceAllocations = canManageProject && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
   const canReadInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesRead);
   const canExtractInvoices = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.invoicesExtract, PERMISSION_KEYS.invoicesVerify]);
@@ -322,6 +335,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
   const tabs: Array<[WorkspaceTab, string, React.ElementType]> = [
     ["overview", "Overview", BarChart3],
+    ...(canReadClientBilling && isProjectWorkspaceTabDeploymentVisible("billing") ? [["billing", "Client Billing", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [["budget", "Budget Control", Calculator] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") ? [["procurement", "Procurement", ShoppingCart] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("documents") ? [["documents", "Documents", Compass] as [WorkspaceTab, string, React.ElementType]] : []),
@@ -334,7 +348,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     ...(canReadWorkers ? [["people", "People", Users] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadReports && isProjectWorkspaceTabDeploymentVisible("reports") ? [["reports", "Reports", BarChart3] as [WorkspaceTab, string, React.ElementType]] : []),
   ];
-  const visibleTabIds = useMemo(() => new Set(tabs.map(([id]) => id)), [canReadExpenses, canReadInvoices, canReadPayroll, canReadProcurement, canReadReports, canReadWorkers]);
+  const visibleTabIds = useMemo(() => new Set(tabs.map(([id]) => id)), [canReadClientBilling, canReadExpenses, canReadInvoices, canReadPayroll, canReadProcurement, canReadReports, canReadWorkers]);
 
   useEffect(() => {
     if (visibleTabIds.has(initialTab)) setTab(initialTab);
@@ -366,7 +380,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       <PageHeader
         eyebrow={project.projectCode || "Project reference missing"}
         title={project.projectName || "Unnamed project"}
-        description="Project workspace sections keep engineering drawings, RFIs, technical submittals, daily field records, supplier, labor, and expense records in one operational context."
+        description="Project workspace sections keep client billing, engineering drawings, RFIs, technical submittals, daily field records, supplier, labor, and expense records in one operational context."
         actions={(
           <>
             <Button variant="secondary" label="← Projects" onClick={onBack} />
@@ -393,7 +407,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         ))}
       </nav>
 
-      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
+      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} clientBillings={clientBillings} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
+
+      {tab === "billing" && canReadClientBilling && <ClientBillingPanel project={project} billings={clientBillings} events={clientBillingEvents} loading={clientBillingLoading} canManage={canManageProject} onSave={onSaveClientBilling} onTransition={onTransitionClientBilling} />}
 
       {tab === "budget" && (
         <ProjectBudgetControlPanel

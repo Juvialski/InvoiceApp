@@ -55,6 +55,7 @@ import {
   type ProjectAttentionItem,
   type ProjectManagementHealth,
 } from "../../utils/projectManagementViewModel.ts";
+import { calculateClientBillingSummary, type ClientBilling, type ClientBillingSummary } from "../../lib/clientBilling.ts";
 
 interface ProjectView {
   id: string;
@@ -91,6 +92,7 @@ interface CostSummaryView extends ProjectCostSummary {
 
 export type ProjectOverviewTab =
   | "overview"
+  | "billing"
   | "budget"
   | "documents"
   | "rfis"
@@ -111,6 +113,7 @@ interface ProjectOverviewProps {
   onEdit?: () => void;
   onArchive?: () => void;
   onOpenTab?: (tab: ProjectOverviewTab) => void;
+  clientBillings?: readonly ClientBilling[];
   hideHeader?: boolean;
 }
 
@@ -212,6 +215,7 @@ function RestrictedProjectOverview({
   onArchive,
   hideHeader,
   missingSources,
+  clientBillingSummary,
 }: {
   project: ProjectView;
   onBack?: () => void;
@@ -219,6 +223,7 @@ function RestrictedProjectOverview({
   onArchive?: () => void;
   hideHeader: boolean;
   missingSources: readonly string[];
+  clientBillingSummary: ClientBillingSummary;
 }) {
   return (
     <div className="space-y-5" data-project-cost-completeness="incomplete">
@@ -284,6 +289,10 @@ function RestrictedProjectOverview({
           {project.description || project.notes || "No project description or notes have been recorded."}
         </p>
       </Card>
+      <Card className="p-5 shadow-sm" elevation="low">
+        <div className="flex items-start gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client billing position</h3><p className="mt-1 text-[10px] leading-4 text-slate-500">Revenue-side billing is independent from the withheld project-cost analytics.</p></div></div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Contract Value</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(clientBillingSummary.contractValue, project.currency)}</p></div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Billed to Date</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.billedToDate === undefined ? "Unavailable" : money(clientBillingSummary.billedToDate, project.currency)}</p></div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Remaining to Bill</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.remainingToBill === undefined ? "Unavailable" : money(clientBillingSummary.remainingToBill, project.currency)}</p></div></div>
+      </Card>
     </div>
   );
 }
@@ -297,11 +306,13 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   onEdit,
   onArchive,
   onOpenTab,
+  clientBillings = [],
   hideHeader = false,
 }) => {
   // Unconditional React hooks (must all run before any early return)
   const permissions = useAppPermissions();
   const completeness = useProjectCostCompleteness();
+  const clientBillingSummary = useMemo(() => calculateClientBillingSummary(project as Project, clientBillings), [clientBillings, project]);
 
   const managementView = useMemo(() => {
     return buildProjectManagementView(
@@ -356,12 +367,14 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   const canReadSubmittals = hasPermission(permissions, PERMISSION_KEYS.engineeringSubmittalsRead);
   const canReadSiteLogs = hasPermission(permissions, PERMISSION_KEYS.engineeringSiteLogsRead);
   const canReadInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesRead);
+  const canReadClientBilling = hasPermission(permissions, PERMISSION_KEYS.projectsRead);
   const canReadExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesRead);
   const canReadPayroll = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadPeople = hasPermission(permissions, PERMISSION_KEYS.workersRead);
   const canReadReports = hasAnyPermission(permissions, [PERMISSION_KEYS.reportsRead, PERMISSION_KEYS.reportsPayrollRead]);
 
   const shortcuts: Array<{ tab: ProjectOverviewTab; label: string; icon: React.ElementType }> = [
+    ...(canReadClientBilling ? [{ tab: "billing" as const, label: "Client Billing", icon: Wallet }] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [{ tab: "budget" as const, label: "Budget Control", icon: Calculator }] : []),
     ...(canReadDocuments && isProjectWorkspaceTabDeploymentVisible("documents") ? [{ tab: "documents" as const, label: "Engineering Docs", icon: Compass }] : []),
     ...(canReadRfis && isProjectWorkspaceTabDeploymentVisible("rfis") ? [{ tab: "rfis" as const, label: "RFIs", icon: FileQuestion }] : []),
@@ -384,6 +397,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         onArchive={onArchive}
         hideHeader={hideHeader}
         missingSources={projectCostMissingSourceLabels(completeness)}
+        clientBillingSummary={clientBillingSummary}
       />
     );
   }
@@ -588,7 +602,17 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         </div>
       </section>
 
-      {/* 4. Budget Control & Work Packages Section */}
+      {/* 4. Client Progress Billing Commercial Position */}
+      <Card className="p-4 shadow-sm sm:p-5" elevation="low">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5"><div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client Progress Billing</h3><p className="mt-0.5 text-[10px] text-slate-500">Revenue-side project billing; only ISSUED records count toward billed-to-date.</p></div></div>
+          {onOpenTab && <Button variant="secondary" label="Open Client Billing →" onClick={() => onOpenTab("billing")} />}
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Contract Value</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(clientBillingSummary.contractValue, project.currency)}</p></div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Billed to Date</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.billedToDate === undefined ? "Unavailable" : money(clientBillingSummary.billedToDate, project.currency)}</p><p className="mt-1 text-[9px] text-slate-500">{clientBillingSummary.issuedBillingCount} issued billing record{clientBillingSummary.issuedBillingCount === 1 ? "" : "s"}</p></div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Remaining to Bill</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.remainingToBill === undefined ? "Unavailable" : money(clientBillingSummary.remainingToBill, project.currency)}</p><p className="mt-1 text-[9px] text-slate-500">Contract value less issued billings</p></div></div>
+        {clientBillingSummary.hasCurrencyMismatch && <p className="mt-3 text-[10px] font-semibold text-amber-700">{clientBillingSummary.reason}</p>}
+      </Card>
+
+      {/* 5. Budget Control & Work Packages Section */}
       <Card className="p-4 shadow-sm sm:p-5" elevation="low">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
@@ -659,7 +683,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         </div>
       </Card>
 
-      {/* 5. Commercial Controls Explanatory Notice */}
+      {/* 6. Commercial Controls Explanatory Notice */}
       <Card className="border-dashed border-slate-200 bg-slate-50/70 p-4 shadow-none" elevation="low">
         <div className="flex items-start gap-3">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-slate-600">
@@ -668,9 +692,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           <div className="min-w-0 text-xs">
             <h4 className="font-bold text-slate-800">Commercial Controls</h4>
             <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-              <strong>Committed Cost</strong> (approved PO and subcontract commitments) is included above. <strong>Client Progress Billing</strong>,{" "}
-              <strong>Collections</strong>, and <strong>Outstanding Receivables</strong> remain deferred until their corresponding
-              commercial workflows are implemented. Engoryx does not fabricate values for unbuilt modules.
+              <strong>Committed Cost</strong> (approved PO and subcontract commitments) is included above. <strong>Client Progress Billing</strong> is revenue-side history and does not change cost or cash. <strong>Collections</strong> and <strong>Outstanding Receivables</strong> remain deferred until their corresponding commercial workflows are implemented. Engoryx does not fabricate values for unbuilt modules.
             </p>
           </div>
         </div>
