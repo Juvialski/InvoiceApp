@@ -3,7 +3,7 @@ import type { EngineeringCoordinationWorkspaceData } from "../lib/engineeringCoo
 import type { EngineeringDailySiteLogsWorkspaceData } from "../lib/dailySiteLogs.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../lib/engineeringDocuments.ts";
 import type { PayrollWorkspaceData } from "../lib/payroll.ts";
-import type { Expense, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, Subcontract, SubcontractProgressClaim, SupplierQuotation, Vendor } from "../types.ts";
+import type { Expense, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, Subcontract, SubcontractProgressClaim, SubcontractVariation, SupplierQuotation, Vendor } from "../types.ts";
 
 export const DEMO_COMPANY_ID = "demo-company-meridian" as const;
 export const DEMO_STORAGE_KEY = "engoryx:client-demo:v1" as const;
@@ -49,6 +49,7 @@ export interface DemoWorkspaceData {
   supplierQuotations?: SupplierQuotation[];
   subcontracts?: Subcontract[];
   subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
 }
 
 export type DemoAssistantActionKind = "ADD_WORKER";

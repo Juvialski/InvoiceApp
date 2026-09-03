@@ -20,6 +20,9 @@ import type {
   SubcontractProgressClaimLine,
   SubcontractProgressClaimStatus,
   SubcontractStatus,
+  SubcontractVariation,
+  SubcontractVariationLine,
+  SubcontractVariationStatus,
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
@@ -50,6 +53,7 @@ export interface ProjectCostInput {
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
   subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
   /** Safe project-level labor totals used when payroll detail is unavailable. */
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   /** Explicitly selects detail rows or the safe aggregate source. */
@@ -290,6 +294,20 @@ export function isVoidedSubcontractClaim(statusOrClaim?: SubcontractProgressClai
   const raw = typeof statusOrClaim === "object" && "status" in statusOrClaim ? statusOrClaim.status : statusOrClaim;
   const normalized = String(raw || "").trim().toUpperCase();
   return normalized === "VOIDED" || normalized === "CANCELLED" || normalized === "REJECTED";
+}
+
+export function isApprovedSubcontractVariation(statusOrVar?: SubcontractVariationStatus | string | { status?: SubcontractVariationStatus | string | null } | null): boolean {
+  if (!statusOrVar) return false;
+  const raw = typeof statusOrVar === "object" && "status" in statusOrVar ? statusOrVar.status : statusOrVar;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "APPROVED";
+}
+
+export function isVoidedSubcontractVariation(statusOrVar?: SubcontractVariationStatus | string | { status?: SubcontractVariationStatus | string | null } | null): boolean {
+  if (!statusOrVar) return false;
+  const raw = typeof statusOrVar === "object" && "status" in statusOrVar ? statusOrVar.status : statusOrVar;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "CANCELLED" || normalized === "REJECTED";
 }
 
 export function subcontractTotal(sc: Pick<Subcontract, "originalAmount" | "lines">): number {
@@ -655,15 +673,27 @@ export function calculateProjectCost(
     );
   }
 
+  // Map approved variations by subcontract
+  const approvedVariationsBySubcontract = new Map<string, number>();
+  for (const v of input.subcontractVariations || []) {
+    if (isApprovedSubcontractVariation(v.status)) {
+      approvedVariationsBySubcontract.set(
+        v.subcontractId,
+        roundMoney((approvedVariationsBySubcontract.get(v.subcontractId) || 0) + Number(v.netAmount || 0)),
+      );
+    }
+  }
+
   // 6. Subcontracts (Remaining Commitment)
   for (const sc of input.subcontracts || []) {
     if (!isCommittedSubcontract(sc.status)) continue;
-    const scAmount = subcontractTotal(sc);
-    if (!scAmount) continue;
+    const netVariations = approvedVariationsBySubcontract.get(sc.id) || 0;
+    const revisedScAmount = roundMoney(subcontractTotal(sc) + netVariations);
+    if (revisedScAmount <= 0) continue;
     const scCurrency = normalizeCurrency(sc.currency);
 
     const approvedGrossForSc = approvedClaimsBySubcontract.get(sc.id) || 0;
-    const remainingCommitment = roundMoney(Math.max(0, scAmount - approvedGrossForSc));
+    const remainingCommitment = roundMoney(Math.max(0, revisedScAmount - approvedGrossForSc));
 
     if (projectId) {
       if (sc.projectId !== projectId) continue;
@@ -1029,20 +1059,52 @@ export function calculateProjectBudgetControl(
     }
   }
 
+  // Map approved variations by subcontract line and standalone variation lines
+  const approvedVarLinesByScLine = new Map<string, number>();
+  const approvedStandaloneVarLines: Array<{ vl: SubcontractVariationLine; currency: string }> = [];
+  const varLinesById = new Map<string, SubcontractVariationLine>();
+
+  for (const v of input.subcontractVariations || []) {
+    if (v.projectId === projectId && isApprovedSubcontractVariation(v.status)) {
+      for (const vl of v.lines || []) {
+        varLinesById.set(vl.id, vl);
+        const vlAmount = roundMoney(Number(vl.amount || 0));
+        if (vl.subcontractLineId) {
+          approvedVarLinesByScLine.set(
+            vl.subcontractLineId,
+            roundMoney((approvedVarLinesByScLine.get(vl.subcontractLineId) || 0) + vlAmount),
+          );
+        } else {
+          const parentSc = (input.subcontracts || []).find((s) => s.id === v.subcontractId);
+          approvedStandaloneVarLines.push({ vl, currency: v.currency || parentSc?.currency || baseCurrency });
+        }
+      }
+    }
+  }
+
   for (const sc of input.subcontracts || []) {
     if (sc.projectId !== projectId || !isCommittedSubcontract(sc.status)) continue;
     const scCurrency = normalizeCurrency(sc.currency);
     const isBaseCurrency = scCurrency === baseCurrency;
     const approvedClaims = approvedClaimsBySubcontract.get(sc.id) || [];
 
-    // Map cumulative approved amount per subcontract line
+    // Map cumulative approved amount per subcontract line and variation line
     const approvedByLineId = new Map<string, number>();
+    const approvedByVarLineId = new Map<string, number>();
     for (const claim of approvedClaims) {
       for (const cl of claim.lines || []) {
-        approvedByLineId.set(
-          cl.subcontractLineId,
-          roundMoney((approvedByLineId.get(cl.subcontractLineId) || 0) + positiveMoney(cl.approvedAmount)),
-        );
+        if (cl.subcontractLineId) {
+          approvedByLineId.set(
+            cl.subcontractLineId,
+            roundMoney((approvedByLineId.get(cl.subcontractLineId) || 0) + positiveMoney(cl.approvedAmount)),
+          );
+        }
+        if (cl.subcontractVariationLineId) {
+          approvedByVarLineId.set(
+            cl.subcontractVariationLineId,
+            roundMoney((approvedByVarLineId.get(cl.subcontractVariationLineId) || 0) + positiveMoney(cl.approvedAmount)),
+          );
+        }
       }
     }
 
@@ -1053,9 +1115,11 @@ export function calculateProjectBudgetControl(
             ? Number(line.amount)
             : (Number(line.quantity || 0) * Number(line.unitRate || 0)),
         );
-        if (lineAmount <= 0) continue;
+        const varAdj = approvedVarLinesByScLine.get(line.id) || 0;
+        const revisedLineAmount = roundMoney(Math.max(0, lineAmount + varAdj));
+        if (revisedLineAmount <= 0) continue;
         const lineApproved = approvedByLineId.get(line.id) || 0;
-        const lineRemainingCommitment = roundMoney(Math.max(0, lineAmount - lineApproved));
+        const lineRemainingCommitment = roundMoney(Math.max(0, revisedLineAmount - lineApproved));
 
         const targetCodeId = line.projectCostCodeId || (line as { costCodeId?: string }).costCodeId;
         const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
@@ -1088,8 +1152,16 @@ export function calculateProjectBudgetControl(
         const approvedAmt = positiveMoney(cl.approvedAmount);
         if (approvedAmt <= 0) continue;
         const lineRetention = roundMoney(approvedAmt * rate);
-        const scLine = (sc.lines || []).find((l) => l.id === cl.subcontractLineId);
-        const targetCodeId = scLine?.projectCostCodeId || (scLine as { costCodeId?: string })?.costCodeId;
+
+        let targetCodeId: string | undefined;
+        if (cl.subcontractLineId) {
+          const scLine = (sc.lines || []).find((l) => l.id === cl.subcontractLineId);
+          targetCodeId = scLine?.projectCostCodeId || (scLine as { costCodeId?: string })?.costCodeId;
+        } else if (cl.subcontractVariationLineId) {
+          const varLine = varLinesById.get(cl.subcontractVariationLineId);
+          targetCodeId = varLine?.projectCostCodeId || (varLine as { costCodeId?: string })?.costCodeId;
+        }
+
         const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
           ? codeAccumulators.get(targetCodeId)!
           : uncodedAccumulator;
@@ -1099,6 +1171,41 @@ export function calculateProjectBudgetControl(
           target.retentionHeldCost = roundMoney(target.retentionHeldCost + lineRetention);
         }
       }
+    }
+  }
+
+  // Standalone variation lines remaining commitments
+  for (const item of approvedStandaloneVarLines) {
+    const varLine = item.vl;
+    const varCurrency = normalizeCurrency(item.currency);
+    const isBase = varCurrency === baseCurrency;
+    const varLineAmount = roundMoney(Number(varLine.amount || 0));
+    if (varLineAmount <= 0) continue;
+
+    // Approved claims on this standalone line across claims on this project
+    let approvedOnVl = 0;
+    for (const claimsList of approvedClaimsBySubcontract.values()) {
+      for (const c of claimsList) {
+        for (const cl of c.lines || []) {
+          if (cl.subcontractVariationLineId === varLine.id) {
+            approvedOnVl = roundMoney(approvedOnVl + positiveMoney(cl.approvedAmount));
+          }
+        }
+      }
+    }
+
+    const remainingVarCommitment = roundMoney(Math.max(0, varLineAmount - approvedOnVl));
+    if (remainingVarCommitment <= 0) continue;
+
+    const targetCodeId = varLine.projectCostCodeId || (varLine as { costCodeId?: string }).costCodeId;
+    const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
+      ? codeAccumulators.get(targetCodeId)!
+      : uncodedAccumulator;
+
+    if (!isBase) {
+      target.foreignCosts[varCurrency] = roundMoney((target.foreignCosts[varCurrency] || 0) + remainingVarCommitment);
+    } else {
+      target.committedCost = roundMoney(target.committedCost + remainingVarCommitment);
     }
   }
 

@@ -1,4 +1,4 @@
-import type { Expense, InvoiceProjectAllocation, PayrollPeriod, Project, PurchaseOrder, Subcontract, SubcontractProgressClaim } from "../types.ts";
+import type { Expense, InvoiceProjectAllocation, PayrollPeriod, Project, PurchaseOrder, Subcontract, SubcontractProgressClaim, SubcontractVariation } from "../types.ts";
 import type { CostInvoice, CostPayrollRecord } from "./projectCosting.ts";
 import { calculateProjectCost, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth } from "./projectCosting.ts";
 import { unpaidBalance } from "./dashboardStats.ts";
@@ -47,6 +47,7 @@ interface ProjectDashboardInput {
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
   subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   periods?: PayrollPeriod[];
@@ -70,6 +71,7 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
     purchaseOrders: input.purchaseOrders,
     subcontracts: input.subcontracts,
     subcontractClaims: input.subcontractClaims,
+    subcontractVariations: input.subcontractVariations,
     projectLaborAggregates: input.projectLaborAggregates,
     laborSource: input.laborSource,
   });

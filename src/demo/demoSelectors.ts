@@ -57,6 +57,7 @@ export function buildDemoProjectSummaries(data: DemoWorkspaceData): Record<strin
     purchaseOrders: data.purchaseOrders,
     subcontracts: data.subcontracts,
     subcontractClaims: data.subcontractClaims,
+    subcontractVariations: data.subcontractVariations,
   })]));
 }
 
@@ -69,6 +70,7 @@ export function buildDemoDashboard(data: DemoWorkspaceData, options?: { activity
     purchaseOrders: data.purchaseOrders,
     subcontracts: data.subcontracts,
     subcontractClaims: data.subcontractClaims,
+    subcontractVariations: data.subcontractVariations,
     periods: data.payroll.periods,
     workers: data.payroll.workers,
     payrollEntries: data.payroll.entries,
@@ -95,6 +97,7 @@ export function buildDemoProjectDashboard(data: DemoWorkspaceData, projectId: st
     purchaseOrders: data.purchaseOrders,
     subcontracts: data.subcontracts,
     subcontractClaims: data.subcontractClaims,
+    subcontractVariations: data.subcontractVariations,
     periods: data.payroll.periods,
     today: data.anchorDate,
   });

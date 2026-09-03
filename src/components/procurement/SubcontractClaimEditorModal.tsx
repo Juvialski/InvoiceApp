@@ -18,6 +18,7 @@ import type {
   Subcontract,
   SubcontractProgressClaim,
   SubcontractProgressClaimStatus,
+  SubcontractVariation,
   Vendor,
 } from "../../types.ts";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
@@ -32,6 +33,7 @@ export interface SubcontractClaimEditorModalProps {
   project?: Project | null;
   vendor?: Vendor | null;
   existingClaims?: SubcontractProgressClaim[];
+  existingVariations?: SubcontractVariation[];
   canManage?: boolean;
   canApprove?: boolean;
   onSave: (
@@ -78,14 +80,15 @@ function getInitialClaimLines(
         (lineMetric?.cumulativeApproved || 0) -
           (claim.status === "APPROVED" ? roundMoney(Number(cl?.approvedAmount || 0)) : 0),
       );
-      const remainingClaimable = roundMoney(Math.max(0, Number(scLine.amount || 0) - prevApprovedExcludingThis));
+      const lineEffectiveAmount = lineMetric?.revisedLineAmount ?? Number(scLine.amount || 0);
+      const remainingClaimable = roundMoney(Math.max(0, lineEffectiveAmount - prevApprovedExcludingThis));
 
       return {
         id: cl?.id,
         subcontractLineId: scLine.id,
         lineNumber: scLine.lineNumber,
         description: scLine.description,
-        subcontractAmount: Number(scLine.amount || 0),
+        subcontractAmount: lineEffectiveAmount,
         previouslyApproved: prevApprovedExcludingThis,
         remainingClaimable,
         claimedAmount: cl ? String(cl.claimedAmount) : "0",
@@ -97,14 +100,15 @@ function getInitialClaimLines(
 
   return (subcontract.lines || []).map((scLine) => {
     const lineMetric = metrics.lines.get(scLine.id);
+    const lineEffectiveAmount = lineMetric?.revisedLineAmount ?? Number(scLine.amount || 0);
     const previouslyApproved = lineMetric?.cumulativeApproved || 0;
-    const remainingClaimable = lineMetric?.remainingClaimable ?? Number(scLine.amount || 0);
+    const remainingClaimable = lineMetric?.remainingClaimable ?? lineEffectiveAmount;
 
     return {
       subcontractLineId: scLine.id,
       lineNumber: scLine.lineNumber,
       description: scLine.description,
-      subcontractAmount: Number(scLine.amount || 0),
+      subcontractAmount: lineEffectiveAmount,
       previouslyApproved,
       remainingClaimable,
       claimedAmount: "0",
@@ -122,6 +126,7 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
   project,
   vendor,
   existingClaims = [],
+  existingVariations = [],
   canManage = false,
   canApprove = false,
   onSave,
@@ -135,8 +140,8 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
   const isTerminal = claim?.status === "REJECTED" || claim?.status === "CANCELLED" || claim?.status === "VOIDED";
 
   const metrics = useMemo(
-    () => computeSubcontractClaimMetrics(subcontract, existingClaims),
-    [subcontract, existingClaims],
+    () => computeSubcontractClaimMetrics(subcontract, existingClaims, existingVariations),
+    [subcontract, existingClaims, existingVariations],
   );
 
   const [claimNumber, setClaimNumber] = useState(
