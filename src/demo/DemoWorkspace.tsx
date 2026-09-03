@@ -113,8 +113,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const transitionSubcontract = async (id: string, targetStatus: SubcontractStatus, reason?: string) => {
     const current = (data.subcontracts || []).find((item) => item.id === id);
     if (!current) throw new Error("Subcontract not found in the demo workspace.");
-    const updated = applySubcontractTransition(current, targetStatus, reason, demoTimestamp(data.anchorDate, 16, 30));
-    dispatch({ type: "SAVE_SUBCONTRACT", value: updated });
+    applySubcontractTransition(current, targetStatus, reason, demoTimestamp(data.anchorDate, 16, 30));
+    dispatch({ type: "TRANSITION_SUBCONTRACT", id, targetStatus, reason });
   };
 
   const deleteSubcontract = async (id: string) => {
