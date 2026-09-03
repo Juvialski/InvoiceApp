@@ -6,12 +6,12 @@ import {
   type ImpactSelectionResult,
 } from './test-impact.ts';
 import {
-  generateP2WorkflowContext,
+  generateWorkflowContext,
   WorkflowContextSelectionError,
   type WorkflowContextPacket,
   type WorkflowContextSelectionInput,
-} from './workflow-map/p2-context.ts';
-import { WORKFLOW_GRAPH } from './workflow-map/p2-graph.ts';
+} from './workflow-map/context.ts';
+import { WORKFLOW_GRAPH } from './workflow-map/graph.ts';
 import { WORKFLOW_MAP_REPOSITORY_ROOT } from './workflow-map/generate.ts';
 import {
   readRepositoryMetadata,
@@ -304,6 +304,7 @@ export function formatAgentFallbackContextPacket(input: AgentContextFallbackInpu
 
   lines.push('', '## Validation recommendation', ...formatValidationRecommendation(input.impact));
   lines.push('', '## Navigation rule');
+  lines.push('- Inspect the current source implementation referenced by this packet before editing; the Workflow Map is advisory context, not authoritative implementation truth.');
   lines.push('- Treat the failed task/query match as navigation evidence, not an implementation blocker.');
   lines.push('- Inspect this bounded working set first. Retry Workflow Map once only when an exact known node or file reference becomes available; otherwise continue with targeted source inspection.');
   lines.push('- Do not run speculative keyword retry loops or expand to a repository dump.');
@@ -435,6 +436,8 @@ export function isWorkflowCoverageGap(error: unknown, selection: WorkflowContext
     && /No workflow nodes matched the requested scope/.test(error.message)
     && !selection.nodeId
     && !selection.route
+    && !selection.filePath
+    && !(selection.filePaths && selection.filePaths.length > 0)
     && Boolean(selection.query?.trim());
 }
 
@@ -484,7 +487,7 @@ export function runAgentContextCli(args: readonly string[] = process.argv.slice(
 
   let output: string;
   try {
-    const workflow = generateP2WorkflowContext(WORKFLOW_GRAPH, selection, repository).packet;
+    const workflow = generateWorkflowContext(WORKFLOW_GRAPH, selection, repository).packet;
     output = formatAgentContextPacket({
       ...(parsed.task ? { task: parsed.task } : {}),
       repository,

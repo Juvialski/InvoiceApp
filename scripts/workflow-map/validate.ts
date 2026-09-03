@@ -12,18 +12,10 @@ import {
   WORKFLOW_MAP_REPOSITORY_ROOT,
 } from "./generate.ts";
 import { WORKFLOW_GRAPH } from "./graph.ts";
+import { WORKFLOW_DOMAIN_ORDER } from "./domain-registry.ts";
 import type { WorkflowEdge, WorkflowGraph } from "./types.ts";
 
-export const REQUIRED_WORKFLOW_DOMAINS = [
-  "platform-tenancy",
-  "dashboard",
-  "projects",
-  "engineering",
-  "finance",
-  "workforce",
-  "reporting",
-  "assistant",
-] as const;
+export const REQUIRED_WORKFLOW_DOMAINS = WORKFLOW_DOMAIN_ORDER;
 
 export const REQUIRED_WORKFLOW_IDS = [
   "platform-entry",
@@ -38,6 +30,11 @@ export const REQUIRED_WORKFLOW_IDS = [
   "payroll-lifecycle",
   "reports-derived-surface",
   "assistant-guarded-execution",
+  "procurement-workspace",
+  "purchase-order-lifecycle",
+  "subcontract-packages",
+  "subcontract-variations",
+  "project-budget-control",
 ] as const;
 
 const STATE_CHANGING_EDGE_TYPES = new Set<WorkflowEdge["type"]>(["writes", "derives", "feeds", "transitions", "executes-through"]);

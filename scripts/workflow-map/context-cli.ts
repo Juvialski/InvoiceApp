@@ -1,11 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import { WORKFLOW_GRAPH } from "./p2-graph.ts";
+import { WORKFLOW_GRAPH } from "./graph.ts";
 import { WORKFLOW_MAP_REPOSITORY_ROOT } from "./generate.ts";
-import {
-  generateP2WorkflowContext,
-  type WorkflowContextSelectionInput,
-} from "./p2-context.ts";
+import { generateWorkflowContext, type WorkflowContextSelectionInput } from "./context.ts";
 import { readRepositoryMetadata } from "./repositoryContext.ts";
 import type { WorkflowDomain } from "./types.ts";
 
@@ -36,7 +33,7 @@ export function contextCliUsage(): string {
     "",
     "Selectors:",
     "  --node <id>                 Exact workflow node ID",
-    "  --domain <domain>           Workflow domain; includes procurement and commercial",
+    "  --domain <domain>           Workflow domain from the canonical domain registry",
     "  --route <id-or-path>         Route ID, canonical path, or path pattern",
     "  --file <repo/path>           Source/test reference; repeatable",
     "  --query <keywords>           Deterministic lexical task search",
@@ -139,7 +136,7 @@ export function runContextCli(args: readonly string[] = process.argv.slice(2)): 
     ...(parsed.selection.changedFilePaths || []),
     ...(parsed.includeRepositoryChanges ? repository.changedFilePaths : []),
   ];
-  const result = generateP2WorkflowContext(
+  const result = generateWorkflowContext(
     WORKFLOW_GRAPH,
     {
       ...parsed.selection,

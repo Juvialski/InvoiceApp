@@ -42,7 +42,10 @@ export function formatAgentSelectionSummary(result: ImpactSelectionResult): stri
 
 function executeCommand(command: string, args: readonly string[], cwd: string): CompactTestExecutionResult {
   const started = Date.now();
-  const result = spawnSync(command, [...args], {
+  const isWindowsCommandShim = process.platform === 'win32' && command.toLowerCase().endsWith('.cmd');
+  const spawnCommand = isWindowsCommandShim ? (process.env.ComSpec || 'cmd.exe') : command;
+  const spawnArgs = isWindowsCommandShim ? ['/d', '/s', '/c', command, ...args] : [...args];
+  const result = spawnSync(spawnCommand, spawnArgs, {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],

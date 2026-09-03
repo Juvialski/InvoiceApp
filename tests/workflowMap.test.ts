@@ -11,11 +11,10 @@ import {
 import type { ImpactSelectionResult } from "../scripts/test-impact.ts";
 import { WORKFLOW_DOMAIN_ORDER } from "../scripts/workflow-map/domain-registry.ts";
 import {
-  generateP2WorkflowContext,
-  selectP2WorkflowContextSeeds,
+  generateWorkflowContext,
+  selectWorkflowContextSeeds,
   WorkflowContextSelectionError,
-} from "../scripts/workflow-map/p2-context.ts";
-import { WORKFLOW_GRAPH as P2_WORKFLOW_GRAPH } from "../scripts/workflow-map/p2-graph.ts";
+} from "../scripts/workflow-map/context.ts";
 import type { RepositoryMetadata } from "../scripts/workflow-map/repositoryContext.ts";
 import {
   renderWorkflowMapMarkdown,
@@ -45,7 +44,7 @@ function p2Impact(overrides: Partial<ImpactSelectionResult> = {}): ImpactSelecti
   return {
     baseSha: "a".repeat(40),
     headSha: "b".repeat(40),
-    changedFiles: ["scripts/agent-context.ts", "scripts/workflow-map/p2-graph.ts"],
+    changedFiles: ["scripts/agent-context.ts", "scripts/workflow-map/graph.ts"],
     selectedTests: ["tests/agentEfficiency.test.ts", "tests/workflowMap.test.ts"],
     testReasons: {
       "tests/agentEfficiency.test.ts": ["Direct dependency"],
@@ -102,26 +101,27 @@ test("high-value graph semantics preserve financial, payroll, field, Assistant, 
   assert.doesNotMatch(serialized, /(?:\+\d{1,3}[\s-]?\(?\d{2,4}\)?[\s-]?\d{3,4}[\s-]?\d{3,4})/);
 });
 
-test("P2 workflow graph adds first-class procurement and commercial domains with valid repository references", () => {
+test("canonical workflow graph includes first-class procurement and commercial domains with valid repository references", () => {
   assert.ok(WORKFLOW_DOMAIN_ORDER.includes("procurement"));
   assert.ok(WORKFLOW_DOMAIN_ORDER.includes("commercial"));
-  assert.ok(P2_WORKFLOW_GRAPH.nodes.some((node) => node.domain === "procurement"));
-  assert.ok(P2_WORKFLOW_GRAPH.nodes.some((node) => node.domain === "commercial"));
-  assert.deepEqual(collectWorkflowMapErrors(P2_WORKFLOW_GRAPH, { repositoryRoot }), []);
+  assert.equal(WORKFLOW_GRAPH.canonicalSource, "scripts/workflow-map/graph.ts");
+  assert.ok(WORKFLOW_GRAPH.nodes.some((node) => node.domain === "procurement"));
+  assert.ok(WORKFLOW_GRAPH.nodes.some((node) => node.domain === "commercial"));
+  assert.deepEqual(collectWorkflowMapErrors(WORKFLOW_GRAPH, { repositoryRoot }), []);
 });
 
-test("P2 context resolves purchase order approval and subcontract variations", () => {
-  const procurement = selectP2WorkflowContextSeeds(P2_WORKFLOW_GRAPH, { query: "purchase order approval" });
+test("canonical context resolves purchase order approval and subcontract variations", () => {
+  const procurement = selectWorkflowContextSeeds(WORKFLOW_GRAPH, { query: "purchase order approval" });
   assert.ok(procurement.seedNodeIds.includes("purchase-order-lifecycle"));
-  assert.ok(procurement.seedNodeIds.every((nodeId) => P2_WORKFLOW_GRAPH.nodes.find((node) => node.id === nodeId)?.domain === "procurement"));
+  assert.ok(procurement.seedNodeIds.every((nodeId) => WORKFLOW_GRAPH.nodes.find((node) => node.id === nodeId)?.domain === "procurement"));
 
-  const commercial = selectP2WorkflowContextSeeds(P2_WORKFLOW_GRAPH, { query: "subcontract variations" });
+  const commercial = selectWorkflowContextSeeds(WORKFLOW_GRAPH, { query: "subcontract variations" });
   assert.ok(commercial.seedNodeIds.includes("subcontract-variations"));
-  assert.ok(commercial.seedNodeIds.every((nodeId) => P2_WORKFLOW_GRAPH.nodes.find((node) => node.id === nodeId)?.domain === "commercial"));
+  assert.ok(commercial.seedNodeIds.every((nodeId) => WORKFLOW_GRAPH.nodes.find((node) => node.id === nodeId)?.domain === "commercial"));
 });
 
-test("commercial is accepted as an explicit bounded workflow domain", () => {
-  const result = generateP2WorkflowContext(P2_WORKFLOW_GRAPH, {
+test("explicit P2 domain context stays inside the requested domain", () => {
+  const result = generateWorkflowContext(WORKFLOW_GRAPH, {
     domain: "commercial",
     query: "subcontract variations",
     characterBudget: 6_000,
@@ -129,11 +129,14 @@ test("commercial is accepted as an explicit bounded workflow domain", () => {
   assert.equal(result.packet.requestedScope.domain, "commercial");
   assert.equal(result.packet.requestedScope.query, "subcontract variations");
   assert.ok(result.packet.selection.seedNodeIds.includes("subcontract-variations"));
+  assert.ok(result.packet.workflow.nodes.every((node) => node.domain === "commercial"));
+  const nodesById = new Map(result.packet.workflow.nodes.map((node) => [node.nodeId, node.domain]));
+  assert.ok(result.packet.workflow.edges.every((edge) => nodesById.get(edge.source) === "commercial" && nodesById.get(edge.target) === "commercial"));
   assert.ok(result.characterCount <= 6_000);
 });
 
 test("P2 relationships and financial invariants preserve commitment truth", () => {
-  const edge = (source: string, target: string) => P2_WORKFLOW_GRAPH.edges.some((item) => item.source === source && item.target === target);
+  const edge = (source: string, target: string) => WORKFLOW_GRAPH.edges.some((item) => item.source === source && item.target === target);
   assert.equal(edge("purchase-order-lifecycle", "project-cost-aggregation"), true);
   assert.equal(edge("procurement-rfq", "supplier-quotation-selection"), true);
   assert.equal(edge("supplier-quotation-selection", "rfq-draft-po-conversion"), true);
@@ -143,7 +146,7 @@ test("P2 relationships and financial invariants preserve commitment truth", () =
   assert.equal(edge("remaining-subcontract-commitment", "project-cost-aggregation"), true);
   assert.equal(edge("project-cost-aggregation", "project-budget-control"), true);
 
-  const invariants = new Set(P2_WORKFLOW_GRAPH.invariants.map((item) => item.id));
+  const invariants = new Set(WORKFLOW_GRAPH.invariants.map((item) => item.id));
   for (const id of [
     "procurement-po-commitment-not-actual",
     "procurement-rfq-precommitment",
@@ -159,8 +162,9 @@ test("only task/query coverage gaps qualify for graceful agent-context fallback"
   assert.equal(isWorkflowCoverageGap(noMatch, { query: "new legitimate workflow" }), true);
   assert.equal(isWorkflowCoverageGap(noMatch, { nodeId: "does-not-exist", query: "new legitimate workflow" }), false);
   assert.equal(isWorkflowCoverageGap(noMatch, { route: "/does-not-exist", query: "new legitimate workflow" }), false);
+  assert.equal(isWorkflowCoverageGap(noMatch, { filePath: "src/missing.ts", query: "new legitimate workflow" }), false);
   assert.throws(
-    () => selectP2WorkflowContextSeeds(P2_WORKFLOW_GRAPH, { nodeId: "does-not-exist" }),
+    () => selectWorkflowContextSeeds(WORKFLOW_GRAPH, { nodeId: "does-not-exist" }),
     (error: unknown) => error instanceof WorkflowContextSelectionError
       && error.code === "unknown-selector"
       && /Unknown workflow node/.test(error.message),
@@ -176,10 +180,10 @@ test("fallback packet is bounded and contains provenance, changed paths, impact 
     selection: {
       query: "newly added workflow not mapped yet",
       filePaths: ["scripts/agent-context.ts"],
-      changedFilePaths: ["scripts/workflow-map/p2-graph.ts"],
+      changedFilePaths: ["scripts/workflow-map/graph.ts"],
       useChangedFiles: true,
     },
-    graph: P2_WORKFLOW_GRAPH,
+    graph: WORKFLOW_GRAPH,
   }, budget);
 
   assert.ok(output.length <= budget);
@@ -195,6 +199,8 @@ test("fallback packet is bounded and contains provenance, changed paths, impact 
   assert.match(output, /test:affected:agent/);
   assert.match(output, /Retry Workflow Map once/);
   assert.match(output, /Do not run speculative keyword retry loops/);
+  assert.match(output, /current source implementation/);
+  assert.match(output, /advisory context/);
 });
 
 test("DB-affecting fallback recommends real migration/runtime evidence", () => {
@@ -202,7 +208,7 @@ test("DB-affecting fallback recommends real migration/runtime evidence", () => {
     repository: p2Repository,
     impact: p2Impact({ isDatabaseAffected: true }),
     selection: { query: "new database workflow" },
-    graph: P2_WORKFLOW_GRAPH,
+    graph: WORKFLOW_GRAPH,
   }, 6_000);
   assert.match(output, /Database \/ RLS \/ migrations: AFFECTED/);
   assert.match(output, /real local migration\/runtime ladder/);

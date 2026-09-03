@@ -1013,7 +1013,10 @@ export function executeSelectedTests(
   if (isFallback) {
     console.log('\n🚀 Executing full regression suite via the repository npm test contract...\n');
     const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    const result = spawnSync(npmCommand, ['test'], {
+    const isWindowsCommandShim = process.platform === 'win32' && npmCommand.toLowerCase().endsWith('.cmd');
+    const spawnCommand = isWindowsCommandShim ? (process.env.ComSpec || 'cmd.exe') : npmCommand;
+    const spawnArgs = isWindowsCommandShim ? ['/d', '/s', '/c', npmCommand, 'test'] : ['test'];
+    const result = spawnSync(spawnCommand, spawnArgs, {
       cwd,
       stdio: 'inherit',
       shell: false

@@ -2,16 +2,16 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { isWorkflowCoverageGap } from "../scripts/agent-context.ts";
 import {
-  selectP2WorkflowContextSeeds,
+  selectWorkflowContextSeeds,
   WorkflowContextSelectionError,
   type WorkflowContextSelectionInput,
-} from "../scripts/workflow-map/p2-context.ts";
-import { WORKFLOW_GRAPH } from "../scripts/workflow-map/p2-graph.ts";
+} from "../scripts/workflow-map/context.ts";
+import { WORKFLOW_GRAPH } from "../scripts/workflow-map/graph.ts";
 
 function expectCoverageGap(selection: WorkflowContextSelectionInput): void {
   let captured: unknown;
   try {
-    selectP2WorkflowContextSeeds(WORKFLOW_GRAPH, selection);
+    selectWorkflowContextSeeds(WORKFLOW_GRAPH, selection);
   } catch (error) {
     captured = error;
   }
@@ -22,30 +22,53 @@ function expectCoverageGap(selection: WorkflowContextSelectionInput): void {
   assert.equal(isWorkflowCoverageGap(captured, selection), true);
 }
 
-test("P2 extension domains preserve a true coverage gap for future unmapped work", () => {
+test("canonical commercial domain preserves a true coverage gap for future unmapped work", () => {
   expectCoverageGap({
     domain: "commercial",
     query: "client billing collections",
   });
 });
 
-test("P2 extension domains cannot borrow a query match from another domain", () => {
+test("canonical domain selection cannot borrow a query match from another domain", () => {
   expectCoverageGap({
     domain: "procurement",
     query: "subcontract variations",
   });
 });
 
-test("P2 extension domains still resolve known bounded workflows", () => {
-  const commercial = selectP2WorkflowContextSeeds(WORKFLOW_GRAPH, {
+test("canonical domain selection still resolves known bounded workflows", () => {
+  const commercial = selectWorkflowContextSeeds(WORKFLOW_GRAPH, {
     domain: "commercial",
     query: "subcontract variations",
   });
   assert.ok(commercial.seedNodeIds.includes("subcontract-variations"));
 
-  const procurement = selectP2WorkflowContextSeeds(WORKFLOW_GRAPH, {
+  const procurement = selectWorkflowContextSeeds(WORKFLOW_GRAPH, {
     domain: "procurement",
     query: "purchase order approval",
   });
   assert.ok(procurement.seedNodeIds.includes("purchase-order-lifecycle"));
+});
+
+test("P2 domain selectors reject explicit nodes from the other P2 domain", () => {
+  for (const selection of [
+    { domain: "procurement" as const, nodeId: "subcontract-variations" },
+    { domain: "commercial" as const, nodeId: "purchase-order-lifecycle" },
+  ]) {
+    assert.throws(
+      () => selectWorkflowContextSeeds(WORKFLOW_GRAPH, selection),
+      (error: unknown) => error instanceof WorkflowContextSelectionError
+        && error.code === "invalid-selector"
+        && error.message.includes(`not the requested \`${selection.domain}\` domain`),
+    );
+  }
+});
+
+test("invalid explicit domains fail loudly instead of falling back", () => {
+  assert.throws(
+    () => selectWorkflowContextSeeds(WORKFLOW_GRAPH, { domain: "client-billing" as never, query: "client billing" }),
+    (error: unknown) => error instanceof WorkflowContextSelectionError
+      && error.code === "invalid-selector"
+      && error.message.includes("Unknown workflow domain"),
+  );
 });

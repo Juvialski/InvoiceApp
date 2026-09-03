@@ -2,11 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { WORKFLOW_GRAPH } from "../scripts/workflow-map/graph.ts";
 import {
-  ALL_DOMAINS,
   computeNeighborhood,
   DEFAULT_FILTER,
   filterGraph,
   formatWorkflowMapUrlQuery,
+  getGraphDomains,
   getCanvasPresets,
   getNodeDetails,
   layoutGraph,
@@ -31,11 +31,21 @@ test("getCanvasPresets produces curated diagrams, domain views, and full archite
   assert.equal(allPreset.category, "all");
 
   const domainPresets = presets.filter((p) => p.category === "domain");
-  const expectedDomainCount = ALL_DOMAINS.length;
+  const expectedDomainCount = getGraphDomains(WORKFLOW_GRAPH).length;
   assert.equal(domainPresets.length, expectedDomainCount);
 });
 
-test("filterGraph respects curated preset definitions and does not show all 183 nodes by default", () => {
+test("canvas domain filters derive from graph presence instead of registry-only domains", () => {
+  const graphWithoutCommercial = {
+    ...WORKFLOW_GRAPH,
+    nodes: WORKFLOW_GRAPH.nodes.filter((node) => node.domain !== "commercial"),
+  };
+  assert.equal(getGraphDomains(graphWithoutCommercial).includes("commercial"), false);
+  assert.equal(getCanvasPresets(graphWithoutCommercial).some((preset) => preset.id === "domain-commercial"), false);
+  assert.deepEqual(parseWorkflowMapUrlState("?domain=commercial", graphWithoutCommercial).selectedDomains, undefined);
+});
+
+test("filterGraph respects curated preset definitions and does not show all canonical nodes by default", () => {
   // Default filter uses "overview"
   const defaultResult = filterGraph(WORKFLOW_GRAPH, DEFAULT_FILTER);
   const overviewDiagram = WORKFLOW_GRAPH.diagrams.find((d) => d.id === "overview")!;

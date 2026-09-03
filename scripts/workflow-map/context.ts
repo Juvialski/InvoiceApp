@@ -8,6 +8,7 @@ import type {
   WorkflowRouteReference,
 } from "./types.ts";
 import type { RepositoryMetadata } from "./repositoryContext.ts";
+import { WORKFLOW_DOMAIN_ORDER, WORKFLOW_DOMAIN_SET } from "./domain-registry.ts";
 
 export const WORKFLOW_MAP_CONTEXT_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_CONTEXT_CHARACTER_BUDGET = 10_000;
@@ -25,17 +26,6 @@ const REQUIRED_VERIFICATION = [
   "Inspect current GitHub/CI state before relying on this orientation.",
   "Treat this packet as advisory context, not authoritative implementation truth.",
 ] as const;
-
-const SUPPORTED_DOMAINS = new Set<WorkflowDomain>([
-  "platform-tenancy",
-  "dashboard",
-  "projects",
-  "engineering",
-  "finance",
-  "workforce",
-  "reporting",
-  "assistant",
-]);
 
 const EDGE_KIND_PRIORITY: Record<WorkflowEdge["kind"], number> = {
   guard: 120,
@@ -306,6 +296,8 @@ interface FullContextCandidates {
   readonly requiredInvariantIds: ReadonlySet<string>;
   readonly requiredNodeIds: ReadonlySet<string>;
   readonly requiredEdgeIds: ReadonlySet<string>;
+  readonly requiredFiles: ReadonlySet<string>;
+  readonly requiredTests: ReadonlySet<string>;
   readonly files: readonly string[];
   readonly tests: readonly string[];
   readonly qaScenarioIds: readonly string[];
@@ -574,10 +566,10 @@ function normalizeRequestedScope(input: WorkflowContextSelectionInput, changedPa
 }
 
 function validateDomain(domain: WorkflowDomain | undefined): void {
-  if (domain && !SUPPORTED_DOMAINS.has(domain)) {
+  if (domain && !WORKFLOW_DOMAIN_SET.has(domain)) {
     throw new WorkflowContextSelectionError(
       "invalid-selector",
-      `Unknown workflow domain \`${String(domain)}\`. Supported domains: ${[...SUPPORTED_DOMAINS].join(", ")}.`,
+      `Unknown workflow domain \`${String(domain)}\`. Supported domains: ${WORKFLOW_DOMAIN_ORDER.join(", ")}.`,
     );
   }
 }
@@ -618,10 +610,18 @@ export function selectWorkflowContextSeeds(
       "Changed-file selection was requested, but no changed paths were available or supplied.",
     );
   }
-  if (input.nodeId?.trim() && !graph.nodes.some((node) => node.id === input.nodeId!.trim())) {
+  const requestedNodeId = input.nodeId?.trim();
+  const requestedNode = requestedNodeId ? graph.nodes.find((node) => node.id === requestedNodeId) : undefined;
+  if (requestedNodeId && !requestedNode) {
     throw new WorkflowContextSelectionError(
       "unknown-selector",
-      `Unknown workflow node \`${input.nodeId.trim()}\`. Use an ID from scripts/workflow-map/graph.ts or add a narrower query.`,
+      `Unknown workflow node \`${requestedNodeId}\`. Use an ID from scripts/workflow-map/graph.ts or add a narrower query.`,
+    );
+  }
+  if (requestedNode && input.domain && requestedNode.domain !== input.domain) {
+    throw new WorkflowContextSelectionError(
+      "invalid-selector",
+      `Workflow node \`${requestedNode.id}\` belongs to domain \`${requestedNode.domain}\`, not the requested \`${input.domain}\` domain.`,
     );
   }
 
@@ -717,13 +717,14 @@ function compareNodes(left: WorkflowNode, right: WorkflowNode): number {
   return nodePriority(right) - nodePriority(left) || compareLex(left.id, right.id);
 }
 
-function buildNeighborhood(graph: WorkflowGraph, seedNodeIds: readonly string[], hops: number): Neighborhood {
+function buildNeighborhood(graph: WorkflowGraph, seedNodeIds: readonly string[], hops: number, domain?: WorkflowDomain): Neighborhood {
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
   const edgeById = new Map(graph.edges.map((edge) => [edge.id, edge]));
   const adjacency = new Map<string, Array<{ edge: WorkflowEdge; nodeId: string }>>();
   for (const node of graph.nodes) adjacency.set(node.id, []);
   for (const edge of graph.edges) {
     if (!nodeById.has(edge.source) || !nodeById.has(edge.target)) continue;
+    if (domain && (nodeById.get(edge.source)!.domain !== domain || nodeById.get(edge.target)!.domain !== domain)) continue;
     adjacency.get(edge.source)!.push({ edge, nodeId: edge.target });
     adjacency.get(edge.target)!.push({ edge, nodeId: edge.source });
   }
@@ -838,7 +839,7 @@ function buildFullCandidates(
   const graphNodes = new Map(graph.nodes.map((node) => [node.id, node]));
   const graphEdges = new Map(graph.edges.map((edge) => [edge.id, edge]));
   const graphInvariants = graphInvariantMap(graph);
-  const neighborhood = buildNeighborhood(graph, selection.seedNodeIds, selection.requested.hops);
+  const neighborhood = buildNeighborhood(graph, selection.seedNodeIds, selection.requested.hops, selection.requested.domain);
   const seedSet = new Set(selection.seedNodeIds);
   const edgeValues = neighborhood.edgeIds.map((edgeId) => graphEdges.get(edgeId)).filter((edge): edge is WorkflowEdge => Boolean(edge));
 
@@ -868,6 +869,14 @@ function buildFullCandidates(
   const requiredInvariantIds = new Set<string>(selection.matchedInvariantIds);
   for (const nodeId of requiredNodeIds) for (const invariantId of graphNodes.get(nodeId)?.invariantIds || []) requiredInvariantIds.add(invariantId);
   for (const edgeId of requiredEdgeIds) for (const invariantId of graphEdges.get(edgeId)?.invariantIds || []) requiredInvariantIds.add(invariantId);
+
+  const requiredFiles = new Set<string>();
+  const requiredTests = new Set<string>();
+  for (const nodeId of selection.seedNodeIds) {
+    const seedNode = graphNodes.get(nodeId);
+    for (const value of seedNode?.fileRefs || []) requiredFiles.add(normalizeRepositoryPath(value));
+    for (const value of seedNode?.testRefs || []) requiredTests.add(normalizeRepositoryPath(value));
+  }
 
   const rankedFiles: RankedReference[] = [];
   const rankedTests: RankedReference[] = [];
@@ -901,6 +910,8 @@ function buildFullCandidates(
     requiredInvariantIds,
     requiredNodeIds,
     requiredEdgeIds,
+    requiredFiles,
+    requiredTests,
     files: collectRankedReferences(rankedFiles),
     tests: collectRankedReferences(rankedTests),
     qaScenarioIds: uniqueSorted(neighborhood.nodeIds.flatMap((nodeId) => graphNodes.get(nodeId)?.qaScenarioIds || [])),
@@ -1143,10 +1154,13 @@ function createPacket(
   };
 }
 
-function removeLast(values: string[]): boolean {
-  if (!values.length) return false;
-  values.pop();
-  return true;
+function removeLast(values: string[], required: ReadonlySet<string> = new Set()): boolean {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (required.has(values[index]!)) continue;
+    values.splice(index, 1);
+    return true;
+  }
+  return false;
 }
 
 function removeLowestPriorityEdge(state: ContextBuildState, candidates: FullContextCandidates): boolean {
@@ -1238,8 +1252,8 @@ function fitPacket(
       || removeLowestPriorityNode(state, candidates)
       || removeLowestPriorityEdge(state, candidates)
       || removeLowestPriorityInvariant(state, candidates)
-      || removeLast(state.tests)
-      || removeLast(state.files)
+      || removeLast(state.tests, candidates.requiredTests)
+      || removeLast(state.files, candidates.requiredFiles)
       || (state.changedFilePaths.length > 1 && removeLast(state.changedFilePaths));
     if (removed) continue;
     if (state.detailLevel < 2) {

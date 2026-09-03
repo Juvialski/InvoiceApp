@@ -240,6 +240,17 @@ test("WM-5 rejects broad and unknown queries clearly", () => {
   );
 });
 
+test("WM-5 keeps invalid explicit route and domain selectors as hard errors", () => {
+  assert.throws(
+    () => selectWorkflowContextSeeds(WORKFLOW_GRAPH, { route: "/does-not-exist" }),
+    (error: unknown) => error instanceof WorkflowContextSelectionError && error.code === "unknown-selector",
+  );
+  assert.throws(
+    () => selectWorkflowContextSeeds(WORKFLOW_GRAPH, { domain: "client-billing" as never, query: "client billing" }),
+    (error: unknown) => error instanceof WorkflowContextSelectionError && error.code === "invalid-selector",
+  );
+});
+
 test("WM-5 enforces the character budget and reports omitted content", () => {
   const result = generateWorkflowContext(WORKFLOW_GRAPH, { nodeId: "payroll-period", characterBudget: 4_000 }, repository);
   assert.ok(result.characterCount <= 4_000);
