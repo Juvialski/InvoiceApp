@@ -952,6 +952,8 @@ export interface PurchaseOrder {
   notes?: string | null;
   cancellationReason?: string | null;
   totalAmount?: number;
+  rfqId?: string | null;
+  supplierQuotationId?: string | null;
   lines?: PurchaseOrderLine[];
   createdByUserId?: string | null;
   updatedByUserId?: string | null;
@@ -1065,5 +1067,108 @@ export interface PurchaseOrderMatchCandidate {
   vendorMatch: "EXACT" | "NAME_ONLY" | "UNRESOLVED" | "MISMATCH";
   currencyMatch: boolean;
   lineComparisons: LineItemComparison[];
+}
+
+export type RFQStatus = "DRAFT" | "ISSUED" | "CLOSED" | "CANCELLED";
+
+export interface RFQLine {
+  id: string;
+  companyId?: string;
+  rfqId: string;
+  lineNumber: number;
+  description: string;
+  quantity: number;
+  unit: string;
+  projectCostCodeId?: string | null;
+  requestedDeliveryDate?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RFQInvitedVendor {
+  id: string;
+  companyId?: string;
+  rfqId: string;
+  vendorId: string;
+  invitedAt: string;
+  notes?: string | null;
+  createdAt?: string;
+}
+
+export interface RFQ {
+  id: string;
+  companyId?: string;
+  rfqNumber: string;
+  title: string;
+  description?: string | null;
+  projectId?: string | null;
+  currency: string;
+  status: RFQStatus;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  notes?: string | null;
+  cancellationReason?: string | null;
+  selectedQuotationId?: string | null;
+  lines?: RFQLine[];
+  invitedVendorIds?: string[];
+  invitedVendors?: RFQInvitedVendor[];
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  issuedByUserId?: string | null;
+  closedByUserId?: string | null;
+  cancelledByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  issuedAt?: string | null;
+  closedAt?: string | null;
+  cancelledAt?: string | null;
+}
+
+export type SupplierQuotationStatus = "SUBMITTED" | "SELECTED" | "REJECTED" | "CANCELLED";
+
+export interface SupplierQuotationLine {
+  id: string;
+  companyId?: string;
+  quotationId: string;
+  rfqLineId?: string | null;
+  lineNumber: number;
+  description: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  amount: number;
+  leadTimeDays?: number | null;
+  isNoBid?: boolean;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SupplierQuotation {
+  id: string;
+  companyId?: string;
+  rfqId: string;
+  vendorId: string;
+  quotationNumber: string;
+  quotationDate: string;
+  validUntil?: string | null;
+  currency: string;
+  paymentTerms?: string | null;
+  deliveryTerms?: string | null;
+  leadTimeDays?: number | null;
+  notes?: string | null;
+  totalAmount: number;
+  status: SupplierQuotationStatus;
+  selectedAt?: string | null;
+  selectedByUserId?: string | null;
+  selectionReason?: string | null;
+  deselectedAt?: string | null;
+  deselectedByUserId?: string | null;
+  deselectionReason?: string | null;
+  lines?: SupplierQuotationLine[];
+  createdByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 

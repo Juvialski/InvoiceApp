@@ -31,6 +31,11 @@ import type {
   PurchaseOrderLine,
   PurchaseOrderReceipt,
   PurchaseOrderStatus,
+  RFQ,
+  RFQLine,
+  RFQStatus,
+  SupplierQuotation,
+  SupplierQuotationLine,
   Vendor,
   WorkEntry,
   Worker,
@@ -315,6 +320,22 @@ export interface AppRouterProps {
   ) => Promise<void>;
   onUnmatchPurchaseOrderMatch?: (matchId: string, reason: string) => Promise<void>;
   onOpenPurchaseOrder?: (purchaseOrderId: string) => void;
+  rfqs?: RFQ[];
+  supplierQuotations?: SupplierQuotation[];
+  onSaveRFQ?: (
+    rfq: Partial<RFQ> & { rfqNumber: string; title: string },
+    lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
+    invitedVendorIds?: string[],
+  ) => Promise<void>;
+  onTransitionRFQ?: (id: string, targetStatus: RFQStatus, reason?: string) => Promise<void>;
+  onDeleteRFQ?: (id: string) => Promise<void>;
+  onSaveSupplierQuotation?: (
+    quotation: Partial<SupplierQuotation> & { rfqId: string; vendorId: string; quotationNumber: string },
+    lines: Array<Partial<SupplierQuotationLine> & { description: string; quantity: number; unitPrice: number }>,
+  ) => Promise<void>;
+  onSelectSupplierQuotation?: (quotationId: string, reason: string) => Promise<void>;
+  onRevertSupplierQuotationSelection?: (rfqId: string, reason: string) => Promise<void>;
+  onConvertQuotationToPO?: (quotationId: string, poNumber: string, notes?: string) => Promise<void>;
 
   // Reports
   onExportReportsWorkbook?: () => void;
@@ -355,6 +376,15 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onConfirmPurchaseOrderMatch,
   onUnmatchPurchaseOrderMatch,
   onOpenPurchaseOrder,
+  rfqs = [],
+  supplierQuotations = [],
+  onSaveRFQ,
+  onTransitionRFQ,
+  onDeleteRFQ,
+  onSaveSupplierQuotation,
+  onSelectSupplierQuotation,
+  onRevertSupplierQuotationSelection,
+  onConvertQuotationToPO,
   projectLaborAggregates = [],
   laborSource,
   projectFormSeed,
@@ -598,6 +628,15 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onRecordReceipt={onRecordReceipt}
         onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}
+        rfqs={rfqs}
+        supplierQuotations={supplierQuotations}
+        onSaveRFQ={onSaveRFQ}
+        onTransitionRFQ={onTransitionRFQ}
+        onDeleteRFQ={onDeleteRFQ}
+        onSaveSupplierQuotation={onSaveSupplierQuotation}
+        onSelectSupplierQuotation={onSelectSupplierQuotation}
+        onRevertSupplierQuotationSelection={onRevertSupplierQuotationSelection}
+        onConvertQuotationToPO={onConvertQuotationToPO}
         onBack={onProjectBack}
         onOpenInvoice={(invoice) => onSelectInvoice?.(invoice)}
         onUploadInvoice={onProjectUploadInvoice}
@@ -799,6 +838,15 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onAddVendor={onAddVendor}
         matches={purchaseOrderMatches}
         invoices={invoices}
+        rfqs={rfqs}
+        supplierQuotations={supplierQuotations}
+        onSaveRFQ={onSaveRFQ}
+        onTransitionRFQ={onTransitionRFQ}
+        onDeleteRFQ={onDeleteRFQ}
+        onSaveSupplierQuotation={onSaveSupplierQuotation}
+        onSelectSupplierQuotation={onSelectSupplierQuotation}
+        onRevertSupplierQuotationSelection={onRevertSupplierQuotationSelection}
+        onConvertQuotationToPO={onConvertQuotationToPO}
         onOpenInvoice={(id) => onNavigatePath?.(`/invoices/${id}`)}
       />
     );
