@@ -109,10 +109,11 @@ create table if not exists public.supplier_quotations (
   created_by_user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint supplier_quotations_company_id_id_key unique (company_id, id),
-  constraint supplier_quotations_rfq_vendor_num_unique unique (company_id, rfq_id, vendor_id, lower(quotation_number))
+  constraint supplier_quotations_company_id_id_key unique (company_id, id)
 );
 
+create unique index if not exists supplier_quotations_rfq_vendor_num_unique
+  on public.supplier_quotations (company_id, rfq_id, vendor_id, lower(quotation_number));
 create index if not exists supplier_quotations_company_rfq_idx
   on public.supplier_quotations (company_id, rfq_id, status);
 create index if not exists supplier_quotations_company_vendor_idx
