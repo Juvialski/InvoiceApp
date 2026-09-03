@@ -148,7 +148,7 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
   const [periodStart, setPeriodStart] = useState(() => (claim?.periodStart ? claim.periodStart.slice(0, 10) : ""));
   const [periodEnd, setPeriodEnd] = useState(() => (claim?.periodEnd ? claim.periodEnd.slice(0, 10) : ""));
   const [retentionPercent, setRetentionPercent] = useState(
-    () => (claim ? String(roundMoney((claim.retentionRate ?? 0.1) * 100)) : "10"),
+    () => (claim ? String(roundMoney((claim.retentionRate ?? 0) * 100)) : "0"),
   );
   const [notes, setNotes] = useState(() => claim?.notes || "");
   const [lines, setLines] = useState<EditableClaimLine[]>(() => getInitialClaimLines(claim, subcontract, metrics));
@@ -170,7 +170,7 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
       setValuationDate(claim.valuationDate ? claim.valuationDate.slice(0, 10) : "");
       setPeriodStart(claim.periodStart ? claim.periodStart.slice(0, 10) : "");
       setPeriodEnd(claim.periodEnd ? claim.periodEnd.slice(0, 10) : "");
-      setRetentionPercent(String(roundMoney((claim.retentionRate ?? 0.1) * 100)));
+      setRetentionPercent(String(roundMoney((claim.retentionRate ?? 0) * 100)));
       setNotes(claim.notes || "");
 
       const claimLinesMap = new Map((claim.lines || []).map((l) => [l.subcontractLineId, l]));
@@ -205,7 +205,7 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
       setValuationDate(today);
       setPeriodStart("");
       setPeriodEnd("");
-      setRetentionPercent("10");
+      setRetentionPercent("0");
       setNotes("");
 
       const initialLines: EditableClaimLine[] = (subcontract.lines || []).map((scLine) => {
