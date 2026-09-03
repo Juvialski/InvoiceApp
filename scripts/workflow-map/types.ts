@@ -6,6 +6,8 @@ export type WorkflowDomain =
   | "platform-tenancy"
   | "dashboard"
   | "projects"
+  | "procurement"
+  | "commercial"
   | "engineering"
   | "finance"
   | "workforce"
