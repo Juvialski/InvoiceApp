@@ -30,7 +30,8 @@ test("getCanvasPresets produces curated diagrams, domain views, and full archite
   assert.equal(allPreset.category, "all");
 
   const domainPresets = presets.filter((p) => p.category === "domain");
-  assert.equal(domainPresets.length, WORKFLOW_GRAPH.domains.length);
+  const graphDomainCount = new Set(WORKFLOW_GRAPH.nodes.map((node) => node.domain)).size;
+  assert.equal(domainPresets.length, graphDomainCount);
 });
 
 test("filterGraph respects curated preset definitions and does not show all 183 nodes by default", () => {
