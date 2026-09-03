@@ -148,18 +148,7 @@ test('4. Unrelated domain isolation: subcontract changes do NOT select assistant
       'tests/assistantChat.test.ts',
       'tests/payrollProcessing.test.ts',
       'tests/storageDedup.test.ts',
-      'tests/other1.test.ts',
-      'tests/other2.test.ts',
-      'tests/other3.test.ts',
-      'tests/other4.test.ts',
-      'tests/other5.test.ts',
-      'tests/other6.test.ts',
-      'tests/other7.test.ts',
-      'tests/other8.test.ts',
-      'tests/other9.test.ts',
-      'tests/other10.test.ts',
-      'tests/other11.test.ts',
-      'tests/other12.test.ts'
+      ...Array.from({ length: 100 }, (_, i) => `tests/domainIsolationPad${i + 1}.test.ts`)
     ]
   });
 
@@ -169,6 +158,7 @@ test('4. Unrelated domain isolation: subcontract changes do NOT select assistant
     skipDiskCheck: true
   });
 
+  assert.equal(result.isFallback, false, 'Isolated subcontract change must stay below full-suite fallback');
   assert.ok(result.selectedTests.includes('tests/subcontractsUx.test.tsx'), 'Subcontracts test should be selected');
   assert.ok(!result.selectedTests.includes('tests/assistantChat.test.ts'), 'Assistant tests must remain isolated');
   assert.ok(!result.selectedTests.includes('tests/payrollProcessing.test.ts'), 'Payroll tests must remain isolated');
