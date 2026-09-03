@@ -1010,6 +1010,17 @@ export function executeSelectedTests(
     return 0;
   }
 
+  if (isFallback) {
+    console.log('\n🚀 Executing full regression suite via the repository npm test contract...\n');
+    const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const result = spawnSync(npmCommand, ['test'], {
+      cwd,
+      stdio: 'inherit',
+      shell: false
+    });
+    return result.status ?? (result.error ? 1 : 0);
+  }
+
   const hasTsx = testFiles.some(f => f.endsWith('.tsx'));
   const nodeArgs = [
     '--test',
@@ -1021,18 +1032,9 @@ export function executeSelectedTests(
     nodeArgs.push('--import', 'tsx');
   }
 
-  // When fallback to the full suite is triggered, use glob patterns to avoid arg-length limits
-  if (isFallback) {
-    nodeArgs.push('tests/*.test.ts');
-    const tsxTests = testFiles.filter(f => f.endsWith('.tsx'));
-    if (tsxTests.length > 0) {
-      nodeArgs.push(...tsxTests);
-    }
-  } else {
-    nodeArgs.push(...testFiles);
-  }
+  nodeArgs.push(...testFiles);
 
-  console.log(`\n🚀 Executing ${isFallback ? 'full regression suite' : `${testFiles.length} selected tests`} with node:test...\n`);
+  console.log(`\n🚀 Executing ${testFiles.length} selected tests with node:test...\n`);
   const result = spawnSync('node', nodeArgs, {
     cwd,
     stdio: 'inherit',
