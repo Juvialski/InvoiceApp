@@ -1,78 +1,84 @@
 # InvoiceApp / Engoryx Development & Agent Rules
 
-These rules apply only to this repository. The repository may still be named `InvoiceApp`; use the current Engoryx product naming and live repository state.
+These rules apply only to this repository. The repository may still be named `InvoiceApp`; use current Engoryx naming and live repository state.
 
 ## Architecture baseline
 
-Engoryx is permanently designed as:
+Engoryx is permanently:
 
 `one deployment -> one client company -> active membership/RBAC -> permitted workflows`
 
-Each client company receives a separate deployment, Supabase project/database, Storage, environment configuration, and users. Do not add unrelated-company switching or tenant selection to the client app.
+Each client company gets its own deployment, Supabase project/database, Storage, environment configuration, and users. Do not add unrelated-company switching or tenant selection.
 
 Keep `company_id`, company-prefixed Storage paths, RLS, membership checks, permission checks, and company-bound foreign-key validation as defense in depth.
 
-## Current product direction: PROJECT CONTROLS + ENGINEERING
+## Current product direction
 
-The previous blanket **CORE HARDENING FEATURE FREEZE is no longer the active product roadmap**. The hardening plan remains useful historical/domain guidance, but current implementation priority is defined by:
+Current priority is defined by:
 
 - `docs/ENGORYX_PROJECT_CONTROLS_PRODUCT_DIRECTION.md`
 - `docs/ENGORYX_ACTIVE_ROADMAP.md`
 
-Engoryx remains an Engineering Operations Platform. Current deployment emphasis is:
+Engoryx remains an Engineering Operations Platform focused on **Project Controls + Finance + Field Operations + Engineering Documents**.
 
-**Project Controls + Finance + Field Operations + Engineering Documents**
+Permanent rules:
 
-Permanent product-direction rules:
-
-1. Treat **Project** as the operational hub without collapsing Finance, Payroll, Engineering, or document provenance into a giant project row.
-2. Preserve existing `projects.contract_value` and `projects.project_budget` as distinct concepts.
-3. Derive Actual Cost from authoritative allocations/expenses/payroll and later procurement/subcontract postings; do not maintain a manually invented project-cost total.
+1. Treat Project as the operational hub without collapsing Finance, Payroll, Engineering, or document provenance into a giant project row.
+2. Preserve `projects.contract_value` and `projects.project_budget` as distinct concepts.
+3. Derive Actual Cost from authoritative allocations/expenses/payroll and later procurement/subcontract postings; never invent a competing total.
 4. Do not double count Invoice, Expense, Payroll, Procurement, Subcontract, Billing, or Settlement sources.
-5. Keep Engineering Documents, immutable revisions, RFIs, Submittals, and later engineering-control workflows first-class even when a deployment hides some modules.
-6. Do not delete mature product modules merely because one client does not need them. Use deployment/module visibility in a future reviewed implementation. Feature flags are not authorization.
-7. Scheduling/Gantt/CPM is still **not automatically authorized** by this product-direction change; it requires a separate prioritized wave.
-8. Infrastructure Storage S1-S4 are complete. S5 remains a bounded infrastructure follow-up and must not introduce aggressive deletion without reviewed retention/reference rules.
+5. Keep Engineering Documents, immutable revisions, RFIs, Submittals, and later engineering-control workflows first-class.
+6. Do not delete mature modules just because one deployment hides them. Feature flags are not authorization.
+7. Scheduling/Gantt/CPM requires a separately prioritized wave.
+8. Storage S1-S4 are complete. S5 remains bounded infrastructure follow-up work.
 
-The active product implementation order is approximately:
+Approximate implementation order: **P1 Project Controls Foundation -> P2 Procurement + Commercial Operations -> P3 Project Operations UX / Field Operations / Engineering integration**, with S5 separate.
 
-- **P1** Project Controls Foundation;
-- **P2** Procurement + Commercial Operations, split into bounded sub-waves;
-- **P3** Project Operations UX / Field Operations / Engineering integration;
-- **S5** storage/backup monitoring and lifecycle readiness as a separate bounded infrastructure stream.
-
-Do not revive the old blanket freeze merely because `docs/ENGORYX_CORE_HARDENING_PLAN.md` still contains historical status language.
+Do not revive the old blanket hardening freeze because historical docs still mention it.
 
 ## Lead and tool routing
 
-Use the least expensive tool that can safely complete the work.
+Use the least expensive capable tool.
 
-- **ChatGPT with authorized GitHub access**: default lead, investigator, reviewer, integrator, CI reviewer, straightforward GitHub editor, and finisher.
-- **Codex**: reserve for difficult multi-file reasoning, local execution, Supabase CLI/Docker, migration replay, complex tests, or runtime debugging where that capability materially helps.
+- **ChatGPT with GitHub access**: default lead, investigator, reviewer, integrator, CI reviewer, straightforward GitHub editor, prompt creator, and finisher.
+- **Codex/Luna**: reserve for difficult multi-file implementation, local execution, Supabase CLI/Docker, migration replay, complex tests, or runtime debugging where local capability materially helps.
 - **Antigravity**: prefer for browser-driven UI/UX, responsive work, screenshots, and visual QA.
-- **Kilo/OpenRouter/free models**: prefer for tightly bounded mechanical Tier 0 and low-risk Tier 1 changes with an established pattern.
-- **Medium-capability coding models** may implement bounded, well-specified waves or sub-waves, but the lead must retain shared architecture, financial truth, migrations/RLS/security, destructive lifecycle policy, and final validation.
+- **Kilo/OpenRouter/free models**: prefer for tightly bounded mechanical Tier 0 / low-risk Tier 1 work with an established pattern.
+- **Medium-capability coding models** may implement bounded, well-specified waves, but the lead retains shared architecture, financial truth, migrations/RLS/security, destructive lifecycle policy, and final validation decisions.
 
-Do not spend Codex/Luna usage on mechanical edits, documentation-only work, CI polling, broad repository rereads, or routine browser checks that another available tool can safely perform.
+Do not spend Luna time on documentation-only edits, CI polling, broad repository rereads, routine browser checks, mechanical formatting, or tests that current green-main evidence already covers.
 
-Kilo/free models and medium-capability agents must not independently redefine RLS, authentication/authorization, destructive operations, production migrations, payroll-history semantics, finalized financial history, tenant isolation, or other high-risk shared contracts without lead review and exact-head validation.
+Lower-capability agents must not independently redefine RLS, auth, destructive operations, production migrations, payroll-history semantics, finalized financial history, tenant isolation, or other high-risk shared contracts.
 
-## Repository freshness
+## Repository freshness and trusted baseline
 
 Before implementation:
 
-1. inspect the current branch and HEAD;
-2. inspect recent `main` and relevant open PR/CI state;
+1. inspect current branch/HEAD;
+2. inspect current `main` and relevant open PR/CI state;
 3. inspect working-tree status when local access exists;
-4. never rely on an old prompt SHA or previous-chat snapshot when the repository has moved.
+4. never rely on an old prompt SHA or stale chat snapshot.
 
-Do not overwrite newer work. Do not reset/recreate an active implementation branch unless explicitly required.
+### Green-main baseline rule
+
+A newly started phase normally begins from a `main` commit that was already fully validated before the previous PR was merged. Treat that exact green `main` SHA as the trusted regression baseline.
+
+**Do not start a new phase by rerunning the full test suite merely to prove the unchanged baseline again.**
+
+At phase start, verify the baseline cheaply:
+
+- current `main`/base SHA matches the intended green head;
+- relevant required CI on that SHA was green;
+- working tree/branch is clean or understood;
+- then begin scoped implementation.
+
+Run baseline tests before editing only when there is concrete reason to distrust the baseline: CI was not green, the environment materially changed, dependencies/toolchain changed outside the validated commit, the user explicitly requests it, or repository state is otherwise uncertain.
+
+Do not overwrite newer work or recreate an active implementation branch without reason.
 
 ## WM-5 is the primary navigation layer
 
-For substantial feature-scoped implementation, debugging, security, financial, or architecture work, use WM-5 to establish the working set before broad source exploration.
-
-This rule applies to **all repository agents**, including ChatGPT, Codex/Luna, Antigravity, and Kilo/free-model agents. If an environment cannot run the WM-5 CLI itself, use a narrow packet supplied by the lead or an exact generated-map slice; do not fall back to broad repository rereads merely because the CLI is unavailable.
+For substantial feature, debugging, security, financial, or architecture work, use WM-5 before broad exploration.
 
 Example:
 
@@ -80,232 +86,236 @@ Example:
 npm.cmd run workflow-map:context -- --domain workforce --query "worker removal" --hops 1 --budget 8000
 ```
 
-The purpose of WM-5 is to avoid rediscovering architecture through repository-wide search. Treat it as the default dependency/navigation index, not as a ceremonial first step.
+Required orientation:
 
-### Required orientation sequence
+1. Run **one narrow packet first** using an exact node, route, file, or domain+query selector.
+2. Default to **0-1 hops** and roughly **6,000-10,000 characters**. Increase only when the first packet is genuinely insufficient.
+3. Establish a compact working set: primary source files, permission/RLS boundary, persistence/RPC boundary, key invariants, and focused tests.
+4. Inspect actual source before editing, but use exact symbols, targeted `rg`, and bounded ranges inside that working set.
+5. Repository-wide search is fallback for a specific unresolved dependency, not routine orientation.
+6. Open a second WM-5 packet only for a concrete adjacent boundary.
+7. Do not load complete generated workflow maps for ordinary scoped work.
+8. If scope expands across unrelated domains, split the work into PR-sized waves.
 
-1. Run **one narrow packet first**. Prefer an exact node, route, file, or domain+query selector.
-2. Default to **0-1 hops** and about **6,000-10,000 characters**. Increase toward 12,000 only when the first packet is genuinely insufficient. Never use the 20,000-character maximum merely to avoid choosing a better selector.
-3. From the packet, establish a compact working set: primary source files, permission/RLS boundary, persistence/RPC boundary, key invariants, and focused tests.
-4. Inspect actual source before editing, but start inside that working set with exact symbols, targeted `rg`, and bounded line ranges.
-5. Repository-wide search is a fallback for a **specific unresolved symbol/dependency**, not a normal second orientation phase.
-6. Open a second WM-5 packet only when the first packet reveals a concrete adjacent boundary that matters to correctness.
-7. Do not load complete `docs/architecture/APP_WORKFLOW_MAP.md` or `docs/architecture/workflow-map.json` for scoped work. Those generated artifacts are for broad architecture work and validation, not ordinary agent context.
-8. Do not read many architecture documents “at minimum” when WM-5 plus canonical source answers the task.
-9. If a task expands across unrelated domains, split it into PR-sized waves rather than growing one session indefinitely.
+WM-5 is navigation context, not a substitute for source, CI, runtime evidence, RLS, migration replay, or database validation.
 
-WM-5 is advisory context, not a substitute for source, CI, runtime evidence, RLS, migration replay, or database validation.
+### Cross-agent use
 
-### Cross-agent application
+- Give Codex/Luna, Antigravity, and lower-cost agents the already identified working set; do not make each agent rediscover the repository.
+- Antigravity should browser-test exact affected pages/components rather than crawl the whole app.
+- Lower-cost agents should stay inside the supplied file/symbol boundary unless a concrete dependency requires escalation.
+- The lead owns scope expansion and supplies another narrow packet when necessary.
 
-- **Antigravity** should use the mapped working set to choose the exact pages/components for browser and responsive QA rather than crawling the whole app.
-- **Kilo/free models and medium-capability agents** should receive the mapped file/symbol boundary from the lead and stay inside it unless a concrete unresolved dependency requires escalation.
-- **Codex/Luna** should not repeat broad discovery after WM-5 has already established the relevant boundary.
-- The **lead agent** owns any required expansion of scope and should provide a new narrow packet instead of asking another agent to rediscover the repository.
+## Diff-driven implementation and review
 
-### Changed-surface review
+After implementation:
 
-After implementation, prefer a **diff-driven** review instead of rediscovering the feature from scratch:
-
-1. inspect changed-file names/statistics;
+1. inspect changed filenames/statistics;
 2. review changed hunks and shared contracts;
-3. use focused tests;
-4. if mapped architecture changed, use WM-5 with changed-file selectors or the relevant node to verify the affected boundary;
-5. then run the required broader validation.
+3. run focused/new tests;
+4. run impact-selected validation;
+5. run only broader checks justified by the changed surface;
+6. rely on exact-head CI as the final automated PR gate.
 
-Do not perform a second broad repository audit merely because targeted tests passed. Re-expand only when the diff, a failure, or a concrete safety concern justifies it.
+Do not perform a second broad repository audit after targeted tests pass unless the diff, a failure, or a concrete safety concern justifies it.
 
-## Context and output discipline
+## Context and token discipline
 
-All repository agents must actively limit context/output growth without reducing correctness.
+All agents must actively minimize context and output without reducing correctness.
 
-- Do not dump whole large files when a symbol/range is sufficient.
-- Do not ingest full successful test/build logs. Retain command, exit status, counts, and relevant warnings only.
-- On failure, inspect the failing step and the smallest useful error region first.
-- Do not repeatedly reopen unchanged files or replay unchanged logs.
-- Use targeted tests during iteration; run broader validation after the narrow issue is fixed.
-- Prefer `git diff`, changed hunks, and focused contract checks over rereading every touched file in full.
-- Do not repeatedly inspect generated workflow-map outputs after the map checks are green.
-- Do not continuously watch GitHub CI after a PR is pushed.
-- A successful browser QA pass should not trigger a new broad source audit unless it found a concrete defect.
+- Do not dump whole large files when symbols/ranges are enough.
+- Do not ingest full successful logs; retain command, exit status, counts, and relevant warnings.
+- On failure, inspect only the failing step and smallest useful error region first.
+- Do not repeatedly reopen unchanged files, logs, generated maps, or CI pages.
+- Prefer `git diff`, changed hunks, exact symbols, and focused contract checks.
+- Do not continuously watch GitHub CI after push; the GitHub-native lead handles CI monitoring.
+- Do not ask another agent to repeat discovery already performed by the lead.
+- Do not ask subagents for long reports when a short result + changed files + risks is sufficient.
+- Do not create speculative tests or documentation unrelated to the current acceptance criteria.
+- Do not run browser QA across unaffected modules.
 
-A failed command is debugging evidence, not a reason to blindly rerun it:
+A failed command is evidence:
 
-`inspect -> diagnose -> make a justified change -> rerun the narrow check -> run broader validation`
+`inspect -> diagnose -> justified change -> rerun narrow check -> continue validation ladder`
 
-Never retry an unchanged failure in a loop.
+Never loop an unchanged failure.
 
 ### Context-pressure guardrails
 
-When the environment exposes context-window usage, use it as an operational signal, not as an arbitrary correctness cutoff:
+- Around **50-60%**: stop speculative exploration and keep reads targeted.
+- Around **65-75%**: finish known work or split newly discovered adjacent work.
+- Above **~75%** with substantial unresolved work: compact/handoff before opening another broad workstream.
 
-- **Around 50-60%**: stop speculative exploration; summarize established facts and keep new reads targeted.
-- **Around 65-75%**: reassess scope. Prefer finishing the known implementation/validation path, or split a newly discovered adjacent problem into a follow-up.
-- **Above ~75% with substantial unresolved work**: compact or hand off a concise continuation state before opening another broad workstream.
-- Security, financial integrity, RLS, migration, or concurrency evidence may justify further inspection; do not skip required proof merely to satisfy a percentage target.
-
-Compaction is a context-management tool, not a reason to repeat earlier discovery after compaction. Continue from the preserved summary and reread only what is necessary.
+Security, financial integrity, RLS, migration, or concurrency evidence may justify additional context. Compaction must not trigger repeated discovery.
 
 ## Session and PR scope
 
-Use one cohesive implementation objective per agent run and per PR whenever practical.
+Use one cohesive objective per implementation run and PR whenever practical.
 
-Do not turn a focused fix into a repository-wide audit. Adjacent issues should be fixed immediately only when required for correctness/safety; otherwise record them for the next wave.
+Do not turn a focused feature/fix into a repository-wide audit. Fix adjacent issues immediately only when required for correctness or safety; otherwise record them for a later wave.
 
-If the changed-file set or reasoning surface grows materially beyond the original objective, reassess and split the work rather than continuing to accumulate context.
+If a focused task unexpectedly reaches roughly 25-30+ changed files, verify every cluster is required. Generated maps/docs/fixtures may legitimately inflate counts.
 
-For expensive local runs, a large changed-file count is a **scope warning**, not proof of bad work. If a focused task unexpectedly reaches roughly 25-30+ changed files, explicitly verify that each cluster is required by the objective before continuing. Generated map/docs/test fixtures may legitimately inflate the count.
+## Codex subagent execution
 
-==================================================
-CODEX SUBAGENT EXECUTION
-==================================================
+**Hard maximum: 2 concurrent subagents.**
 
-Hard maximum: 2 concurrent subagents.
+For substantial work with two genuinely independent workstreams, use both slots early **after** the lead establishes the shared contract and narrow working set. Assign non-overlapping ownership and ask subagents to implement + add focused tests, not merely investigate.
 
-For substantial implementation/hardening waves with at least two independent workstreams:
+Do not spawn subagents for tiny one-file fixes, documentation-only work, CI polling, or work the lead can complete more cheaply than coordinating agents.
 
-- after the lead establishes a narrow WM-5/shared-contract context, spawn BOTH available subagent slots early;
-- do not keep the entire wave with the lead when meaningful independent work can run concurrently;
-- assign non-overlapping file/workflow ownership;
-- subagents should IMPLEMENT and add focused tests, not merely investigate/report;
-- avoid assigning shared/conflict-heavy files to multiple agents.
-
-Lead agent owns:
+Lead owns:
 
 - shared architecture/contracts;
-- App.tsx/router/providers/shared primitives;
-- conflict-heavy integration files;
-- review of every subagent diff;
-- integration;
+- App.tsx/router/providers/shared primitives and conflict-heavy integration files;
 - security/RLS interpretation;
-- final regression review;
-- full tests/lint/build;
-- final browser QA;
+- integration and diff review;
+- validation-scope decisions;
+- final regression assessment;
 - commit/push/PR.
 
-If more work remains after both agents finish:
-reuse the SAME two slots sequentially.
-
-Never create a third concurrent subagent.
-
-For tiny one-file fixes, trivial follow-ups, or final-validation-only work, subagents are optional.
-
-Future verification/continuation prompts should explicitly tell Codex to use both slots early when meaningful parallel work remains.
-
-Avoid generic wording such as:
-“prefer no subagents”
-for broad implementation/hardening waves, because it causes unnecessary lead-only execution.
-
-The permanent project constraint remains:
-MAXIMUM 2 CONCURRENT SUBAGENTS.
+If additional work remains, reuse the same two slots sequentially. Never create a third concurrent subagent.
 
 ### Codex subagents: Luna only
 
-When Codex itself spawns subagents, every subagent must use **Luna at the highest reasoning level available**.
+Every Codex-spawned subagent must use **Luna at the highest reasoning level available**. Never substitute Terra, Sol, Opus, Gemini, or automatic fallback models. If Luna is unavailable, reuse an available Luna sequentially or let the lead do the work.
 
-Never substitute Terra, Sol, Opus, Gemini, automatic fallback models, or another non-Luna model. If Luna is unavailable, reuse an available Luna sequentially or let the Codex lead do the work.
+Because Luna is expensive/slow, prompts must give Luna an already bounded working set, acceptance criteria, relevant tests, and explicit out-of-scope items. Do not ask Luna to “audit the whole repo first.”
 
-## Existing-data correction and removal policy
-
-For current Engoryx modules, use this lifecycle principle unless a stricter domain rule already exists:
+## Existing-data correction and removal
 
 - **Unused accidental record**: guarded permanent delete may be appropriate when no dependent/auditable history exists.
 - **Used operational record**: archive, deactivate, offboard, cancel, or equivalent reversible lifecycle state.
 - **Finalized/auditable financial or engineering history**: void, reverse, supersede, or deliberate correction; never silently erase history.
 
-Do not add raw Delete buttons that bypass dependency/history checks.
+Do not add raw Delete paths that bypass dependency/history checks.
 
 ## Project Controls financial truth
 
-Project Controls must reuse authoritative domain data rather than creating a competing accounting system.
-
-- `contract_value` is client-facing project/contract value; `project_budget` is the internal approved cost budget.
-- Actual Cost must be derived from lifecycle-eligible invoice allocations, expenses, payroll allocations, and later posted procurement/subcontract costs.
+- `contract_value` is client-facing contract value; `project_budget` is internal approved cost budget.
+- Actual Cost derives from lifecycle-eligible invoice allocations, expenses, payroll allocations, and later posted procurement/subcontract costs.
 - Committed Cost is distinct from Actual Cost.
-- Client billing is distinct from supplier/vendor invoices and from Actual Cost.
-- Collected values must come from actual settlement/payment records.
-- Forecast Margin must use explicit contract/variation and forecast-cost semantics.
-- Mixed currencies must not be silently summed.
-- Project-level payroll aggregates must not broaden unauthorized payroll-detail visibility.
+- Client billing is distinct from supplier/vendor invoices and Actual Cost.
+- Collected values come from actual settlement/payment records.
+- Forecast Margin uses explicit contract/variation and forecast-cost semantics.
+- Never silently sum mixed currencies.
+- Project payroll aggregates must not broaden unauthorized payroll-detail visibility.
 
 ## RBAC and Assistant parity
 
-Authorization vocabulary is permission-based, not role-name-based. Existing roles are presets; do not infer access solely from labels such as FINANCE or PAYROLL.
+Authorization is permission-based, not role-name-based. Existing roles are presets.
 
 Deterministic UI/API authorization, server/RPC checks, RLS, and Assistant tools must resolve the same effective permissions. The Assistant never receives broader authority than the current user.
 
-Destructive or consequential Assistant mutations must preserve the prepare/validate/human-confirm/execute boundary.
+Consequential Assistant mutations preserve the prepare/validate/human-confirm/execute boundary.
 
 ## Database, migration, and history safety
 
 Protect approved/finalized payroll, verified invoice history, settlement history, engineering history, project cost allocations, committed import provenance, and audit trails.
 
-Once a migration has successfully reached a shared/protected environment, do not edit it in place. Add a forward migration. The only exception is a migration proven never to have applied anywhere and whose failed transaction fully rolled back.
+Once a migration reached a shared/protected environment, do not edit it in place. Add a forward migration unless it is proven never to have applied anywhere and its failed transaction fully rolled back.
 
-For critical migrations/RLS/security changes, static review alone is insufficient when clean replay/upgrade validation is available.
-
-Never weaken RLS or permission checks merely because a deployment contains one company.
+Critical migration/RLS/security changes require runtime/replay evidence when available. Never weaken RLS because a deployment contains one company.
 
 ## Git and publishing safety
 
-Prefer focused branches/PRs for non-trivial work. Never force-push by default or rewrite production history.
+Prefer focused branches/PRs. Never force-push by default or rewrite production history.
 
-If a local agent cannot push because of policy/network restrictions, stop retrying after identifying the blocker. Leave a clean local commit and hand publishing to the GitHub-native lead/user.
+If a local agent cannot push because of policy/network restrictions, identify the blocker once, leave a clean local commit, and hand publishing to the GitHub-native lead/user.
 
-Do not merge a critical security/data PR until required exact-head CI has been reviewed.
+Do not merge critical security/data work until required exact-head CI is reviewed.
 
-After pushing a PR, a local Codex/Luna run should normally stop. GitHub-native tooling/lead handles CI monitoring. Resume the expensive local run only when CI exposes a failure that actually requires local implementation/debugging.
+After pushing a PR, local Codex/Luna should normally stop. Resume it only if exact-head CI reveals a failure that genuinely requires local implementation/debugging.
 
-## Test Execution & Impact Optimization
+## Test execution and validation optimization
 
-Engoryx uses impact-based test selection to keep iteration fast and prevent wasteful full-suite reruns on focused changes. Standard developer and agent validation workflow:
+Engoryx uses impact-based selection. `npm test` / `npm run test:full` remains the complete historical regression suite, but it is **not** the default per-phase or per-iteration command.
 
-1. **Run new tests first**: Test newly authored or edited test files directly (`node --test ...` or `tsx --test ...`).
-2. **Run affected tests while iterating**: Use `npm run test:affected` to run only tests impacted by the current change set and its dependency graph.
-3. **Run smoke suite for fast cross-cutting validation**: Use `npm run test:smoke` to quickly verify critical core invariants and workflows.
-4. **No redundant full re-runs**: A previously green historical test does NOT need to be manually rerun on every coding iteration when neither it nor its dependency graph is affected.
-5. **Run full application suite (`npm run test:full`) when**:
-   - Impact analysis falls back (e.g. root configuration or broad shared contract modifications);
-   - Architecture changes are unusually broad;
-   - Explicitly requested by the user or lead;
-   - Preparing a release or deep scheduled regression.
-6. **Database validation scope**: Full database replay (`supabase start`, `supabase db reset`, `supabase test db`, `test:migrations:upgrade`) remains mandatory only when migrations or database contracts change.
+### Validation ladder
 
-## Validation
+Use the cheapest sufficient step and escalate only as evidence requires:
 
-Use the actual scripts in current `package.json`. Typical substantial validation includes:
+1. **New/edited tests directly**: run newly authored or modified test files first.
+2. **Focused domain tests**: run the smallest existing tests that prove the changed contract.
+3. **Affected suite**: `npm.cmd run test:affected`.
+4. **Smoke suite when useful**: `npm.cmd run test:smoke` for quick core invariant coverage.
+5. **Lint/typecheck**: `npm.cmd run lint`, normally once after the implementation stabilizes rather than after every edit.
+6. **Build**: `npm.cmd run build` when production/runtime/UI integration is affected or before PR handoff when required by the workflow.
+7. **Database validation only for database-affecting changes**: migration/static invariants first; Supabase replay/pgTAP/upgrade drill when migrations/RLS/database contracts changed.
+8. **Workflow-map checks only when mapped contracts/generated map inputs changed**.
+9. **Full regression only when justified** by the rules below or by scheduled/manual CI.
 
-```text
-npm.cmd test
-npm.cmd run lint
-npm.cmd run build
-npm.cmd run test:migrations
-```
+### Full-suite rule
 
-When workflow-map contracts change, also run the relevant generation/check/consistency/tests.
+Run `npm.cmd run test:full` locally only when at least one is true:
 
-For migration/RLS work, prefer clean Supabase replay, pgTAP/invariant tests, and historical upgrade-path validation when available.
+- impact analysis explicitly falls back to full coverage;
+- a broad shared/root contract changed and the selector cannot prove safe isolation;
+- architecture changed unusually broadly;
+- dependency/toolchain/test-runner infrastructure changed;
+- the user/lead explicitly requests a full run;
+- preparing a release/deep regression outside normal phase work;
+- exact-head CI or targeted validation provides evidence that wider regression coverage is needed.
 
-For significant user-facing work, perform actual browser interaction and responsive QA when the assigned environment supports it. Test the changed workflow and its important responsive states; do not turn browser QA into an unrelated whole-app audit unless requested.
+**Do not run a full suite at the start of a phase when the base is the just-merged green `main`. Do not run it repeatedly during implementation. Do not run it both locally and again manually merely because exact-head CI will already provide the required gate.**
 
-Do not claim a runtime/browser/database check passed when it was skipped or unavailable.
+A prior green test does not need manual rerun when neither it nor its dependency graph/contracts changed.
+
+### Database scope
+
+Full database replay (`supabase start`, `supabase db reset`, `supabase test db`, `test:migrations:upgrade`) is mandatory only when migrations/RLS/database contracts require it. Do not start Supabase containers for UI-only or unrelated application changes.
+
+### Browser scope
+
+For significant user-facing work, test the changed workflow and important responsive states in a capable environment. Do not convert targeted browser QA into a whole-app regression crawl.
+
+Never claim a runtime/browser/database check passed when it was skipped or unavailable.
 
 ### Windows local commands
 
-The verified local environment is Windows PowerShell. Plain `npm`/`npx` may resolve to blocked `.ps1` shims, so prefer:
+Verified local environment is Windows PowerShell. Prefer `npm.cmd` / `npx.cmd` because plain shims may be blocked. Check for an existing dev server before starting another.
 
-```text
-npm.cmd ...
-npx.cmd ...
-```
+## Prompt-creation rules for future phases
 
-Check for an existing dev server before starting another one.
+Every new phase/continuation prompt must optimize for a trusted green baseline and avoid ritual validation.
+
+A good implementation prompt should:
+
+1. Tell the agent to pull/inspect the current latest `main` and confirm the starting SHA/CI state.
+2. State that the previous phase was merged only after green validation, so **do not begin by rerunning the full historical suite** unless the baseline is untrusted.
+3. Give the phase objective, acceptance criteria, and explicit out-of-scope items before asking for exploration.
+4. Tell the agent to use one narrow WM-5 packet and inspect only the resulting working set.
+5. Name likely files/tests when the lead already knows them; do not make Luna rediscover known context.
+6. Require focused/new tests during implementation and `test:affected` after integration.
+7. Require lint/build/database/browser checks only when relevant to the changed surface.
+8. Reserve `test:full` for impact fallback, broad shared-contract change, explicit request, or other justified escalation.
+9. Tell Codex to use at most 2 concurrent Luna subagents and only when there are real independent implementation workstreams.
+10. Tell subagents to return concise implementation results, changed files, tests, and blockers instead of long narrative reports.
+11. Tell the lead to review diffs, integrate shared files, push the PR, then stop local Luna; GitHub-native tooling handles CI monitoring.
+12. Treat exact-head CI as the final automated gate. Fix only concrete failures; do not launch another broad audit after green CI.
+
+### Default phase-prompt validation wording
+
+Use wording equivalent to:
+
+> Start from the current latest `main`. Confirm the base SHA and that its required CI is green. Because this phase starts from an already validated merged baseline, do **not** run the full historical test suite before implementation. Use focused/new tests while iterating, then `npm.cmd run test:affected` after integration. Run lint/build/database/workflow-map/browser checks only when the changed surface requires them. Run `npm.cmd run test:full` only if impact analysis falls back, a broad shared contract changed, or concrete evidence requires wider regression coverage. Exact-head PR CI is the final automated gate.
+
+This rule applies to ChatGPT-generated Codex prompts as well as instructions written by repository agents.
+
+## Additional execution-speed rules
+
+- Parallelize only real independent implementation; parallelizing duplicate investigation wastes tokens.
+- Give each subagent exact ownership and forbid broad scope expansion without lead approval.
+- Prefer one implementation pass + one integration review over repeated “audit then re-audit” cycles.
+- Run expensive commands after code stabilizes, not after every small edit.
+- Cache/reuse already established architecture facts within the same phase.
+- When CI fails, inspect only the failed exact-head job/step first.
+- If CI failure is infrastructure/test-runner-only, patch that path without reopening product-domain review unless evidence points there.
+- Keep PR descriptions and handoffs factual and compact; avoid repeating the entire roadmap or unchanged architecture.
 
 ## Background process cleanup
 
-Local agents must track and stop all dev servers, watchers, Supabase processes they own, and spawned subagents before final handoff.
-
-For applicable local runs, include:
+Local agents must stop dev servers, watchers, Supabase processes they started, and spawned subagents before handoff. For applicable runs report:
 
 ```text
 Background commands/processes started by this run remaining: 0
@@ -313,27 +323,23 @@ Background commands/processes started by this run remaining: 0
 
 ## Final handoff
 
-For substantial work, report concisely:
+For substantial work report concisely:
 
 - starting/base SHA;
-- branch and final SHA;
-- PR status/link;
-- major changes and migrations;
-- tests actually run and results;
-- lint/build/migration/browser results as applicable;
-- validation unavailable or skipped;
+- branch/final SHA and PR status;
+- major changes/migrations;
+- tests/checks actually run and results;
+- skipped/unavailable validation;
 - remaining limitations/follow-up;
-- WM-5 selector(s) used and whether scope expanded;
+- WM-5 selector(s) used and scope expansion if any;
 - tools/subagents used.
 
-If Codex subagents were used, report their count and confirm all were Luna.
+If Codex subagents were used, report count and confirm all were Luna.
 
 ## Repository learning rule
 
-`AGENTS.md` is persistent operational memory, not a transcript. Keep it concise. Persist only verified, reusable rules. Do not add one-off failures, long incident narratives, provider quota events, or temporary environment noise.
-
-When a rule becomes obsolete, replace or remove it instead of appending another contradictory paragraph.
+`AGENTS.md` is persistent operational memory, not a transcript. Keep it compact. Persist only reusable rules; remove obsolete or contradictory guidance instead of appending more layers.
 
 ## Definition of done
 
-A substantial task is done only when current repository state was verified, scope stayed disciplined, implementation preserves security/history semantics, changed files were reviewed, appropriate validation was actually obtained, CI was checked when applicable, and the final handoff clearly states what did and did not pass.
+A substantial task is done when current repository state was verified, scope stayed disciplined, security/history semantics were preserved, changed files were reviewed, appropriate **changed-surface** validation was obtained, required exact-head CI was checked, and the handoff clearly states what did and did not pass.
