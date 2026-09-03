@@ -1,6 +1,6 @@
-import type { PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, SupplierQuotation, Vendor } from "../../types.ts";
+import type { PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, Subcontract, SubcontractLine, SupplierQuotation, Vendor } from "../../types.ts";
 import { DEMO_COMPANY_ID } from "../demoTypes.ts";
-import { addDemoDays, demoTimestamp } from "./demoDates.ts";
+import { addDemoDays, defaultDemoAnchorDate, demoTimestamp } from "./demoDates.ts";
 import { DEMO_PROJECT_IDS } from "./projects.ts";
 
 export const DEMO_RFQ_IDS = {
@@ -26,6 +26,7 @@ export const DEMO_VENDOR_IDS = {
   plumbing: "demo-vendor-plumbing",
   fasteners: "demo-vendor-fasteners",
   subcontractor: "demo-vendor-subcontractor",
+  apex: "demo-vendor-apex",
 } as const;
 
 export function createDemoVendors(anchorDate: string): Vendor[] {
@@ -154,6 +155,20 @@ export function createDemoVendors(anchorDate: string): Vendor[] {
       phone: "+63 2 8824 9910",
       taxId: "534-218-779-000",
       address: "West Service Road, Parañaque City, Philippines",
+      defaultCurrency: "PHP",
+      defaultCategory: "Subcontractor Services",
+      createdAt,
+      updatedAt,
+    },
+    {
+      id: DEMO_VENDOR_IDS.apex,
+      companyId: DEMO_COMPANY_ID,
+      name: "Apex Electro-Mechanical Services",
+      normalizedName: "apex electro-mechanical services",
+      email: "commercial@apexelectro.ph",
+      phone: "+63 2 8799 4410",
+      taxId: "419-883-205-000",
+      address: "Ortigas Commercial Complex, Pasig City, Philippines",
       defaultCurrency: "PHP",
       defaultCategory: "Subcontractor Services",
       createdAt,
@@ -1076,4 +1091,120 @@ export function createDemoSupplierQuotations(anchorDate: string): SupplierQuotat
     },
   ];
 }
+
+export function createDemoSubcontracts(anchorDate = defaultDemoAnchorDate()): Subcontract[] {
+  return [
+    {
+      id: "demo-sc-hvac-001",
+      companyId: DEMO_COMPANY_ID,
+      subcontractNumber: "SC-2026-001",
+      vendorId: DEMO_VENDOR_IDS.apex,
+      projectId: DEMO_PROJECT_IDS.warehouse,
+      title: "HVAC & Mechanical Piping Installation Package",
+      currency: "PHP",
+      status: "ACTIVE",
+      originalAmount: 1_850_000,
+      startDate: addDemoDays(anchorDate, -30),
+      targetCompletionDate: addDemoDays(anchorDate, 60),
+      notes: "Comprehensive mechanical installation including primary chilled water distribution loops, ductwork, and air terminal units as per drawing set M-101 to M-108.",
+      cancellationReason: null,
+      createdByUserId: "demo-user-pm",
+      approvedByUserId: "demo-user-dir",
+      activatedByUserId: "demo-user-dir",
+      createdAt: demoTimestamp(addDemoDays(anchorDate, -35), 8, 30),
+      updatedAt: demoTimestamp(addDemoDays(anchorDate, -30), 8, 0),
+      approvedAt: demoTimestamp(addDemoDays(anchorDate, -32), 10, 0),
+      activatedAt: demoTimestamp(addDemoDays(anchorDate, -30), 8, 0),
+      closedAt: null,
+      cancelledAt: null,
+      lines: [
+        {
+          id: "demo-sc-line-hvac-01",
+          companyId: DEMO_COMPANY_ID,
+          subcontractId: "demo-sc-hvac-001",
+          lineNumber: 1,
+          description: "Chilled water piping supply and installation including insulated header lines and valve manifolds",
+          amount: 1_150_000,
+          quantity: 1,
+          unit: "lot",
+          unitRate: 1_150_000,
+          projectCostCodeId: "demo-cc-wh-04",
+          notes: "Includes pressure testing and NDT certification",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -35), 8, 30),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -35), 8, 30),
+        },
+        {
+          id: "demo-sc-line-hvac-02",
+          companyId: DEMO_COMPANY_ID,
+          subcontractId: "demo-sc-hvac-001",
+          lineNumber: 2,
+          description: "Ductwork fabrication, insulation, balancing dampers, and diffuser installation",
+          amount: 700_000,
+          quantity: 1,
+          unit: "lot",
+          unitRate: 700_000,
+          projectCostCodeId: "demo-cc-wh-04",
+          notes: "Mezzanine and ground level warehouse distribution",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -35), 8, 30),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -35), 8, 30),
+        },
+      ],
+    },
+    {
+      id: "demo-sc-steel-002",
+      companyId: DEMO_COMPANY_ID,
+      subcontractNumber: "SC-2026-002",
+      vendorId: DEMO_VENDOR_IDS.subcontractor,
+      projectId: DEMO_PROJECT_IDS.warehouse,
+      title: "Structural Steel Erection Subcontract",
+      currency: "PHP",
+      status: "DRAFT",
+      originalAmount: 950_000,
+      startDate: addDemoDays(anchorDate, 14),
+      targetCompletionDate: addDemoDays(anchorDate, 45),
+      notes: "Trade subcontract for secondary steel framework, sag rods, bracing systems, and high-strength bolt torque inspection.",
+      cancellationReason: null,
+      createdByUserId: "demo-user-pm",
+      createdAt: demoTimestamp(addDemoDays(anchorDate, -3), 14, 0),
+      updatedAt: demoTimestamp(addDemoDays(anchorDate, -3), 14, 0),
+      approvedAt: null,
+      activatedAt: null,
+      closedAt: null,
+      cancelledAt: null,
+      lines: [
+        {
+          id: "demo-sc-line-steel-01",
+          companyId: DEMO_COMPANY_ID,
+          subcontractId: "demo-sc-steel-002",
+          lineNumber: 1,
+          description: "Secondary framing erection, roof purlins, and wall girt assembly",
+          amount: 600_000,
+          quantity: 1,
+          unit: "lot",
+          unitRate: 600_000,
+          projectCostCodeId: "demo-cc-wh-02",
+          notes: "Crane and certified rigger crews included",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -3), 14, 0),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -3), 14, 0),
+        },
+        {
+          id: "demo-sc-line-steel-02",
+          companyId: DEMO_COMPANY_ID,
+          subcontractId: "demo-sc-steel-002",
+          lineNumber: 2,
+          description: "Sag rod alignment, flange bracing, and torque inspection testing",
+          amount: 350_000,
+          quantity: 1,
+          unit: "lot",
+          unitRate: 350_000,
+          projectCostCodeId: "demo-cc-wh-02",
+          notes: "Calibrated wrench torque verification report required",
+          createdAt: demoTimestamp(addDemoDays(anchorDate, -3), 14, 0),
+          updatedAt: demoTimestamp(addDemoDays(anchorDate, -3), 14, 0),
+        },
+      ],
+    },
+  ];
+}
+
 

@@ -33,7 +33,8 @@ export type ProjectLifecycleDependencyKey =
   | "engineeringSubmittals"
   | "engineeringDailySiteLogs"
   | "projectAccountingEvents"
-  | "purchaseOrders";
+  | "purchaseOrders"
+  | "subcontracts";
 export type ProjectLifecycleDependencyCounts = Partial<Record<ProjectLifecycleDependencyKey, number>>;
 
 export interface ProjectLifecyclePreview {
@@ -78,6 +79,7 @@ const PROJECT_LIFECYCLE_DEPENDENCY_KEYS: readonly ProjectLifecycleDependencyKey[
   "engineeringDailySiteLogs",
   "projectAccountingEvents",
   "purchaseOrders",
+  "subcontracts",
 ];
 
 const REACTIVATABLE_PROJECT_STATUSES: readonly Exclude<ProjectStatus, "ARCHIVED" | "COMPLETED" | "CANCELLED">[] = ["PLANNING", "ACTIVE", "ON_HOLD"];

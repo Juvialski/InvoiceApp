@@ -1172,3 +1172,50 @@ export interface SupplierQuotation {
   updatedAt?: string;
 }
 
+export type SubcontractStatus = "DRAFT" | "APPROVED" | "ACTIVE" | "CLOSED" | "CANCELLED";
+
+export interface SubcontractLine {
+  id: string;
+  companyId?: string;
+  subcontractId: string;
+  lineNumber: number;
+  description: string;
+  amount: number;
+  quantity?: number | null;
+  unit?: string | null;
+  unitRate?: number | null;
+  projectCostCodeId?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Subcontract {
+  id: string;
+  companyId?: string;
+  subcontractNumber: string;
+  vendorId: string;
+  projectId: string;
+  title: string;
+  currency: string;
+  status: SubcontractStatus;
+  originalAmount: number;
+  startDate?: string | null;
+  targetCompletionDate?: string | null;
+  notes?: string | null;
+  cancellationReason?: string | null;
+  lines?: SubcontractLine[];
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  approvedByUserId?: string | null;
+  activatedByUserId?: string | null;
+  closedByUserId?: string | null;
+  cancelledByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  approvedAt?: string | null;
+  activatedAt?: string | null;
+  closedAt?: string | null;
+  cancelledAt?: string | null;
+}
+

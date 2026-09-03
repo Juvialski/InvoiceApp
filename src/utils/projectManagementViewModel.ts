@@ -5,6 +5,7 @@ import type {
   ProjectCostSummary,
   ProjectStatus,
   PurchaseOrder,
+  Subcontract,
 } from "../types.ts";
 import {
   calculateProjectBudgetControl,
@@ -91,6 +92,7 @@ export interface BuildProjectManagementViewOptions {
   expenses?: Expense[];
   payroll?: CostPayrollRecord[];
   purchaseOrders?: PurchaseOrder[];
+  subcontracts?: Subcontract[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   costInput?: ProjectCostInput;
@@ -195,6 +197,7 @@ export function buildProjectManagementView(
     options?.expenses !== undefined ||
     options?.payroll !== undefined ||
     options?.purchaseOrders !== undefined ||
+    options?.subcontracts !== undefined ||
     options?.projectLaborAggregates !== undefined,
   );
 
@@ -204,6 +207,7 @@ export function buildProjectManagementView(
       expenses: options.expenses,
       payroll: options.payroll,
       purchaseOrders: options.purchaseOrders,
+      subcontracts: options.subcontracts,
       projectLaborAggregates: options.projectLaborAggregates,
       laborSource: options.laborSource,
       baseCurrency: currency,

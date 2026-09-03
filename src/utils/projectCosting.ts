@@ -14,6 +14,9 @@ import type {
   PurchaseOrder,
   PurchaseOrderLine,
   PurchaseOrderStatus,
+  Subcontract,
+  SubcontractLine,
+  SubcontractStatus,
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
@@ -42,6 +45,7 @@ export interface ProjectCostInput {
   payroll?: CostPayrollRecord[];
   expenses?: Expense[];
   purchaseOrders?: PurchaseOrder[];
+  subcontracts?: Subcontract[];
   /** Safe project-level labor totals used when payroll detail is unavailable. */
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   /** Explicitly selects detail rows or the safe aggregate source. */
@@ -254,6 +258,38 @@ export function purchaseOrderTotal(po: Pick<PurchaseOrder, "totalAmount" | "line
     );
   }
   return positiveMoney(po.totalAmount);
+}
+
+export function isCommittedSubcontract(statusOrSC?: SubcontractStatus | string | { status?: SubcontractStatus | string | null } | null): boolean {
+  if (!statusOrSC) return false;
+  const raw = typeof statusOrSC === "object" && "status" in statusOrSC ? statusOrSC.status : statusOrSC;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "APPROVED" || normalized === "ACTIVE";
+}
+
+export function isVoidedSubcontract(statusOrSC?: SubcontractStatus | string | { status?: SubcontractStatus | string | null } | null): boolean {
+  if (!statusOrSC) return false;
+  const raw = typeof statusOrSC === "object" && "status" in statusOrSC ? statusOrSC.status : statusOrSC;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "CANCELLED";
+}
+
+export function subcontractTotal(sc: Pick<Subcontract, "originalAmount" | "lines">): number {
+  if (sc.lines && sc.lines.length > 0) {
+    return roundMoney(
+      sc.lines.reduce(
+        (sum, line) =>
+          sum +
+          roundMoney(
+            line.amount != null && Number.isFinite(Number(line.amount))
+              ? Number(line.amount)
+              : (Number(line.quantity || 0) * Number(line.unitRate || 0)),
+          ),
+        0,
+      ),
+    );
+  }
+  return positiveMoney(sc.originalAmount);
 }
 
 function payrollEntryBasis(entry: CostPayrollEntry) {
@@ -559,6 +595,23 @@ export function calculateProjectCost(
         addForeign(poCurrency, poAmount);
       } else {
         summary.committedCost = roundMoney(summary.committedCost + poAmount);
+      }
+      continue;
+    }
+  }
+
+  for (const sc of input.subcontracts || []) {
+    if (!isCommittedSubcontract(sc.status)) continue;
+    const scAmount = subcontractTotal(sc);
+    if (!scAmount) continue;
+    const scCurrency = normalizeCurrency(sc.currency);
+
+    if (projectId) {
+      if (sc.projectId !== projectId) continue;
+      if (scCurrency !== baseCurrency) {
+        addForeign(scCurrency, scAmount);
+      } else {
+        summary.committedCost = roundMoney(summary.committedCost + scAmount);
       }
       continue;
     }
@@ -880,6 +933,43 @@ export function calculateProjectBudgetControl(
           uncodedAccumulator.foreignCosts[poCurrency] = roundMoney((uncodedAccumulator.foreignCosts[poCurrency] || 0) + poAmount);
         } else {
           uncodedAccumulator.committedCost = roundMoney(uncodedAccumulator.committedCost + poAmount);
+        }
+      }
+    }
+  }
+
+  // 5. Subcontracts (Commitments)
+  for (const sc of input.subcontracts || []) {
+    if (sc.projectId !== projectId || !isCommittedSubcontract(sc.status)) continue;
+    const scCurrency = normalizeCurrency(sc.currency);
+    const isBaseCurrency = scCurrency === baseCurrency;
+
+    if (sc.lines && sc.lines.length > 0) {
+      for (const line of sc.lines) {
+        const lineAmount = roundMoney(
+          line.amount != null && Number.isFinite(Number(line.amount))
+            ? Number(line.amount)
+            : (Number(line.quantity || 0) * Number(line.unitRate || 0)),
+        );
+        if (lineAmount <= 0) continue;
+        const targetCodeId = line.projectCostCodeId || (line as { costCodeId?: string }).costCodeId;
+        const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
+          ? codeAccumulators.get(targetCodeId)!
+          : uncodedAccumulator;
+
+        if (!isBaseCurrency) {
+          target.foreignCosts[scCurrency] = roundMoney((target.foreignCosts[scCurrency] || 0) + lineAmount);
+        } else {
+          target.committedCost = roundMoney(target.committedCost + lineAmount);
+        }
+      }
+    } else {
+      const scAmount = subcontractTotal(sc);
+      if (scAmount > 0) {
+        if (!isBaseCurrency) {
+          uncodedAccumulator.foreignCosts[scCurrency] = roundMoney((uncodedAccumulator.foreignCosts[scCurrency] || 0) + scAmount);
+        } else {
+          uncodedAccumulator.committedCost = roundMoney(uncodedAccumulator.committedCost + scAmount);
         }
       }
     }
