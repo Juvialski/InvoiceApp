@@ -56,6 +56,7 @@ export function buildDemoProjectSummaries(data: DemoWorkspaceData): Record<strin
     payroll,
     purchaseOrders: data.purchaseOrders,
     subcontracts: data.subcontracts,
+    subcontractClaims: data.subcontractClaims,
   })]));
 }
 
@@ -67,6 +68,7 @@ export function buildDemoDashboard(data: DemoWorkspaceData, options?: { activity
     payroll: demoDashboardPayroll(data),
     purchaseOrders: data.purchaseOrders,
     subcontracts: data.subcontracts,
+    subcontractClaims: data.subcontractClaims,
     periods: data.payroll.periods,
     workers: data.payroll.workers,
     payrollEntries: data.payroll.entries,
@@ -92,6 +94,7 @@ export function buildDemoProjectDashboard(data: DemoWorkspaceData, projectId: st
     payroll: demoCostPayroll(data),
     purchaseOrders: data.purchaseOrders,
     subcontracts: data.subcontracts,
+    subcontractClaims: data.subcontractClaims,
     periods: data.payroll.periods,
     today: data.anchorDate,
   });

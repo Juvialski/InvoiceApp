@@ -16,6 +16,8 @@ import type {
   Project,
   ProjectWorkerAssignment,
   Subcontract,
+  SubcontractProgressClaim,
+  SubcontractProgressClaimStatus,
   Worker,
   WorkEntry,
 } from "../types.ts";
@@ -26,6 +28,7 @@ import { assignmentDependencySummary, assignmentForLifecycle, componentForLifecy
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction } from "../lib/projects.ts";
 import type { FinancialCorrectionAction } from "../lib/financialLifecycle.ts";
 import { applySubcontractTransition } from "../lib/subcontracts.ts";
+import { applySubcontractClaimTransition } from "../lib/subcontractClaims.ts";
 
 export type DemoWorkspaceMutation =
   | { type: "SAVE_PROJECT"; value: Project }
@@ -40,6 +43,9 @@ export type DemoWorkspaceMutation =
   | { type: "SAVE_SUBCONTRACT"; value: Subcontract }
   | { type: "TRANSITION_SUBCONTRACT"; id: string; targetStatus: Subcontract["status"]; reason?: string }
   | { type: "DELETE_SUBCONTRACT"; id: string }
+  | { type: "SAVE_SUBCONTRACT_CLAIM"; value: SubcontractProgressClaim }
+  | { type: "TRANSITION_SUBCONTRACT_CLAIM"; id: string; targetStatus: SubcontractProgressClaimStatus; reason?: string; lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }> }
+  | { type: "DELETE_SUBCONTRACT_CLAIM"; id: string }
   | { type: "SAVE_WORKER"; value: Worker }
   | { type: "SAVE_ASSIGNMENT"; value: ProjectWorkerAssignment }
   | { type: "SAVE_COMPENSATION_PROFILE"; value: WorkerCompensationProfile }
@@ -73,7 +79,7 @@ function upsertOptionalId<T extends { id?: string }>(items: readonly T[], value:
   return found ? items.map((item) => item.id === value.id ? value : item) : [value, ...items];
 }
 
-function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: Project) {
+export function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: Project) {
   return buildProjectLifecyclePreview(project, {
     invoiceProjectAllocations: state.invoiceAllocations.filter((allocation) => allocation.projectId === project.id).length,
     expenses: state.expenses.filter((expense) => expense.projectId === project.id).length,
@@ -90,6 +96,7 @@ function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: Project)
     engineeringDailySiteLogs: state.siteLogs.logs.filter((log) => log.projectId === project.id).length,
     purchaseOrders: (state.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
     subcontracts: (state.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
+    subcontractProgressClaims: (state.subcontractClaims || []).filter((claim) => claim.projectId === project.id).length,
   });
 }
 
@@ -156,6 +163,37 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       const current = (state.subcontracts || []).find((subcontract) => subcontract.id === mutation.id);
       if (!current || current.status !== "DRAFT") return state;
       return { ...state, subcontracts: (state.subcontracts || []).filter((subcontract) => subcontract.id !== mutation.id) };
+    }
+    case "SAVE_SUBCONTRACT_CLAIM": {
+      const existing = (state.subcontractClaims || []).find((claim) => claim.id === mutation.value.id);
+      if (existing && existing.status !== "DRAFT") return state;
+      return { ...state, subcontractClaims: upsert(state.subcontractClaims || [], mutation.value) };
+    }
+    case "TRANSITION_SUBCONTRACT_CLAIM": {
+      const claims = state.subcontractClaims || [];
+      const current = claims.find((claim) => claim.id === mutation.id);
+      if (!current) return state;
+      const subcontract = (state.subcontracts || []).find((sc) => sc.id === current.subcontractId);
+      const otherApproved = claims.filter((c) => c.subcontractId === current.subcontractId && c.id !== current.id && c.status === "APPROVED");
+      try {
+        const updated = applySubcontractClaimTransition(
+          current,
+          mutation.targetStatus,
+          mutation.reason,
+          mutation.lineApprovals,
+          subcontract,
+          otherApproved,
+          demoTimestamp(state.anchorDate, 17, 0),
+        );
+        return { ...state, subcontractClaims: claims.map((claim) => (claim.id === current.id ? updated : claim)) };
+      } catch {
+        return state;
+      }
+    }
+    case "DELETE_SUBCONTRACT_CLAIM": {
+      const current = (state.subcontractClaims || []).find((claim) => claim.id === mutation.id);
+      if (!current || current.status !== "DRAFT") return state;
+      return { ...state, subcontractClaims: (state.subcontractClaims || []).filter((claim) => claim.id !== mutation.id) };
     }
     case "SAVE_WORKER":
       return { ...state, payroll: { ...state.payroll, workers: upsert(state.payroll.workers, mutation.value) } };
