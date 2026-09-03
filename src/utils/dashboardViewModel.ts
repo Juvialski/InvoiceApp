@@ -4,7 +4,7 @@ import { totalVatByCurrency, totalsByCurrency } from "./invoiceLogic.ts";
 import { calculateProjectCost, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth, type CostInvoice, type CostPayrollRecord } from "./projectCosting.ts";
 import { buildAccountingIndex, unpaidBalance } from "./dashboardStats.ts";
 import { buildCashDashboardPosition, type CashBankingWorkspaceData } from "../lib/cashBanking.ts";
-import type { PurchaseOrder, Subcontract } from "../types.ts";
+import type { PurchaseOrder, Subcontract, SubcontractProgressClaim } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
 type DashboardInvoice = CostInvoice & Pick<InvoiceData, "invoiceDate" | "dueDate" | "vendor" | "invoiceNumber" | "extractedAt" | "philippineTaxDetails" | "philippineInvoiceCompleteness" | "invoiceSubtype">;
@@ -23,6 +23,7 @@ export interface DashboardViewModelInput {
   payrollRuns: PayrollRun[];
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
+  subcontractClaims?: SubcontractProgressClaim[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   cash?: CashBankingWorkspaceData;
@@ -142,6 +143,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
       payroll: accountingIndex.payrollByProjectId.get(project.id) || [],
       purchaseOrders: (input.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id),
       subcontracts: (input.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id),
+      subcontractClaims: (input.subcontractClaims || []).filter((claim) => claim.projectId === project.id),
       projectLaborAggregates: input.projectLaborAggregates,
       laborSource: input.laborSource,
     });
@@ -149,7 +151,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
     const confirmed = round(summary.totalActualCost);
     const committed = round(summary.committedCost);
     const availableAfterCommitments = round(summary.budget - confirmed - committed - pending);
-    return { projectId: project.id, projectCode: project.projectCode, projectName: project.projectName, currency: selectedCurrency, budget: summary.budget, confirmed, committed, pending, remaining: Math.max(0, availableAfterCommitments), excess: Math.max(0, round(confirmed + committed + pending - summary.budget)), availableAfterCommitments, confirmedUtilization: summary.budget > 0 ? round(confirmed / summary.budget * 100) : 0, commitmentUtilization: summary.budget > 0 ? round((confirmed + committed + pending) / summary.budget * 100) : 0, health: projectHealth(summary), invoiceCost: summary.invoiceCost, payrollCost: summary.payrollCost, expenseCost: summary.otherExpenseCost, outstandingPayables: summary.unpaidInvoiceCost, invoiceCount: accountingIndex.invoicesByProjectId.get(project.id)?.length || 0 } satisfies DashboardProjectRow;
+    return { projectId: project.id, projectCode: project.projectCode, projectName: project.projectName, currency: selectedCurrency, budget: summary.budget, confirmed, committed, certifiedSubcontractCost: summary.certifiedSubcontractCost, retentionHeldCost: summary.retentionHeldCost, pending, remaining: Math.max(0, availableAfterCommitments), excess: Math.max(0, round(confirmed + committed + pending - summary.budget)), availableAfterCommitments, confirmedUtilization: summary.budget > 0 ? round(confirmed / summary.budget * 100) : 0, commitmentUtilization: summary.budget > 0 ? round((confirmed + committed + pending) / summary.budget * 100) : 0, health: projectHealth(summary), invoiceCost: summary.invoiceCost, payrollCost: summary.payrollCost, expenseCost: summary.otherExpenseCost, outstandingPayables: summary.unpaidInvoiceCost, invoiceCount: accountingIndex.invoicesByProjectId.get(project.id)?.length || 0 } satisfies DashboardProjectRow;
   }).sort((left, right) => right.commitmentUtilization - left.commitmentUtilization || right.confirmedUtilization - left.confirmedUtilization || left.projectCode.localeCompare(right.projectCode));
   const budget = round(projectRows.reduce((sum, row) => sum + row.budget, 0));
   const confirmed = round(projectRows.reduce((sum, row) => sum + row.confirmed, 0));

@@ -920,6 +920,8 @@ export interface ProjectCostSummary {
   foreignCosts: Record<string, number>;
   unallocatedInvoiceCost: number;
   unallocatedExpenseCost: number;
+  certifiedSubcontractCost?: number;
+  retentionHeldCost?: number;
 }
 
 export type PurchaseOrderStatus = "DRAFT" | "APPROVED" | "ISSUED" | "CLOSED" | "CANCELLED";
@@ -1217,5 +1219,63 @@ export interface Subcontract {
   activatedAt?: string | null;
   closedAt?: string | null;
   cancelledAt?: string | null;
+}
+
+export type SubcontractProgressClaimStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED"
+  | "VOIDED";
+
+export interface SubcontractProgressClaimLine {
+  id: string;
+  companyId?: string;
+  claimId: string;
+  subcontractLineId: string;
+  lineNumber: number;
+  claimedAmount: number;
+  approvedAmount: number;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SubcontractProgressClaim {
+  id: string;
+  companyId?: string;
+  subcontractId: string;
+  projectId: string;
+  claimNumber: string;
+  valuationDate: string;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  status: SubcontractProgressClaimStatus;
+  retentionRate: number;
+  claimedGrossAmount: number;
+  approvedGrossAmount: number;
+  retentionAmount: number;
+  netCertifiedAmount: number;
+  currency?: string;
+  notes?: string | null;
+  rejectionReason?: string | null;
+  cancellationReason?: string | null;
+  voidReason?: string | null;
+  lines?: SubcontractProgressClaimLine[];
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  submittedByUserId?: string | null;
+  approvedByUserId?: string | null;
+  rejectedByUserId?: string | null;
+  cancelledByUserId?: string | null;
+  voidedByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  cancelledAt?: string | null;
+  voidedAt?: string | null;
 }
 

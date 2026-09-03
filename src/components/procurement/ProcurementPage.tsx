@@ -11,6 +11,7 @@ import {
   Filter,
   Layers,
   PackageCheck,
+  Percent,
   Plus,
   RotateCcw,
   Search,
@@ -33,12 +34,14 @@ import type {
   RFQStatus,
   Subcontract,
   SubcontractLine,
+  SubcontractProgressClaim,
+  SubcontractProgressClaimStatus,
   SubcontractStatus,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
 } from "../../types.ts";
-import { createDemoRFQs, createDemoSubcontracts, createDemoSupplierQuotations } from "../../demo/data/procurement.ts";
+import { createDemoRFQs, createDemoSubcontractClaims, createDemoSubcontracts, createDemoSupplierQuotations } from "../../demo/data/procurement.ts";
 import { defaultDemoAnchorDate } from "../../demo/data/demoDates.ts";
 import { isDemoApplicationPath } from "../../app/applicationMode.ts";
 import {
@@ -49,6 +52,15 @@ import {
   saveSubcontract,
   transitionSubcontract,
 } from "../../lib/subcontracts.ts";
+import {
+  applySubcontractClaimTransition,
+  buildLocalSubcontractClaim,
+  computeSubcontractClaimMetrics,
+  deleteDraftSubcontractClaim,
+  readSubcontractClaimsFromLocal,
+  saveSubcontractClaim,
+  transitionSubcontractClaim,
+} from "../../lib/subcontractClaims.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { isCommittedPurchaseOrder, isCommittedSubcontract, purchaseOrderTotal, subcontractTotal } from "../../utils/projectCosting.ts";
 import { calculatePOReceiptProgress, type PODeliveryStatus } from "../../utils/purchaseOrderReceipts.ts";
@@ -59,6 +71,8 @@ import { SupplierQuotationModal } from "./SupplierQuotationModal.tsx";
 import { RFQComparisonModal } from "./RFQComparisonModal.tsx";
 import { SubcontractEditorModal } from "./SubcontractEditorModal.tsx";
 import { SubcontractCancellationModal } from "./SubcontractCancellationModal.tsx";
+import { SubcontractClaimEditorModal } from "./SubcontractClaimEditorModal.tsx";
+import { SubcontractClaimsDrawer } from "./SubcontractClaimsDrawer.tsx";
 
 export interface ProcurementPageProps {
   purchaseOrders: PurchaseOrder[];
@@ -108,6 +122,23 @@ export interface ProcurementPageProps {
   ) => Promise<void>;
   onTransitionSubcontract?: (id: string, targetStatus: SubcontractStatus, reason?: string) => Promise<void>;
   onDeleteSubcontract?: (id: string) => Promise<void>;
+  subcontractClaims?: SubcontractProgressClaim[];
+  onSaveSubcontractClaim?: (
+    claim: Partial<SubcontractProgressClaim> & {
+      subcontractId: string;
+      projectId: string;
+      claimNumber: string;
+      valuationDate: string;
+    },
+    lines: Array<{ subcontractLineId: string; claimedAmount: number; notes?: string }>,
+  ) => Promise<void>;
+  onTransitionSubcontractClaim?: (
+    id: string,
+    targetStatus: SubcontractProgressClaimStatus,
+    reason?: string,
+    lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>,
+  ) => Promise<void>;
+  onDeleteSubcontractClaim?: (id: string) => Promise<void>;
 }
 
 export const ProcurementPage: React.FC<ProcurementPageProps> = ({
@@ -125,6 +156,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   rfqs: initialRfqs,
   supplierQuotations: initialQuotations,
   subcontracts: initialSubcontracts,
+  subcontractClaims: initialSubcontractClaims,
   onSavePO,
   onTransitionPO,
   onDeletePO,
@@ -142,6 +174,9 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   onSaveSubcontract,
   onTransitionSubcontract,
   onDeleteSubcontract,
+  onSaveSubcontractClaim,
+  onTransitionSubcontractClaim,
+  onDeleteSubcontractClaim,
 }) => {
   // Top-level Navigation Sub-Tabs
   const [activeTab, setActiveTab] = useState<"purchase_orders" | "rfqs" | "subcontracts">("purchase_orders");
@@ -195,6 +230,23 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   const [cancellationSubcontract, setCancellationSubcontract] = useState<Subcontract | null>(null);
   const [subcontractActionId, setSubcontractActionId] = useState<string | null>(null);
   const [subcontractActionError, setSubcontractActionError] = useState<string | null>(null);
+
+  // Subcontract Progress Claims State
+  const useProvidedClaims = initialSubcontractClaims !== undefined;
+  const [localClaims, setLocalClaims] = useState<SubcontractProgressClaim[]>(
+    () => useProvidedClaims
+      ? initialSubcontractClaims || []
+      : isDemoMode
+        ? createDemoSubcontractClaims(defaultAnchor)
+        : readSubcontractClaimsFromLocal(),
+  );
+
+  useEffect(() => {
+    if (useProvidedClaims) setLocalClaims(initialSubcontractClaims || []);
+  }, [initialSubcontractClaims, useProvidedClaims]);
+
+  const [claimsDrawerSubcontract, setClaimsDrawerSubcontract] = useState<Subcontract | null>(null);
+  const [activeClaimModal, setActiveClaimModal] = useState<SubcontractProgressClaim | null | undefined>(undefined);
 
   // Active Modals for RFQ
   const [activeRfqModal, setActiveRfqModal] = useState<RFQ | null | undefined>(undefined);
@@ -317,10 +369,106 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     for (const sc of filteredSubcontracts) {
       if (!isCommittedSubcontract(sc.status)) continue;
       const currency = String(sc.currency || "PHP").trim().toUpperCase();
-      totals.set(currency, (totals.get(currency) || 0) + subcontractTotal(sc));
+      const m = computeSubcontractClaimMetrics(sc, localClaims);
+      totals.set(currency, (totals.get(currency) || 0) + m.remainingCommitment);
     }
     return [...totals.entries()].map(([currency, amount]) => [currency, Math.round(amount * 100) / 100] as const);
-  }, [filteredSubcontracts]);
+  }, [filteredSubcontracts, localClaims]);
+
+  const certifiedSubcontractTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const sc of filteredSubcontracts) {
+      const currency = String(sc.currency || "PHP").trim().toUpperCase();
+      const m = computeSubcontractClaimMetrics(sc, localClaims);
+      totals.set(currency, (totals.get(currency) || 0) + m.cumulativeApprovedGross);
+    }
+    return [...totals.entries()].map(([currency, amount]) => [currency, Math.round(amount * 100) / 100] as const);
+  }, [filteredSubcontracts, localClaims]);
+
+  const retentionHeldTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const sc of filteredSubcontracts) {
+      const currency = String(sc.currency || "PHP").trim().toUpperCase();
+      const m = computeSubcontractClaimMetrics(sc, localClaims);
+      totals.set(currency, (totals.get(currency) || 0) + m.cumulativeRetentionHeld);
+    }
+    return [...totals.entries()].map(([currency, amount]) => [currency, Math.round(amount * 100) / 100] as const);
+  }, [filteredSubcontracts, localClaims]);
+
+  const handleSaveClaimInternal = async (
+    claim: Partial<SubcontractProgressClaim> & {
+      subcontractId: string;
+      projectId: string;
+      claimNumber: string;
+      valuationDate: string;
+    },
+    lines: Array<{ subcontractLineId: string; claimedAmount: number; notes?: string }>,
+  ) => {
+    if (onSaveSubcontractClaim) {
+      await onSaveSubcontractClaim(claim, lines);
+      return;
+    }
+
+    if (isDemoMode) {
+      const existing = claim.id ? localClaims.find((item) => item.id === claim.id) : undefined;
+      const saved = buildLocalSubcontractClaim(claim, lines, existing, existing?.companyId || null);
+      setLocalClaims((prev) => {
+        const index = prev.findIndex((item) => item.id === saved.id);
+        return index >= 0 ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev];
+      });
+      return;
+    }
+
+    const saved = await saveSubcontractClaim(claim, lines);
+    setLocalClaims((prev) => {
+      const index = prev.findIndex((item) => item.id === saved.id);
+      return index >= 0 ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev];
+    });
+  };
+
+  const handleTransitionClaimInternal = async (
+    id: string,
+    targetStatus: SubcontractProgressClaimStatus,
+    reason?: string,
+    lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>,
+  ) => {
+    if (onTransitionSubcontractClaim) {
+      await onTransitionSubcontractClaim(id, targetStatus, reason, lineApprovals);
+      return;
+    }
+
+    if (isDemoMode) {
+      const current = localClaims.find((item) => item.id === id);
+      if (!current) throw new Error("Progress claim not found");
+      const parentSc = localSubcontracts.find((sc) => sc.id === current.subcontractId);
+      const otherApproved = localClaims.filter(
+        (c) => c.subcontractId === current.subcontractId && c.id !== current.id && c.status === "APPROVED",
+      );
+      const updated = applySubcontractClaimTransition(
+        current,
+        targetStatus,
+        reason,
+        lineApprovals,
+        parentSc,
+        otherApproved,
+      );
+      setLocalClaims((prev) => prev.map((item) => (item.id === id ? updated : item)));
+      return;
+    }
+
+    const updated = await transitionSubcontractClaim(id, targetStatus, reason, lineApprovals);
+    setLocalClaims((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+  };
+
+  const handleDeleteClaimInternal = async (id: string) => {
+    if (onDeleteSubcontractClaim) {
+      await onDeleteSubcontractClaim(id);
+      return;
+    }
+
+    if (!isDemoMode) await deleteDraftSubcontractClaim(id);
+    setLocalClaims((prev) => prev.filter((item) => item.id !== id));
+  };
 
   const handleSaveSubcontractInternal = async (
     sc: Partial<Subcontract> & { subcontractNumber: string; vendorId: string; projectId: string; title: string },
@@ -1435,45 +1583,68 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
       {activeTab === "subcontracts" && (
         <>
           {/* Subcontracts KPI Cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-white p-4 shadow-sm">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-white p-3.5 shadow-xs">
               <div className="flex items-center justify-between text-indigo-600 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Total Subcontracts
                 </span>
                 <Building2 className="h-4 w-4 text-indigo-500" />
               </div>
-              <div className="text-2xl font-black text-slate-900 tabular-nums">
+              <div className="text-xl font-black text-slate-900 tabular-nums">
                 {filteredSubcontracts.length}
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">
+              <div className="mt-1 text-[10px] text-slate-500 truncate">
                 Registered trade packages
               </div>
             </div>
 
-            <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white p-4 shadow-sm">
+            <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/50 to-white p-3.5 shadow-xs">
               <div className="flex items-center justify-between text-emerald-600 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Active Commitments
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Active Packages
                 </span>
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               </div>
-              <div className="text-2xl font-black text-slate-900 tabular-nums">
+              <div className="text-xl font-black text-slate-900 tabular-nums">
                 {filteredSubcontracts.filter((sc) => sc.status === "ACTIVE").length}
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">
+              <div className="mt-1 text-[10px] text-slate-500 truncate">
                 In-progress commitments
               </div>
             </div>
 
-            <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-white p-4 shadow-sm">
+            <div className="rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50/40 to-white p-3.5 shadow-xs">
+              <div className="flex items-center justify-between text-emerald-600 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Certified Work
+                </span>
+                <FileCheck className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="text-xl font-black text-emerald-700 tabular-nums">
+                {certifiedSubcontractTotals.length > 0 ? (
+                  <div className="space-y-0.5">
+                    {certifiedSubcontractTotals.map(([currency, amount]) => (
+                      <div key={currency}>{formatMoney(amount, currency)}</div>
+                    ))}
+                  </div>
+                ) : (
+                  "—"
+                )}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-500 truncate">
+                Approved progress claims
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50/50 to-white p-3.5 shadow-xs">
               <div className="flex items-center justify-between text-blue-600 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Total Committed Amount
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Remaining Commitment
                 </span>
                 <DollarSign className="h-4 w-4 text-blue-500" />
               </div>
-              <div className="text-2xl font-black text-slate-900 tabular-nums">
+              <div className="text-xl font-black text-slate-900 tabular-nums">
                 {activeCommittedSubcontractTotals.length > 0 ? (
                   <div className="space-y-0.5">
                     {activeCommittedSubcontractTotals.map(([currency, amount]) => (
@@ -1484,23 +1655,46 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                   "—"
                 )}
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">
-                Approved & Active liability; currencies shown separately
+              <div className="mt-1 text-[10px] text-slate-500 truncate">
+                Uncertified liability
               </div>
             </div>
 
-            <div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/50 to-white p-4 shadow-sm">
+            <div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/50 to-white p-3.5 shadow-xs">
               <div className="flex items-center justify-between text-amber-600 mb-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  Draft Subcontracts
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Retention Held
                 </span>
-                <Clock className="h-4 w-4 text-amber-500" />
+                <Percent className="h-4 w-4 text-amber-500" />
               </div>
-              <div className="text-2xl font-black text-slate-900 tabular-nums">
+              <div className="text-xl font-black text-amber-700 tabular-nums">
+                {retentionHeldTotals.length > 0 ? (
+                  <div className="space-y-0.5">
+                    {retentionHeldTotals.map(([currency, amount]) => (
+                      <div key={currency}>{formatMoney(amount, currency)}</div>
+                    ))}
+                  </div>
+                ) : (
+                  "—"
+                )}
+              </div>
+              <div className="mt-1 text-[10px] text-slate-500 truncate">
+                Withheld retention
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50/50 to-white p-3.5 shadow-xs">
+              <div className="flex items-center justify-between text-slate-600 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Drafts
+                </span>
+                <Clock className="h-4 w-4 text-slate-400" />
+              </div>
+              <div className="text-xl font-black text-slate-900 tabular-nums">
                 {filteredSubcontracts.filter((sc) => sc.status === "DRAFT").length}
               </div>
-              <div className="mt-1 text-[10px] text-slate-500">
-                Pending review / approval
+              <div className="mt-1 text-[10px] text-slate-500 truncate">
+                Pending commercial review
               </div>
             </div>
           </div>
@@ -1567,7 +1761,9 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                       <th scope="col" className="px-4 py-3">Vendor</th>
                       <th scope="col" className="px-4 py-3">Project</th>
                       <th scope="col" className="px-4 py-3">Scope Title</th>
-                      <th scope="col" className="px-4 py-3 text-right">Amount</th>
+                      <th scope="col" className="px-4 py-3 text-right">Contract Value</th>
+                      <th scope="col" className="px-4 py-3 text-right">Certified Work</th>
+                      <th scope="col" className="px-4 py-3 text-right">Remaining Commitment</th>
                       <th scope="col" className="px-4 py-3 text-center">Status</th>
                       <th scope="col" className="px-4 py-3">Schedule (Start - Target)</th>
                       <th scope="col" className="px-4 py-3 text-right">Actions</th>
@@ -1578,6 +1774,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                       const vendor = vendorMap.get(sc.vendorId);
                       const proj = projectMap.get(sc.projectId);
                       const totalAmt = subcontractTotal(sc);
+                      const scMetrics = computeSubcontractClaimMetrics(sc, localClaims);
                       const isDraft = sc.status === "DRAFT";
                       const isApproved = sc.status === "APPROVED";
                       const isActive = sc.status === "ACTIVE";
@@ -1620,9 +1817,19 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                             )}
                           </td>
 
-                          {/* Amount */}
+                          {/* Contract Value */}
                           <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
                             {formatMoney(totalAmt, sc.currency || "PHP")}
+                          </td>
+
+                          {/* Certified Work */}
+                          <td className="px-4 py-3 text-right font-mono font-bold text-emerald-700">
+                            {formatMoney(scMetrics.cumulativeApprovedGross, sc.currency || "PHP")}
+                          </td>
+
+                          {/* Remaining Commitment */}
+                          <td className="px-4 py-3 text-right font-mono font-medium text-blue-700">
+                            {formatMoney(scMetrics.remainingCommitment, sc.currency || "PHP")}
                           </td>
 
                           {/* Status Badge */}
@@ -1659,6 +1866,18 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                           {/* Actions */}
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Claims Register Drawer */}
+                              <button
+                                type="button"
+                                onClick={() => setClaimsDrawerSubcontract(sc)}
+                                disabled={isBusy}
+                                className="rounded-lg border border-indigo-200 bg-indigo-50/70 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-xs flex items-center gap-1"
+                                title={`Open claims register for ${sc.subcontractNumber}`}
+                              >
+                                <FileCheck className="h-3.5 w-3.5" />
+                                <span>Claims ({scMetrics.claimsCount})</span>
+                              </button>
+
                               {/* View / Edit */}
                               <button
                                 type="button"
@@ -1947,6 +2166,41 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
               "Could not cancel subcontract.",
             );
           }}
+        />
+      )}
+
+      {/* 8. Subcontract Claims Register Drawer */}
+      {claimsDrawerSubcontract && (
+        <SubcontractClaimsDrawer
+          isOpen={true}
+          onClose={() => setClaimsDrawerSubcontract(null)}
+          subcontract={claimsDrawerSubcontract}
+          claims={localClaims}
+          project={projectMap.get(claimsDrawerSubcontract.projectId)}
+          vendor={vendorMap.get(claimsDrawerSubcontract.vendorId)}
+          canManage={canManage}
+          canApprove={canApprove}
+          onCreateClaim={() => setActiveClaimModal(null)}
+          onEditClaim={(c) => setActiveClaimModal(c)}
+          onDeleteDraftClaim={handleDeleteClaimInternal}
+          onTransitionClaim={handleTransitionClaimInternal}
+        />
+      )}
+
+      {/* 9. Subcontract Claim Editor Modal */}
+      {activeClaimModal !== undefined && claimsDrawerSubcontract && (
+        <SubcontractClaimEditorModal
+          isOpen={true}
+          onClose={() => setActiveClaimModal(undefined)}
+          claim={activeClaimModal}
+          subcontract={claimsDrawerSubcontract}
+          project={projectMap.get(claimsDrawerSubcontract.projectId)}
+          vendor={vendorMap.get(claimsDrawerSubcontract.vendorId)}
+          existingClaims={localClaims}
+          canManage={canManage}
+          canApprove={canApprove}
+          onSave={handleSaveClaimInternal}
+          onTransition={handleTransitionClaimInternal}
         />
       )}
     </div>

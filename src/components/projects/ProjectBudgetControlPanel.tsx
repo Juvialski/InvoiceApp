@@ -28,6 +28,7 @@ import type {
   ProjectCostCode,
   PurchaseOrder,
   Subcontract,
+  SubcontractProgressClaim,
 } from "../../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import {
@@ -48,6 +49,7 @@ export interface ProjectBudgetControlPanelProps {
   expenses: Expense[];
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
+  subcontractClaims?: SubcontractProgressClaim[];
   payrollAllocations?: PayrollProjectAllocation[];
   payrollPeriods?: PayrollPeriod[];
   payrollRuns?: PayrollRun[];
@@ -88,6 +90,7 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
   expenses,
   purchaseOrders = [],
   subcontracts = [],
+  subcontractClaims = [],
   payrollAllocations = [],
   payrollPeriods = [],
   payrollRuns = [],
@@ -135,11 +138,12 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
       expenses,
       purchaseOrders,
       subcontracts,
+      subcontractClaims,
       projectLaborAggregates,
       laborSource,
       baseCurrency: project.currency,
     };
-  }, [invoices, invoiceAllocations, expenses, purchaseOrders, subcontracts, payrollRuns, payrollPeriods, payrollAllocations, projectLaborAggregates, laborSource, project.currency]);
+  }, [invoices, invoiceAllocations, expenses, purchaseOrders, subcontracts, subcontractClaims, payrollRuns, payrollPeriods, payrollAllocations, projectLaborAggregates, laborSource, project.currency]);
 
   // 2. Compute P1B Budget Control Summary
   const budgetControl: ProjectBudgetControlSummary = useMemo(() => {
@@ -483,6 +487,11 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
                             <span className="font-semibold text-slate-400 italic">Partial</span>
                           ) : (
                             money(cc.committedCost || 0, currency)
+                          )}
+                          {Boolean(cc.certifiedSubcontractCost && cc.certifiedSubcontractCost > 0) && (
+                            <span className="block text-[10px] font-semibold text-emerald-700">
+                              {money(cc.certifiedSubcontractCost || 0, currency)} certified
+                            </span>
                           )}
                         </td>
 

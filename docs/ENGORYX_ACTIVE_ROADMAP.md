@@ -130,6 +130,10 @@ Target domain:
 - collections/settlements linkage;
 - project billed/collected/outstanding values.
 
+P2B is split into bounded implementation waves:
+- **P2B-1 Subcontract Packages & Commitment Foundation**: **COMPLETE** (company-scoped trade contractor subcontracts, line-level cost codes, committed liability calculation, DRAFT/APPROVED/ACTIVE/CLOSED/CANCELLED lifecycle, project lifecycle protection).
+- **P2B-2 Subcontract Progress Claims & Retention**: **COMPLETE** (progress claim valuation headers and lines, line-level and contract-level cumulative over-claim guards, configurable retention calculation, commercial status lifecycle DRAFT/SUBMITTED/APPROVED/REJECTED/CANCELLED/VOIDED, remaining subcontract commitment reduction, certified subcontract work & retention tracking without altering Actual Cost, dedicated claims register drawer and valuation editor, project budget control and performance integration, migration & project lifecycle preflight blocker).
+
 Do not infer legal/accounting/tax treatment beyond explicit product requirements.
 
 ## P3 — Project Operations UX

@@ -16,6 +16,9 @@ import type {
   PurchaseOrderStatus,
   Subcontract,
   SubcontractLine,
+  SubcontractProgressClaim,
+  SubcontractProgressClaimLine,
+  SubcontractProgressClaimStatus,
   SubcontractStatus,
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
@@ -46,6 +49,7 @@ export interface ProjectCostInput {
   expenses?: Expense[];
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
+  subcontractClaims?: SubcontractProgressClaim[];
   /** Safe project-level labor totals used when payroll detail is unavailable. */
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   /** Explicitly selects detail rows or the safe aggregate source. */
@@ -274,6 +278,20 @@ export function isVoidedSubcontract(statusOrSC?: SubcontractStatus | string | { 
   return normalized === "CANCELLED";
 }
 
+export function isApprovedSubcontractClaim(statusOrClaim?: SubcontractProgressClaimStatus | string | { status?: SubcontractProgressClaimStatus | string | null } | null): boolean {
+  if (!statusOrClaim) return false;
+  const raw = typeof statusOrClaim === "object" && "status" in statusOrClaim ? statusOrClaim.status : statusOrClaim;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "APPROVED";
+}
+
+export function isVoidedSubcontractClaim(statusOrClaim?: SubcontractProgressClaimStatus | string | { status?: SubcontractProgressClaimStatus | string | null } | null): boolean {
+  if (!statusOrClaim) return false;
+  const raw = typeof statusOrClaim === "object" && "status" in statusOrClaim ? statusOrClaim.status : statusOrClaim;
+  const normalized = String(raw || "").trim().toUpperCase();
+  return normalized === "VOIDED" || normalized === "CANCELLED" || normalized === "REJECTED";
+}
+
 export function subcontractTotal(sc: Pick<Subcontract, "originalAmount" | "lines">): number {
   if (sc.lines && sc.lines.length > 0) {
     return roundMoney(
@@ -454,6 +472,8 @@ export function calculateProjectCost(
     pendingExpenseCost: 0,
     totalActualCost: 0,
     committedCost: 0,
+    certifiedSubcontractCost: 0,
+    retentionHeldCost: 0,
     remainingBudget: positiveMoney(project?.projectBudget),
     budgetUsedPercent: 0,
     foreignCosts: {},
@@ -601,20 +621,64 @@ export function calculateProjectCost(
     }
   }
 
+  // 5. Subcontract Progress Claims (Certified Work & Retention)
+  const subcontractsById = new Map((input.subcontracts || []).map((sc) => [sc.id, sc]));
+  const approvedClaimsBySubcontract = new Map<string, number>();
+
+  for (const claim of input.subcontractClaims || []) {
+    if (!isApprovedSubcontractClaim(claim.status)) continue;
+    const parentSc = subcontractsById.get(claim.subcontractId);
+    const claimCurrency = normalizeCurrency(parentSc?.currency || baseCurrency);
+    const grossApproved = positiveMoney(claim.approvedGrossAmount);
+    const retention = positiveMoney(claim.retentionAmount);
+
+    if (projectId) {
+      if (claim.projectId !== projectId) continue;
+      if (claimCurrency !== baseCurrency) {
+        addForeign(claimCurrency, grossApproved);
+      } else {
+        summary.certifiedSubcontractCost = roundMoney((summary.certifiedSubcontractCost || 0) + grossApproved);
+        summary.retentionHeldCost = roundMoney((summary.retentionHeldCost || 0) + retention);
+      }
+    } else {
+      if (claimCurrency !== baseCurrency) {
+        addForeign(claimCurrency, grossApproved);
+      } else {
+        summary.certifiedSubcontractCost = roundMoney((summary.certifiedSubcontractCost || 0) + grossApproved);
+        summary.retentionHeldCost = roundMoney((summary.retentionHeldCost || 0) + retention);
+      }
+    }
+
+    approvedClaimsBySubcontract.set(
+      claim.subcontractId,
+      roundMoney((approvedClaimsBySubcontract.get(claim.subcontractId) || 0) + grossApproved),
+    );
+  }
+
+  // 6. Subcontracts (Remaining Commitment)
   for (const sc of input.subcontracts || []) {
     if (!isCommittedSubcontract(sc.status)) continue;
     const scAmount = subcontractTotal(sc);
     if (!scAmount) continue;
     const scCurrency = normalizeCurrency(sc.currency);
 
+    const approvedGrossForSc = approvedClaimsBySubcontract.get(sc.id) || 0;
+    const remainingCommitment = roundMoney(Math.max(0, scAmount - approvedGrossForSc));
+
     if (projectId) {
       if (sc.projectId !== projectId) continue;
       if (scCurrency !== baseCurrency) {
-        addForeign(scCurrency, scAmount);
+        addForeign(scCurrency, remainingCommitment);
       } else {
-        summary.committedCost = roundMoney(summary.committedCost + scAmount);
+        summary.committedCost = roundMoney(summary.committedCost + remainingCommitment);
       }
       continue;
+    } else {
+      if (scCurrency !== baseCurrency) {
+        addForeign(scCurrency, remainingCommitment);
+      } else {
+        summary.committedCost = roundMoney(summary.committedCost + remainingCommitment);
+      }
     }
   }
 
@@ -653,6 +717,8 @@ function emptyAggregate(currency?: string): AggregatedProjectCostSummary {
     pendingExpenseCost: 0,
     totalActualCost: 0,
     committedCost: 0,
+    certifiedSubcontractCost: 0,
+    retentionHeldCost: 0,
     remainingBudget: 0,
     budgetUsedPercent: 0,
     foreignCosts: {},
@@ -672,6 +738,7 @@ function addSummary(target: AggregatedProjectCostSummary, source: ProjectCostSum
   const numericKeys: Array<keyof Omit<ProjectCostSummaryWithCurrency, "projectId" | "currency" | "foreignCosts">> = [
     "budget", "invoiceCost", "paidInvoiceCost", "unpaidInvoiceCost", "unallocatedPayrollCost", "pendingInvoiceCost",
     "payrollCost", "pendingPayrollCost", "otherExpenseCost", "pendingExpenseCost", "totalActualCost", "committedCost",
+    "certifiedSubcontractCost", "retentionHeldCost",
     "remainingBudget", "overheadCost", "pendingOverheadCost", "payableCost", "unallocatedInvoicePayable",
     "unallocatedPendingInvoiceCost", "unallocatedPendingPayrollCost", "unallocatedPendingExpenseCost",
   ];
@@ -716,6 +783,8 @@ export interface CostCodeFinancialSummary {
   actualCost: number;
   pendingCost: number;
   committedCost: number | null;
+  certifiedSubcontractCost?: number;
+  retentionHeldCost?: number;
   forecastAmount: number | null;
   actualVariance: number;
   forecastVariance: number | null;
@@ -742,11 +811,15 @@ export interface ProjectBudgetControlSummary {
   totalCommittedCost: number;
   codedCommittedCost: number;
   uncodedCommittedCost: number;
+  totalCertifiedSubcontractCost?: number;
+  totalRetentionHeldCost?: number;
   costCodes: CostCodeFinancialSummary[];
   uncodedSummary: {
     actualCost: number;
     pendingCost: number;
     committedCost: number;
+    certifiedSubcontractCost?: number;
+    retentionHeldCost?: number;
     invoiceCost: number;
     payrollCost: number;
     otherExpenseCost: number;
@@ -792,6 +865,8 @@ export function calculateProjectBudgetControl(
     actualCost: number;
     pendingCost: number;
     committedCost: number;
+    certifiedSubcontractCost: number;
+    retentionHeldCost: number;
     foreignCosts: Record<string, number>;
   }
 
@@ -804,6 +879,8 @@ export function calculateProjectBudgetControl(
       actualCost: 0,
       pendingCost: 0,
       committedCost: 0,
+      certifiedSubcontractCost: 0,
+      retentionHeldCost: 0,
       foreignCosts: {},
     });
   }
@@ -815,6 +892,8 @@ export function calculateProjectBudgetControl(
     actualCost: 0,
     pendingCost: 0,
     committedCost: 0,
+    certifiedSubcontractCost: 0,
+    retentionHeldCost: 0,
     foreignCosts: {},
   };
 
@@ -940,11 +1019,32 @@ export function calculateProjectBudgetControl(
     }
   }
 
-  // 5. Subcontracts (Commitments)
+  // 5. Subcontracts & Progress Claims
+  const approvedClaimsBySubcontract = new Map<string, SubcontractProgressClaim[]>();
+  for (const claim of input.subcontractClaims || []) {
+    if (claim.projectId === projectId && isApprovedSubcontractClaim(claim.status)) {
+      const list = approvedClaimsBySubcontract.get(claim.subcontractId) || [];
+      list.push(claim);
+      approvedClaimsBySubcontract.set(claim.subcontractId, list);
+    }
+  }
+
   for (const sc of input.subcontracts || []) {
     if (sc.projectId !== projectId || !isCommittedSubcontract(sc.status)) continue;
     const scCurrency = normalizeCurrency(sc.currency);
     const isBaseCurrency = scCurrency === baseCurrency;
+    const approvedClaims = approvedClaimsBySubcontract.get(sc.id) || [];
+
+    // Map cumulative approved amount per subcontract line
+    const approvedByLineId = new Map<string, number>();
+    for (const claim of approvedClaims) {
+      for (const cl of claim.lines || []) {
+        approvedByLineId.set(
+          cl.subcontractLineId,
+          roundMoney((approvedByLineId.get(cl.subcontractLineId) || 0) + positiveMoney(cl.approvedAmount)),
+        );
+      }
+    }
 
     if (sc.lines && sc.lines.length > 0) {
       for (const line of sc.lines) {
@@ -954,24 +1054,49 @@ export function calculateProjectBudgetControl(
             : (Number(line.quantity || 0) * Number(line.unitRate || 0)),
         );
         if (lineAmount <= 0) continue;
+        const lineApproved = approvedByLineId.get(line.id) || 0;
+        const lineRemainingCommitment = roundMoney(Math.max(0, lineAmount - lineApproved));
+
         const targetCodeId = line.projectCostCodeId || (line as { costCodeId?: string }).costCodeId;
         const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
           ? codeAccumulators.get(targetCodeId)!
           : uncodedAccumulator;
 
         if (!isBaseCurrency) {
-          target.foreignCosts[scCurrency] = roundMoney((target.foreignCosts[scCurrency] || 0) + lineAmount);
+          target.foreignCosts[scCurrency] = roundMoney((target.foreignCosts[scCurrency] || 0) + lineRemainingCommitment);
         } else {
-          target.committedCost = roundMoney(target.committedCost + lineAmount);
+          target.committedCost = roundMoney(target.committedCost + lineRemainingCommitment);
         }
       }
     } else {
       const scAmount = subcontractTotal(sc);
       if (scAmount > 0) {
+        const totalApproved = roundMoney(approvedClaims.reduce((s, c) => s + positiveMoney(c.approvedGrossAmount), 0));
+        const scRemaining = roundMoney(Math.max(0, scAmount - totalApproved));
         if (!isBaseCurrency) {
-          uncodedAccumulator.foreignCosts[scCurrency] = roundMoney((uncodedAccumulator.foreignCosts[scCurrency] || 0) + scAmount);
+          uncodedAccumulator.foreignCosts[scCurrency] = roundMoney((uncodedAccumulator.foreignCosts[scCurrency] || 0) + scRemaining);
         } else {
-          uncodedAccumulator.committedCost = roundMoney(uncodedAccumulator.committedCost + scAmount);
+          uncodedAccumulator.committedCost = roundMoney(uncodedAccumulator.committedCost + scRemaining);
+        }
+      }
+    }
+
+    // Accumulate certified subcontract work and retention on cost codes
+    for (const claim of approvedClaims) {
+      const rate = Number(claim.retentionRate || 0);
+      for (const cl of claim.lines || []) {
+        const approvedAmt = positiveMoney(cl.approvedAmount);
+        if (approvedAmt <= 0) continue;
+        const lineRetention = roundMoney(approvedAmt * rate);
+        const scLine = (sc.lines || []).find((l) => l.id === cl.subcontractLineId);
+        const targetCodeId = scLine?.projectCostCodeId || (scLine as { costCodeId?: string })?.costCodeId;
+        const target = (targetCodeId && validCostCodeIds.has(targetCodeId))
+          ? codeAccumulators.get(targetCodeId)!
+          : uncodedAccumulator;
+
+        if (isBaseCurrency) {
+          target.certifiedSubcontractCost = roundMoney(target.certifiedSubcontractCost + approvedAmt);
+          target.retentionHeldCost = roundMoney(target.retentionHeldCost + lineRetention);
         }
       }
     }
@@ -983,6 +1108,8 @@ export function calculateProjectBudgetControl(
     const actualCost = roundMoney(acc.actualCost);
     const pendingCost = roundMoney(acc.pendingCost);
     const committedCost = roundMoney(acc.committedCost);
+    const certifiedSubcontractCost = roundMoney(acc.certifiedSubcontractCost);
+    const retentionHeldCost = roundMoney(acc.retentionHeldCost);
     const forecastAmount = cc.forecastAmount != null && Number.isFinite(Number(cc.forecastAmount))
       ? roundMoney(cc.forecastAmount)
       : null;
@@ -1002,6 +1129,8 @@ export function calculateProjectBudgetControl(
       actualCost,
       pendingCost,
       committedCost,
+      certifiedSubcontractCost,
+      retentionHeldCost,
       forecastAmount,
       actualVariance,
       forecastVariance,
@@ -1035,6 +1164,9 @@ export function calculateProjectBudgetControl(
   const codedCommittedCost = roundMoney(costCodeSummaries.reduce((sum, s) => sum + (s.committedCost || 0), 0));
   const uncodedCommittedCost = roundMoney(totalCommittedCost - codedCommittedCost);
 
+  const totalCertifiedSubcontractCost = roundMoney(baseSummary.certifiedSubcontractCost || 0);
+  const totalRetentionHeldCost = roundMoney(baseSummary.retentionHeldCost || 0);
+
   const uncodedForeignCosts = uncodedAccumulator.foreignCosts;
   const hasForeignAmounts = Object.entries(baseSummary.foreignCosts || {}).some(
     ([, val]) => roundMoney(val) > 0,
@@ -1055,11 +1187,15 @@ export function calculateProjectBudgetControl(
     totalCommittedCost,
     codedCommittedCost,
     uncodedCommittedCost,
+    totalCertifiedSubcontractCost,
+    totalRetentionHeldCost,
     costCodes: costCodeSummaries,
     uncodedSummary: {
       actualCost: uncodedActualCost,
       pendingCost: uncodedPendingCost,
       committedCost: uncodedCommittedCost,
+      certifiedSubcontractCost: roundMoney(uncodedAccumulator.certifiedSubcontractCost),
+      retentionHeldCost: roundMoney(uncodedAccumulator.retentionHeldCost),
       invoiceCost: roundMoney(uncodedAccumulator.invoiceCost),
       payrollCost: roundMoney(uncodedAccumulator.payrollCost),
       otherExpenseCost: roundMoney(uncodedAccumulator.otherExpenseCost),
