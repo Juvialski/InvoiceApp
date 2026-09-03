@@ -4,7 +4,7 @@ import { totalVatByCurrency, totalsByCurrency } from "./invoiceLogic.ts";
 import { calculateProjectCost, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth, type CostInvoice, type CostPayrollRecord } from "./projectCosting.ts";
 import { buildAccountingIndex, unpaidBalance } from "./dashboardStats.ts";
 import { buildCashDashboardPosition, type CashBankingWorkspaceData } from "../lib/cashBanking.ts";
-import type { PurchaseOrder, Subcontract, SubcontractProgressClaim } from "../types.ts";
+import type { PurchaseOrder, Subcontract, SubcontractProgressClaim, SubcontractVariation } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 
 type DashboardInvoice = CostInvoice & Pick<InvoiceData, "invoiceDate" | "dueDate" | "vendor" | "invoiceNumber" | "extractedAt" | "philippineTaxDetails" | "philippineInvoiceCompleteness" | "invoiceSubtype">;
@@ -24,6 +24,7 @@ export interface DashboardViewModelInput {
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
   subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   cash?: CashBankingWorkspaceData;
@@ -144,6 +145,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
       purchaseOrders: (input.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id),
       subcontracts: (input.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id),
       subcontractClaims: (input.subcontractClaims || []).filter((claim) => claim.projectId === project.id),
+      subcontractVariations: (input.subcontractVariations || []).filter((v) => v.projectId === project.id),
       projectLaborAggregates: input.projectLaborAggregates,
       laborSource: input.laborSource,
     });

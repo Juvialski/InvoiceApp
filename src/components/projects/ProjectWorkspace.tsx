@@ -24,6 +24,9 @@ import type {
   SubcontractProgressClaim,
   SubcontractProgressClaimStatus,
   SubcontractStatus,
+  SubcontractVariation,
+  SubcontractVariationLine,
+  SubcontractVariationStatus,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
@@ -63,6 +66,7 @@ interface ProjectWorkspaceProps {
   receipts?: PurchaseOrderReceipt[];
   subcontracts?: Subcontract[];
   subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
   vendors?: Vendor[];
   workers?: Worker[];
   assignments?: ProjectWorkerAssignment[];
@@ -167,6 +171,22 @@ interface ProjectWorkspaceProps {
     lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>,
   ) => Promise<void>;
   onDeleteSubcontractClaim?: (id: string) => Promise<void>;
+  onSaveSubcontractVariation?: (
+    variation: Partial<SubcontractVariation> & {
+      subcontractId: string;
+      projectId: string;
+      variationNumber: string;
+      title: string;
+      currency?: string;
+    },
+    lines: Array<Partial<SubcontractVariationLine> & { description: string; amount: number }>,
+  ) => Promise<void>;
+  onTransitionSubcontractVariation?: (
+    id: string,
+    targetStatus: SubcontractVariationStatus,
+    reason?: string,
+  ) => Promise<void>;
+  onDeleteSubcontractVariation?: (id: string) => Promise<void>;
 }
 
 function money(value: number, currency: string) {
@@ -259,12 +279,16 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onConvertQuotationToPO,
   subcontracts,
   subcontractClaims,
+  subcontractVariations,
   onSaveSubcontract,
   onTransitionSubcontract,
   onDeleteSubcontract,
   onSaveSubcontractClaim,
   onTransitionSubcontractClaim,
   onDeleteSubcontractClaim,
+  onSaveSubcontractVariation,
+  onTransitionSubcontractVariation,
+  onDeleteSubcontractVariation,
 }) => {
   const permissions = useAppPermissions();
   const canManageProject = hasPermission(permissions, PERMISSION_KEYS.projectsWrite);
@@ -381,6 +405,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           purchaseOrders={purchaseOrders}
           subcontracts={subcontracts ? subcontracts.filter((s) => s.projectId === project.id) : []}
           subcontractClaims={subcontractClaims ? subcontractClaims.filter((c) => c.projectId === project.id) : []}
+          subcontractVariations={subcontractVariations ? subcontractVariations.filter((v) => v.projectId === project.id) : []}
           payrollAllocations={payrollAllocations}
           payrollPeriods={payrollPeriods}
           projectLaborAggregates={budgetControlLaborAggregate}
@@ -426,6 +451,10 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           onSaveSubcontractClaim={onSaveSubcontractClaim}
           onTransitionSubcontractClaim={onTransitionSubcontractClaim}
           onDeleteSubcontractClaim={onDeleteSubcontractClaim}
+          subcontractVariations={subcontractVariations ? subcontractVariations.filter((v) => v.projectId === project.id) : undefined}
+          onSaveSubcontractVariation={onSaveSubcontractVariation}
+          onTransitionSubcontractVariation={onTransitionSubcontractVariation}
+          onDeleteSubcontractVariation={onDeleteSubcontractVariation}
         />
       )}
 

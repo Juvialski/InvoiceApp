@@ -1232,14 +1232,74 @@ export type SubcontractProgressClaimStatus =
 export interface SubcontractProgressClaimLine {
   id: string;
   companyId?: string;
-  claimId: string;
-  subcontractLineId: string;
+  claimId?: string;
+  subcontractClaimId?: string;
+  subcontractLineId?: string | null;
+  subcontractVariationLineId?: string | null;
   lineNumber: number;
   claimedAmount: number;
   approvedAmount: number;
   notes?: string | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type SubcontractVariationStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED";
+
+export interface SubcontractVariationLine {
+  id: string;
+  companyId?: string;
+  projectId?: string;
+  variationId?: string;
+  subcontractVariationId?: string;
+  subcontractId?: string;
+  lineNumber: number;
+  description: string;
+  amount: number;
+  quantity?: number | null;
+  unit?: string | null;
+  unitRate?: number | null;
+  subcontractLineId?: string | null;
+  projectCostCodeId?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SubcontractVariation {
+  id: string;
+  companyId?: string;
+  subcontractId: string;
+  projectId: string;
+  variationNumber: string;
+  title: string;
+  description?: string | null;
+  reason?: string | null;
+  variationDate?: string;
+  status: SubcontractVariationStatus;
+  netAmount: number;
+  currency?: string;
+  notes?: string | null;
+  rejectionReason?: string | null;
+  cancellationReason?: string | null;
+  lines?: SubcontractVariationLine[];
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  submittedByUserId?: string | null;
+  approvedByUserId?: string | null;
+  rejectedByUserId?: string | null;
+  cancelledByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  cancelledAt?: string | null;
 }
 
 export interface SubcontractProgressClaim {
@@ -1255,8 +1315,10 @@ export interface SubcontractProgressClaim {
   retentionRate: number;
   claimedGrossAmount: number;
   approvedGrossAmount: number;
+  grossAmount?: number;
   retentionAmount: number;
   netCertifiedAmount: number;
+  netAmount?: number;
   currency?: string;
   notes?: string | null;
   rejectionReason?: string | null;

@@ -3,9 +3,12 @@ import type {
   SubcontractProgressClaim,
   SubcontractProgressClaimLine,
   SubcontractProgressClaimStatus,
+  SubcontractVariation,
+  SubcontractVariationLine,
 } from "../types.ts";
 import { supabase } from "./supabase.ts";
 import { getActiveCompanyId } from "./companyContext.ts";
+import { calculateNetApprovedVariations } from "./subcontractVariations.ts";
 
 export const SUBCONTRACT_CLAIM_STORAGE_KEY = "engineering_subcontract_progress_claims";
 
@@ -102,7 +105,8 @@ function writeScopedLocalRecords(claims: SubcontractProgressClaim[], companyId: 
 
 export interface NormalizedClaimLineInput {
   id?: string;
-  subcontractLineId: string;
+  subcontractLineId?: string | null;
+  subcontractVariationLineId?: string | null;
   claimedAmount: number;
   approvedAmount?: number;
   notes?: string | null;
@@ -115,7 +119,7 @@ export function normalizeClaimDraftInput(
     claimNumber: string;
     valuationDate: string;
   },
-  lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId: string; claimedAmount: number }>,
+  lines: Array<Partial<SubcontractProgressClaimLine> & { claimedAmount: number }>,
 ): {
   subcontractId: string;
   projectId: string;
@@ -175,8 +179,15 @@ export function normalizeClaimDraftInput(
   }
 
   const normalizedLines = lines.map((line, index): NormalizedClaimLineInput => {
-    const sclId = String(line.subcontractLineId || "").trim();
-    if (!sclId) throw new Error(`Line ${index + 1}: Subcontract scope line reference is required`);
+    const sclId = line.subcontractLineId ? String(line.subcontractLineId).trim() : null;
+    const scvlId = line.subcontractVariationLineId ? String(line.subcontractVariationLineId).trim() : null;
+
+    if (!sclId && !scvlId) {
+      throw new Error(`Line ${index + 1}: Either a subcontract scope line or a variation line reference is required`);
+    }
+    if (sclId && scvlId) {
+      throw new Error(`Line ${index + 1}: Cannot specify both a subcontract line and a variation line`);
+    }
 
     const rawAmount: unknown = line.claimedAmount;
     if (rawAmount === null || rawAmount === undefined || (typeof rawAmount === "string" && !rawAmount.trim())) {
@@ -190,6 +201,7 @@ export function normalizeClaimDraftInput(
     return {
       id: line.id || undefined,
       subcontractLineId: sclId,
+      subcontractVariationLineId: scvlId,
       claimedAmount: roundMoney(claimedAmount),
       approvedAmount: line.approvedAmount != null ? roundMoney(Number(line.approvedAmount)) : 0,
       notes: line.notes == null || !String(line.notes).trim() ? null : String(line.notes).trim(),
@@ -217,7 +229,7 @@ export function buildLocalSubcontractClaim(
     claimNumber: string;
     valuationDate: string;
   },
-  lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId: string; claimedAmount: number }>,
+  lines: Array<Partial<SubcontractProgressClaimLine> & { claimedAmount: number }>,
   existing?: SubcontractProgressClaim,
   companyId: string | null = null,
   now = new Date().toISOString(),
@@ -234,7 +246,8 @@ export function buildLocalSubcontractClaim(
     id: line.id || globalThis.crypto?.randomUUID?.() || `sccl-${id}-${idx + 1}`,
     companyId: companyId || existing?.companyId || undefined,
     claimId: id,
-    subcontractLineId: line.subcontractLineId,
+    subcontractLineId: line.subcontractLineId || null,
+    subcontractVariationLineId: line.subcontractVariationLineId || null,
     lineNumber: idx + 1,
     claimedAmount: line.claimedAmount,
     approvedAmount: line.approvedAmount ?? 0,
@@ -297,6 +310,7 @@ export function applySubcontractClaimTransition(
   lineApprovals?: LineApprovalInput[],
   subcontract?: Subcontract,
   otherApprovedClaims: SubcontractProgressClaim[] = [],
+  approvedVariations: SubcontractVariation[] = [],
   now = new Date().toISOString(),
 ): SubcontractProgressClaim {
   const currentStatus = normalizeClaimStatus(existing.status);
@@ -352,18 +366,62 @@ export function applySubcontractClaimTransition(
         }
 
         // Check cumulative approved across non-voided approved claims for this line
-        const scLine = scLinesById.get(line.subcontractLineId);
-        if (scLine) {
-          const prevApprovedForLine = otherApprovedClaims
+        if (line.subcontractLineId) {
+          const scLine = scLinesById.get(line.subcontractLineId);
+          if (scLine) {
+            const prevApprovedForLine = otherApprovedClaims
+              .filter((c) => c.status === "APPROVED" && c.id !== existing.id)
+              .reduce((sum, c) => {
+                const matchingLine = (c.lines || []).find((l) => l.subcontractLineId === line.subcontractLineId);
+                return sum + (matchingLine ? roundMoney(Number(matchingLine.approvedAmount)) : 0);
+              }, 0);
+
+            const varAdjustmentsOnLine = approvedVariations
+              .filter((v) => v.status === "APPROVED")
+              .reduce((sum, v) => {
+                const matching = (v.lines || []).filter((l) => l.subcontractLineId === line.subcontractLineId);
+                return sum + matching.reduce((s, l) => s + roundMoney(Number(l.amount)), 0);
+              }, 0);
+
+            const effectiveScLineAmount = roundMoney(Number(scLine.amount) + varAdjustmentsOnLine);
+
+            if (roundMoney(prevApprovedForLine + approvedAmount) > effectiveScLineAmount) {
+              throw new Error(
+                `Cumulative approved amount (${roundMoney(prevApprovedForLine + approvedAmount)}) exceeds subcontract line ${line.lineNumber} revised amount (${effectiveScLineAmount})`,
+              );
+            }
+          }
+        }
+
+        if (line.subcontractVariationLineId) {
+          let varLine: SubcontractVariationLine | undefined;
+          for (const v of approvedVariations) {
+            if (v.status === "APPROVED") {
+              const found = (v.lines || []).find((l) => l.id === line.subcontractVariationLineId);
+              if (found) {
+                varLine = found;
+                break;
+              }
+            }
+          }
+
+          if (!varLine) {
+            throw new Error(`Line ${line.lineNumber}: Cannot claim unapproved variation scope`);
+          }
+          if (varLine.amount <= 0) {
+            throw new Error(`Line ${line.lineNumber}: Cannot claim negative or zero variation line`);
+          }
+
+          const prevApprovedForVarLine = otherApprovedClaims
             .filter((c) => c.status === "APPROVED" && c.id !== existing.id)
             .reduce((sum, c) => {
-              const matchingLine = (c.lines || []).find((l) => l.subcontractLineId === line.subcontractLineId);
+              const matchingLine = (c.lines || []).find((l) => l.subcontractVariationLineId === line.subcontractVariationLineId);
               return sum + (matchingLine ? roundMoney(Number(matchingLine.approvedAmount)) : 0);
             }, 0);
 
-          if (roundMoney(prevApprovedForLine + approvedAmount) > roundMoney(Number(scLine.amount))) {
+          if (roundMoney(prevApprovedForVarLine + approvedAmount) > roundMoney(Number(varLine.amount))) {
             throw new Error(
-              `Cumulative approved amount (${roundMoney(prevApprovedForLine + approvedAmount)}) exceeds subcontract line ${line.lineNumber} amount (${scLine.amount})`,
+              `Cumulative approved amount (${roundMoney(prevApprovedForVarLine + approvedAmount)}) exceeds variation line amount (${varLine.amount})`,
             );
           }
         }
@@ -383,9 +441,13 @@ export function applySubcontractClaimTransition(
           .filter((c) => c.status === "APPROVED" && c.id !== existing.id)
           .reduce((sum, c) => sum + roundMoney(Number(c.approvedGrossAmount)), 0);
 
-        if (roundMoney(prevHeaderApproved + approvedGrossAmount) > roundMoney(Number(subcontract.originalAmount))) {
+        const revisedSubcontractValue = roundMoney(
+          Number(subcontract.originalAmount) + calculateNetApprovedVariations(approvedVariations),
+        );
+
+        if (roundMoney(prevHeaderApproved + approvedGrossAmount) > revisedSubcontractValue) {
           throw new Error(
-            `Cumulative approved claims (${roundMoney(prevHeaderApproved + approvedGrossAmount)}) exceeds subcontract original amount (${subcontract.originalAmount})`,
+            `Cumulative approved claims (${roundMoney(prevHeaderApproved + approvedGrossAmount)}) exceeds revised subcontract value (${revisedSubcontractValue})`,
           );
         }
       }
@@ -438,7 +500,8 @@ export function subcontractClaimLineFromRow(row: Row): SubcontractProgressClaimL
     id: String(row.id),
     companyId: text(row.company_id),
     claimId: String(row.claim_id),
-    subcontractLineId: String(row.subcontract_line_id),
+    subcontractLineId: text(row.subcontract_line_id) || null,
+    subcontractVariationLineId: text(row.subcontract_variation_line_id) || null,
     lineNumber: numberValue(row.line_number, 1),
     claimedAmount: numberValue(row.claimed_amount, 0),
     approvedAmount: numberValue(row.approved_amount, 0),
@@ -526,6 +589,8 @@ export function writeSubcontractClaimsToLocal(claims: SubcontractProgressClaim[]
 
 export interface SubcontractClaimMetrics {
   originalAmount: number;
+  netApprovedVariations: number;
+  revisedSubcontractValue: number;
   cumulativeApprovedGross: number;
   remainingCommitment: number;
   cumulativeRetentionHeld: number;
@@ -536,6 +601,15 @@ export interface SubcontractClaimMetrics {
   lines: Map<string, {
     subcontractLineId: string;
     lineAmount: number;
+    variationAdjustment: number;
+    revisedLineAmount: number;
+    cumulativeApproved: number;
+    remainingClaimable: number;
+  }>;
+  variationLines: Map<string, {
+    variationLineId: string;
+    variationNumber: string;
+    lineAmount: number;
     cumulativeApproved: number;
     remainingClaimable: number;
   }>;
@@ -544,44 +618,96 @@ export interface SubcontractClaimMetrics {
 export function computeSubcontractClaimMetrics(
   subcontract: Subcontract,
   claims: SubcontractProgressClaim[] = [],
+  variations: SubcontractVariation[] = [],
 ): SubcontractClaimMetrics {
   const scClaims = claims.filter((c) => c.subcontractId === subcontract.id);
   const approvedClaims = scClaims.filter((c) => c.status === "APPROVED");
   const pendingClaims = scClaims.filter((c) => c.status === "SUBMITTED");
 
+  const scVariations = variations.filter((v) => v.subcontractId === subcontract.id);
+  const approvedVariations = scVariations.filter((v) => v.status === "APPROVED");
+  const netApprovedVariations = calculateNetApprovedVariations(approvedVariations);
+
   const originalAmount = roundMoney(Number(subcontract.originalAmount || 0));
+  const revisedSubcontractValue = roundMoney(originalAmount + netApprovedVariations);
   const cumulativeApprovedGross = roundMoney(approvedClaims.reduce((sum, c) => sum + roundMoney(Number(c.approvedGrossAmount || 0)), 0));
-  const remainingCommitment = roundMoney(Math.max(0, originalAmount - cumulativeApprovedGross));
+  const remainingCommitment = roundMoney(Math.max(0, revisedSubcontractValue - cumulativeApprovedGross));
   const cumulativeRetentionHeld = roundMoney(approvedClaims.reduce((sum, c) => sum + roundMoney(Number(c.retentionAmount || 0)), 0));
   const cumulativeNetCertified = roundMoney(approvedClaims.reduce((sum, c) => sum + roundMoney(Number(c.netCertifiedAmount || 0)), 0));
 
   const lineMetrics = new Map<string, {
     subcontractLineId: string;
     lineAmount: number;
+    variationAdjustment: number;
+    revisedLineAmount: number;
     cumulativeApproved: number;
     remainingClaimable: number;
   }>();
 
   for (const line of subcontract.lines || []) {
     const lineAmount = roundMoney(Number(line.amount || 0));
+    const variationAdjustment = roundMoney(
+      approvedVariations.reduce((sum, v) => {
+        const matchingLines = (v.lines || []).filter((vl) => vl.subcontractLineId === line.id);
+        return sum + matchingLines.reduce((s, vl) => s + roundMoney(Number(vl.amount || 0)), 0);
+      }, 0),
+    );
+    const revisedLineAmount = roundMoney(Math.max(0, lineAmount + variationAdjustment));
+
     const cumulativeApproved = roundMoney(
       approvedClaims.reduce((sum, c) => {
         const claimLine = (c.lines || []).find((cl) => cl.subcontractLineId === line.id);
         return sum + (claimLine ? roundMoney(Number(claimLine.approvedAmount || 0)) : 0);
       }, 0),
     );
-    const remainingClaimable = roundMoney(Math.max(0, lineAmount - cumulativeApproved));
+    const remainingClaimable = roundMoney(Math.max(0, revisedLineAmount - cumulativeApproved));
 
     lineMetrics.set(line.id, {
       subcontractLineId: line.id,
       lineAmount,
+      variationAdjustment,
+      revisedLineAmount,
       cumulativeApproved,
       remainingClaimable,
     });
   }
 
+  const variationLinesMetrics = new Map<string, {
+    variationLineId: string;
+    variationNumber: string;
+    lineAmount: number;
+    cumulativeApproved: number;
+    remainingClaimable: number;
+  }>();
+
+  for (const v of approvedVariations) {
+    for (const vl of v.lines || []) {
+      // Standalone variation lines (not linked to an existing subcontract scope line)
+      if (!vl.subcontractLineId && Number(vl.amount || 0) > 0) {
+        const lineAmount = roundMoney(Number(vl.amount || 0));
+        const cumulativeApproved = roundMoney(
+          approvedClaims.reduce((sum, c) => {
+            const claimLine = (c.lines || []).find((cl) => cl.subcontractVariationLineId === vl.id);
+            return sum + (claimLine ? roundMoney(Number(claimLine.approvedAmount || 0)) : 0);
+          }, 0),
+        );
+        const remainingClaimable = roundMoney(Math.max(0, lineAmount - cumulativeApproved));
+
+        variationLinesMetrics.set(vl.id, {
+          variationLineId: vl.id,
+          variationNumber: v.variationNumber,
+          lineAmount,
+          cumulativeApproved,
+          remainingClaimable,
+        });
+      }
+    }
+  }
+
   return {
     originalAmount,
+    netApprovedVariations,
+    revisedSubcontractValue,
     cumulativeApprovedGross,
     remainingCommitment,
     cumulativeRetentionHeld,
@@ -590,6 +716,7 @@ export function computeSubcontractClaimMetrics(
     approvedClaimsCount: approvedClaims.length,
     pendingClaimsCount: pendingClaims.length,
     lines: lineMetrics,
+    variationLines: variationLinesMetrics,
   };
 }
 
@@ -654,7 +781,7 @@ export async function saveSubcontractClaim(
     claimNumber: string;
     valuationDate: string;
   },
-  lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId: string; claimedAmount: number }>,
+  lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number }>,
 ): Promise<SubcontractProgressClaim> {
   const companyId = getActiveCompanyId();
   const normalized = normalizeClaimDraftInput(claim, lines);
@@ -709,7 +836,8 @@ export async function saveSubcontractClaim(
     },
     p_lines: normalized.lines.map((l) => ({
       id: l.id || null,
-      subcontract_line_id: l.subcontractLineId,
+      subcontract_line_id: l.subcontractLineId || null,
+      subcontract_variation_line_id: l.subcontractVariationLineId || null,
       claimed_amount: l.claimedAmount,
       notes: l.notes,
     })),
@@ -726,6 +854,7 @@ export async function transitionSubcontractClaim(
   reason?: string,
   lineApprovals?: LineApprovalInput[],
   subcontract?: Subcontract,
+  approvedVariations: SubcontractVariation[] = [],
 ): Promise<SubcontractProgressClaim> {
   const companyId = getActiveCompanyId();
   assertPersistenceContext(companyId, "transitioning progress claim lifecycle status");
@@ -737,7 +866,15 @@ export async function transitionSubcontractClaim(
     const existing = local[idx];
 
     const otherClaims = local.filter((c) => c.subcontractId === existing.subcontractId && c.id !== existing.id);
-    const updated = applySubcontractClaimTransition(existing, targetStatus, reason, lineApprovals, subcontract, otherClaims);
+    const updated = applySubcontractClaimTransition(
+      existing,
+      targetStatus,
+      reason,
+      lineApprovals,
+      subcontract,
+      otherClaims,
+      approvedVariations,
+    );
 
     local[idx] = updated;
     writeScopedLocalRecords(local, companyId, all);

@@ -8,7 +8,7 @@ import { SubcontractClaimsDrawer } from "../src/components/procurement/Subcontra
 import { AppPermissionProvider } from "../src/app/AppPermissionContext.tsx";
 import { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";
 import { defaultDemoAnchorDate } from "../src/demo/data/demoDates.ts";
-import type { Subcontract, SubcontractProgressClaim } from "../src/types.ts";
+import type { Subcontract, SubcontractProgressClaim, SubcontractVariation } from "../src/types.ts";
 
 const anchorDate = defaultDemoAnchorDate();
 const demoWorkspace = createDemoWorkspace(anchorDate);
@@ -129,3 +129,99 @@ test("ProcurementPage Subcontracts Tab displays Certified Work, Remaining Commit
   // Verify that the Subcontract progress claim imports and UI components render without syntax errors
   assert.ok(html.length > 0, "ProcurementPage rendered successfully");
 });
+
+test("SubcontractClaimEditorModal exposes approved standalone variation lines alongside revised contract scope", () => {
+  const hvacSc = demoSubcontracts.find((s) => s.subcontractNumber === "SC-2026-001");
+  assert.ok(hvacSc, "SC-2026-001 must exist");
+
+  const mockApprovedVariation: SubcontractVariation = {
+    id: "var-001",
+    companyId: hvacSc.companyId,
+    projectId: hvacSc.projectId,
+    subcontractId: hvacSc.id,
+    variationNumber: "VAR-001",
+    title: "Additional AHU units for server room",
+    status: "APPROVED",
+    variationDate: "2026-03-01",
+    netAmount: 150000,
+    currency: hvacSc.currency,
+    lines: [
+      {
+        id: "vl-standalone-01",
+        companyId: hvacSc.companyId,
+        projectId: hvacSc.projectId,
+        variationId: "var-001",
+        subcontractId: hvacSc.id,
+        lineNumber: 1,
+        description: "Server Room Precision Air Handler Unit",
+        amount: 150000,
+        subcontractLineId: undefined, // Standalone
+        projectCostCodeId: "cc-hvac-01",
+      },
+    ],
+  };
+
+  const mockDraftVariation: SubcontractVariation = {
+    id: "var-draft-002",
+    companyId: hvacSc.companyId,
+    projectId: hvacSc.projectId,
+    subcontractId: hvacSc.id,
+    variationNumber: "VAR-002",
+    title: "Draft unapproved change",
+    status: "DRAFT",
+    variationDate: "2026-03-05",
+    netAmount: 50000,
+    currency: hvacSc.currency,
+    lines: [
+      {
+        id: "vl-draft-01",
+        companyId: hvacSc.companyId,
+        projectId: hvacSc.projectId,
+        variationId: "var-draft-002",
+        subcontractId: hvacSc.id,
+        lineNumber: 1,
+        description: "Unapproved Scope Item",
+        amount: 50000,
+      },
+    ],
+  };
+
+  const html = renderToStaticMarkup(
+    <SubcontractClaimEditorModal
+      isOpen={true}
+      onClose={() => {}}
+      claim={null}
+      subcontract={hvacSc}
+      project={mockProjects[0]}
+      vendor={mockVendors[0]}
+      existingClaims={demoClaims}
+      existingVariations={[mockApprovedVariation, mockDraftVariation]}
+      canManage={true}
+      canApprove={true}
+      onSave={async () => {}}
+      onTransition={async () => {}}
+    />,
+  );
+
+  // Original scope lines must have Contract Scope badge
+  assert.ok(html.includes("Contract Scope"), "Must display Contract Scope badge for base lines");
+  assert.ok(html.includes("Chilled water piping"), "Must render original line 1");
+
+  // Approved standalone variation line must be exposed with Variation badge
+  assert.ok(html.includes("Variation VAR-001"), "Must display Variation VAR-001 badge");
+  assert.ok(
+    html.includes("Server Room Precision Air Handler Unit"),
+    "Must render standalone approved variation line description",
+  );
+
+  // Draft variation MUST NOT be exposed as claimable scope
+  assert.ok(
+    !html.includes("Unapproved Scope Item"),
+    "Draft variation line must NOT be exposed as claimable scope",
+  );
+  assert.ok(
+    !html.includes("Variation VAR-002"),
+    "Draft variation badge must NOT appear",
+  );
+});
+

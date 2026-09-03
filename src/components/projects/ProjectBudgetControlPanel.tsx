@@ -29,6 +29,7 @@ import type {
   PurchaseOrder,
   Subcontract,
   SubcontractProgressClaim,
+  SubcontractVariation,
 } from "../../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import {
@@ -50,6 +51,7 @@ export interface ProjectBudgetControlPanelProps {
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
   subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
   payrollAllocations?: PayrollProjectAllocation[];
   payrollPeriods?: PayrollPeriod[];
   payrollRuns?: PayrollRun[];
@@ -91,6 +93,7 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
   purchaseOrders = [],
   subcontracts = [],
   subcontractClaims = [],
+  subcontractVariations = [],
   payrollAllocations = [],
   payrollPeriods = [],
   payrollRuns = [],
@@ -139,11 +142,12 @@ export const ProjectBudgetControlPanel: React.FC<ProjectBudgetControlPanelProps>
       purchaseOrders,
       subcontracts,
       subcontractClaims,
+      subcontractVariations,
       projectLaborAggregates,
       laborSource,
       baseCurrency: project.currency,
     };
-  }, [invoices, invoiceAllocations, expenses, purchaseOrders, subcontracts, subcontractClaims, payrollRuns, payrollPeriods, payrollAllocations, projectLaborAggregates, laborSource, project.currency]);
+  }, [invoices, invoiceAllocations, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, payrollRuns, payrollPeriods, payrollAllocations, projectLaborAggregates, laborSource, project.currency]);
 
   // 2. Compute P1B Budget Control Summary
   const budgetControl: ProjectBudgetControlSummary = useMemo(() => {

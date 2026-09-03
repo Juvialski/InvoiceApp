@@ -20,6 +20,7 @@ import type {
   Subcontract,
   SubcontractProgressClaim,
   SubcontractProgressClaimStatus,
+  SubcontractVariation,
   Vendor,
 } from "../../types.ts";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
@@ -31,6 +32,7 @@ export interface SubcontractClaimsDrawerProps {
   onClose: () => void;
   subcontract: Subcontract;
   claims: SubcontractProgressClaim[];
+  variations?: SubcontractVariation[];
   project?: Project | null;
   vendor?: Vendor | null;
   canManage?: boolean;
@@ -51,6 +53,7 @@ export const SubcontractClaimsDrawer: React.FC<SubcontractClaimsDrawerProps> = (
   onClose,
   subcontract,
   claims = [],
+  variations = [],
   project,
   vendor,
   canManage = false,
@@ -70,8 +73,8 @@ export const SubcontractClaimsDrawer: React.FC<SubcontractClaimsDrawerProps> = (
   );
 
   const metrics = useMemo(
-    () => computeSubcontractClaimMetrics(subcontract, filteredClaims),
-    [subcontract, filteredClaims],
+    () => computeSubcontractClaimMetrics(subcontract, filteredClaims, variations),
+    [subcontract, filteredClaims, variations],
   );
 
   const isEligibleForClaims = subcontract.status === "APPROVED" || subcontract.status === "ACTIVE";
@@ -145,11 +148,24 @@ export const SubcontractClaimsDrawer: React.FC<SubcontractClaimsDrawerProps> = (
 
         {/* Commercial Summary Banner */}
         <div className="border-b border-slate-200 bg-gradient-to-r from-slate-50 via-indigo-50/30 to-slate-50 px-6 py-3.5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Contract Total</div>
               <div className="text-sm font-black text-slate-900 font-mono">
                 {formatMoney(metrics.originalAmount, subcontract.currency)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-purple-600">Approved Variations</div>
+              <div className="text-sm font-black text-purple-700 font-mono">
+                {metrics.netApprovedVariations > 0 ? "+" : ""}
+                {formatMoney(metrics.netApprovedVariations, subcontract.currency)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-900">Revised Contract Value</div>
+              <div className="text-sm font-black text-indigo-950 font-mono">
+                {formatMoney(metrics.revisedSubcontractValue, subcontract.currency)}
               </div>
             </div>
             <div>
@@ -168,12 +184,6 @@ export const SubcontractClaimsDrawer: React.FC<SubcontractClaimsDrawerProps> = (
               <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Retention Held</div>
               <div className="text-sm font-black text-amber-700 font-mono">
                 {formatMoney(metrics.cumulativeRetentionHeld, subcontract.currency)}
-              </div>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Net Certified</div>
-              <div className="text-sm font-black text-indigo-700 font-mono">
-                {formatMoney(metrics.cumulativeNetCertified, subcontract.currency)}
               </div>
             </div>
           </div>

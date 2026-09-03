@@ -7,6 +7,7 @@ import {
   Clock,
   DollarSign,
   FileCheck,
+  FileEdit,
   FileText,
   Filter,
   Layers,
@@ -35,13 +36,17 @@ import type {
   Subcontract,
   SubcontractLine,
   SubcontractProgressClaim,
+  SubcontractProgressClaimLine,
   SubcontractProgressClaimStatus,
   SubcontractStatus,
+  SubcontractVariation,
+  SubcontractVariationLine,
+  SubcontractVariationStatus,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
 } from "../../types.ts";
-import { createDemoRFQs, createDemoSubcontractClaims, createDemoSubcontracts, createDemoSupplierQuotations } from "../../demo/data/procurement.ts";
+import { createDemoRFQs, createDemoSubcontractClaims, createDemoSubcontracts, createDemoSubcontractVariations, createDemoSupplierQuotations } from "../../demo/data/procurement.ts";
 import { defaultDemoAnchorDate } from "../../demo/data/demoDates.ts";
 import { isDemoApplicationPath } from "../../app/applicationMode.ts";
 import {
@@ -61,6 +66,13 @@ import {
   saveSubcontractClaim,
   transitionSubcontractClaim,
 } from "../../lib/subcontractClaims.ts";
+import {
+  deleteDraftSubcontractVariation,
+  readSubcontractVariationsFromLocal,
+  saveSubcontractVariation,
+  transitionSubcontractVariation,
+  calculateRevisedSubcontractValue,
+} from "../../lib/subcontractVariations.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { isCommittedPurchaseOrder, isCommittedSubcontract, purchaseOrderTotal, subcontractTotal } from "../../utils/projectCosting.ts";
 import { calculatePOReceiptProgress, type PODeliveryStatus } from "../../utils/purchaseOrderReceipts.ts";
@@ -73,6 +85,9 @@ import { SubcontractEditorModal } from "./SubcontractEditorModal.tsx";
 import { SubcontractCancellationModal } from "./SubcontractCancellationModal.tsx";
 import { SubcontractClaimEditorModal } from "./SubcontractClaimEditorModal.tsx";
 import { SubcontractClaimsDrawer } from "./SubcontractClaimsDrawer.tsx";
+import { SubcontractVariationModal } from "./SubcontractVariationModal.tsx";
+import { SubcontractVariationDetailModal } from "./SubcontractVariationDetailModal.tsx";
+import { SubcontractVariationsDrawer } from "./SubcontractVariationsDrawer.tsx";
 
 export interface ProcurementPageProps {
   purchaseOrders: PurchaseOrder[];
@@ -81,6 +96,7 @@ export interface ProcurementPageProps {
   vendors: Vendor[];
   costCodes: ProjectCostCode[];
   selectedProjectId?: string;
+  initialTab?: "purchase_orders" | "rfqs" | "subcontracts";
   canRead?: boolean;
   canManage?: boolean;
   canApprove?: boolean;
@@ -130,7 +146,7 @@ export interface ProcurementPageProps {
       claimNumber: string;
       valuationDate: string;
     },
-    lines: Array<{ subcontractLineId: string; claimedAmount: number; notes?: string }>,
+    lines: Array<{ subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number; notes?: string }>,
   ) => Promise<void>;
   onTransitionSubcontractClaim?: (
     id: string,
@@ -139,6 +155,23 @@ export interface ProcurementPageProps {
     lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>,
   ) => Promise<void>;
   onDeleteSubcontractClaim?: (id: string) => Promise<void>;
+  subcontractVariations?: SubcontractVariation[];
+  onSaveSubcontractVariation?: (
+    variation: Partial<SubcontractVariation> & {
+      subcontractId: string;
+      projectId: string;
+      variationNumber: string;
+      title: string;
+      currency?: string;
+    },
+    lines: Array<Partial<SubcontractVariationLine> & { description: string; amount: number }>,
+  ) => Promise<void>;
+  onTransitionSubcontractVariation?: (
+    id: string,
+    targetStatus: SubcontractVariationStatus,
+    reason?: string,
+  ) => Promise<void>;
+  onDeleteSubcontractVariation?: (id: string) => Promise<void>;
 }
 
 export const ProcurementPage: React.FC<ProcurementPageProps> = ({
@@ -148,6 +181,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   vendors,
   costCodes,
   selectedProjectId,
+  initialTab,
   canRead = false,
   canManage = false,
   canApprove = false,
@@ -157,6 +191,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   supplierQuotations: initialQuotations,
   subcontracts: initialSubcontracts,
   subcontractClaims: initialSubcontractClaims,
+  subcontractVariations: initialSubcontractVariations,
   onSavePO,
   onTransitionPO,
   onDeletePO,
@@ -177,9 +212,12 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   onSaveSubcontractClaim,
   onTransitionSubcontractClaim,
   onDeleteSubcontractClaim,
+  onSaveSubcontractVariation,
+  onTransitionSubcontractVariation,
+  onDeleteSubcontractVariation,
 }) => {
   // Top-level Navigation Sub-Tabs
-  const [activeTab, setActiveTab] = useState<"purchase_orders" | "rfqs" | "subcontracts">("purchase_orders");
+  const [activeTab, setActiveTab] = useState<"purchase_orders" | "rfqs" | "subcontracts">(initialTab || "purchase_orders");
 
   // Search & Filters
   const [query, setQuery] = useState("");
@@ -247,6 +285,24 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
 
   const [claimsDrawerSubcontract, setClaimsDrawerSubcontract] = useState<Subcontract | null>(null);
   const [activeClaimModal, setActiveClaimModal] = useState<SubcontractProgressClaim | null | undefined>(undefined);
+
+  // Subcontract Variations State
+  const useProvidedVariations = initialSubcontractVariations !== undefined;
+  const [localVariations, setLocalVariations] = useState<SubcontractVariation[]>(
+    () => useProvidedVariations
+      ? initialSubcontractVariations || []
+      : isDemoMode
+        ? createDemoSubcontractVariations(defaultAnchor)
+        : readSubcontractVariationsFromLocal(),
+  );
+
+  useEffect(() => {
+    if (useProvidedVariations) setLocalVariations(initialSubcontractVariations || []);
+  }, [initialSubcontractVariations, useProvidedVariations]);
+
+  const [variationsDrawerSubcontract, setVariationsDrawerSubcontract] = useState<Subcontract | null>(null);
+  const [activeVariationModal, setActiveVariationModal] = useState<SubcontractVariation | null | undefined>(undefined);
+  const [activeVariationDetailModal, setActiveVariationDetailModal] = useState<SubcontractVariation | null>(null);
 
   // Active Modals for RFQ
   const [activeRfqModal, setActiveRfqModal] = useState<RFQ | null | undefined>(undefined);
@@ -402,7 +458,13 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
       claimNumber: string;
       valuationDate: string;
     },
-    lines: Array<{ subcontractLineId: string; claimedAmount: number; notes?: string }>,
+    lines: Array<{
+      id?: string;
+      subcontractLineId?: string;
+      subcontractVariationLineId?: string;
+      claimedAmount: number;
+      notes?: string;
+    }>,
   ) => {
     if (onSaveSubcontractClaim) {
       await onSaveSubcontractClaim(claim, lines);
@@ -451,12 +513,14 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
         lineApprovals,
         parentSc,
         otherApproved,
+        localVariations,
       );
       setLocalClaims((prev) => prev.map((item) => (item.id === id ? updated : item)));
       return;
     }
 
-    const updated = await transitionSubcontractClaim(id, targetStatus, reason, lineApprovals);
+    const parentSc = localSubcontracts.find((sc) => sc.id === localClaims.find((c) => c.id === id)?.subcontractId);
+    const updated = await transitionSubcontractClaim(id, targetStatus, reason, lineApprovals, parentSc, localVariations);
     setLocalClaims((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
   };
 
@@ -468,6 +532,65 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
 
     if (!isDemoMode) await deleteDraftSubcontractClaim(id);
     setLocalClaims((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleSaveVariationInternal = async (
+    variation: Partial<SubcontractVariation> & {
+      subcontractId: string;
+      projectId: string;
+      variationNumber: string;
+      title: string;
+      currency?: string;
+    },
+    lines: Array<Partial<SubcontractVariationLine> & { description: string; amount: number }>,
+  ) => {
+    if (onSaveSubcontractVariation) {
+      await onSaveSubcontractVariation(variation, lines);
+      return;
+    }
+
+    const saved = await saveSubcontractVariation(variation, lines);
+    setLocalVariations((prev) => {
+      const idx = prev.findIndex((v) => v.id === saved.id);
+      return idx >= 0 ? prev.map((v) => (v.id === saved.id ? saved : v)) : [saved, ...prev];
+    });
+  };
+
+  const handleTransitionVariationInternal = async (
+    id: string,
+    targetStatus: SubcontractVariationStatus,
+    reason?: string,
+  ) => {
+    if (onTransitionSubcontractVariation) {
+      await onTransitionSubcontractVariation(id, targetStatus, reason);
+      return;
+    }
+
+    const currentVar = localVariations.find((v) => v.id === id);
+    const scId = currentVar?.subcontractId || variationsDrawerSubcontract?.id || activeVariationDetailModal?.subcontractId;
+    const parentSc = localSubcontracts.find((s) => s.id === scId);
+    const otherApproved = localVariations.filter((v) => v.subcontractId === scId && v.id !== id && v.status === "APPROVED");
+    const approvedClaims = localClaims.filter((c) => c.subcontractId === scId && c.status === "APPROVED");
+
+    const updated = await transitionSubcontractVariation(
+      id,
+      targetStatus,
+      reason,
+      parentSc,
+      otherApproved,
+      approvedClaims,
+    );
+    setLocalVariations((prev) => prev.map((v) => (v.id === updated.id ? updated : v)));
+  };
+
+  const handleDeleteDraftVariationInternal = async (id: string) => {
+    if (onDeleteSubcontractVariation) {
+      await onDeleteSubcontractVariation(id);
+      return;
+    }
+
+    await deleteDraftSubcontractVariation(id);
+    setLocalVariations((prev) => prev.filter((v) => v.id !== id));
   };
 
   const handleSaveSubcontractInternal = async (
@@ -509,7 +632,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
     if (isDemoMode) {
       const current = localSubcontracts.find((item) => item.id === id);
       if (!current) throw new Error("Subcontract not found");
-      const updated = applySubcontractTransition(current, targetStatus, reason);
+      const updated = applySubcontractTransition(current, targetStatus, reason, undefined, localVariations);
       setLocalSubcontracts((prev) => prev.map((item) => item.id === id ? updated : item));
       return;
     }
@@ -1773,8 +1896,10 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                     {filteredSubcontracts.map((sc) => {
                       const vendor = vendorMap.get(sc.vendorId);
                       const proj = projectMap.get(sc.projectId);
-                      const totalAmt = subcontractTotal(sc);
-                      const scMetrics = computeSubcontractClaimMetrics(sc, localClaims);
+                      const scVariations = localVariations.filter((v) => v.subcontractId === sc.id);
+                      const scMetrics = computeSubcontractClaimMetrics(sc, localClaims, localVariations);
+                      const originalAmt = subcontractTotal(sc);
+                      const revisedAmt = scMetrics.revisedSubcontractValue;
                       const isDraft = sc.status === "DRAFT";
                       const isApproved = sc.status === "APPROVED";
                       const isActive = sc.status === "ACTIVE";
@@ -1819,7 +1944,14 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
 
                           {/* Contract Value */}
                           <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                            {formatMoney(totalAmt, sc.currency || "PHP")}
+                            <div>{formatMoney(revisedAmt, sc.currency || "PHP")}</div>
+                            {scMetrics.netApprovedVariations !== 0 && (
+                              <div className="text-[10px] text-purple-700 font-sans font-medium">
+                                Orig: {formatMoney(originalAmt, sc.currency || "PHP")}{" "}
+                                ({scMetrics.netApprovedVariations > 0 ? "+" : ""}
+                                {formatMoney(scMetrics.netApprovedVariations, sc.currency || "PHP")})
+                              </div>
+                            )}
                           </td>
 
                           {/* Certified Work */}
@@ -1866,6 +1998,18 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                           {/* Actions */}
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Variations Register Drawer */}
+                              <button
+                                type="button"
+                                onClick={() => setVariationsDrawerSubcontract(sc)}
+                                disabled={isBusy}
+                                className="rounded-lg border border-purple-200 bg-purple-50/70 px-2.5 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition shadow-xs flex items-center gap-1"
+                                title={`Open variations register for ${sc.subcontractNumber}`}
+                              >
+                                <FileEdit className="h-3.5 w-3.5" />
+                                <span>Variations ({scVariations.length})</span>
+                              </button>
+
                               {/* Claims Register Drawer */}
                               <button
                                 type="button"
@@ -2176,6 +2320,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           onClose={() => setClaimsDrawerSubcontract(null)}
           subcontract={claimsDrawerSubcontract}
           claims={localClaims}
+          variations={localVariations}
           project={projectMap.get(claimsDrawerSubcontract.projectId)}
           vendor={vendorMap.get(claimsDrawerSubcontract.vendorId)}
           canManage={canManage}
@@ -2197,10 +2342,85 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           project={projectMap.get(claimsDrawerSubcontract.projectId)}
           vendor={vendorMap.get(claimsDrawerSubcontract.vendorId)}
           existingClaims={localClaims}
+          existingVariations={localVariations}
           canManage={canManage}
           canApprove={canApprove}
           onSave={handleSaveClaimInternal}
           onTransition={handleTransitionClaimInternal}
+        />
+      )}
+
+      {/* 10. Subcontract Variations Register Drawer */}
+      {variationsDrawerSubcontract && (
+        <SubcontractVariationsDrawer
+          isOpen={true}
+          onClose={() => setVariationsDrawerSubcontract(null)}
+          subcontract={variationsDrawerSubcontract}
+          variations={localVariations}
+          claims={localClaims}
+          project={projectMap.get(variationsDrawerSubcontract.projectId)}
+          vendor={vendorMap.get(variationsDrawerSubcontract.vendorId)}
+          projectCostCodes={costCodes}
+          canManage={canManage}
+          canApprove={canApprove}
+          onCreateVariation={() => setActiveVariationModal(null)}
+          onViewVariation={(v) => setActiveVariationDetailModal(v)}
+          onEditVariation={(v) => setActiveVariationModal(v)}
+          onDeleteDraftVariation={handleDeleteDraftVariationInternal}
+          onTransitionVariation={handleTransitionVariationInternal}
+        />
+      )}
+
+      {/* 11. Subcontract Variation Editor Modal */}
+      {activeVariationModal !== undefined && variationsDrawerSubcontract && (
+        <SubcontractVariationModal
+          isOpen={true}
+          onClose={() => setActiveVariationModal(undefined)}
+          variation={activeVariationModal}
+          subcontract={variationsDrawerSubcontract}
+          project={projectMap.get(variationsDrawerSubcontract.projectId)}
+          vendor={vendorMap.get(variationsDrawerSubcontract.vendorId)}
+          existingVariations={localVariations}
+          existingClaims={localClaims}
+          projectCostCodes={costCodes}
+          canManage={canManage}
+          canApprove={canApprove}
+          onSave={handleSaveVariationInternal}
+          onTransition={handleTransitionVariationInternal}
+        />
+      )}
+
+      {/* 12. Subcontract Variation Detail Modal */}
+      {activeVariationDetailModal && (
+        <SubcontractVariationDetailModal
+          isOpen={true}
+          onClose={() => setActiveVariationDetailModal(null)}
+          variation={activeVariationDetailModal}
+          subcontract={
+            localSubcontracts.find((s) => s.id === activeVariationDetailModal.subcontractId) ||
+            variationsDrawerSubcontract!
+          }
+          project={projectMap.get(activeVariationDetailModal.projectId)}
+          vendor={
+            vendorMap.get(
+              (
+                localSubcontracts.find((s) => s.id === activeVariationDetailModal.subcontractId) ||
+                variationsDrawerSubcontract
+              )?.vendorId || "",
+            )
+          }
+          projectCostCodes={costCodes}
+          existingVariations={localVariations}
+          existingClaims={localClaims}
+          canManage={canManage}
+          canApprove={canApprove}
+          onEdit={(v) => {
+            const sc = localSubcontracts.find((s) => s.id === v.subcontractId);
+            if (sc) setVariationsDrawerSubcontract(sc);
+            setActiveVariationModal(v);
+          }}
+          onTransition={handleTransitionVariationInternal}
+          onDeleteDraft={handleDeleteDraftVariationInternal}
         />
       )}
     </div>
