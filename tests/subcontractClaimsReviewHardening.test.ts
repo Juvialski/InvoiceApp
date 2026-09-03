@@ -19,14 +19,22 @@ const hardeningMigration = fs.readFileSync(
   "utf8",
 );
 
-test("progress-claim composite project FK has an ordered tenant-safe reference key", () => {
+test("progress-claim composite FKs have ordered tenant-safe reference keys", () => {
   assert.match(
     compositeKeyMigration,
     /add constraint projects_company_id_id_key unique \(company_id, id\)/i,
   );
   assert.match(
+    compositeKeyMigration,
+    /add constraint subcontract_lines_company_id_id_key unique \(company_id, id\)/i,
+  );
+  assert.match(
     claimsMigration,
     /foreign key \(company_id, project_id\)[\s\S]*?references public\.projects\(company_id, id\)/i,
+  );
+  assert.match(
+    claimsMigration,
+    /foreign key \(company_id, subcontract_line_id\)[\s\S]*?references public\.subcontract_lines\(company_id, id\)/i,
   );
 });
 
