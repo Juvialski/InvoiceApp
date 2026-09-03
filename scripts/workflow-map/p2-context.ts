@@ -1,7 +1,10 @@
 import {
   generateWorkflowContext as generateBaseWorkflowContext,
+  renderWorkflowContextMarkdown,
   selectWorkflowContextSeeds as selectBaseWorkflowContextSeeds,
+  serializeWorkflowContextPacket,
   WorkflowContextSelectionError,
+  type WorkflowContextRequestedScope,
   type WorkflowContextResult,
   type WorkflowContextSelectionInput,
 } from "./context.ts";
@@ -39,6 +42,19 @@ function normalizeDomainSelection(input: WorkflowContextSelectionInput): {
   };
 }
 
+function restoredRequestedScope(
+  scope: WorkflowContextRequestedScope,
+  requestedDomain: WorkflowDomain,
+  requestedQuery?: string,
+): WorkflowContextRequestedScope {
+  const { query: _delegatedQuery, ...rest } = scope;
+  return {
+    ...rest,
+    domain: requestedDomain,
+    ...(requestedQuery ? { query: requestedQuery } : {}),
+  };
+}
+
 function restoreRequestedScope(
   result: WorkflowContextResult,
   requestedDomain?: WorkflowDomain,
@@ -47,18 +63,25 @@ function restoreRequestedScope(
   if (!requestedDomain) return result;
   const packet = {
     ...result.packet,
-    requestedScope: {
-      ...result.packet.requestedScope,
-      domain: requestedDomain,
-      ...(requestedQuery ? { query: requestedQuery } : { query: undefined }),
-    },
+    requestedScope: restoredRequestedScope(result.packet.requestedScope, requestedDomain, requestedQuery),
   };
+  const markdown = renderWorkflowContextMarkdown(packet);
+  const json = serializeWorkflowContextPacket(packet);
+  const characterCount = Math.max(markdown.length, json.length);
+  if (characterCount > packet.truncation.characterBudget) {
+    throw new WorkflowContextSelectionError(
+      "budget",
+      `Context character budget ${packet.truncation.characterBudget} is too small after preserving the requested ${requestedDomain} domain. Increase --budget or narrow the selector.`,
+    );
+  }
   return {
     ...result,
     packet,
-    markdown: result.markdown
-      .replace(`query=${requestedDomain}${requestedQuery ? ` ${requestedQuery}` : ""}`, `domain=${requestedDomain}${requestedQuery ? `, query=${requestedQuery}` : ""}`),
-    json: `${JSON.stringify(packet)}\n`,
+    markdown,
+    json,
+    markdownCharacters: markdown.length,
+    jsonCharacters: json.length,
+    characterCount,
   };
 }
 
@@ -68,11 +91,7 @@ export function selectP2WorkflowContextSeeds(graph: WorkflowGraph, input: Workfl
   if (!normalized.requestedDomain) return selection;
   return {
     ...selection,
-    requested: {
-      ...selection.requested,
-      domain: normalized.requestedDomain,
-      ...(normalized.requestedQuery ? { query: normalized.requestedQuery } : { query: undefined }),
-    },
+    requested: restoredRequestedScope(selection.requested, normalized.requestedDomain, normalized.requestedQuery),
   };
 }
 
