@@ -29,14 +29,15 @@ export interface FailurePacketOptions extends FailureContextOptions {
 
 const FAILURE_MARKER = /(?:\bnot ok\b|\bERR_[A-Z0-9_]+\b|AssertionError|failureType:|error:|Error:|npm error|Process completed with exit code|(?:^|\s)(?:FAIL|FAILED)(?:\s|:|$))/i;
 const WARNING_MARKER = /(?:\bwarning\b|ExperimentalWarning|DeprecationWarning|npm warn)/i;
-const SUMMARY_LINE = /^#\s+(?:tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\s+/;
+const SUMMARY_LINE = /^(?:#|ℹ)\s+(?:tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\s+/;
 
 function positiveInteger(value: number | undefined, fallback: number): number {
   return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback;
 }
 
 function compactNumber(output: string, key: string): number | undefined {
-  const match = output.match(new RegExp(`^#\\s+${key}\\s+([0-9]+(?:\\.[0-9]+)?)\\s*$`, 'm'));
+  const matches = [...output.matchAll(new RegExp(`^(?:#|ℹ)\\s+${key}\\s+([0-9]+(?:\\.[0-9]+)?)\\s*$`, 'gm'))];
+  const match = matches.at(-1);
   if (!match) return undefined;
   const value = Number(match[1]);
   return Number.isFinite(value) ? value : undefined;

@@ -27,10 +27,10 @@ import type { WorkflowDomain, WorkflowGraph, WorkflowNodeType } from "../../scri
 import type { WorkflowMapEvidenceModel } from "../../scripts/workflow-map/evidence.ts";
 import type { WorkflowCanvasFilter, WorkflowCanvasPreset, WorkflowEvidenceMode } from "./workflowCanvasTypes.ts";
 import {
-  ALL_DOMAINS,
   ALL_NODE_TYPES,
   DOMAIN_META,
   NODE_TYPE_META,
+  getGraphDomains,
   getCanvasPresets,
   searchNodes,
 } from "./workflowCanvasUtils.ts";
@@ -63,6 +63,7 @@ export function WorkflowToolbar({
   onFocusFailures,
 }: WorkflowToolbarProps) {
   const presets = getCanvasPresets(graph);
+  const graphDomains = getGraphDomains(graph);
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [evidenceDropdownOpen, setEvidenceDropdownOpen] = useState(false);
@@ -524,7 +525,7 @@ export function WorkflowToolbar({
                 <div className="space-y-1.5">
                   <div className="text-[10px] font-bold uppercase text-slate-400">By Domain</div>
                   <div className="flex flex-wrap gap-1">
-                    {ALL_DOMAINS.map((domain) => {
+                    {graphDomains.map((domain) => {
                       const meta = DOMAIN_META[domain];
                       const active = filter.selectedDomains.includes(domain);
                       return (
@@ -624,7 +625,7 @@ export function WorkflowToolbar({
             type="button"
             onClick={onOpenInvariantsModal}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-750"
-            title="Browse all 11 high-risk invariants"
+            title={`Browse all ${graph.invariants.length} high-risk invariants`}
           >
             <Shield className="h-3.5 w-3.5 text-amber-500" />
             <span className="hidden sm:inline">Catalog ({graph.invariants.length})</span>

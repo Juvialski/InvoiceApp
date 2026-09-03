@@ -46,13 +46,33 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
     'tests/workflowMap.test.ts',
     'tests/workflowMapConsistency.test.ts',
     'tests/workflowMapEvidence.test.ts',
-    'tests/workflowMapContext.test.ts'
+    'tests/workflowMapContext.test.ts',
+    'tests/workflowCanvas.test.ts'
+  ],
+  'scripts/workflow-map/**': [
+    'tests/workflowMap.test.ts',
+    'tests/workflowMapConsistency.test.ts',
+    'tests/workflowMapEvidence.test.ts',
+    'tests/workflowMapContext.test.ts',
+    'tests/p2WorkflowContextCoverage.test.ts',
+    'tests/workflowCanvas.test.ts',
+  ],
+  'scripts/agent-context.ts': [
+    'tests/agentEfficiency.test.ts',
+    'tests/workflowMap.test.ts',
+    'tests/p2WorkflowContextCoverage.test.ts',
   ],
   'docs/architecture/workflow-map.json': [
     'tests/workflowMap.test.ts',
     'tests/workflowMapConsistency.test.ts',
     'tests/workflowMapEvidence.test.ts',
     'tests/workflowMapContext.test.ts'
+  ],
+  'docs/architecture/APP_WORKFLOW_MAP.md': [
+    'tests/workflowMap.test.ts',
+    'tests/workflowMapConsistency.test.ts',
+    'tests/workflowMapEvidence.test.ts',
+    'tests/workflowMapContext.test.ts',
   ]
 };
 
@@ -70,7 +90,11 @@ export const DOMAIN_TEST_PATTERNS: Record<string, string[]> = {
   ],
   projectCosting: [
     'tests/project*.test.ts',
-    'tests/engineeringProjectCosting.test.ts'
+    'tests/engineeringProjectCosting.test.ts',
+    'tests/purchaseOrder*.test.ts',
+    'tests/rfq*.test.ts',
+    'tests/subcontract*.test.ts',
+    'tests/subcontracts*.test.tsx'
   ],
   payroll: [
     'tests/payroll*.test.ts',
@@ -103,7 +127,8 @@ export const DOMAIN_TEST_PATTERNS: Record<string, string[]> = {
 export const DOMAIN_SOURCE_PATTERNS: Record<string, string[]> = {
   subcontracts: [
     'src/lib/subcontract*.ts',
-    'src/components/procurement/Subcontract*.tsx'
+    'src/components/procurement/Subcontract*.tsx',
+    'src/components/procurement/ProcurementPage.tsx'
   ],
   procurement: [
     'src/lib/purchaseOrder*.ts',

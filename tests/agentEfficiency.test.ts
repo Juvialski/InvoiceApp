@@ -166,6 +166,29 @@ test('node:test summary parser extracts compact pass/fail counts', () => {
   });
 });
 
+test('node:test summary parser accepts the current info-marked summary and keeps the final counts', () => {
+  const output = [
+    '# tests 2',
+    '# pass 2',
+    'ℹ tests 1408',
+    'ℹ suites 13',
+    'ℹ pass 1407',
+    'ℹ fail 0',
+    'ℹ skipped 1',
+    'ℹ duration_ms 84950.25',
+  ].join('\n');
+  assert.deepEqual(parseNodeTestSummary(output), {
+    tests: 1408,
+    suites: 13,
+    pass: 1407,
+    fail: 0,
+    cancelled: undefined,
+    skipped: 1,
+    todo: undefined,
+    durationMs: 84950.25,
+  });
+});
+
 test('failure extractor keeps the useful failure neighborhood and final summary only', () => {
   const noise = Array.from({ length: 150 }, (_, index) => `successful diagnostic line ${index}`);
   const log = [

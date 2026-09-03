@@ -166,12 +166,16 @@ export const EDGE_KIND_META: Record<WorkflowEdgeKind, EdgeKindVisualMeta> = {
   context: { id: "context", label: "Scope / Context", color: "#94a3b8", isDashed: false },
 };
 
-export const ALL_DOMAINS: readonly WorkflowDomain[] = WORKFLOW_DOMAIN_ORDER;
+export function getGraphDomains(graph: WorkflowGraph = WORKFLOW_GRAPH): readonly WorkflowDomain[] {
+  const present = new Set(graph.nodes.map((node) => node.domain));
+  return WORKFLOW_DOMAIN_ORDER.filter((domain) => present.has(domain));
+}
+
 export const ALL_NODE_TYPES: readonly WorkflowNodeType[] = ["route", "screen", "workflow", "state", "action", "data", "derived-data", "guard", "external-boundary"];
 
 export function getCanvasPresets(graph: WorkflowGraph = WORKFLOW_GRAPH): readonly WorkflowCanvasPreset[] {
   const curated: WorkflowCanvasPreset[] = graph.diagrams.map((d) => ({ id: d.id, title: d.title, description: d.description, category: "curated", nodeIds: d.nodeIds }));
-  const domains: WorkflowCanvasPreset[] = ALL_DOMAINS.map((domain) => {
+  const domains: WorkflowCanvasPreset[] = getGraphDomains(graph).map((domain) => {
     const meta = DOMAIN_META[domain];
     const nodeIds = graph.nodes.filter((n) => n.domain === domain).map((n) => n.id);
     return { id: `domain-${domain}`, title: `${meta.label} Domain`, description: meta.description, category: "domain", domain, nodeIds };
@@ -318,12 +322,12 @@ export function getNodeDetails(graph: WorkflowGraph, nodeId: string, evidenceMod
   return { node, domainMeta: DOMAIN_META[node.domain] || DOMAIN_META["platform-tenancy"], typeMeta: NODE_TYPE_META[node.type] || NODE_TYPE_META.workflow, invariants, incomingEdges, outgoingEdges, fileRefs: node.fileRefs || [], testRefs: node.testRefs || [], qaScenarioIds: node.qaScenarioIds || [], evidence: evidenceModel?.evidenceForNode(nodeId), screenshotUrls };
 }
 
-export function parseWorkflowMapUrlState(search = window.location.search): Partial<Writable<WorkflowCanvasFilter>> {
+export function parseWorkflowMapUrlState(search = window.location.search, graph: WorkflowGraph = WORKFLOW_GRAPH): Partial<Writable<WorkflowCanvasFilter>> {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   const result: Partial<Writable<WorkflowCanvasFilter>> = {};
   const preset = params.get("preset"); if (preset) result.presetId = preset;
   const node = params.get("node"); if (node) result.selectedNodeId = node;
-  const domain = params.get("domain"); if (domain && ALL_DOMAINS.includes(domain as WorkflowDomain)) result.selectedDomains = [domain as WorkflowDomain];
+  const domain = params.get("domain"); if (domain && getGraphDomains(graph).includes(domain as WorkflowDomain)) result.selectedDomains = [domain as WorkflowDomain];
   const query = params.get("q") || params.get("search"); if (query) result.searchQuery = query;
   const focus = params.get("focus"); if (focus === "true" || focus === "1") result.focusNeighborhood = true;
   const hops = params.get("hops"); if (hops === "2") result.neighborhoodHops = 2;

@@ -94,7 +94,7 @@ The visual workflow canvas is dedicated developer and agent tooling. It is compl
 - Open `/workflow-map`, `/dev/workflow-map`, or `/?view=workflow-map` in any browser while the development server is running (`npm.cmd run dev` or `npx.cmd tsx server.ts`);
 - No Supabase login, session, or credentials required;
 - Zero customer navigation links, RBAC permissions, or business mutation endpoints mounted;
-- Consumes the canonical graph directly from `scripts/workflow-map/graph.ts` (183 nodes, 208 edges, 11 invariants).
+- Consumes every currently mapped product domain directly from the canonical graph at `scripts/workflow-map/graph.ts`; exact node, edge, and invariant counts remain generated rather than duplicated in this guidance.
 
 ### Canvas capabilities
 
@@ -103,7 +103,7 @@ The visual workflow canvas is dedicated developer and agent tooling. It is compl
 3. **Interactive search & filtering**: Fast real-time search across node labels, IDs, routes, statuses, invariants, and descriptions. Domain and node type filter toggles.
 4. **Neighborhood focus**: Highlight 1-hop or 2-hop connected dependencies with dimmed unrelated nodes, or isolate strictly to the neighborhood.
 5. **Node details drawer**: Full inspection of node scope, route paths, lifecycle state progressions, required permissions, human confirmation gates, attached high-risk invariants, copyable source and test file paths, and clickable incoming/outgoing dependencies.
-6. **High-risk invariants catalog**: Dedicated reference sheet for all 11 architectural invariants protecting financial and system integrity.
+6. **High-risk invariants catalog**: Dedicated reference sheet for every architectural invariant protecting financial and system integrity.
 7. **URL state synchronization**: Shareable preset, domain, node, and search query parameters.
 8. **Read-only guarantee**: authoring, edge creation, and graph mutation tools are disabled. Node dragging is permitted for temporary exploration without modifying the canonical graph source.
 
