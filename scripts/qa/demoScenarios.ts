@@ -87,7 +87,7 @@ const verifyPortfolioDashboard: QaScenarioAction = async (page) => {
 const verifyPortfolioAttention: QaScenarioAction = async (page) => {
   const attentionCount = await page.locator("text=Needs attention").count();
   const criticalCount = await page.locator("text=Critical signals").count();
-  await page.getByRole("button", { name: /More filters/ }).first().click();
+  await page.locator('summary:has-text("More filters")').first().click();
   const filter = page.getByRole("combobox", { name: "Filter by financial health and attention signals", exact: true }).first();
   await filter.selectOption("NEEDS_ATTENTION");
   await page.waitForTimeout(250);
