@@ -25,7 +25,7 @@ function expectCoverageGap(selection: WorkflowContextSelectionInput): void {
 test("canonical commercial domain preserves a true coverage gap for future unmapped work", () => {
   expectCoverageGap({
     domain: "commercial",
-    query: "client billing collections",
+    query: "client collection matching",
   });
 });
 

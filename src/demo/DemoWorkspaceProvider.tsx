@@ -37,7 +37,16 @@ function readInitialWorkspace(anchorDate: string): DemoWorkspaceData {
       const raw = window.sessionStorage.getItem(DEMO_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as unknown;
-        if (isSafeStoredDemoWorkspace(parsed, anchorDate) && Boolean((parsed as DemoWorkspaceData).coordination)) return parsed as DemoWorkspaceData;
+        if (isSafeStoredDemoWorkspace(parsed, anchorDate) && Boolean((parsed as DemoWorkspaceData).coordination)) {
+          const stored = parsed as DemoWorkspaceData;
+          if (stored.clientBillings && stored.clientBillingEvents) return stored;
+          const seeded = createDemoWorkspace(anchorDate);
+          return {
+            ...stored,
+            clientBillings: stored.clientBillings || seeded.clientBillings,
+            clientBillingEvents: stored.clientBillingEvents || seeded.clientBillingEvents,
+          };
+        }
       }
     } catch {
       // A blocked or corrupt session store must never prevent the public demo.

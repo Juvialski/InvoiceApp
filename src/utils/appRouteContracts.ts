@@ -41,6 +41,13 @@ export const APP_ROUTE_CONTRACTS: readonly AppRouteContract[] = Object.freeze([
     scope: "production-and-demo",
   },
   {
+    id: "project-billing",
+    routeId: "projects",
+    canonicalPath: "/projects/:projectId/billing",
+    pathPattern: "/projects/:projectId/billing",
+    scope: "production-and-demo",
+  },
+  {
     id: "project-budget",
     routeId: "projects",
     canonicalPath: "/projects/:projectId/budget",

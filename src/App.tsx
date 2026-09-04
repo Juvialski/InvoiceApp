@@ -102,6 +102,24 @@ import {
   writeInvoiceProjectAllocationsToLocal,
 } from "./lib/projects";
 import {
+  appendClientBillingEvent,
+  applyLocalClientBillingTransition,
+  buildLocalClientBilling,
+  loadClientBillingWorkspaceFromSupabase,
+  readClientBillingsFromLocal,
+  readClientBillingEventsFromLocal,
+  saveClientBillingToSupabase,
+  transitionClientBillingToSupabase,
+  type ClientBilling,
+  type ClientBillingEvent,
+  type ClientBillingInput,
+  type ClientBillingLineInput,
+  type ClientBillingStatus,
+  type ClientBillingWorkspaceData,
+  upsertClientBilling,
+  writeClientBillingWorkspaceToLocal,
+} from "./lib/clientBilling.ts";
+import {
   archiveProjectCostCodeInSupabase,
   loadProjectCostCodesFromSupabase,
   reactivateProjectCostCodeInSupabase,
@@ -368,6 +386,7 @@ function InvoiceWorkspace() {
   const savePromisesRef = useRef(new Map<string, Promise<unknown>>());
   const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(() => isSupabaseConfigured ? { costCenters: [], batches: [], rows: [], templates: [] } : readPayrollImportWorkspaceFromLocal());
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(() => isSupabaseConfigured ? [] : readInvoiceProjectAllocationsFromLocal());
+  const [clientBillingData, setClientBillingData] = useState<ClientBillingWorkspaceData>(() => isSupabaseConfigured ? { billings: [], events: [] } : { billings: readClientBillingsFromLocal(), events: readClientBillingEventsFromLocal() });
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
@@ -532,6 +551,7 @@ function InvoiceWorkspace() {
     setRemoteInvoiceUpdate(null);
     projectController.reset();
     setInvoiceProjectAllocations([]);
+    setClientBillingData({ billings: [], events: [] });
     setExpenses([]);
     setCostCodes([]);
     setExpenseCorrectionContext(null);
@@ -590,6 +610,7 @@ function InvoiceWorkspace() {
   type EngineeringWorkspaceGroup = {
     projects: Project[];
     allocations: InvoiceProjectAllocation[];
+    clientBillingData: ClientBillingWorkspaceData;
     expenses: Expense[];
     costCodes: ProjectCostCode[];
     purchaseOrders: PurchaseOrder[];
@@ -655,6 +676,7 @@ function InvoiceWorkspace() {
     if (!canApplyWorkspaceResult(token)) return;
     projectController.applyProjects(data.projects);
     setInvoiceProjectAllocations(data.allocations);
+    setClientBillingData(data.clientBillingData);
     setExpenses(data.expenses);
     setCostCodes(data.costCodes);
     setPurchaseOrders(data.purchaseOrders);
@@ -673,6 +695,7 @@ function InvoiceWorkspace() {
     const results = await Promise.allSettled([
       can(PERMISSION_KEYS.projectsRead) ? loadProjectsFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.projectsRead) || can(PERMISSION_KEYS.invoicesRead) ? loadInvoiceProjectAllocationsFromSupabase() : Promise.resolve([]),
+      can(PERMISSION_KEYS.projectsRead) ? loadClientBillingWorkspaceFromSupabase() : Promise.resolve({ billings: [], events: [] } as ClientBillingWorkspaceData),
       can(PERMISSION_KEYS.expensesRead) ? loadExpensesFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.projectsRead) ? loadProjectCostCodesFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) ? fetchPurchaseOrders() : Promise.resolve([]),
@@ -686,26 +709,28 @@ function InvoiceWorkspace() {
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
     const allocations = results[1].status === "fulfilled" ? results[1].value : [];
-    const expenses = results[2].status === "fulfilled" ? results[2].value : [];
-    const costCodes = results[3].status === "fulfilled" ? results[3].value : [];
-    const purchaseOrders = results[4].status === "fulfilled" ? results[4].value : [];
-    const vendors = results[5].status === "fulfilled" ? results[5].value : [];
-    const receipts = results[6].status === "fulfilled" ? results[6].value : [];
-    const purchaseOrderMatches = results[7].status === "fulfilled" ? results[7].value : [];
-    const rfqs = results[8].status === "fulfilled" ? results[8].value : [];
-    const supplierQuotations = results[9].status === "fulfilled" ? results[9].value : [];
-    const subcontracts = results[10].status === "fulfilled" ? results[10].value : [];
+    const clientBillingData = results[2].status === "fulfilled" ? results[2].value : { billings: [], events: [] };
+    const expenses = results[3].status === "fulfilled" ? results[3].value : [];
+    const costCodes = results[4].status === "fulfilled" ? results[4].value : [];
+    const purchaseOrders = results[5].status === "fulfilled" ? results[5].value : [];
+    const vendors = results[6].status === "fulfilled" ? results[6].value : [];
+    const receipts = results[7].status === "fulfilled" ? results[7].value : [];
+    const purchaseOrderMatches = results[8].status === "fulfilled" ? results[8].value : [];
+    const rfqs = results[9].status === "fulfilled" ? results[9].value : [];
+    const supplierQuotations = results[10].status === "fulfilled" ? results[10].value : [];
+    const subcontracts = results[11].status === "fulfilled" ? results[11].value : [];
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
-    if (results[2].status !== "fulfilled") failures.push("expenses");
-    if (results[3].status !== "fulfilled") failures.push("cost codes");
-    if (results[4].status !== "fulfilled") failures.push("purchase orders");
-    if (results[5].status !== "fulfilled") failures.push("vendors");
-    if (results[6].status !== "fulfilled") failures.push("purchase order receipts");
-    if (results[7].status !== "fulfilled") failures.push("purchase order matches");
-    if (results[8].status !== "fulfilled") failures.push("rfqs");
-    if (results[9].status !== "fulfilled") failures.push("supplier quotations");
-    if (results[10].status !== "fulfilled") failures.push("subcontracts");
+    if (results[2].status !== "fulfilled") failures.push("client billings");
+    if (results[3].status !== "fulfilled") failures.push("expenses");
+    if (results[4].status !== "fulfilled") failures.push("cost codes");
+    if (results[5].status !== "fulfilled") failures.push("purchase orders");
+    if (results[6].status !== "fulfilled") failures.push("vendors");
+    if (results[7].status !== "fulfilled") failures.push("purchase order receipts");
+    if (results[8].status !== "fulfilled") failures.push("purchase order matches");
+    if (results[9].status !== "fulfilled") failures.push("rfqs");
+    if (results[10].status !== "fulfilled") failures.push("supplier quotations");
+    if (results[11].status !== "fulfilled") failures.push("subcontracts");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -730,7 +755,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, expenses, costCodes, purchaseOrders, subcontracts, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, expenses, costCodes, purchaseOrders, subcontracts, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -950,12 +975,13 @@ function InvoiceWorkspace() {
   useEffect(() => {
     if (shouldPersistGuestWorkspace(authResolved, session?.user?.id) && guestModeState) {
       writeInvoiceProjectAllocationsToLocal(invoiceProjectAllocations);
+      writeClientBillingWorkspaceToLocal(clientBillingData);
       writePayrollImportWorkspaceToLocal(payrollImportData);
       writeExpensesToLocal(expenses);
       writePayrollWorkspaceToLocal(payrollData);
       writeCashBankingWorkspaceToLocal(cashData);
     }
-  }, [invoiceProjectAllocations, expenses, payrollData, payrollImportData, cashData, session, authResolved, guestModeState]);
+  }, [invoiceProjectAllocations, clientBillingData, expenses, payrollData, payrollImportData, cashData, session, authResolved, guestModeState]);
 
   useEffect(() => {
     payrollDataRef.current = payrollData;
@@ -2020,6 +2046,55 @@ function InvoiceWorkspace() {
       showNotification("success", "Expense saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save expense."));
+    }
+  };
+
+  const handleSaveClientBilling = async (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => {
+    try {
+      if (isSupabaseConfigured && !guestModeState && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to manage client billings in this company.");
+      const project = projects.find((candidate) => candidate.id === input.projectId);
+      if (!project) throw new Error("The selected project is not available in this workspace.");
+      const existing = input.id ? clientBillingData.billings.find((billing) => billing.id === input.id) : undefined;
+      const normalizedNumber = input.billingNumber.trim().toUpperCase();
+      if (!normalizedNumber) throw new Error("Billing number is required.");
+      if (clientBillingData.billings.some((billing) => billing.id !== input.id && billing.billingNumber.trim().toUpperCase() === normalizedNumber)) {
+        throw new Error("Billing number already exists in this deployment company.");
+      }
+
+      if (session && supabase && !guestModeState) {
+        const saved = await saveClientBillingToSupabase({ ...input, currency: project.currency }, lines, existing);
+        setClientBillingData((current) => ({ ...current, billings: upsertClientBilling(current.billings, saved) }));
+        try { await refreshWorkspaceGroups(["engineering"], currentWorkspaceLoadToken(), { force: true, reason: "client-billing-save" }); } catch { /* The saved RPC result remains visible; realtime/load can reconcile later. */ }
+      } else {
+        const saved = buildLocalClientBilling({ ...input, currency: project.currency, clientNameSnapshot: input.clientNameSnapshot || project.clientName }, lines, existing, "guest-company");
+        const event = appendClientBillingEvent(clientBillingData.events, saved, existing ? "UPDATED" : "CREATED", existing?.status);
+        setClientBillingData({ billings: upsertClientBilling(clientBillingData.billings, saved), events: event });
+      }
+      showNotification("success", "Client billing draft saved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save client billing."));
+      throw error;
+    }
+  };
+
+  const handleTransitionClientBilling = async (id: string, targetStatus: ClientBillingStatus, reason?: string) => {
+    try {
+      if (isSupabaseConfigured && !guestModeState && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to change client billing lifecycle state.");
+      const current = clientBillingData.billings.find((billing) => billing.id === id);
+      const project = current ? projects.find((candidate) => candidate.id === current.projectId) : undefined;
+      if (!current || !project) throw new Error("Client billing or its project is not available in this workspace.");
+      if (session && supabase && !guestModeState) {
+        const saved = await transitionClientBillingToSupabase(id, targetStatus, reason);
+        setClientBillingData((value) => ({ ...value, billings: upsertClientBilling(value.billings, saved) }));
+        try { await refreshWorkspaceGroups(["engineering"], currentWorkspaceLoadToken(), { force: true, reason: "client-billing-transition" }); } catch { /* Keep the authoritative RPC result visible until the next refresh. */ }
+      } else {
+        const result = applyLocalClientBillingTransition(current, targetStatus, project, clientBillingData.billings, reason);
+        setClientBillingData((value) => ({ billings: value.billings.map((billing) => billing.id === id ? result.billing : billing), events: [result.event, ...value.events] }));
+      }
+      showNotification("success", targetStatus === "ISSUED" ? "Client billing issued." : `Client billing marked ${targetStatus.toLowerCase().replaceAll("_", " ")}.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not change client billing lifecycle state."));
+      throw error;
     }
   };
 
@@ -4010,6 +4085,11 @@ function InvoiceWorkspace() {
           onDashboardCurrencyChange={setDashboardCurrency}
           onNavigateTab={setActiveTab}
           projects={projects}
+          clientBillings={clientBillingData.billings}
+          clientBillingEvents={clientBillingData.events}
+          clientBillingLoading={projectCostDomainLoadState === "loading"}
+          onSaveClientBilling={handleSaveClientBilling}
+          onTransitionClientBilling={handleTransitionClientBilling}
           companyId={activeCompanyId || undefined}
           engineeringDocumentsCanRead={engineeringDocumentsCanRead}
           engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}

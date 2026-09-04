@@ -29,6 +29,7 @@ import { DEMO_COMPANY_ID, type DemoPreparedAssistantAction, type DemoWorkspaceDa
 import { assignmentDependencySummary, assignmentForLifecycle, componentForLifecycle, isCompensationProfileConsumed, isRecurringComponentConsumed, profileForLifecycle, workerDependencySummary, workerForLifecycle, type PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction } from "../lib/projects.ts";
 import type { FinancialCorrectionAction } from "../lib/financialLifecycle.ts";
+import { applyLocalClientBillingTransition, type ClientBilling, type ClientBillingEvent, type ClientBillingStatus, upsertClientBilling } from "../lib/clientBilling.ts";
 import { applySubcontractTransition } from "../lib/subcontracts.ts";
 import { applySubcontractClaimTransition } from "../lib/subcontractClaims.ts";
 import { applySubcontractVariationTransition } from "../lib/subcontractVariations.ts";
@@ -52,6 +53,8 @@ export type DemoWorkspaceMutation =
   | { type: "SAVE_SUBCONTRACT_VARIATION"; value: SubcontractVariation }
   | { type: "TRANSITION_SUBCONTRACT_VARIATION"; id: string; targetStatus: SubcontractVariationStatus; reason?: string }
   | { type: "DELETE_SUBCONTRACT_VARIATION"; id: string }
+  | { type: "SAVE_CLIENT_BILLING"; value: ClientBilling; event?: ClientBillingEvent }
+  | { type: "TRANSITION_CLIENT_BILLING"; id: string; targetStatus: ClientBillingStatus; reason?: string }
   | { type: "SAVE_WORKER"; value: Worker }
   | { type: "SAVE_ASSIGNMENT"; value: ProjectWorkerAssignment }
   | { type: "SAVE_COMPENSATION_PROFILE"; value: WorkerCompensationProfile }
@@ -104,6 +107,7 @@ export function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: P
     subcontracts: (state.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
     subcontractProgressClaims: (state.subcontractClaims || []).filter((claim) => claim.projectId === project.id).length,
     subcontractVariations: (state.subcontractVariations || []).filter((variation) => variation.projectId === project.id).length,
+    clientBillings: (state.clientBillings || []).filter((billing) => billing.projectId === project.id).length,
   });
 }
 
@@ -234,6 +238,23 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       const current = (state.subcontractVariations || []).find((variation) => variation.id === mutation.id);
       if (!current || current.status !== "DRAFT") return state;
       return { ...state, subcontractVariations: (state.subcontractVariations || []).filter((variation) => variation.id !== mutation.id) };
+    }
+    case "SAVE_CLIENT_BILLING": {
+      const existing = (state.clientBillings || []).find((billing) => billing.id === mutation.value.id);
+      if (existing && existing.status !== "DRAFT") return state;
+      const nextEvents = mutation.event ? [mutation.event, ...(state.clientBillingEvents || [])] : state.clientBillingEvents || [];
+      return { ...state, clientBillings: upsertClientBilling(state.clientBillings || [], mutation.value), clientBillingEvents: nextEvents };
+    }
+    case "TRANSITION_CLIENT_BILLING": {
+      const current = (state.clientBillings || []).find((billing) => billing.id === mutation.id);
+      const project = current ? state.projects.find((candidate) => candidate.id === current.projectId) : undefined;
+      if (!current || !project) return state;
+      try {
+        const result = applyLocalClientBillingTransition(current, mutation.targetStatus, project, state.clientBillings || [], mutation.reason, demoTimestamp(state.anchorDate, 17, 30));
+        return { ...state, clientBillings: (state.clientBillings || []).map((billing) => billing.id === current.id ? result.billing : billing), clientBillingEvents: [result.event, ...(state.clientBillingEvents || [])] };
+      } catch {
+        return state;
+      }
     }
     case "SAVE_WORKER":
       return { ...state, payroll: { ...state.payroll, workers: upsert(state.payroll.workers, mutation.value) } };

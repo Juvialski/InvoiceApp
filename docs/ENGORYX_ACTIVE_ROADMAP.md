@@ -134,8 +134,9 @@ P2B is split into bounded implementation waves:
 - **P2B-1 Subcontract Packages & Commitment Foundation**: **COMPLETE** (company-scoped trade contractor subcontracts, line-level cost codes, committed liability calculation, DRAFT/APPROVED/ACTIVE/CLOSED/CANCELLED lifecycle, project lifecycle protection).
 - **P2B-2 Subcontract Progress Claims & Retention**: **COMPLETE** (progress claim valuation headers and lines, line-level and contract-level cumulative over-claim guards, configurable retention calculation, commercial status lifecycle DRAFT/SUBMITTED/APPROVED/REJECTED/CANCELLED/VOIDED, remaining subcontract commitment reduction, certified subcontract work & retention tracking without altering Actual Cost, dedicated claims register drawer and valuation editor, project budget control and performance integration, migration & project lifecycle preflight blocker).
 - **P2B-3 Subcontract Variations / Change Orders & Revised Commitments**: **COMPLETE** (DRAFT/SUBMITTED/APPROVED/REJECTED variation lifecycle, approved-only revised subcontract value, remaining commitment integration after certified progress, and preserved separation from project contract value, project budget, Actual Cost, invoice, payment, and settlement truth).
+- **P2B-4 Client Progress Billing Foundation**: **COMPLETE** (company-scoped project billing headers and line-derived totals, DRAFT/SUBMITTED/ISSUED/CANCELLED/VOIDED lifecycle, issued-only billed-to-date, project-lock cumulative over-billing protection, append-only billing history, project lifecycle integration, and Project Workspace commercial visibility). Collections remain unimplemented; settlement linkage remains unimplemented; project collected and authoritative outstanding-receivables truth is not yet complete.
 
-Future client billing, collections, and settlement-linkage waves remain uncompleted and are not implied by P2B-3.
+Future collections and settlement-linkage waves remain uncompleted and are not implied by P2B-4.
 
 Do not infer legal/accounting/tax treatment beyond explicit product requirements.
 

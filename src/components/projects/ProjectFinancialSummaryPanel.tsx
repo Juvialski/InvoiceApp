@@ -6,6 +6,7 @@ import {
   buildProjectFinancialTruth,
   type ProjectFinancialMetric,
 } from "../../utils/projectFinancialSummary.ts";
+import { calculateClientBillingSummary, type ClientBilling } from "../../lib/clientBilling.ts";
 
 function money(value: number, currency: string) {
   try {
@@ -39,20 +40,23 @@ function MetricCard({ label, metric, currency }: { label: string; metric: Projec
 export function ProjectFinancialSummaryPanel({
   project,
   summary,
+  clientBillings = [],
 }: {
-  project: Pick<Project, "projectBudget" | "contractValue" | "currency">;
+  project: Pick<Project, "id" | "projectBudget" | "contractValue" | "currency">;
   summary: ProjectCostSummary;
+  clientBillings?: readonly ClientBilling[];
 }) {
-  const truth = buildProjectFinancialTruth(project, summary);
+  const billingSummary = calculateClientBillingSummary(project, clientBillings);
+  const truth = buildProjectFinancialTruth(project, summary, billingSummary);
   const primary: Array<[string, ProjectFinancialMetric]> = [
     ["Contract Value", truth.contractValue],
     ["Approved Cost Budget", truth.approvedCostBudget],
     ["Actual Cost", truth.actualCost],
     ["Committed Cost", truth.committedCost],
     ["Remaining Budget", truth.remainingBudget],
-    ["Billed", truth.billed],
-    ["Collected", truth.collected],
-    ["Outstanding Receivables", truth.outstandingReceivables],
+    ["Billed to Date", truth.billed],
+    ["Collected (not implemented)", truth.collected],
+    ["Outstanding Receivables (not implemented)", truth.outstandingReceivables],
   ];
 
   return (

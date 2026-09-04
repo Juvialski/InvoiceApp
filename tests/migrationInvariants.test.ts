@@ -160,6 +160,11 @@ test("migration invariant: latest migration contains the authoritative superset 
       "ACCESS_AUTHORIZATION_CREATED", "ACCESS_AUTHORIZATION_PERMISSIONS_UPDATED",
       "ACCESS_AUTHORIZATION_REVOKED", "ACCESS_AUTHORIZATION_ACCEPTED",
       "MEMBERSHIP_CREATED", "PERMISSION_OVERRIDES_TRANSFERRED"
+    ],
+    "Client Progress Billing (P2B-4)": [
+      "CLIENT_BILLING_CREATED", "CLIENT_BILLING_UPDATED", "CLIENT_BILLING_SUBMITTED",
+      "CLIENT_BILLING_RETURNED_TO_DRAFT", "CLIENT_BILLING_ISSUED", "CLIENT_BILLING_CANCELLED",
+      "CLIENT_BILLING_VOIDED"
     ]
   };
 
@@ -174,6 +179,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 108, "Authoritative set must comprise exactly 108 events through Wave 2B3 Cash correction lifecycles");
-  assert.equal(latestSet.size, 108, `Latest allowlist has ${latestSet.size} unique events, expected 108`);
+  assert.equal(totalExpected, 115, "Authoritative set must comprise exactly 115 events through P2B-4 client progress billing lifecycles");
+  assert.equal(latestSet.size, 115, `Latest allowlist has ${latestSet.size} unique events, expected 115`);
 });
