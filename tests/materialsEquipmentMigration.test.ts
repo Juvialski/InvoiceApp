@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const migrationPath = new URL("../supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql", import.meta.url);
+const migrationPath = new URL("../supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql", import.meta.url);
 const migration = readFileSync(migrationPath, "utf8");
-const realtimeMigration = readFileSync(new URL("../supabase/migrations/20260904103008_p3b_p3c_materials_equipment_realtime.sql", import.meta.url), "utf8");
+const realtimeMigration = readFileSync(new URL("../supabase/migrations/20260904122000_p3b_p3c_materials_equipment_realtime.sql", import.meta.url), "utf8");
 const sql = migration.replace(/--[^\r\n]*/g, "");
 
 test("P3B/P3C migration creates minimal company/project-bound registers and structured observations", () => {
