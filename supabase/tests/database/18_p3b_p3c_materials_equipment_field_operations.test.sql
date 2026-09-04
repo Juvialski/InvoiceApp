@@ -45,6 +45,8 @@ select
   'd3b80000-0000-4000-8000-000000000001'::uuid as material_a,
   'd3b90000-0000-4000-8000-000000000001'::uuid as equipment_a,
   'd3b90000-0000-4000-8000-000000000002'::uuid as equipment_other_project,
+  'd3bb0000-0000-4000-8000-000000000001'::uuid as cost_code_a,
+  'd3bb0000-0000-4000-8000-000000000002'::uuid as cost_code_other_project,
   'd3ba0000-0000-4000-8000-000000000001'::uuid as site_log_a;
 grant select on p3bc_ids to authenticated, service_role;
 
@@ -73,6 +75,11 @@ values
   ((select project_a from p3bc_ids), (select admin_user from p3bc_ids), (select company_a from p3bc_ids), 'P3BC-A', 'Field Operations Project', 'Client A', 'P3BC-A-REF', 'ACTIVE', 100000, 70000, 'PHP'),
   ((select project_a_other from p3bc_ids), (select admin_user from p3bc_ids), (select company_a from p3bc_ids), 'P3BC-A2', 'Other Company A Project', 'Client A', 'P3BC-A2-REF', 'ACTIVE', 100000, 70000, 'PHP'),
   ((select project_b from p3bc_ids), (select outsider_user from p3bc_ids), (select company_b from p3bc_ids), 'P3BC-B', 'Other Company Project', 'Client B', 'P3BC-B-REF', 'ACTIVE', 100000, 70000, 'USD');
+
+insert into public.project_cost_codes (id, company_id, project_id, code, name, approved_budget_amount, created_by_user_id, updated_by_user_id)
+values
+  ((select cost_code_a from p3bc_ids), (select company_a from p3bc_ids), (select project_a from p3bc_ids), 'FIELD', 'Field operations', 0, (select admin_user from p3bc_ids), (select admin_user from p3bc_ids)),
+  ((select cost_code_other_project from p3bc_ids), (select company_a from p3bc_ids), (select project_a_other from p3bc_ids), 'FIELD', 'Other project field operations', 0, (select admin_user from p3bc_ids), (select admin_user from p3bc_ids));
 
 insert into public.deployment_configuration (singleton, company_id)
 values (true, (select company_a from p3bc_ids))
@@ -139,7 +146,7 @@ select public.create_engineering_daily_site_log_v2(
   (select company_a from p3bc_ids), (select site_log_a from p3bc_ids), (select project_a from p3bc_ids), date '2026-09-04',
   'P3BC-DSL-001', 'Concrete placement and access-road preparation', '46 cu.m placed at the north bay', 'No schedule calculation is implied', 'Field record for P3BC',
   jsonb_build_object('condition', 'CLEAR', 'temperature', 30, 'temperature_unit', 'C'),
-  jsonb_build_array(jsonb_build_object('id', 'd3bc0000-0000-4000-8000-000000000001', 'crew_label', 'Concrete crew', 'headcount', 12, 'regular_hours', 8)),
+  jsonb_build_array(jsonb_build_object('id', 'd3bc0000-0000-4000-8000-000000000001', 'crew_label', 'Concrete crew', 'project_cost_code_id', (select cost_code_a from p3bc_ids), 'headcount', 12, 'regular_hours', 8)),
   jsonb_build_array(jsonb_build_object('id', 'd3bc0000-0000-4000-8000-000000000002', 'equipment_id', (select equipment_a from p3bc_ids), 'equipment_name', 'Excavator 20T', 'equipment_type', 'Earthworks', 'asset_reference', 'EQ-001', 'operating_hours', 7.5, 'idle_hours', 1, 'condition_status', 'Operational')),
   jsonb_build_array(),
   jsonb_build_array(jsonb_build_object('id', 'd3bc0000-0000-4000-8000-000000000003', 'description', 'Concrete placed at north bay', 'quantity', 46, 'unit', 'cu.m', 'work_location', 'North bay')),
@@ -151,6 +158,19 @@ select is((select count(*) from public.engineering_daily_site_log_work where sit
 select is((select count(*) from public.engineering_daily_site_log_material_deliveries where site_log_id = (select site_log_a from p3bc_ids)), 1::bigint, 'v2 RPC stores material delivery observations');
 select is((select count(*) from public.engineering_daily_site_log_issues where site_log_id = (select site_log_a from p3bc_ids)), 1::bigint, 'v2 RPC stores structured field issues');
 select is((select equipment_id from public.engineering_daily_site_log_equipment where site_log_id = (select site_log_a from p3bc_ids)), (select equipment_a from p3bc_ids), 'equipment observation stores stable register link');
+select is((select project_id from public.engineering_daily_site_log_crew where site_log_id = (select site_log_a from p3bc_ids)), (select project_a from p3bc_ids), 'crew observation stores the authoritative parent project snapshot');
+select is((select project_cost_code_id from public.engineering_daily_site_log_crew where site_log_id = (select site_log_a from p3bc_ids)), (select cost_code_a from p3bc_ids), 'crew observation stores the same-project cost-code link');
+
+select throws_ok(
+  $$select public.create_engineering_daily_site_log_v2(
+    (select company_a from p3bc_ids), 'd3ba0000-0000-4000-8000-000000000002'::uuid, (select project_a from p3bc_ids), date '2026-09-05',
+    'P3BC-DSL-002', 'Cross-project crew cost code should fail', null, null, null,
+    jsonb_build_object('condition', 'CLEAR'), jsonb_build_array(jsonb_build_object('id', 'd3bc0000-0000-4000-8000-000000000006', 'crew_label', 'Crew', 'project_cost_code_id', (select cost_code_other_project from p3bc_ids), 'headcount', 1)),
+    jsonb_build_array(), jsonb_build_array(), jsonb_build_array(), jsonb_build_array(), jsonb_build_array()
+  )$$,
+  '42501', null,
+  'Site Log crew cost code cannot cross projects'
+);
 
 select public.submit_engineering_daily_site_log((select company_a from p3bc_ids), (select site_log_a from p3bc_ids));
 select public.finalize_engineering_daily_site_log((select company_a from p3bc_ids), (select site_log_a from p3bc_ids));
@@ -159,6 +179,14 @@ select throws_ok(
   '42501', null,
   'authenticated clients cannot bypass finalized Site Log child write boundary'
 );
+
+reset role;
+select throws_ok(
+  $$delete from public.project_cost_codes where id = (select cost_code_a from p3bc_ids)$$,
+  '23503', null,
+  'referenced Site Log crew cost codes cannot be deleted'
+);
+set local role authenticated;
 
 select public.save_engineering_project_material(jsonb_build_object(
   'id', (select material_a from p3bc_ids), 'companyId', (select company_a from p3bc_ids), 'projectId', (select project_a from p3bc_ids),
@@ -175,7 +203,7 @@ select is((select equipment_name from public.engineering_daily_site_log_equipmen
 
 select throws_ok(
   $$select public.create_engineering_daily_site_log_v2(
-    (select company_a from p3bc_ids), 'd3ba0000-0000-4000-8000-000000000002'::uuid, (select project_a from p3bc_ids), date '2026-09-05',
+    (select company_a from p3bc_ids), 'd3ba0000-0000-4000-8000-000000000003'::uuid, (select project_a from p3bc_ids), date '2026-09-05',
     'P3BC-DSL-002', 'Cross-project equipment should fail', null, null, null,
     jsonb_build_object('condition', 'CLEAR'), jsonb_build_array(jsonb_build_object('crew_label', 'Crew', 'headcount', 1)),
     jsonb_build_array(jsonb_build_object('id', 'd3bc0000-0000-4000-8000-000000000006', 'equipment_id', (select equipment_other_project from p3bc_ids), 'equipment_name', 'Other project roller')),

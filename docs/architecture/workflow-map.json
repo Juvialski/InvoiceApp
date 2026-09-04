@@ -184,8 +184,8 @@
         "src/lib/dailySiteLogsPersistence.ts",
         "src/components/projects/ProjectMaterialsEquipment.tsx",
         "src/components/engineering/ProjectSiteLogs.tsx",
-        "supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql",
-        "supabase/migrations/20260904103008_p3b_p3c_materials_equipment_realtime.sql"
+        "supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql",
+        "supabase/migrations/20260904122000_p3b_p3c_materials_equipment_realtime.sql"
       ],
       "testRefs": [
         "tests/materialsEquipment.test.ts",
@@ -6728,7 +6728,7 @@
       "fileRefs": [
         "src/types.ts",
         "src/lib/materialsEquipment.ts",
-        "supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql"
+        "supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql"
       ],
       "testRefs": [
         "tests/materialsEquipment.test.ts",
@@ -6766,7 +6766,7 @@
       "fileRefs": [
         "src/types.ts",
         "src/lib/materialsEquipment.ts",
-        "supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql"
+        "supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql"
       ],
       "testRefs": [
         "tests/materialsEquipment.test.ts",
@@ -6849,7 +6849,7 @@
         "src/lib/dailySiteLogs.ts",
         "src/lib/dailySiteLogsPersistence.ts",
         "src/components/engineering/ProjectSiteLogs.tsx",
-        "supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql"
+        "supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql"
       ],
       "testRefs": [
         "tests/materialsEquipment.test.ts",

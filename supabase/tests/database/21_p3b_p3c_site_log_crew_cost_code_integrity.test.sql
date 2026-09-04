@@ -1,6 +1,18 @@
 begin;
 
-select plan(1);
+select plan(2);
+
+select ok(
+  exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'engineering_daily_site_log_crew'
+      and column_name = 'project_id'
+      and is_nullable = 'NO'
+  ),
+  'Site Log crew rows persist a non-null parent project snapshot'
+);
 
 select ok(
   exists (
