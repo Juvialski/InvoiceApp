@@ -433,6 +433,50 @@
         "tests/clientProgressBilling.test.ts",
         "tests/clientProgressBillingMigration.test.ts"
       ]
+    },
+    {
+      "id": "commercial-client-collection-recorded-only",
+      "label": "Only recorded client collections contribute to collected-to-date",
+      "description": "Client collections represent commercial receivables history allocated against issued client billings. Only RECORDED collections contribute to Collected to Date and reduce Outstanding Billed Amount; drafts and reversed records remain excluded.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "src/components/projects/ClientBillingPanel.tsx",
+        "src/components/projects/ProjectOverview.tsx",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts"
+      ]
+    },
+    {
+      "id": "commercial-client-collection-cash-separation",
+      "label": "Client collections are commercial receivables separate from cash settlement",
+      "description": "Creating, updating, recording, or reversing client collections tracks commercial payment allocations against issued billings. They do not create bank transactions, cash account balance mutations, journal entries, or P2B-6 cash settlement records.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "src/components/projects/ClientBillingPanel.tsx",
+        "src/utils/projectCosting.ts",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts"
+      ]
     }
   ],
   "nodes": [
@@ -6087,6 +6131,196 @@
     },
     {
       "sourceClassification": "mixed",
+      "id": "client-collection-workspace",
+      "label": "Client Collections Register",
+      "domain": "commercial",
+      "type": "screen",
+      "description": "Project Workspace commercial register for client collections, allocation breakdown against eligible issued billings, lifecycle actions, and audit trail.",
+      "scope": "project",
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "src/components/projects/ClientBillingPanel.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/components/projects/ProjectOverview.tsx",
+        "src/app/routes/ProjectsRoute.tsx",
+        "src/utils/projectFinancialSummary.ts",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "commercial-client-collection-recorded-only",
+        "commercial-client-collection-cash-separation"
+      ],
+      "tags": [
+        "client collections",
+        "receivables register",
+        "commercial register"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "client-collection-lifecycle",
+      "label": "Client Collection Lifecycle",
+      "domain": "commercial",
+      "type": "workflow",
+      "description": "Project client collections move through DRAFT, RECORDED, and REVERSED states with draft-only editing, over-collection verification, and reason-gated reversal.",
+      "scope": "company-and-project",
+      "statusValues": [
+        "DRAFT",
+        "RECORDED",
+        "REVERSED"
+      ],
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "src/components/projects/ClientBillingPanel.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/components/projects/ProjectOverview.tsx",
+        "src/app/routes/ProjectsRoute.tsx",
+        "src/utils/projectFinancialSummary.ts",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "commercial-client-collection-recorded-only",
+        "commercial-client-collection-cash-separation"
+      ],
+      "tags": [
+        "client collection lifecycle",
+        "recorded collection",
+        "reversed collection"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "client-collection-recorded",
+      "label": "Recorded Client Collection",
+      "domain": "commercial",
+      "type": "state",
+      "description": "The authoritative recorded collection state that contributes its allocation sum to project Collected to Date and reduces Outstanding Billed Amount.",
+      "scope": "company-and-project",
+      "statusValues": [
+        "RECORDED"
+      ],
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts"
+      ],
+      "invariantIds": [
+        "commercial-client-collection-recorded-only"
+      ],
+      "tags": [
+        "recorded collection",
+        "collected to date"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "project-collected-to-date",
+      "label": "Project Collected to Date",
+      "domain": "commercial",
+      "type": "derived-data",
+      "description": "Sum of allocation amounts from RECORDED client collections for one project and its currency; drafts and reversed collections do not inflate the value.",
+      "scope": "project",
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "src/components/projects/ProjectOverview.tsx",
+        "src/components/projects/ClientBillingPanel.tsx",
+        "src/utils/projectFinancialSummary.ts"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts"
+      ],
+      "invariantIds": [
+        "commercial-client-collection-recorded-only",
+        "commercial-client-collection-cash-separation"
+      ],
+      "tags": [
+        "collected to date",
+        "outstanding receivables",
+        "project commercial position"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "client-collection-overcollection-guard",
+      "label": "Billing Over-Collection Guard",
+      "domain": "commercial",
+      "type": "guard",
+      "description": "Before recording, the guarded database RPC locks the project and target billing rows in deterministic order, recomputes prior recorded collections, and rejects allocations exceeding remaining uncollected billing amounts.",
+      "scope": "company-and-project",
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "commercial-client-collection-recorded-only",
+        "company-rbac-is-authoritative"
+      ],
+      "tags": [
+        "over collection",
+        "billing collection guard",
+        "deterministic locks"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
       "id": "project-budget-control",
       "label": "Project Budget Control",
       "domain": "projects",
@@ -8691,6 +8925,78 @@
       "invariantIds": [
         "commercial-client-billing-cash-separation"
       ]
+    },
+    {
+      "id": "p2-project-client-collection",
+      "source": "project-workspace",
+      "target": "client-collection-workspace",
+      "type": "contains",
+      "kind": "context",
+      "label": "Collections tab in commercial register"
+    },
+    {
+      "id": "p2-client-collection-lifecycle",
+      "source": "client-collection-workspace",
+      "target": "client-collection-lifecycle",
+      "type": "contains",
+      "kind": "state-transition",
+      "label": "draft, recording, and reversal actions",
+      "permissionKeys": [
+        "projects.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "commercial-client-collection-recorded-only",
+        "commercial-client-collection-cash-separation"
+      ]
+    },
+    {
+      "id": "p2-client-collection-recorded-state",
+      "source": "client-collection-lifecycle",
+      "target": "client-collection-recorded",
+      "type": "transitions",
+      "kind": "state-transition",
+      "label": "DRAFT → RECORDED",
+      "invariantIds": [
+        "commercial-client-collection-recorded-only"
+      ]
+    },
+    {
+      "id": "p2-recorded-collected-to-date",
+      "source": "client-collection-recorded",
+      "target": "project-collected-to-date",
+      "type": "derives",
+      "kind": "derived-data",
+      "label": "allocation-derived recorded amount contributes",
+      "invariantIds": [
+        "commercial-client-collection-recorded-only"
+      ]
+    },
+    {
+      "id": "p2-collection-overcollection-guard",
+      "source": "client-collection-lifecycle",
+      "target": "client-collection-overcollection-guard",
+      "type": "guards",
+      "kind": "guard",
+      "label": "deterministic project + billing locks and remaining uncollected ceiling",
+      "permissionKeys": [
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "commercial-client-collection-recorded-only",
+        "company-rbac-is-authoritative"
+      ]
+    },
+    {
+      "id": "p2-collection-cash-separation",
+      "source": "client-collection-recorded",
+      "target": "client-billing-cash-boundary",
+      "type": "separates",
+      "kind": "separation",
+      "label": "no bank transaction or settlement side effect",
+      "invariantIds": [
+        "commercial-client-collection-cash-separation"
+      ]
     }
   ],
   "diagrams": [
@@ -8763,6 +9069,11 @@
         "project-billed-to-date",
         "client-billing-overbilling-guard",
         "client-billing-cash-boundary",
+        "client-collection-workspace",
+        "client-collection-lifecycle",
+        "client-collection-recorded",
+        "project-collected-to-date",
+        "client-collection-overcollection-guard",
         "route-project-documents",
         "engineering-documents-screen",
         "engineering-document",
@@ -8825,6 +9136,11 @@
         "project-billed-to-date",
         "client-billing-overbilling-guard",
         "client-billing-cash-boundary",
+        "client-collection-workspace",
+        "client-collection-lifecycle",
+        "client-collection-recorded",
+        "project-collected-to-date",
+        "client-collection-overcollection-guard",
         "project-aggregate"
       ]
     },

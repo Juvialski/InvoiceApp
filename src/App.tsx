@@ -120,6 +120,23 @@ import {
   writeClientBillingWorkspaceToLocal,
 } from "./lib/clientBilling.ts";
 import {
+  appendClientCollectionEvent,
+  applyLocalClientCollectionRecord,
+  applyLocalClientCollectionReversal,
+  buildLocalClientCollection,
+  loadClientCollectionWorkspaceFromSupabase,
+  readClientCollectionEventsFromLocal,
+  readClientCollectionsFromLocal,
+  recordClientCollectionToSupabase,
+  reverseClientCollectionToSupabase,
+  saveClientCollectionToSupabase,
+  type ClientCollectionAllocationInput,
+  type ClientCollectionInput,
+  type ClientCollectionWorkspaceData,
+  upsertClientCollection,
+  writeClientCollectionWorkspaceToLocal,
+} from "./lib/clientCollections.ts";
+import {
   archiveProjectCostCodeInSupabase,
   loadProjectCostCodesFromSupabase,
   reactivateProjectCostCodeInSupabase,
@@ -387,6 +404,7 @@ function InvoiceWorkspace() {
   const [payrollImportData, setPayrollImportData] = useState<PayrollImportWorkspaceData>(() => isSupabaseConfigured ? { costCenters: [], batches: [], rows: [], templates: [] } : readPayrollImportWorkspaceFromLocal());
   const [invoiceProjectAllocations, setInvoiceProjectAllocations] = useState<InvoiceProjectAllocation[]>(() => isSupabaseConfigured ? [] : readInvoiceProjectAllocationsFromLocal());
   const [clientBillingData, setClientBillingData] = useState<ClientBillingWorkspaceData>(() => isSupabaseConfigured ? { billings: [], events: [] } : { billings: readClientBillingsFromLocal(), events: readClientBillingEventsFromLocal() });
+  const [clientCollectionData, setClientCollectionData] = useState<ClientCollectionWorkspaceData>(() => isSupabaseConfigured ? { collections: [], events: [] } : { collections: readClientCollectionsFromLocal(), events: readClientCollectionEventsFromLocal() });
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
@@ -611,6 +629,7 @@ function InvoiceWorkspace() {
     projects: Project[];
     allocations: InvoiceProjectAllocation[];
     clientBillingData: ClientBillingWorkspaceData;
+    clientCollectionData: ClientCollectionWorkspaceData;
     expenses: Expense[];
     costCodes: ProjectCostCode[];
     purchaseOrders: PurchaseOrder[];
@@ -677,6 +696,7 @@ function InvoiceWorkspace() {
     projectController.applyProjects(data.projects);
     setInvoiceProjectAllocations(data.allocations);
     setClientBillingData(data.clientBillingData);
+    setClientCollectionData(data.clientCollectionData);
     setExpenses(data.expenses);
     setCostCodes(data.costCodes);
     setPurchaseOrders(data.purchaseOrders);
@@ -705,6 +725,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.procurementRead) ? fetchRFQs() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) ? fetchSupplierQuotations() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) ? fetchSubcontracts() : Promise.resolve([]),
+      can(PERMISSION_KEYS.projectsRead) ? loadClientCollectionWorkspaceFromSupabase() : Promise.resolve({ collections: [], events: [] } as ClientCollectionWorkspaceData),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -719,6 +740,7 @@ function InvoiceWorkspace() {
     const rfqs = results[9].status === "fulfilled" ? results[9].value : [];
     const supplierQuotations = results[10].status === "fulfilled" ? results[10].value : [];
     const subcontracts = results[11].status === "fulfilled" ? results[11].value : [];
+    const clientCollectionData = results[12].status === "fulfilled" ? results[12].value : { collections: [], events: [] };
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -731,6 +753,7 @@ function InvoiceWorkspace() {
     if (results[9].status !== "fulfilled") failures.push("rfqs");
     if (results[10].status !== "fulfilled") failures.push("supplier quotations");
     if (results[11].status !== "fulfilled") failures.push("subcontracts");
+    if (results[12].status !== "fulfilled") failures.push("client collections");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -755,7 +778,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, expenses, costCodes, purchaseOrders, subcontracts, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, clientCollectionData, expenses, costCodes, purchaseOrders, subcontracts, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -976,12 +999,13 @@ function InvoiceWorkspace() {
     if (shouldPersistGuestWorkspace(authResolved, session?.user?.id) && guestModeState) {
       writeInvoiceProjectAllocationsToLocal(invoiceProjectAllocations);
       writeClientBillingWorkspaceToLocal(clientBillingData);
+      writeClientCollectionWorkspaceToLocal(clientCollectionData);
       writePayrollImportWorkspaceToLocal(payrollImportData);
       writeExpensesToLocal(expenses);
       writePayrollWorkspaceToLocal(payrollData);
       writeCashBankingWorkspaceToLocal(cashData);
     }
-  }, [invoiceProjectAllocations, clientBillingData, expenses, payrollData, payrollImportData, cashData, session, authResolved, guestModeState]);
+  }, [invoiceProjectAllocations, clientBillingData, clientCollectionData, expenses, payrollData, payrollImportData, cashData, session, authResolved, guestModeState]);
 
   useEffect(() => {
     payrollDataRef.current = payrollData;
@@ -2094,6 +2118,76 @@ function InvoiceWorkspace() {
       showNotification("success", targetStatus === "ISSUED" ? "Client billing issued." : `Client billing marked ${targetStatus.toLowerCase().replaceAll("_", " ")}.`);
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not change client billing lifecycle state."));
+      throw error;
+    }
+  };
+
+  const handleSaveClientCollection = async (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => {
+    try {
+      if (isSupabaseConfigured && !guestModeState && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to manage client collections in this company.");
+      const project = projects.find((candidate) => candidate.id === input.projectId);
+      if (!project) throw new Error("The selected project is not available in this workspace.");
+      const existing = input.id ? clientCollectionData.collections.find((c) => c.id === input.id) : undefined;
+      const normalizedNumber = input.collectionNumber.trim().toUpperCase();
+      if (!normalizedNumber) throw new Error("Collection number is required.");
+      if (clientCollectionData.collections.some((c) => c.id !== input.id && c.collectionNumber.trim().toUpperCase() === normalizedNumber)) {
+        throw new Error("Collection number already exists in this deployment company.");
+      }
+
+      if (session && supabase && !guestModeState) {
+        const saved = await saveClientCollectionToSupabase({ ...input, currency: project.currency }, allocations, existing);
+        setClientCollectionData((current) => ({ ...current, collections: upsertClientCollection(current.collections, saved) }));
+        try { await refreshWorkspaceGroups(["engineering"], currentWorkspaceLoadToken(), { force: true, reason: "client-collection-save" }); } catch { /* The saved RPC result remains visible. */ }
+      } else {
+        const saved = buildLocalClientCollection({ ...input, currency: project.currency, payerSnapshot: input.payerSnapshot || project.clientName }, allocations, existing, "guest-company");
+        const event = appendClientCollectionEvent(clientCollectionData.events, saved, existing ? "UPDATED" : "CREATED", existing?.status);
+        setClientCollectionData({ collections: upsertClientCollection(clientCollectionData.collections, saved), events: event });
+      }
+      showNotification("success", "Client collection draft saved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save client collection."));
+      throw error;
+    }
+  };
+
+  const handleRecordClientCollection = async (id: string) => {
+    try {
+      if (isSupabaseConfigured && !guestModeState && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to record client collections.");
+      const current = clientCollectionData.collections.find((c) => c.id === id);
+      const project = current ? projects.find((candidate) => candidate.id === current.projectId) : undefined;
+      if (!current || !project) throw new Error("Client collection or its project is not available in this workspace.");
+      if (session && supabase && !guestModeState) {
+        const saved = await recordClientCollectionToSupabase(id);
+        setClientCollectionData((value) => ({ ...value, collections: upsertClientCollection(value.collections, saved) }));
+        try { await refreshWorkspaceGroups(["engineering"], currentWorkspaceLoadToken(), { force: true, reason: "client-collection-record" }); } catch { /* The saved RPC result remains visible. */ }
+      } else {
+        const result = applyLocalClientCollectionRecord(current, project, clientBillingData.billings, clientCollectionData.collections);
+        setClientCollectionData((value) => ({ collections: value.collections.map((c) => c.id === id ? result.collection : c), events: [result.event, ...value.events] }));
+      }
+      showNotification("success", "Client collection recorded.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not record client collection."));
+      throw error;
+    }
+  };
+
+  const handleReverseClientCollection = async (id: string, reason: string) => {
+    try {
+      if (isSupabaseConfigured && !guestModeState && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to reverse client collections.");
+      const current = clientCollectionData.collections.find((c) => c.id === id);
+      const project = current ? projects.find((candidate) => candidate.id === current.projectId) : undefined;
+      if (!current || !project) throw new Error("Client collection or its project is not available in this workspace.");
+      if (session && supabase && !guestModeState) {
+        const saved = await reverseClientCollectionToSupabase(id, reason);
+        setClientCollectionData((value) => ({ ...value, collections: upsertClientCollection(value.collections, saved) }));
+        try { await refreshWorkspaceGroups(["engineering"], currentWorkspaceLoadToken(), { force: true, reason: "client-collection-reverse" }); } catch { /* The saved RPC result remains visible. */ }
+      } else {
+        const result = applyLocalClientCollectionReversal(current, reason);
+        setClientCollectionData((value) => ({ collections: value.collections.map((c) => c.id === id ? result.collection : c), events: [result.event, ...value.events] }));
+      }
+      showNotification("success", "Client collection reversed.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not reverse client collection."));
       throw error;
     }
   };
@@ -4090,6 +4184,11 @@ function InvoiceWorkspace() {
           clientBillingLoading={projectCostDomainLoadState === "loading"}
           onSaveClientBilling={handleSaveClientBilling}
           onTransitionClientBilling={handleTransitionClientBilling}
+          clientCollections={clientCollectionData.collections}
+          clientCollectionEvents={clientCollectionData.events}
+          onSaveClientCollection={handleSaveClientCollection}
+          onRecordClientCollection={handleRecordClientCollection}
+          onReverseClientCollection={handleReverseClientCollection}
           companyId={activeCompanyId || undefined}
           engineeringDocumentsCanRead={engineeringDocumentsCanRead}
           engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}

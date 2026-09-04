@@ -34,7 +34,8 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
     'tests/databaseBackupMigration.test.ts',
     'tests/subcontractClaimsReviewHardening.test.ts',
     'tests/subcontractClaimProjectPreflightRegression.test.ts',
-    'tests/clientProgressBillingMigration.test.ts'
+    'tests/clientProgressBillingMigration.test.ts',
+    'tests/clientCollectionsMigration.test.ts'
   ],
   'src/App.tsx': [
     'tests/appRouting.test.ts',

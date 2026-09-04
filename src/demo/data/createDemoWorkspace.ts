@@ -11,6 +11,7 @@ import { createDemoEngineeringCoordination } from "./engineeringCoordination.ts"
 import { createDemoDailySiteLogs } from "./dailySiteLogs.ts";
 import { createDemoPurchaseOrderMatches, createDemoPurchaseOrders, createDemoPurchaseOrderReceipts, createDemoRFQs, createDemoSubcontractClaims, createDemoSubcontracts, createDemoSubcontractVariations, createDemoSupplierQuotations, createDemoVendors } from "./procurement.ts";
 import { createDemoClientBillings } from "./clientBillings.ts";
+import { createDemoClientCollections } from "./clientCollections.ts";
 
 const DEMO_OVERTIME_QUEUE_STATUSES = ["PENDING", "PENDING", "REJECTED", "CANCELLED", "PENDING"] as const;
 
@@ -69,5 +70,6 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     subcontractClaims: createDemoSubcontractClaims(anchorDate),
     subcontractVariations: createDemoSubcontractVariations(anchorDate),
     ...createDemoClientBillings(anchorDate),
+    ...createDemoClientCollections(anchorDate),
   };
 }

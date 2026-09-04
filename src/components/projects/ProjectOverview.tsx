@@ -56,6 +56,7 @@ import {
   type ProjectManagementHealth,
 } from "../../utils/projectManagementViewModel.ts";
 import { calculateClientBillingSummary, type ClientBilling, type ClientBillingSummary } from "../../lib/clientBilling.ts";
+import { calculateClientCollectionSummary, type ClientCollection, type ClientCollectionSummary } from "../../lib/clientCollections.ts";
 
 interface ProjectView {
   id: string;
@@ -114,6 +115,7 @@ interface ProjectOverviewProps {
   onArchive?: () => void;
   onOpenTab?: (tab: ProjectOverviewTab) => void;
   clientBillings?: readonly ClientBilling[];
+  clientCollections?: readonly ClientCollection[];
   hideHeader?: boolean;
 }
 
@@ -216,6 +218,7 @@ function RestrictedProjectOverview({
   hideHeader,
   missingSources,
   clientBillingSummary,
+  clientCollectionSummary,
 }: {
   project: ProjectView;
   onBack?: () => void;
@@ -224,6 +227,7 @@ function RestrictedProjectOverview({
   hideHeader: boolean;
   missingSources: readonly string[];
   clientBillingSummary: ClientBillingSummary;
+  clientCollectionSummary?: ClientCollectionSummary;
 }) {
   return (
     <div className="space-y-5" data-project-cost-completeness="incomplete">
@@ -291,7 +295,28 @@ function RestrictedProjectOverview({
       </Card>
       <Card className="p-5 shadow-sm" elevation="low">
         <div className="flex items-start gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client billing position</h3><p className="mt-1 text-[10px] leading-4 text-slate-500">Revenue-side billing is independent from the withheld project-cost analytics.</p></div></div>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Contract Value</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(clientBillingSummary.contractValue, project.currency)}</p></div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Billed to Date</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.billedToDate === undefined ? "Unavailable" : money(clientBillingSummary.billedToDate, project.currency)}</p></div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Remaining to Bill</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.remainingToBill === undefined ? "Unavailable" : money(clientBillingSummary.remainingToBill, project.currency)}</p></div></div>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Contract Value</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(clientBillingSummary.contractValue, project.currency)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Billed to Date</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.billedToDate === undefined ? "Unavailable" : money(clientBillingSummary.billedToDate, project.currency)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Collected to Date</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientCollectionSummary?.collectedToDate === undefined ? "Unavailable" : money(clientCollectionSummary.collectedToDate, project.currency)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Outstanding Billed Amount</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientCollectionSummary?.outstandingBilledAmount === undefined ? "Unavailable" : money(clientCollectionSummary.outstandingBilledAmount, project.currency)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Remaining to Bill</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.remainingToBill === undefined ? "Unavailable" : money(clientBillingSummary.remainingToBill, project.currency)}</p>
+          </div>
+        </div>
       </Card>
     </div>
   );
@@ -307,12 +332,14 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   onArchive,
   onOpenTab,
   clientBillings = [],
+  clientCollections = [],
   hideHeader = false,
 }) => {
   // Unconditional React hooks (must all run before any early return)
   const permissions = useAppPermissions();
   const completeness = useProjectCostCompleteness();
   const clientBillingSummary = useMemo(() => calculateClientBillingSummary(project as Project, clientBillings), [clientBillings, project]);
+  const clientCollectionSummary = useMemo(() => calculateClientCollectionSummary(project as Project, clientBillings, clientCollections), [clientBillings, clientCollections, project]);
 
   const managementView = useMemo(() => {
     return buildProjectManagementView(
@@ -398,6 +425,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         hideHeader={hideHeader}
         missingSources={projectCostMissingSourceLabels(completeness)}
         clientBillingSummary={clientBillingSummary}
+        clientCollectionSummary={clientCollectionSummary}
       />
     );
   }
@@ -602,13 +630,38 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         </div>
       </section>
 
-      {/* 4. Client Progress Billing Commercial Position */}
+      {/* 4. Client Progress Billing & Collections Commercial Position */}
       <Card className="p-4 shadow-sm sm:p-5" elevation="low">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2.5"><div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client Progress Billing</h3><p className="mt-0.5 text-[10px] text-slate-500">Revenue-side project billing; only ISSUED records count toward billed-to-date.</p></div></div>
-          {onOpenTab && <Button variant="secondary" label="Open Client Billing →" onClick={() => onOpenTab("billing")} />}
+          <div className="flex items-center gap-2.5"><div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client Progress Billing & Collections</h3><p className="mt-0.5 text-[10px] text-slate-500">Revenue-side commercial truth; only ISSUED records count toward billed-to-date and receive collections.</p></div></div>
+          {onOpenTab && <Button variant="secondary" label="Open Commercial Billing & Collections →" onClick={() => onOpenTab("billing")} />}
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Contract Value</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(clientBillingSummary.contractValue, project.currency)}</p></div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Billed to Date</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.billedToDate === undefined ? "Unavailable" : money(clientBillingSummary.billedToDate, project.currency)}</p><p className="mt-1 text-[9px] text-slate-500">{clientBillingSummary.issuedBillingCount} issued billing record{clientBillingSummary.issuedBillingCount === 1 ? "" : "s"}</p></div><div className="rounded-xl border border-slate-100 bg-slate-50 p-3"><p className="text-[10px] font-semibold text-slate-500">Remaining to Bill</p><p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.remainingToBill === undefined ? "Unavailable" : money(clientBillingSummary.remainingToBill, project.currency)}</p><p className="mt-1 text-[9px] text-slate-500">Contract value less issued billings</p></div></div>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Contract Value</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(clientBillingSummary.contractValue, project.currency)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Billed to Date</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.billedToDate === undefined ? "Unavailable" : money(clientBillingSummary.billedToDate, project.currency)}</p>
+            <p className="mt-1 text-[9px] text-slate-500">{clientBillingSummary.issuedBillingCount} issued billing record{clientBillingSummary.issuedBillingCount === 1 ? "" : "s"}</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Collected to Date</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientCollectionSummary.collectedToDate === undefined ? "Unavailable" : money(clientCollectionSummary.collectedToDate, project.currency)}</p>
+            <p className="mt-1 text-[9px] text-slate-500">{clientCollectionSummary.recordedCollectionCount} recorded collection{clientCollectionSummary.recordedCollectionCount === 1 ? "" : "s"}</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Outstanding Billed Amount</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientCollectionSummary.outstandingBilledAmount === undefined ? "Unavailable" : money(clientCollectionSummary.outstandingBilledAmount, project.currency)}</p>
+            <p className="mt-1 text-[9px] text-slate-500">Billed less collected</p>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <p className="text-[10px] font-semibold text-slate-500">Remaining to Bill</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.remainingToBill === undefined ? "Unavailable" : money(clientBillingSummary.remainingToBill, project.currency)}</p>
+            <p className="mt-1 text-[9px] text-slate-500">Contract value less issued billings</p>
+          </div>
+        </div>
         {clientBillingSummary.hasCurrencyMismatch && <p className="mt-3 text-[10px] font-semibold text-amber-700">{clientBillingSummary.reason}</p>}
       </Card>
 

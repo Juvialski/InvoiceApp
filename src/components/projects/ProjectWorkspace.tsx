@@ -34,6 +34,12 @@ import type {
 } from "../../types";
 import { ProjectExpenses } from "../expenses/ProjectExpenses";
 import { ClientBillingPanel } from "./ClientBillingPanel.tsx";
+import type {
+  ClientCollection,
+  ClientCollectionAllocationInput,
+  ClientCollectionEvent,
+  ClientCollectionInput,
+} from "../../lib/clientCollections.ts";
 import { ProjectInvoices } from "./ProjectInvoices";
 import { ProjectInvoicesReadOnly } from "./ProjectInvoicesReadOnly.tsx";
 import { ProjectOverview } from "./ProjectOverview";
@@ -128,6 +134,11 @@ interface ProjectWorkspaceProps {
   onSaveInvoiceAllocations: (invoice: InvoiceData, allocations: InvoiceProjectAllocation[]) => Promise<void>;
   onSaveClientBilling?: (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => Promise<void> | void;
   onTransitionClientBilling?: (id: string, targetStatus: ClientBillingStatus, reason?: string) => Promise<void> | void;
+  clientCollections?: readonly ClientCollection[];
+  clientCollectionEvents?: readonly ClientCollectionEvent[];
+  onSaveClientCollection?: (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => Promise<void> | void;
+  onRecordClientCollection?: (id: string) => Promise<void> | void;
+  onReverseClientCollection?: (id: string, reason: string) => Promise<void> | void;
   onSavePO?: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
@@ -219,6 +230,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   summary,
   clientBillings = [],
   clientBillingEvents = [],
+  clientCollections = [],
+  clientCollectionEvents = [],
   clientBillingLoading = false,
   dashboard,
   costCodes = [],
@@ -274,6 +287,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onSaveInvoiceAllocations,
   onSaveClientBilling = async () => {},
   onTransitionClientBilling = async () => {},
+  onSaveClientCollection,
+  onRecordClientCollection,
+  onReverseClientCollection,
   onSavePO,
   onTransitionPO,
   onDeletePO,
@@ -407,9 +423,24 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         ))}
       </nav>
 
-      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} clientBillings={clientBillings} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
+      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} clientBillings={clientBillings} clientCollections={clientCollections} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
 
-      {tab === "billing" && canReadClientBilling && <ClientBillingPanel project={project} billings={clientBillings} events={clientBillingEvents} loading={clientBillingLoading} canManage={canManageProject} onSave={onSaveClientBilling} onTransition={onTransitionClientBilling} />}
+      {tab === "billing" && canReadClientBilling && (
+        <ClientBillingPanel
+          project={project}
+          billings={clientBillings}
+          events={clientBillingEvents}
+          collections={clientCollections}
+          collectionEvents={clientCollectionEvents}
+          loading={clientBillingLoading}
+          canManage={canManageProject}
+          onSave={onSaveClientBilling}
+          onTransition={onTransitionClientBilling}
+          onSaveCollection={onSaveClientCollection}
+          onRecordCollection={onRecordClientCollection}
+          onReverseCollection={onReverseClientCollection}
+        />
+      )}
 
       {tab === "budget" && (
         <ProjectBudgetControlPanel

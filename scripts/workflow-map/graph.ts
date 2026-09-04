@@ -2755,6 +2755,22 @@ const clientBillingTests = [
   "tests/clientProgressBillingMigration.test.ts",
 ] as const;
 
+const clientCollectionRefs = [
+  "src/lib/clientCollections.ts",
+  "src/components/projects/ClientBillingPanel.tsx",
+  "src/components/projects/ProjectWorkspace.tsx",
+  "src/components/projects/ProjectOverview.tsx",
+  "src/app/routes/ProjectsRoute.tsx",
+  "src/utils/projectFinancialSummary.ts",
+  "supabase/migrations/20260904090000_client_collections_foundation.sql",
+] as const;
+
+const clientCollectionTests = [
+  ...commercialTests,
+  "tests/clientCollectionsDomain.test.ts",
+  "tests/clientCollectionsMigration.test.ts",
+] as const;
+
 const p2Invariants: readonly WorkflowInvariant[] = [
   invariant({
     id: "procurement-po-commitment-not-actual",
@@ -2819,6 +2835,22 @@ const p2Invariants: readonly WorkflowInvariant[] = [
     sourceClassification: "mixed",
     fileRefs: ["src/lib/clientBilling.ts", "src/components/projects/ClientBillingPanel.tsx", "src/utils/projectCosting.ts", "supabase/migrations/20260903224406_client_progress_billing_foundation.sql"],
     testRefs: clientBillingTests,
+  }),
+  invariant({
+    id: "commercial-client-collection-recorded-only",
+    label: "Only recorded client collections contribute to collected-to-date",
+    description: "Client collections represent commercial receivables history allocated against issued client billings. Only RECORDED collections contribute to Collected to Date and reduce Outstanding Billed Amount; drafts and reversed records remain excluded.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/clientCollections.ts", "src/components/projects/ClientBillingPanel.tsx", "src/components/projects/ProjectOverview.tsx", "supabase/migrations/20260904090000_client_collections_foundation.sql"],
+    testRefs: clientCollectionTests,
+  }),
+  invariant({
+    id: "commercial-client-collection-cash-separation",
+    label: "Client collections are commercial receivables separate from cash settlement",
+    description: "Creating, updating, recording, or reversing client collections tracks commercial payment allocations against issued billings. They do not create bank transactions, cash account balance mutations, journal entries, or P2B-6 cash settlement records.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/clientCollections.ts", "src/components/projects/ClientBillingPanel.tsx", "src/utils/projectCosting.ts", "supabase/migrations/20260904090000_client_collections_foundation.sql"],
+    testRefs: clientCollectionTests,
   }),
 ] as const;
 
@@ -3090,6 +3122,77 @@ const p2Nodes: readonly WorkflowNode[] = [
     tags: ["cash separation", "collections deferred", "settlement deferred"],
   }),
   node({
+    id: "client-collection-workspace",
+    label: "Client Collections Register",
+    domain: "commercial",
+    type: "screen",
+    description: "Project Workspace commercial register for client collections, allocation breakdown against eligible issued billings, lifecycle actions, and audit trail.",
+    sourceClassification: "mixed",
+    scope: "project",
+    fileRefs: clientCollectionRefs,
+    testRefs: clientCollectionTests,
+    permissionKeys: ["projects.read", "projects.manage"],
+    invariantIds: ["company-rbac-is-authoritative", "commercial-client-collection-recorded-only", "commercial-client-collection-cash-separation"],
+    tags: ["client collections", "receivables register", "commercial register"],
+  }),
+  node({
+    id: "client-collection-lifecycle",
+    label: "Client Collection Lifecycle",
+    domain: "commercial",
+    type: "workflow",
+    description: "Project client collections move through DRAFT, RECORDED, and REVERSED states with draft-only editing, over-collection verification, and reason-gated reversal.",
+    sourceClassification: "mixed",
+    scope: "company-and-project",
+    statusValues: ["DRAFT", "RECORDED", "REVERSED"],
+    fileRefs: clientCollectionRefs,
+    testRefs: clientCollectionTests,
+    permissionKeys: ["projects.manage"],
+    confirmationRequirement: "human",
+    invariantIds: ["commercial-client-collection-recorded-only", "commercial-client-collection-cash-separation"],
+    tags: ["client collection lifecycle", "recorded collection", "reversed collection"],
+  }),
+  node({
+    id: "client-collection-recorded",
+    label: "Recorded Client Collection",
+    domain: "commercial",
+    type: "state",
+    description: "The authoritative recorded collection state that contributes its allocation sum to project Collected to Date and reduces Outstanding Billed Amount.",
+    sourceClassification: "mixed",
+    scope: "company-and-project",
+    statusValues: ["RECORDED"],
+    fileRefs: ["src/lib/clientCollections.ts", "supabase/migrations/20260904090000_client_collections_foundation.sql"],
+    testRefs: clientCollectionTests,
+    invariantIds: ["commercial-client-collection-recorded-only"],
+    tags: ["recorded collection", "collected to date"],
+  }),
+  node({
+    id: "project-collected-to-date",
+    label: "Project Collected to Date",
+    domain: "commercial",
+    type: "derived-data",
+    description: "Sum of allocation amounts from RECORDED client collections for one project and its currency; drafts and reversed collections do not inflate the value.",
+    sourceClassification: "mixed",
+    scope: "project",
+    fileRefs: ["src/lib/clientCollections.ts", "src/components/projects/ProjectOverview.tsx", "src/components/projects/ClientBillingPanel.tsx", "src/utils/projectFinancialSummary.ts"],
+    testRefs: clientCollectionTests,
+    invariantIds: ["commercial-client-collection-recorded-only", "commercial-client-collection-cash-separation"],
+    tags: ["collected to date", "outstanding receivables", "project commercial position"],
+  }),
+  node({
+    id: "client-collection-overcollection-guard",
+    label: "Billing Over-Collection Guard",
+    domain: "commercial",
+    type: "guard",
+    description: "Before recording, the guarded database RPC locks the project and target billing rows in deterministic order, recomputes prior recorded collections, and rejects allocations exceeding remaining uncollected billing amounts.",
+    sourceClassification: "mixed",
+    scope: "company-and-project",
+    fileRefs: ["src/lib/clientCollections.ts", "supabase/migrations/20260904090000_client_collections_foundation.sql"],
+    testRefs: clientCollectionTests,
+    permissionKeys: ["projects.manage"],
+    invariantIds: ["commercial-client-collection-recorded-only", "company-rbac-is-authoritative"],
+    tags: ["over collection", "billing collection guard", "deterministic locks"],
+  }),
+  node({
     id: "project-budget-control",
     label: "Project Budget Control",
     domain: "projects",
@@ -3129,6 +3232,12 @@ const p2Edges: readonly WorkflowEdge[] = [
   edge({ id: "p2-issued-billed-to-date", source: "client-billing-issued", target: "project-billed-to-date", type: "derives", kind: "derived-data", label: "line-derived issued amount contributes", invariantIds: ["commercial-client-billing-issued-only"] }),
   edge({ id: "p2-billing-overbilling-guard", source: "client-billing-lifecycle", target: "client-billing-overbilling-guard", type: "guards", kind: "guard", label: "project lock and cumulative contract ceiling", permissionKeys: ["projects.manage"], invariantIds: ["commercial-client-billing-issued-only", "company-rbac-is-authoritative"] }),
   edge({ id: "p2-billing-cash-separation", source: "client-billing-issued", target: "client-billing-cash-boundary", type: "separates", kind: "separation", label: "no collection or settlement side effect", invariantIds: ["commercial-client-billing-cash-separation"] }),
+  edge({ id: "p2-project-client-collection", source: "project-workspace", target: "client-collection-workspace", type: "contains", kind: "context", label: "Collections tab in commercial register" }),
+  edge({ id: "p2-client-collection-lifecycle", source: "client-collection-workspace", target: "client-collection-lifecycle", type: "contains", kind: "state-transition", label: "draft, recording, and reversal actions", permissionKeys: ["projects.manage"], confirmationRequirement: "human", invariantIds: ["commercial-client-collection-recorded-only", "commercial-client-collection-cash-separation"] }),
+  edge({ id: "p2-client-collection-recorded-state", source: "client-collection-lifecycle", target: "client-collection-recorded", type: "transitions", kind: "state-transition", label: "DRAFT → RECORDED", invariantIds: ["commercial-client-collection-recorded-only"] }),
+  edge({ id: "p2-recorded-collected-to-date", source: "client-collection-recorded", target: "project-collected-to-date", type: "derives", kind: "derived-data", label: "allocation-derived recorded amount contributes", invariantIds: ["commercial-client-collection-recorded-only"] }),
+  edge({ id: "p2-collection-overcollection-guard", source: "client-collection-lifecycle", target: "client-collection-overcollection-guard", type: "guards", kind: "guard", label: "deterministic project + billing locks and remaining uncollected ceiling", permissionKeys: ["projects.manage"], invariantIds: ["commercial-client-collection-recorded-only", "company-rbac-is-authoritative"] }),
+  edge({ id: "p2-collection-cash-separation", source: "client-collection-recorded", target: "client-billing-cash-boundary", type: "separates", kind: "separation", label: "no bank transaction or settlement side effect", invariantIds: ["commercial-client-collection-cash-separation"] }),
 ] as const;
 
 const diagrams = [
@@ -3150,6 +3259,7 @@ const diagrams = [
     nodeIds: [
       "route-projects", "project-directory", "project-selection", "route-project-workspace", "project-workspace", "project-aggregate", "project-correction-lifecycle", "project-lifecycle-rpc-boundary", "project-activity-guard", "project-overview", "project-cost-aggregation", "project-labor-aggregate-rpc",
       "client-billing-workspace", "client-billing-lifecycle", "client-billing-issued", "project-billed-to-date", "client-billing-overbilling-guard", "client-billing-cash-boundary",
+      "client-collection-workspace", "client-collection-lifecycle", "client-collection-recorded", "project-collected-to-date", "client-collection-overcollection-guard",
       "route-project-documents", "engineering-documents-screen", "engineering-document", "engineering-document-revision", "blueprint-viewer", "drawing-annotations",
       "route-project-rfis", "route-rfi-detail", "rfi-register-screen", "rfi-record", "rfi-state-draft", "rfi-state-open", "rfi-state-answered", "rfi-state-closed", "rfi-state-void", "rfi-response-history", "rfi-document-links",
       "route-project-submittals", "route-submittal-detail", "submittal-register-screen", "submittal-record", "submittal-state-draft", "submittal-state-submitted", "submittal-state-under-review", "submittal-state-approved", "submittal-state-approved-as-noted", "submittal-state-revise", "submittal-state-rejected", "submittal-state-closed", "submittal-state-void", "submittal-rounds", "submittal-review-history", "submittal-document-links",
@@ -3161,7 +3271,8 @@ const diagrams = [
     title: "Client Progress Billing flow",
     description: "Project-level revenue-side billing register from draft line editing through issued-only billed-to-date, with contract ceiling and cash/settlement separation.",
     nodeIds: [
-      "project-workspace", "client-billing-workspace", "client-billing-lifecycle", "client-billing-issued", "project-billed-to-date", "client-billing-overbilling-guard", "client-billing-cash-boundary", "project-aggregate",
+      "project-workspace", "client-billing-workspace", "client-billing-lifecycle", "client-billing-issued", "project-billed-to-date", "client-billing-overbilling-guard", "client-billing-cash-boundary",
+      "client-collection-workspace", "client-collection-lifecycle", "client-collection-recorded", "project-collected-to-date", "client-collection-overcollection-guard", "project-aggregate",
     ],
   },
   {

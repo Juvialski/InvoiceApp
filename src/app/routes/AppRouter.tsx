@@ -47,6 +47,12 @@ import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewM
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
 import type { WorkspaceTab } from "../../components/projects/ProjectWorkspace";
 import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
+import type {
+  ClientCollection,
+  ClientCollectionAllocationInput,
+  ClientCollectionEvent,
+  ClientCollectionInput,
+} from "../../lib/clientCollections.ts";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
@@ -124,6 +130,12 @@ export interface AppRouterProps {
   clientBillingLoading?: boolean;
   onSaveClientBilling?: (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => Promise<void> | void;
   onTransitionClientBilling?: (id: string, targetStatus: ClientBillingStatus, reason?: string) => Promise<void> | void;
+  clientCollections?: ClientCollection[];
+  clientCollectionEvents?: ClientCollectionEvent[];
+  clientCollectionLoading?: boolean;
+  onSaveClientCollection?: (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => Promise<void> | void;
+  onRecordClientCollection?: (id: string) => Promise<void> | void;
+  onReverseClientCollection?: (id: string, reason: string) => Promise<void> | void;
   selectedProject?: Project | null;
   projectSummaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
@@ -380,6 +392,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   clientBillingLoading = false,
   onSaveClientBilling = async () => {},
   onTransitionClientBilling = async () => {},
+  clientCollections = [],
+  clientCollectionEvents = [],
+  clientCollectionLoading = false,
+  onSaveClientCollection = async () => {},
+  onRecordClientCollection = async () => {},
+  onReverseClientCollection = async () => {},
   selectedProject,
   projectSummaries,
   projectDashboard,
@@ -610,6 +628,11 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         clientBillingLoading={clientBillingLoading}
         onSaveClientBilling={onSaveClientBilling}
         onTransitionClientBilling={onTransitionClientBilling}
+        clientCollections={clientCollections}
+        clientCollectionEvents={clientCollectionEvents}
+        onSaveClientCollection={onSaveClientCollection}
+        onRecordClientCollection={onRecordClientCollection}
+        onReverseClientCollection={onReverseClientCollection}
         selectedProject={selectedProject}
         summaries={projectSummaries}
         projectDashboard={projectDashboard}

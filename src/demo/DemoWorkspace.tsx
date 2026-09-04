@@ -23,6 +23,7 @@ import { demoAssistantPath, demoDocumentsPath, demoPathForAppPath, demoPathForIn
 import { projectCostDataCompleteness } from "../utils/dataCompleteness.ts";
 import { demoTimestamp } from "./data/demoDates.ts";
 import { applyLocalClientBillingTransition, buildLocalClientBilling, type ClientBillingInput, type ClientBillingLineInput, type ClientBillingStatus } from "../lib/clientBilling.ts";
+import { buildLocalClientCollection, type ClientCollectionAllocationInput, type ClientCollectionInput } from "../lib/clientCollections.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -75,6 +76,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     purchaseOrders: (data.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
     subcontracts: (data.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
     clientBillings: clientBillings.filter((billing) => billing.projectId === project.id).length,
+    clientCollections: (data.clientCollections || []).filter((c) => c.projectId === project.id).length,
   }, { source: "demo" });
 
   const applyProjectLifecycle = async (project: Project, action: ProjectLifecycleAction, _reason?: string) => {
@@ -126,6 +128,40 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     if (!current || !project) throw new Error("Client billing was not found in the demo workspace.");
     applyLocalClientBillingTransition(current, targetStatus, project, clientBillings, reason, demoTimestamp(data.anchorDate, 17, 30));
     dispatch({ type: "TRANSITION_CLIENT_BILLING", id, targetStatus, reason });
+  };
+
+  const saveClientCollection = async (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => {
+    const existing = input.id ? (data.clientCollections || []).find((c) => c.id === input.id) : undefined;
+    const normalizedNumber = input.collectionNumber.trim().toUpperCase();
+    if (!normalizedNumber) throw new Error("Collection number is required.");
+    if ((data.clientCollections || []).some((c) => c.id !== input.id && c.collectionNumber.trim().toUpperCase() === normalizedNumber)) {
+      throw new Error("Collection number already exists in the demo workspace.");
+    }
+    const project = data.projects.find((candidate) => candidate.id === input.projectId);
+    if (!project) throw new Error("Project was not found in the demo workspace.");
+    const value = buildLocalClientCollection({ ...input, payerSnapshot: input.payerSnapshot || project.clientName, currency: project.currency }, allocations, existing, DEMO_COMPANY_ID, demoTimestamp(data.anchorDate, 17, 30));
+    dispatch({
+      type: "SAVE_CLIENT_COLLECTION",
+      value,
+      event: {
+        id: `${value.id}-updated-${value.updatedAt}`,
+        companyId: DEMO_COMPANY_ID,
+        collectionId: value.id,
+        eventType: existing ? "UPDATED" : "CREATED",
+        fromStatus: existing?.status,
+        toStatus: value.status,
+        actorUserId: "demo-user-finance",
+        createdAt: value.updatedAt,
+      },
+    });
+  };
+
+  const recordClientCollection = async (id: string) => {
+    dispatch({ type: "RECORD_CLIENT_COLLECTION", id });
+  };
+
+  const reverseClientCollection = async (id: string, reason: string) => {
+    dispatch({ type: "REVERSE_CLIENT_COLLECTION", id, reason });
   };
 
   const saveSubcontract = async (
@@ -248,6 +284,11 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             subcontracts={data.subcontracts || []}
             clientBillings={clientBillings}
             clientBillingEvents={data.clientBillingEvents || []}
+            clientCollections={data.clientCollections || []}
+            clientCollectionEvents={data.clientCollectionEvents || []}
+            onSaveClientCollection={saveClientCollection}
+            onRecordClientCollection={recordClientCollection}
+            onReverseClientCollection={reverseClientCollection}
             vendors={data.vendors || []}
             selectedProject={selectedProject}
             projectSummaries={summaries}

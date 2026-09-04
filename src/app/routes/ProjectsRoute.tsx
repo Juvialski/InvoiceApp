@@ -30,6 +30,7 @@ import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewM
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
+import type { ClientCollection, ClientCollectionAllocationInput, ClientCollectionEvent, ClientCollectionInput } from "../../lib/clientCollections.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ProjectsRouteProps {
@@ -39,6 +40,11 @@ export interface ProjectsRouteProps {
   clientBillingLoading?: boolean;
   onSaveClientBilling?: (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => Promise<void> | void;
   onTransitionClientBilling?: (id: string, targetStatus: ClientBillingStatus, reason?: string) => Promise<void> | void;
+  clientCollections?: ClientCollection[];
+  clientCollectionEvents?: ClientCollectionEvent[];
+  onSaveClientCollection?: (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => Promise<void> | void;
+  onRecordClientCollection?: (id: string) => Promise<void> | void;
+  onReverseClientCollection?: (id: string, reason: string) => Promise<void> | void;
   selectedProject?: Project | null;
   summaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
@@ -151,6 +157,11 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   clientBillingLoading = false,
   onSaveClientBilling = async () => {},
   onTransitionClientBilling = async () => {},
+  clientCollections = [],
+  clientCollectionEvents = [],
+  onSaveClientCollection,
+  onRecordClientCollection,
+  onReverseClientCollection,
   selectedProject,
   summaries,
   projectDashboard,
@@ -256,6 +267,11 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         clientBillings={clientBillings}
         clientBillingEvents={clientBillingEvents}
         clientBillingLoading={clientBillingLoading}
+        clientCollections={clientCollections}
+        clientCollectionEvents={clientCollectionEvents}
+        onSaveClientCollection={onSaveClientCollection}
+        onRecordClientCollection={onRecordClientCollection}
+        onReverseClientCollection={onReverseClientCollection}
         dashboard={projectDashboard}
         costCodes={costCodes}
         invoices={invoices}

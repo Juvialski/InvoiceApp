@@ -64,6 +64,13 @@ test("lifecycle response mapping keeps only bounded dependency counts", () => {
   assert.equal(Object.hasOwn(preview.dependencies, "employeeSalary"), false);
 });
 
+test("client collections history blocks project deletion in lifecycle preview", () => {
+  const preview = buildProjectLifecyclePreview(project(), { clientCollections: 1 });
+  assert.equal(preview.canDelete, false);
+  assert.equal(preview.dependencies.clientCollections, 1);
+  assert.equal(preview.recommendedAction, "ARCHIVE");
+});
+
 test("demo project lifecycle archives and reactivates without removing linked history", () => {
   const state = createDemoWorkspace("2026-08-29");
   const project = state.projects[0];

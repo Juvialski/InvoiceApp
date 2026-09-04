@@ -30,6 +30,7 @@ import { assignmentDependencySummary, assignmentForLifecycle, componentForLifecy
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction } from "../lib/projects.ts";
 import type { FinancialCorrectionAction } from "../lib/financialLifecycle.ts";
 import { applyLocalClientBillingTransition, type ClientBilling, type ClientBillingEvent, type ClientBillingStatus, upsertClientBilling } from "../lib/clientBilling.ts";
+import { applyLocalClientCollectionRecord, applyLocalClientCollectionReverse, type ClientCollection, type ClientCollectionEvent, upsertClientCollection } from "../lib/clientCollections.ts";
 import { applySubcontractTransition } from "../lib/subcontracts.ts";
 import { applySubcontractClaimTransition } from "../lib/subcontractClaims.ts";
 import { applySubcontractVariationTransition } from "../lib/subcontractVariations.ts";
@@ -55,6 +56,9 @@ export type DemoWorkspaceMutation =
   | { type: "DELETE_SUBCONTRACT_VARIATION"; id: string }
   | { type: "SAVE_CLIENT_BILLING"; value: ClientBilling; event?: ClientBillingEvent }
   | { type: "TRANSITION_CLIENT_BILLING"; id: string; targetStatus: ClientBillingStatus; reason?: string }
+  | { type: "SAVE_CLIENT_COLLECTION"; value: ClientCollection; event?: ClientCollectionEvent }
+  | { type: "RECORD_CLIENT_COLLECTION"; id: string }
+  | { type: "REVERSE_CLIENT_COLLECTION"; id: string; reason: string }
   | { type: "SAVE_WORKER"; value: Worker }
   | { type: "SAVE_ASSIGNMENT"; value: ProjectWorkerAssignment }
   | { type: "SAVE_COMPENSATION_PROFILE"; value: WorkerCompensationProfile }
@@ -108,6 +112,7 @@ export function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: P
     subcontractProgressClaims: (state.subcontractClaims || []).filter((claim) => claim.projectId === project.id).length,
     subcontractVariations: (state.subcontractVariations || []).filter((variation) => variation.projectId === project.id).length,
     clientBillings: (state.clientBillings || []).filter((billing) => billing.projectId === project.id).length,
+    clientCollections: (state.clientCollections || []).filter((collection) => collection.projectId === project.id).length,
   });
 }
 
@@ -252,6 +257,33 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       try {
         const result = applyLocalClientBillingTransition(current, mutation.targetStatus, project, state.clientBillings || [], mutation.reason, demoTimestamp(state.anchorDate, 17, 30));
         return { ...state, clientBillings: (state.clientBillings || []).map((billing) => billing.id === current.id ? result.billing : billing), clientBillingEvents: [result.event, ...(state.clientBillingEvents || [])] };
+      } catch {
+        return state;
+      }
+    }
+    case "SAVE_CLIENT_COLLECTION": {
+      const existing = (state.clientCollections || []).find((c) => c.id === mutation.value.id);
+      if (existing && existing.status !== "DRAFT") return state;
+      const nextEvents = mutation.event ? [mutation.event, ...(state.clientCollectionEvents || [])] : state.clientCollectionEvents || [];
+      return { ...state, clientCollections: upsertClientCollection(state.clientCollections || [], mutation.value), clientCollectionEvents: nextEvents };
+    }
+    case "RECORD_CLIENT_COLLECTION": {
+      const current = (state.clientCollections || []).find((c) => c.id === mutation.id);
+      const project = current ? state.projects.find((candidate) => candidate.id === current.projectId) : undefined;
+      if (!current || !project) return state;
+      try {
+        const result = applyLocalClientCollectionRecord(current, project, state.clientBillings || [], state.clientCollections || [], demoTimestamp(state.anchorDate, 17, 35));
+        return { ...state, clientCollections: (state.clientCollections || []).map((c) => c.id === current.id ? result.collection : c), clientCollectionEvents: [result.event, ...(state.clientCollectionEvents || [])] };
+      } catch {
+        return state;
+      }
+    }
+    case "REVERSE_CLIENT_COLLECTION": {
+      const current = (state.clientCollections || []).find((c) => c.id === mutation.id);
+      if (!current) return state;
+      try {
+        const result = applyLocalClientCollectionReverse(current, mutation.reason, demoTimestamp(state.anchorDate, 17, 40));
+        return { ...state, clientCollections: (state.clientCollections || []).map((c) => c.id === current.id ? result.collection : c), clientCollectionEvents: [result.event, ...(state.clientCollectionEvents || [])] };
       } catch {
         return state;
       }

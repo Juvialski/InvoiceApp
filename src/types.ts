@@ -627,6 +627,55 @@ export interface ClientBillingEvent {
   createdAt: string;
 }
 
+export type ClientCollectionStatus = "DRAFT" | "RECORDED" | "REVERSED";
+export type ClientCollectionEventType = "CREATED" | "UPDATED" | "RECORDED" | "REVERSED";
+
+export interface ClientCollectionAllocation {
+  id: string;
+  companyId?: string;
+  collectionId: string;
+  billingId: string;
+  amount: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ClientCollection {
+  id: string;
+  companyId?: string;
+  projectId: string;
+  collectionNumber: string;
+  collectionDate: string;
+  externalReference?: string;
+  payerSnapshot?: string;
+  currency: string;
+  status: ClientCollectionStatus;
+  notes?: string;
+  allocations: ClientCollectionAllocation[];
+  createdByUserId?: string;
+  updatedByUserId?: string;
+  recordedByUserId?: string;
+  recordedAt?: string;
+  reversedByUserId?: string;
+  reversedAt?: string;
+  reversalReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientCollectionEvent {
+  id: string;
+  companyId?: string;
+  collectionId: string;
+  eventType: ClientCollectionEventType;
+  fromStatus?: ClientCollectionStatus;
+  toStatus: ClientCollectionStatus;
+  reason?: string;
+  actorUserId?: string;
+  createdAt: string;
+}
+
 export type ProjectCostCodeStatus = "ACTIVE" | "ARCHIVED";
 
 export interface ProjectCostCode {

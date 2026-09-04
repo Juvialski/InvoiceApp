@@ -59,7 +59,19 @@ export function buildProjectFinancialTruth(
     | "unpaidInvoiceCost"
     | "foreignCosts"
   >,
-  clientBilling?: { billedToDate?: number; hasCurrencyMismatch?: boolean; reason?: string },
+  clientBilling?: {
+    billedToDate?: number;
+    collectedToDate?: number;
+    outstandingBilledAmount?: number;
+    hasCurrencyMismatch?: boolean;
+    reason?: string;
+  },
+  clientCollection?: {
+    collectedToDate?: number;
+    outstandingBilledAmount?: number;
+    hasCurrencyMismatch?: boolean;
+    reason?: string;
+  },
 ): ProjectFinancialTruth {
   const currency = normalizeCurrency(project.currency);
   const hasForeignAmounts = Object.entries(summary.foreignCosts || {})
@@ -106,6 +118,12 @@ export function buildProjectFinancialTruth(
       }
     : available(payableBase, currency);
 
+  const hasMismatch = Boolean(clientBilling?.hasCurrencyMismatch || clientCollection?.hasCurrencyMismatch);
+  const mismatchReason = clientCollection?.reason || clientBilling?.reason || "Currency mismatch prevents commercial receivables aggregate.";
+
+  const effectiveCollected = clientCollection?.collectedToDate ?? clientBilling?.collectedToDate;
+  const effectiveOutstanding = clientCollection?.outstandingBilledAmount ?? clientBilling?.outstandingBilledAmount;
+
   return {
     currency,
     contractValue: Number.isFinite(Number(project.contractValue))
@@ -122,8 +140,16 @@ export function buildProjectFinancialTruth(
       : clientBilling?.billedToDate === undefined
         ? unavailable(RECEIVABLE_REASON)
         : available(clientBilling.billedToDate, currency),
-    collected: unavailable(RECEIVABLE_REASON),
-    outstandingReceivables: unavailable(RECEIVABLE_REASON),
+    collected: hasMismatch
+      ? unavailable(mismatchReason)
+      : effectiveCollected === undefined
+        ? unavailable(RECEIVABLE_REASON)
+        : available(effectiveCollected, currency),
+    outstandingReceivables: hasMismatch
+      ? unavailable(mismatchReason)
+      : effectiveOutstanding === undefined
+        ? unavailable(RECEIVABLE_REASON)
+        : available(effectiveOutstanding, currency),
     pendingCostExposure,
     outstandingPayables,
   };

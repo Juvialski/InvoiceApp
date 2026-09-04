@@ -5,6 +5,7 @@ import type { EngineeringDocumentsWorkspaceData } from "../lib/engineeringDocume
 import type { PayrollWorkspaceData } from "../lib/payroll.ts";
 import type { Expense, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, Subcontract, SubcontractProgressClaim, SubcontractVariation, SupplierQuotation, Vendor } from "../types.ts";
 import type { ClientBilling, ClientBillingEvent } from "../lib/clientBilling.ts";
+import type { ClientCollection, ClientCollectionEvent } from "../lib/clientCollections.ts";
 
 export const DEMO_COMPANY_ID = "demo-company-meridian" as const;
 export const DEMO_STORAGE_KEY = "engoryx:client-demo:v1" as const;
@@ -53,6 +54,8 @@ export interface DemoWorkspaceData {
   subcontractVariations?: SubcontractVariation[];
   clientBillings?: ClientBilling[];
   clientBillingEvents?: ClientBillingEvent[];
+  clientCollections?: ClientCollection[];
+  clientCollectionEvents?: ClientCollectionEvent[];
 }
 
 export type DemoAssistantActionKind = "ADD_WORKER";
