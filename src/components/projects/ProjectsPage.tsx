@@ -286,10 +286,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
       return buildProjectManagementView(p, summary, {
         costCodes,
-        purchaseOrders,
-        subcontracts,
+        // Portfolio rows have aggregate actual-cost truth, not invoice/expense/payroll transaction detail.
+        // Keep procurement-only detail out of cost-code actual classification so it remains fail-closed.
         subcontractClaims,
-        subcontractVariations,
         financialDataComplete: costDataComplete,
         clientBillings: clientFinancialDataLoading ? undefined : clientBillings,
         clientCollections: clientFinancialDataLoading ? undefined : clientCollections,

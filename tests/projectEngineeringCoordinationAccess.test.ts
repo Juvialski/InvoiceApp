@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   buildProjectEngineeringCoordinationSummary,
   controlledProjectEngineeringSourceState,
 } from "../src/utils/projectEngineeringCoordination.ts";
+
+const projectsPageSource = readFileSync(new URL("../src/components/projects/ProjectsPage.tsx", import.meta.url), "utf8");
 
 test("controlled engineering data still respects domain read permission", () => {
   assert.deepEqual(controlledProjectEngineeringSourceState(false, false), { state: "not-permitted" });
@@ -46,4 +49,20 @@ test("restricted engineering source states ignore accidentally supplied records"
   assert.equal(summary.siteLogs.count, undefined);
   assert.equal(summary.siteLogs.latestSiteDate, undefined);
   assert.deepEqual(summary.attentionSignals, []);
+});
+
+test("portfolio management keeps procurement-only detail out of actual-cost classification", () => {
+  const marker = "return buildProjectManagementView(p, summary, {";
+  const start = projectsPageSource.indexOf(marker);
+  assert.notEqual(start, -1);
+  const tail = projectsPageSource.slice(start + marker.length);
+  const end = tail.indexOf("      });");
+  assert.notEqual(end, -1);
+  const optionsSource = tail.slice(0, end);
+
+  assert.match(optionsSource, /subcontractClaims/);
+  assert.doesNotMatch(optionsSource, /\bpurchaseOrders\b/);
+  assert.doesNotMatch(optionsSource, /\bsubcontracts\b/);
+  assert.doesNotMatch(optionsSource, /\bsubcontractVariations\b/);
+  assert.match(optionsSource, /procurement-only detail out of cost-code actual classification/);
 });
