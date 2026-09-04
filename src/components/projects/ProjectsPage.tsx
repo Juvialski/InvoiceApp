@@ -3,24 +3,13 @@ import {
   Archive,
   ArrowUpDown,
   BriefcaseBusiness,
-  Building2,
-  Calculator,
   ChevronDown,
   Coins,
-  DollarSign,
-  Filter,
-  Layers,
-  MapPin,
   Pencil,
-  PieChart as PieChartIcon,
   Plus,
   RotateCcw,
   Search,
   ShieldAlert,
-  SlidersHorizontal,
-  Trash2,
-  Users,
-  Wallet,
   X,
 } from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
@@ -31,6 +20,8 @@ import type {
   ProjectCostSummary,
   ProjectStatus,
 } from "../../types.ts";
+import type { ClientBilling } from "../../lib/clientBilling.ts";
+import type { ClientCollection } from "../../lib/clientCollections.ts";
 import type {
   ProjectLifecycleAction,
   ProjectLifecyclePreview,
@@ -48,12 +39,14 @@ import {
   buildPortfolioManagementSummary,
   buildProjectManagementView,
   filterAndSortProjectViews,
+  type PortfolioMetricAggregate,
   type ProjectHealthFilter,
   type ProjectManagementHealth,
   type ProjectManagementView,
   type ProjectSortDirection,
   type ProjectSortField,
 } from "../../utils/projectManagementViewModel.ts";
+import type { ProjectFinancialMetric } from "../../utils/projectFinancialSummary.ts";
 
 const PROJECT_STATUSES: readonly ProjectStatus[] = [
   "PLANNING",
@@ -67,6 +60,9 @@ const PROJECT_STATUSES: readonly ProjectStatus[] = [
 interface ProjectsPageProps {
   projects: Project[];
   summaries: Record<string, ProjectCostSummary>;
+  clientBillings?: readonly ClientBilling[];
+  clientCollections?: readonly ClientCollection[];
+  clientFinancialDataLoading?: boolean;
   costCodes?: readonly ProjectCostCode[];
   initialEditingProject?: Project | null;
   onOpenProject: (project: Project) => void;
@@ -108,10 +104,6 @@ function money(value: number | null | undefined, currency: string) {
   }
 }
 
-function percent(value: number) {
-  return `${(Number.isFinite(value) ? value : 0).toFixed(1)}%`;
-}
-
 function statusTone(status: string): StatusTone {
   return status === "ACTIVE" || status === "IN_PROGRESS"
     ? "success"
@@ -150,9 +142,70 @@ function attentionTone(tone: "danger" | "warning" | "info" | "neutral") {
   }
 }
 
+function financialValue(metric: ProjectFinancialMetric, currency: string) {
+  if (metric.status === "unavailable" || metric.amount === undefined) return "Unavailable";
+  return money(metric.amount, metric.currency || currency);
+}
+
+function FinancialValue({
+  metric,
+  currency,
+  className = "",
+}: {
+  metric: ProjectFinancialMetric;
+  currency: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={className}
+      title={metric.reason}
+      data-financial-status={metric.status}
+    >
+      {financialValue(metric, currency)}
+      {metric.status === "partial" && <span className="ml-1 text-[9px] font-bold text-amber-700">Partial</span>}
+    </span>
+  );
+}
+
+function PortfolioFinancialValue({
+  metric,
+  currency,
+}: {
+  metric: PortfolioMetricAggregate;
+  currency: string;
+}) {
+  const value = metric.status === "unavailable" || metric.amount === undefined
+    ? "Unavailable"
+    : money(metric.amount, currency);
+  const statusLabel = metric.status === "partial"
+    ? `Partial · ${metric.includedProjectCount} of ${metric.projectCount} included`
+    : metric.status === "unavailable"
+      ? `Unavailable · 0 of ${metric.projectCount} included`
+      : undefined;
+
+  return (
+    <span data-financial-status={metric.status}>
+      <strong className="font-sans font-bold tabular-nums text-slate-900">{value}</strong>
+      {statusLabel && <span className="mt-0.5 block text-[9px] font-bold text-amber-700">{statusLabel}</span>}
+    </span>
+  );
+}
+
+function portfolioMetricInline(metric: PortfolioMetricAggregate, currency: string) {
+  if (metric.status === "unavailable" || metric.amount === undefined) return "Unavailable";
+  const value = money(metric.amount, currency);
+  return metric.status === "partial"
+    ? `${value} (Partial · ${metric.includedProjectCount} of ${metric.projectCount} included)`
+    : value;
+}
+
 export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   projects,
   summaries,
+  clientBillings,
+  clientCollections,
+  clientFinancialDataLoading = false,
   costCodes = [],
   initialEditingProject,
   onOpenProject,
@@ -170,6 +223,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   // Search, Filters & Sorting
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"ALL" | ProjectStatus>("ALL");
+  const [managerFilter, setManagerFilter] = useState("ALL");
+  const [currencyFilter, setCurrencyFilter] = useState("ALL");
   const [healthFilter, setHealthFilter] = useState<ProjectHealthFilter>("ALL");
   const [sortField, setSortField] = useState<ProjectSortField>("code");
   const [sortDirection, setSortDirection] = useState<ProjectSortDirection>("asc");
@@ -212,9 +267,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       return buildProjectManagementView(p, summary, {
         costCodes,
         financialDataComplete: costDataComplete,
+        clientBillings: clientFinancialDataLoading ? undefined : clientBillings,
+        clientCollections: clientFinancialDataLoading ? undefined : clientCollections,
       });
     });
-  }, [projects, summaries, costCodes, costDataComplete]);
+  }, [projects, summaries, costCodes, costDataComplete, clientBillings, clientCollections, clientFinancialDataLoading]);
 
   // 2. Portfolio Management Summary (Multi-currency safe)
   const portfolio = useMemo(() => {
@@ -226,11 +283,22 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     return filterAndSortProjectViews(projectViews, {
       searchQuery: query,
       statusFilter: status,
+      managerFilter,
+      currencyFilter,
       healthFilter,
       sortField,
       sortDirection,
     });
-  }, [projectViews, query, status, healthFilter, sortField, sortDirection]);
+  }, [projectViews, query, status, managerFilter, currencyFilter, healthFilter, sortField, sortDirection]);
+
+  const managerOptions = useMemo(
+    () => [...new Set(projectViews.map((view) => view.project.projectManager?.trim()).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b)),
+    [projectViews],
+  );
+  const currencyOptions = useMemo(
+    () => [...new Set(projectViews.map((view) => view.currency))].sort((a, b) => a.localeCompare(b)),
+    [projectViews],
+  );
 
   const save = (event: React.FormEvent) => {
     event.preventDefault();
@@ -295,7 +363,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   };
 
   const isHydrating = workspaceDataPending && projects.length === 0;
-  const hasProjectFilters = Boolean(query.trim()) || status !== "ALL" || healthFilter !== "ALL";
+  const hasProjectFilters = Boolean(query.trim()) || status !== "ALL" || managerFilter !== "ALL" || currencyFilter !== "ALL" || healthFilter !== "ALL";
   const projectResultLabel = `${displayedViews.length} of ${projects.length} project${projects.length === 1 ? "" : "s"}`;
 
   const toggleSort = (field: ProjectSortField) => {
@@ -311,8 +379,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
     <div className="space-y-5">
       <PageHeader
         eyebrow="Engineering operations"
-        title="Projects"
-        description="Projects are the operational and cost control hub connecting contract commitments, approved budgets, work packages, supplier invoices, labor, and direct expenses."
+        title="Portfolio Management"
+        description="Compare project ownership, lifecycle status, contract value, approved cost budget, cost position, and client commercial position from the existing project records."
         actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditing(blankProject())} /> : undefined}
       />
 
@@ -327,10 +395,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           <div className="flex items-start gap-3">
             <ShieldAlert className="h-5 w-5 shrink-0 text-amber-700" />
             <div className="min-w-0 text-xs">
-              <strong className="block font-bold text-amber-950">Combined project financial position withheld</strong>
+              <strong className="block font-bold text-amber-950">Some project cost metrics are unavailable</strong>
               <p className="mt-0.5 text-amber-900">
-                Required cost sources are unavailable for this role: {hiddenCostSources.join(", ")}. Complete cost health,
-                budget remaining, and utilization are withheld across projects.
+                Required cost sources are unavailable for this role: {hiddenCostSources.join(", ")}. Cost values are marked
+                unavailable in the portfolio rather than shown as zero; contract and commercial source records remain separate.
               </p>
             </div>
           </div>
@@ -340,7 +408,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       {/* Top Portfolio Management Summary */}
       <section aria-label="Portfolio Management Summary" className="space-y-3">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Project counts">
-          <MetricCard label="All projects" value={portfolio.totalProjects} loading={isHydrating} icon={BriefcaseBusiness} tone="info" />
+          <MetricCard label="Total projects" value={portfolio.totalProjects} loading={isHydrating} icon={BriefcaseBusiness} tone="info" />
           <MetricCard label="Active" value={portfolio.activeProjects} loading={isHydrating} tone="success" />
           <MetricCard label="On hold" value={portfolio.onHoldProjects} loading={isHydrating} tone="warning" />
           <MetricCard label="Archived" value={portfolio.archivedProjects} loading={isHydrating} tone="neutral" />
@@ -348,12 +416,22 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
         {/* Currency Grouped Totals */}
         {portfolio.currencies.length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Portfolio Financial Totals">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Portfolio Financial Totals">
             {portfolio.currencies.map((currencyCode) => {
               const group = portfolio.currencyGroups[currencyCode];
               if (!group) return null;
+              const metrics: Array<[string, PortfolioMetricAggregate]> = [
+                ["Contract Value", group.financialMetrics.contractValue],
+                ["Approved Budget", group.financialMetrics.approvedCostBudget],
+                ["Actual Cost", group.financialMetrics.actualCost],
+                ["Committed Cost", group.financialMetrics.committedCost],
+                ["Billed", group.financialMetrics.billed],
+                ["Collected", group.financialMetrics.collected],
+                ["Outstanding", group.financialMetrics.outstandingReceivables],
+                ["Remaining to Bill", group.financialMetrics.remainingToBill],
+              ];
               return (
-                <Card key={currencyCode} className="p-4 shadow-sm" elevation="low">
+                <Card key={currencyCode} className="p-4 shadow-sm" elevation="low" data-portfolio-currency={currencyCode}>
                   <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase text-indigo-700">
                       <Coins className="h-3.5 w-3.5" aria-hidden="true" />
@@ -361,32 +439,22 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                     </span>
                     {!group.isComplete && (
                       <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
-                        Partial Data / FX
+                        Partial / unavailable
                       </span>
                     )}
                   </div>
                   <div className="mt-3 space-y-1.5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Contract Value:</span>
-                      <strong className="font-sans font-bold tabular-nums text-slate-900">
-                        {money(group.totalContractValue, currencyCode)}
-                        {!group.contractValueComplete && <span className="ml-1 text-[9px] font-normal text-amber-700">(incomplete)</span>}
-                      </strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Approved Budget:</span>
-                      <strong className="font-sans font-bold tabular-nums text-slate-900">{money(group.totalApprovedBudget, currencyCode)}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Actual Cost:</span>
-                      <strong className="font-sans font-bold tabular-nums text-indigo-700">{money(group.totalActualCost, currencyCode)}</strong>
-                    </div>
-                    {group.totalPendingExposure > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Pending Exposure:</span>
-                        <span className="font-sans font-semibold tabular-nums text-amber-700">{money(group.totalPendingExposure, currencyCode)}</span>
+                    {metrics.map(([label, metric]) => (
+                      <div key={label} className="flex items-start justify-between gap-3">
+                        <span className="text-slate-500">{label}</span>
+                        <PortfolioFinancialValue metric={metric} currency={currencyCode} />
                       </div>
-                    )}
+                    ))}
+                  </div>
+                  <div className="mt-3 border-t border-slate-100 pt-2 text-[9px] text-slate-500">
+                    <span>Optional cost controls: </span>
+                    {`pending ${portfolioMetricInline(group.financialMetrics.pendingCostExposure, currencyCode)}`}
+                    {` · payables ${portfolioMetricInline(group.financialMetrics.outstandingPayables, currencyCode)}`}
                   </div>
                 </Card>
               );
@@ -431,7 +499,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
       {/* Filter and Search Toolbar */}
       <Card className="p-4 shadow-sm space-y-3" elevation="low">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {/* Search Query */}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
@@ -469,6 +537,34 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   {st.replaceAll("_", " ")}
                 </option>
               ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+          </div>
+
+          {/* Project Manager Filter */}
+          <div className="relative">
+            <select
+              value={managerFilter}
+              onChange={(e) => setManagerFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              aria-label="Filter by project manager"
+            >
+              <option value="ALL">All Project Managers</option>
+              {managerOptions.map((manager) => <option key={manager} value={manager}>{manager}</option>)}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+          </div>
+
+          {/* Currency Filter */}
+          <div className="relative">
+            <select
+              value={currencyFilter}
+              onChange={(e) => setCurrencyFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              aria-label="Filter by project currency"
+            >
+              <option value="ALL">All Currencies</option>
+              {currencyOptions.map((currencyCode) => <option key={currencyCode} value={currencyCode}>{currencyCode}</option>)}
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
           </div>
@@ -511,6 +607,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 <option value="contractValue">Sort by Contract Value</option>
                 <option value="projectBudget">Sort by Cost Budget</option>
                 <option value="actualCost">Sort by Actual Cost</option>
+                <option value="committedCost">Sort by Committed Cost</option>
+                <option value="billed">Sort by Billed</option>
+                <option value="collected">Sort by Collected</option>
+                <option value="outstandingReceivables">Sort by Outstanding</option>
+                <option value="remainingToBill">Sort by Remaining to Bill</option>
                 <option value="remainingBudget">Sort by Remaining Budget</option>
                 <option value="utilization">Sort by Utilization %</option>
               </select>
@@ -539,6 +640,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               onClick={() => {
                 setQuery("");
                 setStatus("ALL");
+                setManagerFilter("ALL");
+                setCurrencyFilter("ALL");
                 setHealthFilter("ALL");
               }}
               className="text-indigo-600 hover:text-indigo-800 font-semibold"
@@ -555,30 +658,45 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           {/* Desktop Table View */}
           <Card className="hidden overflow-hidden p-0 lg:block" elevation="low" aria-label="Projects table">
             <div className="ops-scrollbar overflow-auto">
-              <table className="ops-table min-w-[1100px] w-full text-left text-xs">
+              <table className="ops-table min-w-[1600px] w-full text-left text-xs">
                 <caption className="sr-only">Project register results: {projectResultLabel}</caption>
                 <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                   <tr>
                     <th scope="col" className="px-4 py-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("code")}>
-                      Project / Client
+                      Project Code / Name
+                    </th>
+                    <th scope="col" className="px-3 py-3">
+                      Project Manager
                     </th>
                     <th scope="col" className="px-3 py-3 cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("status")}>
-                      Status & Health
+                      Status & Data Quality
+                    </th>
+                    <th scope="col" className="px-3 py-3">
+                      Currency
                     </th>
                     <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("contractValue")}>
                       Contract Value
                     </th>
                     <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("projectBudget")}>
-                      Cost Budget
+                      Budget
                     </th>
                     <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("actualCost")}>
-                      Actual Cost
+                      Actual
                     </th>
-                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("remainingBudget")}>
-                      Remaining / Variance
+                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("committedCost")}>
+                      Committed
                     </th>
-                    <th scope="col" className="px-3 py-3">
-                      Work Packages / Forecast
+                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("billed")}>
+                      Billed
+                    </th>
+                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("collected")}>
+                      Collected
+                    </th>
+                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("outstandingReceivables")}>
+                      Outstanding
+                    </th>
+                    <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("remainingToBill")}>
+                      Remaining to Bill
                     </th>
                     <th scope="col" className="px-4 py-3 text-right">
                       Actions
@@ -591,8 +709,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                     const hasAttention = view.attentionFlags.length > 0;
 
                     return (
-                      <tr key={project.id} className="align-top transition hover:bg-slate-50/80">
-                        {/* 1. Project & Client */}
+                      <tr key={project.id} data-project-id={project.id} className="align-top transition hover:bg-slate-50/80">
+                        {/* 1. Project */}
                         <td className="px-4 py-3">
                           <button
                             type="button"
@@ -611,7 +729,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                           </span>
                         </td>
 
-                        {/* 2. Status & Health */}
+                        {/* 2. Project Manager */}
+                        <td className="px-3 py-3 text-xs font-semibold text-slate-700">
+                          {project.projectManager || "Not assigned"}
+                        </td>
+
+                        {/* 3. Status & Data Quality */}
                         <td className="px-3 py-3 space-y-1">
                           <div className="flex flex-wrap items-center gap-1">
                             <StatusBadge tone={statusTone(project.status)}>
@@ -641,74 +764,55 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                               )}
                             </div>
                           )}
+                          {view.isPartial && <span className="block text-[9px] font-bold text-amber-700">Partial project data</span>}
                         </td>
 
-                        {/* 3. Contract Value */}
+                        {/* 4. Currency */}
+                        <td className="px-3 py-3 text-xs font-black uppercase tracking-wide text-slate-700">
+                          {view.currency}
+                        </td>
+
+                        {/* 5. Contract Value */}
                         <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-800">
-                          {money(view.contractValue, view.currency)}
+                          <FinancialValue metric={view.financialTruth.contractValue} currency={view.currency} />
                         </td>
 
-                        {/* 4. Cost Budget */}
+                        {/* 6. Approved Cost Budget */}
                         <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-900">
-                          {money(view.approvedCostBudget, view.currency)}
+                          <FinancialValue metric={view.financialTruth.approvedCostBudget} currency={view.currency} />
                         </td>
 
-                        {/* 5. Actual Cost */}
+                        {/* 7. Actual Cost */}
                         <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-indigo-700">
-                          <div>{money(view.actualCost, view.currency)}</div>
-                          {view.hasForeignAmounts && (
-                            <span className="text-[9px] font-bold text-amber-700">Partial FX</span>
-                          )}
-                          {view.pendingCostExposure > 0 && (
-                            <div className="text-[9px] font-normal text-slate-500">
-                              +{money(view.pendingCostExposure, view.currency)} pending
-                            </div>
-                          )}
+                          <FinancialValue metric={view.financialTruth.actualCost} currency={view.currency} />
                         </td>
 
-                        {/* 6. Remaining / Variance */}
-                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums">
-                          {view.isPartial ? (
-                            <span className="text-[10px] font-semibold text-amber-700">Partial aggregate</span>
-                          ) : (
-                            <span className={view.remainingBudget !== null && view.remainingBudget < 0 ? "text-rose-700" : "text-emerald-700"}>
-                              {money(view.remainingBudget, view.currency)}
-                            </span>
-                          )}
-                          {view.approvedCostBudget > 0 && !view.isPartial && (
-                            <div className="text-[9px] font-semibold text-slate-400">
-                              {percent(view.confirmedUtilization)} used
-                            </div>
-                          )}
+                        {/* 8. Committed Cost */}
+                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-800">
+                          <FinancialValue metric={view.financialTruth.committedCost} currency={view.currency} />
                         </td>
 
-                        {/* 7. Work Packages / Forecast */}
-                        <td className="px-3 py-3 text-[10px] space-y-0.5 text-slate-600">
-                          {view.activeCostCodesCount > 0 ? (
-                            <>
-                              <div>
-                                <span className="font-semibold">{view.activeCostCodesCount} codes:</span>{" "}
-                                {money(view.allocatedCostCodeBudget, view.currency)} alloc
-                              </div>
-                              {view.costClassificationAvailable && view.uncodedActualCost !== null && view.uncodedActualCost > 0 && (
-                                <div className="text-amber-700 font-medium">
-                                  Uncoded: {money(view.uncodedActualCost, view.currency)}
-                                </div>
-                              )}
-                              {view.hasExplicitForecast && view.forecastFinalCost != null ? (
-                                <div className={view.forecastVariance !== null && view.forecastVariance < 0 ? "text-rose-700 font-bold" : "text-slate-500"}>
-                                  Fcst: {money(view.forecastFinalCost, view.currency)}
-                                </div>
-                              ) : (
-                                <div className="text-slate-400">Fcst: Not set</div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-slate-400 italic">No work packages</span>
-                          )}
+                        {/* 9. Billed */}
+                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-800">
+                          <FinancialValue metric={view.financialTruth.billed} currency={view.currency} />
                         </td>
 
-                        {/* 8. Actions */}
+                        {/* 10. Collected */}
+                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-slate-800">
+                          <FinancialValue metric={view.financialTruth.collected} currency={view.currency} />
+                        </td>
+
+                        {/* 11. Outstanding */}
+                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-amber-800">
+                          <FinancialValue metric={view.financialTruth.outstandingReceivables} currency={view.currency} />
+                        </td>
+
+                        {/* 12. Remaining to Bill */}
+                        <td className="px-3 py-3 text-right font-sans font-bold tabular-nums text-emerald-700">
+                          <FinancialValue metric={view.financialTruth.remainingToBill} currency={view.currency} />
+                        </td>
+
+                        {/* 13. Actions */}
                         <td className="px-4 py-3">
                           <div className="flex justify-end gap-1">
                             <button
@@ -787,6 +891,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                       </StatusBadge>
                     </div>
                   </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
+                    <span><span className="font-semibold text-slate-600">Manager:</span> {project.projectManager || "Not assigned"}</span>
+                    <span className="font-black uppercase tracking-wide text-slate-700">{view.currency}</span>
+                  </div>
 
                   {/* Attention Badges */}
                   {hasAttention && (
@@ -806,24 +914,35 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-500">Contract Value</span>
-                      <p className="font-bold tabular-nums text-slate-900">{money(view.contractValue, view.currency)}</p>
+                      <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.contractValue} currency={view.currency} /></p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500">Cost Budget</span>
-                      <p className="font-bold tabular-nums text-slate-900">{money(view.approvedCostBudget, view.currency)}</p>
+                      <span className="text-[10px] text-slate-500">Budget</span>
+                      <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.approvedCostBudget} currency={view.currency} /></p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500">Actual Cost</span>
-                      <p className="font-bold tabular-nums text-indigo-700">
-                        {money(view.actualCost, view.currency)}
-                        {view.hasForeignAmounts && <span className="ml-1 text-[9px] text-amber-700 font-bold">(Partial)</span>}
-                      </p>
+                      <span className="text-[10px] text-slate-500">Actual</span>
+                      <p className="font-bold tabular-nums text-indigo-700"><FinancialValue metric={view.financialTruth.actualCost} currency={view.currency} /></p>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500">Remaining</span>
-                      <p className={`font-bold tabular-nums ${view.remainingBudget !== null && view.remainingBudget < 0 ? "text-rose-700" : "text-emerald-700"}`}>
-                        {view.isPartial ? "Partial" : money(view.remainingBudget, view.currency)}
-                      </p>
+                      <span className="text-[10px] text-slate-500">Committed</span>
+                      <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.committedCost} currency={view.currency} /></p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500">Billed</span>
+                      <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.billed} currency={view.currency} /></p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500">Collected</span>
+                      <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.collected} currency={view.currency} /></p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500">Outstanding</span>
+                      <p className="font-bold tabular-nums text-amber-800"><FinancialValue metric={view.financialTruth.outstandingReceivables} currency={view.currency} /></p>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500">Remaining to Bill</span>
+                      <p className="font-bold tabular-nums text-emerald-700"><FinancialValue metric={view.financialTruth.remainingToBill} currency={view.currency} /></p>
                     </div>
                   </div>
 

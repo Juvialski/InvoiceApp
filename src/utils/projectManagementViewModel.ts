@@ -21,8 +21,12 @@ import {
 import {
   buildProjectFinancialTruth,
   type ProjectFinancialTruth,
+  type ProjectFinancialMetric,
+  type ProjectFinancialMetricStatus,
 } from "./projectFinancialSummary.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
+import { calculateClientBillingSummary, type ClientBilling } from "../lib/clientBilling.ts";
+import { calculateClientCollectionSummary, type ClientCollection } from "../lib/clientCollections.ts";
 
 export type ProjectAttentionFlag =
   | "OVER_BUDGET"
@@ -97,6 +101,8 @@ export interface BuildProjectManagementViewOptions {
   laborSource?: ProjectLaborSource;
   costInput?: ProjectCostInput;
   financialDataComplete?: boolean;
+  clientBillings?: readonly ClientBilling[];
+  clientCollections?: readonly ClientCollection[];
 }
 
 /**
@@ -116,7 +122,15 @@ export function buildProjectManagementView(
     : null;
 
   const financialDataComplete = options?.financialDataComplete !== false;
-  const financialTruth = buildProjectFinancialTruth(project, summary);
+  const billingSummary = options?.clientBillings === undefined
+    ? undefined
+    : calculateClientBillingSummary(project, options.clientBillings);
+  const collectionSummary = options?.clientBillings === undefined || options?.clientCollections === undefined
+    ? undefined
+    : calculateClientCollectionSummary(project, options.clientBillings, options.clientCollections);
+  const financialTruth = buildProjectFinancialTruth(project, summary, billingSummary, collectionSummary, {
+    costDataComplete: financialDataComplete,
+  });
   const foreignCosts = summary.foreignCosts || {};
   const hasForeignAmounts = Object.entries(foreignCosts).some(([, val]) => roundMoney(val) !== 0);
   const isPartial = !financialDataComplete || financialTruth.actualCost.status === "partial" || hasForeignAmounts;
@@ -382,9 +396,41 @@ export interface PortfolioCurrencyGroup {
   totalContractValue: number;
   totalApprovedBudget: number;
   totalActualCost: number;
+  totalCommittedCost: number;
+  totalBilled: number;
+  totalCollected: number;
+  totalOutstandingReceivables: number;
+  totalRemainingToBill: number;
+  totalRemainingBudget: number;
   totalPendingExposure: number;
+  totalOutstandingPayables: number;
   isComplete: boolean;
   contractValueComplete: boolean;
+  financialMetrics: PortfolioFinancialMetrics;
+}
+
+export interface PortfolioMetricAggregate {
+  status: ProjectFinancialMetricStatus;
+  amount?: number;
+  projectCount: number;
+  includedProjectCount: number;
+  availableProjectCount: number;
+  partialProjectCount: number;
+  unavailableProjectCount: number;
+}
+
+export interface PortfolioFinancialMetrics {
+  contractValue: PortfolioMetricAggregate;
+  approvedCostBudget: PortfolioMetricAggregate;
+  actualCost: PortfolioMetricAggregate;
+  committedCost: PortfolioMetricAggregate;
+  billed: PortfolioMetricAggregate;
+  collected: PortfolioMetricAggregate;
+  outstandingReceivables: PortfolioMetricAggregate;
+  remainingToBill: PortfolioMetricAggregate;
+  remainingBudget: PortfolioMetricAggregate;
+  pendingCostExposure: PortfolioMetricAggregate;
+  outstandingPayables: PortfolioMetricAggregate;
 }
 
 export interface PortfolioManagementSummary {
@@ -409,6 +455,74 @@ export interface PortfolioManagementSummary {
   projectsWithInvoicesAwaitingReviewCount: number;
 }
 
+function aggregatePortfolioMetric(
+  views: readonly ProjectManagementView[],
+  select: (truth: ProjectFinancialTruth) => ProjectFinancialMetric,
+): PortfolioMetricAggregate {
+  let amount = 0;
+  let includedProjectCount = 0;
+  let availableProjectCount = 0;
+  let partialProjectCount = 0;
+  let unavailableProjectCount = 0;
+
+  for (const view of views) {
+    const metric = select(view.financialTruth);
+    if (metric.status === "available") {
+      if (metric.amount === undefined || !Number.isFinite(Number(metric.amount))) {
+        unavailableProjectCount += 1;
+        continue;
+      }
+      amount = roundMoney(amount + Number(metric.amount));
+      includedProjectCount += 1;
+      availableProjectCount += 1;
+      continue;
+    }
+
+    if (metric.status === "partial") {
+      partialProjectCount += 1;
+      if (metric.amount !== undefined && Number.isFinite(Number(metric.amount))) {
+        amount = roundMoney(amount + Number(metric.amount));
+        includedProjectCount += 1;
+      }
+      continue;
+    }
+
+    unavailableProjectCount += 1;
+  }
+
+  const status: ProjectFinancialMetricStatus = includedProjectCount === 0
+    ? "unavailable"
+    : partialProjectCount > 0 || unavailableProjectCount > 0
+      ? "partial"
+      : "available";
+
+  return {
+    status,
+    ...(includedProjectCount > 0 ? { amount } : {}),
+    projectCount: views.length,
+    includedProjectCount,
+    availableProjectCount,
+    partialProjectCount,
+    unavailableProjectCount,
+  };
+}
+
+function buildPortfolioFinancialMetrics(views: readonly ProjectManagementView[]): PortfolioFinancialMetrics {
+  return {
+    contractValue: aggregatePortfolioMetric(views, (truth) => truth.contractValue),
+    approvedCostBudget: aggregatePortfolioMetric(views, (truth) => truth.approvedCostBudget),
+    actualCost: aggregatePortfolioMetric(views, (truth) => truth.actualCost),
+    committedCost: aggregatePortfolioMetric(views, (truth) => truth.committedCost),
+    billed: aggregatePortfolioMetric(views, (truth) => truth.billed),
+    collected: aggregatePortfolioMetric(views, (truth) => truth.collected),
+    outstandingReceivables: aggregatePortfolioMetric(views, (truth) => truth.outstandingReceivables),
+    remainingToBill: aggregatePortfolioMetric(views, (truth) => truth.remainingToBill),
+    remainingBudget: aggregatePortfolioMetric(views, (truth) => truth.remainingBudget),
+    pendingCostExposure: aggregatePortfolioMetric(views, (truth) => truth.pendingCostExposure),
+    outstandingPayables: aggregatePortfolioMetric(views, (truth) => truth.outstandingPayables),
+  };
+}
+
 /**
  * Builds a multi-currency-safe portfolio summary across project management views.
  * Never sums across mixed currencies.
@@ -431,7 +545,7 @@ export function buildPortfolioManagementSummary(
   let projectsWithMixedCurrencyCount = 0;
   let projectsWithInvoicesAwaitingReviewCount = 0;
 
-  const currencyGroups: Record<string, PortfolioCurrencyGroup> = {};
+  const viewsByCurrency: Record<string, ProjectManagementView[]> = {};
 
   for (const view of views) {
     const status = view.project.status;
@@ -449,43 +563,39 @@ export function buildPortfolioManagementSummary(
       projectsWithUncodedCostCount += 1;
     }
     if (view.activeCostCodesCount > 0 && !view.hasExplicitForecast) projectsMissingForecastCount += 1;
-    if (view.pendingCostExposure > 0) projectsWithPendingExposureCount += 1;
+    if ((metricAmount(view.financialTruth.pendingCostExposure) || 0) > 0) projectsWithPendingExposureCount += 1;
     if (view.hasForeignAmounts) projectsWithMixedCurrencyCount += 1;
     if (view.attentionFlags.some((f) => f.flag === "INVOICES_AWAITING_REVIEW")) {
       projectsWithInvoicesAwaitingReviewCount += 1;
     }
 
-    // Currency grouping
     const curr = view.currency;
-    if (!currencyGroups[curr]) {
-      currencyGroups[curr] = {
-        currency: curr,
-        projectCount: 0,
-        totalContractValue: 0,
-        totalApprovedBudget: 0,
-        totalActualCost: 0,
-        totalPendingExposure: 0,
-        isComplete: true,
-        contractValueComplete: true,
-      };
-    }
-    const group = currencyGroups[curr]!;
-    group.projectCount += 1;
-
-    if (view.contractValue !== null && view.contractValue !== undefined) {
-      group.totalContractValue = roundMoney(group.totalContractValue + view.contractValue);
-    } else {
-      group.contractValueComplete = false;
-    }
-
-    group.totalApprovedBudget = roundMoney(group.totalApprovedBudget + view.approvedCostBudget);
-    group.totalActualCost = roundMoney(group.totalActualCost + view.actualCost);
-    group.totalPendingExposure = roundMoney(group.totalPendingExposure + view.pendingCostExposure);
-
-    if (view.isPartial || view.hasForeignAmounts) {
-      group.isComplete = false;
-    }
+    viewsByCurrency[curr] = [...(viewsByCurrency[curr] || []), view];
   }
+
+  const currencyGroups: Record<string, PortfolioCurrencyGroup> = Object.fromEntries(
+    Object.entries(viewsByCurrency).map(([currency, currencyViews]) => {
+      const financialMetrics = buildPortfolioFinancialMetrics(currencyViews);
+      return [currency, {
+        currency,
+        projectCount: currencyViews.length,
+        totalContractValue: financialMetrics.contractValue.amount || 0,
+        totalApprovedBudget: financialMetrics.approvedCostBudget.amount || 0,
+        totalActualCost: financialMetrics.actualCost.amount || 0,
+        totalCommittedCost: financialMetrics.committedCost.amount || 0,
+        totalBilled: financialMetrics.billed.amount || 0,
+        totalCollected: financialMetrics.collected.amount || 0,
+        totalOutstandingReceivables: financialMetrics.outstandingReceivables.amount || 0,
+        totalRemainingToBill: financialMetrics.remainingToBill.amount || 0,
+        totalRemainingBudget: financialMetrics.remainingBudget.amount || 0,
+        totalPendingExposure: financialMetrics.pendingCostExposure.amount || 0,
+        totalOutstandingPayables: financialMetrics.outstandingPayables.amount || 0,
+        isComplete: Object.values(financialMetrics).every((metric) => metric.status === "available"),
+        contractValueComplete: financialMetrics.contractValue.status === "available",
+        financialMetrics,
+      } satisfies PortfolioCurrencyGroup];
+    }),
+  );
 
   const currencies = Object.keys(currencyGroups);
   const isMultiCurrency = currencies.length > 1;
@@ -519,6 +629,11 @@ export type ProjectSortField =
   | "contractValue"
   | "projectBudget"
   | "actualCost"
+  | "committedCost"
+  | "billed"
+  | "collected"
+  | "outstandingReceivables"
+  | "remainingToBill"
   | "remainingBudget"
   | "utilization";
 
@@ -539,9 +654,17 @@ export type ProjectHealthFilter =
 export interface FilterAndSortOptions {
   searchQuery?: string;
   statusFilter?: "ALL" | ProjectStatus;
+  managerFilter?: string;
+  currencyFilter?: string;
   healthFilter?: ProjectHealthFilter;
   sortField?: ProjectSortField;
   sortDirection?: ProjectSortDirection;
+}
+
+function metricAmount(metric: ProjectFinancialMetric): number | null {
+  return metric.status === "unavailable" || metric.amount === undefined || !Number.isFinite(Number(metric.amount))
+    ? null
+    : Number(metric.amount);
 }
 
 /**
@@ -557,6 +680,8 @@ export function filterAndSortProjectViews(
 ): ProjectManagementView[] {
   const query = (options.searchQuery || "").trim().toLowerCase();
   const statusFilter = options.statusFilter || "ALL";
+  const managerFilter = (options.managerFilter || "ALL").trim().toLowerCase();
+  const currencyFilter = (options.currencyFilter || "ALL").trim().toUpperCase();
   const healthFilter = options.healthFilter || "ALL";
   const sortField = options.sortField || "code";
   const sortDirection = options.sortDirection || "asc";
@@ -565,6 +690,14 @@ export function filterAndSortProjectViews(
   const filtered = views.filter((view) => {
     // Status filter
     if (statusFilter !== "ALL" && view.project.status !== statusFilter) {
+      return false;
+    }
+
+    if (managerFilter !== "all" && (view.project.projectManager || "").trim().toLowerCase() !== managerFilter) {
+      return false;
+    }
+
+    if (currencyFilter !== "ALL" && view.currency !== currencyFilter) {
       return false;
     }
 
@@ -580,7 +713,7 @@ export function filterAndSortProjectViews(
       if (healthFilter === "MISSING_FORECAST" && !(view.activeCostCodesCount > 0 && !view.hasExplicitForecast)) {
         return false;
       }
-      if (healthFilter === "PENDING_EXPOSURE" && view.pendingCostExposure <= 0) return false;
+      if (healthFilter === "PENDING_EXPOSURE" && (metricAmount(view.financialTruth.pendingCostExposure) || 0) <= 0) return false;
       if (healthFilter === "MIXED_CURRENCY" && !view.hasForeignAmounts) return false;
       if (healthFilter === "PARTIAL_DATA" && !view.isPartial) return false;
     }
@@ -648,7 +781,7 @@ export function filterAndSortProjectViews(
       return (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
     }
 
-    // Financial fields (contractValue, projectBudget, actualCost, remainingBudget)
+    // Financial fields are grouped by currency before numeric comparison.
     // 1. Group by currency first to avoid cross-currency numerical comparison
     const currCmp = a.currency.localeCompare(b.currency);
     if (currCmp !== 0) {
@@ -660,17 +793,32 @@ export function filterAndSortProjectViews(
     let valB: number | null | undefined;
 
     if (sortField === "contractValue") {
-      valA = a.contractValue;
-      valB = b.contractValue;
+      valA = metricAmount(a.financialTruth.contractValue);
+      valB = metricAmount(b.financialTruth.contractValue);
     } else if (sortField === "projectBudget") {
-      valA = a.approvedCostBudget;
-      valB = b.approvedCostBudget;
+      valA = metricAmount(a.financialTruth.approvedCostBudget);
+      valB = metricAmount(b.financialTruth.approvedCostBudget);
     } else if (sortField === "actualCost") {
-      valA = a.actualCost;
-      valB = b.actualCost;
+      valA = metricAmount(a.financialTruth.actualCost);
+      valB = metricAmount(b.financialTruth.actualCost);
+    } else if (sortField === "committedCost") {
+      valA = metricAmount(a.financialTruth.committedCost);
+      valB = metricAmount(b.financialTruth.committedCost);
+    } else if (sortField === "billed") {
+      valA = metricAmount(a.financialTruth.billed);
+      valB = metricAmount(b.financialTruth.billed);
+    } else if (sortField === "collected") {
+      valA = metricAmount(a.financialTruth.collected);
+      valB = metricAmount(b.financialTruth.collected);
+    } else if (sortField === "outstandingReceivables") {
+      valA = metricAmount(a.financialTruth.outstandingReceivables);
+      valB = metricAmount(b.financialTruth.outstandingReceivables);
+    } else if (sortField === "remainingToBill") {
+      valA = metricAmount(a.financialTruth.remainingToBill);
+      valB = metricAmount(b.financialTruth.remainingToBill);
     } else if (sortField === "remainingBudget") {
-      valA = a.remainingBudget;
-      valB = b.remainingBudget;
+      valA = metricAmount(a.financialTruth.remainingBudget);
+      valB = metricAmount(b.financialTruth.remainingBudget);
     }
 
     const aValid = valA !== null && valA !== undefined && Number.isFinite(Number(valA));

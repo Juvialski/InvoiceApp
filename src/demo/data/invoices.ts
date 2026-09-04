@@ -38,6 +38,8 @@ interface InvoiceSpec {
   description: string;
   category: string;
   paidFraction?: number;
+  currency?: string;
+  currencySymbol?: string;
 }
 
 const SPECS: InvoiceSpec[] = [
@@ -57,7 +59,7 @@ const SPECS: InvoiceSpec[] = [
   { id: "14", number: "MAT-90741", vendor: "aggregates", projectId: DEMO_PROJECT_IDS.solar, daysAgo: 48, dueInDays: 30, gross: 522_644.86, status: "APPROVED", reviewStatus: "VERIFIED", description: "Subbase and crushed aggregate for access-road formation", category: "Aggregates" },
   { id: "15", number: "SER-77940", vendor: "southline", projectId: DEMO_PROJECT_IDS.solar, daysAgo: 31, dueInDays: 30, gross: 618_375.44, status: "PARTIALLY_PAID", reviewStatus: "VERIFIED", paidFraction: 0.51, description: "Motor grader, vibratory roller, and water truck rental", category: "Equipment Rental" },
   { id: "16", number: "PSI-10471", vendor: "safety", projectId: DEMO_PROJECT_IDS.solar, daysAgo: 6, dueInDays: 21, gross: 162_995.16, status: "DRAFT", reviewStatus: "NEEDS_REVIEW", description: "Heat-stress PPE, reflective vests, temporary signage, and spill kits", category: "Safety" },
-  { id: "17", number: "PET-69318", vendor: "prime", projectId: DEMO_PROJECT_IDS.solar, daysAgo: 3, dueInDays: 30, gross: 843_215.28, status: "PENDING", reviewStatus: "NEEDS_REVIEW", description: "Underground conduits, cable markers, grounding materials, and pull boxes", category: "Electrical" },
+  { id: "17", number: "PET-69318", vendor: "prime", projectId: DEMO_PROJECT_IDS.solar, daysAgo: 3, dueInDays: 30, gross: 843_215.28, status: "PENDING", reviewStatus: "NEEDS_REVIEW", description: "Underground conduits, cable markers, grounding materials, and pull boxes", category: "Electrical", currency: "USD", currencySymbol: "$" },
   { id: "18", number: "MS-258920", vendor: "metrosteel", projectId: DEMO_PROJECT_IDS.cebu, daysAgo: 160, dueInDays: 30, gross: 1_082_410.10, status: "PAID", reviewStatus: "VERIFIED", description: "Light-gauge framing, supports, and miscellaneous fit-out steel", category: "Fit-Out Materials" },
   { id: "19", number: "PET-64193", vendor: "prime", projectId: DEMO_PROJECT_IDS.cebu, daysAgo: 145, dueInDays: 30, gross: 486_730.55, status: "PAID", reviewStatus: "VERIFIED", description: "Lighting fixtures, branch wiring, devices, and distribution accessories", category: "Electrical" },
   { id: "20", number: "NPS-52911", vendor: "plumbing", projectId: DEMO_PROJECT_IDS.cebu, daysAgo: 132, dueInDays: 30, gross: 358_490.36, status: "PAID", reviewStatus: "VERIFIED", description: "Plumbing fixtures, valves, PPR piping, and sanitary accessories", category: "Plumbing" },
@@ -97,8 +99,8 @@ export function createDemoInvoices(anchorDate: string): { invoices: InvoiceData[
       dueDate,
       purchaseOrderNumber: spec.id === "17" ? "PO-25-0012" : undefined,
       projectReference: spec.projectId,
-      currency: "PHP",
-      currencySymbol: "₱",
+      currency: spec.currency || "PHP",
+      currencySymbol: spec.currencySymbol || "₱",
       paymentTerms: `Net ${spec.dueInDays}`,
       status: spec.status,
       vendor: SUPPLIERS[spec.vendor],

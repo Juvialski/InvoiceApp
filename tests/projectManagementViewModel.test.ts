@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Project, ProjectCostCode, ProjectCostSummary } from "../src/types.ts";
+import type { ClientBilling } from "../src/lib/clientBilling.ts";
+import type { ClientCollection } from "../src/lib/clientCollections.ts";
 import {
   buildPortfolioManagementSummary,
   buildProjectManagementView,
@@ -54,6 +56,34 @@ function createMockSummary(overrides?: Partial<ProjectCostSummary>): ProjectCost
     unallocatedInvoiceCost: 0,
     unallocatedExpenseCost: 0,
     ...overrides,
+  };
+}
+
+function createBilling(projectId: string, id: string, amount: number, status: ClientBilling["status"] = "ISSUED", currency = "PHP"): ClientBilling {
+  return {
+    id,
+    projectId,
+    billingNumber: id,
+    billingDate: "2026-09-01",
+    currency,
+    status,
+    lines: [{ id: `${id}-line`, billingId: id, lineNumber: 1, description: "Progress", amount }],
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+  };
+}
+
+function createCollection(projectId: string, id: string, billingId: string, amount: number, status: ClientCollection["status"] = "RECORDED", currency = "PHP"): ClientCollection {
+  return {
+    id,
+    projectId,
+    collectionNumber: id,
+    collectionDate: "2026-09-02",
+    currency,
+    status,
+    allocations: [{ id: `${id}-allocation`, collectionId: id, billingId, amount }],
+    createdAt: "2026-09-02T00:00:00Z",
+    updatedAt: "2026-09-02T00:00:00Z",
   };
 }
 
@@ -465,4 +495,62 @@ test("16. project management view reconciles with P1A and P1B", () => {
   assert.equal(view.costClassificationAvailable, true);
   assert.equal(view.codedActualCost! + view.uncodedActualCost!, view.actualCost);
   assert.equal(view.allocatedCostCodeBudget + view.unallocatedBudget, view.approvedCostBudget);
+});
+
+test("17. portfolio view composes issued billing and recorded collections without settlement linkage", () => {
+  const project = createMockProject({ id: "commercial-project", contractValue: 5000, projectBudget: 4000 });
+  const summary = createMockSummary({ budget: 4000, totalActualCost: 1000 });
+  const billings = [
+    createBilling(project.id, "issued", 600),
+    createBilling(project.id, "draft", 900, "DRAFT"),
+  ];
+  const collections = [
+    createCollection(project.id, "recorded", "issued", 250),
+    createCollection(project.id, "draft-collection", "issued", 300, "DRAFT"),
+  ];
+
+  const view = buildProjectManagementView(project, summary, { clientBillings: billings, clientCollections: collections });
+
+  assert.deepEqual(view.financialTruth.billed.amount, 600);
+  assert.deepEqual(view.financialTruth.remainingToBill.amount, 4400);
+  assert.deepEqual(view.financialTruth.collected.amount, 250);
+  assert.deepEqual(view.financialTruth.outstandingReceivables.amount, 350);
+  assert.equal(view.financialTruth.collected.status, "available");
+});
+
+test("18. incomplete cost source marks portfolio cost metrics unavailable instead of fabricating zero", () => {
+  const project = createMockProject({ id: "incomplete-project" });
+  const view = buildProjectManagementView(project, createMockSummary(), {
+    financialDataComplete: false,
+    clientBillings: [],
+    clientCollections: [],
+  });
+  const portfolio = buildPortfolioManagementSummary([view]);
+
+  assert.equal(view.financialTruth.actualCost.status, "unavailable");
+  assert.equal(view.financialTruth.committedCost.status, "unavailable");
+  assert.equal(portfolio.currencyGroups.PHP?.financialMetrics.actualCost.status, "unavailable");
+  assert.equal(portfolio.currencyGroups.PHP?.financialMetrics.actualCost.amount, undefined);
+});
+
+test("19. portfolio financial sorting and manager/currency filters use authoritative metric states", () => {
+  const php = createMockProject({ id: "p-filter-php", projectCode: "PHP-1", projectManager: "Manager A", currency: "PHP" });
+  const usd = createMockProject({ id: "p-filter-usd", projectCode: "USD-1", projectManager: "Manager B", currency: "USD" });
+  const phpView = buildProjectManagementView(php, createMockSummary(), {
+    clientBillings: [createBilling(php.id, "php-billing", 900)],
+    clientCollections: [],
+  });
+  const usdView = buildProjectManagementView(usd, createMockSummary(), {
+    clientBillings: [createBilling(usd.id, "usd-billing", 100, "ISSUED", "USD")],
+    clientCollections: [],
+  });
+
+  assert.deepEqual(
+    filterAndSortProjectViews([phpView, usdView], { managerFilter: "Manager A", currencyFilter: "PHP" }).map((view) => view.project.id),
+    [php.id],
+  );
+  assert.deepEqual(
+    filterAndSortProjectViews([phpView, usdView], { sortField: "billed", sortDirection: "desc" }).map((view) => view.project.id),
+    [php.id, usd.id],
+  );
 });

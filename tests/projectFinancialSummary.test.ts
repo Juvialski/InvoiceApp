@@ -108,6 +108,19 @@ test("client collections provide authoritative collected-to-date and outstanding
   assert.deepEqual(truth.outstandingReceivables, { status: "available", amount: 200, currency: "PHP" });
 });
 
+test("remaining to bill is derived from issued billing truth and stays unavailable without a billing source", () => {
+  const truth = buildProjectFinancialTruth(
+    project,
+    summary,
+    { billedToDate: 600, remainingToBill: 900 },
+  );
+  assert.deepEqual(truth.remainingToBill, { status: "available", amount: 900, currency: "PHP" });
+
+  const withoutBilling = buildProjectFinancialTruth(project, summary);
+  assert.equal(withoutBilling.remainingToBill.status, "unavailable");
+  assert.equal(withoutBilling.remainingToBill.amount, undefined);
+});
+
 test("collection currency mismatch withholds collected and outstanding receivables", () => {
   const truth = buildProjectFinancialTruth(
     project,

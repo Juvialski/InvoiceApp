@@ -41,16 +41,20 @@ function MetricCard({ label, metric, currency }: { label: string; metric: Projec
 export function ProjectFinancialSummaryPanel({
   project,
   summary,
-  clientBillings = [],
-  clientCollections = [],
+  clientBillings,
+  clientCollections,
 }: {
   project: Pick<Project, "id" | "projectBudget" | "contractValue" | "currency">;
   summary: ProjectCostSummary;
   clientBillings?: readonly ClientBilling[];
   clientCollections?: readonly ClientCollection[];
 }) {
-  const billingSummary = calculateClientBillingSummary(project, clientBillings);
-  const collectionSummary = calculateClientCollectionSummary(project, clientBillings, clientCollections);
+  const billingSummary = clientBillings === undefined
+    ? undefined
+    : calculateClientBillingSummary(project, clientBillings);
+  const collectionSummary = clientBillings === undefined || clientCollections === undefined
+    ? undefined
+    : calculateClientCollectionSummary(project, clientBillings, clientCollections);
   const truth = buildProjectFinancialTruth(project, summary, billingSummary, collectionSummary);
   const primary: Array<[string, ProjectFinancialMetric]> = [
     ["Contract Value", truth.contractValue],
@@ -59,6 +63,7 @@ export function ProjectFinancialSummaryPanel({
     ["Committed Cost", truth.committedCost],
     ["Remaining Budget", truth.remainingBudget],
     ["Billed to Date", truth.billed],
+    ["Remaining to Bill", truth.remainingToBill],
     ["Collected to Date", truth.collected],
     ["Outstanding Billed Amount", truth.outstandingReceivables],
   ];

@@ -142,16 +142,15 @@ Do not infer legal/accounting/tax treatment beyond explicit product requirements
 
 ## P3 — Project Operations UX
 
-Status: **AFTER CORE P2 COMMERCIAL CONTRACTS**
+Status: **ACTIVE / IN PROGRESS**
 
 ### P3A — Project dashboard and risk visibility
 
-- management project portfolio dashboard;
-- actual vs budget/forecast;
-- committed-cost visibility;
-- billing/collections status;
-- explainable Projects-at-Risk signals;
-- no opaque AI risk score as the source of financial truth.
+- **P3A-1 Portfolio Management Dashboard**: **COMPLETE** (permission-scoped portfolio management over existing project financial summaries, grouped-by-currency contract/budget/Actual/Committed/billing/collection/outstanding/remaining-to-bill values, visible available/partial/unavailable states, deterministic search/filter/sort controls, responsive project table/cards, project Workspace drilldown, and deterministic demo coverage).
+- **P3A-2 Project Financial Control Dashboard**: **NOT YET COMPLETE** (actual-vs-budget control detail and later project-controls extensions remain separately bounded).
+- **P3A-3 Explainable Projects-at-Risk**: **NOT YET COMPLETE** (factual evidence and explainable risk signals remain a later wave; no opaque AI risk score is the source of financial truth).
+
+Forecast/EAC and Expected Margin remain deferred until an authoritative permission-correct forecasting source exists.
 
 ### P3B — Materials and equipment
 

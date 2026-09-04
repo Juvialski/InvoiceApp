@@ -1089,7 +1089,7 @@
         "tests/projects.test.ts"
       ],
       "qaScenarioIds": [
-        "projects--projects--base-route-loaded--desktop-1440"
+        "projects--projects--portfolio-dashboard-verified--desktop-1440"
       ]
     },
     {
@@ -1698,11 +1698,11 @@
     {
       "sourceClassification": "code-derived",
       "id": "project-directory",
-      "label": "Projects directory",
+      "label": "Project portfolio table",
       "domain": "projects",
       "type": "screen",
       "scope": "company",
-      "description": "Searchable project register and entry point for selecting a project workspace.",
+      "description": "Responsive project register inside the portfolio management surface and entry point for selecting a project workspace.",
       "fileRefs": [
         "src/app/routes/ProjectsRoute.tsx",
         "src/components/projects/ProjectsPage.tsx"
@@ -1712,7 +1712,89 @@
         "tests/projectWorkspaceNavigation.test.ts"
       ],
       "qaScenarioIds": [
-        "projects--projects--base-route-loaded--desktop-1440"
+        "projects--projects--portfolio-dashboard-verified--desktop-1440"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "portfolio-management-dashboard",
+      "label": "Portfolio Management Dashboard",
+      "domain": "dashboard",
+      "type": "screen",
+      "scope": "company",
+      "description": "Permission-scoped management view over visible projects, grouped-by-currency project financial truth, data quality states, deterministic filters, and project Workspace drilldown.",
+      "fileRefs": [
+        "src/app/routes/ProjectsRoute.tsx",
+        "src/components/projects/ProjectsPage.tsx",
+        "src/utils/projectManagementViewModel.ts",
+        "src/utils/projectFinancialSummary.ts",
+        "src/lib/clientBilling.ts",
+        "src/lib/clientCollections.ts"
+      ],
+      "testRefs": [
+        "tests/projectManagementViewModel.test.ts",
+        "tests/projectManagementUX.test.ts",
+        "tests/demoWorkspace.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "payroll.summary.read",
+        "reports.financial.read"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "reports-are-derived-surfaces",
+        "commercial-client-billing-issued-only",
+        "commercial-client-collection-recorded-only",
+        "commercial-client-collection-cash-linkage",
+        "project-labor-aggregate-preserves-payroll-privacy"
+      ],
+      "qaScenarioIds": [
+        "projects--projects--portfolio-dashboard-verified--desktop-1440"
+      ],
+      "tags": [
+        "portfolio",
+        "currency-aware",
+        "derived-surface"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "project-financial-summary",
+      "label": "Project Financial Summary",
+      "domain": "projects",
+      "type": "derived-data",
+      "scope": "company-and-project",
+      "description": "Canonical project financial truth combining contract value, approved cost budget, Actual Cost, Committed Cost, billing, collections, outstanding billed amount, remaining-to-bill, and explicit available/partial/unavailable states without FX conversion.",
+      "fileRefs": [
+        "src/utils/projectFinancialSummary.ts",
+        "src/utils/projectManagementViewModel.ts",
+        "src/lib/clientBilling.ts",
+        "src/lib/clientCollections.ts"
+      ],
+      "testRefs": [
+        "tests/projectFinancialSummary.test.ts",
+        "tests/projectManagementViewModel.test.ts",
+        "tests/clientProgressBilling.test.ts",
+        "tests/clientCollectionsDomain.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "payroll.summary.read",
+        "reports.financial.read"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "reports-are-derived-surfaces",
+        "commercial-client-billing-issued-only",
+        "commercial-client-collection-recorded-only",
+        "commercial-client-collection-cash-linkage",
+        "project-labor-aggregate-preserves-payroll-privacy"
+      ],
+      "tags": [
+        "authoritative-summary",
+        "currency-aware",
+        "no-implicit-fx"
       ]
     },
     {
@@ -6722,12 +6804,49 @@
       ]
     },
     {
-      "id": "route-projects-to-directory",
+      "id": "route-projects-to-portfolio",
       "source": "route-projects",
-      "target": "project-directory",
+      "target": "portfolio-management-dashboard",
       "type": "routes-to",
       "kind": "navigation",
       "label": "opens"
+    },
+    {
+      "id": "portfolio-to-project-directory",
+      "source": "portfolio-management-dashboard",
+      "target": "project-directory",
+      "type": "contains",
+      "kind": "context",
+      "label": "project register and filters",
+      "permissionKeys": [
+        "projects.read"
+      ]
+    },
+    {
+      "id": "portfolio-to-project-financial-summary",
+      "source": "portfolio-management-dashboard",
+      "target": "project-financial-summary",
+      "type": "reads",
+      "kind": "derived-data",
+      "label": "currency-aware portfolio metrics",
+      "permissionKeys": [
+        "projects.read"
+      ],
+      "invariantIds": [
+        "reports-are-derived-surfaces",
+        "company-rbac-is-authoritative"
+      ]
+    },
+    {
+      "id": "portfolio-to-project-workspace",
+      "source": "portfolio-management-dashboard",
+      "target": "project-workspace",
+      "type": "opens",
+      "kind": "navigation",
+      "label": "project drilldown",
+      "permissionKeys": [
+        "projects.read"
+      ]
     },
     {
       "id": "route-vendors-to-invoices",
@@ -7010,6 +7129,18 @@
       "type": "feeds",
       "kind": "derived-data",
       "label": "cost health"
+    },
+    {
+      "id": "project-cost-to-financial-summary",
+      "source": "project-cost-aggregation",
+      "target": "project-financial-summary",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "Actual, committed, and budget metrics",
+      "invariantIds": [
+        "reports-are-derived-surfaces",
+        "project-labor-aggregate-preserves-payroll-privacy"
+      ]
     },
     {
       "id": "documents-route-to-screen",
@@ -9079,6 +9210,18 @@
       ]
     },
     {
+      "id": "project-billed-to-financial-summary",
+      "source": "project-billed-to-date",
+      "target": "project-financial-summary",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "issued billed-to-date",
+      "invariantIds": [
+        "commercial-client-billing-issued-only",
+        "commercial-client-billing-cash-separation"
+      ]
+    },
+    {
       "id": "p2-billing-overbilling-guard",
       "source": "client-billing-lifecycle",
       "target": "client-billing-overbilling-guard",
@@ -9148,6 +9291,18 @@
       "label": "allocation-derived recorded amount contributes",
       "invariantIds": [
         "commercial-client-collection-recorded-only"
+      ]
+    },
+    {
+      "id": "project-collected-to-financial-summary",
+      "source": "project-collected-to-date",
+      "target": "project-financial-summary",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "recorded collected-to-date and outstanding billed",
+      "invariantIds": [
+        "commercial-client-collection-recorded-only",
+        "commercial-client-collection-cash-linkage"
       ]
     },
     {
