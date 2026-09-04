@@ -11,11 +11,12 @@ The default flow is:
 1. trust the exact green `main` baseline from the prior merged phase;
 2. generate one bounded agent context packet;
 3. inspect only the supplied working set and exact source symbols needed for the task;
-4. implement with focused/new tests;
-5. run compact impact-selected validation;
-6. run lint/build/database/browser checks only when the changed surface requires them;
-7. use exact-head PR CI as the final automated gate;
-8. on failure, ingest only the failed step and a bounded diagnostic excerpt.
+4. have the lead implement continuously, using Luna only for optional bounded specialist work;
+5. run focused/new tests;
+6. run compact impact-selected validation;
+7. run lint/build/database/browser checks only when the changed surface requires them;
+8. use exact-head PR CI as the final automated gate;
+9. on failure, ingest only the failed step and a bounded diagnostic excerpt.
 
 ## 1. Single agent context packet
 
@@ -128,13 +129,33 @@ Do not feed a full successful CI log to Luna. For failed CI, inspect the failed 
 
 ## 4. Agent allocation
 
-One implementation agent is the default.
+The **lead is the implementation owner**. It starts and continues implementation itself; subagents are optional accelerators rather than phase owners.
 
-Use a second concurrent Luna subagent only when there are two genuinely independent implementation workstreams with non-overlapping ownership after the lead has established the shared contract and working set.
+Default allocation is **zero or one Luna specialist subagent**. Give Luna one tightly bounded deliverable with exact file/symbol ownership, acceptance criteria, relevant tests, and explicit out-of-scope items.
 
-Do not use a second agent for duplicate discovery, CI polling, documentation-only work, broad re-audits, or parallel reads of the same files.
+Good Luna assignments include:
 
-The hard repository maximum remains two concurrent subagents.
+- one migration/RPC/RLS contract;
+- one bounded security/concurrency review;
+- one defined UI workflow/component cluster;
+- one focused test/failure-diagnosis cluster.
+
+Use a second concurrent Luna only when there are two genuinely independent specialist workstreams with non-overlapping ownership after the lead has established the shared contract and working set. Do not use the second slot merely for a broad independent re-review.
+
+The hard repository maximum remains **two concurrent subagents**.
+
+### Non-blocking execution
+
+Luna must not become the phase critical path.
+
+- The lead continues independent implementation/integration while Luna runs.
+- Use bounded waits rather than waiting indefinitely for a subagent.
+- If Luna runs for an extended period without a usable deliverable or clear progress, stop it and let the lead complete that work locally.
+- Do not restart the same stalled broad assignment repeatedly.
+- Review any partial Luna output against current source/tests before using it.
+- A stopped or timed-out Luna is not a phase failure when the lead completes and validates the work.
+
+Do not use subagents for duplicate discovery, CI polling, documentation-only work, broad re-audits, or parallel reads of the same files.
 
 ## 5. Review path
 
@@ -149,6 +170,8 @@ Give the reviewer:
 - focused/affected validation results.
 
 The reviewer expands scope only when a changed dependency, security/financial boundary, or concrete failure justifies it. Do not perform a second whole-repository audit after a focused implementation is already green.
+
+A Luna review should itself be bounded to named contracts/files. The lead remains responsible for final integration review even when Luna returns findings.
 
 ## 6. Validation path
 
@@ -179,7 +202,7 @@ The permanent `AGENTS.md` rule remains authoritative: any change under `supabase
 
 Future implementation prompts should use wording equivalent to:
 
-> Start from current latest `main` and confirm its exact SHA and prior required green CI. Do not rerun the historical full suite before implementation. Generate one bounded `npm.cmd run agent:context -- ...` packet for this objective and use it as the initial working set. If a bounded task/query has no Workflow Map match, use the changed-file/impact fallback packet rather than retrying speculative keywords. Inspect current source only inside that scope unless a concrete dependency requires expansion. Use one Luna implementation agent by default; use a second only for a genuinely independent workstream, never more than two concurrently. Run focused/new tests while iterating, then `npm.cmd run test:affected:agent` after integration. For DB-affecting work, perform the required real local migration/runtime ladder before completion. Run lint/build/workflow-map/browser validation only when the changed surface requires it. If CI fails, inspect only the failed exact-head step and a bounded failure excerpt. Exact-head PR CI is the final automated gate.
+> Start from current latest `main` and confirm its exact SHA and prior required green CI. Do not rerun the historical full suite before implementation. Generate one bounded `npm.cmd run agent:context -- ...` packet for this objective and use it as the initial working set. If a bounded task/query has no Workflow Map match, use the changed-file/impact fallback packet rather than retrying speculative keywords. Inspect current source only inside that scope unless a concrete dependency requires expansion. The Codex lead owns and continuously implements the phase. Luna is optional: use zero or one tightly bounded specialist Luna by default, and a second only for a genuinely independent specialist workstream, never more than two concurrently. Do not delegate the entire phase to Luna or block on a stalled subagent; after bounded waits without a usable result, stop it and let the lead finish locally. Run focused/new tests while iterating, then `npm.cmd run test:affected:agent` after integration. For DB-affecting work, perform the required real local migration/runtime ladder before completion. Run lint/build/workflow-map/browser validation only when the changed surface requires it. If CI fails, inspect only the failed exact-head step and a bounded failure excerpt. Exact-head PR CI is the final automated gate.
 
 ## 8. Efficiency evidence
 
@@ -195,6 +218,8 @@ Useful per-PR metrics:
 - database suite triggered yes/no;
 - affected-test elapsed time;
 - full-suite elapsed time when a fallback legitimately occurs;
+- Luna subagents started/completed/stopped;
+- whether the lead had to complete a stalled Luna assignment locally;
 - CI failure excerpt characters versus source log characters.
 
 If the agent platform exposes real input/output token accounting, record it. Otherwise use packet/log characters only as a stable proxy and do not claim exact token savings.
