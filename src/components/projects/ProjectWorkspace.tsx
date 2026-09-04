@@ -52,6 +52,7 @@ import { ProjectSiteLogs } from "../engineering/ProjectSiteLogs";
 import { useEngineeringCoordinationAccess } from "../../features/engineering/useEngineeringCoordinationAccess";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
+import type { CostInvoice, ProjectCostInput } from "../../utils/projectCosting.ts";
 import { hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
@@ -403,6 +404,21 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     pendingLaborCost: summary.pendingPayrollCost,
     status: summary.payrollCost > 0 || summary.pendingPayrollCost > 0 ? ("AVAILABLE" as const) : ("ZERO" as const),
   }], [project.id, project.currency, summary.payrollCost, summary.pendingPayrollCost]);
+  const overviewCostInput = useMemo<ProjectCostInput>(() => ({
+    invoices: invoices.map((invoice): CostInvoice => ({
+      ...invoice,
+      allocations: invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id),
+    })),
+    expenses,
+    purchaseOrders,
+    subcontracts,
+    subcontractClaims,
+    subcontractVariations,
+    // Overview receives only the permission-safe project labor aggregate.
+    projectLaborAggregates: budgetControlLaborAggregate,
+    laborSource: "aggregate",
+    baseCurrency: project.currency,
+  }), [budgetControlLaborAggregate, expenses, invoiceAllocations, invoices, project.currency, purchaseOrders, subcontractClaims, subcontractVariations, subcontracts]);
 
   return (
     <div className="space-y-5">
@@ -436,7 +452,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         ))}
       </nav>
 
-      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} clientBillings={clientBillings} clientCollections={clientCollections} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
+      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} costInput={overviewCostInput} clientBillings={clientBillings} clientCollections={clientCollections} clientDataLoading={clientBillingLoading} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
 
       {tab === "billing" && canReadClientBilling && (
         <ClientBillingPanel

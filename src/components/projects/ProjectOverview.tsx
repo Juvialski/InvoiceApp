@@ -44,6 +44,7 @@ import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type { Project, ProjectCostCode, ProjectCostSummary } from "../../types.ts";
 import { projectHealth } from "../../utils/projectCosting.ts";
+import type { ProjectCostInput } from "../../utils/projectCosting.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel.ts";
 import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts";
 import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPermissionContext.tsx";
@@ -55,6 +56,7 @@ import {
   type ProjectAttentionItem,
   type ProjectManagementHealth,
 } from "../../utils/projectManagementViewModel.ts";
+import type { ProjectFinancialMetric } from "../../utils/projectFinancialSummary.ts";
 import { calculateClientBillingSummary, type ClientBilling, type ClientBillingSummary } from "../../lib/clientBilling.ts";
 import { calculateClientCollectionSummary, type ClientCollection, type ClientCollectionSummary } from "../../lib/clientCollections.ts";
 
@@ -95,6 +97,7 @@ export type ProjectOverviewTab =
   | "overview"
   | "billing"
   | "budget"
+  | "procurement"
   | "documents"
   | "rfis"
   | "submittals"
@@ -114,8 +117,10 @@ interface ProjectOverviewProps {
   onEdit?: () => void;
   onArchive?: () => void;
   onOpenTab?: (tab: ProjectOverviewTab) => void;
+  costInput?: ProjectCostInput;
   clientBillings?: readonly ClientBilling[];
   clientCollections?: readonly ClientCollection[];
+  clientDataLoading?: boolean;
   hideHeader?: boolean;
 }
 
@@ -132,6 +137,94 @@ function percent(value: number) {
   return `${(Number.isFinite(value) ? value : 0).toFixed(1)}%`;
 }
 
+function metricValue(metric: ProjectFinancialMetric, fallbackCurrency: string) {
+  if (metric.status === "unavailable" || metric.amount === undefined) return "Unavailable";
+  return money(metric.amount, metric.currency || fallbackCurrency);
+}
+
+function metricStatusLabel(metric: ProjectFinancialMetric) {
+  return metric.status === "available" ? undefined : metric.status === "partial" ? "Partial" : "Unavailable";
+}
+
+function progressPercent(
+  numerator: ProjectFinancialMetric,
+  denominator: ProjectFinancialMetric,
+  currency: string,
+) {
+  if (
+    numerator.status !== "available" ||
+    denominator.status !== "available" ||
+    numerator.amount === undefined ||
+    denominator.amount === undefined ||
+    denominator.amount <= 0 ||
+    (numerator.currency || currency) !== (denominator.currency || currency) ||
+    (numerator.currency || currency) !== currency
+  ) return null;
+  return (numerator.amount / denominator.amount) * 100;
+}
+
+function ControlMetricCard({
+  label,
+  metric,
+  currency,
+  detail,
+  icon: Icon,
+  tone = "slate",
+}: {
+  label: string;
+  metric: ProjectFinancialMetric;
+  currency: string;
+  detail: string;
+  icon: React.ElementType;
+  tone?: "slate" | "indigo" | "purple" | "amber" | "emerald";
+}) {
+  const toneClasses = {
+    slate: "text-slate-600",
+    indigo: "text-indigo-700",
+    purple: "text-purple-700",
+    amber: "text-amber-700",
+    emerald: "text-emerald-700",
+  } as const;
+  const status = metricStatusLabel(metric);
+  return (
+    <Card className="min-w-0 p-4 shadow-sm" elevation="low" data-financial-metric-status={metric.status}>
+      <div className={`flex items-center justify-between ${toneClasses[tone]}`}>
+        <span className="text-[10px] font-semibold">{label}</span>
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      </div>
+      <p className={`mt-2 break-words text-base font-black tabular-nums ${toneClasses[tone]}`}>
+        {metricValue(metric, currency)}
+      </p>
+      <p className="mt-1 text-[9px] text-slate-500">{detail}</p>
+      {status && <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-amber-700">{status}</p>}
+      {metric.reason && <p className="mt-2 text-[9px] leading-4 text-slate-500">{metric.reason}</p>}
+    </Card>
+  );
+}
+
+function ProgressMeter({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number | null;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3" data-progress-status={value === null ? "unavailable" : "available"}>
+      <div className="flex items-center justify-between gap-3 text-[10px] font-semibold text-slate-600">
+        <span>{label}</span>
+        <span className="font-black tabular-nums text-slate-900">{value === null ? "Unavailable" : percent(value)}</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200" aria-hidden="true">
+        <div className="h-full rounded-full bg-emerald-500 transition-[width]" style={{ width: `${value === null ? 0 : Math.min(100, Math.max(0, value))}%` }} />
+      </div>
+      <p className="mt-2 text-[9px] leading-4 text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
 function fallbackDashboard(summary: CostSummaryView): ProjectDashboardViewData {
   const budget = Number(summary.budget) || 0;
   const confirmed = Number(summary.totalActualCost) || 0;
@@ -140,11 +233,6 @@ function fallbackDashboard(summary: CostSummaryView): ProjectDashboardViewData {
     (Number(summary.pendingPayrollCost) || 0) +
     (Number(summary.pendingExpenseCost) || 0);
   const availableAfterCommitments = budget - confirmed - committed - pending;
-  const health = projectHealth({
-    budget,
-    remainingBudget: budget - confirmed,
-    budgetUsedPercent: budget > 0 ? (confirmed / budget) * 100 : 0,
-  });
   return {
     budget,
     confirmed,
@@ -159,7 +247,11 @@ function fallbackDashboard(summary: CostSummaryView): ProjectDashboardViewData {
         ? ((confirmed + committed + pending) / budget) *
           100
         : 0,
-    health,
+    health: projectHealth({
+      budget,
+      remainingBudget: budget - confirmed,
+      budgetUsedPercent: budget > 0 ? (confirmed / budget) * 100 : 0,
+    }),
     outstandingPayables: summary.unpaidInvoiceCost,
     composition: { invoices: summary.invoiceCost, payroll: summary.payrollCost, expenses: summary.otherExpenseCost },
     trend: [],
@@ -298,7 +390,7 @@ function RestrictedProjectOverview({
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-[10px] font-semibold text-slate-500">Contract Value</p>
-            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(clientBillingSummary.contractValue, project.currency)}</p>
+            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.contractValue === undefined ? "Unavailable" : money(clientBillingSummary.contractValue, project.currency)}</p>
           </div>
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-[10px] font-semibold text-slate-500">Billed to Date</p>
@@ -327,19 +419,32 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   summary,
   dashboard: suppliedDashboard,
   costCodes = [],
+  costInput,
   onBack,
   onEdit,
   onArchive,
   onOpenTab,
   clientBillings = [],
   clientCollections = [],
+  clientDataLoading = false,
   hideHeader = false,
 }) => {
   // Unconditional React hooks (must all run before any early return)
   const permissions = useAppPermissions();
   const completeness = useProjectCostCompleteness();
-  const clientBillingSummary = useMemo(() => calculateClientBillingSummary(project as Project, clientBillings), [clientBillings, project]);
-  const clientCollectionSummary = useMemo(() => calculateClientCollectionSummary(project as Project, clientBillings, clientCollections), [clientBillings, clientCollections, project]);
+  const clientBillingSummary = useMemo(() => clientDataLoading
+    ? {
+        currency: String(project.currency || "").trim().toUpperCase() || "UNKNOWN",
+        contractValue: Number.isFinite(Number(project.contractValue)) ? Number(project.contractValue) : undefined,
+        issuedBillingCount: 0,
+        totalBillingCount: 0,
+        hasCurrencyMismatch: false,
+        reason: "Client billing data is still loading; billed-to-date and remaining-to-bill are unavailable.",
+      }
+    : calculateClientBillingSummary(project as Project, clientBillings), [clientBillings, clientDataLoading, project]);
+  const clientCollectionSummary = useMemo(() => clientDataLoading
+    ? undefined
+    : calculateClientCollectionSummary(project as Project, clientBillings, clientCollections), [clientBillings, clientCollections, clientDataLoading, project]);
 
   const managementView = useMemo(() => {
     return buildProjectManagementView(
@@ -347,10 +452,13 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
       summary,
       {
         costCodes,
+        costInput,
         financialDataComplete: completeness.complete,
+        clientBillings: clientDataLoading ? undefined : clientBillings,
+        clientCollections: clientDataLoading ? undefined : clientCollections,
       },
     );
-  }, [project, summary, costCodes, completeness.complete]);
+  }, [clientBillings, clientCollections, clientDataLoading, completeness.complete, costCodes, costInput, project, summary]);
 
   const dashboard = suppliedDashboard || fallbackDashboard(summary);
   const pendingBase = managementView.pendingCostExposure;
@@ -366,10 +474,30 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
       Math.abs(finalTrendPoint.cumulativeCommitted - (summary.totalActualCost + pendingBase)) <= 0.01
     : summary.totalActualCost === 0 && pendingBase === 0;
   const showTrendAnalytics = !hasForeignAmounts && trendReconciles;
+  const combinedCostAnalyticsAvailable = !managementView.isPartial && managementView.availableAfterCommitments !== null;
 
-  const attentionItems = managementView.attentionFlags;
-  const compositionTotal =
-    dashboard.composition.invoices + dashboard.composition.payroll + dashboard.composition.expenses;
+  const attentionItems = managementView.attentionFlags.filter(
+    (item) => item.flag !== "FORECAST_NOT_SET" && item.flag !== "FORECAST_OVER_BUDGET",
+  );
+  const authoritativeComposition = {
+    invoices: managementView.baseCostSummary.invoiceCost,
+    payroll: managementView.baseCostSummary.payrollCost,
+    expenses: managementView.baseCostSummary.otherExpenseCost,
+  };
+  const compositionTotal = authoritativeComposition.invoices + authoritativeComposition.payroll + authoritativeComposition.expenses;
+  const compositionReconciles = managementView.actualCostCompositionReconciles;
+  const compositionChartAvailable = compositionReconciles && compositionTotal > 0;
+  const financialTruth = managementView.financialTruth;
+  const availableAfterCommitmentsMetric: ProjectFinancialMetric = managementView.availableAfterCommitments === null
+    ? {
+        status: "unavailable",
+        reason: hasForeignAmounts
+          ? "Available after commitments / exposure is withheld while foreign-currency cost sources remain unconverted."
+          : "Available after commitments / exposure is unavailable until the project-cost sources are complete.",
+      }
+    : { status: "available", amount: managementView.availableAfterCommitments, currency: managementView.currency };
+  const billingProgress = progressPercent(financialTruth.billed, financialTruth.contractValue, managementView.currency);
+  const collectionProgress = progressPercent(financialTruth.collected, financialTruth.billed, managementView.currency);
 
   const budgetPositionData = [
     {
@@ -377,15 +505,15 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
       confirmed: managementView.actualCost,
       committed: managementView.committedCost,
       pending: managementView.pendingCostExposure,
-      remaining: Math.max(0, managementView.approvedCostBudget - managementView.actualCost - managementView.committedCost - managementView.pendingCostExposure),
-      excess: Math.max(0, managementView.actualCost + managementView.committedCost + managementView.pendingCostExposure - managementView.approvedCostBudget),
+      available: Math.max(0, managementView.availableAfterCommitments || 0),
+      excess: Math.max(0, -(managementView.availableAfterCommitments || 0)),
     },
   ];
 
   const composition = [
-    { name: "Supplier invoices", value: dashboard.composition.invoices, color: "#4f46e5" },
-    { name: "Project payroll", value: dashboard.composition.payroll, color: "#8b5cf6" },
-    { name: "Direct expenses", value: dashboard.composition.expenses, color: "#f59e0b" },
+    { name: "Supplier invoices", value: authoritativeComposition.invoices, color: "#4f46e5" },
+    { name: "Project payroll", value: authoritativeComposition.payroll, color: "#8b5cf6" },
+    { name: "Direct expenses", value: authoritativeComposition.expenses, color: "#f59e0b" },
   ].filter((item) => item.value > 0);
 
   // Permission- and deployment-gated shortcuts
@@ -395,6 +523,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   const canReadSiteLogs = hasPermission(permissions, PERMISSION_KEYS.engineeringSiteLogsRead);
   const canReadInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesRead);
   const canReadClientBilling = hasPermission(permissions, PERMISSION_KEYS.projectsRead);
+  const canReadProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementRead);
   const canReadExpenses = hasPermission(permissions, PERMISSION_KEYS.expensesRead);
   const canReadPayroll = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadPeople = hasPermission(permissions, PERMISSION_KEYS.workersRead);
@@ -403,6 +532,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   const shortcuts: Array<{ tab: ProjectOverviewTab; label: string; icon: React.ElementType }> = [
     ...(canReadClientBilling ? [{ tab: "billing" as const, label: "Client Billing", icon: Wallet }] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [{ tab: "budget" as const, label: "Budget Control", icon: Calculator }] : []),
+    ...(canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") ? [{ tab: "procurement" as const, label: "Procurement", icon: ShoppingCart }] : []),
     ...(canReadDocuments && isProjectWorkspaceTabDeploymentVisible("documents") ? [{ tab: "documents" as const, label: "Engineering Docs", icon: Compass }] : []),
     ...(canReadRfis && isProjectWorkspaceTabDeploymentVisible("rfis") ? [{ tab: "rfis" as const, label: "RFIs", icon: FileQuestion }] : []),
     ...(canReadSubmittals && isProjectWorkspaceTabDeploymentVisible("submittals") ? [{ tab: "submittals" as const, label: "Submittals", icon: ClipboardCheck }] : []),
@@ -516,15 +646,15 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         </div>
       </section>
 
-      {/* 3. Primary Management Financial Snapshot */}
-      <section aria-labelledby="primary-financial-snapshot-heading" className="space-y-3">
+      {/* 3. Financial control scorecard */}
+      <section aria-labelledby="project-financial-control-heading" className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h3 id="primary-financial-snapshot-heading" className="text-sm font-black text-slate-950">
-              Project Financial Snapshot
+            <h3 id="project-financial-control-heading" className="text-sm font-black text-slate-950">
+              Project Financial Control Dashboard
             </h3>
             <p className="text-[10px] text-slate-500">
-              Authoritative financial positions derived from verified supplier invoices, approved payroll, and confirmed expenses.
+              Project Financial Snapshot for management control; cost control and commercial progress remain separate.
             </p>
           </div>
           {hasForeignAmounts && (
@@ -535,134 +665,77 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {/* 1. Contract Value */}
-          <Card className="p-4 shadow-sm" elevation="low">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-[10px] font-semibold">Contract Value</span>
-              <Wallet className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="p-4 shadow-sm sm:p-5" elevation="low">
+            <div className="flex items-start gap-2.5 border-b border-slate-100 pb-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+                <Calculator className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-slate-950">Cost Control</h4>
+                <p className="mt-0.5 text-[10px] leading-4 text-slate-500">Approved cost ceiling against authoritative actual, commitments, and pending exposure.</p>
+              </div>
             </div>
-            <p className="mt-2 text-base font-black tabular-nums text-slate-950">
-              {money(managementView.contractValue, managementView.currency)}
-            </p>
-            <p className="mt-1 text-[9px] text-slate-400">Awarded contract value</p>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <ControlMetricCard label="Approved Cost Budget" metric={financialTruth.approvedCostBudget} currency={managementView.currency} detail="Internal approved cost ceiling" icon={Calculator} />
+              <ControlMetricCard label="Actual Cost" metric={financialTruth.actualCost} currency={managementView.currency} detail="Verified/approved cost sources" icon={BarChart3} tone="indigo" />
+              <ControlMetricCard label="Committed Cost" metric={financialTruth.committedCost} currency={managementView.currency} detail="Approved/issued POs and approved/active subcontracts" icon={ShoppingCart} tone="purple" />
+              <ControlMetricCard label="Pending Exposure" metric={financialTruth.pendingCostExposure} currency={managementView.currency} detail="Pending or unconfirmed cost sources" icon={AlertTriangle} tone="amber" />
+              <ControlMetricCard label="Remaining Budget" metric={financialTruth.remainingBudget} currency={managementView.currency} detail="Budget Remaining = approved budget − actual cost" icon={Building2} tone="emerald" />
+              <ControlMetricCard label="Available after Commitments / Exposure" metric={availableAfterCommitmentsMetric} currency={managementView.currency} detail="Budget − actual − committed − pending" icon={ShieldCheck} />
+            </div>
+            {hasForeignAmounts && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] leading-4 text-amber-900">Base-currency cost amounts remain visible only as partial source values. Remaining Budget and the commitment-adjusted balance are not stated as complete totals until foreign amounts have an explicit conversion contract.</p>}
           </Card>
 
-          {/* 2. Approved Cost Budget */}
-          <Card className="p-4 shadow-sm" elevation="low">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-[10px] font-semibold">Approved Cost Budget</span>
-              <Calculator className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+          <Card className="p-4 shadow-sm sm:p-5" elevation="low">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <Wallet className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-950">Commercial Control</h4>
+                  <p className="mt-0.5 text-[10px] leading-4 text-slate-500">Client billing and collection stages; these do not redefine project cost.</p>
+                </div>
+              </div>
+              {onOpenTab && canReadClientBilling && isProjectWorkspaceTabDeploymentVisible("billing") && <Button variant="secondary" label="Open Billing & Collections →" onClick={() => onOpenTab("billing")} />}
             </div>
-            <p className="mt-2 text-base font-black tabular-nums text-slate-950">
-              {money(managementView.approvedCostBudget, managementView.currency)}
-            </p>
-            <p className="mt-1 text-[9px] text-slate-400">Planned cost ceiling</p>
-          </Card>
-
-          {/* 3. Actual Cost */}
-          <Card className="p-4 shadow-sm" elevation="low">
-            <div className="flex items-center justify-between text-indigo-700">
-              <span className="text-[10px] font-bold">Actual Cost</span>
-              <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" />
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <ControlMetricCard label="Contract Value" metric={financialTruth.contractValue} currency={managementView.currency} detail="Client-facing contract value" icon={Wallet} tone="emerald" />
+              <ControlMetricCard label="Billed to Date" metric={financialTruth.billed} currency={managementView.currency} detail="ISSUED client billings only" icon={FileText} tone="emerald" />
+              <ControlMetricCard label="Remaining to Bill" metric={financialTruth.remainingToBill} currency={managementView.currency} detail="Contract value − issued billings" icon={ArrowUpRight} tone="emerald" />
+              <ControlMetricCard label="Collected to Date" metric={financialTruth.collected} currency={managementView.currency} detail="RECORDED client collections only" icon={CheckCircle2} tone="emerald" />
+              <ControlMetricCard label="Outstanding Billed Amount" metric={financialTruth.outstandingReceivables} currency={managementView.currency} detail="Billed − recorded collections" icon={Receipt} tone="amber" />
             </div>
-            <p className="mt-2 text-base font-black tabular-nums text-indigo-700">
-              {money(managementView.actualCost, managementView.currency)}
-            </p>
-            <p className="mt-1 text-[9px] text-slate-500">
-              {hasForeignAmounts
-                ? "Authoritative base total"
-                : managementView.isPartial
-                  ? "Partial cost aggregate"
-                  : `${percent(managementView.confirmedUtilization)} of budget`}
-            </p>
-          </Card>
-
-          {/* 4. Committed Cost (P2A) */}
-          <Card className="p-4 shadow-sm" elevation="low">
-            <div className="flex items-center justify-between text-purple-700">
-              <span className="text-[10px] font-bold">Committed Cost</span>
-              <ShoppingCart className="h-3.5 w-3.5 text-purple-600" aria-hidden="true" />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2" aria-label="Commercial progress">
+              <ProgressMeter label="Billing progress" value={billingProgress} detail="Billed to Date / Contract Value; only shown when both authoritative values share the project currency." />
+              <ProgressMeter label="Collection progress" value={collectionProgress} detail="Collected to Date / Billed to Date; settlement linkage remains separate cash evidence." />
             </div>
-            <p className="mt-2 text-base font-black tabular-nums text-purple-800">
-              {money(managementView.committedCost, managementView.currency)}
-            </p>
-            <p className="mt-1 text-[9px] text-slate-500">
-              Active PO and subcontract obligations
-            </p>
-          </Card>
-
-          {/* 5. Pending Cost Exposure */}
-          <Card className="p-4 shadow-sm" elevation="low">
-            <div className="flex items-center justify-between text-amber-700">
-              <span className="text-[10px] font-bold">Pending Exposure</span>
-              <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
-            </div>
-            <p className="mt-2 text-base font-black tabular-nums text-amber-800">
-              {money(managementView.pendingCostExposure, managementView.currency)}
-            </p>
-            <p className="mt-1 text-[9px] text-slate-500">Unconfirmed invoices & draft costs</p>
-          </Card>
-
-          {/* 6. Budget Remaining / Variance */}
-          <Card className="p-4 shadow-sm col-span-2 sm:col-span-1" elevation="low">
-            <div className="flex items-center justify-between text-slate-500">
-              <span className="text-[10px] font-semibold">Budget Remaining</span>
-              <Building2 className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-            </div>
-            <p
-              className={`mt-2 text-base font-black tabular-nums ${
-                managementView.remainingBudget !== null && managementView.remainingBudget < 0
-                  ? "text-rose-700"
-                  : "text-emerald-700"
-              }`}
-            >
-              {managementView.isPartial ? "Partial" : money(managementView.remainingBudget, managementView.currency)}
-            </p>
-            <p className="mt-1 text-[9px] text-slate-400">
-              {managementView.isPartial
-                ? "Withheld due to foreign FX or incomplete sources"
-                : managementView.remainingBudget !== null && managementView.remainingBudget < 0
-                  ? "Exceeds approved budget"
-                  : "Remaining cost headroom"}
-            </p>
           </Card>
         </div>
       </section>
 
-      {/* 4. Client Progress Billing & Collections Commercial Position */}
+      {/* 4. Commitment visibility */}
       <Card className="p-4 shadow-sm sm:p-5" elevation="low">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2.5"><div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client Progress Billing & Collections</h3><p className="mt-0.5 text-[10px] text-slate-500">Revenue-side commercial truth; only ISSUED records count toward billed-to-date and receive collections.</p></div></div>
-          {onOpenTab && <Button variant="secondary" label="Open Commercial Billing & Collections →" onClick={() => onOpenTab("billing")} />}
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><ShoppingCart className="h-4 w-4" aria-hidden="true" /></div>
+            <div><h3 className="text-sm font-black text-slate-950">Commitment Visibility</h3><p className="mt-0.5 text-[10px] leading-4 text-slate-500">Authoritative approved-obligation view; commitments are not Actual Cost and do not include draft sourcing records.</p></div>
+          </div>
+          {onOpenTab && canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") && <Button variant="secondary" label="Open Procurement →" onClick={() => onOpenTab("procurement")} />}
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-[10px] font-semibold text-slate-500">Contract Value</p>
-            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(clientBillingSummary.contractValue, project.currency)}</p>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-[10px] font-semibold text-slate-500">Billed to Date</p>
-            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.billedToDate === undefined ? "Unavailable" : money(clientBillingSummary.billedToDate, project.currency)}</p>
-            <p className="mt-1 text-[9px] text-slate-500">{clientBillingSummary.issuedBillingCount} issued billing record{clientBillingSummary.issuedBillingCount === 1 ? "" : "s"}</p>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-[10px] font-semibold text-slate-500">Collected to Date</p>
-            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientCollectionSummary.collectedToDate === undefined ? "Unavailable" : money(clientCollectionSummary.collectedToDate, project.currency)}</p>
-            <p className="mt-1 text-[9px] text-slate-500">{clientCollectionSummary.recordedCollectionCount} recorded collection{clientCollectionSummary.recordedCollectionCount === 1 ? "" : "s"}</p>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-[10px] font-semibold text-slate-500">Outstanding Billed Amount</p>
-            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientCollectionSummary.outstandingBilledAmount === undefined ? "Unavailable" : money(clientCollectionSummary.outstandingBilledAmount, project.currency)}</p>
-            <p className="mt-1 text-[9px] text-slate-500">Billed less collected</p>
-          </div>
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-[10px] font-semibold text-slate-500">Remaining to Bill</p>
-            <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{clientBillingSummary.remainingToBill === undefined ? "Unavailable" : money(clientBillingSummary.remainingToBill, project.currency)}</p>
-            <p className="mt-1 text-[9px] text-slate-500">Contract value less issued billings</p>
-          </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <ControlMetricCard label="Committed Cost" metric={financialTruth.committedCost} currency={managementView.currency} detail="Canonical project-cost aggregate" icon={ShoppingCart} tone="purple" />
+          {managementView.commitmentBreakdown.reconcilesToCommittedCost && managementView.commitmentBreakdown.purchaseOrders.status !== "unavailable" && managementView.commitmentBreakdown.subcontracts.status !== "unavailable" ? (
+            <>
+              <ControlMetricCard label="Purchase Order Commitments" metric={managementView.commitmentBreakdown.purchaseOrders} currency={managementView.currency} detail="APPROVED / ISSUED POs" icon={ShoppingCart} tone="purple" />
+              <ControlMetricCard label="Subcontract Commitments" metric={managementView.commitmentBreakdown.subcontracts} currency={managementView.currency} detail="APPROVED / ACTIVE subcontracts after certified progress" icon={BriefcaseBusiness} tone="purple" />
+            </>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-[10px] leading-4 text-slate-500 sm:col-span-2">Source-level PO and subcontract categories are unavailable here because the supplied sources do not reconcile independently to the authoritative Committed Cost aggregate.</div>
+          )}
         </div>
-        {clientBillingSummary.hasCurrencyMismatch && <p className="mt-3 text-[10px] font-semibold text-amber-700">{clientBillingSummary.reason}</p>}
+        {managementView.commitmentBreakdown.purchaseOrders.reason && managementView.commitmentBreakdown.purchaseOrders.status !== "available" && <p className="mt-3 text-[10px] leading-4 text-amber-700">{managementView.commitmentBreakdown.purchaseOrders.reason}</p>}
       </Card>
 
       {/* 5. Budget Control & Work Packages Section */}
@@ -675,11 +748,11 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             <div>
               <h3 className="text-sm font-black text-slate-950">Work Package Budget Control (P1B)</h3>
               <p className="mt-0.5 text-[10px] text-slate-500">
-                Work package cost codes, approved allocations, coded vs. uncoded actual costs, and forecast tracking.
+                Management summary from the detailed work-package and cost-code control model.
               </p>
             </div>
           </div>
-          {onOpenTab && (
+          {onOpenTab && isProjectWorkspaceTabDeploymentVisible("budget") && (
             <Button
               variant="secondary"
               label="Open Budget Control Tab →"
@@ -710,7 +783,9 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-[10px] font-semibold text-slate-500">Coded Actual Cost</p>
             <p className="mt-1 text-sm font-black tabular-nums text-slate-900">
-              {managementView.costClassificationAvailable && managementView.codedActualCost !== null
+              {hasForeignAmounts
+                ? "Partial"
+                : managementView.costClassificationAvailable && managementView.codedActualCost !== null
                 ? money(managementView.codedActualCost, managementView.currency)
                 : "Unavailable in overview"}
             </p>
@@ -718,22 +793,22 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-[10px] font-semibold text-slate-500">Uncoded Actual Cost</p>
             <p className={`mt-1 text-sm font-black tabular-nums ${managementView.uncodedActualCost !== null && managementView.uncodedActualCost > 0 && managementView.activeCostCodesCount > 0 ? "text-amber-700" : "text-slate-900"}`}>
-              {managementView.costClassificationAvailable && managementView.uncodedActualCost !== null
+              {hasForeignAmounts
+                ? "Partial"
+                : managementView.costClassificationAvailable && managementView.uncodedActualCost !== null
                 ? money(managementView.uncodedActualCost, managementView.currency)
                 : "Unavailable in overview"}
             </p>
           </div>
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-[10px] font-semibold text-slate-500">Forecast Final Cost</p>
-            <p className={`mt-1 text-sm font-black tabular-nums ${managementView.forecastVariance !== null && managementView.forecastVariance < 0 ? "text-rose-700" : "text-slate-900"}`}>
-              {managementView.hasExplicitForecast && managementView.forecastFinalCost !== null
-                ? money(managementView.forecastFinalCost, managementView.currency)
-                : managementView.activeCostCodesCount > 0
-                  ? "Incomplete / Not set"
-                  : "Not set"}
+            <p className="text-[10px] font-semibold text-slate-500">Work Packages Over Budget</p>
+            <p className={`mt-1 text-sm font-black tabular-nums ${managementView.overBudgetCostCodeCount !== null && managementView.overBudgetCostCodeCount > 0 ? "text-rose-700" : "text-slate-900"}`}>
+              {managementView.overBudgetCostCodeCount === null ? "Unavailable" : managementView.overBudgetCostCodeCount}
             </p>
+            <p className="mt-1 text-[9px] text-slate-500">Actual cost above approved code budget</p>
           </div>
         </div>
+        {hasForeignAmounts && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] leading-4 text-amber-900">Code-level actuals are partial while foreign-currency cost sources remain unconverted; no complete work-package conclusion is shown.</p>}
       </Card>
 
       {/* 6. Commercial Controls Explanatory Notice */}
@@ -780,13 +855,13 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           <div>
             <h3 className="text-sm font-black">Project Budget Position</h3>
             <p className="mt-1 text-[10px] text-slate-500">
-              Actual cost, approved commitments, pending exposure, remaining base-currency budget, and over-budget excess reconcile to the project cost row.
+              Approved cost budget is shown as Actual Cost + Committed Cost + Pending Exposure + Available after commitments / exposure. Over-budget excess is separate.
             </p>
           </div>
           <BarChart3 className="h-4 w-4 text-indigo-500" aria-hidden="true" />
         </div>
-        {hasForeignAmounts ? (
-          <ChartEmpty message="Complete budget position withheld while unconverted foreign-currency costs are present." />
+        {!combinedCostAnalyticsAvailable ? (
+          <ChartEmpty message={hasForeignAmounts ? "Complete budget position withheld while unconverted foreign-currency costs are present." : "Complete budget position withheld until authoritative cost sources reconcile."} />
         ) : dashboard.budget <= 0 && dashboard.confirmed === 0 && dashboard.committed === 0 && dashboard.pending === 0 ? (
           <ChartEmpty message="No project budget or cost activity yet." />
         ) : (
@@ -807,7 +882,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
                 <Bar dataKey="confirmed" stackId="position" fill="#4f46e5" name="Actual Cost" />
                 <Bar dataKey="committed" stackId="position" fill="#7c3aed" name="Committed Cost" />
                 <Bar dataKey="pending" stackId="position" fill="#f59e0b" name="Pending Exposure" />
-                <Bar dataKey="remaining" stackId="position" fill="#cbd5e1" name="Remaining Budget" />
+                <Bar dataKey="available" stackId="position" fill="#cbd5e1" name="Available after commitments / exposure" />
                 <Bar dataKey="excess" stackId="position" fill="#e11d48" name="Over Budget" />
               </BarChart>
             </ResponsiveContainer>
@@ -831,8 +906,8 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             </div>
             <Receipt className="h-4 w-4 text-violet-500" aria-hidden="true" />
           </div>
-          {!compositionTotal ? (
-            <ChartEmpty message="No actual project costs recorded yet." />
+          {!compositionChartAvailable ? (
+            <ChartEmpty message={!compositionReconciles ? "Actual cost composition withheld because source categories do not reconcile to the authoritative Actual Cost." : "No actual project costs recorded yet."} />
           ) : (
             <>
               <div className="h-[180px] w-full">

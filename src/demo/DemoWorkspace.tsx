@@ -291,6 +291,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             costCodes={data.costCodes || []}
             purchaseOrders={data.purchaseOrders || []}
             subcontracts={data.subcontracts || []}
+            subcontractClaims={data.subcontractClaims || []}
+            subcontractVariations={data.subcontractVariations || []}
             clientBillings={clientBillings}
             clientBillingEvents={data.clientBillingEvents || []}
             clientCollections={data.clientCollections || []}

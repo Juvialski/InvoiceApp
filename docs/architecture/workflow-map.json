@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "graphId": "engoryx-product-workflow",
-  "version": "wm-1+p2-procurement-commercial-client-billing",
+  "version": "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control",
   "product": "Engoryx Engineering Operations Platform",
   "purpose": "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   "canonicalSource": "scripts/workflow-map/graph.ts",
@@ -18,6 +18,7 @@
     "Core Hardening Wave 2B2",
     "Cross-Domain Settlement",
     "P2 Procurement + Commercial",
+    "P3A-2 Project Financial Control",
     "QA-1",
     "WM-1"
   ],
@@ -1948,18 +1949,41 @@
     {
       "sourceClassification": "mixed",
       "id": "project-overview",
-      "label": "Project Overview",
+      "label": "Project Financial Control Dashboard (Project Overview)",
       "domain": "projects",
       "type": "screen",
       "scope": "project",
-      "description": "Project health and cost overview assembled from authoritative project-cost inputs and engineering summaries.",
+      "description": "Selected-project management control layer with distinct cost and commercial scorecards, commitment-adjusted availability, reconciled actual-cost composition, work-package summary, and permission-aware drilldowns; Forecast/EAC and risk scoring remain deferred.",
       "fileRefs": [
         "src/components/projects/ProjectOverview.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/utils/projectManagementViewModel.ts",
+        "src/utils/projectFinancialSummary.ts",
         "src/utils/projectDashboardViewModel.ts"
       ],
       "testRefs": [
+        "tests/projectFinancialControlDashboard.test.ts",
         "tests/projectWorkspaceNavigation.test.ts",
-        "tests/accountingStatistics.test.ts"
+        "tests/projectOverviewFinancialTruth.test.ts"
+      ],
+      "invariantIds": [
+        "reports-are-derived-surfaces",
+        "project-labor-aggregate-preserves-payroll-privacy",
+        "commercial-client-billing-issued-only",
+        "commercial-client-collection-recorded-only"
+      ],
+      "qaScenarioIds": [
+        "project-financial-control--project-financial-control--financial-control-dashboard-verified--desktop-1440",
+        "project-financial-control--project-financial-control--financial-control-dashboard-verified--laptop-1366",
+        "project-financial-control--project-financial-control--financial-control-dashboard-verified--tablet-768",
+        "project-financial-control--project-financial-control--financial-control-dashboard-verified--mobile-390",
+        "project-financial-control--project-financial-control--mixed-currency-control-state-verified--desktop-1440"
+      ],
+      "tags": [
+        "project financial control",
+        "derived surface",
+        "currency-aware",
+        "permission-aware drilldowns"
       ]
     },
     {
@@ -6988,7 +7012,7 @@
       "target": "project-overview",
       "type": "contains",
       "kind": "context",
-      "label": "Overview tab"
+      "label": "Financial Control Dashboard / Overview tab"
     },
     {
       "id": "directory-to-project-lifecycle",
@@ -7128,7 +7152,7 @@
       "target": "project-overview",
       "type": "feeds",
       "kind": "derived-data",
-      "label": "cost health"
+      "label": "authoritative cost-control scorecard and charts"
     },
     {
       "id": "project-cost-to-financial-summary",
@@ -9397,6 +9421,20 @@
       "label": "bank evidence only; collected truth remains commercial",
       "invariantIds": [
         "commercial-client-collection-cash-linkage"
+      ]
+    },
+    {
+      "id": "p3a-overview-to-budget-control",
+      "source": "project-overview",
+      "target": "project-budget-control",
+      "type": "opens",
+      "kind": "navigation",
+      "label": "Open Budget Control drilldown",
+      "permissionKeys": [
+        "projects.read"
+      ],
+      "invariantIds": [
+        "reports-are-derived-surfaces"
       ]
     }
   ],
