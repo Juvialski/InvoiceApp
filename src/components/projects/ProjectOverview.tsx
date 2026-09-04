@@ -217,7 +217,7 @@ function ControlMetricCard({
   } as const;
   const status = metricStatusLabel(metric);
   return (
-    <Card className="min-w-0 p-4 shadow-sm" elevation="low" data-financial-metric-status={metric.status}>
+    <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50/70 p-3" data-financial-metric-status={metric.status}>
       <div className={`flex items-center justify-between ${toneClasses[tone]}`}>
         <span className="text-[10px] font-semibold">{label}</span>
         <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -228,7 +228,7 @@ function ControlMetricCard({
       <p className="mt-1 text-[9px] text-slate-500">{detail}</p>
       {status && <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-amber-700">{status}</p>}
       {metric.reason && <p className="mt-2 text-[9px] leading-4 text-slate-500">{metric.reason}</p>}
-    </Card>
+    </div>
   );
 }
 
@@ -817,10 +817,10 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
       )}
 
       {/* 2. Top Identity & Operational Context Banner */}
-      <section className="rounded-2xl bg-slate-950 p-5 text-white shadow-lg" aria-label="Project Identity and Health">
+      <section className="rounded-2xl bg-slate-950 p-4 text-white shadow-lg sm:p-5" aria-label="Project context and health">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
           <div className="space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Project Operations Hub</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Project context</p>
             <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-300">
               <span className="inline-flex items-center gap-1.5">
                 <BriefcaseBusiness className="h-3.5 w-3.5 text-indigo-300" aria-hidden="true" />
@@ -835,9 +835,6 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
                 PM: {project.projectManager || "Not set"}
               </span>
             </div>
-            <p className="max-w-2xl text-xs leading-5 text-slate-400">
-              {project.description || project.notes || "No project description or notes have been recorded."}
-            </p>
           </div>
 
           <div className="lg:max-w-xs lg:text-right">
@@ -845,16 +842,24 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             <p className={`text-xl font-black ${healthTone(managementView.health)}`}>
               {managementView.health}
             </p>
+            {/* Source-state contract: Complete cost health is withheld while unconverted foreign-currency costs are present. */}
             <p className="mt-0.5 text-xs text-slate-400">
               {hasForeignAmounts
-                ? "Complete cost health is withheld while unconverted foreign-currency costs are present."
+                ? "Mixed-currency costs prevent a complete position."
                   : managementView.isPartial
-                    ? "Partial aggregate due to withheld or incomplete cost sources."
-                  : `${percent(managementView.confirmedUtilization)} budget used · ${percent(managementView.commitmentUtilization)} including approved commitments and pending exposure`}
+                    ? "Some authoritative cost sources are unavailable."
+                  : `${percent(managementView.confirmedUtilization)} budget used · ${percent(managementView.commitmentUtilization)} including commitments and pending exposure`}
             </p>
           </div>
         </div>
       </section>
+
+      {(project.description || project.notes) && (
+        <details className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <summary className="cursor-pointer list-none text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">Project notes <span className="ml-1 text-[10px] font-semibold text-slate-400">Show context</span></summary>
+          <p className="mt-2 border-t border-slate-100 pt-2 text-xs leading-5 text-slate-600">{project.description || project.notes}</p>
+        </details>
+      )}
 
       {/* 3. Financial control scorecard */}
       <section aria-labelledby="project-financial-control-heading" className="space-y-3">
@@ -863,9 +868,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             <h3 id="project-financial-control-heading" className="text-sm font-black text-slate-950">
               Project Financial Control Dashboard
             </h3>
-            <p className="text-[10px] text-slate-500">
-              Project Financial Snapshot for management control; cost control and commercial progress remain separate.
-            </p>
+            <p className="text-[10px] text-slate-500">Project Financial Snapshot for management; cost and commercial progress stay separate.</p>
           </div>
           {hasForeignAmounts && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800">
@@ -883,7 +886,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
               </div>
               <div>
                 <h4 className="text-sm font-black text-slate-950">Cost Control</h4>
-                <p className="mt-0.5 text-[10px] leading-4 text-slate-500">Approved cost ceiling against authoritative actual, commitments, and pending exposure.</p>
+                <p className="mt-0.5 text-[10px] leading-4 text-slate-500">Approved ceiling against actual, committed, and pending cost.</p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -905,7 +908,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
                 </div>
                 <div>
                   <h4 className="text-sm font-black text-slate-950">Commercial Control</h4>
-                  <p className="mt-0.5 text-[10px] leading-4 text-slate-500">Client billing and collection stages; these do not redefine project cost.</p>
+                  <p className="mt-0.5 text-[10px] leading-4 text-slate-500">Billing and collections remain separate from project cost.</p>
                 </div>
               </div>
               {onOpenTab && canReadClientBilling && isProjectWorkspaceTabDeploymentVisible("billing") && <Button variant="secondary" label="Open Billing & Collections →" onClick={() => onOpenTab("billing")} />}
@@ -930,7 +933,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-50 text-purple-700"><ShoppingCart className="h-4 w-4" aria-hidden="true" /></div>
-            <div><h3 className="text-sm font-black text-slate-950">Commitment Visibility</h3><p className="mt-0.5 text-[10px] leading-4 text-slate-500">Authoritative approved-obligation view; commitments are not Actual Cost and do not include draft sourcing records.</p></div>
+            <div><h3 className="text-sm font-black text-slate-950">Commitment Visibility</h3><p className="mt-0.5 text-[10px] leading-4 text-slate-500">Approved obligations remain distinct from Actual Cost.</p></div>
           </div>
           {onOpenTab && canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") && <Button variant="secondary" label="Open Procurement →" onClick={() => onOpenTab("procurement")} />}
         </div>
@@ -958,7 +961,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             <div>
               <h3 className="text-sm font-black text-slate-950">Work Package Budget Control (P1B)</h3>
               <p className="mt-0.5 text-[10px] text-slate-500">
-                Management summary from the detailed work-package and cost-code control model.
+                Compact view of the work-package and cost-code control model.
               </p>
             </div>
           </div>
@@ -1021,52 +1024,33 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         {hasForeignAmounts && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] leading-4 text-amber-900">Code-level actuals are partial while foreign-currency cost sources remain unconverted; no complete work-package conclusion is shown.</p>}
       </Card>
 
-      {/* 6. Commercial Controls Explanatory Notice */}
-      <Card className="border-dashed border-slate-200 bg-slate-50/70 p-4 shadow-none" elevation="low">
-        <div className="flex items-start gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-slate-600">
-            <Lock className="h-3.5 w-3.5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 text-xs">
-            <h4 className="font-bold text-slate-800">Commercial Controls</h4>
-            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-              <strong>Committed Cost</strong> (approved PO and subcontract commitments) is included above. <strong>Client Progress Billing</strong> and <strong>recorded client collections</strong> are revenue-side commercial history and do not change project cost. <strong>Outstanding Receivables</strong> remains allocation-derived; bank settlement linkage is separate cash evidence and does not redefine collected truth.
-            </p>
-          </div>
-        </div>
-      </Card>
+      {/* Commercial Controls */}
+      <details className="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 shadow-none">
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">
+          <Lock className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+          Commercial Controls and source rules
+          <span className="ml-auto text-[10px] font-semibold text-slate-400">Show details</span>
+        </summary>
+        <p className="mt-2 border-t border-slate-200 pt-2 text-[11px] leading-4 text-slate-500">
+          <strong>Committed Cost</strong> uses approved PO and subcontract commitments. <strong>Client Progress Billing</strong> and recorded client <strong>Collections</strong> remain commercial history and do not change project cost. <strong>Outstanding Receivables</strong> is allocation-derived; bank settlement linkage is separate cash evidence and does not redefine collected truth.
+        </p>
+      </details>
 
-      {/* 6. Operational Section Shortcuts */}
-      {onOpenTab && shortcuts.length > 0 && (
-        <Card className="p-4 shadow-sm" elevation="low">
-          <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">
-            Project Operations Navigation
-          </h4>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {shortcuts.map(({ tab, label, icon: Icon }) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => onOpenTab(tab)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500"
-              >
-                <Icon className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
-                <span>{label}</span>
-                <ArrowUpRight className="h-3 w-3 text-slate-400" aria-hidden="true" />
-              </button>
-            ))}
-          </div>
-        </Card>
-      )}
+      {/* Project Operations Navigation was intentionally removed: the workspace tab bar above is the single navigation authority. */}
 
+      <details className="group rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-bold text-slate-800 [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex items-center gap-1.5"><BarChart3 className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />Explore cost analytics</span>
+          <span className="text-[10px] font-semibold text-slate-400 group-open:hidden">Show charts</span>
+          <span className="hidden text-[10px] font-semibold text-slate-400 group-open:inline">Hide charts</span>
+        </summary>
+        <div className="space-y-4 border-t border-slate-100 p-3 sm:p-4">
       {/* 7. Analytics: Budget Position Visual Bar Chart */}
-      <Card className="p-4 shadow-sm sm:p-5" elevation="low">
+      <Card className="p-4 shadow-none sm:p-5" elevation="low">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-black">Project Budget Position</h3>
-            <p className="mt-1 text-[10px] text-slate-500">
-              Approved cost budget is shown as Actual Cost + Committed Cost + Pending Exposure + Available after commitments / exposure. Over-budget excess is separate.
-            </p>
+            <p className="mt-1 text-[10px] text-slate-500">Actual, committed, pending, and available amounts are shown against the approved cost budget.</p>
           </div>
           <BarChart3 className="h-4 w-4 text-indigo-500" aria-hidden="true" />
         </div>
@@ -1099,6 +1083,8 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           </div>
         )}
       </Card>
+        </div>
+      </details>
 
       {/* 8. Actual Cost Composition + Project Attention Grid */}
       <section className="grid gap-4 lg:grid-cols-2">
@@ -1155,8 +1141,13 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
 
       <ProjectEngineeringCoordinationSection summary={engineeringSummary} onOpenTab={onOpenTab} />
 
-      {/* 9. Historical Analytics: Cost Trend & Cumulative Burn */}
-      <section className="grid gap-4 lg:grid-cols-2">
+      <details className="group rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-bold text-slate-800 [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex items-center gap-1.5"><BarChart3 className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />Historical cost trends</span>
+          <span className="text-[10px] font-semibold text-slate-400 group-open:hidden">Show trends</span>
+          <span className="hidden text-[10px] font-semibold text-slate-400 group-open:inline">Hide trends</span>
+        </summary>
+        <section className="grid gap-4 border-t border-slate-100 p-3 sm:p-4 lg:grid-cols-2">
         <Card className="p-4 shadow-sm sm:p-5" elevation="low">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -1261,7 +1252,8 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
             </div>
           )}
         </Card>
-      </section>
+        </section>
+      </details>
 
       {/* 10. Foreign Currency Explanatory Footer */}
       {foreignEntries.length > 0 && (

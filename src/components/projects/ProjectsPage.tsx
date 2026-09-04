@@ -38,7 +38,7 @@ import {
   useWorkspaceDataPending,
 } from "../../app/AppPermissionContext.tsx";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
-import { MetricCard, PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
+import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
 import {
   buildPortfolioManagementSummary,
@@ -408,12 +408,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       <PageHeader
         eyebrow="Engineering operations"
         title="Portfolio Management"
-        description="Compare project ownership, lifecycle status, contract value, approved cost budget, cost position, and client commercial position from the existing project records."
+        description="Scan project health and commercial position, then open the register for evidence and action."
         actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditing(blankProject())} /> : undefined}
       />
 
       {isHydrating && (
-        <div role="status" aria-live="polite" className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold text-slate-600">
+        <div role="status" aria-live="polite" className="animate-pulse rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold text-slate-600">
           Loading projects…
         </div>
       )}
@@ -433,82 +433,70 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         </Card>
       )}
 
-      {/* Top Portfolio Management Summary */}
+      {/* Top Portfolio Management Summary: one compact decision surface. */}
       <section aria-label="Portfolio Management Summary" className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Project counts">
-          <MetricCard label="Total projects" value={portfolio.totalProjects} loading={isHydrating} icon={BriefcaseBusiness} tone="info" />
-          <MetricCard label="Active" value={portfolio.activeProjects} loading={isHydrating} tone="success" />
-          <MetricCard label="On hold" value={portfolio.onHoldProjects} loading={isHydrating} tone="warning" />
-          <MetricCard label="Archived" value={portfolio.archivedProjects} loading={isHydrating} tone="neutral" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Project management attention counts">
-          <MetricCard label="Needs attention" value={portfolio.projectsNeedingAttentionCount} loading={isHydrating} icon={ShieldAlert} tone={portfolio.projectsNeedingAttentionCount > 0 ? "warning" : "success"} />
-          <MetricCard label="Critical signals" value={portfolio.criticalAttentionCount} loading={isHydrating} tone={portfolio.criticalAttentionCount > 0 ? "danger" : "neutral"} />
-          <MetricCard label="Warning signals" value={portfolio.warningAttentionCount} loading={isHydrating} tone={portfolio.warningAttentionCount > 0 ? "warning" : "neutral"} />
-          <MetricCard label="Info signals" value={portfolio.infoAttentionCount} loading={isHydrating} tone="info" />
-        </div>
-
-        {/* Currency Grouped Totals */}
-        {portfolio.currencies.length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Portfolio Financial Totals">
-            {portfolio.currencies.map((currencyCode) => {
-              const group = portfolio.currencyGroups[currencyCode];
-              if (!group) return null;
-              const metrics: Array<[string, PortfolioMetricAggregate]> = [
-                ["Contract Value", group.financialMetrics.contractValue],
-                ["Approved Budget", group.financialMetrics.approvedCostBudget],
-                ["Actual Cost", group.financialMetrics.actualCost],
-                ["Committed Cost", group.financialMetrics.committedCost],
-                ["Billed", group.financialMetrics.billed],
-                ["Collected", group.financialMetrics.collected],
-                ["Outstanding", group.financialMetrics.outstandingReceivables],
-                ["Remaining to Bill", group.financialMetrics.remainingToBill],
-              ];
-              return (
-                <Card key={currencyCode} className="p-4 shadow-sm" elevation="low" data-portfolio-currency={currencyCode}>
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase text-indigo-700">
-                      <Coins className="h-3.5 w-3.5" aria-hidden="true" />
-                      {currencyCode} Portfolio ({group.projectCount})
-                    </span>
-                    {!group.isComplete && (
-                      <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
-                        Partial / unavailable
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-3 space-y-1.5 text-xs">
-                    {metrics.map(([label, metric]) => (
-                      <div key={label} className="flex items-start justify-between gap-3">
-                        <span className="text-slate-500">{label}</span>
-                        <PortfolioFinancialValue metric={metric} currency={currencyCode} />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 border-t border-slate-100 pt-2 text-[9px] text-slate-500">
-                    <span>Optional cost controls: </span>
-                    {`pending ${portfolioMetricInline(group.financialMetrics.pendingCostExposure, currencyCode)}`}
-                    {` · payables ${portfolioMetricInline(group.financialMetrics.outstandingPayables, currencyCode)}`}
-                  </div>
-                </Card>
-              );
-            })}
-
-            {/* Operational Management Signals Card */}
-            <Card className="p-4 shadow-sm" elevation="low">
-              <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2.5 text-xs font-black uppercase text-slate-700">
-                <ShieldAlert className="h-3.5 w-3.5 text-amber-600" aria-hidden="true" />
-                Attention Signals
-              </div>
-              <div className="mt-3 space-y-1.5 text-xs">
-                <div className="flex justify-between"><span className="text-slate-500">Critical:</span><strong className={`tabular-nums ${portfolio.criticalAttentionCount > 0 ? "font-bold text-rose-700" : "text-slate-700"}`}>{portfolio.criticalAttentionCount}</strong></div>
-                <div className="flex justify-between"><span className="text-slate-500">Warning:</span><strong className={`tabular-nums ${portfolio.warningAttentionCount > 0 ? "font-bold text-amber-700" : "text-slate-700"}`}>{portfolio.warningAttentionCount}</strong></div>
-                <div className="flex justify-between"><span className="text-slate-500">Informational:</span><strong className="tabular-nums text-slate-700">{portfolio.infoAttentionCount}</strong></div>
-                <p className="border-t border-slate-100 pt-2 text-[9px] leading-4 text-slate-500">Counts are project/signal counts only; financial amounts remain grouped by currency below.</p>
-              </div>
-            </Card>
+        <Card className="p-4 shadow-sm" elevation="low">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-black text-slate-950">Portfolio snapshot</h2>
+              <p className="mt-1 text-[10px] leading-4 text-slate-500">Counts show the current register; attention counts are project and signal counts.</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800">
+              <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+              Attention Signals: {portfolio.projectsNeedingAttentionCount}
+            </span>
           </div>
+          <dl className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 text-xs sm:grid-cols-4" aria-label="Project counts">
+            <div><dt className="text-slate-500">Total projects</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-950">{isHydrating ? "…" : portfolio.totalProjects}</dd></div>
+            <div><dt className="text-slate-500">Active</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-emerald-700">{isHydrating ? "…" : portfolio.activeProjects}</dd></div>
+            <div><dt className="text-slate-500">On hold</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-amber-700">{isHydrating ? "…" : portfolio.onHoldProjects}</dd></div>
+            <div><dt className="text-slate-500">Archived</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-slate-700">{isHydrating ? "…" : portfolio.archivedProjects}</dd></div>
+          </dl>
+          <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-3 border-t border-slate-100 pt-3 text-xs sm:grid-cols-4" aria-label="Project management attention counts">
+            <div><dt className="text-slate-500">Needs attention</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.projectsNeedingAttentionCount > 0 ? "text-amber-700" : "text-emerald-700"}`}>{isHydrating ? "…" : portfolio.projectsNeedingAttentionCount}</dd></div>
+            <div><dt className="text-slate-500">Critical signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.criticalAttentionCount > 0 ? "text-rose-700" : "text-slate-700"}`}>{isHydrating ? "…" : portfolio.criticalAttentionCount}</dd></div>
+            <div><dt className="text-slate-500">Warning signals</dt><dd className={`mt-0.5 text-lg font-black tabular-nums ${portfolio.warningAttentionCount > 0 ? "text-amber-700" : "text-slate-700"}`}>{isHydrating ? "…" : portfolio.warningAttentionCount}</dd></div>
+            <div><dt className="text-slate-500">Info signals</dt><dd className="mt-0.5 text-lg font-black tabular-nums text-indigo-700">{isHydrating ? "…" : portfolio.infoAttentionCount}</dd></div>
+          </div>
+        </Card>
+
+        {/* Financial distinctions stay available by currency without dominating the register. */}
+        {portfolio.currencies.length > 0 && (
+          <details className="group rounded-xl border border-slate-200 bg-white shadow-sm" aria-label="Portfolio Financial Totals">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-xs font-black text-slate-800 [&::-webkit-details-marker]:hidden">
+              <span className="inline-flex items-center gap-1.5"><Coins className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />Financial totals by currency</span>
+              <span className="text-[10px] font-semibold text-slate-500 group-open:hidden">Show detail</span>
+              <span className="hidden text-[10px] font-semibold text-slate-500 group-open:inline">Hide detail</span>
+            </summary>
+            <div className="grid gap-3 border-t border-slate-100 p-3 sm:grid-cols-2 xl:grid-cols-3">
+              {portfolio.currencies.map((currencyCode) => {
+                const group = portfolio.currencyGroups[currencyCode];
+                if (!group) return null;
+                const metrics: Array<[string, PortfolioMetricAggregate]> = [
+                  ["Contract Value", group.financialMetrics.contractValue],
+                  ["Approved Budget", group.financialMetrics.approvedCostBudget],
+                  ["Actual Cost", group.financialMetrics.actualCost],
+                  ["Committed Cost", group.financialMetrics.committedCost],
+                  ["Billed", group.financialMetrics.billed],
+                  ["Collected", group.financialMetrics.collected],
+                  ["Outstanding", group.financialMetrics.outstandingReceivables],
+                  ["Remaining to Bill", group.financialMetrics.remainingToBill],
+                ];
+                return (
+                  <Card key={currencyCode} className="p-4 shadow-none" elevation="low" data-portfolio-currency={currencyCode}>
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                      <span className="text-xs font-black uppercase text-indigo-700">{currencyCode} Portfolio ({group.projectCount})</span>
+                      {!group.isComplete && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">Partial / unavailable</span>}
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                      {metrics.map(([label, metric]) => <div key={label} className="flex min-w-0 flex-col"><span className="text-slate-500">{label}</span><PortfolioFinancialValue metric={metric} currency={currencyCode} /></div>)}
+                    </div>
+                    <div className="mt-3 border-t border-slate-100 pt-2 text-[9px] text-slate-500">Optional controls: pending {portfolioMetricInline(group.financialMetrics.pendingCostExposure, currencyCode)} · payables {portfolioMetricInline(group.financialMetrics.outstandingPayables, currencyCode)}</div>
+                  </Card>
+                );
+              })}
+            </div>
+          </details>
         )}
       </section>
 
@@ -555,6 +543,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
           </div>
+
+          <details className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-2 xl:col-span-4">
+            <summary className="cursor-pointer list-none text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">More filters <span className="ml-1 text-[10px] font-semibold text-slate-500">manager, currency, attention</span></summary>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
 
           {/* Project Manager Filter */}
           <div className="relative">
@@ -628,6 +620,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
           </div>
+
+            </div>
+          </details>
 
           {/* Sort Selector */}
           <div className="flex gap-2">
@@ -957,7 +952,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   )}
                   {topAttention && <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] leading-4 text-slate-600"><span className="font-black text-slate-700">Top reason:</span> {topAttention.title}</p>}
 
-                  {/* 2-Column Metric Grid */}
+                  {/* Keep the core control position visible; commercial detail is progressively disclosed. */}
                   <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-500">Contract Value</span>
@@ -975,6 +970,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                       <span className="text-[10px] text-slate-500">Committed</span>
                       <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.committedCost} currency={view.currency} /></p>
                     </div>
+                  </div>
+
+                  <details className="rounded-xl border border-slate-100 bg-white px-3 py-2">
+                    <summary className="cursor-pointer list-none text-[10px] font-bold text-slate-600 [&::-webkit-details-marker]:hidden">Commercial totals <span className="font-semibold text-slate-400">· billed, collected, receivables</span></summary>
+                    <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-100 pt-2 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-500">Billed</span>
                       <p className="font-bold tabular-nums text-slate-900"><FinancialValue metric={view.financialTruth.billed} currency={view.currency} /></p>
@@ -991,7 +991,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                       <span className="text-[10px] text-slate-500">Remaining to Bill</span>
                       <p className="font-bold tabular-nums text-emerald-700"><FinancialValue metric={view.financialTruth.remainingToBill} currency={view.currency} /></p>
                     </div>
-                  </div>
+                    </div>
+                  </details>
 
                   {/* Work Package Summary Line */}
                   {view.activeCostCodesCount > 0 && (

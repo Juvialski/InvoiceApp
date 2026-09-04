@@ -453,7 +453,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       <PageHeader
         eyebrow={project.projectCode || "Project reference missing"}
         title={project.projectName || "Unnamed project"}
-        description="Project workspace sections keep client billing, engineering drawings, RFIs, technical submittals, materials, equipment, daily field records, supplier, labor, and expense records in one operational context."
+        description="One project context for financial, commercial, field, and engineering work."
         actions={(
           <>
             <Button variant="secondary" label="← Projects" onClick={onBack} />
@@ -472,9 +472,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         </div>
       )}
 
-      <nav className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1" aria-label="Project workspace sections">
+      <nav className="sticky top-[4.5rem] z-20 flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white/95 p-1 shadow-sm backdrop-blur" role="tablist" aria-label="Project workspace sections">
         {tabs.map(([id, tabLabel, Icon]) => (
-          <button key={id} type="button" onClick={() => selectTab(id)} aria-current={tab === id ? "page" : undefined} className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${tab === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
+          <button key={id} type="button" role="tab" onClick={() => selectTab(id)} aria-selected={tab === id} aria-current={tab === id ? "page" : undefined} className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold ${tab === id ? "bg-indigo-600 text-white" : "text-slate-600 hover:bg-slate-50"}`}>
             <Icon aria-hidden="true" className="h-3.5 w-3.5" />{tabLabel}
           </button>
         ))}
