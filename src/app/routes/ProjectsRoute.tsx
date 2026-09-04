@@ -21,8 +21,11 @@ import type {
   Subcontract,
   SubcontractLine,
   SubcontractProgressClaim,
+  SubcontractProgressClaimStatus,
   SubcontractStatus,
   SubcontractVariation,
+  SubcontractVariationLine,
+  SubcontractVariationStatus,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
@@ -30,6 +33,8 @@ import type {
 } from "../../types";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
+import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
 import type { ClientCollection, ClientCollectionAllocationInput, ClientCollectionEvent, ClientCollectionInput } from "../../lib/clientCollections.ts";
@@ -95,9 +100,12 @@ export interface ProjectsRouteProps {
   engineeringSubmittalsCanReview?: boolean;
   engineeringSubmittalsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  engineeringDocumentsData?: EngineeringDocumentsWorkspaceData;
+  engineeringCoordinationData?: EngineeringCoordinationWorkspaceData;
   projectDocumentsContent?: React.ReactNode;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
+  attentionToday?: string;
   onTabChange?: (tab: WorkspaceTab) => void;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
@@ -131,6 +139,18 @@ export interface ProjectsRouteProps {
   ) => Promise<void>;
   onTransitionSubcontract?: (id: string, targetStatus: SubcontractStatus, reason?: string) => Promise<void>;
   onDeleteSubcontract?: (id: string) => Promise<void>;
+  onSaveSubcontractClaim?: (
+    claim: Partial<SubcontractProgressClaim> & { subcontractId: string; projectId: string; claimNumber: string; valuationDate: string },
+    lines: Array<{ subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number; notes?: string }>,
+  ) => Promise<void>;
+  onTransitionSubcontractClaim?: (id: string, targetStatus: SubcontractProgressClaimStatus, reason?: string, lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>) => Promise<void>;
+  onDeleteSubcontractClaim?: (id: string) => Promise<void>;
+  onSaveSubcontractVariation?: (
+    variation: Partial<SubcontractVariation> & { subcontractId: string; projectId: string; variationNumber: string; title: string; currency?: string },
+    lines: Array<Partial<SubcontractVariationLine> & { description: string; amount: number }>,
+  ) => Promise<void>;
+  onTransitionSubcontractVariation?: (id: string, targetStatus: SubcontractVariationStatus, reason?: string) => Promise<void>;
+  onDeleteSubcontractVariation?: (id: string) => Promise<void>;
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
@@ -220,9 +240,12 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   engineeringSubmittalsCanReview,
   engineeringSubmittalsCanManage,
   engineeringDocumentsGuestMode,
+  engineeringDocumentsData,
+  engineeringCoordinationData,
   projectDocumentsContent,
   dailySiteLogsData,
   onDailySiteLogsDataChange,
+  attentionToday,
   onTabChange,
   onOpenProject,
   onSaveProject,
@@ -241,6 +264,12 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onSaveSubcontract,
   onTransitionSubcontract,
   onDeleteSubcontract,
+  onSaveSubcontractClaim,
+  onTransitionSubcontractClaim,
+  onDeleteSubcontractClaim,
+  onSaveSubcontractVariation,
+  onTransitionSubcontractVariation,
+  onDeleteSubcontractVariation,
   onRecordReceipt,
   onVoidReceipt,
   onAddVendor,
@@ -335,8 +364,11 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         engineeringSubmittalsCanReview={engineeringSubmittalsCanReview}
         engineeringSubmittalsCanManage={engineeringSubmittalsCanManage}
         engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
+        engineeringDocumentsData={engineeringDocumentsData}
+        engineeringCoordinationData={engineeringCoordinationData}
         projectDocumentsContent={projectDocumentsContent}
         dailySiteLogsData={dailySiteLogsData}
+        attentionToday={attentionToday}
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
         onTabChange={onTabChange}
         onSaveInvoiceAllocations={onSaveInvoiceAllocations}
@@ -360,6 +392,12 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onSaveSubcontract={onSaveSubcontract}
         onTransitionSubcontract={onTransitionSubcontract}
         onDeleteSubcontract={onDeleteSubcontract}
+        onSaveSubcontractClaim={onSaveSubcontractClaim}
+        onTransitionSubcontractClaim={onTransitionSubcontractClaim}
+        onDeleteSubcontractClaim={onDeleteSubcontractClaim}
+        onSaveSubcontractVariation={onSaveSubcontractVariation}
+        onTransitionSubcontractVariation={onTransitionSubcontractVariation}
+        onDeleteSubcontractVariation={onDeleteSubcontractVariation}
         onRecordReceipt={onRecordReceipt}
         onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}
@@ -384,6 +422,12 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
       clientCollections={clientCollections}
       clientFinancialDataLoading={clientBillingLoading}
       costCodes={costCodes}
+      purchaseOrders={purchaseOrders}
+      subcontracts={subcontracts}
+      subcontractClaims={subcontractClaims}
+      subcontractVariations={subcontractVariations}
+      engineeringCoordinationData={engineeringCoordinationData}
+      attentionToday={attentionToday}
       initialEditingProject={projectFormSeed}
       onOpenProject={onOpenProject}
       onSaveProject={onSaveProject}

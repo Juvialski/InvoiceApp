@@ -51,7 +51,9 @@ export function createDemoProjects(anchorDate: string): {
       startDate: addDemoDays(anchorDate, -154),
       targetEndDate: addDemoDays(anchorDate, 101),
       contractValue: 7_842_980,
-      projectBudget: 6_640_000,
+      // Deliberately demonstrates a current over-budget and negative
+      // commitment-adjusted control position in the anchored demo workspace.
+      projectBudget: 3_400_000,
       currency: "PHP",
       notes: "Site progress is approximately 42%. Priority work is catch-basin reconstruction and the downstream pipe replacement package.",
       createdAt: demoTimestamp(addDemoDays(anchorDate, -170)),

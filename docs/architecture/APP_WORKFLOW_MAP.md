@@ -18,15 +18,15 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Field | Value |
 | --- | --- |
 | Schema version | `1` |
-| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control` |
+| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1` |
 | Product | Engoryx Engineering Operations Platform |
 | Source classification | `mixed` |
-| Reviewed against | `c5d3a41c90220e45bd692c7ae5d9784d3b4b9630` |
-| Reviewed at | `2026-08-29` |
-| Node count | 229 |
-| Edge count | 282 |
+| Reviewed against | `cb2bcd2b9674b6743f3b77f847f4151d1a53f9ba` |
+| Reviewed at | `2026-09-04` |
+| Node count | 232 |
+| Edge count | 296 |
 | Invariant count | 25 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `QA-1`, `WM-1` |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3D-1 Engineering Coordination Integration`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -214,6 +214,8 @@ flowchart LR
     n_project_overview["Project Financial Control Dashboard (Project Overview)<br/><small>SCREEN</small>"]
     n_project_cost_aggregation["Authoritative project-cost aggregation<br/><small>DERIVED-DATA</small>"]
     n_project_labor_aggregate_rpc[["Safe project labor aggregate RPC<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_project_attention_signals["Project Attention Signals<br/><small>DERIVED-DATA</small>"]
+    n_production_p2_integration_parity{"Production P2 Integration Parity<br/><small>WORKFLOW</small>"}
   end
   subgraph g_engineering["Engineering"]
     n_route_project_documents(["Project Documents route<br/><small>ROUTE · /projects/:projectId/documents</small>"])
@@ -264,6 +266,7 @@ flowchart LR
     n_site_log_safety_observation[("Safety observation<br/><small>DATA</small>")]
     n_site_log_event_history[("Append-only Site Log event history<br/><small>DATA · CREATED → UPDATED → SUBMITTED → FINALIZED → VOIDED</small>")]
     n_site_log_payroll_boundary{{"Field observation / payroll boundary<br/><small>GUARD</small>"}}
+    n_project_engineering_coordination_summary["Project Engineering Coordination Summary<br/><small>DERIVED-DATA</small>"]
   end
   subgraph g_commercial["Commercial"]
     n_client_billing_workspace["Client Progress Billing Workspace<br/><small>SCREEN</small>"]
@@ -365,6 +368,16 @@ flowchart LR
   n_client_collection_lifecycle -->|deterministic project + billing locks and remaining uncollected ceiling| n_client_collection_overcollection_guard
   n_client_collection_recorded -->|no bank transaction or settlement side effect| n_client_billing_cash_boundary
   n_client_collection_recorded -->|recorded commercial receipt may receive separate bank evidence| n_client_collection_cash_settlement_link
+  n_project_cost_aggregation -->|actual, committed, pending, currency, and completeness facts| n_project_attention_signals
+  n_project_attention_signals -->|flagged project drilldown| n_project_workspace
+  n_project_attention_signals -->|evidence, source, date, and action detail| n_project_overview
+  n_project_workspace -->|selected-project engineering coordination| n_project_engineering_coordination_summary
+  n_project_engineering_coordination_summary -->|Documents and immutable revisions| n_engineering_documents_screen
+  n_project_engineering_coordination_summary -->|project RFIs| n_rfi_register_screen
+  n_project_engineering_coordination_summary -->|project Submittals| n_submittal_register_screen
+  n_project_engineering_coordination_summary -->|project Daily Site Logs| n_site_log_register_screen
+  n_project_engineering_coordination_summary -->|explicitly due RFI and Submittal signals| n_project_attention_signals
+  n_production_p2_integration_parity -->|subcontract, claim, and variation context| n_project_workspace
   classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
@@ -446,6 +459,101 @@ flowchart LR
   class n_project_collected_to_date commercial
   class n_client_collection_overcollection_guard commercial
   class n_client_collection_cash_settlement_link finance
+  class n_project_attention_signals projects
+  class n_project_engineering_coordination_summary engineering
+  class n_production_p2_integration_parity projects
+```
+
+### Project Attention and Production Parity
+
+P3A-3 explainable project attention, selected-project engineering coordination, and production P2 subcontract/claim/variation routing.
+
+```mermaid
+flowchart LR
+  subgraph g_projects["Projects"]
+    n_route_projects(["Projects directory route<br/><small>ROUTE · /projects</small>"])
+    n_route_project_workspace(["Project Workspace route<br/><small>ROUTE · /projects/:projectId</small>"])
+    n_project_directory["Project portfolio table<br/><small>SCREEN</small>"]
+    n_project_financial_summary["Project Financial Summary<br/><small>DERIVED-DATA</small>"]
+    n_project_selection("Select project<br/><small>ACTION</small>")
+    n_project_workspace["Project Workspace<br/><small>SCREEN</small>"]
+    n_project_overview["Project Financial Control Dashboard (Project Overview)<br/><small>SCREEN</small>"]
+    n_project_cost_aggregation["Authoritative project-cost aggregation<br/><small>DERIVED-DATA</small>"]
+    n_project_attention_signals["Project Attention Signals<br/><small>DERIVED-DATA</small>"]
+    n_production_p2_integration_parity{"Production P2 Integration Parity<br/><small>WORKFLOW</small>"}
+  end
+  subgraph g_dashboard["Dashboard"]
+    n_portfolio_management_dashboard["Portfolio Management Dashboard<br/><small>SCREEN</small>"]
+  end
+  subgraph g_engineering["Engineering"]
+    n_engineering_documents_screen["Engineering Documents register<br/><small>SCREEN</small>"]
+    n_rfi_register_screen["RFI register<br/><small>SCREEN</small>"]
+    n_submittal_register_screen["Technical Submittals register<br/><small>SCREEN</small>"]
+    n_site_log_register_screen["Daily Site Log register<br/><small>SCREEN</small>"]
+    n_project_engineering_coordination_summary["Project Engineering Coordination Summary<br/><small>DERIVED-DATA</small>"]
+  end
+  subgraph g_procurement["Procurement"]
+    n_procurement_workspace["Procurement Workspace<br/><small>SCREEN</small>"]
+  end
+  subgraph g_commercial["Commercial"]
+    n_subcontract_packages{"Subcontract Packages<br/><small>WORKFLOW</small>"}
+    n_subcontract_progress_claims{"Subcontract Progress Claims<br/><small>WORKFLOW</small>"}
+    n_subcontract_variations{"Subcontract Variations and Change Orders<br/><small>WORKFLOW · DRAFT → SUBMITTED → APPROVED → REJECTED</small>"}
+  end
+  n_route_projects -->|opens| n_portfolio_management_dashboard
+  n_portfolio_management_dashboard -->|project register and filters| n_project_directory
+  n_portfolio_management_dashboard -->|currency-aware portfolio metrics| n_project_financial_summary
+  n_portfolio_management_dashboard -->|project drilldown| n_project_workspace
+  n_project_directory -->|selects project| n_project_selection
+  n_project_selection -->|canonical project path| n_route_project_workspace
+  n_route_project_workspace -->|opens| n_project_workspace
+  n_project_workspace -->|Financial Control Dashboard / Overview tab| n_project_overview
+  n_project_cost_aggregation -->|authoritative cost-control scorecard and charts| n_project_overview
+  n_project_cost_aggregation -->|Actual, committed, and budget metrics| n_project_financial_summary
+  n_project_cost_aggregation -->|project procurement contributes commitment context| n_procurement_workspace
+  n_portfolio_management_dashboard -->|project attention counts, filters, and severity-first ordering| n_project_attention_signals
+  n_project_financial_summary -->|authoritative financial and commercial evidence| n_project_attention_signals
+  n_project_cost_aggregation -->|actual, committed, pending, currency, and completeness facts| n_project_attention_signals
+  n_project_attention_signals -->|flagged project drilldown| n_project_workspace
+  n_project_attention_signals -->|evidence, source, date, and action detail| n_project_overview
+  n_project_workspace -->|selected-project engineering coordination| n_project_engineering_coordination_summary
+  n_project_engineering_coordination_summary -->|Documents and immutable revisions| n_engineering_documents_screen
+  n_project_engineering_coordination_summary -->|project RFIs| n_rfi_register_screen
+  n_project_engineering_coordination_summary -->|project Submittals| n_submittal_register_screen
+  n_project_engineering_coordination_summary -->|project Daily Site Logs| n_site_log_register_screen
+  n_project_engineering_coordination_summary -->|explicitly due RFI and Submittal signals| n_project_attention_signals
+  n_production_p2_integration_parity -->|subcontract, claim, and variation context| n_project_workspace
+  n_production_p2_integration_parity -->|production Procurement register records and actions| n_procurement_workspace
+  classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
+  classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
+  classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
+  classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
+  classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
+  classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
+  classDef assistant fill:#fdf2f8,stroke:#db2777,color:#831843;
+  classDef procurement fill:#f0fdfa,stroke:#0f766e,color:#134e4a;
+  classDef commercial fill:#faf5ff,stroke:#9333ea,color:#581c87;
+  class n_route_projects projects
+  class n_route_project_workspace projects
+  class n_project_directory projects
+  class n_portfolio_management_dashboard dashboard
+  class n_project_financial_summary projects
+  class n_project_selection projects
+  class n_project_workspace projects
+  class n_project_overview projects
+  class n_project_cost_aggregation projects
+  class n_engineering_documents_screen engineering
+  class n_rfi_register_screen engineering
+  class n_submittal_register_screen engineering
+  class n_site_log_register_screen engineering
+  class n_procurement_workspace procurement
+  class n_subcontract_packages commercial
+  class n_subcontract_progress_claims commercial
+  class n_subcontract_variations commercial
+  class n_project_attention_signals projects
+  class n_project_engineering_coordination_summary engineering
+  class n_production_p2_integration_parity projects
 ```
 
 ### Client Progress Billing flow
@@ -946,6 +1054,8 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Authoritative project labor cost**<br/><small>`payroll-project-labor-cost`</small> | `derived-data` | `company-and-project`<br/>— | — | `payroll.summary.read`<br/>`projects.read` | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/projectDashboardViewModel.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/payroll-workforce-hardening.md` | `tests/engineeringProjectCosting.test.ts`<br/>`tests/projectLaborCostAggregate.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
 | **Safe project labor aggregate RPC**<br/><small>`project-labor-aggregate-rpc`</small> | `external-boundary` | `company-and-project`<br/>— | — | `projects.read`<br/>`payroll.summary.read` | `mixed` | `src/lib/projects.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/ENGORYX_INTEGRITY_HARDENING.md` | `tests/projectLaborCostAggregate.test.ts`<br/>`tests/projectLaborCostAggregateMigration.test.ts` | — |
 | **Project Budget Control**<br/><small>`project-budget-control`</small> | `derived-data` | `project`<br/>— | — | — | `mixed` | `src/utils/projectCosting.ts` | `tests/projectCostCodesAndBudgetControl.test.ts`<br/>`tests/projectCostingHardening.test.ts`<br/>`tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/subcontractsDomain.test.ts` | — |
+| **Project Attention Signals**<br/><small>`project-attention-signals`</small> | `derived-data` | `company-and-project`<br/>— | — | `projects.read` | `mixed` | `src/utils/projectManagementViewModel.ts`<br/>`src/components/projects/ProjectsPage.tsx`<br/>`src/components/projects/ProjectOverview.tsx` | `tests/p3a3P3dIntegration.test.ts`<br/>`tests/projectManagementViewModel.test.ts` | — |
+| **Production P2 Integration Parity**<br/><small>`production-p2-integration-parity`</small> | `workflow` | `company-and-project`<br/>— | — | `procurement.read`<br/>`procurement.manage`<br/>`procurement.approve` | `code-derived` | `src/App.tsx`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/procurement/ProcurementPage.tsx`<br/>`src/lib/workspaceSync.ts`<br/>`supabase/migrations/20260904120000_p2_p3_integration_realtime_parity.sql` | `tests/p3a3P3dIntegration.test.ts`<br/>`tests/subcontractsPersistence.test.ts`<br/>`tests/subcontractClaimsPersistence.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/workspaceSync.test.ts` | — |
 
 ### Procurement
 
@@ -1034,6 +1144,7 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Site Log lifecycle action**<br/><small>`site-log-lifecycle-action`</small> | `action` | `company-and-project`<br/>— | — | `engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed`<br/>confirmation: `human` | `src/features/engineering/useDailySiteLogsController.ts`<br/>`src/components/engineering/ProjectSiteLogs.tsx`<br/>`src/server/assistant/dailySiteLogsAssistant.ts`<br/>`supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql` | `tests/dailySiteLogs.test.ts`<br/>`tests/assistantBackend.test.ts`<br/>`tests/coreHardeningWave2C.test.ts` | — |
 | **Site Log guarded RPC boundary**<br/><small>`site-log-rpc-boundary`</small> | `external-boundary` | `company-and-project`<br/>— | — | `engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed` | `src/lib/dailySiteLogsPersistence.ts`<br/>`src/lib/engineeringLifecycle.ts`<br/>`supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql`<br/>`supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql` | `tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts`<br/>`tests/coreHardeningWave2C.test.ts` | — |
 | **Field observation / payroll boundary**<br/><small>`site-log-payroll-boundary`</small> | `guard` | `company-and-project`<br/>— | — | — | `curated` | `docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md`<br/>`src/lib/dailySiteLogs.ts`<br/>`src/lib/payrollWorkforce.ts` | `tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts` | — |
+| **Project Engineering Coordination Summary**<br/><small>`project-engineering-coordination-summary`</small> | `derived-data` | `project`<br/>— | — | `engineering.documents.read`<br/>`engineering.rfis.read`<br/>`engineering.submittals.read`<br/>`engineering.sitelogs.read` | `mixed` | `src/utils/projectEngineeringCoordination.ts`<br/>`src/features/engineering/useProjectEngineeringCoordinationSummary.ts`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx` | `tests/p3a3P3dIntegration.test.ts`<br/>`tests/engineeringLifecycle.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | — |
 
 ### Finance
 

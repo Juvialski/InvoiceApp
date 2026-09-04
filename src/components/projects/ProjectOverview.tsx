@@ -51,9 +51,19 @@ import { useAppPermissions, useProjectCostCompleteness } from "../../app/AppPerm
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { hasAnyPermission, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { isProjectWorkspaceTabDeploymentVisible } from "./projectWorkspaceVisibility.ts";
+import { useProjectEngineeringCoordinationSummary } from "../../features/engineering/useProjectEngineeringCoordinationSummary.ts";
+import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
+import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
+import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import {
+  sourceStateLabel,
+  type ProjectEngineeringCoordinationSummary,
+  type ProjectEngineeringSourceState,
+} from "../../utils/projectEngineeringCoordination.ts";
 import {
   buildProjectManagementView,
   type ProjectAttentionItem,
+  type ProjectAttentionSignal,
   type ProjectManagementHealth,
 } from "../../utils/projectManagementViewModel.ts";
 import type { ProjectFinancialMetric } from "../../utils/projectFinancialSummary.ts";
@@ -121,6 +131,17 @@ interface ProjectOverviewProps {
   clientBillings?: readonly ClientBilling[];
   clientCollections?: readonly ClientCollection[];
   clientDataLoading?: boolean;
+  companyId?: string;
+  engineeringDocumentsCanRead?: boolean;
+  engineeringRfisCanRead?: boolean;
+  engineeringSubmittalsCanRead?: boolean;
+  engineeringSiteLogsCanRead?: boolean;
+  engineeringAccessLoading?: boolean;
+  engineeringDocumentsGuestMode?: boolean;
+  engineeringDocumentsData?: EngineeringDocumentsWorkspaceData;
+  engineeringCoordinationData?: EngineeringCoordinationWorkspaceData;
+  dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+  attentionToday?: string;
   hideHeader?: boolean;
 }
 
@@ -294,6 +315,127 @@ function attentionItemTone(tone: ProjectAttentionItem["tone"]): string {
   }
 }
 
+function engineeringSourceValue(state: ProjectEngineeringSourceState, count?: number): string {
+  if (state !== "available") return sourceStateLabel(state);
+  return count === undefined ? "Unavailable" : String(count);
+}
+
+function EngineeringSourceCard({
+  label,
+  source,
+  detail,
+  latestLabel,
+  latestValue,
+  onOpen,
+}: {
+  label: string;
+  source: { state: ProjectEngineeringSourceState; count?: number; reason?: string };
+  detail: string;
+  latestLabel?: string;
+  latestValue?: string;
+  onOpen?: () => void;
+}) {
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+          <p className="mt-1 text-xl font-black tabular-nums text-slate-950">{engineeringSourceValue(source.state, source.count)}</p>
+        </div>
+        <span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wide ${source.state === "available" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : source.state === "not-permitted" ? "border-slate-200 bg-slate-100 text-slate-600" : source.state === "loading" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+          {sourceStateLabel(source.state)}
+        </span>
+      </div>
+      <p className="mt-2 text-[10px] leading-4 text-slate-500">{detail}</p>
+      {latestLabel && <p className="mt-2 text-[10px] font-semibold text-slate-600">{latestLabel}: <span className="font-black text-slate-800">{latestValue || "Unavailable"}</span></p>}
+      {source.reason && <p className="mt-2 break-words text-[9px] leading-4 text-amber-700">{source.reason}</p>}
+      {onOpen && source.state === "available" && <span className="mt-3 inline-flex text-[10px] font-black text-indigo-700">Open register <ArrowUpRight className="ml-1 h-3 w-3" aria-hidden="true" /></span>}
+    </>
+  );
+  return onOpen && source.state === "available" ? (
+    <button type="button" onClick={onOpen} className="rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
+      {content}
+    </button>
+  ) : <div className="rounded-xl border border-slate-200 bg-white p-3">{content}</div>;
+}
+
+function ProjectEngineeringCoordinationSection({
+  summary,
+  onOpenTab,
+}: {
+  summary: ProjectEngineeringCoordinationSummary;
+  onOpenTab?: (tab: ProjectOverviewTab) => void;
+}) {
+  return (
+    <section aria-labelledby="engineering-coordination-heading" data-engineering-coordination-summary className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 id="engineering-coordination-heading" className="text-sm font-black text-slate-950">Engineering Coordination</h3>
+          <p className="mt-1 text-[10px] leading-4 text-slate-500">Read-only management context from the existing Engineering Documents, RFI, Submittal, and Daily Site Log registers. Each domain keeps its own history and permission boundary.</p>
+        </div>
+        <Compass className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <EngineeringSourceCard label="Engineering Documents" source={summary.documents} detail="Document shells and immutable revision lineage." latestLabel="Latest revision activity" latestValue={summary.documents.latestActivityDate?.slice(0, 10)} onOpen={onOpenTab ? () => onOpenTab("documents") : undefined} />
+        <EngineeringSourceCard label="Open RFIs" source={summary.rfis} detail={summary.rfis.openCount === undefined ? "Open and overdue counts are shown after the RFI register is available." : `${summary.rfis.openCount} open · ${summary.rfis.overdueCount || 0} explicitly overdue`} latestLabel="Latest RFI activity" latestValue={summary.rfis.latestActivityDate?.slice(0, 10)} onOpen={onOpenTab ? () => onOpenTab("rfis") : undefined} />
+        <EngineeringSourceCard label="Submittals" source={summary.submittals} detail={summary.submittals.awaitingReviewCount === undefined ? "Review counts are shown after the Submittal register is available." : `${summary.submittals.awaitingReviewCount} awaiting review · ${summary.submittals.overdueCount || 0} explicitly overdue`} latestLabel="Latest submittal activity" latestValue={summary.submittals.latestActivityDate?.slice(0, 10)} onOpen={onOpenTab ? () => onOpenTab("submittals") : undefined} />
+        <EngineeringSourceCard label="Daily Site Logs" source={summary.siteLogs} detail="Field observations remain separate from payroll attendance." latestLabel="Latest site date" latestValue={summary.siteLogs.latestSiteDate} onOpen={onOpenTab ? () => onOpenTab("site-logs") : undefined} />
+      </div>
+    </section>
+  );
+}
+
+function ManagementAttentionPanel({
+  items,
+  onOpenTab,
+  title = "Management Attention",
+}: {
+  items: readonly ProjectAttentionSignal[];
+  onOpenTab?: (tab: ProjectOverviewTab) => void;
+  title?: string;
+}) {
+  return (
+    <Card className="p-4 shadow-sm sm:p-5" elevation="low" aria-label={title}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-black">{title}</h3>
+          <p className="mt-1 text-[10px] text-slate-500">Deterministic signals with authoritative evidence, source domain, and a project-scoped drilldown.</p>
+        </div>
+        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+      </div>
+      {items.length ? (
+        <div className="mt-4 space-y-2" role="list" aria-label="Project management attention signals">
+          {items.map((item) => {
+            const body = (
+              <>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <strong className="text-xs font-bold">{item.title}</strong>
+                    <span className="rounded-full border border-current/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide">{item.severity}</span>
+                  </div>
+                  <span className="mt-1 block text-[10px] leading-4 opacity-90">{item.explanation}</span>
+                  <span className="mt-2 block text-[9px] leading-4 opacity-80"><strong>Evidence:</strong> {item.evidence}</span>
+                  <span className="block text-[9px] leading-4 opacity-80"><strong>Source:</strong> {item.source} · {item.category}</span>
+                  {item.date && <span className="block text-[9px] leading-4 opacity-80"><strong>Date:</strong> {item.date}</span>}
+                  {item.metric && <span className="block text-[9px] leading-4 opacity-80"><strong>{item.metric.label}:</strong> {String(item.metric.value)}{item.metric.currency && item.metric.currency !== "%" ? ` ${item.metric.currency}` : item.metric.currency === "%" ? "%" : ""}</span>}
+                </div>
+                {item.tab && onOpenTab && <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />}
+              </>
+            );
+            return item.tab && onOpenTab ? (
+              <button key={item.id} type="button" role="listitem" onClick={() => onOpenTab(item.tab as ProjectOverviewTab)} aria-label={`${item.title}. Open ${item.tab}.`} className={`flex w-full items-start justify-between gap-3 rounded-xl border p-3 text-left transition ${attentionItemTone(item.tone)} focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500`}>
+                {body}
+              </button>
+            ) : <div key={item.id} role="listitem" className={`flex items-start justify-between gap-3 rounded-xl border p-3 text-left ${attentionItemTone(item.tone)}`}>{body}</div>;
+          })}
+        </div>
+      ) : (
+        <p className="mt-4 flex items-center gap-1.5 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-800"><CheckCircle2 className="h-4 w-4" aria-hidden="true" />No current management attention signals are available for this project.</p>
+      )}
+    </Card>
+  );
+}
+
 function ChartEmpty({ message }: { message: string }) {
   return (
     <div className="flex min-h-[160px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-5 text-center text-xs text-slate-500">
@@ -307,19 +449,25 @@ function RestrictedProjectOverview({
   onBack,
   onEdit,
   onArchive,
+  onOpenTab,
   hideHeader,
   missingSources,
   clientBillingSummary,
   clientCollectionSummary,
+  engineeringSummary,
+  attentionItems,
 }: {
   project: ProjectView;
   onBack?: () => void;
   onEdit?: () => void;
   onArchive?: () => void;
+  onOpenTab?: (tab: ProjectOverviewTab) => void;
   hideHeader: boolean;
   missingSources: readonly string[];
   clientBillingSummary: ClientBillingSummary;
   clientCollectionSummary?: ClientCollectionSummary;
+  engineeringSummary: ProjectEngineeringCoordinationSummary;
+  attentionItems: readonly ProjectAttentionSignal[];
 }) {
   return (
     <div className="space-y-5" data-project-cost-completeness="incomplete">
@@ -385,6 +533,8 @@ function RestrictedProjectOverview({
           {project.description || project.notes || "No project description or notes have been recorded."}
         </p>
       </Card>
+      <ProjectEngineeringCoordinationSection summary={engineeringSummary} onOpenTab={onOpenTab} />
+      <ManagementAttentionPanel items={attentionItems} onOpenTab={onOpenTab} />
       <Card className="p-5 shadow-sm" elevation="low">
         <div className="flex items-start gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client billing position</h3><p className="mt-1 text-[10px] leading-4 text-slate-500">Revenue-side billing is independent from the withheld project-cost analytics.</p></div></div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -427,11 +577,37 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   clientBillings = [],
   clientCollections = [],
   clientDataLoading = false,
+  companyId,
+  engineeringDocumentsCanRead = false,
+  engineeringRfisCanRead,
+  engineeringSubmittalsCanRead,
+  engineeringSiteLogsCanRead,
+  engineeringAccessLoading = false,
+  engineeringDocumentsGuestMode = false,
+  engineeringDocumentsData,
+  engineeringCoordinationData,
+  dailySiteLogsData,
+  attentionToday,
   hideHeader = false,
 }) => {
   // Unconditional React hooks (must all run before any early return)
   const permissions = useAppPermissions();
   const completeness = useProjectCostCompleteness();
+  const engineeringSummaryState = useProjectEngineeringCoordinationSummary({
+    project: project as Project,
+    companyId,
+    today: attentionToday || new Date().toISOString().slice(0, 10),
+    guestMode: engineeringDocumentsGuestMode,
+    documentsCanRead: engineeringDocumentsCanRead,
+    rfisCanRead: engineeringRfisCanRead,
+    submittalsCanRead: engineeringSubmittalsCanRead,
+    siteLogsCanRead: engineeringSiteLogsCanRead,
+    coordinationAccessLoading: engineeringAccessLoading,
+    documentsData: engineeringDocumentsData,
+    coordinationData: engineeringCoordinationData,
+    dailySiteLogsData,
+  });
+  const engineeringSummary = engineeringSummaryState.summary;
   const clientBillingSummary = useMemo(() => clientDataLoading
     ? {
         currency: String(project.currency || "").trim().toUpperCase() || "UNKNOWN",
@@ -476,7 +652,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   const showTrendAnalytics = !hasForeignAmounts && trendReconciles;
   const combinedCostAnalyticsAvailable = !managementView.isPartial && managementView.availableAfterCommitments !== null;
 
-  const attentionItems = managementView.attentionFlags.filter(
+  const attentionItems = [...managementView.attentionFlags, ...engineeringSummary.attentionSignals].filter(
     (item) => item.flag !== "FORECAST_NOT_SET" && item.flag !== "FORECAST_OVER_BUDGET",
   );
   const authoritativeComposition = {
@@ -552,10 +728,13 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         onBack={onBack}
         onEdit={onEdit}
         onArchive={onArchive}
+        onOpenTab={onOpenTab}
         hideHeader={hideHeader}
         missingSources={projectCostMissingSourceLabels(completeness)}
         clientBillingSummary={clientBillingSummary}
         clientCollectionSummary={clientCollectionSummary}
+        engineeringSummary={engineeringSummary}
+        attentionItems={attentionItems}
       />
     );
   }
@@ -940,49 +1119,10 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           )}
         </Card>
 
-        {/* Project Attention Items */}
-        <Card className="p-4 shadow-sm sm:p-5" elevation="low">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-black">Project Attention Items</h3>
-              <p className="mt-1 text-[10px] text-slate-500">
-                Operational and financial signals requiring review or action.
-              </p>
-            </div>
-            <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden="true" />
-          </div>
-
-          {attentionItems.length ? (
-            <div className="mt-4 space-y-2">
-              {attentionItems.map((item) => (
-                <button
-                  type="button"
-                  key={item.id}
-                  onClick={() => item.tab && onOpenTab?.(item.tab as ProjectOverviewTab)}
-                  className={`flex w-full items-start justify-between gap-3 rounded-xl border p-3 text-left transition ${attentionItemTone(
-                    item.tone,
-                  )}`}
-                >
-                  <div>
-                    <strong className="block text-xs font-bold">{item.label}</strong>
-                    <span className="mt-0.5 block text-[10px] opacity-90">{item.detail}</span>
-                  </div>
-                  {item.tab && onOpenTab && (
-                    <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
-                  )}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-4 flex items-center gap-1.5 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-800">
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              {hasForeignAmounts
-                ? "No additional operational exceptions need attention; mixed-currency financial analytics remain partial."
-                : "No project exceptions need attention. Everything is on track."}
-            </p>
-          )}
-        </Card>
+        <ManagementAttentionPanel items={attentionItems} onOpenTab={onOpenTab} />
       </section>
+
+      <ProjectEngineeringCoordinationSection summary={engineeringSummary} onOpenTab={onOpenTab} />
 
       {/* 9. Historical Analytics: Cost Trend & Cumulative Burn */}
       <section className="grid gap-4 lg:grid-cols-2">

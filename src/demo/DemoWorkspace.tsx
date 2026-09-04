@@ -7,12 +7,14 @@ import type { DashboardActivityPeriod } from "../components/engineering/Engineer
 import type { AppTab } from "../utils/routes.ts";
 import type { AppLocation, ProjectWorkspaceView } from "../utils/appRouting.ts";
 import type { FinancialAccount, FinancialBalanceSnapshot, FinancialReconciliationCandidate, FinancialTransaction } from "../lib/cashBanking.ts";
-import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectWorkerAssignment, Subcontract, SubcontractLine, SubcontractStatus, WorkEntry, Worker } from "../types.ts";
+import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectWorkerAssignment, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, WorkEntry, Worker } from "../types.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction, type ProjectLifecyclePreview } from "../lib/projects.ts";
 import { buildLocalExpenseCorrectionPreview, buildLocalInvoiceCorrectionPreview, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "../lib/financialLifecycle.ts";
 import { applySubcontractTransition, buildLocalSubcontract } from "../lib/subcontracts.ts";
+import { applySubcontractClaimTransition, buildLocalSubcontractClaim } from "../lib/subcontractClaims.ts";
+import { applySubcontractVariationTransition, buildLocalSubcontractVariation } from "../lib/subcontractVariations.ts";
 import { DemoAssistant } from "./DemoAssistant.tsx";
 import { DemoEngineeringDocuments } from "./DemoEngineeringDocuments.tsx";
 import { DemoTour } from "./DemoTour.tsx";
@@ -205,6 +207,80 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     dispatch({ type: "DELETE_SUBCONTRACT", id });
   };
 
+  const saveSubcontractClaim = async (
+    claim: Partial<SubcontractProgressClaim> & { subcontractId: string; projectId: string; claimNumber: string; valuationDate: string },
+    lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number; notes?: string }>,
+  ) => {
+    const existing = claim.id ? (data.subcontractClaims || []).find((item) => item.id === claim.id) : undefined;
+    const normalizedNumber = claim.claimNumber.trim().toUpperCase();
+    if ((data.subcontractClaims || []).some((item) => item.id !== claim.id && item.subcontractId === claim.subcontractId && item.claimNumber.trim().toUpperCase() === normalizedNumber)) {
+      throw new Error("Progress claim number already exists for this subcontract.");
+    }
+    const value = buildLocalSubcontractClaim(
+      { ...claim, status: existing?.status || "DRAFT" },
+      lines,
+      existing,
+      DEMO_COMPANY_ID,
+      demoTimestamp(data.anchorDate, 16, 40),
+    );
+    dispatch({ type: "SAVE_SUBCONTRACT_CLAIM", value });
+  };
+
+  const transitionSubcontractClaim = async (
+    id: string,
+    targetStatus: SubcontractProgressClaimStatus,
+    reason?: string,
+    lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>,
+  ) => {
+    const current = (data.subcontractClaims || []).find((item) => item.id === id);
+    if (!current) throw new Error("Progress claim not found in the demo workspace.");
+    const subcontract = (data.subcontracts || []).find((item) => item.id === current.subcontractId);
+    const otherApproved = (data.subcontractClaims || []).filter((item) => item.subcontractId === current.subcontractId && item.id !== id && item.status === "APPROVED");
+    applySubcontractClaimTransition(current, targetStatus, reason, lineApprovals, subcontract, otherApproved, data.subcontractVariations || [], demoTimestamp(data.anchorDate, 16, 45));
+    dispatch({ type: "TRANSITION_SUBCONTRACT_CLAIM", id, targetStatus, reason, lineApprovals });
+  };
+
+  const deleteSubcontractClaim = async (id: string) => {
+    const current = (data.subcontractClaims || []).find((item) => item.id === id);
+    if (current && current.status !== "DRAFT") throw new Error("Only draft progress claims may be deleted.");
+    dispatch({ type: "DELETE_SUBCONTRACT_CLAIM", id });
+  };
+
+  const saveSubcontractVariation = async (
+    variation: Partial<SubcontractVariation> & { subcontractId: string; projectId: string; variationNumber: string; title: string; currency?: string },
+    lines: Array<Partial<SubcontractVariationLine> & { description: string; amount: number }>,
+  ) => {
+    const existing = variation.id ? (data.subcontractVariations || []).find((item) => item.id === variation.id) : undefined;
+    const normalizedNumber = variation.variationNumber.trim().toUpperCase();
+    if ((data.subcontractVariations || []).some((item) => item.id !== variation.id && item.subcontractId === variation.subcontractId && item.variationNumber.trim().toUpperCase() === normalizedNumber)) {
+      throw new Error("Variation number already exists for this subcontract.");
+    }
+    const value = buildLocalSubcontractVariation(
+      { ...variation, status: existing?.status || "DRAFT" },
+      lines,
+      existing,
+      DEMO_COMPANY_ID,
+      demoTimestamp(data.anchorDate, 16, 50),
+    );
+    dispatch({ type: "SAVE_SUBCONTRACT_VARIATION", value });
+  };
+
+  const transitionSubcontractVariation = async (id: string, targetStatus: SubcontractVariationStatus, reason?: string) => {
+    const current = (data.subcontractVariations || []).find((item) => item.id === id);
+    if (!current) throw new Error("Variation not found in the demo workspace.");
+    const subcontract = (data.subcontracts || []).find((item) => item.id === current.subcontractId);
+    const otherApproved = (data.subcontractVariations || []).filter((item) => item.subcontractId === current.subcontractId && item.id !== id && item.status === "APPROVED");
+    const approvedClaims = (data.subcontractClaims || []).filter((item) => item.subcontractId === current.subcontractId && item.status === "APPROVED");
+    applySubcontractVariationTransition(current, targetStatus, reason, subcontract, otherApproved, approvedClaims, demoTimestamp(data.anchorDate, 16, 55));
+    dispatch({ type: "TRANSITION_SUBCONTRACT_VARIATION", id, targetStatus, reason });
+  };
+
+  const deleteSubcontractVariation = async (id: string) => {
+    const current = (data.subcontractVariations || []).find((item) => item.id === id);
+    if (current && current.status !== "DRAFT") throw new Error("Only draft subcontract variations may be deleted.");
+    dispatch({ type: "DELETE_SUBCONTRACT_VARIATION", id });
+  };
+
   useEffect(() => {
     document.title = location.kind === "assistant" ? "AI Assistant | Engoryx Demo" : location.kind === "documents" ? "Engineering Documents | Engoryx Demo" : "Client Demo | Engoryx";
   }, [location.kind]);
@@ -305,11 +381,14 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             projectSummaries={summaries}
             projectDashboard={projectDashboard}
             companyId={DEMO_COMPANY_ID}
+            attentionToday={data.anchorDate}
             engineeringDocumentsCanRead={true}
             engineeringDocumentsCanCreate={false}
             engineeringDocumentsCanAnnotate={false}
             engineeringDocumentsCanManage={false}
             engineeringDocumentsGuestMode={true}
+            engineeringDocumentsData={data.engineering}
+            engineeringCoordinationData={data.coordination}
             projectDocumentsContent={selectedProject ? <DemoEngineeringDocuments projectId={selectedProject.id} /> : undefined}
             dailySiteLogsData={data.siteLogs}
             onDailySiteLogsDataChange={(value) => dispatch({ type: "SAVE_DAILY_SITE_LOGS", value })}
@@ -331,6 +410,12 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onSaveSubcontract={saveSubcontract}
             onTransitionSubcontract={transitionSubcontract}
             onDeleteSubcontract={deleteSubcontract}
+            onSaveSubcontractClaim={saveSubcontractClaim}
+            onTransitionSubcontractClaim={transitionSubcontractClaim}
+            onDeleteSubcontractClaim={deleteSubcontractClaim}
+            onSaveSubcontractVariation={saveSubcontractVariation}
+            onTransitionSubcontractVariation={transitionSubcontractVariation}
+            onDeleteSubcontractVariation={deleteSubcontractVariation}
             invoices={data.invoices}
             selectedInvoice={selectedInvoice}
             invoiceProjectAllocations={data.invoiceAllocations}

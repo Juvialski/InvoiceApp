@@ -1463,7 +1463,7 @@ export function createDemoSubcontractVariations(anchorDate = defaultDemoAnchorDa
     {
       id: "demo-var-elec-001",
       companyId: DEMO_COMPANY_ID,
-      subcontractId: "demo-sc-steel-001",
+      subcontractId: "demo-sc-steel-002",
       projectId: DEMO_PROJECT_IDS.warehouse,
       variationNumber: "SC-2026-002-VAR-01",
       title: "Omission of mezzanine intermediate connection plates",
