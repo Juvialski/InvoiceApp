@@ -1,35 +1,35 @@
 # Engoryx Agent Execution Efficiency
 
-This document defines the repository-native low-context workflow for ChatGPT, Codex/Luna, Antigravity, and other implementation agents. It complements `AGENTS.md`; correctness, security, financial truth, RLS, migration safety, and exact-head CI remain higher priority than speed.
+This document defines the repository-native low-context workflow for ChatGPT + Codex. It complements `AGENTS.md`; correctness, security, financial truth, RLS, migration safety, runtime evidence, and exact-head CI remain higher priority than speed.
 
 ## Goal
 
-Reduce duplicate repository discovery, unnecessary test execution, and successful-log ingestion without weakening validation.
+Reduce duplicate discovery, unnecessary tests, oversized logs, and idle agent coordination without weakening validation.
 
-The default flow is:
+Default flow:
 
-1. trust the exact green `main` baseline from the prior merged phase;
-2. generate one bounded agent context packet;
-3. inspect only the supplied working set and exact source symbols needed for the task;
-4. have the lead implement continuously, using Luna only for optional bounded specialist work;
-5. run focused/new tests;
-6. run compact impact-selected validation;
-7. run lint/build/database/browser checks only when the changed surface requires them;
-8. use exact-head PR CI as the final automated gate;
-9. on failure, ingest only the failed step and a bounded diagnostic excerpt.
+1. trust the exact green `main` baseline from the previous merged phase;
+2. generate one bounded `agent:context` packet;
+3. inspect only the supplied working set and exact symbols needed;
+4. have the Codex lead implement continuously;
+5. run new/focused tests;
+6. run `npm.cmd run test:affected:agent`;
+7. run lint/build/browser/Workflow Map checks only when relevant;
+8. run Docker-backed local Supabase validation when DB contracts change;
+9. open the PR and use exact-head CI as the final automated gate;
+10. inspect only bounded failure evidence when something fails.
 
-## 1. Single agent context packet
+## 1. Single bounded context packet
 
 Use `agent:context` before broad exploration for substantial scoped work.
 
-Examples:
+Example:
 
 ```text
-npm.cmd run agent:context -- --task "purchase order approval" --domain procurement --hops 1 --budget 10000
-npm.cmd run agent:context -- --task "subcontract variations" --domain commercial --hops 1 --budget 10000
+npm.cmd run agent:context -- --task "project financial control dashboard" --domain projects --hops 1 --budget 10000
 ```
 
-Useful selectors:
+Useful selectors include:
 
 ```text
 --task <objective>
@@ -42,48 +42,46 @@ Useful selectors:
 --changed-file <repo path>
 ```
 
-The packet combines, within a hard character budget:
+Normal first-pass budget:
 
-- base/head/branch and working-tree state;
-- changed paths;
-- impact-selector status and database-affecting state;
-- selected-test counts;
-- workflow-map seed nodes and bounded neighborhood;
-- first files to inspect;
-- relevant workflow tests;
-- protected invariants, permissions, and guards;
-- validation recommendation;
-- required verification reminders.
-
-Default packet budget is 12,000 characters. Normal task prompts should target 8,000-12,000 characters. Increase context only for a named unresolved dependency or safety boundary.
-
-### Workflow-map coverage gaps
-
-A task/query that does not yet resolve to a Workflow Map node is a navigation coverage gap, not an implementation blocker. `agent:context` emits a small changed-file/impact fallback packet instead of failing and includes the warning:
-
-```text
-Workflow-map match: unavailable; using changed-file / impact context.
-```
-
-The fallback packet must remain bounded and explicitly state that no workflow node matched. It includes provenance, changed paths, directly supplied file paths, deterministic graph mappings where available, unmatched paths, impact-selected tests, database-affecting state, and the validation recommendation.
-
-Do not weaken exact selector diagnostics. An invalid explicit `--node`, a clearly invalid explicit route, or an unsupported domain remains an error.
-
-Do not run speculative keyword retry loops after a task/query miss. Use the fallback packet and inspect the bounded working set. Retry Workflow Map once only when inspection reveals an exact known node or repository-relative file reference; otherwise continue targeted source inspection.
-
-### Exploration budget
-
-After receiving the packet, the default first-pass investigation budget is:
-
-- one agent context packet;
+- one packet;
 - 0-1 workflow hops;
-- up to about 6-8 primary source files;
-- exact symbols/ranges instead of whole-file dumps;
-- no repository-wide search unless a specific unresolved dependency can be named.
+- roughly 8k-12k characters;
+- about 6-8 primary source files;
+- exact symbols/ranges instead of whole-file dumps.
 
-The packet is advisory navigation. Agents must still inspect current source before editing and must not treat generated workflow context as authoritative runtime/database truth.
+If no Workflow Map node matches, accept the changed-file/impact fallback packet. Do not retry speculative keyword variants to force a match.
 
-## 2. Compact affected-test execution
+Workflow Map is advisory navigation only. Source, runtime behavior, migrations, RLS, tests, and CI remain authoritative.
+
+## 2. Codex-only execution
+
+The current implementation policy is **Codex only by default**.
+
+Do not assume Luna, Gemini, Antigravity, OpenRouter, Kilo, or another paid/external implementation agent is available. Use one only if the user explicitly says it is available again.
+
+The Codex lead owns:
+
+- implementation;
+- shared-file integration;
+- architecture/source-of-truth decisions;
+- financial semantics;
+- migration/RLS/RPC/trigger decisions;
+- final diff review;
+- validation;
+- commit/push/PR.
+
+### Subagents
+
+Default: **zero**.
+
+Hard maximum: **2 concurrent subagents** if the Codex environment exposes internal subagent capability and the workstreams are genuinely independent.
+
+Do not spawn subagents for duplicate discovery, CI polling, documentation-only work, broad re-audits, or small tasks the lead can finish directly.
+
+Subagents are never the critical path. Use bounded waits; stop a stalled subagent and continue locally rather than blocking the phase.
+
+## 3. Compact affected-test execution
 
 Use:
 
@@ -91,135 +89,158 @@ Use:
 npm.cmd run test:affected:agent
 ```
 
-This uses the same deterministic impact selector as `test:affected`.
+This uses the deterministic impact selector while suppressing successful TAP detail.
 
-On success it captures verbose TAP output and prints only:
+On success retain only:
 
 - selected file count / total test files;
-- test/pass/fail/skipped counts;
+- pass/fail/skipped counts;
 - elapsed time;
 - database/fallback state;
-- a bounded set of warnings, when present.
+- bounded warnings.
 
-It does not replay successful assertion/TAP detail into agent context.
+On failure retain:
 
-On failure it prints:
+- failing command;
+- bounded error neighborhood;
+- final summary.
 
-- the failing command;
-- a bounded diagnostic neighborhood around failure markers;
-- the final test summary.
+If impact selection safely falls back, let it run the repository full regression contract once. Do not rerun the full suite again merely because the fallback already did so.
 
-If impact selection safely falls back, the command executes the repository's canonical `npm test` full-regression contract while keeping successful output compact.
+## 4. Compact CI failure context
 
-`test:affected` remains available when a human explicitly wants verbose runner output.
+When a CI/local log is large, inspect only the failed step and smallest useful excerpt.
 
-## 3. Compact CI failure context
-
-When a CI or local command produces a large text log, extract the useful failure region before giving it to an agent:
+Use:
 
 ```text
 npm.cmd run ci:failure-context -- --file path/to/log.txt --workflow "Application Validation" --step "Affected tests"
 ```
 
-Or pipe a saved log through stdin.
+Do not feed successful full logs back into agent context.
 
-Default failure excerpts are capped at 80 lines and 12,000 characters. The extractor includes neighborhoods around assertion/error/failure markers and the final `node:test` summary.
+Failure loop:
 
-Do not feed a full successful CI log to Luna. For failed CI, inspect the failed exact-head job/step first and use the smallest useful excerpt.
+`inspect -> diagnose -> justified change -> narrow rerun -> continue validation ladder`
 
-## 4. Agent allocation
+Never loop an unchanged failure.
 
-The **lead is the implementation owner**. It starts and continues implementation itself; subagents are optional accelerators rather than phase owners.
+## 5. Validation path for non-DB work
 
-Default allocation is **zero or one Luna specialist subagent**. Give Luna one tightly bounded deliverable with exact file/symbol ownership, acceptance criteria, relevant tests, and explicit out-of-scope items.
+For normal UI/application work:
 
-Good Luna assignments include:
+1. new/edited tests;
+2. focused domain tests;
+3. `npm.cmd run test:affected:agent`;
+4. `npm.cmd run lint` after code stabilizes;
+5. `npm.cmd run build` when production/runtime/UI integration is affected;
+6. targeted browser QA for significant user-facing changes;
+7. Workflow Map checks only when mapped contracts/generated inputs changed;
+8. exact-head PR CI.
 
-- one migration/RPC/RLS contract;
-- one bounded security/concurrency review;
-- one defined UI workflow/component cluster;
-- one focused test/failure-diagnosis cluster.
+Do **not** start Docker/Supabase merely because Docker Desktop is open when the task is UI-only, documentation-only, or otherwise does not change DB contracts.
 
-Use a second concurrent Luna only when there are two genuinely independent specialist workstreams with non-overlapping ownership after the lead has established the shared contract and working set. Do not use the second slot merely for a broad independent re-review.
+## 6. Docker-backed database validation
 
-The hard repository maximum remains **two concurrent subagents**.
+The user's laptop normally keeps Docker Desktop available so Codex can run the real local Supabase stack when the changed surface requires it.
 
-### Non-blocking execution
+Treat the following as database-affecting:
 
-Luna must not become the phase critical path.
+- `supabase/migrations/**`;
+- RLS policies/grants;
+- RPC / SECURITY DEFINER behavior;
+- triggers and constraints;
+- financial lifecycle DB guards;
+- cross-company/company-bound integrity;
+- migration upgrade behavior;
+- DB concurrency/row-locking invariants.
 
-- The lead continues independent implementation/integration while Luna runs.
-- Use bounded waits rather than waiting indefinitely for a subagent.
-- If Luna runs for an extended period without a usable deliverable or clear progress, stop it and let the lead complete that work locally.
-- Do not restart the same stalled broad assignment repeatedly.
-- Review any partial Luna output against current source/tests before using it.
-- A stopped or timed-out Luna is not a phase failure when the lead completes and validates the work.
+### Required local ladder for DB-affecting work
 
-Do not use subagents for duplicate discovery, CI polling, documentation-only work, broad re-audits, or parallel reads of the same files.
+Use the applicable Windows commands:
 
-## 5. Review path
+```text
+docker info
+npx.cmd supabase start
+npx.cmd supabase db reset --local --no-seed --yes
+npx.cmd supabase test db --local
+npm.cmd run test:migrations
+npm.cmd run test:migrations:upgrade
+```
 
-Review is diff-first.
+Then run any targeted runtime/concurrency test needed by the changed contract.
 
-Give the reviewer:
+Examples of behavior that should be proven against the real local DB when changed:
+
+- RLS and unauthorized/cross-company rejection;
+- guarded lifecycle RPCs;
+- immutable/finalized history;
+- overbilling/overcollection/settlement ceilings;
+- trigger/constraint behavior;
+- concurrent row-locking protection;
+- historical migration upgrade compatibility.
+
+Static migration/string tests are not equivalent to replay, pgTAP, or runtime behavior.
+
+### Docker unavailable
+
+If Docker Desktop, Supabase CLI, ports, or containers are unavailable:
+
+1. report the blocker once;
+2. run the strongest remaining static/focused checks;
+3. state exactly which runtime DB checks were not run;
+4. never claim static tests equal runtime validation;
+5. rely on exact-head GitHub DB CI as the final automated runtime gate while clearly disclosing the local gap.
+
+Do not close Docker Desktop. Stop only repo-specific processes/containers started by the run when appropriate, unless the user intentionally wants the local stack left running.
+
+## 7. Full-suite rule
+
+Do not run `npm.cmd run test:full` at the start of a phase from just-merged green `main`.
+
+Run the full historical suite locally only when:
+
+- impact selection falls back to it;
+- a broad shared/root contract changed and safe isolation cannot be proven;
+- architecture/toolchain/test infrastructure changed unusually broadly;
+- the user explicitly requests it;
+- release/deep-regression work requires it;
+- targeted validation or CI indicates broader coverage is needed.
+
+Do not run it repeatedly during implementation.
+
+## 8. Review path
+
+Review diff-first:
 
 - acceptance criteria;
 - changed filenames/hunks;
 - touched shared contracts;
-- the relevant bounded context packet;
+- bounded context packet;
 - focused/affected validation results.
 
-The reviewer expands scope only when a changed dependency, security/financial boundary, or concrete failure justifies it. Do not perform a second whole-repository audit after a focused implementation is already green.
+Expand scope only for a concrete dependency, financial/security boundary, or failure. Do not perform a second whole-repository audit after a focused implementation is already green.
 
-A Luna review should itself be bounded to named contracts/files. The lead remains responsible for final integration review even when Luna returns findings.
-
-## 6. Validation path
-
-A normal phase starting from recently merged green `main` must not begin with `test:full`.
-
-For normal UI/application changes use:
-
-1. new/edited tests directly;
-2. focused domain tests while iterating;
-3. `npm.cmd run test:affected:agent` after integration;
-4. `npm.cmd run lint` once code stabilizes;
-5. build only for production/runtime/UI integration or required PR handoff;
-6. workflow-map validation only when mapped contracts/inputs changed;
-7. full regression only when the selector falls back or broader evidence requires it;
-8. exact-head PR CI as the final automated gate.
-
-For database-affecting changes, including `supabase/migrations/**`, RLS, RPCs, triggers, or database contracts:
-
-1. use focused/static tests during iteration;
-2. run the applicable real local database/migration replay ladder before completion and final PR handoff;
-3. for changes to existing RPC/trigger/RLS behavior, include runtime/database integration coverage that executes the affected behavior;
-4. do not treat static migration tests as sufficient runtime evidence;
-5. then use exact-head PR CI as the final automated gate.
-
-The permanent `AGENTS.md` rule remains authoritative: any change under `supabase/migrations/**` requires actual local migration replay before completion/final PR handoff.
-
-## 7. Prompt-creation default
+## 9. Prompt-creation default
 
 Future implementation prompts should use wording equivalent to:
 
-> Start from current latest `main` and confirm its exact SHA and prior required green CI. Do not rerun the historical full suite before implementation. Generate one bounded `npm.cmd run agent:context -- ...` packet for this objective and use it as the initial working set. If a bounded task/query has no Workflow Map match, use the changed-file/impact fallback packet rather than retrying speculative keywords. Inspect current source only inside that scope unless a concrete dependency requires expansion. The Codex lead owns and continuously implements the phase. Luna is optional: use zero or one tightly bounded specialist Luna by default, and a second only for a genuinely independent specialist workstream, never more than two concurrently. Do not delegate the entire phase to Luna or block on a stalled subagent; after bounded waits without a usable result, stop it and let the lead finish locally. Run focused/new tests while iterating, then `npm.cmd run test:affected:agent` after integration. For DB-affecting work, perform the required real local migration/runtime ladder before completion. Run lint/build/workflow-map/browser validation only when the changed surface requires it. If CI fails, inspect only the failed exact-head step and a bounded failure excerpt. Exact-head PR CI is the final automated gate.
+> Start from current latest `main` and confirm the exact green base SHA. Do not rerun the historical full suite before implementation unless the baseline is genuinely untrusted. Generate one bounded `npm.cmd run agent:context -- ...` packet and use it as the initial working set. The Codex lead owns implementation, integration, review, and validation. Do not assume Luna, Gemini, Antigravity, or another paid/external implementation agent is available. Use zero subagents by default and never more than two concurrent internal Codex subagents for genuinely independent bounded work. Run focused/new tests while iterating, then `npm.cmd run test:affected:agent`. For migrations, RLS, RPCs, triggers, DB contracts, financial DB guards, or concurrency changes, use the available Docker Desktop/local Supabase stack for clean replay, pgTAP, migration upgrade, and relevant runtime/concurrency checks before PR completion; if Docker is unavailable, disclose the exact missing validation. Do not start Docker for UI-only/non-DB work. Run lint/build/browser/Workflow Map checks only when relevant. Open the PR but do not merge it; the GitHub-native lead will review exact-head CI and merge when safe.
 
-## 8. Efficiency evidence
-
-When comparing workflow efficiency, keep measured and estimated values separate.
+## 10. Efficiency evidence
 
 Useful per-PR metrics:
 
 - changed-file count;
-- agent context packet characters;
-- workflow inspect-file count;
+- context packet size;
 - selected test files / total test files;
 - impact fallback yes/no + reason;
-- database suite triggered yes/no;
+- Docker/Supabase suite required yes/no;
+- DB replay/pgTAP/upgrade results when required;
 - affected-test elapsed time;
-- full-suite elapsed time when a fallback legitimately occurs;
-- Luna subagents started/completed/stopped;
-- whether the lead had to complete a stalled Luna assignment locally;
-- CI failure excerpt characters versus source log characters.
+- full-suite elapsed time only when legitimately run;
+- subagents started/completed/stopped;
+- browser/Workflow Map checks triggered yes/no;
+- CI failure excerpt size vs source log size.
 
-If the agent platform exposes real input/output token accounting, record it. Otherwise use packet/log characters only as a stable proxy and do not claim exact token savings.
+Keep measured and estimated values separate. Do not claim exact token savings unless the platform exposes real accounting.
