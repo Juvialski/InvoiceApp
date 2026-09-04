@@ -101,6 +101,8 @@ import {
   replaceInvoiceProjectAllocationsOnSupabase,
   writeInvoiceProjectAllocationsToLocal,
 } from "./lib/projects";
+import { type EngineeringDailySiteLogsWorkspaceData } from "./lib/dailySiteLogs.ts";
+import { loadDailySiteLogsFromSupabase, readDailySiteLogsFromLocal, writeDailySiteLogsToLocal } from "./lib/dailySiteLogsPersistence.ts";
 import {
   appendClientBillingEvent,
   applyLocalClientBillingTransition,
@@ -427,6 +429,7 @@ function InvoiceWorkspace() {
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [projectMaterials, setProjectMaterials] = useState<ProjectMaterial[]>(() => isSupabaseConfigured ? [] : readProjectMaterialsFromLocal());
   const [projectEquipment, setProjectEquipment] = useState<ProjectEquipment[]>(() => isSupabaseConfigured ? [] : readProjectEquipmentFromLocal());
+  const [dailySiteLogsData, setDailySiteLogsData] = useState<EngineeringDailySiteLogsWorkspaceData | undefined>(() => isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>(() => isSupabaseConfigured ? [] : readSubcontractsFromLocal());
   const [subcontractClaims, setSubcontractClaims] = useState<SubcontractProgressClaim[]>(() => isSupabaseConfigured ? [] : readSubcontractClaimsFromLocal());
@@ -597,6 +600,7 @@ function InvoiceWorkspace() {
     setCostCodes([]);
     setProjectMaterials([]);
     setProjectEquipment([]);
+    setDailySiteLogsData(isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
     setPurchaseOrders([]);
     setSubcontracts([]);
     setSubcontractClaims([]);
@@ -650,7 +654,7 @@ function InvoiceWorkspace() {
     : group === "cash"
       ? hasAnyPermission(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashTransactionsRead, PERMISSION_KEYS.cashImport, PERMISSION_KEYS.cashReconcile])
     : group === "engineering"
-      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead])
+      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringSiteLogsRead])
       : group === "payroll"
         ? can(PERMISSION_KEYS.payrollRead)
         : group === "payroll-imports"
@@ -668,6 +672,7 @@ function InvoiceWorkspace() {
     costCodes: ProjectCostCode[];
     materials: ProjectMaterial[];
     equipment: ProjectEquipment[];
+    dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
     purchaseOrders: PurchaseOrder[];
     subcontracts: Subcontract[];
     subcontractClaims: SubcontractProgressClaim[];
@@ -739,6 +744,7 @@ function InvoiceWorkspace() {
     setCostCodes(data.costCodes);
     setProjectMaterials(data.materials);
     setProjectEquipment(data.equipment);
+    setDailySiteLogsData(data.dailySiteLogsData);
     setPurchaseOrders(data.purchaseOrders);
     setSubcontracts(data.subcontracts);
     setSubcontractClaims(data.subcontractClaims);
@@ -771,6 +777,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.procurementRead) ? fetchSubcontractVariations() : Promise.resolve([]),
       can(PERMISSION_KEYS.projectsRead) ? loadClientCollectionWorkspaceFromSupabase() : Promise.resolve({ collections: [], events: [] } as ClientCollectionWorkspaceData),
       can(PERMISSION_KEYS.projectsRead) ? loadProjectMaterialsEquipmentFromSupabase() : Promise.resolve({ materials: [], equipment: [] }),
+      can(PERMISSION_KEYS.engineeringSiteLogsRead) ? loadDailySiteLogsFromSupabase(activeCompanyId || undefined) : Promise.resolve(undefined),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -789,6 +796,7 @@ function InvoiceWorkspace() {
     const subcontractVariations = results[13].status === "fulfilled" ? results[13].value : [];
     const clientCollectionData = results[14].status === "fulfilled" ? results[14].value : { collections: [], events: [] };
     const materialsEquipment = results[15].status === "fulfilled" ? results[15].value : { materials: [], equipment: [] };
+    const dailySiteLogsData = results[16].status === "fulfilled" ? results[16].value : undefined;
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -829,7 +837,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, clientCollectionData, expenses, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, clientCollectionData, expenses, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, dailySiteLogsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -986,6 +994,9 @@ function InvoiceWorkspace() {
       setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
       setExpenses(readExpensesFromLocal());
       setCostCodes(readProjectCostCodesFromLocal());
+      setProjectMaterials(readProjectMaterialsFromLocal());
+      setProjectEquipment(readProjectEquipmentFromLocal());
+      setDailySiteLogsData(readDailySiteLogsFromLocal());
       const localCash = readCashBankingWorkspaceFromLocal();
       cashDataRef.current = localCash;
       setCashData(localCash);
@@ -1055,8 +1066,9 @@ function InvoiceWorkspace() {
       writeExpensesToLocal(expenses);
       writePayrollWorkspaceToLocal(payrollData);
       writeCashBankingWorkspaceToLocal(cashData);
+      if (dailySiteLogsData) writeDailySiteLogsToLocal(dailySiteLogsData);
     }
-  }, [invoiceProjectAllocations, clientBillingData, clientCollectionData, expenses, payrollData, payrollImportData, cashData, session, authResolved, guestModeState]);
+  }, [invoiceProjectAllocations, clientBillingData, clientCollectionData, expenses, payrollData, payrollImportData, cashData, dailySiteLogsData, session, authResolved, guestModeState]);
 
   useEffect(() => {
     payrollDataRef.current = payrollData;
@@ -4444,6 +4456,8 @@ function InvoiceWorkspace() {
           engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
           engineeringDocumentsCanManage={engineeringDocumentsCanManage}
           engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
+          dailySiteLogsData={dailySiteLogsData}
+          onDailySiteLogsDataChange={setDailySiteLogsData}
           selectedProject={selectedProject}
           projectSummaries={projectSummaries}
           projectDashboard={projectDashboard}

@@ -144,6 +144,7 @@ interface ProjectOverviewProps {
   engineeringDocumentsData?: EngineeringDocumentsWorkspaceData;
   engineeringCoordinationData?: EngineeringCoordinationWorkspaceData;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+  onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   materials?: readonly ProjectMaterial[];
   equipment?: readonly ProjectEquipment[];
   purchaseOrders?: readonly PurchaseOrder[];
@@ -595,6 +596,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   engineeringDocumentsData,
   engineeringCoordinationData,
   dailySiteLogsData,
+  onDailySiteLogsDataChange,
   materials = [],
   equipment = [],
   purchaseOrders = [],
@@ -619,9 +621,10 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
     documentsData: engineeringDocumentsData,
     coordinationData: engineeringCoordinationData,
     dailySiteLogsData,
+    onDailySiteLogsDataChange,
   });
   const engineeringSummary = engineeringSummaryState.summary;
-  const effectiveDailySiteLogsData = dailySiteLogsData || engineeringSummaryState.dailySiteLogsData;
+  const effectiveDailySiteLogsData = engineeringSummaryState.dailySiteLogsData;
   const fieldOperations = useMemo(() => {
     if (!effectiveDailySiteLogsData && !equipment.length) return undefined;
     const siteLogRecords = effectiveDailySiteLogsData?.logs || [];

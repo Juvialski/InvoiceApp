@@ -382,6 +382,59 @@ export function emptyDailySiteLogsWorkspaceData(): EngineeringDailySiteLogsWorks
   return { logs: [], weather: [], crew: [], equipment: [], work: [], materialDeliveries: [], issues: [], safety: [], events: [], addenda: [] };
 }
 
+/**
+ * Returns one project's Site Log snapshot and its children. Callers may load a
+ * company-wide snapshot for refresh efficiency, but project surfaces must only
+ * receive the selected project's records.
+ */
+export function scopeDailySiteLogsToProject(
+  data: EngineeringDailySiteLogsWorkspaceData,
+  projectId: string,
+): EngineeringDailySiteLogsWorkspaceData {
+  const logs = data.logs.filter((log) => log.projectId === projectId);
+  const logIds = new Set(logs.map((log) => log.id));
+  const byLog = <T extends { siteLogId: string }>(rows: readonly T[]) => rows.filter((row) => logIds.has(row.siteLogId));
+  return {
+    logs,
+    weather: byLog(data.weather),
+    crew: byLog(data.crew),
+    equipment: byLog(data.equipment),
+    work: byLog(data.work || []),
+    materialDeliveries: byLog(data.materialDeliveries || []),
+    issues: byLog(data.issues || []),
+    safety: byLog(data.safety),
+    events: byLog(data.events),
+    addenda: byLog(data.addenda || []),
+  };
+}
+
+/**
+ * Merges a project-scoped refresh back into a company-wide snapshot without
+ * allowing one project's load or mutation to discard other project history.
+ */
+export function mergeDailySiteLogsWorkspaceData(
+  current: EngineeringDailySiteLogsWorkspaceData | undefined,
+  projectId: string,
+  nextProjectData: EngineeringDailySiteLogsWorkspaceData,
+): EngineeringDailySiteLogsWorkspaceData {
+  const base = current || emptyDailySiteLogsWorkspaceData();
+  const scoped = scopeDailySiteLogsToProject(nextProjectData, projectId);
+  const projectLogIds = new Set(base.logs.filter((log) => log.projectId === projectId).map((log) => log.id));
+  const withoutProjectLogs = <T extends { siteLogId: string }>(rows: readonly T[]) => rows.filter((row) => !projectLogIds.has(row.siteLogId));
+  return {
+    logs: [...base.logs.filter((log) => log.projectId !== projectId), ...scoped.logs],
+    weather: [...withoutProjectLogs(base.weather), ...scoped.weather],
+    crew: [...withoutProjectLogs(base.crew), ...scoped.crew],
+    equipment: [...withoutProjectLogs(base.equipment), ...scoped.equipment],
+    work: [...withoutProjectLogs(base.work || []), ...scoped.work],
+    materialDeliveries: [...withoutProjectLogs(base.materialDeliveries || []), ...scoped.materialDeliveries],
+    issues: [...withoutProjectLogs(base.issues || []), ...scoped.issues],
+    safety: [...withoutProjectLogs(base.safety), ...scoped.safety],
+    events: [...withoutProjectLogs(base.events), ...scoped.events],
+    addenda: [...withoutProjectLogs(base.addenda || []), ...scoped.addenda],
+  };
+}
+
 function normalizeWeather(input: DailySiteLogWeatherInput | undefined, siteLogId: string, companyId: string | undefined, timestamp: string): EngineeringDailySiteLogWeather {
   const condition = input?.condition || "UNKNOWN";
   if (!DAILY_SITE_LOG_WEATHER_CONDITIONS.includes(condition)) throw new Error("Weather condition is not supported.");

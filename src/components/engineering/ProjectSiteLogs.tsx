@@ -126,6 +126,7 @@ export interface ProjectSiteLogsProps {
   onNavigatePath?: AppNavigate;
   controlledData?: EngineeringDailySiteLogsWorkspaceData;
   onControlledDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
+  controlledPersistence?: "local" | "remote";
   materials?: readonly ProjectMaterial[];
   registeredEquipment?: readonly ProjectEquipment[];
   purchaseOrders?: readonly PurchaseOrder[];
@@ -305,8 +306,8 @@ function Editor({ form, setForm, onSubmit, onCancel, saving, error, title, mater
   );
 }
 
-export const ProjectSiteLogs: React.FC<ProjectSiteLogsProps> = ({ project, companyId, canRead = true, canCreate = true, canUpdate = true, canSubmit = true, canManage = true, guestMode = false, initialSiteLogId, pathForSiteLog, onNavigatePath, controlledData, onControlledDataChange, materials = [], registeredEquipment = [], purchaseOrders = [], receipts = [], costCodes = [], canReadProcurement = false }) => {
-  const controller = useDailySiteLogsController({ project, companyId, canRead, canCreate, canUpdate, canSubmit, canManage, guestMode, controlledData, onControlledDataChange });
+export const ProjectSiteLogs: React.FC<ProjectSiteLogsProps> = ({ project, companyId, canRead = false, canCreate = false, canUpdate = false, canSubmit = false, canManage = false, guestMode = false, initialSiteLogId, pathForSiteLog, onNavigatePath, controlledData, onControlledDataChange, controlledPersistence, materials = [], registeredEquipment = [], purchaseOrders = [], receipts = [], costCodes = [], canReadProcurement = false }) => {
+  const controller = useDailySiteLogsController({ project, companyId, canRead, canCreate, canUpdate, canSubmit, canManage, guestMode, controlledData, onControlledDataChange, controlledPersistence });
   const [selectedId, setSelectedId] = useState<string | undefined>(initialSiteLogId);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<DailySiteLogStatus | "ALL">("ALL");

@@ -8,6 +8,8 @@ import {
   eventForDailySiteLogTransition,
   replaceDailySiteLogAggregate,
   reportNumberForSiteDate,
+  mergeDailySiteLogsWorkspaceData,
+  scopeDailySiteLogsToProject,
   transitionDailySiteLog,
   validateDailySiteLogAggregate,
 } from "../src/lib/dailySiteLogs.ts";
@@ -77,4 +79,37 @@ test("daily Site Log aggregate replacement preserves formal lifecycle history an
   assert.equal(selected?.events.length, 2);
   assert.equal(data.logs.length, 1);
   assert.equal(data.crew.length, 1);
+});
+
+test("project Site Log snapshots scope every child row and merge without discarding other projects", () => {
+  const first = draft();
+  const second = createDraftDailySiteLog({
+    ...first.log,
+    id: "00000000-0000-4000-8000-000000000002",
+    projectId: "00000000-0000-4000-8000-000000000021",
+    siteDate: "2026-08-28",
+    workSummary: "Second project observation.",
+    crew: first.crew.map((row) => ({ ...row, id: "00000000-0000-4000-8000-000000000102" })),
+    equipment: first.equipment.map((row) => ({ ...row, id: "00000000-0000-4000-8000-000000000202" })),
+    safety: first.safety.map((row) => ({ ...row, id: "00000000-0000-4000-8000-000000000302" })),
+    now: NOW,
+  });
+  const companySnapshot = replaceDailySiteLogAggregate(
+    replaceDailySiteLogAggregate(emptyDailySiteLogsWorkspaceData(), first),
+    second,
+  );
+
+  const scoped = scopeDailySiteLogsToProject(companySnapshot, first.log.projectId);
+  assert.deepEqual(scoped.logs.map((log) => log.id), [first.log.id]);
+  assert.deepEqual(scoped.weather.map((row) => row.siteLogId), [first.log.id]);
+  assert.deepEqual(scoped.crew.map((row) => row.siteLogId), [first.log.id]);
+  assert.deepEqual(scoped.events.map((row) => row.siteLogId), [first.log.id]);
+
+  const changed = { ...first, log: { ...first.log, workSummary: "Updated first project observation." } };
+  const changedProjectData = replaceDailySiteLogAggregate(emptyDailySiteLogsWorkspaceData(), changed);
+  const merged = mergeDailySiteLogsWorkspaceData(companySnapshot, first.log.projectId, changedProjectData);
+  assert.equal(merged.logs.length, 2);
+  assert.equal(merged.logs.find((log) => log.id === first.log.id)?.workSummary, "Updated first project observation.");
+  assert.equal(merged.logs.find((log) => log.id === second.log.id)?.workSummary, "Second project observation.");
+  assert.equal(merged.crew.filter((row) => row.siteLogId === second.log.id).length, 1);
 });
