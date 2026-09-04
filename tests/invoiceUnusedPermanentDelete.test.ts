@@ -10,6 +10,10 @@ const accountingRaceGuardMigration = readFileSync(
   new URL("../supabase/migrations/20260904131000_invoice_accounting_event_delete_race_guard.sql", import.meta.url),
   "utf8",
 );
+const cleanupLifecycleMigration = readFileSync(
+  new URL("../supabase/migrations/20260904230542_invoice_unused_delete_cleanup_lifecycle.sql", import.meta.url),
+  "utf8",
+);
 const dialog = readFileSync(new URL("../src/components/financial/FinancialCorrectionDialog.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 
@@ -53,6 +57,20 @@ test("invoice deletion distinguishes disposable extraction provenance from prote
   assert.match(migration, /Cannot permanently delete — this invoice has/);
 });
 
+test("cleanup lifecycle history is non-blocking only through a forward preflight replacement", () => {
+  assert.doesNotMatch(cleanupLifecycleMigration, /drop table|drop schema|drop migration/i);
+  assert.match(cleanupLifecycleMigration, /create or replace function private\.invoice_correction_preflight/);
+  assert.match(cleanupLifecycleMigration, /'INVOICE_VOIDED', 'INVOICE_ARCHIVED', 'INVOICE_RESTORED'/);
+  assert.match(cleanupLifecycleMigration, /'AI_EXTRACTION_CREATED', 'AI_REEXTRACTION_CREATED', 'HUMAN_EDIT', 'REOPENED'/);
+  assert.match(cleanupLifecycleMigration, /v_invoice\.lifecycle_status in \('ACTIVE', 'VOID'\)/);
+  assert.match(cleanupLifecycleMigration, /when v_can_delete then null/);
+  assert.match(cleanupLifecycleMigration, /retainedNonBlockingHistory/);
+  assert.match(cleanupLifecycleMigration, /cleanupLifecycleHistory/);
+  assert.match(cleanupLifecycleMigration, /unknown.*protected|protected.*unknown/i);
+  assert.doesNotMatch(cleanupLifecycleMigration, /delete from public\.company_audit_events/i);
+  assert.match(cleanupLifecycleMigration, /revoke execute on function private\.invoice_correction_preflight\(uuid, uuid\)/);
+});
+
 test("source cleanup remains provider-neutral and conservative", () => {
   assert.match(migration, /document_backup_replicas/);
   assert.match(migration, /document_migration_records/);
@@ -81,6 +99,7 @@ test("polymorphic invoice accounting events serialize with unused deletion", () 
 
 test("invoice correction UI exposes a clear permanent action and truthful post-delete feedback", () => {
   assert.match(dialog, /Delete permanently/);
+  assert.match(dialog, /actionCard\("DELETE_UNUSED", preview\.canDelete/);
   assert.match(dialog, /window\.confirm/);
   assert.match(dialog, /Protected blockers/);
   assert.match(dialog, /Disposable or retained provenance/);
