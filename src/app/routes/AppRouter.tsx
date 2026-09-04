@@ -37,8 +37,12 @@ import type {
   Subcontract,
   SubcontractLine,
   SubcontractProgressClaim,
+  SubcontractProgressClaimLine,
+  SubcontractProgressClaimStatus,
   SubcontractStatus,
   SubcontractVariation,
+  SubcontractVariationLine,
+  SubcontractVariationStatus,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
@@ -56,6 +60,8 @@ import type {
   ClientCollectionInput,
 } from "../../lib/clientCollections.ts";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
+import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
@@ -146,11 +152,14 @@ export interface AppRouterProps {
   laborSource?: ProjectLaborSource;
   projectFormSeed?: Project | null;
   companyId?: string;
+  attentionToday?: string;
   engineeringDocumentsCanRead?: boolean;
   engineeringDocumentsCanCreate?: boolean;
   engineeringDocumentsCanAnnotate?: boolean;
   engineeringDocumentsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  engineeringDocumentsData?: EngineeringDocumentsWorkspaceData;
+  engineeringCoordinationData?: EngineeringCoordinationWorkspaceData;
   projectDocumentsContent?: React.ReactNode;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
@@ -333,6 +342,18 @@ export interface AppRouterProps {
   ) => Promise<void>;
   onTransitionSubcontract?: (id: string, targetStatus: SubcontractStatus, reason?: string) => Promise<void>;
   onDeleteSubcontract?: (id: string) => Promise<void>;
+  onSaveSubcontractClaim?: (
+    claim: Partial<SubcontractProgressClaim> & { subcontractId: string; projectId: string; claimNumber: string; valuationDate: string },
+    lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number; notes?: string }>,
+  ) => Promise<void>;
+  onTransitionSubcontractClaim?: (id: string, targetStatus: SubcontractProgressClaimStatus, reason?: string, lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>) => Promise<void>;
+  onDeleteSubcontractClaim?: (id: string) => Promise<void>;
+  onSaveSubcontractVariation?: (
+    variation: Partial<SubcontractVariation> & { subcontractId: string; projectId: string; variationNumber: string; title: string; currency?: string },
+    lines: Array<Partial<SubcontractVariationLine> & { description: string; amount: number }>,
+  ) => Promise<void>;
+  onTransitionSubcontractVariation?: (id: string, targetStatus: SubcontractVariationStatus, reason?: string) => Promise<void>;
+  onDeleteSubcontractVariation?: (id: string) => Promise<void>;
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
@@ -418,6 +439,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onSaveSubcontract,
   onTransitionSubcontract,
   onDeleteSubcontract,
+  onSaveSubcontractClaim,
+  onTransitionSubcontractClaim,
+  onDeleteSubcontractClaim,
+  onSaveSubcontractVariation,
+  onTransitionSubcontractVariation,
+  onDeleteSubcontractVariation,
   onRecordReceipt,
   onVoidReceipt,
   onAddVendor,
@@ -438,11 +465,14 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   laborSource,
   projectFormSeed,
   companyId,
+  attentionToday,
   engineeringDocumentsCanRead = true,
   engineeringDocumentsCanCreate = true,
   engineeringDocumentsCanAnnotate = true,
   engineeringDocumentsCanManage = true,
   engineeringDocumentsGuestMode = false,
+  engineeringDocumentsData,
+  engineeringCoordinationData,
   projectDocumentsContent,
   dailySiteLogsData,
   onDailySiteLogsDataChange,
@@ -668,11 +698,14 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         initialRevisionId={route.kind === "project" ? route.revisionId : undefined}
         initialSiteLogId={route.kind === "project" ? route.siteLogId : undefined}
         companyId={companyId}
+        attentionToday={attentionToday}
         engineeringDocumentsCanRead={engineeringDocumentsCanRead}
         engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
         engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
         engineeringDocumentsCanManage={engineeringDocumentsCanManage}
         engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
+        engineeringDocumentsData={engineeringDocumentsData}
+        engineeringCoordinationData={engineeringCoordinationData}
         projectDocumentsContent={projectDocumentsContent}
         dailySiteLogsData={dailySiteLogsData}
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
@@ -696,6 +729,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSaveSubcontract={onSaveSubcontract}
         onTransitionSubcontract={onTransitionSubcontract}
         onDeleteSubcontract={onDeleteSubcontract}
+        onSaveSubcontractClaim={onSaveSubcontractClaim}
+        onTransitionSubcontractClaim={onTransitionSubcontractClaim}
+        onDeleteSubcontractClaim={onDeleteSubcontractClaim}
+        onSaveSubcontractVariation={onSaveSubcontractVariation}
+        onTransitionSubcontractVariation={onTransitionSubcontractVariation}
+        onDeleteSubcontractVariation={onDeleteSubcontractVariation}
         onRecordReceipt={onRecordReceipt}
         onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}
@@ -908,6 +947,14 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSaveSubcontract={onSaveSubcontract}
         onTransitionSubcontract={onTransitionSubcontract}
         onDeleteSubcontract={onDeleteSubcontract}
+        subcontractClaims={subcontractClaims}
+        onSaveSubcontractClaim={onSaveSubcontractClaim}
+        onTransitionSubcontractClaim={onTransitionSubcontractClaim}
+        onDeleteSubcontractClaim={onDeleteSubcontractClaim}
+        subcontractVariations={subcontractVariations}
+        onSaveSubcontractVariation={onSaveSubcontractVariation}
+        onTransitionSubcontractVariation={onTransitionSubcontractVariation}
+        onDeleteSubcontractVariation={onDeleteSubcontractVariation}
         onRecordReceipt={onRecordReceipt}
         onVoidReceipt={onVoidReceipt}
         onAddVendor={onAddVendor}

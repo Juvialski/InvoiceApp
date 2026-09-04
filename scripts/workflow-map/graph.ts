@@ -3285,6 +3285,51 @@ const p2Nodes: readonly WorkflowNode[] = [
   }),
 ] as const;
 
+const p3Nodes: readonly WorkflowNode[] = [
+  node({
+    id: "project-attention-signals",
+    label: "Project Attention Signals",
+    domain: "projects",
+    type: "derived-data",
+    scope: "company-and-project",
+    description: "Deterministic, explainable project signals derived from authoritative current financial, commercial, procurement, lifecycle-date, data-quality, and explicitly due engineering records; no opaque score or implicit currency conversion.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/utils/projectManagementViewModel.ts", "src/components/projects/ProjectsPage.tsx", "src/components/projects/ProjectOverview.tsx"],
+    testRefs: ["tests/p3a3P3dIntegration.test.ts", "tests/projectManagementViewModel.test.ts"],
+    permissionKeys: ["projects.read"],
+    invariantIds: ["company-rbac-is-authoritative", "reports-are-derived-surfaces", "p2-no-implicit-cross-currency-aggregation", "commercial-client-billing-issued-only", "commercial-client-collection-recorded-only"],
+    tags: ["P3A-3", "explainable attention", "projects at risk", "no opaque score", "currency-aware"],
+  }),
+  node({
+    id: "project-engineering-coordination-summary",
+    label: "Project Engineering Coordination Summary",
+    domain: "engineering",
+    type: "derived-data",
+    scope: "project",
+    description: "Permission-aware selected-project summary over existing Engineering Documents/revisions, RFIs, Submittals, and Daily Site Logs with loading, unavailable, and not-permitted states and direct project-context drilldowns.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/utils/projectEngineeringCoordination.ts", "src/features/engineering/useProjectEngineeringCoordinationSummary.ts", "src/components/projects/ProjectOverview.tsx", "src/components/projects/ProjectWorkspace.tsx"],
+    testRefs: ["tests/p3a3P3dIntegration.test.ts", "tests/engineeringLifecycle.test.ts", "tests/projectWorkspaceNavigation.test.ts"],
+    permissionKeys: ["engineering.documents.read", "engineering.rfis.read", "engineering.submittals.read", "engineering.sitelogs.read"],
+    invariantIds: ["company-rbac-is-authoritative", "formal-engineering-history-is-preserved", "engineering-revision-lineage-is-immutable"],
+    tags: ["P3D-1", "engineering coordination", "permission-aware aggregate", "selected project"],
+  }),
+  node({
+    id: "production-p2-integration-parity",
+    label: "Production P2 Integration Parity",
+    domain: "projects",
+    type: "workflow",
+    scope: "company-and-project",
+    description: "Production App state and handlers carry subcontracts, progress claims, and variations through AppRouter, ProjectsRoute, ProjectWorkspace, and ProcurementRoute without replacing authoritative source data with empty component defaults.",
+    sourceClassification: "code-derived",
+    fileRefs: ["src/App.tsx", "src/app/routes/AppRouter.tsx", "src/app/routes/ProjectsRoute.tsx", "src/components/projects/ProjectWorkspace.tsx", "src/components/procurement/ProcurementPage.tsx", "src/lib/workspaceSync.ts", "supabase/migrations/20260904120000_p2_p3_integration_realtime_parity.sql"],
+    testRefs: ["tests/p3a3P3dIntegration.test.ts", "tests/subcontractsPersistence.test.ts", "tests/subcontractClaimsPersistence.test.ts", "tests/subcontractVariationsDomain.test.ts", "tests/workspaceSync.test.ts"],
+    permissionKeys: ["procurement.read", "procurement.manage", "procurement.approve"],
+    invariantIds: ["company-rbac-is-authoritative", "commercial-subcontract-remaining-commitment", "commercial-progress-claim-certification-not-actual", "commercial-approved-variation-revises-subcontract-only"],
+    tags: ["P2 parity", "production routing", "subcontract claims", "subcontract variations"],
+  }),
+] as const;
+
 const p2Edges: readonly WorkflowEdge[] = [
   edge({ id: "p2-project-procurement", source: "project-cost-aggregation", target: "procurement-workspace", type: "links-to", kind: "context", label: "project procurement contributes commitment context" }),
   edge({ id: "p2-procurement-po", source: "procurement-workspace", target: "purchase-order-lifecycle", type: "contains", kind: "context", label: "procurement manages purchase orders" }),
@@ -3326,6 +3371,23 @@ const p2Edges: readonly WorkflowEdge[] = [
   edge({ id: "p3a-overview-to-budget-control", source: "project-overview", target: "project-budget-control", type: "opens", kind: "navigation", label: "Open Budget Control drilldown", permissionKeys: ["projects.read"], invariantIds: ["reports-are-derived-surfaces"] }),
 ] as const;
 
+const p3Edges: readonly WorkflowEdge[] = [
+  edge({ id: "p3a-portfolio-to-attention-signals", source: "portfolio-management-dashboard", target: "project-attention-signals", type: "reads", kind: "derived-data", label: "project attention counts, filters, and severity-first ordering", permissionKeys: ["projects.read"], invariantIds: ["company-rbac-is-authoritative", "reports-are-derived-surfaces"] }),
+  edge({ id: "p3a-financial-summary-to-attention", source: "project-financial-summary", target: "project-attention-signals", type: "feeds", kind: "derived-data", label: "authoritative financial and commercial evidence", invariantIds: ["reports-are-derived-surfaces", "commercial-client-billing-issued-only", "commercial-client-collection-recorded-only"] }),
+  edge({ id: "p3a-cost-to-attention", source: "project-cost-aggregation", target: "project-attention-signals", type: "feeds", kind: "derived-data", label: "actual, committed, pending, currency, and completeness facts", invariantIds: ["p2-no-implicit-cross-currency-aggregation", "reports-are-derived-surfaces"] }),
+  edge({ id: "p3a-attention-to-workspace", source: "project-attention-signals", target: "project-workspace", type: "opens", kind: "navigation", label: "flagged project drilldown", permissionKeys: ["projects.read"] }),
+  edge({ id: "p3a-attention-to-overview", source: "project-attention-signals", target: "project-overview", type: "feeds", kind: "derived-data", label: "evidence, source, date, and action detail", permissionKeys: ["projects.read"] }),
+  edge({ id: "p3d-workspace-to-summary", source: "project-workspace", target: "project-engineering-coordination-summary", type: "contains", kind: "context", label: "selected-project engineering coordination" }),
+  edge({ id: "p3d-summary-to-documents", source: "project-engineering-coordination-summary", target: "engineering-documents-screen", type: "opens", kind: "navigation", label: "Documents and immutable revisions", permissionKeys: ["engineering.documents.read"], invariantIds: ["engineering-revision-lineage-is-immutable"] }),
+  edge({ id: "p3d-summary-to-rfis", source: "project-engineering-coordination-summary", target: "rfi-register-screen", type: "opens", kind: "navigation", label: "project RFIs", permissionKeys: ["engineering.rfis.read"] }),
+  edge({ id: "p3d-summary-to-submittals", source: "project-engineering-coordination-summary", target: "submittal-register-screen", type: "opens", kind: "navigation", label: "project Submittals", permissionKeys: ["engineering.submittals.read"] }),
+  edge({ id: "p3d-summary-to-site-logs", source: "project-engineering-coordination-summary", target: "site-log-register-screen", type: "opens", kind: "navigation", label: "project Daily Site Logs", permissionKeys: ["engineering.sitelogs.read"], invariantIds: ["site-log-observation-is-not-payroll-attendance"] }),
+  edge({ id: "p3d-summary-to-attention", source: "project-engineering-coordination-summary", target: "project-attention-signals", type: "feeds", kind: "derived-data", label: "explicitly due RFI and Submittal signals", permissionKeys: ["engineering.rfis.read", "engineering.submittals.read"], invariantIds: ["formal-engineering-history-is-preserved"] }),
+  edge({ id: "p2-production-state-to-parity", source: "production-mode", target: "production-p2-integration-parity", type: "contains", kind: "context", label: "production-loaded procurement state and handlers", invariantIds: ["company-rbac-is-authoritative"] }),
+  edge({ id: "p2-parity-to-workspace", source: "production-p2-integration-parity", target: "project-workspace", type: "feeds", kind: "read-flow", label: "subcontract, claim, and variation context", permissionKeys: ["procurement.read"], invariantIds: ["commercial-subcontract-remaining-commitment", "commercial-progress-claim-certification-not-actual", "commercial-approved-variation-revises-subcontract-only"] }),
+  edge({ id: "p2-parity-to-procurement", source: "production-p2-integration-parity", target: "procurement-workspace", type: "feeds", kind: "read-flow", label: "production Procurement register records and actions", permissionKeys: ["procurement.read"] }),
+] as const;
+
 const diagrams = [
   {
     id: "overview",
@@ -3343,13 +3405,21 @@ const diagrams = [
     title: "Projects and Engineering flow",
     description: "Project aggregate, Engineering Documents, RFIs, Submittals, and Daily Site Logs with lifecycle/history boundaries.",
     nodeIds: [
-      "route-projects", "project-directory", "project-selection", "route-project-workspace", "project-workspace", "project-aggregate", "project-correction-lifecycle", "project-lifecycle-rpc-boundary", "project-activity-guard", "project-overview", "project-cost-aggregation", "project-labor-aggregate-rpc",
+      "route-projects", "project-directory", "project-selection", "route-project-workspace", "project-workspace", "project-aggregate", "project-correction-lifecycle", "project-lifecycle-rpc-boundary", "project-activity-guard", "project-overview", "project-attention-signals", "project-engineering-coordination-summary", "production-p2-integration-parity", "project-cost-aggregation", "project-labor-aggregate-rpc",
       "client-billing-workspace", "client-billing-lifecycle", "client-billing-issued", "project-billed-to-date", "client-billing-overbilling-guard", "client-billing-cash-boundary",
       "client-collection-workspace", "client-collection-lifecycle", "client-collection-recorded", "project-collected-to-date", "client-collection-overcollection-guard", "client-collection-cash-settlement-link",
       "route-project-documents", "engineering-documents-screen", "engineering-document", "engineering-document-revision", "blueprint-viewer", "drawing-annotations",
       "route-project-rfis", "route-rfi-detail", "rfi-register-screen", "rfi-record", "rfi-state-draft", "rfi-state-open", "rfi-state-answered", "rfi-state-closed", "rfi-state-void", "rfi-response-history", "rfi-document-links",
       "route-project-submittals", "route-submittal-detail", "submittal-register-screen", "submittal-record", "submittal-state-draft", "submittal-state-submitted", "submittal-state-under-review", "submittal-state-approved", "submittal-state-approved-as-noted", "submittal-state-revise", "submittal-state-rejected", "submittal-state-closed", "submittal-state-void", "submittal-rounds", "submittal-review-history", "submittal-document-links",
       "route-project-site-logs", "route-site-log-detail", "site-log-register-screen", "site-log-aggregate", "site-log-state-draft", "site-log-state-submitted", "site-log-state-finalized", "site-log-state-void", "site-log-weather-observation", "site-log-crew-observation", "site-log-equipment-observation", "site-log-safety-observation", "site-log-event-history", "site-log-correction-addendum", "site-log-payroll-boundary",
+    ],
+  },
+  {
+    id: "projects-attention-and-parity",
+    title: "Project Attention and Production Parity",
+    description: "P3A-3 explainable project attention, selected-project engineering coordination, and production P2 subcontract/claim/variation routing.",
+    nodeIds: [
+      "route-projects", "portfolio-management-dashboard", "project-directory", "project-selection", "route-project-workspace", "project-workspace", "project-financial-summary", "project-cost-aggregation", "project-attention-signals", "project-overview", "project-engineering-coordination-summary", "production-p2-integration-parity", "procurement-workspace", "subcontract-packages", "subcontract-progress-claims", "subcontract-variations", "engineering-documents-screen", "rfi-register-screen", "submittal-register-screen", "site-log-register-screen",
     ],
   },
   {
@@ -3390,14 +3460,14 @@ const diagrams = [
 export const WORKFLOW_GRAPH: WorkflowGraph = {
   schemaVersion: WORKFLOW_MAP_SCHEMA_VERSION,
   graphId: "engoryx-product-workflow",
-  version: "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control",
+  version: "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1",
   product: "Engoryx Engineering Operations Platform",
   purpose: "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   canonicalSource: "scripts/workflow-map/graph.ts",
   sourceClassification: "mixed",
-  reviewedCommitSha: "c5d3a41c90220e45bd692c7ae5d9784d3b4b9630",
-  reviewedAt: "2026-08-29",
-  phaseTags: ["Phase 0", "Phase 1A", "Phase 1B", "Phase 1C", "Core Hardening Wave 1", "Core Hardening Wave 2A", "Core Hardening Wave 2B2", "Cross-Domain Settlement", "P2 Procurement + Commercial", "P3A-2 Project Financial Control", "QA-1", "WM-1"],
+  reviewedCommitSha: "cb2bcd2b9674b6743f3b77f847f4151d1a53f9ba",
+  reviewedAt: "2026-09-04",
+  phaseTags: ["Phase 0", "Phase 1A", "Phase 1B", "Phase 1C", "Core Hardening Wave 1", "Core Hardening Wave 2A", "Core Hardening Wave 2B2", "Cross-Domain Settlement", "P2 Procurement + Commercial", "P3A-2 Project Financial Control", "P3A-3 Explainable Project Attention", "P3D-1 Engineering Coordination Integration", "QA-1", "WM-1"],
   explorationInputs: [
     {
       tool: "GitDiagram",
@@ -3418,8 +3488,8 @@ export const WORKFLOW_GRAPH: WorkflowGraph = {
     },
   ],
   invariants: [...invariants, ...p2Invariants],
-  nodes: [...nodes, ...p2Nodes],
-  edges: [...edges, ...p2Edges],
+  nodes: [...nodes, ...p2Nodes, ...p3Nodes],
+  edges: [...edges, ...p2Edges, ...p3Edges],
   diagrams,
 };
 

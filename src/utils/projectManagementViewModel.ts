@@ -34,6 +34,7 @@ import { calculateClientCollectionSummary, type ClientCollection } from "../lib/
 export type ProjectAttentionFlag =
   | "OVER_BUDGET"
   | "NEAR_BUDGET"
+  | "CONTROL_CAPACITY_EXCEEDED"
   | "UNCODED_COST"
   | "UNALLOCATED_BUDGET"
   | "FORECAST_OVER_BUDGET"
@@ -41,16 +42,75 @@ export type ProjectAttentionFlag =
   | "MIXED_CURRENCY"
   | "PARTIAL_DATA"
   | "INVOICES_AWAITING_REVIEW"
-  | "PENDING_EXPOSURE";
+  | "PENDING_EXPOSURE"
+  | "OUTSTANDING_RECEIVABLE"
+  | "PROJECT_END_PASSED"
+  | "SUBCONTRACT_CLAIM_AWAITING_APPROVAL"
+  | "OVERDUE_RFI"
+  | "OPEN_RFI"
+  | "OVERDUE_SUBMITTAL"
+  | "SUBMITTALS_AWAITING_REVIEW";
 
-export interface ProjectAttentionItem {
+export type ProjectAttentionCategory =
+  | "financial"
+  | "commercial"
+  | "schedule"
+  | "procurement"
+  | "engineering"
+  | "data-quality";
+
+export type ProjectAttentionSeverity = "critical" | "warning" | "info";
+
+export interface ProjectAttentionMetric {
+  label: string;
+  value: number | string;
+  currency?: string;
+  status?: ProjectFinancialMetricStatus;
+}
+
+export interface ProjectAttentionRfiRecord {
   id: string;
+  projectId: string;
+  rfiNumber: string;
+  subject?: string;
+  status: string;
+  dueDate?: string | null;
+}
+
+export interface ProjectAttentionSubmittalRecord {
+  id: string;
+  projectId: string;
+  submittalNumber: string;
+  title?: string;
+  status: string;
+  dueReviewDate?: string | null;
+}
+
+export interface ProjectAttentionEngineeringInput {
+  rfis?: readonly ProjectAttentionRfiRecord[];
+  submittals?: readonly ProjectAttentionSubmittalRecord[];
+}
+
+export interface ProjectAttentionSignal {
+  id: string;
+  projectId: string;
   flag: ProjectAttentionFlag;
+  category: ProjectAttentionCategory;
+  severity: ProjectAttentionSeverity;
+  source: string;
+  evidence: string;
+  title: string;
+  explanation: string;
   label: string;
   detail: string;
   tone: "danger" | "warning" | "info" | "neutral";
-  tab?: "overview" | "budget" | "invoices" | "payroll" | "expenses" | "reports" | "procurement";
+  metric?: ProjectAttentionMetric;
+  date?: string;
+  tab?: "overview" | "budget" | "billing" | "invoices" | "payroll" | "expenses" | "reports" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs";
 }
+
+/** Backwards-compatible name used by existing Project Overview consumers. */
+export type ProjectAttentionItem = ProjectAttentionSignal;
 
 export interface ProjectCommitmentBreakdown {
   purchaseOrders: ProjectFinancialMetric;
@@ -98,6 +158,8 @@ export interface ProjectManagementView {
 
   // Explainable Attention Flags
   attentionFlags: ProjectAttentionItem[];
+  /** Canonical P3A-3 name; attentionFlags remains a compatibility alias. */
+  attentionSignals: ProjectAttentionSignal[];
 
   // Underlying Budget Control Summary
   budgetControlSummary?: ProjectBudgetControlSummary;
@@ -119,6 +181,127 @@ export interface BuildProjectManagementViewOptions {
   financialDataComplete?: boolean;
   clientBillings?: readonly ClientBilling[];
   clientCollections?: readonly ClientCollection[];
+  /** Explicit date boundary for deterministic demo and browser evidence. */
+  today?: string;
+  /** Selected-project engineering records already authorized by the caller. */
+  engineering?: ProjectAttentionEngineeringInput;
+}
+
+function makeAttentionSignal(input: Omit<ProjectAttentionSignal, "title" | "explanation" | "evidence"> & { evidence?: string; title?: string; explanation?: string }): ProjectAttentionSignal {
+  return {
+    ...input,
+    title: input.title || input.label,
+    explanation: input.explanation || input.detail,
+    evidence: input.evidence || input.detail,
+  };
+}
+
+function attentionSeverityRank(signal: ProjectAttentionSignal | undefined): number {
+  if (!signal) return 0;
+  return signal.severity === "critical" ? 3 : signal.severity === "warning" ? 2 : 1;
+}
+
+export function projectAttentionSeverityRank(signal: ProjectAttentionSignal | undefined): number {
+  return attentionSeverityRank(signal);
+}
+
+export function topProjectAttentionSignal(view: Pick<ProjectManagementView, "attentionFlags">): ProjectAttentionSignal | undefined {
+  return [...view.attentionFlags].sort((left, right) => {
+    const severity = attentionSeverityRank(right) - attentionSeverityRank(left);
+    if (severity !== 0) return severity;
+    return left.id.localeCompare(right.id);
+  })[0];
+}
+
+function canSurfaceCurrentAttention(project: Pick<Project, "status">): boolean {
+  return !["COMPLETED", "CANCELLED", "ARCHIVED"].includes(project.status);
+}
+
+export function buildProjectEngineeringAttentionSignals(
+  project: Pick<Project, "id">,
+  engineering: ProjectAttentionEngineeringInput | undefined,
+  today = new Date().toISOString().slice(0, 10),
+): ProjectAttentionSignal[] {
+  if (!engineering) return [];
+  const signals: ProjectAttentionSignal[] = [];
+  const projectRfis = (engineering.rfis || []).filter((rfi) => rfi.projectId === project.id && rfi.status !== "VOID");
+  const openRfis = projectRfis.filter((rfi) => rfi.status === "OPEN");
+  const overdueRfis = openRfis.filter((rfi) => Boolean(rfi.dueDate && rfi.dueDate < today));
+  for (const rfi of overdueRfis) {
+    const dueDate = rfi.dueDate || "unknown date";
+    const detail = `${rfi.rfiNumber} required response on ${dueDate} and remains OPEN.`;
+    signals.push(makeAttentionSignal({
+      id: `overdue-rfi:${rfi.id}`,
+      projectId: project.id,
+      flag: "OVERDUE_RFI",
+      category: "engineering",
+      severity: "critical",
+      source: "Engineering RFI register",
+      label: "RFI response overdue",
+      detail,
+      evidence: detail,
+      date: dueDate,
+      tab: "rfis",
+      tone: "danger",
+    }));
+  }
+  if (openRfis.length > 0) {
+    const detail = `${openRfis.length} open RFI${openRfis.length === 1 ? "" : "s"} require coordination; open status alone is not treated as overdue.`;
+    signals.push(makeAttentionSignal({
+      id: "open-rfis",
+      projectId: project.id,
+      flag: "OPEN_RFI",
+      category: "engineering",
+      severity: "info",
+      source: "Engineering RFI register",
+      label: "Open engineering RFIs",
+      detail,
+      evidence: detail,
+      metric: { label: "Open RFIs", value: openRfis.length },
+      tab: "rfis",
+      tone: "info",
+    }));
+  }
+
+  const projectSubmittals = (engineering.submittals || []).filter((submittal) => submittal.projectId === project.id && submittal.status !== "VOID");
+  const awaitingReview = projectSubmittals.filter((submittal) => submittal.status === "SUBMITTED" || submittal.status === "UNDER_REVIEW");
+  const overdueSubmittals = awaitingReview.filter((submittal) => Boolean(submittal.dueReviewDate && submittal.dueReviewDate < today));
+  for (const submittal of overdueSubmittals) {
+    const dueDate = submittal.dueReviewDate || "unknown date";
+    const detail = `${submittal.submittalNumber} required review on ${dueDate} and remains ${submittal.status}.`;
+    signals.push(makeAttentionSignal({
+      id: `overdue-submittal:${submittal.id}`,
+      projectId: project.id,
+      flag: "OVERDUE_SUBMITTAL",
+      category: "engineering",
+      severity: "critical",
+      source: "Engineering Submittal register",
+      label: "Submittal response overdue",
+      detail,
+      evidence: detail,
+      date: dueDate,
+      tab: "submittals",
+      tone: "danger",
+    }));
+  }
+  if (awaitingReview.length > 0) {
+    const detail = `${awaitingReview.length} submittal${awaitingReview.length === 1 ? "" : "s"} await formal review; an open review state is not treated as overdue without an explicit due date.`;
+    signals.push(makeAttentionSignal({
+      id: "submittals-awaiting-review",
+      projectId: project.id,
+      flag: "SUBMITTALS_AWAITING_REVIEW",
+      category: "engineering",
+      severity: "warning",
+      source: "Engineering Submittal register",
+      label: "Submittals awaiting review",
+      detail,
+      evidence: detail,
+      metric: { label: "Awaiting review", value: awaitingReview.length },
+      tab: "submittals",
+      tone: "warning",
+    }));
+  }
+  return signals;
 }
 
 function unavailableMetric(reason: string): ProjectFinancialMetric {
@@ -355,26 +538,40 @@ export function buildProjectManagementView(
       : 0;
   }
 
-  // Attention Flags
+  // Attention Signals
   const attentionFlags: ProjectAttentionItem[] = [];
+  const canSurfaceAttention = canSurfaceCurrentAttention(project);
+  const today = options?.today?.slice(0, 10) || new Date().toISOString().slice(0, 10);
+
+  const addSignal = (input: Omit<ProjectAttentionSignal, "projectId" | "title" | "explanation" | "evidence"> & { evidence?: string; title?: string; explanation?: string }) => {
+    if (canSurfaceAttention) attentionFlags.push(makeAttentionSignal({ ...input, projectId: project.id }));
+  };
 
   if (!financialDataComplete) {
-    attentionFlags.push({
+    addSignal({
       id: "partial-data",
       flag: "PARTIAL_DATA",
+      category: "data-quality",
+      severity: "warning",
+      source: "Project cost completeness",
       label: "Financial data incomplete",
       detail: "One or more project cost sources are withheld or inaccessible for this role.",
+      evidence: "One or more project cost sources are withheld or inaccessible for this role.",
       tone: "warning",
       tab: "overview",
     });
   }
 
   if (hasForeignAmounts) {
-    attentionFlags.push({
+    addSignal({
       id: "mixed-currency",
       flag: "MIXED_CURRENCY",
+      category: "data-quality",
+      severity: "warning",
+      source: "Project cost currency classification",
       label: "Mixed currencies",
       detail: `Unconverted foreign-currency sources are present: ${Object.entries(foreignCosts).map(([c, v]) => `${c} ${Number(v).toFixed(2)}`).join(", ")}.`,
+      evidence: `Unconverted foreign-currency sources are present: ${Object.entries(foreignCosts).map(([c, v]) => `${c} ${Number(v).toFixed(2)}`).join(", ")}.`,
       tone: "warning",
       tab: "overview",
     });
@@ -383,89 +580,199 @@ export function buildProjectManagementView(
   // OVER_BUDGET and NEAR_BUDGET must only fire on complete, authoritative cost data
   if (!isPartial && budget > 0) {
     if (actualCost > budget) {
-      attentionFlags.push({
+      addSignal({
         id: "over-budget",
         flag: "OVER_BUDGET",
+        category: "financial",
+        severity: "critical",
+        source: "Project Financial Control",
         label: "Over budget",
-        detail: `Actual cost exceeds approved cost budget by ${roundMoney(actualCost - budget).toFixed(2)} ${currency}.`,
+        detail: `Actual Cost is ${actualCost.toFixed(2)} ${currency} against an Approved Cost Budget of ${budget.toFixed(2)} ${currency}.`,
+        evidence: `Actual Cost is ${actualCost.toFixed(2)} ${currency} against an Approved Cost Budget of ${budget.toFixed(2)} ${currency}.`,
+        metric: { label: "Actual Cost", value: actualCost, currency, status: financialTruth.actualCost.status },
         tone: "danger",
         tab: "budget",
       });
     } else if (confirmedUtilization >= PROJECT_HEALTH_THRESHOLD_PERCENT && actualCost <= budget) {
-      attentionFlags.push({
+      addSignal({
         id: "near-budget",
         flag: "NEAR_BUDGET",
+        category: "financial",
+        severity: "warning",
+        source: "Project Financial Control",
         label: "Near budget limit",
         detail: `Actual cost has reached ${confirmedUtilization.toFixed(1)}% of approved budget.`,
+        evidence: `Actual Cost is ${actualCost.toFixed(2)} ${currency} against an Approved Cost Budget of ${budget.toFixed(2)} ${currency}.`,
+        metric: { label: "Budget utilization", value: `${confirmedUtilization.toFixed(1)}%` },
         tone: "warning",
         tab: "budget",
       });
     }
   }
 
-  if (pendingCostExposure > 0) {
-    attentionFlags.push({
+  if (availableAfterCommitments !== null && availableAfterCommitments < 0) {
+    addSignal({
+      id: "control-capacity-exceeded",
+      flag: "CONTROL_CAPACITY_EXCEEDED",
+      category: "financial",
+      severity: "critical",
+      source: "Project Financial Control",
+      label: "Control capacity exceeded",
+      detail: `Actual Cost, Committed Cost, and Pending Exposure exceed the Approved Cost Budget by ${Math.abs(availableAfterCommitments).toFixed(2)} ${currency}.`,
+      evidence: `${actualCost.toFixed(2)} actual + ${committedCost.toFixed(2)} committed + ${pendingCostExposure.toFixed(2)} pending > ${budget.toFixed(2)} approved budget.`,
+      metric: { label: "Available after commitments / exposure", value: availableAfterCommitments, currency, status: "available" },
+      tone: "danger",
+      tab: "budget",
+    });
+  }
+
+  if (financialTruth.pendingCostExposure.status !== "unavailable" && pendingCostExposure > 0) {
+    addSignal({
       id: "pending-exposure",
       flag: "PENDING_EXPOSURE",
+      category: "financial",
+      severity: "info",
+      source: "Project cost summary",
       label: "Pending cost exposure",
       detail: `Unconfirmed exposure of ${pendingCostExposure.toFixed(2)} ${currency} is awaiting review or approval.`,
+      evidence: `Pending invoice, payroll, or expense sources total ${pendingCostExposure.toFixed(2)} ${currency}.`,
+      metric: { label: "Pending exposure", value: pendingCostExposure, currency, status: financialTruth.pendingCostExposure.status },
       tone: "info",
       tab: "overview",
     });
   }
 
   if (costClassificationAvailable && !hasForeignAmounts && activeCostCodesCount > 0 && uncodedActualCost !== null && uncodedActualCost > 0) {
-    attentionFlags.push({
+    addSignal({
       id: "uncoded-cost",
       flag: "UNCODED_COST",
+      category: "financial",
+      severity: "warning",
+      source: "Work package budget control",
       label: "Uncoded actual cost",
       detail: `${uncodedActualCost.toFixed(2)} ${currency} of actual cost is not assigned to any work package cost code.`,
+      evidence: `${uncodedActualCost.toFixed(2)} ${currency} of actual cost is not assigned to any work package cost code.`,
+      metric: { label: "Uncoded actual cost", value: uncodedActualCost, currency, status: "available" },
       tone: "warning",
       tab: "budget",
     });
   }
 
   if (activeCostCodesCount > 0 && unallocatedBudget > 0) {
-    attentionFlags.push({
+    addSignal({
       id: "unallocated-budget",
       flag: "UNALLOCATED_BUDGET",
+      category: "financial",
+      severity: "info",
+      source: "Work package budget control",
       label: "Unallocated budget",
       detail: `${unallocatedBudget.toFixed(2)} ${currency} of approved budget has not been allocated to work packages.`,
+      evidence: `${unallocatedBudget.toFixed(2)} ${currency} of approved budget has not been allocated to work packages.`,
+      metric: { label: "Unallocated budget", value: unallocatedBudget, currency, status: "available" },
       tone: "info",
       tab: "budget",
     });
   }
 
   if (activeCostCodesCount > 0 && !hasExplicitForecast) {
-    attentionFlags.push({
+    addSignal({
       id: "forecast-not-set",
       flag: "FORECAST_NOT_SET",
+      category: "financial",
+      severity: "info",
+      source: "Work package budget control",
       label: "Forecast not set",
       detail: "One or more active work package cost codes lack an explicit forecast amount.",
+      evidence: "One or more active work package cost codes lack an explicit forecast amount.",
       tone: "info",
       tab: "budget",
     });
   }
 
   if (hasExplicitForecast && forecastVariance !== null && forecastVariance < 0) {
-    attentionFlags.push({
+    addSignal({
       id: "forecast-over-budget",
       flag: "FORECAST_OVER_BUDGET",
+      category: "financial",
+      severity: "critical",
+      source: "Work package budget control",
       label: "Forecast over budget",
       detail: `Forecast cost (${(forecastFinalCost || 0).toFixed(2)} ${currency}) exceeds approved budget by ${Math.abs(forecastVariance).toFixed(2)} ${currency}.`,
+      evidence: `Explicit work package forecasts total ${(forecastFinalCost || 0).toFixed(2)} ${currency} against an approved budget of ${budget.toFixed(2)} ${currency}.`,
       tone: "danger",
       tab: "budget",
     });
   }
 
-  if (summary.pendingInvoiceCost > 0) {
-    attentionFlags.push({
+  if (financialTruth.pendingCostExposure.status !== "unavailable" && summary.pendingInvoiceCost > 0) {
+    addSignal({
       id: "invoices-awaiting-review",
       flag: "INVOICES_AWAITING_REVIEW",
+      category: "financial",
+      severity: "info",
+      source: "Supplier invoice review queue",
       label: "Invoices awaiting review",
       detail: `Unverified supplier invoice cost allocated to this project: ${summary.pendingInvoiceCost.toFixed(2)} ${currency}.`,
+      evidence: `Unverified supplier invoice cost allocated to this project: ${summary.pendingInvoiceCost.toFixed(2)} ${currency}.`,
+      metric: { label: "Invoice review exposure", value: summary.pendingInvoiceCost, currency, status: financialTruth.pendingCostExposure.status },
       tone: "info",
       tab: "invoices",
+    });
+  }
+
+  if (financialTruth.outstandingReceivables.status !== "unavailable" && (financialTruth.outstandingReceivables.amount || 0) > 0) {
+    const outstanding = financialTruth.outstandingReceivables.amount || 0;
+    addSignal({
+      id: "outstanding-receivable",
+      flag: "OUTSTANDING_RECEIVABLE",
+      category: "commercial",
+      severity: "info",
+      source: "Client Billing and Collections",
+      label: "Outstanding billed amount",
+      detail: `${outstanding.toFixed(2)} ${currency} of issued client billing remains uncollected. This is a receivable position, not an overdue or bad-debt conclusion.`,
+      evidence: `${outstanding.toFixed(2)} ${currency} = issued billed amount less RECORDED client collections.`,
+      metric: { label: "Outstanding billed amount", value: outstanding, currency, status: financialTruth.outstandingReceivables.status },
+      tone: "info",
+      tab: "billing",
+    });
+  }
+
+  if (project.targetEndDate && ["ACTIVE", "ON_HOLD", "IN_PROGRESS"].includes(project.status as string) && project.targetEndDate < today) {
+    const detail = `Target end date ${project.targetEndDate} has passed while the project remains ${project.status}.`;
+    addSignal({
+      id: "project-end-passed",
+      flag: "PROJECT_END_PASSED",
+      category: "schedule",
+      severity: "critical",
+      source: "Project lifecycle dates",
+      label: "Target end date passed",
+      detail,
+      evidence: detail,
+      date: project.targetEndDate,
+      tone: "danger",
+      tab: "overview",
+    });
+  }
+
+  for (const signal of buildProjectEngineeringAttentionSignals(project, options?.engineering, today)) {
+    if (canSurfaceAttention) attentionFlags.push(signal);
+  }
+
+  const submittedClaims = (options?.subcontractClaims ?? options?.costInput?.subcontractClaims ?? []).filter((claim) => claim.projectId === project.id && claim.status === "SUBMITTED");
+  for (const claim of submittedClaims) {
+    const detail = `${claim.claimNumber} is SUBMITTED and awaiting approval; no due-date conclusion is implied.`;
+    addSignal({
+      id: `subcontract-claim-awaiting-approval:${claim.id}`,
+      flag: "SUBCONTRACT_CLAIM_AWAITING_APPROVAL",
+      category: "procurement",
+      severity: "warning",
+      source: "Subcontract progress claims",
+      label: "Subcontract claim awaiting approval",
+      detail,
+      evidence: detail,
+      date: claim.valuationDate,
+      tone: "warning",
+      tab: "procurement",
     });
   }
 
@@ -502,6 +809,7 @@ export function buildProjectManagementView(
     hasExplicitForecast,
     commitmentBreakdown,
     attentionFlags,
+    attentionSignals: attentionFlags,
     budgetControlSummary,
     baseCostSummary: summary,
   };
@@ -570,6 +878,11 @@ export interface PortfolioManagementSummary {
   projectsWithPendingExposureCount: number;
   projectsWithMixedCurrencyCount: number;
   projectsWithInvoicesAwaitingReviewCount: number;
+  projectsNeedingAttentionCount: number;
+  /** Signal counts; projectsNeedingAttentionCount remains a project count. */
+  criticalAttentionCount: number;
+  warningAttentionCount: number;
+  infoAttentionCount: number;
 }
 
 function aggregatePortfolioMetric(
@@ -661,6 +974,10 @@ export function buildPortfolioManagementSummary(
   let projectsWithPendingExposureCount = 0;
   let projectsWithMixedCurrencyCount = 0;
   let projectsWithInvoicesAwaitingReviewCount = 0;
+  let projectsNeedingAttentionCount = 0;
+  let criticalAttentionCount = 0;
+  let warningAttentionCount = 0;
+  let infoAttentionCount = 0;
 
   const viewsByCurrency: Record<string, ProjectManagementView[]> = {};
 
@@ -684,6 +1001,12 @@ export function buildPortfolioManagementSummary(
     if (view.hasForeignAmounts) projectsWithMixedCurrencyCount += 1;
     if (view.attentionFlags.some((f) => f.flag === "INVOICES_AWAITING_REVIEW")) {
       projectsWithInvoicesAwaitingReviewCount += 1;
+    }
+    if (view.attentionFlags.length > 0) projectsNeedingAttentionCount += 1;
+    for (const signal of view.attentionFlags) {
+      if (signal.severity === "critical") criticalAttentionCount += 1;
+      else if (signal.severity === "warning") warningAttentionCount += 1;
+      else if (signal.severity === "info") infoAttentionCount += 1;
     }
 
     const curr = view.currency;
@@ -735,11 +1058,16 @@ export function buildPortfolioManagementSummary(
     projectsWithPendingExposureCount,
     projectsWithMixedCurrencyCount,
     projectsWithInvoicesAwaitingReviewCount,
+    projectsNeedingAttentionCount,
+    criticalAttentionCount,
+    warningAttentionCount,
+    infoAttentionCount,
   };
 }
 
 export type ProjectSortField =
   | "code"
+  | "attention"
   | "name"
   | "client"
   | "status"
@@ -758,6 +1086,10 @@ export type ProjectSortDirection = "asc" | "desc";
 
 export type ProjectHealthFilter =
   | "ALL"
+  | "NEEDS_ATTENTION"
+  | "CRITICAL"
+  | "WARNING"
+  | "INFO"
   | "ON_BUDGET"
   | "NEAR_BUDGET"
   | "OVER_BUDGET"
@@ -774,6 +1106,7 @@ export interface FilterAndSortOptions {
   managerFilter?: string;
   currencyFilter?: string;
   healthFilter?: ProjectHealthFilter;
+  attentionCategoryFilter?: "ALL" | ProjectAttentionCategory;
   sortField?: ProjectSortField;
   sortDirection?: ProjectSortDirection;
 }
@@ -800,6 +1133,7 @@ export function filterAndSortProjectViews(
   const managerFilter = (options.managerFilter || "ALL").trim().toLowerCase();
   const currencyFilter = (options.currencyFilter || "ALL").trim().toUpperCase();
   const healthFilter = options.healthFilter || "ALL";
+  const attentionCategoryFilter = options.attentionCategoryFilter || "ALL";
   const sortField = options.sortField || "code";
   const sortDirection = options.sortDirection || "asc";
 
@@ -820,6 +1154,10 @@ export function filterAndSortProjectViews(
 
     // Health / Attention filter
     if (healthFilter !== "ALL") {
+      if (healthFilter === "NEEDS_ATTENTION" && view.attentionFlags.length === 0) return false;
+      if (healthFilter === "CRITICAL" && !view.attentionFlags.some((signal) => signal.severity === "critical")) return false;
+      if (healthFilter === "WARNING" && !view.attentionFlags.some((signal) => signal.severity === "warning")) return false;
+      if (healthFilter === "INFO" && !view.attentionFlags.some((signal) => signal.severity === "info")) return false;
       if (healthFilter === "ON_BUDGET" && view.health !== "ON BUDGET") return false;
       if (healthFilter === "NEAR_BUDGET" && view.health !== "NEAR LIMIT") return false;
       if (healthFilter === "OVER_BUDGET" && view.health !== "OVER BUDGET") return false;
@@ -834,6 +1172,7 @@ export function filterAndSortProjectViews(
       if (healthFilter === "MIXED_CURRENCY" && !view.hasForeignAmounts) return false;
       if (healthFilter === "PARTIAL_DATA" && !view.isPartial) return false;
     }
+    if (attentionCategoryFilter !== "ALL" && !view.attentionFlags.some((signal) => signal.category === attentionCategoryFilter)) return false;
 
     // Search query
     if (query) {
@@ -860,6 +1199,16 @@ export function filterAndSortProjectViews(
 
   // 2. Sort
   return [...filtered].sort((a, b) => {
+    const attentionFilter = ["NEEDS_ATTENTION", "CRITICAL", "WARNING", "INFO"].includes(healthFilter);
+    if (sortField === "attention" || attentionFilter) {
+      const severity = attentionSeverityRank(topProjectAttentionSignal(b)) - attentionSeverityRank(topProjectAttentionSignal(a));
+      if (severity !== 0) return sortField === "attention" && sortDirection === "asc" ? -severity : severity;
+      const count = b.attentionFlags.length - a.attentionFlags.length;
+      if (count !== 0) return sortField === "attention" && sortDirection === "asc" ? -count : count;
+      const code = (a.project.projectCode || "").localeCompare(b.project.projectCode || "");
+      return sortDirection === "desc" && sortField === "attention" ? -code : code;
+    }
+
     // Non-financial fields
     if (sortField === "code") {
       const cmp = (a.project.projectCode || "").localeCompare(b.project.projectCode || "");

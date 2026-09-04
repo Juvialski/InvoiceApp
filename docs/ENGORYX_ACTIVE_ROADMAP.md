@@ -142,13 +142,15 @@ Do not infer legal/accounting/tax treatment beyond explicit product requirements
 
 ## P3 — Project Operations UX
 
-Status: **ACTIVE / IN PROGRESS**
+Status: **ACTIVE / IN PROGRESS** (P3A complete; P3B/P3C remain separately deferred)
 
 ### P3A — Project dashboard and risk visibility
 
 - **P3A-1 Portfolio Management Dashboard**: **COMPLETE** (permission-scoped portfolio management over existing project financial summaries, grouped-by-currency contract/budget/Actual/Committed/billing/collection/outstanding/remaining-to-bill values, visible available/partial/unavailable states, deterministic search/filter/sort controls, responsive project table/cards, project Workspace drilldown, and deterministic demo coverage).
 - **P3A-2 Project Financial Control Dashboard**: **COMPLETE** (selected-project management control layer with distinct cost/commercial scorecards, authoritative commitment-adjusted availability, reconciled Actual Cost composition, work-package summary, mixed-currency/incomplete-data fail-closed behavior, and permission-aware drilldowns).
-- **P3A-3 Explainable Projects-at-Risk**: **NOT YET COMPLETE** (factual evidence and explainable risk signals remain a later wave; no opaque AI risk score is the source of financial truth).
+- **P3A-3 Explainable Projects-at-Risk / Management Attention**: **COMPLETE** (deterministic severity-bounded signals derive from authoritative financial, commercial, procurement, lifecycle-date, data-quality, and explicitly due engineering records; source evidence, dates, metrics, and project-scoped drilldowns remain visible without an opaque score, AI assessment, or implicit FX).
+
+P3A: **COMPLETE**. Portfolio management now shows project attention counts, severity filters, and deterministic severity-first ordering while retaining currency-grouped financial totals.
 
 Forecast/EAC and Expected Margin remain deferred until an authoritative permission-correct forecasting source exists.
 
@@ -175,12 +177,16 @@ Extend existing Daily Site Logs around:
 
 ### P3D — Engineering integration
 
-Strengthen Project navigation into existing:
+- **P3D-1 Existing Engineering Coordination Integration**: **COMPLETE** (selected Project Overview provides permission-aware, source-state-aware coordination visibility for Engineering Documents/revisions, RFIs, Submittals, and Daily Site Logs with direct project-context drilldowns; existing auditable domains remain authoritative).
+
+- **P3D-2 Transmittals / As-Builts / future engineering workflows**: **DEFERRED / separately prioritized**.
+
+Existing and future Project navigation remains centered on:
 
 - Engineering Documents and immutable revisions;
 - RFIs;
 - Submittals;
-- future transmittal/as-built workflows if separately prioritized.
+- future transmittal/as-built workflows only when separately prioritized.
 
 Engineering history remains auditable and independent from generic project notes.
 

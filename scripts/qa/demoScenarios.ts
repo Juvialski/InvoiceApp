@@ -84,6 +84,63 @@ const verifyPortfolioDashboard: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyPortfolioAttention: QaScenarioAction = async (page) => {
+  const attentionCount = await page.locator("text=Needs attention").count();
+  const criticalCount = await page.locator("text=Critical signals").count();
+  const filter = page.getByRole("combobox", { name: "Filter by financial health and attention signals", exact: true }).first();
+  await filter.selectOption("NEEDS_ATTENTION");
+  await page.waitForTimeout(250);
+  const flaggedProjects = await page.locator("[data-project-id]").count();
+  await filter.selectOption("ALL");
+  return [
+    { id: "portfolio-attention-count-visible", passed: attentionCount > 0, details: `needs-attention labels: ${attentionCount}` } satisfies QaAssertion,
+    { id: "portfolio-critical-count-visible", passed: criticalCount > 0, details: `critical-signal labels: ${criticalCount}` } satisfies QaAssertion,
+    { id: "portfolio-needs-attention-filter-returns-projects", passed: flaggedProjects > 0, details: `flagged project result nodes: ${flaggedProjects}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyProjectAttentionAndEngineering: QaScenarioAction = async (page) => {
+  const managementAttention = await page.getByRole("heading", { name: "Management Attention", exact: true }).count();
+  const engineeringSummary = await page.getByRole("heading", { name: "Engineering Coordination", exact: true }).count();
+  const evidence = await page.locator("text=Evidence:").count();
+  await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Documents")').first().click();
+  await page.waitForTimeout(250);
+  const documentRegister = await page.getByRole("heading", { name: /Engineering Document Register/ }).count();
+  await page.locator('nav[aria-label="Project workspace sections"] button:has-text("RFIs")').first().click();
+  await page.waitForTimeout(250);
+  const rfiRegister = await page.getByRole("heading", { name: /Project RFIs|RFI Register/ }).count();
+  await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Submittals")').first().click();
+  await page.waitForTimeout(250);
+  const submittalRegister = await page.getByRole("heading", { name: /Technical Submittal Register|Submittals/ }).count();
+  await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Site Logs")').first().click();
+  await page.waitForTimeout(250);
+  const siteLogRegister = await page.getByRole("heading", { name: /Daily Site Logs|Site Logs/ }).count();
+  return [
+    { id: "project-management-attention-visible", passed: managementAttention === 1, details: `management-attention headings: ${managementAttention}` } satisfies QaAssertion,
+    { id: "project-engineering-summary-visible", passed: engineeringSummary === 1, details: `engineering summaries: ${engineeringSummary}` } satisfies QaAssertion,
+    { id: "project-signal-evidence-visible", passed: evidence > 0, details: `evidence labels: ${evidence}` } satisfies QaAssertion,
+    { id: "project-documents-drilldown-visible", passed: documentRegister > 0, details: `document registers: ${documentRegister}` } satisfies QaAssertion,
+    { id: "project-rfis-drilldown-visible", passed: rfiRegister > 0, details: `RFI registers: ${rfiRegister}` } satisfies QaAssertion,
+    { id: "project-submittals-drilldown-visible", passed: submittalRegister > 0, details: `submittal registers: ${submittalRegister}` } satisfies QaAssertion,
+    { id: "project-site-logs-drilldown-visible", passed: siteLogRegister > 0, details: `Site Log registers: ${siteLogRegister}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyProcurementSubcontractParity: QaScenarioAction = async (page) => {
+  await page.getByRole("button", { name: /^Subcontracts/ }).first().click();
+  await page.waitForTimeout(250);
+  const totalSubcontracts = await page.locator("text=Total Subcontracts").count();
+  const claimsMetric = await page.locator("text=Approved progress claims").count();
+  const variationsMetric = await page.locator("text=Variations").count();
+  const rows = await page.locator("tbody tr").count();
+  return [
+    { id: "production-equivalent-subcontract-tab-visible", passed: totalSubcontracts > 0, details: `subcontract KPI labels: ${totalSubcontracts}` } satisfies QaAssertion,
+    { id: "subcontract-claims-metric-visible", passed: claimsMetric > 0, details: `claim KPI labels: ${claimsMetric}` } satisfies QaAssertion,
+    { id: "subcontract-variations-metric-visible", passed: variationsMetric > 0, details: `variation KPI labels: ${variationsMetric}` } satisfies QaAssertion,
+    { id: "subcontract-records-not-dropped", passed: rows > 0, details: `subcontract row nodes: ${rows}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyFeatureStatusRoadmap: QaScenarioAction = async (page) => {
   const panelCount = await page.locator('[aria-label="Product feature status"]').count();
   const plannedNotAvailableCount = await page.locator('text=Planned — not available').count();
@@ -105,11 +162,14 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "base route loaded", viewport: QA_VIEWPORTS.laptop }),
   defineQaScenario({ feature: "dashboard", route: route("dashboard", "/dashboard"), path: "/demo/app/dashboard", interactionState: "mobile navigation opened", viewport: QA_VIEWPORTS.mobile, action: openMobileNavigation }),
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.desktop, action: verifyPortfolioDashboard }),
+  defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "attention filters verified", viewport: QA_VIEWPORTS.desktop, action: verifyPortfolioAttention }),
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.laptop, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.tablet, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.mobile, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim and variation parity verified", viewport: QA_VIEWPORTS.desktop, action: verifyProcurementSubcontractParity }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: "/demo/app/projects", interactionState: "project selected", viewport: QA_VIEWPORTS.desktop, action: openProjectFromDirectory }),
+  defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "attention and engineering drilldowns verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectAttentionAndEngineering }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectFinancialControlDashboard }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.laptop, action: verifyProjectFinancialControlDashboard }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.tablet, action: verifyProjectFinancialControlDashboard }),

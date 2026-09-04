@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -157,6 +157,22 @@ import type { StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
+import {
+  deleteDraftSubcontractClaim,
+  fetchSubcontractClaims,
+  readSubcontractClaimsFromLocal,
+  saveSubcontractClaim,
+  transitionSubcontractClaim,
+  writeSubcontractClaimsToLocal,
+} from "./lib/subcontractClaims.ts";
+import {
+  deleteDraftSubcontractVariation,
+  fetchSubcontractVariations,
+  readSubcontractVariationsFromLocal,
+  saveSubcontractVariation,
+  transitionSubcontractVariation,
+  writeSubcontractVariationsToLocal,
+} from "./lib/subcontractVariations.ts";
 import { AssistantProvider } from "./assistant/AssistantProvider";
 import { safeErrorMessage } from "./utils/errorNormalization.ts";
 import {
@@ -410,6 +426,8 @@ function InvoiceWorkspace() {
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>(() => isSupabaseConfigured ? [] : readSubcontractsFromLocal());
+  const [subcontractClaims, setSubcontractClaims] = useState<SubcontractProgressClaim[]>(() => isSupabaseConfigured ? [] : readSubcontractClaimsFromLocal());
+  const [subcontractVariations, setSubcontractVariations] = useState<SubcontractVariation[]>(() => isSupabaseConfigured ? [] : readSubcontractVariationsFromLocal());
   const [purchaseOrderReceipts, setPurchaseOrderReceipts] = useState<PurchaseOrderReceipt[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderReceiptsFromLocal());
   const [purchaseOrderMatches, setPurchaseOrderMatches] = useState<PurchaseOrderInvoiceMatch[]>(() => isSupabaseConfigured ? [] : readPurchaseOrderMatchesFromLocal());
   const [rfqs, setRfqs] = useState<RFQ[]>(() => isSupabaseConfigured ? [] : readRFQsFromLocal());
@@ -571,8 +589,18 @@ function InvoiceWorkspace() {
     projectController.reset();
     setInvoiceProjectAllocations([]);
     setClientBillingData({ billings: [], events: [] });
+    setClientCollectionData({ collections: [], events: [] });
     setExpenses([]);
     setCostCodes([]);
+    setPurchaseOrders([]);
+    setSubcontracts([]);
+    setSubcontractClaims([]);
+    setSubcontractVariations([]);
+    setPurchaseOrderReceipts([]);
+    setPurchaseOrderMatches([]);
+    setRfqs([]);
+    setSupplierQuotations([]);
+    setVendors([]);
     setExpenseCorrectionContext(null);
     setProjectLaborAggregates([]);
     setProjectCostDomainLoadState(isSupabaseConfigured ? "not-loaded" : "loaded");
@@ -617,7 +645,7 @@ function InvoiceWorkspace() {
     : group === "cash"
       ? hasAnyPermission(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashTransactionsRead, PERMISSION_KEYS.cashImport, PERMISSION_KEYS.cashReconcile])
     : group === "engineering"
-      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead])
+      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead])
       : group === "payroll"
         ? can(PERMISSION_KEYS.payrollRead)
         : group === "payroll-imports"
@@ -635,6 +663,8 @@ function InvoiceWorkspace() {
     costCodes: ProjectCostCode[];
     purchaseOrders: PurchaseOrder[];
     subcontracts: Subcontract[];
+    subcontractClaims: SubcontractProgressClaim[];
+    subcontractVariations: SubcontractVariation[];
     receipts: PurchaseOrderReceipt[];
     purchaseOrderMatches: PurchaseOrderInvoiceMatch[];
     rfqs: RFQ[];
@@ -702,6 +732,8 @@ function InvoiceWorkspace() {
     setCostCodes(data.costCodes);
     setPurchaseOrders(data.purchaseOrders);
     setSubcontracts(data.subcontracts);
+    setSubcontractClaims(data.subcontractClaims);
+    setSubcontractVariations(data.subcontractVariations);
     setPurchaseOrderReceipts(data.receipts);
     setPurchaseOrderMatches(data.purchaseOrderMatches);
     setRfqs(data.rfqs || []);
@@ -726,6 +758,8 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.procurementRead) ? fetchRFQs() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) ? fetchSupplierQuotations() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) ? fetchSubcontracts() : Promise.resolve([]),
+      can(PERMISSION_KEYS.procurementRead) ? fetchSubcontractClaims() : Promise.resolve([]),
+      can(PERMISSION_KEYS.procurementRead) ? fetchSubcontractVariations() : Promise.resolve([]),
       can(PERMISSION_KEYS.projectsRead) ? loadClientCollectionWorkspaceFromSupabase() : Promise.resolve({ collections: [], events: [] } as ClientCollectionWorkspaceData),
     ]);
     const failures: string[] = [];
@@ -741,7 +775,9 @@ function InvoiceWorkspace() {
     const rfqs = results[9].status === "fulfilled" ? results[9].value : [];
     const supplierQuotations = results[10].status === "fulfilled" ? results[10].value : [];
     const subcontracts = results[11].status === "fulfilled" ? results[11].value : [];
-    const clientCollectionData = results[12].status === "fulfilled" ? results[12].value : { collections: [], events: [] };
+    const subcontractClaims = results[12].status === "fulfilled" ? results[12].value : [];
+    const subcontractVariations = results[13].status === "fulfilled" ? results[13].value : [];
+    const clientCollectionData = results[14].status === "fulfilled" ? results[14].value : { collections: [], events: [] };
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -754,7 +790,9 @@ function InvoiceWorkspace() {
     if (results[9].status !== "fulfilled") failures.push("rfqs");
     if (results[10].status !== "fulfilled") failures.push("supplier quotations");
     if (results[11].status !== "fulfilled") failures.push("subcontracts");
-    if (results[12].status !== "fulfilled") failures.push("client collections");
+    if (results[12].status !== "fulfilled") failures.push("subcontract progress claims");
+    if (results[13].status !== "fulfilled") failures.push("subcontract variations");
+    if (results[14].status !== "fulfilled") failures.push("client collections");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -779,7 +817,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, clientCollectionData, expenses, costCodes, purchaseOrders, subcontracts, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, clientCollectionData, expenses, costCodes, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -2417,6 +2455,159 @@ function InvoiceWorkspace() {
     }
   }, [permissions, session]);
 
+  const handleSaveSubcontractClaim = useCallback(async (
+    claim: Partial<SubcontractProgressClaim> & {
+      subcontractId: string;
+      projectId: string;
+      claimNumber: string;
+      valuationDate: string;
+    },
+    lines: Array<Partial<SubcontractProgressClaimLine> & { subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number; notes?: string }>,
+  ) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to create or edit subcontract progress claims.");
+      }
+      const saved = await saveSubcontractClaim(claim, lines);
+      setSubcontractClaims((prev) => {
+        const index = prev.findIndex((item) => item.id === saved.id);
+        const next = index >= 0 ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev];
+        if (!isSupabaseConfigured) writeSubcontractClaimsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Progress claim ${saved.claimNumber} saved.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save subcontract progress claim."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleTransitionSubcontractClaim = useCallback(async (
+    id: string,
+    targetStatus: SubcontractProgressClaimStatus,
+    reason?: string,
+    lineApprovals?: Array<{ claimLineId: string; approvedAmount: number }>,
+  ) => {
+    try {
+      if (isSupabaseConfigured) {
+        if (targetStatus === "APPROVED" && !can(PERMISSION_KEYS.procurementApprove)) {
+          throw new Error("You do not have permission to approve subcontract progress claims.");
+        }
+        if (targetStatus !== "APPROVED" && !can(PERMISSION_KEYS.procurementWrite)) {
+          throw new Error("You do not have permission to manage subcontract progress claims.");
+        }
+      }
+      const current = subcontractClaims.find((item) => item.id === id);
+      const parent = current ? subcontracts.find((item) => item.id === current.subcontractId) : undefined;
+      const approvedVariations = current ? subcontractVariations.filter((item) => item.subcontractId === current.subcontractId && item.status === "APPROVED") : [];
+      const updated = await transitionSubcontractClaim(id, targetStatus, reason, lineApprovals, parent, approvedVariations);
+      setSubcontractClaims((prev) => {
+        const next = prev.map((item) => (item.id === updated.id ? updated : item));
+        if (!isSupabaseConfigured) writeSubcontractClaimsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Progress claim ${updated.claimNumber} transitioned to ${targetStatus}.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not transition subcontract progress claim."));
+      throw error;
+    }
+  }, [permissions, session, subcontractClaims, subcontractVariations, subcontracts]);
+
+  const handleDeleteSubcontractClaim = useCallback(async (id: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to delete draft subcontract progress claims.");
+      }
+      await deleteDraftSubcontractClaim(id);
+      setSubcontractClaims((prev) => {
+        const next = prev.filter((item) => item.id !== id);
+        if (!isSupabaseConfigured) writeSubcontractClaimsToLocal(next);
+        return next;
+      });
+      showNotification("success", "Draft progress claim deleted.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not delete draft subcontract progress claim."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleSaveSubcontractVariation = useCallback(async (
+    variation: Partial<SubcontractVariation> & {
+      subcontractId: string;
+      projectId: string;
+      variationNumber: string;
+      title: string;
+      currency?: string;
+    },
+    lines: Array<Partial<SubcontractVariationLine> & { description: string; amount: number }>,
+  ) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to create or edit subcontract variations.");
+      }
+      const saved = await saveSubcontractVariation(variation, lines);
+      setSubcontractVariations((prev) => {
+        const index = prev.findIndex((item) => item.id === saved.id);
+        const next = index >= 0 ? prev.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...prev];
+        if (!isSupabaseConfigured) writeSubcontractVariationsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Variation ${saved.variationNumber} saved.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save subcontract variation."));
+      throw error;
+    }
+  }, [permissions, session]);
+
+  const handleTransitionSubcontractVariation = useCallback(async (
+    id: string,
+    targetStatus: SubcontractVariationStatus,
+    reason?: string,
+  ) => {
+    try {
+      if (isSupabaseConfigured) {
+        if (targetStatus === "APPROVED" && !can(PERMISSION_KEYS.procurementApprove)) {
+          throw new Error("You do not have permission to approve subcontract variations.");
+        }
+        if (targetStatus !== "APPROVED" && !can(PERMISSION_KEYS.procurementWrite)) {
+          throw new Error("You do not have permission to manage subcontract variations.");
+        }
+      }
+      const current = subcontractVariations.find((item) => item.id === id);
+      const parent = current ? subcontracts.find((item) => item.id === current.subcontractId) : undefined;
+      const otherApproved = current ? subcontractVariations.filter((item) => item.subcontractId === current.subcontractId && item.id !== id && item.status === "APPROVED") : [];
+      const approvedClaims = current ? subcontractClaims.filter((item) => item.subcontractId === current.subcontractId && item.status === "APPROVED") : [];
+      const updated = await transitionSubcontractVariation(id, targetStatus, reason, parent, otherApproved, approvedClaims);
+      setSubcontractVariations((prev) => {
+        const next = prev.map((item) => (item.id === updated.id ? updated : item));
+        if (!isSupabaseConfigured) writeSubcontractVariationsToLocal(next);
+        return next;
+      });
+      showNotification("success", `Variation ${updated.variationNumber} transitioned to ${targetStatus}.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not transition subcontract variation."));
+      throw error;
+    }
+  }, [permissions, session, subcontractClaims, subcontractVariations, subcontracts]);
+
+  const handleDeleteSubcontractVariation = useCallback(async (id: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
+        throw new Error("You do not have permission to delete draft subcontract variations.");
+      }
+      await deleteDraftSubcontractVariation(id);
+      setSubcontractVariations((prev) => {
+        const next = prev.filter((item) => item.id !== id);
+        if (!isSupabaseConfigured) writeSubcontractVariationsToLocal(next);
+        return next;
+      });
+      showNotification("success", "Draft subcontract variation deleted.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not delete draft subcontract variation."));
+      throw error;
+    }
+  }, [permissions, session]);
+
   const handleAddVendor = useCallback(async (vendor: Partial<Vendor> & { name: string }) => {
     try {
       if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite) && !can(PERMISSION_KEYS.invoicesWrite)) {
@@ -4013,14 +4204,16 @@ function InvoiceWorkspace() {
         expenses,
         purchaseOrders,
         subcontracts,
+        subcontractClaims,
+        subcontractVariations,
         projectLaborAggregates,
         laborSource: projectLaborSource,
       });
     });
-    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts });
+    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations });
     next.__unallocated__ = unallocated;
     return next;
-  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, projectLaborAggregates, projectLaborSource]);
+  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
     ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
     ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
@@ -4034,6 +4227,8 @@ function InvoiceWorkspace() {
     payroll: detailPayrollForProjectCost,
     purchaseOrders,
     subcontracts,
+    subcontractClaims,
+    subcontractVariations,
     projectLaborAggregates,
     laborSource: projectLaborSource,
     periods: payrollData.periods,
@@ -4047,9 +4242,9 @@ function InvoiceWorkspace() {
     customEnd: dashboardCustomEnd,
     selectedCurrency: dashboardCurrency,
     projectId: dashboardProjectId,
-  }), [projects, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, projectLaborAggregates, projectLaborSource, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
+  }), [projects, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
 
-  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, purchaseOrders, subcontracts, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, projectLaborAggregates, projectLaborSource, payrollData.periods]);
+  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods]);
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID").length;
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
@@ -4186,7 +4381,7 @@ function InvoiceWorkspace() {
           projects={projects}
           clientBillings={clientBillingData.billings}
           clientBillingEvents={clientBillingData.events}
-          clientBillingLoading={projectCostDomainLoadState === "loading"}
+          clientBillingLoading={projectCostDomainLoadState !== "loaded"}
           onSaveClientBilling={handleSaveClientBilling}
           onTransitionClientBilling={handleTransitionClientBilling}
           clientCollections={clientCollectionData.collections}
@@ -4195,6 +4390,7 @@ function InvoiceWorkspace() {
           onRecordClientCollection={handleRecordClientCollection}
           onReverseClientCollection={handleReverseClientCollection}
           companyId={activeCompanyId || undefined}
+          attentionToday={new Date().toISOString().slice(0, 10)}
           engineeringDocumentsCanRead={engineeringDocumentsCanRead}
           engineeringDocumentsCanCreate={engineeringDocumentsCanCreate}
           engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
@@ -4205,6 +4401,9 @@ function InvoiceWorkspace() {
           projectDashboard={projectDashboard}
           costCodes={costCodes}
           purchaseOrders={purchaseOrders}
+          subcontracts={subcontracts}
+          subcontractClaims={subcontractClaims}
+          subcontractVariations={subcontractVariations}
           receipts={purchaseOrderReceipts}
           vendors={vendors}
           projectLaborAggregates={projectLaborAggregates}
@@ -4223,6 +4422,15 @@ function InvoiceWorkspace() {
            onSavePO={handleSavePO}
            onTransitionPO={handleTransitionPO}
            onDeletePO={handleDeletePO}
+           onSaveSubcontract={handleSaveSubcontract}
+           onTransitionSubcontract={handleTransitionSubcontract}
+           onDeleteSubcontract={handleDeleteSubcontract}
+           onSaveSubcontractClaim={handleSaveSubcontractClaim}
+           onTransitionSubcontractClaim={handleTransitionSubcontractClaim}
+           onDeleteSubcontractClaim={handleDeleteSubcontractClaim}
+           onSaveSubcontractVariation={handleSaveSubcontractVariation}
+           onTransitionSubcontractVariation={handleTransitionSubcontractVariation}
+           onDeleteSubcontractVariation={handleDeleteSubcontractVariation}
            onRecordReceipt={handleRecordReceipt}
            onVoidReceipt={handleVoidReceipt}
            onAddVendor={handleAddVendor}

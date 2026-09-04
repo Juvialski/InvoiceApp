@@ -51,6 +51,8 @@ import { ProjectSubmittals } from "../engineering/ProjectSubmittals";
 import { ProjectSiteLogs } from "../engineering/ProjectSiteLogs";
 import { useEngineeringCoordinationAccess } from "../../features/engineering/useEngineeringCoordinationAccess";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
+import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import type { CostInvoice, ProjectCostInput } from "../../utils/projectCosting.ts";
 import { hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
@@ -108,8 +110,11 @@ interface ProjectWorkspaceProps {
   engineeringSubmittalsCanReview?: boolean;
   engineeringSubmittalsCanManage?: boolean;
   engineeringDocumentsGuestMode?: boolean;
+  engineeringDocumentsData?: EngineeringDocumentsWorkspaceData;
+  engineeringCoordinationData?: EngineeringCoordinationWorkspaceData;
   projectDocumentsContent?: React.ReactNode;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+  attentionToday?: string;
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onTabChange?: (tab: WorkspaceTab) => void;
   onBack: () => void;
@@ -188,7 +193,7 @@ interface ProjectWorkspaceProps {
       claimNumber: string;
       valuationDate: string;
     },
-    lines: Array<{ subcontractLineId: string; claimedAmount: number; notes?: string }>,
+    lines: Array<{ subcontractLineId?: string; subcontractVariationLineId?: string; claimedAmount: number; notes?: string }>,
   ) => Promise<void>;
   onTransitionSubcontractClaim?: (
     id: string,
@@ -276,9 +281,12 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   engineeringSubmittalsCanReview,
   engineeringSubmittalsCanManage,
   engineeringDocumentsGuestMode = false,
+  engineeringDocumentsData,
+  engineeringCoordinationData,
   projectDocumentsContent,
   dailySiteLogsData,
   onDailySiteLogsDataChange,
+  attentionToday,
   onTabChange,
   onBack,
   onOpenInvoice,
@@ -452,7 +460,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         ))}
       </nav>
 
-      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} costInput={overviewCostInput} clientBillings={clientBillings} clientCollections={clientCollections} clientDataLoading={clientBillingLoading} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
+      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} costInput={overviewCostInput} clientBillings={clientBillings} clientCollections={clientCollections} clientDataLoading={clientBillingLoading} companyId={companyId} engineeringDocumentsCanRead={engineeringDocumentsCanRead} engineeringRfisCanRead={engineeringRfisCanRead} engineeringSubmittalsCanRead={engineeringSubmittalsCanRead} engineeringSiteLogsCanRead={engineeringDocumentsGuestMode ? true : coordinationAccess.loading ? undefined : coordinationAccess.siteLogsRead} engineeringAccessLoading={coordinationAccess.loading} engineeringDocumentsGuestMode={engineeringDocumentsGuestMode} engineeringDocumentsData={engineeringDocumentsData} engineeringCoordinationData={engineeringCoordinationData} dailySiteLogsData={dailySiteLogsData} attentionToday={attentionToday} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
 
       {tab === "billing" && canReadClientBilling && (
         <ClientBillingPanel

@@ -19,9 +19,14 @@ import type {
   ProjectCostCode,
   ProjectCostSummary,
   ProjectStatus,
+  PurchaseOrder,
+  Subcontract,
+  SubcontractProgressClaim,
+  SubcontractVariation,
 } from "../../types.ts";
 import type { ClientBilling } from "../../lib/clientBilling.ts";
 import type { ClientCollection } from "../../lib/clientCollections.ts";
+import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
 import type {
   ProjectLifecycleAction,
   ProjectLifecyclePreview,
@@ -39,6 +44,8 @@ import {
   buildPortfolioManagementSummary,
   buildProjectManagementView,
   filterAndSortProjectViews,
+  topProjectAttentionSignal,
+  type ProjectAttentionCategory,
   type PortfolioMetricAggregate,
   type ProjectHealthFilter,
   type ProjectManagementHealth,
@@ -64,6 +71,12 @@ interface ProjectsPageProps {
   clientCollections?: readonly ClientCollection[];
   clientFinancialDataLoading?: boolean;
   costCodes?: readonly ProjectCostCode[];
+  purchaseOrders?: PurchaseOrder[];
+  subcontracts?: Subcontract[];
+  subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
+  engineeringCoordinationData?: EngineeringCoordinationWorkspaceData;
+  attentionToday?: string;
   initialEditingProject?: Project | null;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => void;
@@ -207,6 +220,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   clientCollections,
   clientFinancialDataLoading = false,
   costCodes = [],
+  purchaseOrders = [],
+  subcontracts = [],
+  subcontractClaims = [],
+  subcontractVariations = [],
+  engineeringCoordinationData,
+  attentionToday,
   initialEditingProject,
   onOpenProject,
   onSaveProject,
@@ -226,6 +245,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   const [managerFilter, setManagerFilter] = useState("ALL");
   const [currencyFilter, setCurrencyFilter] = useState("ALL");
   const [healthFilter, setHealthFilter] = useState<ProjectHealthFilter>("ALL");
+  const [attentionCategoryFilter, setAttentionCategoryFilter] = useState<"ALL" | ProjectAttentionCategory>("ALL");
   const [sortField, setSortField] = useState<ProjectSortField>("code");
   const [sortDirection, setSortDirection] = useState<ProjectSortDirection>("asc");
 
@@ -266,12 +286,19 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
       return buildProjectManagementView(p, summary, {
         costCodes,
+        // Portfolio rows have aggregate actual-cost truth, not invoice/expense/payroll transaction detail.
+        // Keep procurement-only detail out of cost-code actual classification so it remains fail-closed.
+        subcontractClaims,
         financialDataComplete: costDataComplete,
         clientBillings: clientFinancialDataLoading ? undefined : clientBillings,
         clientCollections: clientFinancialDataLoading ? undefined : clientCollections,
+        today: attentionToday,
+        engineering: engineeringCoordinationData
+          ? { rfis: engineeringCoordinationData.rfis, submittals: engineeringCoordinationData.submittals }
+          : undefined,
       });
     });
-  }, [projects, summaries, costCodes, costDataComplete, clientBillings, clientCollections, clientFinancialDataLoading]);
+  }, [attentionToday, clientBillings, clientCollections, clientFinancialDataLoading, costDataComplete, costCodes, engineeringCoordinationData, purchaseOrders, subcontractClaims, subcontractVariations, subcontracts, projects, summaries]);
 
   // 2. Portfolio Management Summary (Multi-currency safe)
   const portfolio = useMemo(() => {
@@ -286,10 +313,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
       managerFilter,
       currencyFilter,
       healthFilter,
+      attentionCategoryFilter,
       sortField,
       sortDirection,
     });
-  }, [projectViews, query, status, managerFilter, currencyFilter, healthFilter, sortField, sortDirection]);
+  }, [projectViews, query, status, managerFilter, currencyFilter, healthFilter, attentionCategoryFilter, sortField, sortDirection]);
 
   const managerOptions = useMemo(
     () => [...new Set(projectViews.map((view) => view.project.projectManager?.trim()).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b)),
@@ -363,7 +391,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   };
 
   const isHydrating = workspaceDataPending && projects.length === 0;
-  const hasProjectFilters = Boolean(query.trim()) || status !== "ALL" || managerFilter !== "ALL" || currencyFilter !== "ALL" || healthFilter !== "ALL";
+  const hasProjectFilters = Boolean(query.trim()) || status !== "ALL" || managerFilter !== "ALL" || currencyFilter !== "ALL" || healthFilter !== "ALL" || attentionCategoryFilter !== "ALL";
   const projectResultLabel = `${displayedViews.length} of ${projects.length} project${projects.length === 1 ? "" : "s"}`;
 
   const toggleSort = (field: ProjectSortField) => {
@@ -412,6 +440,13 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
           <MetricCard label="Active" value={portfolio.activeProjects} loading={isHydrating} tone="success" />
           <MetricCard label="On hold" value={portfolio.onHoldProjects} loading={isHydrating} tone="warning" />
           <MetricCard label="Archived" value={portfolio.archivedProjects} loading={isHydrating} tone="neutral" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Project management attention counts">
+          <MetricCard label="Needs attention" value={portfolio.projectsNeedingAttentionCount} loading={isHydrating} icon={ShieldAlert} tone={portfolio.projectsNeedingAttentionCount > 0 ? "warning" : "success"} />
+          <MetricCard label="Critical signals" value={portfolio.criticalAttentionCount} loading={isHydrating} tone={portfolio.criticalAttentionCount > 0 ? "danger" : "neutral"} />
+          <MetricCard label="Warning signals" value={portfolio.warningAttentionCount} loading={isHydrating} tone={portfolio.warningAttentionCount > 0 ? "warning" : "neutral"} />
+          <MetricCard label="Info signals" value={portfolio.infoAttentionCount} loading={isHydrating} tone="info" />
         </div>
 
         {/* Currency Grouped Totals */}
@@ -467,30 +502,10 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 Attention Signals
               </div>
               <div className="mt-3 space-y-1.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Over Budget:</span>
-                  <strong className={`tabular-nums ${portfolio.projectsOverBudgetCount > 0 ? "text-rose-700 font-bold" : "text-slate-700"}`}>
-                    {portfolio.projectsOverBudgetCount}
-                  </strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Near Limit (≥90%):</span>
-                  <strong className={`tabular-nums ${portfolio.projectsNearBudgetCount > 0 ? "text-amber-700 font-bold" : "text-slate-700"}`}>
-                    {portfolio.projectsNearBudgetCount}
-                  </strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Uncoded Cost:</span>
-                  <strong className={`tabular-nums ${portfolio.projectsWithUncodedCostCount > 0 ? "text-amber-700 font-bold" : "text-slate-700"}`}>
-                    {portfolio.projectsWithUncodedCostCount}
-                  </strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Missing Forecast:</span>
-                  <strong className={`tabular-nums ${portfolio.projectsMissingForecastCount > 0 ? "text-indigo-700 font-bold" : "text-slate-700"}`}>
-                    {portfolio.projectsMissingForecastCount}
-                  </strong>
-                </div>
+                <div className="flex justify-between"><span className="text-slate-500">Critical:</span><strong className={`tabular-nums ${portfolio.criticalAttentionCount > 0 ? "font-bold text-rose-700" : "text-slate-700"}`}>{portfolio.criticalAttentionCount}</strong></div>
+                <div className="flex justify-between"><span className="text-slate-500">Warning:</span><strong className={`tabular-nums ${portfolio.warningAttentionCount > 0 ? "font-bold text-amber-700" : "text-slate-700"}`}>{portfolio.warningAttentionCount}</strong></div>
+                <div className="flex justify-between"><span className="text-slate-500">Informational:</span><strong className="tabular-nums text-slate-700">{portfolio.infoAttentionCount}</strong></div>
+                <p className="border-t border-slate-100 pt-2 text-[9px] leading-4 text-slate-500">Counts are project/signal counts only; financial amounts remain grouped by currency below.</p>
               </div>
             </Card>
           </div>
@@ -499,7 +514,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
       {/* Filter and Search Toolbar */}
       <Card className="p-4 shadow-sm space-y-3" elevation="low">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
           {/* Search Query */}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
@@ -577,7 +592,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               aria-label="Filter by financial health and attention signals"
             >
-              <option value="ALL">All Financial States</option>
+              <option value="ALL">All Financial / Attention States</option>
+              <option value="NEEDS_ATTENTION">Needs Attention</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="WARNING">Warning</option>
+              <option value="INFO">Informational</option>
               <option value="ON_BUDGET">On Budget</option>
               <option value="NEAR_BUDGET">Near Limit (≥90%)</option>
               <option value="OVER_BUDGET">Over Budget</option>
@@ -591,6 +610,25 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
           </div>
 
+          {/* Attention Category Filter */}
+          <div className="relative">
+            <select
+              value={attentionCategoryFilter}
+              onChange={(e) => setAttentionCategoryFilter(e.target.value as "ALL" | ProjectAttentionCategory)}
+              className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              aria-label="Filter by attention category"
+            >
+              <option value="ALL">All Attention Categories</option>
+              <option value="financial">Financial</option>
+              <option value="commercial">Commercial</option>
+              <option value="procurement">Procurement</option>
+              <option value="engineering">Engineering</option>
+              <option value="schedule">Schedule</option>
+              <option value="data-quality">Data quality</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+          </div>
+
           {/* Sort Selector */}
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -600,6 +638,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 aria-label="Sort projects by field"
               >
+                <option value="attention">Attention Severity</option>
                 <option value="code">Sort by Code</option>
                 <option value="name">Sort by Name</option>
                 <option value="client">Sort by Client</option>
@@ -643,6 +682,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 setManagerFilter("ALL");
                 setCurrencyFilter("ALL");
                 setHealthFilter("ALL");
+                setAttentionCategoryFilter("ALL");
               }}
               className="text-indigo-600 hover:text-indigo-800 font-semibold"
             >
@@ -707,6 +747,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   {displayedViews.map((view) => {
                     const project = view.project;
                     const hasAttention = view.attentionFlags.length > 0;
+                    const topAttention = topProjectAttentionSignal(view);
 
                     return (
                       <tr key={project.id} data-project-id={project.id} className="align-top transition hover:bg-slate-50/80">
@@ -748,6 +789,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                           </div>
                           {hasAttention && (
                             <div className="flex flex-wrap gap-1 pt-1">
+                              <span className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[9px] font-black text-slate-700" aria-label={`${view.attentionFlags.length} management attention signal${view.attentionFlags.length === 1 ? "" : "s"}`}>
+                                {view.attentionFlags.length} attention signal{view.attentionFlags.length === 1 ? "" : "s"}
+                              </span>
                               {view.attentionFlags.slice(0, 2).map((item) => (
                                 <span
                                   key={item.id}
@@ -764,6 +808,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                               )}
                             </div>
                           )}
+                          {topAttention && <span className="block max-w-[18rem] truncate text-[9px] font-semibold text-slate-600" title={topAttention.explanation}>Top reason: {topAttention.title}</span>}
                           {view.isPartial && <span className="block text-[9px] font-bold text-amber-700">Partial project data</span>}
                         </td>
 
@@ -870,6 +915,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
             {displayedViews.map((view) => {
               const project = view.project;
               const hasAttention = view.attentionFlags.length > 0;
+              const topAttention = topProjectAttentionSignal(view);
 
               return (
                 <Card key={project.id} className="p-4 shadow-sm space-y-3" elevation="low">
@@ -909,6 +955,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                       ))}
                     </div>
                   )}
+                  {topAttention && <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] leading-4 text-slate-600"><span className="font-black text-slate-700">Top reason:</span> {topAttention.title}</p>}
 
                   {/* 2-Column Metric Grid */}
                   <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-2.5 text-xs">
