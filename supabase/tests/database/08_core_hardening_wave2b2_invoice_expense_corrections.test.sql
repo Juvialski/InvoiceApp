@@ -56,6 +56,8 @@ select
   'b2000000-0000-4000-8000-000000000303'::uuid as invoice_verified,
   'b2000000-0000-4000-8000-000000000304'::uuid as invoice_settled,
   'b2000000-0000-4000-8000-000000000305'::uuid as invoice_other_company,
+  'a2000000-0000-4000-8000-000000000301'::uuid as invoice_source_document,
+  'a2000000-0000-4000-8000-000000000302'::uuid as invoice_source_email,
   'c2000000-0000-4000-8000-000000000301'::uuid as expense_unused,
   'c2000000-0000-4000-8000-000000000302'::uuid as expense_approved,
   'c2000000-0000-4000-8000-000000000303'::uuid as expense_settled,
@@ -109,13 +111,28 @@ values
   ((select project_a from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), 'W2B2-A', 'Wave 2B2 Project', 'ACTIVE', 100000, 'PHP'),
   ((select project_b from wave2b2_ids), (select outsider_user from wave2b2_ids), (select company_b from wave2b2_ids), 'W2B2-B', 'Wave 2B2 Foreign Project', 'ACTIVE', 100000, 'USD');
 
-insert into public.invoices (id, user_id, company_id, invoice_number, invoice_date, currency, grand_total, payment_status, review_status, current_data)
+insert into public.email_messages (id, user_id, company_id, gmail_message_id, subject, sender, recipients, cc, body_text, body_html, snippet, labels, processing_status)
+values ((select invoice_source_email from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), 'wave2b2-test-message', 'Test invoice upload', 'supplier@test.local', '[]'::jsonb, '[]'::jsonb, 'This is a disposable extraction test invoice.', '', 'This is a disposable extraction test invoice.', '[]'::jsonb, 'IMPORTED');
+
+insert into public.source_documents (id, user_id, company_id, source_type, filename, mime_type, file_size, storage_path, sha256, processing_status, document_type)
+values ((select invoice_source_document from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), 'UPLOAD', 'wave2b2-test-invoice.pdf', 'application/pdf', 128, 'companies/aaaaaaaa-0000-4000-8000-000000000301/invoices/manual/2026/08/wave2b2-test-invoice.pdf', repeat('a', 64), 'EXTRACTED', 'INVOICE');
+
+insert into public.invoices (id, user_id, company_id, source_document_id, source_email_id, invoice_number, invoice_date, currency, grand_total, payment_status, review_status, current_data)
 values
-  ((select invoice_unused from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), 'W2B2-UNUSED', date '2026-08-01', 'PHP', 100, 'UNPAID', 'NEEDS_REVIEW', '{}'::jsonb),
-  ((select invoice_stale from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), 'W2B2-STALE', date '2026-08-02', 'PHP', 200, 'UNPAID', 'NEEDS_REVIEW', '{}'::jsonb),
-  ((select invoice_verified from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), 'W2B2-VERIFIED', date '2026-08-03', 'PHP', 300, 'UNPAID', 'VERIFIED', jsonb_build_object('invoiceNumber', 'W2B2-VERIFIED', 'grandTotal', 300, 'currency', 'PHP')),
-  ((select invoice_settled from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), 'W2B2-SETTLED', date '2026-08-04', 'PHP', 400, 'UNPAID', 'VERIFIED', jsonb_build_object('invoiceNumber', 'W2B2-SETTLED', 'grandTotal', 400, 'currency', 'PHP')),
-  ((select invoice_other_company from wave2b2_ids), (select outsider_user from wave2b2_ids), (select company_b from wave2b2_ids), 'W2B2-FOREIGN', date '2026-08-05', 'USD', 500, 'UNPAID', 'NEEDS_REVIEW', '{}'::jsonb);
+  ((select invoice_unused from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), (select invoice_source_document from wave2b2_ids), (select invoice_source_email from wave2b2_ids), 'W2B2-UNUSED', date '2026-08-01', 'PHP', 100, 'UNPAID', 'NEEDS_REVIEW', jsonb_build_object('invoiceNumber', 'W2B2-UNUSED', 'grandTotal', 100, 'currency', 'PHP', 'status', 'UNPAID', 'reviewStatus', 'NEEDS_REVIEW', 'items', jsonb_build_array(jsonb_build_object('id', 'w2b2-line-1', 'description', 'Disposable test line', 'quantity', 1, 'unitPrice', 100, 'lineTotal', 100)))),
+  ((select invoice_stale from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), null, null, 'W2B2-STALE', date '2026-08-02', 'PHP', 200, 'UNPAID', 'NEEDS_REVIEW', '{}'::jsonb),
+  ((select invoice_verified from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), null, null, 'W2B2-VERIFIED', date '2026-08-03', 'PHP', 300, 'UNPAID', 'VERIFIED', jsonb_build_object('invoiceNumber', 'W2B2-VERIFIED', 'grandTotal', 300, 'currency', 'PHP')),
+  ((select invoice_settled from wave2b2_ids), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), null, null, 'W2B2-SETTLED', date '2026-08-04', 'PHP', 400, 'UNPAID', 'VERIFIED', jsonb_build_object('invoiceNumber', 'W2B2-SETTLED', 'grandTotal', 400, 'currency', 'PHP')),
+   ((select invoice_other_company from wave2b2_ids), (select outsider_user from wave2b2_ids), (select company_b from wave2b2_ids), null, null, 'W2B2-FOREIGN', date '2026-08-05', 'USD', 500, 'UNPAID', 'NEEDS_REVIEW', '{}'::jsonb);
+
+insert into public.invoice_line_items (id, user_id, company_id, invoice_id, item_index, description, quantity, unit_price, line_total, item_data)
+values (gen_random_uuid(), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), (select invoice_unused from wave2b2_ids), 0, 'Disposable test line', 1, 100, 100, jsonb_build_object('source', 'extraction'));
+
+insert into public.invoice_extractions (id, user_id, company_id, invoice_id, model, structured_result)
+values (gen_random_uuid(), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), (select invoice_unused from wave2b2_ids), 'fixture', jsonb_build_object('invoiceNumber', 'W2B2-UNUSED', 'grandTotal', 100, 'items', jsonb_build_array('w2b2-line-1')));
+
+insert into public.invoice_review_events (id, user_id, company_id, invoice_id, event_type, previous_value, new_value)
+values (gen_random_uuid(), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), (select invoice_unused from wave2b2_ids), 'AI_EXTRACTION_CREATED', '{}'::jsonb, jsonb_build_object('source', 'fixture'));
 
 insert into public.invoice_extractions (id, user_id, company_id, invoice_id, model, structured_result)
 values (gen_random_uuid(), (select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), (select invoice_verified from wave2b2_ids), 'fixture', jsonb_build_object('invoiceNumber', 'W2B2-VERIFIED'));
@@ -171,17 +188,24 @@ select set_config('request.jwt.claim.sub', (select admin_user::text from wave2b2
 
 select is((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->>'canDelete')::boolean, true, 'unused invoice is delete-eligible');
 select is((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->>'recommendedAction'), 'DELETE_UNUSED', 'unused invoice recommends guarded deletion');
+select ok((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->>'totalDependencyCount')::bigint > 0, 'extraction-test invoice retains a complete dependency inventory');
+select is((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->>'protectedDependencyCount')::bigint, 0::bigint, 'extraction-only invoice has no protected dependency count');
+select ok((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->>'disposableDependencyCount')::bigint > 0, 'extraction-only invoice reports disposable provenance separately');
+select is((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->'disposableDependencies'->>'lineItems')::bigint, 1::bigint, 'extracted line item is classified as disposable provenance');
+select is((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->'disposableDependencies'->>'extractions')::bigint, 1::bigint, 'extraction snapshot is classified as disposable provenance');
+select is((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->'disposableDependencies'->>'sourceDocument')::bigint, 1::bigint, 'source document link is classified as disposable provenance');
+select is((public.preview_invoice_correction((select invoice_unused from wave2b2_ids))->'storageCleanup'->>'physicalObjectDeleted')::boolean, false, 'invoice preflight does not promise physical storage deletion');
 
 -- A stale preview cannot authorize deletion after a dependent row appears.
 select is((public.preview_invoice_correction((select invoice_stale from wave2b2_ids))->>'canDelete')::boolean, true, 'stale invoice initially previews as unused');
-insert into public.invoice_line_items (user_id, company_id, invoice_id, item_index, description, quantity, unit_price, line_total)
-values ((select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), (select invoice_stale from wave2b2_ids), 0, 'Late fixture line item', 1, 200, 200);
+insert into public.invoice_project_allocations (user_id, company_id, invoice_id, project_id, allocation_type, allocation_amount, currency)
+values ((select admin_user from wave2b2_ids), (select company_a from wave2b2_ids), (select invoice_stale from wave2b2_ids), (select project_a from wave2b2_ids), 'AMOUNT', 200, 'PHP');
 select throws_ok(
   $$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000302'::uuid, 'DELETE_UNUSED', null)$$,
   '42501', null, 'invoice delete rechecks dependencies after a stale preview'
 );
 select is((select count(*) from public.invoices where id = (select invoice_stale from wave2b2_ids)), 1::bigint, 'stale invoice remains after rejected deletion');
-delete from public.invoice_line_items where invoice_id = (select invoice_stale from wave2b2_ids);
+delete from public.invoice_project_allocations where invoice_id = (select invoice_stale from wave2b2_ids);
 
 select throws_ok(
   $$delete from public.invoices where id = 'b2000000-0000-4000-8000-000000000301'::uuid$$,
@@ -190,6 +214,12 @@ select throws_ok(
 select is((public.apply_invoice_correction((select invoice_unused from wave2b2_ids), 'DELETE_UNUSED', 'Duplicate empty intake')->>'deleted')::boolean, true, 'unused invoice can be permanently deleted through the guarded RPC');
 select is((select count(*) from public.invoices where id = (select invoice_unused from wave2b2_ids)), 0::bigint, 'unused invoice row is deleted');
 select is((select count(*) from public.company_audit_events where company_id = (select company_a from wave2b2_ids) and event_type = 'INVOICE_DELETED_UNUSED' and target_id = (select invoice_unused from wave2b2_ids)), 1::bigint, 'unused invoice deletion emits one audit event');
+select is((select count(*) from public.invoice_line_items where invoice_id = (select invoice_unused from wave2b2_ids)), 0::bigint, 'invoice-owned extracted line items are cleaned by the guarded cascade');
+select is((select count(*) from public.invoice_extractions where invoice_id = (select invoice_unused from wave2b2_ids)), 0::bigint, 'invoice-owned extraction snapshots are cleaned by the guarded cascade');
+select is((select count(*) from public.invoice_review_events where invoice_id = (select invoice_unused from wave2b2_ids)), 0::bigint, 'invoice-owned non-final review events are cleaned by the guarded cascade');
+select is((select count(*) from public.source_documents where id = (select invoice_source_document from wave2b2_ids)), 1::bigint, 'source-document metadata remains for conservative retention cleanup');
+select is((select count(*) from public.email_messages where id = (select invoice_source_email from wave2b2_ids)), 1::bigint, 'source email provenance is never deleted with the invoice');
+select ok((select metadata->'preflight'->>'protectedDependencyCount' = '0' from public.company_audit_events where company_id = (select company_a from wave2b2_ids) and event_type = 'INVOICE_DELETED_UNUSED' and target_id = (select invoice_unused from wave2b2_ids)), 'delete audit preserves the authoritative zero-protected-dependency preflight');
 
 select is((public.preview_invoice_correction((select invoice_verified from wave2b2_ids))->>'canDelete')::boolean, false, 'verified invoice cannot be hard deleted');
 select is((public.preview_invoice_correction((select invoice_verified from wave2b2_ids))->>'recommendedAction'), 'VOID', 'verified invoice recommends explicit void correction');

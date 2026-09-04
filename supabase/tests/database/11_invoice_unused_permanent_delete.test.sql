@@ -1,0 +1,163 @@
+begin;
+select no_plan();
+
+create temp table invoice_unused_delete_ids as
+select
+  '00000000-0000-4000-8000-000000000401'::uuid as admin_user,
+  '00000000-0000-4000-8000-000000000402'::uuid as denied_user,
+  'aaaaaaaa-0000-4000-8000-000000000401'::uuid as company_a,
+  'bbbbbbbb-0000-4000-8000-000000000401'::uuid as company_b,
+  '10000000-0000-4000-8000-000000000401'::uuid as project_a,
+  '20000000-0000-4000-8000-000000000401'::uuid as project_b,
+  'b2000000-0000-4000-8000-000000000401'::uuid as invoice_extracted,
+  'b2000000-0000-4000-8000-000000000402'::uuid as invoice_shared_source,
+  'b2000000-0000-4000-8000-000000000403'::uuid as invoice_allocated,
+  'b2000000-0000-4000-8000-000000000404'::uuid as invoice_po_matched,
+  'b2000000-0000-4000-8000-000000000405'::uuid as invoice_paid,
+  'b2000000-0000-4000-8000-000000000406'::uuid as invoice_verified,
+  'b2000000-0000-4000-8000-000000000407'::uuid as invoice_settled,
+  'a2000000-0000-4000-8000-000000000401'::uuid as source_extracted,
+  'a2000000-0000-4000-8000-000000000402'::uuid as source_shared,
+  'c2000000-0000-4000-8000-000000000401'::uuid as shared_expense,
+  'd2000000-0000-4000-8000-000000000401'::uuid as vendor,
+  'd2000000-0000-4000-8000-000000000402'::uuid as purchase_order,
+  'd2000000-0000-4000-8000-000000000403'::uuid as purchase_order_line,
+  'e2000000-0000-4000-8000-000000000401'::uuid as financial_account,
+  'e2000000-0000-4000-8000-000000000402'::uuid as financial_transaction,
+  'f2000000-0000-4000-8000-000000000401'::uuid as settlement_match;
+
+grant select on invoice_unused_delete_ids to authenticated, service_role;
+
+insert into auth.users (id, email, encrypted_password, created_at, updated_at)
+select id, email, 'x', now(), now()
+from (values
+  ((select admin_user from invoice_unused_delete_ids), 'unused-delete-admin@test.local'),
+  ((select denied_user from invoice_unused_delete_ids), 'unused-delete-denied@test.local')
+) users(id, email)
+on conflict (id) do nothing;
+
+select set_config('request.jwt.claim.sub', (select admin_user::text from invoice_unused_delete_ids), true);
+
+insert into public.companies (id, name, company_code, status, default_currency, timezone, created_by_user_id, legacy_owner_user_id)
+values
+  ((select company_a from invoice_unused_delete_ids), 'Unused Delete Test Company', 'unused-delete-a', 'ACTIVE', 'PHP', 'Asia/Manila', (select admin_user from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids)),
+  ((select company_b from invoice_unused_delete_ids), 'Unused Delete Other Company', 'unused-delete-b', 'ACTIVE', 'USD', 'UTC', (select admin_user from invoice_unused_delete_ids), null);
+
+insert into public.company_members (company_id, user_id, role_key, status)
+values
+  ((select company_a from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), 'COMPANY_ADMIN', 'ACTIVE'),
+  ((select company_a from invoice_unused_delete_ids), (select denied_user from invoice_unused_delete_ids), 'FINANCE', 'ACTIVE');
+
+insert into public.deployment_configuration (singleton, company_id)
+values (true, (select company_a from invoice_unused_delete_ids));
+
+insert into public.company_member_permission_overrides (company_id, membership_id, permission_key, effect, created_by_user_id)
+select cm.company_id, cm.id, 'invoices.manage', 'DENY', (select admin_user from invoice_unused_delete_ids)
+from public.company_members cm
+where cm.company_id = (select company_a from invoice_unused_delete_ids)
+  and cm.user_id = (select denied_user from invoice_unused_delete_ids);
+
+insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency)
+values
+  ((select project_a from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), 'UNUSED-A', 'Unused Delete Project', 'ACTIVE', 100000, 'PHP'),
+  ((select project_b from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_b from invoice_unused_delete_ids), 'UNUSED-B', 'Unused Delete Other Project', 'ACTIVE', 100000, 'USD');
+
+insert into public.vendors (id, user_id, company_id, name, normalized_name, default_currency)
+values ((select vendor from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), 'Unused Delete Supplier', 'unused delete supplier', 'PHP');
+
+insert into public.purchase_orders (id, company_id, po_number, vendor_id, project_id, currency, status, created_by_user_id)
+values ((select purchase_order from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), 'UD-PO-001', (select vendor from invoice_unused_delete_ids), (select project_a from invoice_unused_delete_ids), 'PHP', 'DRAFT', (select admin_user from invoice_unused_delete_ids));
+
+insert into public.purchase_order_lines (id, company_id, purchase_order_id, line_number, description, quantity, unit, unit_price, amount)
+values ((select purchase_order_line from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), (select purchase_order from invoice_unused_delete_ids), 1, 'Matched test material', 1, 'pcs', 150, 150);
+
+insert into public.source_documents (id, user_id, company_id, source_type, filename, mime_type, file_size, storage_path, sha256, processing_status, document_type)
+values
+  ((select source_extracted from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), 'UPLOAD', 'extracted-test.pdf', 'application/pdf', 100, 'companies/aaaaaaaa-0000-4000-8000-000000000401/invoices/manual/2026/09/extracted-test.pdf', repeat('1', 64), 'EXTRACTED', 'INVOICE'),
+  ((select source_shared from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), 'UPLOAD', 'shared-source.pdf', 'application/pdf', 100, 'companies/aaaaaaaa-0000-4000-8000-000000000401/invoices/manual/2026/09/shared-source.pdf', repeat('2', 64), 'EXTRACTED', 'INVOICE');
+
+insert into public.invoices (id, user_id, company_id, source_document_id, invoice_number, invoice_date, currency, grand_total, payment_status, review_status, current_data, vendor_id, verified_at)
+values
+  ((select invoice_extracted from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), (select source_extracted from invoice_unused_delete_ids), 'UD-EXTRACTED-001', date '2026-09-01', 'PHP', 100, 'UNPAID', 'NEEDS_REVIEW', jsonb_build_object('invoiceNumber', 'UD-EXTRACTED-001', 'grandTotal', 100, 'currency', 'PHP', 'status', 'UNPAID', 'reviewStatus', 'NEEDS_REVIEW', 'items', jsonb_build_array(jsonb_build_object('id', 'ud-line-1', 'description', 'Extracted test line'))), (select vendor from invoice_unused_delete_ids), null),
+  ((select invoice_shared_source from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), (select source_shared from invoice_unused_delete_ids), 'UD-SHARED-001', date '2026-09-02', 'PHP', 80, 'UNPAID', 'NEEDS_REVIEW', jsonb_build_object('invoiceNumber', 'UD-SHARED-001', 'grandTotal', 80, 'currency', 'PHP', 'status', 'UNPAID', 'reviewStatus', 'NEEDS_REVIEW', 'items', '[]'::jsonb), (select vendor from invoice_unused_delete_ids), null),
+  ((select invoice_allocated from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), null, 'UD-ALLOCATED-001', date '2026-09-03', 'PHP', 200, 'UNPAID', 'NEEDS_REVIEW', '{}'::jsonb, null, null),
+  ((select invoice_po_matched from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), null, 'UD-PO-INV-001', date '2026-09-04', 'PHP', 150, 'UNPAID', 'NEEDS_REVIEW', jsonb_build_object('invoiceNumber', 'UD-PO-INV-001', 'grandTotal', 150, 'currency', 'PHP', 'items', jsonb_build_array(jsonb_build_object('id', 'po-line-1'))), (select vendor from invoice_unused_delete_ids), null),
+  ((select invoice_paid from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), null, 'UD-PAID-001', date '2026-09-05', 'PHP', 50, 'PAID', 'NEEDS_REVIEW', jsonb_build_object('status', 'PAID', 'amountPaid', 50), null, null),
+  ((select invoice_verified from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), null, 'UD-VERIFIED-001', date '2026-09-06', 'PHP', 60, 'UNPAID', 'VERIFIED', jsonb_build_object('reviewStatus', 'VERIFIED'), null, now()),
+  ((select invoice_settled from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), null, 'UD-SETTLED-001', date '2026-09-07', 'PHP', 70, 'UNPAID', 'VERIFIED', jsonb_build_object('reviewStatus', 'VERIFIED'), null, now());
+
+insert into public.invoice_line_items (user_id, company_id, invoice_id, item_index, description, quantity, unit_price, line_total, item_data)
+values ((select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), (select invoice_extracted from invoice_unused_delete_ids), 0, 'Extracted test line', 1, 100, 100, jsonb_build_object('source', 'extraction'));
+
+insert into public.invoice_extractions (user_id, company_id, invoice_id, model, structured_result)
+values ((select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), (select invoice_extracted from invoice_unused_delete_ids), 'fixture', jsonb_build_object('invoiceNumber', 'UD-EXTRACTED-001'));
+
+insert into public.invoice_review_events (user_id, company_id, invoice_id, event_type, previous_value, new_value)
+values ((select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), (select invoice_extracted from invoice_unused_delete_ids), 'AI_EXTRACTION_CREATED', '{}'::jsonb, jsonb_build_object('fixture', true));
+
+insert into public.expenses (id, user_id, company_id, project_id, expense_date, category, description, amount, currency, status, receipt_source_document_id)
+values ((select shared_expense from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), null, date '2026-09-02', 'Test', 'Shared source evidence remains', 1, 'PHP', 'DRAFT', (select source_shared from invoice_unused_delete_ids));
+
+insert into public.invoice_project_allocations (user_id, company_id, invoice_id, project_id, allocation_type, allocation_amount, currency)
+values ((select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), (select invoice_allocated from invoice_unused_delete_ids), (select project_a from invoice_unused_delete_ids), 'AMOUNT', 200, 'PHP');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', (select admin_user::text from invoice_unused_delete_ids), true);
+
+select public.transition_purchase_order_status((select purchase_order from invoice_unused_delete_ids), 'APPROVED', null);
+select public.transition_purchase_order_status((select purchase_order from invoice_unused_delete_ids), 'ISSUED', null);
+select public.confirm_purchase_order_invoice_match((select invoice_po_matched from invoice_unused_delete_ids), (select purchase_order from invoice_unused_delete_ids), 'MANUAL', 'Protected procurement history', '[]'::jsonb);
+
+select is((public.preview_invoice_correction((select invoice_extracted from invoice_unused_delete_ids))->>'canDelete')::boolean, true, 'realistic extracted invoice is delete-eligible');
+select is((public.preview_invoice_correction((select invoice_extracted from invoice_unused_delete_ids))->>'protectedDependencyCount')::bigint, 0::bigint, 'extraction-only invoice has no protected downstream dependency');
+select ok((public.preview_invoice_correction((select invoice_extracted from invoice_unused_delete_ids))->>'disposableDependencyCount')::bigint >= 3, 'extraction-only invoice reports its disposable children');
+select is((public.preview_invoice_correction((select invoice_extracted from invoice_unused_delete_ids))->'blockingDependencies'->>'purchaseOrderMatches')::bigint, 0::bigint, 'extraction-only invoice has no PO blocker');
+select is((public.preview_invoice_correction((select invoice_extracted from invoice_unused_delete_ids))->'disposableDependencies'->>'lineItems')::bigint, 1::bigint, 'extracted line item remains diagnostic disposable provenance');
+select is((public.apply_invoice_correction((select invoice_extracted from invoice_unused_delete_ids), 'DELETE_UNUSED', 'Unused extraction test')->>'deleted')::boolean, true, 'realistic extracted invoice can be permanently deleted');
+select is((select count(*) from public.invoices where id = (select invoice_extracted from invoice_unused_delete_ids)), 0::bigint, 'extracted invoice row is gone');
+select is((select count(*) from public.invoice_line_items where invoice_id = (select invoice_extracted from invoice_unused_delete_ids)), 0::bigint, 'extracted invoice line item cascade is completed');
+select is((select count(*) from public.invoice_extractions where invoice_id = (select invoice_extracted from invoice_unused_delete_ids)), 0::bigint, 'extracted invoice snapshot cascade is completed');
+select is((select count(*) from public.invoice_review_events where invoice_id = (select invoice_extracted from invoice_unused_delete_ids)), 0::bigint, 'extracted invoice review provenance cascade is completed');
+select is((select count(*) from public.source_documents where id = (select source_extracted from invoice_unused_delete_ids)), 1::bigint, 'exclusive source metadata remains for conservative storage retention');
+select is((select count(*) from public.company_audit_events where company_id = (select company_a from invoice_unused_delete_ids) and event_type = 'INVOICE_DELETED_UNUSED' and target_id = (select invoice_extracted from invoice_unused_delete_ids)), 1::bigint, 'unused deletion remains audited');
+
+select is((public.preview_invoice_correction((select invoice_shared_source from invoice_unused_delete_ids))->>'canDelete')::boolean, true, 'source-shared invoice remains delete-eligible');
+select is((public.preview_invoice_correction((select invoice_shared_source from invoice_unused_delete_ids))->'storageCleanup'->>'relationship'), 'RETAINED_SHARED_OR_REFERENCED', 'shared source evidence is classified for retention');
+select is((public.apply_invoice_correction((select invoice_shared_source from invoice_unused_delete_ids), 'DELETE_UNUSED', null)->>'deleted')::boolean, true, 'source-shared unused invoice can be deleted');
+select is((select count(*) from public.expenses where id = (select shared_expense from invoice_unused_delete_ids)), 1::bigint, 'shared source consumer remains');
+select is((select count(*) from public.source_documents where id = (select source_shared from invoice_unused_delete_ids)), 1::bigint, 'shared source metadata is never destructively removed');
+
+select is((public.preview_invoice_correction((select invoice_allocated from invoice_unused_delete_ids))->>'canDelete')::boolean, false, 'project-allocated invoice cannot be deleted');
+select ok((public.preview_invoice_correction((select invoice_allocated from invoice_unused_delete_ids))->>'blockedReason') like '%project cost allocation%', 'project allocation explains the deletion blocker');
+select throws_ok($$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000403'::uuid, 'DELETE_UNUSED', null)$$, '42501', null, 'project allocation rejects permanent deletion');
+select is((select count(*) from public.invoices where id = (select invoice_allocated from invoice_unused_delete_ids)), 1::bigint, 'project-allocated invoice remains preserved');
+
+select is((public.preview_invoice_correction((select invoice_po_matched from invoice_unused_delete_ids))->>'canDelete')::boolean, false, 'PO-matched invoice cannot be deleted');
+select is((public.preview_invoice_correction((select invoice_po_matched from invoice_unused_delete_ids))->'blockingDependencies'->>'purchaseOrderMatches')::bigint, 1::bigint, 'PO match is an explicit protected blocker');
+select ok((public.preview_invoice_correction((select invoice_po_matched from invoice_unused_delete_ids))->>'blockedReason') like '%Purchase Order%', 'PO match explains the deletion blocker');
+select throws_ok($$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000404'::uuid, 'DELETE_UNUSED', null)$$, '42501', null, 'PO match rejects permanent deletion');
+select is((select count(*) from public.purchase_order_invoice_matches where invoice_id = (select invoice_po_matched from invoice_unused_delete_ids)), 1::bigint, 'PO match history remains preserved');
+
+select is((public.preview_invoice_correction((select invoice_paid from invoice_unused_delete_ids))->>'canDelete')::boolean, false, 'paid invoice cannot be deleted');
+select ok((public.preview_invoice_correction((select invoice_paid from invoice_unused_delete_ids))->>'blockedReason') like '%paid%', 'paid evidence explains the deletion blocker');
+select throws_ok($$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000405'::uuid, 'DELETE_UNUSED', null)$$, '42501', null, 'paid invoice rejects permanent deletion');
+
+select is((public.preview_invoice_correction((select invoice_verified from invoice_unused_delete_ids))->>'canDelete')::boolean, false, 'verified invoice cannot be deleted');
+select is((public.preview_invoice_correction((select invoice_verified from invoice_unused_delete_ids))->'blockingDependencies'->>'verifiedHistory')::bigint, 1::bigint, 'verified history is an explicit protected blocker');
+select ok((public.preview_invoice_correction((select invoice_verified from invoice_unused_delete_ids))->>'blockedReason') like '%verified%', 'verified history explains the deletion blocker');
+select throws_ok($$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000406'::uuid, 'DELETE_UNUSED', null)$$, '42501', null, 'verified invoice rejects permanent deletion');
+
+select public.save_financial_account((select company_a from invoice_unused_delete_ids), (select financial_account from invoice_unused_delete_ids), 'BANK', 'FIXTURE', 'Unused Delete Bank', 'Settlement fixture', '•••• 4401', 'PHP', 0, date '2026-01-01', 'MANUAL', null, null);
+select public.create_financial_transaction((select company_a from invoice_unused_delete_ids), (select financial_transaction from invoice_unused_delete_ids), (select financial_account from invoice_unused_delete_ids), date '2026-09-07', timestamptz '2026-09-07 09:00:00+00', null, 'Settled invoice fixture', 'DEBIT', 70, 'PHP', 'unused-delete-settlement');
+select public.confirm_financial_settlement((select company_a from invoice_unused_delete_ids), (select financial_transaction from invoice_unused_delete_ids), 'INVOICE', (select invoice_settled from invoice_unused_delete_ids), 70, (select settlement_match from invoice_unused_delete_ids), null, 'Settlement fixture', 'RECONCILIATION_UI');
+select is((public.preview_invoice_correction((select invoice_settled from invoice_unused_delete_ids))->>'canDelete')::boolean, false, 'settled invoice cannot be deleted');
+select is((public.preview_invoice_correction((select invoice_settled from invoice_unused_delete_ids))->>'confirmedSettlementCount')::bigint, 1::bigint, 'confirmed settlement is an explicit protected blocker');
+select throws_ok($$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000407'::uuid, 'DELETE_UNUSED', null)$$, '42501', null, 'settled invoice rejects permanent deletion');
+select is((select count(*) from public.invoices where id = (select invoice_settled from invoice_unused_delete_ids)), 1::bigint, 'settled invoice remains preserved');
+
+select set_config('request.jwt.claim.sub', (select denied_user::text from invoice_unused_delete_ids), true);
+select throws_ok($$select public.apply_invoice_correction('b2000000-0000-4000-8000-000000000403'::uuid, 'DELETE_UNUSED', null)$$, '42501', null, 'invoice management permission deny blocks deletion');
+select is((select count(*) from public.invoices where id = (select invoice_allocated from invoice_unused_delete_ids)), 1::bigint, 'unauthorized delete leaves invoice unchanged');
+
+select * from finish();
+rollback;

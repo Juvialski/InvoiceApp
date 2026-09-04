@@ -38,6 +38,7 @@ test("local correction previews keep permanent deletion unavailable and explain 
   const invoicePreview = buildLocalInvoiceCorrectionPreview({ invoice: invoice(), allocationCount: 1, settlementMatchCount: 1, confirmedSettlementCount: 1, historyCount: 2 });
   assert.equal(invoicePreview.canDelete, false);
   assert.equal(invoicePreview.canVoid, false);
+  assert.equal(invoicePreview.blockingDependencies.projectAllocations, 1);
   assert.match(invoicePreview.blockedReason || "", /settlement/i);
   const expense = { id: "expense-a", expenseDate: "2026-08-01", category: "Fuel", description: "Fuel", amount: 100, currency: "PHP", status: "APPROVED" as const, createdAt: "2026-08-01", updatedAt: "2026-08-01" };
   const expensePreview = buildLocalExpenseCorrectionPreview({ expense, confirmedSettlementCount: 0 });
@@ -49,7 +50,9 @@ test("local correction previews keep permanent deletion unavailable and explain 
 });
 
 test("correction response parsing accepts the bounded database contract", () => {
-  const parsed = parseFinancialCorrectionPreview({ entityId: "invoice-a", status: "UNPAID", reviewStatus: "VERIFIED", lifecycleStatus: "ACTIVE", canDelete: false, canVoid: true, canArchive: true, canRestore: false, recommendedAction: "VOID", totalDependencyCount: 2, confirmedSettlementCount: 0, dependencies: { projectAllocations: 2 } }, "INVOICE");
+  const parsed = parseFinancialCorrectionPreview({ entityId: "invoice-a", status: "UNPAID", reviewStatus: "VERIFIED", lifecycleStatus: "ACTIVE", canDelete: false, canVoid: true, canArchive: true, canRestore: false, recommendedAction: "VOID", totalDependencyCount: 2, protectedDependencyCount: 2, disposableDependencyCount: 0, confirmedSettlementCount: 0, dependencies: { projectAllocations: 2 }, blockingDependencies: { projectAllocations: 2 }, disposableDependencies: {}, storageCleanup: { relationship: "RETAINED_FOR_CONSERVATIVE_RETENTION_CLEANUP", physicalObjectDeleted: false } }, "INVOICE");
   assert.equal(parsed.recommendedAction, "VOID");
   assert.equal(parsed.dependencies.projectAllocations, 2);
+  assert.equal(parsed.protectedDependencyCount, 2);
+  assert.equal(parsed.storageCleanup?.physicalObjectDeleted, false);
 });

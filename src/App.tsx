@@ -2938,7 +2938,7 @@ function InvoiceWorkspace() {
       allocationCount: invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id).length,
       settlementMatchCount: matches.length,
       confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length,
-      historyCount: (invoice.extractionId ? 1 : 0) + (invoice.reviewStatus === "VERIFIED" ? 1 : 0),
+      historyCount: invoice.reviewStatus === "VERIFIED" ? 1 : 0,
     });
   };
 
@@ -2974,7 +2974,7 @@ function InvoiceWorkspace() {
         setSelectedInvoice((current) => current?.id === result.entityId ? result.record as InvoiceData : current);
         lastPersistedRef.current.set(result.entityId, result.record as InvoiceData);
       }
-      showNotification("success", action === "VOID" ? "Invoice voided. Original values, extraction snapshots, allocations, and review history remain preserved." : action === "ARCHIVE" ? "Invoice archived for visibility only. Its financial status and history remain unchanged." : "Invoice restored to the visible directory.");
+      showNotification("success", action === "DELETE_UNUSED" ? "Invoice permanently deleted. Disposable extraction and intake provenance was handled safely." : action === "VOID" ? "Invoice voided. Original values, extraction snapshots, allocations, and review history remain preserved." : action === "ARCHIVE" ? "Invoice archived for visibility only. Its financial status and history remain unchanged." : "Invoice restored to the visible directory.");
       return result;
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not complete invoice correction."));
