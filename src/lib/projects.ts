@@ -37,7 +37,8 @@ export type ProjectLifecycleDependencyKey =
   | "subcontracts"
   | "subcontractProgressClaims"
   | "subcontractVariations"
-  | "clientBillings";
+  | "clientBillings"
+  | "clientCollections";
 export type ProjectLifecycleDependencyCounts = Partial<Record<ProjectLifecycleDependencyKey, number>>;
 
 export interface ProjectLifecyclePreview {
@@ -86,6 +87,7 @@ export const PROJECT_LIFECYCLE_DEPENDENCY_KEYS: readonly ProjectLifecycleDepende
   "subcontractProgressClaims",
   "subcontractVariations",
   "clientBillings",
+  "clientCollections",
 ];
 
 const REACTIVATABLE_PROJECT_STATUSES: readonly Exclude<ProjectStatus, "ARCHIVED" | "COMPLETED" | "CANCELLED">[] = ["PLANNING", "ACTIVE", "ON_HOLD"];

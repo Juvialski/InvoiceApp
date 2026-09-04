@@ -39,12 +39,14 @@ function readInitialWorkspace(anchorDate: string): DemoWorkspaceData {
         const parsed = JSON.parse(raw) as unknown;
         if (isSafeStoredDemoWorkspace(parsed, anchorDate) && Boolean((parsed as DemoWorkspaceData).coordination)) {
           const stored = parsed as DemoWorkspaceData;
-          if (stored.clientBillings && stored.clientBillingEvents) return stored;
+          if (stored.clientBillings && stored.clientBillingEvents && stored.clientCollections && stored.clientCollectionEvents) return stored;
           const seeded = createDemoWorkspace(anchorDate);
           return {
             ...stored,
             clientBillings: stored.clientBillings || seeded.clientBillings,
             clientBillingEvents: stored.clientBillingEvents || seeded.clientBillingEvents,
+            clientCollections: stored.clientCollections || seeded.clientCollections,
+            clientCollectionEvents: stored.clientCollectionEvents || seeded.clientCollectionEvents,
           };
         }
       }

@@ -7,6 +7,7 @@ import {
   type ProjectFinancialMetric,
 } from "../../utils/projectFinancialSummary.ts";
 import { calculateClientBillingSummary, type ClientBilling } from "../../lib/clientBilling.ts";
+import { calculateClientCollectionSummary, type ClientCollection } from "../../lib/clientCollections.ts";
 
 function money(value: number, currency: string) {
   try {
@@ -41,13 +42,16 @@ export function ProjectFinancialSummaryPanel({
   project,
   summary,
   clientBillings = [],
+  clientCollections = [],
 }: {
   project: Pick<Project, "id" | "projectBudget" | "contractValue" | "currency">;
   summary: ProjectCostSummary;
   clientBillings?: readonly ClientBilling[];
+  clientCollections?: readonly ClientCollection[];
 }) {
   const billingSummary = calculateClientBillingSummary(project, clientBillings);
-  const truth = buildProjectFinancialTruth(project, summary, billingSummary);
+  const collectionSummary = calculateClientCollectionSummary(project, clientBillings, clientCollections);
+  const truth = buildProjectFinancialTruth(project, summary, billingSummary, collectionSummary);
   const primary: Array<[string, ProjectFinancialMetric]> = [
     ["Contract Value", truth.contractValue],
     ["Approved Cost Budget", truth.approvedCostBudget],
@@ -55,8 +59,8 @@ export function ProjectFinancialSummaryPanel({
     ["Committed Cost", truth.committedCost],
     ["Remaining Budget", truth.remainingBudget],
     ["Billed to Date", truth.billed],
-    ["Collected (not implemented)", truth.collected],
-    ["Outstanding Receivables (not implemented)", truth.outstandingReceivables],
+    ["Collected to Date", truth.collected],
+    ["Outstanding Billed Amount", truth.outstandingReceivables],
   ];
 
   return (

@@ -95,3 +95,26 @@ test("client billing is available as revenue-side billed-to-date while collectio
   assert.equal(truth.collected.status, "unavailable");
   assert.match(truth.collected.reason || "", /collections.*not implemented/i);
 });
+
+test("client collections provide authoritative collected-to-date and outstanding receivables", () => {
+  const truth = buildProjectFinancialTruth(
+    project,
+    summary,
+    { billedToDate: 600 },
+    { collectedToDate: 400, outstandingBilledAmount: 200 }
+  );
+  assert.deepEqual(truth.billed, { status: "available", amount: 600, currency: "PHP" });
+  assert.deepEqual(truth.collected, { status: "available", amount: 400, currency: "PHP" });
+  assert.deepEqual(truth.outstandingReceivables, { status: "available", amount: 200, currency: "PHP" });
+});
+
+test("collection currency mismatch withholds collected and outstanding receivables", () => {
+  const truth = buildProjectFinancialTruth(
+    project,
+    summary,
+    { billedToDate: 600 },
+    { hasCurrencyMismatch: true, reason: "Mismatch" }
+  );
+  assert.equal(truth.collected.status, "unavailable");
+  assert.equal(truth.outstandingReceivables.status, "unavailable");
+});

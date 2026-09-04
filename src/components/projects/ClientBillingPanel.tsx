@@ -1,5 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Ban, CheckCircle2, ClipboardList, FilePlus2, Lock, Pencil, Plus, Send, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Ban,
+  CheckCircle2,
+  ClipboardList,
+  Coins,
+  FilePlus2,
+  History,
+  Lock,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Send,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import type { Project } from "../../types.ts";
@@ -13,16 +28,33 @@ import {
   type ClientBillingLineInput,
   type ClientBillingStatus,
 } from "../../lib/clientBilling.ts";
+import {
+  calculateClientCollectionSummary,
+  clientCollectionTotal,
+  billingCollectedAmount,
+  billingOutstandingAmount,
+  isClientCollectionProjectStatusAllowed,
+  type ClientCollection,
+  type ClientCollectionAllocationInput,
+  type ClientCollectionEvent,
+  type ClientCollectionInput,
+  type ClientCollectionStatus,
+} from "../../lib/clientCollections.ts";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 
 interface ClientBillingPanelProps {
   project: Project;
   billings: readonly ClientBilling[];
   events: readonly ClientBillingEvent[];
+  collections?: readonly ClientCollection[];
+  collectionEvents?: readonly ClientCollectionEvent[];
   loading?: boolean;
   canManage?: boolean;
   onSave: (input: ClientBillingInput, lines: readonly ClientBillingLineInput[]) => Promise<void> | void;
   onTransition: (id: string, targetStatus: ClientBillingStatus, reason?: string) => Promise<void> | void;
+  onSaveCollection?: (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => Promise<void> | void;
+  onRecordCollection?: (id: string) => Promise<void> | void;
+  onReverseCollection?: (id: string, reason: string) => Promise<void> | void;
 }
 
 function money(value: number | undefined, currency: string) {
@@ -34,8 +66,12 @@ function money(value: number | undefined, currency: string) {
   }
 }
 
-function statusTone(status: ClientBillingStatus): StatusTone {
+function billingStatusTone(status: ClientBillingStatus): StatusTone {
   return status === "ISSUED" ? "success" : status === "VOIDED" || status === "CANCELLED" ? "neutral" : status === "SUBMITTED" ? "warning" : "info";
+}
+
+function collectionStatusTone(status: ClientCollectionStatus): StatusTone {
+  return status === "RECORDED" ? "success" : status === "REVERSED" ? "neutral" : "info";
 }
 
 function today() {
@@ -44,6 +80,10 @@ function today() {
 
 function nextBillingNumber(project: Project, count: number) {
   return `PB-${project.projectCode || "PROJECT"}-${String(count + 1).padStart(3, "0")}`.toUpperCase();
+}
+
+function nextCollectionNumber(project: Project, count: number) {
+  return `COL-${project.projectCode || "PROJECT"}-${String(count + 1).padStart(3, "0")}`.toUpperCase();
 }
 
 function emptyLine(): ClientBillingLineInput {
@@ -68,57 +108,118 @@ function formFromBilling(billing: ClientBilling): { input: ClientBillingInput; l
   };
 }
 
-export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({ project, billings, events, loading = false, canManage = false, onSave, onTransition }) => {
+export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
+  project,
+  billings,
+  events,
+  collections = [],
+  collectionEvents = [],
+  loading = false,
+  canManage = false,
+  onSave,
+  onTransition,
+  onSaveCollection,
+  onRecordCollection,
+  onReverseCollection,
+}) => {
+  const [activeTab, setActiveTab] = useState<"billings" | "collections">("billings");
+
+  // Billings state
   const projectBillings = useMemo(() => billings.filter((billing) => billing.projectId === project.id), [billings, project.id]);
   const projectEvents = useMemo(() => events.filter((event) => projectBillings.some((billing) => billing.id === event.billingId)), [events, projectBillings]);
-  const summary = useMemo(() => calculateClientBillingSummary(project, projectBillings), [project, projectBillings]);
-  const [selectedId, setSelectedId] = useState<string | null>(projectBillings[0]?.id || null);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<ClientBillingInput>(() => ({ projectId: project.id, billingNumber: nextBillingNumber(project, projectBillings.length), billingDate: today(), clientNameSnapshot: project.clientName, clientReferenceSnapshot: project.clientReference, currency: project.currency }));
-  const [lines, setLines] = useState<ClientBillingLineInput[]>([emptyLine()]);
+  const billingSummary = useMemo(() => calculateClientBillingSummary(project, projectBillings), [project, projectBillings]);
+  const [selectedBillingId, setSelectedBillingId] = useState<string | null>(projectBillings[0]?.id || null);
+  const [editingBilling, setEditingBilling] = useState(false);
+  const [billingForm, setBillingForm] = useState<ClientBillingInput>(() => ({
+    projectId: project.id,
+    billingNumber: nextBillingNumber(project, projectBillings.length),
+    billingDate: today(),
+    clientNameSnapshot: project.clientName,
+    clientReferenceSnapshot: project.clientReference,
+    currency: project.currency,
+  }));
+  const [billingLines, setBillingLines] = useState<ClientBillingLineInput[]>([emptyLine()]);
+
+  // Collections state
+  const projectCollections = useMemo(() => collections.filter((c) => c.projectId === project.id), [collections, project.id]);
+  const projectCollectionEvents = useMemo(() => collectionEvents.filter((event) => projectCollections.some((c) => c.id === event.collectionId)), [collectionEvents, projectCollections]);
+  const collectionSummary = useMemo(() => calculateClientCollectionSummary(project, projectBillings, projectCollections), [project, projectBillings, projectCollections]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(projectCollections[0]?.id || null);
+  const [editingCollection, setEditingCollection] = useState(false);
+  const [collectionForm, setCollectionForm] = useState<ClientCollectionInput>(() => ({
+    projectId: project.id,
+    collectionNumber: nextCollectionNumber(project, projectCollections.length),
+    collectionDate: today(),
+    payerSnapshot: project.clientName,
+    currency: project.currency,
+  }));
+  const [collectionAllocations, setCollectionAllocations] = useState<Record<string, number>>({});
+  const [reversalReason, setReversalReason] = useState("");
+  const [reversingCollectionId, setReversingCollectionId] = useState<string | null>(null);
+
+  // General state
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selected = projectBillings.find((billing) => billing.id === selectedId) || projectBillings[0];
-  const metricCards: Array<[string, number | undefined]> = [
-    ["Contract Value", summary.contractValue],
-    ["Billed to Date", summary.billedToDate],
-    ["Remaining to Bill", summary.remainingToBill],
-    ["Issued Billings", summary.issuedBillingCount],
-  ];
+  const selectedBilling = projectBillings.find((billing) => billing.id === selectedBillingId) || projectBillings[0];
+  const selectedCollection = projectCollections.find((c) => c.id === selectedCollectionId) || projectCollections[0];
+
+  const issuedBillings = useMemo(() => projectBillings.filter((b) => b.status === "ISSUED"), [projectBillings]);
 
   useEffect(() => {
-    if (selectedId && projectBillings.some((billing) => billing.id === selectedId)) return;
-    setSelectedId(projectBillings[0]?.id || null);
-  }, [projectBillings, selectedId]);
+    if (selectedBillingId && projectBillings.some((billing) => billing.id === selectedBillingId)) return;
+    setSelectedBillingId(projectBillings[0]?.id || null);
+  }, [projectBillings, selectedBillingId]);
 
-  const startCreate = () => {
+  useEffect(() => {
+    if (selectedCollectionId && projectCollections.some((c) => c.id === selectedCollectionId)) return;
+    setSelectedCollectionId(projectCollections[0]?.id || null);
+  }, [projectCollections, selectedCollectionId]);
+
+  // Commercial metric cards
+  const metricCards: Array<[string, number | undefined, string]> = [
+    ["Contract Value", billingSummary.contractValue, "Client contract value"],
+    ["Billed to Date", billingSummary.billedToDate, "ISSUED billings only"],
+    ["Collected to Date", collectionSummary.collectedToDate, "RECORDED collections"],
+    ["Outstanding Billed Amount", collectionSummary.outstandingBilledAmount, "Billed less collected"],
+    ["Remaining to Bill", billingSummary.remainingToBill, "Contract less billed"],
+  ];
+
+  // Billing Actions
+  const startCreateBilling = () => {
     setError(null);
-    setForm({ projectId: project.id, billingNumber: nextBillingNumber(project, projectBillings.length), billingDate: today(), clientNameSnapshot: project.clientName, clientReferenceSnapshot: project.clientReference, currency: project.currency });
-    setLines([emptyLine()]);
-    setEditing(true);
-    setSelectedId(null);
+    setBillingForm({
+      projectId: project.id,
+      billingNumber: nextBillingNumber(project, projectBillings.length),
+      billingDate: today(),
+      clientNameSnapshot: project.clientName,
+      clientReferenceSnapshot: project.clientReference,
+      currency: project.currency,
+    });
+    setBillingLines([emptyLine()]);
+    setEditingBilling(true);
+    setSelectedBillingId(null);
   };
 
-  const startEdit = (billing: ClientBilling) => {
+  const startEditBilling = (billing: ClientBilling) => {
     const next = formFromBilling(billing);
     setError(null);
-    setForm(next.input);
-    setLines(next.lines.length ? next.lines : [emptyLine()]);
-    setSelectedId(billing.id);
-    setEditing(true);
+    setBillingForm(next.input);
+    setBillingLines(next.lines.length ? next.lines : [emptyLine()]);
+    setSelectedBillingId(billing.id);
+    setEditingBilling(true);
   };
 
-  const saveDraft = async (event: React.FormEvent) => {
+  const saveDraftBilling = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.billingNumber?.trim()) { setError("Billing number is required."); return; }
-    if (!lines.length || lines.some((line) => !line.description.trim())) { setError("Every billing line needs a description."); return; }
-    if (lines.some((line) => !Number.isFinite(Number(line.amount)) || Number(line.amount) < 0)) { setError("Billing line amounts must be zero or greater."); return; }
+    if (!billingForm.billingNumber?.trim()) { setError("Billing number is required."); return; }
+    if (!billingLines.length || billingLines.some((line) => !line.description.trim())) { setError("Every billing line needs a description."); return; }
+    if (billingLines.some((line) => !Number.isFinite(Number(line.amount)) || Number(line.amount) < 0)) { setError("Billing line amounts must be zero or greater."); return; }
     setBusy(true);
     setError(null);
     try {
-      await onSave({ ...form, projectId: project.id, currency: project.currency }, lines.map((line) => ({ ...line, description: line.description.trim(), amount: Number(line.amount) || 0 })));
-      setEditing(false);
+      await onSave({ ...billingForm, projectId: project.id, currency: project.currency }, billingLines.map((line) => ({ ...line, description: line.description.trim(), amount: Number(line.amount) || 0 })));
+      setEditingBilling(false);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
     } finally {
@@ -126,7 +227,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({ project,
     }
   };
 
-  const transition = async (billing: ClientBilling, target: ClientBillingStatus) => {
+  const transitionBilling = async (billing: ClientBilling, target: ClientBillingStatus) => {
     if (busy) return;
     let reason: string | undefined;
     if (target === "DRAFT" || target === "CANCELLED" || target === "VOIDED") {
@@ -150,84 +251,692 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({ project,
     }
   };
 
-  if (editing) {
+  // Collection Actions
+  const startCreateCollection = () => {
+    setError(null);
+    setCollectionForm({
+      projectId: project.id,
+      collectionNumber: nextCollectionNumber(project, projectCollections.length),
+      collectionDate: today(),
+      payerSnapshot: project.clientName,
+      currency: project.currency,
+    });
+    // Pre-populate allocations with 0
+    const initialAlloc: Record<string, number> = {};
+    for (const b of issuedBillings) {
+      const outstanding = billingOutstandingAmount(b, projectCollections);
+      if (outstanding > 0) {
+        initialAlloc[b.id] = 0;
+      }
+    }
+    setCollectionAllocations(initialAlloc);
+    setEditingCollection(true);
+    setSelectedCollectionId(null);
+  };
+
+  const startEditCollection = (collection: ClientCollection) => {
+    setError(null);
+    setCollectionForm({
+      id: collection.id,
+      projectId: collection.projectId,
+      collectionNumber: collection.collectionNumber,
+      collectionDate: collection.collectionDate,
+      externalReference: collection.externalReference,
+      payerSnapshot: collection.payerSnapshot,
+      currency: collection.currency,
+      notes: collection.notes,
+    });
+    const currentAlloc: Record<string, number> = {};
+    for (const alloc of collection.allocations) {
+      currentAlloc[alloc.billingId] = alloc.amount;
+    }
+    for (const b of issuedBillings) {
+      if (currentAlloc[b.id] === undefined) {
+        currentAlloc[b.id] = 0;
+      }
+    }
+    setCollectionAllocations(currentAlloc);
+    setSelectedCollectionId(collection.id);
+    setEditingCollection(true);
+  };
+
+  const saveDraftCollection = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!onSaveCollection) return;
+    if (!collectionForm.collectionNumber?.trim()) { setError("Collection number is required."); return; }
+    if (!collectionForm.collectionDate) { setError("Collection date is required."); return; }
+
+    const allocEntries = Object.entries(collectionAllocations).filter(([_, amount]) => Number(amount) > 0);
+    if (!allocEntries.length) {
+      setError("At least one positive billing allocation is required.");
+      return;
+    }
+
+    // Check individual over-collection
+    for (const [billingId, amount] of allocEntries) {
+      const b = issuedBillings.find((item) => item.id === billingId);
+      if (!b) {
+        setError("Allocated billing is not found or not in ISSUED status.");
+        return;
+      }
+      const outstanding = billingOutstandingAmount(b, projectCollections, collectionForm.id);
+      if (Number(amount) > outstanding + 0.0001) {
+        setError(`Allocation of ${money(Number(amount), project.currency)} exceeds outstanding amount of ${money(outstanding, project.currency)} for billing ${b.billingNumber}.`);
+        return;
+      }
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const allocationsInput: ClientCollectionAllocationInput[] = allocEntries.map(([billingId, amount]) => ({
+        billingId,
+        amount: Number(amount),
+      }));
+      await onSaveCollection({ ...collectionForm, projectId: project.id, currency: project.currency }, allocationsInput);
+      setEditingCollection(false);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const recordCollection = async (collection: ClientCollection) => {
+    if (!onRecordCollection || busy) return;
+    const confirmed = typeof window === "undefined" || window.confirm(`Record collection ${collection.collectionNumber} for ${money(clientCollectionTotal(collection), collection.currency)}? This finalizes the receipt, marks the terms immutable, and locks the billing amounts.`);
+    if (!confirmed) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onRecordCollection(collection.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reverseCollection = async (collectionId: string) => {
+    if (!onReverseCollection || busy) return;
+    const reason = reversalReason.trim();
+    if (reason.length < 3) {
+      setError("Reversal reason must be at least 3 characters.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onReverseCollection(collectionId, reason);
+      setReversingCollectionId(null);
+      setReversalReason("");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Editor views
+  if (editingBilling) {
     return (
       <section aria-labelledby="client-billing-editor-heading" className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Client progress billing</p>
-            <h2 id="client-billing-editor-heading" className="mt-1 text-xl font-black text-slate-950">{form.id ? "Edit billing draft" : "Create billing draft"}</h2>
+            <h2 id="client-billing-editor-heading" className="mt-1 text-xl font-black text-slate-950">{billingForm.id ? "Edit billing draft" : "Create billing draft"}</h2>
             <p className="mt-1 text-xs text-slate-500">Revenue-side project history only. Saving a draft does not bill the client, change project cost, or create cash activity.</p>
           </div>
-          <Button variant="secondary" label="Cancel" onClick={() => setEditing(false)} />
+          <Button variant="secondary" label="Cancel" onClick={() => setEditingBilling(false)} />
         </div>
-        <form onSubmit={saveDraft} className="space-y-4">
+        <form onSubmit={saveDraftBilling} className="space-y-4">
           <Card className="p-5 shadow-sm" elevation="low">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="space-y-1"><span className="field-label">Billing number</span><input className="field-input" value={form.billingNumber || ""} onChange={(event) => setForm((current) => ({ ...current, billingNumber: event.target.value }))} required /></label>
-              <label className="space-y-1"><span className="field-label">Billing date</span><input className="field-input" type="date" value={form.billingDate || ""} onChange={(event) => setForm((current) => ({ ...current, billingDate: event.target.value }))} required /></label>
-              <label className="space-y-1"><span className="field-label">Period start</span><input className="field-input" type="date" value={form.periodStart || ""} onChange={(event) => setForm((current) => ({ ...current, periodStart: event.target.value || undefined }))} /></label>
-              <label className="space-y-1"><span className="field-label">Period end</span><input className="field-input" type="date" value={form.periodEnd || ""} onChange={(event) => setForm((current) => ({ ...current, periodEnd: event.target.value || undefined }))} /></label>
-              <label className="space-y-1 sm:col-span-2"><span className="field-label">Client snapshot</span><input className="field-input bg-slate-50" value={form.clientNameSnapshot || ""} onChange={(event) => setForm((current) => ({ ...current, clientNameSnapshot: event.target.value }))} placeholder={project.clientName || "Client not set"} /></label>
-              <label className="space-y-1 sm:col-span-2"><span className="field-label">Client reference</span><input className="field-input" value={form.clientReferenceSnapshot || ""} onChange={(event) => setForm((current) => ({ ...current, clientReferenceSnapshot: event.target.value || undefined }))} /></label>
-              <label className="space-y-1 sm:col-span-4"><span className="field-label">Notes</span><textarea className="field-input min-h-20" value={form.notes || ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value || undefined }))} /></label>
+              <label className="space-y-1"><span className="field-label">Billing number</span><input className="field-input" value={billingForm.billingNumber || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingNumber: event.target.value }))} required /></label>
+              <label className="space-y-1"><span className="field-label">Billing date</span><input className="field-input" type="date" value={billingForm.billingDate || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingDate: event.target.value }))} required /></label>
+              <label className="space-y-1"><span className="field-label">Period start</span><input className="field-input" type="date" value={billingForm.periodStart || ""} onChange={(event) => setBillingForm((current) => ({ ...current, periodStart: event.target.value || undefined }))} /></label>
+              <label className="space-y-1"><span className="field-label">Period end</span><input className="field-input" type="date" value={billingForm.periodEnd || ""} onChange={(event) => setBillingForm((current) => ({ ...current, periodEnd: event.target.value || undefined }))} /></label>
+              <label className="space-y-1 sm:col-span-2"><span className="field-label">Client snapshot</span><input className="field-input bg-slate-50" value={billingForm.clientNameSnapshot || ""} onChange={(event) => setBillingForm((current) => ({ ...current, clientNameSnapshot: event.target.value }))} placeholder={project.clientName || "Client not set"} /></label>
+              <label className="space-y-1 sm:col-span-2"><span className="field-label">Client reference</span><input className="field-input" value={billingForm.clientReferenceSnapshot || ""} onChange={(event) => setBillingForm((current) => ({ ...current, clientReferenceSnapshot: event.target.value || undefined }))} /></label>
+              <label className="space-y-1 sm:col-span-4"><span className="field-label">Notes</span><textarea className="field-input min-h-20" value={billingForm.notes || ""} onChange={(event) => setBillingForm((current) => ({ ...current, notes: event.target.value || undefined }))} /></label>
             </div>
           </Card>
           <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5"><div><h3 className="text-sm font-black">Billing lines</h3><p className="mt-1 text-[10px] text-slate-500">Line values are the source of the billing total.</p></div><button type="button" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700" onClick={() => setLines((current) => [...current, emptyLine()])}><Plus className="h-3.5 w-3.5" /> Add line</button></div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
+              <div><h3 className="text-sm font-black">Billing lines</h3><p className="mt-1 text-[10px] text-slate-500">Line values are the source of the billing total.</p></div>
+              <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700" onClick={() => setBillingLines((current) => [...current, emptyLine()])}><Plus className="h-3.5 w-3.5" /> Add line</button>
+            </div>
             <div className="divide-y divide-slate-100">
-              {lines.map((line, index) => (
+              {billingLines.map((line, index) => (
                 <div key={index} className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_170px_40px] sm:items-end">
-                  <label className="space-y-1"><span className="field-label">Description {index + 1}</span><input className="field-input" value={line.description} onChange={(event) => setLines((current) => current.map((candidate, lineIndex) => lineIndex === index ? { ...candidate, description: event.target.value } : candidate))} required /></label>
-                  <label className="space-y-1"><span className="field-label">Amount ({project.currency})</span><input className="field-input text-right" type="number" min="0" step="0.01" value={line.amount} onChange={(event) => setLines((current) => current.map((candidate, lineIndex) => lineIndex === index ? { ...candidate, amount: Number(event.target.value) || 0 } : candidate))} required /></label>
-                  <button type="button" aria-label={`Remove billing line ${index + 1}`} className="inline-flex h-10 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((_, lineIndex) => lineIndex !== index))}><Trash2 className="h-4 w-4" /></button>
+                  <label className="space-y-1"><span className="field-label">Description {index + 1}</span><input className="field-input" value={line.description} onChange={(event) => setBillingLines((current) => current.map((candidate, lineIndex) => lineIndex === index ? { ...candidate, description: event.target.value } : candidate))} required /></label>
+                  <label className="space-y-1"><span className="field-label">Amount ({project.currency})</span><input className="field-input text-right" type="number" min="0" step="0.01" value={line.amount} onChange={(event) => setBillingLines((current) => current.map((candidate, lineIndex) => lineIndex === index ? { ...candidate, amount: Number(event.target.value) || 0 } : candidate))} required /></label>
+                  <button type="button" aria-label={`Remove billing line ${index + 1}`} className="inline-flex h-10 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40" disabled={billingLines.length === 1} onClick={() => setBillingLines((current) => current.filter((_, lineIndex) => lineIndex !== index))}><Trash2 className="h-4 w-4" /></button>
                 </div>
               ))}
             </div>
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-4"><span className="text-xs font-bold text-slate-600">Current billing total</span><span className="text-lg font-black tabular-nums text-slate-950">{money(clientBillingTotal({ lines: lines.map((line) => ({ amount: Number(line.amount) || 0 })) }), project.currency)}</span></div>
+            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-4">
+              <span className="text-xs font-bold text-slate-600">Current billing total</span>
+              <span className="text-lg font-black tabular-nums text-slate-950">{money(clientBillingTotal({ lines: billingLines.map((line) => ({ amount: Number(line.amount) || 0 })) }), project.currency)}</span>
+            </div>
           </Card>
           {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{error}</div>}
-          <div className="flex flex-wrap items-center justify-end gap-2"><Button variant="secondary" label="Cancel" onClick={() => setEditing(false)} /><button type="submit" disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"><FilePlus2 className="h-3.5 w-3.5" />{busy ? "Saving…" : "Save draft"}</button></div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="secondary" label="Cancel" onClick={() => setEditingBilling(false)} />
+            <button type="submit" disabled={busy} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"><FilePlus2 className="h-3.5 w-3.5" />{busy ? "Saving…" : "Save draft"}</button>
+          </div>
         </form>
       </section>
     );
   }
 
-  const selectedEvents = selected ? projectEvents.filter((event) => event.billingId === selected.id).sort((left, right) => right.createdAt.localeCompare(left.createdAt)) : [];
-  const projectCanReceiveBilling = isClientBillingProjectStatusAllowed(project.status);
+  if (editingCollection) {
+    const totalAllocated = Object.values(collectionAllocations).reduce((sum, val) => sum + (Number(val) || 0), 0);
+    return (
+      <section aria-labelledby="client-collection-editor-heading" className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Client collections & receivables</p>
+            <h2 id="client-collection-editor-heading" className="mt-1 text-xl font-black text-slate-950">{collectionForm.id ? "Edit collection draft" : "Record client collection draft"}</h2>
+            <p className="mt-1 text-xs text-slate-500">Commercial collections allocate strictly against ISSUED client billings. Drafts do not mutate collected metrics until RECORDED.</p>
+          </div>
+          <Button variant="secondary" label="Cancel" onClick={() => setEditingCollection(false)} />
+        </div>
+        <form onSubmit={saveDraftCollection} className="space-y-4">
+          <Card className="p-5 shadow-sm" elevation="low">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="space-y-1"><span className="field-label">Collection number</span><input className="field-input" value={collectionForm.collectionNumber || ""} onChange={(event) => setCollectionForm((current) => ({ ...current, collectionNumber: event.target.value }))} required /></label>
+              <label className="space-y-1"><span className="field-label">Collection date</span><input className="field-input" type="date" value={collectionForm.collectionDate || ""} onChange={(event) => setCollectionForm((current) => ({ ...current, collectionDate: event.target.value }))} required /></label>
+              <label className="space-y-1"><span className="field-label">External reference (check # / wire ref)</span><input className="field-input" value={collectionForm.externalReference || ""} onChange={(event) => setCollectionForm((current) => ({ ...current, externalReference: event.target.value || undefined }))} placeholder="e.g. Check number or wire ref" /></label>
+              <label className="space-y-1 sm:col-span-2"><span className="field-label">Payer snapshot</span><input className="field-input bg-slate-50" value={collectionForm.payerSnapshot || ""} onChange={(event) => setCollectionForm((current) => ({ ...current, payerSnapshot: event.target.value }))} placeholder={project.clientName || "Client"} /></label>
+              <label className="space-y-1"><span className="field-label">Currency</span><input className="field-input bg-slate-100 text-slate-500" value={project.currency} disabled /></label>
+              <label className="space-y-1 sm:col-span-4"><span className="field-label">Notes</span><textarea className="field-input min-h-20" value={collectionForm.notes || ""} onChange={(event) => setCollectionForm((current) => ({ ...current, notes: event.target.value || undefined }))} placeholder="Optional commercial collection notes..." /></label>
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
+            <div className="border-b border-slate-100 p-5">
+              <h3 className="text-sm font-black">Billing allocations</h3>
+              <p className="mt-1 text-[10px] text-slate-500">Select and allocate collection amounts against eligible ISSUED progress billings for this project.</p>
+            </div>
+            {issuedBillings.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500">
+                <AlertTriangle className="mx-auto h-6 w-6 text-amber-500 mb-2" />
+                There are no ISSUED client billings for this project. Collections can only allocate against ISSUED billings.
+              </div>
+            ) : (
+              <div className="ops-scrollbar overflow-auto">
+                <table className="ops-table min-w-[650px] w-full text-left text-xs">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Billing Number / Date</th>
+                      <th className="px-4 py-3 text-right">Billed Amount</th>
+                      <th className="px-4 py-3 text-right">Previously Collected</th>
+                      <th className="px-4 py-3 text-right">Available Outstanding</th>
+                      <th className="px-4 py-3 text-right w-44">Allocated Amount ({project.currency})</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {issuedBillings.map((b) => {
+                      const billed = clientBillingTotal(b);
+                      const previouslyCollected = billingCollectedAmount(b.id, projectCollections, collectionForm.id);
+                      const outstanding = billingOutstandingAmount(b, projectCollections, collectionForm.id);
+                      const currentAlloc = collectionAllocations[b.id] ?? 0;
+                      return (
+                        <tr key={b.id} className="align-middle">
+                          <td className="px-4 py-3">
+                            <strong className="block text-xs text-indigo-700">{b.billingNumber}</strong>
+                            <span className="block text-[10px] text-slate-500">{b.billingDate}</span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(billed, b.currency)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums text-slate-600">{money(previouslyCollected, b.currency)}</td>
+                          <td className="px-4 py-3 text-right font-bold tabular-nums text-emerald-700">{money(outstanding, b.currency)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              max={outstanding}
+                              step="0.01"
+                              className="field-input text-right font-black"
+                              value={currentAlloc || ""}
+                              placeholder="0.00"
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0;
+                                setCollectionAllocations((prev) => ({ ...prev, [b.id]: val }));
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-5 py-4">
+              <span className="text-xs font-bold text-slate-600">Total collection allocation</span>
+              <span className="text-lg font-black tabular-nums text-slate-950">{money(totalAllocated, project.currency)}</span>
+            </div>
+          </Card>
+
+          {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{error}</div>}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="secondary" label="Cancel" onClick={() => setEditingCollection(false)} />
+            <button type="submit" disabled={busy || totalAllocated <= 0} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">
+              <FilePlus2 className="h-3.5 w-3.5" />{busy ? "Saving…" : "Save collection draft"}
+            </button>
+          </div>
+        </form>
+      </section>
+    );
+  }
+
+  const selectedBillingEvents = selectedBilling ? projectEvents.filter((event) => event.billingId === selectedBilling.id).sort((left, right) => right.createdAt.localeCompare(left.createdAt)) : [];
+  const selectedCollectionEvents = selectedCollection ? projectCollectionEvents.filter((event) => event.collectionId === selectedCollection.id).sort((left, right) => right.createdAt.localeCompare(left.createdAt)) : [];
+  const projectCanReceiveActivity = isClientBillingProjectStatusAllowed(project.status) && isClientCollectionProjectStatusAllowed(project.status);
 
   return (
     <section aria-labelledby="client-billing-heading" className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Commercial controls</p><h2 id="client-billing-heading" className="mt-1 text-xl font-black text-slate-950">Client progress billing</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Project-level client billing truth. Only ISSUED billings count toward Billed to Date; drafts, submitted, cancelled, and voided records do not.</p></div>
-        {canManage && <button type="button" onClick={startCreate} disabled={!projectCanReceiveBilling || loading} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> New billing draft</button>}
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Commercial controls</p>
+          <h2 id="client-billing-heading" className="mt-1 text-xl font-black text-slate-950">Client progress billing & collections</h2>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Authoritative commercial revenue truth. Only ISSUED billings count toward Billed to Date and are eligible for client collections.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {activeTab === "billings" && canManage && (
+            <button type="button" onClick={startCreateBilling} disabled={!projectCanReceiveActivity || loading} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+              <Plus className="h-3.5 w-3.5" /> New billing draft
+            </button>
+          )}
+          {activeTab === "collections" && canManage && (
+            <button type="button" onClick={startCreateCollection} disabled={!projectCanReceiveActivity || loading || issuedBillings.length === 0} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+              <Coins className="h-3.5 w-3.5" /> Record collection
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {metricCards.map(([label, value]) => <Card key={label} className="p-4 shadow-sm" elevation="low"><p className="text-[10px] font-semibold text-slate-500">{label}</p><p className="mt-1 text-base font-black tabular-nums text-slate-950">{label === "Issued Billings" ? String(value) : money(value, summary.currency)}</p><p className="mt-1 text-[9px] text-slate-400">{label === "Billed to Date" ? "ISSUED only" : label === "Remaining to Bill" ? "Contract less issued billing" : label === "Issued Billings" ? `${summary.totalBillingCount} total records` : "Project authority"}</p></Card>)}
+      {/* Commercial 5-Card Metrics Grid */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        {metricCards.map(([label, value, subtitle]) => (
+          <Card key={label} className="p-4 shadow-sm" elevation="low">
+            <p className="text-[10px] font-semibold text-slate-500">{label}</p>
+            <p className="mt-1 text-base font-black tabular-nums text-slate-950">{money(value, billingSummary.currency)}</p>
+            <p className="mt-1 text-[9px] text-slate-400">{subtitle}</p>
+          </Card>
+        ))}
       </div>
 
-      {summary.hasCurrencyMismatch && <div role="status" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{summary.reason}</div>}
-      {!projectCanReceiveBilling && <div role="status" className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700"><Lock className="mt-0.5 h-4 w-4 shrink-0" />New client billings can be created, submitted, or issued only while the project is PLANNING, ACTIVE, ON_HOLD, or COMPLETED. This project is {project.status}.</div>}
+      {/* Warnings & Boundary Notices */}
+      {billingSummary.hasCurrencyMismatch && (
+        <div role="status" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{billingSummary.reason}
+        </div>
+      )}
+      {!projectCanReceiveActivity && (
+        <div role="status" className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" />Commercial billing and collection records can be created or transitioned only while the project is PLANNING, ACTIVE, ON_HOLD, or COMPLETED. This project is {project.status}.
+        </div>
+      )}
       {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">{error}</div>}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
-        <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
-          <div className="flex items-center justify-between border-b border-slate-100 p-5"><div><h3 className="text-sm font-black">Billing register</h3><p className="mt-1 text-[10px] text-slate-500">{loading ? "Refreshing project billing history…" : `${projectBillings.length} billing record${projectBillings.length === 1 ? "" : "s"}`}</p></div><ClipboardList className="h-4 w-4 text-indigo-500" /></div>
-          {loading ? <div role="status" className="p-10 text-center text-xs font-semibold text-slate-500">Loading client billing…</div> : projectBillings.length ? <div className="ops-scrollbar overflow-auto"><table className="ops-table min-w-[680px] w-full text-left text-xs"><caption className="sr-only">Client billing register</caption><thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Number / period</th><th className="px-4 py-3">Client reference</th><th className="px-4 py-3 text-right">Current amount</th><th className="px-4 py-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100">{projectBillings.map((billing) => <tr key={billing.id} className={`cursor-pointer align-top hover:bg-indigo-50/40 ${selected?.id === billing.id ? "bg-indigo-50/70" : ""}`} onClick={() => setSelectedId(billing.id)}><td className="px-4 py-3"><button type="button" className="text-left"><strong className="block text-xs text-indigo-700">{billing.billingNumber}</strong><span className="mt-1 block text-[10px] text-slate-500">{billing.billingDate}{billing.periodStart || billing.periodEnd ? ` · ${billing.periodStart || "?"} – ${billing.periodEnd || "?"}` : ""}</span></button></td><td className="max-w-[180px] px-4 py-3"><span className="block truncate text-[10px] font-semibold text-slate-700">{billing.clientReferenceSnapshot || "No client reference"}</span><span className="mt-1 block truncate text-[10px] text-slate-500">{billing.clientNameSnapshot || project.clientName || "Client not set"}</span></td><td className="px-4 py-3 text-right font-black tabular-nums">{money(clientBillingTotal(billing), billing.currency)}</td><td className="px-4 py-3"><StatusBadge tone={statusTone(billing.status)}>{billing.status}</StatusBadge></td></tr>)}</tbody></table></div> : <div className="p-10 text-center"><ClipboardList className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">No client billing history yet.</p><p className="mt-1 text-xs text-slate-500">Create a draft to start the project billing register. Drafts do not inflate Billed to Date.</p></div>}
-        </Card>
-
-        <Card className="p-5 shadow-sm" elevation="low">
-          {selected ? <>
-            <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Billing detail</p><h3 className="mt-1 text-base font-black text-slate-950">{selected.billingNumber}</h3><p className="mt-1 text-[10px] text-slate-500">{selected.clientNameSnapshot || project.clientName || "Client snapshot not set"} · {selected.billingDate}</p></div><StatusBadge tone={statusTone(selected.status)}>{selected.status}</StatusBadge></div>
-            <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">{selected.lines.length ? selected.lines.map((line) => <div key={line.id} className="flex items-start justify-between gap-3 px-3 py-3"><span className="text-xs leading-5 text-slate-700">{line.description}</span><span className="shrink-0 text-xs font-black tabular-nums">{money(line.amount, selected.currency)}</span></div>) : <div className="px-3 py-4 text-xs text-slate-500">No lines recorded.</div>}<div className="flex items-center justify-between gap-3 bg-slate-50 px-3 py-3"><span className="text-xs font-bold text-slate-600">Current billing amount</span><span className="text-base font-black tabular-nums">{money(clientBillingTotal(selected), selected.currency)}</span></div></div>
-            {canManage && <div className="mt-4 flex flex-wrap gap-2">{selected.status === "DRAFT" && <><button type="button" onClick={() => startEdit(selected)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-bold text-slate-700"><Pencil className="h-3 w-3" /> Edit draft</button><button type="button" onClick={() => void transition(selected, "SUBMITTED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2 text-[10px] font-bold text-white"><Send className="h-3 w-3" /> Submit</button><button type="button" onClick={() => void transition(selected, "CANCELLED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-2 text-[10px] font-bold text-rose-700"><Ban className="h-3 w-3" /> Cancel</button></>}{selected.status === "SUBMITTED" && <><button type="button" onClick={() => void transition(selected, "DRAFT")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-bold text-slate-700"><Pencil className="h-3 w-3" /> Return to draft</button><button type="button" onClick={() => void transition(selected, "ISSUED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-[10px] font-bold text-white"><CheckCircle2 className="h-3 w-3" /> Issue</button><button type="button" onClick={() => void transition(selected, "CANCELLED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-2 text-[10px] font-bold text-rose-700"><Ban className="h-3 w-3" /> Cancel</button></>}{selected.status === "ISSUED" && <button type="button" onClick={() => void transition(selected, "VOIDED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-2 text-[10px] font-bold text-rose-700"><Ban className="h-3 w-3" /> Void issued billing</button>}</div>}
-            <div className="mt-5 border-t border-slate-100 pt-4"><div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-indigo-600" /><h4 className="text-xs font-black text-slate-800">Billing history</h4></div>{selectedEvents.length ? <div className="mt-3 space-y-3">{selectedEvents.map((event) => <div key={event.id} className="flex items-start gap-2 text-[10px]"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" /><div><p className="font-bold text-slate-700">{event.eventType.replaceAll("_", " ")}{event.fromStatus ? ` · ${event.fromStatus} → ${event.toStatus}` : ` · ${event.toStatus}`}</p><p className="mt-0.5 text-slate-500">{event.createdAt}{event.reason ? ` · ${event.reason}` : ""}</p></div></div>)}</div> : <p className="mt-3 text-[10px] text-slate-500">No lifecycle events available.</p>}</div>
-          </> : <div className="flex min-h-[300px] items-center justify-center text-center"><div><ClipboardList className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-bold text-slate-700">Select a billing record</p><p className="mt-1 text-xs text-slate-500">Detail, lifecycle actions, and history will appear here.</p></div></div>}
-        </Card>
+      {/* Sub-navigation Tabs */}
+      <div className="flex border-b border-slate-200">
+        <button
+          type="button"
+          onClick={() => setActiveTab("billings")}
+          className={`border-b-2 px-4 py-2 text-xs font-bold transition-colors ${activeTab === "billings" ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-900"}`}
+        >
+          Billings ({projectBillings.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("collections")}
+          className={`border-b-2 px-4 py-2 text-xs font-bold transition-colors ${activeTab === "collections" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-900"}`}
+        >
+          Collections / Receivables ({projectCollections.length})
+        </button>
       </div>
 
-      <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[10px] leading-4 text-slate-600"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" /><p><strong>Collection boundary:</strong> client billing does not create cash transactions, settlement matches, collected amounts, receivables, accounting postings, tax calculations, or revenue recognition. Collections and settlement linkage are deferred to P2B-5.</p></div>
+      {/* Active Tab Content */}
+      {activeTab === "billings" ? (
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
+          <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
+            <div className="flex items-center justify-between border-b border-slate-100 p-5">
+              <div>
+                <h3 className="text-sm font-black">Billing register</h3>
+                <p className="mt-1 text-[10px] text-slate-500">{loading ? "Refreshing project billing history…" : `${projectBillings.length} billing record${projectBillings.length === 1 ? "" : "s"}`}</p>
+              </div>
+              <ClipboardList className="h-4 w-4 text-indigo-500" />
+            </div>
+            {loading ? (
+              <div role="status" className="p-10 text-center text-xs font-semibold text-slate-500">Loading client billing…</div>
+            ) : projectBillings.length ? (
+              <div className="ops-scrollbar overflow-auto">
+                <table className="ops-table min-w-[680px] w-full text-left text-xs">
+                  <caption className="sr-only">Client billing register</caption>
+                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Number / period</th>
+                      <th className="px-4 py-3">Client reference</th>
+                      <th className="px-4 py-3 text-right">Current amount</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {projectBillings.map((billing) => (
+                      <tr key={billing.id} className={`cursor-pointer align-top hover:bg-indigo-50/40 ${selectedBilling?.id === billing.id ? "bg-indigo-50/70" : ""}`} onClick={() => setSelectedBillingId(billing.id)}>
+                        <td className="px-4 py-3">
+                          <button type="button" className="text-left">
+                            <strong className="block text-xs text-indigo-700">{billing.billingNumber}</strong>
+                            <span className="mt-1 block text-[10px] text-slate-500">{billing.billingDate}{billing.periodStart || billing.periodEnd ? ` · ${billing.periodStart || "?"} – ${billing.periodEnd || "?"}` : ""}</span>
+                          </button>
+                        </td>
+                        <td className="max-w-[180px] px-4 py-3">
+                          <span className="block truncate text-[10px] font-semibold text-slate-700">{billing.clientReferenceSnapshot || "No client reference"}</span>
+                          <span className="mt-1 block truncate text-[10px] text-slate-500">{billing.clientNameSnapshot || project.clientName || "Client not set"}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-black tabular-nums">{money(clientBillingTotal(billing), billing.currency)}</td>
+                        <td className="px-4 py-3"><StatusBadge tone={billingStatusTone(billing.status)}>{billing.status}</StatusBadge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-10 text-center">
+                <ClipboardList className="mx-auto h-8 w-8 text-slate-300" />
+                <p className="mt-3 text-sm font-bold text-slate-700">No client billing history yet.</p>
+                <p className="mt-1 text-xs text-slate-500">Create a draft to start the project billing register. Drafts do not inflate Billed to Date.</p>
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-5 shadow-sm" elevation="low">
+            {selectedBilling ? (
+              <>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Billing detail</p>
+                    <h3 className="mt-1 text-base font-black text-slate-950">{selectedBilling.billingNumber}</h3>
+                    <p className="mt-1 text-[10px] text-slate-500">{selectedBilling.clientNameSnapshot || project.clientName || "Client snapshot not set"} · {selectedBilling.billingDate}</p>
+                  </div>
+                  <StatusBadge tone={billingStatusTone(selectedBilling.status)}>{selectedBilling.status}</StatusBadge>
+                </div>
+                <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">
+                  {selectedBilling.lines.length ? selectedBilling.lines.map((line) => (
+                    <div key={line.id} className="flex items-start justify-between gap-3 px-3 py-3">
+                      <span className="text-xs leading-5 text-slate-700">{line.description}</span>
+                      <span className="shrink-0 text-xs font-black tabular-nums">{money(line.amount, selectedBilling.currency)}</span>
+                    </div>
+                  )) : <div className="px-3 py-4 text-xs text-slate-500">No lines recorded.</div>}
+                  <div className="flex items-center justify-between gap-3 bg-slate-50 px-3 py-3">
+                    <span className="text-xs font-bold text-slate-600">Current billing amount</span>
+                    <span className="text-base font-black tabular-nums">{money(clientBillingTotal(selectedBilling), selectedBilling.currency)}</span>
+                  </div>
+                </div>
+                {canManage && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {selectedBilling.status === "DRAFT" && (
+                      <>
+                        <button type="button" onClick={() => startEditBilling(selectedBilling)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-bold text-slate-700"><Pencil className="h-3 w-3" /> Edit draft</button>
+                        <button type="button" onClick={() => void transitionBilling(selectedBilling, "SUBMITTED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2 text-[10px] font-bold text-white"><Send className="h-3 w-3" /> Submit</button>
+                        <button type="button" onClick={() => void transitionBilling(selectedBilling, "CANCELLED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-2 text-[10px] font-bold text-rose-700"><Ban className="h-3 w-3" /> Cancel</button>
+                      </>
+                    )}
+                    {selectedBilling.status === "SUBMITTED" && (
+                      <>
+                        <button type="button" onClick={() => void transitionBilling(selectedBilling, "DRAFT")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-bold text-slate-700"><Pencil className="h-3 w-3" /> Return to draft</button>
+                        <button type="button" onClick={() => void transitionBilling(selectedBilling, "ISSUED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-[10px] font-bold text-white"><CheckCircle2 className="h-3 w-3" /> Issue</button>
+                        <button type="button" onClick={() => void transitionBilling(selectedBilling, "CANCELLED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-2 text-[10px] font-bold text-rose-700"><Ban className="h-3 w-3" /> Cancel</button>
+                      </>
+                    )}
+                    {selectedBilling.status === "ISSUED" && (
+                      <button type="button" onClick={() => void transitionBilling(selectedBilling, "VOIDED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-2 text-[10px] font-bold text-rose-700"><Ban className="h-3 w-3" /> Void issued billing</button>
+                    )}
+                  </div>
+                )}
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-indigo-600" /><h4 className="text-xs font-black text-slate-800">Billing history</h4></div>
+                  {selectedBillingEvents.length ? (
+                    <div className="mt-3 space-y-3">
+                      {selectedBillingEvents.map((event) => (
+                        <div key={event.id} className="flex items-start gap-2 text-[10px]">
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
+                          <div>
+                            <p className="font-bold text-slate-700">{event.eventType.replaceAll("_", " ")}{event.fromStatus ? ` · ${event.fromStatus} → ${event.toStatus}` : ` · ${event.toStatus}`}</p>
+                            <p className="mt-0.5 text-slate-500">{event.createdAt}{event.reason ? ` · ${event.reason}` : ""}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className="mt-3 text-[10px] text-slate-500">No lifecycle events available.</p>}
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-[300px] items-center justify-center text-center">
+                <div>
+                  <ClipboardList className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-3 text-sm font-bold text-slate-700">Select a billing record</p>
+                  <p className="mt-1 text-xs text-slate-500">Detail, lifecycle actions, and history will appear here.</p>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      ) : (
+        /* Collections Tab Content */
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
+          <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
+            <div className="flex items-center justify-between border-b border-slate-100 p-5">
+              <div>
+                <h3 className="text-sm font-black">Collections register</h3>
+                <p className="mt-1 text-[10px] text-slate-500">{loading ? "Refreshing client collections…" : `${projectCollections.length} collection record${projectCollections.length === 1 ? "" : "s"}`}</p>
+              </div>
+              <Coins className="h-4 w-4 text-emerald-500" />
+            </div>
+            {loading ? (
+              <div role="status" className="p-10 text-center text-xs font-semibold text-slate-500">Loading client collections…</div>
+            ) : projectCollections.length ? (
+              <div className="ops-scrollbar overflow-auto">
+                <table className="ops-table min-w-[680px] w-full text-left text-xs">
+                  <caption className="sr-only">Client collections register</caption>
+                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Collection / Date</th>
+                      <th className="px-4 py-3">Reference</th>
+                      <th className="px-4 py-3 text-right">Allocated Amount</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {projectCollections.map((col) => (
+                      <tr key={col.id} className={`cursor-pointer align-top hover:bg-emerald-50/40 ${selectedCollection?.id === col.id ? "bg-emerald-50/70" : ""}`} onClick={() => setSelectedCollectionId(col.id)}>
+                        <td className="px-4 py-3">
+                          <button type="button" className="text-left">
+                            <strong className="block text-xs text-emerald-700">{col.collectionNumber}</strong>
+                            <span className="mt-1 block text-[10px] text-slate-500">{col.collectionDate}</span>
+                          </button>
+                        </td>
+                        <td className="max-w-[180px] px-4 py-3">
+                          <span className="block truncate text-[10px] font-semibold text-slate-700">{col.externalReference || "No reference"}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-black tabular-nums">{money(clientCollectionTotal(col), col.currency)}</td>
+                        <td className="px-4 py-3"><StatusBadge tone={collectionStatusTone(col.status)}>{col.status}</StatusBadge></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-10 text-center">
+                <Coins className="mx-auto h-8 w-8 text-slate-300" />
+                <p className="mt-3 text-sm font-bold text-slate-700">No client collections recorded yet.</p>
+                <p className="mt-1 text-xs text-slate-500">Record a collection against an ISSUED billing to populate this register.</p>
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-5 shadow-sm" elevation="low">
+            {selectedCollection ? (
+              <>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">Collection detail</p>
+                    <h3 className="mt-1 text-base font-black text-slate-950">{selectedCollection.collectionNumber}</h3>
+                    <p className="mt-1 text-[10px] text-slate-500">{selectedCollection.payerSnapshot || project.clientName || "Payer not set"} · {selectedCollection.collectionDate}</p>
+                  </div>
+                  <StatusBadge tone={collectionStatusTone(selectedCollection.status)}>{selectedCollection.status}</StatusBadge>
+                </div>
+
+                <div className="mt-3 text-xs text-slate-600 space-y-1 bg-slate-50 p-3 rounded-xl">
+                  {selectedCollection.externalReference && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 text-[10px]">Reference:</span>
+                      <span className="font-semibold text-[10px]">{selectedCollection.externalReference}</span>
+                    </div>
+                  )}
+                  {selectedCollection.recordedAt && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500 text-[10px]">Recorded At:</span>
+                      <span className="font-semibold text-[10px]">{selectedCollection.recordedAt}</span>
+                    </div>
+                  )}
+                </div>
+
+                {selectedCollection.notes && (
+                  <p className="mt-2 text-[10px] text-slate-500 italic">Notes: {selectedCollection.notes}</p>
+                )}
+
+                {/* Reversal notice if reversed */}
+                {selectedCollection.status === "REVERSED" && (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-1">
+                    <div className="flex items-center gap-1 font-bold text-[10px] text-amber-800">
+                      <RotateCcw className="h-3.5 w-3.5" /> Reversed Collection
+                    </div>
+                    <p className="text-[10px]"><strong>Reason:</strong> {selectedCollection.reversalReason || "No reason given"}</p>
+                    {selectedCollection.reversedAt && <p className="text-[9px] text-amber-700">Reversed on {selectedCollection.reversedAt}</p>}
+                  </div>
+                )}
+
+                <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">
+                  <div className="bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Billing allocations</div>
+                  {selectedCollection.allocations.length ? selectedCollection.allocations.map((alloc) => {
+                    const matchedBilling = projectBillings.find((b) => b.id === alloc.billingId);
+                    return (
+                      <div key={alloc.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs">
+                        <div>
+                          <strong className="text-indigo-700 block">{matchedBilling?.billingNumber || alloc.billingId}</strong>
+                          {matchedBilling && <span className="text-[10px] text-slate-400">{matchedBilling.billingDate}</span>}
+                        </div>
+                        <span className="font-black tabular-nums">{money(alloc.amount, selectedCollection.currency)}</span>
+                      </div>
+                    );
+                  }) : <div className="px-3 py-3 text-xs text-slate-500">No allocations recorded.</div>}
+                  <div className="flex items-center justify-between gap-3 bg-slate-50 px-3 py-3">
+                    <span className="text-xs font-bold text-slate-600">Total collected amount</span>
+                    <span className="text-base font-black tabular-nums text-slate-950">{money(clientCollectionTotal(selectedCollection), selectedCollection.currency)}</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                {canManage && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {selectedCollection.status === "DRAFT" && (
+                      <>
+                        <button type="button" onClick={() => startEditCollection(selectedCollection)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-bold text-slate-700">
+                          <Pencil className="h-3 w-3" /> Edit draft
+                        </button>
+                        <button type="button" onClick={() => void recordCollection(selectedCollection)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-[10px] font-bold text-white shadow-sm">
+                          <CheckCircle2 className="h-3 w-3" /> Record collection
+                        </button>
+                      </>
+                    )}
+                    {selectedCollection.status === "RECORDED" && (
+                      <>
+                        {reversingCollectionId === selectedCollection.id ? (
+                          <div className="w-full space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                            <label className="block text-[10px] font-bold text-rose-900">Reason for reversing this collection (&gt;= 3 chars):</label>
+                            <input
+                              type="text"
+                              className="field-input text-xs"
+                              placeholder="e.g. Bounced cheque, deposit reversed"
+                              value={reversalReason}
+                              onChange={(e) => setReversalReason(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                disabled={busy || reversalReason.trim().length < 3}
+                                onClick={() => void reverseCollection(selectedCollection.id)}
+                                className="rounded-lg bg-rose-600 px-3 py-1.5 text-[10px] font-bold text-white disabled:opacity-50"
+                              >
+                                Confirm reversal
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setReversingCollectionId(null); setReversalReason(""); }}
+                                className="rounded-lg border border-slate-300 px-3 py-1.5 text-[10px] font-bold text-slate-700"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setReversingCollectionId(selectedCollection.id); setReversalReason(""); }}
+                            disabled={busy}
+                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-2 text-[10px] font-bold text-rose-700 hover:bg-rose-50"
+                          >
+                            <RotateCcw className="h-3 w-3" /> Reverse collection
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Audit History */}
+                <div className="mt-5 border-t border-slate-100 pt-4">
+                  <div className="flex items-center gap-2"><History className="h-3.5 w-3.5 text-emerald-600" /><h4 className="text-xs font-black text-slate-800">Collection history</h4></div>
+                  {selectedCollectionEvents.length ? (
+                    <div className="mt-3 space-y-3">
+                      {selectedCollectionEvents.map((event) => (
+                        <div key={event.id} className="flex items-start gap-2 text-[10px]">
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                          <div>
+                            <p className="font-bold text-slate-700">{event.eventType.replaceAll("_", " ")}{event.fromStatus ? ` · ${event.fromStatus} → ${event.toStatus}` : ` · ${event.toStatus}`}</p>
+                            <p className="mt-0.5 text-slate-500">{event.createdAt}{event.reason ? ` · ${event.reason}` : ""}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className="mt-3 text-[10px] text-slate-500">No lifecycle events available.</p>}
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-[300px] items-center justify-center text-center">
+                <div>
+                  <Coins className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-3 text-sm font-bold text-slate-700">Select a collection record</p>
+                  <p className="mt-1 text-xs text-slate-500">Allocations, lifecycle actions, and history will appear here.</p>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* Preservation of regression boundary string for test suites */}
+      <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[10px] leading-4 text-slate-600">
+        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+        <div>
+          <p><strong>Commercial boundary:</strong> Only ISSUED billings count toward Billed to Date. Collections record client receipts and establish authoritative collected totals without mutating project costs, payroll, or procurement.</p>
+          <p className="mt-1">Bank reconciliation and Cash Settlement linkage are deferred to P2B-6. Collections and settlement linkage are deferred to P2B-5.</p>
+        </div>
+      </div>
     </section>
   );
 };

@@ -23,9 +23,9 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Source classification | `mixed` |
 | Reviewed against | `c5d3a41c90220e45bd692c7ae5d9784d3b4b9630` |
 | Reviewed at | `2026-08-29` |
-| Node count | 221 |
-| Edge count | 264 |
-| Invariant count | 21 |
+| Node count | 226 |
+| Edge count | 270 |
+| Invariant count | 23 |
 | Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
@@ -272,6 +272,11 @@ flowchart LR
     n_project_billed_to_date["Project Billed to Date<br/><small>DERIVED-DATA</small>"]
     n_client_billing_overbilling_guard{{"Contract Value Over-Billing Guard<br/><small>GUARD</small>"}}
     n_client_billing_cash_boundary[["Client Billing / Cash Boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_client_collection_workspace["Client Collections Register<br/><small>SCREEN</small>"]
+    n_client_collection_lifecycle{"Client Collection Lifecycle<br/><small>WORKFLOW · DRAFT → RECORDED → REVERSED</small>"}
+    n_client_collection_recorded("Recorded Client Collection<br/><small>STATE · RECORDED</small>")
+    n_project_collected_to_date["Project Collected to Date<br/><small>DERIVED-DATA</small>"]
+    n_client_collection_overcollection_guard{{"Billing Over-Collection Guard<br/><small>GUARD</small>"}}
   end
   n_route_projects -->|opens| n_project_directory
   n_project_directory -->|selects project| n_project_selection
@@ -351,6 +356,12 @@ flowchart LR
   n_client_billing_issued -->|line-derived issued amount contributes| n_project_billed_to_date
   n_client_billing_lifecycle -->|project lock and cumulative contract ceiling| n_client_billing_overbilling_guard
   n_client_billing_issued -->|no collection or settlement side effect| n_client_billing_cash_boundary
+  n_project_workspace -->|Collections tab in commercial register| n_client_collection_workspace
+  n_client_collection_workspace -->|draft, recording, and reversal actions| n_client_collection_lifecycle
+  n_client_collection_lifecycle -->|DRAFT → RECORDED| n_client_collection_recorded
+  n_client_collection_recorded -->|allocation-derived recorded amount contributes| n_project_collected_to_date
+  n_client_collection_lifecycle -->|deterministic project + billing locks and remaining uncollected ceiling| n_client_collection_overcollection_guard
+  n_client_collection_recorded -->|no bank transaction or settlement side effect| n_client_billing_cash_boundary
   classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
@@ -426,6 +437,11 @@ flowchart LR
   class n_project_billed_to_date commercial
   class n_client_billing_overbilling_guard commercial
   class n_client_billing_cash_boundary commercial
+  class n_client_collection_workspace commercial
+  class n_client_collection_lifecycle commercial
+  class n_client_collection_recorded commercial
+  class n_project_collected_to_date commercial
+  class n_client_collection_overcollection_guard commercial
 ```
 
 ### Client Progress Billing flow
@@ -445,6 +461,11 @@ flowchart LR
     n_project_billed_to_date["Project Billed to Date<br/><small>DERIVED-DATA</small>"]
     n_client_billing_overbilling_guard{{"Contract Value Over-Billing Guard<br/><small>GUARD</small>"}}
     n_client_billing_cash_boundary[["Client Billing / Cash Boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_client_collection_workspace["Client Collections Register<br/><small>SCREEN</small>"]
+    n_client_collection_lifecycle{"Client Collection Lifecycle<br/><small>WORKFLOW · DRAFT → RECORDED → REVERSED</small>"}
+    n_client_collection_recorded("Recorded Client Collection<br/><small>STATE · RECORDED</small>")
+    n_project_collected_to_date["Project Collected to Date<br/><small>DERIVED-DATA</small>"]
+    n_client_collection_overcollection_guard{{"Billing Over-Collection Guard<br/><small>GUARD</small>"}}
   end
   n_project_workspace -->|selected project| n_project_aggregate
   n_project_workspace -->|Client Billing tab| n_client_billing_workspace
@@ -453,6 +474,12 @@ flowchart LR
   n_client_billing_issued -->|line-derived issued amount contributes| n_project_billed_to_date
   n_client_billing_lifecycle -->|project lock and cumulative contract ceiling| n_client_billing_overbilling_guard
   n_client_billing_issued -->|no collection or settlement side effect| n_client_billing_cash_boundary
+  n_project_workspace -->|Collections tab in commercial register| n_client_collection_workspace
+  n_client_collection_workspace -->|draft, recording, and reversal actions| n_client_collection_lifecycle
+  n_client_collection_lifecycle -->|DRAFT → RECORDED| n_client_collection_recorded
+  n_client_collection_recorded -->|allocation-derived recorded amount contributes| n_project_collected_to_date
+  n_client_collection_lifecycle -->|deterministic project + billing locks and remaining uncollected ceiling| n_client_collection_overcollection_guard
+  n_client_collection_recorded -->|no bank transaction or settlement side effect| n_client_billing_cash_boundary
   classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
@@ -470,6 +497,11 @@ flowchart LR
   class n_project_billed_to_date commercial
   class n_client_billing_overbilling_guard commercial
   class n_client_billing_cash_boundary commercial
+  class n_client_collection_workspace commercial
+  class n_client_collection_lifecycle commercial
+  class n_client_collection_recorded commercial
+  class n_project_collected_to_date commercial
+  class n_client_collection_overcollection_guard commercial
 ```
 
 ### Invoice and Cash Settlement flow
@@ -820,6 +852,8 @@ These invariants are intentionally explicit because generic import graphs cannot
 | **Do not aggregate unrelated currencies without explicit FX**<br/><small>`p2-no-implicit-cross-currency-aggregation`</small> | Procurement and subcontract commitments must not be summed across unrelated currencies unless an explicit exchange-rate conversion has been applied. | `src/lib/purchaseOrders.ts`<br/>`src/lib/subcontracts.ts`<br/>`src/utils/projectCosting.ts` | `tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/purchaseOrdersDomain.test.ts`<br/>`tests/purchaseOrderReceiptsInvariants.test.ts`<br/>`tests/purchaseOrderMatchingInvariants.test.ts`<br/>`tests/rfqFinancialInvariants.test.ts`<br/>`tests/rfqDraftPoConversion.test.ts`<br/>`tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts` |
 | **Only issued client billing contributes to billed-to-date**<br/><small>`commercial-client-billing-issued-only`</small> | Client progress billing is project revenue-side history. Header totals derive from billing lines, and only ISSUED records contribute to Billed to Date; drafts, submitted, cancelled, and voided records remain excluded. Issuance is bounded by the authoritative project contract value. | `src/lib/clientBilling.ts`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`supabase/migrations/20260903224406_client_progress_billing_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientProgressBilling.test.ts`<br/>`tests/clientProgressBillingMigration.test.ts` |
 | **Client billing is separate from collection and settlement**<br/><small>`commercial-client-billing-cash-separation`</small> | Creating, submitting, issuing, cancelling, or voiding client billing does not create cash transactions, settlement matches, bank balances, accounting postings, or collected/outstanding receivables truth. | `src/lib/clientBilling.ts`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/utils/projectCosting.ts`<br/>`supabase/migrations/20260903224406_client_progress_billing_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientProgressBilling.test.ts`<br/>`tests/clientProgressBillingMigration.test.ts` |
+| **Only recorded client collections contribute to collected-to-date**<br/><small>`commercial-client-collection-recorded-only`</small> | Client collections represent commercial receivables history allocated against issued client billings. Only RECORDED collections contribute to Collected to Date and reduce Outstanding Billed Amount; drafts and reversed records remain excluded. | `src/lib/clientCollections.ts`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts` |
+| **Client collections are commercial receivables separate from cash settlement**<br/><small>`commercial-client-collection-cash-separation`</small> | Creating, updating, recording, or reversing client collections tracks commercial payment allocations against issued billings. They do not create bank transactions, cash account balance mutations, journal entries, or P2B-6 cash settlement records. | `src/lib/clientCollections.ts`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/utils/projectCosting.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts` |
 
 ## Exploratory architecture input
 
@@ -928,6 +962,10 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Project Billed to Date**<br/><small>`project-billed-to-date`</small> | `derived-data` | `project`<br/>— | — | — | `mixed` | `src/lib/clientBilling.ts`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/components/projects/ClientBillingPanel.tsx` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientProgressBilling.test.ts`<br/>`tests/clientProgressBillingMigration.test.ts` | — |
 | **Contract Value Over-Billing Guard**<br/><small>`client-billing-overbilling-guard`</small> | `guard` | `company-and-project`<br/>— | — | `projects.manage` | `mixed` | `src/lib/clientBilling.ts`<br/>`supabase/migrations/20260903224406_client_progress_billing_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientProgressBilling.test.ts`<br/>`tests/clientProgressBillingMigration.test.ts` | — |
 | **Client Billing / Cash Boundary**<br/><small>`client-billing-cash-boundary`</small> | `external-boundary` | `company-and-project`<br/>— | — | — | `mixed` | `src/lib/clientBilling.ts`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`supabase/migrations/20260903224406_client_progress_billing_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientProgressBilling.test.ts`<br/>`tests/clientProgressBillingMigration.test.ts` | — |
+| **Client Collections Register**<br/><small>`client-collection-workspace`</small> | `screen` | `project`<br/>— | — | `projects.read`<br/>`projects.manage` | `mixed` | `src/lib/clientCollections.ts`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/utils/projectFinancialSummary.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts` | — |
+| **Client Collection Lifecycle**<br/><small>`client-collection-lifecycle`</small> | `workflow` | `company-and-project`<br/>— | `DRAFT` → `RECORDED` → `REVERSED` | `projects.manage` | `mixed`<br/>confirmation: `human` | `src/lib/clientCollections.ts`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/utils/projectFinancialSummary.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts` | — |
+| **Project Collected to Date**<br/><small>`project-collected-to-date`</small> | `derived-data` | `project`<br/>— | — | — | `mixed` | `src/lib/clientCollections.ts`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/utils/projectFinancialSummary.ts` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts` | — |
+| **Billing Over-Collection Guard**<br/><small>`client-collection-overcollection-guard`</small> | `guard` | `company-and-project`<br/>— | — | `projects.manage` | `mixed` | `src/lib/clientCollections.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts` | — |
 
 ### Engineering
 
