@@ -15,7 +15,6 @@ import {
   Menu,
   MoreHorizontal,
   PanelLeftClose,
-  PanelLeftOpen,
   Receipt,
   RefreshCw,
   Settings as SettingsIcon,
@@ -508,25 +507,10 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <UserCircle2 aria-hidden="true" className="h-5 w-5 shrink-0" />
             </div>
-            {onToggleCollapse && (
-              <button
-                type="button"
-                onClick={onToggleCollapse}
-                className="hidden lg:flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition mt-1"
-                title="Expand sidebar"
-                aria-label="Expand sidebar"
-              >
-                <PanelLeftOpen className="h-4 w-4" />
-              </button>
-            )}
           </div>
         ) : (
           <div className="border-t border-white/10 px-3 py-3">
-            <div className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs font-bold ${workspaceSyncClasses(syncStatus)}`} title={syncTitle} aria-label={syncTitle}>
-              <SyncIcon aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 ${syncStatus === "syncing" ? "animate-spin" : ""}`} />
-              <span className="min-w-0 flex-1 truncate">{syncLabel}</span>
-            </div>
-            <div className="mt-2.5 flex items-center justify-between gap-2 px-1">
+            <div className="flex items-center justify-between gap-2 px-1">
               <div className="flex min-w-0 items-center gap-2" title={accountEmail || activeCompany?.name || "Local workspace"}>
                 <UserCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-500" />
                 <div className="min-w-0">
@@ -534,17 +518,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <p className="truncate text-[10px] text-slate-500">{activeCompany?.name && accountEmail ? activeCompany.name : "Workspace context"}</p>
                 </div>
               </div>
-              {onToggleCollapse && (
-                <button
-                  type="button"
-                  onClick={onToggleCollapse}
-                  className="hidden lg:flex items-center justify-center rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition shrink-0"
-                  title="Collapse sidebar"
-                  aria-label="Collapse sidebar"
-                >
-                  <PanelLeftClose className="h-3.5 w-3.5" />
-                </button>
-              )}
             </div>
           </div>
         )}
