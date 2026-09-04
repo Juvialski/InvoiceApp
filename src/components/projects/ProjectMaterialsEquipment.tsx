@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ClipboardList, Cog, Edit3, Package, Plus, ShieldAlert, Truck, X } from "lucide-react";
 import type { Project, ProjectCostCode, ProjectEquipment, ProjectMaterial, PurchaseOrder, PurchaseOrderReceipt, Vendor } from "../../types.ts";
-import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import { emptyDailySiteLogsWorkspaceData, scopeDailySiteLogsToProject, type EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import { useDailySiteLogsController } from "../../features/engineering/useDailySiteLogsController.ts";
 import {
   deriveProjectEquipmentViews,
@@ -209,7 +209,12 @@ export const ProjectMaterialsEquipment: React.FC<ProjectMaterialsEquipmentProps>
     guestMode,
     controlledData: dailySiteLogsData,
   });
-  const siteData = dailySiteLogsData || siteLogController.data;
+  const siteData = useMemo(() => {
+    if (!canReadSiteLogs) return emptyDailySiteLogsWorkspaceData();
+    return scopeDailySiteLogsToProject(dailySiteLogsData || siteLogController.data, project.id);
+  }, [canReadSiteLogs, dailySiteLogsData, project.id, siteLogController.data]);
+  const siteLogsLoading = !dailySiteLogsData && siteLogController.isLoading && !siteLogController.hasLoaded;
+  const siteLogsUnavailable = !dailySiteLogsData && Boolean(siteLogController.loadError && !siteLogController.hasLoaded);
   const [view, setView] = useState<"materials" | "equipment">("materials");
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState<{ kind: "material" | "equipment"; material?: ProjectMaterial; equipment?: ProjectEquipment } | null>(null);
@@ -235,6 +240,8 @@ export const ProjectMaterialsEquipment: React.FC<ProjectMaterialsEquipmentProps>
 
   return (
     <section className="space-y-4" data-phase3b="materials-equipment">
+      {siteLogsLoading && <div role="status" className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 text-xs font-semibold leading-5 text-indigo-800">Loading Daily Site Log evidence… Register metadata remains available while field observations load.</div>}
+      {siteLogsUnavailable && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold leading-5 text-rose-800">Daily Site Log evidence is unavailable right now. Register metadata remains available; open Site Logs to retry. {siteLogController.loadError}</div>}
       {view === "materials" && materialDiscrepancies.length > 0 && <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /><span>{materialDiscrepancies.length} deterministic procurement/site-evidence reconciliation item{materialDiscrepancies.length === 1 ? "" : "s"} needs review. Formal receipts remain authoritative.</span></div>}
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:p-5">
         <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600">Field operations</p><h2 className="mt-1 text-xl font-black text-slate-950">Materials &amp; Equipment</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Current project registers with traceable procurement and Daily Site Log evidence. Register metadata never creates Actual Cost, commitments, or formal receipts.</p></div>
@@ -244,7 +251,7 @@ export const ProjectMaterialsEquipment: React.FC<ProjectMaterialsEquipmentProps>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4"><Package className="h-5 w-5 text-indigo-600" /><p className="mt-3 text-2xl font-black text-indigo-950">{materialViews.length}</p><p className="mt-1 text-[10px] font-black uppercase tracking-[0.1em] text-indigo-700">Registered materials</p></div>
         <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4"><Cog className="h-5 w-5 text-orange-600" /><p className="mt-3 text-2xl font-black text-orange-950">{equipmentViews.length}</p><p className="mt-1 text-[10px] font-black uppercase tracking-[0.1em] text-orange-700">Registered equipment</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><Truck className="h-5 w-5 text-slate-600" /><p className="mt-3 text-2xl font-black text-slate-950">{canReadSiteLogs ? equipmentViews.reduce((sum, item) => sum + item.evidence.observationCount, 0) : "Restricted"}</p><p className="mt-1 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">Linked field observations</p></div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><Truck className="h-5 w-5 text-slate-600" /><p className="mt-3 text-2xl font-black text-slate-950">{siteLogsLoading ? "Loading" : canReadSiteLogs ? equipmentViews.reduce((sum, item) => sum + item.evidence.observationCount, 0) : "Restricted"}</p><p className="mt-1 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">Linked field observations</p></div>
       </div>
 
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-[180px_minmax(0,1fr)]"><div className="flex rounded-xl bg-slate-100 p-1"><button type="button" onClick={() => setView("materials")} className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-black ${view === "materials" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"}`}><Package className="h-3.5 w-3.5" />Materials</button><button type="button" onClick={() => setView("equipment")} className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-black ${view === "equipment" ? "bg-white text-orange-700 shadow-sm" : "text-slate-500"}`}><Cog className="h-3.5 w-3.5" />Equipment</button></div><input aria-label="Search materials and equipment" className={`${inputClass} mt-0`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={view === "materials" ? "Search material, category, PO…" : "Search equipment, reference, type…"} /></div>

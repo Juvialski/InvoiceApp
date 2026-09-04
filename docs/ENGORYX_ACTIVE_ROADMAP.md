@@ -142,7 +142,7 @@ Do not infer legal/accounting/tax treatment beyond explicit product requirements
 
 ## P3 — Project Operations UX
 
-Status: **ACTIVE / IN PROGRESS** (P3A complete; P3B/P3C remain separately deferred)
+Status: **ACTIVE / STABILIZATION FOLLOW-UP** (P3A, P3B, P3C, and P3D-1 complete; P3D-2 remains separately deferred)
 
 ### P3A — Project dashboard and risk visibility
 
@@ -156,12 +156,16 @@ Forecast/EAC and Expected Margin remain deferred until an authoritative permissi
 
 ### P3B — Materials and equipment
 
+Status: **COMPLETE** (project material and equipment registers, formal procurement linkage, and source-separated field evidence delivered in PR #86.)
+
 - project materials/equipment register where useful;
 - delivery/use/allocation relationships;
 - avoid premature full inventory/ERP complexity;
 - connect procurement records where available.
 
 ### P3C — Enhanced Daily Site Operations
+
+Status: **COMPLETE** (structured Daily Site Log field observations, lifecycle/history protection, materials/equipment evidence, and source-separated procurement integration delivered in PR #86.)
 
 Extend existing Daily Site Logs around:
 
@@ -189,6 +193,12 @@ Existing and future Project navigation remains centered on:
 - future transmittal/as-built workflows only when separately prioritized.
 
 Engineering history remains auditable and independent from generic project notes.
+
+### P3S — Product Stabilization, Simplification & Operational Coherence
+
+Status: **CURRENT BOUNDED FOLLOW-UP**
+
+Stabilize and unify the completed P1–P3 project workflows before another roadmap feature wave. This follow-up is limited to concrete correctness, source-state, permission/history, Project Workspace, shared refresh, regression-coverage, and UX-coherence issues; it does not add a new product domain.
 
 ---
 

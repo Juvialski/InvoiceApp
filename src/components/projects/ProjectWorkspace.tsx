@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, BarChart3, Calculator, ClipboardCheck, ClipboardList, Compass, FileQuestion, FileText, HardHat, Package, Receipt, ShoppingCart, Users } from "lucide-react";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
@@ -53,7 +53,7 @@ import { ProjectSubmittals } from "../engineering/ProjectSubmittals";
 import { ProjectSiteLogs } from "../engineering/ProjectSiteLogs";
 import { ProjectMaterialsEquipment } from "./ProjectMaterialsEquipment.tsx";
 import { useEngineeringCoordinationAccess } from "../../features/engineering/useEngineeringCoordinationAccess";
-import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import { mergeDailySiteLogsWorkspaceData, scopeDailySiteLogsToProject, type EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
@@ -277,10 +277,10 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   pathForSiteLog,
   onNavigatePath,
   companyId,
-  engineeringDocumentsCanRead = true,
-  engineeringDocumentsCanCreate = true,
-  engineeringDocumentsCanAnnotate = true,
-  engineeringDocumentsCanManage = true,
+  engineeringDocumentsCanRead = false,
+  engineeringDocumentsCanCreate = false,
+  engineeringDocumentsCanAnnotate = false,
+  engineeringDocumentsCanManage = false,
   engineeringRfisCanRead,
   engineeringRfisCanCreate,
   engineeringRfisCanRespond,
@@ -372,6 +372,13 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const [tab, setTab] = useState<WorkspaceTab>(initialTab);
   const coordinationAccess = useEngineeringCoordinationAccess(companyId, engineeringDocumentsGuestMode);
   const canReadSiteLogs = engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead;
+  const projectDailySiteLogsData = useMemo(
+    () => dailySiteLogsData ? scopeDailySiteLogsToProject(dailySiteLogsData, project.id) : undefined,
+    [dailySiteLogsData, project.id],
+  );
+  const publishProjectDailySiteLogsData = useCallback((next: EngineeringDailySiteLogsWorkspaceData) => {
+    onDailySiteLogsDataChange?.(mergeDailySiteLogsWorkspaceData(dailySiteLogsData, project.id, next));
+  }, [dailySiteLogsData, onDailySiteLogsDataChange, project.id]);
   const phase1bAccess = {
     rfisRead: engineeringRfisCanRead ?? coordinationAccess.rfisRead,
     rfisCreate: engineeringRfisCanCreate ?? coordinationAccess.rfisCreate,
@@ -473,7 +480,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         ))}
       </nav>
 
-      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} costInput={overviewCostInput} clientBillings={clientBillings} clientCollections={clientCollections} clientDataLoading={clientBillingLoading} companyId={companyId} engineeringDocumentsCanRead={engineeringDocumentsCanRead} engineeringRfisCanRead={engineeringRfisCanRead} engineeringSubmittalsCanRead={engineeringSubmittalsCanRead} engineeringSiteLogsCanRead={engineeringDocumentsGuestMode ? true : coordinationAccess.loading ? undefined : coordinationAccess.siteLogsRead} engineeringAccessLoading={coordinationAccess.loading} engineeringDocumentsGuestMode={engineeringDocumentsGuestMode} engineeringDocumentsData={engineeringDocumentsData} engineeringCoordinationData={engineeringCoordinationData} dailySiteLogsData={dailySiteLogsData} materials={materials} equipment={equipment} purchaseOrders={purchaseOrders} receipts={receipts} canReadProcurement={canReadProcurement} attentionToday={attentionToday} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
+      {tab === "overview" && <ProjectOverview project={project} summary={summary} dashboard={dashboard} costCodes={costCodes} costInput={overviewCostInput} clientBillings={clientBillings} clientCollections={clientCollections} clientDataLoading={clientBillingLoading} companyId={companyId} engineeringDocumentsCanRead={engineeringDocumentsCanRead} engineeringRfisCanRead={engineeringRfisCanRead} engineeringSubmittalsCanRead={engineeringSubmittalsCanRead} engineeringSiteLogsCanRead={engineeringDocumentsGuestMode ? true : coordinationAccess.loading ? undefined : coordinationAccess.siteLogsRead} engineeringAccessLoading={coordinationAccess.loading} engineeringDocumentsGuestMode={engineeringDocumentsGuestMode} engineeringDocumentsData={engineeringDocumentsData} engineeringCoordinationData={engineeringCoordinationData} dailySiteLogsData={projectDailySiteLogsData} onDailySiteLogsDataChange={publishProjectDailySiteLogsData} materials={materials} equipment={equipment} purchaseOrders={purchaseOrders} receipts={receipts} canReadProcurement={canReadProcurement} attentionToday={attentionToday} hideHeader onOpenTab={(next) => selectTab(next as WorkspaceTab)} />}
 
       {tab === "billing" && canReadClientBilling && (
         <ClientBillingPanel
@@ -568,9 +575,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
       {tab === "submittals" && (coordinationAccess.loading && engineeringSubmittalsCanRead === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking submittal access…</div> : <ProjectSubmittals project={project} companyId={companyId} initialSubmittalId={initialSubmittalId} initialRoundId={initialSubmittalRoundId} canRead={phase1bAccess.submittalsRead} canCreate={phase1bAccess.submittalsCreate} canReview={phase1bAccess.submittalsReview} canManage={phase1bAccess.submittalsManage} canReadDocuments={engineeringDocumentsCanRead} guestMode={engineeringDocumentsGuestMode} onNavigatePath={onNavigatePath} />)}
 
-      {tab === "site-logs" && (coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div> : <ProjectSiteLogs project={project} companyId={companyId} initialSiteLogId={initialSiteLogId} pathForSiteLog={pathForSiteLog} onNavigatePath={onNavigatePath} canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead} canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate} canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate} canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit} canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage} guestMode={engineeringDocumentsGuestMode} controlledData={dailySiteLogsData} onControlledDataChange={onDailySiteLogsDataChange} materials={materials.filter((material) => material.projectId === project.id)} registeredEquipment={equipment.filter((item) => item.projectId === project.id)} purchaseOrders={purchaseOrders.filter((purchaseOrder) => purchaseOrder.projectId === project.id)} receipts={receipts} costCodes={costCodes.filter((costCode) => costCode.projectId === project.id)} canReadProcurement={canReadProcurement} />)}
+      {tab === "site-logs" && (coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div> : <ProjectSiteLogs project={project} companyId={companyId} initialSiteLogId={initialSiteLogId} pathForSiteLog={pathForSiteLog} onNavigatePath={onNavigatePath} canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead} canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate} canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate} canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit} canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage} guestMode={engineeringDocumentsGuestMode} controlledData={projectDailySiteLogsData} controlledPersistence={!engineeringDocumentsGuestMode && dailySiteLogsData !== undefined ? "remote" : "local"} onControlledDataChange={publishProjectDailySiteLogsData} materials={materials.filter((material) => material.projectId === project.id)} registeredEquipment={equipment.filter((item) => item.projectId === project.id)} purchaseOrders={purchaseOrders.filter((purchaseOrder) => purchaseOrder.projectId === project.id)} receipts={receipts} costCodes={costCodes.filter((costCode) => costCode.projectId === project.id)} canReadProcurement={canReadProcurement} />)}
 
-      {tab === "materials-equipment" && <ProjectMaterialsEquipment project={project} materials={materials} equipment={equipment} purchaseOrders={purchaseOrders} receipts={receipts} vendors={vendors} costCodes={costCodes} dailySiteLogsData={dailySiteLogsData} canReadSiteLogs={canReadSiteLogs} canReadProcurement={canReadProcurement} canManage={canManageProject} guestMode={engineeringDocumentsGuestMode} onOpenSiteLogs={() => selectTab("site-logs")} onSaveMaterial={onSaveMaterial} onSaveEquipment={onSaveEquipment} />}
+      {tab === "materials-equipment" && <ProjectMaterialsEquipment project={project} materials={materials} equipment={equipment} purchaseOrders={purchaseOrders} receipts={receipts} vendors={vendors} costCodes={costCodes} dailySiteLogsData={projectDailySiteLogsData} canReadSiteLogs={canReadSiteLogs} canReadProcurement={canReadProcurement} canManage={canManageProject} guestMode={engineeringDocumentsGuestMode} onOpenSiteLogs={() => selectTab("site-logs")} onSaveMaterial={onSaveMaterial} onSaveEquipment={onSaveEquipment} />}
 
       {tab === "invoices" && canReadInvoices && (canManageInvoiceAllocations
         ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} costCodes={costCodes as ProjectCostCode[]} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />

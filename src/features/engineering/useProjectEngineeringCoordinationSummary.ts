@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { Project } from "../../types.ts";
-import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import { scopeDailySiteLogsToProject, type EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
 import { useDailySiteLogsController } from "./useDailySiteLogsController.ts";
@@ -26,6 +26,7 @@ export interface ProjectEngineeringCoordinationSummaryOptions {
   documentsData?: EngineeringDocumentsWorkspaceData;
   coordinationData?: EngineeringCoordinationWorkspaceData;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+  onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
 }
 
 export interface ProjectEngineeringCoordinationSummaryState {
@@ -63,6 +64,7 @@ export function useProjectEngineeringCoordinationSummary({
   documentsData,
   coordinationData,
   dailySiteLogsData,
+  onDailySiteLogsDataChange,
 }: ProjectEngineeringCoordinationSummaryOptions): ProjectEngineeringCoordinationSummaryState {
   const documentsController = useEngineeringDocumentsController({
     project,
@@ -87,6 +89,7 @@ export function useProjectEngineeringCoordinationSummary({
     canManage: false,
     guestMode,
     controlledData: dailySiteLogsData,
+    onControlledDataChange: onDailySiteLogsDataChange,
   });
 
   return useMemo(() => {
@@ -144,8 +147,8 @@ export function useProjectEngineeringCoordinationSummary({
     const isLoading = states.some((state) => state === "loading");
     const hasLoaded = states.every((state) => state !== "loading");
     const availableDailySiteLogsData = siteLogAccess.state === "available"
-      ? dailySiteLogsData || (siteLogsController.hasLoaded ? siteLogsController.data : undefined)
+      ? scopeDailySiteLogsToProject(dailySiteLogsData || siteLogsController.data, project.id)
       : undefined;
     return { summary, isLoading, hasLoaded, dailySiteLogsData: availableDailySiteLogsData };
-  }, [coordinationAccessLoading, coordinationController.data.rfis, coordinationController.data.submittals, coordinationController.hasLoaded, coordinationController.isLoading, coordinationController.loadError, coordinationData, documentsCanRead, documentsController.documents, documentsController.hasLoaded, documentsController.isLoading, documentsController.loadError, documentsController.revisions, documentsData, guestMode, project.id, rfisCanRead, siteLogsCanRead, siteLogsController.data, siteLogsController.hasLoaded, siteLogsController.isLoading, siteLogsController.loadError, submittalsCanRead, today, dailySiteLogsData]);
+  }, [coordinationAccessLoading, coordinationController.data.rfis, coordinationController.data.submittals, coordinationController.hasLoaded, coordinationController.isLoading, coordinationController.loadError, coordinationData, documentsCanRead, documentsController.documents, documentsController.hasLoaded, documentsController.isLoading, documentsController.loadError, documentsController.revisions, documentsData, guestMode, onDailySiteLogsDataChange, project.id, rfisCanRead, siteLogsCanRead, siteLogsController.data, siteLogsController.hasLoaded, siteLogsController.isLoading, siteLogsController.loadError, submittalsCanRead, today, dailySiteLogsData]);
 }

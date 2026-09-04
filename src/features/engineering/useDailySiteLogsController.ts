@@ -14,6 +14,7 @@ import {
   type DailySiteLogStatus,
   type EngineeringDailySiteLogAggregate,
   type EngineeringDailySiteLogsWorkspaceData,
+  scopeDailySiteLogsToProject,
 } from "../../lib/dailySiteLogs.ts";
 import { buildLocalSiteLogLifecyclePreview, type EngineeringLifecyclePreview } from "../../lib/engineeringLifecycle.ts";
 import {
@@ -40,6 +41,8 @@ export interface DailySiteLogControllerOptions {
   guestMode: boolean;
   controlledData?: EngineeringDailySiteLogsWorkspaceData;
   onControlledDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
+  /** Controlled snapshots can still use guarded remote RPCs in production. */
+  controlledPersistence?: "local" | "remote";
 }
 
 function errorMessage(error: unknown, fallback: string) {
@@ -81,12 +84,13 @@ function updateAggregateForDraft(current: EngineeringDailySiteLogAggregate, inpu
 }
 
 export function useDailySiteLogsController(options: DailySiteLogControllerOptions) {
-  const { project, companyId, canRead, canCreate, canUpdate, canSubmit, canManage, guestMode, controlledData, onControlledDataChange } = options;
+  const { project, companyId, canRead, canCreate, canUpdate, canSubmit, canManage, guestMode, controlledData, onControlledDataChange, controlledPersistence = "local" } = options;
   const isControlled = controlledData !== undefined;
+  const usesRemotePersistence = !guestMode && (!isControlled || controlledPersistence === "remote");
   const [data, setData] = useState<EngineeringDailySiteLogsWorkspaceData>(() => controlledData || (guestMode ? readDailySiteLogsFromLocal() : emptyDailySiteLogsWorkspaceData()));
   const [isLoading, setIsLoading] = useState(!isControlled);
   const [hasLoaded, setHasLoaded] = useState(isControlled);
-  const scopeKey = `${companyId || ""}:${project.id}:${guestMode}:${canRead}:${isControlled}`;
+  const scopeKey = `${companyId || ""}:${project.id}:${guestMode}:${canRead}:${isControlled}:${controlledPersistence}`;
   const loadedScopeRef = useRef<string | null>(isControlled ? scopeKey : null);
   const loadRequestRef = useRef(0);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -105,20 +109,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
   }, [controlledData, scopeKey]);
 
   const projectData = useMemo<EngineeringDailySiteLogsWorkspaceData>(() => {
-    const logs = data.logs.filter((item) => item.projectId === project.id);
-    const logIds = new Set(logs.map((item) => item.id));
-    return {
-      logs,
-      weather: data.weather.filter((item) => logIds.has(item.siteLogId)),
-      crew: data.crew.filter((item) => logIds.has(item.siteLogId)),
-      equipment: data.equipment.filter((item) => logIds.has(item.siteLogId)),
-      work: (data.work || []).filter((item) => logIds.has(item.siteLogId)),
-      materialDeliveries: (data.materialDeliveries || []).filter((item) => logIds.has(item.siteLogId)),
-      issues: (data.issues || []).filter((item) => logIds.has(item.siteLogId)),
-      safety: data.safety.filter((item) => logIds.has(item.siteLogId)),
-      events: data.events.filter((item) => logIds.has(item.siteLogId)),
-      addenda: (data.addenda || []).filter((item) => logIds.has(item.siteLogId)),
-    };
+    return scopeDailySiteLogsToProject(data, project.id);
   }, [data, project.id]);
 
   const publish = useCallback((next: EngineeringDailySiteLogsWorkspaceData) => {
@@ -127,9 +118,9 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     else if (guestMode) writeDailySiteLogsToLocal(next);
   }, [guestMode, isControlled, onControlledDataChange]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (force = false) => {
     const requestId = ++loadRequestRef.current;
-    if (isControlled) {
+    if (isControlled && (!usesRemotePersistence || !force)) {
       loadedScopeRef.current = scopeKey;
       setHasLoaded(true);
       setIsLoading(false);
@@ -150,6 +141,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
       const loaded = guestMode ? readDailySiteLogsFromLocal() : await loadDailySiteLogsFromSupabase(companyId, project.id);
       if (loadRequestRef.current !== requestId) return;
       setData(loaded);
+      onControlledDataChange?.(loaded);
       loadedScopeRef.current = scopeKey;
       setHasLoaded(true);
     } catch (error) {
@@ -158,30 +150,30 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     } finally {
       if (loadRequestRef.current === requestId) setIsLoading(false);
     }
-  }, [canRead, companyId, guestMode, isControlled, project.id, scopeKey]);
+  }, [canRead, companyId, guestMode, isControlled, onControlledDataChange, project.id, scopeKey, usesRemotePersistence]);
 
   useEffect(() => { void reload(); }, [reload, generation]);
   const retryLoad = useCallback(() => setGeneration((value) => value + 1), []);
 
-  const aggregate = useCallback((siteLogId: string) => aggregateForDailySiteLog(data, siteLogId), [data]);
+  const aggregate = useCallback((siteLogId: string) => aggregateForDailySiteLog(projectData, siteLogId), [projectData]);
 
   const previewLifecycle = useCallback(async (siteLogId: string): Promise<EngineeringLifecyclePreview> => {
     const current = aggregate(siteLogId);
     if (!current) throw new Error("The selected Site Log is no longer available.");
-    if (guestMode || isControlled) {
+    if (!usesRemotePersistence) {
       return buildLocalSiteLogLifecyclePreview({
         siteLogId,
         status: current.log.status,
         projectId: current.log.projectId,
         formalEvents: current.events.filter((event) => ["SUBMITTED", "FINALIZED", "VOIDED"].includes(event.eventType)).length,
-        addenda: (data.addenda || []).filter((item) => item.siteLogId === siteLogId).length,
+        addenda: projectData.addenda.filter((item) => item.siteLogId === siteLogId).length,
         draftObservations: (current.weather ? 1 : 0) + current.crew.length + current.equipment.length + (current.work || []).length + (current.materialDeliveries || []).length + (current.issues || []).length + current.safety.length,
         narrativeFields: [current.log.workSummary, current.log.progressNotes, current.log.delaysConstraints, current.log.generalNotes].filter((value) => Boolean(value?.trim())).length,
         source: guestMode ? "demo" : "local",
       });
     }
     return previewDailySiteLogLifecycleInSupabase(siteLogId, companyId);
-  }, [aggregate, companyId, data.addenda, guestMode, isControlled]);
+  }, [aggregate, companyId, guestMode, projectData, usesRemotePersistence]);
 
   const create = useCallback(async (input: Omit<CreateDailySiteLogInput, "projectId" | "companyId">) => {
     requirePermission(canCreate, "You do not have permission to create Site Logs in this company.");
@@ -189,16 +181,16 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     const draft = createDraftDailySiteLog({ ...input, id: input.id || pendingCreateIdsRef.current.get(identity), projectId: project.id, companyId });
     if (data.logs.some((item) => item.projectId === project.id && item.siteDate === draft.log.siteDate)) throw new Error("A Site Log already exists for this project and date.");
     pendingCreateIdsRef.current.set(identity, draft.log.id);
-    if (!guestMode && !isControlled) {
+    if (usesRemotePersistence) {
       await createDailySiteLogRpc(draft, companyId);
       pendingCreateIdsRef.current.delete(identity);
-      await reload();
+      await reload(true);
     } else {
       publish(replaceDailySiteLogAggregate(data, draft));
       pendingCreateIdsRef.current.delete(identity);
     }
     return draft.log;
-  }, [canCreate, companyId, data, guestMode, isControlled, project.id, publish, reload]);
+  }, [canCreate, companyId, data, project.id, publish, reload, usesRemotePersistence]);
 
   const updateDraft = useCallback(async (siteLogId: string, input: Omit<CreateDailySiteLogInput, "projectId" | "companyId" | "id">) => {
     requirePermission(canUpdate, "You do not have permission to update Site Log drafts in this company.");
@@ -208,14 +200,14 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     const draftUpdate = updateAggregateForDraft(current, { ...input, id: siteLogId, projectId: project.id, companyId });
     const next = { ...draftUpdate, events: [...current.events, eventForDailySiteLogTransition(current.log, draftUpdate.log)] };
     if (data.logs.some((item) => item.id !== siteLogId && item.projectId === project.id && item.siteDate === next.log.siteDate)) throw new Error("A Site Log already exists for this project and date.");
-    if (!guestMode && !isControlled) {
+    if (usesRemotePersistence) {
       await updateDailySiteLogDraftRpc(next, companyId);
-      await reload();
+      await reload(true);
     } else {
       publish(replaceDailySiteLogAggregate(data, next));
     }
     return next.log;
-  }, [aggregate, canUpdate, companyId, data, guestMode, isControlled, project.id, publish, reload]);
+  }, [aggregate, canUpdate, companyId, data, project.id, publish, reload, usesRemotePersistence]);
 
   const transition = useCallback(async (siteLogId: string, target: Exclude<DailySiteLogStatus, "DRAFT">, reason?: string) => {
     const current = aggregate(siteLogId);
@@ -226,25 +218,25 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     } else {
       requirePermission(canManage, "You do not have permission to manage Site Log lifecycle state in this company.");
     }
-    if (!guestMode && !isControlled) {
+    if (usesRemotePersistence) {
       if (target === "SUBMITTED") await submitDailySiteLogRpc(siteLogId, companyId);
       else if (target === "FINALIZED") await finalizeDailySiteLogRpc(siteLogId, companyId);
       else await applyDailySiteLogLifecycleInSupabase(siteLogId, "VOID", reason || "Voided by manager", companyId);
-      await reload();
+      await reload(true);
       return;
     }
     const nextLog = transitionDailySiteLog(current.log, target, { reason });
     const next = { ...current, log: nextLog, events: [...current.events, eventForDailySiteLogTransition(current.log, nextLog, { reason })] };
     publish(replaceDailySiteLogAggregate(data, next));
-  }, [aggregate, canManage, canSubmit, companyId, data, guestMode, isControlled, publish, reload]);
+  }, [aggregate, canManage, canSubmit, companyId, data, publish, reload, usesRemotePersistence]);
 
   const applyLifecycle = useCallback(async (siteLogId: string, action: "DELETE_UNUSED" | "VOID", reason?: string) => {
     requirePermission(canManage, "You do not have permission to manage Site Log lifecycle state in this company.");
     const current = aggregate(siteLogId);
     if (!current) throw new Error("The selected Site Log is no longer available.");
-    if (!guestMode && !isControlled) {
+    if (usesRemotePersistence) {
       await applyDailySiteLogLifecycleInSupabase(siteLogId, action, reason, companyId);
-      await reload();
+      await reload(true);
       return { deleted: action === "DELETE_UNUSED" };
     }
     const preview = await previewLifecycle(siteLogId);
@@ -259,7 +251,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     const next = { ...current, log: nextLog, events: [...current.events, eventForDailySiteLogTransition(current.log, nextLog, { reason })] };
     publish(replaceDailySiteLogAggregate(data, next));
     return { deleted: false };
-  }, [aggregate, canManage, companyId, data, guestMode, isControlled, previewLifecycle, publish, reload]);
+  }, [aggregate, canManage, companyId, data, previewLifecycle, publish, reload, usesRemotePersistence]);
 
   const addAddendum = useCallback(async (siteLogId: string, reason: string, correctionText: string): Promise<EngineeringDailySiteLogAddendum> => {
     requirePermission(canManage, "You do not have permission to add Site Log corrections in this company.");
@@ -268,9 +260,9 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     if (current.log.status !== "FINALIZED") throw new Error("Addenda are available only for FINALIZED Site Logs.");
     if (!reason.trim()) throw new Error("A reason is required for a Site Log addendum.");
     if (!correctionText.trim()) throw new Error("Correction or addendum text is required.");
-    if (!guestMode && !isControlled) {
+    if (usesRemotePersistence) {
       const created = await createDailySiteLogAddendumRpc(siteLogId, reason, correctionText, companyId);
-      await reload();
+      await reload(true);
       return created;
     }
     const createdAt = new Date().toISOString();
@@ -286,7 +278,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     };
     publish({ ...data, addenda: [...(data.addenda || []), addendum] });
     return addendum;
-  }, [aggregate, canManage, companyId, data, guestMode, isControlled, publish, reload]);
+  }, [aggregate, canManage, companyId, data, publish, reload, usesRemotePersistence]);
 
   return {
     data: projectData,
