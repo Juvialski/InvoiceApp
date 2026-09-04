@@ -877,14 +877,17 @@ const nodes: readonly WorkflowNode[] = [
   }),
   node({
     id: "project-overview",
-    label: "Project Overview",
+    label: "Project Financial Control Dashboard (Project Overview)",
     domain: "projects",
     type: "screen",
     scope: "project",
-    description: "Project health and cost overview assembled from authoritative project-cost inputs and engineering summaries.",
+    description: "Selected-project management control layer with distinct cost and commercial scorecards, commitment-adjusted availability, reconciled actual-cost composition, work-package summary, and permission-aware drilldowns; Forecast/EAC and risk scoring remain deferred.",
     sourceClassification: "mixed",
-    fileRefs: ["src/components/projects/ProjectOverview.tsx", "src/utils/projectDashboardViewModel.ts"],
-    testRefs: ["tests/projectWorkspaceNavigation.test.ts", "tests/accountingStatistics.test.ts"],
+    fileRefs: ["src/components/projects/ProjectOverview.tsx", "src/components/projects/ProjectWorkspace.tsx", "src/utils/projectManagementViewModel.ts", "src/utils/projectFinancialSummary.ts", "src/utils/projectDashboardViewModel.ts"],
+    testRefs: ["tests/projectFinancialControlDashboard.test.ts", "tests/projectWorkspaceNavigation.test.ts", "tests/projectOverviewFinancialTruth.test.ts"],
+    invariantIds: ["reports-are-derived-surfaces", "project-labor-aggregate-preserves-payroll-privacy", "commercial-client-billing-issued-only", "commercial-client-collection-recorded-only"],
+    qaScenarioIds: ["project-financial-control--project-financial-control--financial-control-dashboard-verified--desktop-1440", "project-financial-control--project-financial-control--financial-control-dashboard-verified--laptop-1366", "project-financial-control--project-financial-control--financial-control-dashboard-verified--tablet-768", "project-financial-control--project-financial-control--financial-control-dashboard-verified--mobile-390", "project-financial-control--project-financial-control--mixed-currency-control-state-verified--desktop-1440"],
+    tags: ["project financial control", "derived surface", "currency-aware", "permission-aware drilldowns"],
   }),
   node({
     id: "project-cost-aggregation",
@@ -2508,7 +2511,7 @@ const edges: readonly WorkflowEdge[] = [
   edge({ id: "selection-to-workspace", source: "project-selection", target: "route-project-workspace", type: "routes-to", kind: "navigation", label: "canonical project path", permissionKeys: ["projects.read"] }),
   edge({ id: "route-workspace-to-screen", source: "route-project-workspace", target: "project-workspace", type: "routes-to", kind: "navigation", label: "opens" }),
   edge({ id: "workspace-to-aggregate", source: "project-workspace", target: "project-aggregate", type: "reads", kind: "read-flow", label: "selected project" }),
-  edge({ id: "workspace-to-overview", source: "project-workspace", target: "project-overview", type: "contains", kind: "context", label: "Overview tab" }),
+  edge({ id: "workspace-to-overview", source: "project-workspace", target: "project-overview", type: "contains", kind: "context", label: "Financial Control Dashboard / Overview tab" }),
   edge({ id: "directory-to-project-lifecycle", source: "project-directory", target: "project-correction-lifecycle", type: "opens", kind: "mutation", label: "reviews correction options", permissionKeys: ["projects.manage"], confirmationRequirement: "human", invariantIds: ["company-rbac-is-authoritative", "approved-payroll-history-is-immutable"] }),
   edge({ id: "project-lifecycle-to-rpc", source: "project-correction-lifecycle", target: "project-lifecycle-rpc-boundary", type: "executes-through", kind: "external-boundary", label: "preflight, lock, audit, lifecycle RPC", permissionKeys: ["projects.read", "projects.manage"], confirmationRequirement: "human", invariantIds: ["company-rbac-is-authoritative", "approved-payroll-history-is-immutable", "formal-engineering-history-is-preserved"] }),
   edge({ id: "project-lifecycle-to-activity-guard", source: "project-correction-lifecycle", target: "project-activity-guard", type: "guards", kind: "guard", label: "archive boundary", permissionKeys: ["projects.manage"], invariantIds: ["formal-engineering-history-is-preserved"] }),
@@ -2521,7 +2524,7 @@ const edges: readonly WorkflowEdge[] = [
   edge({ id: "invoice-cost-contribution-to-project-cost", source: "invoice-project-cost-contribution", target: "project-cost-aggregation", type: "feeds", kind: "derived-data", label: "project cost contribution", invariantIds: ["invoice-project-cost-independent-from-settlement"] }),
   edge({ id: "project-cost-from-payroll-allocation", source: "payroll-project-allocation", target: "project-cost-aggregation", type: "feeds", kind: "derived-data", label: "confirmed labor cost", invariantIds: ["payroll-labor-cost-independent-from-net-pay-settlement"] }),
   edge({ id: "project-cost-from-expense", source: "direct-project-expense", target: "project-cost-aggregation", type: "feeds", kind: "derived-data", label: "approved/paid direct cost" }),
-  edge({ id: "project-cost-to-overview", source: "project-cost-aggregation", target: "project-overview", type: "feeds", kind: "derived-data", label: "cost health" }),
+  edge({ id: "project-cost-to-overview", source: "project-cost-aggregation", target: "project-overview", type: "feeds", kind: "derived-data", label: "authoritative cost-control scorecard and charts" }),
   edge({ id: "project-cost-to-financial-summary", source: "project-cost-aggregation", target: "project-financial-summary", type: "feeds", kind: "derived-data", label: "Actual, committed, and budget metrics", invariantIds: ["reports-are-derived-surfaces", "project-labor-aggregate-preserves-payroll-privacy"] }),
 
   // Engineering documents.
@@ -3320,6 +3323,7 @@ const p2Edges: readonly WorkflowEdge[] = [
   edge({ id: "p2-collection-link-transaction", source: "client-collection-cash-settlement-link", target: "cash-transactions", type: "links-to", kind: "separation", label: "same-company POSTED CREDIT transaction", invariantIds: ["commercial-client-collection-cash-linkage"] }),
   edge({ id: "p2-collection-link-match", source: "client-collection-cash-settlement-link", target: "cash-settlement-match", type: "writes", kind: "mutation", label: "CLIENT_COLLECTION canonical settlement match", permissionKeys: ["cash.reconcile", "projects.manage"], confirmationRequirement: "human", invariantIds: ["commercial-client-collection-cash-linkage", "commercial-client-collection-settlement-reversal-guard"] }),
   edge({ id: "p2-collection-link-evidence", source: "cash-settlement-evidence", target: "client-collection-cash-settlement-link", type: "links-to", kind: "separation", label: "bank evidence only; collected truth remains commercial", invariantIds: ["commercial-client-collection-cash-linkage"] }),
+  edge({ id: "p3a-overview-to-budget-control", source: "project-overview", target: "project-budget-control", type: "opens", kind: "navigation", label: "Open Budget Control drilldown", permissionKeys: ["projects.read"], invariantIds: ["reports-are-derived-surfaces"] }),
 ] as const;
 
 const diagrams = [
@@ -3386,14 +3390,14 @@ const diagrams = [
 export const WORKFLOW_GRAPH: WorkflowGraph = {
   schemaVersion: WORKFLOW_MAP_SCHEMA_VERSION,
   graphId: "engoryx-product-workflow",
-  version: "wm-1+p2-procurement-commercial-client-billing",
+  version: "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control",
   product: "Engoryx Engineering Operations Platform",
   purpose: "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   canonicalSource: "scripts/workflow-map/graph.ts",
   sourceClassification: "mixed",
   reviewedCommitSha: "c5d3a41c90220e45bd692c7ae5d9784d3b4b9630",
   reviewedAt: "2026-08-29",
-  phaseTags: ["Phase 0", "Phase 1A", "Phase 1B", "Phase 1C", "Core Hardening Wave 1", "Core Hardening Wave 2A", "Core Hardening Wave 2B2", "Cross-Domain Settlement", "P2 Procurement + Commercial", "QA-1", "WM-1"],
+  phaseTags: ["Phase 0", "Phase 1A", "Phase 1B", "Phase 1C", "Core Hardening Wave 1", "Core Hardening Wave 2A", "Core Hardening Wave 2B2", "Cross-Domain Settlement", "P2 Procurement + Commercial", "P3A-2 Project Financial Control", "QA-1", "WM-1"],
   explorationInputs: [
     {
       tool: "GitDiagram",

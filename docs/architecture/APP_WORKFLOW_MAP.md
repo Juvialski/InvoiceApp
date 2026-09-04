@@ -18,15 +18,15 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Field | Value |
 | --- | --- |
 | Schema version | `1` |
-| Graph version | `wm-1+p2-procurement-commercial-client-billing` |
+| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control` |
 | Product | Engoryx Engineering Operations Platform |
 | Source classification | `mixed` |
 | Reviewed against | `c5d3a41c90220e45bd692c7ae5d9784d3b4b9630` |
 | Reviewed at | `2026-08-29` |
 | Node count | 229 |
-| Edge count | 281 |
+| Edge count | 282 |
 | Invariant count | 25 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `QA-1`, `WM-1` |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -211,7 +211,7 @@ flowchart LR
     n_project_correction_lifecycle{"Project correction and removal lifecycle<br/><small>WORKFLOW</small>"}
     n_project_lifecycle_rpc_boundary[["Authoritative project lifecycle RPC boundary<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_project_activity_guard{{"Archived project activity guard<br/><small>GUARD</small>"}}
-    n_project_overview["Project Overview<br/><small>SCREEN</small>"]
+    n_project_overview["Project Financial Control Dashboard (Project Overview)<br/><small>SCREEN</small>"]
     n_project_cost_aggregation["Authoritative project-cost aggregation<br/><small>DERIVED-DATA</small>"]
     n_project_labor_aggregate_rpc[["Safe project labor aggregate RPC<br/><small>EXTERNAL-BOUNDARY</small>"]]
   end
@@ -285,7 +285,7 @@ flowchart LR
   n_project_selection -->|canonical project path| n_route_project_workspace
   n_route_project_workspace -->|opens| n_project_workspace
   n_project_workspace -->|selected project| n_project_aggregate
-  n_project_workspace -->|Overview tab| n_project_overview
+  n_project_workspace -->|Financial Control Dashboard / Overview tab| n_project_overview
   n_project_directory -->|reviews correction options| n_project_correction_lifecycle
   n_project_correction_lifecycle -->|preflight, lock, audit, lifecycle RPC| n_project_lifecycle_rpc_boundary
   n_project_correction_lifecycle -->|archive boundary| n_project_activity_guard
@@ -293,7 +293,7 @@ flowchart LR
   n_project_workspace -->|RFIs tab| n_route_project_rfis
   n_project_workspace -->|Submittals tab| n_route_project_submittals
   n_project_workspace -->|Site Logs tab| n_route_project_site_logs
-  n_project_cost_aggregation -->|cost health| n_project_overview
+  n_project_cost_aggregation -->|authoritative cost-control scorecard and charts| n_project_overview
   n_route_project_documents -->|opens| n_engineering_documents_screen
   n_engineering_documents_screen -->|register| n_engineering_document
   n_engineering_document -->|current revision| n_engineering_document_revision
@@ -937,7 +937,7 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Project correction and removal lifecycle**<br/><small>`project-correction-lifecycle`</small> | `workflow` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage` | `mixed`<br/>confirmation: `human` | `src/components/projects/ProjectsPage.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/lib/projects.ts`<br/>`src/features/projects/useProjectController.ts`<br/>`supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql` | `tests/projectLifecycle.test.ts`<br/>`tests/coreHardeningWave2B1.test.ts`<br/>`supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql` | — |
 | **Authoritative project lifecycle RPC boundary**<br/><small>`project-lifecycle-rpc-boundary`</small> | `external-boundary` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage` | `mixed`<br/>confirmation: `human` | `src/lib/projects.ts`<br/>`supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql` | `tests/coreHardeningWave2B1.test.ts`<br/>`supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql` | — |
 | **Archived project activity guard**<br/><small>`project-activity-guard`</small> | `guard` | `company-and-project`<br/>— | — | `projects.manage` | `mixed` | `supabase/migrations/20260829050916_core_hardening_wave2b1_project_corrections.sql` | `tests/coreHardeningWave2B1.test.ts`<br/>`supabase/tests/database/06_core_hardening_wave2b1_project_corrections.test.sql` | — |
-| **Project Overview**<br/><small>`project-overview`</small> | `screen` | `project`<br/>— | — | — | `mixed` | `src/components/projects/ProjectOverview.tsx`<br/>`src/utils/projectDashboardViewModel.ts` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/accountingStatistics.test.ts` | — |
+| **Project Financial Control Dashboard (Project Overview)**<br/><small>`project-overview`</small> | `screen` | `project`<br/>— | — | — | `mixed` | `src/components/projects/ProjectOverview.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/utils/projectManagementViewModel.ts`<br/>`src/utils/projectFinancialSummary.ts`<br/>`src/utils/projectDashboardViewModel.ts` | `tests/projectFinancialControlDashboard.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts`<br/>`tests/projectOverviewFinancialTruth.test.ts` | `project-financial-control--project-financial-control--financial-control-dashboard-verified--desktop-1440`<br/>`project-financial-control--project-financial-control--financial-control-dashboard-verified--laptop-1366`<br/>`project-financial-control--project-financial-control--financial-control-dashboard-verified--tablet-768`<br/>`project-financial-control--project-financial-control--financial-control-dashboard-verified--mobile-390`<br/>`project-financial-control--project-financial-control--mixed-currency-control-state-verified--desktop-1440` |
 | **Authoritative project-cost aggregation**<br/><small>`project-cost-aggregation`</small> | `derived-data` | `project`<br/>— | — | `projects.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/projectDashboardViewModel.ts`<br/>`src/App.tsx`<br/>`docs/engineering-project-costing-plan.md` | `tests/projectCostingHardening.test.ts`<br/>`tests/projectLaborCostAggregate.test.ts`<br/>`tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
 | **Invoice project allocation**<br/><small>`invoice-project-allocation`</small> | `data` | `company-and-project`<br/>— | — | `projects.manage`<br/>`invoices.read` | `mixed` | `src/utils/projectAllocations.ts`<br/>`src/lib/persistence.ts`<br/>`supabase/migrations/20260823170000_invoice_project_allocation_replacement.sql` | `tests/projectAllocations.test.ts`<br/>`tests/projectCostingHardening.test.ts` | — |
 | **Verified invoice project-cost contribution**<br/><small>`invoice-project-cost-contribution`</small> | `derived-data` | `company-and-project`<br/>— | — | — | `mixed` | `src/utils/projectCosting.ts`<br/>`src/utils/projectAllocations.ts`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/projectCostingHardening.test.ts`<br/>`tests/financialSettlement.test.ts` | — |

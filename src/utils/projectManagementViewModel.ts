@@ -6,8 +6,11 @@ import type {
   ProjectStatus,
   PurchaseOrder,
   Subcontract,
+  SubcontractProgressClaim,
+  SubcontractVariation,
 } from "../types.ts";
 import {
+  calculateProjectCost,
   calculateProjectBudgetControl,
   normalizeCurrency,
   projectHealth,
@@ -49,6 +52,13 @@ export interface ProjectAttentionItem {
   tab?: "overview" | "budget" | "invoices" | "payroll" | "expenses" | "reports" | "procurement";
 }
 
+export interface ProjectCommitmentBreakdown {
+  purchaseOrders: ProjectFinancialMetric;
+  subcontracts: ProjectFinancialMetric;
+  reconcilesToCommittedCost: boolean;
+  reason?: string;
+}
+
 export type ProjectManagementHealth = "ON BUDGET" | "NEAR LIMIT" | "OVER BUDGET" | "NO BUDGET" | "PARTIAL";
 
 export interface ProjectManagementView {
@@ -68,6 +78,7 @@ export interface ProjectManagementView {
   committedCost: number;
   pendingCostExposure: number;
   remainingBudget: number | null; // null if partial/mixed currency or unavailable
+  availableAfterCommitments: number | null; // null if partial/mixed currency or unavailable
   variance: number | null; // budget - actual (null if partial/mixed currency)
   outstandingPayables: number;
 
@@ -78,9 +89,12 @@ export interface ProjectManagementView {
   uncodedActualCost: number | null; // null if authoritative P1B source inputs are unavailable
   costClassificationAvailable: boolean; // true only when authoritative transaction-level sources were evaluated
   activeCostCodesCount: number;
+  overBudgetCostCodeCount: number | null; // null when code-level actuals are unavailable or non-combinable
+  actualCostCompositionReconciles: boolean;
   forecastFinalCost: number | null; // null if incomplete/partial forecast
   forecastVariance: number | null; // null if incomplete/partial forecast
   hasExplicitForecast: boolean; // true ONLY when every active cost code has a numeric forecast
+  commitmentBreakdown: ProjectCommitmentBreakdown;
 
   // Explainable Attention Flags
   attentionFlags: ProjectAttentionItem[];
@@ -97,12 +111,94 @@ export interface BuildProjectManagementViewOptions {
   payroll?: CostPayrollRecord[];
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
+  subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   costInput?: ProjectCostInput;
   financialDataComplete?: boolean;
   clientBillings?: readonly ClientBilling[];
   clientCollections?: readonly ClientCollection[];
+}
+
+function unavailableMetric(reason: string): ProjectFinancialMetric {
+  return { status: "unavailable", reason };
+}
+
+function commitmentMetric(
+  amount: number,
+  currency: string,
+  foreignAmounts: Record<string, number>,
+  sourceLabel: string,
+): ProjectFinancialMetric {
+  const hasForeignAmounts = Object.entries(foreignAmounts).some(([, value]) => roundMoney(value) !== 0);
+  if (hasForeignAmounts) {
+    return {
+      status: "partial",
+      amount: roundMoney(amount),
+      currency,
+      foreignAmounts,
+      reason: `${sourceLabel} includes unconverted foreign-currency commitments; the ${currency} amount is only a partial base-currency view.`,
+    };
+  }
+  return { status: "available", amount: roundMoney(amount), currency };
+}
+
+function buildProjectCommitmentBreakdown(
+  project: Project,
+  committedCost: number,
+  currency: string,
+  options?: BuildProjectManagementViewOptions,
+): ProjectCommitmentBreakdown {
+  const costInput = options?.costInput;
+  const purchaseOrders = options?.purchaseOrders ?? costInput?.purchaseOrders;
+  const subcontracts = options?.subcontracts ?? costInput?.subcontracts;
+  const subcontractClaims = options?.subcontractClaims ?? costInput?.subcontractClaims;
+  const subcontractVariations = options?.subcontractVariations ?? costInput?.subcontractVariations;
+
+  if (purchaseOrders === undefined || subcontracts === undefined) {
+    const reason = "Purchase order and subcontract source data was not supplied to this view; only the authoritative Committed Cost aggregate is shown.";
+    return {
+      purchaseOrders: unavailableMetric(reason),
+      subcontracts: unavailableMetric(reason),
+      reconcilesToCommittedCost: false,
+      reason,
+    };
+  }
+
+  // Reuse the canonical project-cost calculator over disjoint source sets.
+  // This keeps PO and subcontract categories aligned with the aggregate's
+  // lifecycle, claim, variation, and currency semantics without rebuilding
+  // commitment math in the dashboard layer.
+  const purchaseOrderSummary = calculateProjectCost(project, {
+    purchaseOrders,
+    baseCurrency: currency,
+  });
+  const subcontractSummary = calculateProjectCost(project, {
+    subcontracts,
+    subcontractClaims,
+    subcontractVariations,
+    baseCurrency: currency,
+  });
+  const purchaseOrderAmount = roundMoney(purchaseOrderSummary.committedCost);
+  const subcontractAmount = roundMoney(subcontractSummary.committedCost);
+  const reconcilesToCommittedCost = Math.abs(roundMoney(purchaseOrderAmount + subcontractAmount) - roundMoney(committedCost)) <= 0.01;
+
+  if (!reconcilesToCommittedCost) {
+    const reason = "Source-level commitment categories do not reconcile to the authoritative Committed Cost aggregate; category detail is withheld.";
+    return {
+      purchaseOrders: unavailableMetric(reason),
+      subcontracts: unavailableMetric(reason),
+      reconcilesToCommittedCost: false,
+      reason,
+    };
+  }
+
+  return {
+    purchaseOrders: commitmentMetric(purchaseOrderAmount, currency, purchaseOrderSummary.foreignCosts || {}, "Purchase order commitments"),
+    subcontracts: commitmentMetric(subcontractAmount, currency, subcontractSummary.foreignCosts || {}, "Subcontract commitments"),
+    reconcilesToCommittedCost: true,
+  };
 }
 
 /**
@@ -143,12 +239,20 @@ export function buildProjectManagementView(
     (summary.pendingExpenseCost || 0),
   );
   const outstandingPayables = roundMoney(summary.unpaidInvoiceCost || 0);
+  const actualCostCompositionReconciles = Math.abs(roundMoney(
+    (summary.invoiceCost || 0) + (summary.payrollCost || 0) + (summary.otherExpenseCost || 0),
+  ) - actualCost) <= 0.01;
 
   const remainingBudget = isPartial ? null : roundMoney(budget - actualCost);
+  const availableAfterCommitments = isPartial
+    ? null
+    : roundMoney(budget - actualCost - committedCost - pendingCostExposure);
   const variance = isPartial ? null : roundMoney(budget - actualCost);
 
   const confirmedUtilization = budget > 0 ? roundMoney((actualCost / budget) * 100) : 0;
-  const commitmentUtilization = budget > 0 ? roundMoney(((actualCost + committedCost) / budget) * 100) : 0;
+  const commitmentUtilization = budget > 0
+    ? roundMoney(((actualCost + committedCost + pendingCostExposure) / budget) * 100)
+    : 0;
 
   // Health: If partial, cost health is PARTIAL. Otherwise use standard projectHealth.
   const rawHealth = projectHealth(summary);
@@ -169,6 +273,7 @@ export function buildProjectManagementView(
   let codedActualCost: number | null = null;
   let uncodedActualCost: number | null = null;
   let costClassificationAvailable = false;
+  let overBudgetCostCodeCount: number | null = null;
   let forecastFinalCost: number | null = null;
   let forecastVariance: number | null = null;
   let hasExplicitForecast = false;
@@ -244,6 +349,12 @@ export function buildProjectManagementView(
     costClassificationAvailable = false;
   }
 
+  if (costClassificationAvailable && !hasForeignAmounts) {
+    overBudgetCostCodeCount = budgetControlSummary
+      ? budgetControlSummary.costCodes.filter((code) => code.status === "ACTIVE" && code.actualCost > code.budgetAmount).length
+      : 0;
+  }
+
   // Attention Flags
   const attentionFlags: ProjectAttentionItem[] = [];
 
@@ -303,7 +414,7 @@ export function buildProjectManagementView(
     });
   }
 
-  if (costClassificationAvailable && activeCostCodesCount > 0 && uncodedActualCost !== null && uncodedActualCost > 0) {
+  if (costClassificationAvailable && !hasForeignAmounts && activeCostCodesCount > 0 && uncodedActualCost !== null && uncodedActualCost > 0) {
     attentionFlags.push({
       id: "uncoded-cost",
       flag: "UNCODED_COST",
@@ -358,6 +469,8 @@ export function buildProjectManagementView(
     });
   }
 
+  const commitmentBreakdown = buildProjectCommitmentBreakdown(project, committedCost, currency, options);
+
   return {
     project,
     currency,
@@ -373,6 +486,7 @@ export function buildProjectManagementView(
     committedCost,
     pendingCostExposure,
     remainingBudget,
+    availableAfterCommitments,
     variance,
     outstandingPayables,
     allocatedCostCodeBudget,
@@ -381,9 +495,12 @@ export function buildProjectManagementView(
     uncodedActualCost,
     costClassificationAvailable,
     activeCostCodesCount,
+    overBudgetCostCodeCount,
+    actualCostCompositionReconciles,
     forecastFinalCost,
     forecastVariance,
     hasExplicitForecast,
+    commitmentBreakdown,
     attentionFlags,
     budgetControlSummary,
     baseCostSummary: summary,

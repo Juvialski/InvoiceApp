@@ -20,7 +20,9 @@ import type {
   RFQStatus,
   Subcontract,
   SubcontractLine,
+  SubcontractProgressClaim,
   SubcontractStatus,
+  SubcontractVariation,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
@@ -61,6 +63,8 @@ export interface ProjectsRouteProps {
   expenses: Expense[];
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
+  subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
   receipts?: PurchaseOrderReceipt[];
   vendors?: Vendor[];
   workers?: Worker[];
@@ -184,6 +188,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   expenses,
   purchaseOrders = [],
   subcontracts = [],
+  subcontractClaims = [],
+  subcontractVariations = [],
   receipts = [],
   vendors = [],
   workers = [],
@@ -298,6 +304,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         expenses={expenses}
         purchaseOrders={purchaseOrders}
         subcontracts={subcontracts}
+        subcontractClaims={subcontractClaims}
+        subcontractVariations={subcontractVariations}
         receipts={receipts}
         vendors={vendors}
         workers={workers}

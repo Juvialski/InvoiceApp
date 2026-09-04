@@ -36,7 +36,9 @@ import type {
   RFQStatus,
   Subcontract,
   SubcontractLine,
+  SubcontractProgressClaim,
   SubcontractStatus,
+  SubcontractVariation,
   SupplierQuotation,
   SupplierQuotationLine,
   Vendor,
@@ -315,6 +317,8 @@ export interface AppRouterProps {
   // Procurement Data & Handlers
   purchaseOrders?: PurchaseOrder[];
   subcontracts?: Subcontract[];
+  subcontractClaims?: SubcontractProgressClaim[];
+  subcontractVariations?: SubcontractVariation[];
   receipts?: PurchaseOrderReceipt[];
   vendors?: Vendor[];
   onSavePO?: (
@@ -404,6 +408,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   costCodes = [],
   purchaseOrders = [],
   subcontracts = [],
+  subcontractClaims = [],
+  subcontractVariations = [],
   receipts = [],
   vendors = [],
   onSavePO,
@@ -648,6 +654,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         expenses={expenses}
         purchaseOrders={purchaseOrders}
         subcontracts={subcontracts}
+        subcontractClaims={subcontractClaims}
+        subcontractVariations={subcontractVariations}
         receipts={receipts}
         vendors={vendors}
         workers={payrollData.workers}
