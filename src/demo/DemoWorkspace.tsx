@@ -315,7 +315,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
 
   const previewInvoiceCorrection = async (invoice: InvoiceData): Promise<FinancialCorrectionPreview> => {
     const matches = data.cash.matches.filter((match) => match.targetType === "INVOICE" && match.targetId === invoice.id);
-    return buildLocalInvoiceCorrectionPreview({ invoice, allocationCount: data.invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id).length, settlementMatchCount: matches.length, confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length, historyCount: (invoice.extractionId ? 1 : 0) + (invoice.reviewStatus === "VERIFIED" ? 1 : 0) });
+    return buildLocalInvoiceCorrectionPreview({ invoice, allocationCount: data.invoiceAllocations.filter((allocation) => allocation.invoiceId === invoice.id).length, settlementMatchCount: matches.length, confirmedSettlementCount: matches.filter((match) => match.status === "CONFIRMED").length, historyCount: invoice.reviewStatus === "VERIFIED" ? 1 : 0 });
   };
 
   const applyInvoiceCorrection = async (invoice: InvoiceData, action: FinancialCorrectionAction, reason?: string): Promise<FinancialCorrectionResult> => {
