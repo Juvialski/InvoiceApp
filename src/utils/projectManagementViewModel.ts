@@ -49,7 +49,11 @@ export type ProjectAttentionFlag =
   | "OVERDUE_RFI"
   | "OPEN_RFI"
   | "OVERDUE_SUBMITTAL"
-  | "SUBMITTALS_AWAITING_REVIEW";
+  | "SUBMITTALS_AWAITING_REVIEW"
+  | "UNRESOLVED_SAFETY_EVENT"
+  | "UNRESOLVED_FIELD_ISSUE"
+  | "EQUIPMENT_OUT_OF_SERVICE"
+  | "MATERIAL_RECONCILIATION_GAP";
 
 export type ProjectAttentionCategory =
   | "financial"
@@ -57,7 +61,8 @@ export type ProjectAttentionCategory =
   | "schedule"
   | "procurement"
   | "engineering"
-  | "data-quality";
+  | "data-quality"
+  | "field-operations";
 
 export type ProjectAttentionSeverity = "critical" | "warning" | "info";
 
@@ -91,6 +96,54 @@ export interface ProjectAttentionEngineeringInput {
   submittals?: readonly ProjectAttentionSubmittalRecord[];
 }
 
+export interface ProjectAttentionFieldSiteLogRecord {
+  id: string;
+  projectId: string;
+  siteDate: string;
+  status: string;
+}
+
+export interface ProjectAttentionFieldSafetyRecord {
+  id: string;
+  siteLogId: string;
+  severity: string;
+  isResolved: boolean;
+  description: string;
+}
+
+export interface ProjectAttentionFieldIssueRecord {
+  id: string;
+  siteLogId: string;
+  severity: string;
+  status: string;
+  description: string;
+}
+
+export interface ProjectAttentionFieldEquipmentRecord {
+  id: string;
+  projectId: string;
+  equipmentName: string;
+  status: string;
+  updatedAt?: string;
+}
+
+export interface ProjectAttentionMaterialDiscrepancyRecord {
+  id: string;
+  materialName: string;
+  observedQuantity: number;
+  formalReceivedQuantity: number;
+  unit: string;
+  latestDate?: string;
+}
+
+export interface ProjectAttentionFieldOperationsInput {
+  siteLogs?: readonly ProjectAttentionFieldSiteLogRecord[];
+  safety?: readonly ProjectAttentionFieldSafetyRecord[];
+  issues?: readonly ProjectAttentionFieldIssueRecord[];
+  equipment?: readonly ProjectAttentionFieldEquipmentRecord[];
+  materialDiscrepancies?: readonly ProjectAttentionMaterialDiscrepancyRecord[];
+}
+
 export interface ProjectAttentionSignal {
   id: string;
   projectId: string;
@@ -106,7 +159,7 @@ export interface ProjectAttentionSignal {
   tone: "danger" | "warning" | "info" | "neutral";
   metric?: ProjectAttentionMetric;
   date?: string;
-  tab?: "overview" | "budget" | "billing" | "invoices" | "payroll" | "expenses" | "reports" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs";
+  tab?: "overview" | "budget" | "billing" | "invoices" | "payroll" | "expenses" | "reports" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "materials-equipment";
 }
 
 /** Backwards-compatible name used by existing Project Overview consumers. */
@@ -185,6 +238,8 @@ export interface BuildProjectManagementViewOptions {
   today?: string;
   /** Selected-project engineering records already authorized by the caller. */
   engineering?: ProjectAttentionEngineeringInput;
+  /** Selected-project field records already authorized by the caller. */
+  fieldOperations?: ProjectAttentionFieldOperationsInput;
 }
 
 function makeAttentionSignal(input: Omit<ProjectAttentionSignal, "title" | "explanation" | "evidence"> & { evidence?: string; title?: string; explanation?: string }): ProjectAttentionSignal {
@@ -299,6 +354,99 @@ export function buildProjectEngineeringAttentionSignals(
       metric: { label: "Awaiting review", value: awaitingReview.length },
       tab: "submittals",
       tone: "warning",
+    }));
+  }
+  return signals;
+}
+
+/**
+ * Builds attention only from explicit field-operation facts. Missing site-log
+ * data produces no signal; it is never interpreted as a missed report.
+ */
+export function buildProjectFieldOperationsAttentionSignals(
+  project: Pick<Project, "id">,
+  fieldOperations: ProjectAttentionFieldOperationsInput | undefined,
+): ProjectAttentionSignal[] {
+  if (!fieldOperations) return [];
+  const validLogDates = new Map(
+    (fieldOperations.siteLogs || [])
+      .filter((log) => log.projectId === project.id && ["SUBMITTED", "FINALIZED"].includes(log.status))
+      .map((log) => [log.id, log.siteDate]),
+  );
+  const signals: ProjectAttentionSignal[] = [];
+  const severityFor = (value: string): ProjectAttentionSeverity => value === "CRITICAL" ? "critical" : "warning";
+
+  for (const safety of (fieldOperations.safety || []).filter((row) => !row.isResolved && ["HIGH", "CRITICAL"].includes(row.severity) && validLogDates.has(row.siteLogId))) {
+    const date = validLogDates.get(safety.siteLogId);
+    const detail = `${safety.severity} safety observation remains unresolved: ${safety.description}`;
+    signals.push(makeAttentionSignal({
+      id: `field-safety:${safety.id}`,
+      projectId: project.id,
+      flag: "UNRESOLVED_SAFETY_EVENT",
+      category: "field-operations",
+      severity: severityFor(safety.severity),
+      source: "Daily Site Log safety observations",
+      label: "Unresolved serious safety observation",
+      detail,
+      evidence: detail,
+      date,
+      tone: "danger",
+      tab: "site-logs",
+    }));
+  }
+
+  for (const issue of (fieldOperations.issues || []).filter((row) => row.status !== "RESOLVED" && ["HIGH", "CRITICAL"].includes(row.severity) && validLogDates.has(row.siteLogId))) {
+    const date = validLogDates.get(issue.siteLogId);
+    const detail = `${issue.severity} ${issue.status.toLowerCase().replaceAll("_", " ")} field issue remains open: ${issue.description}`;
+    signals.push(makeAttentionSignal({
+      id: `field-issue:${issue.id}`,
+      projectId: project.id,
+      flag: "UNRESOLVED_FIELD_ISSUE",
+      category: "field-operations",
+      severity: severityFor(issue.severity),
+      source: "Daily Site Log operational issues",
+      label: "Unresolved serious field issue",
+      detail,
+      evidence: detail,
+      date,
+      tone: "danger",
+      tab: "site-logs",
+    }));
+  }
+
+  for (const equipment of (fieldOperations.equipment || []).filter((item) => item.projectId === project.id && item.status === "OUT_OF_SERVICE")) {
+    const detail = `${equipment.equipmentName} is explicitly marked OUT OF SERVICE in the project Equipment Register.`;
+    signals.push(makeAttentionSignal({
+      id: `equipment-out-of-service:${equipment.id}`,
+      projectId: project.id,
+      flag: "EQUIPMENT_OUT_OF_SERVICE",
+      category: "field-operations",
+      severity: "warning",
+      source: "Project Equipment Register",
+      label: "Equipment out of service",
+      detail,
+      evidence: detail,
+      date: equipment.updatedAt?.slice(0, 10),
+      tone: "warning",
+      tab: "materials-equipment",
+    }));
+  }
+
+  for (const discrepancy of fieldOperations.materialDiscrepancies || []) {
+    const detail = `${discrepancy.materialName}: ${discrepancy.observedQuantity} ${discrepancy.unit} observed in valid Site Logs versus ${discrepancy.formalReceivedQuantity} ${discrepancy.unit} formally received.`;
+    signals.push(makeAttentionSignal({
+      id: discrepancy.id,
+      projectId: project.id,
+      flag: "MATERIAL_RECONCILIATION_GAP",
+      category: "field-operations",
+      severity: "warning",
+      source: "Materials Register, PO receipts, and Daily Site Logs",
+      label: "Material evidence needs reconciliation",
+      detail,
+      evidence: detail,
+      date: discrepancy.latestDate,
+      tone: "warning",
+      tab: "materials-equipment",
     }));
   }
   return signals;
@@ -755,6 +903,10 @@ export function buildProjectManagementView(
   }
 
   for (const signal of buildProjectEngineeringAttentionSignals(project, options?.engineering, today)) {
+    if (canSurfaceAttention) attentionFlags.push(signal);
+  }
+
+  for (const signal of buildProjectFieldOperationsAttentionSignals(project, options?.fieldOperations)) {
     if (canSurfaceAttention) attentionFlags.push(signal);
   }
 

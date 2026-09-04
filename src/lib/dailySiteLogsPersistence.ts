@@ -7,7 +7,10 @@ import {
   type EngineeringDailySiteLogCrew,
   type EngineeringDailySiteLogEquipment,
   type EngineeringDailySiteLogEvent,
+  type EngineeringDailySiteLogIssue,
+  type EngineeringDailySiteLogMaterialDelivery,
   type EngineeringDailySiteLogSafety,
+  type EngineeringDailySiteLogWork,
   type EngineeringDailySiteLogWeather,
   type EngineeringDailySiteLogsWorkspaceData,
 } from "./dailySiteLogs.ts";
@@ -79,6 +82,7 @@ export function dailySiteLogCrewFromRow(row: Row): EngineeringDailySiteLogCrew {
     trade: text(row.trade),
     crewLabel: text(row.crew_label),
     contractorLabel: text(row.contractor_label),
+    projectCostCodeId: text(row.project_cost_code_id) || null,
     headcount: numberValue(row.headcount),
     regularHours: row.regular_hours === null || row.regular_hours === undefined ? undefined : numberValue(row.regular_hours),
     overtimeHours: row.overtime_hours === null || row.overtime_hours === undefined ? undefined : numberValue(row.overtime_hours),
@@ -94,6 +98,7 @@ export function dailySiteLogEquipmentFromRow(row: Row): EngineeringDailySiteLogE
     id: String(row.id),
     companyId: text(row.company_id),
     siteLogId: String(row.site_log_id),
+    equipmentId: text(row.equipment_id) || null,
     equipmentName: String(row.equipment_name || ""),
     equipmentType: text(row.equipment_type),
     assetReference: text(row.asset_reference),
@@ -101,6 +106,69 @@ export function dailySiteLogEquipmentFromRow(row: Row): EngineeringDailySiteLogE
     idleHours: row.idle_hours === null || row.idle_hours === undefined ? undefined : numberValue(row.idle_hours),
     operatorCrewNote: text(row.operator_crew_note),
     conditionStatus: text(row.condition_status),
+    notes: text(row.notes),
+    sortOrder: numberValue(row.sort_order),
+    createdAt: String(row.created_at || ""),
+    updatedAt: String(row.updated_at || ""),
+  };
+}
+
+export function dailySiteLogWorkFromRow(row: Row): EngineeringDailySiteLogWork {
+  return {
+    id: String(row.id),
+    companyId: text(row.company_id),
+    siteLogId: String(row.site_log_id),
+    projectId: String(row.project_id),
+    description: String(row.description || ""),
+    projectCostCodeId: text(row.project_cost_code_id) || null,
+    quantity: row.quantity === null || row.quantity === undefined ? undefined : numberValue(row.quantity),
+    unit: text(row.unit),
+    workLocation: text(row.work_location),
+    notes: text(row.notes),
+    sortOrder: numberValue(row.sort_order),
+    createdAt: String(row.created_at || ""),
+    updatedAt: String(row.updated_at || ""),
+  };
+}
+
+export function dailySiteLogMaterialDeliveryFromRow(row: Row): EngineeringDailySiteLogMaterialDelivery {
+  return {
+    id: String(row.id),
+    companyId: text(row.company_id),
+    siteLogId: String(row.site_log_id),
+    projectId: String(row.project_id),
+    materialId: text(row.material_id) || null,
+    materialNameSnapshot: String(row.material_name_snapshot || ""),
+    quantityObserved: numberValue(row.quantity_observed),
+    unitSnapshot: String(row.unit_snapshot || ""),
+    supplierDeliveryReference: text(row.supplier_delivery_reference) || null,
+    purchaseOrderId: text(row.purchase_order_id) || null,
+    purchaseOrderLineId: text(row.purchase_order_line_id) || null,
+    purchaseOrderReceiptId: text(row.purchase_order_receipt_id) || null,
+    deliveryCondition: text(row.delivery_condition) || null,
+    location: text(row.location) || null,
+    projectCostCodeId: text(row.project_cost_code_id) || null,
+    notes: text(row.notes) || null,
+    sortOrder: numberValue(row.sort_order),
+    createdAt: String(row.created_at || ""),
+    updatedAt: String(row.updated_at || ""),
+  };
+}
+
+export function dailySiteLogIssueFromRow(row: Row): EngineeringDailySiteLogIssue {
+  return {
+    id: String(row.id),
+    companyId: text(row.company_id),
+    siteLogId: String(row.site_log_id),
+    projectId: String(row.project_id),
+    category: String(row.category || ""),
+    description: String(row.description || ""),
+    severity: String(row.severity || "MEDIUM") as EngineeringDailySiteLogIssue["severity"],
+    status: String(row.status || "OPEN") as EngineeringDailySiteLogIssue["status"],
+    mitigation: text(row.mitigation),
+    responsibleParty: text(row.responsible_party),
+    projectCostCodeId: text(row.project_cost_code_id) || null,
+    resolvedAt: text(row.resolved_at),
     notes: text(row.notes),
     sortOrder: numberValue(row.sort_order),
     createdAt: String(row.created_at || ""),
@@ -185,16 +253,19 @@ export async function loadDailySiteLogsFromSupabase(companyId?: string, projectI
   const resolvedCompanyId = await requireAuthenticatedCompany(companyId);
   let logsQuery = supabase!.from("engineering_daily_site_logs").select("*").eq("company_id", resolvedCompanyId).order("site_date", { ascending: false }).order("created_at", { ascending: false });
   if (projectId) logsQuery = logsQuery.eq("project_id", projectId);
-  const [logs, weather, crew, equipment, safety, events, addenda] = await Promise.all([
+  const [logs, weather, crew, equipment, work, materialDeliveries, issues, safety, events, addenda] = await Promise.all([
     logsQuery,
     supabase!.from("engineering_daily_site_log_weather").select("*").eq("company_id", resolvedCompanyId).order("created_at", { ascending: true }),
     supabase!.from("engineering_daily_site_log_crew").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
     supabase!.from("engineering_daily_site_log_equipment").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
+    supabase!.from("engineering_daily_site_log_work").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
+    supabase!.from("engineering_daily_site_log_material_deliveries").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
+    supabase!.from("engineering_daily_site_log_issues").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
     supabase!.from("engineering_daily_site_log_safety").select("*").eq("company_id", resolvedCompanyId).order("sort_order", { ascending: true }),
     supabase!.from("engineering_daily_site_log_events").select("*").eq("company_id", resolvedCompanyId).order("created_at", { ascending: true }),
     supabase!.from("engineering_daily_site_log_addenda").select("*").eq("company_id", resolvedCompanyId).order("addendum_number", { ascending: true }),
   ]);
-  for (const result of [logs, weather, crew, equipment, safety, events, addenda]) if (result.error) throw result.error;
+  for (const result of [logs, weather, crew, equipment, work, materialDeliveries, issues, safety, events, addenda]) if (result.error) throw result.error;
   const logIds = new Set((logs.data || []).map((row) => String((row as Row).id)));
   const onlyProjectLogs = (rows: Row[]) => rows.filter((row) => logIds.has(String(row.site_log_id)));
   return {
@@ -202,6 +273,9 @@ export async function loadDailySiteLogsFromSupabase(companyId?: string, projectI
     weather: onlyProjectLogs((weather.data || []) as Row[]).map(dailySiteLogWeatherFromRow),
     crew: onlyProjectLogs((crew.data || []) as Row[]).map(dailySiteLogCrewFromRow),
     equipment: onlyProjectLogs((equipment.data || []) as Row[]).map(dailySiteLogEquipmentFromRow),
+    work: onlyProjectLogs((work.data || []) as Row[]).map(dailySiteLogWorkFromRow),
+    materialDeliveries: onlyProjectLogs((materialDeliveries.data || []) as Row[]).map(dailySiteLogMaterialDeliveryFromRow),
+    issues: onlyProjectLogs((issues.data || []) as Row[]).map(dailySiteLogIssueFromRow),
     safety: onlyProjectLogs((safety.data || []) as Row[]).map(dailySiteLogSafetyFromRow),
     events: onlyProjectLogs((events.data || []) as Row[]).map(dailySiteLogEventFromRow),
     addenda: onlyProjectLogs((addenda.data || []) as Row[]).map(dailySiteLogAddendumFromRow),
@@ -214,7 +288,7 @@ export function readDailySiteLogsFromLocal(storage: Storage | undefined = typeof
     const raw = storage.getItem(DAILY_SITE_LOGS_STORAGE_KEY);
     if (!raw) return emptyDailySiteLogsWorkspaceData();
     const parsed = JSON.parse(raw) as Partial<EngineeringDailySiteLogsWorkspaceData>;
-    return {
+    const result: Partial<EngineeringDailySiteLogsWorkspaceData> = {
       logs: Array.isArray(parsed.logs) ? parsed.logs : [],
       weather: Array.isArray(parsed.weather) ? parsed.weather : [],
       crew: Array.isArray(parsed.crew) ? parsed.crew : [],
@@ -223,6 +297,10 @@ export function readDailySiteLogsFromLocal(storage: Storage | undefined = typeof
       events: Array.isArray(parsed.events) ? parsed.events : [],
       addenda: Array.isArray(parsed.addenda) ? parsed.addenda : [],
     };
+    if (Array.isArray(parsed.work)) result.work = parsed.work;
+    if (Array.isArray(parsed.materialDeliveries)) result.materialDeliveries = parsed.materialDeliveries;
+    if (Array.isArray(parsed.issues)) result.issues = parsed.issues;
+    return result as EngineeringDailySiteLogsWorkspaceData;
   } catch {
     return emptyDailySiteLogsWorkspaceData();
   }
@@ -232,7 +310,7 @@ export function writeDailySiteLogsToLocal(data: EngineeringDailySiteLogsWorkspac
   try { storage?.setItem(DAILY_SITE_LOGS_STORAGE_KEY, JSON.stringify(data)); } catch { /* browser-only best effort */ }
 }
 
-export function dailySiteLogAggregateToRpcPayload(aggregate: { log: EngineeringDailySiteLog; weather?: EngineeringDailySiteLogWeather; crew: EngineeringDailySiteLogCrew[]; equipment: EngineeringDailySiteLogEquipment[]; safety: EngineeringDailySiteLogSafety[] }) {
+export function dailySiteLogAggregateToRpcPayload(aggregate: { log: EngineeringDailySiteLog; weather?: EngineeringDailySiteLogWeather; crew: EngineeringDailySiteLogCrew[]; equipment: EngineeringDailySiteLogEquipment[]; work?: EngineeringDailySiteLogWork[]; materialDeliveries?: EngineeringDailySiteLogMaterialDelivery[]; issues?: EngineeringDailySiteLogIssue[]; safety: EngineeringDailySiteLogSafety[] }) {
   return {
     p_daily_site_log_id: aggregate.log.id,
     p_project_id: aggregate.log.projectId,
@@ -252,18 +330,21 @@ export function dailySiteLogAggregateToRpcPayload(aggregate: { log: EngineeringD
       humidity: aggregate.weather.humidity ?? null,
       site_condition_notes: aggregate.weather.siteConditionNotes || null,
     } : null,
-    p_crew: aggregate.crew.map((row) => ({ id: row.id, trade: row.trade || null, crew_label: row.crewLabel || null, contractor_label: row.contractorLabel || null, headcount: row.headcount, regular_hours: row.regularHours ?? null, overtime_hours: row.overtimeHours ?? null, notes: row.notes || null, sort_order: row.sortOrder })),
-    p_equipment: aggregate.equipment.map((row) => ({ id: row.id, equipment_name: row.equipmentName, equipment_type: row.equipmentType || null, asset_reference: row.assetReference || null, operating_hours: row.operatingHours ?? null, idle_hours: row.idleHours ?? null, operator_crew_note: row.operatorCrewNote || null, condition_status: row.conditionStatus || null, notes: row.notes || null, sort_order: row.sortOrder })),
+    p_crew: aggregate.crew.map((row) => ({ id: row.id, trade: row.trade || null, crew_label: row.crewLabel || null, contractor_label: row.contractorLabel || null, project_cost_code_id: row.projectCostCodeId || null, headcount: row.headcount, regular_hours: row.regularHours ?? null, overtime_hours: row.overtimeHours ?? null, notes: row.notes || null, sort_order: row.sortOrder })),
+    p_equipment: aggregate.equipment.map((row) => ({ id: row.id, equipment_id: row.equipmentId || null, equipment_name: row.equipmentName, equipment_type: row.equipmentType || null, asset_reference: row.assetReference || null, operating_hours: row.operatingHours ?? null, idle_hours: row.idleHours ?? null, operator_crew_note: row.operatorCrewNote || null, condition_status: row.conditionStatus || null, notes: row.notes || null, sort_order: row.sortOrder })),
+    p_work: (aggregate.work || []).map((row) => ({ id: row.id, description: row.description, project_cost_code_id: row.projectCostCodeId || null, quantity: row.quantity ?? null, unit: row.unit || null, work_location: row.workLocation || null, notes: row.notes || null, sort_order: row.sortOrder })),
+    p_material_deliveries: (aggregate.materialDeliveries || []).map((row) => ({ id: row.id, material_id: row.materialId || null, material_name_snapshot: row.materialNameSnapshot, quantity_observed: row.quantityObserved, unit_snapshot: row.unitSnapshot, supplier_delivery_reference: row.supplierDeliveryReference || null, purchase_order_id: row.purchaseOrderId || null, purchase_order_line_id: row.purchaseOrderLineId || null, purchase_order_receipt_id: row.purchaseOrderReceiptId || null, delivery_condition: row.deliveryCondition || null, location: row.location || null, project_cost_code_id: row.projectCostCodeId || null, notes: row.notes || null, sort_order: row.sortOrder })),
+    p_issues: (aggregate.issues || []).map((row) => ({ id: row.id, category: row.category, description: row.description, severity: row.severity, status: row.status, mitigation: row.mitigation || null, responsible_party: row.responsibleParty || null, project_cost_code_id: row.projectCostCodeId || null, resolved_at: row.resolvedAt || null, notes: row.notes || null, sort_order: row.sortOrder })),
     p_safety: aggregate.safety.map((row) => ({ id: row.id, category: row.category, severity: row.severity, description: row.description, action_taken: row.actionTaken || null, is_resolved: row.isResolved, notes: row.notes || null, sort_order: row.sortOrder })),
   };
 }
 
 export function createDailySiteLogRpc(aggregate: Parameters<typeof dailySiteLogAggregateToRpcPayload>[0], companyId?: string) {
-  return rpc("create_engineering_daily_site_log", dailySiteLogAggregateToRpcPayload(aggregate), companyId);
+  return rpc("create_engineering_daily_site_log_v2", dailySiteLogAggregateToRpcPayload(aggregate), companyId);
 }
 
 export function updateDailySiteLogDraftRpc(aggregate: Parameters<typeof dailySiteLogAggregateToRpcPayload>[0], companyId?: string) {
-  return rpc("update_engineering_daily_site_log_draft", dailySiteLogAggregateToRpcPayload(aggregate), companyId);
+  return rpc("update_engineering_daily_site_log_draft_v2", dailySiteLogAggregateToRpcPayload(aggregate), companyId);
 }
 
 export function submitDailySiteLogRpc(siteLogId: string, companyId?: string) {

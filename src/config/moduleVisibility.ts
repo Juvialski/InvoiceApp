@@ -9,6 +9,7 @@ export const DEPLOYMENT_MODULE_KEYS = [
   "payroll",
   "reports",
   "engineering-documents",
+  "materials-equipment",
   "settings",
 ] as const;
 

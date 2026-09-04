@@ -13,6 +13,7 @@ export type ProjectWorkspaceVisibilityTab =
   | "rfis"
   | "submittals"
   | "site-logs"
+  | "materials-equipment"
   | "invoices"
   | "payroll"
   | "expenses"
@@ -24,6 +25,7 @@ const TAB_MODULES: Partial<Record<ProjectWorkspaceVisibilityTab, DeploymentModul
   documents: "engineering-documents",
   rfis: "engineering-documents",
   submittals: "engineering-documents",
+  "materials-equipment": "materials-equipment",
   invoices: "invoices",
   payroll: "payroll",
   expenses: "expenses",

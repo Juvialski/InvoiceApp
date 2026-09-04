@@ -10,6 +10,8 @@ import type {
   Project,
   ProjectCostCode,
   ProjectCostSummary,
+  ProjectEquipment,
+  ProjectMaterial,
   ProjectWorkerAssignment,
   PurchaseOrder,
   PurchaseOrderLine,
@@ -39,6 +41,7 @@ import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/
 import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
 import type { ClientCollection, ClientCollectionAllocationInput, ClientCollectionEvent, ClientCollectionInput } from "../../lib/clientCollections.ts";
 import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransactionMatch } from "../../lib/cashBanking.ts";
+import type { ProjectEquipmentSaveInput, ProjectMaterialSaveInput } from "../../lib/materialsEquipment.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ProjectsRouteProps {
@@ -71,6 +74,8 @@ export interface ProjectsRouteProps {
   subcontractClaims?: SubcontractProgressClaim[];
   subcontractVariations?: SubcontractVariation[];
   receipts?: PurchaseOrderReceipt[];
+  materials?: ProjectMaterial[];
+  equipment?: ProjectEquipment[];
   vendors?: Vendor[];
   workers?: Worker[];
   assignments?: ProjectWorkerAssignment[];
@@ -105,6 +110,8 @@ export interface ProjectsRouteProps {
   projectDocumentsContent?: React.ReactNode;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
+  onSaveMaterial?: (input: ProjectMaterialSaveInput) => Promise<void>;
+  onSaveEquipment?: (input: ProjectEquipmentSaveInput) => Promise<void>;
   attentionToday?: string;
   onTabChange?: (tab: WorkspaceTab) => void;
   onOpenProject: (project: Project) => void;
@@ -211,6 +218,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   subcontractClaims = [],
   subcontractVariations = [],
   receipts = [],
+  materials = [],
+  equipment = [],
   vendors = [],
   workers = [],
   assignments = [],
@@ -245,6 +254,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   projectDocumentsContent,
   dailySiteLogsData,
   onDailySiteLogsDataChange,
+  onSaveMaterial,
+  onSaveEquipment,
   attentionToday,
   onTabChange,
   onOpenProject,
@@ -336,6 +347,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         subcontractClaims={subcontractClaims}
         subcontractVariations={subcontractVariations}
         receipts={receipts}
+        materials={materials}
+        equipment={equipment}
         vendors={vendors}
         workers={workers}
         assignments={assignments}
@@ -370,6 +383,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         dailySiteLogsData={dailySiteLogsData}
         attentionToday={attentionToday}
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
+        onSaveMaterial={onSaveMaterial}
+        onSaveEquipment={onSaveEquipment}
         onTabChange={onTabChange}
         onSaveInvoiceAllocations={onSaveInvoiceAllocations}
         onSaveClientBilling={onSaveClientBilling}

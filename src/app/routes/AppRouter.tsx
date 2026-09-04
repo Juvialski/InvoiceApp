@@ -25,6 +25,8 @@ import type {
   Project,
   ProjectCostCode,
   ProjectCostSummary,
+  ProjectEquipment,
+  ProjectMaterial,
   ProjectWorkerAssignment,
   PurchaseOrder,
   PurchaseOrderInvoiceMatch,
@@ -62,6 +64,7 @@ import type {
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
+import type { ProjectEquipmentSaveInput, ProjectMaterialSaveInput } from "../../lib/materialsEquipment.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
@@ -148,6 +151,8 @@ export interface AppRouterProps {
   projectSummaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
   costCodes?: readonly ProjectCostCode[];
+  materials?: ProjectMaterial[];
+  equipment?: ProjectEquipment[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   projectFormSeed?: Project | null;
@@ -163,6 +168,8 @@ export interface AppRouterProps {
   projectDocumentsContent?: React.ReactNode;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
+  onSaveMaterial?: (input: ProjectMaterialSaveInput) => Promise<void>;
+  onSaveEquipment?: (input: ProjectEquipmentSaveInput) => Promise<void>;
   pathForSiteLog?: (siteLogId?: string) => string;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
@@ -427,6 +434,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   projectSummaries,
   projectDashboard,
   costCodes = [],
+  materials = [],
+  equipment = [],
   purchaseOrders = [],
   subcontracts = [],
   subcontractClaims = [],
@@ -476,6 +485,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   projectDocumentsContent,
   dailySiteLogsData,
   onDailySiteLogsDataChange,
+  onSaveMaterial,
+  onSaveEquipment,
   pathForSiteLog,
   onOpenProject,
   onSaveProject,
@@ -679,6 +690,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         summaries={projectSummaries}
         projectDashboard={projectDashboard}
         costCodes={costCodes}
+        materials={materials}
+        equipment={equipment}
         invoices={invoices}
         invoiceAllocations={invoiceProjectAllocations}
         expenses={expenses}
@@ -709,6 +722,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         projectDocumentsContent={projectDocumentsContent}
         dailySiteLogsData={dailySiteLogsData}
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
+        onSaveMaterial={onSaveMaterial}
+        onSaveEquipment={onSaveEquipment}
         pathForSiteLog={pathForSiteLog}
         onNavigatePath={onNavigatePath}
         onTabChange={onProjectTabChange}

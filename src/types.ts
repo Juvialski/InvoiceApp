@@ -695,6 +695,51 @@ export interface ProjectCostCode {
   archivedAt?: string;
 }
 
+/** Current project material metadata; receipt quantities are derived from PO receipts. */
+export type ProjectMaterialStatus = "PLANNED" | "ACTIVE" | "ON_HOLD" | "CLOSED" | "CANCELLED";
+
+export interface ProjectMaterial {
+  id: string;
+  companyId?: string;
+  projectId: string;
+  materialName: string;
+  referenceCode?: string | null;
+  category?: string | null;
+  unit: string;
+  requiredQuantity: number;
+  projectCostCodeId?: string | null;
+  purchaseOrderId?: string | null;
+  purchaseOrderLineId?: string | null;
+  status: ProjectMaterialStatus;
+  notes?: string | null;
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ProjectEquipmentSource = "OWNED" | "RENTED" | "SUBCONTRACTOR" | "OTHER";
+export type ProjectEquipmentStatus = "ACTIVE" | "INACTIVE" | "OUT_OF_SERVICE" | "RETURNED";
+
+export interface ProjectEquipment {
+  id: string;
+  companyId?: string;
+  projectId: string;
+  assetReference?: string | null;
+  equipmentName: string;
+  equipmentType?: string | null;
+  equipmentSource: ProjectEquipmentSource;
+  providerName?: string | null;
+  assignmentStart?: string | null;
+  assignmentEnd?: string | null;
+  status: ProjectEquipmentStatus;
+  notes?: string | null;
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface InvoiceProjectAllocation {
   id: string;
   invoiceId: string;

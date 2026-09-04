@@ -14,6 +14,8 @@ import type {
   PayrollPeriod,
   PayrollRun,
   Project,
+  ProjectEquipment,
+  ProjectMaterial,
   ProjectWorkerAssignment,
   Subcontract,
   SubcontractProgressClaim,
@@ -79,7 +81,9 @@ export type DemoWorkspaceMutation =
   | { type: "SAVE_FINANCIAL_MATCH"; match: FinancialTransactionMatch; transaction: FinancialTransaction }
   | { type: "REVERSE_FINANCIAL_SETTLEMENT"; matchId: string; reason: string }
   | { type: "SAVE_ENGINEERING_DOCUMENTS"; value: EngineeringDocumentsWorkspaceData }
-  | { type: "SAVE_DAILY_SITE_LOGS"; value: EngineeringDailySiteLogsWorkspaceData };
+  | { type: "SAVE_DAILY_SITE_LOGS"; value: EngineeringDailySiteLogsWorkspaceData }
+  | { type: "SAVE_MATERIAL"; value: ProjectMaterial }
+  | { type: "SAVE_EQUIPMENT"; value: ProjectEquipment };
 
 function upsert<T extends { id: string }>(items: readonly T[], value: T): T[] {
   const found = items.some((item) => item.id === value.id);
@@ -107,6 +111,8 @@ export function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: P
     engineeringRfis: state.coordination.rfis.filter((rfi) => rfi.projectId === project.id).length,
     engineeringSubmittals: state.coordination.submittals.filter((submittal) => submittal.projectId === project.id).length,
     engineeringDailySiteLogs: state.siteLogs.logs.filter((log) => log.projectId === project.id).length,
+    projectMaterials: state.materials.filter((material) => material.projectId === project.id).length,
+    projectEquipment: state.equipment.filter((equipment) => equipment.projectId === project.id).length,
     purchaseOrders: (state.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
     subcontracts: (state.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
     subcontractProgressClaims: (state.subcontractClaims || []).filter((claim) => claim.projectId === project.id).length,
@@ -419,6 +425,10 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, engineering: mutation.value };
     case "SAVE_DAILY_SITE_LOGS":
       return { ...state, siteLogs: mutation.value };
+    case "SAVE_MATERIAL":
+      return { ...state, materials: upsert(state.materials, mutation.value) };
+    case "SAVE_EQUIPMENT":
+      return { ...state, equipment: upsert(state.equipment, mutation.value) };
     default:
       return state;
   }

@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "graphId": "engoryx-product-workflow",
-  "version": "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1",
+  "version": "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations",
   "product": "Engoryx Engineering Operations Platform",
   "purpose": "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   "canonicalSource": "scripts/workflow-map/graph.ts",
   "sourceClassification": "mixed",
-  "reviewedCommitSha": "cb2bcd2b9674b6743f3b77f847f4151d1a53f9ba",
+  "reviewedCommitSha": "d00986dda4bec2d1d5b4b8af058db5f3ee43b3fe",
   "reviewedAt": "2026-09-04",
   "phaseTags": [
     "Phase 0",
@@ -20,6 +20,8 @@
     "P2 Procurement + Commercial",
     "P3A-2 Project Financial Control",
     "P3A-3 Explainable Project Attention",
+    "P3B Materials & Equipment",
+    "P3C Enhanced Daily Site Operations",
     "P3D-1 Engineering Coordination Integration",
     "QA-1",
     "WM-1"
@@ -169,6 +171,26 @@
         "tests/dailySiteLogs.test.ts",
         "tests/dailySiteLogsPersistence.test.ts",
         "tests/dailySiteLogsMigration.test.ts"
+      ]
+    },
+    {
+      "id": "field-operations-source-separation",
+      "label": "Field operations preserve source separation and historical snapshots",
+      "description": "Materials and equipment registers hold current project metadata; PO receipts remain formal procurement truth; Daily Site Logs hold historical observations with stable links and snapshots, without creating Actual Cost, commitments, payroll, or schedule semantics.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/materialsEquipment.ts",
+        "src/lib/dailySiteLogs.ts",
+        "src/lib/dailySiteLogsPersistence.ts",
+        "src/components/projects/ProjectMaterialsEquipment.tsx",
+        "src/components/engineering/ProjectSiteLogs.tsx",
+        "supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql",
+        "supabase/migrations/20260904103008_p3b_p3c_materials_equipment_realtime.sql"
+      ],
+      "testRefs": [
+        "tests/materialsEquipment.test.ts",
+        "tests/materialsEquipmentMigration.test.ts",
+        "supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql"
       ]
     },
     {
@@ -6636,6 +6658,219 @@
       ]
     },
     {
+      "sourceClassification": "code-derived",
+      "id": "route-project-materials-equipment",
+      "label": "Project Materials & Equipment route",
+      "domain": "engineering",
+      "type": "route",
+      "scope": "project",
+      "route": {
+        "routeId": "projects",
+        "canonicalPath": "/projects/:projectId/materials-equipment",
+        "pathPattern": "/projects/:projectId/materials-equipment",
+        "scope": "production-and-demo"
+      },
+      "description": "Selected-project Materials & Equipment register route; the project workspace remains the navigation context.",
+      "fileRefs": [
+        "src/utils/appRouting.ts",
+        "src/utils/appRouteContracts.ts",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/app/routes/ProjectsRoute.tsx"
+      ],
+      "testRefs": [
+        "tests/materialsEquipmentRouting.test.ts",
+        "tests/projectWorkspaceNavigation.test.ts"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "materials-equipment-workspace",
+      "label": "Materials & Equipment workspace",
+      "domain": "engineering",
+      "type": "screen",
+      "scope": "project",
+      "description": "Dense selected-project management view for current material/equipment registers with permission-aware procurement and Daily Site Log evidence.",
+      "fileRefs": [
+        "src/components/projects/ProjectMaterialsEquipment.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/lib/materialsEquipment.ts"
+      ],
+      "testRefs": [
+        "tests/materialsEquipment.test.ts",
+        "tests/materialsEquipmentRouting.test.ts"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage",
+        "procurement.read",
+        "engineering.sitelogs.read"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "project-material-register",
+      "label": "Project Materials Register",
+      "domain": "engineering",
+      "type": "data",
+      "scope": "company-and-project",
+      "statusValues": [
+        "PLANNED",
+        "ACTIVE",
+        "ON_HOLD",
+        "CLOSED",
+        "CANCELLED"
+      ],
+      "description": "Current project material planning/reference metadata with optional cost-code and deterministic PO/line linkage; receipt totals are not editable copies.",
+      "fileRefs": [
+        "src/types.ts",
+        "src/lib/materialsEquipment.ts",
+        "supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql"
+      ],
+      "testRefs": [
+        "tests/materialsEquipment.test.ts",
+        "tests/materialsEquipmentMigration.test.ts",
+        "supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "field-operations-source-separation"
+      ],
+      "tags": [
+        "P3B",
+        "materials register",
+        "project materials"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "project-equipment-register",
+      "label": "Project Equipment Register",
+      "domain": "engineering",
+      "type": "data",
+      "scope": "company-and-project",
+      "statusValues": [
+        "ACTIVE",
+        "INACTIVE",
+        "OUT_OF_SERVICE",
+        "RETURNED"
+      ],
+      "description": "Current project equipment metadata for source, provider, assignment dates, and lifecycle state; historical usage is derived from stable Site Log links.",
+      "fileRefs": [
+        "src/types.ts",
+        "src/lib/materialsEquipment.ts",
+        "supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql"
+      ],
+      "testRefs": [
+        "tests/materialsEquipment.test.ts",
+        "tests/materialsEquipmentMigration.test.ts",
+        "supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql"
+      ],
+      "permissionKeys": [
+        "projects.read",
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "field-operations-source-separation"
+      ],
+      "tags": [
+        "P3B",
+        "equipment register",
+        "project equipment"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "material-procurement-receipt-progress",
+      "label": "Derived material procurement and receipt progress",
+      "domain": "procurement",
+      "type": "derived-data",
+      "scope": "company-and-project",
+      "description": "Ordered, valid received, outstanding, and receipt-progress values derived from the linked PO line and non-void formal receipt lines; restricted source state is preserved.",
+      "fileRefs": [
+        "src/lib/materialsEquipment.ts",
+        "src/utils/purchaseOrderReceipts.ts",
+        "src/components/projects/ProjectMaterialsEquipment.tsx"
+      ],
+      "testRefs": [
+        "tests/materialsEquipment.test.ts",
+        "tests/purchaseOrderReceiptsDomain.test.ts"
+      ],
+      "permissionKeys": [
+        "procurement.read"
+      ],
+      "invariantIds": [
+        "procurement-po-commitment-not-actual",
+        "field-operations-source-separation",
+        "company-rbac-is-authoritative"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "equipment-field-usage-evidence",
+      "label": "Derived equipment field usage evidence",
+      "domain": "engineering",
+      "type": "derived-data",
+      "scope": "company-and-project",
+      "description": "Last observed date, latest condition, observation count, and operating/idle hours derived from non-void Daily Site Log equipment observations linked by stable register ID.",
+      "fileRefs": [
+        "src/lib/materialsEquipment.ts",
+        "src/lib/dailySiteLogs.ts",
+        "src/components/projects/ProjectMaterialsEquipment.tsx"
+      ],
+      "testRefs": [
+        "tests/materialsEquipment.test.ts"
+      ],
+      "permissionKeys": [
+        "engineering.sitelogs.read",
+        "projects.read"
+      ],
+      "invariantIds": [
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "site-log-structured-operations",
+      "label": "Structured Daily Site Log operations",
+      "domain": "engineering",
+      "type": "data",
+      "scope": "company-and-project",
+      "description": "Historical Site Log child observations for work accomplished, material deliveries, linked equipment, and operational issues, retaining snapshots and existing lifecycle protection.",
+      "fileRefs": [
+        "src/lib/dailySiteLogs.ts",
+        "src/lib/dailySiteLogsPersistence.ts",
+        "src/components/engineering/ProjectSiteLogs.tsx",
+        "supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql"
+      ],
+      "testRefs": [
+        "tests/materialsEquipment.test.ts",
+        "tests/dailySiteLogsPersistence.test.ts",
+        "tests/materialsEquipmentMigration.test.ts",
+        "supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql"
+      ],
+      "permissionKeys": [
+        "engineering.sitelogs.read",
+        "engineering.sitelogs.create",
+        "engineering.sitelogs.update",
+        "engineering.sitelogs.submit",
+        "engineering.sitelogs.manage"
+      ],
+      "invariantIds": [
+        "formal-engineering-history-is-preserved",
+        "field-operations-source-separation",
+        "site-log-observation-is-not-payroll-attendance"
+      ]
+    },
+    {
       "sourceClassification": "mixed",
       "id": "project-attention-signals",
       "label": "Project Attention Signals",
@@ -9554,6 +9789,186 @@
       ]
     },
     {
+      "id": "p3b-workspace-to-materials-equipment-route",
+      "source": "project-workspace",
+      "target": "route-project-materials-equipment",
+      "type": "opens",
+      "kind": "navigation",
+      "label": "Materials & Equipment tab",
+      "permissionKeys": [
+        "projects.read"
+      ]
+    },
+    {
+      "id": "p3b-materials-route-to-workspace",
+      "source": "route-project-materials-equipment",
+      "target": "materials-equipment-workspace",
+      "type": "routes-to",
+      "kind": "navigation",
+      "label": "register"
+    },
+    {
+      "id": "p3b-workspace-reads-register",
+      "source": "materials-equipment-workspace",
+      "target": "project-material-register",
+      "type": "reads",
+      "kind": "read-flow",
+      "label": "project materials",
+      "permissionKeys": [
+        "projects.read"
+      ]
+    },
+    {
+      "id": "p3b-workspace-reads-equipment",
+      "source": "materials-equipment-workspace",
+      "target": "project-equipment-register",
+      "type": "reads",
+      "kind": "read-flow",
+      "label": "project equipment",
+      "permissionKeys": [
+        "projects.read"
+      ]
+    },
+    {
+      "id": "p3b-materials-to-receipt-progress",
+      "source": "project-material-register",
+      "target": "material-procurement-receipt-progress",
+      "type": "derives",
+      "kind": "derived-data",
+      "label": "linked PO line and formal receipt progress",
+      "permissionKeys": [
+        "procurement.read"
+      ],
+      "invariantIds": [
+        "procurement-po-commitment-not-actual",
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "id": "p3b-receipts-to-material-progress",
+      "source": "purchase-order-receipts",
+      "target": "material-procurement-receipt-progress",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "non-void receipt lines",
+      "permissionKeys": [
+        "procurement.read"
+      ],
+      "invariantIds": [
+        "procurement-po-commitment-not-actual"
+      ]
+    },
+    {
+      "id": "p3b-equipment-to-usage-evidence",
+      "source": "project-equipment-register",
+      "target": "equipment-field-usage-evidence",
+      "type": "derives",
+      "kind": "derived-data",
+      "label": "stable Site Log links",
+      "permissionKeys": [
+        "projects.read",
+        "engineering.sitelogs.read"
+      ],
+      "invariantIds": [
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "id": "p3c-site-log-to-structured-operations",
+      "source": "site-log-aggregate",
+      "target": "site-log-structured-operations",
+      "type": "contains",
+      "kind": "context",
+      "label": "work, deliveries, issues, and linked equipment",
+      "invariantIds": [
+        "formal-engineering-history-is-preserved",
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "id": "p3c-structured-to-equipment-usage",
+      "source": "site-log-structured-operations",
+      "target": "equipment-field-usage-evidence",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "operating hours and latest condition",
+      "permissionKeys": [
+        "engineering.sitelogs.read"
+      ],
+      "invariantIds": [
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "id": "p3c-material-delivery-to-reconciliation",
+      "source": "site-log-structured-operations",
+      "target": "material-procurement-receipt-progress",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "deterministic delivery evidence",
+      "permissionKeys": [
+        "engineering.sitelogs.read",
+        "procurement.read"
+      ],
+      "invariantIds": [
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "id": "p3c-material-register-not-cost",
+      "source": "project-material-register",
+      "target": "project-cost-aggregation",
+      "type": "separates",
+      "kind": "separation",
+      "label": "planning metadata is not Actual Cost",
+      "invariantIds": [
+        "procurement-po-commitment-not-actual",
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "id": "p3c-equipment-register-not-cost",
+      "source": "project-equipment-register",
+      "target": "project-cost-aggregation",
+      "type": "separates",
+      "kind": "separation",
+      "label": "assignment and usage are not cost",
+      "invariantIds": [
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "id": "p3c-field-operations-to-attention",
+      "source": "site-log-structured-operations",
+      "target": "project-attention-signals",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "explicit safety and unresolved issue evidence",
+      "permissionKeys": [
+        "engineering.sitelogs.read",
+        "projects.read"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "field-operations-source-separation"
+      ]
+    },
+    {
+      "id": "p3b-equipment-attention",
+      "source": "project-equipment-register",
+      "target": "project-attention-signals",
+      "type": "feeds",
+      "kind": "derived-data",
+      "label": "explicit OUT_OF_SERVICE state",
+      "permissionKeys": [
+        "projects.read"
+      ],
+      "invariantIds": [
+        "company-rbac-is-authoritative",
+        "field-operations-source-separation"
+      ]
+    },
+    {
       "id": "p3a-portfolio-to-attention-signals",
       "source": "portfolio-management-dashboard",
       "target": "project-attention-signals",
@@ -9853,7 +10268,14 @@
         "site-log-safety-observation",
         "site-log-event-history",
         "site-log-correction-addendum",
-        "site-log-payroll-boundary"
+        "site-log-payroll-boundary",
+        "route-project-materials-equipment",
+        "materials-equipment-workspace",
+        "project-material-register",
+        "project-equipment-register",
+        "material-procurement-receipt-progress",
+        "equipment-field-usage-evidence",
+        "site-log-structured-operations"
       ]
     },
     {
@@ -9880,7 +10302,14 @@
         "engineering-documents-screen",
         "rfi-register-screen",
         "submittal-register-screen",
-        "site-log-register-screen"
+        "site-log-register-screen",
+        "route-project-materials-equipment",
+        "materials-equipment-workspace",
+        "project-material-register",
+        "project-equipment-register",
+        "material-procurement-receipt-progress",
+        "equipment-field-usage-evidence",
+        "site-log-structured-operations"
       ]
     },
     {

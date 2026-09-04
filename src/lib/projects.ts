@@ -32,6 +32,8 @@ export type ProjectLifecycleDependencyKey =
   | "engineeringRfis"
   | "engineeringSubmittals"
   | "engineeringDailySiteLogs"
+  | "projectMaterials"
+  | "projectEquipment"
   | "projectAccountingEvents"
   | "purchaseOrders"
   | "subcontracts"
@@ -81,6 +83,8 @@ export const PROJECT_LIFECYCLE_DEPENDENCY_KEYS: readonly ProjectLifecycleDepende
   "engineeringRfis",
   "engineeringSubmittals",
   "engineeringDailySiteLogs",
+  "projectMaterials",
+  "projectEquipment",
   "projectAccountingEvents",
   "purchaseOrders",
   "subcontracts",

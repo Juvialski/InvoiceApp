@@ -9,6 +9,7 @@ import { createDemoPayroll } from "./workforcePayroll.ts";
 import { createDemoEngineeringDocuments } from "./engineeringDocuments.ts";
 import { createDemoEngineeringCoordination } from "./engineeringCoordination.ts";
 import { createDemoDailySiteLogs } from "./dailySiteLogs.ts";
+import { createDemoEquipment, createDemoMaterials } from "./materialsEquipment.ts";
 import { createDemoPurchaseOrderMatches, createDemoPurchaseOrders, createDemoPurchaseOrderReceipts, createDemoRFQs, createDemoSubcontractClaims, createDemoSubcontracts, createDemoSubcontractVariations, createDemoSupplierQuotations, createDemoVendors } from "./procurement.ts";
 import { createDemoClientBillings } from "./clientBillings.ts";
 import { createDemoClientCollections } from "./clientCollections.ts";
@@ -60,6 +61,8 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     engineering: createDemoEngineeringDocuments(anchorDate),
     coordination: createDemoEngineeringCoordination(anchorDate),
     siteLogs: createDemoDailySiteLogs(anchorDate),
+    materials: createDemoMaterials(anchorDate),
+    equipment: createDemoEquipment(anchorDate),
     vendors: createDemoVendors(anchorDate),
     purchaseOrders: createDemoPurchaseOrders(anchorDate),
     purchaseOrderReceipts: createDemoPurchaseOrderReceipts(anchorDate),

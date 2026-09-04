@@ -18,15 +18,15 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Field | Value |
 | --- | --- |
 | Schema version | `1` |
-| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1` |
+| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations` |
 | Product | Engoryx Engineering Operations Platform |
 | Source classification | `mixed` |
-| Reviewed against | `cb2bcd2b9674b6743f3b77f847f4151d1a53f9ba` |
+| Reviewed against | `d00986dda4bec2d1d5b4b8af058db5f3ee43b3fe` |
 | Reviewed at | `2026-09-04` |
-| Node count | 232 |
-| Edge count | 296 |
-| Invariant count | 25 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3D-1 Engineering Coordination Integration`, `QA-1`, `WM-1` |
+| Node count | 239 |
+| Edge count | 310 |
+| Invariant count | 26 |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -59,6 +59,7 @@ Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContract
 | **Expenses route**<br/><small>`route-expenses`</small> | `expenses` | `/expenses` | — | `company` |
 | **Reports route**<br/><small>`route-reports`</small> | `reports` | `/reports` | — | `company` |
 | **Settings route**<br/><small>`route-settings`</small> | `settings` | `/settings` | — | `company` |
+| **Project Materials & Equipment route**<br/><small>`route-project-materials-equipment`</small> | `projects` | `/projects/:projectId/materials-equipment` | — | `project` |
 
 ## Generated diagrams
 
@@ -266,6 +267,12 @@ flowchart LR
     n_site_log_safety_observation[("Safety observation<br/><small>DATA</small>")]
     n_site_log_event_history[("Append-only Site Log event history<br/><small>DATA · CREATED → UPDATED → SUBMITTED → FINALIZED → VOIDED</small>")]
     n_site_log_payroll_boundary{{"Field observation / payroll boundary<br/><small>GUARD</small>"}}
+    n_route_project_materials_equipment(["Project Materials &amp; Equipment route<br/><small>ROUTE · /projects/:projectId/materials-equipment</small>"])
+    n_materials_equipment_workspace["Materials &amp; Equipment workspace<br/><small>SCREEN</small>"]
+    n_project_material_register[("Project Materials Register<br/><small>DATA · PLANNED → ACTIVE → ON_HOLD → CLOSED → CANCELLED</small>")]
+    n_project_equipment_register[("Project Equipment Register<br/><small>DATA · ACTIVE → INACTIVE → OUT_OF_SERVICE → RETURNED</small>")]
+    n_equipment_field_usage_evidence["Derived equipment field usage evidence<br/><small>DERIVED-DATA</small>"]
+    n_site_log_structured_operations[("Structured Daily Site Log operations<br/><small>DATA</small>")]
     n_project_engineering_coordination_summary["Project Engineering Coordination Summary<br/><small>DERIVED-DATA</small>"]
   end
   subgraph g_commercial["Commercial"]
@@ -283,6 +290,9 @@ flowchart LR
   end
   subgraph g_finance["Finance"]
     n_client_collection_cash_settlement_link{"Client Collection Cash Settlement Link<br/><small>WORKFLOW · UNLINKED → PARTIALLY_LINKED → LINKED</small>"}
+  end
+  subgraph g_procurement["Procurement"]
+    n_material_procurement_receipt_progress["Derived material procurement and receipt progress<br/><small>DERIVED-DATA</small>"]
   end
   n_project_directory -->|selects project| n_project_selection
   n_project_selection -->|canonical project path| n_route_project_workspace
@@ -368,6 +378,19 @@ flowchart LR
   n_client_collection_lifecycle -->|deterministic project + billing locks and remaining uncollected ceiling| n_client_collection_overcollection_guard
   n_client_collection_recorded -->|no bank transaction or settlement side effect| n_client_billing_cash_boundary
   n_client_collection_recorded -->|recorded commercial receipt may receive separate bank evidence| n_client_collection_cash_settlement_link
+  n_project_workspace -->|Materials &amp; Equipment tab| n_route_project_materials_equipment
+  n_route_project_materials_equipment -->|register| n_materials_equipment_workspace
+  n_materials_equipment_workspace -->|project materials| n_project_material_register
+  n_materials_equipment_workspace -->|project equipment| n_project_equipment_register
+  n_project_material_register -->|linked PO line and formal receipt progress| n_material_procurement_receipt_progress
+  n_project_equipment_register -->|stable Site Log links| n_equipment_field_usage_evidence
+  n_site_log_aggregate -->|work, deliveries, issues, and linked equipment| n_site_log_structured_operations
+  n_site_log_structured_operations -->|operating hours and latest condition| n_equipment_field_usage_evidence
+  n_site_log_structured_operations -->|deterministic delivery evidence| n_material_procurement_receipt_progress
+  n_project_material_register -->|planning metadata is not Actual Cost| n_project_cost_aggregation
+  n_project_equipment_register -->|assignment and usage are not cost| n_project_cost_aggregation
+  n_site_log_structured_operations -->|explicit safety and unresolved issue evidence| n_project_attention_signals
+  n_project_equipment_register -->|explicit OUT_OF_SERVICE state| n_project_attention_signals
   n_project_cost_aggregation -->|actual, committed, pending, currency, and completeness facts| n_project_attention_signals
   n_project_attention_signals -->|flagged project drilldown| n_project_workspace
   n_project_attention_signals -->|evidence, source, date, and action detail| n_project_overview
@@ -386,6 +409,7 @@ flowchart LR
   classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
   classDef assistant fill:#fdf2f8,stroke:#db2777,color:#831843;
+  classDef procurement fill:#f0fdfa,stroke:#0f766e,color:#134e4a;
   classDef commercial fill:#faf5ff,stroke:#9333ea,color:#581c87;
   class n_route_projects projects
   class n_route_project_workspace projects
@@ -459,6 +483,13 @@ flowchart LR
   class n_project_collected_to_date commercial
   class n_client_collection_overcollection_guard commercial
   class n_client_collection_cash_settlement_link finance
+  class n_route_project_materials_equipment engineering
+  class n_materials_equipment_workspace engineering
+  class n_project_material_register engineering
+  class n_project_equipment_register engineering
+  class n_material_procurement_receipt_progress procurement
+  class n_equipment_field_usage_evidence engineering
+  class n_site_log_structured_operations engineering
   class n_project_attention_signals projects
   class n_project_engineering_coordination_summary engineering
   class n_production_p2_integration_parity projects
@@ -490,10 +521,17 @@ flowchart LR
     n_rfi_register_screen["RFI register<br/><small>SCREEN</small>"]
     n_submittal_register_screen["Technical Submittals register<br/><small>SCREEN</small>"]
     n_site_log_register_screen["Daily Site Log register<br/><small>SCREEN</small>"]
+    n_route_project_materials_equipment(["Project Materials &amp; Equipment route<br/><small>ROUTE · /projects/:projectId/materials-equipment</small>"])
+    n_materials_equipment_workspace["Materials &amp; Equipment workspace<br/><small>SCREEN</small>"]
+    n_project_material_register[("Project Materials Register<br/><small>DATA · PLANNED → ACTIVE → ON_HOLD → CLOSED → CANCELLED</small>")]
+    n_project_equipment_register[("Project Equipment Register<br/><small>DATA · ACTIVE → INACTIVE → OUT_OF_SERVICE → RETURNED</small>")]
+    n_equipment_field_usage_evidence["Derived equipment field usage evidence<br/><small>DERIVED-DATA</small>"]
+    n_site_log_structured_operations[("Structured Daily Site Log operations<br/><small>DATA</small>")]
     n_project_engineering_coordination_summary["Project Engineering Coordination Summary<br/><small>DERIVED-DATA</small>"]
   end
   subgraph g_procurement["Procurement"]
     n_procurement_workspace["Procurement Workspace<br/><small>SCREEN</small>"]
+    n_material_procurement_receipt_progress["Derived material procurement and receipt progress<br/><small>DERIVED-DATA</small>"]
   end
   subgraph g_commercial["Commercial"]
     n_subcontract_packages{"Subcontract Packages<br/><small>WORKFLOW</small>"}
@@ -511,6 +549,18 @@ flowchart LR
   n_project_cost_aggregation -->|authoritative cost-control scorecard and charts| n_project_overview
   n_project_cost_aggregation -->|Actual, committed, and budget metrics| n_project_financial_summary
   n_project_cost_aggregation -->|project procurement contributes commitment context| n_procurement_workspace
+  n_project_workspace -->|Materials &amp; Equipment tab| n_route_project_materials_equipment
+  n_route_project_materials_equipment -->|register| n_materials_equipment_workspace
+  n_materials_equipment_workspace -->|project materials| n_project_material_register
+  n_materials_equipment_workspace -->|project equipment| n_project_equipment_register
+  n_project_material_register -->|linked PO line and formal receipt progress| n_material_procurement_receipt_progress
+  n_project_equipment_register -->|stable Site Log links| n_equipment_field_usage_evidence
+  n_site_log_structured_operations -->|operating hours and latest condition| n_equipment_field_usage_evidence
+  n_site_log_structured_operations -->|deterministic delivery evidence| n_material_procurement_receipt_progress
+  n_project_material_register -->|planning metadata is not Actual Cost| n_project_cost_aggregation
+  n_project_equipment_register -->|assignment and usage are not cost| n_project_cost_aggregation
+  n_site_log_structured_operations -->|explicit safety and unresolved issue evidence| n_project_attention_signals
+  n_project_equipment_register -->|explicit OUT_OF_SERVICE state| n_project_attention_signals
   n_portfolio_management_dashboard -->|project attention counts, filters, and severity-first ordering| n_project_attention_signals
   n_project_financial_summary -->|authoritative financial and commercial evidence| n_project_attention_signals
   n_project_cost_aggregation -->|actual, committed, pending, currency, and completeness facts| n_project_attention_signals
@@ -551,6 +601,13 @@ flowchart LR
   class n_subcontract_packages commercial
   class n_subcontract_progress_claims commercial
   class n_subcontract_variations commercial
+  class n_route_project_materials_equipment engineering
+  class n_materials_equipment_workspace engineering
+  class n_project_material_register engineering
+  class n_project_equipment_register engineering
+  class n_material_procurement_receipt_progress procurement
+  class n_equipment_field_usage_evidence engineering
+  class n_site_log_structured_operations engineering
   class n_project_attention_signals projects
   class n_project_engineering_coordination_summary engineering
   class n_production_p2_integration_parity projects
@@ -955,6 +1012,7 @@ These invariants are intentionally explicit because generic import graphs cannot
 | **Project labor cost is independent from employee net-pay settlement**<br/><small>`payroll-labor-cost-independent-from-net-pay-settlement`</small> | Approved or paid payroll allocations provide project labor cost, while settlement eligibility and basis use employee net pay. | `src/lib/payrollCalculation.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/utils/projectCosting.ts`<br/>`docs/payroll-workforce-hardening.md`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/payrollIntegrity.test.ts`<br/>`tests/payrollCalculation.test.ts` |
 | **Project labor aggregate preserves payroll privacy**<br/><small>`project-labor-aggregate-preserves-payroll-privacy`</small> | Finance and Viewer may receive confirmed/pending project labor totals through the guarded payroll.summary.read aggregate without receiving employee identity, payroll entries, rates, attendance, deductions, net pay, or allocation rows. | `src/utils/projectLaborCostAggregate.ts`<br/>`src/utils/dataCompleteness.ts`<br/>`src/lib/projects.ts`<br/>`src/server/assistant/assistantToolExecutors.ts`<br/>`src/server/assistant/toolAuthorization.ts`<br/>`supabase/migrations/20260828153000_project_labor_cost_aggregate.sql`<br/>`docs/ENGORYX_INTEGRITY_HARDENING.md` | `tests/projectLaborCostAggregate.test.ts`<br/>`tests/projectLaborCostAggregateMigration.test.ts` |
 | **Site Log crew observation is not payroll attendance**<br/><small>`site-log-observation-is-not-payroll-attendance`</small> | Crew and headcount rows describe field presence observed by the site team; they never directly create or alter authoritative payroll attendance, timesheets, overtime, or runs. | `src/lib/dailySiteLogs.ts`<br/>`src/lib/dailySiteLogsPersistence.ts`<br/>`src/lib/payrollWorkforce.ts`<br/>`docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md` | `tests/dailySiteLogs.test.ts`<br/>`tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts` |
+| **Field operations preserve source separation and historical snapshots**<br/><small>`field-operations-source-separation`</small> | Materials and equipment registers hold current project metadata; PO receipts remain formal procurement truth; Daily Site Logs hold historical observations with stable links and snapshots, without creating Actual Cost, commitments, payroll, or schedule semantics. | `src/lib/materialsEquipment.ts`<br/>`src/lib/dailySiteLogs.ts`<br/>`src/lib/dailySiteLogsPersistence.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`src/components/engineering/ProjectSiteLogs.tsx`<br/>`supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql`<br/>`supabase/migrations/20260904103008_p3b_p3c_materials_equipment_realtime.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` |
 | **Approved and paid payroll history is immutable**<br/><small>`approved-payroll-history-is-immutable`</small> | Approval, payment, locking, and voiding guards preserve payroll source snapshots, entries, allocations, and historical meaning. | `src/lib/payroll.ts`<br/>`src/lib/payrollIntegrity.ts`<br/>`src/lib/payrollSourceRevision.ts`<br/>`supabase/migrations/20260823150000_payroll_workforce_integrity.sql`<br/>`supabase/migrations/20260824120000_payroll_safety_hardening.sql` | `tests/payrollIntegrity.test.ts`<br/>`tests/payrollSafetyGate.test.ts`<br/>`tests/payrollPersistence.test.ts` |
 | **Engineering document revision lineage is immutable**<br/><small>`engineering-revision-lineage-is-immutable`</small> | A new document revision preserves prior source, identity, and references; annotation deletion is represented as history rather than physical deletion. | `src/lib/engineeringDocuments.ts`<br/>`src/lib/engineeringDocumentsPersistence.ts`<br/>`src/components/engineering/BlueprintViewer.tsx`<br/>`supabase/migrations/20260826140000_engineering_documents_hardening.sql`<br/>`supabase/migrations/20260826234440_engineering_documents_annotation_immutability.sql`<br/>`supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql` | `tests/engineeringDocuments.test.ts`<br/>`tests/engineeringDocumentsHardening.test.ts`<br/>`tests/engineeringDocumentsMigration.test.ts` |
 | **Formal engineering history is preserved**<br/><small>`formal-engineering-history-is-preserved`</small> | RFI responses, submittal rounds/reviews, and Site Log lifecycle events are append-only or explicitly historical at their domain boundary. | `src/lib/engineeringCoordination.ts`<br/>`src/lib/dailySiteLogs.ts`<br/>`supabase/migrations/20260827140000_engineering_coordination_phase1b.sql`<br/>`supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql` | `tests/dailySiteLogs.test.ts`<br/>`tests/migrationInvariants.test.ts`<br/>`tests/assistantBackend.test.ts` |
@@ -1068,6 +1126,7 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Request for Quotation**<br/><small>`procurement-rfq`</small> | `workflow` | `project`<br/>— | — | — | `code-derived` | `src/lib/rfqs.ts`<br/>`src/components/procurement/ProcurementPage.tsx` | `tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/purchaseOrdersDomain.test.ts`<br/>`tests/purchaseOrderReceiptsInvariants.test.ts`<br/>`tests/purchaseOrderMatchingInvariants.test.ts`<br/>`tests/rfqFinancialInvariants.test.ts`<br/>`tests/rfqDraftPoConversion.test.ts` | — |
 | **Supplier Quotations and Human Selection**<br/><small>`supplier-quotation-selection`</small> | `action` | `project`<br/>— | — | — | `mixed`<br/>confirmation: `human` | `src/lib/rfqs.ts`<br/>`src/components/procurement/ProcurementPage.tsx` | `tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/purchaseOrdersDomain.test.ts`<br/>`tests/purchaseOrderReceiptsInvariants.test.ts`<br/>`tests/purchaseOrderMatchingInvariants.test.ts`<br/>`tests/rfqFinancialInvariants.test.ts`<br/>`tests/rfqDraftPoConversion.test.ts` | — |
 | **RFQ to Draft Purchase Order**<br/><small>`rfq-draft-po-conversion`</small> | `action` | `project`<br/>— | — | — | `mixed` | `src/lib/rfqs.ts`<br/>`src/lib/purchaseOrders.ts` | `tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/purchaseOrdersDomain.test.ts`<br/>`tests/purchaseOrderReceiptsInvariants.test.ts`<br/>`tests/purchaseOrderMatchingInvariants.test.ts`<br/>`tests/rfqFinancialInvariants.test.ts`<br/>`tests/rfqDraftPoConversion.test.ts` | — |
+| **Derived material procurement and receipt progress**<br/><small>`material-procurement-receipt-progress`</small> | `derived-data` | `company-and-project`<br/>— | — | `procurement.read` | `mixed` | `src/lib/materialsEquipment.ts`<br/>`src/utils/purchaseOrderReceipts.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx` | `tests/materialsEquipment.test.ts`<br/>`tests/purchaseOrderReceiptsDomain.test.ts` | — |
 
 ### Commercial
 
@@ -1144,6 +1203,12 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Site Log lifecycle action**<br/><small>`site-log-lifecycle-action`</small> | `action` | `company-and-project`<br/>— | — | `engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed`<br/>confirmation: `human` | `src/features/engineering/useDailySiteLogsController.ts`<br/>`src/components/engineering/ProjectSiteLogs.tsx`<br/>`src/server/assistant/dailySiteLogsAssistant.ts`<br/>`supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql` | `tests/dailySiteLogs.test.ts`<br/>`tests/assistantBackend.test.ts`<br/>`tests/coreHardeningWave2C.test.ts` | — |
 | **Site Log guarded RPC boundary**<br/><small>`site-log-rpc-boundary`</small> | `external-boundary` | `company-and-project`<br/>— | — | `engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed` | `src/lib/dailySiteLogsPersistence.ts`<br/>`src/lib/engineeringLifecycle.ts`<br/>`supabase/migrations/20260827150000_engineering_daily_site_logs_phase1c.sql`<br/>`supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql` | `tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts`<br/>`tests/coreHardeningWave2C.test.ts` | — |
 | **Field observation / payroll boundary**<br/><small>`site-log-payroll-boundary`</small> | `guard` | `company-and-project`<br/>— | — | — | `curated` | `docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md`<br/>`src/lib/dailySiteLogs.ts`<br/>`src/lib/payrollWorkforce.ts` | `tests/dailySiteLogsPersistence.test.ts`<br/>`tests/dailySiteLogsMigration.test.ts` | — |
+| **Project Materials & Equipment route**<br/><small>`route-project-materials-equipment`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId/materials-equipment` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/utils/appRouteContracts.ts`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/materialsEquipmentRouting.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | — |
+| **Materials & Equipment workspace**<br/><small>`materials-equipment-workspace`</small> | `screen` | `project`<br/>— | — | `projects.read`<br/>`projects.manage`<br/>`procurement.read`<br/>`engineering.sitelogs.read` | `mixed` | `src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/lib/materialsEquipment.ts` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentRouting.test.ts` | — |
+| **Project Materials Register**<br/><small>`project-material-register`</small> | `data` | `company-and-project`<br/>— | `PLANNED` → `ACTIVE` → `ON_HOLD` → `CLOSED` → `CANCELLED` | `projects.read`<br/>`projects.manage` | `mixed` | `src/types.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
+| **Project Equipment Register**<br/><small>`project-equipment-register`</small> | `data` | `company-and-project`<br/>— | `ACTIVE` → `INACTIVE` → `OUT_OF_SERVICE` → `RETURNED` | `projects.read`<br/>`projects.manage` | `mixed` | `src/types.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
+| **Derived equipment field usage evidence**<br/><small>`equipment-field-usage-evidence`</small> | `derived-data` | `company-and-project`<br/>— | — | `engineering.sitelogs.read`<br/>`projects.read` | `mixed` | `src/lib/materialsEquipment.ts`<br/>`src/lib/dailySiteLogs.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx` | `tests/materialsEquipment.test.ts` | — |
+| **Structured Daily Site Log operations**<br/><small>`site-log-structured-operations`</small> | `data` | `company-and-project`<br/>— | — | `engineering.sitelogs.read`<br/>`engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed` | `src/lib/dailySiteLogs.ts`<br/>`src/lib/dailySiteLogsPersistence.ts`<br/>`src/components/engineering/ProjectSiteLogs.tsx`<br/>`supabase/migrations/20260904091745_p3b_p3c_materials_equipment_field_operations.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/dailySiteLogsPersistence.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
 | **Project Engineering Coordination Summary**<br/><small>`project-engineering-coordination-summary`</small> | `derived-data` | `project`<br/>— | — | `engineering.documents.read`<br/>`engineering.rfis.read`<br/>`engineering.submittals.read`<br/>`engineering.sitelogs.read` | `mixed` | `src/utils/projectEngineeringCoordination.ts`<br/>`src/features/engineering/useProjectEngineeringCoordinationSummary.ts`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx` | `tests/p3a3P3dIntegration.test.ts`<br/>`tests/engineeringLifecycle.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | — |
 
 ### Finance
