@@ -23,8 +23,8 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Source classification | `mixed` |
 | Reviewed against | `c5d3a41c90220e45bd692c7ae5d9784d3b4b9630` |
 | Reviewed at | `2026-08-29` |
-| Node count | 227 |
-| Edge count | 275 |
+| Node count | 229 |
+| Edge count | 281 |
 | Invariant count | 25 |
 | Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `QA-1`, `WM-1` |
 
@@ -204,7 +204,7 @@ flowchart LR
   subgraph g_projects["Projects"]
     n_route_projects(["Projects directory route<br/><small>ROUTE · /projects</small>"])
     n_route_project_workspace(["Project Workspace route<br/><small>ROUTE · /projects/:projectId</small>"])
-    n_project_directory["Projects directory<br/><small>SCREEN</small>"]
+    n_project_directory["Project portfolio table<br/><small>SCREEN</small>"]
     n_project_selection("Select project<br/><small>ACTION</small>")
     n_project_workspace["Project Workspace<br/><small>SCREEN</small>"]
     n_project_aggregate[("Project aggregate<br/><small>DATA</small>")]
@@ -281,7 +281,6 @@ flowchart LR
   subgraph g_finance["Finance"]
     n_client_collection_cash_settlement_link{"Client Collection Cash Settlement Link<br/><small>WORKFLOW · UNLINKED → PARTIALLY_LINKED → LINKED</small>"}
   end
-  n_route_projects -->|opens| n_project_directory
   n_project_directory -->|selects project| n_project_selection
   n_project_selection -->|canonical project path| n_route_project_workspace
   n_route_project_workspace -->|opens| n_project_workspace
@@ -922,14 +921,16 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Dashboard route**<br/><small>`route-dashboard`</small> | `route` | `company`<br/>`dashboard`<br/>`/dashboard` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/AppRouter.tsx` | `tests/appRouting.test.ts`<br/>`tests/navigationRoutes.test.ts` | `dashboard--dashboard--base-route-loaded--desktop-1440`<br/>`dashboard--dashboard--base-route-loaded--laptop-1366`<br/>`dashboard--dashboard--mobile-navigation-opened--mobile-390` |
 | **Operations Dashboard**<br/><small>`dashboard-screen`</small> | `screen` | `company`<br/>— | — | — | `mixed` | `src/app/routes/DashboardRoute.tsx`<br/>`src/components/Dashboard.tsx` | `tests/accountingStatistics.test.ts`<br/>`tests/structuredBrowserEvidence.test.ts` | `dashboard--dashboard--base-route-loaded--desktop-1440` |
 | **Dashboard derived metrics**<br/><small>`dashboard-derived-metrics`</small> | `derived-data` | `company`<br/>— | — | — | `mixed` | `src/utils/dashboardStats.ts`<br/>`src/utils/dashboardViewModel.ts`<br/>`src/App.tsx` | `tests/accountingStatistics.test.ts`<br/>`tests/financialSettlement.test.ts` | — |
+| **Portfolio Management Dashboard**<br/><small>`portfolio-management-dashboard`</small> | `screen` | `company`<br/>— | — | `projects.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/app/routes/ProjectsRoute.tsx`<br/>`src/components/projects/ProjectsPage.tsx`<br/>`src/utils/projectManagementViewModel.ts`<br/>`src/utils/projectFinancialSummary.ts`<br/>`src/lib/clientBilling.ts`<br/>`src/lib/clientCollections.ts` | `tests/projectManagementViewModel.test.ts`<br/>`tests/projectManagementUX.test.ts`<br/>`tests/demoWorkspace.test.ts` | `projects--projects--portfolio-dashboard-verified--desktop-1440` |
 
 ### Projects
 
 | Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Projects directory route**<br/><small>`route-projects`</small> | `route` | `company`<br/>`projects`<br/>`/projects` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/projects.test.ts` | `projects--projects--base-route-loaded--desktop-1440` |
+| **Projects directory route**<br/><small>`route-projects`</small> | `route` | `company`<br/>`projects`<br/>`/projects` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/projects.test.ts` | `projects--projects--portfolio-dashboard-verified--desktop-1440` |
 | **Project Workspace route**<br/><small>`route-project-workspace`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId`<br/>query: `view` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | `project-workspace--project-overview--project-selected--desktop-1440`<br/>`project-workspace--project-overview--base-route-loaded--tablet-768` |
-| **Projects directory**<br/><small>`project-directory`</small> | `screen` | `company`<br/>— | — | — | `code-derived` | `src/app/routes/ProjectsRoute.tsx`<br/>`src/components/projects/ProjectsPage.tsx` | `tests/projects.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | `projects--projects--base-route-loaded--desktop-1440` |
+| **Project portfolio table**<br/><small>`project-directory`</small> | `screen` | `company`<br/>— | — | — | `code-derived` | `src/app/routes/ProjectsRoute.tsx`<br/>`src/components/projects/ProjectsPage.tsx` | `tests/projects.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | `projects--projects--portfolio-dashboard-verified--desktop-1440` |
+| **Project Financial Summary**<br/><small>`project-financial-summary`</small> | `derived-data` | `company-and-project`<br/>— | — | `projects.read`<br/>`payroll.summary.read`<br/>`reports.financial.read` | `mixed` | `src/utils/projectFinancialSummary.ts`<br/>`src/utils/projectManagementViewModel.ts`<br/>`src/lib/clientBilling.ts`<br/>`src/lib/clientCollections.ts` | `tests/projectFinancialSummary.test.ts`<br/>`tests/projectManagementViewModel.test.ts`<br/>`tests/clientProgressBilling.test.ts`<br/>`tests/clientCollectionsDomain.test.ts` | — |
 | **Select project**<br/><small>`project-selection`</small> | `action` | `company`<br/>— | — | `projects.read` | `code-derived` | `src/features/projects/useProjectController.ts`<br/>`src/utils/appRouting.ts` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/appRouting.test.ts` | — |
 | **Project Workspace**<br/><small>`project-workspace`</small> | `screen` | `project`<br/>— | — | — | `mixed` | `src/components/projects/ProjectWorkspace.tsx`<br/>`src/app/routes/ProjectsRoute.tsx` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/projects.test.ts` | `project-workspace--project-overview--project-selected--desktop-1440`<br/>`project-workspace--project-documents--base-route-loaded--desktop-1440` |
 | **Project aggregate**<br/><small>`project-aggregate`</small> | `data` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage` | `mixed` | `src/lib/projects.ts`<br/>`src/types.ts`<br/>`supabase/migrations/20260823130000_engineering_project_costing_foundation.sql` | `tests/projects.test.ts`<br/>`tests/projectCostingHardening.test.ts` | — |

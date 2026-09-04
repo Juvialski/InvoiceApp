@@ -372,6 +372,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
     <ProjectsPage
       projects={projects}
       summaries={summaries}
+      clientBillings={clientBillings}
+      clientCollections={clientCollections}
+      clientFinancialDataLoading={clientBillingLoading}
       costCodes={costCodes}
       initialEditingProject={projectFormSeed}
       onOpenProject={onOpenProject}

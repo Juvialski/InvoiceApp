@@ -102,6 +102,19 @@ test("ProjectsPage enforces portfolio summary, responsive desktop table and mobi
   assert.match(projectsPageSource, /aria-label="Projects list cards"/);
 });
 
+test("ProjectsPage exposes the required portfolio financial columns and deterministic controls", () => {
+  for (const label of ["Project Manager", "Currency", "Contract Value", "Budget", "Actual", "Committed", "Billed", "Collected", "Outstanding", "Remaining to Bill"]) {
+    assert.match(projectsPageSource, new RegExp(label));
+  }
+  assert.match(projectsPageSource, /managerFilter/);
+  assert.match(projectsPageSource, /currencyFilter/);
+  assert.match(projectsPageSource, /clientBillings/);
+  assert.match(projectsPageSource, /clientCollections/);
+  assert.match(projectsPageSource, /Partial · \$\{metric\.includedProjectCount\}/);
+  assert.match(projectsPageSource, /Unavailable/);
+  assert.doesNotMatch(projectsPageSource, /project_dashboard_totals/);
+});
+
 test("ProjectOverview enforces single-source management snapshot and truthful commercial controls notice", () => {
   // Check buildProjectManagementView integration
   assert.match(projectOverviewSource, /buildProjectManagementView/);

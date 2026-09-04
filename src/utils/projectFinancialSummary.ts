@@ -19,10 +19,16 @@ export interface ProjectFinancialTruth {
   committedCost: ProjectFinancialMetric;
   remainingBudget: ProjectFinancialMetric;
   billed: ProjectFinancialMetric;
+  remainingToBill: ProjectFinancialMetric;
   collected: ProjectFinancialMetric;
   outstandingReceivables: ProjectFinancialMetric;
   pendingCostExposure: ProjectFinancialMetric;
   outstandingPayables: ProjectFinancialMetric;
+}
+
+export interface BuildProjectFinancialTruthOptions {
+  /** False means the caller could not load every required project-cost source. */
+  costDataComplete?: boolean;
 }
 
 function available(amount: number, currency: string): ProjectFinancialMetric {
@@ -61,6 +67,7 @@ export function buildProjectFinancialTruth(
   >,
   clientBilling?: {
     billedToDate?: number;
+    remainingToBill?: number;
     collectedToDate?: number;
     outstandingBilledAmount?: number;
     hasCurrencyMismatch?: boolean;
@@ -72,6 +79,7 @@ export function buildProjectFinancialTruth(
     hasCurrencyMismatch?: boolean;
     reason?: string;
   },
+  options?: BuildProjectFinancialTruthOptions,
 ): ProjectFinancialTruth {
   const currency = normalizeCurrency(project.currency);
   const hasForeignAmounts = Object.entries(summary.foreignCosts || {})
@@ -120,9 +128,15 @@ export function buildProjectFinancialTruth(
 
   const hasMismatch = Boolean(clientBilling?.hasCurrencyMismatch || clientCollection?.hasCurrencyMismatch);
   const mismatchReason = clientCollection?.reason || clientBilling?.reason || "Currency mismatch prevents commercial receivables aggregate.";
+  const costDataUnavailableReason = "Required project-cost sources are unavailable or incomplete for this view; cost metrics are withheld rather than presented as zero.";
 
   const effectiveCollected = clientCollection?.collectedToDate ?? clientBilling?.collectedToDate;
   const effectiveOutstanding = clientCollection?.outstandingBilledAmount ?? clientBilling?.outstandingBilledAmount;
+
+  const remainingBudget: ProjectFinancialMetric = hasForeignAmounts
+    ? unavailable("Remaining budget cannot be stated as a complete aggregate while foreign-currency cost sources are unconverted and their confirmed/pending status is not preserved.")
+    : available(budget - actualBase, currency);
+  const costMetricsUnavailable = options?.costDataComplete === false;
 
   return {
     currency,
@@ -130,16 +144,19 @@ export function buildProjectFinancialTruth(
       ? available(Number(project.contractValue), currency)
       : unavailable("No contract value has been recorded for this project."),
     approvedCostBudget: available(budget, currency),
-    actualCost,
-    committedCost,
-    remainingBudget: hasForeignAmounts
-      ? unavailable("Remaining budget cannot be stated as a complete aggregate while foreign-currency cost sources are unconverted and their confirmed/pending status is not preserved.")
-      : available(budget - actualBase, currency),
+    actualCost: costMetricsUnavailable ? unavailable(costDataUnavailableReason) : actualCost,
+    committedCost: costMetricsUnavailable ? unavailable(costDataUnavailableReason) : committedCost,
+    remainingBudget: costMetricsUnavailable ? unavailable(costDataUnavailableReason) : remainingBudget,
     billed: clientBilling?.hasCurrencyMismatch
       ? unavailable(clientBilling.reason || "Billed-to-date is unavailable while billing currencies do not match the project currency.")
       : clientBilling?.billedToDate === undefined
         ? unavailable(RECEIVABLE_REASON)
         : available(clientBilling.billedToDate, currency),
+    remainingToBill: clientBilling?.hasCurrencyMismatch
+      ? unavailable(clientBilling.reason || "Remaining-to-bill is unavailable while billing currencies do not match the project currency.")
+      : clientBilling?.remainingToBill === undefined
+        ? unavailable(clientBilling?.reason || RECEIVABLE_REASON)
+        : available(clientBilling.remainingToBill, currency),
     collected: hasMismatch
       ? unavailable(mismatchReason)
       : effectiveCollected === undefined
@@ -150,7 +167,7 @@ export function buildProjectFinancialTruth(
       : effectiveOutstanding === undefined
         ? unavailable(RECEIVABLE_REASON)
         : available(effectiveOutstanding, currency),
-    pendingCostExposure,
-    outstandingPayables,
+    pendingCostExposure: costMetricsUnavailable ? unavailable(costDataUnavailableReason) : pendingCostExposure,
+    outstandingPayables: costMetricsUnavailable ? unavailable(costDataUnavailableReason) : outstandingPayables,
   };
 }

@@ -7,6 +7,7 @@ export const DEMO_PROJECT_IDS = {
   drainage: "demo-project-drainage",
   solar: "demo-project-solar",
   cebu: "demo-project-cebu",
+  international: "demo-project-international",
 } as const;
 
 export function createDemoProjects(anchorDate: string): {
@@ -97,6 +98,26 @@ export function createDemoProjects(anchorDate: string): {
       createdAt: demoTimestamp(addDemoDays(anchorDate, -240)),
       updatedAt: demoTimestamp(addDemoDays(anchorDate, -108)),
     },
+    {
+      id: DEMO_PROJECT_IDS.international,
+      projectCode: "MEC-26-021",
+      projectName: "Clark Logistics Hub Enabling Works",
+      description: "Pre-award controls package for site enabling works, access roads, drainage, and utility corridors at a regional logistics hub.",
+      clientName: "Pacific Gateway Logistics LLC",
+      clientReference: "PGL-CLARK-ENABLING-01",
+      location: "Clark, Pampanga",
+      siteAddress: "Clark Freeport Zone, Pampanga",
+      projectManager: "Rina Velasco",
+      status: "PLANNING",
+      startDate: addDemoDays(anchorDate, -14),
+      targetEndDate: addDemoDays(anchorDate, 240),
+      contractValue: undefined,
+      projectBudget: 2_600_000,
+      currency: "USD",
+      notes: "Pre-award planning record: contract value has not yet been recorded. Budget is an internal planning control only.",
+      createdAt: demoTimestamp(addDemoDays(anchorDate, -20)),
+      updatedAt,
+    },
   ];
   const costCodeTimestamp = demoTimestamp(addDemoDays(anchorDate, -220), 8, 0);
   const costCodes: ProjectCostCode[] = [
@@ -114,6 +135,7 @@ export function createDemoProjects(anchorDate: string): {
       [DEMO_PROJECT_IDS.drainage]: { progressPercent: 42, presentationNote: "Drainage reconstruction is active across two work fronts." },
       [DEMO_PROJECT_IDS.solar]: { progressPercent: 28, presentationNote: "Earthworks and equipment-pad foundations are ramping up." },
       [DEMO_PROJECT_IDS.cebu]: { progressPercent: 100, presentationNote: "Completed project retained as a close-out reference." },
+      [DEMO_PROJECT_IDS.international]: { progressPercent: 8, presentationNote: "Pre-award planning record with an internal budget and no recorded contract value." },
     },
   };
 }

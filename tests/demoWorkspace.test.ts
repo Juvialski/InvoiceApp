@@ -5,6 +5,8 @@ import { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";
 import { DEMO_COMPANY_ID } from "../src/demo/demoTypes.ts";
 import { executePreparedAssistantAction, prepareAddWorkerAction, reduceDemoWorkspace, resetDemoWorkspace } from "../src/demo/demoState.ts";
 import { demoPathForProject, parseDemoLocation } from "../src/demo/demoRouting.ts";
+import { buildDemoProjectSummaries } from "../src/demo/demoSelectors.ts";
+import { buildPortfolioManagementSummary, buildProjectManagementView } from "../src/utils/projectManagementViewModel.ts";
 
 const ANCHOR = "2026-08-27";
 
@@ -139,6 +141,33 @@ test("public demo route is selected before production application auth mounting"
   assert.equal(applicationModeForPath("/demo"), "demo");
   assert.equal(applicationModeForPath("/demo/app/payroll"), "demo");
   assert.equal(isDemoApplicationPath("/demo/app/projects/demo-project-warehouse"), true);
+});
+
+test("demo portfolio fixtures cover multiple currencies plus partial and unavailable truth", () => {
+  const data = workspace();
+  const summaries = buildDemoProjectSummaries(data);
+  const views = data.projects.map((project) => buildProjectManagementView(project, summaries[project.id]!, {
+    clientBillings: data.clientBillings || [],
+    clientCollections: data.clientCollections || [],
+  }));
+  const portfolio = buildPortfolioManagementSummary(views);
+  const planning = views.find((view) => view.project.id === "demo-project-international");
+  const solar = views.find((view) => view.project.id === "demo-project-solar");
+
+  assert.ok(portfolio.currencies.includes("PHP"));
+  assert.ok(portfolio.currencies.includes("USD"));
+  assert.equal(planning?.financialTruth.contractValue.status, "unavailable");
+  assert.equal(planning?.financialTruth.remainingToBill.status, "unavailable");
+  assert.equal(solar?.financialTruth.actualCost.status, "partial");
+  assert.ok((summaries["demo-project-solar"]?.foreignCosts.USD || 0) > 0);
+});
+
+test("demo Procurement route is available through the existing production-safe route contract", () => {
+  const location = parseDemoLocation("/demo/app/procurement");
+  assert.equal(location.kind, "app");
+  if (location.kind !== "app") return;
+  assert.equal(location.appLocation.kind, "tab");
+  assert.equal(location.appLocation.tab, "procurement");
 });
 
 test("normal production route behavior remains production mode", () => {
