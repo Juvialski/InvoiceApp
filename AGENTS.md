@@ -41,7 +41,8 @@ Do not revive the old blanket hardening freeze because historical docs still men
 Use the least expensive capable tool.
 
 - **ChatGPT with GitHub access**: default lead, investigator, reviewer, integrator, CI reviewer, straightforward GitHub editor, prompt creator, and finisher.
-- **Codex/Luna**: reserve for difficult multi-file implementation, local execution, Supabase CLI/Docker, migration replay, complex tests, or runtime debugging where local capability materially helps.
+- **Codex lead**: primary local implementation owner for difficult multi-file implementation, local execution, Supabase CLI/Docker, migration replay, complex tests, or runtime debugging.
+- **Luna subagent**: optional specialist for a tightly bounded implementation/review task where deeper reasoning materially helps. Luna must not be the sole owner of an entire phase or a blocking dependency for lead progress.
 - **Antigravity**: prefer for browser-driven UI/UX, responsive work, screenshots, and visual QA.
 - **Kilo/OpenRouter/free models**: prefer for tightly bounded mechanical Tier 0 / low-risk Tier 1 work with an established pattern.
 - **Medium-capability coding models** may implement bounded, well-specified waves, but the lead retains shared architecture, financial truth, migrations/RLS/security, destructive lifecycle policy, and final validation decisions.
@@ -162,27 +163,48 @@ If a focused task unexpectedly reaches roughly 25-30+ changed files, verify ever
 
 **Hard maximum: 2 concurrent subagents.**
 
-**One implementation subagent is the default.** Use the second slot only when there are two genuinely independent implementation workstreams with non-overlapping ownership **after** the lead establishes the shared contract and bounded working set. Assign implementation + focused tests, not duplicate investigation.
+**The Codex lead is the implementation owner and must begin/continue the phase itself. Subagents are optional accelerators, not phase owners.** The default is zero or one Luna specialist subagent. Use a second slot only for a genuinely independent, tightly bounded workstream with non-overlapping ownership after the lead establishes the shared contract and working set.
 
-Do not spawn subagents for tiny one-file fixes, documentation-only work, CI polling, duplicate discovery, or work the lead can complete more cheaply than coordinating agents.
+Do not delegate an entire phase to Luna and wait for it before making lead progress. Do not use a second Luna merely to perform a broad independent re-review of the first Luna's work.
 
-Lead owns:
+Suitable Luna assignments include:
 
+- one migration/RPC/RLS contract;
+- one bounded security or concurrency review;
+- one defined UI workflow/component cluster;
+- one focused test or failure-diagnosis cluster.
+
+Do not spawn subagents for tiny one-file fixes, documentation-only work, CI polling, duplicate discovery, broad repository audits, or work the lead can complete more cheaply than coordinating agents.
+
+Lead owns and continues independently:
+
+- end-to-end implementation progress;
 - shared architecture/contracts;
 - App.tsx/router/providers/shared primitives and conflict-heavy integration files;
-- security/RLS interpretation;
+- security/RLS interpretation and final decisions;
 - integration and diff review;
 - validation-scope decisions;
 - final regression assessment;
 - commit/push/PR.
 
-If additional work remains, reuse the same two slots sequentially. Never create a third concurrent subagent.
+### Non-blocking subagent rule
+
+A subagent must never become the critical path for the phase.
+
+- Give Luna a bounded deliverable, exact file/symbol ownership, acceptance criteria, and relevant focused tests.
+- The lead continues independent implementation/integration work while Luna runs.
+- Use bounded waits only. If Luna runs for an extended period without a usable result or clear progress, interrupt/stop it and let the lead complete that work locally.
+- Do not repeatedly restart the same stalled broad assignment.
+- Partial Luna output may be used only after the lead reviews it against current source and tests.
+- A stopped/timed-out subagent is not a phase failure if the lead completes and validates the work.
+
+If additional specialist work remains, reuse available slots sequentially. Never create a third concurrent subagent.
 
 ### Codex subagents: Luna only
 
-Every Codex-spawned subagent must use **Luna at the highest reasoning level available**. Never substitute Terra, Sol, Opus, Gemini, or automatic fallback models. If Luna is unavailable, reuse an available Luna sequentially or let the lead do the work.
+Every Codex-spawned subagent must use **Luna at the highest reasoning level available**. Never substitute Terra, Sol, Opus, Gemini, or automatic fallback models. If Luna is unavailable or unproductive, let the Codex lead do the work rather than blocking the phase.
 
-Because Luna is expensive/slow, prompts must give Luna the bounded `agent:context` working set, acceptance criteria, relevant tests, and explicit out-of-scope items. Do not ask Luna to “audit the whole repo first.”
+Because Luna is expensive/slow, prompts must give Luna the bounded `agent:context` working set, acceptance criteria, relevant tests, exact ownership, and explicit out-of-scope items. Do not ask Luna to “implement the whole phase,” “audit the whole repo first,” or independently rediscover shared context.
 
 ## Existing-data correction and removal
 
@@ -198,7 +220,7 @@ Do not add raw Delete paths that bypass dependency/history checks.
 - Actual Cost derives from lifecycle-eligible invoice allocations, expenses, payroll allocations, and later posted procurement/subcontract costs.
 - Committed Cost is distinct from Actual Cost.
 - Client billing is distinct from supplier/vendor invoices and Actual Cost.
-- Collected values come from actual settlement/payment records.
+- **Collected to Date derives from authoritative `RECORDED` client collections.** Bank/Cash settlement links are separate reconciliation evidence and must not redefine or double-count collection truth.
 - Forecast Margin uses explicit contract/variation and forecast-cost semantics.
 - Never silently sum mixed currencies.
 - Project payroll aggregates must not broaden unauthorized payroll-detail visibility.
@@ -293,16 +315,17 @@ A good implementation prompt should:
 6. Require focused/new tests during implementation and `test:affected:agent` after integration.
 7. Require lint/build/database/browser checks only when relevant to the changed surface.
 8. Reserve `test:full` for impact fallback, broad shared-contract change, explicit request, or other justified escalation.
-9. Tell Codex to use one Luna implementation subagent by default; use a second only for a real independent workstream, with a hard maximum of 2 concurrent Luna subagents.
-10. Tell subagents to return concise implementation results, changed files, tests, and blockers instead of long narrative reports.
-11. Tell the lead to review diffs, integrate shared files, push the PR, then stop local Luna; GitHub-native tooling handles CI monitoring.
-12. Treat exact-head CI as the final automated gate. Fix only concrete failures; for large logs extract the failed step/bounded failure context rather than ingesting the full log.
+9. Tell Codex that the **lead implements the phase itself**. Luna is optional and receives only a bounded specialist task; default zero or one Luna, maximum 2 concurrent subagents.
+10. Tell the lead never to block phase progress waiting on Luna; after bounded waits without a usable result, stop the subagent and complete the work locally.
+11. Tell subagents to return concise implementation results, changed files, tests, and blockers instead of long narrative reports.
+12. Tell the lead to review diffs, integrate shared files, push the PR, then stop local Luna; GitHub-native tooling handles CI monitoring.
+13. Treat exact-head CI as the final automated gate. Fix only concrete failures; for large logs extract the failed step/bounded failure context rather than ingesting the full log.
 
 ### Default phase-prompt validation wording
 
 Use wording equivalent to:
 
-> Start from the current latest `main`. Confirm the base SHA and that its required CI is green. Because this phase starts from an already validated merged baseline, do **not** run the full historical test suite before implementation. Generate one bounded `npm.cmd run agent:context -- ...` packet for this objective and use it as the initial working set; inspect current source inside that scope and expand only for a concrete dependency. Use one Luna implementation subagent by default and a second only for a genuinely independent workstream, never more than two concurrently. Use focused/new tests while iterating, then `npm.cmd run test:affected:agent` after integration. Run lint/build/database/workflow-map/browser checks only when the changed surface requires them. Run `npm.cmd run test:full` only if impact analysis falls back, a broad shared contract changed, or concrete evidence requires wider regression coverage. If CI fails, inspect only the failed exact-head step and bounded failure evidence. Exact-head PR CI is the final automated gate.
+> Start from the current latest `main`. Confirm the base SHA and that its required CI is green. Because this phase starts from an already validated merged baseline, do **not** run the full historical test suite before implementation. Generate one bounded `npm.cmd run agent:context -- ...` packet for this objective and use it as the initial working set; inspect current source inside that scope and expand only for a concrete dependency. The Codex lead owns and continuously implements the phase. Luna is optional: use zero or one tightly bounded specialist Luna by default, and a second only for a genuinely independent specialist workstream, never more than two concurrently. Do not delegate the whole phase to Luna or block waiting on a stalled Luna; after bounded waits without a usable result, stop it and let the lead finish locally. Use focused/new tests while iterating, then `npm.cmd run test:affected:agent` after integration. Run lint/build/database/workflow-map/browser checks only when the changed surface requires them. Run `npm.cmd run test:full` only if impact analysis falls back, a broad shared contract changed, or concrete evidence requires wider regression coverage. If CI fails, inspect only the failed exact-head step and bounded failure evidence. Exact-head PR CI is the final automated gate.
 
 This rule applies to ChatGPT-generated Codex prompts as well as instructions written by repository agents.
 
@@ -310,7 +333,7 @@ This rule applies to ChatGPT-generated Codex prompts as well as instructions wri
 
 - Parallelize only real independent implementation; parallelizing duplicate investigation wastes tokens.
 - Give each subagent exact ownership and forbid broad scope expansion without lead approval.
-- Prefer one implementation pass + one integration review over repeated “audit then re-audit” cycles.
+- Prefer one lead implementation pass + one bounded specialist pass over repeated “delegate, wait, audit, re-audit” cycles.
 - Run expensive commands after code stabilizes, not after every small edit.
 - Cache/reuse already established architecture facts within the same phase.
 - When CI fails, inspect only the failed exact-head job/step first; use `ci:failure-context` for oversized saved logs.
@@ -338,7 +361,7 @@ For substantial work report concisely:
 - agent-context/WM-5 selector(s) used and scope expansion if any;
 - tools/subagents used.
 
-If Codex subagents were used, report count and confirm all were Luna.
+If Codex subagents were used, report count, confirm all were Luna, and state whether any Luna was stopped for non-completion and what the lead completed locally.
 
 ## Repository learning rule
 

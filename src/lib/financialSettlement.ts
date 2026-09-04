@@ -1,12 +1,15 @@
 import type { InvoiceData, PayrollEntry, PayrollRun } from "../types.ts";
+import type { ClientCollection } from "./clientCollections.ts";
+import { clientCollectionTotal } from "./clientCollections.ts";
 import type { FinancialAccount, FinancialTransaction } from "./cashBanking.ts";
 import { derivePaymentStatus } from "../utils/invoiceLogic.ts";
 
-export type SettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE";
+export type SettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE" | "CLIENT_COLLECTION";
 export const SETTLEMENT_RECORD_STATUSES = ["CONFIRMED", "REVERSED"] as const;
 export type SettlementRecordStatus = (typeof SETTLEMENT_RECORD_STATUSES)[number];
 export type InvoiceSettlementState = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "VOID";
 export type PayrollSettlementState = "UNSETTLED" | "PARTIALLY_DISBURSED" | "SETTLED";
+export type ClientCollectionSettlementState = "UNLINKED" | "PARTIALLY_LINKED" | "LINKED";
 
 export interface FinancialSettlementHistoryItem {
   id: string;
@@ -35,19 +38,23 @@ export interface FinancialSettlementSummary {
   currency: string;
   lifecycleStatus?: string;
   settlementBasis: number;
-  basisSource: "EXPLICIT_NET_PAYABLE" | "GROSS_DOCUMENT_AMOUNT" | "EMPLOYEE_NET_PAY" | "EXPENSE_AMOUNT";
+  basisSource: "EXPLICIT_NET_PAYABLE" | "GROSS_DOCUMENT_AMOUNT" | "EMPLOYEE_NET_PAY" | "EXPENSE_AMOUNT" | "CLIENT_COLLECTION_ALLOCATIONS";
   reconciledCashPaid: number;
   documentReportedPaid: number;
   effectiveSettled: number;
   outstanding: number;
-  settlementState: InvoiceSettlementState | PayrollSettlementState;
+  settlementState: InvoiceSettlementState | PayrollSettlementState | ClientCollectionSettlementState;
+  collectionTotal?: number;
+  linkedAmount?: number;
+  remainingUnlinkedAmount?: number;
+  linkState?: ClientCollectionSettlementState;
   legacyPaidWithoutBankLink?: boolean;
   historyRedacted?: boolean;
   history: FinancialSettlementHistoryItem[];
 }
 
 export interface SettlementCandidate {
-  targetType: "INVOICE" | "PAYROLL" | "EXPENSE";
+  targetType: SettlementTargetType;
   targetId: string;
   label: string;
   currency: string;
@@ -60,6 +67,7 @@ export interface SettlementCandidate {
   counterparty?: string;
   lifecycleStatus?: string;
   projectLabel?: string;
+  projectId?: string;
 }
 
 function money(value: unknown): number {
@@ -193,9 +201,51 @@ export function deriveExpenseSettlementSummary(
   };
 }
 
-export function assertSettlementInput(transaction: Pick<FinancialTransaction, "status" | "direction" | "currency">, targetCurrency: string, amount: number) {
+export function deriveClientCollectionSettlementSummary(
+  collection: Pick<ClientCollection, "id" | "currency" | "status" | "allocations">,
+  history: readonly FinancialSettlementHistoryItem[],
+): FinancialSettlementSummary {
+  const collectionTotal = clientCollectionTotal(collection);
+  const linkedAmount = Math.min(collectionTotal, confirmedSettlementTotal(history));
+  const remainingUnlinkedAmount = money(Math.max(0, collectionTotal - linkedAmount));
+  const linkState: ClientCollectionSettlementState = linkedAmount <= 0.005
+    ? "UNLINKED"
+    : remainingUnlinkedAmount <= 0.005
+      ? "LINKED"
+      : "PARTIALLY_LINKED";
+  return {
+    targetType: "CLIENT_COLLECTION",
+    targetId: collection.id,
+    currency: collection.currency || "PHP",
+    lifecycleStatus: collection.status,
+    settlementBasis: collectionTotal,
+    basisSource: "CLIENT_COLLECTION_ALLOCATIONS",
+    reconciledCashPaid: linkedAmount,
+    documentReportedPaid: 0,
+    effectiveSettled: linkedAmount,
+    outstanding: remainingUnlinkedAmount,
+    settlementState: linkState,
+    collectionTotal,
+    linkedAmount,
+    remainingUnlinkedAmount,
+    linkState,
+    history: [...history],
+  };
+}
+
+export function assertSettlementInput(
+  transaction: Pick<FinancialTransaction, "status" | "direction" | "currency">,
+  targetCurrency: string,
+  amount: number,
+  targetType: SettlementTargetType = "INVOICE",
+) {
   if (transaction.status !== "POSTED") throw new Error("Only POSTED transactions can be used for settlement.");
-  if (transaction.direction !== "DEBIT") throw new Error("Supplier invoice and payroll settlements require a DEBIT transaction.");
+  const expectedDirection = targetType === "CLIENT_COLLECTION" ? "CREDIT" : "DEBIT";
+  if (transaction.direction !== expectedDirection) {
+    throw new Error(targetType === "CLIENT_COLLECTION"
+      ? "Client collection settlements require a CREDIT transaction."
+      : "Supplier invoice, payroll, and expense settlements require a DEBIT transaction.");
+  }
   if (transaction.currency.toUpperCase() !== targetCurrency.toUpperCase()) throw new Error("Transaction and target currency must match; FX settlement is not supported.");
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Settlement amount must be positive.");
 }
@@ -205,10 +255,18 @@ export function defaultSettlementAllocation(transactionRemaining: number, target
 }
 
 export function eligibleSettlementCandidates(transaction: FinancialTransaction, candidates: readonly SettlementCandidate[]) {
-  if (transaction.status !== "POSTED" || transaction.direction !== "DEBIT") return [];
+  if (transaction.status !== "POSTED") return [];
+  const targetTypes = transaction.direction === "CREDIT"
+    ? ["CLIENT_COLLECTION"]
+    : ["INVOICE", "PAYROLL", "EXPENSE"];
   return candidates.filter((candidate) =>
     candidate.outstandingAmount > 0.005 &&
     candidate.currency.toUpperCase() === transaction.currency.toUpperCase() &&
-    (candidate.targetType === "INVOICE" ? candidate.lifecycleStatus === "VERIFIED" : ["APPROVED", "PAID"].includes(candidate.lifecycleStatus || ""))
+    targetTypes.includes(candidate.targetType) &&
+    (candidate.targetType === "INVOICE"
+      ? candidate.lifecycleStatus === "VERIFIED"
+      : candidate.targetType === "CLIENT_COLLECTION"
+        ? candidate.lifecycleStatus === "RECORDED"
+        : ["APPROVED", "PAID"].includes(candidate.lifecycleStatus || ""))
   );
 }

@@ -56,7 +56,7 @@ test("P2B-4 lifecycle RPC enforces issued-only billing truth and concurrent over
   assert.match(migration, /CLIENT_BILLING_VOIDED/);
 });
 
-test("P2B-4 project history, currency, and deferred collection boundaries are represented in source", () => {
+test("P2B-4 project history, currency, and collection boundaries are represented in source", () => {
   assert.match(migration, /'clientBillings', v_client_billings/);
   assert.match(migration, /select count\(\*\) into v_client_billings/);
   assert.match(migration, /Client billing currency must match the project currency/);
@@ -68,7 +68,7 @@ test("P2B-4 project history, currency, and deferred collection boundaries are re
   assert.match(clientBilling, /remainingToBill/);
   assert.doesNotMatch(clientBilling, /financial_transaction|settlement|cash/i);
   assert.match(workspace, /Only ISSUED billings count toward Billed to Date/);
-  assert.match(workspace, /Collections and settlement linkage are deferred to P2B-5/);
+  assert.match(workspace, /P2B-6 bank-evidence workflow/);
   assert.doesNotMatch(projectCosting, /client[_A-Z]?billing/i, "client billing must not enter Actual Cost or Committed Cost calculation");
   assert.match(projectWorkspace, /Client Billing/);
   assert.match(projectOverview, /Billed to Date/);

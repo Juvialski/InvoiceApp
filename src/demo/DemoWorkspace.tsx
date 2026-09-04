@@ -6,7 +6,7 @@ import { DEFAULT_REGIONAL_SETTINGS } from "../config/regional.ts";
 import type { DashboardActivityPeriod } from "../components/engineering/EngineeringCostOperationsDashboard.tsx";
 import type { AppTab } from "../utils/routes.ts";
 import type { AppLocation, ProjectWorkspaceView } from "../utils/appRouting.ts";
-import type { FinancialAccount, FinancialBalanceSnapshot, FinancialTransaction } from "../lib/cashBanking.ts";
+import type { FinancialAccount, FinancialBalanceSnapshot, FinancialReconciliationCandidate, FinancialTransaction } from "../lib/cashBanking.ts";
 import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectWorkerAssignment, Subcontract, SubcontractLine, SubcontractStatus, WorkEntry, Worker } from "../types.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
@@ -23,7 +23,7 @@ import { demoAssistantPath, demoDocumentsPath, demoPathForAppPath, demoPathForIn
 import { projectCostDataCompleteness } from "../utils/dataCompleteness.ts";
 import { demoTimestamp } from "./data/demoDates.ts";
 import { applyLocalClientBillingTransition, buildLocalClientBilling, type ClientBillingInput, type ClientBillingLineInput, type ClientBillingStatus } from "../lib/clientBilling.ts";
-import { buildLocalClientCollection, type ClientCollectionAllocationInput, type ClientCollectionInput } from "../lib/clientCollections.ts";
+import { buildLocalClientCollection, clientCollectionTotal, type ClientCollectionAllocationInput, type ClientCollectionInput } from "../lib/clientCollections.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -56,6 +56,12 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
   const clientBillings = data.clientBillings || [];
+  const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
+    ...(data.expenses || []).filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
+    ...(data.invoices || []).filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
+    ...(data.payroll.runs || []).filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: (data.payroll.entries || []).filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: (data.payroll.periods || []).find((period) => period.id === run.periodId)?.payDate || (data.payroll.periods || []).find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment" })),
+    ...(data.clientCollections || []).filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId })),
+  ].filter((candidate) => candidate.amount > 0), [data]);
   const reviewQueue = useMemo(() => data.invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID"), [data.invoices]);
   const demoProjectCostCompleteness = useMemo(() => projectCostDataCompleteness(["*"]), []);
 
@@ -161,6 +167,9 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   };
 
   const reverseClientCollection = async (id: string, reason: string) => {
+    if (data.cash.matches.some((match) => match.targetType === "CLIENT_COLLECTION" && match.targetId === id && match.status === "CONFIRMED")) {
+      throw new Error("Reverse active cash settlement links before reversing this client collection.");
+    }
     dispatch({ type: "REVERSE_CLIENT_COLLECTION", id, reason });
   };
 
@@ -345,10 +354,12 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onLoadInvoicePreset={(invoice) => { dispatch({ type: "SAVE_INVOICE", value: invoice }); openInvoice(invoice); }}
             onBatchExtractComplete={(successful) => { const first = successful[0]; if (first) openInvoice(first); }}
             cashData={data.cash}
+            cashReconciliationCandidates={cashReconciliationCandidates}
             canManageCashAccounts={true}
             canManageCashTransactions={true}
             canCashImport={false}
             canCashReconcile={true}
+            canSettleCashTarget={() => true}
             onSaveFinancialAccount={(account: FinancialAccount) => dispatch({ type: "SAVE_FINANCIAL_ACCOUNT", value: account })}
             onDeactivateFinancialAccount={(account) => dispatch({ type: "SAVE_FINANCIAL_ACCOUNT", value: { ...account, active: false, updatedAt: `${data.anchorDate}T14:00:00+08:00` } })}
             onReactivateFinancialAccount={(account) => dispatch({ type: "SAVE_FINANCIAL_ACCOUNT", value: { ...account, active: true, updatedAt: `${data.anchorDate}T14:05:00+08:00` } })}

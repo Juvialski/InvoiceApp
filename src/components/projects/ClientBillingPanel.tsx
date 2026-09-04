@@ -40,6 +40,9 @@ import {
   type ClientCollectionInput,
   type ClientCollectionStatus,
 } from "../../lib/clientCollections.ts";
+import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransactionMatch } from "../../lib/cashBanking.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
+import { ClientCollectionSettlementPanel } from "./ClientCollectionSettlementPanel.tsx";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 
 interface ClientBillingPanelProps {
@@ -55,6 +58,13 @@ interface ClientBillingPanelProps {
   onSaveCollection?: (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => Promise<void> | void;
   onRecordCollection?: (id: string) => Promise<void> | void;
   onReverseCollection?: (id: string, reason: string) => Promise<void> | void;
+  cashData?: CashBankingWorkspaceData;
+  canReconcileCash?: boolean;
+  canSettleClientCollection?: boolean;
+  onSaveFinancialMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
+  onReverseFinancialMatch?: (matchId: string, reason: string) => Promise<void> | void;
+  canReverseFinancialMatch?: (match: FinancialTransactionMatch) => boolean;
+  onNavigatePath?: AppNavigate;
 }
 
 function money(value: number | undefined, currency: string) {
@@ -121,6 +131,13 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   onSaveCollection,
   onRecordCollection,
   onReverseCollection,
+  cashData,
+  canReconcileCash = false,
+  canSettleClientCollection = false,
+  onSaveFinancialMatch,
+  onReverseFinancialMatch,
+  canReverseFinancialMatch,
+  onNavigatePath,
 }) => {
   const [activeTab, setActiveTab] = useState<"billings" | "collections">("billings");
 
@@ -840,6 +857,17 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
                   </div>
                 </div>
 
+                <ClientCollectionSettlementPanel
+                  collection={selectedCollection}
+                  cashData={cashData}
+                  canReconcileCash={canReconcileCash}
+                  canSettleClientCollection={canSettleClientCollection}
+                  onSaveMatch={onSaveFinancialMatch}
+                  onReverseMatch={onReverseFinancialMatch}
+                  canReverseMatch={canReverseFinancialMatch}
+                  onNavigatePath={onNavigatePath}
+                />
+
                 {/* Action Buttons */}
                 {canManage && (
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -929,12 +957,12 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
         </div>
       )}
 
-      {/* Preservation of regression boundary string for test suites */}
+      {/* Commercial truth boundary */}
       <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[10px] leading-4 text-slate-600">
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
         <div>
           <p><strong>Commercial boundary:</strong> Only ISSUED billings count toward Billed to Date. Collections record client receipts and establish authoritative collected totals without mutating project costs, payroll, or procurement.</p>
-          <p className="mt-1">Bank reconciliation and Cash Settlement linkage are deferred to P2B-6. Collections and settlement linkage are deferred to P2B-5.</p>
+          <p className="mt-1">Bank reconciliation and Cash Settlement linkage are handled by the P2B-6 bank-evidence workflow below; linking evidence never changes commercial collection totals or project cost.</p>
         </div>
       </div>
     </section>

@@ -89,11 +89,11 @@ test("missing contract value remains explicitly unavailable instead of becoming 
   assert.equal(truth.contractValue.amount, undefined);
 });
 
-test("client billing is available as revenue-side billed-to-date while collections remain unavailable", () => {
+test("client billing remains available while an unsupplied collection source stays unavailable", () => {
   const truth = buildProjectFinancialTruth(project, summary, { billedToDate: 275 });
   assert.deepEqual(truth.billed, { status: "available", amount: 275, currency: "PHP" });
   assert.equal(truth.collected.status, "unavailable");
-  assert.match(truth.collected.reason || "", /collections.*not implemented/i);
+  assert.match(truth.collected.reason || "", /source was supplied|intentionally unavailable/i);
 });
 
 test("client collections provide authoritative collected-to-date and outstanding receivables", () => {

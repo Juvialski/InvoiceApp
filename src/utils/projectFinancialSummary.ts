@@ -34,7 +34,7 @@ function unavailable(reason: string): ProjectFinancialMetric {
 }
 
 const COMMITMENT_REASON = "No authoritative approved-obligation source is implemented yet; supplier invoice payables are actual incurred cost, not commitments.";
-const RECEIVABLE_REASON = "Client billing is revenue-side history only; collections, settlement linkage, and receivables truth are not implemented yet.";
+const RECEIVABLE_REASON = "No authoritative client billing or collection source was supplied to this view; receivables are intentionally unavailable here.";
 
 /**
  * Builds the P1A project financial truth view from existing authoritative

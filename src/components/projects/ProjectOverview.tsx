@@ -745,7 +745,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           <div className="min-w-0 text-xs">
             <h4 className="font-bold text-slate-800">Commercial Controls</h4>
             <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-              <strong>Committed Cost</strong> (approved PO and subcontract commitments) is included above. <strong>Client Progress Billing</strong> is revenue-side history and does not change cost or cash. <strong>Collections</strong> and <strong>Outstanding Receivables</strong> remain deferred until their corresponding commercial workflows are implemented. Engoryx does not fabricate values for unbuilt modules.
+              <strong>Committed Cost</strong> (approved PO and subcontract commitments) is included above. <strong>Client Progress Billing</strong> and <strong>recorded client collections</strong> are revenue-side commercial history and do not change project cost. <strong>Outstanding Receivables</strong> remains allocation-derived; bank settlement linkage is separate cash evidence and does not redefine collected truth.
             </p>
           </div>
         </div>

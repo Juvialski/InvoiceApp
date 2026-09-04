@@ -59,6 +59,7 @@ import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts"
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI";
 import { isProjectWorkspaceTabDeploymentVisible } from "./projectWorkspaceVisibility.ts";
 import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
+import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransactionMatch } from "../../lib/cashBanking.ts";
 
 export type WorkspaceTab = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
@@ -139,6 +140,12 @@ interface ProjectWorkspaceProps {
   onSaveClientCollection?: (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => Promise<void> | void;
   onRecordClientCollection?: (id: string) => Promise<void> | void;
   onReverseClientCollection?: (id: string, reason: string) => Promise<void> | void;
+  cashData?: CashBankingWorkspaceData;
+  canReconcileCash?: boolean;
+  canSettleClientCollection?: boolean;
+  onSaveFinancialMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
+  onReverseFinancialMatch?: (matchId: string, reason: string) => Promise<void> | void;
+  canReverseFinancialMatch?: (match: FinancialTransactionMatch) => boolean;
   onSavePO?: (
     po: Partial<PurchaseOrder> & { poNumber: string; vendorId: string; projectId: string },
     lines: Array<Partial<PurchaseOrderLine> & { description: string; quantity: number; unitPrice: number }>,
@@ -290,6 +297,12 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onSaveClientCollection,
   onRecordClientCollection,
   onReverseClientCollection,
+  cashData,
+  canReconcileCash,
+  canSettleClientCollection,
+  onSaveFinancialMatch,
+  onReverseFinancialMatch,
+  canReverseFinancialMatch,
   onSavePO,
   onTransitionPO,
   onDeletePO,
@@ -439,6 +452,13 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           onSaveCollection={onSaveClientCollection}
           onRecordCollection={onRecordClientCollection}
           onReverseCollection={onReverseClientCollection}
+          cashData={cashData}
+          canReconcileCash={canReconcileCash}
+          canSettleClientCollection={canSettleClientCollection}
+          onSaveFinancialMatch={onSaveFinancialMatch}
+          onReverseFinancialMatch={onReverseFinancialMatch}
+          canReverseFinancialMatch={canReverseFinancialMatch}
+          onNavigatePath={onNavigatePath}
         />
       )}
 

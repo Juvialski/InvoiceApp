@@ -6,7 +6,7 @@ export type FinancialTransactionStatus = "PENDING" | "POSTED" | "REVERSED";
 export type FinancialTransactionSource = "MANUAL" | "CSV" | "XLSX" | "PDF" | "PROVIDER";
 export type FinancialReconciliationStatus = "UNMATCHED" | "SUGGESTED" | "PARTIAL" | "MATCHED" | "IGNORED";
 export type FinancialImportStatus = "PREVIEW" | "IMPORTED" | "FAILED";
-export type FinancialMatchTargetType = "EXPENSE" | "INVOICE" | "PAYROLL" | "TRANSFER" | "OTHER";
+export type FinancialMatchTargetType = "EXPENSE" | "INVOICE" | "PAYROLL" | "CLIENT_COLLECTION" | "TRANSFER" | "OTHER";
 export type FinancialMatchStatus = "SUGGESTED" | "CONFIRMED" | "REJECTED" | "REVERSED";
 
 export interface FinancialAccount {
@@ -110,6 +110,7 @@ export interface FinancialTransactionMatch {
   reversalReason?: string;
   transferGroupId?: string;
   notes?: string;
+  confirmationSource?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -233,6 +234,8 @@ export interface FinancialReconciliationCandidate {
   date?: string;
   reference?: string;
   description?: string;
+  lifecycleStatus?: string;
+  projectId?: string;
 }
 
 export interface FinancialMatchSuggestion {
@@ -860,7 +863,13 @@ function dateDistance(left?: string, right?: string) {
 }
 
 export function suggestFinancialMatches(transaction: FinancialTransaction, candidates: readonly FinancialReconciliationCandidate[], limit = 3): FinancialMatchSuggestion[] {
-  return candidates.filter((candidate) => !candidate.currency || normalizeFinancialCurrency(candidate.currency) === normalizeFinancialCurrency(transaction.currency)).map((candidate) => {
+  const directionTargetTypes = transaction.direction === "CREDIT"
+    ? new Set<FinancialReconciliationCandidate["targetType"]>(["CLIENT_COLLECTION"])
+    : new Set<FinancialReconciliationCandidate["targetType"]>(["INVOICE", "PAYROLL", "EXPENSE"]);
+  return candidates.filter((candidate) => directionTargetTypes.has(candidate.targetType)
+    && (!candidate.currency || normalizeFinancialCurrency(candidate.currency) === normalizeFinancialCurrency(transaction.currency))
+    && (candidate.targetType !== "CLIENT_COLLECTION" || !candidate.lifecycleStatus || candidate.lifecycleStatus === "RECORDED"))
+    .map((candidate) => {
     const reasons: string[] = [];
     let score = 0;
     const amountDifference = Math.abs(roundMoney(transaction.amount) - roundMoney(candidate.amount));
@@ -880,6 +889,10 @@ export function suggestFinancialMatches(transaction: FinancialTransaction, candi
 
 export function confirmedMatchedAmount(transactionId: string, matches: readonly FinancialTransactionMatch[]): number {
   return roundMoney(matches.filter((match) => match.transactionId === transactionId && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0));
+}
+
+export function confirmedTargetMatchedAmount(targetType: FinancialMatchTargetType, targetId: string, matches: readonly FinancialTransactionMatch[]): number {
+  return roundMoney(matches.filter((match) => match.targetType === targetType && match.targetId === targetId && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0));
 }
 
 export function reconciliationStatusForTransaction(transaction: FinancialTransaction, matches: readonly FinancialTransactionMatch[]): FinancialReconciliationStatus {

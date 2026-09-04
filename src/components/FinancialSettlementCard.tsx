@@ -27,8 +27,8 @@ function money(value: number, currency: string) {
 }
 
 function stateTone(state: FinancialSettlementSummary["settlementState"]) {
-  if (state === "PAID" || state === "SETTLED") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  if (state === "PARTIALLY_PAID" || state === "PARTIALLY_DISBURSED") return "border-amber-200 bg-amber-50 text-amber-900";
+  if (state === "PAID" || state === "SETTLED" || state === "LINKED") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (state === "PARTIALLY_PAID" || state === "PARTIALLY_DISBURSED" || state === "PARTIALLY_LINKED") return "border-amber-200 bg-amber-50 text-amber-900";
   if (state === "OVERDUE") return "border-rose-200 bg-rose-50 text-rose-800";
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
@@ -191,12 +191,16 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
     ? "Disbursement evidence"
     : targetType === "EXPENSE"
       ? "Expense payment evidence"
+      : targetType === "CLIENT_COLLECTION"
+        ? "Client collection bank linkage"
       : "Supplier payment evidence";
 
   const basisLabel = targetType === "PAYROLL"
     ? "Expected employee net pay"
     : targetType === "EXPENSE"
       ? "Expense obligation"
+      : targetType === "CLIENT_COLLECTION"
+        ? "Recorded collection amount"
       : summary?.basisSource === "EXPLICIT_NET_PAYABLE"
         ? "Invoice net payable"
         : "Invoice payable";
@@ -232,7 +236,7 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
           <>
             <div className={`mt-4 grid gap-2 ${compact ? "sm:grid-cols-3" : "sm:grid-cols-3"}`}>
               <Metric label={basisLabel} value={money(summary.settlementBasis, summary.currency)} />
-              <Metric label={targetType === "PAYROLL" ? "Confirmed disbursement" : "Confirmed bank payments"} value={money(summary.reconciledCashPaid, summary.currency)} />
+              <Metric label={targetType === "PAYROLL" ? "Confirmed disbursement" : targetType === "CLIENT_COLLECTION" ? "Bank-linked amount" : "Confirmed bank payments"} value={money(summary.reconciledCashPaid, summary.currency)} />
               <Metric label="Outstanding" value={money(summary.outstanding, summary.currency)} emphasis={summary.outstanding > 0.005} />
             </div>
 

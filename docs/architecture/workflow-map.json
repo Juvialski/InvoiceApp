@@ -453,7 +453,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientCollectionsDomain.test.ts",
-        "tests/clientCollectionsMigration.test.ts"
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
       ]
     },
     {
@@ -475,7 +477,79 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientCollectionsDomain.test.ts",
-        "tests/clientCollectionsMigration.test.ts"
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
+      ]
+    },
+    {
+      "id": "commercial-client-collection-cash-linkage",
+      "label": "Client collection settlement is incoming bank evidence only",
+      "description": "A RECORDED client collection may be linked to same-company POSTED CREDIT transactions through the canonical financial transaction match model. The settlement basis is the allocation-derived collection total; partial and multi-match links never create another collection or change Collected to Date, Actual Cost, or Committed Cost.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "src/lib/financialSettlement.ts",
+        "src/lib/financialSettlementPersistence.ts",
+        "src/lib/cashBanking.ts",
+        "src/lib/cashBankingPersistence.ts",
+        "src/components/CashSettlementAllocationWorkspace.tsx",
+        "src/components/projects/ClientCollectionSettlementPanel.tsx",
+        "src/components/projects/ClientBillingPanel.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/components/projects/ProjectOverview.tsx",
+        "src/app/routes/ProjectsRoute.tsx",
+        "src/App.tsx",
+        "src/utils/projectFinancialSummary.ts",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
+      ]
+    },
+    {
+      "id": "commercial-client-collection-settlement-reversal-guard",
+      "label": "Active bank links block collection reversal",
+      "description": "A recorded client collection cannot be reversed while a confirmed CLIENT_COLLECTION match is active. Settlement reversal is reason-gated, preserves history, restores the unlinked bank-evidence amount, and leaves commercial collection totals unchanged.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "src/lib/financialSettlement.ts",
+        "src/lib/financialSettlementPersistence.ts",
+        "src/lib/cashBanking.ts",
+        "src/lib/cashBankingPersistence.ts",
+        "src/components/CashSettlementAllocationWorkspace.tsx",
+        "src/components/projects/ClientCollectionSettlementPanel.tsx",
+        "src/components/projects/ClientBillingPanel.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/components/projects/ProjectOverview.tsx",
+        "src/app/routes/ProjectsRoute.tsx",
+        "src/App.tsx",
+        "src/utils/projectFinancialSummary.ts",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
       ]
     }
   ],
@@ -3885,19 +3959,22 @@
       "domain": "finance",
       "type": "derived-data",
       "scope": "company",
-      "description": "Deterministic eligible invoice, payroll, and supported expense obligations filtered by posted debit, currency, lifecycle, and remaining amount.",
+      "description": "Deterministic eligible invoice, payroll, and supported expense obligations from posted DEBIT transactions plus RECORDED client collections from posted CREDIT transactions, filtered by currency, lifecycle, and remaining amount.",
       "fileRefs": [
         "src/lib/financialSettlement.ts",
         "src/App.tsx",
-        "src/components/CashSettlementAllocationWorkspace.tsx"
+        "src/components/CashSettlementAllocationWorkspace.tsx",
+        "src/components/projects/ClientCollectionSettlementPanel.tsx"
       ],
       "testRefs": [
         "tests/financialSettlement.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
         "tests/assistantFinancialSettlement.test.ts"
       ],
       "invariantIds": [
         "invoice-project-cost-independent-from-settlement",
-        "payroll-labor-cost-independent-from-net-pay-settlement"
+        "payroll-labor-cost-independent-from-net-pay-settlement",
+        "commercial-client-collection-cash-linkage"
       ]
     },
     {
@@ -3913,18 +3990,21 @@
         "REJECTED",
         "REVERSED"
       ],
-      "description": "Canonical bridge between a financial transaction and an invoice, payroll run, supported expense, or internal transfer.",
+      "description": "Canonical bridge between a financial transaction and an invoice, payroll run, supported expense, recorded client collection, or internal transfer.",
       "fileRefs": [
         "src/lib/cashBanking.ts",
         "src/lib/financialSettlement.ts",
         "supabase/migrations/20260826120000_cash_banking_foundation.sql",
         "supabase/migrations/20260827210000_financial_settlement_integration.sql",
-        "supabase/migrations/20260829234056_core_hardening_wave2b3_cash_corrections.sql"
+        "supabase/migrations/20260829234056_core_hardening_wave2b3_cash_corrections.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
       ],
       "testRefs": [
         "tests/financialSettlement.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
         "tests/cashBankingMigration.test.ts",
-        "tests/coreHardeningWave2B3CashCorrections.test.ts"
+        "tests/coreHardeningWave2B3CashCorrections.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "permissionKeys": [
         "cash.reconcile"
@@ -3942,12 +4022,13 @@
       "domain": "finance",
       "type": "action",
       "scope": "company",
-      "description": "Explicit finance action for a partial, full, or split settlement allocation after candidate and target checks.",
+      "description": "Explicit finance action for a partial, full, or split settlement allocation after candidate and target checks; recorded client collections use incoming CREDIT evidence while payable targets retain DEBIT behavior.",
       "permissionKeys": [
         "cash.reconcile",
         "invoices.manage",
         "payroll.approve",
-        "expenses.manage"
+        "expenses.manage",
+        "projects.manage"
       ],
       "confirmationRequirement": "human",
       "fileRefs": [
@@ -3971,20 +4052,24 @@
       "domain": "finance",
       "type": "derived-data",
       "scope": "company",
-      "description": "Confirmed cash paid, outstanding amount, settlement state, and linked transaction history for an invoice, payroll run, or supported expense.",
+      "description": "Confirmed cash paid, outstanding amount, settlement state, and linked transaction history for an invoice, payroll run, supported expense, or recorded client collection; collection states use UNLINKED, PARTIALLY_LINKED, or LINKED.",
       "fileRefs": [
         "src/lib/financialSettlement.ts",
         "src/lib/financialSettlementPersistence.ts",
         "src/components/FinancialSettlementCard.tsx",
-        "supabase/migrations/20260827216000_financial_settlement_summary_rbac.sql"
+        "src/components/projects/ClientCollectionSettlementPanel.tsx",
+        "supabase/migrations/20260827216000_financial_settlement_summary_rbac.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
       ],
       "testRefs": [
         "tests/financialSettlement.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
         "tests/assistantFinancialSettlement.test.ts"
       ],
       "invariantIds": [
         "invoice-project-cost-independent-from-settlement",
-        "payroll-labor-cost-independent-from-net-pay-settlement"
+        "payroll-labor-cost-independent-from-net-pay-settlement",
+        "commercial-client-collection-cash-linkage"
       ]
     },
     {
@@ -4005,14 +4090,17 @@
         "src/lib/cashBanking.ts",
         "src/lib/financialSettlement.ts",
         "supabase/migrations/20260827210000_financial_settlement_integration.sql",
-        "supabase/migrations/20260829234056_core_hardening_wave2b3_cash_corrections.sql"
+        "supabase/migrations/20260829234056_core_hardening_wave2b3_cash_corrections.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
       ],
       "testRefs": [
         "tests/financialSettlement.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
         "tests/coreHardeningWave2B3CashCorrections.test.ts"
       ],
       "invariantIds": [
-        "settlement-reversal-is-additive-history"
+        "settlement-reversal-is-additive-history",
+        "commercial-client-collection-settlement-reversal-guard"
       ]
     },
     {
@@ -4062,15 +4150,18 @@
       "fileRefs": [
         "src/lib/financialSettlement.ts",
         "src/lib/financialSettlementPersistence.ts",
-        "supabase/migrations/20260827210000_financial_settlement_integration.sql"
+        "supabase/migrations/20260827210000_financial_settlement_integration.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
       ],
       "testRefs": [
         "tests/financialSettlement.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
         "tests/assistantFinancialSettlement.test.ts"
       ],
       "invariantIds": [
         "settlement-reversal-is-additive-history",
-        "invoice-project-cost-independent-from-settlement"
+        "invoice-project-cost-independent-from-settlement",
+        "commercial-client-collection-settlement-reversal-guard"
       ]
     },
     {
@@ -4105,12 +4196,13 @@
       "domain": "finance",
       "type": "guard",
       "scope": "company",
-      "description": "Revalidates actor, effective permissions, deployment company, POSTED DEBIT direction, target lifecycle, currency, remaining amounts, and idempotency under row locks; correction and transfer lifecycles remain RPC-only.",
+      "description": "Revalidates actor, effective permissions, deployment company, target-specific POSTED DEBIT/CREDIT direction, target lifecycle, currency, allocation-derived remaining amounts, and idempotency under row locks; correction and transfer lifecycles remain RPC-only.",
       "permissionKeys": [
         "cash.reconcile",
         "invoices.manage",
         "payroll.approve",
-        "expenses.manage"
+        "expenses.manage",
+        "projects.manage"
       ],
       "fileRefs": [
         "src/lib/financialSettlement.ts",
@@ -4138,12 +4230,13 @@
       "domain": "finance",
       "type": "external-boundary",
       "scope": "company",
-      "description": "Authenticated guarded RPCs for account lifecycle, manual transaction correction/reversal, ignore/review restoration, single/batch settlement confirmation, settlement reversal, and exact-pair transfer reversal.",
+      "description": "Authenticated guarded RPCs for account lifecycle, manual transaction correction/reversal, ignore/review restoration, single/batch settlement confirmation, client-collection CREDIT linkage, settlement reversal, and exact-pair transfer reversal.",
       "permissionKeys": [
         "cash.reconcile",
         "invoices.manage",
         "payroll.approve",
-        "expenses.manage"
+        "expenses.manage",
+        "projects.manage"
       ],
       "fileRefs": [
         "src/lib/financialSettlementPersistence.ts",
@@ -6103,7 +6196,7 @@
       "label": "Client Billing / Cash Boundary",
       "domain": "commercial",
       "type": "external-boundary",
-      "description": "Client billing records remain revenue-side commercial history. Collections, settlement linkage, receivables, accounting postings, and revenue recognition are separate deferred boundaries.",
+      "description": "Client billing records remain revenue-side commercial history. Collections and bank settlement linkage are separate guarded boundaries; neither creates accounting postings or changes project cost.",
       "scope": "company-and-project",
       "fileRefs": [
         "src/lib/clientBilling.ts",
@@ -6125,8 +6218,8 @@
       ],
       "tags": [
         "cash separation",
-        "collections deferred",
-        "settlement deferred"
+        "client collections",
+        "settlement linkage"
       ]
     },
     {
@@ -6139,12 +6232,20 @@
       "scope": "project",
       "fileRefs": [
         "src/lib/clientCollections.ts",
+        "src/lib/financialSettlement.ts",
+        "src/lib/financialSettlementPersistence.ts",
+        "src/lib/cashBanking.ts",
+        "src/lib/cashBankingPersistence.ts",
+        "src/components/CashSettlementAllocationWorkspace.tsx",
+        "src/components/projects/ClientCollectionSettlementPanel.tsx",
         "src/components/projects/ClientBillingPanel.tsx",
         "src/components/projects/ProjectWorkspace.tsx",
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
+        "src/App.tsx",
         "src/utils/projectFinancialSummary.ts",
-        "supabase/migrations/20260904090000_client_collections_foundation.sql"
+        "supabase/migrations/20260904090000_client_collections_foundation.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
       ],
       "testRefs": [
         "tests/subcontractsDomain.test.ts",
@@ -6154,7 +6255,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientCollectionsDomain.test.ts",
-        "tests/clientCollectionsMigration.test.ts"
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "permissionKeys": [
         "projects.read",
@@ -6186,12 +6289,20 @@
       ],
       "fileRefs": [
         "src/lib/clientCollections.ts",
+        "src/lib/financialSettlement.ts",
+        "src/lib/financialSettlementPersistence.ts",
+        "src/lib/cashBanking.ts",
+        "src/lib/cashBankingPersistence.ts",
+        "src/components/CashSettlementAllocationWorkspace.tsx",
+        "src/components/projects/ClientCollectionSettlementPanel.tsx",
         "src/components/projects/ClientBillingPanel.tsx",
         "src/components/projects/ProjectWorkspace.tsx",
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
+        "src/App.tsx",
         "src/utils/projectFinancialSummary.ts",
-        "supabase/migrations/20260904090000_client_collections_foundation.sql"
+        "supabase/migrations/20260904090000_client_collections_foundation.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
       ],
       "testRefs": [
         "tests/subcontractsDomain.test.ts",
@@ -6201,7 +6312,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientCollectionsDomain.test.ts",
-        "tests/clientCollectionsMigration.test.ts"
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "permissionKeys": [
         "projects.manage"
@@ -6240,7 +6353,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientCollectionsDomain.test.ts",
-        "tests/clientCollectionsMigration.test.ts"
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "invariantIds": [
         "commercial-client-collection-recorded-only"
@@ -6272,7 +6387,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientCollectionsDomain.test.ts",
-        "tests/clientCollectionsMigration.test.ts"
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "invariantIds": [
         "commercial-client-collection-recorded-only",
@@ -6304,7 +6421,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientCollectionsDomain.test.ts",
-        "tests/clientCollectionsMigration.test.ts"
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "permissionKeys": [
         "projects.manage"
@@ -6317,6 +6436,65 @@
         "over collection",
         "billing collection guard",
         "deterministic locks"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "client-collection-cash-settlement-link",
+      "label": "Client Collection Cash Settlement Link",
+      "domain": "finance",
+      "type": "workflow",
+      "description": "Explicitly links a RECORDED client collection's allocation-derived total to same-company POSTED CREDIT bank evidence through the canonical financial transaction match and guarded settlement RPCs.",
+      "scope": "company-and-project",
+      "statusValues": [
+        "UNLINKED",
+        "PARTIALLY_LINKED",
+        "LINKED"
+      ],
+      "permissionKeys": [
+        "cash.reconcile",
+        "projects.manage"
+      ],
+      "confirmationRequirement": "human",
+      "fileRefs": [
+        "src/lib/clientCollections.ts",
+        "src/lib/financialSettlement.ts",
+        "src/lib/financialSettlementPersistence.ts",
+        "src/lib/cashBanking.ts",
+        "src/lib/cashBankingPersistence.ts",
+        "src/components/CashSettlementAllocationWorkspace.tsx",
+        "src/components/projects/ClientCollectionSettlementPanel.tsx",
+        "src/components/projects/ClientBillingPanel.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/components/projects/ProjectOverview.tsx",
+        "src/app/routes/ProjectsRoute.tsx",
+        "src/App.tsx",
+        "src/utils/projectFinancialSummary.ts",
+        "supabase/migrations/20260904090000_client_collections_foundation.sql",
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
+      ],
+      "testRefs": [
+        "tests/subcontractsDomain.test.ts",
+        "tests/subcontractClaimsDomain.test.ts",
+        "tests/subcontractClaimsReviewHardening.test.ts",
+        "tests/subcontractVariationsDomain.test.ts",
+        "tests/subcontractVariationsFinancialInvariants.test.ts",
+        "tests/subcontractVariationsClaimIntegration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/clientCollectionsMigration.test.ts",
+        "tests/clientCollectionSettlement.test.ts",
+        "supabase/tests/database/16_client_collection_settlement.test.sql"
+      ],
+      "invariantIds": [
+        "commercial-client-collection-cash-linkage",
+        "commercial-client-collection-settlement-reversal-guard",
+        "company-rbac-is-authoritative"
+      ],
+      "tags": [
+        "client collection settlement",
+        "cash settlement link",
+        "incoming credit",
+        "bank evidence"
       ]
     },
     {
@@ -8997,6 +9175,74 @@
       "invariantIds": [
         "commercial-client-collection-cash-separation"
       ]
+    },
+    {
+      "id": "p2-recorded-collection-cash-link",
+      "source": "client-collection-recorded",
+      "target": "client-collection-cash-settlement-link",
+      "type": "links-to",
+      "kind": "separation",
+      "label": "recorded commercial receipt may receive separate bank evidence",
+      "permissionKeys": [
+        "cash.reconcile",
+        "projects.manage"
+      ],
+      "invariantIds": [
+        "commercial-client-collection-cash-linkage"
+      ]
+    },
+    {
+      "id": "p2-collection-link-reconciliation",
+      "source": "client-collection-cash-settlement-link",
+      "target": "cash-reconciliation-workspace",
+      "type": "opens",
+      "kind": "navigation",
+      "label": "review eligible CREDIT transaction evidence",
+      "permissionKeys": [
+        "cash.reconcile"
+      ],
+      "invariantIds": [
+        "commercial-client-collection-cash-linkage"
+      ]
+    },
+    {
+      "id": "p2-collection-link-transaction",
+      "source": "client-collection-cash-settlement-link",
+      "target": "cash-transactions",
+      "type": "links-to",
+      "kind": "separation",
+      "label": "same-company POSTED CREDIT transaction",
+      "invariantIds": [
+        "commercial-client-collection-cash-linkage"
+      ]
+    },
+    {
+      "id": "p2-collection-link-match",
+      "source": "client-collection-cash-settlement-link",
+      "target": "cash-settlement-match",
+      "type": "writes",
+      "kind": "mutation",
+      "label": "CLIENT_COLLECTION canonical settlement match",
+      "permissionKeys": [
+        "cash.reconcile",
+        "projects.manage"
+      ],
+      "confirmationRequirement": "human",
+      "invariantIds": [
+        "commercial-client-collection-cash-linkage",
+        "commercial-client-collection-settlement-reversal-guard"
+      ]
+    },
+    {
+      "id": "p2-collection-link-evidence",
+      "source": "cash-settlement-evidence",
+      "target": "client-collection-cash-settlement-link",
+      "type": "links-to",
+      "kind": "separation",
+      "label": "bank evidence only; collected truth remains commercial",
+      "invariantIds": [
+        "commercial-client-collection-cash-linkage"
+      ]
     }
   ],
   "diagrams": [
@@ -9074,6 +9320,7 @@
         "client-collection-recorded",
         "project-collected-to-date",
         "client-collection-overcollection-guard",
+        "client-collection-cash-settlement-link",
         "route-project-documents",
         "engineering-documents-screen",
         "engineering-document",
@@ -9141,6 +9388,7 @@
         "client-collection-recorded",
         "project-collected-to-date",
         "client-collection-overcollection-guard",
+        "client-collection-cash-settlement-link",
         "project-aggregate"
       ]
     },

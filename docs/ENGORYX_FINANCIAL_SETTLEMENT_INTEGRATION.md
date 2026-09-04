@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Financial Settlement Integration connects the Cash & Banking liquidity layer to supplier invoices and payroll without turning Engoryx into a general ledger. A confirmed bank, e-wallet, or cash match is authoritative settlement evidence. It answers whether an obligation was paid, how much remains outstanding, and which financial transactions provide the evidence.
+Financial Settlement Integration connects the Cash & Banking liquidity layer to supplier invoices, payroll, and recorded client collections without turning Engoryx into a general ledger. A confirmed bank, e-wallet, or cash match is authoritative settlement evidence. It answers whether an obligation was paid or a recorded collection is linked, how much remains outstanding/unlinked, and which financial transactions provide the evidence.
 
 This phase deliberately keeps **economic/project cost** and **cash settlement** as separate axes.
 
@@ -29,6 +29,8 @@ Supported confirmed-settlement relationships are:
 - multiple transactions to one invoice;
 - one transaction to one payroll run;
 - multiple transactions to one payroll run;
+- one CREDIT transaction to one or more recorded client collections;
+- multiple CREDIT transactions to one recorded client collection;
 - partial settlement;
 - full settlement;
 - auditable reversal.
@@ -66,8 +68,9 @@ Confirmation revalidates:
 - company isolation;
 - transaction existence;
 - POSTED transaction lifecycle;
-- DEBIT direction for invoice/payroll settlement;
+- target-specific direction: DEBIT for invoice/payroll/expense settlement and CREDIT for client-collection linkage;
 - target existence and target lifecycle;
+- allocation-derived client-collection basis and RECORDED lifecycle;
 - target-domain permission;
 - compatible currency;
 - remaining transaction amount;
@@ -83,6 +86,7 @@ Cash settlement does not allow `cash.reconcile` to bypass another domain's mutat
 - Invoice confirmation/reversal requires `cash.reconcile` and `invoices.manage`.
 - Payroll confirmation/reversal requires `cash.reconcile` and `payroll.approve`.
 - Existing expense compatibility requires `cash.reconcile` and `expenses.manage`.
+- Client collection confirmation/reversal requires `cash.reconcile` and `projects.manage`.
 
 Read summaries use the target domain's read permission. Assistant tools add appropriate Cash read/reconciliation permission requirements before exposing linked transaction information.
 
@@ -138,9 +142,15 @@ The derived disbursement states are:
 
 This phase does not automatically recalculate payroll or alter attendance, leave, overtime, work entries, employee compensation, project labor allocations, or statutory remittance obligations.
 
+## Client collection settlement basis
+
+Client collection settlement uses the canonical sum of `client_collection_allocations.amount` for the target collection. It never trusts or adds a manually persisted header total. Only `RECORDED` collections can receive settlement links, and the explicit link states are `UNLINKED`, `PARTIALLY_LINKED`, and `LINKED`.
+
+Reversing a settlement restores the collection's remaining unlinked bank-evidence amount while preserving the collection's `RECORDED` status and Collected to Date. A recorded collection cannot be reversed until every active `CLIENT_COLLECTION` settlement match has first been reversed.
+
 ## Transaction direction and currency
 
-Supplier invoice and payroll settlement normally require a POSTED DEBIT from a BANK, EWALLET, or CASH account transaction.
+Supplier invoice, payroll, and expense settlement normally require a POSTED DEBIT from a BANK, EWALLET, or CASH account transaction. Client collection linkage requires a POSTED CREDIT from the same company and currency.
 
 An ordinary CREDIT cannot silently settle a supplier payable or employee payroll run. Internal account transfers continue to use the existing transfer RPC/workflow and are not supplier/payroll settlement.
 
@@ -154,7 +164,7 @@ Cash & Banking provides a focused allocation workspace with:
 - transaction total;
 - already allocated amount;
 - remaining transaction amount;
-- searchable invoice/payroll/expense candidates;
+- searchable invoice/payroll/expense/client-collection candidates;
 - target payable/disbursement basis;
 - already settled amount;
 - target outstanding amount;
@@ -176,6 +186,7 @@ The UI does not claim settlement before the server confirms it. Failed confirmat
 Idempotent match identifiers make retries safe. Database row locking prevents simultaneous confirmations from over-allocating a transaction or target obligation.
 
 A reversal recalculates transaction remaining/reconciliation state and target settlement presentation. It does not change project cost.
+A client collection reversal is blocked while an active confirmed bank link exists; reversing the link first leaves the collection's commercial status and totals unchanged.
 
 ## Correction boundary for invoices and expenses
 
@@ -230,7 +241,9 @@ The isolated Meridian Engineering demo includes deterministic examples of:
 - one bank debit split across two invoices;
 - fully settled payroll run;
 - partially settled payroll across multiple transactions;
+- recorded client collection linked to a bank CREDIT;
 - unmatched debit with candidates;
+- incoming CREDIT collection candidates;
 - confirmed internal transfer;
 - reversed settlement history.
 

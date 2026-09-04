@@ -205,7 +205,7 @@ export const CashBankingPage: React.FC<CashBankingPageProps> = ({
   const selectedAccount = data.accounts.find((account) => account.id === selectedAccountId && account.active && account.currency.toUpperCase() === currency.toUpperCase()) || position.accounts[0]?.account || data.accounts.find((account) => account.active);
   const accountTransactions = useMemo(() => selectedAccount ? data.transactions.filter((transaction) => transaction.accountId === selectedAccount.id).sort((left, right) => right.transactionDate.localeCompare(left.transactionDate) || right.createdAt.localeCompare(left.createdAt)) : [], [data.transactions, selectedAccount]);
   const transferSuggestions = useMemo(() => findInternalTransferSuggestions(data.transactions, data.matches).filter((suggestion) => !selectedAccount || suggestion.left.accountId === selectedAccount.id || suggestion.right.accountId === selectedAccount.id).slice(0, 5), [data.transactions, data.matches, selectedAccount]);
-  const unresolved = accountTransactions.filter((transaction) => transaction.status !== "REVERSED" && transaction.reconciliationStatus !== "MATCHED" && transaction.reconciliationStatus !== "IGNORED");
+  const unresolved = accountTransactions.filter((transaction) => transaction.status !== "REVERSED" && transaction.reconciliationStatus !== "MATCHED" && transaction.reconciliationStatus !== "IGNORED" && !data.matches.some((match) => match.transactionId === transaction.id && match.targetType === "TRANSFER" && match.status === "CONFIRMED"));
   const inactiveAccounts = data.accounts.filter((account) => !account.active);
   const editingAccountHasHistory = editingAccount ? financialAccountHasHistory(editingAccount.id, data) : false;
 
@@ -430,7 +430,8 @@ export const CashBankingPage: React.FC<CashBankingPageProps> = ({
       return;
     }
     const remaining = Math.max(0, transaction.amount - data.matches.filter((match) => match.transactionId === transaction.id && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0));
-    const matchedAmount = Math.min(remaining, suggestion.candidate.amount);
+    const targetLinked = data.matches.filter((match) => match.targetType === suggestion.candidate.targetType && match.targetId === suggestion.candidate.targetId && match.status === "CONFIRMED").reduce((sum, match) => sum + match.matchedAmount, 0);
+    const matchedAmount = Math.min(remaining, Math.max(0, suggestion.candidate.amount - targetLinked));
     if (matchedAmount <= 0) return;
     setBusy(`match:${transaction.id}`);
     try {
