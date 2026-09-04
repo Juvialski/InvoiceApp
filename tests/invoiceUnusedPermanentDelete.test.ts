@@ -6,6 +6,10 @@ const migration = readFileSync(
   new URL("../supabase/migrations/20260904130000_invoice_unused_permanent_delete.sql", import.meta.url),
   "utf8",
 );
+const accountingRaceGuardMigration = readFileSync(
+  new URL("../supabase/migrations/20260904131000_invoice_accounting_event_delete_race_guard.sql", import.meta.url),
+  "utf8",
+);
 const dialog = readFileSync(new URL("../src/components/financial/FinancialCorrectionDialog.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 
@@ -64,6 +68,15 @@ test("append-only extraction and review children only delete under the guarded m
   assert.match(migration, /app\.invoice_unused_delete_authorized/);
   assert.match(migration, /set_config\('app\.invoice_unused_delete_authorized', 'on', true\)/);
   assert.match(migration, /set_config\('app\.invoice_unused_delete_authorized', 'off', true\)/);
+});
+
+test("polymorphic invoice accounting events serialize with unused deletion", () => {
+  assert.match(accountingRaceGuardMigration, /lock_invoice_target_for_project_accounting_event/);
+  assert.match(accountingRaceGuardMigration, /upper\(btrim\(coalesce\(new\.entity_type, ''\)\)\) = 'INVOICE'/);
+  assert.match(accountingRaceGuardMigration, /i\.id = new\.entity_id/);
+  assert.match(accountingRaceGuardMigration, /i\.company_id = new\.company_id/);
+  assert.match(accountingRaceGuardMigration, /for key share/);
+  assert.match(accountingRaceGuardMigration, /project_accounting_events_invoice_target_lock/);
 });
 
 test("invoice correction UI exposes a clear permanent action and truthful post-delete feedback", () => {
