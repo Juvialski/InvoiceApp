@@ -40,10 +40,13 @@ test("local correction previews keep permanent deletion unavailable and explain 
   assert.equal(invoicePreview.canVoid, false);
   assert.equal(invoicePreview.blockingDependencies.projectAllocations, 1);
   assert.match(invoicePreview.blockedReason || "", /settlement/i);
-  const expense = { id: "expense-a", expenseDate: "2026-08-01", category: "Fuel", description: "Fuel", amount: 100, currency: "PHP", status: "APPROVED" as const, createdAt: "2026-08-01", updatedAt: "2026-08-01" };
+  const expense = { id: "expense-a", expenseDate: "2026-08-01", category: "Fuel", description: "Fuel", amount: 100, currency: "PHP", status: "APPROVED" as const, receiptSourceDocumentId: "source-a", createdAt: "2026-08-01", updatedAt: "2026-08-01" };
   const expensePreview = buildLocalExpenseCorrectionPreview({ expense, confirmedSettlementCount: 0 });
   assert.equal(expensePreview.canDelete, false);
   assert.equal(expensePreview.canVoid, true);
+  assert.equal(expensePreview.protectedDependencyCount, 1);
+  assert.equal(expensePreview.disposableDependencyCount, 0);
+  assert.equal(expensePreview.blockingDependencies.receiptSource, 1);
   const settledExpensePreview = buildLocalExpenseCorrectionPreview({ expense, confirmedSettlementCount: 1 });
   assert.equal(settledExpensePreview.canVoid, false);
   assert.match(settledExpensePreview.blockedReason || "", /settlement/i);
