@@ -193,9 +193,9 @@ export interface LocalExpenseCorrectionInput {
 
 export function buildLocalExpenseCorrectionPreview({ expense, settlementMatchCount = 0, confirmedSettlementCount = 0, historyCount = 0 }: LocalExpenseCorrectionInput): FinancialCorrectionPreview {
   const lifecycleStatus = expense.status;
-  const protectedDependencyCount = settlementMatchCount + historyCount + (expense.projectId ? 1 : 0);
-  const disposableDependencyCount = expense.receiptSourceDocumentId ? 1 : 0;
-  const totalDependencyCount = protectedDependencyCount + disposableDependencyCount;
+  const protectedDependencyCount = settlementMatchCount + historyCount + (expense.projectId ? 1 : 0) + (expense.receiptSourceDocumentId ? 1 : 0);
+  const disposableDependencyCount = 0;
+  const totalDependencyCount = protectedDependencyCount;
   const canVoid = lifecycleStatus !== "VOID" && confirmedSettlementCount === 0;
   const canArchive = !expense.archivedAt;
   const canRestore = Boolean(expense.archivedAt);
@@ -219,8 +219,8 @@ export function buildLocalExpenseCorrectionPreview({ expense, settlementMatchCou
     disposableDependencyCount,
     confirmedSettlementCount,
     dependencies: { settlementMatches: settlementMatchCount, projectReference: expense.projectId ? 1 : 0, receiptSource: expense.receiptSourceDocumentId ? 1 : 0, history: historyCount },
-    blockingDependencies: { settlementMatches: settlementMatchCount, projectReference: expense.projectId ? 1 : 0, history: historyCount },
-    disposableDependencies: { receiptSource: expense.receiptSourceDocumentId ? 1 : 0 },
+    blockingDependencies: { settlementMatches: settlementMatchCount, projectReference: expense.projectId ? 1 : 0, receiptSource: expense.receiptSourceDocumentId ? 1 : 0, history: historyCount },
+    disposableDependencies: {},
     source: "local",
   };
 }
