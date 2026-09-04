@@ -30,7 +30,7 @@ function reversedPayment(id: string, transactionId: string, amount: number, anch
   };
 }
 
-function demoTransaction(id: string, accountId: string, transactionDate: string, amount: number, description: string, referenceNumber: string, reconciliationStatus: FinancialTransaction["reconciliationStatus"], transferGroupId?: string): FinancialTransaction {
+function demoTransaction(id: string, accountId: string, transactionDate: string, amount: number, description: string, referenceNumber: string, reconciliationStatus: FinancialTransaction["reconciliationStatus"], transferGroupId?: string, direction: FinancialTransaction["direction"] = "DEBIT"): FinancialTransaction {
   return {
     id,
     companyId: DEMO_COMPANY_ID,
@@ -39,7 +39,7 @@ function demoTransaction(id: string, accountId: string, transactionDate: string,
     postedAt: demoTimestamp(transactionDate, 11, 25),
     referenceNumber,
     description,
-    direction: "DEBIT",
+    direction,
     amount,
     currency: "PHP",
     status: "POSTED",
@@ -78,6 +78,7 @@ export function enrichDemoCashWithSettlements(base: CashBankingWorkspaceData, an
   const split = demoTransaction("demo-transaction-split-01", "demo-account-bdo", addDemoDays(anchorDate, -4), 300_000, "Split supplier settlement — Southline equipment invoices", "SPLIT-INV-01", "MATCHED");
   const secondPayrollDebit = demoTransaction("demo-transaction-payroll-partial-02", "demo-account-bpi", addDemoDays(anchorDate, -5), 50_000, "Second partial payroll disbursement", "PAY-RUN-09-B", "MATCHED");
   const transferOut = demoTransaction("demo-transaction-transfer-out-01", "demo-account-bdo", addDemoDays(anchorDate, -17), 620_000, "Payroll funding transfer to BPI Payroll Account", "PAY-FUND-01", "MATCHED", transferGroupId);
+  const collectionCredit = demoTransaction("demo-transaction-client-collection-01", "demo-account-bdo", addDemoDays(anchorDate, -8), 1_200_000, "Client receipt — SunPower Renewables Philippines", "EFT-88319", "MATCHED", undefined, "CREDIT");
   const transactions = base.transactions.map((transaction) => transaction.id === "demo-transaction-11" ? { ...transaction, transferGroupId } : transaction);
   const transferIn = transactions.find((transaction) => transaction.id === "demo-transaction-11");
 
@@ -89,6 +90,7 @@ export function enrichDemoCashWithSettlements(base: CashBankingWorkspaceData, an
     match("demo-match-payroll-08", "demo-transaction-12", "PAYROLL", "demo-payroll-run-8", 241_886.50, anchorDate, 14, "Employee net-pay disbursement."),
     match("demo-match-payroll-09-a", "demo-transaction-13", "PAYROLL", "demo-payroll-run-9", 150_000, anchorDate, 10, "First partial employee net-pay disbursement."),
     match("demo-match-payroll-09-b", secondPayrollDebit.id, "PAYROLL", "demo-payroll-run-9", 50_000, anchorDate, 5, "Second partial employee net-pay disbursement."),
+    match("demo-match-client-collection-01", collectionCredit.id, "CLIENT_COLLECTION", "demo-client-collection-solar-01", 1_200_000, anchorDate, 8, "Client receipt linked to the recorded collection."),
   ];
   if (transferIn) {
     matches.push(
@@ -99,7 +101,7 @@ export function enrichDemoCashWithSettlements(base: CashBankingWorkspaceData, an
 
   return {
     ...base,
-    transactions: [...transactions, split, secondPayrollDebit, transferOut],
+    transactions: [...transactions, split, secondPayrollDebit, transferOut, collectionCredit],
     matches: [...base.matches, ...matches],
   };
 }
@@ -134,6 +136,10 @@ export function demoSettlementSummaryForTarget(targetType: SettlementTargetType,
       payment("demo-settlement-payroll-09-b", "demo-transaction-payroll-partial-02", 50_000, anchorDate, 5, "BPI", "PAY-RUN-09-B"),
     ];
     return { targetType, targetId, currency: "PHP", lifecycleStatus: "APPROVED", settlementBasis: 248_411.75, basisSource: "EMPLOYEE_NET_PAY", reconciledCashPaid: 200_000, documentReportedPaid: 0, effectiveSettled: 200_000, outstanding: 48_411.75, settlementState: "PARTIALLY_DISBURSED", history };
+  }
+  if (targetType === "CLIENT_COLLECTION" && targetId === "demo-client-collection-solar-01") {
+    const history = [payment("demo-settlement-collection-solar-01", "demo-transaction-client-collection-01", 1_200_000, anchorDate, 8, "BDO", "EFT-88319")];
+    return { targetType, targetId, currency: "PHP", lifecycleStatus: "RECORDED", settlementBasis: 1_200_000, basisSource: "CLIENT_COLLECTION_ALLOCATIONS", reconciledCashPaid: 1_200_000, documentReportedPaid: 0, effectiveSettled: 1_200_000, outstanding: 0, settlementState: "LINKED", collectionTotal: 1_200_000, linkedAmount: 1_200_000, remainingUnlinkedAmount: 0, linkState: "LINKED", history };
   }
   return null;
 }

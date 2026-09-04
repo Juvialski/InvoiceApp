@@ -336,8 +336,8 @@ export async function saveFinancialTransactionMatchToSupabase(match: FinancialTr
   if (match.status !== "CONFIRMED") {
     throw new Error("Only confirmed settlements are persisted. Suggestions remain non-authoritative until a finance user confirms them.");
   }
-  if (!match.targetId || !["INVOICE", "PAYROLL", "EXPENSE"].includes(match.targetType)) {
-    throw new Error("Invoice, payroll, and expense settlement confirmations must use the guarded settlement operation. Transfers use their dedicated operation.");
+  if (!match.targetId || !["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION"].includes(match.targetType)) {
+    throw new Error("Invoice, payroll, expense, and client collection settlement confirmations must use the guarded settlement operation. Transfers use their dedicated operation.");
   }
   const { data, error } = await supabase!.rpc("confirm_financial_settlement", {
     p_company_id: companyId,

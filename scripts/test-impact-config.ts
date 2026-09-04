@@ -35,11 +35,37 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
     'tests/subcontractClaimsReviewHardening.test.ts',
     'tests/subcontractClaimProjectPreflightRegression.test.ts',
     'tests/clientProgressBillingMigration.test.ts',
-    'tests/clientCollectionsMigration.test.ts'
+    'tests/clientCollectionsMigration.test.ts',
+    'tests/clientCollectionSettlement.test.ts'
+  ],
+  'src/lib/financialSettlement.ts': [
+    'tests/financialSettlement.test.ts',
+    'tests/clientCollectionSettlement.test.ts',
+    'tests/settlementDemo.test.ts'
+  ],
+  'src/lib/cashBanking.ts': [
+    'tests/cashBanking.test.ts',
+    'tests/financialSettlement.test.ts',
+    'tests/clientCollectionSettlement.test.ts'
+  ],
+  'src/components/CashSettlementAllocationWorkspace.tsx': [
+    'tests/financialSettlement.test.ts',
+    'tests/clientCollectionSettlement.test.ts'
+  ],
+  'src/components/projects/ClientBillingPanel.tsx': [
+    'tests/clientProgressBillingMigration.test.ts',
+    'tests/clientCollectionsMigration.test.ts',
+    'tests/clientCollectionSettlement.test.ts'
+  ],
+  'src/components/projects/ClientCollectionSettlementPanel.tsx': [
+    'tests/clientCollectionSettlement.test.ts'
   ],
   'src/App.tsx': [
     'tests/appRouting.test.ts',
-    'tests/uiFoundation.test.ts'
+    'tests/uiFoundation.test.ts',
+    'tests/clientCollectionSettlement.test.ts',
+    'tests/financialSettlement.test.ts',
+    'tests/clientCollectionsDomain.test.ts'
   ],
   'src/config/branding.ts': [
     'tests/brandConfig.test.ts'

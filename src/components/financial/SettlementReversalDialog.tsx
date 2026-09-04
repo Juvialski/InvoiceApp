@@ -65,7 +65,10 @@ export const SettlementReversalDialog: React.FC<SettlementReversalDialogProps> =
       ? "Supplier Invoice"
       : targetContext.targetType === "PAYROLL"
         ? "Payroll Run"
-        : "Expense";
+        : targetContext.targetType === "CLIENT_COLLECTION"
+          ? "Client Collection"
+          : "Expense";
+  const isClientCollection = targetContext.targetType === "CLIENT_COLLECTION";
 
   return (
     <div
@@ -160,9 +163,8 @@ export const SettlementReversalDialog: React.FC<SettlementReversalDialogProps> =
               </p>
               <p className="mt-0.5 text-[10px] text-amber-800">
                 Reversing this settlement returns the matched transaction to unmatched/partial status and
-                restores the {targetTypeName.toLowerCase()}'s outstanding balance. It{" "}
-                <strong>does NOT erase</strong> the original confirmation from history, nor does it alter invoice
-                cost, project cost, or payroll calculations.
+                {isClientCollection ? " restores the collection's remaining unlinked bank-evidence amount. It does NOT alter Collected to Date or project cost." : ` restores the ${targetTypeName.toLowerCase()}'s outstanding balance. It does NOT alter invoice cost, project cost, or payroll calculations.`}{" "}
+                <strong>History is preserved.</strong>
               </p>
             </div>
           </div>

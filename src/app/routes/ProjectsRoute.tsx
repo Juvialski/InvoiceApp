@@ -31,6 +31,7 @@ import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteL
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBillingLineInput, ClientBillingStatus } from "../../lib/clientBilling.ts";
 import type { ClientCollection, ClientCollectionAllocationInput, ClientCollectionEvent, ClientCollectionInput } from "../../lib/clientCollections.ts";
+import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransactionMatch } from "../../lib/cashBanking.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ProjectsRouteProps {
@@ -45,6 +46,12 @@ export interface ProjectsRouteProps {
   onSaveClientCollection?: (input: ClientCollectionInput, allocations: readonly ClientCollectionAllocationInput[]) => Promise<void> | void;
   onRecordClientCollection?: (id: string) => Promise<void> | void;
   onReverseClientCollection?: (id: string, reason: string) => Promise<void> | void;
+  cashData?: CashBankingWorkspaceData;
+  canReconcileCash?: boolean;
+  canSettleClientCollection?: boolean;
+  onSaveFinancialMatch?: (match: FinancialTransactionMatch, transaction: FinancialTransaction) => Promise<void> | void;
+  onReverseFinancialMatch?: (matchId: string, reason: string) => Promise<void> | void;
+  canReverseFinancialMatch?: (match: FinancialTransactionMatch) => boolean;
   selectedProject?: Project | null;
   summaries: Record<string, ProjectCostSummary>;
   projectDashboard?: ProjectDashboardViewData;
@@ -162,6 +169,12 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onSaveClientCollection,
   onRecordClientCollection,
   onReverseClientCollection,
+  cashData,
+  canReconcileCash,
+  canSettleClientCollection,
+  onSaveFinancialMatch,
+  onReverseFinancialMatch,
+  canReverseFinancialMatch,
   selectedProject,
   summaries,
   projectDashboard,
@@ -272,6 +285,12 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onSaveClientCollection={onSaveClientCollection}
         onRecordClientCollection={onRecordClientCollection}
         onReverseClientCollection={onReverseClientCollection}
+        cashData={cashData}
+        canReconcileCash={canReconcileCash}
+        canSettleClientCollection={canSettleClientCollection}
+        onSaveFinancialMatch={onSaveFinancialMatch}
+        onReverseFinancialMatch={onReverseFinancialMatch}
+        canReverseFinancialMatch={canReverseFinancialMatch}
         dashboard={projectDashboard}
         costCodes={costCodes}
         invoices={invoices}

@@ -130,6 +130,7 @@ import {
   recordClientCollectionToSupabase,
   reverseClientCollectionToSupabase,
   saveClientCollectionToSupabase,
+  clientCollectionTotal,
   type ClientCollectionAllocationInput,
   type ClientCollectionInput,
   type ClientCollectionWorkspaceData,
@@ -2177,6 +2178,9 @@ function InvoiceWorkspace() {
       const current = clientCollectionData.collections.find((c) => c.id === id);
       const project = current ? projects.find((candidate) => candidate.id === current.projectId) : undefined;
       if (!current || !project) throw new Error("Client collection or its project is not available in this workspace.");
+      if (cashDataRef.current.matches.some((match) => match.targetType === "CLIENT_COLLECTION" && match.targetId === id && match.status === "CONFIRMED")) {
+        throw new Error("Reverse active cash settlement links before reversing this client collection.");
+      }
       if (session && supabase && !guestModeState) {
         const saved = await reverseClientCollectionToSupabase(id, reason);
         setClientCollectionData((value) => ({ ...value, collections: upsertClientCollection(value.collections, saved) }));
@@ -4021,7 +4025,8 @@ function InvoiceWorkspace() {
     ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
     ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
     ...payrollData.runs.filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: payrollData.entries.filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: payrollData.periods.find((period) => period.id === run.periodId)?.payDate || payrollData.periods.find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment" })),
-  ].filter((candidate) => candidate.amount > 0), [expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods]);
+    ...clientCollectionData.collections.filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId })),
+  ].filter((candidate) => candidate.amount > 0), [clientCollectionData.collections, expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods]);
   const dashboardViewData = useMemo(() => buildDashboardViewData({
     projects,
     invoices: costInvoices,
@@ -4274,7 +4279,7 @@ function InvoiceWorkspace() {
           onReverseFinancialMatch={handleReverseFinancialMatch}
           canReverseFinancialMatch={(match) => isSupabaseConfigured
             ? can(PERMISSION_KEYS.cashReconcile)
-              && (match.targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : match.targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : match.targetType === "EXPENSE" ? can(PERMISSION_KEYS.expensesWrite) : false)
+              && (match.targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : match.targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : match.targetType === "EXPENSE" ? can(PERMISSION_KEYS.expensesWrite) : match.targetType === "CLIENT_COLLECTION" ? can(PERMISSION_KEYS.projectsWrite) : false)
             : true}
           onCorrectFinancialTransaction={handleCorrectFinancialTransaction}
           onReverseFinancialTransaction={handleReverseFinancialTransaction}
@@ -4287,7 +4292,7 @@ function InvoiceWorkspace() {
           canManageCashTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)}
           canCashImport={!isSupabaseConfigured || can(PERMISSION_KEYS.cashImport)}
           canCashReconcile={!isSupabaseConfigured || can(PERMISSION_KEYS.cashReconcile)}
-          canSettleCashTarget={(targetType) => !isSupabaseConfigured || (targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : can(PERMISSION_KEYS.expensesWrite))}
+          canSettleCashTarget={(targetType) => !isSupabaseConfigured || (targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : targetType === "CLIENT_COLLECTION" ? can(PERMISSION_KEYS.projectsWrite) : can(PERMISSION_KEYS.expensesWrite))}
           onOpenCashDashboard={() => setActiveTab("dashboard")}
           invoices={invoices}
           selectedInvoice={selectedInvoice}
