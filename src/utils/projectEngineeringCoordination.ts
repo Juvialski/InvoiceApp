@@ -65,8 +65,22 @@ export interface ProjectEngineeringCoordinationSummary {
   attentionSignals: ProjectAttentionSignal[];
 }
 
+export function controlledProjectEngineeringSourceState(
+  guestMode: boolean,
+  canRead: boolean | undefined,
+  accessLoading = false,
+): { state: ProjectEngineeringSourceState } {
+  if (guestMode) return { state: "available" };
+  if (accessLoading && canRead === undefined) return { state: "loading" };
+  return canRead === true ? { state: "available" } : { state: "not-permitted" };
+}
+
 function projectRecords<T extends { projectId: string }>(records: readonly T[] | undefined, projectId: string): T[] | undefined {
   return records?.filter((record) => record.projectId === projectId);
+}
+
+function availableProjectRecords<T extends { projectId: string }>(source: ProjectEngineeringSource<T>, projectId: string): T[] | undefined {
+  return source.state === "available" ? projectRecords(source.records, projectId) : undefined;
 }
 
 function latestDate(values: readonly (string | undefined)[]): string | undefined {
@@ -74,7 +88,7 @@ function latestDate(values: readonly (string | undefined)[]): string | undefined
 }
 
 function sourceSummary<T extends { projectId: string }>(source: ProjectEngineeringSource<T>, projectId: string): ProjectEngineeringSourceSummary & { records?: T[] } {
-  const records = projectRecords(source.records, projectId);
+  const records = availableProjectRecords(source, projectId);
   return {
     state: source.state,
     reason: source.reason,
@@ -86,9 +100,13 @@ function sourceSummary<T extends { projectId: string }>(source: ProjectEngineeri
 export function buildProjectEngineeringCoordinationSummary(
   input: ProjectEngineeringCoordinationInput,
 ): ProjectEngineeringCoordinationSummary {
-  const projectDocuments = input.documents.documents?.filter((document) => document.projectId === input.projectId);
+  const projectDocuments = input.documents.state === "available"
+    ? input.documents.documents?.filter((document) => document.projectId === input.projectId)
+    : undefined;
   const projectDocumentIds = new Set((projectDocuments || []).map((document) => document.id));
-  const projectRevisions = input.documents.revisions?.filter((revision) => projectDocumentIds.has(revision.documentId));
+  const projectRevisions = input.documents.state === "available"
+    ? input.documents.revisions?.filter((revision) => projectDocumentIds.has(revision.documentId))
+    : undefined;
 
   const documents: ProjectEngineeringSourceSummary = {
     state: input.documents.state,
@@ -97,7 +115,7 @@ export function buildProjectEngineeringCoordinationSummary(
     ...(projectRevisions ? { latestActivityDate: latestDate(projectRevisions.map((revision) => revision.createdAt)) } : {}),
   };
 
-  const rfiRecords = projectRecords(input.rfis.records, input.projectId);
+  const rfiRecords = availableProjectRecords(input.rfis, input.projectId);
   const visibleRfis = rfiRecords?.filter((rfi) => rfi.status !== "VOID") || [];
   const openRfis = visibleRfis.filter((rfi) => rfi.status === "OPEN");
   const overdueRfis = openRfis.filter((rfi) => Boolean(rfi.dueDate && rfi.dueDate < input.today));
@@ -106,7 +124,7 @@ export function buildProjectEngineeringCoordinationSummary(
     ...(rfiRecords ? { count: visibleRfis.length, openCount: openRfis.length, overdueCount: overdueRfis.length } : {}),
   };
 
-  const submittalRecords = projectRecords(input.submittals.records, input.projectId);
+  const submittalRecords = availableProjectRecords(input.submittals, input.projectId);
   const visibleSubmittals = submittalRecords?.filter((submittal) => submittal.status !== "VOID") || [];
   const awaitingReview = visibleSubmittals.filter((submittal) => submittal.status === "SUBMITTED" || submittal.status === "UNDER_REVIEW");
   const overdueSubmittals = awaitingReview.filter((submittal) => Boolean(submittal.dueReviewDate && submittal.dueReviewDate < input.today));
@@ -115,7 +133,7 @@ export function buildProjectEngineeringCoordinationSummary(
     ...(submittalRecords ? { count: visibleSubmittals.length, awaitingReviewCount: awaitingReview.length, overdueCount: overdueSubmittals.length } : {}),
   };
 
-  const siteLogRecords = projectRecords(input.siteLogs.records, input.projectId);
+  const siteLogRecords = availableProjectRecords(input.siteLogs, input.projectId);
   const visibleSiteLogs = siteLogRecords?.filter((log) => log.status !== "VOID") || [];
   const siteLogs: ProjectEngineeringSiteLogSummary = {
     ...sourceSummary(input.siteLogs, input.projectId),

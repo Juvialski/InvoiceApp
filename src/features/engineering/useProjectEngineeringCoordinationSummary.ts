@@ -8,6 +8,7 @@ import { useEngineeringCoordinationController } from "./useEngineeringCoordinati
 import { useEngineeringDocumentsController } from "./useEngineeringDocumentsController.ts";
 import {
   buildProjectEngineeringCoordinationSummary,
+  controlledProjectEngineeringSourceState,
   type ProjectEngineeringCoordinationSummary,
   type ProjectEngineeringSourceState,
 } from "../../utils/projectEngineeringCoordination.ts";
@@ -89,16 +90,16 @@ export function useProjectEngineeringCoordinationSummary({
 
   return useMemo(() => {
     const documentsAccess = documentsData
-      ? { state: "available" as const }
+      ? controlledProjectEngineeringSourceState(guestMode, documentsCanRead)
       : sourceState(guestMode || documentsCanRead, documentsController.hasLoaded, documentsController.isLoading, documentsController.loadError);
     const rfiAccess = coordinationData
-      ? { state: "available" as const }
+      ? controlledProjectEngineeringSourceState(guestMode, rfisCanRead, coordinationAccessLoading)
       : sourceState(guestMode || rfisCanRead === true, coordinationController.hasLoaded, coordinationController.isLoading, coordinationController.loadError, coordinationAccessLoading && rfisCanRead === undefined);
     const submittalAccess = coordinationData
-      ? { state: "available" as const }
+      ? controlledProjectEngineeringSourceState(guestMode, submittalsCanRead, coordinationAccessLoading)
       : sourceState(guestMode || submittalsCanRead === true, coordinationController.hasLoaded, coordinationController.isLoading, coordinationController.loadError, coordinationAccessLoading && submittalsCanRead === undefined);
     const siteLogAccess = dailySiteLogsData
-      ? { state: "available" as const }
+      ? controlledProjectEngineeringSourceState(guestMode, siteLogsCanRead, coordinationAccessLoading)
       : sourceState(guestMode || siteLogsCanRead === true, siteLogsController.hasLoaded, siteLogsController.isLoading, siteLogsController.loadError, coordinationAccessLoading && siteLogsCanRead === undefined);
 
     const summary = buildProjectEngineeringCoordinationSummary({
@@ -106,33 +107,33 @@ export function useProjectEngineeringCoordinationSummary({
       today: today.slice(0, 10),
       documents: {
         ...documentsAccess,
-        ...(documentsData
+        ...(documentsData && documentsAccess.state === "available"
           ? { documents: documentsData.documents, revisions: documentsData.revisions }
-          : documentsController.hasLoaded
+          : !documentsData && documentsAccess.state === "available" && documentsController.hasLoaded
             ? { documents: documentsController.documents, revisions: documentsController.revisions }
             : {}),
       },
       rfis: {
         ...rfiAccess,
-        ...(coordinationData
+        ...(coordinationData && rfiAccess.state === "available"
           ? { records: coordinationData.rfis }
-          : coordinationController.hasLoaded && (guestMode || rfisCanRead)
+          : !coordinationData && rfiAccess.state === "available" && coordinationController.hasLoaded
             ? { records: coordinationController.data.rfis }
             : {}),
       },
       submittals: {
         ...submittalAccess,
-        ...(coordinationData
+        ...(coordinationData && submittalAccess.state === "available"
           ? { records: coordinationData.submittals }
-          : coordinationController.hasLoaded && (guestMode || submittalsCanRead)
+          : !coordinationData && submittalAccess.state === "available" && coordinationController.hasLoaded
             ? { records: coordinationController.data.submittals }
             : {}),
       },
       siteLogs: {
         ...siteLogAccess,
-        ...(dailySiteLogsData
+        ...(dailySiteLogsData && siteLogAccess.state === "available"
           ? { records: dailySiteLogsData.logs }
-          : siteLogsController.hasLoaded && (guestMode || siteLogsCanRead)
+          : !dailySiteLogsData && siteLogAccess.state === "available" && siteLogsController.hasLoaded
             ? { records: siteLogsController.data.logs }
             : {}),
       },
@@ -142,5 +143,5 @@ export function useProjectEngineeringCoordinationSummary({
     const isLoading = states.some((state) => state === "loading");
     const hasLoaded = states.every((state) => state !== "loading");
     return { summary, isLoading, hasLoaded };
-  }, [coordinationAccessLoading, coordinationController.data.rfis, coordinationController.data.submittals, coordinationController.hasLoaded, coordinationController.isLoading, coordinationController.loadError, coordinationData, documentsController.documents, documentsController.hasLoaded, documentsController.isLoading, documentsController.loadError, documentsController.revisions, documentsData, guestMode, project.id, rfisCanRead, siteLogsCanRead, siteLogsController.data.logs, siteLogsController.hasLoaded, siteLogsController.isLoading, siteLogsController.loadError, submittalsCanRead, today, dailySiteLogsData]);
+  }, [coordinationAccessLoading, coordinationController.data.rfis, coordinationController.data.submittals, coordinationController.hasLoaded, coordinationController.isLoading, coordinationController.loadError, coordinationData, documentsCanRead, documentsController.documents, documentsController.hasLoaded, documentsController.isLoading, documentsController.loadError, documentsController.revisions, documentsData, guestMode, project.id, rfisCanRead, siteLogsCanRead, siteLogsController.data.logs, siteLogsController.hasLoaded, siteLogsController.isLoading, siteLogsController.loadError, submittalsCanRead, today, dailySiteLogsData]);
 }
