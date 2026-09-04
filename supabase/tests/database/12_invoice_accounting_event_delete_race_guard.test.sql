@@ -43,17 +43,17 @@ select lives_ok(
 select throws_ok(
   $$insert into public.project_accounting_events (user_id, company_id, project_id, entity_type, entity_id, event_type, description)
     values ('00000000-0000-4000-8000-000000000412'::uuid, 'aaaaaaaa-0000-4000-8000-000000000412'::uuid, '10000000-0000-4000-8000-000000000412'::uuid, 'INVOICE', 'b2000000-0000-4000-8000-000000000413'::uuid, 'TEST', 'cross-company invoice target')$$,
-  '23503',
-  'Invoice accounting event target does not exist in the company',
-  'cross-company polymorphic invoice target is rejected'
+  '42501',
+  'Invoice accounting history target is outside the company',
+  'cross-company polymorphic invoice target is rejected by the existing ownership guard before serialization'
 );
 
 select throws_ok(
   $$insert into public.project_accounting_events (user_id, company_id, project_id, entity_type, entity_id, event_type, description)
     values ('00000000-0000-4000-8000-000000000412'::uuid, 'aaaaaaaa-0000-4000-8000-000000000412'::uuid, '10000000-0000-4000-8000-000000000412'::uuid, 'INVOICE', 'b2000000-0000-4000-8000-000000000499'::uuid, 'TEST', 'missing invoice target')$$,
-  '23503',
-  'Invoice accounting event target does not exist in the company',
-  'missing polymorphic invoice target is rejected'
+  '42501',
+  'Invoice accounting history target is outside the company',
+  'missing polymorphic invoice target is rejected by the existing ownership guard before serialization'
 );
 
 select * from finish();
