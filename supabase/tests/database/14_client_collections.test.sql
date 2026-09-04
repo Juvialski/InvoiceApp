@@ -94,35 +94,24 @@ values
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from client_collection_ids), true);
 
--- Create test billings through the authoritative P2B-4 lifecycle instead of
--- bypassing its authentication/status guards:
--- Billing A1: 3000 PHP (ISSUED)
--- Billing A2: 2000 PHP (DRAFT)
-select public.create_or_update_client_billing(
-  jsonb_build_object(
-    'id', (select billing_a1 from client_collection_ids),
-    'companyId', (select company_a from client_collection_ids),
-    'projectId', (select project_a from client_collection_ids),
-    'billingNumber', 'PB-CC-001',
-    'billingDate', '2026-09-04',
-    'currency', 'PHP'
-  ),
-  jsonb_build_array(jsonb_build_object('description', 'Phase 1 Works', 'amount', 3000))
-);
+-- Create deterministic DRAFT billing fixtures while authenticated, then use
+-- the authoritative P2B-4 lifecycle RPC to issue A1. No finalized status is
+-- inserted directly and no production-only column is invented for the test.
+insert into public.client_billings (
+  id, company_id, project_id, billing_number, billing_date, currency, status,
+  client_name_snapshot, client_reference_snapshot
+)
+values
+  ((select billing_a1 from client_collection_ids), (select company_a from client_collection_ids), (select project_a from client_collection_ids), 'PB-CC-001', '2026-09-04', 'PHP', 'DRAFT', 'Client Alpha', 'CLIENT-ALPHA-001'),
+  ((select billing_a2 from client_collection_ids), (select company_a from client_collection_ids), (select project_a from client_collection_ids), 'PB-CC-002', '2026-09-04', 'PHP', 'DRAFT', 'Client Alpha', 'CLIENT-ALPHA-001');
+
+insert into public.client_billing_lines (company_id, billing_id, line_number, description, amount)
+values
+  ((select company_a from client_collection_ids), (select billing_a1 from client_collection_ids), 1, 'Phase 1 Works', 3000),
+  ((select company_a from client_collection_ids), (select billing_a2 from client_collection_ids), 1, 'Phase 2 Works', 2000);
+
 select public.transition_client_billing((select billing_a1 from client_collection_ids), 'SUBMITTED', null);
 select public.transition_client_billing((select billing_a1 from client_collection_ids), 'ISSUED', null);
-
-select public.create_or_update_client_billing(
-  jsonb_build_object(
-    'id', (select billing_a2 from client_collection_ids),
-    'companyId', (select company_a from client_collection_ids),
-    'projectId', (select project_a from client_collection_ids),
-    'billingNumber', 'PB-CC-002',
-    'billingDate', '2026-09-04',
-    'currency', 'PHP'
-  ),
-  jsonb_build_array(jsonb_build_object('description', 'Phase 2 Works', 'amount', 2000))
-);
 
 -- Draft save derives the returned total from allocation values.
 with saved as (
@@ -150,7 +139,7 @@ select is((select payer_snapshot from public.client_collections where id = (sele
 select is((public.preview_project_lifecycle((select project_a from client_collection_ids))->'dependencies'->>'clientCollections')::bigint, 1::bigint, 'project preflight counts client collection history');
 select is((public.preview_project_lifecycle((select project_a from client_collection_ids))->>'canDelete')::boolean, false, 'client collection history blocks unused project deletion');
 
--- Cannot record allocation against non-ISSUED billing
+-- Non-ISSUED billing allocations are rejected at draft-save time.
 select throws_ok(
   $$select public.create_or_update_client_collection(
     jsonb_build_object(
