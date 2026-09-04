@@ -18,6 +18,7 @@ import {
   Lock,
   MapPin,
   Pencil,
+  Package,
   Receipt,
   ShieldCheck,
   ShoppingCart,
@@ -42,7 +43,7 @@ import {
 } from "recharts";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
-import type { Project, ProjectCostCode, ProjectCostSummary } from "../../types.ts";
+import type { Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, PurchaseOrder, PurchaseOrderReceipt } from "../../types.ts";
 import { projectHealth } from "../../utils/projectCosting.ts";
 import type { ProjectCostInput } from "../../utils/projectCosting.ts";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel.ts";
@@ -55,6 +56,7 @@ import { useProjectEngineeringCoordinationSummary } from "../../features/enginee
 import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
+import { deriveProjectMaterialReconciliationDiscrepancies } from "../../lib/materialsEquipment.ts";
 import {
   sourceStateLabel,
   type ProjectEngineeringCoordinationSummary,
@@ -112,6 +114,7 @@ export type ProjectOverviewTab =
   | "rfis"
   | "submittals"
   | "site-logs"
+  | "materials-equipment"
   | "invoices"
   | "payroll"
   | "expenses"
@@ -141,6 +144,11 @@ interface ProjectOverviewProps {
   engineeringDocumentsData?: EngineeringDocumentsWorkspaceData;
   engineeringCoordinationData?: EngineeringCoordinationWorkspaceData;
   dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+  materials?: readonly ProjectMaterial[];
+  equipment?: readonly ProjectEquipment[];
+  purchaseOrders?: readonly PurchaseOrder[];
+  receipts?: readonly PurchaseOrderReceipt[];
+  canReadProcurement?: boolean;
   attentionToday?: string;
   hideHeader?: boolean;
 }
@@ -587,6 +595,11 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   engineeringDocumentsData,
   engineeringCoordinationData,
   dailySiteLogsData,
+  materials = [],
+  equipment = [],
+  purchaseOrders = [],
+  receipts = [],
+  canReadProcurement: canReadProcurementProp = false,
   attentionToday,
   hideHeader = false,
 }) => {
@@ -608,6 +621,18 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
     dailySiteLogsData,
   });
   const engineeringSummary = engineeringSummaryState.summary;
+  const effectiveDailySiteLogsData = dailySiteLogsData || engineeringSummaryState.dailySiteLogsData;
+  const fieldOperations = useMemo(() => {
+    if (!effectiveDailySiteLogsData && !equipment.length) return undefined;
+    const siteLogRecords = effectiveDailySiteLogsData?.logs || [];
+    return {
+      siteLogs: siteLogRecords.map((log) => ({ id: log.id, projectId: log.projectId, siteDate: log.siteDate, status: log.status })),
+      safety: effectiveDailySiteLogsData?.safety || [],
+      issues: effectiveDailySiteLogsData?.issues || [],
+      equipment: equipment.filter((item) => item.projectId === project.id).map((item) => ({ id: item.id, projectId: item.projectId, equipmentName: item.equipmentName, status: item.status, updatedAt: item.updatedAt })),
+      materialDiscrepancies: deriveProjectMaterialReconciliationDiscrepancies(project.id, materials, canReadProcurementProp ? purchaseOrders : undefined, canReadProcurementProp ? receipts : undefined, siteLogRecords, effectiveDailySiteLogsData?.materialDeliveries || [], canReadProcurementProp),
+    };
+  }, [canReadProcurementProp, effectiveDailySiteLogsData, equipment, materials, project.id, purchaseOrders, receipts]);
   const clientBillingSummary = useMemo(() => clientDataLoading
     ? {
         currency: String(project.currency || "").trim().toUpperCase() || "UNKNOWN",
@@ -632,9 +657,10 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
         financialDataComplete: completeness.complete,
         clientBillings: clientDataLoading ? undefined : clientBillings,
         clientCollections: clientDataLoading ? undefined : clientCollections,
+        fieldOperations,
       },
     );
-  }, [clientBillings, clientCollections, clientDataLoading, completeness.complete, costCodes, costInput, project, summary]);
+  }, [clientBillings, clientCollections, clientDataLoading, completeness.complete, costCodes, costInput, fieldOperations, project, summary]);
 
   const dashboard = suppliedDashboard || fallbackDashboard(summary);
   const pendingBase = managementView.pendingCostExposure;
@@ -704,6 +730,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   const canReadPayroll = hasPermission(permissions, PERMISSION_KEYS.payrollRead);
   const canReadPeople = hasPermission(permissions, PERMISSION_KEYS.workersRead);
   const canReadReports = hasAnyPermission(permissions, [PERMISSION_KEYS.reportsRead, PERMISSION_KEYS.reportsPayrollRead]);
+  const canReadMaterialsEquipment = hasPermission(permissions, PERMISSION_KEYS.projectsRead);
 
   const shortcuts: Array<{ tab: ProjectOverviewTab; label: string; icon: React.ElementType }> = [
     ...(canReadClientBilling ? [{ tab: "billing" as const, label: "Client Billing", icon: Wallet }] : []),
@@ -713,6 +740,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
     ...(canReadRfis && isProjectWorkspaceTabDeploymentVisible("rfis") ? [{ tab: "rfis" as const, label: "RFIs", icon: FileQuestion }] : []),
     ...(canReadSubmittals && isProjectWorkspaceTabDeploymentVisible("submittals") ? [{ tab: "submittals" as const, label: "Submittals", icon: ClipboardCheck }] : []),
     ...(canReadSiteLogs ? [{ tab: "site-logs" as const, label: "Daily Site Logs", icon: ClipboardList }] : []),
+    ...(canReadMaterialsEquipment && isProjectWorkspaceTabDeploymentVisible("materials-equipment") ? [{ tab: "materials-equipment" as const, label: "Materials & Equipment", icon: Package }] : []),
     ...(canReadInvoices && isProjectWorkspaceTabDeploymentVisible("invoices") ? [{ tab: "invoices" as const, label: "Invoices", icon: FileText }] : []),
     ...(canReadExpenses && isProjectWorkspaceTabDeploymentVisible("expenses") ? [{ tab: "expenses" as const, label: "Expenses", icon: Receipt }] : []),
     ...(canReadPayroll && isProjectWorkspaceTabDeploymentVisible("payroll") ? [{ tab: "payroll" as const, label: "Payroll", icon: HardHat }] : []),

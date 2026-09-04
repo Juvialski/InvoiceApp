@@ -19,6 +19,11 @@ export type DailySiteLogWeatherCondition = (typeof DAILY_SITE_LOG_WEATHER_CONDIT
 export const DAILY_SITE_LOG_SAFETY_SEVERITIES = ["OBSERVATION", "LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export type DailySiteLogSafetySeverity = (typeof DAILY_SITE_LOG_SAFETY_SEVERITIES)[number];
 
+export const DAILY_SITE_LOG_ISSUE_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+export type DailySiteLogIssueSeverity = (typeof DAILY_SITE_LOG_ISSUE_SEVERITIES)[number];
+export const DAILY_SITE_LOG_ISSUE_STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED"] as const;
+export type DailySiteLogIssueStatus = (typeof DAILY_SITE_LOG_ISSUE_STATUSES)[number];
+
 export interface EngineeringDailySiteLog {
   id: string;
   companyId?: string;
@@ -64,6 +69,7 @@ export interface EngineeringDailySiteLogCrew {
   trade?: string;
   crewLabel?: string;
   contractorLabel?: string;
+  projectCostCodeId?: string | null;
   headcount: number;
   regularHours?: number;
   overtimeHours?: number;
@@ -77,6 +83,7 @@ export interface EngineeringDailySiteLogEquipment {
   id: string;
   companyId?: string;
   siteLogId: string;
+  equipmentId?: string | null;
   equipmentName: string;
   equipmentType?: string;
   assetReference?: string;
@@ -84,6 +91,63 @@ export interface EngineeringDailySiteLogEquipment {
   idleHours?: number;
   operatorCrewNote?: string;
   conditionStatus?: string;
+  notes?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EngineeringDailySiteLogWork {
+  id: string;
+  companyId?: string;
+  siteLogId: string;
+  projectId: string;
+  description: string;
+  projectCostCodeId?: string | null;
+  quantity?: number;
+  unit?: string;
+  workLocation?: string;
+  notes?: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EngineeringDailySiteLogMaterialDelivery {
+  id: string;
+  companyId?: string;
+  siteLogId: string;
+  projectId: string;
+  materialId?: string | null;
+  materialNameSnapshot: string;
+  quantityObserved: number;
+  unitSnapshot: string;
+  supplierDeliveryReference?: string | null;
+  purchaseOrderId?: string | null;
+  purchaseOrderLineId?: string | null;
+  purchaseOrderReceiptId?: string | null;
+  deliveryCondition?: string | null;
+  location?: string | null;
+  projectCostCodeId?: string | null;
+  notes?: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EngineeringDailySiteLogIssue {
+  id: string;
+  companyId?: string;
+  siteLogId: string;
+  projectId: string;
+  category: string;
+  description: string;
+  severity: DailySiteLogIssueSeverity;
+  status: DailySiteLogIssueStatus;
+  mitigation?: string;
+  responsibleParty?: string;
+  projectCostCodeId?: string | null;
+  resolvedAt?: string;
   notes?: string;
   sortOrder: number;
   createdAt: string;
@@ -135,6 +199,9 @@ export interface EngineeringDailySiteLogAggregate {
   weather?: EngineeringDailySiteLogWeather;
   crew: EngineeringDailySiteLogCrew[];
   equipment: EngineeringDailySiteLogEquipment[];
+  work: EngineeringDailySiteLogWork[];
+  materialDeliveries: EngineeringDailySiteLogMaterialDelivery[];
+  issues: EngineeringDailySiteLogIssue[];
   safety: EngineeringDailySiteLogSafety[];
   events: EngineeringDailySiteLogEvent[];
 }
@@ -144,6 +211,9 @@ export interface EngineeringDailySiteLogsWorkspaceData {
   weather: EngineeringDailySiteLogWeather[];
   crew: EngineeringDailySiteLogCrew[];
   equipment: EngineeringDailySiteLogEquipment[];
+  work: EngineeringDailySiteLogWork[];
+  materialDeliveries: EngineeringDailySiteLogMaterialDelivery[];
+  issues: EngineeringDailySiteLogIssue[];
   safety: EngineeringDailySiteLogSafety[];
   events: EngineeringDailySiteLogEvent[];
   addenda: EngineeringDailySiteLogAddendum[];
@@ -164,6 +234,7 @@ export interface DailySiteLogCrewInput {
   trade?: string;
   crewLabel?: string;
   contractorLabel?: string;
+  projectCostCodeId?: string | null;
   headcount: number;
   regularHours?: number;
   overtimeHours?: number;
@@ -173,6 +244,7 @@ export interface DailySiteLogCrewInput {
 
 export interface DailySiteLogEquipmentInput {
   id?: string;
+  equipmentId?: string | null;
   equipmentName: string;
   equipmentType?: string;
   assetReference?: string;
@@ -180,6 +252,48 @@ export interface DailySiteLogEquipmentInput {
   idleHours?: number;
   operatorCrewNote?: string;
   conditionStatus?: string;
+  notes?: string;
+  sortOrder?: number;
+}
+
+export interface DailySiteLogWorkInput {
+  id?: string;
+  description: string;
+  projectCostCodeId?: string | null;
+  quantity?: number;
+  unit?: string;
+  workLocation?: string;
+  notes?: string;
+  sortOrder?: number;
+}
+
+export interface DailySiteLogMaterialDeliveryInput {
+  id?: string;
+  materialId?: string | null;
+  materialNameSnapshot: string;
+  quantityObserved: number;
+  unitSnapshot: string;
+  supplierDeliveryReference?: string | null;
+  purchaseOrderId?: string | null;
+  purchaseOrderLineId?: string | null;
+  purchaseOrderReceiptId?: string | null;
+  deliveryCondition?: string | null;
+  location?: string | null;
+  projectCostCodeId?: string | null;
+  notes?: string | null;
+  sortOrder?: number;
+}
+
+export interface DailySiteLogIssueInput {
+  id?: string;
+  category: string;
+  description: string;
+  severity: DailySiteLogIssueSeverity;
+  status?: DailySiteLogIssueStatus;
+  mitigation?: string;
+  responsibleParty?: string;
+  projectCostCodeId?: string | null;
+  resolvedAt?: string;
   notes?: string;
   sortOrder?: number;
 }
@@ -209,6 +323,9 @@ export interface CreateDailySiteLogInput {
   weather?: DailySiteLogWeatherInput;
   crew?: DailySiteLogCrewInput[];
   equipment?: DailySiteLogEquipmentInput[];
+  work?: DailySiteLogWorkInput[];
+  materialDeliveries?: DailySiteLogMaterialDeliveryInput[];
+  issues?: DailySiteLogIssueInput[];
   safety?: DailySiteLogSafetyInput[];
   now?: Date;
 }
@@ -262,7 +379,7 @@ export function canTransitionDailySiteLog(from: DailySiteLogStatus, to: DailySit
 }
 
 export function emptyDailySiteLogsWorkspaceData(): EngineeringDailySiteLogsWorkspaceData {
-  return { logs: [], weather: [], crew: [], equipment: [], safety: [], events: [], addenda: [] };
+  return { logs: [], weather: [], crew: [], equipment: [], work: [], materialDeliveries: [], issues: [], safety: [], events: [], addenda: [] };
 }
 
 function normalizeWeather(input: DailySiteLogWeatherInput | undefined, siteLogId: string, companyId: string | undefined, timestamp: string): EngineeringDailySiteLogWeather {
@@ -298,6 +415,7 @@ function normalizeCrew(input: DailySiteLogCrewInput, siteLogId: string, companyI
     trade,
     crewLabel,
     contractorLabel,
+    projectCostCodeId: input.projectCostCodeId || null,
     headcount: normalizedNumber(input.headcount, `Crew row ${index + 1} headcount`, { min: 0, max: 100000, integer: true }) ?? 0,
     regularHours: normalizedNumber(input.regularHours, `Crew row ${index + 1} regular hours`, { min: 0, max: 24 }),
     overtimeHours: normalizedNumber(input.overtimeHours, `Crew row ${index + 1} overtime hours`, { min: 0, max: 24 }),
@@ -313,6 +431,7 @@ function normalizeEquipment(input: DailySiteLogEquipmentInput, siteLogId: string
     id: input.id || engineeringId("daily-site-log-equipment"),
     companyId,
     siteLogId,
+    equipmentId: input.equipmentId || null,
     equipmentName: normalizedText(input.equipmentName, `Equipment row ${index + 1} name`, 180, true)!,
     equipmentType: normalizedText(input.equipmentType, `Equipment row ${index + 1} type`, 120),
     assetReference: normalizedText(input.assetReference, `Equipment row ${index + 1} asset reference`, 120),
@@ -321,6 +440,76 @@ function normalizeEquipment(input: DailySiteLogEquipmentInput, siteLogId: string
     operatorCrewNote: normalizedText(input.operatorCrewNote, `Equipment row ${index + 1} operator note`, 500),
     conditionStatus: normalizedText(input.conditionStatus, `Equipment row ${index + 1} condition`, 120),
     notes: normalizedText(input.notes, `Equipment row ${index + 1} notes`, 1000),
+    sortOrder: input.sortOrder ?? index,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function normalizeWork(input: DailySiteLogWorkInput, siteLogId: string, projectId: string, companyId: string | undefined, timestamp: string, index: number): EngineeringDailySiteLogWork {
+  return {
+    id: input.id || engineeringId("daily-site-log-work"),
+    companyId,
+    siteLogId,
+    projectId,
+    description: normalizedText(input.description, `Work row ${index + 1} description`, 2000, true)!,
+    projectCostCodeId: input.projectCostCodeId || null,
+    quantity: normalizedNumber(input.quantity, `Work row ${index + 1} quantity`, { min: 0, max: 100000000 }),
+    unit: normalizedText(input.unit, `Work row ${index + 1} unit`, 50),
+    workLocation: normalizedText(input.workLocation, `Work row ${index + 1} location`, 180),
+    notes: normalizedText(input.notes, `Work row ${index + 1} notes`, 2000),
+    sortOrder: input.sortOrder ?? index,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function normalizeMaterialDelivery(input: DailySiteLogMaterialDeliveryInput, siteLogId: string, projectId: string, companyId: string | undefined, timestamp: string, index: number): EngineeringDailySiteLogMaterialDelivery {
+  const quantityObserved = normalizedNumber(input.quantityObserved, `Material delivery row ${index + 1} quantity`, { min: 0.0001, max: 100000000 });
+  if (quantityObserved === undefined) throw new Error(`Material delivery row ${index + 1} quantity is required.`);
+  return {
+    id: input.id || engineeringId("daily-site-log-material-delivery"),
+    companyId,
+    siteLogId,
+    projectId,
+    materialId: input.materialId || null,
+    materialNameSnapshot: normalizedText(input.materialNameSnapshot, `Material delivery row ${index + 1} material`, 200, true)!,
+    quantityObserved,
+    unitSnapshot: normalizedText(input.unitSnapshot, `Material delivery row ${index + 1} unit`, 50, true)!,
+    supplierDeliveryReference: normalizedText(input.supplierDeliveryReference, `Material delivery row ${index + 1} supplier reference`, 120) || null,
+    purchaseOrderId: input.purchaseOrderId || null,
+    purchaseOrderLineId: input.purchaseOrderLineId || null,
+    purchaseOrderReceiptId: input.purchaseOrderReceiptId || null,
+    deliveryCondition: normalizedText(input.deliveryCondition, `Material delivery row ${index + 1} condition`, 120) || null,
+    location: normalizedText(input.location, `Material delivery row ${index + 1} location`, 180) || null,
+    projectCostCodeId: input.projectCostCodeId || null,
+    notes: normalizedText(input.notes, `Material delivery row ${index + 1} notes`, 2000) || null,
+    sortOrder: input.sortOrder ?? index,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function normalizeIssue(input: DailySiteLogIssueInput, siteLogId: string, projectId: string, companyId: string | undefined, timestamp: string, index: number): EngineeringDailySiteLogIssue {
+  if (!DAILY_SITE_LOG_ISSUE_SEVERITIES.includes(input.severity)) throw new Error(`Issue row ${index + 1} severity is not supported.`);
+  const issueStatus = input.status || "OPEN";
+  if (!DAILY_SITE_LOG_ISSUE_STATUSES.includes(issueStatus)) throw new Error(`Issue row ${index + 1} status is not supported.`);
+  const resolvedAt = input.resolvedAt ? normalizedText(input.resolvedAt, `Issue row ${index + 1} resolved date`, 10) : undefined;
+  if (resolvedAt && !isDailySiteLogDate(resolvedAt)) throw new Error(`Issue row ${index + 1} resolved date must use YYYY-MM-DD.`);
+  return {
+    id: input.id || engineeringId("daily-site-log-issue"),
+    companyId,
+    siteLogId,
+    projectId,
+    category: normalizedText(input.category, `Issue row ${index + 1} category`, 80, true)!,
+    description: normalizedText(input.description, `Issue row ${index + 1} description`, 2000, true)!,
+    severity: input.severity,
+    status: issueStatus,
+    mitigation: normalizedText(input.mitigation, `Issue row ${index + 1} mitigation`, 2000),
+    responsibleParty: normalizedText(input.responsibleParty, `Issue row ${index + 1} responsible party`, 180),
+    projectCostCodeId: input.projectCostCodeId || null,
+    resolvedAt,
+    notes: normalizedText(input.notes, `Issue row ${index + 1} notes`, 2000),
     sortOrder: input.sortOrder ?? index,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -370,6 +559,9 @@ export function createDraftDailySiteLog(input: CreateDailySiteLogInput): Enginee
     weather,
     crew: (input.crew || []).map((row, index) => normalizeCrew(row, log.id, input.companyId, timestamp, index)),
     equipment: (input.equipment || []).map((row, index) => normalizeEquipment(row, log.id, input.companyId, timestamp, index)),
+    work: (input.work || []).map((row, index) => normalizeWork(row, log.id, projectId, input.companyId, timestamp, index)),
+    materialDeliveries: (input.materialDeliveries || []).map((row, index) => normalizeMaterialDelivery(row, log.id, projectId, input.companyId, timestamp, index)),
+    issues: (input.issues || []).map((row, index) => normalizeIssue(row, log.id, projectId, input.companyId, timestamp, index)),
     safety: (input.safety || []).map((row, index) => normalizeSafety(row, log.id, input.companyId, timestamp, index)),
     events: [{
       id: engineeringId("daily-site-log-event"),
@@ -383,7 +575,7 @@ export function createDraftDailySiteLog(input: CreateDailySiteLogInput): Enginee
   };
 }
 
-export function validateDailySiteLogAggregate(aggregate: Pick<EngineeringDailySiteLogAggregate, "log" | "weather" | "crew" | "equipment" | "safety">): void {
+export function validateDailySiteLogAggregate(aggregate: Pick<EngineeringDailySiteLogAggregate, "log" | "weather" | "crew" | "equipment" | "work" | "materialDeliveries" | "issues" | "safety">): void {
   if (!isDailySiteLogDate(aggregate.log.siteDate)) throw new Error("Site date must use a valid YYYY-MM-DD date.");
   if (!aggregate.log.projectId.trim()) throw new Error("Project is required.");
   if (!aggregate.log.workSummary.trim()) throw new Error("Work summary is required before submission.");
@@ -391,6 +583,9 @@ export function validateDailySiteLogAggregate(aggregate: Pick<EngineeringDailySi
   if (!aggregate.crew.length) throw new Error("Add at least one crew/headcount observation before submission.");
   aggregate.crew.forEach((row, index) => normalizeCrew(row, aggregate.log.id, aggregate.log.companyId, aggregate.log.updatedAt, index));
   aggregate.equipment.forEach((row, index) => normalizeEquipment(row, aggregate.log.id, aggregate.log.companyId, aggregate.log.updatedAt, index));
+  aggregate.work.forEach((row, index) => normalizeWork(row, aggregate.log.id, aggregate.log.projectId, aggregate.log.companyId, aggregate.log.updatedAt, index));
+  aggregate.materialDeliveries.forEach((row, index) => normalizeMaterialDelivery(row, aggregate.log.id, aggregate.log.projectId, aggregate.log.companyId, aggregate.log.updatedAt, index));
+  aggregate.issues.forEach((row, index) => normalizeIssue(row, aggregate.log.id, aggregate.log.projectId, aggregate.log.companyId, aggregate.log.updatedAt, index));
   aggregate.safety.forEach((row, index) => normalizeSafety(row, aggregate.log.id, aggregate.log.companyId, aggregate.log.updatedAt, index));
 }
 
@@ -438,6 +633,9 @@ export function aggregateForDailySiteLog(data: EngineeringDailySiteLogsWorkspace
     weather: data.weather.find((item) => item.siteLogId === logId),
     crew: data.crew.filter((item) => item.siteLogId === logId).sort((a, b) => a.sortOrder - b.sortOrder),
     equipment: data.equipment.filter((item) => item.siteLogId === logId).sort((a, b) => a.sortOrder - b.sortOrder),
+    work: (data.work || []).filter((item) => item.siteLogId === logId).sort((a, b) => a.sortOrder - b.sortOrder),
+    materialDeliveries: (data.materialDeliveries || []).filter((item) => item.siteLogId === logId).sort((a, b) => a.sortOrder - b.sortOrder),
+    issues: (data.issues || []).filter((item) => item.siteLogId === logId).sort((a, b) => a.sortOrder - b.sortOrder),
     safety: data.safety.filter((item) => item.siteLogId === logId).sort((a, b) => a.sortOrder - b.sortOrder),
     events: data.events.filter((item) => item.siteLogId === logId).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
   };
@@ -446,7 +644,7 @@ export function aggregateForDailySiteLog(data: EngineeringDailySiteLogsWorkspace
 export function replaceDailySiteLogAggregate(data: EngineeringDailySiteLogsWorkspaceData, aggregate: EngineeringDailySiteLogAggregate): EngineeringDailySiteLogsWorkspaceData {
   const replace = <T extends { id: string }>(rows: T[], value: T) => rows.some((row) => row.id === value.id) ? rows.map((row) => row.id === value.id ? value : row) : [value, ...rows];
   const withoutLog = <T extends { siteLogId: string }>(rows: T[]) => rows.filter((row) => row.siteLogId !== aggregate.log.id);
-  let next = { ...data, logs: replace(data.logs, aggregate.log), weather: [...withoutLog(data.weather), ...(aggregate.weather ? [aggregate.weather] : [])], crew: [...withoutLog(data.crew), ...aggregate.crew], equipment: [...withoutLog(data.equipment), ...aggregate.equipment], safety: [...withoutLog(data.safety), ...aggregate.safety] };
+  let next = { ...data, logs: replace(data.logs, aggregate.log), weather: [...withoutLog(data.weather), ...(aggregate.weather ? [aggregate.weather] : [])], crew: [...withoutLog(data.crew), ...aggregate.crew], equipment: [...withoutLog(data.equipment), ...aggregate.equipment], work: [...withoutLog(data.work || []), ...aggregate.work], materialDeliveries: [...withoutLog(data.materialDeliveries || []), ...aggregate.materialDeliveries], issues: [...withoutLog(data.issues || []), ...aggregate.issues], safety: [...withoutLog(data.safety), ...aggregate.safety] };
   const existingEvents = new Set(data.events.filter((event) => event.siteLogId === aggregate.log.id).map((event) => event.id));
   next = { ...next, events: [...data.events, ...aggregate.events.filter((event) => !existingEvents.has(event.id))] };
   return next;

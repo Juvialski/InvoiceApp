@@ -114,6 +114,7 @@ export const WORKFLOW_ROUTE_CONTRACT_IDS: Readonly<Record<string, string>> = Obj
   "route-submittal-detail": "submittal-detail",
   "route-project-site-logs": "project-site-logs",
   "route-site-log-detail": "site-log-detail",
+  "route-project-materials-equipment": "project-materials-equipment",
   "route-extract": "extract",
   "route-inbox": "inbox",
   "route-invoices": "invoices",
@@ -194,6 +195,7 @@ const RFI_ID = "00000000-0000-4000-8000-000000000005";
 const SUBMITTAL_ID = "00000000-0000-4000-8000-000000000006";
 const ROUND_ID = "00000000-0000-4000-8000-000000000007";
 const SITE_LOG_ID = "00000000-0000-4000-8000-000000000008";
+const MATERIALS_EQUIPMENT_PROJECT_ID = PROJECT_ID;
 const INVOICE_ID = "00000000-0000-4000-8000-000000000009";
 const TRANSACTION_ID = "00000000-0000-4000-8000-000000000010";
 const PAYROLL_RUN_ID = "00000000-0000-4000-8000-000000000011";
@@ -226,6 +228,13 @@ const ROUTE_ROUND_TRIPS: readonly WorkflowRouteRoundTripContract[] = [
     () => appPathForProject(PROJECT_ID, "site-logs", { siteLogId: SITE_LOG_ID }),
     `/projects/${PROJECT_ID}/site-logs?siteLogId=${SITE_LOG_ID}`,
     (path) => expectedLocation(path, "project", "projects", { projectId: PROJECT_ID, view: "site-logs", siteLogId: SITE_LOG_ID }),
+  ),
+  roundTrip(
+    "route-project-materials-equipment",
+    "project Materials and Equipment register",
+    () => appPathForProject(MATERIALS_EQUIPMENT_PROJECT_ID, "materials-equipment"),
+    `/projects/${MATERIALS_EQUIPMENT_PROJECT_ID}/materials-equipment`,
+    (path) => expectedLocation(path, "project", "projects", { projectId: MATERIALS_EQUIPMENT_PROJECT_ID, view: "materials-equipment" }),
   ),
   roundTrip(
     "route-invoice-detail",

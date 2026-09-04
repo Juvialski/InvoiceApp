@@ -2,7 +2,7 @@ import type { AppTab } from "./routes.ts";
 import { getRouteForAppTab, normalizeRoutePath, resolveRoute, type RouteId } from "./routes.ts";
 import { getAppRouteContract } from "./appRouteContracts.ts";
 
-export type ProjectWorkspaceView = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "invoices" | "payroll" | "expenses" | "people" | "reports";
+export type ProjectWorkspaceView = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "materials-equipment" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 export type AppLocation =
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
@@ -14,7 +14,7 @@ export type AppLocation =
   | { kind: "review-invoice"; tab: "review"; routeId: "review"; invoiceId: string; returnTo?: string; pathname: string; search: string }
   | { kind: "unknown"; tab: AppTab; routeId: null; pathname: string; search: string };
 
-const PROJECT_VIEWS = new Set<ProjectWorkspaceView>(["overview", "billing", "budget", "procurement", "documents", "rfis", "submittals", "site-logs", "invoices", "payroll", "expenses", "people", "reports"]);
+const PROJECT_VIEWS = new Set<ProjectWorkspaceView>(["overview", "billing", "budget", "procurement", "documents", "rfis", "submittals", "site-logs", "materials-equipment", "invoices", "payroll", "expenses", "people", "reports"]);
 
 function safeDecode(value: string) {
   try { return decodeURIComponent(value); } catch { return value; }
@@ -58,6 +58,7 @@ const PROJECT_VIEW_CONTRACT_IDS: Partial<Record<ProjectWorkspaceView, string>> =
   rfis: "project-rfis",
   submittals: "project-submittals",
   "site-logs": "project-site-logs",
+  "materials-equipment": "project-materials-equipment",
 });
 
 export function parseAppLocation(pathname: string, search = ""): AppLocation {

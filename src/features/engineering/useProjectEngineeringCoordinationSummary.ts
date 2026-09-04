@@ -32,6 +32,7 @@ export interface ProjectEngineeringCoordinationSummaryState {
   summary: ProjectEngineeringCoordinationSummary;
   isLoading: boolean;
   hasLoaded: boolean;
+  dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
 }
 
 function sourceState(
@@ -142,6 +143,9 @@ export function useProjectEngineeringCoordinationSummary({
     const states = [summary.documents.state, summary.rfis.state, summary.submittals.state, summary.siteLogs.state];
     const isLoading = states.some((state) => state === "loading");
     const hasLoaded = states.every((state) => state !== "loading");
-    return { summary, isLoading, hasLoaded };
-  }, [coordinationAccessLoading, coordinationController.data.rfis, coordinationController.data.submittals, coordinationController.hasLoaded, coordinationController.isLoading, coordinationController.loadError, coordinationData, documentsCanRead, documentsController.documents, documentsController.hasLoaded, documentsController.isLoading, documentsController.loadError, documentsController.revisions, documentsData, guestMode, project.id, rfisCanRead, siteLogsCanRead, siteLogsController.data.logs, siteLogsController.hasLoaded, siteLogsController.isLoading, siteLogsController.loadError, submittalsCanRead, today, dailySiteLogsData]);
+    const availableDailySiteLogsData = siteLogAccess.state === "available"
+      ? dailySiteLogsData || (siteLogsController.hasLoaded ? siteLogsController.data : undefined)
+      : undefined;
+    return { summary, isLoading, hasLoaded, dailySiteLogsData: availableDailySiteLogsData };
+  }, [coordinationAccessLoading, coordinationController.data.rfis, coordinationController.data.submittals, coordinationController.hasLoaded, coordinationController.isLoading, coordinationController.loadError, coordinationData, documentsCanRead, documentsController.documents, documentsController.hasLoaded, documentsController.isLoading, documentsController.loadError, documentsController.revisions, documentsData, guestMode, project.id, rfisCanRead, siteLogsCanRead, siteLogsController.data, siteLogsController.hasLoaded, siteLogsController.isLoading, siteLogsController.loadError, submittalsCanRead, today, dailySiteLogsData]);
 }

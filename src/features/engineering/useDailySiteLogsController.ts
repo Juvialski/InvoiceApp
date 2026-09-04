@@ -72,6 +72,9 @@ function updateAggregateForDraft(current: EngineeringDailySiteLogAggregate, inpu
   if (current.weather && candidate.weather) candidate.weather = { ...candidate.weather, id: current.weather.id, createdAt: current.weather.createdAt };
   candidate.crew = candidate.crew.map((row, index) => ({ ...row, id: input.crew?.[index]?.id || current.crew[index]?.id || row.id, createdAt: current.crew[index]?.createdAt || row.createdAt }));
   candidate.equipment = candidate.equipment.map((row, index) => ({ ...row, id: input.equipment?.[index]?.id || current.equipment[index]?.id || row.id, createdAt: current.equipment[index]?.createdAt || row.createdAt }));
+  candidate.work = candidate.work.map((row, index) => ({ ...row, id: input.work?.[index]?.id || current.work[index]?.id || row.id, createdAt: current.work[index]?.createdAt || row.createdAt }));
+  candidate.materialDeliveries = candidate.materialDeliveries.map((row, index) => ({ ...row, id: input.materialDeliveries?.[index]?.id || current.materialDeliveries[index]?.id || row.id, createdAt: current.materialDeliveries[index]?.createdAt || row.createdAt }));
+  candidate.issues = candidate.issues.map((row, index) => ({ ...row, id: input.issues?.[index]?.id || current.issues[index]?.id || row.id, createdAt: current.issues[index]?.createdAt || row.createdAt }));
   candidate.safety = candidate.safety.map((row, index) => ({ ...row, id: input.safety?.[index]?.id || current.safety[index]?.id || row.id, createdAt: current.safety[index]?.createdAt || row.createdAt }));
   candidate.events = current.events;
   return candidate;
@@ -109,6 +112,9 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
       weather: data.weather.filter((item) => logIds.has(item.siteLogId)),
       crew: data.crew.filter((item) => logIds.has(item.siteLogId)),
       equipment: data.equipment.filter((item) => logIds.has(item.siteLogId)),
+      work: (data.work || []).filter((item) => logIds.has(item.siteLogId)),
+      materialDeliveries: (data.materialDeliveries || []).filter((item) => logIds.has(item.siteLogId)),
+      issues: (data.issues || []).filter((item) => logIds.has(item.siteLogId)),
       safety: data.safety.filter((item) => logIds.has(item.siteLogId)),
       events: data.events.filter((item) => logIds.has(item.siteLogId)),
       addenda: (data.addenda || []).filter((item) => logIds.has(item.siteLogId)),
@@ -169,7 +175,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
         projectId: current.log.projectId,
         formalEvents: current.events.filter((event) => ["SUBMITTED", "FINALIZED", "VOIDED"].includes(event.eventType)).length,
         addenda: (data.addenda || []).filter((item) => item.siteLogId === siteLogId).length,
-        draftObservations: (current.weather ? 1 : 0) + current.crew.length + current.equipment.length + current.safety.length,
+        draftObservations: (current.weather ? 1 : 0) + current.crew.length + current.equipment.length + (current.work || []).length + (current.materialDeliveries || []).length + (current.issues || []).length + current.safety.length,
         narrativeFields: [current.log.workSummary, current.log.progressNotes, current.log.delaysConstraints, current.log.generalNotes].filter((value) => Boolean(value?.trim())).length,
         source: guestMode ? "demo" : "local",
       });
@@ -246,7 +252,7 @@ export function useDailySiteLogsController(options: DailySiteLogControllerOption
     if (!allowed) throw new Error(preview.blockedReason || "This Site Log lifecycle action is not available.");
     if (action === "DELETE_UNUSED") {
       const without = <T extends { siteLogId: string }>(rows: T[]) => rows.filter((row) => row.siteLogId !== siteLogId);
-      publish({ ...data, logs: data.logs.filter((item) => item.id !== siteLogId), weather: without(data.weather), crew: without(data.crew), equipment: without(data.equipment), safety: without(data.safety), events: without(data.events), addenda: without(data.addenda || []) });
+      publish({ ...data, logs: data.logs.filter((item) => item.id !== siteLogId), weather: without(data.weather), crew: without(data.crew), equipment: without(data.equipment), work: without(data.work || []), materialDeliveries: without(data.materialDeliveries || []), issues: without(data.issues || []), safety: without(data.safety), events: without(data.events), addenda: without(data.addenda || []) });
       return { deleted: true };
     }
     const nextLog = transitionDailySiteLog(current.log, "VOID", { reason });

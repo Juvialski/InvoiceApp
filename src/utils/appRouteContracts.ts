@@ -103,6 +103,13 @@ export const APP_ROUTE_CONTRACTS: readonly AppRouteContract[] = Object.freeze([
     scope: "production-and-demo",
   },
   {
+    id: "project-materials-equipment",
+    routeId: "projects",
+    canonicalPath: "/projects/:projectId/materials-equipment",
+    pathPattern: "/projects/:projectId/materials-equipment",
+    scope: "production-and-demo",
+  },
+  {
     id: "site-log-detail",
     routeId: "projects",
     canonicalPath: "/projects/:projectId/site-logs?siteLogId=:siteLogId",

@@ -7,7 +7,7 @@ import type { DashboardActivityPeriod } from "../components/engineering/Engineer
 import type { AppTab } from "../utils/routes.ts";
 import type { AppLocation, ProjectWorkspaceView } from "../utils/appRouting.ts";
 import type { FinancialAccount, FinancialBalanceSnapshot, FinancialReconciliationCandidate, FinancialTransaction } from "../lib/cashBanking.ts";
-import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectWorkerAssignment, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, WorkEntry, Worker } from "../types.ts";
+import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, WorkEntry, Worker } from "../types.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction, type ProjectLifecyclePreview } from "../lib/projects.ts";
@@ -26,6 +26,7 @@ import { projectCostDataCompleteness } from "../utils/dataCompleteness.ts";
 import { demoTimestamp } from "./data/demoDates.ts";
 import { applyLocalClientBillingTransition, buildLocalClientBilling, type ClientBillingInput, type ClientBillingLineInput, type ClientBillingStatus } from "../lib/clientBilling.ts";
 import { buildLocalClientCollection, clientCollectionTotal, type ClientCollectionAllocationInput, type ClientCollectionInput } from "../lib/clientCollections.ts";
+import { buildLocalProjectEquipment, buildLocalProjectMaterial, type ProjectEquipmentSaveInput, type ProjectMaterialSaveInput } from "../lib/materialsEquipment.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -81,6 +82,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     engineeringRfis: data.coordination.rfis.filter((rfi) => rfi.projectId === project.id).length,
     engineeringSubmittals: data.coordination.submittals.filter((submittal) => submittal.projectId === project.id).length,
     engineeringDailySiteLogs: data.siteLogs.logs.filter((log) => log.projectId === project.id).length,
+    projectMaterials: data.materials.filter((material) => material.projectId === project.id).length,
+    projectEquipment: data.equipment.filter((equipment) => equipment.projectId === project.id).length,
     purchaseOrders: (data.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
     subcontracts: (data.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
     clientBillings: clientBillings.filter((billing) => billing.projectId === project.id).length,
@@ -173,6 +176,22 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       throw new Error("Reverse active cash settlement links before reversing this client collection.");
     }
     dispatch({ type: "REVERSE_CLIENT_COLLECTION", id, reason });
+  };
+
+  const saveProjectMaterial = async (input: ProjectMaterialSaveInput) => {
+    const existing = input.id ? data.materials.find((item) => item.id === input.id) : undefined;
+    if (!input.materialName.trim()) throw new Error("Material name is required.");
+    if (!input.unit.trim()) throw new Error("Material unit is required.");
+    if (!Number.isFinite(Number(input.requiredQuantity)) || Number(input.requiredQuantity) < 0) throw new Error("Required quantity must be zero or greater.");
+    const value = buildLocalProjectMaterial(input, existing, DEMO_COMPANY_ID);
+    dispatch({ type: "SAVE_MATERIAL", value });
+  };
+
+  const saveProjectEquipment = async (input: ProjectEquipmentSaveInput) => {
+    const existing = input.id ? data.equipment.find((item) => item.id === input.id) : undefined;
+    if (!input.equipmentName.trim()) throw new Error("Equipment name is required.");
+    const value = buildLocalProjectEquipment(input, existing, DEMO_COMPANY_ID);
+    dispatch({ type: "SAVE_EQUIPMENT", value });
   };
 
   const saveSubcontract = async (
@@ -365,7 +384,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onNavigateTab={navigateTab}
             projects={data.projects}
             costCodes={data.costCodes || []}
+            materials={data.materials}
+            equipment={data.equipment}
             purchaseOrders={data.purchaseOrders || []}
+            receipts={data.purchaseOrderReceipts || []}
             subcontracts={data.subcontracts || []}
             subcontractClaims={data.subcontractClaims || []}
             subcontractVariations={data.subcontractVariations || []}
@@ -392,6 +414,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             projectDocumentsContent={selectedProject ? <DemoEngineeringDocuments projectId={selectedProject.id} /> : undefined}
             dailySiteLogsData={data.siteLogs}
             onDailySiteLogsDataChange={(value) => dispatch({ type: "SAVE_DAILY_SITE_LOGS", value })}
+            onSaveMaterial={saveProjectMaterial}
+            onSaveEquipment={saveProjectEquipment}
             pathForSiteLog={(siteLogId) => selectedProject ? demoPathForProject(selectedProject.id, "site-logs", siteLogId ? { siteLogId } : undefined) : demoPathForTab("projects")}
             onOpenProject={openProject}
             onSaveProject={(project) => dispatch({ type: "SAVE_PROJECT", value: project })}

@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -157,6 +157,7 @@ import type { StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
+import { buildLocalProjectEquipment, buildLocalProjectMaterial, loadProjectMaterialsEquipmentFromSupabase, readProjectEquipmentFromLocal, readProjectMaterialsFromLocal, saveProjectEquipmentToSupabase, saveProjectMaterialToSupabase, writeProjectEquipmentToLocal, writeProjectMaterialsToLocal, type ProjectEquipmentSaveInput, type ProjectMaterialSaveInput } from "./lib/materialsEquipment.ts";
 import {
   deleteDraftSubcontractClaim,
   fetchSubcontractClaims,
@@ -424,6 +425,8 @@ function InvoiceWorkspace() {
   const [clientCollectionData, setClientCollectionData] = useState<ClientCollectionWorkspaceData>(() => isSupabaseConfigured ? { collections: [], events: [] } : { collections: readClientCollectionsFromLocal(), events: readClientCollectionEventsFromLocal() });
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
+  const [projectMaterials, setProjectMaterials] = useState<ProjectMaterial[]>(() => isSupabaseConfigured ? [] : readProjectMaterialsFromLocal());
+  const [projectEquipment, setProjectEquipment] = useState<ProjectEquipment[]>(() => isSupabaseConfigured ? [] : readProjectEquipmentFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>(() => isSupabaseConfigured ? [] : readSubcontractsFromLocal());
   const [subcontractClaims, setSubcontractClaims] = useState<SubcontractProgressClaim[]>(() => isSupabaseConfigured ? [] : readSubcontractClaimsFromLocal());
@@ -592,6 +595,8 @@ function InvoiceWorkspace() {
     setClientCollectionData({ collections: [], events: [] });
     setExpenses([]);
     setCostCodes([]);
+    setProjectMaterials([]);
+    setProjectEquipment([]);
     setPurchaseOrders([]);
     setSubcontracts([]);
     setSubcontractClaims([]);
@@ -661,6 +666,8 @@ function InvoiceWorkspace() {
     clientCollectionData: ClientCollectionWorkspaceData;
     expenses: Expense[];
     costCodes: ProjectCostCode[];
+    materials: ProjectMaterial[];
+    equipment: ProjectEquipment[];
     purchaseOrders: PurchaseOrder[];
     subcontracts: Subcontract[];
     subcontractClaims: SubcontractProgressClaim[];
@@ -730,6 +737,8 @@ function InvoiceWorkspace() {
     setClientCollectionData(data.clientCollectionData);
     setExpenses(data.expenses);
     setCostCodes(data.costCodes);
+    setProjectMaterials(data.materials);
+    setProjectEquipment(data.equipment);
     setPurchaseOrders(data.purchaseOrders);
     setSubcontracts(data.subcontracts);
     setSubcontractClaims(data.subcontractClaims);
@@ -761,6 +770,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.procurementRead) ? fetchSubcontractClaims() : Promise.resolve([]),
       can(PERMISSION_KEYS.procurementRead) ? fetchSubcontractVariations() : Promise.resolve([]),
       can(PERMISSION_KEYS.projectsRead) ? loadClientCollectionWorkspaceFromSupabase() : Promise.resolve({ collections: [], events: [] } as ClientCollectionWorkspaceData),
+      can(PERMISSION_KEYS.projectsRead) ? loadProjectMaterialsEquipmentFromSupabase() : Promise.resolve({ materials: [], equipment: [] }),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -778,6 +788,7 @@ function InvoiceWorkspace() {
     const subcontractClaims = results[12].status === "fulfilled" ? results[12].value : [];
     const subcontractVariations = results[13].status === "fulfilled" ? results[13].value : [];
     const clientCollectionData = results[14].status === "fulfilled" ? results[14].value : { collections: [], events: [] };
+    const materialsEquipment = results[15].status === "fulfilled" ? results[15].value : { materials: [], equipment: [] };
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -793,6 +804,7 @@ function InvoiceWorkspace() {
     if (results[12].status !== "fulfilled") failures.push("subcontract progress claims");
     if (results[13].status !== "fulfilled") failures.push("subcontract variations");
     if (results[14].status !== "fulfilled") failures.push("client collections");
+    if (results[15].status !== "fulfilled") failures.push("materials and equipment");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -817,7 +829,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, clientCollectionData, expenses, costCodes, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, clientCollectionData, expenses, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -2281,6 +2293,42 @@ function InvoiceWorkspace() {
       }
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save cost code."));
+      throw error;
+    }
+  };
+
+  const handleSaveMaterial = async (input: ProjectMaterialSaveInput) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to manage project materials.");
+      const saved = session && supabase
+        ? await saveProjectMaterialToSupabase(input)
+        : buildLocalProjectMaterial(input, input.id ? projectMaterials.find((item) => item.id === input.id) : undefined, "guest-company");
+      setProjectMaterials((previous) => {
+        const next = previous.some((item) => item.id === saved.id) ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
+        if (!isSupabaseConfigured) writeProjectMaterialsToLocal(next);
+        return next;
+      });
+      showNotification("success", `${saved.materialName} saved to the Materials Register.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save project material."));
+      throw error;
+    }
+  };
+
+  const handleSaveEquipment = async (input: ProjectEquipmentSaveInput) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.projectsWrite)) throw new Error("You do not have permission to manage project equipment.");
+      const saved = session && supabase
+        ? await saveProjectEquipmentToSupabase(input)
+        : buildLocalProjectEquipment(input, input.id ? projectEquipment.find((item) => item.id === input.id) : undefined, "guest-company");
+      setProjectEquipment((previous) => {
+        const next = previous.some((item) => item.id === saved.id) ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
+        if (!isSupabaseConfigured) writeProjectEquipmentToLocal(next);
+        return next;
+      });
+      showNotification("success", `${saved.equipmentName} saved to the Equipment Register.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save project equipment."));
       throw error;
     }
   };
@@ -4400,6 +4448,8 @@ function InvoiceWorkspace() {
           projectSummaries={projectSummaries}
           projectDashboard={projectDashboard}
           costCodes={costCodes}
+          materials={projectMaterials}
+          equipment={projectEquipment}
           purchaseOrders={purchaseOrders}
           subcontracts={subcontracts}
           subcontractClaims={subcontractClaims}
@@ -4419,6 +4469,8 @@ function InvoiceWorkspace() {
            onSaveCostCode={handleSaveCostCode}
            onArchiveCostCode={handleArchiveCostCode}
            onReactivateCostCode={handleReactivateCostCode}
+          onSaveMaterial={handleSaveMaterial}
+          onSaveEquipment={handleSaveEquipment}
            onSavePO={handleSavePO}
            onTransitionPO={handleTransitionPO}
            onDeletePO={handleDeletePO}
