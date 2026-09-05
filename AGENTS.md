@@ -1,42 +1,51 @@
-# InvoiceApp / Engoryx Development & Agent Rules
+# InvoiceApp / HydroQualiSense Development & Agent Rules
 
-These rules apply only to this repository. The repository may still be named `InvoiceApp`; use current Engoryx naming and live repository state.
+These rules apply only to `Juvialski/InvoiceApp`.
+
+The repository may remain named `InvoiceApp`, but the product is now **HydroQualiSense** and the canonical production domain is `https://hydroqualisense.com`.
 
 ## Architecture baseline
 
-Engoryx is permanently:
+HydroQualiSense is permanently:
 
 `one deployment -> one client company -> active membership/RBAC -> permitted workflows`
 
-Each client company gets its own deployment, Supabase project/database, Storage, environment configuration, and users. Do not add unrelated-company switching or tenant selection.
-
-Keep `company_id`, company-prefixed Storage paths, RLS, membership checks, permission checks, and company-bound foreign-key validation as defense in depth.
+Keep `company_id`, company-prefixed Storage paths, RLS, membership checks, permission checks, and company-bound foreign-key validation as defense in depth. Do not add unrelated-company switching or tenant selection.
 
 ## Current product direction
 
-Authoritative product direction:
+Authoritative current product documents:
 
-- `docs/ENGORYX_PROJECT_CONTROLS_PRODUCT_DIRECTION.md`
-- `docs/ENGORYX_ACTIVE_ROADMAP.md`
+- `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`
+- `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`
 
-Engoryx remains an Engineering Operations Platform focused on **Project Controls + Finance + Field Operations + Engineering Documents**.
+The previous Engoryx future roadmap is cancelled as implementation authority. Historical phase/design documents may still explain already-built behavior, but **no old planned/deferred/future phase is automatically authorized**.
 
-Permanent product rules:
+Current confirmed forward direction is limited to:
 
-1. Project is the operational hub, but Finance, Payroll, Engineering, and document provenance remain separate authoritative domains.
-2. Preserve `projects.contract_value` and `projects.project_budget` as distinct concepts.
-3. Derive Actual Cost from authoritative lifecycle-eligible allocations/expenses/payroll and approved downstream sources; never invent a competing total.
+1. remove legacy product branding and make **HydroQualiSense** the exclusive application identity;
+2. add a warehouse inventory system with traceable stock and project allocation/issue relationships;
+3. simplify invoice workflows so supplier/company-paid invoice activity belongs directly with expenses/payables and outgoing client invoices/payment state belongs directly with client billing/receivables, rather than remaining a separate generic invoice branch;
+4. wait for the client's remaining requirements before creating a detailed new implementation sequence.
+
+Do not infer missing inventory, accounting, payment, settlement, or lifecycle rules. Preserve existing validated behavior and history until the replacement contract is explicit.
+
+### Permanent product and financial rules
+
+1. Project remains an important operational context, but authoritative Finance, Payroll, Procurement, Engineering, Inventory, and document history must retain explicit source semantics.
+2. Preserve `projects.contract_value` and `projects.project_budget` as distinct concepts unless a later approved contract explicitly changes them.
+3. Derive Actual Cost from authoritative lifecycle-eligible allocations/expenses/payroll/downstream sources; never invent a competing total.
 4. Committed Cost is distinct from Actual Cost.
-5. Client billing is distinct from supplier/vendor invoices and Actual Cost.
-6. **Collected to Date derives from authoritative `RECORDED` client collections.** Bank/Cash settlement linkage is separate reconciliation evidence and must not redefine or double-count collection truth.
+5. Client billing is distinct from supplier/vendor obligations and Actual Cost.
+6. Collected-to-date derives from authoritative recorded client collections; bank/cash settlement linkage is separate reconciliation evidence and must not double-count collection truth.
 7. Never silently sum mixed currencies or invent FX.
-8. Forecast/EAC/Margin require explicit authoritative source semantics; do not infer them from Actual + Committed unless the product contract explicitly says so.
+8. Forecast/EAC/Margin require explicit authoritative source semantics.
 9. Project payroll aggregates must never broaden unauthorized payroll-detail visibility.
-10. Keep Engineering Documents, immutable revisions, RFIs, Submittals, and later engineering-control workflows first-class.
-11. Do not delete mature modules merely because one deployment hides them. Feature visibility is not authorization.
-12. Scheduling/Gantt/CPM requires a separately prioritized wave.
-
-Approximate implementation order remains **P1 Project Controls Foundation -> P2 Procurement + Commercial Operations -> P3 Project Operations UX / Field Operations / Engineering integration**, with bounded infrastructure follow-up separate.
+10. Engineering Documents and other auditable engineering history remain first-class until the client explicitly changes that requirement.
+11. Inventory stock must be explainable from authoritative movements or an equally rigorous source model; project allocation must not be implemented as destructive balance editing.
+12. Navigation/UX simplification is not permission to collapse or rewrite finalized financial history.
+13. Do not delete mature modules merely because they are not in the temporary requirements list; large removals wait for the complete client requirements and dependency/history review.
+14. Scheduling/Gantt/CPM and other old future phases are not authorized unless the client reprioritizes them.
 
 ## Tool and model policy — Codex only by default
 
@@ -44,52 +53,44 @@ The user currently intends to use **Codex only** for implementation work.
 
 - **ChatGPT with GitHub access** is the repository-level investigator, reviewer, PR/CI reviewer, GitHub editor, prompt creator, merger, and finisher.
 - **Codex** is the local implementation owner for feature work, debugging, browser/runtime work, Supabase CLI/Docker, migrations, tests, and validation.
-- Do **not** assume Luna, Gemini, Antigravity, OpenRouter, Kilo, or other paid/external implementation agents are available.
-- Do not invoke or recommend another paid coding agent unless the user explicitly says it is available again.
-- Existing historical references to Luna/Gemini/Antigravity are not current execution policy.
+- Do **not** assume Luna, Gemini, Antigravity, OpenRouter, Kilo, or another paid/external coding agent is available.
+- Historical references to those agents are not current execution policy.
 
 ### Codex subagents
 
-**Hard maximum: 2 concurrent subagents.**
+Hard maximum: **2 concurrent subagents**. Default: **zero**.
 
-Default: **zero subagents**. The Codex lead owns continuous implementation, integration, shared-file edits, final review, validation, commit, push, and PR delivery.
+Use subagents only for genuinely independent, tightly bounded workstreams with non-overlapping ownership. The lead must continue implementation and must not block waiting for subagents.
 
-If the Codex environment supports internal subagents under the same Codex workflow, use at most two only for genuinely independent, tightly bounded workstreams with non-overlapping ownership. The lead must not become blocked waiting for them.
-
-Do not spawn subagents for:
-
-- documentation-only work;
-- CI polling;
-- duplicate repository discovery;
-- broad independent re-audits;
-- tiny one-file fixes;
-- work the lead can finish more cheaply than coordinating another agent.
-
-If a subagent stalls or does not return a usable result after bounded waits, stop it and continue locally. Never restart the same broad stalled assignment repeatedly.
+Do not spawn subagents for documentation-only work, CI polling, duplicate repository discovery, broad re-audits, tiny one-file fixes, or work the lead can finish more cheaply than coordinating another agent.
 
 The lead always owns:
 
 - architecture and source-of-truth decisions;
+- shared files and integration;
 - financial semantics;
 - migrations/RLS/RPC/trigger interpretation;
 - destructive lifecycle policy;
-- App/router/provider/shared-file integration;
+- App/router/provider integration;
 - final diff review;
 - validation scope;
-- PR handoff.
+- commit/push/PR delivery.
 
 ## Repository freshness and trusted baseline
 
 Before implementation:
 
 1. inspect current branch/HEAD;
-2. inspect latest `main` and relevant PR/CI state;
+2. inspect latest `main` and relevant open PR/exact-head CI state;
 3. inspect working-tree status when local access exists;
-4. never rely on an old prompt SHA or stale chat snapshot.
+4. read this `AGENTS.md`;
+5. read `docs/AGENT_EXECUTION_EFFICIENCY.md` when implementation/testing workflow matters;
+6. read `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md` when deciding the next phase;
+7. never rely on an old prompt SHA, old roadmap, stale chat snapshot, or historical Engoryx plan.
 
-A newly started phase normally begins from a `main` commit already validated before the prior PR was merged. Treat that green main SHA as the trusted baseline.
+A newly started phase normally begins from a `main` commit already validated before the prior PR was merged. Treat that green main SHA as the trusted baseline unless evidence says otherwise.
 
-**Do not begin every phase by rerunning the full historical suite.** Run baseline tests before editing only when there is concrete reason to distrust the baseline: failed/missing CI, environment/toolchain changes, uncertain repository state, or explicit request.
+Do not rerun the historical full suite merely because a new phase starts.
 
 ## Agent context / Workflow Map
 
@@ -108,15 +109,33 @@ Default orientation:
 - exact symbols/ranges instead of whole-file dumps;
 - repository-wide search only for a named unresolved dependency.
 
-If no Workflow Map node matches, accept the documented changed-file/impact fallback. Do not retry speculative keyword variants merely to force a map match.
+If no Workflow Map node matches, accept the documented changed-file/impact fallback. Do not retry speculative keyword variants merely to force a match.
 
 Workflow Map is navigation only. Current source, migrations, runtime behavior, RLS, tests, and exact-head CI remain authoritative.
 
 Detailed execution guidance lives in `docs/AGENT_EXECUTION_EFFICIENCY.md`.
 
-## Diff-driven implementation and review
+## Implementation workflow
 
-Keep one cohesive objective per implementation run and PR whenever practical.
+For a fresh phase:
+
+1. start from current latest green `main`;
+2. do not rerun the historical full suite merely because a phase started;
+3. generate one bounded `agent:context` packet;
+4. inspect the existing implementation before designing;
+5. implement the scoped phase directly;
+6. run new/edited tests;
+7. run focused domain tests;
+8. run `npm.cmd run test:affected:agent`;
+9. run lint/build/browser/Workflow Map checks only when relevant;
+10. use Docker-backed local Supabase validation when DB contracts change;
+11. review the final diff for correctness and scope creep;
+12. push a feature branch and open a PR;
+13. local Codex must **not merge its own PR**.
+
+Run `test:full` only when impact analysis falls back, a broad shared contract genuinely requires it, CI/failures justify it, release/deep regression requires it, or it is explicitly requested.
+
+## Diff-driven review
 
 After implementation:
 
@@ -128,17 +147,16 @@ After implementation:
 6. escalate only when the changed surface or a failure justifies it;
 7. use exact-head PR CI as the final automated merge gate.
 
-Do not turn a focused feature into a repository-wide audit. Fix adjacent issues immediately only when required for correctness/safety; otherwise record them for a later wave.
+Do not turn a focused feature into a repository-wide audit. Fix adjacent issues immediately only when required for correctness/safety; otherwise leave them for later prioritization.
 
 ## Context and log discipline
 
 - Do not dump whole large files when symbols/ranges are enough.
 - Do not ingest full successful logs; retain command, exit status, counts, and relevant warnings.
-- Prefer `npm.cmd run test:affected:agent` for compact agent-facing application validation.
+- Prefer `npm.cmd run test:affected:agent` for compact agent-facing validation.
 - On failure, inspect the failed command/step and smallest useful error region first.
 - Use `npm.cmd run ci:failure-context -- --file <log>` for oversized saved logs.
 - Do not repeatedly reopen unchanged files, logs, generated maps, or CI pages.
-- Prefer `git diff`, changed hunks, exact symbols, and focused contract checks.
 - Never loop an unchanged failure.
 
 Failure loop:
@@ -149,7 +167,7 @@ Failure loop:
 
 - **Unused accidental record**: guarded permanent delete may be appropriate only when no dependent/auditable history exists.
 - **Used operational record**: archive, deactivate, offboard, cancel, or equivalent reversible lifecycle state.
-- **Finalized/auditable financial or engineering history**: void, reverse, supersede, or deliberate correction; never silently erase history.
+- **Finalized/auditable financial, inventory, engineering, or payroll history**: void, reverse, supersede, or deliberate correction; never silently erase history.
 
 Do not add raw Delete paths that bypass dependency/history checks.
 
@@ -163,30 +181,29 @@ Consequential Assistant mutations preserve prepare/validate/human-confirm/execut
 
 ## Database, migration, and history safety
 
-Protect approved/finalized payroll, verified invoice history, collection/settlement history, engineering history, project cost allocations, committed import provenance, and audit trails.
+Protect approved/finalized payroll, verified invoice/source-document history, expense/payable history, client billing/collection/settlement history, inventory movement/allocation history, engineering history, project cost allocations, committed procurement provenance, and audit trails.
 
 Once a migration reached a shared/protected environment, do not edit it in place. Add a forward migration unless it is proven never to have applied anywhere and its failed transaction fully rolled back.
 
-Never weaken RLS because a deployment contains one company.
+Never weaken RLS because the deployment contains one company.
 
 ## Docker / local Supabase validation contract
 
-The user's laptop normally keeps **Docker Desktop available** specifically so Codex can run real local Supabase validation when needed.
+Docker Desktop is normally available on the user's laptop.
 
-### When Docker is required
+Use real local Supabase validation when work changes:
 
-For changes affecting any of the following, Codex should use the real local Supabase stack before PR completion:
-
-- `supabase/migrations/**`;
-- RLS policies or grants;
-- SECURITY DEFINER / RPC behavior;
-- triggers or database constraints;
+- migrations;
+- RLS/grants;
+- RPC / SECURITY DEFINER behavior;
+- triggers/constraints;
 - financial lifecycle guards;
-- cross-company/company-bound integrity;
-- migration upgrade behavior;
-- database concurrency / row-locking invariants.
+- inventory balance/movement/allocation guards;
+- company-bound integrity;
+- migration upgrades;
+- DB concurrency/row locking.
 
-Typical Windows commands:
+Expected applicable validation includes:
 
 ```text
 docker info
@@ -197,79 +214,28 @@ npm.cmd run test:migrations
 npm.cmd run test:migrations:upgrade
 ```
 
-Run targeted runtime/RPC/concurrency tests in addition when the changed contract requires them.
+Add relevant runtime/RPC/concurrency tests for the changed contract.
 
-### What Docker-backed validation proves
+Static SQL/string tests are not equivalent to runtime database validation.
 
-Use the local stack to verify real PostgreSQL/Supabase behavior such as:
+Do **not** start Docker/Supabase for UI-only, documentation-only, or unrelated non-DB work.
 
-- clean migration replay;
-- pgTAP schema/invariant assertions;
-- RLS and authenticated/unauthorized access behavior;
-- RPC lifecycle transitions;
-- trigger/constraint enforcement;
-- cross-company rejection;
-- immutable/finalized history guards;
-- overbilling/overcollection/settlement ceilings;
-- concurrent transaction and row-lock behavior;
-- historical-data upgrade compatibility;
-- backup/restore drills when that infrastructure is the task.
+If Docker is unavailable, state exactly which runtime checks were not performed.
 
-Static SQL/migration string tests are useful but **do not substitute for runtime DB validation**.
+Do not close Docker Desktop itself. Stop only repo-specific servers/containers started by the run when cleanup is appropriate.
 
-### When Docker should NOT be started
-
-Do not start Supabase containers merely because Docker is available for:
-
-- UI-only changes;
-- documentation-only changes;
-- isolated client-side formatting/filtering;
-- unrelated application logic with no DB contract change.
-
-Use the cheapest sufficient changed-surface validation.
-
-### If Docker/runtime validation is unavailable
-
-If Docker Desktop, Supabase CLI, ports, or local containers are unavailable:
-
-- report the exact blocker once;
-- run the strongest remaining static/focused checks;
-- explicitly state which DB runtime checks were **not run**;
-- never claim static tests are equivalent to replay/pgTAP/runtime validation;
-- exact-head GitHub DB CI remains the final automated gate, but local runtime absence must be disclosed for DB-affecting work.
-
-Do not close Docker Desktop itself. Stop only repo-specific servers/containers started by the run when cleanup is appropriate; if the user intentionally keeps the local Supabase stack running, report that fact rather than shutting down their environment unexpectedly.
-
-## Test execution and validation optimization
-
-Engoryx uses impact-based selection. `npm test` / `npm run test:full` remains the complete historical regression suite but is not the default per-phase command.
-
-### Validation ladder
+## Validation ladder
 
 1. new/edited tests directly;
 2. focused domain tests;
 3. `npm.cmd run test:affected:agent`;
 4. `npm.cmd run test:smoke` when useful;
 5. `npm.cmd run lint` after implementation stabilizes;
-6. `npm.cmd run build` for production/runtime/UI integration or PR handoff when relevant;
+6. `npm.cmd run build` for production/runtime/UI integration when relevant;
 7. Docker/Supabase DB validation only for database-affecting changes;
 8. Workflow Map checks only when mapped contracts/generated inputs changed;
 9. targeted browser QA for significant user-facing changes;
 10. full regression only when justified.
-
-### Full-suite rule
-
-Run `npm.cmd run test:full` locally only when at least one is true:
-
-- impact analysis explicitly falls back to full coverage;
-- a broad shared/root contract changed and the selector cannot prove safe isolation;
-- architecture changed unusually broadly;
-- dependency/toolchain/test-runner infrastructure changed;
-- the user/lead explicitly requests it;
-- preparing a release/deep regression outside normal phase work;
-- exact-head CI or targeted validation indicates wider coverage is needed.
-
-Do not run the full suite at the start of a phase from just-merged green `main`, and do not run it repeatedly during implementation.
 
 ## Browser scope
 
@@ -285,40 +251,47 @@ Verified local environment is Windows PowerShell. Prefer `npm.cmd` / `npx.cmd` b
 
 Prefer focused branches/PRs. Never force-push by default or rewrite production history.
 
-Local Codex should push/open the PR and report exact validation. The GitHub-native lead reviews exact-head CI, fixes/coordinates concrete failures, and merges when safe under the current conversation workflow.
+Local Codex should push/open the PR and report exact validation. The GitHub-native lead reviews exact-head CI, fixes or coordinates concrete failures, and merges when safe under the current conversation workflow.
 
-Do not merge critical security/data work until required exact-head CI is reviewed.
+Never use CI from an older PR head as proof for a newer head.
+
+Do not merge when there is a real safety, security, data-integrity, migration, or failing-CI blocker.
+
+## PR review / merge workflow
+
+When the user asks ChatGPT to check, review, fix, finalize, prepare the next phase, or similar:
+
+1. inspect the live PR and exact current head;
+2. review the complete relevant diff;
+3. fix concrete issues if necessary;
+4. add regression coverage when appropriate;
+5. re-check the new exact head;
+6. verify required CI belongs to that exact head;
+7. confirm base/head/mergeability and unresolved review blockers;
+8. **merge automatically if safe; do not ask for separate merge confirmation**;
+9. re-check `main`;
+10. if the user asked for the next phase/prompt, provide it immediately after the safe merge.
 
 ## Prompt-creation rules for future phases
 
-Every new phase prompt should:
+Do not create a new implementation prompt from an old Engoryx phase plan. The current HydroQualiSense roadmap controls scope.
 
-1. start from current latest green `main` and report its SHA;
-2. avoid ritual full-suite baseline reruns;
-3. state objective, acceptance criteria, financial/security invariants, and explicit out-of-scope items;
-4. require one bounded `agent:context` packet first;
-5. tell the **Codex lead to implement the phase itself**;
-6. assume **no Luna/Gemini/Antigravity/external paid agent** unless the user explicitly re-enables one;
-7. default to zero subagents, never more than two concurrent Codex-internal subagents if genuinely useful;
-8. require focused tests then `test:affected:agent`;
-9. require Docker-backed Supabase runtime validation for DB/RPC/RLS/trigger/migration changes;
-10. skip Docker for UI-only/non-DB work;
-11. require lint/build/browser/Workflow Map only when relevant;
-12. reserve `test:full` for justified escalation/fallback;
-13. require concise diff review and exact validation results;
-14. tell local Codex to open the PR but not merge it; the GitHub-native lead handles review/merge.
+Every implementation prompt should carry forward:
 
-### Default phase-prompt wording
+- current exact `main` SHA;
+- Codex-only default;
+- zero subagents by default / maximum 2;
+- lead ownership;
+- one bounded context packet;
+- current financial/security/history invariants;
+- explicit scope and out-of-scope boundaries;
+- focused -> affected validation;
+- conditional Docker validation;
+- no ritual full-suite runs;
+- exact final diff review;
+- PR creation without Codex self-merging.
 
-Use wording equivalent to:
-
-> Start from current latest `main` and confirm the exact green base SHA. Do not rerun the historical full suite before implementation unless the baseline is genuinely untrusted. Generate one bounded `npm.cmd run agent:context -- ...` packet and use it as the initial working set. The Codex lead owns the implementation and continues work itself; do not assume Luna, Gemini, Antigravity, or another external paid coding agent is available. Use zero subagents by default and never more than two concurrent internal Codex subagents for genuinely independent bounded work. Run focused/new tests while iterating, then `npm.cmd run test:affected:agent`. If migrations, RLS, RPCs, triggers, database contracts, or concurrency rules change, use the available Docker Desktop/local Supabase stack for clean replay, pgTAP, upgrade-path and relevant runtime/concurrency checks before PR completion; if Docker is unavailable, disclose exactly what could not be run. Do not start Docker for UI-only/non-DB work. Run lint/build/browser/Workflow Map checks only when the changed surface requires them. Open the PR but do not merge it; exact-head CI is the final automated gate and the GitHub-native lead will review/merge when safe.
-
-## Background process cleanup
-
-Stop dev servers, watchers, and repo-specific processes/containers started by the run when appropriate. Do not shut down the user's Docker Desktop application.
-
-For substantial local runs report whether background processes started by the run remain.
+For deliberately wide/unattended runs, give Codex an explicit priority order and stop boundary. Do not let spare time turn into unrelated scope creep or an unvalidated new DB domain.
 
 ## Final handoff
 
