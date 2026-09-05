@@ -1,6 +1,6 @@
 {
-  "name": "Engoryx",
-  "description": "Engineering operations platform for projects, finance, workforce, documents, and field operations with deterministic validation, original-source preservation, and verified AI assistant workflows.",
+  "name": "HydroQualiSense",
+  "description": "HydroQualiSense is an engineering operations platform for projects, finance, workforce, documents, and field operations with deterministic validation, original-source preservation, and verified AI assistant workflows.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

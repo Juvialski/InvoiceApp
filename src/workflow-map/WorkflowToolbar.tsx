@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { BRAND } from "../config/brand.ts";
 import {
   Search,
   Filter,
@@ -166,7 +167,7 @@ export function WorkflowToolbar({
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-black tracking-tight text-slate-900 dark:text-slate-100">
-                  Engoryx Workflow Map
+                  {BRAND.productName} Workflow Map
                 </span>
                 <span className="rounded bg-indigo-50 px-1.5 py-0.2 text-[9px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                   WM-4

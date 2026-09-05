@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
+import { BRAND } from "../../config/brand.ts";
 import { findInternalTransferSuggestions } from "../../lib/cashBanking.ts";
 import { normalizeAttendanceRecord } from "../../lib/payrollWorkforce.ts";
 import { AssistantBackendError, AssistantToolError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
@@ -18,7 +19,7 @@ export interface AssistantOperationToolDefinition {
   requiresConfirmation: boolean;
 }
 
-const uuid = { type: "string", description: "Identifier supplied by a prior Engoryx tool result or current workspace context." };
+const uuid = { type: "string", description: `Identifier supplied by a prior ${BRAND.productName} tool result or current workspace context.` };
 const date = { type: "string", description: "Calendar date in YYYY-MM-DD format." };
 const reason = { type: "string", description: "Short reason retained with the audited operation." };
 const lifecycle = (values: readonly string[]) => ({ type: "string", enum: values });

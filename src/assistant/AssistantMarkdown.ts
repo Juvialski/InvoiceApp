@@ -1,6 +1,7 @@
 import React from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { BRAND } from "../config/brand.ts";
 
 const DANGEROUS_PROTOCOL_PATTERN = /^(?:javascript|vbscript|data|file|blob):/i;
 const CONTROL_CHARACTER_PATTERN = `[\\u0000-\\u001f\\u007f]`;
@@ -30,7 +31,7 @@ export function safeAssistantUrl(value: string) {
   if (DANGEROUS_PROTOCOL_PATTERN.test(protocolCheck)) return "";
   if (/^(?:#|\/|\.\/|\.\.\/)/.test(candidate)) return candidate;
   try {
-    const parsed = new URL(candidate, "https://engoryx.invalid");
+    const parsed = new URL(candidate, BRAND.canonicalOrigin);
     return /^(?:https?|mailto):$/i.test(parsed.protocol) ? candidate : "";
   } catch {
     return "";

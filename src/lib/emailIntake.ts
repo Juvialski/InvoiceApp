@@ -20,6 +20,7 @@ import {
   saveGmailSyncState,
 } from "./persistence.ts";
 import { findExistingExpenseBySource } from "./expenses.ts";
+import { BRAND } from "../config/brand.ts";
 import {
   extractDeterministicReceiptFields,
   extractTextFromPdfReceipt,
@@ -658,7 +659,7 @@ export async function classifyAmbiguousCandidatesWithAi(
 
 async function gmailApiRequest(path: string, body: Record<string, unknown>) {
   const googleAccessToken = getGoogleProviderToken();
-  if (!googleAccessToken) throw new Error("Gmail authorization is missing or expired. Reconnect Google + Gmail; your Engoryx session remains active.");
+  if (!googleAccessToken) throw new Error(`Gmail authorization is missing or expired. Reconnect Google + Gmail; your ${BRAND.productName} session remains active.`);
   const response = await companyApiRequest(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -670,7 +671,7 @@ async function gmailApiRequest(path: string, body: Record<string, unknown>) {
   if (!response.ok || !result.success) {
     if (response.status === 401 || response.status === 403) {
       clearGoogleProviderTokens();
-      throw new Error("Gmail authorization expired or was revoked. Reconnect Gmail; your Engoryx session is still active.");
+      throw new Error(`Gmail authorization expired or was revoked. Reconnect Gmail; your ${BRAND.productName} session is still active.`);
     }
     const error = new Error(result.error || "Connected mailbox request failed.");
     (error as Error & { code?: string }).code = result.code;

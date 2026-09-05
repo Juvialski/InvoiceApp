@@ -20,6 +20,7 @@ import { boundToolValue, toolOk } from "./toolResults.ts";
 import { isUuid, requireUuid, validateAssistantMessage } from "./toolValidation.ts";
 import { withCompanyAiRuntime } from "../ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../ai/companyAiTypes.ts";
+import { BRAND } from "../../config/brand.ts";
 
 const ACTION_TTL_MS = 10 * 60 * 1000;
 const UUID_HEADER_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,7 +49,7 @@ function firstHeader(value: string | string[] | undefined) {
 function bearerToken(req: Request) {
   const header = firstHeader(req.headers.authorization);
   const match = header.match(/^Bearer\s+([^\s]+)$/i);
-  if (!match) throw new AssistantBackendError("UNAUTHENTICATED", "A valid Engoryx session is required.", 401);
+  if (!match) throw new AssistantBackendError("UNAUTHENTICATED", `A valid ${BRAND.productName} session is required.`, 401);
   return match[1];
 }
 
@@ -63,17 +64,17 @@ export async function authenticateAssistantRequest(req: Request, options: Assist
   const accessToken = bearerToken(req);
   const supabase = options.createSupabaseClient ? options.createSupabaseClient(accessToken) : serverSupabaseClient(accessToken);
   const { data, error } = await supabase.auth.getUser(accessToken);
-  if (error || !data.user) throw new AssistantBackendError("UNAUTHENTICATED", "A valid Engoryx session is required.", 401);
+  if (error || !data.user) throw new AssistantBackendError("UNAUTHENTICATED", `A valid ${BRAND.productName} session is required.`, 401);
   const companyId = firstHeader(req.headers["x-company-id"]).trim();
   if (!UUID_HEADER_PATTERN.test(companyId)) throw new AssistantBackendError("COMPANY_REQUIRED", "A valid company context is required.", 400);
   const deployment = await supabase.rpc("get_deployment_company_id");
   if (deployment.error || typeof deployment.data !== "string" || !UUID_HEADER_PATTERN.test(deployment.data)) {
     throw new AssistantBackendError("AUTHORIZATION_UNAVAILABLE", "Deployment company authorization is temporarily unavailable.", 503);
   }
-  if (deployment.data !== companyId) throw new AssistantBackendError("FORBIDDEN", "The Assistant cannot target another Engoryx deployment company.", 403);
+  if (deployment.data !== companyId) throw new AssistantBackendError("FORBIDDEN", `The Assistant cannot target another ${BRAND.productName} deployment company.`, 403);
   const membership = await supabase.rpc("is_active_company_member", { p_company_id: companyId });
   if (membership.error) throw new AssistantBackendError("AUTHORIZATION_UNAVAILABLE", "Company authorization is temporarily unavailable.", 503);
-  if (membership.data !== true) throw new AssistantBackendError("FORBIDDEN", "You do not have active access to this Engoryx deployment company.", 403);
+  if (membership.data !== true) throw new AssistantBackendError("FORBIDDEN", `You do not have active access to this ${BRAND.productName} deployment company.`, 403);
   return { accessToken, companyId, supabase, user: data.user };
 }
 
@@ -153,7 +154,7 @@ async function loadThread(auth: AssistantAuthContext, threadId: string | undefin
     await client.from("assistant_threads").update({ context, updated_at: new Date().toISOString() }).eq("id", threadId).eq("company_id", auth.companyId).eq("user_id", auth.user.id);
     return thread.data as { id: string };
   }
-  const created = await client.from("assistant_threads").insert({ company_id: auth.companyId, user_id: auth.user.id, title: "Engoryx Assistant", context }).select("id").single();
+  const created = await client.from("assistant_threads").insert({ company_id: auth.companyId, user_id: auth.user.id, title: BRAND.assistantName, context }).select("id").single();
   if (created.error || !created.data?.id) throw new AssistantBackendError("THREAD_UNAVAILABLE", "The assistant thread could not be created.", 503);
   return created.data as { id: string };
 }
@@ -299,7 +300,7 @@ function confirmationResponse(auth: AssistantAuthContext, action: AssistantActio
   }
   if (action.tool_name === "prepare_process_attached_invoice") {
     const invoiceId = typeof result.invoiceId === "string" ? result.invoiceId : undefined;
-    message = invoiceId ? "The attached invoice was already processed and is ready in the review queue." : result.clientExecutionRequired === true ? "The attachment handoff was confirmed. Engoryx will process the invoice through the review queue now." : "The attached invoice was sent to the review queue.";
+    message = invoiceId ? "The attached invoice was already processed and is ready in the review queue." : result.clientExecutionRequired === true ? `The attachment handoff was confirmed. ${BRAND.productName} will process the invoice through the review queue now.` : "The attached invoice was sent to the review queue.";
     if (invoiceId) {
       references.push({ type: "invoice", id: invoiceId, label: "Review invoice" });
       clientActions.push({ type: "OPEN_REVIEW_INVOICE", entityId: invoiceId, label: "Open in Review Queue" });

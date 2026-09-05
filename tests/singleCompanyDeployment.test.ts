@@ -63,7 +63,7 @@ test("missing, unknown, and duplicate deployment-company access fail clearly", (
 test("caller supplied company ids cannot override the deployment company", () => {
   assert.equal(assertDeploymentCompanyId(DEPLOYMENT, DEPLOYMENT), DEPLOYMENT);
   assert.equal(assertDeploymentCompanyId(DEPLOYMENT, null), DEPLOYMENT);
-  assert.throws(() => assertDeploymentCompanyId(DEPLOYMENT, OTHER, "Assistant tool"), /outside this Engoryx deployment/i);
+  assert.throws(() => assertDeploymentCompanyId(DEPLOYMENT, OTHER, "Assistant tool"), /outside this HydroQualiSense deployment/i);
 });
 
 test("browser company context cannot switch directly between non-null companies", () => {

@@ -4,6 +4,7 @@ import { PayrollPageV2, type PayrollPageV2Props } from "../../components/payroll
 import { PayrollRunView } from "../../components/payroll/PayrollRunView";
 import { attendanceDateFromSearch, payrollPeriodIdFromSearch, payrollRunIdFromSearch } from "../../utils/appRouting.ts";
 import { useWorkspaceDataPending } from "../AppPermissionContext.tsx";
+import { BRAND } from "../../config/brand.ts";
 
 export type PayrollRouteProps = PayrollPageV2Props;
 
@@ -63,7 +64,7 @@ export const PayrollRoute: React.FC<PayrollRouteProps> = (props) => {
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Payroll run</p>
             <h1 className="mt-1 text-xl font-black text-slate-950">{requestedPeriod.periodStart} – {requestedPeriod.periodEnd}</h1>
-            <p className="mt-1 text-xs text-slate-500">Opened from a direct Engoryx link. Settlement evidence remains separate from payroll calculation and project labor cost.</p>
+            <p className="mt-1 text-xs text-slate-500">Opened from a direct {BRAND.productName} link. Settlement evidence remains separate from payroll calculation and project labor cost.</p>
           </div>
           <a href={safeReturnPath(search)} onClick={(event) => { if (!props.onNavigatePath) return; event.preventDefault(); props.onNavigatePath(safeReturnPath(search)); }} className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 hover:bg-slate-50">
             <ArrowLeft className="h-3.5 w-3.5" /> Back

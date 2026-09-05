@@ -4,34 +4,38 @@ import { readFileSync } from 'node:fs';
 import { BRAND, formatBreadcrumb, formatPageTitle } from '../src/config/brand.ts';
 import { ENGORYX_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getFeatureById } from '../src/features/registry.ts';
 
-test('brand configuration contains canonical Engoryx values', () => {
-  assert.equal(BRAND.productName, 'Engoryx');
-  assert.equal(BRAND.shortName, 'Engoryx');
-  assert.equal(BRAND.displayUppercase, 'ENGORYX');
+test('brand configuration contains canonical HydroQualiSense values', () => {
+  assert.equal(BRAND.productName, 'HydroQualiSense');
+  assert.equal(BRAND.shortName, 'HydroQualiSense');
+  assert.equal(BRAND.companyName, 'HydroQualiSense Solutions Corp.');
+  assert.equal(BRAND.displayUppercase, 'HYDROQUALISENSE');
+  assert.equal(BRAND.canonicalOrigin, 'https://hydroqualisense.com');
   assert.equal(BRAND.tagline, 'Engineering Operations');
-  assert.equal(BRAND.assistantName, 'Engoryx Assistant');
-  assert.equal(BRAND.browserTitle, 'Engoryx | Engineering Operations');
+  assert.equal(BRAND.assistantName, 'HydroQualiSense Assistant');
+  assert.equal(BRAND.browserTitle, 'HydroQualiSense | Engineering Operations');
   assert.match(BRAND.description, /engineering operations platform/i);
-  assert.match(BRAND.footerText, /Engoryx/);
+  assert.match(BRAND.footerText, /HydroQualiSense/);
 });
 
 test('page title and breadcrumb formatting helpers produce correct branded labels', () => {
-  assert.equal(formatPageTitle(), 'Engoryx | Engineering Operations');
-  assert.equal(formatPageTitle('Projects'), 'Projects | Engoryx');
-  assert.equal(formatPageTitle('Cash and Banking'), 'Cash and Banking | Engoryx');
+  assert.equal(formatPageTitle(), 'HydroQualiSense | Engineering Operations');
+  assert.equal(formatPageTitle('Projects'), 'Projects | HydroQualiSense');
+  assert.equal(formatPageTitle('Cash and Banking'), 'Cash and Banking | HydroQualiSense');
 
-  assert.equal(formatBreadcrumb(), 'Engoryx');
-  assert.equal(formatBreadcrumb('Invoices'), 'Engoryx / Invoices');
-  assert.equal(formatBreadcrumb('Payroll'), 'Engoryx / Payroll');
+  assert.equal(formatBreadcrumb(), 'HydroQualiSense');
+  assert.equal(formatBreadcrumb('Invoices'), 'HydroQualiSense / Invoices');
+  assert.equal(formatBreadcrumb('Payroll'), 'HydroQualiSense / Payroll');
 });
 
-test('index.html, metadata.json, and package.json are synchronized with Engoryx brand', () => {
+test('index.html, metadata.json, and package.json are synchronized with HydroQualiSense brand', () => {
   const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(indexHtml, /<title>Engoryx \| Engineering Operations<\/title>/);
+  assert.match(indexHtml, /<title>HydroQualiSense \| Engineering Operations<\/title>/);
+  assert.match(indexHtml, /<link rel="canonical" href="https:\/\/hydroqualisense\.com" \/>/);
+  assert.match(indexHtml, /<meta property="og:url" content="https:\/\/hydroqualisense\.com" \/>/);
   assert.doesNotMatch(indexHtml, /My Google AI Studio App/);
 
   const metadataJson = JSON.parse(readFileSync(new URL('../metadata.json', import.meta.url), 'utf8'));
-  assert.equal(metadataJson.name, 'Engoryx');
+  assert.equal(metadataJson.name, 'HydroQualiSense');
   assert.match(metadataJson.description, /engineering operations/i);
 
   const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));

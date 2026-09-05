@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Bot, FileStack, Presentation, RotateCcw, ShieldCheck } from "lucide-react";
 import { AppShell } from "../app/AppShell.tsx";
 import { AppRouter } from "../app/routes/AppRouter.tsx";
+import { BRAND } from "../config/brand.ts";
 import { DEFAULT_REGIONAL_SETTINGS } from "../config/regional.ts";
 import type { DashboardActivityPeriod } from "../components/engineering/EngineeringCostOperationsDashboard.tsx";
 import type { AppTab } from "../utils/routes.ts";
@@ -301,7 +302,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   };
 
   useEffect(() => {
-    document.title = location.kind === "assistant" ? "AI Assistant | Engoryx Demo" : location.kind === "documents" ? "Engineering Documents | Engoryx Demo" : "Client Demo | Engoryx";
+    document.title = location.kind === "assistant" ? `AI Assistant | ${BRAND.productName} Demo` : location.kind === "documents" ? `Engineering Documents | ${BRAND.productName} Demo` : `Client Demo | ${BRAND.productName}`;
   }, [location.kind]);
 
   const navigateTab = (tab: AppTab) => onNavigate(demoPathForTab(tab));
@@ -534,14 +535,14 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       reviewCount={reviewQueue.length}
       onBatchExportExcel={() => {}}
       workspaceSyncStatus="guest"
-      accountEmail="client.demo@engoryx.local"
+      accountEmail="client.demo@hydroqualisense.com"
       visibleRouteIds={VISIBLE_ROUTES}
       permissions={["*"]}
       projectCostCompleteness={demoProjectCostCompleteness}
       isSupabaseConfigured={true}
       routeNotFound={routeNotFound}
       onReturnToDashboard={() => onNavigate(demoPathForTab("dashboard"))}
-      footerText="Engoryx Demo Workspace • Meridian Engineering & Construction Corp. • Sample data only"
+      footerText={`${BRAND.productName} Demo Workspace • Meridian Engineering & Construction Corp. • Sample data only`}
     >
       <div className="sticky top-2 z-40 mb-5 flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white/95 px-3.5 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">

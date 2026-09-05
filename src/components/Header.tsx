@@ -398,18 +398,16 @@ export const Header: React.FC<HeaderProps> = ({
               title="Expand sidebar"
               aria-label="Expand sidebar"
             >
-              <Files className="h-4 w-4" />
+              <img src="/brand/hydroqualisense-logo.png" alt="" className="h-10 w-10 object-contain mix-blend-screen drop-shadow-[0_0_12px_rgba(14,165,233,0.35)]" />
             </button>
           </div>
         ) : (
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
             <div className="flex min-w-0 items-center gap-3">
-              <div aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white shadow-lg shadow-indigo-950/30">
-                <Files className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
+              <img src="/brand/hydroqualisense-logo.png" alt="HydroQualiSense Solutions Corp. logo" className="h-12 w-12 shrink-0 object-contain mix-blend-screen drop-shadow-[0_0_14px_rgba(14,165,233,0.4)]" />
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black tracking-tight text-white">{BRAND.productName}</p>
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{BRAND.tagline}</p>
+                <p className="whitespace-normal break-words text-[10px] font-semibold leading-3 text-slate-400">{BRAND.companyName}</p>
               </div>
             </div>
             {onToggleCollapse && (
