@@ -1,126 +1,118 @@
-# ENGORYX — Engineering Operations Platform
+# HydroQualiSense — Company Operations Platform
 
-Engoryx is an integrated engineering operations platform for architecture, engineering, and construction (AEC) firms, contractors, and project teams. It unifies project costing, cash & banking operations, supplier invoice extraction & verification, workforce management, engineering payroll, direct expenses, engineering document control, field workflows, financial settlement evidence, and comprehensive reporting under a deployment-isolated company architecture.
+HydroQualiSense is the client company's internal operations platform for project controls, finance, procurement, workforce/payroll, engineering records, field operations, reporting, and related operational workflows.
 
-**Deployment tenancy model:** one deployed Engoryx instance serves one client company. Different client companies use separate application deployments and separate Supabase projects/databases/Storage. Multiple users and role-based access remain within each company's deployment. Database rows continue to carry `company_id` as a defense-in-depth authorization and audit boundary.
+**Canonical production domain:** `https://hydroqualisense.com`
 
-For technical architecture and roadmap details, see:
-- [Engoryx Platform Architecture](docs/ENGORYX_PLATFORM_ARCHITECTURE.md)
+**Deployment tenancy model:** one HydroQualiSense deployment serves one client company. The deployment uses its own Supabase project/database/Storage, users, environment configuration, and role/permission model. Database rows continue to carry `company_id` as a defense-in-depth authorization and audit boundary.
+
+The repository may remain named `InvoiceApp`. Repository naming is not product branding.
+
+Existing source/UI may still contain legacy Engoryx strings until the dedicated branding implementation is completed. New current documentation and future implementation must use **HydroQualiSense**.
+
+For current product direction and planning, see:
+
+- [HydroQualiSense Product Direction](docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md)
+- [HydroQualiSense Active Roadmap](docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md)
 - [Company boundary and database RBAC](docs/company-tenancy-rbac-database.md)
 - [Single-company deployment runbook](docs/SINGLE_COMPANY_DEPLOYMENT.md)
-- [Engoryx Phase 1A: Engineering Documents & Blueprint Viewer](docs/ENGORYX_PHASE_1A_ENGINEERING_DOCUMENTS.md)
-- [Engoryx Phase 1B: RFIs & Technical Submittals](docs/ENGORYX_PHASE_1B_RFIS_SUBMITTALS.md)
-- [Engoryx Phase 1C: Daily Site Logs & Weather Tracking](docs/ENGORYX_PHASE_1C_DAILY_SITE_LOGS.md)
-- [Engoryx Phase 2: Project Scheduling & Gantt](docs/ENGORYX_PHASE_2_PROJECT_SCHEDULING.md)
-- [Engoryx Financial Settlement Integration](docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md)
-- [Engoryx Workflow Map, QA & Agent Context Infrastructure](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md)
-- [Engoryx Open-Source Integrations Evaluation](docs/ENGORYX_OPEN_SOURCE_INTEGRATIONS.md)
-- [Engoryx UI Foundation & Astryx Pilot](docs/ENGORYX_UI_FOUNDATION.md)
+- [Workflow Map](docs/architecture/APP_WORKFLOW_MAP.md)
 
 ---
 
-## 1. Current Project Status
+## 1. Current Planning Status
 
-Roadmap snapshot as of **2026-08-28**:
+On **2026-09-05**, the product roadmap was reset after direct client review.
 
-- **Phase 0 core operations are established**: deployment-scoped company RBAC, Cash & Banking, Invoices, Projects, Expenses, Workforce & Payroll, Reports, and the guarded Engoryx Assistant are active platform foundations.
-- **Phase 1 is functionally complete on `main`**:
-  - **Phase 1A**: Engineering Drawings & Blueprint Viewer, immutable revision lineage, and normalized redlines.
-  - **Phase 1B**: RFIs and Technical Submittals with guarded lifecycle/history and document-revision linking.
-  - **Phase 1C**: Daily Site Logs with weather/site conditions, crew/headcount observations, equipment, delays, safety observations, and formal field-record history.
-- **Financial Settlement Integration is complete**: Cash & Banking can provide guarded settlement evidence for supplier invoices, payroll runs, and supported expenses while keeping project-cost and payroll-source semantics separate.
-- **The next customer-facing product phase is Phase 2: Project Scheduling & Gantt.** Its foundation contract is prepared, but production scheduling remains planned until persistence, RLS, routing, and the workspace UI are implemented.
-- **QA-1 Structured Browser Evidence and WM-1 through WM-5 are implemented**: the repository contains generated machine-readable/Mermaid workflow-map outputs, a read-only developer canvas, deterministic graph-to-source contract checks, browser-evidence overlays, and an on-demand bounded agent-context generator.
+All previously planned, deferred, or future Engoryx product phases are no longer active roadmap authority. Completed functionality remains valid implementation history, but no old future phase should be selected automatically as the next implementation target.
 
----
+The only currently confirmed forward requirements are:
 
-## 2. Core Modules
+1. **HydroQualiSense branding** — remove legacy product branding and make HydroQualiSense the exclusive application identity, with `hydroqualisense.com` as the canonical production domain.
+2. **Warehouse inventory** — track current warehouse stock and traceable stock movements, with inventory allocation/issue relationships to individual projects.
+3. **Invoice workflow simplification** — incoming/supplier invoice activity should connect directly to expenses/payables, while outgoing client invoices and payment/collection state should connect directly to client billing/receivables instead of living as a separate generic invoice branch.
+4. **Requirements hold** — additional client requirements are still being collected. Do not create a detailed implementation phase sequence until those requirements are consolidated.
 
-1. **Operations Dashboard**: Central executive and project cost overview with multi-currency conversions and real-time KPI metrics.
-2. **Cash & Banking**: Multi-account ledger, statement imports, balance freshness tracking, transaction reconciliation, and settlement evidence against invoices, payroll, and supported expenses.
-3. **Invoices & AI Extraction**: Multimodal invoice extraction with Gemini models, human verification queue, editable line items, vendor directory, and authoritative settlement presentation.
-4. **Project Workspaces**: Detailed project tracking combining budgets, confirmed supplier invoices, approved payroll allocations, direct site expenses, engineering documents, RFIs/Submittals, and Daily Site Logs.
-5. **Engineering Documents & Drawings (Phase 1A)**: Multi-page blueprint viewer (PDF.js + Konva), immutable revision lineage, normalized vector redlines, and discipline filtering.
-6. **Engineering Coordination (Phase 1B)**: Project-scoped RFIs and Technical Submittals with guarded lifecycle transitions, formal history, immutable document-revision references, and Assistant integration.
-7. **Daily Site Logs (Phase 1C)**: Project-scoped daily field records for weather/site conditions, crew, equipment, delays, safety observations, and formal submission/finalization history.
-8. **Direct Expenses**: Project disbursement tracking for fuel, transport, equipment rentals, permits, and miscellaneous site costs.
-9. **Workforce & Payroll**: Attendance rosters, overtime approvals, leave management, compensation profiles, recurring runs, project labor cost allocation, and payroll disbursement evidence.
-10. **Operational Reports**: Consolidated project cost reports, payroll operating cost summaries, and full multi-sheet Excel workbook exports.
-11. **Engoryx Assistant**: Guarded operations assistant for natural language navigation, data queries, and multi-step action preparation with mandatory confirmation gates.
+The exact inventory model, invoice/payment lifecycle semantics, and detailed UX are intentionally not finalized yet.
 
 ---
 
-## 3. Phased Engineering Platform Roadmap
+## 2. Existing Implemented Foundation
 
-- **Phase 0 (Established / Active)**: Engoryx Core Foundation, deployment-scoped company RBAC, Cash & Banking, Invoices, Projects, Expenses, Payroll, Reports, AI Assistant, and the bounded Astryx UI-foundation pilot.
-- **Phase 1 (Complete / Active in product)**:
-  - **Phase 1A (Complete)**: Engineering Drawings & Blueprint Viewer (PDF.js + Konva), immutable revisions, normalized redlines.
-  - **Phase 1B (Complete)**: RFIs and Technical Submittals with Engineer-of-Record-style coordination workflows and immutable document-revision references.
-  - **Phase 1C (Complete)**: Daily Site Logs with weather/site conditions, crew headcount, equipment usage, delays, safety observations, and formal field-record history.
-- **Cross-Domain Financial Settlement (Complete)**: Guarded settlement integration across Cash & Banking, supplier invoices, payroll, supported expenses, and Assistant workflows. Settlement remains evidence of payment/disbursement and does not create project cost.
-- **Engineering Infrastructure Track (WM-1 through WM-5 implemented)**: the canonical source is [`scripts/workflow-map/graph.ts`](scripts/workflow-map/graph.ts), with generated [`workflow-map.json`](docs/architecture/workflow-map.json) and [`APP_WORKFLOW_MAP.md`](docs/architecture/APP_WORKFLOW_MAP.md). Use `npm.cmd run workflow-map:generate`, `npm.cmd run workflow-map:check`, `npm.cmd run workflow-map:consistency`, and `npm.cmd run workflow-map:context`; the track runs from repository code and existing CI/local tooling. Later enhancements are optional and do not renumber the customer-facing Engoryx roadmap. See [the dedicated plan](docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md).
-- **Phase 2 (Next Product Phase / Planned)**: Interactive Gantt Scheduling (Frappe Gantt), task dependency networks, CPM, milestone progress tracking, and project schedule health. The implementation contract is documented in [Engoryx Phase 2: Project Scheduling & Gantt](docs/ENGORYX_PHASE_2_PROJECT_SCHEDULING.md).
-- **Phase 3 (Planned)**: Field Capture & Barcode/QR Scanning (ZXing-js) for equipment check-in/out, tool tracking, and material delivery verification.
-- **Phase 4 (Future)**: 3D CAD & BIM Model Inspection (Online3DViewer / web-ifc), GIS Site Boundaries & Drone Survey Orthomosaics (MapLibre + Turf + OpenDroneMap).
-- **Phase 5 (Future)**: Procurement, Material Requisition Orders (MRO), BOQ/vendor workflows, and 3-way PO matching.
-- **Phase 6 (Future)**: Subcontractor Portal & Self-Hosted Digital Signatures (Documenso).
-- **Phase 7 (Future)**: Advanced Document Intelligence & Complex Layout Parsing (Docling).
-- **Phase 8 (Future)**: Field SMS & Emergency Weather Broadcasts (httpSMS).
+The current application already contains substantial working functionality. Preserve it unless later client requirements explicitly replace, hide, consolidate, or remove it.
+
+Current foundation includes, where implemented:
+
+- project workspaces and project financial controls;
+- supplier/vendor and procurement workflows;
+- purchase orders and delivery/receipt tracking;
+- supplier invoice extraction/verification and source documents;
+- direct expenses and project cost allocations;
+- client billing, collections, and cash/banking settlement evidence;
+- workforce, attendance, payroll, and project labor allocation;
+- engineering documents and immutable revisions;
+- RFIs, Submittals, and Daily Site Logs;
+- reports and management views;
+- guarded AI-assisted operations;
+- deployment-scoped RBAC, RLS, company-bound integrity, and audit/history controls.
+
+The roadmap reset removes old **future authorization**; it does not mean these completed capabilities should be deleted.
+
+---
+
+## 3. Current Product Invariants
+
+- **One deployment, one client company:** unrelated companies do not coexist in the same production deployment or Supabase project.
+- **Database defense in depth:** keep `company_id`, RLS, membership checks, permissions, and company-bound foreign-key validation.
+- **No tenant switching:** browser state, URLs, Assistant arguments, or request headers must not select another company.
+- **Financial history remains auditable:** verified/finalized financial, payroll, procurement, billing, collection, and settlement records must not be silently rewritten.
+- **No double counting:** simplification of invoice workflows must not cause one economic event to be recognized twice.
+- **Client billing is not collection:** an invoice sent to a client and money received from the client remain distinct events unless a later explicit contract changes the model.
+- **Supplier obligation/cost is not automatically settlement:** source invoices, recognized expense/cost, and payment evidence must retain explicit semantics until the revised workflow is fully specified.
+- **Currency is explicit:** never silently combine mixed currencies or invent FX.
+- **Inventory must be auditable:** future warehouse stock must be explainable from authoritative stock movements or an equally rigorous source model.
+- **Controlled AI actions:** consequential AI-assisted writes require permission checks and explicit human confirmation.
 
 ---
 
 ## 4. Development & Local Runbook
 
-### Prerequisites & Windows PowerShell Notes
-When executing in Windows PowerShell, always invoke `npm.cmd` and `npx.cmd` to adhere to script execution policies (see AGENTS.md).
+### Windows PowerShell
+
+Use `npm.cmd` and `npx.cmd` where plain PowerShell shims may be blocked.
 
 ```bash
-# Install dependencies
 npm.cmd install
-
-# Start development server (Port 3000)
 npm.cmd run dev
 ```
 
-### Full Validation Suite
+### Normal validation ladder
+
+Start with the changed surface rather than rerunning the full historical suite automatically.
 
 ```bash
-# Run unit & domain tests (Node native test runner)
-npm.cmd test
+# New/edited and focused tests first
+npm.cmd run test:affected:agent
 
-# Run TypeScript typecheck / lint
+# When relevant
 npm.cmd run lint
-
-# Build production client and server bundles
 npm.cmd run build
+```
 
-# Validate database migrations
+For database-affecting work, use the real local Supabase stack when available:
+
+```bash
+docker info
+npx.cmd supabase start
+npx.cmd supabase db reset --local --no-seed --yes
+npx.cmd supabase test db --local
 npm.cmd run test:migrations
 npm.cmd run test:migrations:upgrade
-
-# Validate the canonical workflow map
-npm.cmd run workflow-map:check
-npm.cmd run workflow-map:consistency
-npm.cmd run test:workflow-map
 ```
 
-### Bounded workflow context for substantial work
+Static SQL/string checks do not replace runtime PostgreSQL/Supabase validation.
 
-WM-5 generates a disposable, feature-scoped orientation packet from the canonical graph and safe local Git metadata. Markdown is the default stdout format; use `--json` for machine-readable output. Packets are advisory and should not be committed as generated repository state.
-
-```bash
-# Exact workflow node
-npm.cmd run workflow-map:context -- --node payroll-period
-
-# Domain plus task keywords
-npm.cmd run workflow-map:context -- --domain engineering --query "RFI detail"
-
-# Route/workflow relationship as JSON
-npm.cmd run workflow-map:context -- --route payroll --format json
-
-# Locally changed files with an explicit smaller bound
-npm.cmd run workflow-map:context -- --changed --budget 8000
-```
+See `AGENTS.md` and `docs/AGENT_EXECUTION_EFFICIENCY.md` for the authoritative implementation and testing workflow.
 
 ---
 
@@ -134,19 +126,18 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-The retired server invitation-delivery compatibility endpoint may additionally use `APP_ORIGIN`, but the normal Add user access flow does not require it.
-
-Deployment company identity is stored in the target Supabase project's singleton `deployment_configuration` row rather than a browser environment UUID. See [the deployment runbook](docs/SINGLE_COMPANY_DEPLOYMENT.md).
+Deployment company identity is stored in the target Supabase project's singleton `deployment_configuration` row rather than a browser-selected tenant identifier. See [the deployment runbook](docs/SINGLE_COMPANY_DEPLOYMENT.md).
 
 ---
 
-## 6. Security, Company Boundary & Financial Invariants
+## 6. Historical Documentation
 
-- **Deployment isolation**: unrelated client companies do not coexist in one production deployment or Supabase project.
-- **Database defense in depth**: operational rows retain `company_id`, and PostgreSQL RLS/RPC authorization requires the configured deployment company plus active membership and permission.
-- **No tenant switching**: browser state, URLs, Assistant arguments, or request headers cannot select another company; a mismatch fails closed.
-- **Financial Immutability**: Historical financial transactions, approved payroll runs, and verified invoice baselines are append-only.
-- **Settlement Separation**: Confirmed cash settlement is evidence of payment/disbursement and does not independently create project cost or rewrite payroll-source history.
-- **Controlled AI Actions**: AI operations produce previews only (PREPARED); write operations require explicit human confirmation.
-- **Email access preauthorization**: Company Admins authorize exact email addresses in the database; users sign up through Supabase Auth and verified-email claim creates membership. SMTP and invitation-delivery secrets are not required.
-- **Philippines-First Context**: Complies with official BIR/EOPT invoice guidance ([BIR RR No. 7-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RR%20No.%207-%202024.pdf), [RMC No. 77-2024](https://bir-cdn.bir.gov.ph/BIR/pdf/RMC%20No.%207-%202024.pdf)).
+Older files whose names contain `ENGORYX_` may remain in the repository as historical implementation/design references. They are **not** current branding and are **not** active future-roadmap authority.
+
+When an older document conflicts with:
+
+- `AGENTS.md`;
+- `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`; or
+- `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`,
+
+the current HydroQualiSense documents control.
