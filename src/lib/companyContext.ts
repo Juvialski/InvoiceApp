@@ -1,3 +1,5 @@
+import { BRAND } from "../config/brand.ts";
+
 let activeCompanyId: string | null = null;
 let contextVersion = 0;
 const listeners = new Set<(companyId: string | null, version: number) => void>();
@@ -21,7 +23,7 @@ export function setActiveCompanyId(value: string | null | undefined): string | n
   const next = normalizeCompanyId(value);
   if (next === activeCompanyId) return activeCompanyId;
   if (activeCompanyId && next && next !== activeCompanyId) {
-    throw new Error("Engoryx deployment company context cannot be switched at runtime.");
+    throw new Error(`${BRAND.productName} deployment company context cannot be switched at runtime.`);
   }
   activeCompanyId = next;
   contextVersion += 1;
@@ -43,7 +45,7 @@ export function subscribeToCompanyContext(listener: (companyId: string | null, v
 
 export function requireActiveCompanyId(): string {
   const companyId = getActiveCompanyId();
-  if (!companyId) throw new Error("The Engoryx deployment company is not available for this session.");
+  if (!companyId) throw new Error(`The ${BRAND.productName} deployment company is not available for this session.`);
   return companyId;
 }
 

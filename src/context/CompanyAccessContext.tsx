@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { BRAND } from "../config/brand.ts";
 import {
   activeCompanyMembership,
   authorizeCompanyMemberEmail as authorizeCompanyMemberEmailApi,
@@ -238,7 +239,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   const selectCompany = useCallback(async (companyId: string) => {
     const deploymentCompanyId = deploymentCompanyIdFor(companyId, "workspace request");
     if (accessRef.current.activeCompanyId !== deploymentCompanyId) {
-      throw new Error("Your account is not an active member of this Engoryx deployment company.");
+      throw new Error(`Your account is not an active member of this ${BRAND.productName} deployment company.`);
     }
   }, [deploymentCompanyIdFor]);
 
@@ -257,7 +258,7 @@ export function CompanyAccessProvider({ children }: { children: ReactNode }) {
   }, [resetAuthenticatedContext]);
 
   const createCompany = useCallback(async (_input: CreateCompanyInput): Promise<CompanySummary> => {
-    throw new Error("Creating another company is disabled. Provision a separate Engoryx deployment for another client company.");
+    throw new Error(`Creating another company is disabled. Provision a separate ${BRAND.productName} deployment for another client company.`);
   }, []);
 
   const updateCompany = useCallback(async (companyId: string, patch: Partial<Pick<CompanySummary, "name" | "companyCode" | "status" | "defaultCurrency" | "timezone">>) => {

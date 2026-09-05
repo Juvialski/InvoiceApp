@@ -25,6 +25,7 @@ import {
   type ScheduledPayrollPeriod,
 } from "./payrollSchedule.ts";
 import { isPayrollPeriodDataBearing, isSafeToDeletePayrollPeriod, isSafeToDeletePayrollRun, reconcileObsoleteGeneratedPayrollPeriods, repairFuturePayrollScheduleVersionGaps, retireEmptyGeneratedPayrollRuns, selectPrimaryPayrollSchedule } from "./payrollIntegrity.ts";
+import { BRAND } from "../config/brand.ts";
 import type { PayrollImportBatch } from "./payrollImportPersistence.ts";
 import {
   buildPayrollDraft,
@@ -195,7 +196,7 @@ export function analyzePayrollScheduleBootstrapCompatibility(
     schedule.automationMode === "ASSISTED";
 
   if (!isStandardDefault) {
-    return { schedule, repaired: false, reason: "Schedule does not match the InvoiceApp standard default profile." };
+    return { schedule, repaired: false, reason: `Schedule does not match the ${BRAND.productName} standard default profile.` };
   }
 
   // A legacy default has effectiveFrom on a mid-period date (not 1st or 16th)

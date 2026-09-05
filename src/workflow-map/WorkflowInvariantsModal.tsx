@@ -1,5 +1,6 @@
 import React from "react";
 import { X, AlertTriangle, ShieldCheck, FileCode, TestTube2, Check, Copy } from "lucide-react";
+import { BRAND } from "../config/brand.ts";
 import type { WorkflowInvariant } from "../../scripts/workflow-map/types.ts";
 
 interface WorkflowInvariantsModalProps {
@@ -41,7 +42,7 @@ export function WorkflowInvariantsModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Engoryx High-Risk Invariants ({invariants.length})
+                {BRAND.productName} High-Risk Invariants ({invariants.length})
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Architectural boundaries that protect financial correctness, data isolation, and safety invariants.

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { BRAND } from "../config/brand.ts";
 import {
   AlertCircle,
   AlertTriangle,
@@ -311,7 +312,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
 
   const connectMailbox = async () => {
     if (!canManageMailbox) {
-      setGmailError("Mailbox connection management requires Gmail management permission. Your Engoryx session remains active.");
+      setGmailError(`Mailbox connection management requires Gmail management permission. Your ${BRAND.productName} session remains active.`);
       return;
     }
     setConnectBusy(true);
@@ -319,7 +320,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
     try {
       await onConnectGmail();
     } catch (error: any) {
-      setGmailError(error?.message || "Gmail could not be connected. Your Engoryx session remains active.");
+      setGmailError(error?.message || `Gmail could not be connected. Your ${BRAND.productName} session remains active.`);
     } finally {
       setConnectBusy(false);
     }
@@ -610,7 +611,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                     {connection.email ? `Previously connected mailbox: ${connection.email}` : "Previous mailbox authorization is no longer valid."}
                   </p>
                   <p className="mt-1 text-[11px] text-amber-800">
-                    Gmail authorization expired or was revoked. Your Engoryx session remains active. Reconnect Gmail below to resume search and routing.
+                    Gmail authorization expired or was revoked. Your {BRAND.productName} session remains active. Reconnect Gmail below to resume search and routing.
                   </p>
                 </>
               )}
@@ -622,7 +623,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
               )}
 
               <p className="mt-1 text-[10px] text-slate-400">
-                Gmail authorization is separate from your Engoryx sign-in. Reconnecting Gmail does not sign you out of Engoryx.
+                    Gmail authorization is separate from your {BRAND.productName} sign-in. Reconnecting Gmail does not sign you out of {BRAND.productName}.
               </p>
             </div>
           </div>

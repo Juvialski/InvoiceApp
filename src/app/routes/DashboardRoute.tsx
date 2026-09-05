@@ -11,6 +11,7 @@ import { projectCostMissingSourceLabels } from "../../utils/dataCompleteness.ts"
 import type { AppTab } from "../../utils/routes";
 import { useAppPermissions, useProjectCostCompleteness, useWorkspaceDataPending } from "../AppPermissionContext.tsx";
 import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
+import { BRAND } from "../../config/brand.ts";
 
 export interface DashboardRouteProps {
   data: DashboardViewData;
@@ -63,7 +64,7 @@ export const DashboardRoute: React.FC<DashboardRouteProps> = ({
         <div role="status" aria-label="Partial dashboard cost visibility" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
           <div>
-            <strong>Combined company cost position withheld.</strong> Required project-cost sources are unavailable or incomplete: {hiddenSources.join(", ")}. Engoryx will not present project cost, utilization, trend, remaining-budget, or company-cost totals as complete until those sources are available.
+            <strong>Combined company cost position withheld.</strong> Required project-cost sources are unavailable or incomplete: {hiddenSources.join(", ")}. {BRAND.productName} will not present project cost, utilization, trend, remaining-budget, or company-cost totals as complete until those sources are available.
           </div>
         </div>
 

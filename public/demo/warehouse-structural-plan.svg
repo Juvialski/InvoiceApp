@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
   <title id="title">Meridian Engineering demo structural foundation plan</title>
-  <desc id="desc">Original fictional structural drawing used only in the Engoryx public demo workspace.</desc>
+  <desc id="desc">Original fictional structural drawing used only in the HydroQualiSense public demo workspace.</desc>
   <rect width="1600" height="1000" fill="#f8fafc"/>
   <g stroke="#334155" fill="none" stroke-width="3">
     <rect x="90" y="80" width="1420" height="820"/>
@@ -31,7 +31,7 @@
     <text x="1260" y="365" font-size="14" fill="#475569">FICTIONAL DEMO DRAWING</text>
     <text x="1260" y="390" font-size="13" fill="#64748b">Not for construction.</text>
     <text x="145" y="145" font-size="15">GRID / FOUNDATION LAYOUT</text>
-    <text x="145" y="840" font-size="13" fill="#475569">GENERAL NOTE: Footing sizes and reinforcement shown are illustrative only for the Engoryx client demo.</text>
+    <text x="145" y="840" font-size="13" fill="#475569">GENERAL NOTE: Footing sizes and reinforcement shown are illustrative only for the HydroQualiSense client demo.</text>
   </g>
   <g stroke="#64748b" stroke-width="2" fill="none">
     <path d="M1245 455h220v190h-220z"/><path d="M1265 485h180v130h-180z"/><path d="M1265 550h180"/><path d="M1355 485v130"/>

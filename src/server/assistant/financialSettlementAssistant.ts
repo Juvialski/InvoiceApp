@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
+import { BRAND } from "../../config/brand.ts";
 import { AssistantBackendError, AssistantToolError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { boundedLimit, boundedText, enumValue, optionalNumber, plainObject, requireUuid } from "./toolValidation.ts";
 
@@ -14,7 +15,7 @@ export interface FinancialSettlementToolDefinition {
   requiresConfirmation: boolean;
 }
 
-const uuid = { type: "string", description: "Identifier supplied by a prior tool result or current Engoryx context." };
+const uuid = { type: "string", description: `Identifier supplied by a prior tool result or current ${BRAND.productName} context.` };
 const limit = { type: "integer", minimum: 1, maximum: 50 };
 const amountSchema = { type: "number", minimum: 0.01, maximum: 1_000_000_000 };
 const targetTypeSchema = { type: "string", enum: ["INVOICE", "PAYROLL"] };

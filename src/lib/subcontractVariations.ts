@@ -8,6 +8,7 @@ import type {
 } from "../types.ts";
 import { supabase } from "./supabase.ts";
 import { getActiveCompanyId } from "./companyContext.ts";
+import { BRAND } from "../config/brand.ts";
 
 export const SUBCONTRACT_VARIATION_STORAGE_KEY = "engineering_subcontract_variations";
 
@@ -95,7 +96,7 @@ export function normalizeVariationStatus(value: unknown): SubcontractVariationSt
 
 function assertPersistenceContext(companyId: string | null, operation: string): void {
   if (supabase && !companyId) {
-    throw new Error(`Resolve the Engoryx deployment company before ${operation}.`);
+    throw new Error(`Resolve the ${BRAND.productName} deployment company before ${operation}.`);
   }
 }
 

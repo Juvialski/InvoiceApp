@@ -33,7 +33,7 @@ export function DemoLandingPage({ onLaunch, onStartTour }: { onLaunch: () => voi
               Explore a fully populated engineering company workspace.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-7 text-slate-300 sm:text-base">
-              Open the real Engoryx operations experience with realistic Philippine project, finance, workforce, payroll, and engineering-document data. No sign-up, setup, or production records are involved.
+              Open the real {BRAND.productName} operations experience with realistic Philippine project, finance, workforce, payroll, and engineering-document data. No sign-up, setup, or production records are involved.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button type="button" onClick={onLaunch} className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-indigo-950/30 transition hover:bg-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300">
@@ -65,7 +65,7 @@ export function DemoLandingPage({ onLaunch, onStartTour }: { onLaunch: () => voi
         </section>
 
         <footer className="border-t border-white/10 pt-5 text-[10px] leading-5 text-slate-500">
-          This public workspace is intentionally isolated from authenticated Engoryx tenants. Demo edits are sandboxed to this browser session and can be reset at any time.
+          This public workspace is intentionally isolated from authenticated {BRAND.productName} tenants. Demo edits are sandboxed to this browser session and can be reset at any time.
         </footer>
       </div>
     </main>

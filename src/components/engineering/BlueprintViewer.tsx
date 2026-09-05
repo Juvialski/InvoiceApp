@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { BRAND } from "../../config/brand.ts";
 import Konva from "konva";
 import * as pdfjsLib from "pdfjs-dist";
 import {
@@ -433,7 +434,7 @@ function renderBlueprintFallback(
   ctx.textAlign = "left";
   ctx.fillStyle = "#38bdf8";
   ctx.font = "bold 10px monospace";
-  ctx.fillText("ENGORYX ENGINEERING & DESIGN", tbX + 10, tbY + 18);
+  ctx.fillText(`${BRAND.displayUppercase} ENGINEERING & DESIGN`, tbX + 10, tbY + 18);
   ctx.fillStyle = "#94a3b8";
   ctx.font = "9px sans-serif";
   ctx.fillText("PROJECT DRAWING SET", tbX + 10, tbY + 32);

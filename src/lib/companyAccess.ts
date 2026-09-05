@@ -1,5 +1,6 @@
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 import { hasPermission, normalizePermissionKeys, type PermissionKey } from "../utils/accessControl.ts";
+import { BRAND } from "../config/brand.ts";
 import { supabase } from "./supabase.ts";
 
 export const COMPANY_ACCESS_RPC = "get_my_company_access";
@@ -488,7 +489,7 @@ export async function revokeCompanyInvitation(invitationId: string, companyId: s
   if (error) throw error;
   const invitation = unwrapRpcPayload(data);
   const returnedCompanyId = text(firstPresent(invitation, "company_id", "companyId"));
-  if (returnedCompanyId && returnedCompanyId !== deploymentCompanyId) throw new Error("The invitation is outside this Engoryx deployment.");
+  if (returnedCompanyId && returnedCompanyId !== deploymentCompanyId) throw new Error(`The invitation is outside this ${BRAND.productName} deployment.`);
   return invitation;
 }
 

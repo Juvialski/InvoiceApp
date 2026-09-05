@@ -27,6 +27,7 @@ import {
 import { BackupService } from "./backupService.ts";
 import { MigrationService, type MigrationSupportedDomain } from "./migrationService.ts";
 import type { StoredSourceDocument } from "../../types.ts";
+import { BRAND } from "../../config/brand.ts";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ALLOWED_MIGRATION_DOMAINS: MigrationSupportedDomain[] = [
@@ -86,7 +87,7 @@ function getBearerToken(req: Request): string {
   const authorization = firstHeader(req.headers.authorization);
   const match = authorization.match(/^Bearer\s+([^\s]+)$/i);
   if (!match) {
-    throw new StorageApiError(401, "UNAUTHENTICATED", "A valid Engoryx session is required.");
+    throw new StorageApiError(401, "UNAUTHENTICATED", `A valid ${BRAND.productName} session is required.`);
   }
   return match[1];
 }
@@ -119,7 +120,7 @@ export async function authorizeStorageRequest(
 
   const { data: userData, error: userError } = await client.auth.getUser(accessToken);
   if (userError || !userData.user) {
-    throw new StorageApiError(401, "UNAUTHENTICATED", "A valid Engoryx session is required.");
+    throw new StorageApiError(401, "UNAUTHENTICATED", `A valid ${BRAND.productName} session is required.`);
   }
 
   const companyId = firstHeader(req.headers["x-company-id"]).trim();
@@ -132,7 +133,7 @@ export async function authorizeStorageRequest(
     throw new StorageApiError(503, "SERVER_AUTH_UNAVAILABLE", "Deployment company authorization is temporarily unavailable.");
   }
   if (deploymentCompanyId !== companyId) {
-    throw new StorageApiError(403, "FORBIDDEN", "This request cannot target another Engoryx deployment company.");
+    throw new StorageApiError(403, "FORBIDDEN", `This request cannot target another ${BRAND.productName} deployment company.`);
   }
 
   const { data: allowed, error: permissionError } = await client.rpc("has_company_permission", {

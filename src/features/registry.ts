@@ -1,4 +1,5 @@
 import type { EngoryxFeatureDefinition } from './types.ts';
+import { BRAND } from '../config/brand.ts';
 
 export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Object.freeze([
   // Phase 0: Core Foundation (Active)
@@ -88,7 +89,7 @@ export const ENGORYX_FEATURE_REGISTRY: readonly EngoryxFeatureDefinition[] = Obj
   },
   {
     id: 'core-assistant',
-    name: 'Engoryx Assistant',
+    name: BRAND.assistantName,
     description: 'Guarded conversational assistant for navigation, queries, and multi-step action preparation.',
     category: 'intelligence',
     phase: 0,

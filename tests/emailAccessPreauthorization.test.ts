@@ -50,7 +50,7 @@ test("claim uses verified email and deployment/expiry/status locks without deliv
 
 test("browser access management is SMTP-independent and keeps legacy delivery state out of the primary UI", () => {
   assert.match(accessManagement, /Add user access/);
-  assert.match(accessManagement, /Authorize an email to access this Engoryx deployment/);
+  assert.match(accessManagement, /Authorize an email to access this \{BRAND\.productName\} deployment/);
   assert.match(accessManagement, /No invitation email is sent/);
   assert.match(accessManagement, /Awaiting signup/);
   assert.match(accessManagement, /companyAccess\.authorizeCompanyMemberEmail/);
@@ -63,7 +63,7 @@ test("browser access management is SMTP-independent and keeps legacy delivery st
   assert.match(accessApi, /PLATFORM_LIST_INVITATIONS_WITH_OVERRIDES_RPC/);
   assert.match(accessApi, /UPDATE_COMPANY_INVITATION_PERMISSIONS_RPC/);
   assert.doesNotMatch(accessApi, /companyApiRequest\("\/api\/company\/invitations/);
-  assert.match(accessStates, /This email has not been authorized for this Engoryx deployment/);
+  assert.match(accessStates, /This email has not been authorized for this \{BRAND\.productName\} deployment/);
   assert.match(authScreen, /exact work email authorized by your company administrator/);
   assert.doesNotMatch(envExample, /SUPABASE_INVITATION_SERVER_KEY/);
 });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Building2, CheckCircle2, LockKeyhole, Save, X } from "lucide-react";
 import { DEFAULT_CURRENCY, DEFAULT_TIMEZONE } from "../../config/regional";
+import { BRAND } from "../../config/brand.ts";
 import { useCompanyAccess } from "../../context/CompanyAccessContext.tsx";
 import { updateDeploymentCompanyProfile } from "../../lib/companyProfile.ts";
 import { PERMISSION_KEYS } from "../../utils/accessControl.ts";
@@ -95,7 +96,7 @@ export function CompanyProfileSettings() {
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><Building2 aria-hidden="true" className="h-5 w-5" /></div>
           <div>
             <p className="text-sm font-black text-slate-950" id="company-profile-title">Company profile</p>
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">This deployment has one client company. Update the company name, default currency, and deployment timezone used across Engoryx.</p>
+            <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">This deployment has one client company. Update the company name, default currency, and deployment timezone used across {BRAND.productName}.</p>
           </div>
         </div>
         {!canManage && <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] font-bold text-slate-500"><LockKeyhole className="h-3 w-3" />Read-only</span>}

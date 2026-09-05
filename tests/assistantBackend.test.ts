@@ -316,7 +316,7 @@ test("assistant loop stops after eight model iterations without external calls",
 });
 
 test("assistant authentication fails closed for missing bearer/company and tool authorization rejects non-members", async () => {
-  await assert.rejects(() => authenticateAssistantRequest({ headers: {} } as any), /valid Engoryx session/i);
+  await assert.rejects(() => authenticateAssistantRequest({ headers: {} } as any), /valid HydroQualiSense session/i);
   const fakeClient = {
     auth: { getUser: async () => ({ data: { user: { id: "00000000-0000-4000-8000-000000000002" } }, error: null }) },
     rpc: async (_name: string, args: Record<string, unknown>) => ({ data: false, error: null, args }),

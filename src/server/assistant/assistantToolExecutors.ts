@@ -3,6 +3,7 @@ import { calculatePayrollRunFromWorkEntries } from "../../lib/payrollCalculation
 import { applyAttendanceBatch, buildDailyRoster, type AttendanceRecordInput } from "../../lib/payrollWorkforce.ts";
 import { normalizedInvoiceAllocationAmount } from "../../utils/projectCosting.ts";
 import type { AssistantClientAction, AssistantReference } from "../../assistant/assistantTypes.ts";
+import { BRAND } from "../../config/brand.ts";
 import { getHelpEntry, getHelpResponse, helpEntryPath, helpEntryReference } from "../../assistant/helpCatalog.ts";
 import { getAssistantTour } from "../../assistant/tourRegistry.ts";
 import { AssistantToolError, type AssistantRow, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
@@ -792,7 +793,7 @@ async function searchHelp(_context: AssistantToolContext, args: Record<string, u
 
 async function getFeatureHelp(_context: AssistantToolContext, args: Record<string, unknown>) {
   const entry = getHelpEntry(args.feature);
-  if (!entry) throw new AssistantToolError("HELP_NOT_FOUND", "That verified Engoryx help topic is not available.");
+  if (!entry) throw new AssistantToolError("HELP_NOT_FOUND", `That verified ${BRAND.productName} help topic is not available.`);
   return toolOk({ feature: entry.id, title: entry.title, summary: entry.summary, details: entry.details, routeId: entry.routeId, path: helpEntryPath(entry) }, { references: [helpEntryReference(entry)], clientActions: [{ type: "NAVIGATE", routeId: entry.routeId, label: `Open ${entry.title}` }] });
 }
 
@@ -1447,6 +1448,6 @@ export async function executeRegisteredTool(name: string, args: Record<string, u
     case "update_invoice_draft": return prepareInvoiceDraftUpdate(context, args);
     case "approve_payroll":
     case "mark_payroll_paid": return preparePayrollFinalization(context, name, args);
-    default: throw new AssistantToolError("UNKNOWN_TOOL", "That operation is not available in Engoryx.");
+    default: throw new AssistantToolError("UNKNOWN_TOOL", `That operation is not available in ${BRAND.productName}.`);
   }
 }

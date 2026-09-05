@@ -1,6 +1,7 @@
 import type { FunctionDeclaration } from "@google/genai";
 import { requiresAssistantConfirmation } from "../../assistant/confirmationPolicy.ts";
 import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
+import { BRAND } from "../../config/brand.ts";
 import { AssistantBackendError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { normalizeAssistantFunctionDeclarations } from "./assistantGeminiSchemas.ts";
 import { boundToolResult, toolError } from "./toolResults.ts";
@@ -50,7 +51,7 @@ export interface AssistantToolDefinition {
   requiresConfirmation: boolean;
 }
 
-const uuid = { type: "string", description: "Engoryx identifier supplied by a prior tool result or display context." };
+const uuid = { type: "string", description: `${BRAND.productName} identifier supplied by a prior tool result or display context.` };
 const date = { type: "string", description: "Calendar date in YYYY-MM-DD format." };
 const limit = { type: "integer", minimum: 1, maximum: 50 };
 const noArgs = { type: "object", properties: {}, additionalProperties: false };
@@ -138,13 +139,13 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   ...CORE_HARDENING_TOOL_DEFINITIONS,
   ...ASSISTANT_OPERATION_TOOL_DEFINITIONS,
 
-  navigation("navigate_to", "Navigate to an allowlisted Engoryx route.", (args) => [routePermission(args.routeId)], { routeId: { type: "string", enum: ["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"] } }, ["routeId"]),
+  navigation("navigate_to", `Navigate to an allowlisted ${BRAND.productName} route.`, (args) => [routePermission(args.routeId)], { routeId: { type: "string", enum: ["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"] } }, ["routeId"]),
   navigation("navigate_to_project", "Open a company project or one of its shipped workspace tabs in the app.", projectNavigationPermissions, { projectId: uuid, view: { type: "string", enum: ["overview", "documents", "rfis", "submittals", "site-logs", "invoices", "payroll", "expenses", "people", "reports"] } }, ["projectId"]),
   navigation("navigate_to_invoice", "Open a company invoice in the app.", ["invoices.read"], { invoiceId: uuid }, ["invoiceId"]),
   navigation("navigate_to_review_invoice", "Open a company invoice in the review screen.", ["invoices.read"], { invoiceId: uuid }, ["invoiceId"]),
   navigation("navigate_to_payroll_period", "Open a company payroll period.", ["payroll.summary.read"], { periodId: uuid }, ["periodId"]),
   navigation("navigate_to_attendance_date", "Open attendance for a calendar date.", ["payroll.detail.read"], { date }, ["date"]),
-  read("search_help", "Search the built-in Engoryx help topics. Never use this tool for web search.", ["dashboard.read"], { query: { type: "string" } }, ["query"]),
+  read("search_help", `Search the built-in ${BRAND.productName} help topics. Never use this tool for web search.`, ["dashboard.read"], { query: { type: "string" } }, ["query"]),
   read("get_feature_help", "Get a built-in help topic for an allowlisted feature.", ["dashboard.read"], { feature: { type: "string" } }, ["feature"]),
   navigation("start_tour", "Start an allowlisted in-app tour.", ["dashboard.read"], { tourId: { type: "string", enum: ["engoryx-overview", "cash-banking", "first-invoice", "gmail-import", "projects-costing", "engineering-documents", "project-lifecycle", "payroll-basics", "attendance-overtime", "payroll-run", "workforce-lifecycle", "cash-corrections", "company-access", "reports", "assistant-basics"] } }, ["tourId"]),
 
@@ -196,7 +197,7 @@ export function validateAssistantToolArguments(name: string, rawArgs: unknown): 
 
 export async function executeAssistantTool(name: string, rawArgs: unknown, context: AssistantToolContext): Promise<ToolExecutionResult> {
   const definition = getAssistantToolDefinition(name);
-  if (!definition) return toolError("UNKNOWN_TOOL", "That operation is not available in Engoryx.");
+  if (!definition) return toolError("UNKNOWN_TOOL", `That operation is not available in ${BRAND.productName}.`);
   let args: Record<string, unknown>;
   try {
     args = validateAssistantToolArguments(name, rawArgs);

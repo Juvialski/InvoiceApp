@@ -1,6 +1,7 @@
 import React from "react";
 import { Clock3, Coins, Globe2, MapPin, RotateCcw } from "lucide-react";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE, RegionalSettings } from "../config/regional";
+import { BRAND } from "../config/brand.ts";
 import { FeatureStatusOverview } from "./FeatureStatusOverview";
 import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.tsx";
@@ -23,7 +24,7 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
       <PageHeader
         eyebrow="Workspace configuration"
         title="Operational settings"
-        description="This Engoryx deployment belongs to one client company. Roles and permissions control what each company user can access."
+        description={`This ${BRAND.productName} deployment belongs to one client company. Roles and permissions control what each company user can access.`}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">

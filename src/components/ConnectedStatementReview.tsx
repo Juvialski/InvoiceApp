@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { BRAND } from "../config/brand.ts";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -536,7 +537,7 @@ export const ConnectedStatementReview: React.FC<ConnectedStatementReviewProps> =
           </form>
 
           <p className="text-[10px] text-slate-400 border-t border-indigo-100/80 pt-2">
-            Statement passwords are sensitive credentials. Engoryx never stores passwords in databases, storage, logs, or telemetry.
+            Statement passwords are sensitive credentials. {BRAND.productName} never stores passwords in databases, storage, logs, or telemetry.
           </p>
         </div>
       )}

@@ -1,4 +1,5 @@
 import type { AssistantRiskTier } from "../../assistant/assistantTypes.ts";
+import { BRAND } from "../../config/brand.ts";
 import { AssistantBackendError, AssistantToolError, type AssistantToolContext, type ToolExecutionResult } from "./assistantBackendTypes.ts";
 import { boundedLimit, boundedText, enumValue, optionalDateOnly, plainObject, requireDateOnly, requireUuid } from "./toolValidation.ts";
 import { toolOk } from "./toolResults.ts";
@@ -15,7 +16,7 @@ export interface CoreHardeningToolDefinition {
   requiresConfirmation: boolean;
 }
 
-const uuid = { type: "string", description: "Identifier supplied by a prior Engoryx tool result or current workspace context." };
+const uuid = { type: "string", description: `Identifier supplied by a prior ${BRAND.productName} tool result or current workspace context.` };
 const date = { type: "string", description: "Calendar date in YYYY-MM-DD format." };
 
 function schema(properties: Record<string, unknown>, required: string[] = []): JsonSchema {

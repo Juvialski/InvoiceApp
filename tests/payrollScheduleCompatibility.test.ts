@@ -186,7 +186,7 @@ test("user-authored mid-period schedule is not repaired", () => {
   const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", emptyContext());
 
   assert.equal(result.repaired, false);
-  assert.match(result.reason, /does not match the InvoiceApp standard default profile/);
+  assert.match(result.reason, /does not match the HydroQualiSense standard default profile/);
 });
 
 test("WEEKLY AUTOMATED user schedule is not repaired or backdated", () => {
@@ -207,7 +207,7 @@ test("WEEKLY AUTOMATED user schedule is not repaired or backdated", () => {
   const result = analyzePayrollScheduleBootstrapCompatibility(schedule, "2026-08-25", emptyContext());
 
   assert.equal(result.repaired, false);
-  assert.match(result.reason, /does not match the InvoiceApp standard default profile/);
+  assert.match(result.reason, /does not match the HydroQualiSense standard default profile/);
   assert.equal(result.schedule.effectiveFrom, "2026-08-25", "the mid-cycle effectiveFrom must never be backdated");
   assert.equal(result.schedule.frequency, "WEEKLY");
 });

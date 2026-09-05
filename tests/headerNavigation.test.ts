@@ -26,3 +26,10 @@ test("global controls keep account actions outside navigation and company identi
   assert.match(accessStates, /never a tenant selector/);
   assert.match(accessStates, /aria-label=\{`Deployment company:/);
 });
+
+test("expanded navigation uses the supplied HydroQualiSense logo and wraps the full company name", () => {
+  assert.match(header, /src="\/brand\/hydroqualisense-logo\.png"/);
+  assert.match(header, /BRAND\.companyName/);
+  assert.match(header, /whitespace-normal break-words/);
+  assert.doesNotMatch(header, /BRAND\.tagline/);
+});

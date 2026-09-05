@@ -23,13 +23,15 @@ Canonical public domain:
 
 The product must no longer be positioned as a reusable Engoryx-branded platform for unrelated engineering companies. The repository may remain named `InvoiceApp`; repository naming is not product branding.
 
-Existing UI/code may still contain legacy branding until the dedicated branding implementation is completed. New work and current documentation must use **HydroQualiSense**.
+Active user-facing UI and production metadata now use **HydroQualiSense**. Historical documentation and stable technical identifiers may still retain legacy strings where renaming would create unnecessary migration, protocol, storage, or generated-theme churn.
 
 ## Confirmed next requirements
 
 Only the following new directions are currently confirmed.
 
 ### R1 — HydroQualiSense branding and domain alignment
+
+Implementation status: **COMPLETE — 2026-09-06**
 
 Target outcome:
 
@@ -38,7 +40,7 @@ Target outcome:
 - treat `hydroqualisense.com` as the canonical production domain;
 - align visible application identity, metadata, generated/exported product references, and user-facing assistant/product labels when implementation begins.
 
-Detailed branding assets, logos, colors, email identity, and deployment redirects are **not yet specified**.
+The supplied HydroQualiSense logo and company name are used for R1. No additional slogan, color-system redesign, email identity, or deployment-redirect behavior is implied by this phase.
 
 ### R2 — Warehouse inventory and project allocation
 

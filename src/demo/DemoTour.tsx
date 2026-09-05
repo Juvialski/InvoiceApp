@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { Bot, Building2, ChevronRight, ClipboardList, FileCheck2, FileStack, Gauge, HardHat, Landmark, Presentation, X } from "lucide-react";
 import { useDialogFocus } from "../components/ui/useDialogFocus.ts";
+import { BRAND } from "../config/brand.ts";
 
 export interface DemoTourStop {
   id: string;
@@ -45,7 +46,7 @@ export function DemoTour({ open, onOpenChange, currentPath, onNavigate }: { open
     <aside ref={dialogRef} className="fixed inset-x-3 bottom-3 z-50 max-h-[72vh] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[360px]" role="dialog" aria-modal="true" aria-labelledby="demo-tour-title">
       <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3.5">
         <div>
-          <p id="demo-tour-title" className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Engoryx Demo Tour</p>
+          <p id="demo-tour-title" className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">{BRAND.productName} Demo Tour</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">Jump between client-presentation highlights.</p>
         </div>
         <button ref={closeButtonRef} type="button" aria-label="Close demo tour" onClick={() => onOpenChange(false)} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X className="h-4 w-4" /></button>
