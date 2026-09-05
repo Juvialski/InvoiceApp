@@ -2,7 +2,7 @@
 
 These rules apply only to `Juvialski/InvoiceApp`.
 
-The repository may remain named `InvoiceApp`, but the product is now **HydroQualiSense** and the canonical production domain is `https://hydroqualisense.com`.
+The repository may remain named `InvoiceApp`, but the product is **HydroQualiSense** and the canonical production domain is `https://hydroqualisense.com`.
 
 ## Architecture baseline
 
@@ -19,7 +19,7 @@ Authoritative current product documents:
 - `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`
 
-The previous Engoryx future roadmap is cancelled as implementation authority. Historical phase/design documents may still explain already-built behavior, but **no old planned/deferred/future phase is automatically authorized**.
+The previous Engoryx future roadmap is cancelled as implementation authority. Historical phase/design documents may still explain already-built behavior, but no old planned/deferred/future phase is automatically authorized.
 
 Current confirmed forward direction is limited to:
 
@@ -44,37 +44,49 @@ Do not infer missing inventory, accounting, payment, settlement, or lifecycle ru
 10. Engineering Documents and other auditable engineering history remain first-class until the client explicitly changes that requirement.
 11. Inventory stock must be explainable from authoritative movements or an equally rigorous source model; project allocation must not be implemented as destructive balance editing.
 12. Navigation/UX simplification is not permission to collapse or rewrite finalized financial history.
-13. Do not delete mature modules merely because they are not in the temporary requirements list; large removals wait for the complete client requirements and dependency/history review.
+13. Do not delete mature modules merely because they are absent from the temporary requirements list; large removals wait for the complete client requirements and dependency/history review.
 14. Scheduling/Gantt/CPM and other old future phases are not authorized unless the client reprioritizes them.
 
-## Tool and model policy — Codex only by default
+## Tool and model policy — accelerated pre-demo mode
 
-The user currently intends to use **Codex only** for implementation work.
+HydroQualiSense is being prepared for presentation to multiple potential clients on **Thursday, September 10, 2026**. Until that presentation is complete, favor faster safe delivery over the previous single-agent default.
 
-- **ChatGPT with GitHub access** is the repository-level investigator, reviewer, PR/CI reviewer, GitHub editor, prompt creator, merger, and finisher.
-- **Codex** is the local implementation owner for feature work, debugging, browser/runtime work, Supabase CLI/Docker, migrations, tests, and validation.
-- Do **not** assume Luna, Gemini, Antigravity, OpenRouter, Kilo, or another paid/external coding agent is available.
-- Historical references to those agents are not current execution policy.
+### Lead ownership
 
-### Codex subagents
+**Codex remains the default lead implementation engine.** The lead must continue implementation and integration rather than becoming a dispatcher that waits for subagents.
 
-Hard maximum: **2 concurrent subagents**. Default: **zero**.
-
-Use subagents only for genuinely independent, tightly bounded workstreams with non-overlapping ownership. The lead must continue implementation and must not block waiting for subagents.
-
-Do not spawn subagents for documentation-only work, CI polling, duplicate repository discovery, broad re-audits, tiny one-file fixes, or work the lead can finish more cheaply than coordinating another agent.
-
-The lead always owns:
+The lead owns:
 
 - architecture and source-of-truth decisions;
-- shared files and integration;
+- shared files and conflict-heavy integration;
 - financial semantics;
 - migrations/RLS/RPC/trigger interpretation;
+- inventory balance and lifecycle semantics;
 - destructive lifecycle policy;
 - App/router/provider integration;
 - final diff review;
 - validation scope;
 - commit/push/PR delivery.
+
+### Luna acceleration
+
+**Luna is explicitly available for the current accelerated sprint.** Do not treat older Codex-only wording as current policy.
+
+- Up to **5 concurrent Luna subagents** may be used.
+- The user has explicitly authorized this higher parallelism for the pre-demo push and has banked usage resets available.
+- Prefer Luna subagents for genuinely parallel, bounded implementation/review/test work that does not require competing ownership of the same shared files.
+- Use fewer than five when the work does not divide cleanly; five is a ceiling, not a quota.
+- Do not create duplicate broad audits or five agents solving the same problem.
+- Give every subagent a narrow objective, explicit owned files/domain, acceptance criteria, and stop boundary.
+- Subagents must return concise findings/diffs/test evidence to the lead; the lead integrates and validates.
+- Stop stalled or low-value subagents instead of repeatedly restarting them.
+- Do not let parallelism weaken financial, security, RLS, migration, inventory, or history guarantees.
+
+### Other agents
+
+Do not assume Gemini, Antigravity, OpenRouter, Kilo, or another paid/external implementation agent is available unless the user explicitly enables it.
+
+After the September 10 presentation, reassess whether the temporary five-Luna acceleration limit should remain before carrying it into later phases.
 
 ## Repository freshness and trusted baseline
 
@@ -102,14 +114,16 @@ npm.cmd run agent:context -- --task "<objective>" --domain <domain> --hops 1 --b
 
 Default orientation:
 
-- one bounded packet;
+- one bounded packet for the lead;
 - 0-1 workflow hops;
 - roughly 8,000-12,000 characters;
 - normally 6-8 primary source files on first pass;
 - exact symbols/ranges instead of whole-file dumps;
 - repository-wide search only for a named unresolved dependency.
 
-If no Workflow Map node matches, accept the documented changed-file/impact fallback. Do not retry speculative keyword variants merely to force a match.
+When Luna subagents are used, the lead should derive narrow assignments from the same source-of-truth context rather than making every subagent repeat repository-wide discovery.
+
+If no Workflow Map node matches, accept the documented changed-file/impact fallback. Do not retry speculative keyword variants merely to force a map match.
 
 Workflow Map is navigation only. Current source, migrations, runtime behavior, RLS, tests, and exact-head CI remain authoritative.
 
@@ -123,17 +137,29 @@ For a fresh phase:
 2. do not rerun the historical full suite merely because a phase started;
 3. generate one bounded `agent:context` packet;
 4. inspect the existing implementation before designing;
-5. implement the scoped phase directly;
-6. run new/edited tests;
-7. run focused domain tests;
-8. run `npm.cmd run test:affected:agent`;
-9. run lint/build/browser/Workflow Map checks only when relevant;
-10. use Docker-backed local Supabase validation when DB contracts change;
-11. review the final diff for correctness and scope creep;
-12. push a feature branch and open a PR;
-13. local Codex must **not merge its own PR**.
+5. split only genuinely independent work to Luna subagents, up to five concurrent during the accelerated sprint;
+6. keep the lead implementing the critical/shared path continuously;
+7. integrate subagent work promptly and resolve shared-contract decisions centrally;
+8. run new/edited tests;
+9. run focused domain tests;
+10. run `npm.cmd run test:affected:agent`;
+11. run lint/build/browser/Workflow Map checks only when relevant;
+12. use Docker-backed local Supabase validation when DB contracts change;
+13. review the final integrated diff for correctness and scope creep;
+14. push a feature branch and open a PR;
+15. the local implementation lead must **not merge its own PR**.
 
 Run `test:full` only when impact analysis falls back, a broad shared contract genuinely requires it, CI/failures justify it, release/deep regression requires it, or it is explicitly requested.
+
+## Parallel-work ownership rules
+
+Parallelism is for throughput, not fragmented architecture.
+
+- Prefer independent vertical slices, isolated UI surfaces, test additions, targeted audits, documentation, or bounded migration/test investigations.
+- Avoid concurrent edits to central routing, shared providers, financial source-of-truth helpers, core migration files, or the same schema contract unless the lead explicitly owns and coordinates them.
+- A Luna subagent may investigate financial/security/DB behavior, but the lead owns the final interpretation and integration.
+- Do not merge partial subagent output without reviewing the actual diff.
+- Validation occurs on the **integrated final branch**, not only inside isolated subagent worktrees.
 
 ## Diff-driven review
 
@@ -158,6 +184,7 @@ Do not turn a focused feature into a repository-wide audit. Fix adjacent issues 
 - Use `npm.cmd run ci:failure-context -- --file <log>` for oversized saved logs.
 - Do not repeatedly reopen unchanged files, logs, generated maps, or CI pages.
 - Never loop an unchanged failure.
+- Do not make each Luna subagent regenerate the same context or rerun the same expensive broad checks.
 
 Failure loop:
 
@@ -237,6 +264,8 @@ Do not close Docker Desktop itself. Stop only repo-specific servers/containers s
 9. targeted browser QA for significant user-facing changes;
 10. full regression only when justified.
 
+Parallel subagent checks may shorten iteration, but the integrated branch must still complete the applicable validation ladder.
+
 ## Browser scope
 
 For significant user-facing work, test the changed workflow and important responsive states in a capable environment. Do not turn targeted browser QA into a whole-app crawl.
@@ -251,7 +280,7 @@ Verified local environment is Windows PowerShell. Prefer `npm.cmd` / `npx.cmd` b
 
 Prefer focused branches/PRs. Never force-push by default or rewrite production history.
 
-Local Codex should push/open the PR and report exact validation. The GitHub-native lead reviews exact-head CI, fixes or coordinates concrete failures, and merges when safe under the current conversation workflow.
+The local implementation lead should push/open the PR and report exact validation. The GitHub-native lead reviews exact-head CI, fixes or coordinates concrete failures, and merges when safe under the current conversation workflow.
 
 Never use CI from an older PR head as proof for a newer head.
 
@@ -276,22 +305,24 @@ When the user asks ChatGPT to check, review, fix, finalize, prepare the next pha
 
 Do not create a new implementation prompt from an old Engoryx phase plan. The current HydroQualiSense roadmap controls scope.
 
-Every implementation prompt should carry forward:
+During the accelerated pre-demo sprint, every implementation prompt should carry forward:
 
 - current exact `main` SHA;
-- Codex-only default;
-- zero subagents by default / maximum 2;
-- lead ownership;
-- one bounded context packet;
-- current financial/security/history invariants;
+- Codex as lead implementation owner;
+- **Luna explicitly enabled with up to 5 concurrent subagents**;
+- lead ownership of architecture/shared contracts/integration;
+- one bounded lead context packet and narrow subagent assignments;
+- current financial/security/history/inventory invariants;
 - explicit scope and out-of-scope boundaries;
 - focused -> affected validation;
 - conditional Docker validation;
 - no ritual full-suite runs;
-- exact final diff review;
-- PR creation without Codex self-merging.
+- exact integrated diff review;
+- PR creation without local-agent self-merging.
 
-For deliberately wide/unattended runs, give Codex an explicit priority order and stop boundary. Do not let spare time turn into unrelated scope creep or an unvalidated new DB domain.
+For deliberately wide/unattended runs, give the lead an explicit priority order and stop boundary. Do not let spare time or spare subagent capacity turn into unrelated scope creep or an unvalidated new DB domain.
+
+After September 10, explicitly reassess the five-Luna allowance before generating later implementation prompts.
 
 ## Final handoff
 
@@ -306,7 +337,7 @@ For substantial work report concisely:
 - skipped validation;
 - remaining limitations/follow-up;
 - agent-context selector used;
-- subagents used, if any.
+- Luna/Codex subagents used, their assignments, and whether any were stopped.
 
 ## Repository learning rule
 
@@ -314,4 +345,4 @@ For substantial work report concisely:
 
 ## Definition of done
 
-A substantial task is done when current repository state was verified, scope stayed disciplined, financial/security/history semantics were preserved, changed files were reviewed, appropriate changed-surface validation was obtained, required Docker/Supabase runtime evidence was obtained for DB-affecting work when available, exact-head CI was checked, and the handoff clearly states what did and did not pass.
+A substantial task is done when current repository state was verified, scope stayed disciplined, financial/security/history semantics were preserved, subagent work was integrated and reviewed, changed files were reviewed, appropriate changed-surface validation was obtained, required Docker/Supabase runtime evidence was obtained for DB-affecting work when available, exact-head CI was checked, and the handoff clearly states what did and did not pass.
