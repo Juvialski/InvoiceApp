@@ -84,6 +84,7 @@ import {
   transitionSubcontract,
   unmatchPurchaseOrderMatch,
   updateInvoiceInSupabase,
+  verifySupplierInvoiceAndCreateExpense,
   voidPurchaseOrderReceipt,
   writePurchaseOrderMatchesToLocal,
   writePurchaseOrderReceiptsToLocal,
@@ -219,6 +220,8 @@ import {
   resolveVendorCandidate,
 } from "./lib/entityResolution.ts";
 import { useProjectController } from "./features/projects/useProjectController.ts";
+import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "./lib/documentSnapshots.ts";
+import { DEFAULT_COMPANY_DOCUMENT_PROFILE, supplierInvoiceBuyerMismatch } from "./lib/companyDocumentProfile.ts";
 
 function revisePayrollSourcePeriods(
   periods: PayrollPeriod[],
@@ -2172,6 +2175,7 @@ function InvoiceWorkspace() {
       if (!current || !project) throw new Error("Client billing or its project is not available in this workspace.");
       if (session && supabase && !guestModeState) {
         const saved = await transitionClientBillingToSupabase(id, targetStatus, reason);
+        if (targetStatus === "ISSUED") await ensureClientInvoiceDocumentSnapshot(saved.id);
         setClientBillingData((value) => ({ ...value, billings: upsertClientBilling(value.billings, saved) }));
         try { await refreshWorkspaceGroups(["engineering"], currentWorkspaceLoadToken(), { force: true, reason: "client-billing-transition" }); } catch { /* Keep the authoritative RPC result visible until the next refresh. */ }
       } else {
@@ -2424,6 +2428,7 @@ function InvoiceWorkspace() {
         }
       }
       const updated = await transitionPurchaseOrderStatus(id, targetStatus, reason);
+      if (targetStatus === "ISSUED" && session && supabase) await ensurePurchaseOrderDocumentSnapshot(updated.id);
       setPurchaseOrders((prev) => {
         const next = prev.map((p) => (p.id === updated.id ? updated : p));
         if (!isSupabaseConfigured) writePurchaseOrdersToLocal(next);
@@ -3878,8 +3883,11 @@ function InvoiceWorkspace() {
   const handleVerify = async (invoice: InvoiceData) => {
     const initialRevision = editRevisionRef.current.get(invoice.id) || 0;
     let verified: InvoiceData = { ...applyLocalChecks(invoice), reviewStatus: "VERIFIED" as const, verifiedAt: new Date().toISOString() };
-    const persisted = await flushInvoiceSave(verified, "VERIFIED");
-    if (!persisted) throw new Error("Could not save invoice verification.");
+    // Persist edits while the record is still NEEDS_REVIEW, then use the
+    // guarded transaction that verifies the supplier source and creates the
+    // authoritative Expense in one database operation.
+    const persisted = await flushInvoiceSave({ ...verified, reviewStatus: "NEEDS_REVIEW", verifiedAt: undefined }, "HUMAN_EDIT");
+    if (!persisted) throw new Error("Could not save invoice edits before verification.");
     verified = invoicesRef.current.find((item) => item.id === invoice.id) || verified;
     // If a field edit arrived while verification was saving, verify the latest
     // local values instead of replacing them with the older click snapshot.
@@ -3887,14 +3895,45 @@ function InvoiceWorkspace() {
       const latest = invoicesRef.current.find((item) => item.id === invoice.id);
       if (!latest) throw new Error("The invoice is no longer available.");
       verified = { ...applyLocalChecks(latest), reviewStatus: "VERIFIED" as const, verifiedAt: new Date().toISOString() };
-      if (!await flushInvoiceSave(verified, "VERIFIED")) throw new Error("Could not save invoice verification.");
+      if (!await flushInvoiceSave({ ...verified, reviewStatus: "NEEDS_REVIEW", verifiedAt: undefined }, "HUMAN_EDIT")) throw new Error("Could not save invoice edits before verification.");
       verified = invoicesRef.current.find((item) => item.id === invoice.id) || verified;
+    }
+    if (session && supabase) {
+      if (!can(PERMISSION_KEYS.expensesWrite)) throw new Error("Supplier invoice verification requires Expense management permission so the authoritative payable can be created.");
+      const result = await verifySupplierInvoiceAndCreateExpense(verified);
+      verified = result.invoice;
+      setExpenses((current) => current.some((item) => item.id === result.expense.id)
+        ? current.map((item) => item.id === result.expense.id ? result.expense : item)
+        : [result.expense, ...current]);
+    } else {
+      const buyerError = supplierInvoiceBuyerMismatch(verified, DEFAULT_COMPANY_DOCUMENT_PROFILE);
+      if (buyerError) throw new Error(`Buyer mismatch — ${buyerError} Resolve the buyer before verification.`);
+      const existingExpense = expenses.find((item) => item.supplierInvoiceId === verified.id && item.status !== "VOID");
+      const supplierAllocations = invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === verified.id);
+      const singleAllocation = supplierAllocations.length === 1 ? supplierAllocations[0] : undefined;
+      const localExpense = existingExpense || createLocalExpense({
+        projectId: singleAllocation?.projectId,
+        projectCostCodeId: singleAllocation?.projectCostCodeId,
+        expenseDate: verified.invoiceDate || new Date().toISOString().slice(0, 10),
+        category: verified.category || "Miscellaneous",
+        description: verified.invoiceNumber ? `Supplier invoice ${verified.invoiceNumber}` : "Supplier invoice expense",
+        payee: verified.vendor?.name || "Supplier",
+        supplierInvoiceId: verified.id,
+        vendorId: verified.vendor?.vendorId,
+        amount: Math.max(0, Number(verified.grandTotal) || 0),
+        currency: verified.currency || DEFAULT_CURRENCY,
+        referenceNumber: verified.invoiceNumber || undefined,
+        status: "DRAFT",
+      });
+      if (!existingExpense) setExpenses((current) => [localExpense, ...current]);
+      verified = { ...verified, linkedExpenseId: localExpense.id };
     }
     const next = invoicesRef.current.map((item) => item.id === verified.id ? verified : item);
     invoicesRef.current = next;
     setInvoices(next);
+    lastPersistedRef.current.set(verified.id, verified);
     if (selectedInvoice?.id === verified.id) setSelectedInvoice(verified);
-    showNotification("success", `Verified ${verified.invoiceNumber || "invoice"}. The original AI snapshot and source file remain unchanged.`);
+    showNotification("success", `Verified ${verified.invoiceNumber || "supplier invoice"}. Expense ${verified.linkedExpenseId ? `#${verified.linkedExpenseId.slice(0, 8)} ` : ""}is now the authoritative supplier payable; the source invoice remains preserved evidence.`);
     return verified;
   };
 
@@ -4276,7 +4315,9 @@ function InvoiceWorkspace() {
   }, [projects, costInvoices, detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
     ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
-    ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
+    // Linked supplier invoices are evidence only; the Expense is the sole
+    // supplier payable candidate for cash settlement.
+    ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
     ...payrollData.runs.filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: payrollData.entries.filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: payrollData.periods.find((period) => period.id === run.periodId)?.payDate || payrollData.periods.find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment" })),
     ...clientCollectionData.collections.filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId })),
   ].filter((candidate) => candidate.amount > 0), [clientCollectionData.collections, expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods]);

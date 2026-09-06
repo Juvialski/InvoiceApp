@@ -94,6 +94,9 @@ function blankProject(): Project {
     projectCode: "",
     projectName: "",
     clientName: "",
+    billingContactName: "",
+    billingEmail: "",
+    billingAddress: "",
     location: "",
     siteAddress: "",
     projectManager: "",
@@ -1150,6 +1153,38 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   value={editing.projectManager || ""}
                   onChange={(e) => setEditing({ ...editing, projectManager: e.target.value })}
                   placeholder="e.g. Engr. Santos"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Billing Contact</label>
+                <input
+                  value={editing.billingContactName || ""}
+                  onChange={(e) => setEditing({ ...editing, billingContactName: e.target.value })}
+                  placeholder="e.g. Maria Santos"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700">Billing Email</label>
+                <input
+                  type="email"
+                  value={editing.billingEmail || ""}
+                  onChange={(e) => setEditing({ ...editing, billingEmail: e.target.value })}
+                  placeholder="billing@example.com"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-700">Billing Address</label>
+                <textarea
+                  value={editing.billingAddress || ""}
+                  onChange={(e) => setEditing({ ...editing, billingAddress: e.target.value })}
+                  rows={2}
+                  placeholder="Client billing address"
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                 />
               </div>

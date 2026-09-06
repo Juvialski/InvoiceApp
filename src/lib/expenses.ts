@@ -28,6 +28,9 @@ function fromRow(row: Record<string, unknown>): Expense {
     category: String(row.category || "Miscellaneous"),
     description: String(row.description || ""),
     payee: text(row.payee),
+    supplierInvoiceId: text(row.supplier_invoice_id),
+    vendorId: text(row.vendor_id),
+    purchaseOrderId: text(row.purchase_order_id),
     amount: numberValue(row.amount),
     currency: String(row.currency || "PHP").toUpperCase(),
     paymentMethod: text(row.payment_method),
@@ -55,6 +58,11 @@ function toRow(expense: Expense, userId?: string, companyId?: string) {
     category: expense.category.trim() || "Miscellaneous",
     description: expense.description.trim(),
     payee: expense.payee || null,
+    // Supplier invoice provenance is created by the guarded verification RPC;
+    // preserve it on ordinary edits but do not infer it from a filename.
+    supplier_invoice_id: expense.supplierInvoiceId || null,
+    vendor_id: expense.vendorId || null,
+    purchase_order_id: expense.purchaseOrderId || null,
     amount: expense.amount || 0,
     currency: (expense.currency || "PHP").toUpperCase(),
     payment_method: expense.paymentMethod || null,

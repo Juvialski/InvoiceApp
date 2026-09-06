@@ -20,7 +20,7 @@ test("mobile navigation has an accessible dialog boundary and disclosure state",
   assert.match(header, /role=\{mobileOpen \? "dialog" : undefined\}/);
   assert.match(header, /aria-modal=\{mobileOpen \? "true" : undefined\}/);
   assert.match(header, /aria-controls="workspace-navigation-drawer"/);
-  assert.match(header, /aria-expanded=\{module\.id === "invoices" \? expanded : undefined\}/);
+  assert.match(header, /aria-expanded=\{module\.id === "expenses" \? expanded : undefined\}/);
   assert.doesNotMatch(header, /role=\{menuItem \? "menuitem"/);
 });
 

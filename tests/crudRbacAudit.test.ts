@@ -36,6 +36,7 @@ test("workspace refresh preserves cached presentation state during background wo
 
 test("cross-domain UI actions are gated by their complete effective permission contract", () => {
   assert.match(invoicesRoute, /const canVerifyInvoices = hasAllPermissions\(permissions, \[PERMISSION_KEYS\.invoicesWrite, PERMISSION_KEYS\.invoicesVerify\]\)/);
+  assert.match(invoicesRoute, /canVerifySupplierInvoices = canVerifyInvoices && hasPermission\(permissions, PERMISSION_KEYS\.expensesWrite\)/);
   assert.match(invoicesRoute, /const canExtractInvoices = hasAllPermissions\(permissions, \[PERMISSION_KEYS\.invoicesWrite, PERMISSION_KEYS\.invoicesExtract, PERMISSION_KEYS\.invoicesVerify\]\)/);
   assert.match(invoicesRoute, /canProcessInvoices=\{canExtractInvoices\}/);
   assert.match(emailInbox, /if \(!canProcessInvoices\)/);

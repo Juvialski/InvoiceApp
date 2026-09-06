@@ -14,12 +14,11 @@ test("Email Intake Phase 3: Top-level navigation and module structure", () => {
   assert.equal(inboxRoute.label, "Email Intake");
   assert.deepEqual(inboxRoute.aliases, ["/inbox"]);
 
-  // 2. Navigation modules: email-intake is top-level between invoices and projects
+  // 2. Navigation modules: supplier invoice work is grouped under Expenses.
   const moduleIds = NAVIGATION_MODULES.map((m) => m.id);
   assert.deepEqual(moduleIds, [
     "dashboard",
     "cash",
-    "invoices",
     "email-intake",
     "projects",
     "procurement",
@@ -28,11 +27,10 @@ test("Email Intake Phase 3: Top-level navigation and module structure", () => {
     "reports",
   ]);
 
-  // 3. Invoices module does NOT contain inbox
-  const invoicesModule = NAVIGATION_MODULES.find((m) => m.id === "invoices");
-  assert.ok(invoicesModule);
-  assert.ok(!invoicesModule.routeIds.includes("inbox"));
-  assert.deepEqual(invoicesModule.routeIds, ["extract", "review", "invoices", "vendors"]);
+  // 3. There is no standalone invoice module; supplier actions live in Expenses.
+  const expensesModule = NAVIGATION_MODULES.find((m) => m.id === "expenses");
+  assert.ok(expensesModule);
+  assert.deepEqual(expensesModule.routeIds, ["expenses", "extract", "review", "vendors"]);
 
   // 4. email-intake module definition
   const emailIntakeModule = NAVIGATION_MODULES.find((m) => m.id === "email-intake");
@@ -43,7 +41,7 @@ test("Email Intake Phase 3: Top-level navigation and module structure", () => {
 
   // 5. getPrimaryModuleForRoute mapping
   assert.equal(getPrimaryModuleForRoute("inbox")?.id, "email-intake");
-  assert.equal(getPrimaryModuleForRoute("invoices")?.id, "invoices");
+  assert.equal(getPrimaryModuleForRoute("invoices"), undefined);
 
   // 6. getNavigationModel output
   const navModel = getNavigationModel();

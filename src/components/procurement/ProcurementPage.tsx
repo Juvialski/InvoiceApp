@@ -88,6 +88,9 @@ import { SubcontractClaimsDrawer } from "./SubcontractClaimsDrawer.tsx";
 import { SubcontractVariationModal } from "./SubcontractVariationModal.tsx";
 import { SubcontractVariationDetailModal } from "./SubcontractVariationDetailModal.tsx";
 import { SubcontractVariationsDrawer } from "./SubcontractVariationsDrawer.tsx";
+import { DocumentPreviewModal } from "../DocumentPreviewModal.tsx";
+import { buildPurchaseOrderDocumentSnapshot } from "../../lib/documentGeneration.ts";
+import { DEFAULT_COMPANY_DOCUMENT_PROFILE } from "../../lib/companyDocumentProfile.ts";
 
 export interface ProcurementPageProps {
   purchaseOrders: PurchaseOrder[];
@@ -227,6 +230,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
 
   // Purchase Order State
   const [activePo, setActivePo] = useState<PurchaseOrder | null | undefined>(undefined);
+  const [previewPo, setPreviewPo] = useState<PurchaseOrder | null>(null);
 
   // RFQ State (with graceful fallback to demo seed when not provided)
   const defaultAnchor = useMemo(() => defaultDemoAnchorDate(), []);
@@ -1349,13 +1353,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                             {formatMoney(po.totalAmount || 0, po.currency || "PHP")}
                           </td>
                           <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => setActivePo(po)}
-                              className="px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-900 rounded-lg hover:bg-indigo-50 transition"
-                            >
-                              View / Edit
-                            </button>
+                            <div className="flex justify-end gap-1"><button type="button" onClick={() => setPreviewPo(po)} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"><FileText className="h-3.5 w-3.5" />Preview</button><button type="button" onClick={() => setActivePo(po)} className="px-2.5 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-900 rounded-lg hover:bg-indigo-50 transition">View / Edit</button></div>
                           </td>
                         </tr>
                       );
@@ -2177,6 +2175,8 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           onOpenInvoice={onOpenInvoice}
         />
       )}
+
+      {previewPo && <DocumentPreviewModal document={buildPurchaseOrderDocumentSnapshot(previewPo, vendorMap.get(previewPo.vendorId), projectMap.get(previewPo.projectId), DEFAULT_COMPANY_DOCUMENT_PROFILE)} onClose={() => setPreviewPo(null)} />}
 
       {/* 2. RFQ Editor Modal */}
       {activeRfqModal !== undefined && (

@@ -196,7 +196,10 @@ export async function connectGoogleAndGmail(redirectToPath = "/email-intake") {
   const loginHint = linkedGoogleEmail || currentUser.user.email || "";
   const options = {
     redirectTo,
-    scopes: "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+    // Intake still reads through Gmail, while document sending needs the
+    // minimum additional Gmail permission. Reconnect/re-consent is explicit
+    // because Supabase will not silently upgrade an existing identity.
+    scopes: "openid email profile https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send",
     queryParams: {
       access_type: "offline",
       prompt: "consent",

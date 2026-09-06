@@ -17,10 +17,15 @@ export interface ClientBillingInput {
   projectId: string;
   billingNumber: string;
   billingDate?: string;
+  dueDate?: string;
+  paymentTerms?: string;
   periodStart?: string;
   periodEnd?: string;
   clientNameSnapshot?: string;
   clientReferenceSnapshot?: string;
+  billingContactName?: string;
+  billingEmail?: string;
+  billingAddress?: string;
   currency?: string;
   notes?: string;
 }
@@ -116,10 +121,15 @@ function billingFromRow(row: Row, lines: ClientBillingLine[] = []): ClientBillin
     projectId: String(row.project_id || ""),
     billingNumber: String(row.billing_number || ""),
     billingDate: String(row.billing_date || ""),
+    dueDate: text(row.due_date),
+    paymentTerms: text(row.payment_terms),
     periodStart: text(row.period_start),
     periodEnd: text(row.period_end),
     clientNameSnapshot: text(row.client_name_snapshot),
     clientReferenceSnapshot: text(row.client_reference_snapshot),
+    billingContactName: text(row.billing_contact_name),
+    billingEmail: text(row.billing_email),
+    billingAddress: text(row.billing_address),
     currency: String(row.currency || "PHP").toUpperCase(),
     status: String(row.status || "DRAFT") as ClientBillingStatus,
     notes: text(row.notes),
@@ -238,10 +248,15 @@ export function buildLocalClientBilling(
     projectId: input.projectId,
     billingNumber: input.billingNumber.trim().toUpperCase(),
     billingDate: dateOnly(input.billingDate),
+    dueDate: input.dueDate?.trim() || undefined,
+    paymentTerms: input.paymentTerms?.trim() || undefined,
     periodStart: input.periodStart?.trim() || undefined,
     periodEnd: input.periodEnd?.trim() || undefined,
     clientNameSnapshot: input.clientNameSnapshot?.trim() || undefined,
     clientReferenceSnapshot: input.clientReferenceSnapshot?.trim() || undefined,
+    billingContactName: input.billingContactName?.trim() || undefined,
+    billingEmail: input.billingEmail?.trim() || undefined,
+    billingAddress: input.billingAddress?.trim() || undefined,
     currency: (input.currency || "PHP").trim().toUpperCase(),
     status: existing?.status || "DRAFT",
     notes: input.notes?.trim() || undefined,
@@ -400,10 +415,15 @@ export async function saveClientBillingToSupabase(input: ClientBillingInput, lin
     projectId: input.projectId,
     billingNumber: input.billingNumber,
     billingDate: input.billingDate || null,
+    dueDate: input.dueDate || null,
+    paymentTerms: input.paymentTerms || null,
     periodStart: input.periodStart || null,
     periodEnd: input.periodEnd || null,
     clientNameSnapshot: input.clientNameSnapshot || null,
     clientReferenceSnapshot: input.clientReferenceSnapshot || null,
+    billingContactName: input.billingContactName || null,
+    billingEmail: input.billingEmail || null,
+    billingAddress: input.billingAddress || null,
     currency: input.currency || null,
     notes: input.notes || null,
   });
@@ -412,7 +432,28 @@ export async function saveClientBillingToSupabase(input: ClientBillingInput, lin
     p_lines: lines.map((line) => ({ description: line.description, amount: line.amount, notes: line.notes || null })),
   });
   if (error) throw error;
-  return responseBilling(data);
+  let saved = responseBilling(data);
+  // The mature billing RPC remains the financial source of truth; the
+  // lightweight contact/due-date fields are additive document metadata.
+  const metadata = {
+    due_date: input.dueDate || null,
+    payment_terms: input.paymentTerms || null,
+    billing_contact_name: input.billingContactName || null,
+    billing_email: input.billingEmail || null,
+    billing_address: input.billingAddress || null,
+  };
+  const persistedId = saved.id;
+  const { data: metadataRow, error: metadataError } = await supabase
+    .from("client_billings")
+    .update(metadata)
+    .eq("company_id", companyId)
+    .eq("id", persistedId)
+    .eq("status", "DRAFT")
+    .select("*")
+    .maybeSingle();
+  if (metadataError) throw metadataError;
+  if (metadataRow) saved = billingFromRow(metadataRow as Row, saved.lines);
+  return saved;
 }
 
 export async function transitionClientBillingToSupabase(

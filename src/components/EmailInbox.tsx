@@ -547,7 +547,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       <PageHeader
         eyebrow="Financial operations"
         title="Email Intake Review Queue"
-        description="Unified finance queue for invoices, bank statements, and expense receipts. Ingest, resolve entities, detect duplicates, and safely prepare candidates for human review."
+        description="Unified finance queue for supplier invoices, bank statements, and expense receipts. Supplier invoices route into Expense review while their original source remains preserved."
       />
 
       {/* Gmail Connection & Scan Control Header */}
@@ -797,7 +797,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           </div>
           <div className="bg-emerald-50/60 border border-emerald-200 rounded-2xl p-3.5 shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Invoices</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">Supplier invoices</p>
               <FileText className="w-3.5 h-3.5 text-emerald-600" />
             </div>
             <p className="mt-1 text-xl font-black text-emerald-950">{counts.invoices}</p>
@@ -889,7 +889,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                     : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
                 }`}
               >
-                Invoices ({counts.invoices})
+                Supplier invoices ({counts.invoices})
               </button>
               <button
                 type="button"
@@ -1331,13 +1331,13 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                               {item.candidate.importStatus === "IMPORTED"
                                 ? "Imported"
                                 : item.duplicate.status === "EXACT_DUPLICATE"
-                                  ? "Re-extract invoice"
+                                  ? "Re-extract supplier invoice"
                                   : "Import & extract"}
                             </button>
                           ) : (
                             <span className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900">
                               {!canManageMailbox && !canProcessInvoices
-                                ? "Requires Gmail + invoice permissions"
+                                ? "Requires Gmail + supplier invoice permissions"
                                 : !canManageMailbox
                                   ? "Requires Gmail permission"
                                   : "Requires invoice permission"}
@@ -1412,8 +1412,8 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           <div className="flex items-center gap-2.5">
             <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
             <div>
-              <h3 className="text-sm font-bold text-slate-800">Manual invoice email fallback (Optional)</h3>
-              <p className="text-[10px] text-slate-500">For forwarded invoice text or unsupported mailboxes. Invoice-specific.</p>
+              <h3 className="text-sm font-bold text-slate-800">Manual supplier invoice email fallback (Optional)</h3>
+              <p className="text-[10px] text-slate-500">For forwarded supplier invoice text or unsupported mailboxes. The verified result becomes an Expense.</p>
             </div>
           </div>
           <span className="text-xs font-bold text-indigo-600 group-open:rotate-180 transition-transform duration-200 inline-flex items-center gap-1">

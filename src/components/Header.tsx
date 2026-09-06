@@ -205,7 +205,7 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
   const route = module.defaultRoute;
   if (!route) return null;
   const Icon = routeIcons[route.id];
-  const accessibleLabel = module.id === "invoices" && invoicesCount > 0
+  const accessibleLabel = module.id === "expenses" && invoicesCount > 0
     ? `${module.label}, ${invoicesCount} invoice${invoicesCount === 1 ? "" : "s"}`
     : module.label;
 
@@ -217,7 +217,7 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
         onClick={() => onSelect(module)}
         aria-label={accessibleLabel}
         aria-current={active ? "page" : undefined}
-        aria-expanded={module.id === "invoices" ? expanded : undefined}
+        aria-expanded={module.id === "expenses" ? expanded : undefined}
         title={accessibleLabel}
         className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition ${
           active
@@ -226,7 +226,7 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
         } mx-auto`}
       >
         <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${active ? "text-indigo-300" : "text-slate-400 group-hover:text-slate-200"}`} />
-        {module.id === "invoices" && invoicesCount > 0 && (
+        {module.id === "expenses" && invoicesCount > 0 && (
           <span
             aria-hidden="true"
             className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-400 px-1 text-[9px] font-black leading-none text-indigo-950"
@@ -249,14 +249,14 @@ const NavigationModuleButton: React.FC<NavigationModuleButtonProps> = ({
       onClick={() => onSelect(module)}
       aria-label={accessibleLabel}
       aria-current={active ? "page" : undefined}
-      aria-expanded={module.id === "invoices" ? expanded : undefined}
-      aria-controls={module.id === "invoices" ? "invoice-navigation" : undefined}
+      aria-expanded={module.id === "expenses" ? expanded : undefined}
+      aria-controls={module.id === "expenses" ? "expense-navigation" : undefined}
       title={accessibleLabel}
       className={classes}
     >
       <Icon aria-hidden="true" className={`h-4 w-4 shrink-0 ${active && sidebar ? "text-indigo-300" : "text-slate-500 group-hover:text-slate-300"}`} />
       <span className="min-w-0 flex-1 truncate">{module.label}</span>
-      {module.id === "invoices" && invoicesCount > 0 && <span aria-hidden="true" className={`rounded-full px-1.5 text-[9px] leading-4 ${sidebar ? "bg-indigo-400 text-indigo-950" : "bg-indigo-600 text-white"}`}>{invoicesCount}</span>}
+      {module.id === "expenses" && invoicesCount > 0 && <span aria-hidden="true" className={`rounded-full px-1.5 text-[9px] leading-4 ${sidebar ? "bg-indigo-400 text-indigo-950" : "bg-indigo-600 text-white"}`}>{invoicesCount}</span>}
     </button>
   );
 };
@@ -322,7 +322,7 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     setMobileOpen(false);
     setAccountOpen(false);
-    if (activeModule?.id === "invoices") setInvoicesExpanded(true);
+    if (activeModule?.id === "expenses") setInvoicesExpanded(true);
   }, [activeTab, activeModule?.id]);
 
   useEffect(() => {
@@ -356,7 +356,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const selectModule = (module: NavigationModule) => {
-    if (module.id === "invoices") setInvoicesExpanded((value) => !value);
+    if (module.id === "expenses") setInvoicesExpanded((value) => !value);
     const route = getDefaultChildRoute(module.id, navigationFilter);
     if (route) {
       setActiveTab(route.appTab);
@@ -443,12 +443,12 @@ export const Header: React.FC<HeaderProps> = ({
                   active={activeModule?.id === module.id}
                   sidebar
                   collapsed={collapsed && !mobileOpen}
-                  expanded={module.id === "invoices" ? invoicesExpanded : undefined}
+                  expanded={module.id === "expenses" ? invoicesExpanded : undefined}
                   invoicesCount={invoicesCount}
                   onSelect={selectModule}
                 />
-                {module.id === "invoices" && (!collapsed || mobileOpen) && module.routes.length > 1 && (
-                  <div id="invoice-navigation" hidden={!invoicesExpanded} className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2" aria-label="Invoice navigation">
+                {module.id === "expenses" && (!collapsed || mobileOpen) && module.routes.length > 1 && (
+                  <div id="expense-navigation" hidden={!invoicesExpanded} className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-2" aria-label="Supplier expense navigation">
                     {module.routes.map((route) => (
                       <NavigationRouteButton
                         key={route.id}

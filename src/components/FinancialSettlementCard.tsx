@@ -30,6 +30,7 @@ function stateTone(state: FinancialSettlementSummary["settlementState"]) {
   if (state === "PAID" || state === "SETTLED" || state === "LINKED") return "border-emerald-200 bg-emerald-50 text-emerald-800";
   if (state === "PARTIALLY_PAID" || state === "PARTIALLY_DISBURSED" || state === "PARTIALLY_LINKED") return "border-amber-200 bg-amber-50 text-amber-900";
   if (state === "OVERDUE") return "border-rose-200 bg-rose-50 text-rose-800";
+  if (state === "TRANSFERRED_TO_EXPENSE") return "border-indigo-200 bg-indigo-50 text-indigo-800";
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
@@ -239,6 +240,12 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
               <Metric label={targetType === "PAYROLL" ? "Confirmed disbursement" : targetType === "CLIENT_COLLECTION" ? "Bank-linked amount" : "Confirmed bank payments"} value={money(summary.reconciledCashPaid, summary.currency)} />
               <Metric label="Outstanding" value={money(summary.outstanding, summary.currency)} emphasis={summary.outstanding > 0.005} />
             </div>
+
+            {summary.settlementState === "TRANSFERRED_TO_EXPENSE" && (
+              <p className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-[10px] text-indigo-800">
+                Supplier payable ownership has moved to the linked Expense. Cash reconciliation belongs on that Expense; this preserved invoice is evidence only.
+              </p>
+            )}
 
             {targetType === "INVOICE" && summary.documentReportedPaid > 0 && (
               <div className="mt-3 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-[10px] text-sky-800">

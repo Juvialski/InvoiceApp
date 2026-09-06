@@ -4,7 +4,7 @@ import { createServer as createViteServer } from "vite";
 import { Type } from "@google/genai";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import dotenv from "dotenv";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import type { InvoiceData } from "./src/types.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import { createStorageRouter } from "./src/server/storage/storageRouter.ts";
@@ -1648,6 +1648,173 @@ app.post("/api/gmail/import", async (req, res) => {
     res.json({ success: true, data: { ...summary, attachments, rawBase64Url: raw.raw || "" } });
   } catch (error: any) {
     res.status(error?.status || 500).json({ success: false, error: error?.message || "Could not import Gmail message." });
+  }
+});
+
+function normalizedEmailList(value: unknown, label: string) {
+  const raw = Array.isArray(value) ? value.map((item) => String(item || "")) : String(value || "").split(",");
+  const values = raw.map((item) => item.trim()).filter(Boolean);
+  if (values.length > 20) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", `${label} has too many recipients.`);
+  for (const item of values) {
+    if (!/^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/.test(item)) {
+      throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", `${label} contains an invalid email address.`);
+    }
+  }
+  return values;
+}
+
+function safeMailHeader(value: unknown, fallback: string) {
+  const normalized = String(value || fallback).replace(/[\r\n]+/g, " ").trim();
+  return normalized.slice(0, 500) || fallback;
+}
+
+function base64Url(value: Buffer) {
+  return value.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function buildDocumentMimeMessage(input: { to: string[]; cc: string[]; subject: string; message: string; attachmentName: string; pdfBytes: Buffer }) {
+  const boundary = `=_HydroQualiSense_${randomUUID()}`;
+  const attachment = input.pdfBytes.toString("base64").replace(/(.{1,76})/g, "$1\r\n").trim();
+  const headers = [
+    `To: ${input.to.join(", ")}`,
+    ...(input.cc.length ? [`Cc: ${input.cc.join(", ")}`] : []),
+    `Subject: ${input.subject}`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+  ];
+  const raw = [
+    ...headers,
+    "",
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    input.message,
+    `--${boundary}`,
+    `Content-Type: application/pdf; name="${input.attachmentName}"`,
+    "Content-Transfer-Encoding: base64",
+    `Content-Disposition: attachment; filename="${input.attachmentName}"`,
+    "",
+    attachment,
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+  return Buffer.from(raw, "utf8");
+}
+
+async function recordDocumentSendAudit(auth: CompanyRequestAuthorization, input: {
+  snapshotId: string;
+  documentType: "PURCHASE_ORDER" | "CLIENT_INVOICE";
+  documentId: string;
+  recipients: string[];
+  cc: string[];
+  subject: string;
+  attachmentName: string;
+  attachmentSha256: string;
+  status: "SENT" | "FAILED";
+  gmailMessageId?: string;
+  errorMessage?: string;
+}) {
+  const { data, error } = await auth.supabase
+    .from("document_send_audits")
+    .insert({
+      company_id: auth.companyId,
+      snapshot_id: input.snapshotId,
+      document_type: input.documentType,
+      document_id: input.documentId,
+      sender_user_id: auth.user.id,
+      recipients: input.recipients,
+      cc: input.cc,
+      subject: input.subject,
+      attachment_name: input.attachmentName,
+      attachment_sha256: input.attachmentSha256,
+      gmail_message_id: input.gmailMessageId || null,
+      status: input.status,
+      error_message: input.errorMessage || null,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return String((data as any)?.id || "");
+}
+
+app.post("/api/gmail/send", async (req, res) => {
+  let auth: CompanyRequestAuthorization | null = null;
+  let auditInput: Parameters<typeof recordDocumentSendAudit>[1] | null = null;
+  let gmailDelivered = false;
+  try {
+    auth = await authorizeCompanyRequest(req, "gmail.manage");
+    const documentType = String(req.body?.documentType || "").trim().toUpperCase();
+    if (documentType !== "PURCHASE_ORDER" && documentType !== "CLIENT_INVOICE") {
+      return res.status(400).json({ success: false, error: "A supported issued document type is required." });
+    }
+    const documentId = String(req.body?.documentId || "").trim();
+    const snapshotId = String(req.body?.snapshotId || "").trim();
+    if (!UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) {
+      return res.status(400).json({ success: false, error: "An issued document snapshot is required before sending." });
+    }
+    const documentPermission = documentType === "PURCHASE_ORDER" ? "procurement.read" : "projects.read";
+    const { data: allowed, error: permissionError } = await auth.supabase.rpc("has_company_permission", { p_company_id: auth.companyId, p_permission_key: documentPermission });
+    if (permissionError || allowed !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission to send this document type.");
+    const { data: snapshot, error: snapshotError } = await auth.supabase
+      .from("issued_document_snapshots")
+      .select("id,document_type,document_id,document_number,template_version,snapshot")
+      .eq("company_id", auth.companyId)
+      .eq("id", snapshotId)
+      .eq("document_type", documentType)
+      .eq("document_id", documentId)
+      .maybeSingle();
+    if (snapshotError) throw snapshotError;
+    if (!snapshot) throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued document snapshot is unavailable. Generate the document again before sending.");
+
+    const recipients = normalizedEmailList(req.body?.to, "To");
+    const cc = normalizedEmailList(req.body?.cc, "CC");
+    if (!recipients.length) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "At least one To recipient is required.");
+    const subject = safeMailHeader(req.body?.subject, `${documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice"} ${snapshot.document_number}`);
+    const message = String(req.body?.message || "").replace(/[\u0000]/g, "").slice(0, 20_000);
+    const attachmentName = safeMailHeader(req.body?.attachmentName, `${snapshot.document_number}.pdf`).replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 180) || `${snapshot.document_number}.pdf`;
+    const pdfBase64 = String(req.body?.pdfBase64 || "").trim();
+    if (!pdfBase64 || pdfBase64.length > 20_000_000) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A valid PDF attachment under 15 MB is required.");
+    const pdfBytes = Buffer.from(pdfBase64, "base64");
+    if (pdfBytes.length === 0 || pdfBytes.length > 15 * 1024 * 1024 || pdfBytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "The attachment is not a valid PDF under 15 MB.");
+    }
+    auditInput = {
+      snapshotId,
+      documentType: documentType as "PURCHASE_ORDER" | "CLIENT_INVOICE",
+      documentId,
+      recipients,
+      cc,
+      subject,
+      attachmentName,
+      attachmentSha256: createHash("sha256").update(pdfBytes).digest("hex"),
+      status: "SENT",
+    };
+    const accessToken = getGoogleAccessToken(req);
+    let sent: any;
+    sent = await gmailFetch(accessToken, "messages/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ raw: base64Url(buildDocumentMimeMessage({ to: recipients, cc, subject, message, attachmentName, pdfBytes })) }),
+    });
+    gmailDelivered = true;
+    const gmailMessageId = String(sent?.id || "");
+    const auditId = await recordDocumentSendAudit(auth, { ...auditInput, gmailMessageId, status: "SENT" });
+    return res.json({ success: true, data: { status: "SENT", gmailMessageId, auditId } });
+  } catch (error: any) {
+    const status = error?.status || 500;
+    const message = error?.message || "The document could not be sent.";
+    if (gmailDelivered) {
+      return res.status(503).json({
+        success: false,
+        code: "DOCUMENT_SEND_AUDIT_UNAVAILABLE",
+        error: "Gmail accepted the document, but the send history could not be recorded. Check Gmail and the document history before retrying.",
+      });
+    }
+    if (auth && auditInput && auditInput.status === "SENT") {
+      await recordDocumentSendAudit(auth, { ...auditInput, status: "FAILED", errorMessage: message }).catch(() => {});
+    }
+    return res.status(status).json({ success: false, error: message });
   }
 });
 

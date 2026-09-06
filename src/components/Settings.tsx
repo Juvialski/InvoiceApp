@@ -6,6 +6,7 @@ import { FeatureStatusOverview } from "./FeatureStatusOverview";
 import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.tsx";
 import { CompanyProfileSettings } from "./access/CompanyProfileSettings.tsx";
+import { CompanyDocumentProfileSettings } from "./access/CompanyDocumentProfileSettings.tsx";
 
 interface SettingsProps {
   settings: RegionalSettings;
@@ -107,6 +108,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
           </div>
         </section>
       </div>
+
+      {showDeploymentAccessManagement && <CompanyDocumentProfileSettings />}
 
       {showDeploymentAccessManagement && <DeploymentAccessManagement />}
       <FeatureStatusOverview />

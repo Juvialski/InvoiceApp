@@ -40,8 +40,7 @@ test("master Vendor linkage cannot overwrite invoice document Vendor evidence", 
   assert.match(workspace, /const vendorChanged =/);
   assert.match(workspace, /if \(resolutionChanged && vendorChanged\)/);
   assert.match(workspace, /onUpdateInvoice\(\{ \.\.\.updated, vendor: invoice\.vendor \}\)/);
-  assert.match(workspace, /<ReviewPanel[\s\S]*?onUpdateInvoice=\{handleInvoiceUpdate\}/);
-  assert.match(workspace, /<InvoiceViewer[\s\S]*?onUpdateInvoice=\{handleInvoiceUpdate\}/);
+  assert.match(workspace, /<SupplierInvoiceReview[\s\S]*?onUpdateInvoice=\{handleInvoiceUpdate\}/);
 });
 
 test("post-extraction and post-parse resolvers remain authoritative downstream", () => {

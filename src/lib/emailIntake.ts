@@ -542,7 +542,7 @@ export function classifyEmailIntakeCandidate(
       isInvoiceLike: true,
       documentType: "INVOICE",
       confidence: /\b(invoice|tax invoice|vat invoice|sales invoice|service invoice)\b/i.test(text) ? 92 : 78,
-      reason: "Invoice or billing language was found. Keep the existing invoice extraction and human verification workflow.",
+      reason: "Supplier invoice or billing language was found. Review it before the authoritative Expense is created.",
       suggestedDestination: "INVOICE",
     };
   }

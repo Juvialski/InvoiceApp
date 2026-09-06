@@ -174,7 +174,7 @@ test("Viewer and read-only roles are not offered mutation workflows", () => {
   assert.match(expensesPage, /actions=\{canManage \?/);
   assert.match(expensesPage, /\{canManage && <th/);
   assert.match(invoicesRoute, /InvoiceDirectoryReadOnly/);
-  assert.match(invoicesRoute, /readOnly=\{!canVerifyInvoices\}/);
+  assert.match(invoicesRoute, /readOnly=\{!canVerifySupplierInvoices\}/);
   assert.match(invoicesRoute, /canManageMailbox=\{canManageGmail\}/);
 });
 
