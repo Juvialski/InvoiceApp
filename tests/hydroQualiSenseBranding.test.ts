@@ -8,6 +8,7 @@ const activeProductionSurfaceFiles = [
   "metadata.json",
   "public/demo/warehouse-structural-plan.svg",
   "src/config/brand.ts",
+  "src/components/BrandMark.tsx",
   "src/components/auth/AuthScreen.tsx",
   "src/components/access/AccessStates.tsx",
   "src/components/access/CompanyProfileSettings.tsx",

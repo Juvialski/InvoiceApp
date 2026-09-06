@@ -406,7 +406,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Engineering operations"
+        eyebrow="Project controls"
         title="Portfolio Management"
         description="Scan project health and commercial position, then open the register for evidence and action."
         actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditing(blankProject())} /> : undefined}

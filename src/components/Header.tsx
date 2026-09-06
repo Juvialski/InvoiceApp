@@ -35,7 +35,7 @@ import { navigationModuleTourTarget, navigationRouteTourTarget } from "../naviga
 import { getRouteForAppTab, type AppTab, type RouteId } from "../utils/routes";
 import type { PermissionKey } from "../utils/accessControl.ts";
 import type { WorkspaceSyncStatus } from "../lib/workspaceSync";
-import { CompanySwitcher } from "./access/AccessStates";
+import { BrandMark } from "./BrandMark.tsx";
 import { useDialogFocus } from "./ui/useDialogFocus.ts";
 import type { CompanySummary } from "../lib/companyAccess";
 import { BRAND } from "../config/brand.ts";
@@ -398,13 +398,13 @@ export const Header: React.FC<HeaderProps> = ({
               title="Expand sidebar"
               aria-label="Expand sidebar"
             >
-              <img src="/brand/hydroqualisense-logo.png" alt="" className="h-10 w-10 object-contain mix-blend-screen drop-shadow-[0_0_12px_rgba(14,165,233,0.35)]" />
+              <BrandMark variant="compact" decorative />
             </button>
           </div>
         ) : (
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
             <div className="flex min-w-0 items-center gap-3">
-              <img src="/brand/hydroqualisense-logo.png" alt="HydroQualiSense Solutions Corp. logo" className="h-12 w-12 shrink-0 object-contain mix-blend-screen drop-shadow-[0_0_14px_rgba(14,165,233,0.4)]" />
+              <BrandMark variant="sidebar" decorative />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black tracking-tight text-white">{BRAND.productName}</p>
                 <p className="whitespace-normal break-words text-[10px] font-semibold leading-3 text-slate-400">{BRAND.companyName}</p>
@@ -434,12 +434,6 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         <div className={`min-h-0 flex-1 overflow-y-auto ${collapsed && !mobileOpen ? "px-1.5" : "px-3"} py-4 ops-scrollbar`}>
-          {companies.length > 0 && (
-            <div className={`mb-4 ${collapsed && !mobileOpen ? "px-0" : "px-1"}`}>
-              {!collapsed || mobileOpen ? <p className="mb-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Deployment</p> : null}
-              <CompanySwitcher companies={companies} activeCompanyId={activeCompanyId} collapsed={collapsed && !mobileOpen} />
-            </div>
-          )}
           {!collapsed || mobileOpen ? <p className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Operations</p> : null}
           <nav className="space-y-1" aria-label="Primary navigation">
             {navigation.modules.map((module) => (
@@ -528,6 +522,7 @@ export const Header: React.FC<HeaderProps> = ({
       >
         <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
           <button ref={mobileMenuButtonRef} type="button" onClick={() => setMobileOpen(true)} className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-slate-600 shadow-sm hover:border-indigo-200 hover:text-indigo-700 lg:hidden" aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="workspace-navigation-drawer"><Menu className="h-4 w-4" /></button>
+          <BrandMark variant="header" decorative />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-slate-600 sm:text-base">
               <span className="hidden sm:inline"><span className="font-bold text-slate-900">{BRAND.productName}</span><span className="mx-1.5 text-slate-300">/</span></span>
