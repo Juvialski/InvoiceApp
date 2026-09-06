@@ -109,8 +109,8 @@ function itemIsMeaningful(item: LineItem) {
 }
 
 function lineItemReconciles(item: LineItem) {
-  if (!presentNumber(item.quantity) || !presentNumber(item.unitPrice) || !presentNumber(item.total)) return false;
-  const expected = roundMoney(numeric(item.quantity) * numeric(item.unitPrice) - (presentNumber(item.discount) ? numeric(item.discount) : 0));
+  if (!presentNumber(item.quantity) || !presentNumber(item.unitPrice) || !presentNumber(item.discount) || !presentNumber(item.total)) return false;
+  const expected = roundMoney(numeric(item.quantity) * numeric(item.unitPrice) - numeric(item.discount));
   return nearlyEqual(expected, numeric(item.total));
 }
 
