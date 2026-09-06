@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { WarehouseInventoryPage } from "../../components/inventory/WarehouseInventoryPage.tsx";
 import type { Project, ProjectMaterial, PurchaseOrder, PurchaseOrderReceipt } from "../../types.ts";
 import type { InventoryBalance, InventoryItem, InventoryItemSaveInput, InventoryMovement, InventoryMovementInput } from "../../lib/inventory.ts";
+import { buildWarehouseReceiptPresentationSources } from "../../lib/inventoryReceiptPresentation.ts";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
 
@@ -39,6 +40,12 @@ export const WarehouseInventoryRoute: React.FC<WarehouseInventoryRouteProps> = (
   const canManage = guestMode || hasPermission(permissions, PERMISSION_KEYS.inventoryManage);
   const canReadProjects = guestMode || hasPermission(permissions, PERMISSION_KEYS.projectsRead);
   const canReadProcurement = guestMode || hasPermission(permissions, PERMISSION_KEYS.procurementRead);
+  const warehouseReceiptSources = useMemo(
+    () => canReadProcurement
+      ? buildWarehouseReceiptPresentationSources(purchaseOrders, receipts)
+      : { purchaseOrders: [], receipts: [] },
+    [canReadProcurement, purchaseOrders, receipts],
+  );
 
   return (
     <WarehouseInventoryPage
@@ -47,8 +54,8 @@ export const WarehouseInventoryRoute: React.FC<WarehouseInventoryRouteProps> = (
       balances={balances}
       projects={canReadProjects ? projects : []}
       projectMaterials={canReadProjects ? projectMaterials : []}
-      purchaseOrders={canReadProcurement ? purchaseOrders : []}
-      receipts={canReadProcurement ? receipts : []}
+      purchaseOrders={warehouseReceiptSources.purchaseOrders}
+      receipts={warehouseReceiptSources.receipts}
       canRead={canRead}
       canManage={canManage}
       canReadProjects={canReadProjects}
