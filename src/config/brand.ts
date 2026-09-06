@@ -26,17 +26,17 @@ export const BRAND: BrandConfig = Object.freeze({
   displayUppercase: "HYDROQUALISENSE",
   canonicalOrigin: "https://hydroqualisense.com",
   tagline: "HydroQualiSense Solutions Corp.",
-  description: "HydroQualiSense company operations platform for projects, finance, workforce, documents, and field operations.",
+  description: "HydroQualiSense Solutions Corp. workspace for projects, finance, workforce, documents, and field operations.",
   assistantName: "HydroQualiSense Assistant",
-  browserTitle: "HydroQualiSense | Company Operations Platform",
-  footerText: "HydroQualiSense • Company Operations • Original sources & audit history",
-  companyContextLabel: "HydroQualiSense workspace",
+  browserTitle: "HydroQualiSense | HydroQualiSense Solutions Corp.",
+  footerText: "HydroQualiSense • HydroQualiSense Solutions Corp. • Original sources & audit history",
+  companyContextLabel: "HydroQualiSense Solutions Corp. workspace",
 });
 
 /**
  * Format standard browser document title.
  * E.g., formatPageTitle("Projects") => "Projects | HydroQualiSense"
- * E.g., formatPageTitle() => "HydroQualiSense | Company Operations Platform"
+ * E.g., formatPageTitle() => "HydroQualiSense | HydroQualiSense Solutions Corp."
  */
 export function formatPageTitle(pageName?: string | null): string {
   if (!pageName || pageName.trim() === "") {
