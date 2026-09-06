@@ -62,8 +62,8 @@ export const ROUTE_DEFINITIONS = [
 export const DEFAULT_ROUTE_ID: RouteId = "dashboard";
 export const DEFAULT_ROUTE_PATH = "/dashboard";
 
-export const PRIMARY_NAVIGATION_ROUTE_IDS = ["dashboard", "cash", "invoices", "inbox", "review", "extract"] as const satisfies readonly RouteId[];
-export const OVERFLOW_NAVIGATION_ROUTE_IDS = ["projects", "payroll", "expenses", "vendors", "reports", "settings"] as const satisfies readonly RouteId[];
+export const PRIMARY_NAVIGATION_ROUTE_IDS = ["dashboard", "cash", "inbox", "expenses"] as const satisfies readonly RouteId[];
+export const OVERFLOW_NAVIGATION_ROUTE_IDS = ["projects", "procurement", "payroll", "reports", "settings"] as const satisfies readonly RouteId[];
 
 export interface RouteResolution {
   readonly route: RouteDefinition | undefined;

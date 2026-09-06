@@ -545,7 +545,7 @@ function RestrictedProjectOverview({
       <ProjectEngineeringCoordinationSection summary={engineeringSummary} onOpenTab={onOpenTab} />
       <ManagementAttentionPanel items={attentionItems} onOpenTab={onOpenTab} />
       <Card className="p-5 shadow-sm" elevation="low">
-        <div className="flex items-start gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client billing position</h3><p className="mt-1 text-[10px] leading-4 text-slate-500">Revenue-side billing is independent from the withheld project-cost analytics.</p></div></div>
+        <div className="flex items-start gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700"><Wallet className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-black text-slate-950">Client invoice position</h3><p className="mt-1 text-[10px] leading-4 text-slate-500">Client Invoice receivables are independent from project-cost analytics.</p></div></div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-[10px] font-semibold text-slate-500">Contract Value</p>
@@ -736,7 +736,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
   const canReadMaterialsEquipment = hasPermission(permissions, PERMISSION_KEYS.projectsRead);
 
   const shortcuts: Array<{ tab: ProjectOverviewTab; label: string; icon: React.ElementType }> = [
-    ...(canReadClientBilling ? [{ tab: "billing" as const, label: "Client Billing", icon: Wallet }] : []),
+    ...(canReadClientBilling ? [{ tab: "billing" as const, label: "Client Invoices", icon: Wallet }] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [{ tab: "budget" as const, label: "Budget Control", icon: Calculator }] : []),
     ...(canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") ? [{ tab: "procurement" as const, label: "Procurement", icon: ShoppingCart }] : []),
     ...(canReadDocuments && isProjectWorkspaceTabDeploymentVisible("documents") ? [{ tab: "documents" as const, label: "Engineering Docs", icon: Compass }] : []),
@@ -744,7 +744,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
     ...(canReadSubmittals && isProjectWorkspaceTabDeploymentVisible("submittals") ? [{ tab: "submittals" as const, label: "Submittals", icon: ClipboardCheck }] : []),
     ...(canReadSiteLogs ? [{ tab: "site-logs" as const, label: "Daily Site Logs", icon: ClipboardList }] : []),
     ...(canReadMaterialsEquipment && isProjectWorkspaceTabDeploymentVisible("materials-equipment") ? [{ tab: "materials-equipment" as const, label: "Materials & Equipment", icon: Package }] : []),
-    ...(canReadInvoices && isProjectWorkspaceTabDeploymentVisible("invoices") ? [{ tab: "invoices" as const, label: "Invoices", icon: FileText }] : []),
+    ...(canReadInvoices && isProjectWorkspaceTabDeploymentVisible("invoices") ? [{ tab: "invoices" as const, label: "Supplier source documents", icon: FileText }] : []),
     ...(canReadExpenses && isProjectWorkspaceTabDeploymentVisible("expenses") ? [{ tab: "expenses" as const, label: "Expenses", icon: Receipt }] : []),
     ...(canReadPayroll && isProjectWorkspaceTabDeploymentVisible("payroll") ? [{ tab: "payroll" as const, label: "Payroll", icon: HardHat }] : []),
     ...(canReadPeople ? [{ tab: "people" as const, label: "People", icon: Users }] : []),
@@ -911,7 +911,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
                   <p className="mt-0.5 text-[10px] leading-4 text-slate-500">Billing and collections remain separate from project cost.</p>
                 </div>
               </div>
-              {onOpenTab && canReadClientBilling && isProjectWorkspaceTabDeploymentVisible("billing") && <Button variant="secondary" label="Open Billing & Collections →" onClick={() => onOpenTab("billing")} />}
+              {onOpenTab && canReadClientBilling && isProjectWorkspaceTabDeploymentVisible("billing") && <Button variant="secondary" label="Open Client Invoices & Collections →" onClick={() => onOpenTab("billing")} />}
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
               <ControlMetricCard label="Contract Value" metric={financialTruth.contractValue} currency={managementView.currency} detail="Client-facing contract value" icon={Wallet} tone="emerald" />

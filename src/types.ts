@@ -187,6 +187,8 @@ export interface InvoiceData {
   sourceSha256?: string;
   sourceEmailId?: string;
   extractionId?: string;
+  /** Set when the supplier invoice is evidence for an authoritative Expense. */
+  linkedExpenseId?: string;
 
   documentType?: DocumentType | string;
   invoiceSubtype?: InvoiceSubtype;
@@ -554,6 +556,9 @@ export interface Project {
   description?: string;
   clientName?: string;
   clientReference?: string;
+  billingContactName?: string;
+  billingEmail?: string;
+  billingAddress?: string;
   location?: string;
   siteAddress?: string;
   projectManager?: string;
@@ -591,10 +596,15 @@ export interface ClientBilling {
   projectId: string;
   billingNumber: string;
   billingDate: string;
+  dueDate?: string;
+  paymentTerms?: string;
   periodStart?: string;
   periodEnd?: string;
   clientNameSnapshot?: string;
   clientReferenceSnapshot?: string;
+  billingContactName?: string;
+  billingEmail?: string;
+  billingAddress?: string;
   currency: string;
   status: ClientBillingStatus;
   notes?: string;
@@ -764,6 +774,10 @@ export interface Expense {
   category: string;
   description: string;
   payee?: string;
+  /** Durable supplier-invoice evidence relationship; this Expense owns cost/payable. */
+  supplierInvoiceId?: string;
+  vendorId?: string;
+  purchaseOrderId?: string;
   amount: number;
   currency: string;
   paymentMethod?: string;

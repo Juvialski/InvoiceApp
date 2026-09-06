@@ -28,6 +28,7 @@ import { demoTimestamp } from "./data/demoDates.ts";
 import { applyLocalClientBillingTransition, buildLocalClientBilling, type ClientBillingInput, type ClientBillingLineInput, type ClientBillingStatus } from "../lib/clientBilling.ts";
 import { buildLocalClientCollection, clientCollectionTotal, type ClientCollectionAllocationInput, type ClientCollectionInput } from "../lib/clientCollections.ts";
 import { buildLocalProjectEquipment, buildLocalProjectMaterial, type ProjectEquipmentSaveInput, type ProjectMaterialSaveInput } from "../lib/materialsEquipment.ts";
+import { createLocalExpense } from "../lib/expenses.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -62,7 +63,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const clientBillings = data.clientBillings || [];
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
     ...(data.expenses || []).filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
-    ...(data.invoices || []).filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID").map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
+    ...(data.invoices || []).filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
     ...(data.payroll.runs || []).filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: (data.payroll.entries || []).filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: (data.payroll.periods || []).find((period) => period.id === run.periodId)?.payDate || (data.payroll.periods || []).find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment" })),
     ...(data.clientCollections || []).filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId })),
   ].filter((candidate) => candidate.amount > 0), [data]);
@@ -350,7 +351,25 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
 
   const verifySelected = async () => {
     if (!selectedInvoice) return false;
-    dispatch({ type: "SAVE_INVOICE", value: { ...selectedInvoice, reviewStatus: "VERIFIED", status: selectedInvoice.status === "PENDING" || selectedInvoice.status === "DRAFT" ? "APPROVED" : selectedInvoice.status, verifiedAt: `${data.anchorDate}T13:30:00+08:00` } });
+    const existingExpense = data.expenses.find((expense) => expense.supplierInvoiceId === selectedInvoice.id && expense.status !== "VOID");
+    const allocation = data.invoiceAllocations.filter((item) => item.invoiceId === selectedInvoice.id);
+    const projectId = allocation.length === 1 ? allocation[0]?.projectId : undefined;
+    const linkedExpense = existingExpense || createLocalExpense({
+      projectId,
+      projectCostCodeId: allocation.length === 1 ? allocation[0]?.projectCostCodeId : undefined,
+      expenseDate: selectedInvoice.invoiceDate || data.anchorDate,
+      category: selectedInvoice.category || "Miscellaneous",
+      description: selectedInvoice.invoiceNumber ? `Supplier invoice ${selectedInvoice.invoiceNumber}` : "Supplier invoice expense",
+      payee: selectedInvoice.vendor?.name || "Supplier",
+      supplierInvoiceId: selectedInvoice.id,
+      vendorId: selectedInvoice.vendor?.vendorId,
+      amount: Math.max(0, selectedInvoice.grandTotal || 0),
+      currency: selectedInvoice.currency || "PHP",
+      referenceNumber: selectedInvoice.invoiceNumber || undefined,
+      status: "DRAFT",
+    });
+    if (!existingExpense) dispatch({ type: "SAVE_EXPENSE", value: linkedExpense });
+    dispatch({ type: "SAVE_INVOICE", value: { ...selectedInvoice, linkedExpenseId: linkedExpense.id, reviewStatus: "VERIFIED", status: selectedInvoice.status === "PENDING" || selectedInvoice.status === "DRAFT" ? "APPROVED" : selectedInvoice.status, verifiedAt: `${data.anchorDate}T13:30:00+08:00` } });
     return true;
   };
 
@@ -542,7 +561,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       isSupabaseConfigured={true}
       routeNotFound={routeNotFound}
       onReturnToDashboard={() => onNavigate(demoPathForTab("dashboard"))}
-      footerText={`${BRAND.productName} Demo Workspace • Meridian Engineering & Construction Corp. • Sample data only`}
+      footerText={`${BRAND.productName} Demo Workspace • HydroQualiSense Solutions Corp. • Sample data only`}
     >
       <div className="sticky top-2 z-40 mb-5 flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white/95 px-3.5 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">

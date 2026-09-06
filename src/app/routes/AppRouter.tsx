@@ -323,6 +323,9 @@ export interface AppRouterProps {
 
   // Expenses Data & Handlers
   expenses: Expense[];
+  supplierInvoicesForExpenses?: readonly InvoiceData[];
+  expensePurchaseOrders?: readonly PurchaseOrder[];
+  expenseVendors?: readonly Vendor[];
   expenseFormContext?: string | null;
   expenseCorrectionContext?: string | null;
   onSaveExpense?: (expense: Expense) => void;
@@ -603,6 +606,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onPreviewFactoryReset,
   onApplyFactoryReset,
   expenses,
+  supplierInvoicesForExpenses = invoices,
+  expensePurchaseOrders = purchaseOrders,
+  expenseVendors = vendors,
   expenseFormContext,
   expenseCorrectionContext,
   onSaveExpense = () => {},
@@ -935,6 +941,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
       <ExpensesRoute
         expenses={expenses}
         projects={projects}
+        invoices={supplierInvoicesForExpenses}
+        purchaseOrders={expensePurchaseOrders}
+        vendors={expenseVendors}
         costCodes={costCodes as ProjectCostCode[]}
         initialProjectId={expenseFormContext || undefined}
         initialExpenseId={expenseCorrectionContext}

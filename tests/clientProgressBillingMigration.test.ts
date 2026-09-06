@@ -70,7 +70,7 @@ test("P2B-4 project history, currency, and collection boundaries are represented
   assert.match(workspace, /Only ISSUED billings count toward Billed to Date/);
   assert.match(workspace, /P2B-6 bank-evidence workflow/);
   assert.doesNotMatch(projectCosting, /client[_A-Z]?billing/i, "client billing must not enter Actual Cost or Committed Cost calculation");
-  assert.match(projectWorkspace, /Client Billing/);
+  assert.match(projectWorkspace, /Client Invoices/);
   assert.match(projectOverview, /Billed to Date/);
   assert.match(projectOverview, /Remaining to Bill/);
   assert.match(projectRouting, /"billing"/);

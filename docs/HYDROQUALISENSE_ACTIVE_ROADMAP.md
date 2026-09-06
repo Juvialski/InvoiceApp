@@ -91,6 +91,16 @@ Until the client provides more detail:
 - keep currency semantics explicit;
 - treat the exact posting, payment, settlement, and lifecycle model as **TBD**.
 
+Implementation checkpoint (2026-09-06): the first R3 slice keeps supplier invoices as
+preserved source evidence while a verified supplier invoice creates one linked
+Expense as the authoritative payable/cost record; unlinked legacy invoices retain
+their existing fallback semantics. Client invoices use the existing client billing
+and collection domain. The HSC document profile, immutable issued snapshots,
+template-aligned PDF previews/downloads, and confirmation-gated Gmail send audit
+are now available for purchase orders and client invoices. Warehouse inventory is
+not included in this slice, and unresolved posting, payment, settlement, and
+lifecycle rules remain deferred.
+
 ## Existing capabilities
 
 Completed capabilities remain in the codebase unless the client later asks to remove, hide, or replace them. The roadmap reset cancels **future authorization**, not working historical functionality.

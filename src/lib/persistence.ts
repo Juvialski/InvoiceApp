@@ -1,9 +1,10 @@
-import type { InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent, EmailIntakeProfile, EmailIntakeProfileInput, Vendor } from "../types.ts";
+import type { Expense, InvoiceData, GmailImportedMessage, OriginalSourcePayload, StoredEmailRecord, StoredSourceDocument, ReviewEvent, EmailIntakeProfile, EmailIntakeProfileInput, Vendor } from "../types.ts";
 import { supabase } from "./supabase.ts";
 import { companyStoragePath, requireActiveCompanyId } from "./companyContext.ts";
 import { companyApiRequest } from "./companyApi.ts";
 import { MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, validateGmailAttachmentBytes, validateGmailAttachmentEnvelope, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./fileSecurity.ts";
 import { parseFinancialCorrectionPreview, parseFinancialCorrectionResult, type FinancialCorrectionAction, type FinancialCorrectionPreview, type FinancialCorrectionResult } from "./financialLifecycle.ts";
+import { expenseFromRow } from "./expenses.ts";
 
 const INVOICE_BUCKET = "invoice-originals";
 const EMAIL_BUCKET = "email-originals";
@@ -758,6 +759,32 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
   return saved;
 }
 
+/**
+ * Verify a supplier invoice only through the database transaction that also
+ * creates its authoritative Expense/payable record. Legacy callers can keep
+ * saving invoice edits separately; this function is the posting boundary.
+ */
+export async function verifySupplierInvoiceAndCreateExpense(invoice: InvoiceData): Promise<{ invoice: InvoiceData; expense: Expense }> {
+  const client = requireSupabase();
+  await requireUserId();
+  requireActiveCompanyId();
+  const { data, error } = await client.rpc("verify_supplier_invoice_and_create_expense", { p_invoice_id: invoice.id });
+  if (error) throw error;
+  const payload = data && typeof data === "object" ? data as Record<string, any> : {};
+  if (!payload.expense || typeof payload.expense !== "object") throw new Error("Supplier invoice verification did not return the authoritative Expense record.");
+  const expense = expenseFromRow(payload.expense as Record<string, unknown>);
+  return {
+    invoice: {
+      ...invoice,
+      reviewStatus: "VERIFIED",
+      verifiedAt: payload.verifiedAt ? String(payload.verifiedAt) : new Date().toISOString(),
+      linkedExpenseId: expense.id,
+      updatedAt: payload.updatedAt ? String(payload.updatedAt) : invoice.updatedAt,
+    },
+    expense,
+  };
+}
+
 export async function persistExtractionAttempt(
   existingInvoice: InvoiceData,
   candidate: InvoiceData,
@@ -1092,7 +1119,7 @@ export async function saveGmailSyncState(historyId?: string, emailAddress?: stri
       company_id: requireActiveCompanyId(),
       provider: "google",
       email: emailAddress,
-      scopes: ["openid", "email", "profile", "https://www.googleapis.com/auth/gmail.readonly"],
+      scopes: ["openid", "email", "profile", "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.send"],
       last_history_id: durableHistoryId,
       last_synced_at: syncedAt,
       updated_at: syncedAt,

@@ -3,13 +3,13 @@ import { addDemoDays, demoTimestamp } from "./demoDates.ts";
 import { DEMO_PROJECT_IDS } from "./projects.ts";
 
 const CUSTOMER: PartyDetails = {
-  name: "Meridian Engineering & Construction Corp.",
-  registeredName: "Meridian Engineering & Construction Corp.",
-  taxId: "009-847-215-000",
+  name: "HydroQualiSense Solutions Corp.",
+  registeredName: "HydroQualiSense Solutions Corp.",
+  taxId: "777-823-517-000",
   taxRegistration: "VAT",
-  address: "18 Meridian Drive, Brgy. Bagumbayan",
-  city: "Quezon City",
-  province: "Metro Manila",
+  address: "01 Pasong Tulo, Santa Rita Bata, San Miguel, Bulacan",
+  city: "San Miguel",
+  province: "Bulacan",
   country: "Philippines",
 };
 

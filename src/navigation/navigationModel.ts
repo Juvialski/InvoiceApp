@@ -58,9 +58,9 @@ export interface NavigationModel {
 }
 
 const INVOICE_CONTEXTUAL_LABELS: Readonly<Partial<Record<RouteId, string>>> = Object.freeze({
-  extract: "Upload",
-  review: "Review Queue",
-  invoices: "All Invoices",
+  extract: "Upload supplier invoice",
+  review: "Supplier review queue",
+  invoices: "Supplier documents",
   vendors: "Vendors",
 });
 
@@ -72,11 +72,10 @@ const INVOICE_CONTEXTUAL_LABELS: Readonly<Partial<Record<RouteId, string>>> = Ob
 export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.freeze([
   { id: "dashboard", label: "Dashboard", routeIds: ["dashboard"], defaultRouteId: "dashboard" },
   { id: "cash", label: "Cash & Banking", routeIds: ["cash"], defaultRouteId: "cash" },
-  { id: "invoices", label: "Invoices", routeIds: ["extract", "review", "invoices", "vendors"], defaultRouteId: "invoices" },
   { id: "email-intake", label: "Email Intake", routeIds: ["inbox"], defaultRouteId: "inbox" },
   { id: "projects", label: "Projects", routeIds: ["projects"], defaultRouteId: "projects" },
   { id: "procurement", label: "Procurement", routeIds: ["procurement"], defaultRouteId: "procurement" },
-  { id: "expenses", label: "Expenses", routeIds: ["expenses"], defaultRouteId: "expenses" },
+  { id: "expenses", label: "Expenses", routeIds: ["expenses", "extract", "review", "vendors"], defaultRouteId: "expenses" },
   { id: "payroll", label: "Payroll", routeIds: ["payroll"], defaultRouteId: "payroll" },
   { id: "reports", label: "Reports", routeIds: ["reports"], defaultRouteId: "reports" },
 ]);

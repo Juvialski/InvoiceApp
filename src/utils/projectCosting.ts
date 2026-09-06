@@ -25,8 +25,9 @@ import type {
   SubcontractVariationStatus,
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
+import { supplierExpenseAmountForProject, supplierExpenseCostOwnership } from "./supplierInvoiceCostOwnership.ts";
 
-export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid" | "lifecycleStatus" | "archivedAt" | "sourceDocumentId"> {
+export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid" | "lifecycleStatus" | "archivedAt" | "sourceDocumentId" | "linkedExpenseId"> {
   allocations?: InvoiceProjectAllocation[];
   invoiceDate?: string;
   dueDate?: string;
@@ -475,6 +476,7 @@ export function calculateProjectCost(
   const baseCurrency = normalizeCurrency(project?.currency || input.baseCurrency || "PHP");
   const laborSource = input.laborSource || (input.projectLaborAggregates ? "aggregate" : "detail");
   const sourceOwners = linkedSourceOwners(projectId, input);
+  const supplierOwnership = supplierExpenseCostOwnership(input.invoices || [], input.expenses || []);
   const summary: ProjectCostSummaryWithCurrency = {
     projectId,
     currency: baseCurrency,
@@ -514,6 +516,7 @@ export function calculateProjectCost(
 
   for (const invoice of input.invoices || []) {
     if (isVoidedInvoice(invoice)) continue;
+    if (supplierOwnership.byInvoiceId.has(invoice.id)) continue;
     const sourceId = normalizedSourceDocumentId(invoice.sourceDocumentId);
     if (sourceId && sourceOwners.get(sourceId) === "expense") continue;
     const invoiceCurrency = normalizeCurrency(invoice.currency);
@@ -596,13 +599,19 @@ export function calculateProjectCost(
   }
 
   for (const expense of input.expenses || []) {
-    const amount = positiveMoney(expense.amount);
-    if (!amount || expense.status === "VOID") continue;
-    const sourceId = normalizedSourceDocumentId(expense.receiptSourceDocumentId);
-    if (sourceId && sourceOwners.get(sourceId) === "invoice") continue;
+    if (expense.status === "VOID") continue;
+    const linkedInvoice = expense.supplierInvoiceId ? supplierOwnership.invoiceById.get(expense.supplierInvoiceId) : undefined;
+    const amount = linkedInvoice
+      ? positiveMoney(supplierExpenseAmountForProject(expense, linkedInvoice, projectId))
+      : positiveMoney(expense.amount);
+    if (!amount) continue;
+    if (!linkedInvoice) {
+      const sourceId = normalizedSourceDocumentId(expense.receiptSourceDocumentId);
+      if (sourceId && sourceOwners.get(sourceId) === "invoice") continue;
+    }
     const expenseCurrency = normalizeCurrency(expense.currency);
     if (projectId) {
-      if (expense.projectId !== projectId) continue;
+      if (!linkedInvoice && expense.projectId !== projectId) continue;
       if (expenseCurrency !== baseCurrency) {
         addForeign(expenseCurrency, amount);
       } else if (isConfirmedExpense(expense.status)) {
@@ -883,6 +892,7 @@ export function calculateProjectBudgetControl(
   const baseCurrency = normalizeCurrency(project.currency || input.baseCurrency || "PHP");
   const baseSummary = calculateProjectCost(project, input);
   const sourceOwners = linkedSourceOwners(projectId, input);
+  const supplierOwnership = supplierExpenseCostOwnership(input.invoices || [], input.expenses || []);
   const laborSource = input.laborSource || (input.projectLaborAggregates ? "aggregate" : "detail");
 
   const validCostCodes = costCodes.filter((cc) => cc.projectId === projectId);
@@ -959,6 +969,7 @@ export function calculateProjectBudgetControl(
   // 1. Invoices
   for (const invoice of input.invoices || []) {
     if (isVoidedInvoice(invoice)) continue;
+    if (supplierOwnership.byInvoiceId.has(invoice.id)) continue;
     const sourceId = normalizedSourceDocumentId(invoice.sourceDocumentId);
     if (sourceId && sourceOwners.get(sourceId) === "expense") continue;
     const invoiceCurrency = normalizeCurrency(invoice.currency);
@@ -1005,14 +1016,23 @@ export function calculateProjectBudgetControl(
 
   // 3. Expenses
   for (const expense of input.expenses || []) {
-    if (expense.projectId !== projectId || expense.status === "VOID") continue;
-    const amount = positiveMoney(expense.amount);
+    if (expense.status === "VOID") continue;
+    const linkedInvoice = expense.supplierInvoiceId ? supplierOwnership.invoiceById.get(expense.supplierInvoiceId) : undefined;
+    if (!linkedInvoice && expense.projectId !== projectId) continue;
+    const amount = positiveMoney(linkedInvoice
+      ? supplierExpenseAmountForProject(expense, linkedInvoice, projectId)
+      : expense.amount);
     if (!amount) continue;
-    const sourceId = normalizedSourceDocumentId(expense.receiptSourceDocumentId);
-    if (sourceId && sourceOwners.get(sourceId) === "invoice") continue;
+    if (!linkedInvoice) {
+      const sourceId = normalizedSourceDocumentId(expense.receiptSourceDocumentId);
+      if (sourceId && sourceOwners.get(sourceId) === "invoice") continue;
+    }
     const expenseCurrency = normalizeCurrency(expense.currency);
     const confirmed = isConfirmedExpense(expense.status);
-    const targetCodeId = expense.projectCostCodeId || (expense as { costCodeId?: string }).costCodeId;
+    const allocatedLine = linkedInvoice?.allocations?.find((allocation) => allocation.projectId === projectId);
+    const targetCodeId = expense.projectCostCodeId
+      || allocatedLine?.projectCostCodeId
+      || (expense as { costCodeId?: string }).costCodeId;
     addAmount(targetCodeId, "expense", amount, expenseCurrency, confirmed);
   }
 

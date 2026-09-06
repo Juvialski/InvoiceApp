@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Coins,
+  FileDown,
   FilePlus2,
   History,
   Lock,
@@ -44,6 +45,9 @@ import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransacti
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 import { ClientCollectionSettlementPanel } from "./ClientCollectionSettlementPanel.tsx";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
+import { DocumentPreviewModal } from "../DocumentPreviewModal.tsx";
+import { buildClientInvoiceDocumentSnapshot } from "../../lib/documentGeneration.ts";
+import { DEFAULT_COMPANY_DOCUMENT_PROFILE } from "../../lib/companyDocumentProfile.ts";
 
 interface ClientBillingPanelProps {
   project: Project;
@@ -107,10 +111,15 @@ function formFromBilling(billing: ClientBilling): { input: ClientBillingInput; l
       projectId: billing.projectId,
       billingNumber: billing.billingNumber,
       billingDate: billing.billingDate,
+      dueDate: billing.dueDate,
+      paymentTerms: billing.paymentTerms,
       periodStart: billing.periodStart,
       periodEnd: billing.periodEnd,
       clientNameSnapshot: billing.clientNameSnapshot,
       clientReferenceSnapshot: billing.clientReferenceSnapshot,
+      billingContactName: billing.billingContactName,
+      billingEmail: billing.billingEmail,
+      billingAddress: billing.billingAddress,
       currency: billing.currency,
       notes: billing.notes,
     },
@@ -151,8 +160,13 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
     projectId: project.id,
     billingNumber: nextBillingNumber(project, projectBillings.length),
     billingDate: today(),
+    dueDate: undefined,
+    paymentTerms: "",
     clientNameSnapshot: project.clientName,
     clientReferenceSnapshot: project.clientReference,
+    billingContactName: project.billingContactName,
+    billingEmail: project.billingEmail,
+    billingAddress: project.billingAddress,
     currency: project.currency,
   }));
   const [billingLines, setBillingLines] = useState<ClientBillingLineInput[]>([emptyLine()]);
@@ -173,6 +187,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   const [collectionAllocations, setCollectionAllocations] = useState<Record<string, number>>({});
   const [reversalReason, setReversalReason] = useState("");
   const [reversingCollectionId, setReversingCollectionId] = useState<string | null>(null);
+  const [previewBilling, setPreviewBilling] = useState<ClientBilling | null>(null);
 
   // General state
   const [busy, setBusy] = useState(false);
@@ -209,8 +224,13 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
       projectId: project.id,
       billingNumber: nextBillingNumber(project, projectBillings.length),
       billingDate: today(),
+      dueDate: undefined,
+      paymentTerms: "",
       clientNameSnapshot: project.clientName,
       clientReferenceSnapshot: project.clientReference,
+      billingContactName: project.billingContactName,
+      billingEmail: project.billingEmail,
+      billingAddress: project.billingAddress,
       currency: project.currency,
     });
     setBillingLines([emptyLine()]);
@@ -400,21 +420,26 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
       <section aria-labelledby="client-billing-editor-heading" className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Client progress billing</p>
-            <h2 id="client-billing-editor-heading" className="mt-1 text-xl font-black text-slate-950">{billingForm.id ? "Edit billing draft" : "Create billing draft"}</h2>
-            <p className="mt-1 text-xs text-slate-500">Revenue-side project history only. Saving a draft does not bill the client, change project cost, or create cash activity.</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Client invoice</p>
+            <h2 id="client-billing-editor-heading" className="mt-1 text-xl font-black text-slate-950">{billingForm.id ? "Edit client invoice draft" : "Create client invoice draft"}</h2>
+            <p className="mt-1 text-xs text-slate-500">Revenue-side project history only. Saving a draft does not issue an invoice, change project cost, or create cash activity.</p>
           </div>
           <Button variant="secondary" label="Cancel" onClick={() => setEditingBilling(false)} />
         </div>
         <form onSubmit={saveDraftBilling} className="space-y-4">
           <Card className="p-5 shadow-sm" elevation="low">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="space-y-1"><span className="field-label">Billing number</span><input className="field-input" value={billingForm.billingNumber || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingNumber: event.target.value }))} required /></label>
-              <label className="space-y-1"><span className="field-label">Billing date</span><input className="field-input" type="date" value={billingForm.billingDate || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingDate: event.target.value }))} required /></label>
+              <label className="space-y-1"><span className="field-label">Invoice number</span><input className="field-input" value={billingForm.billingNumber || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingNumber: event.target.value }))} required /></label>
+              <label className="space-y-1"><span className="field-label">Invoice date</span><input className="field-input" type="date" value={billingForm.billingDate || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingDate: event.target.value }))} required /></label>
+              <label className="space-y-1"><span className="field-label">Due date</span><input className="field-input" type="date" value={billingForm.dueDate || ""} onChange={(event) => setBillingForm((current) => ({ ...current, dueDate: event.target.value || undefined }))} /></label>
+              <label className="space-y-1"><span className="field-label">Payment terms</span><input className="field-input" value={billingForm.paymentTerms || ""} onChange={(event) => setBillingForm((current) => ({ ...current, paymentTerms: event.target.value || undefined }))} placeholder="e.g. Due on receipt" /></label>
               <label className="space-y-1"><span className="field-label">Period start</span><input className="field-input" type="date" value={billingForm.periodStart || ""} onChange={(event) => setBillingForm((current) => ({ ...current, periodStart: event.target.value || undefined }))} /></label>
               <label className="space-y-1"><span className="field-label">Period end</span><input className="field-input" type="date" value={billingForm.periodEnd || ""} onChange={(event) => setBillingForm((current) => ({ ...current, periodEnd: event.target.value || undefined }))} /></label>
               <label className="space-y-1 sm:col-span-2"><span className="field-label">Client snapshot</span><input className="field-input bg-slate-50" value={billingForm.clientNameSnapshot || ""} onChange={(event) => setBillingForm((current) => ({ ...current, clientNameSnapshot: event.target.value }))} placeholder={project.clientName || "Client not set"} /></label>
               <label className="space-y-1 sm:col-span-2"><span className="field-label">Client reference</span><input className="field-input" value={billingForm.clientReferenceSnapshot || ""} onChange={(event) => setBillingForm((current) => ({ ...current, clientReferenceSnapshot: event.target.value || undefined }))} /></label>
+              <label className="space-y-1"><span className="field-label">Billing contact</span><input className="field-input" value={billingForm.billingContactName || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingContactName: event.target.value || undefined }))} placeholder={project.billingContactName || "Contact name"} /></label>
+              <label className="space-y-1"><span className="field-label">Billing email</span><input type="email" className="field-input" value={billingForm.billingEmail || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingEmail: event.target.value || undefined }))} placeholder={project.billingEmail || "billing@example.com"} /></label>
+              <label className="space-y-1 sm:col-span-4"><span className="field-label">Billing address</span><textarea className="field-input min-h-16" value={billingForm.billingAddress || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingAddress: event.target.value || undefined }))} placeholder={project.billingAddress || project.siteAddress || "Client billing address"} /></label>
               <label className="space-y-1 sm:col-span-4"><span className="field-label">Notes</span><textarea className="field-input min-h-20" value={billingForm.notes || ""} onChange={(event) => setBillingForm((current) => ({ ...current, notes: event.target.value || undefined }))} /></label>
             </div>
           </Card>
@@ -557,13 +582,13 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Commercial controls</p>
-          <h2 id="client-billing-heading" className="mt-1 text-xl font-black text-slate-950">Client progress billing & collections</h2>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Authoritative commercial revenue truth. Only ISSUED billings count toward Billed to Date and are eligible for client collections.</p>
+          <h2 id="client-billing-heading" className="mt-1 text-xl font-black text-slate-950">Client Invoices &amp; Collections</h2>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Authoritative receivables truth. Only ISSUED Client Invoices count toward Billed to Date and are eligible for client collections.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {activeTab === "billings" && canManage && (
             <button type="button" onClick={startCreateBilling} disabled={!projectCanReceiveActivity || loading} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
-              <Plus className="h-3.5 w-3.5" /> New billing draft
+              <Plus className="h-3.5 w-3.5" /> New client invoice draft
             </button>
           )}
           {activeTab === "collections" && canManage && (
@@ -605,7 +630,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
           onClick={() => setActiveTab("billings")}
           className={`border-b-2 px-4 py-2 text-xs font-bold transition-colors ${activeTab === "billings" ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-900"}`}
         >
-          Billings ({projectBillings.length})
+          Client Invoices ({projectBillings.length})
         </button>
         <button
           type="button"
@@ -622,7 +647,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
           <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
             <div className="flex items-center justify-between border-b border-slate-100 p-5">
               <div>
-                <h3 className="text-sm font-black">Billing register</h3>
+                <h3 className="text-sm font-black">Client invoice register</h3>
                 <p className="mt-1 text-[10px] text-slate-500">{loading ? "Refreshing project billing history…" : `${projectBillings.length} billing record${projectBillings.length === 1 ? "" : "s"}`}</p>
               </div>
               <ClipboardList className="h-4 w-4 text-indigo-500" />
@@ -632,7 +657,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
             ) : projectBillings.length ? (
               <div className="ops-scrollbar overflow-auto">
                 <table className="ops-table min-w-[680px] w-full text-left text-xs">
-                  <caption className="sr-only">Client billing register</caption>
+                  <caption className="sr-only">Client invoice register</caption>
                   <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
                     <tr>
                       <th className="px-4 py-3">Number / period</th>
@@ -675,7 +700,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
               <>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Billing detail</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Client invoice detail</p>
                     <h3 className="mt-1 text-base font-black text-slate-950">{selectedBilling.billingNumber}</h3>
                     <p className="mt-1 text-[10px] text-slate-500">{selectedBilling.clientNameSnapshot || project.clientName || "Client snapshot not set"} · {selectedBilling.billingDate}</p>
                   </div>
@@ -693,6 +718,9 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
                     <span className="text-base font-black tabular-nums">{money(clientBillingTotal(selectedBilling), selectedBilling.currency)}</span>
                   </div>
                 </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setPreviewBilling(selectedBilling)} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-bold text-indigo-700"><FileDown className="h-3 w-3" /> Preview / generate Client Invoice</button>
+                </div>
                 {canManage && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {selectedBilling.status === "DRAFT" && (
@@ -705,7 +733,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
                     {selectedBilling.status === "SUBMITTED" && (
                       <>
                         <button type="button" onClick={() => void transitionBilling(selectedBilling, "DRAFT")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-bold text-slate-700"><Pencil className="h-3 w-3" /> Return to draft</button>
-                        <button type="button" onClick={() => void transitionBilling(selectedBilling, "ISSUED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-[10px] font-bold text-white"><CheckCircle2 className="h-3 w-3" /> Issue</button>
+                        <button type="button" onClick={() => void transitionBilling(selectedBilling, "ISSUED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-2 text-[10px] font-bold text-white"><CheckCircle2 className="h-3 w-3" /> Issue Client Invoice</button>
                         <button type="button" onClick={() => void transitionBilling(selectedBilling, "CANCELLED")} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-2 text-[10px] font-bold text-rose-700"><Ban className="h-3 w-3" /> Cancel</button>
                       </>
                     )}
@@ -965,6 +993,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
           <p className="mt-1">Bank reconciliation and Cash Settlement linkage are handled by the P2B-6 bank-evidence workflow below; linking evidence never changes commercial collection totals or project cost.</p>
         </div>
       </div>
+      {previewBilling && <DocumentPreviewModal document={buildClientInvoiceDocumentSnapshot(previewBilling, project, DEFAULT_COMPANY_DOCUMENT_PROFILE)} onClose={() => setPreviewBilling(null)} />}
     </section>
   );
 };

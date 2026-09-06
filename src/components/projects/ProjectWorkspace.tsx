@@ -392,7 +392,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
   const tabs: Array<[WorkspaceTab, string, React.ElementType]> = [
     ["overview", "Overview", BarChart3],
-    ...(canReadClientBilling && isProjectWorkspaceTabDeploymentVisible("billing") ? [["billing", "Client Billing", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadClientBilling && isProjectWorkspaceTabDeploymentVisible("billing") ? [["billing", "Client Invoices", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [["budget", "Budget Control", Calculator] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") ? [["procurement", "Procurement", ShoppingCart] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("documents") ? [["documents", "Documents", Compass] as [WorkspaceTab, string, React.ElementType]] : []),
@@ -400,7 +400,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     ...(isProjectWorkspaceTabDeploymentVisible("submittals") ? [["submittals", "Submittals", ClipboardCheck] as [WorkspaceTab, string, React.ElementType]] : []),
     ["site-logs", "Site Logs", ClipboardList],
     ...(hasPermission(permissions, PERMISSION_KEYS.projectsRead) && isProjectWorkspaceTabDeploymentVisible("materials-equipment") ? [["materials-equipment", "Materials & Equipment", Package] as [WorkspaceTab, string, React.ElementType]] : []),
-    ...(canReadInvoices && isProjectWorkspaceTabDeploymentVisible("invoices") ? [["invoices", "Invoices", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(canReadInvoices && isProjectWorkspaceTabDeploymentVisible("invoices") ? [["invoices", "Supplier source documents", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadPayroll && isProjectWorkspaceTabDeploymentVisible("payroll") ? [["payroll", "Payroll", HardHat] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadExpenses && isProjectWorkspaceTabDeploymentVisible("expenses") ? [["expenses", "Expenses", Receipt] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadWorkers ? [["people", "People", Users] as [WorkspaceTab, string, React.ElementType]] : []),
