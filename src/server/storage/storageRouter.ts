@@ -332,7 +332,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         .insert({
           user_id: auth.user.id,
           company_id: auth.companyId,
-           source_type: sourceKind,
+          source_type: sourceKind,
           email_message_id: emailMessageId || null,
           filename: fileName,
           mime_type: mimeType,
@@ -340,10 +340,10 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
           storage_path: storagePath,
           storage_provider: actualProvider,
           storage_bucket: actualBucket,
-           sha256: hash,
-           processing_status: "STORED",
-           backup_registration_status: backupDesc ? "PENDING" : "NOT_CONFIGURED",
-         })
+          sha256: hash,
+          processing_status: "STORED",
+          backup_registration_status: backupDesc ? "PENDING" : "NOT_CONFIGURED",
+        })
         .select("id")
         .single();
 
@@ -371,10 +371,11 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
             .select("id,source_type,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256,processing_status,document_type,backup_registration_status,backup_registration_error,backup_registration_attempted_at,created_at")
             .eq("company_id", auth.companyId)
             .eq("sha256", hash)
+            .in("source_type", ["UPLOAD", "MANUAL"])
             .order("created_at", { ascending: true })
             .limit(1);
           if (racedError) throw new StorageApiError(500, "DATABASE_ERROR", racedError.message);
-          const raced = racedRows?.find((candidate: any) => ["UPLOAD", "MANUAL"].includes(String(candidate.source_type || "UPLOAD").toUpperCase()));
+          const raced = racedRows?.[0];
           if (raced) {
             const racedProviderId = (raced.storage_provider as StorageProviderId) || "supabase";
             const racedProvider = options?.providerSupplier
@@ -469,10 +470,10 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         storagePath,
         storageProvider: actualProvider,
         storageBucket: actualBucket,
-         sha256: hash,
-         processingStatus: "STORED",
-         backupRegistrationStatus: backupDesc ? "REGISTERED" : "NOT_CONFIGURED",
-         previewUrl,
+        sha256: hash,
+        processingStatus: "STORED",
+        backupRegistrationStatus: backupDesc ? "REGISTERED" : "NOT_CONFIGURED",
+        previewUrl,
       };
 
       return res.json(responseDoc);
@@ -642,7 +643,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
   router.post("/restore-drill", async (req: Request, res: Response) => {
     try {
       const auth = await authorizer(req, "storage.manage");
-       const { manifestId } = req.body || {};
+      const { manifestId } = req.body || {};
 
       if (!manifestId || typeof manifestId !== "string") {
         return res.status(400).json({ error: "manifestId is required for restore drill." });
@@ -656,7 +657,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         providerSupplier: options?.providerSupplier,
       });
 
-       const drillResult = await backupSvc.runRestoreDrill(auth.companyId, manifestId);
+      const drillResult = await backupSvc.runRestoreDrill(auth.companyId, manifestId);
       return res.json(drillResult);
     } catch (err: any) {
       if (err instanceof StorageApiError) {
