@@ -67,10 +67,10 @@ insert into public.deployment_configuration (singleton, company_id)
 values (true, (select company_a from p2b6_ids))
 on conflict (singleton) do update set company_id = excluded.company_id;
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, status, contract_value, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, status, contract_value, project_budget, currency, tax_treatment)
 values
-  ((select project_a from p2b6_ids), (select admin_user from p2b6_ids), (select company_a from p2b6_ids), 'P2B6-A', 'P2B-6 Project A', 'Client A', 'CLIENT-A', 'ACTIVE', 10000, 7000, 'PHP'),
-  ((select project_b from p2b6_ids), (select outsider_user from p2b6_ids), (select company_b from p2b6_ids), 'P2B6-B', 'P2B-6 Project B', 'Client B', 'CLIENT-B', 'ACTIVE', 10000, 7000, 'USD');
+  ((select project_a from p2b6_ids), (select admin_user from p2b6_ids), (select company_a from p2b6_ids), 'P2B6-A', 'P2B-6 Project A', 'Client A', 'CLIENT-A', 'ACTIVE', 10000, 7000, 'PHP', 'VAT'),
+  ((select project_b from p2b6_ids), (select outsider_user from p2b6_ids), (select company_b from p2b6_ids), 'P2B6-B', 'P2B-6 Project B', 'Client B', 'CLIENT-B', 'ACTIVE', 10000, 7000, 'USD', 'VAT');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from p2b6_ids), true);

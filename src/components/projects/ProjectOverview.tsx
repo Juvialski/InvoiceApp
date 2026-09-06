@@ -71,6 +71,7 @@ import {
 import type { ProjectFinancialMetric } from "../../utils/projectFinancialSummary.ts";
 import { calculateClientBillingSummary, type ClientBilling, type ClientBillingSummary } from "../../lib/clientBilling.ts";
 import { calculateClientCollectionSummary, type ClientCollection, type ClientCollectionSummary } from "../../lib/clientCollections.ts";
+import { isClassifiedProjectTaxTreatment, projectTaxTreatmentLabel } from "../../utils/projectTaxTreatment.ts";
 
 interface ProjectView {
   id: string;
@@ -84,6 +85,7 @@ interface ProjectView {
   contractValue?: number;
   projectBudget: number;
   currency: string;
+  taxTreatment?: Project["taxTreatment"];
   description?: string;
   notes?: string;
   startDate?: string;
@@ -520,7 +522,7 @@ function RestrictedProjectOverview({
             <p className="mt-1 text-xs leading-5 text-slate-600">Required project-cost sources are unavailable or incomplete: {missingSources.join(", ")}. Actual cost, pending exposure, budget balance, utilization, health, composition, cost trend, and cumulative burn are not shown because they would be incomplete.</p>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
             <p className="text-[10px] font-semibold text-slate-500">Approved Cost Budget</p>
             <p className="mt-1 text-sm font-black tabular-nums text-slate-900">{money(project.projectBudget, project.currency)}</p>
@@ -536,6 +538,10 @@ function RestrictedProjectOverview({
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
             <p className="text-[10px] font-semibold text-slate-500">Project Manager</p>
             <p className="mt-1 text-sm font-black text-slate-900">{project.projectManager || "Not set"}</p>
+          </div>
+          <div className={`rounded-xl border p-4 ${isClassifiedProjectTaxTreatment(project.taxTreatment) ? "border-slate-100 bg-slate-50" : "border-amber-200 bg-amber-50"}`}>
+            <p className="text-[10px] font-semibold text-slate-500">Tax treatment</p>
+            <p className="mt-1 text-sm font-black text-slate-900">{projectTaxTreatmentLabel(project.taxTreatment)}</p>
           </div>
         </div>
         <p className="mt-4 text-xs leading-5 text-slate-500">
@@ -834,6 +840,10 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
                 <CalendarDays className="h-3.5 w-3.5 text-indigo-300" aria-hidden="true" />
                 PM: {project.projectManager || "Not set"}
               </span>
+              <span className="inline-flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-indigo-300" aria-hidden="true" />
+                Tax: {projectTaxTreatmentLabel(project.taxTreatment)}
+              </span>
             </div>
           </div>
 
@@ -853,6 +863,13 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           </div>
         </div>
       </section>
+
+      {!isClassifiedProjectTaxTreatment(project.taxTreatment) && (
+        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <p><strong>Project tax treatment is unclassified.</strong> Confirm VAT or Non-VAT with the project edit action before issuing client billing. No VAT rate or inclusive/exclusive calculation is assumed.</p>
+        </div>
+      )}
 
       {(project.description || project.notes) && (
         <details className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -937,8 +954,7 @@ export const ProjectOverview: React.FC<ProjectOverviewProps> = ({
           </div>
           {onOpenTab && canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") && <Button variant="secondary" label="Open Procurement →" onClick={() => onOpenTab("procurement")} />}
         </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ControlMetricCard label="Committed Cost" metric={financialTruth.committedCost} currency={managementView.currency} detail="Canonical project-cost aggregate" icon={ShoppingCart} tone="purple" />
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {managementView.commitmentBreakdown.reconcilesToCommittedCost && managementView.commitmentBreakdown.purchaseOrders.status !== "unavailable" && managementView.commitmentBreakdown.subcontracts.status !== "unavailable" ? (
             <>
               <ControlMetricCard label="Purchase Order Commitments" metric={managementView.commitmentBreakdown.purchaseOrders} currency={managementView.currency} detail="APPROVED / ISSUED POs" icon={ShoppingCart} tone="purple" />

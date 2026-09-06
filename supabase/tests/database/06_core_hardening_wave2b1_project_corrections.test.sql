@@ -101,13 +101,13 @@ from public.company_members cm
 where cm.company_id = (select company_a from wave2b1_ids)
   and cm.user_id = (select denied_user from wave2b1_ids);
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment)
 values
-  ((select project_unused from wave2b1_ids), (select admin_user from wave2b1_ids), (select company_a from wave2b1_ids), 'W2B1-U', 'Wave 2B1 Unused Project', 'PLANNING', 0, 'PHP'),
-  ((select project_used from wave2b1_ids), (select admin_user from wave2b1_ids), (select company_a from wave2b1_ids), 'W2B1-H', 'Wave 2B1 Historical Project', 'ACTIVE', 100000, 'PHP'),
-  ((select project_stale from wave2b1_ids), (select admin_user from wave2b1_ids), (select company_a from wave2b1_ids), 'W2B1-S', 'Wave 2B1 Stale Preview Project', 'ACTIVE', 100000, 'PHP'),
-  ((select project_terminal from wave2b1_ids), (select admin_user from wave2b1_ids), (select company_a from wave2b1_ids), 'W2B1-T', 'Wave 2B1 Terminal Project', 'CANCELLED', 100000, 'PHP'),
-  ((select project_other_company from wave2b1_ids), (select outsider_user from wave2b1_ids), (select company_b from wave2b1_ids), 'W2B1-X', 'Wave 2B1 Foreign Project', 'ACTIVE', 100000, 'USD');
+  ((select project_unused from wave2b1_ids), (select admin_user from wave2b1_ids), (select company_a from wave2b1_ids), 'W2B1-U', 'Wave 2B1 Unused Project', 'PLANNING', 0, 'PHP', 'VAT'),
+  ((select project_used from wave2b1_ids), (select admin_user from wave2b1_ids), (select company_a from wave2b1_ids), 'W2B1-H', 'Wave 2B1 Historical Project', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_stale from wave2b1_ids), (select admin_user from wave2b1_ids), (select company_a from wave2b1_ids), 'W2B1-S', 'Wave 2B1 Stale Preview Project', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_terminal from wave2b1_ids), (select admin_user from wave2b1_ids), (select company_a from wave2b1_ids), 'W2B1-T', 'Wave 2B1 Terminal Project', 'CANCELLED', 100000, 'PHP', 'VAT'),
+  ((select project_other_company from wave2b1_ids), (select outsider_user from wave2b1_ids), (select company_b from wave2b1_ids), 'W2B1-X', 'Wave 2B1 Foreign Project', 'ACTIVE', 100000, 'USD', 'VAT');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from wave2b1_ids), true);

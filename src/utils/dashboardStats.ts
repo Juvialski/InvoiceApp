@@ -6,6 +6,7 @@ import type {
   PayrollProjectAllocation,
   Project,
   ProjectCostSummary,
+  FinancialFxSnapshot,
 } from "../types.ts";
 import {
   calculateProjectCost,
@@ -52,6 +53,7 @@ export interface DashboardStatsInput {
   payroll?: CostPayrollRecord[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
+  fxSnapshots?: readonly FinancialFxSnapshot[];
 }
 
 export interface IndexedAccountingData {
@@ -310,6 +312,7 @@ export function projectBudgetPositions(projects: Project[], input: ProjectCostIn
       payroll: index.payrollByProjectId.get(project.id) || [],
       projectLaborAggregates: input.projectLaborAggregates,
       laborSource: input.laborSource,
+      fxSnapshots: input.fxSnapshots,
     });
     return {
       projectId: project.id,

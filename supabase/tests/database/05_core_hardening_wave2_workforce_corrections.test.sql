@@ -125,12 +125,12 @@ from public.company_members cm
 where cm.company_id = (select company_a from wave2_ids)
   and cm.user_id = (select denied_user from wave2_ids);
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment)
 values
-  ((select project_a from wave2_ids), (select admin_user from wave2_ids), (select company_a from wave2_ids), 'W2A-A', 'Wave 2A Project A', 'ACTIVE', 100000, 'PHP'),
-  ((select project_b from wave2_ids), (select admin_user from wave2_ids), (select company_a from wave2_ids), 'W2A-B', 'Wave 2A Project B', 'ACTIVE', 100000, 'PHP'),
-  ((select project_archived from wave2_ids), (select admin_user from wave2_ids), (select company_a from wave2_ids), 'W2A-X', 'Wave 2A Archived Project', 'ARCHIVED', 100000, 'PHP'),
-  ((select project_other_company from wave2_ids), (select outsider_user from wave2_ids), (select company_b from wave2_ids), 'W2B-A', 'Wave 2A Foreign Project', 'ACTIVE', 100000, 'USD');
+  ((select project_a from wave2_ids), (select admin_user from wave2_ids), (select company_a from wave2_ids), 'W2A-A', 'Wave 2A Project A', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_b from wave2_ids), (select admin_user from wave2_ids), (select company_a from wave2_ids), 'W2A-B', 'Wave 2A Project B', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_archived from wave2_ids), (select admin_user from wave2_ids), (select company_a from wave2_ids), 'W2A-X', 'Wave 2A Archived Project', 'ARCHIVED', 100000, 'PHP', 'VAT'),
+  ((select project_other_company from wave2_ids), (select outsider_user from wave2_ids), (select company_b from wave2_ids), 'W2B-A', 'Wave 2A Foreign Project', 'ACTIVE', 100000, 'USD', 'VAT');
 
 insert into public.workers (id, user_id, company_id, employee_code, first_name, last_name, display_name, employment_status, default_pay_type, default_rate, default_labor_context, default_project_id, active)
 values

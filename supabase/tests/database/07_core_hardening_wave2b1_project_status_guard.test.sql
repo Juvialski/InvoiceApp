@@ -54,7 +54,7 @@ select set_config('request.jwt.claim.sub', (select admin_user::text from wave2b1
 
 select lives_ok(
   $$insert into public.projects (
-      id, user_id, company_id, project_code, project_name, status, project_budget, currency
+      id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment
     ) values (
       (select project_id from wave2b1_status_ids),
       (select admin_user from wave2b1_status_ids),
@@ -63,14 +63,15 @@ select lives_ok(
       'Wave 2B1 Status Project',
       'PLANNING',
       0,
-      'PHP'
+      'PHP',
+      'VAT'
     )$$,
   'normal project creation remains available'
 );
 
 select throws_ok(
   $$insert into public.projects (
-      id, user_id, company_id, project_code, project_name, status, project_budget, currency
+      id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment
     ) values (
       gen_random_uuid(),
       (select admin_user from wave2b1_status_ids),
@@ -79,7 +80,8 @@ select throws_ok(
       'Direct Archived Project',
       'ARCHIVED',
       0,
-      'PHP'
+      'PHP',
+      'VAT'
     )$$,
   '42501', null,
   'authenticated insert cannot create an archived project directly'
@@ -142,12 +144,12 @@ select lives_ok(
 select lives_ok(
   $$insert into public.projects (
       id, user_id, company_id, project_code, project_name, status,
-      project_budget, currency, archived_at, archived_from_status
+      project_budget, currency, tax_treatment, archived_at, archived_from_status
     )
     select
       p.id, p.user_id, p.company_id, p.project_code,
       'Archived metadata upsert correction', p.status,
-      p.project_budget, p.currency, p.archived_at, p.archived_from_status
+      p.project_budget, p.currency, p.tax_treatment, p.archived_at, p.archived_from_status
     from public.projects p
     where p.id = (select project_id from wave2b1_status_ids)
     on conflict (id) do update

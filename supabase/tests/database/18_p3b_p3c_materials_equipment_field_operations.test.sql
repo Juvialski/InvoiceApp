@@ -70,11 +70,11 @@ values
   ((select company_a from p3bc_ids), (select viewer_user from p3bc_ids), 'VIEWER', 'ACTIVE'),
   ((select company_b from p3bc_ids), (select outsider_user from p3bc_ids), 'COMPANY_ADMIN', 'ACTIVE');
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, status, contract_value, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, status, contract_value, project_budget, currency, tax_treatment)
 values
-  ((select project_a from p3bc_ids), (select admin_user from p3bc_ids), (select company_a from p3bc_ids), 'P3BC-A', 'Field Operations Project', 'Client A', 'P3BC-A-REF', 'ACTIVE', 100000, 70000, 'PHP'),
-  ((select project_a_other from p3bc_ids), (select admin_user from p3bc_ids), (select company_a from p3bc_ids), 'P3BC-A2', 'Other Company A Project', 'Client A', 'P3BC-A2-REF', 'ACTIVE', 100000, 70000, 'PHP'),
-  ((select project_b from p3bc_ids), (select outsider_user from p3bc_ids), (select company_b from p3bc_ids), 'P3BC-B', 'Other Company Project', 'Client B', 'P3BC-B-REF', 'ACTIVE', 100000, 70000, 'USD');
+  ((select project_a from p3bc_ids), (select admin_user from p3bc_ids), (select company_a from p3bc_ids), 'P3BC-A', 'Field Operations Project', 'Client A', 'P3BC-A-REF', 'ACTIVE', 100000, 70000, 'PHP', 'VAT'),
+  ((select project_a_other from p3bc_ids), (select admin_user from p3bc_ids), (select company_a from p3bc_ids), 'P3BC-A2', 'Other Company A Project', 'Client A', 'P3BC-A2-REF', 'ACTIVE', 100000, 70000, 'PHP', 'VAT'),
+  ((select project_b from p3bc_ids), (select outsider_user from p3bc_ids), (select company_b from p3bc_ids), 'P3BC-B', 'Other Company Project', 'Client B', 'P3BC-B-REF', 'ACTIVE', 100000, 70000, 'USD', 'VAT');
 
 insert into public.project_cost_codes (id, company_id, project_id, code, name, approved_budget_amount, created_by_user_id, updated_by_user_id)
 values

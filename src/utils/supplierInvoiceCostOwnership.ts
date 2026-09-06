@@ -56,13 +56,13 @@ export type SupplierInvoiceCostSource = Pick<InvoiceData, "id" | "grandTotal"> &
   allocations?: readonly InvoiceProjectAllocation[];
 };
 
-export function supplierExpenseCostOwnership(
-  invoices: readonly SupplierInvoiceCostSource[],
+export function supplierExpenseCostOwnership<T extends SupplierInvoiceCostSource>(
+  invoices: readonly T[],
   expenses: readonly Expense[],
 ) {
-  const invoiceById = new Map<string, SupplierInvoiceCostSource>(invoices.map((invoice) => [invoice.id, invoice]));
+  const invoiceById = new Map<string, T>(invoices.map((invoice): [string, T] => [invoice.id, invoice]));
   const byInvoiceId = supplierExpenseByInvoiceId(expenses);
-  const linked = new Map<string, { invoice: SupplierInvoiceCostSource; expense: Expense }>();
+  const linked = new Map<string, { invoice: T; expense: Expense }>();
   for (const [invoiceId, expense] of byInvoiceId) {
     const invoice = invoiceById.get(invoiceId);
     if (invoice) linked.set(invoiceId, { invoice, expense });

@@ -38,6 +38,7 @@ import {
   useWorkspaceDataPending,
 } from "../../app/AppPermissionContext.tsx";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import { isClassifiedProjectTaxTreatment, projectTaxTreatmentLabel } from "../../utils/projectTaxTreatment.ts";
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
 import {
@@ -104,6 +105,7 @@ function blankProject(): Project {
     contractValue: 0,
     projectBudget: 0,
     currency: "PHP",
+    taxTreatment: undefined,
     description: "",
     notes: "",
     createdAt: new Date().toISOString(),
@@ -254,6 +256,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
 
   // Lifecycle & Editing state
   const [editing, setEditing] = useState<Project | null>(null);
+  const [formError, setFormError] = useState("");
   const [lifecycleProject, setLifecycleProject] = useState<Project | null>(null);
   const [lifecyclePreview, setLifecyclePreview] = useState<ProjectLifecyclePreview | null>(null);
   const [lifecycleLoading, setLifecycleLoading] = useState(false);
@@ -334,6 +337,11 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   const save = (event: React.FormEvent) => {
     event.preventDefault();
     if (!canManage || !editing?.projectCode.trim() || !editing.projectName.trim()) return;
+    if (!isClassifiedProjectTaxTreatment(editing.taxTreatment)) {
+      setFormError("Choose VAT or Non-VAT before saving. Existing unclassified projects require an authorized confirmation.");
+      return;
+    }
+    setFormError("");
     onSaveProject({
       ...editing,
       projectCode: editing.projectCode.trim(),
@@ -396,6 +404,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
   const isHydrating = workspaceDataPending && projects.length === 0;
   const hasProjectFilters = Boolean(query.trim()) || status !== "ALL" || managerFilter !== "ALL" || currencyFilter !== "ALL" || healthFilter !== "ALL" || attentionCategoryFilter !== "ALL";
   const projectResultLabel = `${displayedViews.length} of ${projects.length} project${projects.length === 1 ? "" : "s"}`;
+  const unclassifiedProjectCount = projects.filter((project) => !isClassifiedProjectTaxTreatment(project.taxTreatment)).length;
 
   const toggleSort = (field: ProjectSortField) => {
     if (sortField === field) {
@@ -412,12 +421,19 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
         eyebrow="Project controls"
         title="Portfolio Management"
         description="Scan project health and commercial position, then open the register for evidence and action."
-        actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setEditing(blankProject())} /> : undefined}
+        actions={canManage ? <Button variant="primary" label="New project" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => { setFormError(""); setEditing(blankProject()); }} /> : undefined}
       />
 
       {isHydrating && (
         <div role="status" aria-live="polite" className="animate-pulse rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs font-semibold text-slate-600">
           Loading projects…
+        </div>
+      )}
+
+      {unclassifiedProjectCount > 0 && (
+        <div role="status" className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <p><strong>{unclassifiedProjectCount} project{unclassifiedProjectCount === 1 ? " is" : "s are"} unclassified.</strong> An authorized project manager must confirm VAT or Non-VAT before the project is used for client billing context.</p>
         </div>
       )}
 
@@ -712,6 +728,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                     <th scope="col" className="px-3 py-3">
                       Currency
                     </th>
+                    <th scope="col" className="px-3 py-3">
+                      Tax treatment
+                    </th>
                     <th scope="col" className="px-3 py-3 text-right cursor-pointer hover:bg-slate-100" onClick={() => toggleSort("contractValue")}>
                       Contract Value
                     </th>
@@ -813,6 +832,12 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                         {/* 4. Currency */}
                         <td className="px-3 py-3 text-xs font-black uppercase tracking-wide text-slate-700">
                           {view.currency}
+                        </td>
+
+                        <td className="px-3 py-3">
+                          <StatusBadge tone={project.taxTreatment === "UNCLASSIFIED" || !project.taxTreatment ? "warning" : "info"}>
+                            {projectTaxTreatmentLabel(project.taxTreatment)}
+                          </StatusBadge>
                         </td>
 
                         {/* 5. Contract Value */}
@@ -938,6 +963,7 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
                     <span><span className="font-semibold text-slate-600">Manager:</span> {project.projectManager || "Not assigned"}</span>
                     <span className="font-black uppercase tracking-wide text-slate-700">{view.currency}</span>
+                    <StatusBadge tone={project.taxTreatment === "UNCLASSIFIED" || !project.taxTreatment ? "warning" : "info"}>{projectTaxTreatmentLabel(project.taxTreatment)}</StatusBadge>
                   </div>
 
                   {/* Attention Badges */}
@@ -1097,6 +1123,20 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                 />
               </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700" htmlFor="project-tax-treatment">Tax treatment *</label>
+                <select
+                  id="project-tax-treatment"
+                  required
+                  value={editing.taxTreatment === "VAT" || editing.taxTreatment === "NON_VAT" ? editing.taxTreatment : ""}
+                  onChange={(e) => { setFormError(""); setEditing({ ...editing, taxTreatment: e.target.value as Project["taxTreatment"] }); }}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
+                >
+                  <option value="">Choose…</option>
+                  <option value="VAT">VAT</option>
+                  <option value="NON_VAT">Non-VAT</option>
+                </select>
+              </div>
             </div>
 
             <div>
@@ -1137,6 +1177,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               </div>
             </div>
 
+            {formError && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">{formError}</div>}
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="block text-[10px] font-bold text-slate-700">Client Name</label>
@@ -1158,7 +1200,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <details open={Boolean(editing.billingContactName || editing.billingEmail || editing.billingAddress)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <summary className="cursor-pointer list-none text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">Billing details <span className="ml-1 text-[10px] font-semibold text-slate-500">optional</span></summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="block text-[10px] font-bold text-slate-700">Billing Contact</label>
                 <input
@@ -1188,7 +1232,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                 />
               </div>
-            </div>
+              </div>
+            </details>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -1216,7 +1261,9 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
               </div>
             </div>
 
-            <div>
+            <details open={Boolean(editing.description || editing.notes)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+              <summary className="cursor-pointer list-none text-xs font-bold text-slate-700 [&::-webkit-details-marker]:hidden">Operational notes <span className="ml-1 text-[10px] font-semibold text-slate-500">optional</span></summary>
+              <div className="mt-3">
               <label className="block text-[10px] font-bold text-slate-700">Operational Notes / Scope</label>
               <textarea
                 value={editing.description || editing.notes || ""}
@@ -1225,7 +1272,8 @@ export const ProjectsPage: React.FC<ProjectsPageProps> = ({
                 placeholder="Scope description or operational context..."
                 className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
               />
-            </div>
+              </div>
+            </details>
 
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-3">
               <Button variant="secondary" type="button" label="Cancel" onClick={() => setEditing(null)} />

@@ -48,6 +48,7 @@ import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { DocumentPreviewModal } from "../DocumentPreviewModal.tsx";
 import { buildClientInvoiceDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import { DEFAULT_COMPANY_DOCUMENT_PROFILE } from "../../lib/companyDocumentProfile.ts";
+import { isClassifiedProjectTaxTreatment, projectTaxTreatmentLabel } from "../../utils/projectTaxTreatment.ts";
 
 interface ClientBillingPanelProps {
   project: Project;
@@ -121,6 +122,7 @@ function formFromBilling(billing: ClientBilling): { input: ClientBillingInput; l
       billingEmail: billing.billingEmail,
       billingAddress: billing.billingAddress,
       currency: billing.currency,
+      taxTreatment: billing.taxTreatment,
       notes: billing.notes,
     },
     lines: billing.lines.map((line) => ({ description: line.description, amount: line.amount, notes: line.notes })),
@@ -168,6 +170,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
     billingEmail: project.billingEmail,
     billingAddress: project.billingAddress,
     currency: project.currency,
+    taxTreatment: project.taxTreatment,
   }));
   const [billingLines, setBillingLines] = useState<ClientBillingLineInput[]>([emptyLine()]);
 
@@ -232,6 +235,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
       billingEmail: project.billingEmail,
       billingAddress: project.billingAddress,
       currency: project.currency,
+      taxTreatment: project.taxTreatment,
     });
     setBillingLines([emptyLine()]);
     setEditingBilling(true);
@@ -255,7 +259,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
     setBusy(true);
     setError(null);
     try {
-      await onSave({ ...billingForm, projectId: project.id, currency: project.currency }, billingLines.map((line) => ({ ...line, description: line.description.trim(), amount: Number(line.amount) || 0 })));
+      await onSave({ ...billingForm, projectId: project.id, currency: project.currency, taxTreatment: project.taxTreatment }, billingLines.map((line) => ({ ...line, description: line.description.trim(), amount: Number(line.amount) || 0 })));
       setEditingBilling(false);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
@@ -271,6 +275,10 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
       reason = typeof window !== "undefined" ? window.prompt(target === "VOIDED" ? "Reason for voiding this issued client billing:" : target === "CANCELLED" ? "Reason for cancelling this client billing:" : "Reason for returning this billing to draft:") || undefined : undefined;
       if (!reason?.trim()) return;
     } else if (target === "ISSUED") {
+      if (!isClassifiedProjectTaxTreatment(project.taxTreatment)) {
+        setError("Confirm the project VAT or Non-VAT classification before issuing a client invoice.");
+        return;
+      }
       const confirmed = typeof window === "undefined" || window.confirm("Issue this client billing? Only issued billings contribute to Billed to Date, and the database will recheck the project contract ceiling.");
       if (!confirmed) return;
     } else if (target === "SUBMITTED") {
@@ -437,11 +445,13 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
               <label className="space-y-1"><span className="field-label">Period end</span><input className="field-input" type="date" value={billingForm.periodEnd || ""} onChange={(event) => setBillingForm((current) => ({ ...current, periodEnd: event.target.value || undefined }))} /></label>
               <label className="space-y-1 sm:col-span-2"><span className="field-label">Client snapshot</span><input className="field-input bg-slate-50" value={billingForm.clientNameSnapshot || ""} onChange={(event) => setBillingForm((current) => ({ ...current, clientNameSnapshot: event.target.value }))} placeholder={project.clientName || "Client not set"} /></label>
               <label className="space-y-1 sm:col-span-2"><span className="field-label">Client reference</span><input className="field-input" value={billingForm.clientReferenceSnapshot || ""} onChange={(event) => setBillingForm((current) => ({ ...current, clientReferenceSnapshot: event.target.value || undefined }))} /></label>
+              <label className="space-y-1"><span className="field-label">Project tax treatment</span><input className="field-input bg-slate-50 text-slate-600" value={projectTaxTreatmentLabel(project.taxTreatment)} readOnly aria-describedby="client-invoice-tax-note" /></label>
               <label className="space-y-1"><span className="field-label">Billing contact</span><input className="field-input" value={billingForm.billingContactName || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingContactName: event.target.value || undefined }))} placeholder={project.billingContactName || "Contact name"} /></label>
               <label className="space-y-1"><span className="field-label">Billing email</span><input type="email" className="field-input" value={billingForm.billingEmail || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingEmail: event.target.value || undefined }))} placeholder={project.billingEmail || "billing@example.com"} /></label>
               <label className="space-y-1 sm:col-span-4"><span className="field-label">Billing address</span><textarea className="field-input min-h-16" value={billingForm.billingAddress || ""} onChange={(event) => setBillingForm((current) => ({ ...current, billingAddress: event.target.value || undefined }))} placeholder={project.billingAddress || project.siteAddress || "Client billing address"} /></label>
               <label className="space-y-1 sm:col-span-4"><span className="field-label">Notes</span><textarea className="field-input min-h-20" value={billingForm.notes || ""} onChange={(event) => setBillingForm((current) => ({ ...current, notes: event.target.value || undefined }))} /></label>
             </div>
+            <p id="client-invoice-tax-note" className="mt-3 text-[10px] leading-4 text-slate-500">Inherited from the project. This records VAT vs Non-VAT context only; no VAT rate or inclusive/exclusive treatment is inferred.</p>
           </Card>
           <Card className="overflow-hidden p-0 shadow-sm" elevation="low">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5">
@@ -584,6 +594,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-600">Commercial controls</p>
           <h2 id="client-billing-heading" className="mt-1 text-xl font-black text-slate-950">Client Invoices &amp; Collections</h2>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Authoritative receivables truth. Only ISSUED Client Invoices count toward Billed to Date and are eligible for client collections.</p>
+          <p className="mt-2 text-[10px] font-bold text-indigo-700">Project tax treatment: {projectTaxTreatmentLabel(project.taxTreatment)} · No VAT rate or inclusive/exclusive assumption is applied.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {activeTab === "billings" && canManage && (
@@ -672,7 +683,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
                         <td className="px-4 py-3">
                           <button type="button" className="text-left">
                             <strong className="block text-xs text-indigo-700">{billing.billingNumber}</strong>
-                            <span className="mt-1 block text-[10px] text-slate-500">{billing.billingDate}{billing.periodStart || billing.periodEnd ? ` · ${billing.periodStart || "?"} – ${billing.periodEnd || "?"}` : ""}</span>
+                            <span className="mt-1 block text-[10px] text-slate-500">{billing.billingDate}{billing.periodStart || billing.periodEnd ? ` · ${billing.periodStart || "?"} – ${billing.periodEnd || "?"}` : ""} · {projectTaxTreatmentLabel(billing.taxTreatment || project.taxTreatment)}</span>
                           </button>
                         </td>
                         <td className="max-w-[180px] px-4 py-3">
@@ -702,7 +713,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-indigo-600">Client invoice detail</p>
                     <h3 className="mt-1 text-base font-black text-slate-950">{selectedBilling.billingNumber}</h3>
-                    <p className="mt-1 text-[10px] text-slate-500">{selectedBilling.clientNameSnapshot || project.clientName || "Client snapshot not set"} · {selectedBilling.billingDate}</p>
+                    <p className="mt-1 text-[10px] text-slate-500">{selectedBilling.clientNameSnapshot || project.clientName || "Client snapshot not set"} · {selectedBilling.billingDate} · {projectTaxTreatmentLabel(selectedBilling.taxTreatment || project.taxTreatment)}</p>
                   </div>
                   <StatusBadge tone={billingStatusTone(selectedBilling.status)}>{selectedBilling.status}</StatusBadge>
                 </div>

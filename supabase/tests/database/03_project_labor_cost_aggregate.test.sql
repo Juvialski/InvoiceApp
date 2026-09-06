@@ -108,13 +108,13 @@ values
 insert into public.deployment_configuration (singleton, company_id)
 values (true, (select company_a from project_labor_test_ids));
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment)
 values
-  ((select project_main from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-MAIN', 'Aggregate Main Project', 'ACTIVE', 100000, 'PHP'),
-  ((select project_empty from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-EMPTY', 'No Labor Project', 'ACTIVE', 100000, 'PHP'),
-  ((select project_zero from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-ZERO', 'Zero Labor Project', 'ACTIVE', 100000, 'PHP'),
-  ((select project_usd from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-USD', 'Foreign Currency Project', 'ACTIVE', 100000, 'USD'),
-  ((select project_other_company from project_labor_test_ids), (select outsider_user from project_labor_test_ids), (select company_b from project_labor_test_ids), 'OTHER-001', 'Other Company Project', 'ACTIVE', 100000, 'USD');
+  ((select project_main from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-MAIN', 'Aggregate Main Project', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_empty from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-EMPTY', 'No Labor Project', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_zero from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-ZERO', 'Zero Labor Project', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_usd from project_labor_test_ids), (select admin_user from project_labor_test_ids), (select company_a from project_labor_test_ids), 'AGG-USD', 'Foreign Currency Project', 'ACTIVE', 100000, 'USD', 'VAT'),
+  ((select project_other_company from project_labor_test_ids), (select outsider_user from project_labor_test_ids), (select company_b from project_labor_test_ids), 'OTHER-001', 'Other Company Project', 'ACTIVE', 100000, 'USD', 'VAT');
 
 insert into public.workers (id, user_id, company_id, employee_code, first_name, last_name, display_name, default_pay_type, default_rate)
 values

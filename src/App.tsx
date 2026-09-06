@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Expense, FinancialFxSnapshot, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -222,6 +222,7 @@ import {
 import { useProjectController } from "./features/projects/useProjectController.ts";
 import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "./lib/documentSnapshots.ts";
 import { DEFAULT_COMPANY_DOCUMENT_PROFILE, supplierInvoiceBuyerMismatch } from "./lib/companyDocumentProfile.ts";
+import { createLocalFinancialFxSnapshot, loadFinancialFxSnapshotsFromSupabase, readFinancialFxSnapshotsFromLocal, saveFinancialFxSnapshotToSupabase, writeFinancialFxSnapshotsToLocal, type FinancialFxSnapshotInput } from "./lib/financialFx.ts";
 
 function revisePayrollSourcePeriods(
   periods: PayrollPeriod[],
@@ -429,6 +430,7 @@ function InvoiceWorkspace() {
   const [clientBillingData, setClientBillingData] = useState<ClientBillingWorkspaceData>(() => isSupabaseConfigured ? { billings: [], events: [] } : { billings: readClientBillingsFromLocal(), events: readClientBillingEventsFromLocal() });
   const [clientCollectionData, setClientCollectionData] = useState<ClientCollectionWorkspaceData>(() => isSupabaseConfigured ? { collections: [], events: [] } : { collections: readClientCollectionsFromLocal(), events: readClientCollectionEventsFromLocal() });
   const [expenses, setExpenses] = useState<Expense[]>(() => isSupabaseConfigured ? [] : readExpensesFromLocal());
+  const [financialFxSnapshots, setFinancialFxSnapshots] = useState<FinancialFxSnapshot[]>(() => isSupabaseConfigured ? [] : readFinancialFxSnapshotsFromLocal());
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [projectMaterials, setProjectMaterials] = useState<ProjectMaterial[]>(() => isSupabaseConfigured ? [] : readProjectMaterialsFromLocal());
   const [projectEquipment, setProjectEquipment] = useState<ProjectEquipment[]>(() => isSupabaseConfigured ? [] : readProjectEquipmentFromLocal());
@@ -600,6 +602,7 @@ function InvoiceWorkspace() {
     setClientBillingData({ billings: [], events: [] });
     setClientCollectionData({ collections: [], events: [] });
     setExpenses([]);
+    setFinancialFxSnapshots([]);
     setCostCodes([]);
     setProjectMaterials([]);
     setProjectEquipment([]);
@@ -672,6 +675,7 @@ function InvoiceWorkspace() {
     clientBillingData: ClientBillingWorkspaceData;
     clientCollectionData: ClientCollectionWorkspaceData;
     expenses: Expense[];
+    financialFxSnapshots: FinancialFxSnapshot[];
     costCodes: ProjectCostCode[];
     materials: ProjectMaterial[];
     equipment: ProjectEquipment[];
@@ -744,6 +748,7 @@ function InvoiceWorkspace() {
     setClientBillingData(data.clientBillingData);
     setClientCollectionData(data.clientCollectionData);
     setExpenses(data.expenses);
+    setFinancialFxSnapshots(data.financialFxSnapshots);
     setCostCodes(data.costCodes);
     setProjectMaterials(data.materials);
     setProjectEquipment(data.equipment);
@@ -781,6 +786,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.projectsRead) ? loadClientCollectionWorkspaceFromSupabase() : Promise.resolve({ collections: [], events: [] } as ClientCollectionWorkspaceData),
       can(PERMISSION_KEYS.projectsRead) ? loadProjectMaterialsEquipmentFromSupabase() : Promise.resolve({ materials: [], equipment: [] }),
       can(PERMISSION_KEYS.engineeringSiteLogsRead) ? loadDailySiteLogsFromSupabase(activeCompanyId || undefined) : Promise.resolve(undefined),
+      hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.settingsRead]) ? loadFinancialFxSnapshotsFromSupabase() : Promise.resolve([]),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -800,6 +806,7 @@ function InvoiceWorkspace() {
     const clientCollectionData = results[14].status === "fulfilled" ? results[14].value : { collections: [], events: [] };
     const materialsEquipment = results[15].status === "fulfilled" ? results[15].value : { materials: [], equipment: [] };
     const dailySiteLogsData = results[16].status === "fulfilled" ? results[16].value : undefined;
+    const financialFxSnapshots = results[17].status === "fulfilled" ? results[17].value : [];
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -816,6 +823,7 @@ function InvoiceWorkspace() {
     if (results[13].status !== "fulfilled") failures.push("subcontract variations");
     if (results[14].status !== "fulfilled") failures.push("client collections");
     if (results[15].status !== "fulfilled") failures.push("materials and equipment");
+    if (results[17].status !== "fulfilled") failures.push("financial FX snapshots");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -840,7 +848,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, clientCollectionData, expenses, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, dailySiteLogsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, dailySiteLogsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -996,6 +1004,7 @@ function InvoiceWorkspace() {
       setSyncState({});
       setInvoiceProjectAllocations(readInvoiceProjectAllocationsFromLocal());
       setExpenses(readExpensesFromLocal());
+      setFinancialFxSnapshots(readFinancialFxSnapshotsFromLocal());
       setCostCodes(readProjectCostCodesFromLocal());
       setProjectMaterials(readProjectMaterialsFromLocal());
       setProjectEquipment(readProjectEquipmentFromLocal());
@@ -1067,11 +1076,12 @@ function InvoiceWorkspace() {
       writeClientCollectionWorkspaceToLocal(clientCollectionData);
       writePayrollImportWorkspaceToLocal(payrollImportData);
       writeExpensesToLocal(expenses);
+      writeFinancialFxSnapshotsToLocal(financialFxSnapshots);
       writePayrollWorkspaceToLocal(payrollData);
       writeCashBankingWorkspaceToLocal(cashData);
       if (dailySiteLogsData) writeDailySiteLogsToLocal(dailySiteLogsData);
     }
-  }, [invoiceProjectAllocations, clientBillingData, clientCollectionData, expenses, payrollData, payrollImportData, cashData, dailySiteLogsData, session, authResolved, guestModeState]);
+  }, [invoiceProjectAllocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, payrollData, payrollImportData, cashData, dailySiteLogsData, session, authResolved, guestModeState]);
 
   useEffect(() => {
     payrollDataRef.current = payrollData;
@@ -2136,6 +2146,23 @@ function InvoiceWorkspace() {
       showNotification("success", "Expense saved.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save expense."));
+    }
+  };
+
+  const handleSaveFinancialFxSnapshot = async (input: FinancialFxSnapshotInput) => {
+    try {
+      if (isSupabaseConfigured && !guestModeState && !can(PERMISSION_KEYS.companyManage)) throw new Error("Confirming FX rates requires company settings management permission.");
+      const existing = financialFxSnapshots.find((snapshot) => snapshot.sourceType === input.sourceType && snapshot.sourceId === input.sourceId);
+      if (existing) return existing;
+      const saved = session && supabase && !guestModeState
+        ? await saveFinancialFxSnapshotToSupabase(input)
+        : createLocalFinancialFxSnapshot(input);
+      setFinancialFxSnapshots((current) => current.some((snapshot) => snapshot.id === saved.id) ? current : [saved, ...current]);
+      showNotification("success", `FX confirmed: ${saved.sourceCurrency} ${saved.sourceAmount.toFixed(2)} = ${saved.baseCurrency} ${saved.baseAmount.toFixed(2)}.`);
+      return saved;
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not confirm the FX rate."));
+      throw error;
     }
   };
 
@@ -3880,6 +3907,39 @@ function InvoiceWorkspace() {
     setRemoteInvoiceUpdate(null);
   };
 
+  const linkVerifiedSupplierInvoice = async (invoice: InvoiceData): Promise<{ invoice: InvoiceData; expense: Expense }> => {
+    if (session && supabase) {
+      if (!can(PERMISSION_KEYS.expensesWrite)) throw new Error("Supplier invoice linking requires Expense management permission so the authoritative payable can be created.");
+      const result = await verifySupplierInvoiceAndCreateExpense(invoice);
+      setExpenses((current) => current.some((item) => item.id === result.expense.id)
+        ? current.map((item) => item.id === result.expense.id ? result.expense : item)
+        : [result.expense, ...current]);
+      return result;
+    }
+
+    const buyerError = supplierInvoiceBuyerMismatch(invoice, DEFAULT_COMPANY_DOCUMENT_PROFILE);
+    if (buyerError) throw new Error(`Buyer mismatch — ${buyerError} Resolve the buyer before verification.`);
+    const existingExpense = expenses.find((item) => item.supplierInvoiceId === invoice.id && item.status !== "VOID");
+    const supplierAllocations = invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === invoice.id);
+    const singleAllocation = supplierAllocations.length === 1 ? supplierAllocations[0] : undefined;
+    const localExpense = existingExpense || createLocalExpense({
+      projectId: singleAllocation?.projectId,
+      projectCostCodeId: singleAllocation?.projectCostCodeId,
+      expenseDate: invoice.invoiceDate || new Date().toISOString().slice(0, 10),
+      category: invoice.category || "Miscellaneous",
+      description: invoice.invoiceNumber ? `Supplier invoice ${invoice.invoiceNumber}` : "Supplier invoice expense",
+      payee: invoice.vendor?.name || "Supplier",
+      supplierInvoiceId: invoice.id,
+      vendorId: invoice.vendor?.vendorId,
+      amount: Math.max(0, Number(invoice.grandTotal) || 0),
+      currency: invoice.currency || DEFAULT_CURRENCY,
+      referenceNumber: invoice.invoiceNumber || undefined,
+      status: "DRAFT",
+    });
+    if (!existingExpense) setExpenses((current) => [localExpense, ...current]);
+    return { invoice: { ...invoice, reviewStatus: "VERIFIED", verifiedAt: invoice.verifiedAt || new Date().toISOString(), linkedExpenseId: localExpense.id }, expense: localExpense };
+  };
+
   const handleVerify = async (invoice: InvoiceData) => {
     const initialRevision = editRevisionRef.current.get(invoice.id) || 0;
     let verified: InvoiceData = { ...applyLocalChecks(invoice), reviewStatus: "VERIFIED" as const, verifiedAt: new Date().toISOString() };
@@ -3898,36 +3958,8 @@ function InvoiceWorkspace() {
       if (!await flushInvoiceSave({ ...verified, reviewStatus: "NEEDS_REVIEW", verifiedAt: undefined }, "HUMAN_EDIT")) throw new Error("Could not save invoice edits before verification.");
       verified = invoicesRef.current.find((item) => item.id === invoice.id) || verified;
     }
-    if (session && supabase) {
-      if (!can(PERMISSION_KEYS.expensesWrite)) throw new Error("Supplier invoice verification requires Expense management permission so the authoritative payable can be created.");
-      const result = await verifySupplierInvoiceAndCreateExpense(verified);
-      verified = result.invoice;
-      setExpenses((current) => current.some((item) => item.id === result.expense.id)
-        ? current.map((item) => item.id === result.expense.id ? result.expense : item)
-        : [result.expense, ...current]);
-    } else {
-      const buyerError = supplierInvoiceBuyerMismatch(verified, DEFAULT_COMPANY_DOCUMENT_PROFILE);
-      if (buyerError) throw new Error(`Buyer mismatch — ${buyerError} Resolve the buyer before verification.`);
-      const existingExpense = expenses.find((item) => item.supplierInvoiceId === verified.id && item.status !== "VOID");
-      const supplierAllocations = invoiceProjectAllocations.filter((allocation) => allocation.invoiceId === verified.id);
-      const singleAllocation = supplierAllocations.length === 1 ? supplierAllocations[0] : undefined;
-      const localExpense = existingExpense || createLocalExpense({
-        projectId: singleAllocation?.projectId,
-        projectCostCodeId: singleAllocation?.projectCostCodeId,
-        expenseDate: verified.invoiceDate || new Date().toISOString().slice(0, 10),
-        category: verified.category || "Miscellaneous",
-        description: verified.invoiceNumber ? `Supplier invoice ${verified.invoiceNumber}` : "Supplier invoice expense",
-        payee: verified.vendor?.name || "Supplier",
-        supplierInvoiceId: verified.id,
-        vendorId: verified.vendor?.vendorId,
-        amount: Math.max(0, Number(verified.grandTotal) || 0),
-        currency: verified.currency || DEFAULT_CURRENCY,
-        referenceNumber: verified.invoiceNumber || undefined,
-        status: "DRAFT",
-      });
-      if (!existingExpense) setExpenses((current) => [localExpense, ...current]);
-      verified = { ...verified, linkedExpenseId: localExpense.id };
-    }
+    const linked = await linkVerifiedSupplierInvoice(verified);
+    verified = linked.invoice;
     const next = invoicesRef.current.map((item) => item.id === verified.id ? verified : item);
     invoicesRef.current = next;
     setInvoices(next);
@@ -3935,6 +3967,20 @@ function InvoiceWorkspace() {
     if (selectedInvoice?.id === verified.id) setSelectedInvoice(verified);
     showNotification("success", `Verified ${verified.invoiceNumber || "supplier invoice"}. Expense ${verified.linkedExpenseId ? `#${verified.linkedExpenseId.slice(0, 8)} ` : ""}is now the authoritative supplier payable; the source invoice remains preserved evidence.`);
     return verified;
+  };
+
+  const handleLinkSupplierInvoice = async (invoice: InvoiceData) => {
+    if (invoice.reviewStatus !== "VERIFIED") throw new Error("Only a verified supplier invoice can be linked from Expenses.");
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.invoicesVerify)) throw new Error("Supplier invoice linking requires invoice verification permission.");
+    if (isSupabaseConfigured && !can(PERMISSION_KEYS.expensesWrite)) throw new Error("Supplier invoice linking requires Expense management permission.");
+    const linked = await linkVerifiedSupplierInvoice(invoice);
+    const next = invoicesRef.current.map((item) => item.id === linked.invoice.id ? linked.invoice : item);
+    invoicesRef.current = next;
+    setInvoices(next);
+    lastPersistedRef.current.set(linked.invoice.id, linked.invoice);
+    if (selectedInvoice?.id === linked.invoice.id) setSelectedInvoice(linked.invoice);
+    showNotification("success", `Linked ${linked.invoice.invoiceNumber || "supplier invoice"} to Expense #${linked.expense.id.slice(0, 8)}. The source invoice remains preserved evidence.`);
+    return linked.invoice;
   };
 
   const handleRegionalSettingsChange = (next: RegionalSettings) => {
@@ -4307,12 +4353,13 @@ function InvoiceWorkspace() {
         subcontractVariations,
         projectLaborAggregates,
         laborSource: projectLaborSource,
+        fxSnapshots: financialFxSnapshots,
       });
     });
-    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations });
+    const unallocated = calculateProjectCost(undefined, { invoices: costInvoices, payroll: detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, fxSnapshots: financialFxSnapshots, baseCurrency: activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY });
     next.__unallocated__ = unallocated;
     return next;
-  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource]);
+  }, [projects, costInvoices, detailPayrollForProjectCost, expenses, financialFxSnapshots, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, activeCompany?.defaultCurrency, regionalSettings.currency]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
     ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
     // Linked supplier invoices are evidence only; the Expense is the sole
@@ -4332,6 +4379,8 @@ function InvoiceWorkspace() {
     subcontractVariations,
     projectLaborAggregates,
     laborSource: projectLaborSource,
+    fxSnapshots: financialFxSnapshots,
+    baseCurrency: activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY,
     periods: payrollData.periods,
     workers: payrollData.workers,
     payrollEntries: payrollData.entries,
@@ -4343,9 +4392,9 @@ function InvoiceWorkspace() {
     customEnd: dashboardCustomEnd,
     selectedCurrency: dashboardCurrency,
     projectId: dashboardProjectId,
-  }), [projects, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
+  }), [projects, costInvoices, expenses, financialFxSnapshots, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, payrollData.workers, payrollData.entries, payrollData.allocations, payrollData.runs, cashData, permissions, dashboardActivityPeriod, dashboardCustomStart, dashboardCustomEnd, dashboardCurrency, dashboardProjectId]);
 
-  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods]);
+  const projectDashboard = useMemo(() => selectedProject ? buildProjectDashboardViewData({ project: selectedProject, invoices: costInvoices, expenses, payroll: detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, laborSource: projectLaborSource, periods: payrollData.periods, fxSnapshots: financialFxSnapshots }) : undefined, [selectedProject, costInvoices, expenses, detailPayrollForProjectCost, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, payrollData.periods, financialFxSnapshots]);
   const reviewCount = invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID").length;
   const gmailConnection: GmailConnectionInfo = {
     configured: isSupabaseConfigured,
@@ -4514,46 +4563,46 @@ function InvoiceWorkspace() {
           projectLaborAggregates={projectLaborAggregates}
           laborSource={projectLaborSource}
           projectFormSeed={projectFormSeed}
-           onOpenProject={projectController.openProject}
-           onSaveProject={(project) => void projectController.saveProject(project)}
-           onPreviewProjectLifecycle={projectController.previewProjectLifecycle}
-           onApplyProjectLifecycle={projectController.applyProjectLifecycle}
-           onArchiveProject={(project) => void projectController.archiveProject(project)}
-           onReactivateProject={(project) => void projectController.reactivateProject(project)}
-           onEditProject={() => { if (selectedProject) projectController.editProject(selectedProject); }}
-           onSaveCostCode={handleSaveCostCode}
-           onArchiveCostCode={handleArchiveCostCode}
-           onReactivateCostCode={handleReactivateCostCode}
+          onOpenProject={projectController.openProject}
+          onSaveProject={(project) => void projectController.saveProject(project)}
+          onPreviewProjectLifecycle={projectController.previewProjectLifecycle}
+          onApplyProjectLifecycle={projectController.applyProjectLifecycle}
+          onArchiveProject={(project) => void projectController.archiveProject(project)}
+          onReactivateProject={(project) => void projectController.reactivateProject(project)}
+          onEditProject={() => { if (selectedProject) projectController.editProject(selectedProject); }}
+          onSaveCostCode={handleSaveCostCode}
+          onArchiveCostCode={handleArchiveCostCode}
+          onReactivateCostCode={handleReactivateCostCode}
           onSaveMaterial={handleSaveMaterial}
           onSaveEquipment={handleSaveEquipment}
-           onSavePO={handleSavePO}
-           onTransitionPO={handleTransitionPO}
-           onDeletePO={handleDeletePO}
-           onSaveSubcontract={handleSaveSubcontract}
-           onTransitionSubcontract={handleTransitionSubcontract}
-           onDeleteSubcontract={handleDeleteSubcontract}
-           onSaveSubcontractClaim={handleSaveSubcontractClaim}
-           onTransitionSubcontractClaim={handleTransitionSubcontractClaim}
-           onDeleteSubcontractClaim={handleDeleteSubcontractClaim}
-           onSaveSubcontractVariation={handleSaveSubcontractVariation}
-           onTransitionSubcontractVariation={handleTransitionSubcontractVariation}
-           onDeleteSubcontractVariation={handleDeleteSubcontractVariation}
-           onRecordReceipt={handleRecordReceipt}
-           onVoidReceipt={handleVoidReceipt}
-           onAddVendor={handleAddVendor}
-           purchaseOrderMatches={purchaseOrderMatches}
-           onConfirmPurchaseOrderMatch={handleConfirmPurchaseOrderMatch}
-           onUnmatchPurchaseOrderMatch={handleUnmatchPurchaseOrderMatch}
-           onOpenPurchaseOrder={(_id) => navigateToPath(appPathForTab("procurement"))}
-           rfqs={rfqs}
-           supplierQuotations={supplierQuotations}
-           onSaveRFQ={handleSaveRFQ}
-           onTransitionRFQ={handleTransitionRFQ}
-           onDeleteRFQ={handleDeleteRFQ}
-           onSaveSupplierQuotation={handleSaveSupplierQuotation}
-           onSelectSupplierQuotation={handleSelectSupplierQuotation}
-           onRevertSupplierQuotationSelection={handleRevertSupplierQuotationSelection}
-           onConvertQuotationToPO={handleConvertQuotationToPO}
+          onSavePO={handleSavePO}
+          onTransitionPO={handleTransitionPO}
+          onDeletePO={handleDeletePO}
+          onSaveSubcontract={handleSaveSubcontract}
+          onTransitionSubcontract={handleTransitionSubcontract}
+          onDeleteSubcontract={handleDeleteSubcontract}
+          onSaveSubcontractClaim={handleSaveSubcontractClaim}
+          onTransitionSubcontractClaim={handleTransitionSubcontractClaim}
+          onDeleteSubcontractClaim={handleDeleteSubcontractClaim}
+          onSaveSubcontractVariation={handleSaveSubcontractVariation}
+          onTransitionSubcontractVariation={handleTransitionSubcontractVariation}
+          onDeleteSubcontractVariation={handleDeleteSubcontractVariation}
+          onRecordReceipt={handleRecordReceipt}
+          onVoidReceipt={handleVoidReceipt}
+          onAddVendor={handleAddVendor}
+          purchaseOrderMatches={purchaseOrderMatches}
+          onConfirmPurchaseOrderMatch={handleConfirmPurchaseOrderMatch}
+          onUnmatchPurchaseOrderMatch={handleUnmatchPurchaseOrderMatch}
+          onOpenPurchaseOrder={(_id) => navigateToPath(appPathForTab("procurement"))}
+          rfqs={rfqs}
+          supplierQuotations={supplierQuotations}
+          onSaveRFQ={handleSaveRFQ}
+          onTransitionRFQ={handleTransitionRFQ}
+          onDeleteRFQ={handleDeleteRFQ}
+          onSaveSupplierQuotation={handleSaveSupplierQuotation}
+          onSelectSupplierQuotation={handleSelectSupplierQuotation}
+          onRevertSupplierQuotationSelection={handleRevertSupplierQuotationSelection}
+          onConvertQuotationToPO={handleConvertQuotationToPO}
           onProjectTabChange={(tab) => {
             if (route.kind === "project" && selectedProject) {
               navigateToPath(appPathForProject(selectedProject.id, tab as ProjectWorkspaceView));
@@ -4683,6 +4732,10 @@ function InvoiceWorkspace() {
           onPreviewFactoryReset={() => handlePreviewPayrollWorkspaceReset()}
           onApplyFactoryReset={(confirmation) => handleApplyPayrollWorkspaceReset(confirmation)}
           expenses={expenses}
+          financialFxSnapshots={financialFxSnapshots}
+          baseCurrency={activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY}
+          onSaveFinancialFxSnapshot={handleSaveFinancialFxSnapshot}
+          onVerifySupplierInvoice={(invoice) => handleLinkSupplierInvoice(invoice)}
           expenseFormContext={expenseFormContext}
           expenseCorrectionContext={expenseCorrectionContext}
           onSaveExpense={(expense) => void handleSaveExpense(expense)}

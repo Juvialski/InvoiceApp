@@ -1,7 +1,8 @@
 import React from "react";
 import { ExpensesPage } from "../../components/expenses/ExpensesPage";
 import { ConnectedExpenseReview } from "../../components/ConnectedExpenseReview.tsx";
-import type { Expense, InvoiceData, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../../types";
+import type { Expense, FinancialFxSnapshot, InvoiceData, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../../types";
+import type { FinancialFxSnapshotInput } from "../../lib/financialFx.ts";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
@@ -16,6 +17,12 @@ export interface ExpensesRouteProps {
   initialProjectId?: string;
   initialExpenseId?: string | null;
   onSave: (expense: Expense) => void;
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
+  baseCurrency?: string;
+  onSaveFinancialFxSnapshot?: (input: FinancialFxSnapshotInput) => Promise<FinancialFxSnapshot | void>;
+  onVerifySupplierInvoice?: (invoice: InvoiceData) => Promise<InvoiceData | void>;
+  onOpenSupplierInvoiceReview?: (invoice: InvoiceData) => void;
+  onUploadSupplierInvoice?: () => void;
   onPreviewCorrection: (expense: Expense) => Promise<FinancialCorrectionPreview>;
   onApplyCorrection: (expense: Expense, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
   onInitialCorrectionConsumed?: () => void;

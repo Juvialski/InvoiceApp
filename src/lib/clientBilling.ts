@@ -1,4 +1,5 @@
-import type { ClientBilling as ClientBillingRecord, ClientBillingEvent as ClientBillingEventRecord, ClientBillingLine as ClientBillingLineRecord, ClientBillingStatus as ClientBillingStatusRecord, Project, ProjectStatus } from "../types.ts";
+import type { ClientBilling as ClientBillingRecord, ClientBillingEvent as ClientBillingEventRecord, ClientBillingLine as ClientBillingLineRecord, ClientBillingStatus as ClientBillingStatusRecord, Project, ProjectStatus, ProjectTaxTreatment } from "../types.ts";
+import { isClassifiedProjectTaxTreatment, normalizeProjectTaxTreatment } from "../utils/projectTaxTreatment.ts";
 import { companyScopedRow, requireActiveCompanyId } from "./companyContext.ts";
 import { supabase } from "./supabase.ts";
 
@@ -27,6 +28,7 @@ export interface ClientBillingInput {
   billingEmail?: string;
   billingAddress?: string;
   currency?: string;
+  taxTreatment?: ProjectTaxTreatment;
   notes?: string;
 }
 
@@ -131,6 +133,7 @@ function billingFromRow(row: Row, lines: ClientBillingLine[] = []): ClientBillin
     billingEmail: text(row.billing_email),
     billingAddress: text(row.billing_address),
     currency: String(row.currency || "PHP").toUpperCase(),
+    taxTreatment: normalizeProjectTaxTreatment(row.tax_treatment),
     status: String(row.status || "DRAFT") as ClientBillingStatus,
     notes: text(row.notes),
     lines,
@@ -258,6 +261,7 @@ export function buildLocalClientBilling(
     billingEmail: input.billingEmail?.trim() || undefined,
     billingAddress: input.billingAddress?.trim() || undefined,
     currency: (input.currency || "PHP").trim().toUpperCase(),
+    taxTreatment: normalizeProjectTaxTreatment(input.taxTreatment),
     status: existing?.status || "DRAFT",
     notes: input.notes?.trim() || undefined,
     lines: normalizedLines.map((line) => ({ ...line, billingId: id })),
@@ -307,7 +311,7 @@ export function upsertClientBilling(items: readonly ClientBilling[], value: Clie
 export function applyLocalClientBillingTransition(
   billing: ClientBilling,
   targetStatus: ClientBillingStatus,
-  project: Pick<Project, "id" | "status" | "contractValue" | "currency">,
+  project: Pick<Project, "id" | "status" | "contractValue" | "currency" | "taxTreatment">,
   allBillings: readonly ClientBilling[],
   reason?: string,
   timestamp = new Date().toISOString(),
@@ -323,6 +327,7 @@ export function applyLocalClientBillingTransition(
 
   const total = clientBillingTotal(billing);
   if (target === "ISSUED") {
+    if (!isClassifiedProjectTaxTreatment(project.taxTreatment)) throw new Error("Client billing cannot be issued until the project VAT or Non-VAT classification is confirmed.");
     const projectCurrency = String(project.currency || "").trim().toUpperCase();
     if (allBillings.some((candidate) => candidate.projectId === project.id && String(candidate.currency || "").trim().toUpperCase() !== projectCurrency)) {
       throw new Error("Client billing currency must match the project currency before issuance.");
@@ -341,6 +346,7 @@ export function applyLocalClientBillingTransition(
   const updated: ClientBilling = {
     ...billing,
     status: target,
+    taxTreatment: target === "ISSUED" ? project.taxTreatment : billing.taxTreatment,
     submittedAt: target === "SUBMITTED" ? timestamp : billing.submittedAt,
     issuedAt: target === "ISSUED" ? timestamp : billing.issuedAt,
     cancelledAt: target === "CANCELLED" ? timestamp : billing.cancelledAt,

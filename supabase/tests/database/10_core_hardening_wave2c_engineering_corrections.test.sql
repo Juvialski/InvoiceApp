@@ -123,10 +123,10 @@ cross join (values
 where cm.company_id = (select company_a from wave2c_ids)
   and cm.user_id = (select denied_user from wave2c_ids);
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment)
 values
-  ((select project_a from wave2c_ids), (select admin_user from wave2c_ids), (select company_a from wave2c_ids), 'W2C-A', 'Wave 2C Engineering Project', 'ACTIVE', 100000, 'PHP'),
-  ((select project_b from wave2c_ids), (select outsider_user from wave2c_ids), (select company_b from wave2c_ids), 'W2C-B', 'Wave 2C Foreign Project', 'ACTIVE', 100000, 'USD');
+  ((select project_a from wave2c_ids), (select admin_user from wave2c_ids), (select company_a from wave2c_ids), 'W2C-A', 'Wave 2C Engineering Project', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_b from wave2c_ids), (select outsider_user from wave2c_ids), (select company_b from wave2c_ids), 'W2C-B', 'Wave 2C Foreign Project', 'ACTIVE', 100000, 'USD', 'VAT');
 
 select set_config('request.jwt.claim.sub', (select admin_user::text from wave2c_ids), true);
 
