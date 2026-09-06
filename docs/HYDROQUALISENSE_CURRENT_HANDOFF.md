@@ -1,163 +1,162 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — use this with `AGENTS.md` and the active roadmap**  
+Status: **CURRENT — R5 COMPLETE / WAREHOUSE NEXT**  
 Date: **2026-09-06**  
 Repository: `Juvialski/InvoiceApp`
 
-This is a compact takeover note for a fresh ChatGPT/Codex session. Repository state remains authoritative if anything below becomes stale.
+Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, and `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`. Live repository state remains authoritative if anything here becomes stale.
 
-## Baseline at handoff
+## Current repository state
 
-- Runtime/code baseline before these documentation-only handoff commits: `5308e4feb51f922ba8f5153f341f565432d56bab`.
-- No open pull requests were present when this handoff was written.
-- R4 was merged in PR #94.
-- PR #94 exact-head Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA were green before merge.
-- The documentation commits that follow this baseline do not intentionally change runtime behavior.
+- `main` before PR #95: `fe4506b2658ed85a0d916921e0a17c444ad92a89`.
+- R4 is complete through PR #94.
+- R5 implementation is complete in **PR #95 — `feat: R5 cross-module integration and data-contract hardening`**.
+- The reviewed R5 runtime head was `c3aafe5fd528e4feebe62c785548b4c3d7dec46e` before the documentation-only follow-up commits.
+- That runtime head passed all four protected workflows: Application Validation, Database Migrations & Upgrade Suite, Demo Visual QA, and Workflow Map/Graph consistency.
+- Database CI exercised static migration checks, isolated local Supabase startup, clean migration replay, pgTAP assertions, and upgrade-path migration tests.
+- No unresolved code-review thread existed on PR #95.
+- GitHub branch protection requires an approval from someone other than the last pusher. The connected repository owner cannot self-approve the PR; do not weaken that protection merely to force the merge.
 
-## Current next phase
+## R5 outcome
 
-**R5 — Cross-Module Integration & Data-Contract Hardening** is next and must complete before Warehouse Inventory unless the user/client reprioritizes.
+R5 established the integration/security baseline that was required before another major operational domain.
 
-Primary integration rule:
+### Canonical Vendor and supplier continuity
 
-> **One business entity -> one canonical identity -> every module references it.**
+- `public.vendors` is the canonical Vendor master.
+- Derived/extracted supplier text remains evidence, not a competing master directory.
+- Vendor creation/update/deactivation is guarded and auditable.
+- Vendor identity resolution is company-scoped and protected against concurrent duplicate creation.
+- Historical Vendor relationships are preserved instead of being erased by ordinary deletion.
 
-R5 is functional hardening, not another cosmetic pass.
+### Supplier Invoice -> Expense truth
 
-### First known defect to attack
+- Supplier verification fails closed if required authoritative facts remain unresolved.
+- Unknown source amount/date/currency/category and other required accounting facts are not silently defaulted.
+- Canonical Vendor resolution is required before authoritative supplier verification.
+- Supplier-derived Expense financial/provenance fields are protected from ordinary drift.
+- Receipt/source-document duplicate creation is protected with DB-backed idempotency/integrity.
 
-Vendor identity is currently split across user-visible derived supplier summaries and canonical `public.vendors` records used by Procurement selectors. A supplier can therefore appear under Vendors yet remain unavailable for RFQ/Quotation/PO workflows.
+### Extraction and tax uncertainty
 
-R5 should establish:
+- Unknown extracted financial values remain unknown instead of being converted to zero.
+- No hard-coded VAT rate is used to certify source-document arithmetic.
+- Direct AI extraction validates base64/file type/MIME/magic bytes before model calls.
+- AI extraction/classification is protected by durable request budgets plus bounded request handling.
 
-`Supplier evidence -> human-confirmed Vendor resolution -> canonical vendor_id -> Expense / PO / RFQ / Quotation / Subcontract / Email Intake / Vendor Directory`
+### Issued documents and Gmail
 
-Do not silently create or merge canonical Vendor master data from ambiguous AI/extracted supplier text.
+- Issued Purchase Order and Client Invoice emails use trusted server-rendered immutable snapshot PDF bytes.
+- Browser-provided PDF bytes are not accepted as authoritative issued artifacts.
+- Durable send intents and idempotency keys protect retries/recovery.
+- Send audit records are bound to completed intents and the authenticated sender.
+- Gmail history/import work is bounded to avoid unbounded pagination/payload amplification.
 
-### Other R5 priorities
+Known external limitation: a real Gmail send still requires a connected Google account/OAuth consent and is not proven by CI alone.
 
-1. Supplier document -> Vendor -> Expense -> PO/project/cost-code -> settlement continuity.
-2. Procurement-first Vendor -> RFQ -> Quotation -> PO -> Receipt -> supplier invoice -> Expense continuity.
-3. Clear Supplier Documents history under the supplier/Expense workflow.
-4. A discoverable global Client Invoices directory that reuses `client_billings` / Collections rather than creating a second receivables model.
-5. Shared master-data continuity for Vendor, Project, Worker, Financial Account, Project Cost Code, and other shared selectors.
-6. Immediate state/cache/selector refresh after create/edit/link/archive/restore without hard reload.
-7. Lifecycle/history consistency across verify/issue/pay/collect/void/reverse/reopen paths.
-8. UI permission -> service/RPC -> RLS/company-bound integrity parity.
-9. DB-level retry/idempotency/concurrency protection for consequential cross-module mutations.
-10. Compact end-to-end acceptance flows before declaring R5 complete.
+### Audit/RBAC/RLS/security
 
-For DB-affecting fixes, use real Docker/local Supabase validation: clean replay, pgTAP, migration tests, upgrade-path tests, and relevant runtime/concurrency tests.
+- Review-event actor attribution is protected against spoofed `user_id` values.
+- Vendor/send/audit direct-table bypasses were tightened.
+- unnecessary private SECURITY DEFINER exposure and legacy anonymous mutation grants were reduced.
+- UI/server/RPC/RLS permission contracts were tightened for consequential document sending.
+- final database security inventory coverage was added for policies, grants, SECURITY DEFINER functions, triggers, constraints and indexes.
+- production response security headers and diagnostic exposure were hardened.
 
-## Agent/model policy for the next session
+### Storage and backup
 
-`AGENTS.md` remains authoritative.
+- manual source-document race recovery now resolves the correct canonical source type;
+- backup registration failures remain durable/observable rather than silently disappearing;
+- backup race recovery checks exact manifest identity;
+- restore drills use isolated server-generated targets rather than caller-controlled paths.
 
-- Codex is the lead implementation/integration owner.
-- Luna is explicitly enabled for the accelerated pre-demo sprint, up to 5 concurrent bounded subagents.
-- Five is a ceiling, not a quota.
-- Astra is **not required** to begin or complete R5. If Astra usage is unavailable, do not block the phase waiting for it.
-- Astra may be reserved for a later dedicated audit/review when allowance permits.
-- The local implementation lead opens a PR but does not merge its own PR; ChatGPT reviews exact-head CI and merges automatically when safe if asked to check/finalize.
+## Next implementation phase — Warehouse Inventory & Project Allocation
 
-## Completed foundation that R5 must preserve
+Warehouse Inventory is now the next major operational domain unless explicitly reprioritized.
 
-### R1
+Primary invariant:
 
-HydroQualiSense is the exclusive product identity. Canonical domain: `https://hydroqualisense.com`. Official HydroQualiSense Solutions Corp. branding/logo is authoritative.
+> **Current stock must be explainable from authoritative movements or an equally rigorous source model.**
 
-### R3
+Minimum scope direction:
 
-- Incoming supplier invoices are preserved source evidence.
-- Verification creates/links one authoritative Expense/payable.
-- Linked supplier evidence must not become a second Actual Cost/payable truth.
-- Outgoing Client Invoices use the existing Client Billing/Collections receivables domain.
-- PO and Client Invoice document generation uses immutable issued-document snapshots.
-- Generic top-level Invoice navigation was removed.
+- stock/items currently available;
+- receipts/opening/additions as traceable movements;
+- issues/allocations to projects;
+- returns/corrections as auditable movements;
+- project material usage visibility;
+- no destructive balance editing;
+- company/RBAC/RLS protection;
+- concurrency/idempotency for consequential movements;
+- procurement/delivery linkage without duplicate stock or financial truth.
 
-### R4
+Do not invent warehouse count, valuation method, reservation semantics, serial/lot policy, reorder policy, barcode/QR rules, purchase-receipt automation or adjustment authority until the client rules are explicit.
 
-- Supplier documents are presented as Needs Review, Verified / Link Required, and Linked Expense states.
-- PHP/base reporting uses immutable FX snapshots with original amount/currency and explicit rate/date/provenance.
-- Missing FX is excluded from base-currency aggregates rather than silently mixed.
-- Linked supplier Invoice and Expense share the same frozen FX evidence.
-- FX visibility/confirmation is source-scoped by permissions.
-- Projects have explicit `VAT`, `NON_VAT`, or transitional `UNCLASSIFIED` treatment; issued Client Invoices snapshot that treatment.
-- VOID payroll periods are hidden by default but retained as auditable history.
-- Duplicate active payroll-period boundaries are DB-guarded.
-- Dashboard/Reports/project surfaces received bounded decluttering without deleting mature history.
+## Parallel post-R5 productization track
 
-Still intentionally unresolved: VAT rate, VAT-inclusive vs VAT-exclusive contract value, withholding/BIR classification, external/automatic FX provider policy, and accounting-period policy beyond existing validated semantics. Do not invent these rules.
+A bounded independent track may improve how HydroQualiSense is offered to multiple potential client companies without turning one deployment into a shared multi-company application.
 
-Known external limitation: a real Gmail send still requires a connected Google account/OAuth consent and was not exercised in CI.
+Architecture:
 
-## Confirmed phase after R5 — Warehouse Inventory
+`one repository -> many isolated client deployments`
 
-Warehouse Inventory remains a confirmed major requirement.
+Each client gets:
 
-Minimum business need:
+- one Render service/application deployment;
+- one dedicated Supabase project/database/Auth/Storage boundary;
+- separate environment configuration/secrets;
+- independent deployment/version/backup state;
+- no in-app switch between unrelated client companies.
 
-- know current warehouse inventory;
-- trace stock movements;
-- allocate/issue stock to projects;
-- support returns/corrections without destructive balance editing;
-- keep project material usage traceable while preserving warehouse stock truth.
+See `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md` for public landing/client-requirements intake, provisioning, fleet/version management, role templates, storage lifecycle and release strategy.
 
-Do not prematurely decide warehouse count, valuation method, reservation-vs-issue semantics, approval thresholds, serial/lot tracking, reorder rules, purchase-receipt automation, barcode/QR policy, or adjustment authority until client rules are explicit.
+## Later confirmed major domain — Worker Registration & Attendance
 
-## Confirmed later major requirement — Worker Registration & Face-Recognition Attendance
+Recommended dependency order:
 
-This requirement is confirmed but should be treated as a later major pre-production domain, likely after R5 and Warehouse Inventory unless reprioritized. Exact phase number remains TBD.
+1. project/site registration QR;
+2. worker submission as `PENDING`;
+3. supervisor/admin duplicate/identity/project review;
+4. create/link canonical Worker + payroll/project assignment;
+5. registered site/device;
+6. controlled attendance state machine + corrections/offline sync;
+7. face-recognition layer only after privacy/security design.
 
-### Intended flow
+Face recognition must include explicit consent/access, retention/deletion/re-enrollment, liveness/anti-spoof, image quality, confidence thresholds, audited supervisor fallback, device/site binding, offline/concurrency handling and payroll-integration tests. Uncertain matches must never guess.
 
-1. A project/site has a registration QR code.
-2. A worker opens it, enters required details, and captures/uploads an enrollment image.
-3. Submission creates a **PENDING registration**, not an immediately authoritative payroll employee.
-4. Supervisor/admin reviews for duplicate/fake/wrong-project registration and approves.
-5. Approval creates/links the canonical Worker, payroll/workforce record, and project/site assignment.
-6. A registered site device operates as a shared attendance terminal.
-7. Worker presents their face; the system recognizes the canonical worker and records time-in/time-out against the terminal's project/site.
+## Final security certification
 
-### Required safeguards/design expectations
+Before broad production rollout across clients, run a dedicated final certification phase after the major domains stabilize. Include final DB security inventory, cross-company/permission attack tests, financial/inventory/attendance lifecycle and concurrency tests, storage backup/restore, secrets/configuration, dependency audit, public endpoints/security headers, external-token scopes, browser authorization/deep links, deployment upgrade/rollback, and biometric privacy review once applicable.
 
-- Prefer biometric templates/embeddings for matching; retain raw source photos only when genuinely necessary and with explicit retention/deletion controls.
-- Add liveness/anti-spoof protection so a printed/static image is not enough.
-- Bind each attendance terminal to a project/site so context is automatic and auditable.
-- Use confidence thresholds; uncertain recognition must not guess.
-- Provide supervisor-assisted/manual fallback with reason/audit trail for PPE, lighting, camera, or recognition failures.
-- Validate enrollment image quality and reject multiple/unclear faces.
-- Use a clear attendance state machine such as `NOT_IN -> CLOCKED_IN -> CLOCKED_OUT`, with controlled cross-day/overtime/correction behavior.
-- Support secure offline queue/sync for site connectivity problems without duplicate punches.
-- Audit registration, approval, face re-enrollment, device, timestamp, project/site, manual corrections, and approving supervisor.
-- Design privacy/consent/access/deletion controls before production biometric deployment.
-- Treat payroll integration, camera behavior, offline sync, concurrency, spoofing, and biometric privacy as high-risk test areas.
-
-Do not implement this as a quick UI-only feature.
+This final phase supplements rather than replaces security validation during each implementation phase.
 
 ## Permanent invariants
 
 1. `one deployment -> one client company -> active membership/RBAC -> permitted workflows`.
-2. Keep company-scoped RLS, permission checks, company-bound integrity, and audit boundaries.
-3. No double counting of supplier Invoice/Expense/PO/Client Billing/Collections/Cash truth.
-4. Actual Cost and Committed Cost remain distinct.
-5. Client receivables remain distinct from supplier obligations/project cost.
+2. One repository may serve many isolated client deployments; unrelated clients do not share an operational database/deployment.
+3. Keep company-scoped RLS, permission checks, company-bound integrity and audit boundaries.
+4. No double counting across supplier Invoice, Expense, PO, Client Billing, Collection or Cash truth.
+5. Actual Cost and Committed Cost remain distinct.
 6. Preserve original currency; never silently mix currencies or invent FX.
 7. Preserve finalized/verified/issued/paid/collected/voided/reversed history through audited lifecycle/correction paths.
-8. Derived summaries must not masquerade as canonical master records.
-9. Navigation simplification is not authorization simplification.
-10. Consequential AI mutations remain prepare/validate/human-confirm/execute.
+8. Derived summaries do not become canonical master data.
+9. Consequential AI mutations remain prepare/validate/human-confirm/execute.
+10. Inventory balances require explainable movement history.
+11. Biometric attendance requires explicit privacy/identity/device/correction/audit semantics before production use.
+
+Still unresolved by design: VAT rate, VAT-inclusive vs VAT-exclusive contract value, withholding/BIR classification, automatic/external FX-provider policy and broader accounting-period policy. Do not infer them.
 
 ## Fresh-session bootstrap
 
-Before implementing R5, the next session should:
+For the next implementation session:
 
-1. read live `AGENTS.md`;
-2. read `docs/AGENT_EXECUTION_EFFICIENCY.md`;
-3. read `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-4. read this handoff;
-5. inspect exact current `main`, open PRs, and exact-head CI if any;
-6. generate one bounded `agent:context` packet;
-7. inspect existing Vendor/supplier/Procurement implementation before designing.
-
-Do not rely on an old chat summary if live repository state differs.
+1. inspect exact current `main` and any open PRs/CI;
+2. read live `AGENTS.md`;
+3. read `docs/AGENT_EXECUTION_EFFICIENCY.md`;
+4. read `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
+5. read this handoff and client deployment strategy;
+6. start Warehouse work from the latest green merged `main`;
+7. generate one bounded `agent:context` packet;
+8. inspect current materials/procurement/project-cost implementation before designing inventory contracts;
+9. use Docker/local Supabase for inventory migrations/RLS/RPC/trigger/concurrency work;
+10. local implementation lead opens the PR but does not merge its own PR; GitHub-native review uses exact-head CI as the merge gate.
