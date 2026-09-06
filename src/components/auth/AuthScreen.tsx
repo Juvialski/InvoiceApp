@@ -5,7 +5,6 @@ import {
   Chrome,
   Eye,
   EyeOff,
-  LockKeyhole,
   Mail,
   ShieldCheck,
   UserRound,
@@ -21,6 +20,7 @@ import {
   updatePassword,
 } from "../../lib/supabase";
 import { BRAND } from "../../config/brand";
+import { BrandMark } from "../BrandMark.tsx";
 
 export type AuthMode = "sign-in" | "sign-up" | "forgot-password" | "reset-password";
 export type SignupState = "confirmation-required" | "immediate-session";
@@ -270,10 +270,9 @@ export function AuthScreen({
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_60px_-32px_rgba(15,23,42,0.42)] sm:p-7">
           <div className="mb-7 flex items-start justify-between gap-4">
             <div>
-              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-                <LockKeyhole className="h-5 w-5" />
-              </div>
+              <BrandMark variant="auth" decorative={false} className="mb-4" />
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600">{BRAND.displayUppercase}</p>
+              <p className="mt-1 text-[10px] font-semibold text-slate-500">{BRAND.companyName}</p>
               <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{title}</h1>
               <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">{subtitle}</p>
             </div>

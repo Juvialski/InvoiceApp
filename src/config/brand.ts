@@ -7,6 +7,7 @@ export interface BrandConfig {
   readonly productName: string;
   readonly shortName: string;
   readonly companyName: string;
+  readonly logoPath: string;
   readonly displayUppercase: string;
   readonly canonicalOrigin: string;
   readonly tagline: string;
@@ -21,20 +22,21 @@ export const BRAND: BrandConfig = Object.freeze({
   productName: "HydroQualiSense",
   shortName: "HydroQualiSense",
   companyName: "HydroQualiSense Solutions Corp.",
+  logoPath: "/brand/hydroqualisense-logo.png",
   displayUppercase: "HYDROQUALISENSE",
   canonicalOrigin: "https://hydroqualisense.com",
-  tagline: "Engineering Operations",
-  description: "Engineering operations platform for projects, finance, workforce, documents, and field operations.",
+  tagline: "HydroQualiSense Solutions Corp.",
+  description: "HydroQualiSense company operations platform for projects, finance, workforce, documents, and field operations.",
   assistantName: "HydroQualiSense Assistant",
-  browserTitle: "HydroQualiSense | Engineering Operations",
-  footerText: "HydroQualiSense • Engineering Operations • Original sources & audit history",
-  companyContextLabel: "Engineering operations workspace",
+  browserTitle: "HydroQualiSense | Company Operations Platform",
+  footerText: "HydroQualiSense • Company Operations • Original sources & audit history",
+  companyContextLabel: "HydroQualiSense workspace",
 });
 
 /**
  * Format standard browser document title.
  * E.g., formatPageTitle("Projects") => "Projects | HydroQualiSense"
- * E.g., formatPageTitle() => "HydroQualiSense | Engineering Operations"
+ * E.g., formatPageTitle() => "HydroQualiSense | Company Operations Platform"
  */
 export function formatPageTitle(pageName?: string | null): string {
   if (!pageName || pageName.trim() === "") {

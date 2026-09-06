@@ -28,11 +28,13 @@ test("global controls keep account actions outside navigation and company identi
 });
 
 test("expanded navigation uses the supplied HydroQualiSense logo and wraps the full company name", () => {
-  assert.match(header, /src="\/brand\/hydroqualisense-logo\.png"/);
+  assert.match(header, /BrandMark variant="sidebar"/);
+  assert.match(header, /BrandMark variant="compact"/);
   assert.match(header, /BRAND\.companyName/);
   assert.match(header, /whitespace-normal break-words/);
-  assert.match(header, /h-12 w-12/);
-  assert.match(header, /mix-blend-screen/);
-  assert.doesNotMatch(header, /bg-black/);
+  assert.match(header, /BrandMark variant="header"/);
+  assert.doesNotMatch(header, /<CompanySwitcher/);
+  assert.doesNotMatch(header, /Deployment/);
+  assert.doesNotMatch(header, new RegExp(["Engineering", "Operations"].join("\\s+")));
   assert.doesNotMatch(header, /BRAND\.tagline/);
 });
