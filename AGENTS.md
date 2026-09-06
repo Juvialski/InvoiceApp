@@ -2,15 +2,21 @@
 
 These rules apply only to `Juvialski/InvoiceApp`.
 
-The repository may remain named `InvoiceApp`, but the product is **HydroQualiSense** for **HydroQualiSense Solutions Corp.** and the canonical production domain is `https://hydroqualisense.com`.
+The repository may remain named `InvoiceApp`, but the product is **HydroQualiSense**, developed by **HydroQualiSense Solutions Corp.**, with canonical product domain `https://hydroqualisense.com`.
 
 ## Architecture baseline
 
-HydroQualiSense is permanently:
+HydroQualiSense permanently uses:
+
+`one source repository -> many isolated client deployments`
+
+Every operational deployment remains:
 
 `one deployment -> one client company -> active membership/RBAC -> permitted workflows`
 
-Keep `company_id`, company-prefixed Storage paths, RLS, membership/permission checks, company-bound foreign-key validation and audit boundaries as defense in depth. Do not add unrelated-company switching or weaken RLS because this deployment serves one company.
+Each unrelated client should have a separate Render service/deployment, Supabase project/database/Auth/Storage boundary, environment configuration and secrets. Do not add an in-app switch between unrelated client companies.
+
+Keep `company_id`, company-prefixed Storage paths, RLS, membership/permission checks, company-bound foreign-key validation and audit boundaries as defense in depth even when a database contains only one active company.
 
 ## Current source of truth
 
@@ -19,18 +25,22 @@ Read these before deciding scope:
 - `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`
 - `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`
 - `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md` for the current takeover snapshot
+- `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md` when deployment/productization work matters
 - `docs/AGENT_EXECUTION_EFFICIENCY.md` when implementation/testing workflow matters
 
 Live repository state overrides remembered chat summaries, old prompts and historical Engoryx plans.
 
-Current sequence unless explicitly reprioritized:
+R5 Cross-Module Integration & Data-Contract Hardening is complete in PR #95. Current sequence unless explicitly reprioritized:
 
-1. **R5 — Cross-Module Integration & Data-Contract Hardening**
-2. **Warehouse Inventory & Project Allocation**
-3. **Worker Registration & Face-Recognition Attendance** — later major phase after explicit design/privacy/safety review
-4. other client-confirmed requirements
+1. **Warehouse Inventory & Project Allocation**
+2. **Public client funnel + repeatable isolated deployment/provisioning tooling** — bounded parallel work when independent
+3. **Worker Registration foundation**
+4. **Site Attendance state machine + device registration**
+5. **Face-Recognition Attendance** — only after explicit design/privacy/security review
+6. other client-confirmed requirements
+7. **Final pre-production security/data-integrity certification** before broad rollout
 
-Do not start Inventory while R5 is active unless the user explicitly changes priority. Old Scheduling/Gantt/CPM, broad MRP/manufacturing expansion and other historical Engoryx future phases are not authorized unless reconfirmed.
+Old Scheduling/Gantt/CPM, broad MRP/manufacturing expansion, autonomous accounting/AI posting and other historical Engoryx future phases are not authorized unless explicitly reconfirmed.
 
 ## Permanent product and financial rules
 
@@ -50,6 +60,7 @@ Do not start Inventory while R5 is active unless the user explicitly changes pri
 14. Biometric attendance requires explicit identity, privacy/consent, access, retention/deletion, correction, device and audit semantics before production use.
 15. Navigation/UX simplification is not authorization simplification.
 16. Consequential AI-assisted mutations preserve prepare/validate/human-confirm/execute boundaries.
+17. One shared codebase must never become shared unrelated-client operational data.
 
 Still unresolved by design: VAT rate, VAT-inclusive vs VAT-exclusive contract value, withholding/BIR classification, automatic/external FX-provider policy and broader accounting-period policy. Do not infer them.
 
@@ -64,11 +75,11 @@ HydroQualiSense is being prepared for presentation to multiple potential clients
 - up to **5 concurrent Luna subagents**;
 - use only for genuinely independent, bounded work with explicit owned files/domain, acceptance criteria and stop boundary;
 - five is a ceiling, not a quota;
-- do not duplicate broad audits or let multiple agents independently decide shared financial/security/DB contracts;
+- do not duplicate broad audits or let multiple agents independently decide shared financial/security/DB/inventory contracts;
 - lead continues implementation while subagents run and integrates/reviews their actual diffs;
 - stop stalled/low-value subagents rather than restarting broad work.
 
-Astra is **not required** for R5 and must not block implementation if allowance is unavailable. It may be used later as a dedicated audit/review when available. Do not assume Gemini, Antigravity, OpenRouter, Kilo or another external implementation agent unless the user explicitly enables it.
+Astra is optional for a dedicated later audit/review and must not block normal implementation when allowance is unavailable. Do not assume Gemini, Antigravity, OpenRouter, Kilo or another external implementation agent unless the user explicitly enables it.
 
 After the September 10 presentation, reassess the temporary five-Luna limit before carrying it forward.
 
@@ -82,8 +93,9 @@ Before implementation, PR review or preparing a Codex prompt:
 4. read `docs/AGENT_EXECUTION_EFFICIENCY.md` when workflow/testing matters;
 5. read `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md` when deciding the next phase;
 6. read `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md` for the current takeover snapshot;
-7. inspect existing implementation before designing;
-8. never rely on an old prompt SHA or stale chat summary when repository state differs.
+7. read `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md` when client/deployment/productization work matters;
+8. inspect existing implementation before designing;
+9. never rely on an old prompt SHA or stale chat summary when repository state differs.
 
 A newly started phase normally begins from the latest green merged `main`. Do not rerun the historical full suite merely because a phase started.
 
@@ -95,7 +107,7 @@ For substantial feature/debugging/security/financial/architecture work, generate
 npm.cmd run agent:context -- --task "<objective>" --domain <domain> --hops 1 --budget 10000
 ```
 
-Default: one lead packet, 0-1 hops, roughly 8k-12k characters, about 6-8 primary source files, exact symbols/ranges instead of whole-file dumps. Derive narrow subagent assignments from that source-of-truth context instead of making every subagent rediscover the repository.
+Default: one lead packet, 0-1 workflow hops, roughly 8k-12k characters, about 6-8 primary source files, exact symbols/ranges instead of whole-file dumps. Derive narrow subagent assignments from that source-of-truth context instead of making every subagent rediscover the repository.
 
 Workflow Map is navigation only. Current source, migrations, runtime behavior, RLS, tests and exact-head CI remain authoritative.
 
@@ -121,6 +133,30 @@ Run `test:full` only when impact analysis falls back, a broad shared contract ge
 
 Parallel validation is useful only when it avoids duplicated expensive work. Final evidence must belong to the integrated final branch.
 
+## Warehouse implementation rules
+
+Warehouse Inventory is the next major operational domain unless reprioritized.
+
+Before schema implementation, inspect existing materials, procurement receipts, project costing and shared master contracts. Do not invent a second materials/procurement truth.
+
+Required invariant:
+
+> **Current stock must be explainable from authoritative movements or an equally rigorous source model.**
+
+Do not implement project allocation as direct destructive balance editing. DB integrity must survive retries, double-clicks and concurrent clients. Keep valuation, warehouse/location count, reservation semantics, serial/lot tracking, reorder rules, purchase-receipt automation, barcode/QR policy and adjustment authority explicit/undecided until approved.
+
+## Client deployment / productization rules
+
+When working on public landing, requirements intake, provisioning or deployment fleet tooling:
+
+- operational clients remain isolated by deployment/database;
+- public prospect intake stays separate from authenticated operational data;
+- provisioning privileged users/resources is explicit and auditable;
+- do not store plaintext secrets in deployment inventory;
+- prefer one maintained codebase and controlled configuration over client source forks;
+- releases/migrations are promoted deliberately across client deployments;
+- storage optimization must not delete authoritative source/audit evidence merely to reduce cost.
+
 ## Failure/log discipline
 
 - Do not dump/reopen whole large files or successful logs when symbols/ranges/summaries are enough.
@@ -144,11 +180,15 @@ Do not add raw Delete paths that bypass dependency/history checks.
 
 Authorization is permission-based, not role-name-based. UI/API authorization, server/RPC checks, RLS and Assistant tools must resolve the same effective permissions. The Assistant never gets broader authority than the current user.
 
+Client-facing role templates are allowed only as mappings to explicit permissions. Sensitive finance, payroll, backup, document-send, inventory-adjustment and future biometric actions should retain dedicated permissions.
+
 ## Database / migration safety
 
 Protect approved/finalized payroll, verified supplier/source-document history, Expense/payable history, Client Billing/Collection/settlement history, inventory movement/allocation history, future attendance history, engineering history, project allocations, committed procurement provenance and audit trails.
 
-Once a migration may have reached a shared/protected environment, do not edit it in place. Add a forward migration unless it is proven never to have applied anywhere and the failed transaction fully rolled back.
+Once a migration may have reached a shared/protected environment or any client deployment, do not edit it in place. Add a forward migration unless it is proven never to have applied anywhere and the failed transaction fully rolled back.
+
+Shared-repository migrations must remain compatible with the intended client deployment fleet or have an explicit controlled upgrade path.
 
 ## Docker / local Supabase validation
 
@@ -209,6 +249,8 @@ When the user asks ChatGPT to **check, review, fix, finalize, prepare the next p
 
 Never use CI from an older head as proof for a newer head. Do not merge with a real safety/security/data-integrity/migration/failing-CI blocker.
 
+Do not weaken branch protection merely to bypass a required independent approval. If GitHub requires another reviewer and the connected identity cannot self-approve, complete every other safe step and report that exact external gate.
+
 ## Prompt creation
 
 Every substantial implementation prompt should carry forward:
@@ -218,7 +260,7 @@ Every substantial implementation prompt should carry forward:
 - Luna explicitly enabled up to the current 5-subagent pre-demo ceiling;
 - one bounded lead context packet and narrow subagent assignments;
 - current financial/security/history/inventory/attendance invariants;
-- explicit in-scope/out-of-scope boundaries;
+- explicit scope/out-of-scope boundaries;
 - focused -> affected validation;
 - conditional Docker validation;
 - no ritual full-suite runs;
@@ -226,6 +268,8 @@ Every substantial implementation prompt should carry forward:
 - PR creation without local-agent self-merging.
 
 For wide/unattended runs, set explicit priority order and stop boundary. Spare time/subagent capacity is not permission for unrelated scope creep.
+
+For deliberately parallel phases, split only contracts that do not compete for shared DB/financial/inventory/identity ownership. The lead remains final integration owner.
 
 ## Final handoff
 
@@ -242,6 +286,10 @@ For substantial work report concisely:
 - agent-context selector used;
 - Luna/Codex subagents used and any stopped.
 
+For client-deployment work also report affected deployment/configuration assumptions and whether any fleet upgrade/rollback validation was performed.
+
 ## Definition of done
 
 A substantial task is done when current repository state was verified, scope stayed disciplined, financial/security/history semantics were preserved, subagent work was integrated/reviewed, changed files were reviewed, appropriate changed-surface validation was obtained, required DB runtime evidence was obtained when applicable, exact-head CI was checked and the handoff states clearly what did and did not pass.
+
+Before broad multi-client production rollout, a dedicated final security/data-integrity certification remains required in addition to phase-level validation.
