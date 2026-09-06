@@ -1,6 +1,6 @@
 # HydroQualiSense Product Direction
 
-Status: **ACTIVE PRODUCT DIRECTION — R4 NEXT**  
+Status: **ACTIVE PRODUCT DIRECTION — R5 HARDENING NEXT**  
 Repository: `Juvialski/InvoiceApp`  
 Architecture: **one deployment -> one client company**  
 Canonical production domain: `https://hydroqualisense.com`
@@ -9,7 +9,7 @@ Canonical production domain: `https://hydroqualisense.com`
 
 HydroQualiSense is HydroQualiSense Solutions Corp.'s own operations platform. It is not being planned as a generic Engoryx product for unrelated companies.
 
-The application already contains substantial project, finance, procurement, workforce/payroll, engineering, reporting, assistant, email-intake, document-generation, and audit functionality. The current direction is to make those capabilities fit the client's actual workflows more directly, remove redundant presentation/workflows, and add new client-confirmed domains without sacrificing financial/security/history guarantees.
+The application already contains substantial project, finance, procurement, workforce/payroll, engineering, reporting, assistant, email-intake, document-generation, and audit functionality. The current direction is to make those capabilities fit the client's actual workflows more directly, remove redundant presentation/workflows, harden cross-module data continuity, and add new client-confirmed domains without sacrificing financial/security/history guarantees.
 
 ## Completed direction
 
@@ -37,83 +37,118 @@ R3 established the primary financial meaning of invoices:
 - issued document snapshots preserve the exact financial/document identity used at issuance;
 - collections remain distinct from client invoice issuance and from Cash & Banking reconciliation evidence.
 
-Purchase Orders and Client Invoices now have HydroQualiSense PDF/document-generation support based on the company document profile and the supplied HSC PO visual reference.
+Purchase Orders and Client Invoices have HydroQualiSense PDF/document-generation support based on the company document profile and the supplied HSC PO visual reference.
 
-## Immediate priority — whole-app simplification
+### Whole-app cleanup, PHP reporting and project tax treatment
 
-The next product phase is a cross-application redundancy and decluttering pass.
+R4 established the post-R3 cleanup baseline:
 
-The governing usability rule is:
+- Expenses surfaces unresolved/legacy supplier-document states without treating those documents as parallel authoritative costs;
+- PHP/base reporting requires explicit immutable FX evidence while preserving original currency and excluding unresolved foreign records from PHP aggregates;
+- linked supplier Invoice/Expense records share consistent frozen FX evidence for one economic event;
+- FX visibility and confirmation follow the relevant source-domain permission boundary;
+- Projects support explicit `VAT`, `NON_VAT`, and transitional `UNCLASSIFIED` tax treatment, with issued Client Invoice snapshot preservation;
+- VOID Payroll periods remain auditable but are hidden from normal history by default, with duplicate active boundaries guarded;
+- Dashboard/Reports/project surfaces received bounded redundancy and empty-state cleanup without deleting mature workflows or history.
 
-> **One concept -> one primary place -> one authoritative number.**
+Still unresolved by design: VAT rate, VAT-inclusive versus VAT-exclusive contract value, withholding/BIR classification, automatic FX-provider policy, and accounting-period policy beyond existing validated semantics.
 
-This means HydroQualiSense should not retain duplicate modules, duplicate financial summaries, repeated forms, or multiple competing presentations solely because those surfaces accumulated during earlier implementation waves.
+## Immediate priority — cross-module integration hardening
 
-Simplification must preserve the underlying audit/history/security contracts. Hiding, grouping, linking, or consolidating a workflow is not permission to delete finalized history or weaken authorization.
+The next product phase is **R5 — Cross-Module Integration & Data-Contract Hardening**.
 
-### Base-currency reporting
+R5 must happen before Warehouse Inventory because the app now has enough mature interconnected domains that adding another major shared-data domain on top of inconsistent master-data or state-propagation contracts would compound risk.
 
-HydroQualiSense's company/base reporting currency is **PHP**.
+The governing integration rules are:
 
-Foreign-currency transactions/documents remain valid source evidence in their original currency. Where a company-level dashboard, VAT summary, management report, or other aggregate needs a single PHP figure, the conversion must use explicit authoritative FX evidence.
+> **One business entity -> one canonical identity -> every module references it.**
 
-Preserve at least:
+and:
 
-- original amount and currency;
-- conversion rate;
-- conversion/rate date;
-- rate source or manual-entry provenance;
-- resulting PHP equivalent.
+> **One financial concept -> one authoritative source -> every derived surface agrees.**
 
-Never relabel a USD amount as PHP, silently add USD and PHP, or invent an exchange rate. Missing conversion evidence should produce an actionable unresolved state rather than a misleading total.
+This is a functional/data-contract hardening phase, not another cosmetic redesign.
 
-### Project tax treatment
+### Canonical Vendor contract
 
-Projects must support an explicit tax-treatment classification:
+A confirmed defect currently illustrates the need for R5:
 
-- `VAT`
-- `NON_VAT`
+- supplier names/TINs extracted from invoices can appear in the user-facing Vendor Directory;
+- Procurement selectors use canonical records from `public.vendors`;
+- therefore a supplier can appear to exist under Vendors but still be unavailable when creating a PO/RFQ/quotation;
+- invoice verification may also reach Expense with unresolved canonical `vendor_id` provenance when the extracted supplier was never linked/created as a master Vendor.
 
-This classification belongs to the project/client-invoice business context. It must not overwrite the independent tax evidence of incoming supplier invoices/Expenses.
+The target direction is:
 
-Client Invoice creation should inherit the Project tax treatment by default and issued Client Invoices must snapshot the tax treatment used.
+`Supplier evidence -> human-confirmed Vendor resolution -> canonical vendor_id -> Expense / Procurement / Email Intake / Vendor Directory`
 
-Do not infer:
+Invoice-extracted supplier identity remains source evidence. It must not silently become authoritative master data merely because an AI extraction produced a name.
 
-- whether contract value is VAT-inclusive or VAT-exclusive;
-- the VAT percentage solely from the project classification;
-- withholding rules or other unresolved legal/tax semantics.
+Existing historical supplier evidence without canonical Vendor links requires a safe reconciliation workflow. Exact authoritative matches can be proposed/linkable; ambiguous or conflicting identities must require human resolution.
 
-Existing projects must not be silently guessed as VAT or Non-VAT; they require explicit confirmation.
+### Cross-module continuity
 
-### Payroll history usability
+R5 should trace and harden complete workflows rather than isolated pages:
 
-VOID payroll periods remain auditable history, but they should not dominate the normal payroll-period experience.
+- `Email/Upload -> Source Document -> Supplier Invoice -> Vendor -> Expense -> PO/Project -> Cash settlement`;
+- `Vendor -> RFQ -> Supplier Quotation -> PO -> Receipt -> Supplier Invoice -> Expense`;
+- `Expense/Payroll/PO -> Project Actual/Committed Cost -> Dashboard/Reports`;
+- `Project -> Client Invoice -> issued PDF/snapshot -> Collection -> Cash reconciliation`.
 
-Normal payroll history should focus on usable/current/completed periods. VOID records should be hidden by default or placed in an explicit/collapsed historical view. If no real usable periods exist, the main list should present an honest empty state.
+For each workflow, creation/edit/link/void/reversal must propagate to every dependent selector, summary, detail page and report without requiring a logout or hard reload.
 
-Repeated identical VOID periods must also be investigated for an underlying creation/idempotency defect. Fix the creation path if a defect exists, but do not erase auditable rows merely to make the screen cleaner.
+### Supplier-document and Client-Invoice discoverability
 
-### Cross-app redundancy
+Removing the old ambiguous generic Invoice branch must not make valid history inaccessible.
 
-The cleanup should specifically evaluate:
+HydroQualiSense needs clear discoverability for both meanings:
 
-- navigation modules and secondary routes;
-- project workspace tabs;
-- supplier invoice/source-document surfaces after R3;
-- Expense/Procurement overlap;
-- Project cost cards and Purchase Order commitment cards;
-- Client Invoice/collection summaries;
-- Dashboard and Reports KPIs;
-- duplicate buttons/actions;
-- large forms dominated by empty optional fields;
-- demo/test/void residue that makes real workspaces look populated when they are not.
+- **Supplier Documents**: incoming supplier invoice/source history remains accessible from the Expenses/supplier workflow, with source details, review history and Expense/PO provenance;
+- **Client Invoices**: outgoing invoices remain backed by Client Billing/Collections, with a discoverable cross-project directory in addition to project-context views so users can create/find/open prior invoices, generate/download/send documents and reach payment/collection history.
 
-Prefer canonical workflows with context links/deep links over duplicate full implementations.
+Do not recreate a generic third invoice ledger.
+
+### Master-data and state propagation
+
+R5 should audit canonical identity and state continuity for shared entities including:
+
+- Vendors;
+- Projects;
+- Workers;
+- Financial Accounts;
+- Project Cost Codes;
+- client/billing contacts where represented;
+- other shared selectors discovered during implementation.
+
+Derived summaries can enrich master records but must not impersonate them.
+
+A successful DB mutation whose dependent dropdown/list/card remains stale is an integration defect.
+
+### Lifecycle, RBAC and concurrency
+
+R5 must verify end-to-end lifecycle semantics and authorization parity across UI/service/RPC/RLS boundaries.
+
+Preserve:
+
+- supplier invoice evidence versus authoritative Expense ownership;
+- PO commitment versus Actual Cost;
+- Client Invoice versus Collection versus Cash reconciliation;
+- immutable issued document snapshots;
+- Payroll approved/paid/void history;
+- company-bound RLS and permission checks;
+- idempotency/locking for retry- or concurrency-sensitive operations.
+
+Do not weaken RLS because this is a single-company deployment.
+
+### Hardening execution strategy
+
+Astra is optional, not required. If Astra allowance is insufficient, R5 should proceed with Luna Max as lead and bounded Luna subagents under the current pre-demo execution policy.
+
+If Astra becomes available later, use it as a dedicated audit/review pass rather than making it a prerequisite for implementation.
 
 ## Warehouse inventory connected to projects
 
-Warehouse inventory remains a confirmed major requirement and follows the cleanup phase unless the client reprioritizes it.
+Warehouse inventory remains a confirmed major requirement and follows R5 unless the client reprioritizes it.
 
 HydroQualiSense must ultimately answer:
 
@@ -130,10 +165,10 @@ Detailed warehouse rules remain pending client clarification.
 
 ## Existing foundation to preserve
 
-A simpler user experience may reuse authoritative sources rather than physically collapsing every table or lifecycle. Preserve meaning and history for:
+A simpler and more integrated user experience may reuse authoritative sources rather than physically collapsing every table or lifecycle. Preserve meaning and history for:
 
 - projects and project budgets/contract values;
-- supplier/vendor and procurement records;
+- canonical supplier/vendor and procurement records;
 - purchase orders and delivery/receipt evidence;
 - supplier invoice source documents;
 - authoritative Expenses/payables;
@@ -157,6 +192,8 @@ A simpler user experience may reuse authoritative sources rather than physically
 7. **Original currency stays explicit.** Base-currency reporting requires explicit conversion evidence; no invented FX.
 8. **Tax treatment stays explicit.** Project VAT/Non-VAT classification must be authoritative and snapshotted where it affects issued Client Invoices.
 9. **Presentation cleanup is not authorization cleanup.** RLS and permission boundaries remain authoritative.
+10. **Imported/AI-extracted identity is evidence, not automatically master data.** Canonical shared entities require safe link/create semantics.
+11. **Dependent modules must converge after canonical mutations.** Stale parallel state is a hardening defect, not expected behavior.
 
 ## Product-specific architecture
 
@@ -170,7 +207,7 @@ Keep company-scoped database controls even though the deployment serves only thi
 
 Unless the client explicitly reprioritizes:
 
-1. **R4 — Whole-App Redundancy, Currency, Tax Classification & UX Declutter**
+1. **R5 — Cross-Module Integration & Data-Contract Hardening**
 2. **Warehouse Inventory & Project Allocation**
 3. later client-confirmed major requirements after explicit planning and safety review.
 
