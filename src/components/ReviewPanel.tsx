@@ -500,7 +500,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
       {(vat?.applicable || completeness?.status && completeness.status !== "NOT_APPLICABLE" || invoice.withholdingTaxAmount !== undefined) && (
         <div className="grid md:grid-cols-3 gap-2 mt-4">
           <div className="bg-white/70 rounded-xl p-3">
-            <p className="text-[9px] uppercase font-black text-slate-500">PH VAT validation</p>
+            <p className="text-[9px] uppercase font-black text-slate-500">VAT arithmetic validation</p>
             <p className={`text-xs font-black mt-1 ${vat?.status === "PASS" ? "text-emerald-700" : vat?.status === "REVIEW" ? "text-amber-700" : "text-slate-500"}`}>
               {vat?.status === "PASS" ? "PASS" : vat?.status === "REVIEW" ? "NEEDS REVIEW" : "Not applicable"}
             </p>
@@ -509,6 +509,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
                 Expected {invoice.currency ? formatMoney(vat.expectedVat, invoice.currency) : "Currency unclear"} • Difference {invoice.currency ? formatMoney(vat.difference || 0, invoice.currency) : "Currency unclear"}
               </p>
             )}
+            {vat?.applicable && vat.expectedVat === undefined && <p className="text-[9px] text-amber-700 mt-1">Rate consistency not evaluated; no authoritative VAT rate is configured.</p>}
           </div>
           <div className="bg-white/70 rounded-xl p-3">
             <p className="text-[9px] uppercase font-black text-slate-500">PH Invoice Completeness</p>

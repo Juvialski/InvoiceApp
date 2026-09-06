@@ -6,6 +6,9 @@ import { createClient, type SupabaseClient, type User } from "@supabase/supabase
 import dotenv from "dotenv";
 import { createHash, randomUUID } from "crypto";
 import type { InvoiceData } from "./src/types.ts";
+import { buildClientInvoicePdf, buildPurchaseOrderPdf, type ClientInvoiceDocumentSnapshot, type PurchaseOrderDocumentSnapshot } from "./src/lib/documentGeneration.ts";
+import { decodeBase64Payload, MAX_EXTRACTION_TEXT_CHARS, MAX_GMAIL_ATTACHMENT_BYTES, MAX_GMAIL_ATTACHMENT_COUNT, MAX_GMAIL_ATTACHMENT_TOTAL_BYTES, MAX_GMAIL_RAW_BYTES, validateGmailAttachmentEnvelope, validateGmailAttachmentBytes, validateGmailRawMessage, validateInvoiceDocumentBytes } from "./src/lib/fileSecurity.ts";
+import { AiRequestBudgetError, claimAiRequest, releaseAiRequest } from "./src/server/ai/aiRequestBudget.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import { createStorageRouter } from "./src/server/storage/storageRouter.ts";
 import { getStorageHealth } from "./src/lib/storage/index.ts";
@@ -35,7 +38,9 @@ type CompanyPermission =
   | "invoices.extract"
   | "expenses.manage"
   | "company.members.manage"
-  | "company.settings.manage";
+  | "company.settings.manage"
+  | "storage.read"
+  | "documents.send";
 
 interface CompanyRequestAuthorization {
   accessToken: string;
@@ -174,11 +179,13 @@ function authorizationErrorMessage(error: unknown, fallback: string) {
 
 function apiErrorStatus(error: unknown) {
   if (error instanceof CompanyAiError) return error.status;
+  if (error instanceof AiRequestBudgetError) return error.status;
   return authorizationErrorStatus(error);
 }
 
 function apiErrorMessage(error: unknown, fallback: string) {
   if (error instanceof CompanyAiError) return error.message;
+  if (error instanceof AiRequestBudgetError) return error.message;
   return authorizationErrorMessage(error, fallback);
 }
 
@@ -275,10 +282,49 @@ async function sendAndRecordInvitationEmail(
 }
 
 const EXTRACTION_TIMEOUT_MS = 60_000;
+const GMAIL_HISTORY_MAX_PAGES = 20;
+const GMAIL_HISTORY_MAX_MESSAGE_IDS = 500;
+const GMAIL_HISTORY_MAX_LOADED_MESSAGES = 200;
+const GMAIL_HISTORY_BUDGET_MS = 30_000;
+const GMAIL_HISTORY_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+const GMAIL_MAX_QUERY_CHARS = 2_000;
+const GMAIL_IMPORT_MAX_TOTAL_BYTES = 30 * 1024 * 1024;
+const GMAIL_MAX_API_RESPONSE_BYTES = 20 * 1024 * 1024;
+const GMAIL_REQUEST_TIMEOUT_MS = 15_000;
+const AI_TEXT_MAX_CHARS = MAX_EXTRACTION_TEXT_CHARS;
 
 function selectModel(requestedModel?: unknown) {
   return requestedModel === ACCURACY_MODEL ? ACCURACY_MODEL : PRIMARY_MODEL;
 }
+
+function configuredOrigin(value: unknown) {
+  try {
+    const parsed = new URL(String(value || "").trim());
+    return /^https?:$/.test(parsed.protocol) ? parsed.origin : "";
+  } catch {
+    return "";
+  }
+}
+
+app.disable("x-powered-by");
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  if (process.env.NODE_ENV === "production") {
+    const connectSources = [
+      "'self'",
+      configuredOrigin(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL),
+      "https://gmail.googleapis.com",
+      "https://generativelanguage.googleapis.com",
+      "wss:",
+    ].filter(Boolean).join(" ");
+    res.setHeader("Content-Security-Policy", `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src ${connectSources}`);
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
 
 // Binary sources are validated before Storage persistence. Keep the global
 // JSON ceiling large enough for the documented 10 MB invoice source after
@@ -460,6 +506,12 @@ function numeric(value: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function sourceNumeric(value: unknown): number | undefined {
+  if (value === undefined || value === null || (typeof value === "string" && !value.trim())) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -477,31 +529,52 @@ function deriveStatus(grandTotal: number, amountPaid: number, balanceDue: number
 function validateExtractedInvoice(data: any, items: any[]) {
   const issues: any[] = [];
   items.forEach((item, index) => {
-    const expected = roundMoney(numeric(item.quantity) * numeric(item.unitPrice) - numeric(item.discount));
-    if (Math.abs(expected - numeric(item.total)) > 0.05) {
+    const quantity = sourceNumeric(item.quantity);
+    const unitPrice = sourceNumeric(item.unitPrice);
+    const discount = sourceNumeric(item.discount);
+    const total = sourceNumeric(item.total);
+    if (quantity === undefined) issues.push({ id: "missing-item-quantity-" + index, severity: "warning", field: "items." + index + ".quantity", message: "Line " + (index + 1) + " quantity is unresolved." });
+    if (unitPrice === undefined) issues.push({ id: "missing-item-unit-price-" + index, severity: "warning", field: "items." + index + ".unitPrice", message: "Line " + (index + 1) + " unit price is unresolved." });
+    if (total === undefined) issues.push({ id: "missing-item-total-" + index, severity: "warning", field: "items." + index + ".total", message: "Line " + (index + 1) + " amount is unresolved." });
+    const expected = quantity !== undefined && unitPrice !== undefined && discount !== undefined
+      ? roundMoney(quantity * unitPrice - discount)
+      : undefined;
+    if (expected !== undefined && total !== undefined && Math.abs(expected - total) > 0.05) {
       issues.push({
-        id: `item-total-${index}`,
+        id: "item-total-" + index,
         severity: "warning",
-        field: `items.${index}.total`,
-        message: `Line ${index + 1} total does not match quantity × unit price − discount.`,
+        field: "items." + index + ".total",
+        message: "Line " + (index + 1) + " total does not match quantity × unit price − discount.",
         expected,
-        actual: numeric(item.total),
+        actual: total,
       });
     }
   });
-  const calculatedSubtotal = roundMoney(items.reduce((sum, item) => sum + numeric(item.total), 0));
-  const subtotal = data.subtotal === undefined ? calculatedSubtotal : numeric(data.subtotal);
-  if (items.length && Math.abs(calculatedSubtotal - subtotal) > 0.05) {
+  const lineTotals = items.map((item) => sourceNumeric(item.total));
+  const calculatedSubtotal = items.length && lineTotals.every((value) => value !== undefined)
+    ? roundMoney(lineTotals.reduce((sum, value) => sum + (value || 0), 0))
+    : undefined;
+  const subtotal = sourceNumeric(data.subtotal);
+  if (calculatedSubtotal !== undefined && subtotal !== undefined && Math.abs(calculatedSubtotal - subtotal) > 0.05) {
     issues.push({ id: "subtotal-mismatch", severity: "warning", field: "subtotal", message: "Subtotal does not match extracted line items.", expected: calculatedSubtotal, actual: subtotal });
   }
-  const calculatedGrandTotal = roundMoney(subtotal - numeric(data.totalDiscount) + numeric(data.totalTax) + numeric(data.shippingFee) + numeric(data.otherFees));
-  const grandTotal = numeric(data.grandTotal, calculatedGrandTotal);
-  if (grandTotal > 0 && Math.abs(calculatedGrandTotal - grandTotal) > 0.05) {
+  const totalDiscount = sourceNumeric(data.totalDiscount);
+  const totalTax = sourceNumeric(data.totalTax) ?? sourceNumeric(data.philippineTaxDetails?.vatAmount);
+  const shippingFee = sourceNumeric(data.shippingFee);
+  const otherFees = sourceNumeric(data.otherFees);
+  const calculationSubtotal = subtotal ?? calculatedSubtotal;
+  const calculatedGrandTotal = calculationSubtotal !== undefined && totalDiscount !== undefined && totalTax !== undefined && shippingFee !== undefined && otherFees !== undefined
+    ? roundMoney(calculationSubtotal - totalDiscount + totalTax + shippingFee + otherFees)
+    : undefined;
+  const grandTotal = sourceNumeric(data.grandTotal);
+  if (calculatedGrandTotal !== undefined && grandTotal !== undefined && Math.abs(calculatedGrandTotal - grandTotal) > 0.05) {
     issues.push({ id: "grand-total-mismatch", severity: "warning", field: "grandTotal", message: "Grand total does not reconcile with extracted components.", expected: calculatedGrandTotal, actual: grandTotal });
   }
-  const calculatedBalanceDue = roundMoney(Math.max(0, grandTotal - numeric(data.amountPaid)));
-  if (data.balanceDue !== undefined && Math.abs(calculatedBalanceDue - numeric(data.balanceDue)) > 0.05) {
-    issues.push({ id: "balance-mismatch", severity: "warning", field: "balanceDue", message: "Balance due does not match grand total minus amount paid.", expected: calculatedBalanceDue, actual: numeric(data.balanceDue) });
+  const amountPaid = sourceNumeric(data.amountPaid);
+  const calculatedBalanceDue = grandTotal !== undefined && amountPaid !== undefined ? roundMoney(Math.max(0, grandTotal - amountPaid)) : undefined;
+  const balanceDue = sourceNumeric(data.balanceDue);
+  if (calculatedBalanceDue !== undefined && balanceDue !== undefined && Math.abs(calculatedBalanceDue - balanceDue) > 0.05) {
+    issues.push({ id: "balance-mismatch", severity: "warning", field: "balanceDue", message: "Balance due does not match grand total minus amount paid.", expected: calculatedBalanceDue, actual: balanceDue });
   }
   if (!data.invoiceNumber) issues.push({ id: "missing-invoice-number", severity: "warning", field: "invoiceNumber", message: "Invoice number is missing." });
   if (!data.invoiceDate) issues.push({ id: "missing-invoice-date", severity: "warning", field: "invoiceDate", message: "Invoice date is missing." });
@@ -522,12 +595,8 @@ function validateExtractedInvoice(data: any, items: any[]) {
     phTax.sellerRegistration === "VAT" ||
     data.vendor?.taxRegistration === "VAT"
   );
-  if (phVatInvoice && phTax.vatableSales !== undefined && (phTax.vatAmount !== undefined || data.totalTax !== undefined)) {
-    const expectedVat = roundMoney(numeric(phTax.vatableSales) * 0.12);
-    const documentVat = phTax.vatAmount === undefined ? numeric(data.totalTax) : numeric(phTax.vatAmount);
-    if (Math.abs(expectedVat - documentVat) > 0.05) {
-      issues.push({ id: "ph-vat-rate-mismatch", severity: "warning", field: "philippineTaxDetails.vatAmount", message: "Philippine VAT does not reconcile to 12% of VATable Sales.", expected: expectedVat, actual: documentVat });
-    }
+  if (phVatInvoice && sourceNumeric(phTax.vatableSales) !== undefined && (sourceNumeric(phTax.vatAmount) !== undefined || sourceNumeric(data.totalTax) !== undefined)) {
+    issues.push({ id: "ph-vat-rate-not-evaluated", severity: "warning", field: "philippineTaxDetails.vatAmount", message: "VAT rate consistency was not evaluated because no authoritative VAT rate is configured." });
   }
 
   return {
@@ -576,7 +645,7 @@ async function generateStructured(ai: GeminiClientLike, requestedModel: unknown,
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", primaryModel: PRIMARY_MODEL, accuracyModel: ACCURACY_MODEL, timestamp: new Date().toISOString() });
+  res.json({ status: "ok", product: "HydroQualiSense", timestamp: new Date().toISOString() });
 });
 
 // Legacy delivery compatibility only. The primary Company Access UI now uses
@@ -799,15 +868,29 @@ app.use("/api/assistant", (req, res, next) => {
 });
 app.use("/api/assistant", createAssistantRouter());
 app.use("/api/documents", createStorageRouter());
-app.get("/api/storage/health", (_req, res) => {
-  res.json(getStorageHealth(process.env));
+app.get("/api/storage/health", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "storage.read");
+    return res.json({ success: true, data: { companyId: auth.companyId, ...getStorageHealth(process.env) } });
+  } catch (error) {
+    return res.status(authorizationErrorStatus(error)).json({ success: false, error: authorizationErrorMessage(error, "Storage health is unavailable.") });
+  }
 });
 
 app.post("/api/classify-email", async (req, res) => {
+  let budgetAuth: CompanyRequestAuthorization | null = null;
+  let aiBudgetClaimed = false;
   try {
     const auth = await authorizeCompanyRequest(req, "invoices.extract");
+    budgetAuth = auth;
     const { sender = "", subject = "", body = "", attachmentNames = [], model = PRIMARY_MODEL } = req.body || {};
+    if (typeof sender !== "string" || typeof subject !== "string" || typeof body !== "string" || !Array.isArray(attachmentNames)) return res.status(400).json({ success: false, error: "Email content has an invalid shape." });
     if (!subject && !body && !attachmentNames.length) return res.status(400).json({ success: false, error: "Email content is required." });
+    if (sender.length > 2_000 || subject.length > 2_000 || body.length > AI_TEXT_MAX_CHARS || attachmentNames.length > MAX_GMAIL_ATTACHMENT_COUNT || attachmentNames.some((item: unknown) => String(item || "").length > 300)) {
+      return res.status(413).json({ success: false, error: "Email classification input exceeds the safe size limit." });
+    }
+    await claimAiRequest(auth.supabase, auth.companyId, "EMAIL_CLASSIFICATION", { maxRequests: 60, maxConcurrency: 4 });
+    aiBudgetClaimed = true;
     const prompt = `Classify whether this email is related to an invoice or adjacent financial document. Use the email subject, sender, body, and attachment names. Do not assume an attachment is an invoice only because it is a PDF. Recognize Philippine terms including invoice, sales invoice, service invoice, VAT invoice, billing, statement of account, SOA, BIR, VAT, TIN, and amount due. Treat "Official Receipt", "SOA", and "Billing Statement" as candidate finance documents, not automatically as a principal invoice. For current Philippine workflow, an Official Receipt may be RECEIPT or SUPPLEMENTARY_DOCUMENT; preserve uncertainty and route it to human review.\n\nSender: ${sender}\nSubject: ${subject}\nAttachments: ${attachmentNames.join(", ") || "None"}\n\nBody:\n${body}`;
     const { response, modelUsed } = await withCompanyAiRuntime(
       { supabase: auth.supabase, companyId: auth.companyId },
@@ -825,16 +908,22 @@ app.post("/api/classify-email", async (req, res) => {
     const status = apiErrorStatus(error);
     if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/classify-email: request failed.");
     res.status(status).json({ success: false, error: apiErrorMessage(error, "Email classification failed."), ...apiAiErrorDetails(error) });
+  } finally {
+    if (aiBudgetClaimed && budgetAuth) await releaseAiRequest(budgetAuth.supabase, budgetAuth.companyId, "EMAIL_CLASSIFICATION");
   }
 });
 
 app.post("/api/classify-email-batch", async (req, res) => {
+  let budgetAuth: CompanyRequestAuthorization | null = null;
+  let aiBudgetClaimed = false;
   try {
     const auth = await authorizeCompanyRequest(req, "gmail.read");
+    budgetAuth = auth;
     const { items = [], model = PRIMARY_MODEL } = req.body || {};
     if (!Array.isArray(items) || items.length === 0) {
       return res.json({ success: true, data: { classifications: [] } });
     }
+    if (items.length > 10) return res.status(413).json({ success: false, error: "Email batch classification is limited to 10 messages per request." });
 
     const boundedItems = items.slice(0, 10).map((item: any) => ({
       messageId: String(item.messageId || "").trim(),
@@ -847,6 +936,11 @@ app.post("/api/classify-email-batch", async (req, res) => {
     if (boundedItems.length === 0) {
       return res.json({ success: true, data: { classifications: [] } });
     }
+    if (boundedItems.some((item) => item.sender.length > 2_000 || item.subject.length > 2_000 || item.snippet.length > 2_000 || item.attachmentNames.some((name) => name.length > 300))) {
+      return res.status(413).json({ success: false, error: "Email batch classification input exceeds the safe size limit." });
+    }
+    await claimAiRequest(auth.supabase, auth.companyId, "EMAIL_BATCH_CLASSIFICATION", { maxRequests: 30, maxConcurrency: 2 });
+    aiBudgetClaimed = true;
 
     const prompt = `You are a financial email classifier for an operations workspace. Classify each email into one of these destinations:
 - "INVOICE": for vendor bills, sales invoices, service invoices, VAT invoices, billing notices demanding payment.
@@ -904,6 +998,8 @@ ${JSON.stringify(boundedItems, null, 2)}`;
     const status = apiErrorStatus(error);
     if (!(error instanceof ApiAuthorizationError) && !(error instanceof CompanyAiError)) console.error("Error in /api/classify-email-batch: request failed.");
     res.status(status).json({ success: false, error: apiErrorMessage(error, "Email batch classification failed."), ...apiAiErrorDetails(error) });
+  } finally {
+    if (aiBudgetClaimed && budgetAuth) await releaseAiRequest(budgetAuth.supabase, budgetAuth.companyId, "EMAIL_BATCH_CLASSIFICATION");
   }
 });
 
@@ -953,36 +1049,57 @@ function normalizeTaxDetails(details: any) {
 
 function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: string, fileName: string | undefined, sourceType: string, emailContext: any, sourceText: string): InvoiceData {
   const rawItems = Array.isArray(extracted?.items) ? extracted.items : [];
+  const financialFieldStatus: Record<string, "KNOWN" | "CALCULATED" | "UNKNOWN"> = {};
   const items = rawItems.map((item: any, index: number) => {
-    const quantity = numeric(item?.quantity);
-    const unitPrice = numeric(item?.unitPrice);
-    const discount = numeric(item?.discount);
-    const deterministicTotal = roundMoney(quantity * unitPrice - discount);
-    const total = item?.total === undefined || item?.total === null ? deterministicTotal : numeric(item.total);
+    const quantity = sourceNumeric(item?.quantity);
+    const unitPrice = sourceNumeric(item?.unitPrice);
+    const discount = sourceNumeric(item?.discount);
+    const sourceTotal = sourceNumeric(item?.total);
+    const deterministicTotal = quantity !== undefined && unitPrice !== undefined && discount !== undefined
+      ? roundMoney(quantity * unitPrice - discount)
+      : undefined;
+    const total = sourceTotal ?? deterministicTotal;
+    financialFieldStatus["items." + index + ".quantity"] = quantity === undefined ? "UNKNOWN" : "KNOWN";
+    financialFieldStatus["items." + index + ".unitPrice"] = unitPrice === undefined ? "UNKNOWN" : "KNOWN";
+    financialFieldStatus["items." + index + ".discount"] = discount === undefined ? "UNKNOWN" : "KNOWN";
+    financialFieldStatus["items." + index + ".total"] = sourceTotal !== undefined ? "KNOWN" : deterministicTotal !== undefined ? "CALCULATED" : "UNKNOWN";
     return {
       id: randomUUID(),
       itemNumber: index + 1,
       sku: item?.sku || "",
       description: item?.description || "",
-      quantity,
+      quantity: quantity ?? null,
       unitOfMeasure: item?.unitOfMeasure || item?.uom || item?.unit || "",
-      unitPrice,
-      discount,
-      taxRate: numeric(item?.taxRate),
-      taxAmount: numeric(item?.taxAmount),
+      unitPrice: unitPrice ?? null,
+      discount: discount ?? null,
+      taxRate: sourceNumeric(item?.taxRate) ?? null,
+      taxAmount: sourceNumeric(item?.taxAmount) ?? null,
       taxTreatment: item?.taxTreatment || "UNKNOWN",
-      total,
+      total: total ?? null,
     };
   });
   const validation = validateExtractedInvoice(extracted || {}, items);
-  const subtotal = extracted?.subtotal === undefined || extracted?.subtotal === null ? validation.calculatedSubtotal : numeric(extracted.subtotal);
   const phTax = normalizeTaxDetails(extracted?.philippineTaxDetails);
-  const totalTax = extracted?.totalTax === undefined || extracted?.totalTax === null
-    ? numeric(phTax?.vatAmount)
-    : numeric(extracted.totalTax);
-  const grandTotal = extracted?.grandTotal === undefined || extracted?.grandTotal === null ? validation.calculatedGrandTotal : numeric(extracted.grandTotal);
-  const amountPaid = numeric(extracted?.amountPaid);
-  const balanceDue = extracted?.balanceDue === undefined || extracted?.balanceDue === null ? Math.max(0, grandTotal - amountPaid) : numeric(extracted.balanceDue);
+  const sourceSubtotal = sourceNumeric(extracted?.subtotal);
+  const subtotal = sourceSubtotal ?? validation.calculatedSubtotal ?? null;
+  const sourceTotalTax = sourceNumeric(extracted?.totalTax);
+  const sourceVatAmount = sourceNumeric(phTax?.vatAmount);
+  const totalTax = sourceTotalTax ?? sourceVatAmount ?? null;
+  const sourceGrandTotal = sourceNumeric(extracted?.grandTotal);
+  const grandTotal = sourceGrandTotal ?? validation.calculatedGrandTotal ?? null;
+  const sourceAmountPaid = sourceNumeric(extracted?.amountPaid);
+  const amountPaid = sourceAmountPaid ?? null;
+  const sourceBalanceDue = sourceNumeric(extracted?.balanceDue);
+  const calculatedBalanceDue = grandTotal !== null && amountPaid !== null ? Math.max(0, grandTotal - amountPaid) : null;
+  const balanceDue = sourceBalanceDue ?? calculatedBalanceDue;
+  financialFieldStatus.subtotal = sourceSubtotal !== undefined ? "KNOWN" : validation.calculatedSubtotal !== undefined ? "CALCULATED" : "UNKNOWN";
+  financialFieldStatus.totalTax = sourceTotalTax !== undefined || sourceVatAmount !== undefined ? "KNOWN" : "UNKNOWN";
+  financialFieldStatus.grandTotal = sourceGrandTotal !== undefined ? "KNOWN" : validation.calculatedGrandTotal !== undefined ? "CALCULATED" : "UNKNOWN";
+  financialFieldStatus.amountPaid = sourceAmountPaid !== undefined ? "KNOWN" : "UNKNOWN";
+  financialFieldStatus.balanceDue = sourceBalanceDue !== undefined ? "KNOWN" : calculatedBalanceDue !== null ? "CALCULATED" : "UNKNOWN";
+  financialFieldStatus.totalDiscount = sourceNumeric(extracted?.totalDiscount) === undefined ? "UNKNOWN" : "KNOWN";
+  financialFieldStatus.shippingFee = sourceNumeric(extracted?.shippingFee) === undefined ? "UNKNOWN" : "KNOWN";
+  financialFieldStatus.otherFees = sourceNumeric(extracted?.otherFees) === undefined ? "UNKNOWN" : "KNOWN";
   const sourceCurrency = explicitCurrencyFromText(sourceText);
   const currency = normalizeCurrency(extracted?.currency, extracted?.currencySymbol) || sourceCurrency;
   const currencySymbol = currencySymbolFor(currency) || extracted?.currencySymbol || "";
@@ -1021,23 +1138,23 @@ function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: 
     currency,
     currencySymbol,
     paymentTerms: extracted?.paymentTerms || "",
-    status: deriveStatus(grandTotal, amountPaid, balanceDue, extracted?.dueDate),
+    status: deriveStatus(numeric(grandTotal), numeric(amountPaid), numeric(balanceDue), extracted?.dueDate),
     vendor: compactParty(extracted?.vendor),
     customer: compactParty(extracted?.customer),
     shippingAddress: extracted?.shippingAddress ? compactParty(extracted.shippingAddress) : undefined,
     items,
     subtotal,
-    totalDiscount: numeric(extracted?.totalDiscount),
+    totalDiscount: sourceNumeric(extracted?.totalDiscount) ?? null,
     taxBreakdown: Array.isArray(extracted?.taxBreakdown) ? extracted.taxBreakdown : [],
     totalTax,
-    shippingFee: numeric(extracted?.shippingFee),
-    otherFees: numeric(extracted?.otherFees),
+    shippingFee: sourceNumeric(extracted?.shippingFee) ?? null,
+    otherFees: sourceNumeric(extracted?.otherFees) ?? null,
     grandTotal,
     amountPaid,
     balanceDue,
-    withholdingTaxRate: extracted?.withholdingTaxRate === undefined || extracted?.withholdingTaxRate === null ? undefined : numeric(extracted.withholdingTaxRate),
-    withholdingTaxAmount: extracted?.withholdingTaxAmount === undefined || extracted?.withholdingTaxAmount === null ? undefined : numeric(extracted.withholdingTaxAmount),
-    netAmountPayable: extracted?.netAmountPayable === undefined || extracted?.netAmountPayable === null ? undefined : numeric(extracted.netAmountPayable),
+    withholdingTaxRate: sourceNumeric(extracted?.withholdingTaxRate) ?? null,
+    withholdingTaxAmount: sourceNumeric(extracted?.withholdingTaxAmount) ?? null,
+    netAmountPayable: sourceNumeric(extracted?.netAmountPayable) ?? null,
     philippineTaxDetails: phTax,
     notes: extracted?.notes || "",
     termsAndConditions: extracted?.termsAndConditions || "",
@@ -1046,6 +1163,7 @@ function buildInvoiceCandidate(extracted: any, responseText: string, modelUsed: 
     modelUsed,
     confidenceScore,
     fieldConfidence: extracted?.fieldConfidence || {},
+    financialFieldStatus,
     validation,
     rawJson: responseText,
   };
@@ -1073,10 +1191,13 @@ Return the complete invoice schema again. Unknown source values must remain null
 app.post("/api/extract-invoice", async (req, res) => {
   const startedAt = Date.now();
   let extractionCompanyId: string | undefined;
+  let budgetAuth: CompanyRequestAuthorization | null = null;
+  let aiBudgetClaimed = false;
   try {
     const auth = await authorizeCompanyRequest(req, "invoices.extract");
+    budgetAuth = auth;
     extractionCompanyId = auth.companyId;
-    const {
+    let {
       fileData,
       mimeType,
       textData,
@@ -1089,6 +1210,24 @@ app.post("/api/extract-invoice", async (req, res) => {
     if ((!fileData || !mimeType) && !textData && !emailContext?.body) {
       return res.status(400).json({ success: false, error: "No invoice file, text, or email content provided." });
     }
+    if (fileData !== undefined && (typeof fileData !== "string" || typeof mimeType !== "string" || !mimeType.trim())) {
+      return res.status(400).json({ success: false, error: "Invoice file data and MIME type are invalid." });
+    }
+    if (textData !== undefined && typeof textData !== "string") return res.status(400).json({ success: false, error: "Invoice text data is invalid." });
+    if (typeof textData === "string" && textData.length > AI_TEXT_MAX_CHARS) return res.status(413).json({ success: false, error: "Invoice text exceeds the safe extraction limit." });
+    if (emailContext !== undefined && (!emailContext || typeof emailContext !== "object" || Array.isArray(emailContext))) return res.status(400).json({ success: false, error: "Invoice email context is invalid." });
+    if (emailContext?.body !== undefined && (typeof emailContext.body !== "string" || emailContext.body.length > AI_TEXT_MAX_CHARS)) return res.status(413).json({ success: false, error: "Invoice email content exceeds the safe extraction limit." });
+    if (typeof fileData === "string" && fileData) {
+      try {
+        const bytes = decodeBase64Payload(fileData, 10 * 1024 * 1024, "Invoice source");
+        validateInvoiceDocumentBytes(bytes, mimeType, fileName);
+        fileData = Buffer.from(bytes).toString("base64");
+      } catch (error: any) {
+        return res.status(400).json({ success: false, error: error?.message || "Invoice source file is invalid." });
+      }
+    }
+    await claimAiRequest(auth.supabase, auth.companyId, "INVOICE_EXTRACTION", { maxRequests: 20, maxConcurrency: 2 });
+    aiBudgetClaimed = true;
 
     let aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     let authenticationRetryUsed = false;
@@ -1238,6 +1377,8 @@ Rules:
     if (normalizedError instanceof CompanyAiError) logCompanyAiFailure(normalizedError, { companyId: extractionCompanyId, stage: "invoice-extraction" });
     if (!(normalizedError instanceof ApiAuthorizationError) && !(normalizedError instanceof CompanyAiError)) console.error("Error in /api/extract-invoice: request failed.");
       return res.status(status).json({ success: false, error: apiErrorMessage(normalizedError, "Invoice extraction failed. Please retry the document."), ...apiAiErrorDetails(normalizedError) });
+  } finally {
+    if (aiBudgetClaimed && budgetAuth) await releaseAiRequest(budgetAuth.supabase, budgetAuth.companyId, "INVOICE_EXTRACTION");
   }
 });
 
@@ -1273,10 +1414,13 @@ const expenseSchema = {
 app.post("/api/extract-expense", async (req, res) => {
   const startedAt = Date.now();
   let extractionCompanyId: string | undefined;
+  let budgetAuth: CompanyRequestAuthorization | null = null;
+  let aiBudgetClaimed = false;
   try {
     const auth = await authorizeCompanyRequest(req, "expenses.manage");
+    budgetAuth = auth;
     extractionCompanyId = auth.companyId;
-    const {
+    let {
       fileData,
       mimeType,
       textData,
@@ -1288,6 +1432,22 @@ app.post("/api/extract-expense", async (req, res) => {
     if ((!fileData || !mimeType) && !textData && !emailContext?.body) {
       return res.status(400).json({ success: false, error: "No receipt file, text, or email content provided." });
     }
+    if (fileData !== undefined && (typeof fileData !== "string" || typeof mimeType !== "string" || !mimeType.trim())) return res.status(400).json({ success: false, error: "Receipt file data and MIME type are invalid." });
+    if (textData !== undefined && typeof textData !== "string") return res.status(400).json({ success: false, error: "Receipt text data is invalid." });
+    if (typeof textData === "string" && textData.length > AI_TEXT_MAX_CHARS) return res.status(413).json({ success: false, error: "Receipt text exceeds the safe extraction limit." });
+    if (emailContext !== undefined && (!emailContext || typeof emailContext !== "object" || Array.isArray(emailContext))) return res.status(400).json({ success: false, error: "Receipt email context is invalid." });
+    if (emailContext?.body !== undefined && (typeof emailContext.body !== "string" || emailContext.body.length > AI_TEXT_MAX_CHARS)) return res.status(413).json({ success: false, error: "Receipt email content exceeds the safe extraction limit." });
+    if (typeof fileData === "string" && fileData) {
+      try {
+        const bytes = decodeBase64Payload(fileData, 10 * 1024 * 1024, "Receipt source");
+        validateInvoiceDocumentBytes(bytes, mimeType, fileName);
+        fileData = Buffer.from(bytes).toString("base64");
+      } catch (error: any) {
+        return res.status(400).json({ success: false, error: error?.message || "Receipt source file is invalid." });
+      }
+    }
+    await claimAiRequest(auth.supabase, auth.companyId, "EXPENSE_EXTRACTION", { maxRequests: 30, maxConcurrency: 2 });
+    aiBudgetClaimed = true;
 
     let aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     let authenticationRetryUsed = false;
@@ -1380,7 +1540,7 @@ Rules:
       referenceNumber,
       projectId: projectReference,
       notes: `Staged from Email Intake AI extraction: ${emailContext?.subject || fileName || "Receipt"}${payee ? ` from ${payee}` : ""}`,
-      confidenceScore: typeof extracted?.confidenceScore === "number" ? Math.max(0, Math.min(100, extracted.confidenceScore)) : 80,
+      confidenceScore: typeof extracted?.confidenceScore === "number" && Number.isFinite(extracted.confidenceScore) ? Math.max(0, Math.min(100, extracted.confidenceScore)) : undefined,
       merchantIdentity: extracted?.merchantIdentity || {},
       rawJson: responseText,
       modelUsed,
@@ -1402,6 +1562,8 @@ Rules:
     if (normalizedError instanceof CompanyAiError) logCompanyAiFailure(normalizedError, { companyId: extractionCompanyId, stage: "expense-extraction" });
     if (!(normalizedError instanceof ApiAuthorizationError) && !(normalizedError instanceof CompanyAiError)) console.error("Error in /api/extract-expense: request failed.");
     return res.status(status).json({ success: false, error: apiErrorMessage(normalizedError, "Receipt extraction failed. Please retry the document."), ...apiAiErrorDetails(normalizedError) });
+  } finally {
+    if (aiBudgetClaimed && budgetAuth) await releaseAiRequest(budgetAuth.supabase, budgetAuth.companyId, "EXPENSE_EXTRACTION");
   }
 });
 
@@ -1418,7 +1580,8 @@ function getGoogleAccessToken(req: express.Request) {
 function decodeBase64UrlText(value?: string) {
   if (!value) return "";
   try {
-    return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    const bytes = decodeBase64Payload(value, MAX_GMAIL_RAW_BYTES, "Gmail text");
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes).slice(0, AI_TEXT_MAX_CHARS);
   } catch {
     return "";
   }
@@ -1427,29 +1590,55 @@ function decodeBase64UrlText(value?: string) {
 function toStandardBase64(value?: string) {
   if (!value) return "";
   try {
-    return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("base64");
+    return Buffer.from(decodeBase64Payload(value, MAX_GMAIL_ATTACHMENT_BYTES, "Gmail attachment")).toString("base64");
   } catch {
     return "";
   }
 }
 
-async function gmailFetch(accessToken: string, pathName: string, init?: RequestInit) {
-  const response = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${pathName}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-      ...(init?.headers || {}),
-    },
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error: any = new Error(payload?.error?.message || `Gmail API request failed (${response.status}).`);
-    error.status = response.status;
-    error.payload = payload;
+async function gmailFetch(accessToken: string, pathName: string, init?: RequestInit, maxResponseBytes = GMAIL_MAX_API_RESPONSE_BYTES) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GMAIL_REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/" + pathName, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        Authorization: "Bearer " + accessToken,
+        Accept: "application/json",
+        ...(init?.headers || {}),
+      },
+    });
+    const declaredLength = Number(response.headers.get("content-length") || 0);
+    if (declaredLength > maxResponseBytes) {
+      const error: any = new Error("Gmail response exceeded the safe server-side size limit.");
+      error.status = 413;
+      throw error;
+    }
+    const responseBytes = new Uint8Array(await response.arrayBuffer());
+    if (responseBytes.byteLength > maxResponseBytes) {
+      const error: any = new Error("Gmail response exceeded the safe server-side size limit.");
+      error.status = 413;
+      throw error;
+    }
+    const payload = JSON.parse(new TextDecoder("utf-8", { fatal: false }).decode(responseBytes) || "{}");
+    if (!response.ok) {
+      const error: any = new Error(payload?.error?.message || "Gmail API request failed (" + response.status + ").");
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
+    }
+    return payload;
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      const timeoutError: any = new Error("Gmail API request timed out within the server safety budget.");
+      timeoutError.status = 504;
+      throw timeoutError;
+    }
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return payload;
 }
 
 function headerValue(payload: any, name: string) {
@@ -1486,25 +1675,28 @@ function collectMimeParts(payload: any) {
     if (filename) {
       const currentIndex = attachmentIndex;
       attachmentIndex += 1;
-      attachments.push({
-        // Gmail's attachment id is stable. MIME part ids are the deterministic
-        // fallback for inline/file parts that do not expose one.
-        attachmentId: body.attachmentId || `inline-${part.partId || currentIndex}`,
-        partId: part.partId,
-        attachmentIndex: currentIndex,
-        filename,
-        mimeType: part.mimeType || "application/octet-stream",
-        size: Number(body.size || 0),
-        inlineDataBase64: body.data ? toStandardBase64(body.data) : undefined,
-      });
+      if (attachments.length < MAX_GMAIL_ATTACHMENT_COUNT) {
+        attachments.push({
+          // Gmail's attachment id is stable. MIME part ids are the deterministic
+          // fallback for inline/file parts that do not expose one.
+          attachmentId: body.attachmentId || `inline-${part.partId || currentIndex}`,
+          partId: part.partId,
+          attachmentIndex: currentIndex,
+          filename,
+          mimeType: part.mimeType || "application/octet-stream",
+          size: Number(body.size || 0),
+          inlineDataBase64: body.data ? toStandardBase64(body.data) : undefined,
+        });
+      }
     }
     for (const child of part.parts || []) walk(child);
   };
 
   walk(payload);
   return {
-    bodyText: bodyText.join("\n\n").trim(),
-    bodyHtml: bodyHtml.join("\n").trim(),
+    bodyText: bodyText.join("\n\n").trim().slice(0, AI_TEXT_MAX_CHARS),
+    bodyHtml: bodyHtml.join("\n").trim().slice(0, AI_TEXT_MAX_CHARS),
+    attachmentCount: attachmentIndex,
     attachments,
   };
 }
@@ -1535,7 +1727,7 @@ function summarizeGmailMessage(message: any) {
     bodyText: parsed.bodyText || message.snippet || "",
     bodyHtml: parsed.bodyHtml || "",
     labels: message.labelIds || [],
-    hasAttachments: parsed.attachments.length > 0,
+    hasAttachments: parsed.attachmentCount > 0,
     attachments: parsed.attachments.map(({ inlineDataBase64, ...attachment }) => attachment),
   };
 }
@@ -1561,17 +1753,20 @@ app.post("/api/gmail/scan", async (req, res) => {
     const accessToken = getGoogleAccessToken(req);
     const maxResults = Math.max(1, Math.min(50, Number(req.body?.maxResults || 25)));
     const query = String(req.body?.query || "newer_than:30d {subject:invoice subject:\"sales invoice\" subject:\"service invoice\" subject:\"VAT invoice\" subject:billing subject:SOA \"statement of account\" \"credit note\" \"tax invoice\" BIR VAT TIN \"amount due\" filename:pdf filename:png filename:jpg filename:jpeg}");
+    if (query.length > GMAIL_MAX_QUERY_CHARS) return res.status(400).json({ success: false, error: "Gmail search query is too long." });
     const ids: string[] = [];
     let pageToken = "";
     let resultSizeEstimate = 0;
+    let pages = 0;
     do {
-      const params = new URLSearchParams({ maxResults: String(Math.min(100, maxResults - ids.length)), q: query });
+      pages += 1;
+      const params = new URLSearchParams({ maxResults: String(Math.max(1, Math.min(100, maxResults - ids.length))), q: query });
       if (pageToken) params.set("pageToken", pageToken);
       const list = await gmailFetch(accessToken, `messages?${params.toString()}`);
       resultSizeEstimate = Number(list.resultSizeEstimate || resultSizeEstimate);
       ids.push(...(list.messages || []).map((entry: any) => entry.id).filter(Boolean));
       pageToken = String(list.nextPageToken || "");
-    } while (pageToken && ids.length < maxResults);
+    } while (pageToken && ids.length < maxResults && pages < 5);
     ids.splice(maxResults);
     const messages: any[] = [];
     for (let i = 0; i < ids.length; i += 6) {
@@ -1587,34 +1782,54 @@ app.post("/api/gmail/scan", async (req, res) => {
 });
 
 app.post("/api/gmail/history", async (req, res) => {
+  const startedAt = Date.now();
   try {
     await authorizeCompanyRequest(req, "gmail.read");
     const accessToken = getGoogleAccessToken(req);
-    const startHistoryId = String(req.body?.startHistoryId || "");
-    if (!startHistoryId) return res.status(400).json({ success: false, error: "No previous Gmail history ID is available. Run an initial scan first." });
+    const startHistoryId = String(req.body?.startHistoryId || "").trim();
+    if (!/^\d{1,100}$/.test(startHistoryId)) return res.status(400).json({ success: false, error: "A valid Gmail history ID is required. Run an initial scan first." });
     const ids = new Set<string>();
     let pageToken = "";
+    let pagesFetched = 0;
+    let truncated = false;
+    let resyncRequired = false;
     do {
+      if (Date.now() - startedAt > GMAIL_HISTORY_BUDGET_MS) { truncated = true; resyncRequired = true; break; }
+      pagesFetched += 1;
       const params = new URLSearchParams({ startHistoryId, historyTypes: "messageAdded", maxResults: "100" });
       if (pageToken) params.set("pageToken", pageToken);
-      const history = await gmailFetch(accessToken, `history?${params.toString()}`);
+      const history = await gmailFetch(accessToken, "history?" + params.toString());
       for (const event of history.history || []) {
-        for (const added of event.messagesAdded || []) if (added?.message?.id) ids.add(added.message.id);
+        for (const added of event.messagesAdded || []) {
+          if (added?.message?.id) ids.add(String(added.message.id));
+          if (ids.size >= GMAIL_HISTORY_MAX_MESSAGE_IDS) { truncated = true; resyncRequired = true; break; }
+        }
+        if (resyncRequired) break;
       }
       pageToken = String(history.nextPageToken || "");
-    } while (pageToken);
+      if (pagesFetched >= GMAIL_HISTORY_MAX_PAGES && pageToken) { truncated = true; resyncRequired = true; }
+    } while (pageToken && !truncated);
+    const idList = Array.from(ids).slice(0, GMAIL_HISTORY_MAX_LOADED_MESSAGES);
+    if (ids.size > GMAIL_HISTORY_MAX_LOADED_MESSAGES) { truncated = true; resyncRequired = true; }
     const messages: any[] = [];
-    const idList = Array.from(ids);
+    let messageBytes = 0;
     for (let i = 0; i < idList.length; i += 6) {
+      if (Date.now() - startedAt > GMAIL_HISTORY_BUDGET_MS) { truncated = true; resyncRequired = true; break; }
       const batch = idList.slice(i, i + 6);
       const loaded = await Promise.all(batch.map((id) => getGmailMessageFull(accessToken, id)));
-      messages.push(...loaded.map(summarizeGmailMessage));
+      for (const message of loaded) {
+        const summary = summarizeGmailMessage(message);
+        messageBytes += Buffer.byteLength(JSON.stringify(summary), "utf8");
+        if (messageBytes > GMAIL_HISTORY_MAX_RESPONSE_BYTES) { truncated = true; resyncRequired = true; break; }
+        messages.push(summary);
+      }
+      if (messageBytes > GMAIL_HISTORY_MAX_RESPONSE_BYTES) break;
     }
-    const profile = await gmailFetch(accessToken, "profile");
-    res.json({ success: true, data: { messages, historyId: profile.historyId, emailAddress: profile.emailAddress } });
+    const profile = truncated && resyncRequired ? {} : await gmailFetch(accessToken, "profile");
+    return res.json({ success: true, data: { messages, historyId: truncated ? startHistoryId : profile.historyId, emailAddress: profile.emailAddress, complete: !truncated, continuation: truncated ? { startHistoryId, pageToken: resyncRequired ? undefined : pageToken || undefined, pagesFetched, messageIdsReturned: messages.length, resyncRequired } : undefined } });
   } catch (error: any) {
     const status = error?.status === 404 ? 409 : (error?.status || 500);
-    res.status(status).json({ success: false, code: error?.status === 404 ? "HISTORY_EXPIRED" : undefined, error: error?.status === 404 ? "Gmail history cursor expired. Run a fresh scan to rebuild sync state." : (error?.message || "Gmail incremental sync failed.") });
+    return res.status(status).json({ success: false, code: error?.status === 404 ? "HISTORY_EXPIRED" : undefined, error: error?.status === 404 ? "Gmail history cursor expired. Run a fresh scan to rebuild sync state." : (error?.message || "Gmail incremental sync failed.") });
   }
 });
 
@@ -1622,32 +1837,39 @@ app.post("/api/gmail/import", async (req, res) => {
   try {
     await authorizeCompanyRequest(req, "gmail.manage");
     const accessToken = getGoogleAccessToken(req);
-    const messageId = String(req.body?.messageId || "");
-    if (!messageId) return res.status(400).json({ success: false, error: "messageId is required." });
+    const messageId = String(req.body?.messageId || "").trim();
+    if (!/^[A-Za-z0-9_-]{1,200}$/.test(messageId)) return res.status(400).json({ success: false, error: "A valid Gmail messageId is required." });
     const full = await getGmailMessageFull(accessToken, messageId);
     const summary: any = summarizeGmailMessage(full);
     const parsed = collectMimeParts(full.payload || {});
+    if (parsed.attachmentCount > MAX_GMAIL_ATTACHMENT_COUNT) return res.status(413).json({ success: false, error: "Gmail message has too many attachments to import safely." });
     const attachments: any[] = [];
+    let attachmentBytes = 0;
     for (const attachment of parsed.attachments) {
+      if (attachment.size > MAX_GMAIL_ATTACHMENT_BYTES) return res.status(413).json({ success: false, error: "A Gmail attachment exceeds the safe size limit." });
       let dataBase64 = attachment.inlineDataBase64 || "";
       if (!dataBase64 && attachment.attachmentId && !attachment.attachmentId.startsWith("inline-")) {
-        const payload = await gmailFetch(accessToken, `messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachment.attachmentId)}`);
+        const payload = await gmailFetch(accessToken, "messages/" + encodeURIComponent(messageId) + "/attachments/" + encodeURIComponent(attachment.attachmentId));
         dataBase64 = toStandardBase64(payload.data || "");
       }
-      attachments.push({
-        attachmentId: attachment.attachmentId,
-        partId: attachment.partId,
-        attachmentIndex: attachment.attachmentIndex,
-        filename: attachment.filename,
-        mimeType: attachment.mimeType,
-        size: attachment.size || (dataBase64 ? Buffer.from(dataBase64, "base64").byteLength : 0),
-        dataBase64,
-      });
+      if (!dataBase64) return res.status(413).json({ success: false, error: "A Gmail attachment could not be loaded within the safe import budget." });
+      let bytes: Uint8Array;
+      try { bytes = decodeBase64Payload(dataBase64, MAX_GMAIL_ATTACHMENT_BYTES, "Gmail attachment"); validateGmailAttachmentBytes(bytes, attachment.mimeType, attachment.filename); }
+      catch (error: any) { return res.status(400).json({ success: false, error: error?.message || "A Gmail attachment is invalid." }); }
+      attachmentBytes += bytes.byteLength;
+      if (attachmentBytes > MAX_GMAIL_ATTACHMENT_TOTAL_BYTES) return res.status(413).json({ success: false, error: "Gmail attachment payload exceeds the 25 MB aggregate limit." });
+      const normalizedData = Buffer.from(bytes).toString("base64");
+      attachments.push({ attachmentId: attachment.attachmentId, partId: attachment.partId, attachmentIndex: attachment.attachmentIndex, filename: attachment.filename, mimeType: attachment.mimeType, size: bytes.byteLength, dataBase64: normalizedData });
     }
-    const raw = await gmailFetch(accessToken, `messages/${encodeURIComponent(messageId)}?format=raw`);
-    res.json({ success: true, data: { ...summary, attachments, rawBase64Url: raw.raw || "" } });
+    validateGmailAttachmentEnvelope(attachments);
+    const raw = await gmailFetch(accessToken, "messages/" + encodeURIComponent(messageId) + "?format=raw");
+    let rawBytes: Uint8Array;
+    try { rawBytes = decodeBase64Payload(String(raw.raw || ""), MAX_GMAIL_RAW_BYTES, "Gmail raw message"); validateGmailRawMessage(rawBytes); }
+    catch (error: any) { return res.status(400).json({ success: false, error: error?.message || "Gmail raw message is invalid." }); }
+    if (attachmentBytes + rawBytes.byteLength > GMAIL_IMPORT_MAX_TOTAL_BYTES) return res.status(413).json({ success: false, error: "Gmail attachment and raw-message payload exceeds the safe import limit." });
+    return res.json({ success: true, data: { ...summary, attachments, rawBase64Url: raw.raw || "" } });
   } catch (error: any) {
-    res.status(error?.status || 500).json({ success: false, error: error?.message || "Could not import Gmail message." });
+    return res.status(error?.status || 500).json({ success: false, error: error?.message || "Could not import Gmail message." });
   }
 });
 
@@ -1702,57 +1924,59 @@ function buildDocumentMimeMessage(input: { to: string[]; cc: string[]; subject: 
   return Buffer.from(raw, "utf8");
 }
 
+function renderTrustedIssuedPdf(row: { id: string; document_type: string; document_id: string; document_number: string; template_version: string; snapshot: unknown }, documentType: "PURCHASE_ORDER" | "CLIENT_INVOICE") {
+  if (!row.snapshot || typeof row.snapshot !== "object" || Array.isArray(row.snapshot)) {
+    throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The immutable issued snapshot cannot be rendered for sending.");
+  }
+  const snapshot = {
+    ...(row.snapshot as Record<string, unknown>),
+    snapshotId: row.id,
+    documentId: row.document_id,
+    documentType,
+    documentNumber: row.document_number,
+    templateVersion: row.template_version,
+    status: "ISSUED",
+  };
+  const bytes = documentType === "PURCHASE_ORDER"
+    ? buildPurchaseOrderPdf(snapshot as PurchaseOrderDocumentSnapshot)
+    : buildClientInvoicePdf(snapshot as ClientInvoiceDocumentSnapshot);
+  const pdfBytes = Buffer.from(bytes);
+  if (pdfBytes.length === 0 || pdfBytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
+    throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "The immutable issued document could not be rendered safely.");
+  }
+  return pdfBytes;
+}
+
 async function recordDocumentSendAudit(auth: CompanyRequestAuthorization, input: {
-  snapshotId: string;
-  documentType: "PURCHASE_ORDER" | "CLIENT_INVOICE";
-  documentId: string;
-  recipients: string[];
-  cc: string[];
-  subject: string;
-  attachmentName: string;
-  attachmentSha256: string;
+  sendIntentId: string;
   status: "SENT" | "FAILED";
   gmailMessageId?: string;
   errorMessage?: string;
 }) {
-  const { data, error } = await auth.supabase
-    .from("document_send_audits")
-    .insert({
-      company_id: auth.companyId,
-      snapshot_id: input.snapshotId,
-      document_type: input.documentType,
-      document_id: input.documentId,
-      sender_user_id: auth.user.id,
-      recipients: input.recipients,
-      cc: input.cc,
-      subject: input.subject,
-      attachment_name: input.attachmentName,
-      attachment_sha256: input.attachmentSha256,
-      gmail_message_id: input.gmailMessageId || null,
-      status: input.status,
-      error_message: input.errorMessage || null,
-    })
-    .select("id")
-    .single();
+  if (!input.sendIntentId) throw new Error("The document send intent is required before recording delivery history.");
+  const { data, error } = await auth.supabase.rpc("record_document_send_audit", {
+    p_intent_id: input.sendIntentId,
+    p_gmail_message_id: input.gmailMessageId || null,
+    p_status: input.status,
+    p_error_message: input.errorMessage || null,
+  });
   if (error) throw error;
-  return String((data as any)?.id || "");
+  const audit = rpcRow(data)?.audit;
+  return String(audit && typeof audit === "object" ? (audit as Record<string, unknown>).id || "" : "");
 }
 
 app.post("/api/gmail/send", async (req, res) => {
   let auth: CompanyRequestAuthorization | null = null;
-  let auditInput: Parameters<typeof recordDocumentSendAudit>[1] | null = null;
+  let sendIntentId: string | null = null;
+  let intentStateCompleted = false;
   let gmailDelivered = false;
   try {
-    auth = await authorizeCompanyRequest(req, "gmail.manage");
+    auth = await authorizeCompanyRequest(req, "documents.send");
     const documentType = String(req.body?.documentType || "").trim().toUpperCase();
-    if (documentType !== "PURCHASE_ORDER" && documentType !== "CLIENT_INVOICE") {
-      return res.status(400).json({ success: false, error: "A supported issued document type is required." });
-    }
+    if (documentType !== "PURCHASE_ORDER" && documentType !== "CLIENT_INVOICE") return res.status(400).json({ success: false, error: "A supported issued document type is required." });
     const documentId = String(req.body?.documentId || "").trim();
     const snapshotId = String(req.body?.snapshotId || "").trim();
-    if (!UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) {
-      return res.status(400).json({ success: false, error: "An issued document snapshot is required before sending." });
-    }
+    if (!UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) return res.status(400).json({ success: false, error: "An issued document snapshot is required before sending." });
     const documentPermission = documentType === "PURCHASE_ORDER" ? "procurement.read" : "projects.read";
     const { data: allowed, error: permissionError } = await auth.supabase.rpc("has_company_permission", { p_company_id: auth.companyId, p_permission_key: documentPermission });
     if (permissionError || allowed !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission to send this document type.");
@@ -1766,55 +1990,61 @@ app.post("/api/gmail/send", async (req, res) => {
       .maybeSingle();
     if (snapshotError) throw snapshotError;
     if (!snapshot) throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued document snapshot is unavailable. Generate the document again before sending.");
-
     const recipients = normalizedEmailList(req.body?.to, "To");
     const cc = normalizedEmailList(req.body?.cc, "CC");
     if (!recipients.length) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "At least one To recipient is required.");
-    const subject = safeMailHeader(req.body?.subject, `${documentType === "PURCHASE_ORDER" ? "Purchase Order" : "Client Invoice"} ${snapshot.document_number}`);
+    const subject = safeMailHeader(req.body?.subject, (documentType === "PURCHASE_ORDER" ? "Purchase Order " : "Client Invoice ") + snapshot.document_number);
     const message = String(req.body?.message || "").replace(/[\u0000]/g, "").slice(0, 20_000);
-    const attachmentName = safeMailHeader(req.body?.attachmentName, `${snapshot.document_number}.pdf`).replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 180) || `${snapshot.document_number}.pdf`;
-    const pdfBase64 = String(req.body?.pdfBase64 || "").trim();
-    if (!pdfBase64 || pdfBase64.length > 20_000_000) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A valid PDF attachment under 15 MB is required.");
-    const pdfBytes = Buffer.from(pdfBase64, "base64");
-    if (pdfBytes.length === 0 || pdfBytes.length > 15 * 1024 * 1024 || pdfBytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
-      throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "The attachment is not a valid PDF under 15 MB.");
-    }
-    auditInput = {
-      snapshotId,
-      documentType: documentType as "PURCHASE_ORDER" | "CLIENT_INVOICE",
-      documentId,
-      recipients,
-      cc,
-      subject,
-      attachmentName,
-      attachmentSha256: createHash("sha256").update(pdfBytes).digest("hex"),
-      status: "SENT",
-    };
+    const attachmentName = safeMailHeader(req.body?.attachmentName, String(snapshot.document_number) + ".pdf").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 180) || String(snapshot.document_number) + ".pdf";
+    const pdfBytes = renderTrustedIssuedPdf(snapshot, documentType as "PURCHASE_ORDER" | "CLIENT_INVOICE");
+    const trustedSha256 = createHash("sha256").update(pdfBytes).digest("hex");
+    const requestedKey = String(req.body?.idempotencyKey || "").trim();
+    if (requestedKey && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(requestedKey)) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "Send idempotency key is invalid.");
+    const idempotencyKey = requestedKey || "document:" + createHash("sha256").update(JSON.stringify({ snapshotId, documentType, documentId, recipients, cc, subject, message, attachmentName, trustedSha256 })).digest("hex");
+    const claimResult = await auth.supabase.rpc("claim_document_send_intent", {
+      p_snapshot_id: snapshotId, p_document_type: documentType, p_document_id: documentId, p_idempotency_key: idempotencyKey,
+      p_trusted_sha256: trustedSha256, p_recipients: recipients, p_cc: cc, p_subject: subject, p_attachment_name: attachmentName,
+    });
+    if (claimResult.error) throw claimResult.error;
+    const claim = rpcRow(claimResult.data);
+    const intent = claim?.intent && typeof claim.intent === "object" ? claim.intent as Record<string, any> : null;
+    if (!intent?.id) throw new Error("The document send intent was not returned.");
+    if (String(intent.status) === "SENT") return res.json({ success: true, data: { status: "SENT", gmailMessageId: intent.gmail_message_id || undefined, idempotent: true } });
+    if (claim?.claimed !== true) return res.status(409).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "This issued document send is already in progress or requires reconciliation. Check send history before retrying." });
+    sendIntentId = String(intent.id);
     const accessToken = getGoogleAccessToken(req);
     let sent: any;
-    sent = await gmailFetch(accessToken, "messages/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ raw: base64Url(buildDocumentMimeMessage({ to: recipients, cc, subject, message, attachmentName, pdfBytes })) }),
-    });
-    gmailDelivered = true;
+    try {
+      sent = await gmailFetch(accessToken, "messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: base64Url(buildDocumentMimeMessage({ to: recipients, cc, subject, message, attachmentName, pdfBytes })) }) });
+      gmailDelivered = true;
+    } catch (error: any) {
+      const providerStatus = Number(error?.status || 0);
+      const knownFailure = providerStatus >= 400 && providerStatus < 500;
+      const completion = await auth.supabase.rpc("complete_document_send_intent", { p_intent_id: sendIntentId, p_status: knownFailure ? "FAILED" : "UNKNOWN", p_error_message: "Gmail delivery could not be confirmed." });
+      if (!completion.error) intentStateCompleted = true;
+      if (completion.error || !knownFailure) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail delivery could not be confirmed. Do not resend until this send intent is reconciled." });
+      try {
+        await recordDocumentSendAudit(auth, { sendIntentId, status: "FAILED", errorMessage: "Gmail rejected the issued document send." });
+      } catch {
+        return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail rejected the document, but the durable send history could not be recorded. Check send history before retrying." });
+      }
+      return res.status(providerStatus || 502).json({ success: false, code: "DOCUMENT_SEND_FAILED", error: "Gmail rejected the issued document send. The failed attempt was recorded." });
+    }
     const gmailMessageId = String(sent?.id || "");
-    const auditId = await recordDocumentSendAudit(auth, { ...auditInput, gmailMessageId, status: "SENT" });
-    return res.json({ success: true, data: { status: "SENT", gmailMessageId, auditId } });
+    const completion = await auth.supabase.rpc("complete_document_send_intent", { p_intent_id: sendIntentId, p_status: "SENT", p_gmail_message_id: gmailMessageId, p_error_message: null });
+    if (completion.error) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail accepted the document, but the durable send state could not be completed. Do not resend until send history is reconciled." });
+    intentStateCompleted = true;
+    const auditId = await recordDocumentSendAudit(auth, { sendIntentId, status: "SENT", gmailMessageId });
+    return res.json({ success: true, data: { status: "SENT", gmailMessageId, auditId, idempotent: false } });
   } catch (error: any) {
-    const status = error?.status || 500;
-    const message = error?.message || "The document could not be sent.";
-    if (gmailDelivered) {
-      return res.status(503).json({
-        success: false,
-        code: "DOCUMENT_SEND_AUDIT_UNAVAILABLE",
-        error: "Gmail accepted the document, but the send history could not be recorded. Check Gmail and the document history before retrying.",
-      });
+    if (gmailDelivered) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail accepted the document, but durable send history could not be completed. Do not resend until send history is reconciled." });
+    if (sendIntentId && auth && !intentStateCompleted) {
+      const completion = await auth.supabase.rpc("complete_document_send_intent", { p_intent_id: sendIntentId, p_status: "FAILED", p_error_message: "The send was not accepted by Gmail." });
+      if (completion.error) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "The send attempt could not be reconciled safely. Do not resend until send history is checked." });
     }
-    if (auth && auditInput && auditInput.status === "SENT") {
-      await recordDocumentSendAudit(auth, { ...auditInput, status: "FAILED", errorMessage: message }).catch(() => {});
-    }
-    return res.status(status).json({ success: false, error: message });
+    const status = error instanceof ApiAuthorizationError ? error.status : Number(error?.status) || (error?.code === "42501" ? 403 : error?.code === "23514" ? 409 : 503);
+    const safeMessage = error instanceof ApiAuthorizationError ? error.message : "The issued document could not be sent safely. Check the send intent and document history before retrying.";
+    return res.status(status).json({ success: false, error: safeMessage });
   }
 });
 

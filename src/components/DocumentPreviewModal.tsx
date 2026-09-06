@@ -5,6 +5,8 @@ import { documentFileName, downloadPdfBytes, generateFinancialDocumentPdf } from
 import { loadCompanyDocumentProfileFromSupabase } from "../lib/companyDocumentProfile.ts";
 import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "../lib/documentSnapshots.ts";
 import { sendFinancialDocumentByGmail } from "../lib/documentEmail.ts";
+import { useAppPermission } from "../app/AppPermissionContext.tsx";
+import { PERMISSION_KEYS } from "../utils/accessControl.ts";
 
 interface DocumentPreviewModalProps {
   document: FinancialDocumentSnapshot;
@@ -23,6 +25,7 @@ function shortDate(value?: string | null) {
 }
 
 export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ document: initialDocument, onClose, onSent }) => {
+  const canSendIssuedDocument = useAppPermission(PERMISSION_KEYS.documentSend);
   const [document, setDocument] = useState(initialDocument);
   const [loadingSnapshot, setLoadingSnapshot] = useState(initialDocument.status === "ISSUED" && !initialDocument.snapshotId);
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -36,6 +39,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
   const [message, setMessage] = useState(() => initialDocument.documentType === "PURCHASE_ORDER"
     ? "Please find the attached purchase order for your review and confirmation."
     : "Please find the attached client invoice for your review.");
+  const [idempotencyKey] = useState(() => globalThis.crypto?.randomUUID?.() || "document-send-" + Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -80,8 +84,7 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
     try {
       if (document.status !== "ISSUED" || !document.snapshotId) throw new Error("Only an issued immutable document snapshot can be sent.");
       if (!to.trim()) throw new Error("Enter at least one recipient email address.");
-      const bytes = await generateFinancialDocumentPdf(document);
-      const result = await sendFinancialDocumentByGmail({ snapshot: document, pdfBytes: bytes, to, cc, subject, message, attachmentName: fileName });
+      const result = await sendFinancialDocumentByGmail({ snapshot: document, to, cc, subject, message, attachmentName: fileName, idempotencyKey });
       setSendResult(`Sent successfully${result.gmailMessageId ? ` · Gmail message ${result.gmailMessageId}` : ""}.`);
       onSent?.(result.gmailMessageId);
     } catch (error) {
@@ -157,8 +160,9 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
           {sendError && <p role="alert" className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{sendError}</p>}
           {sendResult && <p role="status" className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />{sendResult}</p>}
           {composeOpen && <div className="mb-3 grid gap-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 sm:grid-cols-2"><label className="text-[10px] font-bold text-slate-700 sm:col-span-2">To<input value={to} onChange={(event) => setTo(event.target.value)} className="field-input mt-1" placeholder="vendor@example.com" /></label><label className="text-[10px] font-bold text-slate-700">CC<input value={cc} onChange={(event) => setCc(event.target.value)} className="field-input mt-1" /></label><label className="text-[10px] font-bold text-slate-700">Subject<input value={subject} onChange={(event) => setSubject(event.target.value)} className="field-input mt-1" /></label><label className="text-[10px] font-bold text-slate-700 sm:col-span-2">Message<textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={3} className="field-input mt-1 resize-y" /></label><div className="flex flex-wrap justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setComposeOpen(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">Cancel</button><button type="button" onClick={() => void send()} disabled={sendBusy} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white disabled:opacity-50">{sendBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}Confirm &amp; Send</button></div></div>}
-          <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-[10px] text-slate-500">{isIssued ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : <FileText className="h-3.5 w-3.5 text-amber-600" />}{document.templateVersion}</div><div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={print} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700"><Printer className="h-3.5 w-3.5" />Print</button><button type="button" onClick={() => void download()} disabled={downloadBusy || loadingSnapshot} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white disabled:opacity-50">{downloadBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Generate / Download PDF</button><button type="button" onClick={() => setComposeOpen(true)} disabled={!isIssued || !document.snapshotId} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 disabled:cursor-not-allowed disabled:opacity-45"><Mail className="h-3.5 w-3.5" />Send by Email</button></div></div>
+          <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-[10px] text-slate-500">{isIssued ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : <FileText className="h-3.5 w-3.5 text-amber-600" />}{document.templateVersion}</div><div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={print} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700"><Printer className="h-3.5 w-3.5" />Print</button><button type="button" onClick={() => void download()} disabled={downloadBusy || loadingSnapshot} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white disabled:opacity-50">{downloadBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Generate / Download PDF</button><button type="button" onClick={() => setComposeOpen(true)} disabled={!isIssued || !document.snapshotId || !canSendIssuedDocument} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 disabled:cursor-not-allowed disabled:opacity-45"><Mail className="h-3.5 w-3.5" />Send by Email</button></div></div>
           {!isIssued && <p className="mt-2 text-right text-[10px] text-amber-700">{isDraft ? "Issuance is required before email sending and immutable resend." : "Cancelled or voided documents cannot be emailed."}</p>}
+          {isIssued && !canSendIssuedDocument && <p className="mt-2 text-right text-[10px] text-amber-700">Issued-document sending is restricted to users with the dedicated send permission.</p>}
         </footer>
       </section>
     </div>

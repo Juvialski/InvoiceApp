@@ -1,7 +1,6 @@
 import type { InvoiceData, LineItem } from "../types.ts";
 
 const MONEY_TOLERANCE = 0.05;
-const PH_VAT_RATE = 0.12;
 
 export interface ExtractionAttemptSummary {
   attemptNumber: number;
@@ -52,7 +51,7 @@ function numeric(value: unknown) {
 }
 
 function presentNumber(value: unknown) {
-  return value !== undefined && value !== null && Number.isFinite(Number(value));
+  return value !== undefined && value !== null && !(typeof value === "string" && !value.trim()) && Number.isFinite(Number(value));
 }
 
 function nearlyEqual(left: number, right: number) {
@@ -110,12 +109,13 @@ function itemIsMeaningful(item: LineItem) {
 }
 
 function lineItemReconciles(item: LineItem) {
+  if (!presentNumber(item.quantity) || !presentNumber(item.unitPrice) || !presentNumber(item.discount) || !presentNumber(item.total)) return false;
   const expected = roundMoney(numeric(item.quantity) * numeric(item.unitPrice) - numeric(item.discount));
   return nearlyEqual(expected, numeric(item.total));
 }
 
 function sourceHasVatSummary(sourceText?: string) {
-  return sourceHas(sourceText, /VAT(?:ABLE)?\s+SALES|VAT\s+AMOUNT|ZERO[- ]?RATED|VAT[- ]?EXEMPT|12\s*%/i);
+  return sourceHas(sourceText, /VAT(?:ABLE)?\s+SALES|VAT\s+AMOUNT|ZERO[- ]?RATED|VAT[- ]?EXEMPT/i);
 }
 
 function addReason(reasons: string[], reason: string) {
@@ -150,7 +150,7 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
 
   const field = (value: unknown, weight: number, label: string, criticalId?: string) => {
     expectedFields += 1;
-    if (hasText(value) || (typeof value === "number" && Number.isFinite(value) && value > 0)) {
+    if (hasText(value) || presentNumber(value)) {
       populatedFields += 1;
       score += weight;
       return true;
@@ -197,39 +197,62 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
     score -= 20;
     addReason(reasons, "The invoice has financial evidence but no extracted line items.");
   } else {
+    if (invoiceLike) {
+      criticalMissing.push("missing-line-items");
+      reconciliation.lineItems = "REVIEW";
+    }
     addReason(reasons, "No itemized rows were found; confirm that the document is not itemized.");
   }
 
-  const calculatedSubtotal = roundMoney(items.reduce((sum, item) => sum + numeric(item.total), 0));
+  const knownLineTotals = items.map((item) => presentNumber(item.total) ? numeric(item.total) : undefined);
+  const calculatedSubtotal = items.length > 0 && knownLineTotals.every((value) => value !== undefined)
+    ? roundMoney(knownLineTotals.reduce((sum, value) => sum + (value || 0), 0))
+    : undefined;
   expectedFields += 1;
-  if (numeric(invoice.subtotal) > 0) {
+  if (presentNumber(invoice.subtotal)) {
     populatedFields += 1;
     score += 8;
-    if (items.length) {
+    if (items.length && calculatedSubtotal !== undefined) {
       reconciliation.subtotal = nearlyEqual(calculatedSubtotal, numeric(invoice.subtotal)) ? "PASS" : "REVIEW";
       if (reconciliation.subtotal === "REVIEW") {
         score -= 8;
         addReason(reasons, "Subtotal does not reconcile with the extracted line-item amounts.");
       }
+    } else if (items.length) {
+      reconciliation.subtotal = "REVIEW";
+      addReason(reasons, "Subtotal reconciliation was not evaluated because one or more line-item amounts are unresolved.");
     }
-  } else if (items.length && calculatedSubtotal > 0) {
+  } else if (items.length && calculatedSubtotal !== undefined && calculatedSubtotal > 0) {
     addReason(reasons, "Subtotal is missing even though line items contain amounts.");
   } else if (sourceShowsMoney || invoiceLike) {
+    reconciliation.subtotal = "REVIEW";
     addReason(reasons, "Subtotal is missing or zero.");
   }
 
   expectedFields += 1;
-  if (numeric(invoice.grandTotal) > 0) {
+  if (presentNumber(invoice.grandTotal)) {
     populatedFields += 1;
     score += 14;
-    const baseSubtotal = numeric(invoice.subtotal) || calculatedSubtotal;
-    const calculatedGrandTotal = roundMoney(baseSubtotal - numeric(invoice.totalDiscount) + numeric(invoice.totalTax) + numeric(invoice.shippingFee) + numeric(invoice.otherFees));
-    reconciliation.grandTotal = nearlyEqual(calculatedGrandTotal, numeric(invoice.grandTotal)) ? "PASS" : "REVIEW";
-    if (reconciliation.grandTotal === "REVIEW") {
-      score -= 8;
-      addReason(reasons, "Grand total does not reconcile with subtotal, tax, discount, and charges.");
+    const baseSubtotal = presentNumber(invoice.subtotal) ? numeric(invoice.subtotal) : calculatedSubtotal;
+    const totalDiscount = presentNumber(invoice.totalDiscount) ? numeric(invoice.totalDiscount) : undefined;
+    const totalTax = presentNumber(invoice.totalTax) ? numeric(invoice.totalTax) : undefined;
+    const shippingFee = presentNumber(invoice.shippingFee) ? numeric(invoice.shippingFee) : undefined;
+    const otherFees = presentNumber(invoice.otherFees) ? numeric(invoice.otherFees) : undefined;
+    const calculatedGrandTotal = baseSubtotal !== undefined && totalDiscount !== undefined && totalTax !== undefined && shippingFee !== undefined && otherFees !== undefined
+      ? roundMoney(baseSubtotal - totalDiscount + totalTax + shippingFee + otherFees)
+      : undefined;
+    if (calculatedGrandTotal === undefined) {
+      reconciliation.grandTotal = "REVIEW";
+      addReason(reasons, "Grand-total arithmetic was not evaluated because one or more source values are unresolved.");
+    } else {
+      reconciliation.grandTotal = nearlyEqual(calculatedGrandTotal, numeric(invoice.grandTotal)) ? "PASS" : "REVIEW";
+      if (reconciliation.grandTotal === "REVIEW") {
+        score -= 8;
+        addReason(reasons, "Grand total does not reconcile with subtotal, tax, discount, and charges.");
+      }
     }
   } else if (sourceShowsMoney || invoiceLike) {
+    reconciliation.grandTotal = "REVIEW";
     criticalMissing.push("missing-grand-total");
     score -= 10;
     addReason(reasons, "Grand total is missing or zero despite invoice evidence.");
@@ -239,19 +262,22 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
   if (presentNumber(invoice.amountPaid) || presentNumber(invoice.balanceDue)) {
     populatedFields += 1;
     score += 3;
-    if (presentNumber(invoice.balanceDue) && numeric(invoice.grandTotal) > 0) {
+    if (presentNumber(invoice.balanceDue) && presentNumber(invoice.grandTotal) && presentNumber(invoice.amountPaid)) {
       const expectedBalance = roundMoney(Math.max(0, numeric(invoice.grandTotal) - numeric(invoice.amountPaid)));
       reconciliation.balance = nearlyEqual(expectedBalance, numeric(invoice.balanceDue)) ? "PASS" : "REVIEW";
       if (reconciliation.balance === "REVIEW") {
         score -= 3;
         addReason(reasons, "Balance does not reconcile with grand total minus amount paid.");
       }
+    } else if (presentNumber(invoice.balanceDue)) {
+      reconciliation.balance = "REVIEW";
+      addReason(reasons, "Balance reconciliation was not evaluated because grand total or amount paid is unresolved.");
     }
   }
 
   if (vatEvidence) {
     expectedFields += 1;
-    const hasVatAmount = presentNumber(phTax.vatAmount) || numeric(invoice.totalTax) > 0;
+    const hasVatAmount = presentNumber(phTax.vatAmount) || presentNumber(invoice.totalTax);
     if (hasVatAmount) {
       populatedFields += 1;
       score += 6;
@@ -261,13 +287,8 @@ export function evaluateExtractionQuality(invoice: Partial<InvoiceData>, sourceT
       addReason(reasons, "VAT evidence is present but no useful VAT amount was extracted.");
     }
     if (presentNumber(phTax.vatableSales) && hasVatAmount) {
-      const expectedVat = roundMoney(numeric(phTax.vatableSales) * PH_VAT_RATE);
-      const documentVat = presentNumber(phTax.vatAmount) ? numeric(phTax.vatAmount) : numeric(invoice.totalTax);
-      reconciliation.philippineVat = nearlyEqual(expectedVat, documentVat) ? "PASS" : "REVIEW";
-      if (reconciliation.philippineVat === "REVIEW") {
-        score -= 8;
-        addReason(reasons, "VAT amount does not reconcile to 12% of VATable Sales.");
-      }
+      reconciliation.philippineVat = "REVIEW";
+      addReason(reasons, "VAT arithmetic was not evaluated because no authoritative VAT rate is configured.");
     } else {
       reconciliation.philippineVat = "REVIEW";
       addReason(reasons, "VATable Sales and VAT Amount were not both extracted for review.");

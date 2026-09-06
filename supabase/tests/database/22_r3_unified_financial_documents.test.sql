@@ -14,6 +14,8 @@ select
 grant select on r3_ids to authenticated, service_role;
 create temp table r3_billing_ids (billing_id uuid not null);
 grant insert, select on r3_billing_ids to authenticated;
+create temp table r3_send_ids (intent_id uuid not null);
+grant insert, select on r3_send_ids to authenticated;
 
 select has_table('public', 'company_document_profiles', 'company document profile table exists');
 select has_table('public', 'issued_document_snapshots', 'issued document snapshot table exists');
@@ -45,7 +47,7 @@ values ((select project_id from r3_ids), (select admin_user from r3_ids), (selec
 insert into public.vendors (id, user_id, company_id, name, normalized_name, email, address, tax_id, default_currency)
 values ((select vendor_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), 'R3 Supplier', 'r3 supplier', 'supplier@test.local', 'Supplier address', '111-222-333-000', 'PHP');
 insert into public.invoices (id, user_id, company_id, vendor_id, invoice_number, invoice_date, currency, grand_total, review_status, document_type, current_data)
-values ((select invoice_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), (select vendor_id from r3_ids), 'R3-INV-001', '2026-09-06', 'PHP', 1250, 'NEEDS_REVIEW', 'INVOICE', jsonb_build_object('vendor', jsonb_build_object('name', 'R3 Supplier'), 'category', 'Materials', 'invoiceNumber', 'R3-INV-001', 'grandTotal', 1250));
+values ((select invoice_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), (select vendor_id from r3_ids), 'R3-INV-001', '2026-09-06', 'PHP', 1250, 'NEEDS_REVIEW', 'INVOICE', jsonb_build_object('vendor', jsonb_build_object('name', 'R3 Supplier'), 'category', 'Materials', 'description', 'R3 supplier invoice', 'invoiceNumber', 'R3-INV-001', 'grandTotal', 1250));
 insert into public.invoice_project_allocations (id, user_id, company_id, invoice_id, project_id, allocation_type, allocation_amount, currency)
 values (gen_random_uuid(), (select admin_user from r3_ids), (select company_id from r3_ids), (select invoice_id from r3_ids), (select project_id from r3_ids), 'AMOUNT', 1250, 'PHP');
 
@@ -65,7 +67,7 @@ select is((select count(*) from public.expenses where supplier_invoice_id = (sel
 
 reset role;
 insert into public.invoices (id, user_id, company_id, vendor_id, invoice_number, invoice_date, currency, grand_total, review_status, document_type, current_data)
-values ((select invoice_mismatch_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), (select vendor_id from r3_ids), 'R3-INV-MISMATCH', '2026-09-06', 'PHP', 10, 'NEEDS_REVIEW', 'INVOICE', jsonb_build_object('vendor', jsonb_build_object('name', 'R3 Supplier'), 'customer', jsonb_build_object('name', 'Another Company Ltd.'), 'grandTotal', 10));
+values ((select invoice_mismatch_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), (select vendor_id from r3_ids), 'R3-INV-MISMATCH', '2026-09-06', 'PHP', 10, 'NEEDS_REVIEW', 'INVOICE', jsonb_build_object('vendor', jsonb_build_object('name', 'R3 Supplier'), 'category', 'Materials', 'description', 'R3 mismatch invoice', 'customer', jsonb_build_object('name', 'Another Company Ltd.'), 'grandTotal', 10));
 set local role authenticated;
 select throws_ok($$select public.verify_supplier_invoice_and_create_expense((select invoice_mismatch_id from r3_ids))$$, '23514', null, 'buyer mismatch blocks supplier invoice posting');
 
@@ -80,9 +82,14 @@ select lives_ok($$select public.transition_purchase_order_status((select po_id f
 select is((select count(*) from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_id from r3_ids)), 1::bigint, 'PO issuance captures one immutable snapshot');
 select is((select snapshot->>'documentNumber' from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_id from r3_ids)), 'R3-PO-001', 'PO snapshot preserves the issued number');
 select throws_ok($$update public.issued_document_snapshots set document_number = 'CHANGED' where document_type = 'PURCHASE_ORDER' and document_id = (select po_id from r3_ids)$$, '42501', null, 'issued snapshot cannot be edited directly');
-insert into public.document_send_audits (company_id, snapshot_id, document_type, document_id, sender_user_id, recipients, cc, subject, attachment_name, attachment_sha256, gmail_message_id, status)
-select (select company_id from r3_ids), s.id, 'PURCHASE_ORDER', (select po_id from r3_ids), (select admin_user from r3_ids), '["supplier@test.local"]'::jsonb, '[]'::jsonb, 'R3 PO', 'R3-PO-001.pdf', repeat('a', 64), 'gmail-r3-1', 'SENT'
+insert into r3_send_ids(intent_id)
+select ((public.claim_document_send_intent(
+  s.id, 'PURCHASE_ORDER', (select po_id from r3_ids), 'r3-send-key', repeat('a', 64),
+  '["supplier@test.local"]'::jsonb, '[]'::jsonb, 'R3 PO', 'R3-PO-001.pdf'
+))->'intent'->>'id')::uuid
 from public.issued_document_snapshots s where s.document_type = 'PURCHASE_ORDER' and s.document_id = (select po_id from r3_ids);
+select lives_ok($$select public.complete_document_send_intent((select intent_id from r3_send_ids), 'SENT', 'gmail-r3-1', null)$$, 'R3 send intent can be completed');
+select lives_ok($$select public.record_document_send_audit((select intent_id from r3_send_ids), 'gmail-r3-1', 'SENT', null)$$, 'R3 send audit is recorded through the guarded RPC');
 select is((select count(*) from public.document_send_audits where document_type = 'PURCHASE_ORDER' and document_id = (select po_id from r3_ids) and status = 'SENT'), 1::bigint, 'successful document send audit is persisted');
 
 with saved as (

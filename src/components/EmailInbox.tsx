@@ -343,8 +343,11 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
       const scanWindow: GmailScanWindow = scanMode === "custom" ? { after: customAfter, before: customBefore } : { days };
       const result = incremental && historyId ? await syncConnectedMailbox(historyId, profiles) : await scanConnectedMailbox(scanWindow, profiles);
       setCandidates(result.messages);
-      if (result.historyId) setHistoryId(result.historyId);
-      if (result.lastSyncedAt) setLastSyncedAt(result.lastSyncedAt);
+      if (result.complete !== false && result.historyId) setHistoryId(result.historyId);
+      if (result.complete !== false && result.lastSyncedAt) setLastSyncedAt(result.lastSyncedAt);
+      if (result.complete === false) setGmailError(result.resyncRequired
+        ? "Gmail incremental sync reached its safety budget. The cursor was not advanced; run a full scan to resynchronize safely."
+        : "Gmail incremental sync returned an incomplete page. The cursor was not advanced; retry or run a full scan.");
     } catch (error: any) {
       setGmailError(error?.message || "Connected mailbox scan failed.");
     } finally {

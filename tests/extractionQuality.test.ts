@@ -14,13 +14,15 @@ function candidate(overrides: Partial<InvoiceData> = {}): Partial<InvoiceData> {
     vendor: { name: "ConcreteGrid Materials Trading", taxRegistration: "VAT" },
     customer: { name: "SouthBridge Engineering and Construction" },
     items: [
-      { id: "1", sku: "CEM-40", description: "Portland Cement 40kg", quantity: 300, unitOfMeasure: "bags", unitPrice: 275, total: 82500 },
-      { id: "2", sku: "SAND-W", description: "Washed Sand", quantity: 18, unitOfMeasure: "cu.m.", unitPrice: 1450, total: 26100 },
-      { id: "3", sku: "GRV-34", description: "3/4 Gravel", quantity: 20, unitOfMeasure: "cu.m.", unitPrice: 1650, total: 33000 },
+      { id: "1", sku: "CEM-40", description: "Portland Cement 40kg", quantity: 300, unitOfMeasure: "bags", unitPrice: 275, discount: 0, total: 82500 },
+      { id: "2", sku: "SAND-W", description: "Washed Sand", quantity: 18, unitOfMeasure: "cu.m.", unitPrice: 1450, discount: 0, total: 26100 },
+      { id: "3", sku: "GRV-34", description: "3/4 Gravel", quantity: 20, unitOfMeasure: "cu.m.", unitPrice: 1650, discount: 0, total: 33000 },
     ],
     subtotal: 141600,
     totalDiscount: 0,
     totalTax: 16992,
+    shippingFee: 0,
+    otherFees: 0,
     grandTotal: 158592,
     amountPaid: 0,
     balanceDue: 158592,
@@ -46,7 +48,25 @@ test("ConcreteGrid complete candidate is strong and reconciled", () => {
   assert.equal(good.reconciliation.lineItems, "PASS");
   assert.equal(good.reconciliation.subtotal, "PASS");
   assert.equal(good.reconciliation.grandTotal, "PASS");
-  assert.equal(good.reconciliation.philippineVat, "PASS");
+  assert.equal(good.reconciliation.philippineVat, "REVIEW");
+  assert.match(good.reasons.join(" "), /VAT arithmetic was not evaluated/i);
+});
+
+test("unknown financial extraction values remain unresolved during quality checks", () => {
+  const quality = evaluateExtractionQuality(candidate({
+    items: [{ id: "unknown", description: "Unresolved item", quantity: null, unitPrice: null, total: null }],
+    subtotal: null,
+    totalDiscount: null,
+    totalTax: null,
+    shippingFee: null,
+    otherFees: null,
+    grandTotal: 1000,
+    amountPaid: null,
+    balanceDue: null,
+  }), "INVOICE Total Amount Due ₱1,000.00");
+  assert.equal(quality.reconciliation.subtotal, "REVIEW");
+  assert.equal(quality.reconciliation.grandTotal, "REVIEW");
+  assert.doesNotMatch(quality.reasons.join(" "), /Grand total does not reconcile/);
 });
 
 test("candidate selection prefers the better deterministic result", () => {

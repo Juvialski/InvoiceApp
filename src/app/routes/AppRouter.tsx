@@ -376,6 +376,8 @@ export interface AppRouterProps {
   ) => Promise<void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
+  onDeactivateVendor?: (vendorId: string, reason: string) => Promise<void>;
+  onReactivateVendor?: (vendorId: string) => Promise<void>;
   purchaseOrderMatches?: PurchaseOrderInvoiceMatch[];
   onConfirmPurchaseOrderMatch?: (
     poId: string,
@@ -466,6 +468,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onRecordReceipt,
   onVoidReceipt,
   onAddVendor,
+  onDeactivateVendor,
+  onReactivateVendor,
   purchaseOrderMatches = [],
   onConfirmPurchaseOrderMatch,
   onUnmatchPurchaseOrderMatch,
@@ -646,6 +650,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         selectedInvoice={selectedInvoice}
         onNavigatePath={onNavigatePath}
         invoices={invoices}
+        vendors={vendors}
         projects={projects}
         invoiceProjectAllocations={invoiceProjectAllocations}
         preferredProjectId={uploadProjectContextId || undefined}
@@ -677,6 +682,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onConfirmPurchaseOrderMatch={onConfirmPurchaseOrderMatch}
         onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
         onOpenPurchaseOrder={onOpenPurchaseOrder}
+        onDeactivateVendor={onDeactivateVendor}
+        onReactivateVendor={onReactivateVendor}
       />
     );
   }
@@ -852,6 +859,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         activeSubTab={["extractor", "inbox", "review", "invoices", "vendors"].includes(routeTarget) ? (routeTarget as any) : activeTab}
         onNavigatePath={onNavigatePath}
         invoices={invoices}
+        vendors={vendors}
         projects={projects}
         costCodes={costCodes as ProjectCostCode[]}
         invoiceProjectAllocations={invoiceProjectAllocations}
@@ -880,6 +888,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onConfirmPurchaseOrderMatch={onConfirmPurchaseOrderMatch}
         onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
         onOpenPurchaseOrder={onOpenPurchaseOrder}
+        onDeactivateVendor={onDeactivateVendor}
+        onReactivateVendor={onReactivateVendor}
       />
     );
   }

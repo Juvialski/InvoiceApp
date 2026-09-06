@@ -4,6 +4,7 @@ export const MAX_GMAIL_ATTACHMENT_COUNT = 20;
 export const MAX_GMAIL_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 export const MAX_GMAIL_ATTACHMENT_TOTAL_BYTES = 25 * 1024 * 1024;
 export const MAX_PAYROLL_IMPORT_BYTES = 15 * 1024 * 1024;
+export const MAX_EXTRACTION_TEXT_CHARS = 200_000;
 
 const SAFE_STORAGE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
 const PDF = [0x25, 0x50, 0x44, 0x46, 0x2d];
@@ -36,6 +37,27 @@ function assertNonEmptyWithinLimit(bytes: Uint8Array, maxBytes: number, label: s
   if (bytes.byteLength > maxBytes) throw new Error(`${label} exceeds the ${Math.round(maxBytes / (1024 * 1024))} MB limit.`);
 }
 
+/** Decode a caller-provided base64 payload without Buffer's permissive parsing. */
+export function decodeBase64Payload(value: string, maxBytes: number, label = "Binary payload"): Uint8Array {
+  const normalized = String(value || "").replace(/\s+/g, "");
+  if (!normalized || normalized.length % 4 === 1 || !/^[A-Za-z0-9+/_-]*={0,2}$/.test(normalized)) {
+    throw new Error(`${label} is not valid base64.`);
+  }
+  if (estimateBase64DecodedBytes(normalized) > maxBytes) {
+    throw new Error(`${label} exceeds the ${Math.round(maxBytes / (1024 * 1024))} MB limit.`);
+  }
+  try {
+    const standard = normalized.replace(/-/g, "+").replace(/_/g, "/");
+    const binary = atob(standard);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    assertNonEmptyWithinLimit(bytes, maxBytes, label);
+    return bytes;
+  } catch {
+    throw new Error(`${label} is not valid base64.`);
+  }
+}
+
 export function safeStorageSegment(value: string, label = "Storage path segment") {
   const normalized = String(value || "").trim();
   if (!SAFE_STORAGE_SEGMENT.test(normalized) || normalized === "." || normalized === "..") {
@@ -55,6 +77,10 @@ export function validateInvoiceDocumentBytes(bytes: Uint8Array, mimeType: string
   assertNonEmptyWithinLimit(bytes, MAX_INVOICE_SOURCE_BYTES, "Invoice source");
   const mime = normalizedMime(mimeType);
   const ext = extension(fileName);
+  const leadingText = new TextDecoder("utf-8", { fatal: false }).decode(bytes.slice(0, Math.min(bytes.byteLength, 512))).trimStart().toLowerCase();
+  if (/^(?:<!doctype\s+html|<html(?:\s|>)|<svg(?:\s|>)|<\?xml|<script(?:\s|>))/.test(leadingText)) {
+    throw new Error("Active HTML, SVG, or XML content is not accepted as an invoice source.");
+  }
   const signature = startsWithBytes(bytes, PDF) ? "pdf"
     : startsWithBytes(bytes, JPEG) ? "jpeg"
       : startsWithBytes(bytes, PNG) ? "png"

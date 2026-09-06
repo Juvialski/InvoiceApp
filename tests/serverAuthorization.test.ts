@@ -23,6 +23,7 @@ test("company-specific AI and Gmail routes require a database permission check",
     ["/api/gmail/scan", "gmail.read"],
     ["/api/gmail/history", "gmail.read"],
     ["/api/gmail/import", "gmail.manage"],
+    ["/api/gmail/send", "documents.send"],
   ] as const) {
     const body = routeBody(path);
     assert.match(body, /authorizeCompanyRequest\(req, /);

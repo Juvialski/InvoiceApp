@@ -20,6 +20,7 @@ import { boundToolValue, toolOk } from "./toolResults.ts";
 import { isUuid, requireUuid, validateAssistantMessage } from "./toolValidation.ts";
 import { withCompanyAiRuntime } from "../ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../ai/companyAiTypes.ts";
+import { claimAiRequest, releaseAiRequest } from "../ai/aiRequestBudget.ts";
 import { BRAND } from "../../config/brand.ts";
 
 const ACTION_TTL_MS = 10 * 60 * 1000;
@@ -238,10 +239,15 @@ function sendError(res: Response, error: unknown, fallback = "The assistant requ
 
 async function handleAssistantRequest(req: Request, res: Response, options: AssistantHandlerOptions) {
   let threadId: string | undefined;
+  let budgetAuth: AssistantAuthContext | null = null;
+  let aiBudgetClaimed = false;
   try {
     const auth = await authenticateAssistantRequest(req, options);
+    budgetAuth = auth;
     const body = requestBody(req);
     const parsedRequest = parseAssistantRequest(body, auth.companyId);
+    await claimAiRequest(auth.supabase, auth.companyId, "ASSISTANT", { maxRequests: 30, maxConcurrency: 2 });
+    aiBudgetClaimed = true;
     const request = { ...parsedRequest, context: await hydrateWorkspaceContext(auth, parsedRequest.context) };
     const now = options.now ? options.now() : new Date();
     const thread = await loadThread(auth, request.threadId, request.context);
@@ -264,6 +270,8 @@ async function handleAssistantRequest(req: Request, res: Response, options: Assi
     return res.json(response);
   } catch (error) {
     return sendError(res, error, "The assistant request failed.", threadId);
+  } finally {
+    if (aiBudgetClaimed && budgetAuth) await releaseAiRequest(budgetAuth.supabase, budgetAuth.companyId, "ASSISTANT");
   }
 }
 

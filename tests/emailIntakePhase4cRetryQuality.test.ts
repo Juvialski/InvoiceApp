@@ -24,6 +24,7 @@ test("Phase 4C Retry Quality: Clean first extraction with GOOD status does NOT t
         description: "Industrial Generator Maintenance",
         quantity: 1,
         unitPrice: 50000,
+        discount: 0,
         total: 50000,
       },
     ],

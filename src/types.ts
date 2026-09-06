@@ -3,20 +3,20 @@ export interface LineItem {
   itemNumber?: number;
   sku?: string;
   description: string;
-  quantity: number;
+  quantity: number | null;
   unitOfMeasure?: string;
-  unitPrice: number;
-  discount?: number;
-  taxRate?: number;
-  taxAmount?: number;
+  unitPrice: number | null;
+  discount?: number | null;
+  taxRate?: number | null;
+  taxAmount?: number | null;
   taxTreatment?: "VATABLE" | "ZERO_RATED" | "VAT_EXEMPT" | "NON_VAT" | "UNKNOWN" | string;
-  total: number;
+  total: number | null;
 }
 
 export interface TaxBreakdown {
   name: string;
-  rate?: number;
-  amount: number;
+  rate?: number | null;
+  amount: number | null;
 }
 
 export interface PartyDetails {
@@ -75,20 +75,20 @@ export interface FinancialFxSnapshot {
 export interface PhilippineTaxDetails {
   invoiceKind?: "VAT_INVOICE" | "NON_VAT_INVOICE" | "UNKNOWN";
   sellerRegistration?: "VAT" | "NON_VAT" | "UNKNOWN";
-  vatableSales?: number;
-  vatAmount?: number;
-  zeroRatedSales?: number;
-  vatExemptSales?: number;
-  salesSubjectToPercentageTax?: number;
+  vatableSales?: number | null;
+  vatAmount?: number | null;
+  zeroRatedSales?: number | null;
+  vatExemptSales?: number | null;
+  salesSubjectToPercentageTax?: number | null;
   authorityToPrintNumber?: string;
   outboundCorrespondenceNumber?: string;
   permitToUseNumber?: string;
   approvedSerialFrom?: string;
   approvedSerialTo?: string;
   birPermitDetailsRaw?: string;
-  withholdingTaxRate?: number;
-  withholdingTaxAmount?: number;
-  netAmountPayable?: number;
+  withholdingTaxRate?: number | null;
+  withholdingTaxAmount?: number | null;
+  netAmountPayable?: number | null;
   vatInclusive?: boolean;
 }
 
@@ -237,18 +237,18 @@ export interface InvoiceData {
   shippingAddress?: PartyDetails;
   items: LineItem[];
 
-  subtotal: number;
-  totalDiscount?: number;
+  subtotal: number | null;
+  totalDiscount?: number | null;
   taxBreakdown?: TaxBreakdown[];
-  totalTax: number;
-  shippingFee?: number;
-  otherFees?: number;
-  grandTotal: number;
-  amountPaid?: number;
-  balanceDue?: number;
-  withholdingTaxRate?: number;
-  withholdingTaxAmount?: number;
-  netAmountPayable?: number;
+  totalTax: number | null;
+  shippingFee?: number | null;
+  otherFees?: number | null;
+  grandTotal: number | null;
+  amountPaid?: number | null;
+  balanceDue?: number | null;
+  withholdingTaxRate?: number | null;
+  withholdingTaxAmount?: number | null;
+  netAmountPayable?: number | null;
 
   philippineTaxDetails?: PhilippineTaxDetails;
   philippineInvoiceCompleteness?: PhilippineInvoiceCompleteness;
@@ -265,6 +265,8 @@ export interface InvoiceData {
   fieldConfidence?: FieldConfidence;
   extractionQuality?: ExtractionQuality;
   validation?: ValidationSummary;
+  /** Per-field source truth; UNKNOWN is never equivalent to numeric zero. */
+  financialFieldStatus?: Record<string, "KNOWN" | "CALCULATED" | "UNKNOWN">;
   rawJson?: string;
   verifiedAt?: string;
   archivedAt?: string;
@@ -372,6 +374,11 @@ export interface Vendor {
   address?: string | null;
   defaultCurrency?: string | null;
   defaultCategory?: string | null;
+  active?: boolean;
+  archivedAt?: string | null;
+  deactivatedAt?: string | null;
+  deactivatedByUserId?: string | null;
+  deactivationReason?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -551,6 +558,9 @@ export interface StoredSourceDocument {
   sha256: string;
   processingStatus?: string;
   documentType?: string;
+  backupRegistrationStatus?: "NOT_CONFIGURED" | "PENDING" | "REGISTERED" | "FAILED" | string;
+  backupRegistrationError?: string;
+  backupRegistrationAttemptedAt?: string;
   previewUrl?: string;
 }
 

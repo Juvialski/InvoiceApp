@@ -14,10 +14,9 @@ import {
 
 export { evaluateInvoiceDuplicateEvidence, findExistingInvoiceForSourcePayload };
 
-const PH_VAT_RATE = 0.12;
 const roundMoney = (value: number) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const nearlyEqual = (a: number, b: number, tolerance = 0.05) => Math.abs(roundMoney(a) - roundMoney(b)) <= tolerance;
-const presentNumber = (value: unknown) => value !== undefined && value !== null && Number.isFinite(Number(value));
+const presentNumber = (value: unknown) => value !== undefined && value !== null && !(typeof value === "string" && !value.trim()) && Number.isFinite(Number(value));
 const numberOrZero = (value: unknown) => Number.isFinite(Number(value)) ? Number(value) : 0;
 
 function hasPhilippineContext(invoice: InvoiceData) {
@@ -64,30 +63,31 @@ export function validatePhilippineVat(invoice: InvoiceData): {
   const issues: ValidationIssue[] = [];
   const hasVatableSales = presentNumber(details.vatableSales);
   const vatableSales = numberOrZero(details.vatableSales);
-  const documentVat = presentNumber(details.vatAmount) ? numberOrZero(details.vatAmount) : numberOrZero(invoice.totalTax);
-  let expectedVat: number | undefined;
-
-  if (hasVatableSales && presentNumber(details.vatAmount)) {
-    expectedVat = roundMoney(vatableSales * PH_VAT_RATE);
-    const difference = roundMoney(documentVat - expectedVat);
-    if (!nearlyEqual(expectedVat, documentVat)) {
-      issues.push({
-        id: "ph-vat-rate-mismatch",
-        severity: "warning",
-        field: "philippineTaxDetails.vatAmount",
-        message: "Philippine VAT does not reconcile to 12% of VATable Sales.",
-        expected: expectedVat,
-        actual: documentVat,
-      });
-      return {
-        issues,
-        result: { applicable: true, status: "REVIEW", expectedVat, documentVat, difference },
-      };
-    }
+  const documentVat = presentNumber(details.vatAmount)
+    ? numberOrZero(details.vatAmount)
+    : presentNumber(invoice.totalTax)
+      ? numberOrZero(invoice.totalTax)
+      : undefined;
+  // The VAT rate is intentionally not a product setting yet. Preserve the
+  // source VAT amount and continue only with arithmetic checks that do not
+  // require a legal/tax-rate assumption.
+  const hasVatAmount = presentNumber(details.vatAmount) || presentNumber(invoice.totalTax);
+  if (hasVatAmount) {
+    issues.push({
+      id: "ph-vat-rate-not-evaluated",
+      severity: "warning",
+      field: "philippineTaxDetails.vatAmount",
+      message: "VAT rate consistency was not evaluated because no authoritative VAT rate is configured.",
+    });
   }
 
-  const hasTaxBases = hasVatableSales || presentNumber(details.zeroRatedSales) || presentNumber(details.vatExemptSales);
-  if (hasTaxBases && Number(invoice.grandTotal) > 0) {
+  const hasZeroRatedSales = presentNumber(details.zeroRatedSales);
+  const hasVatExemptSales = presentNumber(details.vatExemptSales);
+  const hasKnownCharges = presentNumber(invoice.totalDiscount) && presentNumber(invoice.shippingFee) && presentNumber(invoice.otherFees);
+  const canReconcileTaxBases = presentNumber(invoice.grandTotal) && Number(invoice.grandTotal) > 0 && documentVat !== undefined
+    && hasZeroRatedSales && hasVatExemptSales && hasKnownCharges
+    && (details.vatInclusive ? presentNumber(invoice.subtotal) : hasVatableSales);
+  if (canReconcileTaxBases) {
     const zeroRated = numberOrZero(details.zeroRatedSales);
     const vatExempt = numberOrZero(details.vatExemptSales);
     const discount = numberOrZero(invoice.totalDiscount);
@@ -109,15 +109,12 @@ export function validatePhilippineVat(invoice: InvoiceData): {
     }
   }
 
-  const difference = expectedVat === undefined ? undefined : roundMoney(documentVat - expectedVat);
   return {
     issues,
     result: {
       applicable: true,
       status: issues.length ? "REVIEW" : "PASS",
-      expectedVat,
-      documentVat: presentNumber(details.vatAmount) ? documentVat : undefined,
-      difference,
+      documentVat: hasVatAmount ? documentVat : undefined,
     },
   };
 }
@@ -199,52 +196,69 @@ export function validateInvoice(invoice: InvoiceData): ValidationSummary {
   const documentType = String(invoice.documentType || "").toUpperCase();
   const subtype = String(invoice.invoiceSubtype || "").toUpperCase();
   const canBeNonItemized = ["RECEIPT", "STATEMENT", "SUPPLEMENTARY_DOCUMENT"].includes(documentType);
-  const invoiceLike = !canBeNonItemized && (documentType.includes("INVOICE") || subtype.includes("INVOICE") || Number(invoice.subtotal) > 0 || Number(invoice.grandTotal) > 0);
-  if (items.length === 0 && invoiceLike && (Number(invoice.subtotal) > 0 || Number(invoice.grandTotal) > 0)) {
+  const hasSubtotal = presentNumber(invoice.subtotal);
+  const hasGrandTotal = presentNumber(invoice.grandTotal);
+  const invoiceLike = !canBeNonItemized && (documentType.includes("INVOICE") || subtype.includes("INVOICE") || hasSubtotal || hasGrandTotal);
+  if (items.length === 0 && invoiceLike && (hasSubtotal || hasGrandTotal)) {
     issues.push({ id: "missing-line-items", severity: "warning", field: "items", message: "Invoice totals are present but no line items were extracted." });
   } else if (items.length === 0 && invoiceLike) {
     issues.push({ id: "no-line-items", severity: "warning", field: "items", message: "No line items were extracted." });
   }
-  if (items.length > 0 && Number(invoice.grandTotal) > 0 && items.every((item) => Number(item.quantity) === 0 && Number(item.unitPrice) === 0 && Number(item.total) === 0)) {
+  if (invoiceLike && !hasGrandTotal) {
+    issues.push({ id: "missing-grand-total", severity: "warning", field: "grandTotal", message: "Grand total is unresolved; it must be confirmed before authoritative verification." });
+  }
+  if (items.length > 0 && hasGrandTotal && Number(invoice.grandTotal) > 0 && items.every((item) => presentNumber(item.quantity) && presentNumber(item.unitPrice) && presentNumber(item.total) && item.quantity === 0 && item.unitPrice === 0 && item.total === 0)) {
     issues.push({ id: "zero-value-line-items", severity: "warning", field: "items", message: "Extracted line items contain no usable quantities, prices, or amounts." });
   }
 
   items.forEach((item, index) => {
-    const expected = roundMoney((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0) - (Number(item.discount) || 0));
-    if (!nearlyEqual(expected, Number(item.total) || 0)) {
+    const quantity = presentNumber(item.quantity) ? Number(item.quantity) : undefined;
+    const unitPrice = presentNumber(item.unitPrice) ? Number(item.unitPrice) : undefined;
+    const discount = presentNumber(item.discount) ? Number(item.discount) : undefined;
+    const total = presentNumber(item.total) ? Number(item.total) : undefined;
+    if (quantity === undefined) issues.push({ id: "missing-item-quantity-" + index, severity: "warning", field: "items." + index + ".quantity", message: "Line " + (index + 1) + " quantity is unresolved." });
+    if (unitPrice === undefined) issues.push({ id: "missing-item-unit-price-" + index, severity: "warning", field: "items." + index + ".unitPrice", message: "Line " + (index + 1) + " unit price is unresolved." });
+    if (total === undefined) issues.push({ id: "missing-item-total-" + index, severity: "warning", field: "items." + index + ".total", message: "Line " + (index + 1) + " amount is unresolved." });
+    const expected = quantity !== undefined && unitPrice !== undefined && discount !== undefined
+      ? roundMoney(quantity * unitPrice - discount)
+      : undefined;
+    if (expected !== undefined && total !== undefined && !nearlyEqual(expected, total)) {
       issues.push({
-        id: `item-total-${index}`,
+        id: "item-total-" + index,
         severity: "warning",
-        field: `items.${index}.total`,
-        message: `Line ${index + 1} total does not match quantity × unit price − discount.`,
+        field: "items." + index + ".total",
+        message: "Line " + (index + 1) + " total does not match quantity × unit price − discount.",
         expected,
-        actual: Number(item.total) || 0,
+        actual: total,
       });
     }
   });
 
-  const calculatedSubtotal = roundMoney(items.reduce((sum, item) => sum + (Number(item.total) || 0), 0));
-  if (items.length > 0 && !nearlyEqual(calculatedSubtotal, Number(invoice.subtotal) || 0)) {
+  const knownLineTotals = items.map((item) => presentNumber(item.total) ? Number(item.total) : undefined);
+  const calculatedSubtotal = items.length > 0 && knownLineTotals.every((value) => value !== undefined)
+    ? roundMoney(knownLineTotals.reduce((sum, value) => sum + (value || 0), 0))
+    : undefined;
+  if (items.length > 0 && calculatedSubtotal !== undefined && hasSubtotal && !nearlyEqual(calculatedSubtotal, Number(invoice.subtotal))) {
     issues.push({
       id: "subtotal-mismatch",
       severity: "warning",
       field: "subtotal",
       message: "Extracted subtotal does not match the sum of line items.",
       expected: calculatedSubtotal,
-      actual: Number(invoice.subtotal) || 0,
+      actual: Number(invoice.subtotal),
     });
   }
 
-  const baseSubtotal = Number(invoice.subtotal) || calculatedSubtotal;
-  const calculatedGrandTotal = roundMoney(
-    baseSubtotal -
-      (Number(invoice.totalDiscount) || 0) +
-      (Number(invoice.totalTax) || 0) +
-      (Number(invoice.shippingFee) || 0) +
-      (Number(invoice.otherFees) || 0)
-  );
+  const totalDiscount = presentNumber(invoice.totalDiscount) ? Number(invoice.totalDiscount) : undefined;
+  const totalTax = presentNumber(invoice.totalTax) ? Number(invoice.totalTax) : undefined;
+  const shippingFee = presentNumber(invoice.shippingFee) ? Number(invoice.shippingFee) : undefined;
+  const otherFees = presentNumber(invoice.otherFees) ? Number(invoice.otherFees) : undefined;
+  const baseSubtotal = hasSubtotal ? Number(invoice.subtotal) : calculatedSubtotal;
+  const calculatedGrandTotal = baseSubtotal !== undefined && totalDiscount !== undefined && totalTax !== undefined && shippingFee !== undefined && otherFees !== undefined
+    ? roundMoney(baseSubtotal - totalDiscount + totalTax + shippingFee + otherFees)
+    : undefined;
 
-  if (Number(invoice.grandTotal) > 0 && !nearlyEqual(calculatedGrandTotal, Number(invoice.grandTotal))) {
+  if (calculatedGrandTotal !== undefined && hasGrandTotal && !nearlyEqual(calculatedGrandTotal, Number(invoice.grandTotal))) {
     issues.push({
       id: "grand-total-mismatch",
       severity: "warning",
@@ -262,8 +276,9 @@ export function validateInvoice(invoice: InvoiceData): ValidationSummary {
     issues.push({ id: "ph-non-vat-tax-present", severity: "warning", field: "totalTax", message: "Non-VAT invoice shows a tax amount; confirm the source and classification." });
   }
 
-  const calculatedBalanceDue = roundMoney(Math.max(0, (Number(invoice.grandTotal) || calculatedGrandTotal) - (Number(invoice.amountPaid) || 0)));
-  if (invoice.balanceDue !== undefined && !nearlyEqual(calculatedBalanceDue, Number(invoice.balanceDue))) {
+  const amountPaid = presentNumber(invoice.amountPaid) ? Number(invoice.amountPaid) : undefined;
+  const calculatedBalanceDue = hasGrandTotal && amountPaid !== undefined ? roundMoney(Math.max(0, Number(invoice.grandTotal) - amountPaid)) : undefined;
+  if (calculatedBalanceDue !== undefined && presentNumber(invoice.balanceDue) && !nearlyEqual(calculatedBalanceDue, Number(invoice.balanceDue))) {
     issues.push({
       id: "balance-mismatch",
       severity: "warning",
@@ -322,7 +337,7 @@ export function applyLocalChecks(invoice: InvoiceData): InvoiceData {
   const taxDetails = normalizedInvoice.philippineTaxDetails;
   const withholdingTaxAmount = normalizedInvoice.withholdingTaxAmount ?? taxDetails?.withholdingTaxAmount;
   const netAmountPayable = normalizedInvoice.netAmountPayable ?? taxDetails?.netAmountPayable ?? (
-    withholdingTaxAmount !== undefined && Number.isFinite(Number(withholdingTaxAmount))
+    withholdingTaxAmount !== undefined && Number.isFinite(Number(withholdingTaxAmount)) && presentNumber(normalizedInvoice.grandTotal)
       ? roundMoney(numberOrZero(normalizedInvoice.grandTotal) - numberOrZero(withholdingTaxAmount))
       : undefined
   );
@@ -340,7 +355,9 @@ export function applyLocalChecks(invoice: InvoiceData): InvoiceData {
 export function totalsByCurrency(invoices: InvoiceData[], field: "grandTotal" | "balanceDue" = "grandTotal") {
   return invoices.reduce<Record<string, number>>((acc, invoice) => {
     const currency = (invoice.currency || "UNK").toUpperCase();
-    const value = field === "balanceDue" ? Number(invoice.balanceDue ?? invoice.grandTotal) || 0 : Number(invoice.grandTotal) || 0;
+    const rawValue = field === "balanceDue" ? invoice.balanceDue ?? invoice.grandTotal : invoice.grandTotal;
+    if (!currency || currency === "UNK" || !presentNumber(rawValue)) return acc;
+    const value = Number(rawValue);
     acc[currency] = roundMoney((acc[currency] || 0) + value);
     return acc;
   }, {});
@@ -349,8 +366,9 @@ export function totalsByCurrency(invoices: InvoiceData[], field: "grandTotal" | 
 export function totalVatByCurrency(invoices: InvoiceData[]) {
   return invoices.reduce<Record<string, number>>((acc, invoice) => {
     const currency = (invoice.currency || "UNK").toUpperCase();
-    const value = invoice.philippineTaxDetails?.vatAmount ?? invoice.totalTax ?? 0;
-    acc[currency] = roundMoney((acc[currency] || 0) + (Number(value) || 0));
+    const value = invoice.philippineTaxDetails?.vatAmount ?? invoice.totalTax;
+    if (!currency || currency === "UNK" || !presentNumber(value)) return acc;
+    acc[currency] = roundMoney((acc[currency] || 0) + Number(value));
     return acc;
   }, {});
 }

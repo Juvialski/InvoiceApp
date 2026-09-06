@@ -136,8 +136,8 @@ test("R3 primary navigation contains Expenses but no standalone invoice module",
 test("R3 Gmail sending requires explicit send endpoint, snapshot identity, and audited status", () => {
   const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
   assert.match(server, /app\.post\("\/api\/gmail\/send"/);
-  assert.match(server, /authorizeCompanyRequest\(req, "gmail\.manage"\)/);
+  assert.match(server, /authorizeCompanyRequest\(req, "documents\.send"\)/);
   assert.match(server, /issued_document_snapshots/);
-  assert.match(server, /document_send_audits/);
+  assert.match(server, /record_document_send_audit/);
   assert.match(server, /status: "FAILED"/);
 });

@@ -5,6 +5,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 import {
   type BackupReplicaRecord,
   type RegisterBackupInput,
@@ -92,23 +93,49 @@ export class BackupService {
    * Idempotency invariant: Destination-aware lookup matches existing active manifest for the specific target bucket.
    */
   async registerBackupIntent(input: RegisterBackupInput): Promise<BackupReplicaRecord | null> {
-    try {
-      if (!input.companyId || !UUID_PATTERN.test(input.companyId)) {
-        throw new StorageError(`Invalid company context for backup registration: "${input.companyId}"`);
-      }
-      if (!isCompanyScopedPath(input.sourceKey, input.companyId)) {
-        throw new StorageError(`Backup source key "${input.sourceKey}" violates company boundary for "${input.companyId}".`);
-      }
-      if (!input.sha256 || !SHA256_HEX_REGEX.test(input.sha256)) {
-        throw new StorageError(`Invalid SHA-256 hash for backup registration: "${input.sha256}"`);
-      }
-
-      const client = this.getPrivilegedSupabase();
-      const domain: BackupDocumentDomain = input.documentDomain || "INVOICES";
-      const replicaKey = input.replicaKey || input.sourceKey;
-
-      // 1. Destination-aware idempotency lookup
-      const { data: existingRows } = await client
+    if (!input.companyId || !UUID_PATTERN.test(input.companyId)) {
+      throw new StorageError("Invalid company context for backup registration: " + input.companyId, "BACKUP_REGISTRATION_INVALID", 400);
+    }
+    if (!isCompanyScopedPath(input.sourceKey, input.companyId)) {
+      throw new StorageError("Backup source key violates the company boundary.", "BACKUP_REGISTRATION_INVALID", 400);
+    }
+    if (!input.sha256 || !SHA256_HEX_REGEX.test(input.sha256)) {
+      throw new StorageError("Invalid SHA-256 hash for backup registration.", "BACKUP_REGISTRATION_INVALID", 400);
+    }
+    const client = this.getPrivilegedSupabase();
+    const domain: BackupDocumentDomain = input.documentDomain || "INVOICES";
+    const replicaKey = input.replicaKey || input.sourceKey;
+    const lookup = client
+      .from("document_backup_replicas")
+      .select("*")
+      .eq("company_id", input.companyId)
+      .eq("source_provider", input.sourceProvider)
+      .eq("source_bucket", input.sourceBucket)
+      .eq("source_key", input.sourceKey)
+      .eq("source_sha256", input.sha256.toLowerCase())
+      .eq("replica_provider", input.replicaProvider)
+      .eq("replica_bucket", input.replicaBucket)
+      .eq("replica_key", replicaKey)
+      .neq("replication_state", "FAILED")
+      .limit(1);
+    const { data: existingRows, error: existingError } = await lookup;
+    if (existingError) throw new StorageError("Failed to check the backup manifest safely.", "BACKUP_REGISTRATION_FAILED", 503);
+    if (existingRows && existingRows.length > 0) return rowToBackupRecord(existingRows[0]);
+    const pendingRecord = createPendingBackupRecord(input);
+    const { data, error } = await client
+      .from("document_backup_replicas")
+      .insert({
+        company_id: pendingRecord.companyId, document_domain: domain, document_id: pendingRecord.documentId,
+        source_provider: pendingRecord.sourceProvider, source_bucket: pendingRecord.sourceBucket, source_key: pendingRecord.sourceKey,
+        source_sha256: pendingRecord.sha256, source_size_bytes: pendingRecord.sizeBytes, replica_provider: pendingRecord.replicaProvider,
+        replica_bucket: pendingRecord.replicaBucket, replica_key: pendingRecord.replicaKey, replication_state: "PENDING",
+        verification_status: "UNVERIFIED", attempts: 0, max_attempts: pendingRecord.maxAttempts,
+      })
+      .select("*")
+      .single();
+    if (error) {
+      if (String(error.code || "") !== "23505") throw new StorageError("Backup manifest registration failed.", "BACKUP_REGISTRATION_FAILED", 503);
+      const { data: raceRows, error: raceError } = await client
         .from("document_backup_replicas")
         .select("*")
         .eq("company_id", input.companyId)
@@ -121,65 +148,13 @@ export class BackupService {
         .eq("replica_key", replicaKey)
         .neq("replication_state", "FAILED")
         .limit(1);
-
-      if (existingRows && existingRows.length > 0) {
-        return rowToBackupRecord(existingRows[0]);
-      }
-
-      const pendingRecord = createPendingBackupRecord(input);
-
-      const { data, error } = await client
-        .from("document_backup_replicas")
-        .insert({
-          company_id: pendingRecord.companyId,
-          document_domain: domain,
-          document_id: pendingRecord.documentId,
-          source_provider: pendingRecord.sourceProvider,
-          source_bucket: pendingRecord.sourceBucket,
-          source_key: pendingRecord.sourceKey,
-          source_sha256: pendingRecord.sha256,
-          source_size_bytes: pendingRecord.sizeBytes,
-          replica_provider: pendingRecord.replicaProvider,
-          replica_bucket: pendingRecord.replicaBucket,
-          replica_key: pendingRecord.replicaKey,
-          replication_state: "PENDING",
-          verification_status: "UNVERIFIED",
-          attempts: 0,
-          max_attempts: pendingRecord.maxAttempts,
-        })
-        .select("*")
-        .single();
-
-      if (error) {
-        // Fallback: in case of concurrent insert race condition, query existing
-        const { data: raceRows } = await client
-          .from("document_backup_replicas")
-          .select("*")
-          .eq("company_id", input.companyId)
-          .eq("source_key", input.sourceKey)
-          .eq("replica_bucket", input.replicaBucket)
-          .limit(1);
-
-        if (raceRows && raceRows[0]) {
-          return rowToBackupRecord(raceRows[0]);
-        }
-
-        assertBackupFailureIsolation(true, error);
-        return null;
-      }
-
-      const registered = rowToBackupRecord(data);
-
-      // Trigger background replication asynchronously
-      this.replicateSingleManifestAsync(registered).catch((err) => {
-        assertBackupFailureIsolation(true, err);
-      });
-
-      return registered;
-    } catch (err) {
-      assertBackupFailureIsolation(true, err);
-      return null;
+      if (raceError) throw new StorageError("Backup manifest registration raced and the canonical row could not be loaded.", "BACKUP_REGISTRATION_FAILED", 503);
+      if (raceRows && raceRows[0]) return rowToBackupRecord(raceRows[0]);
+      throw new StorageError("Backup manifest registration failed without a recoverable uniqueness race.", "BACKUP_REGISTRATION_FAILED", 503);
     }
+    const registered = rowToBackupRecord(data);
+    this.replicateSingleManifestAsync(registered).catch((err) => { assertBackupFailureIsolation(true, err); });
+    return registered;
   }
 
   /**
@@ -438,7 +413,7 @@ export class BackupService {
    * Invariant 2: Missing NODE_ENV fails closed unless explicit STORAGE_RESTORE_DRILLS_ENABLED === 'true'.
    * Invariant 3: Uses configured primary restore test bucket, never defaulting to B2 replica bucket.
    */
-  async runRestoreDrill(companyId: string, manifestId: string, testTargetKey: string): Promise<{
+  async runRestoreDrill(companyId: string, manifestId: string, _requestedTargetKey?: string): Promise<{
     success: boolean;
     restoredSha256: string;
     sizeBytes: number;
@@ -456,13 +431,6 @@ export class BackupService {
       );
     }
 
-    if (!testTargetKey.includes("/restore/") && !testTargetKey.includes("/test/")) {
-      throw new StorageError(
-        `Restore verification target key "${testTargetKey}" must contain "/restore/" or "/test/" to protect production.`,
-        "INVALID_RESTORE_TARGET",
-        400,
-      );
-    }
 
     const client = this.getSupabase();
     const { data: row, error } = await client
@@ -493,6 +461,7 @@ export class BackupService {
     const restoreTargetProvider = this.getPrimaryProvider(process.env, () => client);
     const primaryDesc = getPrimaryStorageDescriptor(process.env);
     const restoreTargetBucket = process.env.STORAGE_RESTORE_TARGET_BUCKET || primaryDesc.bucket;
+    const testTargetKey = "companies/" + companyId + "/restore/test/" + manifestId + "/" + randomUUID() + ".bin";
 
     return await executeRestoreVerification({
       manifest,

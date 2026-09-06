@@ -4,6 +4,7 @@ import { CompanyAccessProvider } from './context/CompanyAccessContext.tsx';
 import { BRAND } from './config/brand.ts';
 import { EngoryxThemeProvider } from './ui/EngoryxThemeProvider.tsx';
 import { applicationModeForPath } from './app/applicationMode.ts';
+import './lib/emailIntakeInitialSessionGuard.ts';
 import './index.css';
 
 const ProductionApp = lazy(() => import('./App.tsx'));
