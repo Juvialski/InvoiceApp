@@ -219,8 +219,8 @@ export function validateInvoice(invoice: InvoiceData): ValidationSummary {
     if (quantity === undefined) issues.push({ id: "missing-item-quantity-" + index, severity: "warning", field: "items." + index + ".quantity", message: "Line " + (index + 1) + " quantity is unresolved." });
     if (unitPrice === undefined) issues.push({ id: "missing-item-unit-price-" + index, severity: "warning", field: "items." + index + ".unitPrice", message: "Line " + (index + 1) + " unit price is unresolved." });
     if (total === undefined) issues.push({ id: "missing-item-total-" + index, severity: "warning", field: "items." + index + ".total", message: "Line " + (index + 1) + " amount is unresolved." });
-    const expected = quantity !== undefined && unitPrice !== undefined && (discount === undefined || presentNumber(item.discount))
-      ? roundMoney(quantity * unitPrice - (discount || 0))
+    const expected = quantity !== undefined && unitPrice !== undefined && discount !== undefined
+      ? roundMoney(quantity * unitPrice - discount)
       : undefined;
     if (expected !== undefined && total !== undefined && !nearlyEqual(expected, total)) {
       issues.push({
