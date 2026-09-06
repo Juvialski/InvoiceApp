@@ -14,9 +14,9 @@ function candidate(overrides: Partial<InvoiceData> = {}): Partial<InvoiceData> {
     vendor: { name: "ConcreteGrid Materials Trading", taxRegistration: "VAT" },
     customer: { name: "SouthBridge Engineering and Construction" },
     items: [
-      { id: "1", sku: "CEM-40", description: "Portland Cement 40kg", quantity: 300, unitOfMeasure: "bags", unitPrice: 275, total: 82500 },
-      { id: "2", sku: "SAND-W", description: "Washed Sand", quantity: 18, unitOfMeasure: "cu.m.", unitPrice: 1450, total: 26100 },
-      { id: "3", sku: "GRV-34", description: "3/4 Gravel", quantity: 20, unitOfMeasure: "cu.m.", unitPrice: 1650, total: 33000 },
+      { id: "1", sku: "CEM-40", description: "Portland Cement 40kg", quantity: 300, unitOfMeasure: "bags", unitPrice: 275, discount: 0, total: 82500 },
+      { id: "2", sku: "SAND-W", description: "Washed Sand", quantity: 18, unitOfMeasure: "cu.m.", unitPrice: 1450, discount: 0, total: 26100 },
+      { id: "3", sku: "GRV-34", description: "3/4 Gravel", quantity: 20, unitOfMeasure: "cu.m.", unitPrice: 1650, discount: 0, total: 33000 },
     ],
     subtotal: 141600,
     totalDiscount: 0,
