@@ -29,6 +29,7 @@ import { applyLocalClientBillingTransition, buildLocalClientBilling, type Client
 import { buildLocalClientCollection, clientCollectionTotal, type ClientCollectionAllocationInput, type ClientCollectionInput } from "../lib/clientCollections.ts";
 import { buildLocalProjectEquipment, buildLocalProjectMaterial, type ProjectEquipmentSaveInput, type ProjectMaterialSaveInput } from "../lib/materialsEquipment.ts";
 import { createLocalExpense } from "../lib/expenses.ts";
+import { createLocalFinancialFxSnapshot, type FinancialFxSnapshotInput } from "../lib/financialFx.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -349,28 +350,42 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     dispatch({ type: "PAYROLL_LIFECYCLE", request });
   };
 
-  const verifySelected = async () => {
-    if (!selectedInvoice) return false;
-    const existingExpense = data.expenses.find((expense) => expense.supplierInvoiceId === selectedInvoice.id && expense.status !== "VOID");
-    const allocation = data.invoiceAllocations.filter((item) => item.invoiceId === selectedInvoice.id);
+  const verifyInvoice = async (invoice: InvoiceData) => {
+    const existingExpense = data.expenses.find((expense) => expense.supplierInvoiceId === invoice.id && expense.status !== "VOID");
+    const allocation = data.invoiceAllocations.filter((item) => item.invoiceId === invoice.id);
     const projectId = allocation.length === 1 ? allocation[0]?.projectId : undefined;
     const linkedExpense = existingExpense || createLocalExpense({
       projectId,
       projectCostCodeId: allocation.length === 1 ? allocation[0]?.projectCostCodeId : undefined,
-      expenseDate: selectedInvoice.invoiceDate || data.anchorDate,
-      category: selectedInvoice.category || "Miscellaneous",
-      description: selectedInvoice.invoiceNumber ? `Supplier invoice ${selectedInvoice.invoiceNumber}` : "Supplier invoice expense",
-      payee: selectedInvoice.vendor?.name || "Supplier",
-      supplierInvoiceId: selectedInvoice.id,
-      vendorId: selectedInvoice.vendor?.vendorId,
-      amount: Math.max(0, selectedInvoice.grandTotal || 0),
-      currency: selectedInvoice.currency || "PHP",
-      referenceNumber: selectedInvoice.invoiceNumber || undefined,
+      expenseDate: invoice.invoiceDate || data.anchorDate,
+      category: invoice.category || "Miscellaneous",
+      description: invoice.invoiceNumber ? `Supplier invoice ${invoice.invoiceNumber}` : "Supplier invoice expense",
+      payee: invoice.vendor?.name || "Supplier",
+      supplierInvoiceId: invoice.id,
+      vendorId: invoice.vendor?.vendorId,
+      amount: Math.max(0, invoice.grandTotal || 0),
+      currency: invoice.currency || "PHP",
+      referenceNumber: invoice.invoiceNumber || undefined,
       status: "DRAFT",
     });
     if (!existingExpense) dispatch({ type: "SAVE_EXPENSE", value: linkedExpense });
-    dispatch({ type: "SAVE_INVOICE", value: { ...selectedInvoice, linkedExpenseId: linkedExpense.id, reviewStatus: "VERIFIED", status: selectedInvoice.status === "PENDING" || selectedInvoice.status === "DRAFT" ? "APPROVED" : selectedInvoice.status, verifiedAt: `${data.anchorDate}T13:30:00+08:00` } });
+    const updated = { ...invoice, linkedExpenseId: linkedExpense.id, reviewStatus: "VERIFIED" as const, status: invoice.status === "PENDING" || invoice.status === "DRAFT" ? "APPROVED" : invoice.status, verifiedAt: `${data.anchorDate}T13:30:00+08:00` };
+    dispatch({ type: "SAVE_INVOICE", value: updated });
+    return updated;
+  };
+
+  const verifySelected = async () => {
+    if (!selectedInvoice) return false;
+    await verifyInvoice(selectedInvoice);
     return true;
+  };
+
+  const saveFinancialFxSnapshot = async (input: FinancialFxSnapshotInput) => {
+    const existing = data.financialFxSnapshots.find((snapshot) => snapshot.sourceType === input.sourceType && snapshot.sourceId === input.sourceId);
+    if (existing) return existing;
+    const snapshot = createLocalFinancialFxSnapshot(input, demoTimestamp(data.anchorDate, 11, 45));
+    dispatch({ type: "SAVE_FINANCIAL_FX_SNAPSHOT", value: snapshot });
+    return snapshot;
   };
 
   const extractDemoInvoice = async () => {
@@ -533,6 +548,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onSavePayrollEntry={(entry: PayrollEntry) => dispatch({ type: "SAVE_PAYROLL_ENTRY", value: entry })}
             onUpdatePayrollRun={(run: PayrollRun) => dispatch({ type: "UPDATE_PAYROLL_RUN", value: run })}
             expenses={data.expenses}
+            financialFxSnapshots={data.financialFxSnapshots}
+            baseCurrency={data.company.currency}
+            onSaveFinancialFxSnapshot={saveFinancialFxSnapshot}
+            onVerifySupplierInvoice={verifyInvoice}
             onSaveExpense={(expense: Expense) => dispatch({ type: "SAVE_EXPENSE", value: expense })}
             expenseCorrectionContext={expenseCorrectionContext}
             onPreviewExpenseCorrection={previewExpenseCorrection}

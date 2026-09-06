@@ -1,6 +1,7 @@
 import type { ClientBilling } from "./clientBilling.ts";
 import type { CompanyDocumentProfile } from "./companyDocumentProfile.ts";
 import type { Project, PurchaseOrder, Vendor } from "../types.ts";
+import { projectTaxTreatmentLabel } from "../utils/projectTaxTreatment.ts";
 
 export interface DocumentCompanySnapshot {
   legalName: string;
@@ -74,6 +75,7 @@ export interface ClientInvoiceDocumentSnapshot {
   dueDate?: string | null;
   paymentTerms?: string | null;
   currency: string;
+  taxTreatment?: string;
   company: DocumentCompanySnapshot;
   project: {
     id?: string;
@@ -229,6 +231,7 @@ export function buildClientInvoiceDocumentSnapshot(
     dueDate: billing.dueDate,
     paymentTerms: billing.paymentTerms,
     currency: currency(billing.currency),
+    taxTreatment: projectTaxTreatmentLabel(billing.taxTreatment || project?.taxTreatment),
     company: companySnapshot(profile),
     project: {
       id: project?.id,
@@ -540,7 +543,7 @@ function drawClientPage(snapshot: ClientInvoiceDocumentSnapshot, rows: DocumentL
   if (!continuation) {
     page.text(`Invoice date: ${formatDate(snapshot.invoiceDate)}`, 72, 194, 9, true);
     page.text(`Due date: ${formatDate(snapshot.dueDate)}`, 72, 212, 9, false);
-    page.text(`Project: ${snapshot.project.projectCode || ""} ${snapshot.project.projectName || ""}`, 72, 230, 9, false);
+    page.text(`Project: ${snapshot.project.projectCode || ""} ${snapshot.project.projectName || ""} · Tax: ${snapshot.taxTreatment || "Unclassified"}`, 72, 230, 9, false);
     page.text("Bill To", 72, 258, 10, true);
     page.text(snapshot.billTo.name || "", 72, 275, 9, true);
     page.text(snapshot.billTo.contactName || "", 72, 291, 8.5, false);

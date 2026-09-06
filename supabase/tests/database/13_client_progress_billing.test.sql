@@ -71,10 +71,10 @@ values
 insert into public.deployment_configuration (singleton, company_id)
 values (true, (select company_a from client_billing_ids));
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, status, contract_value, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, status, contract_value, project_budget, currency, tax_treatment)
 values
-  ((select project_a from client_billing_ids), (select admin_user from client_billing_ids), (select company_a from client_billing_ids), 'CB-A', 'Client Billing Project', 'Client A', 'CLIENT-A-001', 'ACTIVE', 1000, 700, 'PHP'),
-  ((select project_b from client_billing_ids), (select outsider_user from client_billing_ids), (select company_b from client_billing_ids), 'CB-B', 'Other Company Project', 'Client B', 'CLIENT-B-001', 'ACTIVE', 1000, 700, 'USD');
+  ((select project_a from client_billing_ids), (select admin_user from client_billing_ids), (select company_a from client_billing_ids), 'CB-A', 'Client Billing Project', 'Client A', 'CLIENT-A-001', 'ACTIVE', 1000, 700, 'PHP', 'VAT'),
+  ((select project_b from client_billing_ids), (select outsider_user from client_billing_ids), (select company_b from client_billing_ids), 'CB-B', 'Other Company Project', 'Client B', 'CLIENT-B-001', 'ACTIVE', 1000, 700, 'USD', 'VAT');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from client_billing_ids), true);

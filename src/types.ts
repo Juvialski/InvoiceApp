@@ -49,6 +49,28 @@ export type InvoiceLifecycleStatus = "ACTIVE" | "VOID";
 export type DuplicateStatus = "UNIQUE" | "POSSIBLE_DUPLICATE";
 export type DocumentType = "INVOICE" | "CREDIT_NOTE" | "RECEIPT" | "STATEMENT" | "PURCHASE_ORDER" | "SUPPLEMENTARY_DOCUMENT" | "UNKNOWN" | "OTHER";
 export type InvoiceSubtype = "VAT_INVOICE" | "NON_VAT_INVOICE" | "SERVICE_INVOICE" | "SALES_INVOICE" | "COMMERCIAL_INVOICE" | "CASH_INVOICE" | "CHARGE_INVOICE" | "CREDIT_INVOICE" | "UNKNOWN" | string;
+export type ProjectTaxTreatment = "VAT" | "NON_VAT" | "UNCLASSIFIED";
+export type FinancialFxSourceType = "EXPENSE" | "SUPPLIER_INVOICE" | "CLIENT_BILLING";
+export type FinancialFxRateSource = "MANUAL" | "CONFIGURED" | "BASE_CURRENCY";
+
+/** Immutable transaction-level conversion evidence for PHP/base reporting. */
+export interface FinancialFxSnapshot {
+  id: string;
+  companyId?: string;
+  sourceType: FinancialFxSourceType;
+  sourceId: string;
+  sourceAmount: number;
+  sourceCurrency: string;
+  baseCurrency: string;
+  rate: number;
+  rateDate: string;
+  rateSource: FinancialFxRateSource;
+  note?: string;
+  enteredByUserId?: string;
+  confirmedAt: string;
+  createdAt: string;
+  baseAmount: number;
+}
 
 export interface PhilippineTaxDetails {
   invoiceKind?: "VAT_INVOICE" | "NON_VAT_INVOICE" | "UNKNOWN";
@@ -569,6 +591,8 @@ export interface Project {
   contractValue?: number;
   projectBudget: number;
   currency: string;
+  /** Explicit project billing classification; legacy rows are UNCLASSIFIED until confirmed. */
+  taxTreatment?: ProjectTaxTreatment;
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -606,6 +630,8 @@ export interface ClientBilling {
   billingEmail?: string;
   billingAddress?: string;
   currency: string;
+  /** Inherited from the project for drafts and snapshotted at issuance. */
+  taxTreatment?: ProjectTaxTreatment;
   status: ClientBillingStatus;
   notes?: string;
   lines: ClientBillingLine[];

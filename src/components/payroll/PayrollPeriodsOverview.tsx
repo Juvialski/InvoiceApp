@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import type { PayrollEntry, PayrollPeriod, PayrollRun } from "../../types";
 import type { PayrollImportBatch } from "../../lib/payrollImportPersistence";
 import type { PayrollSchedule } from "../../lib/payrollSchedule";
@@ -62,7 +62,9 @@ const PeriodCard: React.FC<{
 };
 
 export const PayrollPeriodsOverview: React.FC<PayrollPeriodsOverviewProps> = ({ periods, runs, entries, importBatches, automaticDrafts, automaticDraft, selectedPeriodId, frequencyLabel, schedules, today, onSelectPeriod, onOpenOverview }) => {
-  const eligible = periods.filter((period) => period.status !== "VOID").slice().sort((left, right) => right.periodStart.localeCompare(left.periodStart));
+  const [includeVoided, setIncludeVoided] = useState(false);
+  const eligible = useMemo(() => periods.filter((period) => period.status !== "VOID").slice().sort((left, right) => right.periodStart.localeCompare(left.periodStart)), [periods]);
+  const voided = useMemo(() => periods.filter((period) => period.status === "VOID").slice().sort((left, right) => right.periodStart.localeCompare(left.periodStart)), [periods]);
   const current = selectActualPayrollPeriod(eligible, today);
   const next = selectNearestUpcomingPayrollPeriod(eligible, today);
   const upcoming = eligible.filter((period) => period.periodStart > today).sort((left, right) => left.periodStart.localeCompare(right.periodStart)).slice(0, 6);
@@ -70,13 +72,15 @@ export const PayrollPeriodsOverview: React.FC<PayrollPeriodsOverviewProps> = ({ 
   const shown = new Set<string>();
   const sections = [{ label: "Current", rows: current ? [current] : [] }, { label: "Upcoming", rows: upcoming }, { label: "Recent", rows: recent }];
   return <div className="space-y-5" aria-label="Payroll periods">
+    {voided.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5"><p className="text-xs font-bold text-slate-700">Voided history ({voided.length})</p><button type="button" aria-pressed={includeVoided} onClick={() => setIncludeVoided((value) => !value)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-700">{includeVoided ? "Hide voided" : "Include voided"}</button></div>}
     {!current && <div role="status" className="rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs text-sky-950"><p className="font-black">No active period today</p><p className="mt-1">{next ? <>Next: <strong>{formatPayrollPeriodLabel(next, frequency(schedules ? payrollPeriodFrequencyLabel(next, schedules) : frequencyLabel))}</strong>.</> : "There is no upcoming payroll period in the current calendar."}</p></div>}
     {sections.map((section) => {
       const rows = section.rows.filter((period) => !shown.has(period.id) && (shown.add(period.id), true));
       if (!rows.length) return null;
       return <section key={section.label}><div className="mb-2 flex items-center gap-2"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{section.label}</p><span className="h-px flex-1 bg-slate-100" /></div><div className="grid gap-3 lg:grid-cols-2">{rows.map((period) => <PeriodCard key={period.id} period={period} periods={periods} runs={runs} entries={entries} importBatches={importBatches} automaticDrafts={automaticDrafts} automaticDraft={automaticDraft} frequencyLabel={frequencyLabel} schedules={schedules} today={today} selected={period.id === selectedPeriodId} onSelectPeriod={onSelectPeriod} onOpenOverview={onOpenOverview} />)}</div></section>;
     })}
-    {!eligible.length && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-xs text-slate-500">No payroll periods yet. Generated or imported periods will appear here.</div>}
+    {!eligible.length && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-xs text-slate-500"><p className="font-bold text-slate-700">No active payroll periods yet.</p><p className="mt-1">{voided.length ? `${voided.length} voided historical period${voided.length === 1 ? " remains" : "s remain"}. Include voided to inspect the audit history.` : "Generated or imported periods will appear here."}</p></div>}
+    {includeVoided && voided.length > 0 && <section aria-label="Voided payroll periods"><div className="mb-2 flex items-center gap-2"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Voided history</p><span className="h-px flex-1 bg-slate-100" /></div><div className="grid gap-3 lg:grid-cols-2">{voided.map((period) => <PeriodCard key={period.id} period={period} periods={periods} runs={runs} entries={entries} importBatches={importBatches} automaticDrafts={automaticDrafts} automaticDraft={automaticDraft} frequencyLabel={frequencyLabel} schedules={schedules} today={today} selected={period.id === selectedPeriodId} onSelectPeriod={onSelectPeriod} onOpenOverview={onOpenOverview} />)}</div></section>}
   </div>;
 };
 

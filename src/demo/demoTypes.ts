@@ -3,7 +3,7 @@ import type { EngineeringCoordinationWorkspaceData } from "../lib/engineeringCoo
 import type { EngineeringDailySiteLogsWorkspaceData } from "../lib/dailySiteLogs.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../lib/engineeringDocuments.ts";
 import type { PayrollWorkspaceData } from "../lib/payroll.ts";
-import type { Expense, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, ProjectEquipment, ProjectMaterial, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, Subcontract, SubcontractProgressClaim, SubcontractVariation, SupplierQuotation, Vendor } from "../types.ts";
+import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, ProjectEquipment, ProjectMaterial, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, Subcontract, SubcontractProgressClaim, SubcontractVariation, SupplierQuotation, Vendor } from "../types.ts";
 import type { ClientBilling, ClientBillingEvent } from "../lib/clientBilling.ts";
 import type { ClientCollection, ClientCollectionEvent } from "../lib/clientCollections.ts";
 
@@ -38,6 +38,7 @@ export interface DemoWorkspaceData {
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
+  financialFxSnapshots: FinancialFxSnapshot[];
   cash: CashBankingWorkspaceData;
   payroll: PayrollWorkspaceData;
   engineering: EngineeringDocumentsWorkspaceData;

@@ -23,9 +23,11 @@ import type {
   SubcontractVariation,
   SubcontractVariationLine,
   SubcontractVariationStatus,
+  FinancialFxSnapshot,
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 import { supplierExpenseAmountForProject, supplierExpenseCostOwnership } from "./supplierInvoiceCostOwnership.ts";
+import { convertFinancialAmount } from "./financialCurrency.ts";
 
 export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid" | "lifecycleStatus" | "archivedAt" | "sourceDocumentId" | "linkedExpenseId"> {
   allocations?: InvoiceProjectAllocation[];
@@ -61,6 +63,8 @@ export interface ProjectCostInput {
   laborSource?: ProjectLaborSource;
   /** Used for the company/unallocated bucket, where there is no project currency. */
   baseCurrency?: string;
+  /** Immutable transaction-level conversions used only when the target currency matches the snapshot base. */
+  fxSnapshots?: readonly FinancialFxSnapshot[];
 }
 
 export interface ProjectCostSummaryWithCurrency extends ProjectCostSummary {
@@ -241,6 +245,19 @@ export function isVoidedPayroll(status: string) {
 
 export function isConfirmedExpense(status: ExpenseStatus) {
   return status === "APPROVED" || status === "PAID";
+}
+
+/**
+ * A verified legacy supplier invoice already carried confirmed-cost meaning
+ * before R3 linked it to the authoritative Expense. Preserve that meaning
+ * while the R3-created Expense is still DRAFT; ordinary direct DRAFT expenses
+ * remain pending until their own lifecycle is confirmed.
+ */
+export function isConfirmedSupplierExpense(
+  expense: Pick<Expense, "status">,
+  linkedInvoice?: Pick<CostInvoice, "reviewStatus" | "lifecycleStatus">,
+) {
+  return isConfirmedExpense(expense.status) || Boolean(linkedInvoice && isConfirmedInvoice(linkedInvoice));
 }
 
 export function isCommittedPurchaseOrder(statusOrPO?: PurchaseOrderStatus | string | { status?: PurchaseOrderStatus | string | null } | null): boolean {
@@ -514,6 +531,24 @@ export function calculateProjectCost(
     summary.foreignCosts[code] = roundMoney((summary.foreignCosts[code] || 0) + value);
   };
 
+  const amountInTargetCurrency = (
+    amount: number,
+    sourceCurrency: string,
+    sourceType: "EXPENSE" | "SUPPLIER_INVOICE",
+    sourceId: string,
+    fallback?: { sourceType: "SUPPLIER_INVOICE"; sourceId: string; sourceCurrency: string },
+  ) => {
+    const value = positiveMoney(amount);
+    if (!value) return 0;
+    const converted = convertFinancialAmount(value, sourceCurrency, baseCurrency, sourceType, sourceId, input.fxSnapshots)
+      ?? (fallback ? convertFinancialAmount(value, fallback.sourceCurrency, baseCurrency, fallback.sourceType, fallback.sourceId, input.fxSnapshots) : undefined);
+    if (converted === undefined) {
+      addForeign(normalizeCurrency(sourceCurrency), value);
+      return undefined;
+    }
+    return converted;
+  };
+
   for (const invoice of input.invoices || []) {
     if (isVoidedInvoice(invoice)) continue;
     if (supplierOwnership.byInvoiceId.has(invoice.id)) continue;
@@ -527,37 +562,38 @@ export function calculateProjectCost(
 
     if (projectId) {
       if (!allocationAmount) continue;
-      if (invoiceCurrency !== baseCurrency) {
-        addForeign(invoiceCurrency, allocationAmount);
-        continue;
-      }
+      const costAmount = amountInTargetCurrency(allocationAmount, invoiceCurrency, "SUPPLIER_INVOICE", invoice.id);
+      if (costAmount === undefined) continue;
       if (!isConfirmedInvoice(invoice)) {
-        summary.pendingInvoiceCost = roundMoney(summary.pendingInvoiceCost + allocationAmount);
+        summary.pendingInvoiceCost = roundMoney(summary.pendingInvoiceCost + costAmount);
         continue;
       }
       const paidAmount = invoicePaidAllocationAmounts(invoice).get(projectId) || 0;
       const payableAmount = invoiceAllocationPayableAmount(invoice, allocationAmount, paidAmount);
-      summary.invoiceCost = roundMoney(summary.invoiceCost + allocationAmount);
-      summary.paidInvoiceCost = roundMoney(summary.paidInvoiceCost + paidAmount);
-      summary.unpaidInvoiceCost = roundMoney(summary.unpaidInvoiceCost + payableAmount);
-      summary.payableCost = roundMoney(summary.payableCost + payableAmount);
+      const paidTargetAmount = amountInTargetCurrency(paidAmount, invoiceCurrency, "SUPPLIER_INVOICE", invoice.id);
+      const payableTargetAmount = amountInTargetCurrency(payableAmount, invoiceCurrency, "SUPPLIER_INVOICE", invoice.id);
+      if (paidTargetAmount === undefined || payableTargetAmount === undefined) continue;
+      summary.invoiceCost = roundMoney(summary.invoiceCost + costAmount);
+      summary.paidInvoiceCost = roundMoney(summary.paidInvoiceCost + paidTargetAmount);
+      summary.unpaidInvoiceCost = roundMoney(summary.unpaidInvoiceCost + payableTargetAmount);
+      summary.payableCost = roundMoney(summary.payableCost + payableTargetAmount);
       continue;
     }
 
     // The no-project summary is the company unallocated bucket. Only the
     // positive residual is unallocated; allocated project amounts are not.
     if (!residual) continue;
-    if (invoiceCurrency !== baseCurrency) {
-      addForeign(invoiceCurrency, residual);
-      continue;
-    }
+    const residualTargetAmount = amountInTargetCurrency(residual, invoiceCurrency, "SUPPLIER_INVOICE", invoice.id);
+    if (residualTargetAmount === undefined) continue;
     if (isConfirmedInvoice(invoice)) {
-      summary.unallocatedInvoiceCost = roundMoney(summary.unallocatedInvoiceCost + residual);
+      summary.unallocatedInvoiceCost = roundMoney(summary.unallocatedInvoiceCost + residualTargetAmount);
       const invoiceTotal = positiveMoney(invoice.grandTotal);
       const payable = invoiceTotal ? roundMoney(residual * invoiceUnpaidBalance(invoice) / invoiceTotal) : 0;
-      summary.unallocatedInvoicePayable = roundMoney(summary.unallocatedInvoicePayable + payable);
+      const payableTargetAmount = amountInTargetCurrency(payable, invoiceCurrency, "SUPPLIER_INVOICE", invoice.id);
+      if (payableTargetAmount === undefined) continue;
+      summary.unallocatedInvoicePayable = roundMoney(summary.unallocatedInvoicePayable + payableTargetAmount);
     } else {
-      summary.unallocatedPendingInvoiceCost = roundMoney(summary.unallocatedPendingInvoiceCost + residual);
+      summary.unallocatedPendingInvoiceCost = roundMoney(summary.unallocatedPendingInvoiceCost + residualTargetAmount);
     }
   }
 
@@ -612,22 +648,24 @@ export function calculateProjectCost(
     const expenseCurrency = normalizeCurrency(expense.currency);
     if (projectId) {
       if (!linkedInvoice && expense.projectId !== projectId) continue;
-      if (expenseCurrency !== baseCurrency) {
-        addForeign(expenseCurrency, amount);
-      } else if (isConfirmedExpense(expense.status)) {
-        summary.otherExpenseCost = roundMoney(summary.otherExpenseCost + amount);
+      const converted = amountInTargetCurrency(amount, expenseCurrency, "EXPENSE", expense.id, linkedInvoice ? { sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id, sourceCurrency: linkedInvoice.currency } : undefined);
+      if (converted === undefined) continue;
+      const confirmed = isConfirmedSupplierExpense(expense, linkedInvoice);
+      if (confirmed) {
+        summary.otherExpenseCost = roundMoney(summary.otherExpenseCost + converted);
       } else {
-        summary.pendingExpenseCost = roundMoney(summary.pendingExpenseCost + amount);
+        summary.pendingExpenseCost = roundMoney(summary.pendingExpenseCost + converted);
       }
       continue;
     }
     if (expense.projectId) continue;
-    if (expenseCurrency !== baseCurrency) {
-      addForeign(expenseCurrency, amount);
-    } else if (isConfirmedExpense(expense.status)) {
-      summary.unallocatedExpenseCost = roundMoney(summary.unallocatedExpenseCost + amount);
+    const converted = amountInTargetCurrency(amount, expenseCurrency, "EXPENSE", expense.id, linkedInvoice ? { sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id, sourceCurrency: linkedInvoice.currency } : undefined);
+    if (converted === undefined) continue;
+    const confirmed = isConfirmedSupplierExpense(expense, linkedInvoice);
+    if (confirmed) {
+      summary.unallocatedExpenseCost = roundMoney(summary.unallocatedExpenseCost + converted);
     } else {
-      summary.unallocatedPendingExpenseCost = roundMoney(summary.unallocatedPendingExpenseCost + amount);
+      summary.unallocatedPendingExpenseCost = roundMoney(summary.unallocatedPendingExpenseCost + converted);
     }
   }
 
@@ -943,6 +981,9 @@ export function calculateProjectBudgetControl(
     amount: number,
     currency: string,
     isConfirmed: boolean,
+    sourceType?: "EXPENSE" | "SUPPLIER_INVOICE",
+    sourceId?: string,
+    fallback?: { sourceType: "SUPPLIER_INVOICE"; sourceId: string; sourceCurrency: string },
   ) => {
     const value = positiveMoney(amount);
     if (!value) return;
@@ -951,18 +992,24 @@ export function calculateProjectBudgetControl(
       : uncodedAccumulator;
 
     const normalizedCodeCurrency = normalizeCurrency(currency);
-    if (normalizedCodeCurrency !== baseCurrency) {
+    const converted = normalizedCodeCurrency === baseCurrency
+      ? value
+      : sourceType && sourceId
+        ? convertFinancialAmount(value, normalizedCodeCurrency, baseCurrency, sourceType, sourceId, input.fxSnapshots)
+          ?? (fallback ? convertFinancialAmount(value, fallback.sourceCurrency, baseCurrency, fallback.sourceType, fallback.sourceId, input.fxSnapshots) : undefined)
+        : undefined;
+    if (converted === undefined) {
       target.foreignCosts[normalizedCodeCurrency] = roundMoney((target.foreignCosts[normalizedCodeCurrency] || 0) + value);
       return;
     }
 
     if (isConfirmed) {
-      target.actualCost = roundMoney(target.actualCost + value);
-      if (kind === "invoice") target.invoiceCost = roundMoney(target.invoiceCost + value);
-      else if (kind === "payroll") target.payrollCost = roundMoney(target.payrollCost + value);
-      else if (kind === "expense") target.otherExpenseCost = roundMoney(target.otherExpenseCost + value);
+      target.actualCost = roundMoney(target.actualCost + converted);
+      if (kind === "invoice") target.invoiceCost = roundMoney(target.invoiceCost + converted);
+      else if (kind === "payroll") target.payrollCost = roundMoney(target.payrollCost + converted);
+      else if (kind === "expense") target.otherExpenseCost = roundMoney(target.otherExpenseCost + converted);
     } else {
-      target.pendingCost = roundMoney(target.pendingCost + value);
+      target.pendingCost = roundMoney(target.pendingCost + converted);
     }
   };
 
@@ -980,7 +1027,7 @@ export function calculateProjectBudgetControl(
       const allocAmount = normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation);
       if (allocAmount <= 0) continue;
       const targetCodeId = allocation.projectCostCodeId || (allocation as { costCodeId?: string }).costCodeId;
-      addAmount(targetCodeId, "invoice", allocAmount, invoiceCurrency, confirmed);
+      addAmount(targetCodeId, "invoice", allocAmount, invoiceCurrency, confirmed, "SUPPLIER_INVOICE", invoice.id);
     }
   }
 
@@ -1028,12 +1075,12 @@ export function calculateProjectBudgetControl(
       if (sourceId && sourceOwners.get(sourceId) === "invoice") continue;
     }
     const expenseCurrency = normalizeCurrency(expense.currency);
-    const confirmed = isConfirmedExpense(expense.status);
+    const confirmed = isConfirmedSupplierExpense(expense, linkedInvoice);
     const allocatedLine = linkedInvoice?.allocations?.find((allocation) => allocation.projectId === projectId);
     const targetCodeId = expense.projectCostCodeId
       || allocatedLine?.projectCostCodeId
       || (expense as { costCodeId?: string }).costCodeId;
-    addAmount(targetCodeId, "expense", amount, expenseCurrency, confirmed);
+    addAmount(targetCodeId, "expense", amount, expenseCurrency, confirmed, "EXPENSE", expense.id, linkedInvoice ? { sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id, sourceCurrency: linkedInvoice.currency } : undefined);
   }
 
   // 4. Purchase Orders (Commitments)

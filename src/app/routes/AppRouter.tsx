@@ -10,6 +10,7 @@ import type {
   AttendanceRecord,
   EmailClassification,
   Expense,
+  FinancialFxSnapshot,
   GmailConnectionInfo,
   GmailMessageCandidate,
   GmailScanWindow,
@@ -98,6 +99,7 @@ import type {
 import type { RegionalSettings } from "../../config/regional";
 import type { PayrollLifecycleRequest } from "../../lib/payrollLifecycle";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
+import type { FinancialFxSnapshotInput } from "../../lib/financialFx.ts";
 import { appRouteTargetForLocation } from "../../utils/appRouteTarget.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
@@ -329,6 +331,10 @@ export interface AppRouterProps {
   expenseFormContext?: string | null;
   expenseCorrectionContext?: string | null;
   onSaveExpense?: (expense: Expense) => void;
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
+  baseCurrency?: string;
+  onSaveFinancialFxSnapshot?: (input: FinancialFxSnapshotInput) => Promise<FinancialFxSnapshot | void>;
+  onVerifySupplierInvoice?: (invoice: InvoiceData) => Promise<InvoiceData | void>;
   onPreviewExpenseCorrection?: (expense: Expense) => Promise<FinancialCorrectionPreview>;
   onApplyExpenseCorrection?: (expense: Expense, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
   onExpenseCorrectionContextConsumed?: () => void;
@@ -612,6 +618,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   expenseFormContext,
   expenseCorrectionContext,
   onSaveExpense = () => {},
+  financialFxSnapshots = [],
+  baseCurrency = "PHP",
+  onSaveFinancialFxSnapshot,
+  onVerifySupplierInvoice,
   onPreviewExpenseCorrection,
   onApplyExpenseCorrection,
   onExpenseCorrectionContextConsumed,
@@ -944,6 +954,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         invoices={supplierInvoicesForExpenses}
         purchaseOrders={expensePurchaseOrders}
         vendors={expenseVendors}
+        financialFxSnapshots={financialFxSnapshots}
+        baseCurrency={baseCurrency}
+        onSaveFinancialFxSnapshot={onSaveFinancialFxSnapshot}
+        onVerifySupplierInvoice={onVerifySupplierInvoice}
+        onOpenSupplierInvoiceReview={onOpenInvoiceForReview}
+        onUploadSupplierInvoice={onAddNewInvoice}
         costCodes={costCodes as ProjectCostCode[]}
         initialProjectId={expenseFormContext || undefined}
         initialExpenseId={expenseCorrectionContext}
@@ -1006,6 +1022,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         invoices={invoices}
         invoiceAllocations={invoiceProjectAllocations}
         expenses={expenses}
+        fxSnapshots={financialFxSnapshots}
+        baseCurrency={baseCurrency}
         workers={payrollData.workers}
         assignments={payrollData.assignments}
         periods={payrollData.periods}

@@ -66,8 +66,8 @@ cross join (values ('payroll.approve'), ('payroll.manage')) override_row(permiss
 where cm.company_id = (select company_id from wave5_ids)
   and cm.user_id = case when override_row.permission_key = 'payroll.approve' then (select manager_user from wave5_ids) else (select approver_user from wave5_ids) end;
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency)
-values ((select project_id from wave5_ids), (select admin_user from wave5_ids), (select company_id from wave5_ids), 'W5-PROJECT', 'Wave 5 Project', 'ACTIVE', 100000, 'PHP');
+insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment)
+values ((select project_id from wave5_ids), (select admin_user from wave5_ids), (select company_id from wave5_ids), 'W5-PROJECT', 'Wave 5 Project', 'ACTIVE', 100000, 'PHP', 'VAT');
 insert into public.workers (id, user_id, company_id, employee_code, first_name, last_name, display_name, default_pay_type, default_rate)
 values ((select worker_id from wave5_ids), (select manager_user from wave5_ids), (select company_id from wave5_ids), 'W5-001', 'Wave', 'Worker', 'Wave 5 Worker', 'MONTHLY', 1000);
 insert into public.worker_compensation_profiles (id, user_id, company_id, worker_id, effective_from, effective_to, frequency, rate)

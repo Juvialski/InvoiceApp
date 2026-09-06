@@ -61,10 +61,10 @@ from public.company_members cm
 where cm.company_id = (select company_a from invoice_unused_delete_ids)
   and cm.user_id = (select denied_user from invoice_unused_delete_ids);
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment)
 values
-  ((select project_a from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), 'UNUSED-A', 'Unused Delete Project', 'ACTIVE', 100000, 'PHP'),
-  ((select project_b from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_b from invoice_unused_delete_ids), 'UNUSED-B', 'Unused Delete Other Project', 'ACTIVE', 100000, 'USD');
+  ((select project_a from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), 'UNUSED-A', 'Unused Delete Project', 'ACTIVE', 100000, 'PHP', 'VAT'),
+  ((select project_b from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_b from invoice_unused_delete_ids), 'UNUSED-B', 'Unused Delete Other Project', 'ACTIVE', 100000, 'USD', 'VAT');
 
 insert into public.vendors (id, user_id, company_id, name, normalized_name, default_currency)
 values ((select vendor from invoice_unused_delete_ids), (select admin_user from invoice_unused_delete_ids), (select company_a from invoice_unused_delete_ids), 'Unused Delete Supplier', 'unused delete supplier', 'PHP');

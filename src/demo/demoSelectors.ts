@@ -58,6 +58,8 @@ export function buildDemoProjectSummaries(data: DemoWorkspaceData): Record<strin
     subcontracts: data.subcontracts,
     subcontractClaims: data.subcontractClaims,
     subcontractVariations: data.subcontractVariations,
+    fxSnapshots: data.financialFxSnapshots,
+    baseCurrency: data.company.currency,
   })]));
 }
 
@@ -71,6 +73,8 @@ export function buildDemoDashboard(data: DemoWorkspaceData, options?: { activity
     subcontracts: data.subcontracts,
     subcontractClaims: data.subcontractClaims,
     subcontractVariations: data.subcontractVariations,
+    fxSnapshots: data.financialFxSnapshots,
+    baseCurrency: data.company.currency,
     periods: data.payroll.periods,
     workers: data.payroll.workers,
     payrollEntries: data.payroll.entries,
@@ -98,6 +102,7 @@ export function buildDemoProjectDashboard(data: DemoWorkspaceData, projectId: st
     subcontracts: data.subcontracts,
     subcontractClaims: data.subcontractClaims,
     subcontractVariations: data.subcontractVariations,
+    fxSnapshots: data.financialFxSnapshots,
     periods: data.payroll.periods,
     today: data.anchorDate,
   });

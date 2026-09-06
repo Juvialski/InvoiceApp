@@ -5,7 +5,7 @@ import { addDemoDays, demoTimestamp } from "./demoDates.ts";
 import { DEMO_PROJECT_IDS } from "./projects.ts";
 
 export function createDemoExpenses(anchorDate: string): Expense[] {
-  const rows: Array<[string, string | undefined, number, string, string, string, Expense["status"]]> = [
+  const rows: Array<[string, string | undefined, number, string, string, string, Expense["status"], string?]> = [
     ["01", DEMO_PROJECT_IDS.warehouse, 67_842.35, "Fuel", "Diesel for boom lift, generator, and site service vehicle", "PetroLink Service Station", "PAID"],
     ["02", DEMO_PROJECT_IDS.warehouse, 24_681.80, "Tolls & Transport", "Tolls and hauling route fees for steel deliveries", "Site Cash Fund", "PAID"],
     ["03", DEMO_PROJECT_IDS.warehouse, 91_550.25, "Equipment Repair", "Hydraulic hose and preventive repair for rented lifting equipment", "Allied Hydraulics Services", "APPROVED"],
@@ -24,9 +24,10 @@ export function createDemoExpenses(anchorDate: string): Expense[] {
     ["16", DEMO_PROJECT_IDS.cebu, 33_760.80, "Crew Transportation", "Project close-out travel and material transfers", "Cebu Transport Services", "PAID"],
     ["17", DEMO_PROJECT_IDS.cebu, 46_915.40, "Testing & Inspection", "Electrical insulation and plumbing pressure tests", "VisMin Technical Testing", "PAID"],
     ["18", undefined, 31_684.75, "General Operations", "Printing, courier, project-document reproduction, and office supplies", "Central Office Supplies", "APPROVED"],
+    ["19", undefined, 11.72, "Foreign supplier review", "Small foreign-currency software and document service charge", "International Document Services", "APPROVED", "USD"],
   ];
 
-  return rows.map(([id, projectId, amount, category, description, payee, status], index) => {
+  return rows.map(([id, projectId, amount, category, description, payee, status, rowCurrency], index) => {
     const expenseDate = addDemoDays(anchorDate, -(8 + index * 5));
     return {
       id: `demo-expense-${id}`,
@@ -36,7 +37,7 @@ export function createDemoExpenses(anchorDate: string): Expense[] {
       description,
       payee,
       amount,
-      currency: "PHP",
+      currency: rowCurrency || "PHP",
       paymentMethod: amount > 50_000 ? "Bank Transfer" : "Petty Cash / Reimbursement",
       referenceNumber: `EXP-${anchorDate.slice(0, 4)}-${String(index + 31).padStart(4, "0")}`,
       status,

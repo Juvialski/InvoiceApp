@@ -1,4 +1,4 @@
-import type { Expense, InvoiceData, InvoiceProjectAllocation, PayrollProjectAllocation, Project, ProjectCostSummary, PayrollEntry, PayrollPeriod, PayrollRun, Worker } from "../types.ts";
+import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, PayrollProjectAllocation, Project, ProjectCostSummary, PayrollEntry, PayrollPeriod, PayrollRun, Worker } from "../types.ts";
 import { calculateProjectCost, normalizedInvoiceAllocationAmount } from "./projectCosting.ts";
 import type { CostPayrollRecord } from "./projectCosting.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
@@ -8,6 +8,7 @@ export interface ProjectCostReportRow extends ProjectCostSummary { projectCode: 
 export interface ProjectCostReportOptions {
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
+  fxSnapshots?: readonly FinancialFxSnapshot[];
 }
 
 export function buildProjectCostReport(
@@ -28,6 +29,7 @@ export function buildProjectCostReport(
       expenses,
       projectLaborAggregates: options.projectLaborAggregates,
       laborSource: options.laborSource,
+      fxSnapshots: options.fxSnapshots,
     }),
   }));
 }

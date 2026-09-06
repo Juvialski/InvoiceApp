@@ -10,10 +10,10 @@ values
   ('aaaaaaaa-0000-4000-8000-000000000412'::uuid, 'Invoice Accounting Lock A', 'invoice-accounting-lock-a', 'ACTIVE', 'PHP', 'Asia/Manila', '00000000-0000-4000-8000-000000000412'::uuid),
   ('bbbbbbbb-0000-4000-8000-000000000412'::uuid, 'Invoice Accounting Lock B', 'invoice-accounting-lock-b', 'ACTIVE', 'PHP', 'Asia/Manila', '00000000-0000-4000-8000-000000000412'::uuid);
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, status, project_budget, currency, tax_treatment)
 values
-  ('10000000-0000-4000-8000-000000000412'::uuid, '00000000-0000-4000-8000-000000000412'::uuid, 'aaaaaaaa-0000-4000-8000-000000000412'::uuid, 'IAL-A', 'Invoice Accounting Lock Project A', 'ACTIVE', 0, 'PHP'),
-  ('20000000-0000-4000-8000-000000000412'::uuid, '00000000-0000-4000-8000-000000000412'::uuid, 'bbbbbbbb-0000-4000-8000-000000000412'::uuid, 'IAL-B', 'Invoice Accounting Lock Project B', 'ACTIVE', 0, 'PHP');
+  ('10000000-0000-4000-8000-000000000412'::uuid, '00000000-0000-4000-8000-000000000412'::uuid, 'aaaaaaaa-0000-4000-8000-000000000412'::uuid, 'IAL-A', 'Invoice Accounting Lock Project A', 'ACTIVE', 0, 'PHP', 'VAT'),
+  ('20000000-0000-4000-8000-000000000412'::uuid, '00000000-0000-4000-8000-000000000412'::uuid, 'bbbbbbbb-0000-4000-8000-000000000412'::uuid, 'IAL-B', 'Invoice Accounting Lock Project B', 'ACTIVE', 0, 'PHP', 'VAT');
 
 insert into public.invoices (id, user_id, company_id, invoice_number, currency, grand_total, payment_status, review_status, current_data)
 values

@@ -5,6 +5,7 @@ import { PayrollOperatingCosts } from "../../components/engineering/PayrollOpera
 import { ProjectReports } from "../../components/engineering/ProjectReports";
 import type {
   Expense,
+  FinancialFxSnapshot,
   InvoiceData,
   InvoiceProjectAllocation,
   PayrollEntry,
@@ -26,6 +27,8 @@ export interface ReportsRouteProps {
   invoices: InvoiceData[];
   invoiceAllocations: InvoiceProjectAllocation[];
   expenses: Expense[];
+  fxSnapshots?: readonly FinancialFxSnapshot[];
+  baseCurrency?: string;
   workers: Worker[];
   assignments: ProjectWorkerAssignment[];
   periods: PayrollPeriod[];
@@ -42,6 +45,8 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
   invoices,
   invoiceAllocations,
   expenses,
+  fxSnapshots = [],
+  baseCurrency = "PHP",
   workers,
   assignments,
   periods,
@@ -86,7 +91,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
 
   return (
     <div className="space-y-6" data-project-cost-completeness={projectCostCompleteness.status}>
-      {canReadFinancialReports && canReadInvoices && <Reports invoices={invoices} />}
+      {canReadFinancialReports && canReadInvoices && <Reports invoices={invoices} fxSnapshots={fxSnapshots} baseCurrency={baseCurrency} />}
 
       {canReadPayrollReports && canReadPayrollDetail && (
         <PayrollOperatingCosts runs={runs} entries={entries} allocations={payrollAllocations} />
@@ -98,6 +103,7 @@ export const ReportsRoute: React.FC<ReportsRouteProps> = ({
           invoices={invoices}
           invoiceAllocations={invoiceAllocations}
           expenses={expenses}
+          fxSnapshots={fxSnapshots}
           workers={canReadWorkers ? workers : []}
           assignments={canReadWorkers ? assignments : []}
           periods={periods}

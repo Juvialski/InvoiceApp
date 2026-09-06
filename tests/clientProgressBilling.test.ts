@@ -14,6 +14,7 @@ const project: Project = {
   id: "project-billing-1",
   projectCode: "ENG-001",
   projectName: "Billing Test Project",
+  taxTreatment: "VAT",
   clientName: "Client A",
   clientReference: "CLIENT-001",
   status: "ACTIVE",

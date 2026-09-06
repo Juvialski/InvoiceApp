@@ -1,8 +1,10 @@
-import type { Expense, InvoiceProjectAllocation, PayrollPeriod, Project, PurchaseOrder, Subcontract, SubcontractProgressClaim, SubcontractVariation } from "../types.ts";
+import type { Expense, FinancialFxSnapshot, InvoiceProjectAllocation, PayrollPeriod, Project, PurchaseOrder, Subcontract, SubcontractProgressClaim, SubcontractVariation } from "../types.ts";
 import type { CostInvoice, CostPayrollRecord } from "./projectCosting.ts";
-import { calculateProjectCost, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth } from "./projectCosting.ts";
+import { calculateProjectCost, isConfirmedSupplierExpense, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth } from "./projectCosting.ts";
 import { unpaidBalance } from "./dashboardStats.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
+import { convertFinancialAmount } from "./financialCurrency.ts";
+import { supplierExpenseCostOwnership } from "./supplierInvoiceCostOwnership.ts";
 
 export interface ProjectDashboardTrendPoint {
   label: string;
@@ -52,6 +54,7 @@ interface ProjectDashboardInput {
   laborSource?: ProjectLaborSource;
   periods?: PayrollPeriod[];
   today?: string;
+  fxSnapshots?: readonly FinancialFxSnapshot[];
 }
 
 function round(value: number) { return Math.round((Number(value) || 0) * 100) / 100; }
@@ -64,6 +67,7 @@ function monthsBetween(keys: string[]) { const valid = keys.filter((key) => /^\d
 function projectInvoiceAmount(invoice: CostInvoice, projectId: string) { return isVoidedInvoice(invoice) ? 0 : round((invoice.allocations || []).filter((allocation) => allocation.projectId === projectId).reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), 0)); }
 
 export function buildProjectDashboardViewData(input: ProjectDashboardInput): ProjectDashboardViewData {
+  const supplierOwnership = supplierExpenseCostOwnership(input.invoices, input.expenses);
   const summary = calculateProjectCost(input.project, {
     invoices: input.invoices,
     expenses: input.expenses,
@@ -74,19 +78,24 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
     subcontractVariations: input.subcontractVariations,
     projectLaborAggregates: input.projectLaborAggregates,
     laborSource: input.laborSource,
+    fxSnapshots: input.fxSnapshots,
   });
   const pending = round(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
   const confirmed = round(summary.totalActualCost);
   const committed = round(summary.committedCost);
   const availableAfterCommitments = round(summary.budget - confirmed - committed - pending);
-  const invoiceDates = input.invoices.filter((invoice) => projectInvoiceAmount(invoice, input.project.id) > 0).map((invoice) => dateOnly((invoice as CostInvoice & { invoiceDate?: string }).invoiceDate));
+  const invoiceDates = input.invoices.filter((invoice) => !supplierOwnership.byInvoiceId.has(invoice.id) && projectInvoiceAmount(invoice, input.project.id) > 0).map((invoice) => dateOnly((invoice as CostInvoice & { invoiceDate?: string }).invoiceDate));
   const payrollDates = input.payroll.filter((run) => (run.allocations || []).some((allocation) => allocation.projectId === input.project.id)).map((run) => dateOnly(run.periodEnd));
   const expenseDates = input.expenses.filter((expense) => expense.projectId === input.project.id).map((expense) => dateOnly(expense.expenseDate));
   const keys = monthsBetween([...invoiceDates, ...payrollDates, ...expenseDates, dateOnly(input.project.startDate), dateOnly(input.today || new Date().toISOString())].map(monthKey));
   const points = new Map(keys.map((period) => [period, { label: monthLabel(period), period, invoices: 0, payroll: 0, expenses: 0, total: 0, pending: 0, cumulative: 0, cumulativeCommitted: 0 }]));
   for (const invoice of input.invoices) {
     if (isVoidedInvoice(invoice)) continue;
-    const amount = projectInvoiceAmount(invoice, input.project.id); const date = dateOnly((invoice as CostInvoice & { invoiceDate?: string }).invoiceDate); const point = points.get(monthKey(date));
+    if (supplierOwnership.byInvoiceId.has(invoice.id)) continue;
+    const rawAmount = projectInvoiceAmount(invoice, input.project.id);
+    const amount = convertFinancialAmount(rawAmount, invoice.currency, input.project.currency, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots);
+    const date = dateOnly((invoice as CostInvoice & { invoiceDate?: string }).invoiceDate); const point = points.get(monthKey(date));
+    if (amount === undefined) continue;
     if (point && invoice.reviewStatus === "VERIFIED") point.invoices = round(point.invoices + amount);
     else if (point) point.pending = round(point.pending + amount);
   }
@@ -103,9 +112,14 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
   for (const expense of input.expenses) {
     if (expense.projectId !== input.project.id) continue;
     if (expense.status === "VOID") continue;
-    if (expense.status === "DRAFT") { const point = points.get(monthKey(expense.expenseDate)); if (point) point.pending = round(point.pending + expense.amount); continue; }
-    if (expense.status !== "APPROVED" && expense.status !== "PAID") continue;
-    const point = points.get(monthKey(expense.expenseDate)); if (point) point.expenses = round(point.expenses + expense.amount);
+    const linkedInvoice = expense.supplierInvoiceId ? supplierOwnership.invoiceById.get(expense.supplierInvoiceId) : undefined;
+    const converted = convertFinancialAmount(expense.amount, expense.currency, input.project.currency, "EXPENSE", expense.id, input.fxSnapshots)
+      ?? (linkedInvoice ? convertFinancialAmount(expense.amount, linkedInvoice.currency, input.project.currency, "SUPPLIER_INVOICE", linkedInvoice.id, input.fxSnapshots) : undefined);
+    if (converted === undefined) continue;
+    const bridgedConfirmed = isConfirmedSupplierExpense(expense, linkedInvoice);
+    if (expense.status === "DRAFT" && !bridgedConfirmed) { const point = points.get(monthKey(expense.expenseDate)); if (point) point.pending = round(point.pending + converted); continue; }
+    if (!bridgedConfirmed && expense.status !== "APPROVED" && expense.status !== "PAID") continue;
+    const point = points.get(monthKey(expense.expenseDate)); if (point) point.expenses = round(point.expenses + converted);
   }
   let cumulative = 0;
   let cumulativePending = 0;
@@ -116,7 +130,7 @@ export function buildProjectDashboardViewData(input: ProjectDashboardInput): Pro
     return { ...point, cumulative, cumulativeCommitted: round(cumulative + cumulativePending) };
   });
   const attention: ProjectDashboardAttention[] = [];
-  const projectInvoices = input.invoices.filter((invoice) => projectInvoiceAmount(invoice, input.project.id) > 0);
+  const projectInvoices = input.invoices.filter((invoice) => !supplierOwnership.byInvoiceId.has(invoice.id) && projectInvoiceAmount(invoice, input.project.id) > 0);
   const review = projectInvoices.filter((invoice) => invoice.reviewStatus !== "VERIFIED").length;
   const overdue = projectInvoices.filter((invoice) => { const dueDate = (invoice as CostInvoice & { dueDate?: string }).dueDate; return Boolean(dueDate && dueDate < (input.today || new Date().toISOString().slice(0, 10)) && unpaidBalance(invoice) > 0); }).length;
   const pendingPayroll = input.payroll.filter((run) => run.status === "DRAFT" || run.status === "CALCULATED").some((run) => (run.allocations || []).some((allocation) => allocation.projectId === input.project.id));

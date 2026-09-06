@@ -40,8 +40,8 @@ values (true, (select company_id from r3_ids))
 on conflict (singleton) do update set company_id = excluded.company_id;
 select is((select legal_name from public.company_document_profiles where company_id = (select company_id from r3_ids)), 'HydroQualiSense Solutions Corp.', 'document profile starts from the supplied HSC template identity');
 select is((select vat_tin from public.company_document_profiles where company_id = (select company_id from r3_ids)), '777-823-517-000', 'document profile preserves the supplied HSC VAT TIN');
-insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, billing_contact_name, billing_email, billing_address, status, contract_value, project_budget, currency)
-values ((select project_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), 'R3-PROJ', 'R3 Water Project', 'Client R3', 'R3-REF', 'Billing Contact', 'billing@client.test', 'Client billing address', 'ACTIVE', 10000, 7000, 'PHP');
+insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, billing_contact_name, billing_email, billing_address, status, contract_value, project_budget, currency, tax_treatment)
+values ((select project_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), 'R3-PROJ', 'R3 Water Project', 'Client R3', 'R3-REF', 'Billing Contact', 'billing@client.test', 'Client billing address', 'ACTIVE', 10000, 7000, 'PHP', 'VAT');
 insert into public.vendors (id, user_id, company_id, name, normalized_name, email, address, tax_id, default_currency)
 values ((select vendor_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), 'R3 Supplier', 'r3 supplier', 'supplier@test.local', 'Supplier address', '111-222-333-000', 'PHP');
 insert into public.invoices (id, user_id, company_id, vendor_id, invoice_number, invoice_date, currency, grand_total, review_status, document_type, current_data)

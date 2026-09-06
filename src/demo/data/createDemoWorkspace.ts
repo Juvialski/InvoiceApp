@@ -1,6 +1,6 @@
 import type { DemoWorkspaceData } from "../demoTypes.ts";
 import { DEMO_COMPANY_ID } from "../demoTypes.ts";
-import { defaultDemoAnchorDate } from "./demoDates.ts";
+import { defaultDemoAnchorDate, demoTimestamp } from "./demoDates.ts";
 import { createDemoProjects } from "./projects.ts";
 import { createDemoInvoices } from "./invoices.ts";
 import { createDemoExpenses, createDemoCashBanking } from "./financial.ts";
@@ -13,6 +13,7 @@ import { createDemoEquipment, createDemoMaterials } from "./materialsEquipment.t
 import { createDemoPurchaseOrderMatches, createDemoPurchaseOrders, createDemoPurchaseOrderReceipts, createDemoRFQs, createDemoSubcontractClaims, createDemoSubcontracts, createDemoSubcontractVariations, createDemoSupplierQuotations, createDemoVendors } from "./procurement.ts";
 import { createDemoClientBillings } from "./clientBillings.ts";
 import { createDemoClientCollections } from "./clientCollections.ts";
+import type { FinancialFxSnapshot } from "../../types.ts";
 
 const DEMO_OVERTIME_QUEUE_STATUSES = ["PENDING", "PENDING", "REJECTED", "CANCELLED", "PENDING"] as const;
 
@@ -20,6 +21,25 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
   const projectData = createDemoProjects(anchorDate);
   const invoiceData = createDemoInvoices(anchorDate);
   const payroll = createDemoPayroll(anchorDate);
+  const expenses = createDemoExpenses(anchorDate);
+  const fxTimestamp = demoTimestamp(anchorDate, 11, 45);
+  const financialFxSnapshots: FinancialFxSnapshot[] = [{
+    id: "demo-fx-expense-19",
+    companyId: DEMO_COMPANY_ID,
+    sourceType: "EXPENSE",
+    sourceId: "demo-expense-19",
+    sourceAmount: 11.72,
+    sourceCurrency: "USD",
+    baseCurrency: "PHP",
+    rate: 56.25,
+    rateDate: anchorDate,
+    rateSource: "MANUAL",
+    note: "Demo-approved manual reporting rate.",
+    enteredByUserId: "demo-user-finance",
+    confirmedAt: fxTimestamp,
+    createdAt: fxTimestamp,
+    baseAmount: 659.25,
+  }];
 
   // The public demo deliberately keeps explicit OT requests in the human-review
   // queue because the production domain does not assume a statutory multiplier.
@@ -55,7 +75,8 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     projectPresentation: projectData.presentation,
     invoices: invoiceData.invoices,
     invoiceAllocations: invoiceData.allocations,
-    expenses: createDemoExpenses(anchorDate),
+    expenses,
+    financialFxSnapshots,
     cash: enrichDemoCashWithSettlements(createDemoCashBanking(anchorDate), anchorDate),
     payroll,
     engineering: createDemoEngineeringDocuments(anchorDate),

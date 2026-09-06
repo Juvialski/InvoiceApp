@@ -6,6 +6,7 @@ import type { RecurringPayrollComponent, WorkerCompensationProfile } from "../li
 import type {
   AttendanceRecord,
   Expense,
+  FinancialFxSnapshot,
   InvoiceData,
   InvoiceProjectAllocation,
   LeaveRequest,
@@ -47,6 +48,7 @@ export type DemoWorkspaceMutation =
   | { type: "FINANCIAL_CORRECTION"; entity: "INVOICE" | "EXPENSE"; id: string; action: FinancialCorrectionAction; reason?: string }
   | { type: "SAVE_INVOICE_ALLOCATIONS"; invoiceId: string; value: InvoiceProjectAllocation[] }
   | { type: "SAVE_EXPENSE"; value: Expense }
+  | { type: "SAVE_FINANCIAL_FX_SNAPSHOT"; value: FinancialFxSnapshot }
   | { type: "SAVE_SUBCONTRACT"; value: Subcontract }
   | { type: "TRANSITION_SUBCONTRACT"; id: string; targetStatus: Subcontract["status"]; reason?: string }
   | { type: "DELETE_SUBCONTRACT"; id: string }
@@ -166,6 +168,8 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, invoiceAllocations: [...state.invoiceAllocations.filter((allocation) => allocation.invoiceId !== mutation.invoiceId), ...mutation.value] };
     case "SAVE_EXPENSE":
       return { ...state, expenses: upsert(state.expenses, mutation.value) };
+    case "SAVE_FINANCIAL_FX_SNAPSHOT":
+      return { ...state, financialFxSnapshots: upsert(state.financialFxSnapshots || [], mutation.value) };
     case "SAVE_SUBCONTRACT": {
       const existing = (state.subcontracts || []).find((subcontract) => subcontract.id === mutation.value.id);
       if (existing && existing.status !== "DRAFT") return state;

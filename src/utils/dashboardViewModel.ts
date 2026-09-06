@@ -1,13 +1,15 @@
-import type { Expense, InvoiceData, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, Worker } from "../types.ts";
+import type { Expense, FinancialFxSnapshot, InvoiceData, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostSummary, Worker } from "../types.ts";
 import type { DashboardActivityPeriod, DashboardAttentionItem, DashboardInvoiceOperations, DashboardProjectRow, DashboardViewData } from "../components/engineering/EngineeringCostOperationsDashboard.tsx";
 import { totalVatByCurrency, totalsByCurrency } from "./invoiceLogic.ts";
-import { calculateProjectCost, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth, type CostInvoice, type CostPayrollRecord } from "./projectCosting.ts";
+import { calculateProjectCost, isConfirmedInvoice, isConfirmedSupplierExpense, isVoidedInvoice, normalizedInvoiceAllocationAmount, projectHealth, type CostInvoice, type CostPayrollRecord } from "./projectCosting.ts";
 import { buildAccountingIndex, unpaidBalance } from "./dashboardStats.ts";
 import { buildCashDashboardPosition, type CashBankingWorkspaceData } from "../lib/cashBanking.ts";
 import type { PurchaseOrder, Subcontract, SubcontractProgressClaim, SubcontractVariation } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
+import { convertFinancialAmount } from "./financialCurrency.ts";
+import { supplierExpenseCostOwnership } from "./supplierInvoiceCostOwnership.ts";
 
-type DashboardInvoice = CostInvoice & Pick<InvoiceData, "invoiceDate" | "dueDate" | "vendor" | "invoiceNumber" | "extractedAt" | "philippineTaxDetails" | "philippineInvoiceCompleteness" | "invoiceSubtype">;
+type DashboardInvoice = CostInvoice & Pick<InvoiceData, "invoiceDate" | "dueDate" | "vendor" | "invoiceNumber" | "extractedAt" | "philippineTaxDetails" | "philippineInvoiceCompleteness" | "invoiceSubtype" | "totalTax">;
 type DashboardPayrollEntry = Pick<PayrollEntry, "id" | "grossPay" | "costContext" | "projectAllocatedCost">;
 type DashboardPayroll = Omit<CostPayrollRecord, "entries"> & { entries?: DashboardPayrollEntry[]; periodEnd?: string; periodStart?: string; currency?: string; periodId?: string };
 
@@ -34,6 +36,8 @@ export interface DashboardViewModelInput {
   selectedCurrency?: string;
   projectId?: string;
   today?: string;
+  fxSnapshots?: readonly FinancialFxSnapshot[];
+  baseCurrency?: string;
 }
 
 function round(value: number) { return Math.round((Number(value) || 0) * 100) / 100; }
@@ -74,7 +78,7 @@ function aggregateMonths(from: string, to: string) {
   return months;
 }
 
-function invoiceOperations(invoices: DashboardInvoice[]): DashboardInvoiceOperations {
+function invoiceOperations(invoices: DashboardInvoice[], reportingCurrency: string, fxSnapshots?: readonly FinancialFxSnapshot[]): DashboardInvoiceOperations {
   const activeInvoices = invoices.filter((invoice) => !isVoidedInvoice(invoice));
   const raw = activeInvoices as unknown as InvoiceData[];
   const totals = totalsByCurrency(raw);
@@ -86,6 +90,9 @@ function invoiceOperations(invoices: DashboardInvoice[]): DashboardInvoiceOperat
   }
   const philippines = activeInvoices.filter((invoice) => currencyOf(invoice.currency) === "PHP" || invoice.vendor?.country?.toLowerCase().includes("philippines") || Boolean(invoice.philippineTaxDetails));
   const vatInvoices = philippines.filter((invoice) => invoice.invoiceSubtype === "VAT_INVOICE" || invoice.philippineTaxDetails?.sellerRegistration === "VAT");
+  const toReporting = (invoice: DashboardInvoice, amount: unknown) => convertFinancialAmount(amount, invoice.currency, reportingCurrency, "SUPPLIER_INVOICE", invoice.id, fxSnapshots);
+  const reportingTax = (invoice: DashboardInvoice, selector: (item: DashboardInvoice) => unknown) => toReporting(invoice, selector(invoice)) || 0;
+  const phpFxRequired = philippines.filter((invoice) => currencyOf(invoice.currency) !== reportingCurrency && toReporting(invoice, invoice.grandTotal) === undefined).length;
   return {
     totalsByCurrency: totals,
     outstandingByCurrency,
@@ -94,9 +101,11 @@ function invoiceOperations(invoices: DashboardInvoice[]): DashboardInvoiceOperat
     needsReviewCount: activeInvoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt).length,
     verifiedCount: activeInvoices.filter((invoice) => invoice.reviewStatus === "VERIFIED").length,
     totalCount: invoices.length,
-    phpVatable: round(vatInvoices.reduce((sum, invoice) => sum + (Number(invoice.philippineTaxDetails?.vatableSales) || 0), 0)),
-    phpZeroRated: round(philippines.reduce((sum, invoice) => sum + (Number(invoice.philippineTaxDetails?.zeroRatedSales) || 0), 0)),
-    phpExempt: round(philippines.reduce((sum, invoice) => sum + (Number(invoice.philippineTaxDetails?.vatExemptSales) || 0), 0)),
+    phpVatable: round(vatInvoices.reduce((sum, invoice) => sum + reportingTax(invoice, (item) => item.philippineTaxDetails?.vatableSales), 0)),
+    phpVat: round(vatInvoices.reduce((sum, invoice) => sum + reportingTax(invoice, (item) => item.philippineTaxDetails?.vatAmount ?? item.totalTax), 0)),
+    phpZeroRated: round(philippines.reduce((sum, invoice) => sum + reportingTax(invoice, (item) => item.philippineTaxDetails?.zeroRatedSales), 0)),
+    phpExempt: round(philippines.reduce((sum, invoice) => sum + reportingTax(invoice, (item) => item.philippineTaxDetails?.vatExemptSales), 0)),
+    phpFxRequired,
     phpMissingVatDetails: vatInvoices.filter((invoice) => invoice.philippineInvoiceCompleteness?.status === "MISSING_INFORMATION" || !invoice.philippineTaxDetails?.vatAmount).length,
     phNeedsReviewCount: activeInvoices.filter((invoice) => philippines.includes(invoice) && !invoice.archivedAt && invoice.reviewStatus === "NEEDS_REVIEW").length,
     recent: activeInvoices.slice().sort((left, right) => dateOnly(right.extractedAt).localeCompare(dateOnly(left.extractedAt))).slice(0, 8) as unknown as InvoiceData[],
@@ -124,6 +133,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
   const today = input.today || isoDate(new Date());
   const range = periodRange(input.activityPeriod, input.customStart, input.customEnd, today);
   const preparedPayroll = payrollInput(input.payroll, input.periods);
+  const supplierOwnership = supplierExpenseCostOwnership(input.invoices, input.expenses);
   const currencies = [...new Set([
     ...input.projects.map((project) => currencyOf(project.currency)),
     ...input.invoices.map((invoice) => currencyOf(invoice.currency)),
@@ -148,6 +158,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
       subcontractVariations: (input.subcontractVariations || []).filter((v) => v.projectId === project.id),
       projectLaborAggregates: input.projectLaborAggregates,
       laborSource: input.laborSource,
+      fxSnapshots: input.fxSnapshots,
     });
     const pending = round(summary.pendingInvoiceCost + summary.pendingPayrollCost + summary.pendingExpenseCost);
     const confirmed = round(summary.totalActualCost);
@@ -159,12 +170,21 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
   const confirmed = round(projectRows.reduce((sum, row) => sum + row.confirmed, 0));
   const pending = round(projectRows.reduce((sum, row) => sum + row.pending, 0));
   const committed = round(projectRows.reduce((sum, row) => sum + row.committed, 0));
-  const selectedInvoices = input.invoices.filter((invoice) => !isVoidedInvoice(invoice) && currencyOf(invoice.currency) === selectedCurrency);
+  const selectedInvoices = input.invoices.filter((invoice) => {
+    if (isVoidedInvoice(invoice)) return false;
+    if (currencyOf(invoice.currency) === selectedCurrency) return true;
+    return convertFinancialAmount(invoice.grandTotal, invoice.currency, selectedCurrency, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots) !== undefined;
+  });
   const trendMonths = aggregateMonths(range.from, range.to);
   const trendMap = new Map(trendMonths.map((period) => [period, { label: monthLabel(period), invoices: 0, payroll: 0, expenses: 0, total: 0 }]));
   for (const invoice of selectedInvoices) {
+    if (supplierOwnership.byInvoiceId.has(invoice.id)) continue;
     if (invoice.reviewStatus !== "VERIFIED" || !inRange(invoice.invoiceDate, range.from, range.to)) continue;
-    const amount = (invoice.allocations || []).filter((allocation) => input.projects.some((project) => project.id === allocation.projectId && currencyOf(project.currency) === selectedCurrency)).reduce((sum, allocation) => sum + normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation), 0);
+    const amount = (invoice.allocations || []).filter((allocation) => input.projects.some((project) => project.id === allocation.projectId && currencyOf(project.currency) === selectedCurrency)).reduce((sum, allocation) => {
+      const rawAmount = normalizedInvoiceAllocationAmount(invoice.grandTotal, allocation);
+      const converted = convertFinancialAmount(rawAmount, invoice.currency, selectedCurrency, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots);
+      return sum + (converted === undefined ? 0 : converted);
+    }, 0);
     const point = trendMap.get(monthKey(invoice.invoiceDate)); if (point) point.invoices = round(point.invoices + amount);
   }
   for (const run of preparedPayroll) {
@@ -173,8 +193,13 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
     const point = trendMap.get(monthKey(run.periodEnd || "")); if (point) point.payroll = round(point.payroll + amount);
   }
   for (const expense of input.expenses) {
-    if (currencyOf(expense.currency) !== selectedCurrency || !expense.projectId || expense.status === "VOID" || (expense.status !== "APPROVED" && expense.status !== "PAID") || !inRange(expense.expenseDate, range.from, range.to)) continue;
-    const point = trendMap.get(monthKey(expense.expenseDate)); if (point) point.expenses = round(point.expenses + expense.amount);
+    const linkedInvoice = expense.supplierInvoiceId ? supplierOwnership.invoiceById.get(expense.supplierInvoiceId) : undefined;
+    const bridgedConfirmed = isConfirmedSupplierExpense(expense, linkedInvoice);
+    if (!expense.projectId || expense.status === "VOID" || (!bridgedConfirmed && expense.status !== "APPROVED" && expense.status !== "PAID") || !inRange(expense.expenseDate, range.from, range.to)) continue;
+    const converted = convertFinancialAmount(expense.amount, expense.currency, selectedCurrency, "EXPENSE", expense.id, input.fxSnapshots)
+      ?? (linkedInvoice ? convertFinancialAmount(expense.amount, linkedInvoice.currency, selectedCurrency, "SUPPLIER_INVOICE", linkedInvoice.id, input.fxSnapshots) : undefined);
+    if (converted === undefined) continue;
+    const point = trendMap.get(monthKey(expense.expenseDate)); if (point) point.expenses = round(point.expenses + converted);
   }
   const monthlyCostTrend = [...trendMap.values()].map((point) => ({ ...point, total: round(point.invoices + point.payroll + point.expenses) }));
   const composition = { invoices: round(projectRows.reduce((sum, row) => sum + row.invoiceCost, 0)), labor: round(projectRows.reduce((sum, row) => sum + row.payrollCost, 0)), expenses: round(projectRows.reduce((sum, row) => sum + row.expenseCost, 0)) };
@@ -183,7 +208,9 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
   let unknownDueDatePayables = 0;
   for (const invoice of selectedInvoices) {
     if (invoice.reviewStatus !== "VERIFIED") continue;
-    const outstanding = unpaidBalance(invoice); if (!outstanding) continue;
+    const outstandingSourceAmount = unpaidBalance(invoice);
+    const outstanding = convertFinancialAmount(outstandingSourceAmount, invoice.currency, selectedCurrency, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots);
+    if (outstanding === undefined || !outstanding) continue;
     if (!validDate(invoice.dueDate)) { unknownDueDatePayables = round(unknownDueDatePayables + outstanding); continue; }
     const age = Math.max(0, Math.floor((new Date(`${today}T00:00:00Z`).getTime() - new Date(`${invoice.dueDate}T00:00:00Z`).getTime()) / 86_400_000));
     if (age === 0) aging.current += outstanding; else if (age <= 30) aging.days1To30 += outstanding; else if (age <= 60) aging.days31To60 += outstanding; else if (age <= 90) aging.days61To90 += outstanding; else aging.over90 += outstanding;
@@ -211,7 +238,7 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
   const unallocatedByCurrency = currencies.map((code) => {
     const scopedInvoices = input.invoices.filter((invoice) => currencyOf(invoice.currency) === code);
     const scopedExpenses = input.expenses.filter((expense) => currencyOf(expense.currency) === code);
-    const scoped = calculateProjectCost(undefined, { invoices: scopedInvoices, expenses: scopedExpenses, payroll: preparedPayroll, baseCurrency: code });
+    const scoped = calculateProjectCost(undefined, { invoices: scopedInvoices, expenses: scopedExpenses, payroll: preparedPayroll, baseCurrency: code, fxSnapshots: input.fxSnapshots });
     const invoices = round(scoped.unallocatedInvoiceCost + scoped.unallocatedPendingInvoiceCost); const payroll = round(scoped.unallocatedPayrollCost + scoped.unallocatedPendingPayrollCost); const expenses = round(scoped.unallocatedExpenseCost + scoped.unallocatedPendingExpenseCost);
     return { currency: code, invoices, payroll, expenses, total: round(invoices + payroll + expenses) };
   }).filter((row) => row.total > 0);
@@ -227,5 +254,13 @@ export function buildDashboardViewData(input: DashboardViewModelInput): Dashboar
   for (const entry of currentEntries) { const context = entry.costContext?.type; if (context === "ADMIN_OFFICE" || context === "GENERAL_OVERHEAD") currentOverhead += entry.grossPay; else { currentProjectLabor += currentAllocated.get(entry.id) || 0; currentUnallocated += Math.max(0, (Number.isFinite(Number(entry.projectAllocatedCost)) ? entry.projectAllocatedCost : entry.grossPay) - (currentAllocated.get(entry.id) || 0)); } }
   const unallocatedForAttention = unallocatedByCurrency.map((row) => ({ currency: row.currency, total: row.total }));
   const payrollDetailAvailable = input.laborSource === undefined || input.laborSource === "detail";
-  return { selectedCurrency, currencies, activityPeriod: input.activityPeriod, activityStart: range.from, activityEnd: range.to, activityLabel: range.label, activeProjects: projectRows.filter((row) => { const status = input.projects.find((project) => project.id === row.projectId)?.status; return status === "ACTIVE" || (status as string) === "IN_PROGRESS"; }).length, totalProjectBudget: budget, confirmedProjectCost: confirmed, committedProjectCost: committed, pendingProjectCost: pending, availableAfterCommitments: round(budget - confirmed - committed - pending), outstandingPayables: round(selectedInvoices.reduce((sum, invoice) => sum + unpaidBalance(invoice), 0)), projectRows, monthlyCostTrend, costComposition: [{ name: "Supplier invoices", value: composition.invoices, color: "#4f46e5" }, { name: "Project payroll", value: composition.labor, color: "#8b5cf6" }, { name: "Direct expenses", value: composition.expenses, color: "#f59e0b" }], budgetUtilization, payableAging: [{ bucket: "Current", value: round(aging.current) }, { bucket: "1–30", value: round(aging.days1To30) }, { bucket: "31–60", value: round(aging.days31To60) }, { bucket: "61–90", value: round(aging.days61To90) }, { bucket: "90+", value: round(aging.over90) }], unknownDueDatePayables, payrollTrend: [...payrollTrendMap.values()], expenseTrend: [...expenseTrendMap.values()], unallocatedByCurrency, overheadByCurrency, cashPosition, payrollDetailAvailable, payrollSummary: { currentPeriodLabel: currentPeriod ? `${currentPeriod.periodStart} – ${currentPeriod.periodEnd}` : "No active period", activeWorkers: input.workers.filter((worker) => worker.active).length, grossPayroll: round(currentEntries.reduce((sum, entry) => sum + entry.grossPay, 0)), projectLabor: round(currentProjectLabor), overhead: round(currentOverhead), unallocatedLabor: round(currentUnallocated), runStatus: currentRuns[0]?.status || "No run", blockingIssues: 0, warnings: 0 }, expenseSummary: { selectedPeriodTotal: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && inRange(expense.expenseDate, range.from, range.to) && expense.status !== "VOID").reduce((sum, expense) => sum + expense.amount, 0)), confirmedProjectExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && expense.projectId && inRange(expense.expenseDate, range.from, range.to) && (expense.status === "APPROVED" || expense.status === "PAID")).reduce((sum, expense) => sum + expense.amount, 0)), pendingProjectExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && expense.projectId && inRange(expense.expenseDate, range.from, range.to) && expense.status === "DRAFT").reduce((sum, expense) => sum + expense.amount, 0)), unallocatedExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && !expense.projectId && inRange(expense.expenseDate, range.from, range.to) && expense.status !== "VOID").reduce((sum, expense) => sum + expense.amount, 0)) }, attention: buildAttention(input, projectRows, unallocatedForAttention), invoiceOperations: invoiceOperations(input.invoices) };
+  const selectedOutstandingPayables = selectedInvoices.reduce((sum, invoice) => {
+    const converted = convertFinancialAmount(unpaidBalance(invoice), invoice.currency, selectedCurrency, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots);
+    return sum + (converted || 0);
+  }, 0);
+  const isConfirmedBridgeExpense = (expense: Expense) => {
+    const linkedInvoice = expense.supplierInvoiceId ? supplierOwnership.invoiceById.get(expense.supplierInvoiceId) : undefined;
+    return isConfirmedSupplierExpense(expense, linkedInvoice);
+  };
+  return { selectedCurrency, currencies, activityPeriod: input.activityPeriod, activityStart: range.from, activityEnd: range.to, activityLabel: range.label, activeProjects: projectRows.filter((row) => { const status = input.projects.find((project) => project.id === row.projectId)?.status; return status === "ACTIVE" || (status as string) === "IN_PROGRESS"; }).length, totalProjectBudget: budget, confirmedProjectCost: confirmed, committedProjectCost: committed, pendingProjectCost: pending, availableAfterCommitments: round(budget - confirmed - committed - pending), outstandingPayables: round(selectedOutstandingPayables), projectRows, monthlyCostTrend, costComposition: [{ name: "Supplier invoices", value: composition.invoices, color: "#4f46e5" }, { name: "Project payroll", value: composition.labor, color: "#8b5cf6" }, { name: "Direct expenses", value: composition.expenses, color: "#f59e0b" }], budgetUtilization, payableAging: [{ bucket: "Current", value: round(aging.current) }, { bucket: "1–30", value: round(aging.days1To30) }, { bucket: "31–60", value: round(aging.days31To60) }, { bucket: "61–90", value: round(aging.days61To90) }, { bucket: "90+", value: round(aging.over90) }], unknownDueDatePayables, payrollTrend: [...payrollTrendMap.values()], expenseTrend: [...expenseTrendMap.values()], unallocatedByCurrency, overheadByCurrency, cashPosition, payrollDetailAvailable, payrollSummary: { currentPeriodLabel: currentPeriod ? `${currentPeriod.periodStart} – ${currentPeriod.periodEnd}` : "No active period", activeWorkers: input.workers.filter((worker) => worker.active).length, grossPayroll: round(currentEntries.reduce((sum, entry) => sum + entry.grossPay, 0)), projectLabor: round(currentProjectLabor), overhead: round(currentOverhead), unallocatedLabor: round(currentUnallocated), runStatus: currentRuns[0]?.status || "No run", blockingIssues: 0, warnings: 0 }, expenseSummary: { selectedPeriodTotal: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && inRange(expense.expenseDate, range.from, range.to) && expense.status !== "VOID").reduce((sum, expense) => sum + expense.amount, 0)), confirmedProjectExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && expense.projectId && inRange(expense.expenseDate, range.from, range.to) && isConfirmedBridgeExpense(expense)).reduce((sum, expense) => sum + expense.amount, 0)), pendingProjectExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && expense.projectId && inRange(expense.expenseDate, range.from, range.to) && expense.status === "DRAFT" && !isConfirmedBridgeExpense(expense)).reduce((sum, expense) => sum + expense.amount, 0)), unallocatedExpenses: round(input.expenses.filter((expense) => currencyOf(expense.currency) === selectedCurrency && !expense.projectId && inRange(expense.expenseDate, range.from, range.to) && expense.status !== "VOID").reduce((sum, expense) => sum + expense.amount, 0)) }, attention: buildAttention(input, projectRows, unallocatedForAttention), invoiceOperations: invoiceOperations(input.invoices, currencyOf(input.baseCurrency || "PHP"), input.fxSnapshots) };
 }

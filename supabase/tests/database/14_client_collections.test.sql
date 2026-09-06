@@ -86,10 +86,10 @@ insert into public.deployment_configuration (singleton, company_id)
 values (true, (select company_a from client_collection_ids))
 on conflict (singleton) do update set company_id = (select company_a from client_collection_ids);
 
-insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, status, contract_value, project_budget, currency)
+insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, status, contract_value, project_budget, currency, tax_treatment)
 values
-  ((select project_a from client_collection_ids), (select admin_user from client_collection_ids), (select company_a from client_collection_ids), 'CC-A', 'Client Collection Project', 'Client Alpha', 'CLIENT-ALPHA-001', 'ACTIVE', 10000, 7000, 'PHP'),
-  ((select project_b from client_collection_ids), (select outsider_user from client_collection_ids), (select company_b from client_collection_ids), 'CC-B', 'Other Company Project', 'Client Beta', 'CLIENT-BETA-001', 'ACTIVE', 10000, 7000, 'USD');
+  ((select project_a from client_collection_ids), (select admin_user from client_collection_ids), (select company_a from client_collection_ids), 'CC-A', 'Client Collection Project', 'Client Alpha', 'CLIENT-ALPHA-001', 'ACTIVE', 10000, 7000, 'PHP', 'VAT'),
+  ((select project_b from client_collection_ids), (select outsider_user from client_collection_ids), (select company_b from client_collection_ids), 'CC-B', 'Other Company Project', 'Client Beta', 'CLIENT-BETA-001', 'ACTIVE', 10000, 7000, 'USD', 'VAT');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', (select admin_user::text from client_collection_ids), true);

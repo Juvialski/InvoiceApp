@@ -51,11 +51,23 @@ Implemented source-of-truth direction:
 
 Known validation limitation carried forward: a real live Gmail send still requires a connected Google account with the required OAuth consent and was not exercised in PR #93 CI/local validation.
 
-## NEXT PHASE — R4 Whole-App Redundancy, Currency, Tax Classification & UX Declutter
+## R4 — Whole-App Redundancy, Currency, Tax Classification & UX Declutter
 
-Implementation priority: **NEXT**
+Implementation status: **PARTIAL — implemented on `codex/hydroqualisense-r4-cleanup`; PR and exact-head CI remain pending**
 
 R4 is a deliberate whole-application cleanup pass after the R3 financial consolidation and before warehouse inventory implementation.
+
+### R4 delivery note — 2026-09-06
+
+The current implementation pass delivers the following bounded R4 behavior:
+
+- the Expenses workspace exposes preserved supplier documents in explicit Needs Review, Verified / Link Required, and Linked Expense states; linking remains an explicit action on the existing guarded R3 RPC, and verified-invoice-to-Expense ownership transfer preserves project Actual Cost, provenance, and idempotency;
+- PHP reporting uses immutable transaction-level FX snapshots with original amount/currency, rate/date, provenance, base equivalent, actor, and timestamp; unresolved foreign records are visibly excluded from PHP aggregates until an authorized user confirms a rate;
+- Projects carry explicit `VAT`, `NON_VAT`, or transitional `UNCLASSIFIED` treatment; new/edited projects require confirmation, client billing inherits the project context, and issued billing snapshots retain it without inferring a VAT rate or inclusive/exclusive contract treatment;
+- Payroll period screens hide VOID history by default behind `Include voided`, while the forward migration rejects duplicate active date boundaries without deleting audited VOID rows;
+- dashboard/report/project surfaces remove or collapse selected redundant KPI/form presentation while retaining mature workflows, source evidence, permissions, lifecycle history, and canonical cost/commitment boundaries.
+
+This remains partial until the integrated branch has passed exact-head PR CI and review. Warehouse Inventory remains the next major product phase after R4 finalization. Unresolved rules remain intentionally explicit: VAT rate, VAT-inclusive versus VAT-exclusive contract values, withholding/BIR classification, automatic FX provider policy, and any accounting-period policy beyond existing validated semantics.
 
 Core product rule:
 
