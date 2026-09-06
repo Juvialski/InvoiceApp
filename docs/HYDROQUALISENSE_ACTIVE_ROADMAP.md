@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — R4 NEXT**  
+Status: **ACTIVE — R5 HARDENING NEXT**  
 Repository: `Juvialski/InvoiceApp`  
 Date reset: **2026-09-05**  
 Last updated: **2026-09-06**  
@@ -51,199 +51,225 @@ Implemented source-of-truth direction:
 
 Known validation limitation carried forward: a real live Gmail send still requires a connected Google account with the required OAuth consent and was not exercised in PR #93 CI/local validation.
 
-## R4 — Whole-App Redundancy, Currency, Tax Classification & UX Declutter
+### R4 — Whole-App Redundancy, Currency, Tax Classification & UX Declutter
 
-Implementation status: **PARTIAL — implemented on `codex/hydroqualisense-r4-cleanup`; PR and exact-head CI remain pending**
+Implementation status: **COMPLETE — merged in PR #94 on 2026-09-06**
 
-R4 is a deliberate whole-application cleanup pass after the R3 financial consolidation and before warehouse inventory implementation.
+R4 established the cleanup and reporting baseline required before deeper integration hardening:
 
-### R4 delivery note — 2026-09-06
+- the Expenses workspace exposes supplier documents as explicit Needs Review, Verified / Link Required, and Linked Expense states while keeping Expense as the authoritative payable/Actual Cost source;
+- linking legacy verified supplier invoices remains explicit, idempotent, provenance-preserving, and does not change economic project Actual Cost merely because ownership transfers to Expense;
+- PHP/base reporting uses immutable transaction-level FX snapshots while preserving original amount/currency and explicit rate/date/provenance;
+- unresolved foreign-currency records are excluded from PHP aggregates rather than being relabelled or silently mixed;
+- review hardening scopes FX snapshot visibility to the actual source domain and requires source-read authority as well as settings-management authority to confirm FX;
+- a linked supplier Invoice and authoritative Expense share the same frozen FX evidence transactionally, preventing the same economic event from requiring contradictory or duplicate conversion confirmation for supplier-tax/reporting views;
+- Projects carry explicit `VAT`, `NON_VAT`, or transitional `UNCLASSIFIED` treatment; new/edited projects require confirmation, Client Invoice drafts inherit project context, and issued documents snapshot the treatment without inventing VAT rate or inclusive/exclusive semantics;
+- Payroll period screens hide VOID history by default while retaining audit access, and duplicate active date boundaries are guarded without deleting historical VOID rows;
+- Dashboard/Reports/project surfaces received bounded decluttering and source/currency boundary cleanup without deleting mature workflows or auditable history.
 
-The current implementation pass delivers the following bounded R4 behavior:
+PR #94 exact-head review additionally hardened FX RLS/source scope and linked supplier Invoice/Expense conversion continuity. Exact-head Application Validation, Database Migration & Invariant Tests (clean replay, pgTAP, upgrade-path suite), Workflow Map Consistency, and Demo Visual QA were green before merge.
 
-- the Expenses workspace exposes preserved supplier documents in explicit Needs Review, Verified / Link Required, and Linked Expense states; linking remains an explicit action on the existing guarded R3 RPC, and verified-invoice-to-Expense ownership transfer preserves project Actual Cost, provenance, and idempotency;
-- PHP reporting uses immutable transaction-level FX snapshots with original amount/currency, rate/date, provenance, base equivalent, actor, and timestamp; unresolved foreign records are visibly excluded from PHP aggregates until an authorized user confirms a rate;
-- Projects carry explicit `VAT`, `NON_VAT`, or transitional `UNCLASSIFIED` treatment; new/edited projects require confirmation, client billing inherits the project context, and issued billing snapshots retain it without inferring a VAT rate or inclusive/exclusive contract treatment;
-- Payroll period screens hide VOID history by default behind `Include voided`, while the forward migration rejects duplicate active date boundaries without deleting audited VOID rows;
-- dashboard/report/project surfaces remove or collapse selected redundant KPI/form presentation while retaining mature workflows, source evidence, permissions, lifecycle history, and canonical cost/commitment boundaries.
+Still intentionally unresolved: VAT rate, VAT-inclusive versus VAT-exclusive contract values, withholding/BIR classification, automatic FX provider policy, and accounting-period policy beyond existing validated semantics.
 
-This remains partial until the integrated branch has passed exact-head PR CI and review. Warehouse Inventory remains the next major product phase after R4 finalization. Unresolved rules remain intentionally explicit: VAT rate, VAT-inclusive versus VAT-exclusive contract values, withholding/BIR classification, automatic FX provider policy, and any accounting-period policy beyond existing validated semantics.
-
-Core product rule:
+Core product rule carried forward:
 
 > **One concept -> one primary place -> one authoritative number.**
 
-R4 must audit the whole application for duplicate workflows, duplicate calculations, redundant cards/tabs, excessive empty fields, stale terminology, misleading history, and repeated information that survived earlier Engoryx-era implementation waves.
+## NEXT PHASE — R5 Cross-Module Integration & Data-Contract Hardening
 
-This is not permission to delete or rewrite auditable history. Simplify presentation and workflow ownership while preserving authoritative records, lifecycle states, permissions, RLS, and correction history.
+Implementation priority: **NEXT — before Warehouse Inventory**
 
-### R4.1 — Semantic redundancy audit
+R5 is a deep functional hardening pass. Its purpose is not another cosmetic cleanup. It must prove that entities created or resolved in one HydroQualiSense domain are the same canonical entities consumed by every dependent domain, that mutations propagate without stale/parallel state, and that lifecycle/RBAC/RLS/financial contracts remain consistent end to end.
 
-Audit every major user-facing domain and trace displayed values back to their source of truth.
+Governing integration rule:
 
-For each repeated concept determine:
+> **One business entity -> one canonical identity -> every module references it.**
 
-- which location is canonical;
-- which source is authoritative;
-- whether another card/page/tab is merely repeating the same fact;
-- whether a secondary surface should become a shortcut/deep link instead of a second full workflow;
-- whether old Invoice-era labels or calculations remain after R3.
+R5 should use the current green R4 `main` as its trusted baseline and focus on concrete cross-module continuity. Do not start Inventory until this baseline is hardened.
 
-Priority domains:
+### R5.1 — Canonical Vendor master and supplier resolution
 
-- Dashboard;
-- Cash & Banking;
-- Expenses and supplier source documents;
-- Email Intake;
-- Projects;
-- Procurement/Purchase Orders;
-- Payroll;
-- Reports;
-- Settings;
-- project workspaces and their tabs/cards.
+A known integration defect is already confirmed and must be addressed first:
 
-Do not merge distinct financial concepts merely because their numbers happen to be similar. Actual Cost, Committed Cost, Client Invoices/Receivables, Collections, and Cash settlement remain distinct.
+- the current user-facing Vendor Directory can derive/display supplier summaries from invoice contents;
+- Procurement vendor selectors consume canonical `public.vendors` records;
+- therefore a supplier may visibly appear under Vendors but still be unavailable for a Purchase Order/RFQ/quotation because no canonical Vendor row exists;
+- supplier invoice persistence currently attempts to find an existing vendor but can leave `vendor_id` unresolved when the extracted supplier is new;
+- a linked Expense can therefore also lack canonical Vendor provenance.
 
-### R4.2 — PHP base reporting and explicit foreign-currency conversion
+Target contract:
 
-HydroQualiSense operates with **PHP as its company/base reporting currency**.
+`Supplier evidence -> human-confirmed Vendor resolution -> canonical vendor_id -> Expense / PO / RFQ / Quotation / Subcontract / Email Intake / Vendor Directory`
 
-Foreign-currency source transactions must preserve their original economic evidence:
+Required hardening:
 
-- original amount;
-- original currency;
-- transaction/document date;
-- explicit FX rate used for reporting;
-- FX rate date;
-- FX rate source or manual-entry provenance;
-- resulting PHP/base-currency equivalent.
+- treat `public.vendors` as the canonical supplier master;
+- invoice-extracted supplier text remains immutable/source evidence and must not itself become a competing master record;
+- exact TIN/master matches may link safely under the existing authorization model;
+- clearly new suppliers require explicit human-confirmed Vendor creation rather than silent AI-driven master-data creation;
+- ambiguous/conflicting identities must remain unresolved until a user resolves them;
+- normalization/TIN matching must not merge suppliers with conflicting authoritative identifiers;
+- after Vendor creation/linking, dependent selectors and summaries must refresh without logout/hard reload;
+- existing historical supplier invoices without `vendor_id` need a safe reconciliation workflow that preserves source history.
 
-Company-level dashboards, VAT summaries, management totals and other reports that are intended to show one company-wide total should use the authoritative PHP/base equivalent rather than visually combining unrelated currencies.
+The Vendor Directory should ultimately display canonical vendors enriched by supplier activity, with unresolved supplier identities presented separately rather than masquerading as master vendors.
 
-Important invariants:
+### R5.2 — Supplier Invoice / Expense / Procurement continuity
 
-- **never relabel USD amounts as PHP**;
-- **never silently sum mixed currencies**;
-- **never invent an exchange rate**;
-- if a foreign-currency record lacks an authoritative conversion rate, show an actionable `FX rate required` / equivalent state and exclude it from PHP aggregate totals until resolved;
-- historical conversion snapshots must not change merely because a later exchange rate changes;
-- original-currency detail remains visible for audit/reconciliation.
+Trace and harden the complete chain:
 
-The current example where a USD invoice and PHP VAT/reporting amounts appear side-by-side without a coherent conversion basis is specifically in scope.
+`Email/Upload -> Source Document -> Supplier Invoice -> Vendor -> Expense -> PO match -> Project/Cost Code -> Cash settlement`
 
-The implementation design must inspect existing currency/settings/reporting contracts before deciding whether FX data belongs on the source record, a reusable rate table, or both. Any new FX source must have explicit provenance and deterministic snapshot semantics.
+And procurement-first:
 
-### R4.3 — Project VAT / Non-VAT classification
+`Vendor -> RFQ -> Supplier Quotation -> PO -> Receipt -> Supplier Invoice -> Expense`
 
-Projects must be explicitly classifiable by tax treatment:
+Verify at minimum:
 
-- `VAT`
-- `NON_VAT`
+- one supplier invoice can create/link only one non-void authoritative Expense;
+- Vendor, PO, Project, and Cost Code provenance survives the transition;
+- supplier invoice evidence remains reachable after linking;
+- PO remains Committed Cost rather than becoming duplicate Actual Cost;
+- project Actual Cost does not jump merely because legacy invoice fallback transfers to Expense ownership;
+- cash settlement attaches to the authoritative payable path and does not recreate supplier-invoice payable truth;
+- retried/double/concurrent actions remain idempotent.
 
-This is a first-class **project business classification**, not an inferred property from a supplier invoice.
+### R5.3 — Invoice and financial-document discoverability
 
-Required behavior:
+R3 removed the ambiguous generic top-level Invoice business branch, but mature history and document-generation workflows must remain discoverable.
 
-- new projects must choose a tax treatment;
-- existing projects must not be silently guessed; they should require explicit confirmation before the classification is treated as authoritative;
-- project lists/details should show the classification compactly where useful;
-- Client Invoice creation should inherit the project tax treatment as its default tax context;
-- an issued Client Invoice must snapshot the tax treatment used so later Project edits cannot rewrite historical invoice meaning;
-- Non-VAT projects should not show irrelevant VAT UI or automatically add VAT;
-- VAT projects may expose the relevant validated VAT invoice fields/calculations;
-- supplier invoice/Expense tax characteristics remain independent evidence and must not be overwritten by the project's outgoing billing classification.
+Harden navigation so users can clearly reach both meanings without recreating a competing generic Invoice ledger:
 
-Still **TBD / do not infer**:
+**Supplier Documents**
 
-- whether `projects.contract_value` is VAT-inclusive or VAT-exclusive;
-- the applicable VAT percentage/rate solely from this classification;
-- withholding treatment;
-- BIR/legal document classification beyond already validated application semantics.
+- preserved incoming supplier invoice history should have an obvious canonical entry point under the Expenses/supplier workflow;
+- users must be able to open previous supplier invoice source details, review history, linkage/provenance, and associated Expense/PO where authorized.
 
-R4 should create the classification and propagation/snapshot contract without inventing those unanswered tax rules.
+**Client Invoices**
 
-### R4.4 — Payroll period history declutter
+- existing Project -> Client Invoices remains the project-context workflow;
+- provide or confirm a discoverable global Client Invoices directory across projects where users can find/create/open prior outgoing invoices, preview/download/send issued PDFs, inspect lifecycle/history, and navigate to collections/payments;
+- reuse the existing `client_billings` / Client Collections source of truth; do not create a second outgoing-invoice model.
 
-VOID payroll periods are auditable history but must not dominate the normal payroll-period screen.
+### R5.4 — Master-data continuity audit
 
-Desired behavior:
+Trace canonical identity and downstream consumption for:
 
-- active/current/completed usable periods are the default history view;
-- VOID periods are hidden by default or grouped in a collapsed **Voided history** section;
-- provide an explicit `Include voided` / history filter for authorized users;
-- do not delete VOID periods merely to declutter the screen;
-- if no real usable payroll period has been generated yet, the normal period list should look empty rather than appearing populated by repeated VOID/test/correction history;
-- preserve all lifecycle and audit protections for approved/paid/void payroll records.
+- Vendor;
+- Project;
+- Worker;
+- Financial Account;
+- Project Cost Code;
+- client/billing contact where represented;
+- other shared selectors discovered during the audit.
 
-Also investigate why repeated identical VOID period rows were created. If the repetition reflects a real creation/idempotency defect rather than valid history, fix the creation path and add regression coverage. Do not erase existing auditable rows merely to hide the symptom.
+For each, verify:
 
-### R4.5 — Navigation and workflow consolidation
+1. canonical table/model and ID;
+2. company-bound uniqueness/integrity;
+3. normalization where applicable;
+4. create-vs-link behavior;
+5. duplicate handling;
+6. selector/list/detail consistency;
+7. immediate state propagation after create/edit/archive/restore;
+8. historical snapshot behavior where later master edits must not rewrite issued/finalized history.
 
-Reduce feature redundancy across the shell and project workspaces.
+Derived display summaries must not pretend to be master records.
 
-Examples of the target direction:
+### R5.5 — State propagation and cache/refresh hardening
 
-- supplier invoice/source evidence belongs under Expenses/Procurement rather than reappearing as a competing financial module;
-- project cost surfaces should emphasize **Actual Expenses/Actual Cost** and **Committed Purchase Orders** rather than promoting verified supplier invoices as a separate cost category after R3;
-- Client Invoices remain receivable-side and should not be mixed into supplier/project Actual Cost presentation;
-- secondary project tabs that only duplicate a canonical module should become context links, summaries, or shortcuts where appropriate;
-- Vendor, supplier-document and PO evidence should remain reachable without recreating duplicate workflows.
+For consequential mutations, verify that both database truth and the currently mounted UI converge without requiring a hard reload.
 
-Do not remove a mature capability solely to make the sidebar shorter. Consolidation requires dependency/history/permission review.
+Audit:
 
-### R4.6 — Dashboard and Reports declutter
+- React state updates;
+- workspace refresh groups/caches;
+- dropdown/select data;
+- counters/KPIs;
+- project summaries;
+- linked detail panels;
+- route/deep-link resolution;
+- demo/local behavior versus Supabase behavior.
 
-Audit KPI cards, summaries and reports for repeated or misleading facts.
+A mutation succeeding in the DB while a dependent selector/page remains stale is a hardening defect.
 
-Prefer:
+### R5.6 — Lifecycle / history continuity
 
-- fewer high-value metrics;
-- clear source semantics;
-- drill-down to the canonical workflow;
-- PHP/base reporting totals only when conversion is authoritative;
-- foreign-currency exceptions surfaced separately;
-- zero-value/empty sections hidden when they add no decision value.
+Trace representative records through:
 
-Preserve detailed reporting where users genuinely need it; decluttering is not removal of audit evidence.
+`Create -> Edit -> Approve/Verify -> Issue -> Pay/Collect -> Void/Cancel/Reverse -> Restore/Reopen where allowed`
 
-### R4.7 — Forms and detail-page progressive disclosure
+Dependent modules must interpret lifecycle consistently.
 
-Apply the R3 supplier-review principle more broadly:
+Preserve:
 
-- optional + empty fields should normally not consume permanent screen space;
-- required-but-missing data should appear as an actionable exception;
-- full optional fields remain available through Edit/More Details when legitimate correction is needed;
-- avoid giant forms where most inputs are blank;
-- group related actions and remove duplicate buttons that lead to the same result.
+- immutable issued PO/Client Invoice snapshots;
+- verified supplier source history;
+- authoritative Expense lifecycle;
+- Collection versus Cash reconciliation separation;
+- Payroll approved/paid/void history;
+- auditable correction/reversal paths.
 
-### R4.8 — Demo/sample residue and empty-state truth
+Do not solve presentation inconsistencies by erasing history.
 
-Separate demonstration richness from real-workspace truth.
+### R5.7 — RBAC / RLS / RPC parity
 
-- Demo mode may retain representative data needed for the Thursday presentation.
-- A real company workspace should not look operationally populated because of sample/test/void residue.
-- Empty states should reflect actual authoritative records.
-- Do not delete legitimate production/audit data merely because it makes a screen busy.
+For each cross-module action, verify the full authorization chain:
 
-### R4 validation expectations
+`UI permission -> application/service boundary -> RPC/server check -> RLS/company-bound FK`
 
-R4 may include both UI-only and DB-affecting work.
+Look specifically for:
 
-Use focused -> affected validation throughout. If R4 introduces or changes:
+- one module loading a shared entity more broadly than another;
+- overly broad derived summaries exposing source-detail information;
+- overly narrow permission composition that breaks legitimate canonical linking;
+- direct table writes bypassing an intended guarded RPC;
+- SECURITY DEFINER scope/search-path problems;
+- missing company-bound validation.
 
-- project tax-treatment schema;
-- FX conversion/rate schema;
-- financial reporting contracts;
-- payroll period lifecycle/idempotency DB guards;
-- RLS/RPC/trigger behavior;
+Single-company deployment is not permission to weaken RLS.
 
-then real Docker/local Supabase validation is required, including clean replay, pgTAP, migration tests, upgrade-path tests, and relevant runtime/concurrency checks.
+### R5.8 — Database integrity / retries / concurrency
 
-Do not run the historical full suite merely because R4 is broad; use it only when affected analysis falls back or a concrete shared-contract reason justifies it.
+Audit important cross-module operations for:
+
+- double-click duplicate creation;
+- retries;
+- concurrent verification/linking;
+- duplicate Vendor creation;
+- PO matching races;
+- stale optimistic updates;
+- repeated lifecycle transitions;
+- Payroll period duplication;
+- other operations found during the hardening audit.
+
+Prefer database constraints/locking/idempotent RPCs for invariants that must survive concurrent clients. UI-only disabling is not sufficient for financial/master-data integrity.
+
+### R5.9 — End-to-end acceptance flows
+
+R5 should finish with a compact but serious integration matrix proving at least:
+
+1. **Supplier path:** upload/email supplier document -> resolve/create Vendor -> verify -> Expense -> optional PO/project provenance -> settlement context.
+2. **Procurement path:** canonical Vendor -> RFQ/Quotation -> PO -> Receipt -> supplier invoice match -> authoritative Expense.
+3. **Client revenue path:** Project -> Client Invoice -> issued snapshot/PDF -> Collection -> Cash reconciliation evidence.
+4. **Project cost path:** Expense + committed PO + Payroll allocations produce the expected distinct Actual/Committed cost semantics.
+5. **Master-data propagation:** create/edit a canonical Vendor/Project/other shared entity and confirm dependent selectors/summaries update without hard reload.
+6. **Lifecycle/history:** void/cancel/reverse representative records and verify dependent screens preserve history while excluding them from active truth as appropriate.
+7. **RBAC:** representative restricted roles cannot gain cross-domain detail merely because a summary or shared entity is visible.
+
+For DB-affecting fixes use real Docker/local Supabase validation including clean replay, pgTAP, migration tests, upgrade-path tests, and relevant runtime/concurrency checks. Static SQL/string tests are not sufficient.
+
+### R5 execution strategy
+
+Astra is **not required** for R5. If the user's Astra allowance is unavailable, proceed with Luna Max as lead plus bounded Luna subagents under the current pre-demo policy.
+
+Astra may be used later, when allowance permits, as a dedicated audit/review pass; it must not be treated as a prerequisite to establishing a hardened baseline.
+
+Keep the lead responsible for architecture, source-of-truth decisions, migrations/RLS/RPCs, shared integration, final diff review, and validation.
 
 ## R2 — Warehouse inventory and project allocation
 
-Implementation priority: **AFTER R4 unless the client reprioritizes it**
+Implementation priority: **AFTER R5 unless the client reprioritizes it**
 
 The client operates its own warehouse and requires a real inventory capability.
 
@@ -281,7 +307,8 @@ Do **not** prematurely decide:
 9. Feature/navigation simplification is not authorization simplification.
 10. VOID/finalized/auditable history may be hidden or grouped for usability but must not be silently erased.
 11. Consequential AI-assisted mutations remain prepare/validate/human-confirm/execute operations.
-12. Inventory stock must ultimately be explainable from authoritative movements or an equally rigorous source model.
+12. Canonical master data must not be silently created from unverified AI/import evidence when identity is ambiguous.
+13. Inventory stock must ultimately be explainable from authoritative movements or an equally rigorous source model.
 
 ## Explicit hold on previous future plans
 
@@ -301,8 +328,8 @@ They may return only if the client requirements justify them.
 
 Unless the client reprioritizes:
 
-1. **R4 — Whole-App Redundancy, Currency, Tax Classification & UX Declutter**
+1. **R5 — Cross-Module Integration & Data-Contract Hardening**
 2. **R2 — Warehouse inventory and project allocation**
 3. later client-confirmed major requirements after explicit planning and safety review.
 
-Do not start Inventory while R4 is still the active next phase unless the user explicitly changes priority.
+Do not start Inventory while R5 is still the active next phase unless the user explicitly changes priority.
