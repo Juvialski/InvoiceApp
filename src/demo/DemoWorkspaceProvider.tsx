@@ -39,7 +39,10 @@ function readInitialWorkspace(anchorDate: string): DemoWorkspaceData {
         const parsed = JSON.parse(raw) as unknown;
         if (isSafeStoredDemoWorkspace(parsed, anchorDate) && Boolean((parsed as DemoWorkspaceData).coordination)) {
           const stored = parsed as DemoWorkspaceData;
-          if (stored.clientBillings && stored.clientBillingEvents && stored.clientCollections && stored.clientCollectionEvents) return { ...stored, financialFxSnapshots: stored.financialFxSnapshots || createDemoWorkspace(anchorDate).financialFxSnapshots };
+          if (stored.clientBillings && stored.clientBillingEvents && stored.clientCollections && stored.clientCollectionEvents) {
+            const seeded = createDemoWorkspace(anchorDate);
+            return { ...stored, financialFxSnapshots: stored.financialFxSnapshots || seeded.financialFxSnapshots, inventoryItems: stored.inventoryItems || seeded.inventoryItems, inventoryMovements: stored.inventoryMovements || seeded.inventoryMovements };
+          }
           const seeded = createDemoWorkspace(anchorDate);
           return {
             ...stored,
@@ -48,6 +51,8 @@ function readInitialWorkspace(anchorDate: string): DemoWorkspaceData {
             clientCollections: stored.clientCollections || seeded.clientCollections,
             clientCollectionEvents: stored.clientCollectionEvents || seeded.clientCollectionEvents,
             financialFxSnapshots: stored.financialFxSnapshots || seeded.financialFxSnapshots,
+            inventoryItems: stored.inventoryItems || seeded.inventoryItems,
+            inventoryMovements: stored.inventoryMovements || seeded.inventoryMovements,
           };
         }
       }

@@ -84,6 +84,9 @@ interface ProjectWorkspaceProps {
   receipts?: PurchaseOrderReceipt[];
   materials?: readonly ProjectMaterial[];
   equipment?: readonly ProjectEquipment[];
+  inventoryItems?: readonly import("../../lib/inventory.ts").InventoryItem[];
+  inventoryMovements?: readonly import("../../lib/inventory.ts").InventoryMovement[];
+  inventoryBalances?: readonly import("../../lib/inventory.ts").InventoryBalance[];
   subcontracts?: Subcontract[];
   subcontractClaims?: SubcontractProgressClaim[];
   subcontractVariations?: SubcontractVariation[];
@@ -123,6 +126,7 @@ interface ProjectWorkspaceProps {
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onSaveMaterial?: (input: import("../../lib/materialsEquipment.ts").ProjectMaterialSaveInput) => Promise<void>;
   onSaveEquipment?: (input: import("../../lib/materialsEquipment.ts").ProjectEquipmentSaveInput) => Promise<void>;
+  onOpenWarehouse?: () => void;
   onTabChange?: (tab: WorkspaceTab) => void;
   onBack: () => void;
   onOpenInvoice: (invoice: InvoiceData) => void;
@@ -262,6 +266,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   receipts = [],
   materials = [],
   equipment = [],
+  inventoryItems = [],
+  inventoryMovements = [],
+  inventoryBalances,
   vendors = [],
   workers = [],
   assignments = [],
@@ -297,6 +304,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   onDailySiteLogsDataChange,
   onSaveMaterial,
   onSaveEquipment,
+  onOpenWarehouse,
   attentionToday,
   onTabChange,
   onBack,
@@ -363,6 +371,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const canReadProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementRead);
   const canManageProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementWrite);
   const canApproveProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementApprove);
+  const canReadInventory = engineeringDocumentsGuestMode || hasPermission(permissions, PERMISSION_KEYS.inventoryRead);
   const canReadWorkers = hasPermission(permissions, PERMISSION_KEYS.workersRead);
   const canReadReports = hasAnyPermission(permissions, [PERMISSION_KEYS.reportsRead, PERMISSION_KEYS.reportsPayrollRead]);
   const completeness = useProjectCostCompleteness();
@@ -577,7 +586,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
       {tab === "site-logs" && (coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div> : <ProjectSiteLogs project={project} companyId={companyId} initialSiteLogId={initialSiteLogId} pathForSiteLog={pathForSiteLog} onNavigatePath={onNavigatePath} canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead} canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate} canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate} canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit} canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage} guestMode={engineeringDocumentsGuestMode} controlledData={projectDailySiteLogsData} controlledPersistence={!engineeringDocumentsGuestMode && dailySiteLogsData !== undefined ? "remote" : "local"} onControlledDataChange={publishProjectDailySiteLogsData} materials={materials.filter((material) => material.projectId === project.id)} registeredEquipment={equipment.filter((item) => item.projectId === project.id)} purchaseOrders={purchaseOrders.filter((purchaseOrder) => purchaseOrder.projectId === project.id)} receipts={receipts} costCodes={costCodes.filter((costCode) => costCode.projectId === project.id)} canReadProcurement={canReadProcurement} />)}
 
-      {tab === "materials-equipment" && <ProjectMaterialsEquipment project={project} materials={materials} equipment={equipment} purchaseOrders={purchaseOrders} receipts={receipts} vendors={vendors} costCodes={costCodes} dailySiteLogsData={projectDailySiteLogsData} canReadSiteLogs={canReadSiteLogs} canReadProcurement={canReadProcurement} canManage={canManageProject} guestMode={engineeringDocumentsGuestMode} onOpenSiteLogs={() => selectTab("site-logs")} onSaveMaterial={onSaveMaterial} onSaveEquipment={onSaveEquipment} />}
+      {tab === "materials-equipment" && <ProjectMaterialsEquipment project={project} materials={materials} equipment={equipment} inventoryItems={inventoryItems} inventoryMovements={inventoryMovements} inventoryBalances={inventoryBalances} purchaseOrders={purchaseOrders} receipts={receipts} vendors={vendors} costCodes={costCodes} dailySiteLogsData={projectDailySiteLogsData} canReadSiteLogs={canReadSiteLogs} canReadProcurement={canReadProcurement} canReadInventory={canReadInventory} canManage={canManageProject} guestMode={engineeringDocumentsGuestMode} onOpenSiteLogs={() => selectTab("site-logs")} onOpenWarehouse={canReadInventory ? onOpenWarehouse : undefined} onSaveMaterial={onSaveMaterial} onSaveEquipment={onSaveEquipment} />}
 
       {tab === "invoices" && canReadInvoices && (canManageInvoiceAllocations
         ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} costCodes={costCodes as ProjectCostCode[]} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />

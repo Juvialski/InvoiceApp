@@ -163,6 +163,7 @@ import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, s
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
 import { buildLocalProjectEquipment, buildLocalProjectMaterial, loadProjectMaterialsEquipmentFromSupabase, readProjectEquipmentFromLocal, readProjectMaterialsFromLocal, saveProjectEquipmentToSupabase, saveProjectMaterialToSupabase, writeProjectEquipmentToLocal, writeProjectMaterialsToLocal, type ProjectEquipmentSaveInput, type ProjectMaterialSaveInput } from "./lib/materialsEquipment.ts";
+import { buildLocalInventoryItem, loadInventoryWorkspaceFromSupabase, readInventoryItemsFromLocal, readInventoryMovementsFromLocal, recordInventoryMovementLocally, recordInventoryMovementToSupabase, reverseInventoryMovementToSupabase, saveInventoryItemToSupabase, writeInventoryItemsToLocal, writeInventoryMovementsToLocal, type InventoryBalance, type InventoryItem, type InventoryItemSaveInput, type InventoryMovement, type InventoryMovementInput } from "./lib/inventory.ts";
 import {
   deleteDraftSubcontractClaim,
   fetchSubcontractClaims,
@@ -436,6 +437,9 @@ function InvoiceWorkspace() {
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [projectMaterials, setProjectMaterials] = useState<ProjectMaterial[]>(() => isSupabaseConfigured ? [] : readProjectMaterialsFromLocal());
   const [projectEquipment, setProjectEquipment] = useState<ProjectEquipment[]>(() => isSupabaseConfigured ? [] : readProjectEquipmentFromLocal());
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(() => isSupabaseConfigured ? [] : readInventoryItemsFromLocal());
+  const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>(() => isSupabaseConfigured ? [] : readInventoryMovementsFromLocal());
+  const [inventoryBalances, setInventoryBalances] = useState<InventoryBalance[] | undefined>(() => undefined);
   const [dailySiteLogsData, setDailySiteLogsData] = useState<EngineeringDailySiteLogsWorkspaceData | undefined>(() => isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>(() => isSupabaseConfigured ? [] : readSubcontractsFromLocal());
@@ -608,6 +612,9 @@ function InvoiceWorkspace() {
     setCostCodes([]);
     setProjectMaterials([]);
     setProjectEquipment([]);
+    setInventoryItems([]);
+    setInventoryMovements([]);
+    setInventoryBalances(undefined);
     setDailySiteLogsData(isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
     setPurchaseOrders([]);
     setSubcontracts([]);
@@ -662,7 +669,7 @@ function InvoiceWorkspace() {
     : group === "cash"
       ? hasAnyPermission(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashTransactionsRead, PERMISSION_KEYS.cashImport, PERMISSION_KEYS.cashReconcile])
     : group === "engineering"
-      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringSiteLogsRead])
+      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringSiteLogsRead, PERMISSION_KEYS.inventoryRead])
       : group === "payroll"
         ? can(PERMISSION_KEYS.payrollRead)
         : group === "payroll-imports"
@@ -681,6 +688,9 @@ function InvoiceWorkspace() {
     costCodes: ProjectCostCode[];
     materials: ProjectMaterial[];
     equipment: ProjectEquipment[];
+    inventoryItems: InventoryItem[];
+    inventoryMovements: InventoryMovement[];
+    inventoryBalances?: InventoryBalance[];
     dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
     purchaseOrders: PurchaseOrder[];
     subcontracts: Subcontract[];
@@ -754,6 +764,9 @@ function InvoiceWorkspace() {
     setCostCodes(data.costCodes);
     setProjectMaterials(data.materials);
     setProjectEquipment(data.equipment);
+    setInventoryItems(data.inventoryItems);
+    setInventoryMovements(data.inventoryMovements);
+    setInventoryBalances(data.inventoryBalances);
     setDailySiteLogsData(data.dailySiteLogsData);
     setPurchaseOrders(data.purchaseOrders);
     setSubcontracts(data.subcontracts);
@@ -789,6 +802,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.projectsRead) ? loadProjectMaterialsEquipmentFromSupabase() : Promise.resolve({ materials: [], equipment: [] }),
       can(PERMISSION_KEYS.engineeringSiteLogsRead) ? loadDailySiteLogsFromSupabase(activeCompanyId || undefined) : Promise.resolve(undefined),
       hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.settingsRead]) ? loadFinancialFxSnapshotsFromSupabase() : Promise.resolve([]),
+      can(PERMISSION_KEYS.inventoryRead) ? loadInventoryWorkspaceFromSupabase() : Promise.resolve({ items: [], movements: [], balances: [] as InventoryBalance[] }),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -809,6 +823,7 @@ function InvoiceWorkspace() {
     const materialsEquipment = results[15].status === "fulfilled" ? results[15].value : { materials: [], equipment: [] };
     const dailySiteLogsData = results[16].status === "fulfilled" ? results[16].value : undefined;
     const financialFxSnapshots = results[17].status === "fulfilled" ? results[17].value : [];
+    const inventory = results[18].status === "fulfilled" ? results[18].value : { items: [], movements: [] };
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -826,6 +841,7 @@ function InvoiceWorkspace() {
     if (results[14].status !== "fulfilled") failures.push("client collections");
     if (results[15].status !== "fulfilled") failures.push("materials and equipment");
     if (results[17].status !== "fulfilled") failures.push("financial FX snapshots");
+    if (results[18].status !== "fulfilled") failures.push("inventory");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -850,7 +866,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, dailySiteLogsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, inventoryItems: inventory.items, inventoryMovements: inventory.movements, inventoryBalances: inventory.balances, dailySiteLogsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -1010,6 +1026,9 @@ function InvoiceWorkspace() {
       setCostCodes(readProjectCostCodesFromLocal());
       setProjectMaterials(readProjectMaterialsFromLocal());
       setProjectEquipment(readProjectEquipmentFromLocal());
+      setInventoryItems(readInventoryItemsFromLocal());
+      setInventoryMovements(readInventoryMovementsFromLocal());
+      setInventoryBalances(undefined);
       setDailySiteLogsData(readDailySiteLogsFromLocal());
       const localCash = readCashBankingWorkspaceFromLocal();
       cashDataRef.current = localCash;
@@ -1081,9 +1100,11 @@ function InvoiceWorkspace() {
       writeFinancialFxSnapshotsToLocal(financialFxSnapshots);
       writePayrollWorkspaceToLocal(payrollData);
       writeCashBankingWorkspaceToLocal(cashData);
+      writeInventoryItemsToLocal(inventoryItems);
+      writeInventoryMovementsToLocal(inventoryMovements);
       if (dailySiteLogsData) writeDailySiteLogsToLocal(dailySiteLogsData);
     }
-  }, [invoiceProjectAllocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, payrollData, payrollImportData, cashData, dailySiteLogsData, session, authResolved, guestModeState]);
+  }, [invoiceProjectAllocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, payrollData, payrollImportData, cashData, inventoryItems, inventoryMovements, dailySiteLogsData, session, authResolved, guestModeState]);
 
   useEffect(() => {
     payrollDataRef.current = payrollData;
@@ -2360,6 +2381,79 @@ function InvoiceWorkspace() {
       showNotification("success", `${saved.materialName} saved to the Materials Register.`);
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save project material."));
+      throw error;
+    }
+  };
+
+  const handleSaveInventoryItem = async (input: InventoryItemSaveInput): Promise<InventoryItem> => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.inventoryManage)) throw new Error("You do not have permission to manage warehouse inventory.");
+      const normalizedName = input.itemName.trim().toLowerCase();
+      const normalizedUnit = input.stockUnit.trim().toLowerCase();
+      const normalizedCode = input.itemCode?.trim().toUpperCase();
+      if (!normalizedName || !normalizedUnit) throw new Error("Inventory item name and stock unit are required.");
+      if (inventoryItems.some((item) => item.id !== input.id && item.itemName.trim().toLowerCase() === normalizedName && item.stockUnit.trim().toLowerCase() === normalizedUnit)) throw new Error("An inventory item with the same canonical name and stock unit already exists.");
+      if (normalizedCode && inventoryItems.some((item) => item.id !== input.id && item.itemCode?.trim().toUpperCase() === normalizedCode)) throw new Error("That inventory item code is already in use.");
+      const existing = input.id ? inventoryItems.find((item) => item.id === input.id) : undefined;
+      if (existing && existing.stockUnit.trim().toLowerCase() !== normalizedUnit && (inventoryMovements.some((movement) => movement.inventoryItemId === existing.id) || projectMaterials.some((material) => material.inventoryItemId === existing.id))) throw new Error("An item stock unit cannot change after movement history or project requirement links exist.");
+      const saved = session && supabase
+        ? await saveInventoryItemToSupabase(input)
+        : buildLocalInventoryItem({ ...input, itemName: input.itemName.trim(), stockUnit: normalizedUnit }, existing, "guest-company", "guest-user");
+      setInventoryItems((previous) => {
+        const next = previous.some((item) => item.id === saved.id) ? previous.map((item) => item.id === saved.id ? saved : item) : [saved, ...previous];
+        if (!isSupabaseConfigured) writeInventoryItemsToLocal(next);
+        return next;
+      });
+      setInventoryBalances(undefined);
+      showNotification("success", `${saved.itemName} saved to Warehouse Inventory.`);
+      return saved;
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save inventory item."));
+      throw error;
+    }
+  };
+
+  const handleRecordInventoryMovement = async (input: InventoryMovementInput): Promise<InventoryMovement> => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.inventoryManage)) throw new Error("You do not have permission to record warehouse movements.");
+      if (input.sourceType === "PURCHASE_ORDER_RECEIPT") {
+        const receipt = purchaseOrderReceipts.find((candidate) => candidate.id === input.purchaseOrderReceiptId && candidate.status === "RECEIVED");
+        const receiptLine = receipt?.lines?.find((line) => line.purchaseOrderLineId === input.purchaseOrderLineId);
+        const purchaseOrder = purchaseOrders.find((candidate) => candidate.id === receipt?.purchaseOrderId);
+        const purchaseOrderLine = purchaseOrder?.lines?.find((line) => line.id === input.purchaseOrderLineId);
+        const item = inventoryItems.find((candidate) => candidate.id === input.inventoryItemId);
+        if (!receiptLine || !purchaseOrderLine || !item || item.stockUnit.trim().toLowerCase() !== purchaseOrderLine.unit.trim().toLowerCase() || Number(input.quantity) !== receiptLine.receivedQuantity) throw new Error("The selected procurement receipt line must match an active canonical item and exact quantity.");
+      }
+      const saved = session && supabase
+        ? await recordInventoryMovementToSupabase(input)
+        : recordInventoryMovementLocally(input, inventoryItems, inventoryMovements, { companyId: "guest-company", actorUserId: "guest-user" });
+      setInventoryMovements((previous) => {
+        const next = [saved, ...previous.filter((movement) => movement.id !== saved.id)];
+        if (!isSupabaseConfigured) writeInventoryMovementsToLocal(next);
+        return next;
+      });
+      setInventoryBalances(undefined);
+      showNotification("success", `${saved.movementType.replaceAll("_", " ")} recorded for ${saved.quantity} ${saved.stockUnitSnapshot}.`);
+      return saved;
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not record the warehouse movement."));
+      throw error;
+    }
+  };
+
+  const handleReverseInventoryMovement = async (movementId: string, reason: string, idempotencyKey: string): Promise<InventoryMovement> => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.inventoryManage)) throw new Error("You do not have permission to correct warehouse movements.");
+      const saved = session && supabase
+        ? await reverseInventoryMovementToSupabase(movementId, reason, idempotencyKey)
+        : recordInventoryMovementLocally({ movementType: "REVERSAL", reversalOfMovementId: movementId, reason, idempotencyKey }, inventoryItems, inventoryMovements, { companyId: "guest-company", actorUserId: "guest-user" });
+      setInventoryMovements((previous) => [saved, ...previous.filter((movement) => movement.id !== saved.id)]);
+      setInventoryBalances(undefined);
+      if (!isSupabaseConfigured) writeInventoryMovementsToLocal([saved, ...inventoryMovements.filter((movement) => movement.id !== saved.id)]);
+      showNotification("success", "Inventory movement reversed. Original history remains preserved.");
+      return saved;
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not reverse the warehouse movement."));
       throw error;
     }
   };
@@ -4592,6 +4686,9 @@ function InvoiceWorkspace() {
           costCodes={costCodes}
           materials={projectMaterials}
           equipment={projectEquipment}
+          inventoryItems={inventoryItems}
+          inventoryMovements={inventoryMovements}
+          inventoryBalances={inventoryBalances}
           purchaseOrders={purchaseOrders}
           subcontracts={subcontracts}
           subcontractClaims={subcontractClaims}
@@ -4613,6 +4710,9 @@ function InvoiceWorkspace() {
           onReactivateCostCode={handleReactivateCostCode}
           onSaveMaterial={handleSaveMaterial}
           onSaveEquipment={handleSaveEquipment}
+          onSaveInventoryItem={handleSaveInventoryItem}
+          onRecordInventoryMovement={handleRecordInventoryMovement}
+          onReverseInventoryMovement={handleReverseInventoryMovement}
           onSavePO={handleSavePO}
           onTransitionPO={handleTransitionPO}
           onDeletePO={handleDeletePO}
@@ -4670,6 +4770,7 @@ function InvoiceWorkspace() {
             navigateToPath(appPathForTab("expenses"));
           }}
           onProjectOpenPayroll={() => setActiveTab("payroll")}
+          onProjectOpenWarehouse={() => navigateToPath(appPathForTab("warehouse"))}
           onSaveInvoiceProjectAllocations={handleSaveInvoiceProjectAllocations}
           cashData={cashData}
           onSaveFinancialAccount={handleSaveFinancialAccount}

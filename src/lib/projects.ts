@@ -35,6 +35,7 @@ export type ProjectLifecycleDependencyKey =
   | "engineeringDailySiteLogs"
   | "projectMaterials"
   | "projectEquipment"
+  | "inventoryMovements"
   | "projectAccountingEvents"
   | "purchaseOrders"
   | "subcontracts"
@@ -86,6 +87,7 @@ export const PROJECT_LIFECYCLE_DEPENDENCY_KEYS: readonly ProjectLifecycleDepende
   "engineeringDailySiteLogs",
   "projectMaterials",
   "projectEquipment",
+  "inventoryMovements",
   "projectAccountingEvents",
   "purchaseOrders",
   "subcontracts",

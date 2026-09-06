@@ -169,6 +169,10 @@ test("migration invariant: latest migration contains the authoritative superset 
     "Client Collections (P2B-5)": [
       "CLIENT_COLLECTION_CREATED", "CLIENT_COLLECTION_UPDATED",
       "CLIENT_COLLECTION_RECORDED", "CLIENT_COLLECTION_REVERSED"
+    ],
+    "Warehouse Inventory": [
+      "INVENTORY_ITEM_CREATED", "INVENTORY_ITEM_UPDATED",
+      "INVENTORY_MOVEMENT_RECORDED", "INVENTORY_MOVEMENT_REVERSED"
     ]
   };
 
@@ -183,6 +187,6 @@ test("migration invariant: latest migration contains the authoritative superset 
     }
   }
 
-  assert.equal(totalExpected, 119, "Authoritative set must comprise exactly 119 events through P2B-5 client collections lifecycles");
-  assert.equal(latestSet.size, 119, `Latest allowlist has ${latestSet.size} unique events, expected 119`);
+  assert.equal(totalExpected, 123, "Authoritative set must comprise exactly 123 events through Warehouse Inventory lifecycle events");
+  assert.equal(latestSet.size, 123, `Latest allowlist has ${latestSet.size} unique events, expected 123`);
 });

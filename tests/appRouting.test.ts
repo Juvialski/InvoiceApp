@@ -64,6 +64,7 @@ test("parses invoice and review-session URLs with safe return paths", () => {
 test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForTab("payroll"), "/payroll");
   assert.equal(appPathForTab("inbox"), "/email-intake");
+  assert.equal(appPathForTab("warehouse"), "/warehouse");
   assert.equal(appPathForProject("project 42", "expenses"), "/projects/project%2042/expenses");
   assert.equal(appPathForProject("project 42", "documents", { docId: "doc-1", revId: "rev-2" }), "/projects/project%2042/documents?docId=doc-1&revId=rev-2");
   assert.equal(appPathForProject("project 42", "site-logs", { siteLogId: "log-7" }), "/projects/project%2042/site-logs?siteLogId=log-7");

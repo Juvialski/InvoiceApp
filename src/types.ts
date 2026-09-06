@@ -748,6 +748,8 @@ export interface ProjectMaterial {
   id: string;
   companyId?: string;
   projectId: string;
+  /** Optional link to the company-wide canonical inventory item. */
+  inventoryItemId?: string | null;
   materialName: string;
   referenceCode?: string | null;
   category?: string | null;

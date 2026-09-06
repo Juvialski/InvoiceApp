@@ -6,6 +6,7 @@ import type { PayrollWorkspaceData } from "../lib/payroll.ts";
 import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, ProjectEquipment, ProjectMaterial, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, RFQ, Subcontract, SubcontractProgressClaim, SubcontractVariation, SupplierQuotation, Vendor } from "../types.ts";
 import type { ClientBilling, ClientBillingEvent } from "../lib/clientBilling.ts";
 import type { ClientCollection, ClientCollectionEvent } from "../lib/clientCollections.ts";
+import type { InventoryItem, InventoryMovement } from "../lib/inventory.ts";
 
 export const DEMO_COMPANY_ID = "demo-company-meridian" as const;
 export const DEMO_STORAGE_KEY = "engoryx:client-demo:v1" as const;
@@ -46,6 +47,8 @@ export interface DemoWorkspaceData {
   siteLogs: EngineeringDailySiteLogsWorkspaceData;
   materials: ProjectMaterial[];
   equipment: ProjectEquipment[];
+  inventoryItems: InventoryItem[];
+  inventoryMovements: InventoryMovement[];
   vendors?: Vendor[];
   purchaseOrders?: PurchaseOrder[];
   purchaseOrderReceipts?: PurchaseOrderReceipt[];

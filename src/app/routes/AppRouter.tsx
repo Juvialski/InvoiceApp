@@ -66,6 +66,7 @@ import type { EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteL
 import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineeringCoordination.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
 import type { ProjectEquipmentSaveInput, ProjectMaterialSaveInput } from "../../lib/materialsEquipment.ts";
+import type { InventoryBalance, InventoryItem, InventoryMovement } from "../../lib/inventory.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
@@ -108,6 +109,7 @@ import { RouteLoadingSkeleton } from "../../components/ui/RouteSkeleton.tsx";
 const CashBankingRoute = lazy(() => import("./CashBankingRoute"));
 const ProjectsRoute = lazy(() => import("./ProjectsRoute").then(({ ProjectsRoute }) => ({ default: ProjectsRoute })));
 const ProcurementRoute = lazy(() => import("./ProcurementRoute"));
+const WarehouseInventoryRoute = lazy(() => import("./WarehouseInventoryRoute").then(({ WarehouseInventoryRoute }) => ({ default: WarehouseInventoryRoute })));
 const InvoicesRoute = lazy(() => import("./InvoicesRoute"));
 const PayrollRoute = lazy(() => import("./PayrollRoute"));
 const ExpensesRoute = lazy(() => import("./ExpensesRoute"));
@@ -155,6 +157,9 @@ export interface AppRouterProps {
   costCodes?: readonly ProjectCostCode[];
   materials?: ProjectMaterial[];
   equipment?: ProjectEquipment[];
+  inventoryItems?: InventoryItem[];
+  inventoryMovements?: InventoryMovement[];
+  inventoryBalances?: InventoryBalance[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   projectFormSeed?: Project | null;
@@ -172,6 +177,9 @@ export interface AppRouterProps {
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onSaveMaterial?: (input: ProjectMaterialSaveInput) => Promise<void>;
   onSaveEquipment?: (input: ProjectEquipmentSaveInput) => Promise<void>;
+  onSaveInventoryItem?: (input: import("../../lib/inventory.ts").InventoryItemSaveInput) => Promise<InventoryItem>;
+  onRecordInventoryMovement?: (input: import("../../lib/inventory.ts").InventoryMovementInput) => Promise<InventoryMovement>;
+  onReverseInventoryMovement?: (movementId: string, reason: string, idempotencyKey: string) => Promise<InventoryMovement>;
   pathForSiteLog?: (siteLogId?: string) => string;
   onOpenProject: (project: Project) => void;
   onSaveProject: (project: Project) => Promise<void> | void;
@@ -198,6 +206,7 @@ export interface AppRouterProps {
   onProjectAddExpense?: () => void;
   onProjectOpenExpenseCorrection?: (expense: Expense) => void;
   onProjectOpenPayroll?: () => void;
+  onProjectOpenWarehouse?: () => void;
 
   // Invoices Data & Handlers
   invoices: InvoiceData[];
@@ -447,6 +456,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   costCodes = [],
   materials = [],
   equipment = [],
+  inventoryItems = [],
+  inventoryMovements = [],
+  inventoryBalances,
   purchaseOrders = [],
   subcontracts = [],
   subcontractClaims = [],
@@ -500,6 +512,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onDailySiteLogsDataChange,
   onSaveMaterial,
   onSaveEquipment,
+  onSaveInventoryItem,
+  onRecordInventoryMovement,
+  onReverseInventoryMovement,
   pathForSiteLog,
   onOpenProject,
   onSaveProject,
@@ -517,6 +532,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onProjectAddExpense,
   onProjectOpenExpenseCorrection,
   onProjectOpenPayroll,
+  onProjectOpenWarehouse,
   invoices,
   selectedInvoice,
   invoiceProjectAllocations,
@@ -715,6 +731,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         costCodes={costCodes}
         materials={materials}
         equipment={equipment}
+        inventoryItems={inventoryItems}
+        inventoryMovements={inventoryMovements}
+        inventoryBalances={inventoryBalances}
         invoices={invoices}
         invoiceAllocations={invoiceProjectAllocations}
         expenses={expenses}
@@ -791,6 +810,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onAddExpense={onProjectAddExpense}
         onOpenExpenseCorrection={onProjectOpenExpenseCorrection}
         onOpenPayroll={onProjectOpenPayroll}
+        onOpenWarehouse={onProjectOpenWarehouse}
       />
     );
   }
@@ -1024,7 +1044,27 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     );
   }
 
-  // 9. Reports Route
+  // 9. Warehouse Inventory Route
+  if (routeTarget === "warehouse") {
+    return lazyRoute(
+      <WarehouseInventoryRoute
+        items={inventoryItems}
+        movements={inventoryMovements}
+        balances={inventoryBalances}
+        projects={projects}
+        projectMaterials={materials}
+        purchaseOrders={purchaseOrders}
+        receipts={receipts}
+        guestMode={engineeringDocumentsGuestMode}
+        onOpenProject={onOpenProject}
+        onSaveItem={onSaveInventoryItem}
+        onRecordMovement={onRecordInventoryMovement}
+        onReverseMovement={onReverseInventoryMovement}
+      />,
+    );
+  }
+
+  // 10. Reports Route
   if (routeTarget === "reports") {
     return lazyRoute(
       <ReportsRoute

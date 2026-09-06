@@ -42,6 +42,7 @@ import type { ClientBilling, ClientBillingEvent, ClientBillingInput, ClientBilli
 import type { ClientCollection, ClientCollectionAllocationInput, ClientCollectionEvent, ClientCollectionInput } from "../../lib/clientCollections.ts";
 import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransactionMatch } from "../../lib/cashBanking.ts";
 import type { ProjectEquipmentSaveInput, ProjectMaterialSaveInput } from "../../lib/materialsEquipment.ts";
+import type { InventoryItem, InventoryMovement } from "../../lib/inventory.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ProjectsRouteProps {
@@ -76,6 +77,9 @@ export interface ProjectsRouteProps {
   receipts?: PurchaseOrderReceipt[];
   materials?: ProjectMaterial[];
   equipment?: ProjectEquipment[];
+  inventoryItems?: InventoryItem[];
+  inventoryMovements?: InventoryMovement[];
+  inventoryBalances?: import("../../lib/inventory.ts").InventoryBalance[];
   vendors?: Vendor[];
   workers?: Worker[];
   assignments?: ProjectWorkerAssignment[];
@@ -112,6 +116,7 @@ export interface ProjectsRouteProps {
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onSaveMaterial?: (input: ProjectMaterialSaveInput) => Promise<void>;
   onSaveEquipment?: (input: ProjectEquipmentSaveInput) => Promise<void>;
+  onOpenWarehouse?: () => void;
   attentionToday?: string;
   onTabChange?: (tab: WorkspaceTab) => void;
   onOpenProject: (project: Project) => void;
@@ -220,6 +225,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   receipts = [],
   materials = [],
   equipment = [],
+  inventoryItems = [],
+  inventoryMovements = [],
+  inventoryBalances,
   vendors = [],
   workers = [],
   assignments = [],
@@ -256,6 +264,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   onDailySiteLogsDataChange,
   onSaveMaterial,
   onSaveEquipment,
+  onOpenWarehouse,
   attentionToday,
   onTabChange,
   onOpenProject,
@@ -349,6 +358,9 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         receipts={receipts}
         materials={materials}
         equipment={equipment}
+        inventoryItems={inventoryItems}
+        inventoryMovements={inventoryMovements}
+        inventoryBalances={inventoryBalances}
         vendors={vendors}
         workers={workers}
         assignments={assignments}
@@ -385,6 +397,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         onDailySiteLogsDataChange={onDailySiteLogsDataChange}
         onSaveMaterial={onSaveMaterial}
         onSaveEquipment={onSaveEquipment}
+        onOpenWarehouse={onOpenWarehouse}
         onTabChange={onTabChange}
         onSaveInvoiceAllocations={onSaveInvoiceAllocations}
         onSaveClientBilling={onSaveClientBilling}
