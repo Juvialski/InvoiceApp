@@ -13,13 +13,14 @@ test('brand configuration contains canonical HydroQualiSense values', () => {
   assert.equal(BRAND.canonicalOrigin, 'https://hydroqualisense.com');
   assert.equal(BRAND.tagline, 'HydroQualiSense Solutions Corp.');
   assert.equal(BRAND.assistantName, 'HydroQualiSense Assistant');
-  assert.equal(BRAND.browserTitle, 'HydroQualiSense | Company Operations Platform');
-  assert.match(BRAND.description, /company operations platform/i);
-  assert.match(BRAND.footerText, /HydroQualiSense/);
+  assert.equal(BRAND.browserTitle, 'HydroQualiSense | HydroQualiSense Solutions Corp.');
+  assert.match(BRAND.description, /HydroQualiSense Solutions Corp\. workspace/i);
+  assert.match(BRAND.footerText, /HydroQualiSense Solutions Corp\./);
+  assert.equal(BRAND.companyContextLabel, 'HydroQualiSense Solutions Corp. workspace');
 });
 
 test('page title and breadcrumb formatting helpers produce correct branded labels', () => {
-  assert.equal(formatPageTitle(), 'HydroQualiSense | Company Operations Platform');
+  assert.equal(formatPageTitle(), 'HydroQualiSense | HydroQualiSense Solutions Corp.');
   assert.equal(formatPageTitle('Projects'), 'Projects | HydroQualiSense');
   assert.equal(formatPageTitle('Cash and Banking'), 'Cash and Banking | HydroQualiSense');
 
@@ -30,14 +31,14 @@ test('page title and breadcrumb formatting helpers produce correct branded label
 
 test('index.html, metadata.json, and package.json are synchronized with HydroQualiSense brand', () => {
   const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(indexHtml, /<title>HydroQualiSense \| Company Operations Platform<\/title>/);
+  assert.match(indexHtml, /<title>HydroQualiSense \| HydroQualiSense Solutions Corp\.<\/title>/);
   assert.match(indexHtml, /<link rel="canonical" href="https:\/\/hydroqualisense\.com" \/>/);
   assert.match(indexHtml, /<meta property="og:url" content="https:\/\/hydroqualisense\.com" \/>/);
   assert.doesNotMatch(indexHtml, /My Google AI Studio App/);
 
   const metadataJson = JSON.parse(readFileSync(new URL('../metadata.json', import.meta.url), 'utf8'));
   assert.equal(metadataJson.name, 'HydroQualiSense');
-  assert.match(metadataJson.description, /company operations/i);
+  assert.match(metadataJson.description, /HydroQualiSense Solutions Corp\. workspace/i);
 
   const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(pkgJson.name, 'engoryx');
