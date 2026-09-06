@@ -1,6 +1,6 @@
 import type { Vendor } from "../types.ts";
 import { supabase } from "./supabase.ts";
-import { companyScopedRow, requireActiveCompanyId } from "./companyContext.ts";
+import { requireActiveCompanyId } from "./companyContext.ts";
 
 const VENDORS_STORAGE_KEY = "engineering_vendors";
 type Row = Record<string, unknown>;
@@ -21,6 +21,11 @@ export function vendorFromRow(row: Row): Vendor {
     address: text(row.address) || null,
     defaultCurrency: text(row.default_currency) || "PHP",
     defaultCategory: text(row.default_category) || null,
+    active: row.active === undefined ? true : Boolean(row.active),
+    archivedAt: text(row.archived_at) || null,
+    deactivatedAt: text(row.deactivated_at) || null,
+    deactivatedByUserId: text(row.deactivated_by_user_id) || null,
+    deactivationReason: text(row.deactivation_reason) || null,
     createdAt: String(row.created_at || new Date().toISOString()),
     updatedAt: String(row.updated_at || new Date().toISOString()),
   };
@@ -64,7 +69,7 @@ export async function fetchVendors(): Promise<Vendor[]> {
 
 export async function saveVendor(vendor: Partial<Vendor> & { name: string }): Promise<Vendor> {
   const name = vendor.name.trim();
-  const normalizedName = name.toLowerCase();
+  const normalizedName = name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const companyId = requireActiveCompanyId();
 
   if (!supabase || !companyId) {
@@ -94,26 +99,41 @@ export async function saveVendor(vendor: Partial<Vendor> & { name: string }): Pr
     return saved;
   }
 
-  const payload = companyScopedRow({
-    ...(vendor.id ? { id: vendor.id } : {}),
-    company_id: companyId,
-    name,
-    normalized_name: normalizedName,
-    email: vendor.email || null,
-    phone: vendor.phone || null,
-    tax_id: vendor.taxId || null,
-    address: vendor.address || null,
-    default_currency: vendor.defaultCurrency || "PHP",
-    default_category: vendor.defaultCategory || null,
-    updated_at: new Date().toISOString(),
+  const { data, error } = await supabase.rpc("create_or_update_vendor", {
+    p_vendor: {
+      ...(vendor.id ? { id: vendor.id } : {}),
+      name,
+      normalizedName,
+      email: vendor.email || undefined,
+      phone: vendor.phone || undefined,
+      taxId: vendor.taxId || undefined,
+      address: vendor.address || undefined,
+      defaultCurrency: vendor.defaultCurrency || undefined,
+      defaultCategory: vendor.defaultCategory || undefined,
+    },
   });
-
-  const { data, error } = await supabase
-    .from("vendors")
-    .upsert(payload)
-    .select("*")
-    .single();
-
   if (error) throw error;
-  return vendorFromRow(data as Row);
+  const saved = data && typeof data === "object" ? (data as Record<string, unknown>).vendor : undefined;
+  if (!saved || typeof saved !== "object") throw new Error("Vendor save did not return the canonical Vendor record.");
+  return vendorFromRow(saved as Row);
+}
+
+export async function deactivateVendor(vendorId: string, reason: string): Promise<Vendor> {
+  if (!supabase) throw new Error("Vendor lifecycle changes require a connected company workspace.");
+  requireActiveCompanyId();
+  const { data, error } = await supabase.rpc("deactivate_vendor", { p_vendor_id: vendorId, p_reason: reason });
+  if (error) throw error;
+  const saved = data && typeof data === "object" ? (data as Record<string, unknown>).vendor : undefined;
+  if (!saved || typeof saved !== "object") throw new Error("Vendor deactivation did not return the canonical Vendor record.");
+  return vendorFromRow(saved as Row);
+}
+
+export async function reactivateVendor(vendorId: string): Promise<Vendor> {
+  if (!supabase) throw new Error("Vendor lifecycle changes require a connected company workspace.");
+  requireActiveCompanyId();
+  const { data, error } = await supabase.rpc("reactivate_vendor", { p_vendor_id: vendorId });
+  if (error) throw error;
+  const saved = data && typeof data === "object" ? (data as Record<string, unknown>).vendor : undefined;
+  if (!saved || typeof saved !== "object") throw new Error("Vendor reactivation did not return the canonical Vendor record.");
+  return vendorFromRow(saved as Row);
 }

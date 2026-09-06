@@ -21,6 +21,8 @@ function candidate(overrides: Partial<InvoiceData> = {}): Partial<InvoiceData> {
     subtotal: 141600,
     totalDiscount: 0,
     totalTax: 16992,
+    shippingFee: 0,
+    otherFees: 0,
     grandTotal: 158592,
     amountPaid: 0,
     balanceDue: 158592,
@@ -46,7 +48,25 @@ test("ConcreteGrid complete candidate is strong and reconciled", () => {
   assert.equal(good.reconciliation.lineItems, "PASS");
   assert.equal(good.reconciliation.subtotal, "PASS");
   assert.equal(good.reconciliation.grandTotal, "PASS");
-  assert.equal(good.reconciliation.philippineVat, "PASS");
+  assert.equal(good.reconciliation.philippineVat, "REVIEW");
+  assert.match(good.reasons.join(" "), /VAT arithmetic was not evaluated/i);
+});
+
+test("unknown financial extraction values remain unresolved during quality checks", () => {
+  const quality = evaluateExtractionQuality(candidate({
+    items: [{ id: "unknown", description: "Unresolved item", quantity: null, unitPrice: null, total: null }],
+    subtotal: null,
+    totalDiscount: null,
+    totalTax: null,
+    shippingFee: null,
+    otherFees: null,
+    grandTotal: 1000,
+    amountPaid: null,
+    balanceDue: null,
+  }), "INVOICE Total Amount Due ₱1,000.00");
+  assert.equal(quality.reconciliation.subtotal, "REVIEW");
+  assert.equal(quality.reconciliation.grandTotal, "REVIEW");
+  assert.doesNotMatch(quality.reasons.join(" "), /Grand total does not reconcile/);
 });
 
 test("candidate selection prefers the better deterministic result", () => {

@@ -21,6 +21,7 @@ import type {
   PurchaseOrder,
   PurchaseOrderInvoiceMatch,
   PurchaseOrderReceipt,
+  Vendor,
 } from "../../types";
 import { hasAllPermissions, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import type { AppTab } from "../../utils/routes";
@@ -33,6 +34,7 @@ export interface InvoicesRouteProps {
   selectedInvoice?: InvoiceData | null;
   activeSubTab?: AppTab | "invoices" | "extractor" | "inbox" | "review" | "vendors";
   invoices: InvoiceData[];
+  vendors?: Vendor[];
   projects?: Project[];
   costCodes?: ProjectCostCode[];
   invoiceProjectAllocations?: InvoiceProjectAllocation[];
@@ -90,12 +92,15 @@ export interface InvoicesRouteProps {
   ) => Promise<void>;
   onUnmatchPurchaseOrderMatch?: (matchId: string, reason: string) => Promise<void>;
   onOpenPurchaseOrder?: (purchaseOrderId: string) => void;
+  onDeactivateVendor?: (vendorId: string, reason: string) => Promise<void>;
+  onReactivateVendor?: (vendorId: string) => Promise<void>;
 }
 
 export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   selectedInvoice,
   activeSubTab = "invoices",
   invoices,
+  vendors = [],
   projects = [],
   costCodes = [],
   invoiceProjectAllocations = [],
@@ -144,6 +149,8 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onConfirmPurchaseOrderMatch,
   onUnmatchPurchaseOrderMatch,
   onOpenPurchaseOrder,
+  onDeactivateVendor,
+  onReactivateVendor,
 }) => {
   const permissions = useAppPermissions();
   const canManageInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
@@ -155,6 +162,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canManageProjectAllocations = hasAllPermissions(permissions, [PERMISSION_KEYS.invoicesWrite, PERMISSION_KEYS.projectsWrite]);
   const canReadProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementRead);
   const canManageProcurement = hasPermission(permissions, PERMISSION_KEYS.procurementWrite);
+  const canManageVendors = hasPermission(permissions, PERMISSION_KEYS.vendorsManage);
   const canManageGmail = hasPermission(permissions, PERMISSION_KEYS.gmailManage);
   const canImportBankStatements = hasPermission(permissions, PERMISSION_KEYS.cashImport);
   const canManageExpenses = hasAllPermissions(permissions, [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite]);
@@ -264,7 +272,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
     return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} onNavigatePath={onNavigatePath} canManageMailbox={canManageGmail} canProcessInvoices={canExtractInvoices} canImportBankStatements={canImportBankStatements} canManageExpenses={canManageExpenses} />;
   }
   if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifySupplierInvoices ? onStartReview : undefined} readOnly={!canVerifySupplierInvoices} />;
-  if (activeSubTab === "vendors") return <Vendors invoices={invoices} />;
+  if (activeSubTab === "vendors") return <Vendors invoices={invoices} vendors={vendors} canManage={canManageVendors} onDeactivateVendor={onDeactivateVendor} onReactivateVendor={onReactivateVendor} />;
   return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} onNavigatePath={onNavigatePath} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}{correctionDialog}</div>;
 };
 

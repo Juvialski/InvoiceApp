@@ -11,7 +11,7 @@ import type {
   GmailScanWindow,
 } from "../types.ts";
 import { companyApiRequest } from "./companyApi.ts";
-import { requireActiveCompanyId } from "./companyContext.ts";
+import { getActiveCompanyId, requireActiveCompanyId, subscribeToCompanyContext } from "./companyContext.ts";
 import { clearGoogleProviderTokens, getGoogleProviderToken, supabase } from "./supabase.ts";
 import {
   listEmailIntakeProfiles,
@@ -189,6 +189,15 @@ export interface EmailIntakeScanResult {
   historyId?: string;
   emailAddress?: string;
   lastSyncedAt?: string;
+  complete?: boolean;
+  resyncRequired?: boolean;
+  continuation?: {
+    startHistoryId: string;
+    pageToken?: string;
+    pagesFetched: number;
+    messageIdsReturned: number;
+    resyncRequired: boolean;
+  };
 }
 
 export interface PendingEmailStatementReview {
@@ -207,6 +216,8 @@ export interface PendingEmailStatementReview {
   matchedProfileId?: string;
   matchedProfileName?: string;
   linkedProfileAccountId?: string;
+  userId?: string;
+  companyId?: string;
 }
 
 export interface SuggestedExpenseFields {
@@ -256,6 +267,8 @@ export interface PendingEmailExpenseReview {
   emailBody?: string;
   receivedAt?: string;
   exactDuplicateExpense?: Expense;
+  userId?: string;
+  companyId?: string;
 }
 
 export interface ExpenseDuplicateCandidate {
@@ -266,6 +279,7 @@ export interface ExpenseDuplicateCandidate {
 
 const PENDING_EMAIL_STATEMENT_KEY = "engoryx_pending_email_statement_review_v1";
 const PENDING_EMAIL_EXPENSE_KEY = "engoryx_pending_email_expense_review_v1";
+const PENDING_REVIEW_TTL_MS = 30 * 60 * 1000;
 
 function financeText(message: GmailMessageCandidate | GmailImportedMessage) {
   return `${message.sender || ""}\n${message.subject || ""}\n${("snippet" in message ? message.snippet : "") || ""}\n${message.bodyText || ""}`.toLowerCase();
@@ -757,6 +771,7 @@ export async function scanConnectedMailbox(
     historyId: lastHistoryId,
     emailAddress,
     lastSyncedAt: await persistSyncState(lastHistoryId, emailAddress),
+    complete: true,
   };
 }
 
@@ -797,11 +812,15 @@ export async function syncConnectedMailbox(
       }
     }
 
+    const complete = data.complete !== false;
     return {
       messages: classifiedMessages,
-      historyId: data.historyId,
+      historyId: complete ? data.historyId : startHistoryId,
       emailAddress: data.emailAddress,
-      lastSyncedAt: await persistSyncState(data.historyId, data.emailAddress),
+      lastSyncedAt: complete ? await persistSyncState(data.historyId, data.emailAddress) : undefined,
+      complete,
+      resyncRequired: Boolean(data.continuation?.resyncRequired),
+      continuation: data.continuation,
     };
   } catch (error) {
     if ((error as Error & { code?: string })?.code === "HISTORY_EXPIRED") {
@@ -821,7 +840,11 @@ export function readPendingEmailStatementReview(): PendingEmailStatementReview |
   if (!storage) return null;
   try {
     const parsed = JSON.parse(storage.getItem(PENDING_EMAIL_STATEMENT_KEY) || "null");
-    if (!parsed?.id || !parsed?.sourceDocumentId || !parsed?.fileName) return null;
+    if (!parsed?.id || !parsed?.sourceDocumentId || !parsed?.fileName || !parsed?.companyId) return null;
+    if (parsed.companyId !== getActiveCompanyId() || !parsed.createdAt || Date.now() - new Date(parsed.createdAt).getTime() > PENDING_REVIEW_TTL_MS) {
+      storage.removeItem(PENDING_EMAIL_STATEMENT_KEY);
+      return null;
+    }
     return parsed as PendingEmailStatementReview;
   } catch { return null; }
 }
@@ -866,6 +889,7 @@ export async function prepareGmailStatementReview(
     || stored.documents.find((document) => document.gmailPartId && document.gmailPartId === attachment.partId)
     || stored.documents.find((document) => document.attachmentIndex === attachment.attachmentIndex);
   if (!sourceDocument) throw new Error("The selected statement attachment could not be linked to its preserved source document.");
+  const stagingUserId = supabase ? (await supabase.auth.getUser()).data.user?.id : undefined;
 
   const pending: PendingEmailStatementReview = {
     id: crypto.randomUUID(),
@@ -883,6 +907,8 @@ export async function prepareGmailStatementReview(
     matchedProfileId: options?.profile?.id || classification.matchedProfileId,
     matchedProfileName: options?.profile?.name || classification.matchedProfileName,
     linkedProfileAccountId: options?.profile?.linkedFinancialAccountId,
+    userId: stagingUserId,
+    companyId: requireActiveCompanyId(),
   };
   savePendingEmailStatementReview(pending);
   return pending;
@@ -893,7 +919,11 @@ export function readPendingEmailExpenseReview(): PendingEmailExpenseReview | nul
   if (!storage) return null;
   try {
     const parsed = JSON.parse(storage.getItem(PENDING_EMAIL_EXPENSE_KEY) || "null");
-    if (!parsed?.id || !parsed?.sourceDocumentId || !parsed?.suggestedExpense) return null;
+    if (!parsed?.id || !parsed?.sourceDocumentId || !parsed?.suggestedExpense || !parsed?.companyId) return null;
+    if (parsed.companyId !== getActiveCompanyId() || !parsed.createdAt || Date.now() - new Date(parsed.createdAt).getTime() > PENDING_REVIEW_TTL_MS) {
+      storage.removeItem(PENDING_EMAIL_EXPENSE_KEY);
+      return null;
+    }
     return parsed as PendingEmailExpenseReview;
   } catch { return null; }
 }
@@ -1527,6 +1557,8 @@ export async function prepareGmailExpenseReview(
     emailBody: imported.bodyText || message.bodyText,
     receivedAt: imported.receivedAt || message.receivedAt,
     exactDuplicateExpense: existingDuplicateExpense || undefined,
+    userId: supabase ? (await supabase.auth.getUser()).data.user?.id : undefined,
+    companyId: requireActiveCompanyId(),
   };
 
   savePendingEmailExpenseReview(pending);
@@ -1573,6 +1605,40 @@ export async function loadPendingEmailExpenseFile(pending: PendingEmailExpenseRe
   const actualHash = await sha256(bytes);
   if (row.sha256 && actualHash !== row.sha256) throw new Error("The preserved receipt failed its source-integrity check.");
   return new File([bytes], row.filename || pending.fileName, { type: row.mime_type || pending.mimeType || "application/octet-stream" });
+}
+
+function clearPendingReviewState() {
+  clearPendingEmailStatementReview();
+  clearPendingEmailExpenseReview();
+}
+
+// Staged extraction data contains source text and must not survive a logout,
+// authenticated-user transition, or deployment-company transition.
+subscribeToCompanyContext((companyId) => {
+  if (!companyId) clearPendingReviewState();
+  else {
+    readPendingEmailStatementReview();
+    readPendingEmailExpenseReview();
+  }
+});
+
+if (supabase) {
+  try {
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || event === "USER_UPDATED" || event === "PASSWORD_RECOVERY") {
+        clearPendingReviewState();
+        return;
+      }
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        const userId = session?.user?.id;
+        const statement = readPendingEmailStatementReview();
+        const expense = readPendingEmailExpenseReview();
+        if (!userId || (statement?.userId && statement.userId !== userId) || (expense?.userId && expense.userId !== userId)) clearPendingReviewState();
+      }
+    });
+  } catch {
+    // Transient staging remains bounded by the company/TTL checks above.
+  }
 }
 
 export async function linkFinancialImportSource(input: { accountId: string; fileFingerprint: string; sourceDocumentId: string }) {

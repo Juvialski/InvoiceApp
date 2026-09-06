@@ -41,6 +41,7 @@ import {
   deleteDraftPurchaseOrder,
   deleteDraftRFQ,
   deleteDraftSubcontract,
+  deactivateVendor,
   ensureWorkspaceProfile,
   fetchPurchaseOrderMatches,
   fetchPurchaseOrderReceipts,
@@ -78,6 +79,7 @@ import {
   saveSubcontract,
   saveSupplierQuotation,
   saveVendor,
+  reactivateVendor,
   selectSupplierQuotation,
   transitionPurchaseOrderStatus,
   transitionRFQStatus,
@@ -1622,7 +1624,7 @@ function InvoiceWorkspace() {
     setProcessingCount((n) => n + 1);
     try {
       let storedSource: Awaited<ReturnType<typeof saveManualSourceDocument>> | undefined;
-      if (session && payload.fileName && ((payload.fileData && payload.mimeType) || payload.textData)) {
+      if (session && payload.fileName && payload.fileData && payload.mimeType) {
         storedSource = await saveManualSourceDocument({
           fileData: payload.fileData || textToBase64(payload.textData || ""),
           mimeType: payload.mimeType || "text/plain",
@@ -1867,10 +1869,12 @@ function InvoiceWorkspace() {
     try {
       const selectedWindow = typeof window === "number" ? { days: window } : window;
       const result = await scanConnectedMailbox(selectedWindow);
-      if (result.historyId) {
+      if (result.complete !== false && result.historyId) {
         setSyncState((curr) => ({ ...curr, lastHistoryId: result.historyId, lastSyncedAt: result.lastSyncedAt }));
       }
-      showNotification("success", `Scanned Gmail and discovered ${result.messages.length} likely finance email${result.messages.length === 1 ? "" : "s"}.`);
+      showNotification(result.complete === false ? "info" : "success", result.complete === false
+        ? "Gmail scan was bounded before completion. Run a fresh scan to advance the cursor safely."
+        : `Scanned Gmail and discovered ${result.messages.length} likely finance email${result.messages.length === 1 ? "" : "s"}.`);
       return result.messages;
     } finally {
       setProcessingCount((n) => Math.max(0, n - 1));
@@ -1883,10 +1887,12 @@ function InvoiceWorkspace() {
     setProcessingCount((n) => n + 1);
     try {
       const result = await syncConnectedMailbox(syncState.lastHistoryId);
-      if (result.historyId) {
+      if (result.complete !== false && result.historyId) {
         setSyncState((curr) => ({ ...curr, lastHistoryId: result.historyId, lastSyncedAt: result.lastSyncedAt }));
       }
-      showNotification("success", result.messages.length ? `Found ${result.messages.length} new/changed Gmail message${result.messages.length === 1 ? "" : "s"}.` : "Gmail is up to date.");
+      showNotification(result.complete === false ? "info" : "success", result.complete === false
+        ? "Gmail incremental sync was bounded before completion. Run a fresh scan to resynchronize safely."
+        : (result.messages.length ? `Found ${result.messages.length} new/changed Gmail message${result.messages.length === 1 ? "" : "s"}.` : "Gmail is up to date."));
       return result.messages;
     } catch (error: any) {
       if (error?.code === "HISTORY_EXPIRED") {
@@ -2702,7 +2708,7 @@ function InvoiceWorkspace() {
 
   const handleAddVendor = useCallback(async (vendor: Partial<Vendor> & { name: string }) => {
     try {
-      if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite) && !can(PERMISSION_KEYS.invoicesWrite)) {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.vendorsManage)) {
         throw new Error("You do not have permission to add vendors.");
       }
       const saved = await saveVendor(vendor);
@@ -2719,6 +2725,38 @@ function InvoiceWorkspace() {
       throw error;
     }
   }, [permissions, session]);
+
+  const handleDeactivateVendor = useCallback(async (vendorId: string, reason: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.vendorsManage)) throw new Error("You do not have permission to deactivate Vendors.");
+      const current = vendors.find((vendor) => vendor.id === vendorId);
+      if (!current) throw new Error("Vendor is no longer available in this company.");
+      const saved = session && supabase
+        ? await deactivateVendor(vendorId, reason)
+        : { ...current, active: false, archivedAt: new Date().toISOString(), deactivatedAt: new Date().toISOString(), deactivationReason: reason, updatedAt: new Date().toISOString() };
+      setVendors((previous) => previous.map((vendor) => vendor.id === saved.id ? saved : vendor));
+      showNotification("success", `Vendor "${saved.name}" was deactivated; history remains retained.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not deactivate Vendor."));
+      throw error;
+    }
+  }, [permissions, session, vendors]);
+
+  const handleReactivateVendor = useCallback(async (vendorId: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.vendorsManage)) throw new Error("You do not have permission to reactivate Vendors.");
+      const current = vendors.find((vendor) => vendor.id === vendorId);
+      if (!current) throw new Error("Vendor is no longer available in this company.");
+      const saved = session && supabase
+        ? await reactivateVendor(vendorId)
+        : { ...current, active: true, archivedAt: null, deactivatedAt: null, deactivatedByUserId: null, deactivationReason: null, updatedAt: new Date().toISOString() };
+      setVendors((previous) => previous.map((vendor) => vendor.id === saved.id ? saved : vendor));
+      showNotification("success", `Vendor "${saved.name}" was reactivated.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not reactivate Vendor."));
+      throw error;
+    }
+  }, [permissions, session, vendors]);
 
   const handleRecordReceipt = useCallback(async (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
@@ -4589,7 +4627,9 @@ function InvoiceWorkspace() {
           onDeleteSubcontractVariation={handleDeleteSubcontractVariation}
           onRecordReceipt={handleRecordReceipt}
           onVoidReceipt={handleVoidReceipt}
-          onAddVendor={handleAddVendor}
+           onAddVendor={!isSupabaseConfigured || guestModeState || can(PERMISSION_KEYS.vendorsManage) ? handleAddVendor : undefined}
+           onDeactivateVendor={handleDeactivateVendor}
+           onReactivateVendor={handleReactivateVendor}
           purchaseOrderMatches={purchaseOrderMatches}
           onConfirmPurchaseOrderMatch={handleConfirmPurchaseOrderMatch}
           onUnmatchPurchaseOrderMatch={handleUnmatchPurchaseOrderMatch}

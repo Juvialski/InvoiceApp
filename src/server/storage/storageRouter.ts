@@ -18,7 +18,7 @@ import {
 } from "../../lib/storage/index.ts";
 import { calculateSha256Hex } from "../../lib/storage/dedup.ts";
 import { sanitizeStorageFileName } from "../../lib/storage/keys.ts";
-import { validateInvoiceDocumentBytes } from "../../lib/fileSecurity.ts";
+import { decodeBase64Payload, validateInvoiceDocumentBytes } from "../../lib/fileSecurity.ts";
 import {
   compensateFailedUpload,
   getStorageServerServiceRoleClient,
@@ -191,18 +191,23 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
 
       let bytes: Uint8Array;
       try {
-        bytes = new Uint8Array(Buffer.from(fileData, "base64"));
+        bytes = decodeBase64Payload(fileData, 10 * 1024 * 1024, "Invoice source");
         validateInvoiceDocumentBytes(bytes, mimeType, fileName);
       } catch (valErr: any) {
         return res.status(400).json({ code: "INVALID_DOCUMENT", error: valErr.message || "Invalid document payload." });
       }
 
       const hash = await calculateSha256Hex(bytes);
+      const backupDesc = getBackupStorageDescriptor(process.env);
+      const sourceKind = typeof sourceType === "string" && sourceType.trim() ? sourceType.trim().toUpperCase() : "UPLOAD";
+      if (!["UPLOAD", "EMAIL", "MANUAL"].includes(sourceKind)) {
+        return res.status(400).json({ code: "INVALID_DOCUMENT", error: "sourceType must be UPLOAD, EMAIL, or MANUAL." });
+      }
 
       // Check existing document in company
       const { data: existingRows, error: existingError } = await auth.supabase
         .from("source_documents")
-        .select("id,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256,processing_status,document_type,created_at")
+        .select("id,source_type,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256,processing_status,document_type,backup_registration_status,backup_registration_error,backup_registration_attempted_at,created_at")
         .eq("company_id", auth.companyId)
         .eq("sha256", hash)
         .order("created_at", { ascending: false })
@@ -212,8 +217,59 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         throw new StorageApiError(500, "DATABASE_ERROR", existingError.message);
       }
 
-      if (existingRows?.[0]) {
-        const row = existingRows[0];
+      const existingManualRow = ["UPLOAD", "MANUAL"].includes(sourceKind)
+        ? existingRows?.find((candidate: any) => ["UPLOAD", "MANUAL"].includes(String(candidate.source_type || "UPLOAD").toUpperCase()))
+        : undefined;
+      if (existingManualRow) {
+        const row = existingManualRow;
+        if (backupDesc && String(row.backup_registration_status || "").toUpperCase() !== "REGISTERED") {
+          const serverSupabase = getPrivilegedClient(auth);
+          const backupSvc = options?.backupService || new BackupService({
+            supabaseClientSupplier: () => auth.supabase,
+            privilegedClientSupplier: () => serverSupabase,
+            primaryProviderSupplier: options?.primaryProviderSupplier,
+            backupProviderSupplier: options?.backupProviderSupplier,
+            providerSupplier: options?.providerSupplier,
+          });
+          const attemptedAt = new Date().toISOString();
+          try {
+            const registered = await backupSvc.registerBackupIntent({
+              companyId: auth.companyId,
+              documentDomain: "INVOICES",
+              documentId: row.id,
+              sourceProvider: (row.storage_provider as StorageProviderId) || "supabase",
+              sourceBucket: row.storage_bucket,
+              sourceKey: row.storage_path,
+              sha256: row.sha256,
+              sizeBytes: Number(row.file_size || 0),
+              replicaProvider: backupDesc.providerId === "memory" ? "memory" : "s3",
+              replicaBucket: backupDesc.bucket,
+            });
+            if (!registered) throw new Error("The backup manifest was not returned.");
+            const sourceStatusTable: any = auth.supabase.from("source_documents");
+            if (typeof sourceStatusTable.update === "function") {
+              const { error: backupStateError } = await sourceStatusTable
+                .update({ backup_registration_status: "REGISTERED", backup_registration_error: null, backup_registration_attempted_at: attemptedAt })
+                .eq("id", row.id)
+                .eq("company_id", auth.companyId);
+              if (backupStateError) throw backupStateError;
+            }
+            row.backup_registration_status = "REGISTERED";
+            row.backup_registration_error = null;
+            row.backup_registration_attempted_at = attemptedAt;
+          } catch (backupError: any) {
+            const safeMessage = backupError?.message || "Backup manifest registration failed.";
+            const sourceStatusTable: any = auth.supabase.from("source_documents");
+            if (typeof sourceStatusTable.update === "function") {
+              await sourceStatusTable
+                .update({ backup_registration_status: "FAILED", backup_registration_error: safeMessage.slice(0, 1000), backup_registration_attempted_at: attemptedAt })
+                .eq("id", row.id)
+                .eq("company_id", auth.companyId)
+                .then(() => {}, () => {});
+            }
+            throw new StorageApiError(503, "BACKUP_REGISTRATION_FAILED", "The source document already exists, but durable backup registration failed. Retry backup reconciliation before retrying the upload.");
+          }
+        }
         const rowProviderId = (row.storage_provider as StorageProviderId) || "supabase";
         const provider = options?.providerSupplier
           ? options.providerSupplier(rowProviderId, () => auth.supabase)
@@ -240,6 +296,9 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
           sha256: row.sha256,
           processingStatus: row.processing_status || undefined,
           documentType: row.document_type || undefined,
+          backupRegistrationStatus: row.backup_registration_status || undefined,
+          backupRegistrationError: row.backup_registration_error || undefined,
+          backupRegistrationAttemptedAt: row.backup_registration_attempted_at || undefined,
           previewUrl,
         };
         return res.json(existingDoc);
@@ -273,7 +332,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         .insert({
           user_id: auth.user.id,
           company_id: auth.companyId,
-          source_type: sourceType || "UPLOAD",
+           source_type: sourceKind,
           email_message_id: emailMessageId || null,
           filename: fileName,
           mime_type: mimeType,
@@ -281,15 +340,18 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
           storage_path: storagePath,
           storage_provider: actualProvider,
           storage_bucket: actualBucket,
-          sha256: hash,
-          processing_status: "STORED",
-        })
+           sha256: hash,
+           processing_status: "STORED",
+           backup_registration_status: backupDesc ? "PENDING" : "NOT_CONFIGURED",
+         })
         .select("id")
         .single();
 
       if (insertError) {
-        // Compensate: safely delete the uncommitted object on database failure
+        // A unique identity race is recoverable only after the newly uploaded
+        // object is cleaned up and the exact canonical row is loaded.
         const compensatorFn = options?.compensator || compensateFailedUpload;
+        let compensationError: unknown;
         try {
           await compensatorFn({
             companyId: auth.companyId,
@@ -300,9 +362,49 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
             serverSupabaseSupplier: options?.serverSupabaseSupplier || getStorageServerServiceRoleClient,
           });
         } catch (compErr) {
+          compensationError = compErr;
           console.error("[Storage Compensation Failure]", compErr);
         }
-        throw new StorageApiError(500, "METADATA_INSERT_FAILED", `Document metadata persistence failed: ${insertError.message}`);
+        if (insertError.code === "23505" && ["UPLOAD", "MANUAL"].includes(sourceKind) && !compensationError) {
+          const { data: racedRows, error: racedError } = await auth.supabase
+            .from("source_documents")
+            .select("id,source_type,email_message_id,gmail_attachment_id,gmail_part_id,attachment_index,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256,processing_status,document_type,backup_registration_status,backup_registration_error,backup_registration_attempted_at,created_at")
+            .eq("company_id", auth.companyId)
+            .eq("sha256", hash)
+            .order("created_at", { ascending: true })
+            .limit(1);
+          if (racedError) throw new StorageApiError(500, "DATABASE_ERROR", racedError.message);
+          const raced = racedRows?.find((candidate: any) => ["UPLOAD", "MANUAL"].includes(String(candidate.source_type || "UPLOAD").toUpperCase()));
+          if (raced) {
+            const racedProviderId = (raced.storage_provider as StorageProviderId) || "supabase";
+            const racedProvider = options?.providerSupplier
+              ? options.providerSupplier(racedProviderId, () => auth.supabase)
+              : createStorageProvider(racedProviderId, undefined, () => auth.supabase);
+            const racedPreviewUrl = await racedProvider.getSignedUrl({ companyId: auth.companyId, bucket: raced.storage_bucket, key: raced.storage_path });
+            return res.json({
+              id: raced.id,
+              emailMessageId: raced.email_message_id || undefined,
+              gmailAttachmentId: raced.gmail_attachment_id || undefined,
+              gmailPartId: raced.gmail_part_id || undefined,
+              attachmentIndex: raced.attachment_index ?? undefined,
+              filename: raced.filename,
+              mimeType: raced.mime_type,
+              size: Number(raced.file_size || 0),
+              storagePath: raced.storage_path,
+              storageProvider: racedProviderId,
+              storageBucket: raced.storage_bucket,
+              sha256: raced.sha256,
+              processingStatus: raced.processing_status || undefined,
+              documentType: raced.document_type || undefined,
+              backupRegistrationStatus: raced.backup_registration_status || undefined,
+              backupRegistrationError: raced.backup_registration_error || undefined,
+              backupRegistrationAttemptedAt: raced.backup_registration_attempted_at || undefined,
+              previewUrl: racedPreviewUrl,
+            });
+          }
+        }
+        if (compensationError) throw new StorageApiError(500, "METADATA_INSERT_FAILED", "Document metadata persistence failed and the uncommitted object could not be cleaned up safely.");
+        throw new StorageApiError(500, "METADATA_INSERT_FAILED", "Document metadata persistence failed: " + insertError.message);
       }
 
       // Durably register backup intent using server-only authority before returning (replication stays async)
@@ -315,20 +417,41 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         providerSupplier: options?.providerSupplier,
       });
 
-      const backupDesc = getBackupStorageDescriptor(process.env);
       if (backupDesc) {
-        await backupSvc.registerBackupIntent({
-          companyId: auth.companyId,
-          documentDomain: "INVOICES",
-          documentId: inserted.id,
-          sourceProvider: actualProvider,
-          sourceBucket: actualBucket,
-          sourceKey: storagePath,
-          sha256: hash,
-          sizeBytes: bytes.byteLength,
-          replicaProvider: backupDesc.providerId === "memory" ? "memory" : "s3",
-          replicaBucket: backupDesc.bucket,
-        });
+        try {
+          const registered = await backupSvc.registerBackupIntent({
+            companyId: auth.companyId,
+            documentDomain: "INVOICES",
+            documentId: inserted.id,
+            sourceProvider: actualProvider,
+            sourceBucket: actualBucket,
+            sourceKey: storagePath,
+            sha256: hash,
+            sizeBytes: bytes.byteLength,
+            replicaProvider: backupDesc.providerId === "memory" ? "memory" : "s3",
+            replicaBucket: backupDesc.bucket,
+          });
+          if (!registered) throw new Error("The backup manifest was not returned.");
+          const sourceStatusTable: any = auth.supabase.from("source_documents");
+          if (typeof sourceStatusTable.update === "function") {
+            const { error: backupStateError } = await sourceStatusTable
+              .update({ backup_registration_status: "REGISTERED", backup_registration_error: null, backup_registration_attempted_at: new Date().toISOString() })
+              .eq("id", inserted.id)
+              .eq("company_id", auth.companyId);
+            if (backupStateError) throw backupStateError;
+          }
+        } catch (backupError: any) {
+          const safeMessage = backupError?.message || "Backup manifest registration failed.";
+          const sourceStatusTable: any = auth.supabase.from("source_documents");
+          if (typeof sourceStatusTable.update === "function") {
+            await sourceStatusTable
+              .update({ backup_registration_status: "FAILED", backup_registration_error: safeMessage.slice(0, 1000), backup_registration_attempted_at: new Date().toISOString() })
+              .eq("id", inserted.id)
+              .eq("company_id", auth.companyId)
+              .then(() => {}, () => {});
+          }
+          throw new StorageApiError(503, "BACKUP_REGISTRATION_FAILED", "The source document was stored as " + inserted.id + ", but durable backup registration failed. Retry backup reconciliation before retrying the upload.");
+        }
       }
 
       const previewUrl = await provider.getSignedUrl({
@@ -346,9 +469,10 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         storagePath,
         storageProvider: actualProvider,
         storageBucket: actualBucket,
-        sha256: hash,
-        processingStatus: "STORED",
-        previewUrl,
+         sha256: hash,
+         processingStatus: "STORED",
+         backupRegistrationStatus: backupDesc ? "REGISTERED" : "NOT_CONFIGURED",
+         previewUrl,
       };
 
       return res.json(responseDoc);
@@ -518,15 +642,11 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
   router.post("/restore-drill", async (req: Request, res: Response) => {
     try {
       const auth = await authorizer(req, "storage.manage");
-      const { manifestId, testTargetKey } = req.body || {};
+       const { manifestId } = req.body || {};
 
       if (!manifestId || typeof manifestId !== "string") {
         return res.status(400).json({ error: "manifestId is required for restore drill." });
       }
-      if (!testTargetKey || typeof testTargetKey !== "string" || (!testTargetKey.includes("/restore/") && !testTargetKey.includes("/test/"))) {
-        return res.status(400).json({ error: "testTargetKey must contain '/restore/' or '/test/' to protect production." });
-      }
-
       const serverSupabase = getPrivilegedClient(auth);
       const backupSvc = options?.backupService || new BackupService({
         supabaseClientSupplier: () => auth.supabase,
@@ -536,7 +656,7 @@ export function createStorageRouter(options?: StorageRouterOptions): Router {
         providerSupplier: options?.providerSupplier,
       });
 
-      const drillResult = await backupSvc.runRestoreDrill(auth.companyId, manifestId, testTargetKey);
+       const drillResult = await backupSvc.runRestoreDrill(auth.companyId, manifestId);
       return res.json(drillResult);
     } catch (err: any) {
       if (err instanceof StorageApiError) {

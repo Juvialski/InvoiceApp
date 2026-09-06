@@ -80,7 +80,7 @@ values ((select legacy_vendor from r4_ids), (select admin_user from r4_ids), (se
 -- This models an invoice created before R3: it is already VERIFIED but has no
 -- linked Expense row yet. The R3 RPC remains the one repair/posting boundary.
 insert into public.invoices (id, user_id, company_id, vendor_id, invoice_number, invoice_date, currency, grand_total, review_status, document_type, current_data)
-values ((select legacy_invoice from r4_ids), (select admin_user from r4_ids), (select company_a from r4_ids), (select legacy_vendor from r4_ids), 'R4-LEGACY-001', date '2026-09-06', 'PHP', 250, 'VERIFIED', 'INVOICE', jsonb_build_object('vendor', jsonb_build_object('name', 'R4 Legacy Supplier'), 'category', 'Materials', 'invoiceNumber', 'R4-LEGACY-001', 'grandTotal', 250));
+values ((select legacy_invoice from r4_ids), (select admin_user from r4_ids), (select company_a from r4_ids), (select legacy_vendor from r4_ids), 'R4-LEGACY-001', date '2026-09-06', 'PHP', 250, 'VERIFIED', 'INVOICE', jsonb_build_object('vendor', jsonb_build_object('name', 'R4 Legacy Supplier'), 'category', 'Materials', 'description', 'R4 legacy supplier invoice', 'invoiceNumber', 'R4-LEGACY-001', 'grandTotal', 250));
 insert into public.invoice_project_allocations (id, user_id, company_id, invoice_id, project_id, allocation_type, allocation_amount, currency)
 values (gen_random_uuid(), (select admin_user from r4_ids), (select company_a from r4_ids), (select legacy_invoice from r4_ids), (select project_a from r4_ids), 'AMOUNT', 250, 'PHP');
 

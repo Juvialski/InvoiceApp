@@ -152,6 +152,9 @@ async function sourceDocumentFromRow(row: any): Promise<StoredSourceDocument> {
     sha256: row.sha256,
     processingStatus: row.processing_status || undefined,
     documentType: row.document_type || undefined,
+    backupRegistrationStatus: row.backup_registration_status || undefined,
+    backupRegistrationError: row.backup_registration_error || undefined,
+    backupRegistrationAttemptedAt: row.backup_registration_attempted_at || undefined,
     previewUrl: preview,
   };
 }
@@ -161,7 +164,7 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
   await requireUserId();
   const { data, error } = await client
     .from("invoices")
-    .select("id,current_data,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason, payment_status,created_at,updated_at")
+      .select("id,current_data,vendor_id,source_document_id,source_email_id,review_status,duplicate_status,duplicate_of_id,verified_at,archived_at,lifecycle_status,voided_at,voided_by_user_id,void_reason, payment_status,created_at,updated_at")
     .eq("company_id", requireActiveCompanyId())
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -189,6 +192,7 @@ export async function loadInvoicesFromSupabase(): Promise<InvoiceData[]> {
     const extraction = extractionByInvoice.get(row.id);
     invoice.extractionId = invoice.extractionId || extraction?.id;
     invoice.aiSnapshot = invoice.aiSnapshot || extraction?.structuredResult;
+    if (row.vendor_id) invoice.vendor = { ...(invoice.vendor || { name: "" }), vendorId: row.vendor_id };
     invoice.sourceDocumentId = row.source_document_id || invoice.sourceDocumentId;
     invoice.sourceEmailId = row.source_email_id || invoice.sourceEmailId;
     invoice.reviewStatus = row.review_status || invoice.reviewStatus;
@@ -239,7 +243,7 @@ export async function loadSourcePayloadForRetry(invoice: InvoiceData): Promise<O
   if (invoice.sourceDocumentId) {
     const { data: row, error: rowError } = await client
       .from("source_documents")
-      .select("id,source_type,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256")
+      .select("id,source_type,filename,mime_type,file_size,storage_path,storage_provider,storage_bucket,sha256,backup_registration_status,backup_registration_error,backup_registration_attempted_at")
       .eq("id", invoice.sourceDocumentId)
       .eq("company_id", companyId)
       .maybeSingle();
@@ -529,25 +533,29 @@ async function findExistingVendorId(invoice: InvoiceData): Promise<string | null
   const normalized = normalizedVendorName(invoice);
   const taxId = (invoice.vendor?.taxId || "").trim();
   if (!name || !normalized) return null;
-  if (taxId) {
-    const { data: taxMatch, error: taxMatchError } = await client
-      .from("vendors")
-      .select("id")
-      .eq("company_id", requireActiveCompanyId())
-      .eq("tax_id", taxId)
-      .maybeSingle();
-    if (taxMatchError) throw taxMatchError;
-    if (taxMatch?.id) return taxMatch.id as string;
-  }
-  const normalizedKey = taxId ? `${normalized} tin ${normalizedTaxId(taxId)}` : normalized;
   const { data, error } = await client
     .from("vendors")
-    .select("id")
+    .select("id,name,normalized_name,tax_id,email")
     .eq("company_id", requireActiveCompanyId())
-    .eq("normalized_name", normalizedKey)
-    .maybeSingle();
+    .limit(500);
   if (error) throw error;
-  return data?.id ? (data.id as string) : null;
+  const rows = (data || []) as Array<Record<string, unknown>>;
+  const normalizedTax = normalizedTaxId(taxId);
+  if (normalizedTax) {
+    const taxMatches = rows.filter((row) => normalizedTaxId(String(row.tax_id || "")) === normalizedTax);
+    if (taxMatches.length === 1 && normalizedVendorName({ vendor: { name: String(taxMatches[0].name || "") } } as InvoiceData) === normalized) return String(taxMatches[0].id);
+    if (taxMatches.length > 1) return null;
+  }
+  const exactNameMatches = rows.filter((row) => {
+    const rowName = String(row.name || row.normalized_name || "");
+    return normalizedVendorName({ vendor: { name: rowName } } as InvoiceData) === normalized;
+  });
+  if (exactNameMatches.length !== 1) return null;
+  const exact = exactNameMatches[0];
+  const existingTax = normalizedTaxId(String(exact.tax_id || ""));
+  if (normalizedTax && existingTax && normalizedTax !== existingTax) return null;
+  if (!normalizedTax && existingTax) return null;
+  return exact.id ? String(exact.id) : null;
 }
 
 export async function findExistingInvoiceBySource(criteria: {
@@ -716,7 +724,7 @@ export async function persistNewInvoice(invoice: InvoiceData): Promise<InvoiceDa
       invoice_date: invoice.invoiceDate || null,
       due_date: invoice.dueDate || null,
       currency: invoice.currency || null,
-      grand_total: invoice.grandTotal || 0,
+      grand_total: invoice.grandTotal ?? null,
       payment_status: invoice.status || "UNPAID",
       review_status: persistedInvoice.reviewStatus,
       duplicate_status: persistedInvoice.duplicateStatus || "UNIQUE",
@@ -884,7 +892,7 @@ export async function persistExtractionAttempt(
     invoice_date: saved.invoiceDate || null,
     due_date: saved.dueDate || null,
     currency: saved.currency || null,
-    grand_total: saved.grandTotal || 0,
+     grand_total: saved.grandTotal ?? null,
     payment_status: saved.status || "UNPAID",
     review_status: "NEEDS_REVIEW",
     duplicate_status: saved.duplicateStatus || "UNIQUE",
@@ -913,9 +921,9 @@ async function replaceLineItems(invoiceId: string, items: InvoiceData["items"]) 
     item_index: index,
     description: item.description,
     sku: item.sku || null,
-    quantity: item.quantity || 0,
-    unit_price: item.unitPrice || 0,
-    line_total: item.total || 0,
+    quantity: item.quantity ?? null,
+    unit_price: item.unitPrice ?? null,
+    line_total: item.total ?? null,
     item_data: item,
   }));
   const { error } = await client.from("invoice_line_items").insert(rows);
@@ -988,7 +996,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     invoice_date: updated.invoiceDate || null,
     due_date: updated.dueDate || null,
     currency: updated.currency || null,
-    grand_total: updated.grandTotal || 0,
+    grand_total: updated.grandTotal ?? null,
     payment_status: updated.status || "UNPAID",
     review_status: updated.reviewStatus || "NEEDS_REVIEW",
     duplicate_status: updated.duplicateStatus || existingRow?.duplicate_status || "UNIQUE",
@@ -1205,7 +1213,7 @@ export async function listCompanyVendors(companyId?: string): Promise<Vendor[]> 
   const cid = companyId || requireActiveCompanyId();
   const { data, error } = await client
     .from("vendors")
-    .select("id,company_id,name,normalized_name,email,phone,tax_id,address,default_currency,default_category,created_at,updated_at")
+    .select("id,company_id,name,normalized_name,email,phone,tax_id,address,default_currency,default_category,active,archived_at,deactivated_at,deactivated_by_user_id,deactivation_reason,created_at,updated_at")
     .eq("company_id", cid)
     .order("name", { ascending: true });
   if (error) throw error;
@@ -1220,6 +1228,11 @@ export async function listCompanyVendors(companyId?: string): Promise<Vendor[]> 
     address: row.address,
     defaultCurrency: row.default_currency,
     defaultCategory: row.default_category,
+    active: row.active === undefined ? true : Boolean(row.active),
+    archivedAt: row.archived_at,
+    deactivatedAt: row.deactivated_at,
+    deactivatedByUserId: row.deactivated_by_user_id,
+    deactivationReason: row.deactivation_reason,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));

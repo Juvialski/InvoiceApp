@@ -5,19 +5,12 @@ import type { FinancialDocumentSnapshot } from "./documentGeneration.ts";
 
 export interface SendFinancialDocumentInput {
   snapshot: FinancialDocumentSnapshot;
-  pdfBytes: Uint8Array;
   to: string;
   cc?: string;
   subject: string;
   message: string;
   attachmentName: string;
-}
-
-function base64(bytes: Uint8Array) {
-  let binary = "";
-  const chunk = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunk) binary += String.fromCharCode(...bytes.subarray(index, index + chunk));
-  return btoa(binary);
+  idempotencyKey?: string;
 }
 
 export async function sendFinancialDocumentByGmail(input: SendFinancialDocumentInput) {
@@ -37,7 +30,7 @@ export async function sendFinancialDocumentByGmail(input: SendFinancialDocumentI
       subject: input.subject,
       message: input.message,
       attachmentName: input.attachmentName,
-      pdfBase64: base64(input.pdfBytes),
+      ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
     }),
   });
   const payload = await response.json().catch(() => ({}));

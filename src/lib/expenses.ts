@@ -156,7 +156,13 @@ export async function saveExpenseToSupabase(expense: Expense): Promise<Expense> 
     data = result.data as Record<string, unknown>;
   } else {
     const result = await supabase.from("expenses").insert(row).select("*").single();
-    if (result.error) throw result.error;
+    if (result.error) {
+      if (result.error.code === "23505" && expense.receiptSourceDocumentId) {
+        const existingExpense = await findExistingExpenseBySource({ sourceDocumentId: expense.receiptSourceDocumentId });
+        if (existingExpense) return existingExpense;
+      }
+      throw result.error;
+    }
     data = result.data as Record<string, unknown>;
   }
   return fromRow(data);
