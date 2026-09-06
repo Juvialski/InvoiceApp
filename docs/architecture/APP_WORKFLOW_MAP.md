@@ -18,15 +18,15 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Field | Value |
 | --- | --- |
 | Schema version | `1` |
-| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations` |
+| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory` |
 | Product | Engoryx Engineering Operations Platform |
 | Source classification | `mixed` |
 | Reviewed against | `d00986dda4bec2d1d5b4b8af058db5f3ee43b3fe` |
-| Reviewed at | `2026-09-04` |
-| Node count | 239 |
-| Edge count | 310 |
-| Invariant count | 26 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `QA-1`, `WM-1` |
+| Reviewed at | `2026-09-06` |
+| Node count | 245 |
+| Edge count | 320 |
+| Invariant count | 27 |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -59,6 +59,7 @@ Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContract
 | **Expenses route**<br/><small>`route-expenses`</small> | `expenses` | `/expenses` | — | `company` |
 | **Reports route**<br/><small>`route-reports`</small> | `reports` | `/reports` | — | `company` |
 | **Settings route**<br/><small>`route-settings`</small> | `settings` | `/settings` | — | `company` |
+| **Warehouse Inventory route**<br/><small>`route-warehouse-inventory`</small> | `warehouse` | `/warehouse` | — | `global` |
 | **Project Materials & Equipment route**<br/><small>`route-project-materials-equipment`</small> | `projects` | `/projects/:projectId/materials-equipment` | — | `project` |
 
 ## Generated diagrams
@@ -151,6 +152,7 @@ flowchart LR
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
   classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
   classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
   classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
@@ -194,6 +196,63 @@ flowchart LR
   class n_assistant_prepared_action assistant
   class n_assistant_human_confirmation assistant
   class n_assistant_guarded_execution assistant
+```
+
+### Warehouse Inventory and Project Allocation flow
+
+Canonical company item master, append-only movement ledger, derived on-hand, explicit procurement provenance, project issues/returns, and history-preserving corrections.
+
+```mermaid
+flowchart LR
+  subgraph g_projects["Projects"]
+    n_project_correction_lifecycle{"Project correction and removal lifecycle<br/><small>WORKFLOW</small>"}
+    n_project_cost_aggregation["Authoritative project-cost aggregation<br/><small>DERIVED-DATA</small>"]
+  end
+  subgraph g_procurement["Procurement"]
+    n_purchase_order_receipts{"Purchase Order Goods and Delivery Receipts<br/><small>WORKFLOW</small>"}
+  end
+  subgraph g_inventory["Warehouse Inventory"]
+    n_route_warehouse_inventory(["Warehouse Inventory route<br/><small>ROUTE · /warehouse</small>"])
+    n_warehouse_inventory_workspace["Warehouse Inventory workspace<br/><small>SCREEN</small>"]
+    n_inventory_item_master[("Canonical Inventory Item master<br/><small>DATA · ACTIVE → INACTIVE</small>")]
+    n_inventory_movement_ledger{"Authoritative Inventory Movement Ledger<br/><small>WORKFLOW · OPENING → RECEIPT → PROJECT_ISSUE → PROJECT_RETURN → REVERSAL</small>"}
+    n_inventory_current_balance["Derived current inventory balance<br/><small>DERIVED-DATA</small>"]
+    n_project_material_inventory_link[("Project requirement to Inventory Item link<br/><small>DATA</small>")]
+  end
+  subgraph g_engineering["Engineering"]
+    n_project_material_register[("Project Materials Register<br/><small>DATA · PLANNED → ACTIVE → ON_HOLD → CLOSED → CANCELLED</small>")]
+  end
+  n_route_warehouse_inventory -->|opens company Warehouse Inventory| n_warehouse_inventory_workspace
+  n_warehouse_inventory_workspace -->|canonical item directory| n_inventory_item_master
+  n_warehouse_inventory_workspace -->|movement history and actions| n_inventory_movement_ledger
+  n_inventory_movement_ledger -->|movement ledger derives on-hand and category totals| n_inventory_current_balance
+  n_warehouse_inventory_workspace -->|current on-hand and movement totals| n_inventory_current_balance
+  n_project_material_register -->|optional exact-unit canonical item link| n_project_material_inventory_link
+  n_project_material_inventory_link -->|project issue/return can reference requirement| n_inventory_movement_ledger
+  n_purchase_order_receipts -->|explicit Receive into Warehouse action; no automatic posting| n_inventory_movement_ledger
+  n_inventory_movement_ledger -->|quantity/custody movement is not Actual Cost or Committed Cost| n_project_cost_aggregation
+  n_inventory_movement_ledger -->|project inventory history blocks destructive deletion| n_project_correction_lifecycle
+  n_project_material_register -->|planning metadata is not Actual Cost| n_project_cost_aggregation
+  classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
+  classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
+  classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
+  classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
+  classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
+  classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
+  classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
+  classDef assistant fill:#fdf2f8,stroke:#db2777,color:#831843;
+  classDef procurement fill:#f0fdfa,stroke:#0f766e,color:#134e4a;
+  class n_project_correction_lifecycle projects
+  class n_project_cost_aggregation projects
+  class n_purchase_order_receipts procurement
+  class n_route_warehouse_inventory inventory
+  class n_warehouse_inventory_workspace inventory
+  class n_inventory_item_master inventory
+  class n_inventory_movement_ledger inventory
+  class n_inventory_current_balance inventory
+  class n_project_material_inventory_link inventory
+  class n_project_material_register engineering
 ```
 
 ### Projects and Engineering flow
@@ -405,6 +464,7 @@ flowchart LR
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
   classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
   classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
   classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
@@ -578,6 +638,7 @@ flowchart LR
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
   classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
   classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
   classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
@@ -657,6 +718,7 @@ flowchart LR
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
   classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
   classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
   classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
@@ -771,6 +833,7 @@ flowchart LR
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
   classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
   classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
   classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
@@ -899,6 +962,7 @@ flowchart LR
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
   classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
   classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
   classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
@@ -978,6 +1042,7 @@ flowchart LR
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
   classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
   classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
   classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
@@ -1031,6 +1096,7 @@ These invariants are intentionally explicit because generic import graphs cannot
 | **Client collections are commercial receivables separate from cash settlement**<br/><small>`commercial-client-collection-cash-separation`</small> | Creating, updating, recording, or reversing client collections tracks commercial payment allocations against issued billings. They do not create bank transactions, cash account balance mutations, journal entries, or P2B-6 cash settlement records. | `src/lib/clientCollections.ts`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/utils/projectCosting.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts`<br/>`tests/clientCollectionSettlement.test.ts`<br/>`supabase/tests/database/16_client_collection_settlement.test.sql` |
 | **Client collection settlement is incoming bank evidence only**<br/><small>`commercial-client-collection-cash-linkage`</small> | A RECORDED client collection may be linked to same-company POSTED CREDIT transactions through the canonical financial transaction match model. The settlement basis is the allocation-derived collection total; partial and multi-match links never create another collection or change Collected to Date, Actual Cost, or Committed Cost. | `src/lib/clientCollections.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`src/lib/cashBanking.ts`<br/>`src/lib/cashBankingPersistence.ts`<br/>`src/components/CashSettlementAllocationWorkspace.tsx`<br/>`src/components/projects/ClientCollectionSettlementPanel.tsx`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/App.tsx`<br/>`src/utils/projectFinancialSummary.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql`<br/>`supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts`<br/>`tests/clientCollectionSettlement.test.ts`<br/>`supabase/tests/database/16_client_collection_settlement.test.sql` |
 | **Active bank links block collection reversal**<br/><small>`commercial-client-collection-settlement-reversal-guard`</small> | A recorded client collection cannot be reversed while a confirmed CLIENT_COLLECTION match is active. Settlement reversal is reason-gated, preserves history, restores the unlinked bank-evidence amount, and leaves commercial collection totals unchanged. | `src/lib/clientCollections.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`src/lib/cashBanking.ts`<br/>`src/lib/cashBankingPersistence.ts`<br/>`src/components/CashSettlementAllocationWorkspace.tsx`<br/>`src/components/projects/ClientCollectionSettlementPanel.tsx`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/App.tsx`<br/>`src/utils/projectFinancialSummary.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql`<br/>`supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts`<br/>`tests/clientCollectionSettlement.test.ts`<br/>`supabase/tests/database/16_client_collection_settlement.test.sql` |
+| **Inventory stock is explainable from immutable movements**<br/><small>`inventory-stock-is-movement-derived`</small> | The canonical company item master and append-only movement ledger derive current on-hand. Opening stock, warehouse receipts, project issues, returns, and compensating reversals preserve quantity, unit, actor, provenance, and company boundaries without valuation or destructive balance editing. | `src/lib/inventory.ts`<br/>`src/components/inventory/WarehouseInventoryPage.tsx`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql`<br/>`supabase/migrations/20260906114550_warehouse_inventory_realtime.sql` | `tests/inventory.test.ts`<br/>`tests/inventoryMigration.test.ts`<br/>`tests/inventoryRuntime.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` |
 
 ## Exploratory architecture input
 
@@ -1127,6 +1193,17 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Supplier Quotations and Human Selection**<br/><small>`supplier-quotation-selection`</small> | `action` | `project`<br/>— | — | — | `mixed`<br/>confirmation: `human` | `src/lib/rfqs.ts`<br/>`src/components/procurement/ProcurementPage.tsx` | `tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/purchaseOrdersDomain.test.ts`<br/>`tests/purchaseOrderReceiptsInvariants.test.ts`<br/>`tests/purchaseOrderMatchingInvariants.test.ts`<br/>`tests/rfqFinancialInvariants.test.ts`<br/>`tests/rfqDraftPoConversion.test.ts` | — |
 | **RFQ to Draft Purchase Order**<br/><small>`rfq-draft-po-conversion`</small> | `action` | `project`<br/>— | — | — | `mixed` | `src/lib/rfqs.ts`<br/>`src/lib/purchaseOrders.ts` | `tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/purchaseOrdersDomain.test.ts`<br/>`tests/purchaseOrderReceiptsInvariants.test.ts`<br/>`tests/purchaseOrderMatchingInvariants.test.ts`<br/>`tests/rfqFinancialInvariants.test.ts`<br/>`tests/rfqDraftPoConversion.test.ts` | — |
 | **Derived material procurement and receipt progress**<br/><small>`material-procurement-receipt-progress`</small> | `derived-data` | `company-and-project`<br/>— | — | `procurement.read` | `mixed` | `src/lib/materialsEquipment.ts`<br/>`src/utils/purchaseOrderReceipts.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx` | `tests/materialsEquipment.test.ts`<br/>`tests/purchaseOrderReceiptsDomain.test.ts` | — |
+
+### Warehouse Inventory
+
+| Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Warehouse Inventory route**<br/><small>`route-warehouse-inventory`</small> | `route` | `global`<br/>`warehouse`<br/>`/warehouse` | — | `inventory.read` | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/WarehouseInventoryRoute.tsx` | `tests/appRouting.test.ts`<br/>`tests/navigationRoutes.test.ts`<br/>`tests/demoQaRouteCoverage.test.ts` | `warehouse-inventory--warehouse--warehouse-ledger-rendered--desktop-1440` |
+| **Warehouse Inventory workspace**<br/><small>`warehouse-inventory-workspace`</small> | `screen` | `global`<br/>— | — | `inventory.read`<br/>`inventory.manage` | `mixed` | `src/components/inventory/WarehouseInventoryPage.tsx`<br/>`src/app/routes/WarehouseInventoryRoute.tsx`<br/>`src/App.tsx` | `tests/inventory.test.ts`<br/>`tests/inventoryRuntime.test.ts` | — |
+| **Canonical Inventory Item master**<br/><small>`inventory-item-master`</small> | `data` | `company`<br/>— | `ACTIVE` → `INACTIVE` | `inventory.read`<br/>`inventory.manage` | `mixed` | `src/lib/inventory.ts`<br/>`src/types.ts`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql` | `tests/inventory.test.ts`<br/>`tests/inventoryMigration.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` | — |
+| **Authoritative Inventory Movement Ledger**<br/><small>`inventory-movement-ledger`</small> | `workflow` | `company-and-project`<br/>— | `OPENING` → `RECEIPT` → `PROJECT_ISSUE` → `PROJECT_RETURN` → `REVERSAL` | `inventory.manage` | `mixed` | `src/lib/inventory.ts`<br/>`src/components/inventory/WarehouseInventoryPage.tsx`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql`<br/>`supabase/migrations/20260906114550_warehouse_inventory_realtime.sql` | `tests/inventory.test.ts`<br/>`tests/inventoryRuntime.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` | — |
+| **Derived current inventory balance**<br/><small>`inventory-current-balance`</small> | `derived-data` | `company`<br/>— | — | `inventory.read` | `mixed` | `src/lib/inventory.ts`<br/>`src/components/inventory/WarehouseInventoryPage.tsx`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql` | `tests/inventory.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` | — |
+| **Project requirement to Inventory Item link**<br/><small>`project-material-inventory-link`</small> | `data` | `company-and-project`<br/>— | — | `projects.read`<br/>`projects.manage`<br/>`inventory.read` | `mixed` | `src/types.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql` | `tests/materialsEquipment.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` | — |
 
 ### Commercial
 

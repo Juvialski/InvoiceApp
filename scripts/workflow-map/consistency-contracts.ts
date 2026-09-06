@@ -14,6 +14,7 @@ import { APP_ROUTE_CONTRACTS } from "../../src/utils/appRouteContracts.ts";
 import {
   appPathForCashTransaction,
   appPathForInvoice,
+  appPathForTab,
   appPathForPayrollRun,
   appPathForProject,
   appPathForReviewInvoice,
@@ -105,6 +106,7 @@ export const WORKFLOW_ROUTE_CONTRACT_IDS: Readonly<Record<string, string>> = Obj
   "route-demo-documents": "demo-documents",
   "route-dashboard": "dashboard",
   "route-cash": "cash",
+  "route-warehouse-inventory": "warehouse",
   "route-projects": "projects",
   "route-project-workspace": "project-workspace",
   "route-project-documents": "project-documents",
@@ -201,6 +203,13 @@ const TRANSACTION_ID = "00000000-0000-4000-8000-000000000010";
 const PAYROLL_RUN_ID = "00000000-0000-4000-8000-000000000011";
 
 const ROUTE_ROUND_TRIPS: readonly WorkflowRouteRoundTripContract[] = [
+  roundTrip(
+    "route-warehouse-inventory",
+    "company Warehouse Inventory route",
+    () => appPathForTab("warehouse"),
+    "/warehouse",
+    (path) => expectedLocation(path, "tab", "warehouse", {}),
+  ),
   roundTrip(
     "route-project-documents",
     "project document and revision selection",
@@ -315,6 +324,8 @@ export const WORKFLOW_MAP_CONSISTENCY_CONTRACTS: WorkflowMapConsistencyContracts
     "payroll-lifecycle",
     "assistant-prepared-action",
     "assistant-guarded-execution",
+    "route-warehouse-inventory",
+    "inventory-movement-ledger",
   ],
   requiredCoverageInvariantIds: [
     "demo-cannot-write-production",
@@ -323,8 +334,9 @@ export const WORKFLOW_MAP_CONSISTENCY_CONTRACTS: WorkflowMapConsistencyContracts
     "approved-payroll-history-is-immutable",
     "formal-engineering-history-is-preserved",
     "settlement-reversal-is-additive-history",
+    "inventory-stock-is-movement-derived",
     "assistant-mutations-require-confirmation",
   ],
-  requiredDiagramIds: ["overview", "projects-engineering", "invoice-cash-settlement", "workforce-payroll", "assistant-guarded-mutations"],
+  requiredDiagramIds: ["overview", "warehouse-inventory", "projects-engineering", "invoice-cash-settlement", "workforce-payroll", "assistant-guarded-mutations"],
   routeRoundTrips: ROUTE_ROUND_TRIPS,
 };

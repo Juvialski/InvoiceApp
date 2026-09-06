@@ -82,6 +82,7 @@ export interface MaterialsEquipmentWorkspaceData {
 export interface ProjectMaterialSaveInput {
   id?: string;
   projectId: string;
+  inventoryItemId?: string | null;
   materialName: string;
   referenceCode?: string | null;
   category?: string | null;
@@ -143,6 +144,7 @@ export function projectMaterialFromRow(row: Row): ProjectMaterial {
     id: String(row.id),
     companyId: text(row.company_id),
     projectId: String(row.project_id || ""),
+    inventoryItemId: text(row.inventory_item_id) || null,
     materialName: String(row.material_name || ""),
     referenceCode: text(row.reference_code) || null,
     category: text(row.category) || null,
@@ -203,6 +205,7 @@ export function buildLocalProjectMaterial(input: ProjectMaterialSaveInput, exist
     id: input.id || localId("material"),
     companyId,
     projectId: input.projectId,
+    inventoryItemId: input.inventoryItemId || null,
     materialName: input.materialName.trim(),
     referenceCode: input.referenceCode?.trim() || null,
     category: input.category?.trim() || null,
@@ -271,6 +274,7 @@ export async function saveProjectMaterialToSupabase(input: ProjectMaterialSaveIn
       id: input.id || null,
       companyId,
       projectId: input.projectId,
+      inventoryItemId: input.inventoryItemId || null,
       materialName: input.materialName.trim(),
       referenceCode: input.referenceCode?.trim() || null,
       category: input.category?.trim() || null,

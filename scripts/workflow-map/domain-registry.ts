@@ -5,6 +5,7 @@ export const WORKFLOW_DOMAIN_ORDER: readonly WorkflowDomain[] = [
   "dashboard",
   "projects",
   "procurement",
+  "inventory",
   "commercial",
   "engineering",
   "finance",

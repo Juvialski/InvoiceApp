@@ -2,6 +2,7 @@ import { reconciliationStatusForTransaction, type FinancialAccount, type Financi
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { EngineeringDailySiteLogsWorkspaceData } from "../lib/dailySiteLogs.ts";
 import type { EngineeringDocumentsWorkspaceData } from "../lib/engineeringDocuments.ts";
+import type { InventoryItem, InventoryMovement } from "../lib/inventory.ts";
 import type { RecurringPayrollComponent, WorkerCompensationProfile } from "../lib/payrollAutomation.ts";
 import type {
   AttendanceRecord,
@@ -85,7 +86,9 @@ export type DemoWorkspaceMutation =
   | { type: "SAVE_ENGINEERING_DOCUMENTS"; value: EngineeringDocumentsWorkspaceData }
   | { type: "SAVE_DAILY_SITE_LOGS"; value: EngineeringDailySiteLogsWorkspaceData }
   | { type: "SAVE_MATERIAL"; value: ProjectMaterial }
-  | { type: "SAVE_EQUIPMENT"; value: ProjectEquipment };
+  | { type: "SAVE_EQUIPMENT"; value: ProjectEquipment }
+  | { type: "SAVE_INVENTORY_ITEM"; value: InventoryItem }
+  | { type: "RECORD_INVENTORY_MOVEMENT"; value: InventoryMovement };
 
 function upsert<T extends { id: string }>(items: readonly T[], value: T): T[] {
   const found = items.some((item) => item.id === value.id);
@@ -115,6 +118,7 @@ export function demoProjectLifecyclePreview(state: DemoWorkspaceData, project: P
     engineeringDailySiteLogs: state.siteLogs.logs.filter((log) => log.projectId === project.id).length,
     projectMaterials: state.materials.filter((material) => material.projectId === project.id).length,
     projectEquipment: state.equipment.filter((equipment) => equipment.projectId === project.id).length,
+    inventoryMovements: state.inventoryMovements.filter((movement) => movement.projectId === project.id).length,
     purchaseOrders: (state.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
     subcontracts: (state.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
     subcontractProgressClaims: (state.subcontractClaims || []).filter((claim) => claim.projectId === project.id).length,
@@ -433,6 +437,10 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, materials: upsert(state.materials, mutation.value) };
     case "SAVE_EQUIPMENT":
       return { ...state, equipment: upsert(state.equipment, mutation.value) };
+    case "SAVE_INVENTORY_ITEM":
+      return { ...state, inventoryItems: upsert(state.inventoryItems, mutation.value) };
+    case "RECORD_INVENTORY_MOVEMENT":
+      return { ...state, inventoryMovements: upsert(state.inventoryMovements, mutation.value) };
     default:
       return state;
   }

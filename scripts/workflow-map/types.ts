@@ -7,6 +7,7 @@ export type WorkflowDomain =
   | "dashboard"
   | "projects"
   | "procurement"
+  | "inventory"
   | "commercial"
   | "engineering"
   | "finance"

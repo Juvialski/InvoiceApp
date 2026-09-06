@@ -36,7 +36,8 @@ async function main() {
     path.join(ROOT, "tests", "clientProgressBillingMigration.test.ts"),
     path.join(ROOT, "tests", "r4CurrencyAndTax.test.ts"),
     path.join(ROOT, "tests", "r4SupplierExpenseBridge.test.ts"),
-    path.join(ROOT, "tests", "r4PayrollVoidHistory.test.ts")
+    path.join(ROOT, "tests", "r4PayrollVoidHistory.test.ts"),
+    path.join(ROOT, "tests", "inventoryMigration.test.ts")
   ];
 
   const nodeCmd = "node";

@@ -2,6 +2,7 @@ import type { ProjectEquipment, ProjectMaterial } from "../../types.ts";
 import { DEMO_COMPANY_ID } from "../demoTypes.ts";
 import { addDemoDays, demoTimestamp } from "./demoDates.ts";
 import { DEMO_PROJECT_IDS } from "./projects.ts";
+import { DEMO_INVENTORY_ITEM_IDS } from "./inventoryIds.ts";
 
 export const DEMO_MATERIAL_IDS = {
   warehouseConcrete: "demo-material-wh-concrete",
@@ -25,6 +26,7 @@ export function createDemoMaterials(anchorDate: string): ProjectMaterial[] {
       id: DEMO_MATERIAL_IDS.warehouseConcrete,
       companyId: DEMO_COMPANY_ID,
       projectId: DEMO_PROJECT_IDS.warehouse,
+      inventoryItemId: DEMO_INVENTORY_ITEM_IDS.concrete,
       materialName: "Ready-mix concrete 28 MPa",
       referenceCode: "MAT-WH-CON-028",
       category: "Concrete",
@@ -42,6 +44,7 @@ export function createDemoMaterials(anchorDate: string): ProjectMaterial[] {
       id: DEMO_MATERIAL_IDS.drainageAggregate,
       companyId: DEMO_COMPANY_ID,
       projectId: DEMO_PROJECT_IDS.drainage,
+      inventoryItemId: DEMO_INVENTORY_ITEM_IDS.aggregate,
       materialName: "Graded crushed aggregate base course",
       referenceCode: "MAT-DR-AGG-201",
       category: "Drainage / earthworks",
@@ -59,6 +62,7 @@ export function createDemoMaterials(anchorDate: string): ProjectMaterial[] {
       id: DEMO_MATERIAL_IDS.solarConduit,
       companyId: DEMO_COMPANY_ID,
       projectId: DEMO_PROJECT_IDS.solar,
+      inventoryItemId: DEMO_INVENTORY_ITEM_IDS.conduit,
       materialName: "110mm heavy-duty PVC conduit",
       referenceCode: "MAT-SOL-CON-110",
       category: "Electrical",

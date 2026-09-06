@@ -73,6 +73,24 @@ const verifyExtractorScreen = assertHeading("Extract invoice documents", "invoic
 const verifyGmailInboxScreen = assertHeading(/Email Intake|Gmail inbox/, "gmail-inbox-visible");
 const verifyVendorsScreen = assertHeading("Vendors", "vendor-directory-visible");
 
+const verifyWarehouseInventoryScreen: QaScenarioAction = async (page) => {
+  const headingCount = await page.getByRole("heading", { name: "Warehouse Inventory", exact: true }).count();
+  const itemCount = await page.locator('[data-domain="warehouse-inventory"] [data-inventory-item]').count();
+  const movementTruthCount = await page.locator("text=Movement-derived stock truth").count();
+  await page.getByRole("button", { name: "History", exact: true }).first().click();
+  await page.waitForTimeout(250);
+  const historyDialogCount = await page.getByRole("dialog", { name: /Ready-mix concrete 28 MPa/ }).count();
+  const movementHistoryCount = await page.locator("text=Opening physical count").count();
+  await page.getByRole("button", { name: "Close dialog", exact: true }).first().click();
+  return [
+    { id: "warehouse-heading-visible", passed: headingCount === 1, details: `warehouse headings: ${headingCount}` },
+    { id: "warehouse-items-visible", passed: itemCount > 0, details: `warehouse item rows: ${itemCount}` },
+    { id: "warehouse-movement-truth-visible", passed: movementTruthCount === 1, details: `movement truth banners: ${movementTruthCount}` },
+    { id: "warehouse-history-dialog-visible", passed: historyDialogCount === 1, details: `item history dialogs: ${historyDialogCount}` },
+    { id: "warehouse-history-movement-visible", passed: movementHistoryCount > 0, details: `opening movement rows: ${movementHistoryCount}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyPortfolioDashboard: QaScenarioAction = async (page) => {
   const headingCount = await page.getByRole("heading", { name: "Portfolio Management", exact: true }).count();
   const totalsCount = await page.locator('[aria-label="Portfolio Financial Totals"]').count();
@@ -116,6 +134,9 @@ const verifyProjectAttentionAndEngineering: QaScenarioAction = async (page) => {
   await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Site Logs")').first().click();
   await page.waitForTimeout(250);
   const siteLogRegister = await page.getByRole("heading", { name: /Daily Site Logs|Site Logs/ }).count();
+  await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Materials & Equipment")').first().click();
+  await page.waitForTimeout(250);
+  const projectWarehouseReadThrough = await page.locator("text=Warehouse on-hand").count();
   return [
     { id: "project-management-attention-visible", passed: managementAttention === 1, details: `management-attention headings: ${managementAttention}` } satisfies QaAssertion,
     { id: "project-engineering-summary-visible", passed: engineeringSummary === 1, details: `engineering summaries: ${engineeringSummary}` } satisfies QaAssertion,
@@ -124,6 +145,7 @@ const verifyProjectAttentionAndEngineering: QaScenarioAction = async (page) => {
     { id: "project-rfis-drilldown-visible", passed: rfiRegister > 0, details: `RFI registers: ${rfiRegister}` } satisfies QaAssertion,
     { id: "project-submittals-drilldown-visible", passed: submittalRegister > 0, details: `submittal registers: ${submittalRegister}` } satisfies QaAssertion,
     { id: "project-site-logs-drilldown-visible", passed: siteLogRegister > 0, details: `Site Log registers: ${siteLogRegister}` } satisfies QaAssertion,
+    { id: "project-materials-warehouse-read-through-visible", passed: projectWarehouseReadThrough > 0, details: `project warehouse read-through labels: ${projectWarehouseReadThrough}` } satisfies QaAssertion,
   ] satisfies readonly QaAssertion[];
 };
 
@@ -169,6 +191,7 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.mobile, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim and variation parity verified", viewport: QA_VIEWPORTS.desktop, action: verifyProcurementSubcontractParity }),
+  defineQaScenario({ feature: "warehouse-inventory", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "warehouse ledger rendered", viewport: QA_VIEWPORTS.desktop, action: verifyWarehouseInventoryScreen }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: "/demo/app/projects", interactionState: "project selected", viewport: QA_VIEWPORTS.desktop, action: openProjectFromDirectory }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "attention and engineering drilldowns verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectAttentionAndEngineering }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectFinancialControlDashboard }),

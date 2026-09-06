@@ -71,6 +71,17 @@ export const DOMAIN_META: Record<WorkflowDomain, DomainVisualMeta> = {
     colorDot: "bg-cyan-500",
     colorRing: "ring-cyan-400",
   },
+  inventory: {
+    id: "inventory",
+    label: "Warehouse Inventory",
+    description: "Canonical stock items, movement history, project allocation, and derived on-hand",
+    colorBg: "bg-blue-50 dark:bg-blue-950/40",
+    colorBorder: "border-blue-300 dark:border-blue-800",
+    colorText: "text-blue-800 dark:text-blue-200",
+    colorBadge: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/60 dark:text-blue-300 dark:border-blue-700",
+    colorDot: "bg-blue-500",
+    colorRing: "ring-blue-400",
+  },
   commercial: {
     id: "commercial",
     label: "Commercial",

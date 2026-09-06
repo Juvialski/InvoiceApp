@@ -22,6 +22,7 @@ export type PrimaryModuleId =
   | "email-intake"
   | "projects"
   | "procurement"
+  | "warehouse"
   | "expenses"
   | "payroll"
   | "reports"
@@ -75,6 +76,7 @@ export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.
   { id: "email-intake", label: "Email Intake", routeIds: ["inbox"], defaultRouteId: "inbox" },
   { id: "projects", label: "Projects", routeIds: ["projects"], defaultRouteId: "projects" },
   { id: "procurement", label: "Procurement", routeIds: ["procurement"], defaultRouteId: "procurement" },
+  { id: "warehouse", label: "Warehouse Inventory", routeIds: ["warehouse"], defaultRouteId: "warehouse" },
   { id: "expenses", label: "Expenses", routeIds: ["expenses", "extract", "review", "vendors"], defaultRouteId: "expenses" },
   { id: "payroll", label: "Payroll", routeIds: ["payroll"], defaultRouteId: "payroll" },
   { id: "reports", label: "Reports", routeIds: ["reports"], defaultRouteId: "reports" },

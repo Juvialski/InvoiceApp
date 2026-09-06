@@ -13,6 +13,7 @@ import { createDemoEquipment, createDemoMaterials } from "./materialsEquipment.t
 import { createDemoPurchaseOrderMatches, createDemoPurchaseOrders, createDemoPurchaseOrderReceipts, createDemoRFQs, createDemoSubcontractClaims, createDemoSubcontracts, createDemoSubcontractVariations, createDemoSupplierQuotations, createDemoVendors } from "./procurement.ts";
 import { createDemoClientBillings } from "./clientBillings.ts";
 import { createDemoClientCollections } from "./clientCollections.ts";
+import { createDemoInventoryItems, createDemoInventoryMovements } from "./inventory.ts";
 import type { FinancialFxSnapshot } from "../../types.ts";
 
 const DEMO_OVERTIME_QUEUE_STATUSES = ["PENDING", "PENDING", "REJECTED", "CANCELLED", "PENDING"] as const;
@@ -84,6 +85,8 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     siteLogs: createDemoDailySiteLogs(anchorDate),
     materials: createDemoMaterials(anchorDate),
     equipment: createDemoEquipment(anchorDate),
+    inventoryItems: createDemoInventoryItems(anchorDate),
+    inventoryMovements: createDemoInventoryMovements(anchorDate),
     vendors: createDemoVendors(anchorDate),
     purchaseOrders: createDemoPurchaseOrders(anchorDate),
     purchaseOrderReceipts: createDemoPurchaseOrderReceipts(anchorDate),

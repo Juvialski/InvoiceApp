@@ -30,8 +30,9 @@ import { buildLocalClientCollection, clientCollectionTotal, type ClientCollectio
 import { buildLocalProjectEquipment, buildLocalProjectMaterial, type ProjectEquipmentSaveInput, type ProjectMaterialSaveInput } from "../lib/materialsEquipment.ts";
 import { createLocalExpense } from "../lib/expenses.ts";
 import { createLocalFinancialFxSnapshot, type FinancialFxSnapshotInput } from "../lib/financialFx.ts";
+import { buildLocalInventoryItem, recordInventoryMovementLocally, type InventoryItem, type InventoryItemSaveInput, type InventoryMovement, type InventoryMovementInput } from "../lib/inventory.ts";
 
-const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
+const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
 function activeTabFor(location: DemoLocation): AppTab {
   if (location.kind === "documents") return "projects";
@@ -41,7 +42,7 @@ function activeTabFor(location: DemoLocation): AppTab {
 
 function safeAppLocation(location: DemoLocation): AppLocation | null {
   if (location.kind !== "app") return null;
-  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "procurement", "extractor", "inbox", "review", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
+  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "procurement", "warehouse", "extractor", "inbox", "review", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
   return allowed.has(location.appLocation.tab) ? location.appLocation : null;
 }
 
@@ -87,6 +88,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     engineeringDailySiteLogs: data.siteLogs.logs.filter((log) => log.projectId === project.id).length,
     projectMaterials: data.materials.filter((material) => material.projectId === project.id).length,
     projectEquipment: data.equipment.filter((equipment) => equipment.projectId === project.id).length,
+    inventoryMovements: data.inventoryMovements.filter((movement) => movement.projectId === project.id).length,
     purchaseOrders: (data.purchaseOrders || []).filter((purchaseOrder) => purchaseOrder.projectId === project.id).length,
     subcontracts: (data.subcontracts || []).filter((subcontract) => subcontract.projectId === project.id).length,
     clientBillings: clientBillings.filter((billing) => billing.projectId === project.id).length,
@@ -195,6 +197,40 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     if (!input.equipmentName.trim()) throw new Error("Equipment name is required.");
     const value = buildLocalProjectEquipment(input, existing, DEMO_COMPANY_ID);
     dispatch({ type: "SAVE_EQUIPMENT", value });
+  };
+
+  const saveInventoryItem = async (input: InventoryItemSaveInput): Promise<InventoryItem> => {
+    const existing = input.id ? data.inventoryItems.find((item) => item.id === input.id) : undefined;
+    const normalizedName = input.itemName.trim().toLowerCase();
+    const normalizedUnit = input.stockUnit.trim().toLowerCase();
+    const normalizedCode = input.itemCode?.trim().toUpperCase();
+    if (!normalizedName || !normalizedUnit) throw new Error("Inventory item name and stock unit are required.");
+    if (data.inventoryItems.some((item) => item.id !== input.id && item.itemName.trim().toLowerCase() === normalizedName && item.stockUnit.trim().toLowerCase() === normalizedUnit)) throw new Error("An inventory item with the same canonical name and stock unit already exists.");
+    if (normalizedCode && data.inventoryItems.some((item) => item.id !== input.id && item.itemCode?.trim().toUpperCase() === normalizedCode)) throw new Error("That inventory item code is already in use.");
+    if (existing && existing.stockUnit.trim().toLowerCase() !== normalizedUnit && (data.inventoryMovements.some((movement) => movement.inventoryItemId === existing.id) || data.materials.some((material) => material.inventoryItemId === existing.id))) throw new Error("An item stock unit cannot change after movement history or project requirement links exist.");
+    const value = buildLocalInventoryItem({ ...input, itemName: input.itemName.trim(), stockUnit: normalizedUnit }, existing, DEMO_COMPANY_ID, "demo-user-warehouse");
+    dispatch({ type: "SAVE_INVENTORY_ITEM", value });
+    return value;
+  };
+
+  const recordInventoryMovement = async (input: InventoryMovementInput): Promise<InventoryMovement> => {
+    if (input.sourceType === "PURCHASE_ORDER_RECEIPT") {
+      const receipt = (data.purchaseOrderReceipts || []).find((candidate) => candidate.id === input.purchaseOrderReceiptId && candidate.status === "RECEIVED");
+      const receiptLine = receipt?.lines?.find((line) => line.purchaseOrderLineId === input.purchaseOrderLineId);
+      const purchaseOrder = (data.purchaseOrders || []).find((candidate) => candidate.id === receipt?.purchaseOrderId);
+      const purchaseOrderLine = purchaseOrder?.lines?.find((line) => line.id === input.purchaseOrderLineId);
+      const item = data.inventoryItems.find((candidate) => candidate.id === input.inventoryItemId);
+      if (!receiptLine || !purchaseOrderLine || !item || item.stockUnit.trim().toLowerCase() !== purchaseOrderLine.unit.trim().toLowerCase() || Number(input.quantity) !== receiptLine.receivedQuantity) throw new Error("The selected procurement receipt line must match an active canonical item and exact quantity.");
+    }
+    const value = recordInventoryMovementLocally(input, data.inventoryItems, data.inventoryMovements, { companyId: DEMO_COMPANY_ID, actorUserId: "demo-user-warehouse", now: demoTimestamp(data.anchorDate, 18, 0) });
+    dispatch({ type: "RECORD_INVENTORY_MOVEMENT", value });
+    return value;
+  };
+
+  const reverseInventoryMovement = async (movementId: string, reason: string, idempotencyKey: string): Promise<InventoryMovement> => {
+    const value = recordInventoryMovementLocally({ movementType: "REVERSAL", reversalOfMovementId: movementId, reason, idempotencyKey }, data.inventoryItems, data.inventoryMovements, { companyId: DEMO_COMPANY_ID, actorUserId: "demo-user-warehouse", now: demoTimestamp(data.anchorDate, 18, 5) });
+    dispatch({ type: "RECORD_INVENTORY_MOVEMENT", value });
+    return value;
   };
 
   const saveSubcontract = async (
@@ -421,6 +457,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             costCodes={data.costCodes || []}
             materials={data.materials}
             equipment={data.equipment}
+            inventoryItems={data.inventoryItems}
+            inventoryMovements={data.inventoryMovements}
             purchaseOrders={data.purchaseOrders || []}
             receipts={data.purchaseOrderReceipts || []}
             subcontracts={data.subcontracts || []}
@@ -451,6 +489,9 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onDailySiteLogsDataChange={(value) => dispatch({ type: "SAVE_DAILY_SITE_LOGS", value })}
             onSaveMaterial={saveProjectMaterial}
             onSaveEquipment={saveProjectEquipment}
+            onSaveInventoryItem={saveInventoryItem}
+            onRecordInventoryMovement={recordInventoryMovement}
+            onReverseInventoryMovement={reverseInventoryMovement}
             pathForSiteLog={(siteLogId) => selectedProject ? demoPathForProject(selectedProject.id, "site-logs", siteLogId ? { siteLogId } : undefined) : demoPathForTab("projects")}
             onOpenProject={openProject}
             onSaveProject={(project) => dispatch({ type: "SAVE_PROJECT", value: project })}
@@ -464,6 +505,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onProjectAddExpense={() => onNavigate(demoPathForTab("expenses"))}
             onProjectOpenExpenseCorrection={(expense) => { setExpenseCorrectionContext(expense.id); onNavigate(demoPathForTab("expenses")); }}
             onProjectOpenPayroll={() => onNavigate(demoPathForTab("payroll"))}
+            onProjectOpenWarehouse={() => onNavigate(demoPathForTab("warehouse"))}
             onSaveClientBilling={saveClientBilling}
             onTransitionClientBilling={transitionClientBilling}
             onSaveSubcontract={saveSubcontract}
