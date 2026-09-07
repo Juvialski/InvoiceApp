@@ -22,21 +22,6 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - "src/app/**"
-      - "src/components/**"
-      - "src/demo/**"
-      - "src/workflow-map/**"
-      - "src/**/*.css"
-      - "src/main.tsx"
-      - "public/demo/**"
-      - "package.json"
-      - "scripts/demo-visual-qa.ts"
-      - "scripts/qa/**"
-      - "scripts/workflow-map/**"
-      - "tests/structuredBrowserEvidence.test.ts"
-      - "tests/workflowMap*.test.ts"
-      - ".github/workflows/demo-visual-qa.yml"
 
 permissions:
   contents: read
