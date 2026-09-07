@@ -11,6 +11,7 @@ import { validatePublicProspectSubmission } from "../src/lib/publicProspect.ts";
 import { releaseMetadataFromEnv } from "../src/server/releaseMetadata.ts";
 
 const migration = readFileSync(new URL("../supabase/migrations/20260907024119_public_prospect_funnel.sql", import.meta.url), "utf8");
+const deploymentGateMigration = readFileSync(new URL("../supabase/migrations/20260907121500_public_prospect_funnel_deployment_gate.sql", import.meta.url), "utf8");
 const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const publicRoot = readFileSync(new URL("../src/public/PublicFunnelRoot.tsx", import.meta.url), "utf8");
@@ -58,17 +59,22 @@ test("public prospect validation normalizes bounded business intake without acce
   }
 });
 
-test("public routes are resolved before the authenticated provider while recovery remains production auth", () => {
+test("public routes are deployment-opt-in while password recovery remains production auth", () => {
   assert.equal(isPublicFunnelApplicationPath("/"), true);
   assert.equal(isPublicFunnelApplicationPath("/request-demo"), true);
   assert.equal(isPublicFunnelApplicationPath("/contact"), true);
   assert.equal(isPublicFunnelApplicationPath("/", "?auth=reset"), false);
   assert.equal(isPasswordRecoveryPath("/", "", "#access_token=redacted&type=recovery"), true);
-  assert.equal(applicationModeForPath("/"), "public");
-  assert.equal(applicationModeForPath("/request-demo"), "public");
-  assert.equal(applicationModeForPath("/", "?type=recovery"), "production");
-  assert.equal(applicationModeForPath("/", "", "#access_token=redacted&type=recovery"), "production");
-  assert.equal(applicationModeForPath("/dashboard"), "production");
+
+  // Operational client deployments stay on the authenticated application by
+  // default. A platform/QA build must explicitly opt into the public funnel.
+  assert.equal(applicationModeForPath("/"), "production");
+  assert.equal(applicationModeForPath("/request-demo"), "production");
+  assert.equal(applicationModeForPath("/", undefined, undefined, true), "public");
+  assert.equal(applicationModeForPath("/request-demo", undefined, undefined, true), "public");
+  assert.equal(applicationModeForPath("/", "?type=recovery", undefined, true), "production");
+  assert.equal(applicationModeForPath("/", "", "#access_token=redacted&type=recovery", true), "production");
+  assert.equal(applicationModeForPath("/dashboard", undefined, undefined, true), "production");
   assert.match(appSource, /window\.location\.pathname === "\/" && !isPasswordRecoveryPath/);
   assert.match(publicRoot, /credentials: "omit"/);
   assert.match(publicRoot, /\/api\/public\/prospects/);
@@ -137,7 +143,7 @@ test("deployment inventory is bounded, secret-free, and can distinguish pass fro
   assert.match(manifestSource, /FORBIDDEN_KEY_PATTERN/);
 });
 
-test("public prospect migration fails closed and grants only the narrow anonymous function", () => {
+test("public prospect migrations fail closed and require explicit deployment enablement", () => {
   assert.match(migration, /create table if not exists public\.prospect_submissions/i);
   assert.match(migration, /alter table public\.prospect_submissions enable row level security/i);
   assert.match(migration, /revoke all on table public\.prospect_submissions from public, anon, authenticated/i);
@@ -146,4 +152,10 @@ test("public prospect migration fails closed and grants only the narrow anonymou
   assert.match(migration, /grant execute on function public\.submit_public_prospect\([\s\S]*\) to anon/i);
   assert.match(migration, /revoke all on function public\.submit_public_prospect\([\s\S]*\) from public, authenticated/i);
   assert.doesNotMatch(migration, /company_id uuid|references public\.(companies|company_members)/i);
+
+  assert.match(deploymentGateMigration, /private\.public_prospect_funnel_configuration/i);
+  assert.match(deploymentGateMigration, /enabled boolean not null default false/i);
+  assert.match(deploymentGateMigration, /revoke all on table private\.public_prospect_funnel_configuration from public, anon, authenticated/i);
+  assert.match(deploymentGateMigration, /before insert on public\.prospect_submissions/i);
+  assert.match(deploymentGateMigration, /Public prospect intake is not enabled for this deployment/i);
 });
