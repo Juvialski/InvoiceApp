@@ -8,11 +8,12 @@ import './lib/emailIntakeInitialSessionGuard.ts';
 import './index.css';
 
 const ProductionApp = lazy(() => import('./App.tsx'));
+const PublicFunnelRoot = lazy(() => import('./public/PublicFunnelRoot.tsx'));
 const DemoRoot = lazy(() => import('./demo/DemoRoot.tsx'));
 const WorkflowMapRoot = lazy(() => import('./workflow-map/WorkflowMapRoot.tsx'));
 
 function Root() {
-  const mode = applicationModeForPath(window.location.pathname, window.location.search);
+  const mode = applicationModeForPath(window.location.pathname, window.location.search, window.location.hash);
   return (
     <EngoryxThemeProvider>
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-600">Loading {BRAND.productName}…</div>}>
@@ -20,6 +21,8 @@ function Root() {
           <WorkflowMapRoot />
         ) : mode === 'demo' ? (
           <DemoRoot />
+        ) : mode === 'public' ? (
+          <PublicFunnelRoot />
         ) : (
           <CompanyAccessProvider>
             <ProductionApp />

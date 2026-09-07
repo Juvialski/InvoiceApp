@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "repository": "Juvialski/InvoiceApp",
+  "deployments": [
+    {
+      "deploymentId": "client-deployment-to-be-confirmed",
+      "clientName": "Client to be confirmed",
+      "environment": "production",
+      "productionUrl": null,
+      "renderServiceRef": null,
+      "supabaseProjectRef": null,
+      "deployed": {
+        "repositorySha": null,
+        "appVersion": null,
+        "migrationLevel": null
+      },
+      "enabledModules": [],
+      "configuration": {
+        "version": null,
+        "values": {}
+      },
+      "backup": {
+        "status": "UNKNOWN",
+        "lastSuccessfulAt": null,
+        "lastVerifiedAt": null
+      },
+      "release": {
+        "expectedRepositorySha": null,
+        "expectedMigrationLevel": null,
+        "configurationCompatibility": "UNKNOWN",
+        "migrationPrerequisite": "UNKNOWN",
+        "backupPrerequisite": "UNKNOWN",
+        "rollbackExpectation": "NOT_READY"
+      },
+      "lastHealthVerification": {
+        "status": "UNKNOWN",
+        "checkedAt": null,
+        "httpStatus": null,
+        "observedRepositorySha": null,
+        "observedAppVersion": null,
+        "observedMigrationLevel": null,
+        "observedConfigurationVersion": null,
+        "notes": []
+      },
+      "notes": [
+        "Replace this template entry only after the client is qualified and an isolated deployment is approved."
+      ]
+    }
+  ]
+}

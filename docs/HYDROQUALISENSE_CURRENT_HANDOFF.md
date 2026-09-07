@@ -114,6 +114,7 @@ The next phase should establish a production-honest, demo-ready productization s
 - smoke/auth/database/backup verification and upgrade/rollback readiness as explicit operator steps.
 
 See `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md` for the authoritative productization contract.
+The operator implementation checklist is in `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`.
 
 ## Later confirmed major domain — Worker Registration & Attendance
 

@@ -1,4 +1,4 @@
-export type ApplicationMode = "production" | "demo" | "workflow-map";
+export type ApplicationMode = "production" | "public" | "demo" | "workflow-map";
 
 function normalizePathname(pathname: string | null | undefined): string {
   const raw = (pathname || "/").split(/[?#]/, 1)[0] || "/";
@@ -38,13 +38,42 @@ export function isDemoApplicationPath(pathname: string | null | undefined): bool
   return normalized === "/demo" || normalized.startsWith("/demo/");
 }
 
+export function isPasswordRecoveryPath(
+  pathname: string | null | undefined,
+  search?: string | null,
+  hash?: string | null,
+): boolean {
+  const normalized = normalizePathname(pathname);
+  if (normalized === "/reset-password") return true;
+  if (normalized !== "/") return false;
+  const query = new URLSearchParams((search || "").replace(/^\?/, ""));
+  const hashParams = new URLSearchParams((hash || "").replace(/^#/, ""));
+  return query.get("auth") === "reset" || query.get("type") === "recovery" || hashParams.get("type") === "recovery";
+}
+
+export function isPublicFunnelApplicationPath(
+  pathname: string | null | undefined,
+  search?: string | null,
+  hash?: string | null,
+): boolean {
+  const normalized = normalizePathname(pathname);
+  if (normalized === "/request-demo" || normalized === "/contact") return true;
+  if (normalized !== "/") return false;
+
+  // Password-recovery links historically use /?auth=reset (or a Supabase
+  // recovery hash). Keep those links in the authenticated AuthScreen flow.
+  return !isPasswordRecoveryPath(normalized, search, hash);
+}
+
 export function applicationModeForPath(
   pathname: string | null | undefined,
   search?: string | null,
+  hash?: string | null,
 ): ApplicationMode {
   if (isWorkflowMapApplicationPath(pathname, search)) {
     return "workflow-map";
   }
-  return isDemoApplicationPath(pathname) ? "demo" : "production";
+  if (isDemoApplicationPath(pathname)) return "demo";
+  return isPublicFunnelApplicationPath(pathname, search, hash) ? "public" : "production";
 }
 

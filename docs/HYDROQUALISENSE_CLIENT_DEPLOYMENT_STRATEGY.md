@@ -4,6 +4,8 @@ Status: **ACTIVE — post-R5 operating direction**
 Repository: `Juvialski/InvoiceApp`  
 Updated: **2026-09-06**
 
+Implementation runbook: `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`
+
 This document defines how one HydroQualiSense codebase can serve multiple client companies without turning a deployed application into a shared multi-company tenant switcher.
 
 ## Core deployment model
