@@ -170,8 +170,9 @@ test("demo Procurement route is available through the existing production-safe r
   assert.equal(location.appLocation.tab, "procurement");
 });
 
-test("normal production route behavior remains production mode", () => {
+test("public landing is deployment-opt-in while normal operational routes remain production mode", () => {
   assert.equal(applicationModeForPath("/"), "production");
+  assert.equal(applicationModeForPath("/", undefined, undefined, true), "public");
   assert.equal(applicationModeForPath("/dashboard"), "production");
   assert.equal(applicationModeForPath("/projects/demo-project-warehouse"), "production");
 });

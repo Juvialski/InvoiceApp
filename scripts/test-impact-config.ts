@@ -36,7 +36,8 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
     'tests/subcontractClaimProjectPreflightRegression.test.ts',
     'tests/clientProgressBillingMigration.test.ts',
     'tests/clientCollectionsMigration.test.ts',
-    'tests/clientCollectionSettlement.test.ts'
+    'tests/clientCollectionSettlement.test.ts',
+    'tests/publicProspect.test.ts'
   ],
   'src/lib/financialSettlement.ts': [
     'tests/financialSettlement.test.ts',
@@ -65,7 +66,40 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
     'tests/uiFoundation.test.ts',
     'tests/clientCollectionSettlement.test.ts',
     'tests/financialSettlement.test.ts',
-    'tests/clientCollectionsDomain.test.ts'
+    'tests/clientCollectionsDomain.test.ts',
+    'tests/publicProspect.test.ts'
+  ],
+  'src/main.tsx': [
+    'tests/publicProspect.test.ts',
+    'tests/appRouting.test.ts',
+  ],
+  'src/app/applicationMode.ts': [
+    'tests/publicProspect.test.ts',
+  ],
+  'src/public/**': [
+    'tests/publicProspect.test.ts',
+  ],
+  'src/lib/publicProspect.ts': [
+    'tests/publicProspect.test.ts',
+  ],
+  'src/lib/deploymentManifest.ts': [
+    'tests/publicProspect.test.ts',
+  ],
+  'src/server/releaseMetadata.ts': [
+    'tests/publicProspect.test.ts',
+  ],
+  'server.ts': [
+    'tests/serverAuthorization.test.ts',
+    'tests/publicProspect.test.ts',
+  ],
+  'scripts/deployment/**': [
+    'tests/publicProspect.test.ts',
+  ],
+  'deployment/**': [
+    'tests/publicProspect.test.ts',
+  ],
+  'docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md': [
+    'tests/publicProspect.test.ts',
   ],
   'src/config/branding.ts': [
     'tests/brandConfig.test.ts'

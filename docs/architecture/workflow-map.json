@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "graphId": "engoryx-product-workflow",
-  "version": "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration",
+  "version": "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration+client-productization",
   "product": "Engoryx Engineering Operations Platform",
   "purpose": "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   "canonicalSource": "scripts/workflow-map/graph.ts",
   "sourceClassification": "mixed",
-  "reviewedCommitSha": "4cf644eef681000de607fa0177e108ade03941d8",
+  "reviewedCommitSha": "fb3cdbbac3290396e7bac985a19287a091dc733c",
   "reviewedAt": "2026-09-07",
   "phaseTags": [
     "Phase 0",
@@ -25,6 +25,7 @@
     "P3D-1 Engineering Coordination Integration",
     "P4 Warehouse Inventory & Project Allocation",
     "P5 Post-Warehouse Operational Integration",
+    "Client Productization",
     "QA-1",
     "WM-1"
   ],
@@ -83,6 +84,55 @@
       "testRefs": [
         "tests/demoWorkspace.test.ts",
         "tests/demoCleanup.test.ts"
+      ]
+    },
+    {
+      "id": "public-funnel-cannot-provision",
+      "label": "Public prospect intake cannot provision operations",
+      "description": "The unauthenticated HydroQualiSense landing and requirements intake accepts only bounded business context; it cannot create a company, deployment, privileged user, credential, secret, or operational record.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/main.tsx",
+        "src/app/applicationMode.ts",
+        "src/public/PublicFunnelRoot.tsx",
+        "src/lib/publicProspect.ts",
+        "server.ts",
+        "supabase/migrations/20260907024119_public_prospect_funnel.sql"
+      ],
+      "testRefs": [
+        "tests/publicProspect.test.ts",
+        "supabase/tests/database/29_public_prospect_funnel.test.sql"
+      ]
+    },
+    {
+      "id": "deployment-inventory-never-stores-secrets",
+      "label": "Deployment inventory stores metadata, never secrets",
+      "description": "Operator deployment inventory records identifiers, configuration status, release state, backup state, and verification evidence without duplicating provider passwords, tokens, API keys, credentials, or private keys.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/lib/deploymentManifest.ts",
+        "scripts/deployment/validate-manifest.ts",
+        "deployment/inventory.template.json",
+        "docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md"
+      ],
+      "testRefs": [
+        "tests/publicProspect.test.ts"
+      ]
+    },
+    {
+      "id": "isolated-release-promotion-is-explicit",
+      "label": "Release promotion remains explicit per deployment",
+      "description": "Each isolated client deployment records its expected and observed repository SHA, migration level, configuration version, prerequisites, health result, and forward-recovery expectation before release handover.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/server/releaseMetadata.ts",
+        "src/lib/deploymentManifest.ts",
+        "scripts/deployment/verify-release.ts",
+        "server.ts",
+        "docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md"
+      ],
+      "testRefs": [
+        "tests/publicProspect.test.ts"
       ]
     },
     {
@@ -659,20 +709,113 @@
       "domain": "platform-tenancy",
       "type": "workflow",
       "scope": "global",
-      "description": "Chooses the production or isolated demo application before mounting the corresponding provider and workspace tree.",
+      "description": "Chooses the public funnel, production, isolated demo, or workflow-map application before mounting the corresponding provider and workspace tree.",
       "fileRefs": [
         "src/main.tsx",
         "src/app/applicationMode.ts"
       ],
       "testRefs": [
         "tests/demoWorkspace.test.ts",
-        "tests/authScreenEntry.test.ts"
+        "tests/authScreenEntry.test.ts",
+        "tests/publicProspect.test.ts"
       ],
       "invariantIds": [
-        "demo-cannot-write-production"
+        "demo-cannot-write-production",
+        "public-funnel-cannot-provision"
       ],
       "tags": [
         "entry-point"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "public-funnel-mode",
+      "label": "Unauthenticated public funnel mode",
+      "domain": "platform-tenancy",
+      "type": "workflow",
+      "scope": "global",
+      "description": "Mounts the public HydroQualiSense landing and bounded requirements/demo-contact form at /, /request-demo, and /contact without CompanyAccessProvider or operational workspace loading.",
+      "fileRefs": [
+        "src/main.tsx",
+        "src/app/applicationMode.ts",
+        "src/public/PublicFunnelRoot.tsx"
+      ],
+      "testRefs": [
+        "tests/publicProspect.test.ts",
+        "tests/demoWorkspace.test.ts"
+      ],
+      "invariantIds": [
+        "public-funnel-cannot-provision"
+      ],
+      "tags": [
+        "public-entry-point",
+        "unauthenticated"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "public-prospect-intake",
+      "label": "Bounded public prospect intake",
+      "domain": "platform-tenancy",
+      "type": "external-boundary",
+      "scope": "global",
+      "description": "Server-mediated anonymous submission of bounded company/contact requirements, capability interest, approximate scale, pain points, integration needs, timeline, and demo/contact intent; no sensitive uploads or provisioning side effects.",
+      "fileRefs": [
+        "src/lib/publicProspect.ts",
+        "src/public/PublicFunnelRoot.tsx",
+        "server.ts",
+        "supabase/migrations/20260907024119_public_prospect_funnel.sql"
+      ],
+      "testRefs": [
+        "tests/publicProspect.test.ts",
+        "supabase/tests/database/29_public_prospect_funnel.test.sql"
+      ],
+      "invariantIds": [
+        "public-funnel-cannot-provision"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "deployment-inventory",
+      "label": "Operator deployment inventory",
+      "domain": "platform-tenancy",
+      "type": "external-boundary",
+      "scope": "global",
+      "description": "Private operator manifest for isolated client/deployment identifiers, provider references, deployed version and migration state, bounded configuration, backup state, prerequisites, notes, and verification history without plaintext secrets.",
+      "fileRefs": [
+        "src/lib/deploymentManifest.ts",
+        "scripts/deployment/validate-manifest.ts",
+        "deployment/inventory.template.json",
+        "docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md"
+      ],
+      "testRefs": [
+        "tests/publicProspect.test.ts"
+      ],
+      "invariantIds": [
+        "deployment-inventory-never-stores-secrets",
+        "isolated-release-promotion-is-explicit"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
+      "id": "deployment-release-verification",
+      "label": "Isolated deployment release verification",
+      "domain": "platform-tenancy",
+      "type": "guard",
+      "scope": "global",
+      "description": "Operator health probe compares the isolated deployment’s explicit health metadata with manifest expectations and records PASS, UNKNOWN, or FAIL evidence without claiming unknown migration or rollback state is certified.",
+      "fileRefs": [
+        "src/server/releaseMetadata.ts",
+        "src/lib/deploymentManifest.ts",
+        "scripts/deployment/verify-release.ts",
+        "server.ts",
+        "docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md"
+      ],
+      "testRefs": [
+        "tests/publicProspect.test.ts"
+      ],
+      "invariantIds": [
+        "isolated-release-promotion-is-explicit"
       ]
     },
     {
@@ -7490,6 +7633,17 @@
       ]
     },
     {
+      "id": "platform-entry-to-public",
+      "source": "platform-entry",
+      "target": "public-funnel-mode",
+      "type": "routes-to",
+      "kind": "context",
+      "label": "public funnel path",
+      "invariantIds": [
+        "public-funnel-cannot-provision"
+      ]
+    },
+    {
       "id": "platform-entry-to-demo",
       "source": "platform-entry",
       "target": "demo-mode",
@@ -7498,6 +7652,40 @@
       "label": "/demo path",
       "invariantIds": [
         "demo-cannot-write-production"
+      ]
+    },
+    {
+      "id": "public-mode-to-intake",
+      "source": "public-funnel-mode",
+      "target": "public-prospect-intake",
+      "type": "contains",
+      "kind": "context",
+      "label": "bounded requirements form",
+      "invariantIds": [
+        "public-funnel-cannot-provision"
+      ]
+    },
+    {
+      "id": "public-intake-separates-production",
+      "source": "public-prospect-intake",
+      "target": "production-mode",
+      "type": "separates",
+      "kind": "separation",
+      "label": "no company or provisioning side effect",
+      "invariantIds": [
+        "public-funnel-cannot-provision"
+      ]
+    },
+    {
+      "id": "operator-inventory-to-release-verification",
+      "source": "deployment-inventory",
+      "target": "deployment-release-verification",
+      "type": "feeds",
+      "kind": "guard",
+      "label": "expected release metadata",
+      "invariantIds": [
+        "deployment-inventory-never-stores-secrets",
+        "isolated-release-promotion-is-explicit"
       ]
     },
     {
@@ -10932,6 +11120,10 @@
       "description": "Bounded view of application entry, project cost, invoice/cash separation, payroll labor/net-pay separation, reports, and the guarded Assistant seam.",
       "nodeIds": [
         "platform-entry",
+        "public-funnel-mode",
+        "public-prospect-intake",
+        "deployment-inventory",
+        "deployment-release-verification",
         "production-mode",
         "demo-mode",
         "company-context",
@@ -11008,6 +11200,19 @@
         "equipment-assignment-history",
         "equipment-current-state",
         "equipment-field-usage-evidence"
+      ]
+    },
+    {
+      "id": "client-productization",
+      "title": "Public funnel and isolated deployment productization flow",
+      "description": "Bounded unauthenticated requirements intake stays separate from operator-controlled isolated deployment inventory and explicit release verification.",
+      "nodeIds": [
+        "platform-entry",
+        "public-funnel-mode",
+        "public-prospect-intake",
+        "production-mode",
+        "deployment-inventory",
+        "deployment-release-verification"
       ]
     },
     {

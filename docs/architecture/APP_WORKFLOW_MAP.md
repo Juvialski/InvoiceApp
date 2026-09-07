@@ -18,15 +18,15 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Field | Value |
 | --- | --- |
 | Schema version | `1` |
-| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration` |
+| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration+client-productization` |
 | Product | Engoryx Engineering Operations Platform |
 | Source classification | `mixed` |
-| Reviewed against | `4cf644eef681000de607fa0177e108ade03941d8` |
+| Reviewed against | `fb3cdbbac3290396e7bac985a19287a091dc733c` |
 | Reviewed at | `2026-09-07` |
-| Node count | 252 |
-| Edge count | 331 |
-| Invariant count | 30 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `P5 Post-Warehouse Operational Integration`, `QA-1`, `WM-1` |
+| Node count | 256 |
+| Edge count | 335 |
+| Invariant count | 33 |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `P5 Post-Warehouse Operational Integration`, `Client Productization`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -73,6 +73,10 @@ Bounded view of application entry, project cost, invoice/cash separation, payrol
 flowchart LR
   subgraph g_platformTenancy["Platform / Tenancy"]
     n_platform_entry{"Application entry<br/><small>WORKFLOW</small>"}
+    n_public_funnel_mode{"Unauthenticated public funnel mode<br/><small>WORKFLOW</small>"}
+    n_public_prospect_intake[["Bounded public prospect intake<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_deployment_inventory[["Operator deployment inventory<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_deployment_release_verification{{"Isolated deployment release verification<br/><small>GUARD</small>"}}
     n_production_mode{"Authenticated production mode<br/><small>WORKFLOW</small>"}
     n_demo_mode{"Isolated demo mode<br/><small>WORKFLOW</small>"}
     n_company_context[("Deployment company context<br/><small>DATA</small>")]
@@ -123,7 +127,11 @@ flowchart LR
     n_assistant_guarded_execution("Guarded execution handler<br/><small>ACTION</small>")
   end
   n_platform_entry -->|production path| n_production_mode
+  n_platform_entry -->|public funnel path| n_public_funnel_mode
   n_platform_entry -->|/demo path| n_demo_mode
+  n_public_funnel_mode -->|bounded requirements form| n_public_prospect_intake
+  n_public_prospect_intake -->|no company or provisioning side effect| n_production_mode
+  n_deployment_inventory -->|expected release metadata| n_deployment_release_verification
   n_company_context -->|permission snapshot| n_company_rbac
   n_company_rbac -->|RLS/RPC authority| n_production_persistence_boundary
   n_demo_mode -->|local/session boundary| n_demo_isolation
@@ -159,6 +167,10 @@ flowchart LR
   classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
   classDef assistant fill:#fdf2f8,stroke:#db2777,color:#831843;
   class n_platform_entry platformTenancy
+  class n_public_funnel_mode platformTenancy
+  class n_public_prospect_intake platformTenancy
+  class n_deployment_inventory platformTenancy
+  class n_deployment_release_verification platformTenancy
   class n_production_mode platformTenancy
   class n_demo_mode platformTenancy
   class n_company_context platformTenancy
@@ -325,6 +337,42 @@ flowchart LR
   class n_canonical_equipment_registry engineering
   class n_equipment_assignment_history engineering
   class n_equipment_current_state engineering
+```
+
+### Public funnel and isolated deployment productization flow
+
+Bounded unauthenticated requirements intake stays separate from operator-controlled isolated deployment inventory and explicit release verification.
+
+```mermaid
+flowchart LR
+  subgraph g_platformTenancy["Platform / Tenancy"]
+    n_platform_entry{"Application entry<br/><small>WORKFLOW</small>"}
+    n_public_funnel_mode{"Unauthenticated public funnel mode<br/><small>WORKFLOW</small>"}
+    n_public_prospect_intake[["Bounded public prospect intake<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_deployment_inventory[["Operator deployment inventory<br/><small>EXTERNAL-BOUNDARY</small>"]]
+    n_deployment_release_verification{{"Isolated deployment release verification<br/><small>GUARD</small>"}}
+    n_production_mode{"Authenticated production mode<br/><small>WORKFLOW</small>"}
+  end
+  n_platform_entry -->|production path| n_production_mode
+  n_platform_entry -->|public funnel path| n_public_funnel_mode
+  n_public_funnel_mode -->|bounded requirements form| n_public_prospect_intake
+  n_public_prospect_intake -->|no company or provisioning side effect| n_production_mode
+  n_deployment_inventory -->|expected release metadata| n_deployment_release_verification
+  classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
+  classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
+  classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
+  classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
+  classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
+  classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
+  classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
+  classDef assistant fill:#fdf2f8,stroke:#db2777,color:#831843;
+  class n_platform_entry platformTenancy
+  class n_public_funnel_mode platformTenancy
+  class n_public_prospect_intake platformTenancy
+  class n_deployment_inventory platformTenancy
+  class n_deployment_release_verification platformTenancy
+  class n_production_mode platformTenancy
 ```
 
 ### Projects and Engineering flow
@@ -1144,6 +1192,9 @@ These invariants are intentionally explicit because generic import graphs cannot
 | --- | --- | --- | --- |
 | **Company and RBAC isolation is authoritative**<br/><small>`company-rbac-is-authoritative`</small> | Business records are scoped by company membership and permission; client visibility is not a substitute for PostgreSQL RLS/RPC authorization. | `src/context/CompanyAccessContext.tsx`<br/>`src/lib/companyAccess.ts`<br/>`src/utils/accessControl.ts`<br/>`supabase/migrations/20260824090000_company_tenancy_rbac_foundation.sql`<br/>`supabase/migrations/20260824093000_company_tenancy_rls_and_admin_rpcs.sql`<br/>`supabase/migrations/20260829003147_core_hardening_wave1_access_management.sql`<br/>`src/server/access/invitationDelivery.ts` | `tests/companyAccess.test.ts`<br/>`tests/companyTenancyFinalContract.test.ts`<br/>`tests/companyTenancyMigration.test.ts` |
 | **Demo mode is isolated from production writes**<br/><small>`demo-cannot-write-production`</small> | The public /demo runtime uses deterministic local/session state and cannot become a production company or Supabase write path. | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspaceProvider.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` |
+| **Public prospect intake cannot provision operations**<br/><small>`public-funnel-cannot-provision`</small> | The unauthenticated HydroQualiSense landing and requirements intake accepts only bounded business context; it cannot create a company, deployment, privileged user, credential, secret, or operational record. | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/public/PublicFunnelRoot.tsx`<br/>`src/lib/publicProspect.ts`<br/>`server.ts`<br/>`supabase/migrations/20260907024119_public_prospect_funnel.sql` | `tests/publicProspect.test.ts`<br/>`supabase/tests/database/29_public_prospect_funnel.test.sql` |
+| **Deployment inventory stores metadata, never secrets**<br/><small>`deployment-inventory-never-stores-secrets`</small> | Operator deployment inventory records identifiers, configuration status, release state, backup state, and verification evidence without duplicating provider passwords, tokens, API keys, credentials, or private keys. | `src/lib/deploymentManifest.ts`<br/>`scripts/deployment/validate-manifest.ts`<br/>`deployment/inventory.template.json`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` |
+| **Release promotion remains explicit per deployment**<br/><small>`isolated-release-promotion-is-explicit`</small> | Each isolated client deployment records its expected and observed repository SHA, migration level, configuration version, prerequisites, health result, and forward-recovery expectation before release handover. | `src/server/releaseMetadata.ts`<br/>`src/lib/deploymentManifest.ts`<br/>`scripts/deployment/verify-release.ts`<br/>`server.ts`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` |
 | **Verified invoice project cost is independent from cash settlement**<br/><small>`invoice-project-cost-independent-from-settlement`</small> | Verified invoice allocations are a project-cost source. Cash settlement is payment evidence and must not create or duplicate project cost. | `src/utils/projectCosting.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`supabase/migrations/20260827210000_financial_settlement_integration.sql`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/projectCostingHardening.test.ts` |
 | **Invoice and expense corrections preserve financial history**<br/><small>`financial-corrections-preserve-history`</small> | Unused invoice/expense deletion is database-guarded; operational records use explicit archive or void actions; finalized history, allocations, extraction/review evidence, and confirmed settlement dependencies are never silently erased or rewritten. | `src/lib/financialLifecycle.ts`<br/>`src/lib/persistence.ts`<br/>`src/lib/expenses.ts`<br/>`src/utils/projectCosting.ts`<br/>`supabase/migrations/20260829060220_core_hardening_wave2b2_invoice_expense_corrections.sql`<br/>`docs/ENGORYX_CORE_HARDENING_PLAN.md` | `tests/financialLifecycle.test.ts`<br/>`tests/coreHardeningWave2B2.test.ts`<br/>`supabase/tests/database/08_core_hardening_wave2b2_invoice_expense_corrections.test.sql` |
 | **Project labor cost is independent from employee net-pay settlement**<br/><small>`payroll-labor-cost-independent-from-net-pay-settlement`</small> | Approved or paid payroll allocations provide project labor cost, while settlement eligibility and basis use employee net pay. | `src/lib/payrollCalculation.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/utils/projectCosting.ts`<br/>`docs/payroll-workforce-hardening.md`<br/>`docs/ENGORYX_FINANCIAL_SETTLEMENT_INTEGRATION.md` | `tests/financialSettlement.test.ts`<br/>`tests/payrollIntegrity.test.ts`<br/>`tests/payrollCalculation.test.ts` |
@@ -1203,7 +1254,11 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 
 | Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Application entry**<br/><small>`platform-entry`</small> | `workflow` | `global`<br/>— | — | — | `code-derived` | `src/main.tsx`<br/>`src/app/applicationMode.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/authScreenEntry.test.ts` | — |
+| **Application entry**<br/><small>`platform-entry`</small> | `workflow` | `global`<br/>— | — | — | `code-derived` | `src/main.tsx`<br/>`src/app/applicationMode.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/authScreenEntry.test.ts`<br/>`tests/publicProspect.test.ts` | — |
+| **Unauthenticated public funnel mode**<br/><small>`public-funnel-mode`</small> | `workflow` | `global`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/app/applicationMode.ts`<br/>`src/public/PublicFunnelRoot.tsx` | `tests/publicProspect.test.ts`<br/>`tests/demoWorkspace.test.ts` | — |
+| **Bounded public prospect intake**<br/><small>`public-prospect-intake`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `src/lib/publicProspect.ts`<br/>`src/public/PublicFunnelRoot.tsx`<br/>`server.ts`<br/>`supabase/migrations/20260907024119_public_prospect_funnel.sql` | `tests/publicProspect.test.ts`<br/>`supabase/tests/database/29_public_prospect_funnel.test.sql` | — |
+| **Operator deployment inventory**<br/><small>`deployment-inventory`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `src/lib/deploymentManifest.ts`<br/>`scripts/deployment/validate-manifest.ts`<br/>`deployment/inventory.template.json`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` | — |
+| **Isolated deployment release verification**<br/><small>`deployment-release-verification`</small> | `guard` | `global`<br/>— | — | — | `mixed` | `src/server/releaseMetadata.ts`<br/>`src/lib/deploymentManifest.ts`<br/>`scripts/deployment/verify-release.ts`<br/>`server.ts`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` | — |
 | **Authenticated production mode**<br/><small>`production-mode`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/App.tsx`<br/>`src/app/AppProviders.tsx`<br/>`src/context/CompanyAccessContext.tsx`<br/>`src/lib/deploymentCompany.ts` | `tests/auth.test.ts`<br/>`tests/companyAccess.test.ts`<br/>`tests/singleCompanyDeployment.test.ts` | — |
 | **Deployment configured company**<br/><small>`deployment-company`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/deploymentCompany.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260828150000_single_company_deployment.sql` | `tests/singleCompanyDeployment.test.ts` | — |
 | **Isolated demo mode**<br/><small>`demo-mode`</small> | `workflow` | `demo-only`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspace.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |

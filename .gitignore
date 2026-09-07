@@ -3,6 +3,8 @@ build/
 dist/
 coverage/
 artifacts/
+deployment/inventory.json
+deployment/inventory.local.json
 .DS_Store
 *.log
 .env*

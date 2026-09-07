@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
+import { isPasswordRecoveryPath } from "./app/applicationMode.ts";
 import { Header, AppTab } from "./components/Header";
 import { AccessDenied, NoCompanyAccess } from "./components/access/AccessStates.tsx";
 import { AuthScreen } from "./components/auth";
@@ -500,7 +501,7 @@ function InvoiceWorkspace() {
     if (typeof window === "undefined") return undefined;
     const onPopState = () => setRoute(parseAppLocation(window.location.pathname, window.location.search));
     window.addEventListener("popstate", onPopState);
-    if (window.location.pathname === "/") {
+    if (window.location.pathname === "/" && !isPasswordRecoveryPath(window.location.pathname, window.location.search, window.location.hash)) {
       window.history.replaceState({}, "", DEFAULT_ROUTE_PATH);
       setRoute(parseAppLocation(DEFAULT_ROUTE_PATH));
     }
@@ -4698,7 +4699,7 @@ function InvoiceWorkspace() {
     const fallbackPath = appPathForTab(fallbackTab);
     if (route.pathname !== fallbackPath) navigateToPath(fallbackPath, true);
   }, [permissions, route.pathname, routeDenied]);
-  const isResetPasswordRoute = route.pathname === "/reset-password";
+  const isResetPasswordRoute = isPasswordRecoveryPath(route.pathname, route.search, typeof window === "undefined" ? undefined : window.location.hash);
   if (routeDenied) return <AccessDenied permission={routePermission} companyName={activeCompany?.name} onReturn={() => navigateToPath(appPathForTab(defaultAppTabForPermissions(permissions)), true)} />;
   const authRedirectPath = authReturnPath();
   if (isSupabaseConfigured && session && companyAccess.access.status === "loading") {
