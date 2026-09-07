@@ -2,6 +2,12 @@ begin;
 select no_plan();
 
 select has_table('public', 'prospect_submissions', 'public.prospect_submissions exists');
+select has_table('private', 'public_prospect_funnel_configuration', 'private public funnel configuration exists');
+select is(
+  (select enabled from private.public_prospect_funnel_configuration where singleton = true),
+  false,
+  'public prospect persistence is disabled by default for operational deployments'
+);
 select isnt_empty(
   $$select 1
     from pg_class c
@@ -18,6 +24,14 @@ select is_empty(
       and table_name = 'prospect_submissions'
       and grantee in ('public', 'anon', 'authenticated')$$,
   'browser roles have no direct prospect table privileges'
+);
+select is_empty(
+  $$select 1
+    from information_schema.role_table_grants
+    where table_schema = 'private'
+      and table_name = 'public_prospect_funnel_configuration'
+      and grantee in ('public', 'anon', 'authenticated')$$,
+  'browser roles cannot change the deployment-level public funnel gate'
 );
 select is_empty(
   $$select 1
@@ -44,6 +58,23 @@ select ok(
 );
 
 set local role anon;
+select throws_ok(
+  $$select public.submit_public_prospect(
+      'Disabled Funnel Test', 'Ari Santos', 'ari.santos@example.com', null,
+      array['projects']::text[], '26-100', '6-20', null, null,
+      'within-3-months', 'DEMO', true
+    )$$,
+  '42501', null,
+  'anonymous prospect persistence fails closed until an operator enables this deployment'
+);
+reset role;
+
+update private.public_prospect_funnel_configuration
+set enabled = true,
+    updated_at = now()
+where singleton = true;
+
+set local role anon;
 select lives_ok(
   $$select public.submit_public_prospect(
       'Harbor Works Construction',
@@ -59,7 +90,7 @@ select lives_ok(
       'DEMO_AND_REQUIREMENTS',
       true
     )$$,
-  'anonymous visitor can submit one bounded prospect request through the RPC'
+  'anonymous visitor can submit one bounded prospect request after privileged deployment enablement'
 );
 select throws_ok(
   $$select public.submit_public_prospect(
