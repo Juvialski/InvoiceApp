@@ -3,29 +3,6 @@ name: Workflow Map Consistency
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "src/utils/**"
-      - "src/features/**"
-      - "src/lib/engineeringCoordination.ts"
-      - "src/lib/dailySiteLogs.ts"
-      - "src/lib/financialSettlement.ts"
-      - "src/lib/payroll.ts"
-      - "src/types.ts"
-      - "src/assistant/**"
-      - "src/server/assistant/**"
-      - "src/app/applicationMode.ts"
-      - "src/demo/**"
-      - "src/main.tsx"
-      - "scripts/workflow-map/**"
-      - "scripts/qa/**"
-      - "tests/workflowMap*.test.ts"
-      - "supabase/migrations/**"
-      - "docs/architecture/**"
-      - "docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.json"
-      - ".github/workflows/workflow-map-consistency.yml"
   push:
     branches: [main]
     paths:

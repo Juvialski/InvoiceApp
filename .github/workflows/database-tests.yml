@@ -3,17 +3,6 @@ name: Database Migration & Invariant Tests
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'supabase/**'
-      - 'tests/migration*'
-      - 'scripts/test-migration*'
-      - 'scripts/test-migrations.ts'
-      - 'tests/cashBankingMigration.test.ts'
-      - 'tests/coreHardeningWave2B2.test.ts'
-      - 'tests/coreHardeningWave2C.test.ts'
-      - 'tests/clientProgressBillingMigration.test.ts'
-      - '.github/workflows/database-tests.yml'
-      - 'package*.json'
   push:
     branches: [main]
     paths:
