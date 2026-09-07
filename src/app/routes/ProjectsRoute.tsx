@@ -3,6 +3,8 @@ import { ProjectsPage } from "../../components/projects/ProjectsPage";
 import { ProjectWorkspace, type WorkspaceTab } from "../../components/projects/ProjectWorkspace";
 import type {
   Expense,
+  Equipment,
+  EquipmentAssignment,
   InvoiceData,
   InvoiceProjectAllocation,
   PayrollPeriod,
@@ -77,6 +79,8 @@ export interface ProjectsRouteProps {
   receipts?: PurchaseOrderReceipt[];
   materials?: ProjectMaterial[];
   equipment?: ProjectEquipment[];
+  canonicalEquipment?: Equipment[];
+  equipmentAssignments?: EquipmentAssignment[];
   inventoryItems?: InventoryItem[];
   inventoryMovements?: InventoryMovement[];
   inventoryBalances?: import("../../lib/inventory.ts").InventoryBalance[];
@@ -165,7 +169,7 @@ export interface ProjectsRouteProps {
   onDeleteSubcontractVariation?: (id: string) => Promise<void>;
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
-    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
   ) => Promise<void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
@@ -225,6 +229,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   receipts = [],
   materials = [],
   equipment = [],
+  canonicalEquipment = [],
+  equipmentAssignments = [],
   inventoryItems = [],
   inventoryMovements = [],
   inventoryBalances,
@@ -358,6 +364,8 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         receipts={receipts}
         materials={materials}
         equipment={equipment}
+        canonicalEquipment={canonicalEquipment}
+        equipmentAssignments={equipmentAssignments}
         inventoryItems={inventoryItems}
         inventoryMovements={inventoryMovements}
         inventoryBalances={inventoryBalances}

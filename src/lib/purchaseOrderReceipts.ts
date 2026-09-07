@@ -23,6 +23,7 @@ export function purchaseOrderReceiptLineFromRow(row: Row): PurchaseOrderReceiptL
     companyId: text(row.company_id),
     purchaseOrderReceiptId: String(row.purchase_order_receipt_id),
     purchaseOrderLineId: String(row.purchase_order_line_id),
+    inventoryItemId: text(row.inventory_item_id) || null,
     lineNumber: numberValue(row.line_number, 1),
     receivedQuantity: numberValue(row.received_quantity, 0),
     notes: text(row.notes) || null,
@@ -42,6 +43,8 @@ export function purchaseOrderReceiptFromRow(row: Row, lineRows: Row[] = []): Pur
     receiptDate: String(row.receipt_date || new Date().toISOString().split("T")[0]),
     supplierDeliveryReference: text(row.supplier_delivery_reference) || null,
     notes: text(row.notes) || null,
+    sourceDocumentId: text(row.source_document_id) || null,
+    sourceInvoiceId: text(row.source_invoice_id) || null,
     status: (String(row.status || "RECEIVED").toUpperCase() as PurchaseOrderReceiptStatus) || "RECEIVED",
     voidReason: text(row.void_reason) || null,
     voidedByUserId: text(row.voided_by_user_id) || null,
@@ -113,7 +116,7 @@ export async function fetchPurchaseOrderReceipts(purchaseOrderId?: string): Prom
 
 export async function recordPurchaseOrderReceipt(
   receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
-  lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+  lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
   storage?: Storage,
 ): Promise<PurchaseOrderReceipt> {
   const companyId = requireActiveCompanyId();
@@ -157,6 +160,7 @@ export async function recordPurchaseOrderReceipt(
       companyId,
       purchaseOrderReceiptId: receiptId,
       purchaseOrderLineId: l.purchaseOrderLineId,
+      inventoryItemId: l.inventoryItemId || null,
       lineNumber: idx + 1,
       receivedQuantity: Number(l.receivedQuantity),
       notes: l.notes || null,
@@ -172,6 +176,8 @@ export async function recordPurchaseOrderReceipt(
       receiptDate: receipt.receiptDate || now.split("T")[0],
       supplierDeliveryReference: receipt.supplierDeliveryReference?.trim() || null,
       notes: receipt.notes?.trim() || null,
+      sourceDocumentId: receipt.sourceDocumentId || null,
+      sourceInvoiceId: receipt.sourceInvoiceId || null,
       status: "RECEIVED",
       voidReason: null,
       voidedByUserId: null,
@@ -197,9 +203,12 @@ export async function recordPurchaseOrderReceipt(
       receiptDate: receipt.receiptDate || null,
       supplierDeliveryReference: receipt.supplierDeliveryReference?.trim() || null,
       notes: receipt.notes?.trim() || null,
+      sourceDocumentId: receipt.sourceDocumentId || null,
+      sourceInvoiceId: receipt.sourceInvoiceId || null,
     },
     p_lines: lines.map((l) => ({
       purchaseOrderLineId: l.purchaseOrderLineId,
+      inventoryItemId: l.inventoryItemId || null,
       receivedQuantity: Number(l.receivedQuantity) || 0,
       notes: l.notes?.trim() || null,
     })),

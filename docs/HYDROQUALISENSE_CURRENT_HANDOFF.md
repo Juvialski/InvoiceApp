@@ -1,21 +1,20 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — R5 COMPLETE / WAREHOUSE NEXT**  
-Date: **2026-09-06**  
+Status: **CURRENT — CLIENT FUNNEL + ISOLATED DEPLOYMENT PRODUCTIZATION NEXT**
+Date: **2026-09-07**
 Repository: `Juvialski/InvoiceApp`
 
 Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, and `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`. Live repository state remains authoritative if anything here becomes stale.
 
 ## Current repository state
 
-- `main` before PR #95: `fe4506b2658ed85a0d916921e0a17c444ad92a89`.
 - R4 is complete through PR #94.
 - R5 implementation is complete in **PR #95 — `feat: R5 cross-module integration and data-contract hardening`**.
-- The reviewed R5 runtime head was `c3aafe5fd528e4feebe62c785548b4c3d7dec46e` before the documentation-only follow-up commits.
-- That runtime head passed all four protected workflows: Application Validation, Database Migrations & Upgrade Suite, Demo Visual QA, and Workflow Map/Graph consistency.
-- Database CI exercised static migration checks, isolated local Supabase startup, clean migration replay, pgTAP assertions, and upgrade-path migration tests.
-- No unresolved code-review thread existed on PR #95.
-- GitHub branch protection requires an approval from someone other than the last pusher. The connected repository owner cannot self-approve the PR; do not weaken that protection merely to force the merge.
+- Warehouse Inventory & Project Allocation is complete in merged **PR #96**.
+- Post-Warehouse Operational Integration is complete in **PR #97 — `feat: integrate post-Warehouse operational workflows`**, including supplier allocation/Expense reconciliation, reviewed purchased-material intake, canonical Equipment authority, and the supplier Expense projection-guard follow-up hardening.
+- The next bounded implementation phase is **Public client funnel + repeatable isolated deployment/provisioning tooling**.
+- Protected workflow evidence must always belong to the exact current PR head; do not reuse CI from an older head after a fix.
+- GitHub branch protection and review gates must not be weakened merely to force a merge.
 
 ## R5 outcome
 
@@ -58,49 +57,44 @@ Known external limitation: a real Gmail send still requires a connected Google a
 
 - Review-event actor attribution is protected against spoofed `user_id` values.
 - Vendor/send/audit direct-table bypasses were tightened.
-- unnecessary private SECURITY DEFINER exposure and legacy anonymous mutation grants were reduced.
+- Unnecessary private SECURITY DEFINER exposure and legacy anonymous mutation grants were reduced.
 - UI/server/RPC/RLS permission contracts were tightened for consequential document sending.
-- final database security inventory coverage was added for policies, grants, SECURITY DEFINER functions, triggers, constraints and indexes.
-- production response security headers and diagnostic exposure were hardened.
+- Final database security inventory coverage was added for policies, grants, SECURITY DEFINER functions, triggers, constraints and indexes.
+- Production response security headers and diagnostic exposure were hardened.
 
 ### Storage and backup
 
-- manual source-document race recovery now resolves the correct canonical source type;
-- backup registration failures remain durable/observable rather than silently disappearing;
-- backup race recovery checks exact manifest identity;
-- restore drills use isolated server-generated targets rather than caller-controlled paths.
+- Manual source-document race recovery resolves the correct canonical source type.
+- Backup registration failures remain durable/observable rather than silently disappearing.
+- Backup race recovery checks exact manifest identity.
+- Restore drills use isolated server-generated targets rather than caller-controlled paths.
 
-## Next implementation phase — Warehouse Inventory & Project Allocation
+## Warehouse + Post-Warehouse outcome
 
-Warehouse Inventory is now the next major operational domain unless explicitly reprioritized.
+Warehouse remains the authoritative stock domain and project allocation is represented through explainable movement history rather than destructive balance edits.
 
-Primary invariant:
+Post-Warehouse Integration closes the surrounding operational seams without introducing duplicate master records:
 
-> **Current stock must be explainable from authoritative movements or an equally rigorous source model.**
+- canonical positive supplier-invoice allocations reconcile the existing supplier-derived Expense project/cost-code convenience projection;
+- a supplier-derived Expense remains one authoritative payable/Actual Cost record and its financial/provenance fields remain immutable outside deliberate correction workflows;
+- the reconciliation-only database flag is accepted only from privileged internal execution, so an authenticated caller cannot set the same GUC to bypass the Expense correction trigger;
+- source/extraction evidence enters a human-reviewed purchased-material intake and then the existing Procurement receipt model with source/invoice provenance;
+- PO line and exact-unit canonical Inventory Item confirmation remain human-controlled before receipt creation;
+- partial receipt quantities remain explicit and Warehouse posting remains a separate deliberate exact-item movement;
+- the company Equipment Registry is canonical, with guarded assign/transfer/return/lifecycle operations, auditable assignment/event history, derived current state, RLS, permissions, and concurrency protection;
+- existing project Equipment rows and Daily Site Log observations remain legacy/evidence context rather than competing assignment authority.
 
-Minimum scope direction:
+Still undecided and intentionally excluded: inventory valuation/FIFO, depreciation, reservation semantics, serial/lot policy, reorder policy, barcode/QR rules, automatic receipt-to-stock posting, and broader accounting-period policy.
 
-- stock/items currently available;
-- receipts/opening/additions as traceable movements;
-- issues/allocations to projects;
-- returns/corrections as auditable movements;
-- project material usage visibility;
-- no destructive balance editing;
-- company/RBAC/RLS protection;
-- concurrency/idempotency for consequential movements;
-- procurement/delivery linkage without duplicate stock or financial truth.
+## Next implementation phase — Public client funnel + repeatable isolated deployment/provisioning tooling
 
-Do not invent warehouse count, valuation method, reservation semantics, serial/lot policy, reorder policy, barcode/QR rules, purchase-receipt automation or adjustment authority until the client rules are explicit.
-
-## Parallel post-R5 productization track
-
-A bounded independent track may improve how HydroQualiSense is offered to multiple potential client companies without turning one deployment into a shared multi-company application.
+HydroQualiSense must support multiple potential client companies through **isolated deployments**, not through an unrelated-company tenant switcher inside one operational deployment.
 
 Architecture:
 
 `one repository -> many isolated client deployments`
 
-Each client gets:
+Each production client gets:
 
 - one Render service/application deployment;
 - one dedicated Supabase project/database/Auth/Storage boundary;
@@ -108,7 +102,18 @@ Each client gets:
 - independent deployment/version/backup state;
 - no in-app switch between unrelated client companies.
 
-See `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md` for public landing/client-requirements intake, provisioning, fleet/version management, role templates, storage lifecycle and release strategy.
+The next phase should establish a production-honest, demo-ready productization slice:
+
+- a public HydroQualiSense landing/requirements intake that is clearly separated from authenticated operational data;
+- bounded intake for company/contact information, modules of interest, approximate workforce/project scale, pain points/integration needs, desired timeline, and demo/contact request;
+- no financial source documents, employee records, biometrics, credentials, or other operationally sensitive data in the general public intake;
+- no automatic creation of production infrastructure, companies, privileged users, credentials, or secrets from a public submission;
+- repeatable operator-controlled provisioning/checklist or guarded tooling for one Render service + one Supabase project per approved client;
+- a deployment inventory that can record client/deployment identity, production URL/service references, deployed repository SHA, migration level, backup state, bounded feature/configuration state, and health/release verification without plaintext secrets;
+- deliberate release promotion across deployments instead of assuming every client upgrades simultaneously;
+- smoke/auth/database/backup verification and upgrade/rollback readiness as explicit operator steps.
+
+See `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md` for the authoritative productization contract.
 
 ## Later confirmed major domain — Worker Registration & Attendance
 
@@ -150,13 +155,15 @@ Still unresolved by design: VAT rate, VAT-inclusive vs VAT-exclusive contract va
 
 For the next implementation session:
 
-1. inspect exact current `main` and any open PRs/CI;
+1. inspect exact current `main`, open PRs, and exact-head CI;
 2. read live `AGENTS.md`;
 3. read `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 4. read `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-5. read this handoff and client deployment strategy;
-6. start Warehouse work from the latest green merged `main`;
-7. generate one bounded `agent:context` packet;
-8. inspect current materials/procurement/project-cost implementation before designing inventory contracts;
-9. use Docker/local Supabase for inventory migrations/RLS/RPC/trigger/concurrency work;
-10. local implementation lead opens the PR but does not merge its own PR; GitHub-native review uses exact-head CI as the merge gate.
+5. read this handoff and `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`;
+6. generate one bounded `agent:context` packet;
+7. inspect the existing public/auth routing, deployment configuration, bootstrap, backup/health, and Render/Supabase deployment support before designing;
+8. preserve the isolated-client deployment boundary and keep the public funnel separated from operational data;
+9. use Docker/local Supabase whenever the phase changes migrations, RLS, grants, RPCs, triggers, constraints, or lifecycle guards;
+10. validate new/edited tests, focused domain tests, then `npm.cmd run test:affected:agent`, with lint/build/browser/Workflow Map only when relevant;
+11. review the exact final diff for scope creep and security/data-integrity regressions;
+12. local Codex opens the feature PR but does not merge its own PR; GitHub-native review uses exact-head CI as the merge gate.

@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — R5 COMPLETE, WAREHOUSE NEXT**  
+Status: **ACTIVE — R5 COMPLETE, WAREHOUSE + POST-WAREHOUSE INTEGRATION COMPLETE, CLIENT PRODUCTIZATION NEXT**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-06**  
+Last updated: **2026-09-07**
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`
@@ -13,9 +13,11 @@ This file is the authoritative forward roadmap. Live repository state and `AGENT
 
 - R4 is complete through PR #94.
 - **R5 Cross-Module Integration & Data-Contract Hardening is complete in PR #95.**
-- The reviewed R5 runtime head passed Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA before this documentation-only follow-up.
+- The reviewed R5 runtime head passed Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA before its documentation-only follow-up.
 - R5 closed the known canonical Vendor split and hardened supplier verification, supplier-derived Expense integrity, issued-document sending, extraction uncertainty, source/receipt idempotency, backup registration, AI/Gmail resource limits, actor integrity, RBAC/RLS/RPC parity, and final database security inventory coverage.
-- The next operational domain is **Warehouse Inventory & Project Allocation** unless explicitly reprioritized.
+- **Warehouse Inventory & Project Allocation is complete in merged PR #96.**
+- **Post-Warehouse Operational Integration is complete in PR #97**, connecting supplier allocation/Expense reconciliation, reviewed purchased-material intake into existing Procurement receipts, and canonical Equipment assignment authority without creating competing financial, inventory, procurement, or equipment truth.
+- The next bounded product phase is **Public client funnel + repeatable isolated deployment/provisioning tooling**.
 - The repository is the shared product codebase; production remains **one isolated deployment per client company**, with a separate Render service and Supabase project per client. See the client deployment strategy document.
 
 Core rules remain:
@@ -89,9 +91,9 @@ Key outcomes:
 
 Known external limitation: a real Gmail send still requires a connected Google account/OAuth consent and is not proven by CI alone.
 
-## NEXT — Warehouse Inventory & Project Allocation
+## COMPLETED — Warehouse Inventory & Project Allocation
 
-Status: **NEXT MAJOR OPERATIONAL DOMAIN**
+Status: **COMPLETE — PR #96, 2026-09-06**
 
 Minimum business need:
 
@@ -134,19 +136,51 @@ At minimum prove:
 
 DB-affecting work requires clean local migration replay, pgTAP, upgrade-path tests, relevant runtime/concurrency tests, focused tests and exact-head CI.
 
-## Parallel post-R5 track — Public client funnel and deployment tooling
+## COMPLETED — Post-Warehouse Operational Integration
 
-A bounded infrastructure/productization track may proceed alongside Warehouse only when it does not compete for the same shared financial/inventory contracts.
+Status: **COMPLETE — PR #97, 2026-09-07**
+
+The Warehouse core remains the only stock authority. This follow-up connects adjacent evidence and operational workflows without creating a competing financial, procurement, inventory, or equipment master.
+
+### Supplier invoice allocation and linked Expense
+
+- canonical positive `invoice_project_allocations` rows drive the project/cost-code convenience projection on an active supplier-linked Expense;
+- single-project, split-project, allocation removal, retry, and stale linked-Expense pointer repair are deterministic and company-bound;
+- direct supplier Expense project drift is rejected, while reconciliation changes preserve amount, status, provenance, and correction history;
+- the existing supplier Expense is reused rather than creating a duplicate payable/Actual Cost record.
+
+### Reviewed purchased-material intake
+
+- source/extraction evidence is classified as financial-only, delivery evidence, both, or unresolved;
+- a human must confirm the existing PO line and exact-unit canonical Inventory Item before a receipt can be recorded;
+- partial quantities are retained on the existing Procurement receipt model;
+- source document/invoice provenance is persisted, and posting the receipt into Warehouse remains a separate explicit movement with the same confirmed item.
+
+### Canonical Equipment authority
+
+- company Equipment identity is held in a canonical registry, with deterministic legacy bridging only for uniquely identifiable records;
+- assign, transfer, return, lifecycle, actor, project-boundary, lock/recheck, and one-active-assignment controls are database-authoritative;
+- current Project/state is derived from lifecycle plus active assignment; field observations remain evidence and do not rewrite assignment history;
+- the Equipment route is permission-based and available in the isolated demo surface without becoming a production write path.
+
+Still intentionally undecided and out of scope for this phase: inventory valuation/FIFO, depreciation, reservations, serial/lot policy, reorder rules, barcode/QR policy, automatic receipt-to-stock posting, and broader accounting-period policy.
+
+## NEXT — Public client funnel and repeatable isolated deployment/provisioning tooling
+
+This is the next bounded productization phase. It must improve how HydroQualiSense is offered and deployed to multiple client companies without turning one operational deployment into a shared multi-company application.
 
 Direction:
 
-- public HydroQualiSense landing/requirements intake separate from authenticated operational data;
-- one shared source repository;
-- one isolated Render service + Supabase project per client company;
-- repeatable provisioning/checklists or guarded automation;
-- deployment inventory/version tracking without storing plaintext secrets;
-- deliberate release promotion across client deployments;
-- storage/backup growth monitoring and lifecycle optimization without deleting authoritative evidence.
+- public HydroQualiSense landing/requirements intake remains separate from authenticated operational data;
+- the public funnel may collect bounded company/contact details, modules of interest, approximate workforce/project scale, current pain points/integration needs, desired deployment timeline, and demo/contact requests;
+- do not collect financial source documents, employee records, biometrics, credentials, or other operationally sensitive data through the general marketing intake;
+- one prospective-client submission must never automatically create production infrastructure, privileged users, companies, credentials, or secrets;
+- retain one shared source repository;
+- provision one isolated Render service + Supabase project per client company;
+- make provisioning repeatable through explicit operator-controlled scripts/checklists or guarded tooling;
+- track deployment identity, deployed repository SHA, migration level, backup state, enabled bounded configuration/features, and health/release verification without storing plaintext secrets;
+- promote releases deliberately across client deployments rather than assuming every client can upgrade simultaneously;
+- preserve storage/backup growth monitoring and lifecycle optimization without deleting authoritative evidence.
 
 See `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md` for the full contract.
 
@@ -243,10 +277,9 @@ Old Engoryx planned/deferred phases are not implementation authority. Scheduling
 
 Unless explicitly reprioritized:
 
-1. **Warehouse Inventory & Project Allocation**
-2. **Public client funnel + repeatable isolated deployment/provisioning tooling** — bounded parallel work allowed when independent
-3. **Worker Registration foundation**
-4. **Site Attendance state machine + device registration**
-5. **Face-Recognition Attendance** after explicit privacy/security design
-6. other client-confirmed requirements
-7. **Final pre-production security/data-integrity certification** before broad rollout
+1. **Public client funnel + repeatable isolated deployment/provisioning tooling** — next bounded phase
+2. **Worker Registration foundation**
+3. **Site Attendance state machine + device registration**
+4. **Face-Recognition Attendance** after explicit privacy/security design
+5. other client-confirmed requirements
+6. **Final pre-production security/data-integrity certification** before broad rollout

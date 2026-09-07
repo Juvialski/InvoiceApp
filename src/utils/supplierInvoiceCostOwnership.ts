@@ -1,4 +1,4 @@
-import type { Expense, InvoiceData, InvoiceProjectAllocation } from "../types.ts";
+import type { Expense, InvoiceData, InvoiceProjectAllocation, Project } from "../types.ts";
 
 function money(value: unknown) {
   const numeric = Number(value);
@@ -11,6 +11,60 @@ function allocationAmount(invoice: Pick<InvoiceData, "grandTotal">, allocation: 
     return Math.round(total * Math.max(0, Number(allocation.allocationPercentage) || 0) / 100 * 100) / 100;
   }
   return money(allocation.allocationAmount);
+}
+
+function positiveAllocations(
+  invoice: Pick<InvoiceData, "grandTotal">,
+  allocations: readonly InvoiceProjectAllocation[] | undefined,
+) {
+  return (allocations || []).filter((allocation) => allocationAmount(invoice, allocation) > 0);
+}
+
+export interface SupplierExpenseProjectProjection {
+  projectId?: string;
+  projectCostCodeId?: string;
+  positiveAllocationCount: number;
+}
+
+/** Mirrors the database convenience projection for local/demo workspaces. */
+export function supplierExpenseProjectProjection(
+  invoice: Pick<InvoiceData, "grandTotal"> & { allocations?: readonly InvoiceProjectAllocation[] },
+): SupplierExpenseProjectProjection {
+  const allocations = positiveAllocations(invoice, invoice.allocations);
+  if (allocations.length !== 1) return { positiveAllocationCount: allocations.length };
+  return {
+    projectId: allocations[0]?.projectId,
+    ...(allocations[0]?.projectCostCodeId ? { projectCostCodeId: allocations[0].projectCostCodeId } : {}),
+    positiveAllocationCount: 1,
+  };
+}
+
+export interface SupplierInvoiceAllocationSummary {
+  projectId: string;
+  projectCode?: string;
+  projectName?: string;
+  amount: number;
+  currency: string;
+}
+
+export function supplierInvoiceAllocationSummaries(
+  invoice: Pick<InvoiceData, "id" | "grandTotal" | "currency">,
+  allocations: readonly InvoiceProjectAllocation[],
+  projects: readonly Project[] = [],
+): SupplierInvoiceAllocationSummary[] {
+  const projectById = new Map(projects.map((project) => [project.id, project]));
+  return allocations
+    .filter((allocation) => allocation.invoiceId === invoice.id && allocationAmount(invoice, allocation) > 0)
+    .map((allocation) => {
+      const project = projectById.get(allocation.projectId);
+      return {
+        projectId: allocation.projectId,
+        projectCode: project?.projectCode,
+        projectName: project?.projectName,
+        amount: allocationAmount(invoice, allocation),
+        currency: invoice.currency,
+      };
+    });
 }
 
 /** Return the non-void Expense that owns each linked supplier invoice. */
@@ -36,6 +90,22 @@ export function supplierExpenseAmountForProject(
   projectId?: string,
 ) {
   const amount = money(expense.amount);
+  const hasCanonicalAllocationSet = Array.isArray(invoice.allocations);
+  const allocations = positiveAllocations(invoice, invoice.allocations);
+  if (hasCanonicalAllocationSet && allocations.length > 0) {
+    const invoiceTotal = money(invoice.grandTotal);
+    if (invoiceTotal <= 0) return 0;
+    const allocatedTotal = allocations.reduce((sum, allocation) => sum + allocationAmount(invoice, allocation), 0);
+    if (!projectId) {
+      return Math.round(Math.max(0, amount * Math.max(0, invoiceTotal - allocatedTotal) / invoiceTotal) * 100) / 100;
+    }
+    const projectAllocated = allocations
+      .filter((allocation) => allocation.projectId === projectId)
+      .reduce((sum, allocation) => sum + allocationAmount(invoice, allocation), 0);
+    return Math.round(Math.max(0, amount * projectAllocated / invoiceTotal) * 100) / 100;
+  }
+  if (hasCanonicalAllocationSet && !projectId) return amount;
+  if (hasCanonicalAllocationSet && projectId) return 0;
   if (!projectId) {
     if (expense.projectId) return 0;
     const invoiceTotal = money(invoice.grandTotal);

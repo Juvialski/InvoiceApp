@@ -18,15 +18,15 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Field | Value |
 | --- | --- |
 | Schema version | `1` |
-| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory` |
+| Graph version | `wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration` |
 | Product | Engoryx Engineering Operations Platform |
 | Source classification | `mixed` |
-| Reviewed against | `d00986dda4bec2d1d5b4b8af058db5f3ee43b3fe` |
-| Reviewed at | `2026-09-06` |
-| Node count | 245 |
-| Edge count | 320 |
-| Invariant count | 27 |
-| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `QA-1`, `WM-1` |
+| Reviewed against | `4cf644eef681000de607fa0177e108ade03941d8` |
+| Reviewed at | `2026-09-07` |
+| Node count | 252 |
+| Edge count | 331 |
+| Invariant count | 30 |
+| Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `P5 Post-Warehouse Operational Integration`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
@@ -61,6 +61,7 @@ Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContract
 | **Settings route**<br/><small>`route-settings`</small> | `settings` | `/settings` | — | `company` |
 | **Warehouse Inventory route**<br/><small>`route-warehouse-inventory`</small> | `warehouse` | `/warehouse` | — | `global` |
 | **Project Materials & Equipment route**<br/><small>`route-project-materials-equipment`</small> | `projects` | `/projects/:projectId/materials-equipment` | — | `project` |
+| **Equipment Registry route**<br/><small>`route-equipment-registry`</small> | `equipment` | `/equipment` | — | `global` |
 
 ## Generated diagrams
 
@@ -233,6 +234,7 @@ flowchart LR
   n_inventory_movement_ledger -->|quantity/custody movement is not Actual Cost or Committed Cost| n_project_cost_aggregation
   n_inventory_movement_ledger -->|project inventory history blocks destructive deletion| n_project_correction_lifecycle
   n_project_material_register -->|planning metadata is not Actual Cost| n_project_cost_aggregation
+  n_purchase_order_receipts -->|separate explicit Warehouse posting| n_inventory_movement_ledger
   classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
@@ -253,6 +255,76 @@ flowchart LR
   class n_inventory_current_balance inventory
   class n_project_material_inventory_link inventory
   class n_project_material_register engineering
+```
+
+### Post-Warehouse operational integration flow
+
+Canonical supplier allocation reconciliation, human-reviewed purchased-material intake into existing Procurement receipts, explicit Warehouse posting, and company Equipment authority with auditable assignment history.
+
+```mermaid
+flowchart LR
+  subgraph g_finance["Finance"]
+    n_route_invoices(["Invoices route<br/><small>ROUTE · /invoices</small>"])
+    n_invoice_human_verification{{"Human verification guard<br/><small>GUARD</small>"}}
+    n_supplier_invoice_expense_reconciliation{"Supplier invoice allocation and Expense reconciliation<br/><small>WORKFLOW · UNALLOCATED → SINGLE_PROJECT → SPLIT_PROJECTS</small>"}
+  end
+  subgraph g_projects["Projects"]
+    n_project_cost_aggregation["Authoritative project-cost aggregation<br/><small>DERIVED-DATA</small>"]
+    n_invoice_project_allocation[("Invoice project allocation<br/><small>DATA</small>")]
+  end
+  subgraph g_procurement["Procurement"]
+    n_purchase_order_receipts{"Purchase Order Goods and Delivery Receipts<br/><small>WORKFLOW</small>"}
+    n_purchased_material_intake_review{"Reviewed purchased-material intake<br/><small>WORKFLOW · UNRESOLVED → SUGGESTED → CONFIRMED</small>"}
+  end
+  subgraph g_inventory["Warehouse Inventory"]
+    n_inventory_movement_ledger{"Authoritative Inventory Movement Ledger<br/><small>WORKFLOW · OPENING → RECEIPT → PROJECT_ISSUE → PROJECT_RETURN → REVERSAL</small>"}
+  end
+  subgraph g_engineering["Engineering"]
+    n_equipment_field_usage_evidence["Derived equipment field usage evidence<br/><small>DERIVED-DATA</small>"]
+    n_route_equipment_registry(["Equipment Registry route<br/><small>ROUTE · /equipment</small>"])
+    n_equipment_registry_workspace["Equipment Registry workspace<br/><small>SCREEN</small>"]
+    n_canonical_equipment_registry[("Canonical company Equipment Registry<br/><small>DATA · AVAILABLE → MAINTENANCE → OUT_OF_SERVICE → RETIRED</small>")]
+    n_equipment_assignment_history{"Auditable Equipment assignment history<br/><small>WORKFLOW · ASSIGNED → RETURNED → TRANSFERRED</small>"}
+    n_equipment_current_state["Derived current Equipment state<br/><small>DERIVED-DATA</small>"]
+  end
+  n_invoice_project_allocation -->|verified supplier cost| n_project_cost_aggregation
+  n_purchase_order_receipts -->|explicit Receive into Warehouse action; no automatic posting| n_inventory_movement_ledger
+  n_inventory_movement_ledger -->|quantity/custody movement is not Actual Cost or Committed Cost| n_project_cost_aggregation
+  n_invoice_project_allocation -->|canonical allocations reconcile linked supplier Expense| n_supplier_invoice_expense_reconciliation
+  n_supplier_invoice_expense_reconciliation -->|project attribution remains separate from amount/status history| n_project_cost_aggregation
+  n_invoice_human_verification -->|review source document for financial or delivery meaning| n_purchased_material_intake_review
+  n_purchased_material_intake_review -->|records existing Procurement receipt with source and item provenance| n_purchase_order_receipts
+  n_purchase_order_receipts -->|separate explicit Warehouse posting| n_inventory_movement_ledger
+  n_route_equipment_registry -->|opens company Equipment Registry| n_equipment_registry_workspace
+  n_equipment_registry_workspace -->|canonical asset identity and lifecycle| n_canonical_equipment_registry
+  n_equipment_registry_workspace -->|guarded assign, transfer, return, and lifecycle actions| n_equipment_assignment_history
+  n_equipment_assignment_history -->|active assignment plus lifecycle derives current state| n_equipment_current_state
+  n_equipment_current_state -->|current Project and lifecycle view| n_equipment_registry_workspace
+  n_equipment_registry_workspace -->|shows Daily Site Log observations without changing authority| n_equipment_field_usage_evidence
+  classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
+  classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
+  classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
+  classDef engineering fill:#f0fdf4,stroke:#16a34a,color:#14532d;
+  classDef inventory fill:#eff6ff,stroke:#2563eb,color:#1e3a8a;
+  classDef finance fill:#fff7ed,stroke:#ea580c,color:#7c2d12;
+  classDef workforce fill:#fdf4ff,stroke:#c026d3,color:#701a75;
+  classDef reporting fill:#fefce8,stroke:#ca8a04,color:#713f12;
+  classDef assistant fill:#fdf2f8,stroke:#db2777,color:#831843;
+  classDef procurement fill:#f0fdfa,stroke:#0f766e,color:#134e4a;
+  class n_route_invoices finance
+  class n_project_cost_aggregation projects
+  class n_invoice_project_allocation projects
+  class n_invoice_human_verification finance
+  class n_purchase_order_receipts procurement
+  class n_inventory_movement_ledger inventory
+  class n_equipment_field_usage_evidence engineering
+  class n_supplier_invoice_expense_reconciliation finance
+  class n_purchased_material_intake_review procurement
+  class n_route_equipment_registry engineering
+  class n_equipment_registry_workspace engineering
+  class n_canonical_equipment_registry engineering
+  class n_equipment_assignment_history engineering
+  class n_equipment_current_state engineering
 ```
 
 ### Projects and Engineering flow
@@ -1097,6 +1169,9 @@ These invariants are intentionally explicit because generic import graphs cannot
 | **Client collection settlement is incoming bank evidence only**<br/><small>`commercial-client-collection-cash-linkage`</small> | A RECORDED client collection may be linked to same-company POSTED CREDIT transactions through the canonical financial transaction match model. The settlement basis is the allocation-derived collection total; partial and multi-match links never create another collection or change Collected to Date, Actual Cost, or Committed Cost. | `src/lib/clientCollections.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`src/lib/cashBanking.ts`<br/>`src/lib/cashBankingPersistence.ts`<br/>`src/components/CashSettlementAllocationWorkspace.tsx`<br/>`src/components/projects/ClientCollectionSettlementPanel.tsx`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/App.tsx`<br/>`src/utils/projectFinancialSummary.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql`<br/>`supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts`<br/>`tests/clientCollectionSettlement.test.ts`<br/>`supabase/tests/database/16_client_collection_settlement.test.sql` |
 | **Active bank links block collection reversal**<br/><small>`commercial-client-collection-settlement-reversal-guard`</small> | A recorded client collection cannot be reversed while a confirmed CLIENT_COLLECTION match is active. Settlement reversal is reason-gated, preserves history, restores the unlinked bank-evidence amount, and leaves commercial collection totals unchanged. | `src/lib/clientCollections.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`src/lib/cashBanking.ts`<br/>`src/lib/cashBankingPersistence.ts`<br/>`src/components/CashSettlementAllocationWorkspace.tsx`<br/>`src/components/projects/ClientCollectionSettlementPanel.tsx`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/App.tsx`<br/>`src/utils/projectFinancialSummary.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql`<br/>`supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts`<br/>`tests/clientCollectionSettlement.test.ts`<br/>`supabase/tests/database/16_client_collection_settlement.test.sql` |
 | **Inventory stock is explainable from immutable movements**<br/><small>`inventory-stock-is-movement-derived`</small> | The canonical company item master and append-only movement ledger derive current on-hand. Opening stock, warehouse receipts, project issues, returns, and compensating reversals preserve quantity, unit, actor, provenance, and company boundaries without valuation or destructive balance editing. | `src/lib/inventory.ts`<br/>`src/components/inventory/WarehouseInventoryPage.tsx`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql`<br/>`supabase/migrations/20260906114550_warehouse_inventory_realtime.sql` | `tests/inventory.test.ts`<br/>`tests/inventoryMigration.test.ts`<br/>`tests/inventoryRuntime.test.ts`<br/>`supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql` |
+| **Supplier Expense project projection follows canonical invoice allocation**<br/><small>`supplier-expense-projection-follows-invoice-allocation`</small> | An active supplier-linked Expense is a convenience projection of the invoice's canonical positive allocation rows. A single allocation projects its project and cost code; split or empty allocations remain explicit and do not create duplicate Expenses or rewrite financial amounts/history. | `src/utils/supplierInvoiceCostOwnership.ts`<br/>`src/utils/supplierExpenseWorkspace.ts`<br/>`src/App.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/r4SupplierExpenseBridge.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` |
+| **Purchased-material intake requires human confirmation before receipt**<br/><small>`purchase-material-intake-is-reviewed-before-receipt`</small> | Source documents and extraction can suggest purchased materials, but only a human-confirmed exact-unit canonical Inventory Item, confirmed PO line, positive remaining quantity, and explicit Procurement receipt action may establish receipt provenance. Warehouse posting remains a separate explicit movement. | `src/lib/purchasedMaterialIntake.ts`<br/>`src/components/invoices/PurchasedMaterialIntakePanel.tsx`<br/>`src/lib/purchaseOrderReceipts.ts`<br/>`src/components/inventory/WarehouseInventoryPage.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/purchaseOrderReceiptsDomain.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` |
+| **Equipment uses one canonical registry and single-active assignment history**<br/><small>`equipment-registry-assignment-is-single-active-history`</small> | Company Equipment identity is canonical and separate from project register rows and field observations. Guarded assignment, transfer, return, and lifecycle operations lock and recheck the asset/project state so at most one active assignment exists while prior assignments remain auditable. | `src/lib/equipment.ts`<br/>`src/components/equipment/EquipmentPage.tsx`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/postWarehouseRuntime.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` |
 
 ## Exploratory architecture input
 
@@ -1193,6 +1268,7 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Supplier Quotations and Human Selection**<br/><small>`supplier-quotation-selection`</small> | `action` | `project`<br/>— | — | — | `mixed`<br/>confirmation: `human` | `src/lib/rfqs.ts`<br/>`src/components/procurement/ProcurementPage.tsx` | `tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/purchaseOrdersDomain.test.ts`<br/>`tests/purchaseOrderReceiptsInvariants.test.ts`<br/>`tests/purchaseOrderMatchingInvariants.test.ts`<br/>`tests/rfqFinancialInvariants.test.ts`<br/>`tests/rfqDraftPoConversion.test.ts` | — |
 | **RFQ to Draft Purchase Order**<br/><small>`rfq-draft-po-conversion`</small> | `action` | `project`<br/>— | — | — | `mixed` | `src/lib/rfqs.ts`<br/>`src/lib/purchaseOrders.ts` | `tests/purchaseOrdersCommittedCost.test.ts`<br/>`tests/purchaseOrdersDomain.test.ts`<br/>`tests/purchaseOrderReceiptsInvariants.test.ts`<br/>`tests/purchaseOrderMatchingInvariants.test.ts`<br/>`tests/rfqFinancialInvariants.test.ts`<br/>`tests/rfqDraftPoConversion.test.ts` | — |
 | **Derived material procurement and receipt progress**<br/><small>`material-procurement-receipt-progress`</small> | `derived-data` | `company-and-project`<br/>— | — | `procurement.read` | `mixed` | `src/lib/materialsEquipment.ts`<br/>`src/utils/purchaseOrderReceipts.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx` | `tests/materialsEquipment.test.ts`<br/>`tests/purchaseOrderReceiptsDomain.test.ts` | — |
+| **Reviewed purchased-material intake**<br/><small>`purchased-material-intake-review`</small> | `workflow` | `company-and-project`<br/>— | `UNRESOLVED` → `SUGGESTED` → `CONFIRMED` | `procurement.read`<br/>`procurement.manage`<br/>`invoices.verify` | `mixed`<br/>confirmation: `human` | `src/lib/purchasedMaterialIntake.ts`<br/>`src/components/invoices/PurchasedMaterialIntakePanel.tsx`<br/>`src/components/VerificationWorkspace.tsx`<br/>`src/lib/purchaseOrderReceipts.ts` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/purchaseOrderReceiptsDomain.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` | — |
 
 ### Warehouse Inventory
 
@@ -1287,6 +1363,11 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Derived equipment field usage evidence**<br/><small>`equipment-field-usage-evidence`</small> | `derived-data` | `company-and-project`<br/>— | — | `engineering.sitelogs.read`<br/>`projects.read` | `mixed` | `src/lib/materialsEquipment.ts`<br/>`src/lib/dailySiteLogs.ts`<br/>`src/components/projects/ProjectMaterialsEquipment.tsx` | `tests/materialsEquipment.test.ts` | — |
 | **Structured Daily Site Log operations**<br/><small>`site-log-structured-operations`</small> | `data` | `company-and-project`<br/>— | — | `engineering.sitelogs.read`<br/>`engineering.sitelogs.create`<br/>`engineering.sitelogs.update`<br/>`engineering.sitelogs.submit`<br/>`engineering.sitelogs.manage` | `mixed` | `src/lib/dailySiteLogs.ts`<br/>`src/lib/dailySiteLogsPersistence.ts`<br/>`src/components/engineering/ProjectSiteLogs.tsx`<br/>`supabase/migrations/20260904121000_p3b_p3c_materials_equipment_field_operations.sql` | `tests/materialsEquipment.test.ts`<br/>`tests/dailySiteLogsPersistence.test.ts`<br/>`tests/materialsEquipmentMigration.test.ts`<br/>`supabase/tests/database/18_p3b_p3c_materials_equipment_field_operations.test.sql` | — |
 | **Project Engineering Coordination Summary**<br/><small>`project-engineering-coordination-summary`</small> | `derived-data` | `project`<br/>— | — | `engineering.documents.read`<br/>`engineering.rfis.read`<br/>`engineering.submittals.read`<br/>`engineering.sitelogs.read` | `mixed` | `src/utils/projectEngineeringCoordination.ts`<br/>`src/features/engineering/useProjectEngineeringCoordinationSummary.ts`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx` | `tests/p3a3P3dIntegration.test.ts`<br/>`tests/engineeringLifecycle.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts` | — |
+| **Equipment Registry route**<br/><small>`route-equipment-registry`</small> | `route` | `global`<br/>`equipment`<br/>`/equipment` | — | `equipment.read` | `code-derived` | `src/utils/routes.ts`<br/>`src/navigation/navigationModel.ts`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/EquipmentRoute.tsx` | `tests/navigationRoutes.test.ts`<br/>`tests/appRouting.test.ts`<br/>`tests/postWarehouseOperationalIntegration.test.ts` | — |
+| **Equipment Registry workspace**<br/><small>`equipment-registry-workspace`</small> | `screen` | `global`<br/>— | — | `equipment.read`<br/>`equipment.manage`<br/>`engineering.sitelogs.read` | `mixed` | `src/components/equipment/EquipmentPage.tsx`<br/>`src/lib/equipment.ts`<br/>`src/app/routes/EquipmentRoute.tsx`<br/>`src/App.tsx` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/postWarehouseRuntime.test.ts` | — |
+| **Canonical company Equipment Registry**<br/><small>`canonical-equipment-registry`</small> | `data` | `company`<br/>— | `AVAILABLE` → `MAINTENANCE` → `OUT_OF_SERVICE` → `RETIRED` | `equipment.read`<br/>`equipment.manage` | `mixed` | `src/types.ts`<br/>`src/lib/equipment.ts`<br/>`src/lib/materialsEquipment.ts`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` | — |
+| **Auditable Equipment assignment history**<br/><small>`equipment-assignment-history`</small> | `workflow` | `company-and-project`<br/>— | `ASSIGNED` → `RETURNED` → `TRANSFERRED` | `equipment.read`<br/>`equipment.manage` | `mixed`<br/>confirmation: `human` | `src/lib/equipment.ts`<br/>`src/components/equipment/EquipmentPage.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/postWarehouseRuntime.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` | — |
+| **Derived current Equipment state**<br/><small>`equipment-current-state`</small> | `derived-data` | `company`<br/>— | — | `equipment.read` | `mixed` | `src/lib/equipment.ts`<br/>`src/components/equipment/EquipmentPage.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` | — |
 
 ### Finance
 
@@ -1328,6 +1409,7 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Settlement eligibility and concurrency guard**<br/><small>`cash-settlement-guard`</small> | `guard` | `company`<br/>— | — | `cash.reconcile`<br/>`invoices.manage`<br/>`payroll.approve`<br/>`expenses.manage`<br/>`projects.manage` | `mixed` | `src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`supabase/migrations/20260827210000_financial_settlement_integration.sql`<br/>`supabase/migrations/20260827215000_financial_reconciliation_status_guard.sql`<br/>`supabase/migrations/20260829234056_core_hardening_wave2b3_cash_corrections.sql` | `tests/financialSettlement.test.ts`<br/>`tests/cashBankingMigration.test.ts`<br/>`tests/coreHardeningWave2B3CashCorrections.test.ts`<br/>`supabase/tests/database/09_core_hardening_wave2b3_settlement_corrections.test.sql` | — |
 | **Settlement RPC boundary**<br/><small>`cash-settlement-rpc-boundary`</small> | `external-boundary` | `company`<br/>— | — | `cash.reconcile`<br/>`invoices.manage`<br/>`payroll.approve`<br/>`expenses.manage`<br/>`projects.manage` | `mixed` | `src/lib/financialSettlementPersistence.ts`<br/>`src/lib/cashBankingPersistence.ts`<br/>`supabase/migrations/20260827210000_financial_settlement_integration.sql`<br/>`supabase/migrations/20260827213000_financial_settlement_batch_rpc.sql`<br/>`supabase/migrations/20260827216000_financial_settlement_summary_rbac.sql`<br/>`supabase/migrations/20260829234056_core_hardening_wave2b3_cash_corrections.sql` | `tests/financialSettlement.test.ts`<br/>`tests/assistantFinancialSettlement.test.ts`<br/>`tests/coreHardeningWave2B3CashCorrections.test.ts`<br/>`supabase/tests/database/09_core_hardening_wave2b3_settlement_corrections.test.sql` | — |
 | **Client Collection Cash Settlement Link**<br/><small>`client-collection-cash-settlement-link`</small> | `workflow` | `company-and-project`<br/>— | `UNLINKED` → `PARTIALLY_LINKED` → `LINKED` | `cash.reconcile`<br/>`projects.manage` | `mixed`<br/>confirmation: `human` | `src/lib/clientCollections.ts`<br/>`src/lib/financialSettlement.ts`<br/>`src/lib/financialSettlementPersistence.ts`<br/>`src/lib/cashBanking.ts`<br/>`src/lib/cashBankingPersistence.ts`<br/>`src/components/CashSettlementAllocationWorkspace.tsx`<br/>`src/components/projects/ClientCollectionSettlementPanel.tsx`<br/>`src/components/projects/ClientBillingPanel.tsx`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/projects/ProjectOverview.tsx`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/App.tsx`<br/>`src/utils/projectFinancialSummary.ts`<br/>`supabase/migrations/20260904090000_client_collections_foundation.sql`<br/>`supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql` | `tests/subcontractsDomain.test.ts`<br/>`tests/subcontractClaimsDomain.test.ts`<br/>`tests/subcontractClaimsReviewHardening.test.ts`<br/>`tests/subcontractVariationsDomain.test.ts`<br/>`tests/subcontractVariationsFinancialInvariants.test.ts`<br/>`tests/subcontractVariationsClaimIntegration.test.ts`<br/>`tests/clientCollectionsDomain.test.ts`<br/>`tests/clientCollectionsMigration.test.ts`<br/>`tests/clientCollectionSettlement.test.ts`<br/>`supabase/tests/database/16_client_collection_settlement.test.sql` | — |
+| **Supplier invoice allocation and Expense reconciliation**<br/><small>`supplier-invoice-expense-reconciliation`</small> | `workflow` | `company-and-project`<br/>— | `UNALLOCATED` → `SINGLE_PROJECT` → `SPLIT_PROJECTS` | `invoices.verify`<br/>`invoices.manage`<br/>`expenses.manage` | `mixed` | `src/utils/supplierInvoiceCostOwnership.ts`<br/>`src/utils/supplierExpenseWorkspace.ts`<br/>`src/App.tsx`<br/>`supabase/migrations/20260906132222_post_warehouse_operational_integration.sql` | `tests/postWarehouseOperationalIntegration.test.ts`<br/>`tests/r4SupplierExpenseBridge.test.ts`<br/>`tests/postWarehouseRuntime.test.ts`<br/>`supabase/tests/database/27_post_warehouse_operational_integration.test.sql` | — |
 
 ### Workforce
 

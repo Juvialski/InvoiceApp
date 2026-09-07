@@ -24,6 +24,7 @@ on:
       - 'tests/cashBankingMigration.test.ts'
       - 'tests/coreHardeningWave2B2.test.ts'
       - 'tests/coreHardeningWave2C.test.ts'
+      - 'tests/clientProgressBillingMigration.test.ts'
       - '.github/workflows/database-tests.yml'
       - 'package*.json'
   workflow_dispatch:
@@ -60,7 +61,9 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pin the CLI so protected CI does not depend on an unauthenticated
+          # "latest release" lookup that can fail under GitHub API rate limits.
+          version: 2.116.0
 
       - name: Start isolated local Supabase
         run: supabase start

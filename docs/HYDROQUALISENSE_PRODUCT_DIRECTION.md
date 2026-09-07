@@ -1,6 +1,6 @@
 # HydroQualiSense Product Direction
 
-Status: **ACTIVE — R5 COMPLETE / WAREHOUSE NEXT**  
+Status: **ACTIVE — WAREHOUSE + POST-WAREHOUSE INTEGRATION COMPLETE / CLIENT PRODUCTIZATION NEXT**  
 Repository: `Juvialski/InvoiceApp`  
 Deployment architecture: **one source repository -> many isolated deployments; one client company per deployment**  
 Canonical HydroQualiSense domain: `https://hydroqualisense.com`  
@@ -93,33 +93,41 @@ It established:
 
 Known external limitation: a real Gmail send still requires a connected Google account/OAuth consent and is not proven by CI alone.
 
-## Immediate operational priority — Warehouse Inventory & Project Allocation
+## Completed operational expansion — Warehouse + Post-Warehouse Integration
 
-HydroQualiSense must answer:
+Warehouse Inventory & Project Allocation is complete in PR #96. Post-Warehouse Operational Integration is complete in PR #97.
+
+HydroQualiSense can now answer:
 
 - What material/item stock is currently available?
 - What entered or left stock, when, why and by whom?
 - What stock was allocated/issued/returned/corrected for each project?
 - What inventory remains after project movements?
 - How does warehouse activity connect to procurement/delivery evidence without duplicating stock or financial truth?
+- How do supplier invoice allocations reconcile to the existing authoritative Expense without creating a second payable?
+- Which company Equipment is currently assigned to which Project, with auditable assignment history?
 
-Inventory must be auditable. Project allocation is not destructive balance editing; current stock must remain explainable from authoritative movements or an equally rigorous source model.
+Inventory is auditable. Project allocation is not destructive balance editing; current stock remains explainable from authoritative movements or an equally rigorous source model. Reviewed purchased-material intake reuses the existing Procurement receipt model, and Warehouse posting stays a deliberate exact-item movement. Canonical Equipment identity and assignment history are database-authoritative while field observations remain evidence.
 
-Detailed warehouse decisions such as locations, valuation/costing, reservation-vs-issue semantics, serial/lot tracking, reorder policy, barcode/QR use, purchase-receipt automation and adjustment authority remain pending explicit business decisions.
+Detailed decisions such as inventory locations, valuation/costing, reservation-vs-issue semantics, serial/lot tracking, reorder policy, barcode/QR use, automatic purchase-receipt posting, depreciation and broader accounting-period policy remain pending explicit business decisions.
 
-## Parallel productization direction
+## Immediate productization priority — Public client funnel + isolated deployment tooling
 
-Independent of Warehouse contracts, HydroQualiSense may build a bounded client-acquisition/deployment track:
+The next bounded phase is to make HydroQualiSense easier to present, qualify and deploy for multiple potential client companies without creating a shared multi-company operational application.
 
-- public landing and requirements intake separate from authenticated operational data;
-- repeatable client provisioning;
-- dedicated Render + Supabase resources per client;
-- deployment/version inventory;
-- controlled release promotion and upgrade/rollback handling;
-- storage/backup growth monitoring and lifecycle optimization;
-- client-specific role templates/configuration built on shared permission keys.
+Required direction:
 
-This track must not create a global operational tenant database or store client secrets in a central plaintext registry.
+- public landing and requirements intake remain separate from authenticated operational data;
+- bounded prospect intake may collect company/contact details, modules of interest, approximate workforce/project scale, pain points/integration needs, desired timeline and demo/contact requests;
+- general public intake must not collect financial source documents, employee records, biometrics, credentials or equivalent operationally sensitive data;
+- a public submission must not automatically create production infrastructure, companies, privileged users, credentials or secrets;
+- retain one source repository and provision one isolated Render service + Supabase project per approved client;
+- make provisioning repeatable through explicit operator-controlled scripts/checklists or guarded tooling;
+- maintain deployment/version inventory without plaintext secrets;
+- record deployed repository SHA, migration level, backup/configuration/health state and deliberate release-promotion status;
+- include smoke/auth/database/backup verification and upgrade/rollback readiness in the operator flow.
+
+See `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md` for the authoritative deployment/productization contract.
 
 ## Later — Worker Registration
 
@@ -159,7 +167,7 @@ Required design principles:
 
 ## Public landing / requirements funnel
 
-A future public HydroQualiSense site may explain the product and collect bounded prospective-client requirements. It is not an operational client workspace.
+The public HydroQualiSense site may explain the product and collect bounded prospective-client requirements. It is not an operational client workspace.
 
 Do not collect payroll records, financial source documents, biometrics, credentials or equivalent sensitive operational data through a generic marketing intake form without a separately designed secure workflow.
 
@@ -180,7 +188,8 @@ Presentation may evolve, but preserve authoritative meaning/history for:
 - Daily Site Logs/field evidence;
 - immutable issued financial documents;
 - RLS/RBAC/membership/audit/company-bound validation;
-- future inventory movement/allocation history;
+- inventory movement/allocation history;
+- canonical Equipment identity/assignment/event history;
 - future attendance/enrollment history under explicit privacy controls.
 
 ## Permanent financial/product principles
@@ -209,12 +218,11 @@ Security continues throughout implementation; the final certification is an addi
 
 Unless explicitly reprioritized:
 
-1. **Warehouse Inventory & Project Allocation**
-2. **Public client funnel + repeatable isolated deployment/provisioning tooling** — bounded parallel work when independent
-3. **Worker Registration foundation**
-4. **Site Attendance state machine + device registration**
-5. **Face-Recognition Attendance** after explicit privacy/security design
-6. other client-confirmed requirements
-7. **Final pre-production security/data-integrity certification**
+1. **Public client funnel + repeatable isolated deployment/provisioning tooling** — next bounded phase
+2. **Worker Registration foundation**
+3. **Site Attendance state machine + device registration**
+4. **Face-Recognition Attendance** after explicit privacy/security design
+5. other client-confirmed requirements
+6. **Final pre-production security/data-integrity certification**
 
 Older Engoryx future plans remain non-authoritative unless explicitly reconfirmed.

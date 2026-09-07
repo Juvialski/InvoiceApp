@@ -167,6 +167,7 @@ export function projectEquipmentFromRow(row: Row): ProjectEquipment {
     id: String(row.id),
     companyId: text(row.company_id),
     projectId: String(row.project_id || ""),
+    canonicalEquipmentId: text(row.canonical_equipment_id) || null,
     assetReference: text(row.asset_reference) || null,
     equipmentName: String(row.equipment_name || ""),
     equipmentType: text(row.equipment_type) || null,

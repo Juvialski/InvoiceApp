@@ -12,7 +12,7 @@ import { AppRouter } from "./app/routes/AppRouter";
 import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
-import { Department, EmailClassification, Expense, FinancialFxSnapshot, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
+import { Department, EmailClassification, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, FinancialFxSnapshot, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
 import type { AttendanceRecord, EntityResolutionResult, LeaveRequest, OvertimeRequest, PayrollHoliday, SourceType } from "./types";
 import { applyLocalChecks, findExistingInvoiceForSourcePayload, findPossibleDuplicate } from "./utils/invoiceLogic";
 import { nextPendingReviewInvoiceId, nextReviewInvoiceId, orderedReviewQueue } from "./utils/reviewQueue";
@@ -162,8 +162,10 @@ import type { StagedPayrollImport } from "./lib/payrollImportWorkflow";
 import { canApplyWorkspaceLoad, decideRemoteInvoiceRefresh, resolveEntityById, shouldPersistGuestWorkspace } from "./utils/remoteConflict";
 import { createBrowserWorkspaceSyncEnvironment, createWorkspaceLoadCache, createWorkspaceSyncController, createWorkspaceSyncInstrumentation, type WorkspaceRefreshGroup, type WorkspaceSyncController, type WorkspaceSyncStatus } from "./lib/workspaceSync";
 import { replaceInvoiceProjectAllocationsLocally } from "./utils/projectAllocations";
+import { supplierExpenseProjectProjection } from "./utils/supplierInvoiceCostOwnership.ts";
 import { buildLocalProjectEquipment, buildLocalProjectMaterial, loadProjectMaterialsEquipmentFromSupabase, readProjectEquipmentFromLocal, readProjectMaterialsFromLocal, saveProjectEquipmentToSupabase, saveProjectMaterialToSupabase, writeProjectEquipmentToLocal, writeProjectMaterialsToLocal, type ProjectEquipmentSaveInput, type ProjectMaterialSaveInput } from "./lib/materialsEquipment.ts";
 import { buildLocalInventoryItem, loadInventoryWorkspaceFromSupabase, readInventoryItemsFromLocal, readInventoryMovementsFromLocal, recordInventoryMovementLocally, recordInventoryMovementToSupabase, reverseInventoryMovementToSupabase, saveInventoryItemToSupabase, writeInventoryItemsToLocal, writeInventoryMovementsToLocal, type InventoryBalance, type InventoryItem, type InventoryItemSaveInput, type InventoryMovement, type InventoryMovementInput } from "./lib/inventory.ts";
+import { applyLocalEquipmentAssignment, applyLocalEquipmentReturn, applyLocalEquipmentTransfer, buildLocalEquipment, loadEquipmentWorkspaceFromSupabase, readEquipmentAssignmentsFromLocal, readEquipmentRegistryFromLocal, saveEquipmentToSupabase, assignEquipmentToSupabase, transferEquipmentToSupabase, returnEquipmentToSupabase, setEquipmentLifecycleToSupabase, writeEquipmentAssignmentsToLocal, writeEquipmentRegistryToLocal, type EquipmentSaveInput } from "./lib/equipment.ts";
 import {
   deleteDraftSubcontractClaim,
   fetchSubcontractClaims,
@@ -437,6 +439,8 @@ function InvoiceWorkspace() {
   const [costCodes, setCostCodes] = useState<ProjectCostCode[]>(() => isSupabaseConfigured ? [] : readProjectCostCodesFromLocal());
   const [projectMaterials, setProjectMaterials] = useState<ProjectMaterial[]>(() => isSupabaseConfigured ? [] : readProjectMaterialsFromLocal());
   const [projectEquipment, setProjectEquipment] = useState<ProjectEquipment[]>(() => isSupabaseConfigured ? [] : readProjectEquipmentFromLocal());
+  const [equipmentRegistry, setEquipmentRegistry] = useState<Equipment[]>(() => isSupabaseConfigured ? [] : readEquipmentRegistryFromLocal());
+  const [equipmentAssignments, setEquipmentAssignments] = useState<EquipmentAssignment[]>(() => isSupabaseConfigured ? [] : readEquipmentAssignmentsFromLocal());
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(() => isSupabaseConfigured ? [] : readInventoryItemsFromLocal());
   const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>(() => isSupabaseConfigured ? [] : readInventoryMovementsFromLocal());
   const [inventoryBalances, setInventoryBalances] = useState<InventoryBalance[] | undefined>(() => undefined);
@@ -612,6 +616,8 @@ function InvoiceWorkspace() {
     setCostCodes([]);
     setProjectMaterials([]);
     setProjectEquipment([]);
+    setEquipmentRegistry([]);
+    setEquipmentAssignments([]);
     setInventoryItems([]);
     setInventoryMovements([]);
     setInventoryBalances(undefined);
@@ -669,7 +675,7 @@ function InvoiceWorkspace() {
     : group === "cash"
       ? hasAnyPermission(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashTransactionsRead, PERMISSION_KEYS.cashImport, PERMISSION_KEYS.cashReconcile])
     : group === "engineering"
-      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringSiteLogsRead, PERMISSION_KEYS.inventoryRead])
+      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringSiteLogsRead, PERMISSION_KEYS.inventoryRead, PERMISSION_KEYS.equipmentRead])
       : group === "payroll"
         ? can(PERMISSION_KEYS.payrollRead)
         : group === "payroll-imports"
@@ -688,6 +694,8 @@ function InvoiceWorkspace() {
     costCodes: ProjectCostCode[];
     materials: ProjectMaterial[];
     equipment: ProjectEquipment[];
+    equipmentRegistry: Equipment[];
+    equipmentAssignments: EquipmentAssignment[];
     inventoryItems: InventoryItem[];
     inventoryMovements: InventoryMovement[];
     inventoryBalances?: InventoryBalance[];
@@ -764,6 +772,8 @@ function InvoiceWorkspace() {
     setCostCodes(data.costCodes);
     setProjectMaterials(data.materials);
     setProjectEquipment(data.equipment);
+    setEquipmentRegistry(data.equipmentRegistry);
+    setEquipmentAssignments(data.equipmentAssignments);
     setInventoryItems(data.inventoryItems);
     setInventoryMovements(data.inventoryMovements);
     setInventoryBalances(data.inventoryBalances);
@@ -803,6 +813,7 @@ function InvoiceWorkspace() {
       can(PERMISSION_KEYS.engineeringSiteLogsRead) ? loadDailySiteLogsFromSupabase(activeCompanyId || undefined) : Promise.resolve(undefined),
       hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.settingsRead]) ? loadFinancialFxSnapshotsFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.inventoryRead) ? loadInventoryWorkspaceFromSupabase() : Promise.resolve({ items: [], movements: [], balances: [] as InventoryBalance[] }),
+      can(PERMISSION_KEYS.equipmentRead) ? loadEquipmentWorkspaceFromSupabase() : Promise.resolve({ equipment: [], assignments: [] as EquipmentAssignment[] }),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -824,6 +835,7 @@ function InvoiceWorkspace() {
     const dailySiteLogsData = results[16].status === "fulfilled" ? results[16].value : undefined;
     const financialFxSnapshots = results[17].status === "fulfilled" ? results[17].value : [];
     const inventory = results[18].status === "fulfilled" ? results[18].value : { items: [], movements: [] };
+    const equipmentRegistry = results[19].status === "fulfilled" ? results[19].value : { equipment: [], assignments: [] };
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -842,6 +854,7 @@ function InvoiceWorkspace() {
     if (results[15].status !== "fulfilled") failures.push("materials and equipment");
     if (results[17].status !== "fulfilled") failures.push("financial FX snapshots");
     if (results[18].status !== "fulfilled") failures.push("inventory");
+    if (results[19].status !== "fulfilled") failures.push("equipment registry");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -866,7 +879,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, inventoryItems: inventory.items, inventoryMovements: inventory.movements, inventoryBalances: inventory.balances, dailySiteLogsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, equipmentRegistry: equipmentRegistry.equipment, equipmentAssignments: equipmentRegistry.assignments, inventoryItems: inventory.items, inventoryMovements: inventory.movements, inventoryBalances: inventory.balances, dailySiteLogsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -2157,6 +2170,10 @@ function InvoiceWorkspace() {
         lastPersistedRef.current.set(invoice.id, withFreshToken);
       }
       setInvoiceProjectAllocations((current) => [...current.filter((allocation) => allocation.invoiceId !== invoice.id), ...saved.allocations]);
+      const projection = supplierExpenseProjectProjection({ ...invoice, allocations: saved.allocations });
+      setExpenses((current) => current.map((expense) => expense.supplierInvoiceId === invoice.id && expense.status !== "VOID"
+        ? { ...expense, projectId: projection.projectId, projectCostCodeId: projection.projectCostCodeId, updatedAt: new Date().toISOString() }
+        : expense));
       showNotification("success", allocations.length ? "Invoice project allocation saved." : "Invoice is now unallocated.");
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save invoice project allocation."));
@@ -2422,7 +2439,7 @@ function InvoiceWorkspace() {
         const purchaseOrder = purchaseOrders.find((candidate) => candidate.id === receipt?.purchaseOrderId);
         const purchaseOrderLine = purchaseOrder?.lines?.find((line) => line.id === input.purchaseOrderLineId);
         const item = inventoryItems.find((candidate) => candidate.id === input.inventoryItemId);
-        if (!receiptLine || !purchaseOrderLine || !item || item.stockUnit.trim().toLowerCase() !== purchaseOrderLine.unit.trim().toLowerCase() || Number(input.quantity) !== receiptLine.receivedQuantity) throw new Error("The selected procurement receipt line must match an active canonical item and exact quantity.");
+        if (!receiptLine || !purchaseOrderLine || !item || (receiptLine.inventoryItemId && receiptLine.inventoryItemId !== item.id) || item.stockUnit.trim().toLowerCase() !== purchaseOrderLine.unit.trim().toLowerCase() || Number(input.quantity) !== receiptLine.receivedQuantity) throw new Error("The selected procurement receipt line must match its reviewed canonical item and exact quantity.");
       }
       const saved = session && supabase
         ? await recordInventoryMovementToSupabase(input)
@@ -2472,6 +2489,125 @@ function InvoiceWorkspace() {
       showNotification("success", `${saved.equipmentName} saved to the Equipment Register.`);
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not save project equipment."));
+      throw error;
+    }
+  };
+
+  const handleSaveCanonicalEquipment = async (input: EquipmentSaveInput): Promise<Equipment> => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to manage the Equipment Registry.");
+      const normalizedReference = input.assetReference?.trim().toLowerCase();
+      if (!session && normalizedReference && equipmentRegistry.some((item) => item.id !== input.id && item.assetReference?.trim().toLowerCase() === normalizedReference)) throw new Error("That Equipment asset/reference code is already in use.");
+      const existing = input.id ? equipmentRegistry.find((item) => item.id === input.id) : undefined;
+      const saved = session && supabase
+        ? await saveEquipmentToSupabase(input)
+        : buildLocalEquipment(input, existing, "guest-company", "guest-user");
+      setEquipmentRegistry((current) => {
+        const next = current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? { ...saved, currentState: item.currentState, currentAssignmentId: item.currentAssignmentId, currentProjectId: item.currentProjectId, currentAssignmentStart: item.currentAssignmentStart } : item) : [saved, ...current];
+        if (!session) writeEquipmentRegistryToLocal(next);
+        return next;
+      });
+      showNotification("success", `${saved.equipmentName} saved to the canonical Equipment Registry.`);
+      return saved;
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not save canonical Equipment."));
+      throw error;
+    }
+  };
+
+  const applyCanonicalEquipmentMutation = (result: { equipment: Equipment; assignment?: EquipmentAssignment | null }, previousActive?: EquipmentAssignment, closedDate?: string) => {
+    const active = result.assignment && !result.assignment.assignmentEnd ? result.assignment : undefined;
+    const nextEquipment = {
+      ...result.equipment,
+      currentState: active ? "ASSIGNED" as const : result.equipment.lifecycleStatus,
+      currentAssignmentId: active?.id || null,
+      currentProjectId: active?.projectId || null,
+      currentAssignmentStart: active?.assignmentStart || null,
+    };
+    setEquipmentRegistry((current) => current.some((item) => item.id === nextEquipment.id) ? current.map((item) => item.id === nextEquipment.id ? nextEquipment : item) : [nextEquipment, ...current]);
+    if (previousActive && closedDate) {
+      setEquipmentAssignments((current) => current.map((assignment) => assignment.id === previousActive.id ? { ...assignment, assignmentEnd: closedDate, returnedByUserId: session?.user?.id || "guest-user", updatedAt: new Date().toISOString() } : assignment));
+    }
+    if (active) setEquipmentAssignments((current) => current.some((assignment) => assignment.id === active.id) ? current.map((assignment) => assignment.id === active.id ? active : assignment) : [active, ...current]);
+    return nextEquipment;
+  };
+
+  const handleAssignCanonicalEquipment = async (equipmentId: string, projectId: string, assignmentStart: string, notes?: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to assign Equipment.");
+      const result = session && supabase
+        ? await assignEquipmentToSupabase(equipmentId, projectId, assignmentStart, notes)
+        : applyLocalEquipmentAssignment(equipmentRegistry, equipmentAssignments, { equipmentId, projectId, assignmentStart, notes }, projectController.projects);
+      applyCanonicalEquipmentMutation(result);
+      if (!session) {
+        if (result.assignment) writeEquipmentAssignmentsToLocal([result.assignment, ...equipmentAssignments.filter((assignment) => assignment.id !== result.assignment?.id)]);
+        writeEquipmentRegistryToLocal(equipmentRegistry.map((item) => item.id === result.equipment.id ? { ...result.equipment, currentState: "ASSIGNED", currentAssignmentId: result.assignment?.id, currentProjectId: result.assignment?.projectId, currentAssignmentStart: result.assignment?.assignmentStart } : item));
+      }
+      showNotification("success", "Equipment assigned. The active assignment is now authoritative.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not assign Equipment."));
+      throw error;
+    }
+  };
+
+  const handleTransferCanonicalEquipment = async (equipmentId: string, projectId: string, assignmentStart: string, notes?: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to transfer Equipment.");
+      const previousActive = equipmentAssignments.find((assignment) => assignment.equipmentId === equipmentId && !assignment.assignmentEnd);
+      const result = session && supabase
+        ? await transferEquipmentToSupabase(equipmentId, projectId, assignmentStart, notes)
+        : applyLocalEquipmentTransfer(equipmentRegistry, equipmentAssignments, { equipmentId, projectId, assignmentStart, notes }, projectController.projects);
+      applyCanonicalEquipmentMutation(result, previousActive, assignmentStart);
+      if (!session && result.assignment) {
+        const closed = equipmentAssignments.map((assignment) => assignment.id === previousActive?.id ? { ...assignment, assignmentEnd: assignmentStart, returnedByUserId: "guest-user" } : assignment);
+        writeEquipmentAssignmentsToLocal([result.assignment, ...closed.filter((assignment) => assignment.id !== result.assignment?.id)]);
+        writeEquipmentRegistryToLocal(equipmentRegistry.map((item) => item.id === result.equipment.id ? { ...result.equipment, currentState: "ASSIGNED", currentAssignmentId: result.assignment?.id, currentProjectId: result.assignment?.projectId, currentAssignmentStart: result.assignment?.assignmentStart } : item));
+      }
+      showNotification("success", "Equipment transferred in one authoritative operation.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not transfer Equipment."));
+      throw error;
+    }
+  };
+
+  const handleReturnCanonicalEquipment = async (equipmentId: string, assignmentEnd: string, notes?: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to return Equipment.");
+      const previousActive = equipmentAssignments.find((assignment) => assignment.equipmentId === equipmentId && !assignment.assignmentEnd);
+      const result = session && supabase
+        ? await returnEquipmentToSupabase(equipmentId, assignmentEnd, notes)
+        : applyLocalEquipmentReturn(equipmentRegistry, equipmentAssignments, equipmentId, assignmentEnd, notes);
+      applyCanonicalEquipmentMutation(result, previousActive, assignmentEnd);
+      if (!session) {
+        const returned = result.assignment || previousActive;
+        if (returned) writeEquipmentAssignmentsToLocal(equipmentAssignments.map((assignment) => assignment.id === returned.id ? returned : assignment));
+        writeEquipmentRegistryToLocal(equipmentRegistry.map((item) => item.id === result.equipment.id ? { ...result.equipment, currentState: result.equipment.lifecycleStatus, currentAssignmentId: null, currentProjectId: null, currentAssignmentStart: null } : item));
+      }
+      showNotification("success", "Equipment returned to the company pool. Assignment history remains preserved.");
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not return Equipment."));
+      throw error;
+    }
+  };
+
+  const handleSetCanonicalEquipmentLifecycle = async (equipmentId: string, status: EquipmentLifecycleStatus, reason: string) => {
+    try {
+      if (isSupabaseConfigured && !can(PERMISSION_KEYS.equipmentManage)) throw new Error("You do not have permission to change Equipment lifecycle state.");
+      const previous = equipmentRegistry.find((item) => item.id === equipmentId);
+      if (!previous) throw new Error("Equipment is unavailable.");
+      const active = equipmentAssignments.find((assignment) => assignment.equipmentId === equipmentId && !assignment.assignmentEnd);
+      if (status === "AVAILABLE" && active) throw new Error("Return or transfer the active assignment before making Equipment available.");
+      const result = session && supabase
+        ? await setEquipmentLifecycleToSupabase(equipmentId, status, reason)
+        : { equipment: { ...previous, lifecycleStatus: status, currentState: status, currentAssignmentId: null, currentProjectId: null, currentAssignmentStart: null, notes: [previous.notes, reason].filter(Boolean).join("\n") }, assignment: null };
+      applyCanonicalEquipmentMutation(result, active, active ? new Date().toISOString().slice(0, 10) : undefined);
+      if (!session) {
+        if (active) writeEquipmentAssignmentsToLocal(equipmentAssignments.map((assignment) => assignment.id === active.id ? { ...assignment, assignmentEnd: new Date().toISOString().slice(0, 10) } : assignment));
+        writeEquipmentRegistryToLocal(equipmentRegistry.map((item) => item.id === equipmentId ? result.equipment : item));
+      }
+      showNotification("success", `Equipment lifecycle changed to ${status.replaceAll("_", " ")}.`);
+    } catch (error: any) {
+      showNotification("error", userFacingError(error, "Could not change Equipment lifecycle state."));
       throw error;
     }
   };
@@ -2854,7 +2990,7 @@ function InvoiceWorkspace() {
 
   const handleRecordReceipt = useCallback(async (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
-    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
   ) => {
     try {
       if (isSupabaseConfigured && !can(PERMISSION_KEYS.procurementWrite)) {
@@ -4685,7 +4821,9 @@ function InvoiceWorkspace() {
           projectDashboard={projectDashboard}
           costCodes={costCodes}
           materials={projectMaterials}
-          equipment={projectEquipment}
+           equipment={projectEquipment}
+           equipmentRegistry={equipmentRegistry}
+           equipmentAssignments={equipmentAssignments}
           inventoryItems={inventoryItems}
           inventoryMovements={inventoryMovements}
           inventoryBalances={inventoryBalances}
@@ -4709,7 +4847,12 @@ function InvoiceWorkspace() {
           onArchiveCostCode={handleArchiveCostCode}
           onReactivateCostCode={handleReactivateCostCode}
           onSaveMaterial={handleSaveMaterial}
-          onSaveEquipment={handleSaveEquipment}
+           onSaveEquipment={handleSaveEquipment}
+           onSaveCanonicalEquipment={handleSaveCanonicalEquipment}
+           onAssignCanonicalEquipment={handleAssignCanonicalEquipment}
+           onTransferCanonicalEquipment={handleTransferCanonicalEquipment}
+           onReturnCanonicalEquipment={handleReturnCanonicalEquipment}
+           onSetCanonicalEquipmentLifecycle={handleSetCanonicalEquipmentLifecycle}
           onSaveInventoryItem={handleSaveInventoryItem}
           onRecordInventoryMovement={handleRecordInventoryMovement}
           onReverseInventoryMovement={handleReverseInventoryMovement}
@@ -4872,7 +5015,8 @@ function InvoiceWorkspace() {
           onApplyPayrollMaintenance={(action, confirmation) => handleApplyPayrollMaintenance(action, confirmation)}
           onPreviewFactoryReset={() => handlePreviewPayrollWorkspaceReset()}
           onApplyFactoryReset={(confirmation) => handleApplyPayrollWorkspaceReset(confirmation)}
-          expenses={expenses}
+           expenses={expenses}
+           expenseInvoiceProjectAllocations={invoiceProjectAllocations}
           financialFxSnapshots={financialFxSnapshots}
           baseCurrency={activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY}
           onSaveFinancialFxSnapshot={handleSaveFinancialFxSnapshot}

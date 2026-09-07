@@ -12,6 +12,8 @@ import type {
   ProjectCostCode,
   ProjectCostSummary,
   ProjectEquipment,
+  Equipment,
+  EquipmentAssignment,
   ProjectMaterial,
   ProjectWorkerAssignment,
   PurchaseOrder,
@@ -84,6 +86,8 @@ interface ProjectWorkspaceProps {
   receipts?: PurchaseOrderReceipt[];
   materials?: readonly ProjectMaterial[];
   equipment?: readonly ProjectEquipment[];
+  canonicalEquipment?: readonly Equipment[];
+  equipmentAssignments?: readonly EquipmentAssignment[];
   inventoryItems?: readonly import("../../lib/inventory.ts").InventoryItem[];
   inventoryMovements?: readonly import("../../lib/inventory.ts").InventoryMovement[];
   inventoryBalances?: readonly import("../../lib/inventory.ts").InventoryBalance[];
@@ -171,7 +175,7 @@ interface ProjectWorkspaceProps {
   onDeletePO?: (id: string) => Promise<void>;
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
-    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
   ) => Promise<void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
@@ -266,6 +270,8 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   receipts = [],
   materials = [],
   equipment = [],
+  canonicalEquipment = [],
+  equipmentAssignments = [],
   inventoryItems = [],
   inventoryMovements = [],
   inventoryBalances,
@@ -586,7 +592,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
       {tab === "site-logs" && (coordinationAccess.loading && !engineeringDocumentsGuestMode && dailySiteLogsData === undefined ? <div role="status" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-600">Checking Site Log access…</div> : <ProjectSiteLogs project={project} companyId={companyId} initialSiteLogId={initialSiteLogId} pathForSiteLog={pathForSiteLog} onNavigatePath={onNavigatePath} canRead={engineeringDocumentsGuestMode || coordinationAccess.siteLogsRead} canCreate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsCreate} canUpdate={engineeringDocumentsGuestMode || coordinationAccess.siteLogsUpdate} canSubmit={engineeringDocumentsGuestMode || coordinationAccess.siteLogsSubmit} canManage={engineeringDocumentsGuestMode || coordinationAccess.siteLogsManage} guestMode={engineeringDocumentsGuestMode} controlledData={projectDailySiteLogsData} controlledPersistence={!engineeringDocumentsGuestMode && dailySiteLogsData !== undefined ? "remote" : "local"} onControlledDataChange={publishProjectDailySiteLogsData} materials={materials.filter((material) => material.projectId === project.id)} registeredEquipment={equipment.filter((item) => item.projectId === project.id)} purchaseOrders={purchaseOrders.filter((purchaseOrder) => purchaseOrder.projectId === project.id)} receipts={receipts} costCodes={costCodes.filter((costCode) => costCode.projectId === project.id)} canReadProcurement={canReadProcurement} />)}
 
-      {tab === "materials-equipment" && <ProjectMaterialsEquipment project={project} materials={materials} equipment={equipment} inventoryItems={inventoryItems} inventoryMovements={inventoryMovements} inventoryBalances={inventoryBalances} purchaseOrders={purchaseOrders} receipts={receipts} vendors={vendors} costCodes={costCodes} dailySiteLogsData={projectDailySiteLogsData} canReadSiteLogs={canReadSiteLogs} canReadProcurement={canReadProcurement} canReadInventory={canReadInventory} canManage={canManageProject} guestMode={engineeringDocumentsGuestMode} onOpenSiteLogs={() => selectTab("site-logs")} onOpenWarehouse={canReadInventory ? onOpenWarehouse : undefined} onSaveMaterial={onSaveMaterial} onSaveEquipment={onSaveEquipment} />}
+      {tab === "materials-equipment" && <ProjectMaterialsEquipment project={project} materials={materials} equipment={equipment} canonicalEquipment={canonicalEquipment} equipmentAssignments={equipmentAssignments} inventoryItems={inventoryItems} inventoryMovements={inventoryMovements} inventoryBalances={inventoryBalances} purchaseOrders={purchaseOrders} receipts={receipts} vendors={vendors} costCodes={costCodes} dailySiteLogsData={projectDailySiteLogsData} canReadSiteLogs={canReadSiteLogs} canReadProcurement={canReadProcurement} canReadInventory={canReadInventory} canManage={canManageProject} guestMode={engineeringDocumentsGuestMode} onOpenSiteLogs={() => selectTab("site-logs")} onOpenWarehouse={canReadInventory ? onOpenWarehouse : undefined} onSaveMaterial={onSaveMaterial} onSaveEquipment={onSaveEquipment} />}
 
       {tab === "invoices" && canReadInvoices && (canManageInvoiceAllocations
         ? <ProjectInvoices project={project} invoices={invoices} allocations={invoiceAllocations} costCodes={costCodes as ProjectCostCode[]} onOpenInvoice={onOpenInvoice} onUploadInvoice={canExtractInvoices ? onUploadInvoice : undefined} onSaveAllocations={onSaveInvoiceAllocations} />

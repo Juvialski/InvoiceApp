@@ -23,6 +23,7 @@ test("Email Intake Phase 3: Top-level navigation and module structure", () => {
     "projects",
     "procurement",
     "warehouse",
+    "equipment",
     "expenses",
     "payroll",
     "reports",
