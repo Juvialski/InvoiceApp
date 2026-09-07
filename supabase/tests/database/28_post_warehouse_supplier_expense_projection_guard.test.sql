@@ -1,5 +1,5 @@
 begin;
-select no_plan();
+select plan(6);
 
 create temp table projection_guard_ids as
 select
