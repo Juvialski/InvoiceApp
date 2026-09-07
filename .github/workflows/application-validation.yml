@@ -3,14 +3,6 @@ name: Application Validation
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'public/**'
-      - 'package*.json'
-      - 'tsconfig.json'
-      - '.github/workflows/application-validation.yml'
   push:
     branches: [main]
     paths:
