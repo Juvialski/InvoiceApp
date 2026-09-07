@@ -63,6 +63,12 @@ const CAPABILITY_CARDS: ReadonlyArray<{ icon: LucideIcon; title: string; detail:
   { icon: Building2, title: "Workforce foundations", detail: "Support workforce and payroll operations with permission-aware access." },
 ];
 
+const DEPLOYMENT_CARDS: ReadonlyArray<{ icon: LucideIcon; title: string; detail: string }> = [
+  { icon: Building2, title: "Dedicated deployment", detail: "Independent URL, service reference, environment, and recovery boundary." },
+  { icon: LockKeyhole, title: "Permission and history", detail: "Company-scoped access and deliberate lifecycle controls remain in force." },
+  { icon: FileText, title: "Release visibility", detail: "Record the deployed SHA, migration level, backup state, and verification result." },
+];
+
 const INITIAL_FORM: ProspectFormState = {
   companyName: "",
   contactName: "",
@@ -188,14 +194,9 @@ function PublicLandingPage({ onRequestDemo }: { onRequestDemo: () => void }) {
             <p className="mt-4 text-sm leading-7 text-slate-600">Approved clients receive a dedicated Render service and Supabase project/database/Auth/Storage boundary. The operational workspace never becomes an unrelated-company switcher.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              [Building2, "Dedicated deployment", "Independent URL, service reference, environment, and recovery boundary."],
-              [LockKeyhole, "Permission and history", "Company-scoped access and deliberate lifecycle controls remain in force."],
-              [FileText, "Release visibility", "Record the deployed SHA, migration level, backup state, and verification result."],
-            ].map(([Icon, title, detail]) => {
-              const CapabilityIcon = Icon as LucideIcon;
-              return <article key={String(title)} className="rounded-2xl border border-slate-200 bg-slate-50 p-5"><CapabilityIcon className="h-5 w-5 text-cyan-700" /><h3 className="mt-5 text-sm font-black text-slate-950">{title}</h3><p className="mt-2 text-xs leading-5 text-slate-600">{detail}</p></article>;
-            })}
+            {DEPLOYMENT_CARDS.map(({ icon: Icon, title, detail }) => (
+              <article key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-5"><Icon className="h-5 w-5 text-cyan-700" /><h3 className="mt-5 text-sm font-black text-slate-950">{title}</h3><p className="mt-2 text-xs leading-5 text-slate-600">{detail}</p></article>
+            ))}
           </div>
         </div>
       </section>

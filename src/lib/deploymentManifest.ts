@@ -301,7 +301,7 @@ export function validateDeploymentManifest(input: unknown): DeploymentManifestVa
 
 export function parseDeploymentManifest(input: unknown): DeploymentManifest {
   const result = validateDeploymentManifest(input);
-  if (!result.valid) throw new Error(result.errors.join(" "));
+  if (result.valid === false) throw new Error(result.errors.join(" "));
   return result.value;
 }
 

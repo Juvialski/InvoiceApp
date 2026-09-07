@@ -383,7 +383,7 @@ app.post("/api/public/prospects", parsePublicProspectJson, async (req, res) => {
   }
 
   const validation = validatePublicProspectSubmission(req.body);
-  if (!validation.ok) return res.status(400).json({ success: false, error: "Please correct the highlighted requirements fields.", fields: validation.fields });
+  if (validation.ok === false) return res.status(400).json({ success: false, error: "Please correct the highlighted requirements fields.", fields: validation.fields });
 
   try {
     const { value } = validation;

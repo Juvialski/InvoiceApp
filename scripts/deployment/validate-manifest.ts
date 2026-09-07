@@ -28,7 +28,7 @@ const filePath = path.resolve(process.cwd(), requestedFile);
 try {
   const input = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
   const result = validateDeploymentManifest(input);
-  if (!result.valid) {
+  if (result.valid === false) {
     console.error(JSON.stringify({ valid: false, file: filePath, errors: result.errors, warnings: result.warnings }, null, 2));
     process.exit(1);
   }
