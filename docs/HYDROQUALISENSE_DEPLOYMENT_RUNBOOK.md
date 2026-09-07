@@ -12,6 +12,26 @@ HydroQualiSense uses one maintained repository and one isolated operational depl
 
 The application keeps `company_id`, membership/RBAC, RLS, company-bound integrity, Storage paths, and audit boundaries as defense in depth. The public requirements form is not an operational workspace and cannot create a company, user, deployment, credential, or secret.
 
+## Public funnel deployment gate
+
+The public product/requirements funnel is **disabled by default** so merging shared product code does not replace an operational client's root application with a marketing surface or turn a client database into a prospect-intake database accidentally.
+
+A deployment intended to host the public funnel must be enabled deliberately at both layers:
+
+1. Set the non-secret build variable `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=true` for that platform/QA deployment and rebuild it.
+2. In that deployment's Supabase project, a privileged operator may enable prospect persistence only after confirming that the database is intended to receive prospective-client business contact data:
+
+```sql
+update private.public_prospect_funnel_configuration
+set enabled = true,
+    updated_at = now()
+where singleton = true;
+```
+
+Do not enable either switch on an operational client production deployment merely because the shared code contains the public funnel. Client production remains an authenticated operational application unless an explicit deployment decision says otherwise. If the browser switch is enabled while the database gate is still disabled, submissions fail closed and no prospect record is inserted.
+
+Before exposing the form broadly on the public internet, verify the hosting platform's reverse-proxy/client-IP behavior for the process-local rate limiter or replace it with an appropriate provider-level abuse-control mechanism.
+
 ## Inventory file
 
 Copy `deployment/inventory.template.json` into an operator-controlled inventory location that is private to the deployment team. Validate it before use:
