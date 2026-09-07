@@ -13,6 +13,26 @@ export interface LineItem {
   total: number | null;
 }
 
+export type SupplierDocumentOperationalMeaning = "FINANCIAL_ONLY" | "DELIVERY_EVIDENCE" | "BOTH" | "UNRESOLVED";
+export type PurchasedMaterialMatchStatus = "UNRESOLVED" | "SUGGESTED" | "CONFIRMED";
+
+/** Human-confirmed intake metadata kept with the preserved source invoice. */
+export interface PurchasedMaterialIntakeLine {
+  invoiceLineId: string;
+  purchaseOrderLineId?: string;
+  inventoryItemId?: string;
+  status: PurchasedMaterialMatchStatus;
+  quantity: number | null;
+  unit?: string | null;
+  note?: string;
+}
+
+export interface PurchasedMaterialIntake {
+  meaning: SupplierDocumentOperationalMeaning;
+  lines: PurchasedMaterialIntakeLine[];
+  procurementReceiptId?: string;
+}
+
 export interface TaxBreakdown {
   name: string;
   rate?: number | null;
@@ -236,6 +256,7 @@ export interface InvoiceData {
   customer: PartyDetails;
   shippingAddress?: PartyDetails;
   items: LineItem[];
+  purchasedMaterialIntake?: PurchasedMaterialIntake;
 
   subtotal: number | null;
   totalDiscount?: number | null;
@@ -773,6 +794,7 @@ export interface ProjectEquipment {
   id: string;
   companyId?: string;
   projectId: string;
+  canonicalEquipmentId?: string | null;
   assetReference?: string | null;
   equipmentName: string;
   equipmentType?: string | null;
@@ -1180,6 +1202,7 @@ export interface PurchaseOrderReceiptLine {
   companyId?: string;
   purchaseOrderReceiptId: string;
   purchaseOrderLineId: string;
+  inventoryItemId?: string | null;
   lineNumber: number;
   receivedQuantity: number;
   notes?: string | null;
@@ -1195,6 +1218,8 @@ export interface PurchaseOrderReceipt {
   receiptDate: string;
   supplierDeliveryReference?: string | null;
   notes?: string | null;
+  sourceDocumentId?: string | null;
+  sourceInvoiceId?: string | null;
   status: PurchaseOrderReceiptStatus;
   voidReason?: string | null;
   voidedByUserId?: string | null;
@@ -1204,6 +1229,45 @@ export interface PurchaseOrderReceipt {
   createdAt?: string;
   updatedAt?: string;
   lines?: PurchaseOrderReceiptLine[];
+}
+
+export type EquipmentSource = "OWNED" | "RENTED" | "SUBCONTRACTOR" | "OTHER";
+export type EquipmentLifecycleStatus = "AVAILABLE" | "MAINTENANCE" | "OUT_OF_SERVICE" | "RETIRED";
+export type EquipmentCurrentState = EquipmentLifecycleStatus | "ASSIGNED";
+
+export interface Equipment {
+  id: string;
+  companyId?: string;
+  assetReference?: string | null;
+  equipmentName: string;
+  equipmentType?: string | null;
+  equipmentSource: EquipmentSource;
+  providerName?: string | null;
+  lifecycleStatus: EquipmentLifecycleStatus;
+  currentState?: EquipmentCurrentState;
+  currentAssignmentId?: string | null;
+  currentProjectId?: string | null;
+  currentAssignmentStart?: string | null;
+  notes?: string | null;
+  createdByUserId?: string | null;
+  updatedByUserId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EquipmentAssignment {
+  id: string;
+  companyId?: string;
+  equipmentId: string;
+  projectId: string;
+  assignmentStart: string;
+  assignmentEnd?: string | null;
+  assignedByUserId?: string | null;
+  returnedByUserId?: string | null;
+  notes?: string | null;
+  transferFromAssignmentId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type PurchaseOrderInvoiceMatchStatus = "CONFIRMED" | "UNMATCHED";

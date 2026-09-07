@@ -19,6 +19,7 @@ test("defines one predictable canonical route for every application destination"
     "projects",
     "procurement",
     "warehouse",
+    "equipment",
     "extract",
     "invoices",
     "payroll",

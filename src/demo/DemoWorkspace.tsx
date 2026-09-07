@@ -8,7 +8,7 @@ import type { DashboardActivityPeriod } from "../components/engineering/Engineer
 import type { AppTab } from "../utils/routes.ts";
 import type { AppLocation, ProjectWorkspaceView } from "../utils/appRouting.ts";
 import type { FinancialAccount, FinancialBalanceSnapshot, FinancialReconciliationCandidate, FinancialTransaction } from "../lib/cashBanking.ts";
-import type { AttendanceRecord, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, WorkEntry, Worker } from "../types.ts";
+import type { AttendanceRecord, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrderReceipt, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, WorkEntry, Worker } from "../types.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction, type ProjectLifecyclePreview } from "../lib/projects.ts";
@@ -31,8 +31,11 @@ import { buildLocalProjectEquipment, buildLocalProjectMaterial, type ProjectEqui
 import { createLocalExpense } from "../lib/expenses.ts";
 import { createLocalFinancialFxSnapshot, type FinancialFxSnapshotInput } from "../lib/financialFx.ts";
 import { buildLocalInventoryItem, recordInventoryMovementLocally, type InventoryItem, type InventoryItemSaveInput, type InventoryMovement, type InventoryMovementInput } from "../lib/inventory.ts";
+import { applyLocalEquipmentAssignment, applyLocalEquipmentReturn, applyLocalEquipmentTransfer, buildEquipmentWorkspaceFromProjectRegister, buildLocalEquipment, type EquipmentSaveInput } from "../lib/equipment.ts";
+import { calculateLineReceiptProgress } from "../utils/purchaseOrderReceipts.ts";
+import { supplierExpenseProjectProjection } from "../utils/supplierInvoiceCostOwnership.ts";
 
-const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
+const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
 function activeTabFor(location: DemoLocation): AppTab {
   if (location.kind === "documents") return "projects";
@@ -42,7 +45,7 @@ function activeTabFor(location: DemoLocation): AppTab {
 
 function safeAppLocation(location: DemoLocation): AppLocation | null {
   if (location.kind !== "app") return null;
-  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "procurement", "warehouse", "extractor", "inbox", "review", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
+  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extractor", "inbox", "review", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
   return allowed.has(location.appLocation.tab) ? location.appLocation : null;
 }
 
@@ -58,6 +61,10 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const activeTab = activeTabFor(location);
   const selectedProject = appLocation?.kind === "project" ? data.projects.find((project) => project.id === appLocation.projectId) || null : null;
   const selectedInvoice = appLocation && (appLocation.kind === "invoice" || appLocation.kind === "review-invoice") ? data.invoices.find((invoice) => invoice.id === appLocation.invoiceId) || null : null;
+  const demoEquipmentSeed = useMemo(() => buildEquipmentWorkspaceFromProjectRegister(data.equipment, DEMO_COMPANY_ID), [data.equipment]);
+  const [demoEquipmentRegistry, setDemoEquipmentRegistry] = useState<Equipment[]>(() => demoEquipmentSeed.equipment);
+  const [demoEquipmentAssignments, setDemoEquipmentAssignments] = useState<EquipmentAssignment[]>(() => demoEquipmentSeed.assignments);
+  useEffect(() => { setDemoEquipmentRegistry(demoEquipmentSeed.equipment); setDemoEquipmentAssignments(demoEquipmentSeed.assignments); }, [demoEquipmentSeed]);
   const routeNotFound = Boolean(appLocation && ((appLocation.kind === "project" && !selectedProject) || ((appLocation.kind === "invoice" || appLocation.kind === "review-invoice") && !selectedInvoice)));
   const summaries = useMemo(() => buildDemoProjectSummaries(data), [data]);
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
@@ -199,6 +206,42 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     dispatch({ type: "SAVE_EQUIPMENT", value });
   };
 
+  const saveCanonicalEquipment = async (input: EquipmentSaveInput): Promise<Equipment> => {
+    const existing = input.id ? demoEquipmentRegistry.find((item) => item.id === input.id) : undefined;
+    const value = buildLocalEquipment(input, existing, DEMO_COMPANY_ID, "demo-user-equipment");
+    setDemoEquipmentRegistry((current) => current.some((item) => item.id === value.id) ? current.map((item) => item.id === value.id ? { ...value, currentState: item.currentState, currentAssignmentId: item.currentAssignmentId, currentProjectId: item.currentProjectId, currentAssignmentStart: item.currentAssignmentStart } : item) : [value, ...current]);
+    return value;
+  };
+
+  const assignCanonicalEquipment = async (equipmentId: string, projectId: string, assignmentStart: string, notes?: string) => {
+    const result = applyLocalEquipmentAssignment(demoEquipmentRegistry, demoEquipmentAssignments, { equipmentId, projectId, assignmentStart, notes }, data.projects);
+    setDemoEquipmentRegistry((current) => current.map((item) => item.id === result.equipment.id ? result.equipment : item));
+    if (result.assignment) setDemoEquipmentAssignments((current) => [result.assignment!, ...current]);
+  };
+
+  const transferCanonicalEquipment = async (equipmentId: string, projectId: string, assignmentStart: string, notes?: string) => {
+    const previous = demoEquipmentAssignments.find((assignment) => assignment.equipmentId === equipmentId && !assignment.assignmentEnd);
+    const result = applyLocalEquipmentTransfer(demoEquipmentRegistry, demoEquipmentAssignments, { equipmentId, projectId, assignmentStart, notes }, data.projects);
+    setDemoEquipmentRegistry((current) => current.map((item) => item.id === result.equipment.id ? result.equipment : item));
+    setDemoEquipmentAssignments((current) => [result.assignment!, ...current.map((assignment) => assignment.id === previous?.id ? { ...assignment, assignmentEnd: assignmentStart } : assignment)]);
+  };
+
+  const returnCanonicalEquipment = async (equipmentId: string, assignmentEnd: string, notes?: string) => {
+    const result = applyLocalEquipmentReturn(demoEquipmentRegistry, demoEquipmentAssignments, equipmentId, assignmentEnd, notes);
+    setDemoEquipmentRegistry((current) => current.map((item) => item.id === result.equipment.id ? result.equipment : item));
+    if (result.assignment) setDemoEquipmentAssignments((current) => current.map((assignment) => assignment.id === result.assignment?.id ? result.assignment! : assignment));
+  };
+
+  const setCanonicalEquipmentLifecycle = async (equipmentId: string, status: EquipmentLifecycleStatus, reason: string) => {
+    const item = demoEquipmentRegistry.find((candidate) => candidate.id === equipmentId);
+    if (!item) throw new Error("Equipment is unavailable.");
+    const active = demoEquipmentAssignments.find((assignment) => assignment.equipmentId === equipmentId && !assignment.assignmentEnd);
+    if (status === "AVAILABLE" && active) throw new Error("Return or transfer the active assignment before making Equipment available.");
+    const date = data.anchorDate;
+    setDemoEquipmentRegistry((current) => current.map((candidate) => candidate.id === equipmentId ? { ...candidate, lifecycleStatus: status, currentState: status, currentAssignmentId: null, currentProjectId: null, currentAssignmentStart: null, notes: [candidate.notes, reason].filter(Boolean).join("\n") } : candidate));
+    if (active) setDemoEquipmentAssignments((current) => current.map((assignment) => assignment.id === active.id ? { ...assignment, assignmentEnd: date, notes: [assignment.notes, reason].filter(Boolean).join("\n") } : assignment));
+  };
+
   const saveInventoryItem = async (input: InventoryItemSaveInput): Promise<InventoryItem> => {
     const existing = input.id ? data.inventoryItems.find((item) => item.id === input.id) : undefined;
     const normalizedName = input.itemName.trim().toLowerCase();
@@ -220,11 +263,66 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       const purchaseOrder = (data.purchaseOrders || []).find((candidate) => candidate.id === receipt?.purchaseOrderId);
       const purchaseOrderLine = purchaseOrder?.lines?.find((line) => line.id === input.purchaseOrderLineId);
       const item = data.inventoryItems.find((candidate) => candidate.id === input.inventoryItemId);
-      if (!receiptLine || !purchaseOrderLine || !item || item.stockUnit.trim().toLowerCase() !== purchaseOrderLine.unit.trim().toLowerCase() || Number(input.quantity) !== receiptLine.receivedQuantity) throw new Error("The selected procurement receipt line must match an active canonical item and exact quantity.");
+      if (!receiptLine || !purchaseOrderLine || !item || (receiptLine.inventoryItemId && receiptLine.inventoryItemId !== input.inventoryItemId) || item.stockUnit.trim().toLowerCase() !== purchaseOrderLine.unit.trim().toLowerCase() || Number(input.quantity) !== receiptLine.receivedQuantity) throw new Error("The selected procurement receipt line must match an active canonical item and exact quantity.");
     }
     const value = recordInventoryMovementLocally(input, data.inventoryItems, data.inventoryMovements, { companyId: DEMO_COMPANY_ID, actorUserId: "demo-user-warehouse", now: demoTimestamp(data.anchorDate, 18, 0) });
     dispatch({ type: "RECORD_INVENTORY_MOVEMENT", value });
     return value;
+  };
+
+  const recordReceipt = async (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
+  ): Promise<void> => {
+    const purchaseOrder = (data.purchaseOrders || []).find((candidate) => candidate.id === receipt.purchaseOrderId);
+    if (!purchaseOrder) throw new Error("Purchase order not found in the demo workspace.");
+    if (purchaseOrder.status !== "ISSUED") throw new Error(`Receipts can only be recorded against ISSUED purchase orders (current status: ${purchaseOrder.status}).`);
+    const filteredLines = lines.filter((line) => Number(line.receivedQuantity) > 0);
+    if (filteredLines.length === 0) throw new Error("Receipt must contain at least one line with positive received quantity.");
+    for (const inputLine of filteredLines) {
+      const purchaseOrderLine = (purchaseOrder.lines || []).find((line) => line.id === inputLine.purchaseOrderLineId);
+      if (!purchaseOrderLine) throw new Error("Purchase order line not found on order.");
+      const progress = calculateLineReceiptProgress(purchaseOrderLine, data.purchaseOrderReceipts || []);
+      if (Number(inputLine.receivedQuantity) > progress.remainingQuantity) throw new Error(`Over-receipt is not permitted: ordered ${progress.orderedQuantity}, previously received ${progress.receivedQuantity}, attempting to receive ${inputLine.receivedQuantity}.`);
+      if (inputLine.inventoryItemId) {
+        const item = data.inventoryItems.find((candidate) => candidate.id === inputLine.inventoryItemId);
+        if (!item || item.stockUnit.trim().toLowerCase() !== purchaseOrderLine.unit.trim().toLowerCase()) throw new Error("Each receipt line must use an active canonical item with the exact purchase-order unit.");
+      }
+    }
+    const now = demoTimestamp(data.anchorDate, 18, 10);
+    const receiptId = receipt.id || `demo-po-receipt-${Date.now()}`;
+    const saved: PurchaseOrderReceipt = {
+      id: receiptId,
+      companyId: DEMO_COMPANY_ID,
+      purchaseOrderId: receipt.purchaseOrderId,
+      receiptNumber: receipt.receiptNumber.trim().toUpperCase(),
+      receiptDate: receipt.receiptDate || data.anchorDate,
+      supplierDeliveryReference: receipt.supplierDeliveryReference?.trim() || null,
+      notes: receipt.notes?.trim() || null,
+      sourceDocumentId: receipt.sourceDocumentId || null,
+      sourceInvoiceId: receipt.sourceInvoiceId || null,
+      status: "RECEIVED",
+      voidReason: null,
+      voidedByUserId: null,
+      voidedAt: null,
+      createdByUserId: "demo-user-procurement",
+      updatedByUserId: "demo-user-procurement",
+      createdAt: now,
+      updatedAt: now,
+      lines: filteredLines.map((line, index) => ({
+        id: `${receiptId}-line-${index + 1}`,
+        companyId: DEMO_COMPANY_ID,
+        purchaseOrderReceiptId: receiptId,
+        purchaseOrderLineId: line.purchaseOrderLineId,
+        inventoryItemId: line.inventoryItemId || null,
+        lineNumber: index + 1,
+        receivedQuantity: Number(line.receivedQuantity),
+        notes: line.notes?.trim() || null,
+        createdAt: now,
+        updatedAt: now,
+    })),
+    };
+    dispatch({ type: "SAVE_RECEIPT", value: saved });
   };
 
   const reverseInventoryMovement = async (movementId: string, reason: string, idempotencyKey: string): Promise<InventoryMovement> => {
@@ -389,7 +487,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const verifyInvoice = async (invoice: InvoiceData) => {
     const existingExpense = data.expenses.find((expense) => expense.supplierInvoiceId === invoice.id && expense.status !== "VOID");
     const allocation = data.invoiceAllocations.filter((item) => item.invoiceId === invoice.id);
-    const projectId = allocation.length === 1 ? allocation[0]?.projectId : undefined;
+    const projection = supplierExpenseProjectProjection({ ...invoice, allocations: allocation });
+    const projectId = projection.projectId;
     const linkedExpense = existingExpense || createLocalExpense({
       projectId,
       projectCostCodeId: allocation.length === 1 ? allocation[0]?.projectCostCodeId : undefined,
@@ -457,6 +556,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             costCodes={data.costCodes || []}
             materials={data.materials}
             equipment={data.equipment}
+            equipmentRegistry={demoEquipmentRegistry}
+            equipmentAssignments={demoEquipmentAssignments}
             inventoryItems={data.inventoryItems}
             inventoryMovements={data.inventoryMovements}
             purchaseOrders={data.purchaseOrders || []}
@@ -489,7 +590,13 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onDailySiteLogsDataChange={(value) => dispatch({ type: "SAVE_DAILY_SITE_LOGS", value })}
             onSaveMaterial={saveProjectMaterial}
             onSaveEquipment={saveProjectEquipment}
+            onSaveCanonicalEquipment={saveCanonicalEquipment}
+            onAssignCanonicalEquipment={assignCanonicalEquipment}
+            onTransferCanonicalEquipment={transferCanonicalEquipment}
+            onReturnCanonicalEquipment={returnCanonicalEquipment}
+            onSetCanonicalEquipmentLifecycle={setCanonicalEquipmentLifecycle}
             onSaveInventoryItem={saveInventoryItem}
+            onRecordReceipt={recordReceipt}
             onRecordInventoryMovement={recordInventoryMovement}
             onReverseInventoryMovement={reverseInventoryMovement}
             pathForSiteLog={(siteLogId) => selectedProject ? demoPathForProject(selectedProject.id, "site-logs", siteLogId ? { siteLogId } : undefined) : demoPathForTab("projects")}
@@ -520,6 +627,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             invoices={data.invoices}
             selectedInvoice={selectedInvoice}
             invoiceProjectAllocations={data.invoiceAllocations}
+            expenseInvoiceProjectAllocations={data.invoiceAllocations}
             onSaveInvoiceProjectAllocations={saveInvoiceAllocations}
             reviewQueue={reviewQueue}
             reviewIndex={selectedInvoice ? reviewQueue.findIndex((invoice) => invoice.id === selectedInvoice.id) : -1}

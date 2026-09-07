@@ -29,6 +29,7 @@ import { useAppPermissions } from "../AppPermissionContext.tsx";
 import { FinancialCorrectionDialog } from "../../components/financial/FinancialCorrectionDialog.tsx";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
+import type { InventoryItem } from "../../lib/inventory.ts";
 
 export interface InvoicesRouteProps {
   selectedInvoice?: InvoiceData | null;
@@ -80,6 +81,11 @@ export interface InvoicesRouteProps {
   purchaseOrders?: PurchaseOrder[];
   purchaseOrderReceipts?: PurchaseOrderReceipt[];
   purchaseOrderMatches?: PurchaseOrderInvoiceMatch[];
+  inventoryItems?: readonly InventoryItem[];
+  onRecordReceipt?: (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
+  ) => Promise<void>;
   onConfirmPurchaseOrderMatch?: (
     poId: string,
     lines: Array<{
@@ -146,6 +152,8 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   purchaseOrders,
   purchaseOrderReceipts,
   purchaseOrderMatches,
+  inventoryItems = [],
+  onRecordReceipt,
   onConfirmPurchaseOrderMatch,
   onUnmatchPurchaseOrderMatch,
   onOpenPurchaseOrder,
@@ -255,6 +263,8 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           purchaseOrders={purchaseOrders}
           purchaseOrderReceipts={purchaseOrderReceipts}
           purchaseOrderMatches={purchaseOrderMatches}
+          inventoryItems={inventoryItems}
+          onRecordReceipt={onRecordReceipt}
           onConfirmPurchaseOrderMatch={onConfirmPurchaseOrderMatch}
           onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
           onOpenPurchaseOrder={onOpenPurchaseOrder}

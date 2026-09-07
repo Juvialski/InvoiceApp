@@ -942,6 +942,7 @@ function comparableSnapshot(invoice: InvoiceData) {
     vendor: invoice.vendor,
     customer: invoice.customer,
     items: invoice.items,
+    purchasedMaterialIntake: invoice.purchasedMaterialIntake,
     subtotal: invoice.subtotal,
     totalDiscount: invoice.totalDiscount,
     totalTax: invoice.totalTax,

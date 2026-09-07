@@ -19,6 +19,7 @@ import type {
   ProjectEquipment,
   ProjectMaterial,
   ProjectWorkerAssignment,
+  PurchaseOrderReceipt,
   Subcontract,
   SubcontractProgressClaim,
   SubcontractProgressClaimStatus,
@@ -38,6 +39,7 @@ import { applyLocalClientCollectionRecord, applyLocalClientCollectionReverse, ty
 import { applySubcontractTransition } from "../lib/subcontracts.ts";
 import { applySubcontractClaimTransition } from "../lib/subcontractClaims.ts";
 import { applySubcontractVariationTransition } from "../lib/subcontractVariations.ts";
+import { supplierExpenseProjectProjection } from "../utils/supplierInvoiceCostOwnership.ts";
 
 export type DemoWorkspaceMutation =
   | { type: "SAVE_PROJECT"; value: Project }
@@ -88,7 +90,8 @@ export type DemoWorkspaceMutation =
   | { type: "SAVE_MATERIAL"; value: ProjectMaterial }
   | { type: "SAVE_EQUIPMENT"; value: ProjectEquipment }
   | { type: "SAVE_INVENTORY_ITEM"; value: InventoryItem }
-  | { type: "RECORD_INVENTORY_MOVEMENT"; value: InventoryMovement };
+  | { type: "RECORD_INVENTORY_MOVEMENT"; value: InventoryMovement }
+  | { type: "SAVE_RECEIPT"; value: PurchaseOrderReceipt };
 
 function upsert<T extends { id: string }>(items: readonly T[], value: T): T[] {
   const found = items.some((item) => item.id === value.id);
@@ -168,8 +171,17 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       const value = mutation.action === "VOID" ? { ...expense, status: "VOID" as const, voidedAt: updatedAt, voidReason: mutation.reason || "Confirmed expense void", updatedAt } : mutation.action === "ARCHIVE" ? { ...expense, archivedAt: expense.archivedAt || updatedAt, updatedAt } : { ...expense, archivedAt: undefined, updatedAt };
       return { ...state, expenses: state.expenses.map((candidate) => candidate.id === mutation.id ? value : candidate) };
     }
-    case "SAVE_INVOICE_ALLOCATIONS":
-      return { ...state, invoiceAllocations: [...state.invoiceAllocations.filter((allocation) => allocation.invoiceId !== mutation.invoiceId), ...mutation.value] };
+    case "SAVE_INVOICE_ALLOCATIONS": {
+      const invoice = state.invoices.find((candidate) => candidate.id === mutation.invoiceId);
+      const projection = invoice ? supplierExpenseProjectProjection({ ...invoice, allocations: mutation.value }) : { positiveAllocationCount: 0 };
+      return {
+        ...state,
+        invoiceAllocations: [...state.invoiceAllocations.filter((allocation) => allocation.invoiceId !== mutation.invoiceId), ...mutation.value],
+        expenses: state.expenses.map((expense) => expense.supplierInvoiceId === mutation.invoiceId && expense.status !== "VOID"
+          ? { ...expense, projectId: projection.projectId, projectCostCodeId: projection.projectCostCodeId }
+          : expense),
+      };
+    }
     case "SAVE_EXPENSE":
       return { ...state, expenses: upsert(state.expenses, mutation.value) };
     case "SAVE_FINANCIAL_FX_SNAPSHOT":
@@ -441,6 +453,8 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
       return { ...state, inventoryItems: upsert(state.inventoryItems, mutation.value) };
     case "RECORD_INVENTORY_MOVEMENT":
       return { ...state, inventoryMovements: upsert(state.inventoryMovements, mutation.value) };
+    case "SAVE_RECEIPT":
+      return { ...state, purchaseOrderReceipts: upsert(state.purchaseOrderReceipts || [], mutation.value) };
     default:
       return state;
   }

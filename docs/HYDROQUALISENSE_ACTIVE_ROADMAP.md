@@ -1,8 +1,8 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — R5 COMPLETE, WAREHOUSE NEXT**  
+Status: **ACTIVE — R5 COMPLETE, WAREHOUSE CORE COMPLETE, POST-WAREHOUSE INTEGRATION CURRENT**
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-06**  
+Last updated: **2026-09-07**
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`
@@ -15,7 +15,8 @@ This file is the authoritative forward roadmap. Live repository state and `AGENT
 - **R5 Cross-Module Integration & Data-Contract Hardening is complete in PR #95.**
 - The reviewed R5 runtime head passed Application Validation, Database Migration & Invariant Tests, Workflow Map Consistency, and Demo Visual QA before this documentation-only follow-up.
 - R5 closed the known canonical Vendor split and hardened supplier verification, supplier-derived Expense integrity, issued-document sending, extraction uncertainty, source/receipt idempotency, backup registration, AI/Gmail resource limits, actor integrity, RBAC/RLS/RPC parity, and final database security inventory coverage.
-- The next operational domain is **Warehouse Inventory & Project Allocation** unless explicitly reprioritized.
+- **Warehouse Inventory & Project Allocation is complete in merged PR #96** at the current green `main` baseline.
+- The current focused phase carries Warehouse authority into adjacent workflows: supplier allocation/Expense reconciliation, reviewed purchased-material intake into existing Procurement receipts, and canonical Equipment assignment authority.
 - The repository is the shared product codebase; production remains **one isolated deployment per client company**, with a separate Render service and Supabase project per client. See the client deployment strategy document.
 
 Core rules remain:
@@ -89,9 +90,9 @@ Key outcomes:
 
 Known external limitation: a real Gmail send still requires a connected Google account/OAuth consent and is not proven by CI alone.
 
-## NEXT — Warehouse Inventory & Project Allocation
+## COMPLETED — Warehouse Inventory & Project Allocation
 
-Status: **NEXT MAJOR OPERATIONAL DOMAIN**
+Status: **COMPLETE — PR #96, 2026-09-06**
 
 Minimum business need:
 
@@ -133,6 +134,35 @@ At minimum prove:
 7. inventory summaries reconcile to movement history.
 
 DB-affecting work requires clean local migration replay, pgTAP, upgrade-path tests, relevant runtime/concurrency tests, focused tests and exact-head CI.
+
+## CURRENT — Post-Warehouse Operational Integration
+
+Status: **IMPLEMENTED ON THE CURRENT FOCUSED BRANCH; PR/EXACT-HEAD CI PENDING**
+
+The Warehouse core remains the only stock authority. This follow-up connects adjacent evidence and operational workflows without creating a competing financial, procurement, inventory, or equipment master.
+
+### Supplier invoice allocation and linked Expense
+
+- canonical positive `invoice_project_allocations` rows drive the project/cost-code convenience projection on an active supplier-linked Expense;
+- single-project, split-project, allocation removal, retry, and stale linked-Expense pointer repair are deterministic and company-bound;
+- direct supplier Expense project drift is rejected, while reconciliation changes preserve amount, status, provenance, and correction history;
+- the existing supplier Expense is reused rather than creating a duplicate payable/Actual Cost record.
+
+### Reviewed purchased-material intake
+
+- source/extraction evidence is classified as financial-only, delivery evidence, both, or unresolved;
+- a human must confirm the existing PO line and exact-unit canonical Inventory Item before a receipt can be recorded;
+- partial quantities are retained on the existing Procurement receipt model;
+- source document/invoice provenance is persisted, and posting the receipt into Warehouse remains a separate explicit movement with the same confirmed item.
+
+### Canonical Equipment authority
+
+- company Equipment identity is held in a canonical registry, with deterministic legacy bridging only for uniquely identifiable records;
+- assign, transfer, return, lifecycle, actor, project-boundary, lock/recheck, and one-active-assignment controls are database-authoritative;
+- current Project/state is derived from lifecycle plus active assignment; field observations remain evidence and do not rewrite assignment history;
+- the Equipment route is permission-based and available in the isolated demo surface without becoming a production write path.
+
+Still intentionally undecided and out of scope for this phase: inventory valuation/FIFO, depreciation, reservations, serial/lot policy, reorder rules, barcode/QR policy, automatic receipt-to-stock posting, and broader accounting-period policy.
 
 ## Parallel post-R5 track — Public client funnel and deployment tooling
 
@@ -243,7 +273,7 @@ Old Engoryx planned/deferred phases are not implementation authority. Scheduling
 
 Unless explicitly reprioritized:
 
-1. **Warehouse Inventory & Project Allocation**
+1. **Post-Warehouse Operational Integration** — current focused phase: supplier allocation reconciliation, reviewed purchased-material intake, and canonical Equipment authority
 2. **Public client funnel + repeatable isolated deployment/provisioning tooling** — bounded parallel work allowed when independent
 3. **Worker Registration foundation**
 4. **Site Attendance state machine + device registration**

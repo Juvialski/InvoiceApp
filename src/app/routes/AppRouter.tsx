@@ -51,6 +51,9 @@ import type {
   Vendor,
   WorkEntry,
   Worker,
+  Equipment,
+  EquipmentAssignment,
+  EquipmentLifecycleStatus,
 } from "../../types";
 import type { ProjectDashboardViewData } from "../../utils/projectDashboardViewModel";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "../../utils/projectLaborCostAggregate.ts";
@@ -67,6 +70,7 @@ import type { EngineeringCoordinationWorkspaceData } from "../../lib/engineering
 import type { EngineeringDocumentsWorkspaceData } from "../../lib/engineeringDocuments.ts";
 import type { ProjectEquipmentSaveInput, ProjectMaterialSaveInput } from "../../lib/materialsEquipment.ts";
 import type { InventoryBalance, InventoryItem, InventoryMovement } from "../../lib/inventory.ts";
+import type { EquipmentSaveInput } from "../../lib/equipment.ts";
 import type { ProjectLifecycleAction, ProjectLifecyclePreview } from "../../lib/projects.ts";
 import type { SaveState } from "../../components/VerificationWorkspace";
 import type { ExtractPayload } from "../../components/UploadZone";
@@ -110,6 +114,7 @@ const CashBankingRoute = lazy(() => import("./CashBankingRoute"));
 const ProjectsRoute = lazy(() => import("./ProjectsRoute").then(({ ProjectsRoute }) => ({ default: ProjectsRoute })));
 const ProcurementRoute = lazy(() => import("./ProcurementRoute"));
 const WarehouseInventoryRoute = lazy(() => import("./WarehouseInventoryRoute").then(({ WarehouseInventoryRoute }) => ({ default: WarehouseInventoryRoute })));
+const EquipmentRoute = lazy(() => import("./EquipmentRoute").then(({ EquipmentRoute }) => ({ default: EquipmentRoute })));
 const InvoicesRoute = lazy(() => import("./InvoicesRoute"));
 const PayrollRoute = lazy(() => import("./PayrollRoute"));
 const ExpensesRoute = lazy(() => import("./ExpensesRoute"));
@@ -160,6 +165,8 @@ export interface AppRouterProps {
   inventoryItems?: InventoryItem[];
   inventoryMovements?: InventoryMovement[];
   inventoryBalances?: InventoryBalance[];
+  equipmentRegistry?: Equipment[];
+  equipmentAssignments?: EquipmentAssignment[];
   projectLaborAggregates?: readonly ProjectLaborCostAggregate[];
   laborSource?: ProjectLaborSource;
   projectFormSeed?: Project | null;
@@ -177,6 +184,11 @@ export interface AppRouterProps {
   onDailySiteLogsDataChange?: (data: EngineeringDailySiteLogsWorkspaceData) => void;
   onSaveMaterial?: (input: ProjectMaterialSaveInput) => Promise<void>;
   onSaveEquipment?: (input: ProjectEquipmentSaveInput) => Promise<void>;
+  onSaveCanonicalEquipment?: (input: EquipmentSaveInput) => Promise<Equipment>;
+  onAssignCanonicalEquipment?: (equipmentId: string, projectId: string, assignmentStart: string, notes?: string) => Promise<void>;
+  onTransferCanonicalEquipment?: (equipmentId: string, projectId: string, assignmentStart: string, notes?: string) => Promise<void>;
+  onReturnCanonicalEquipment?: (equipmentId: string, assignmentEnd: string, notes?: string) => Promise<void>;
+  onSetCanonicalEquipmentLifecycle?: (equipmentId: string, status: EquipmentLifecycleStatus, reason: string) => Promise<void>;
   onSaveInventoryItem?: (input: import("../../lib/inventory.ts").InventoryItemSaveInput) => Promise<InventoryItem>;
   onRecordInventoryMovement?: (input: import("../../lib/inventory.ts").InventoryMovementInput) => Promise<InventoryMovement>;
   onReverseInventoryMovement?: (movementId: string, reason: string, idempotencyKey: string) => Promise<InventoryMovement>;
@@ -335,6 +347,7 @@ export interface AppRouterProps {
   // Expenses Data & Handlers
   expenses: Expense[];
   supplierInvoicesForExpenses?: readonly InvoiceData[];
+  expenseInvoiceProjectAllocations?: readonly InvoiceProjectAllocation[];
   expensePurchaseOrders?: readonly PurchaseOrder[];
   expenseVendors?: readonly Vendor[];
   expenseFormContext?: string | null;
@@ -381,7 +394,7 @@ export interface AppRouterProps {
   onDeleteSubcontractVariation?: (id: string) => Promise<void>;
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
-    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
   ) => Promise<void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
@@ -459,6 +472,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   inventoryItems = [],
   inventoryMovements = [],
   inventoryBalances,
+  equipmentRegistry = [],
+  equipmentAssignments = [],
   purchaseOrders = [],
   subcontracts = [],
   subcontractClaims = [],
@@ -512,6 +527,11 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onDailySiteLogsDataChange,
   onSaveMaterial,
   onSaveEquipment,
+  onSaveCanonicalEquipment,
+  onAssignCanonicalEquipment,
+  onTransferCanonicalEquipment,
+  onReturnCanonicalEquipment,
+  onSetCanonicalEquipmentLifecycle,
   onSaveInventoryItem,
   onRecordInventoryMovement,
   onReverseInventoryMovement,
@@ -633,6 +653,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onApplyFactoryReset,
   expenses,
   supplierInvoicesForExpenses = invoices,
+  expenseInvoiceProjectAllocations = invoiceProjectAllocations,
   expensePurchaseOrders = purchaseOrders,
   expenseVendors = vendors,
   expenseFormContext,
@@ -695,6 +716,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         purchaseOrders={purchaseOrders}
         purchaseOrderReceipts={receipts}
         purchaseOrderMatches={purchaseOrderMatches}
+        inventoryItems={inventoryItems}
+        onRecordReceipt={onRecordReceipt}
         onConfirmPurchaseOrderMatch={onConfirmPurchaseOrderMatch}
         onUnmatchPurchaseOrderMatch={onUnmatchPurchaseOrderMatch}
         onOpenPurchaseOrder={onOpenPurchaseOrder}
@@ -731,6 +754,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         costCodes={costCodes}
         materials={materials}
         equipment={equipment}
+        canonicalEquipment={equipmentRegistry}
+        equipmentAssignments={equipmentAssignments}
         inventoryItems={inventoryItems}
         inventoryMovements={inventoryMovements}
         inventoryBalances={inventoryBalances}
@@ -982,6 +1007,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         expenses={expenses}
         projects={projects}
         invoices={supplierInvoicesForExpenses}
+        projectAllocations={expenseInvoiceProjectAllocations}
         purchaseOrders={expensePurchaseOrders}
         vendors={expenseVendors}
         financialFxSnapshots={financialFxSnapshots}
@@ -1064,7 +1090,27 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     );
   }
 
-  // 10. Reports Route
+  // 10. Company Equipment Registry
+  if (routeTarget === "equipment") {
+    return lazyRoute(
+      <EquipmentRoute
+        equipment={equipmentRegistry}
+        assignments={equipmentAssignments}
+        projects={projects}
+        legacyEquipment={equipment}
+        siteLogsData={dailySiteLogsData}
+        guestMode={engineeringDocumentsGuestMode}
+        onOpenProject={onOpenProject}
+        onSave={onSaveCanonicalEquipment}
+        onAssign={onAssignCanonicalEquipment}
+        onTransfer={onTransferCanonicalEquipment}
+        onReturn={onReturnCanonicalEquipment}
+        onSetLifecycle={onSetCanonicalEquipmentLifecycle}
+      />,
+    );
+  }
+
+  // 11. Reports Route
   if (routeTarget === "reports") {
     return lazyRoute(
       <ReportsRoute

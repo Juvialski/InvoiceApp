@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — R5 COMPLETE / WAREHOUSE NEXT**  
-Date: **2026-09-06**  
+Status: **CURRENT — POST-WAREHOUSE OPERATIONAL INTEGRATION**
+Date: **2026-09-07**
 Repository: `Juvialski/InvoiceApp`
 
 Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, and `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`. Live repository state remains authoritative if anything here becomes stale.
@@ -11,6 +11,8 @@ Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUAL
 - `main` before PR #95: `fe4506b2658ed85a0d916921e0a17c444ad92a89`.
 - R4 is complete through PR #94.
 - R5 implementation is complete in **PR #95 — `feat: R5 cross-module integration and data-contract hardening`**.
+- Warehouse Inventory & Project Allocation is complete in merged **PR #96**; current green `main` is `4cf644eef681000de607fa0177e108ade03941d8`.
+- The focused follow-up branch implements supplier allocation reconciliation, reviewed purchased-material intake, and canonical Equipment authority; its exact-head PR/CI is still pending.
 - The reviewed R5 runtime head was `c3aafe5fd528e4feebe62c785548b4c3d7dec46e` before the documentation-only follow-up commits.
 - That runtime head passed all four protected workflows: Application Validation, Database Migrations & Upgrade Suite, Demo Visual QA, and Workflow Map/Graph consistency.
 - Database CI exercised static migration checks, isolated local Supabase startup, clean migration replay, pgTAP assertions, and upgrade-path migration tests.
@@ -70,27 +72,23 @@ Known external limitation: a real Gmail send still requires a connected Google a
 - backup race recovery checks exact manifest identity;
 - restore drills use isolated server-generated targets rather than caller-controlled paths.
 
-## Next implementation phase — Warehouse Inventory & Project Allocation
+## Current implementation phase — Post-Warehouse Operational Integration
 
-Warehouse Inventory is now the next major operational domain unless explicitly reprioritized.
+This phase preserves PR #96 as the Warehouse source of truth while closing the adjacent operational seams that presentation and client workflows require.
 
 Primary invariant:
 
 > **Current stock must be explainable from authoritative movements or an equally rigorous source model.**
 
-Minimum scope direction:
+Delivered scope direction:
 
-- stock/items currently available;
-- receipts/opening/additions as traceable movements;
-- issues/allocations to projects;
-- returns/corrections as auditable movements;
-- project material usage visibility;
-- no destructive balance editing;
-- company/RBAC/RLS protection;
-- concurrency/idempotency for consequential movements;
-- procurement/delivery linkage without duplicate stock or financial truth.
+- supplier invoice allocations reconcile the linked supplier Expense projection and prevent duplicate Expense truth;
+- source/extraction evidence enters a human-reviewed purchased-material intake, then the existing Procurement receipt with source/invoice and canonical item provenance;
+- partial receipt quantities remain explicit, and Warehouse posting remains a separate exact-item movement;
+- the company Equipment Registry is canonical, with guarded assign/transfer/return/lifecycle operations, auditable history, current-state derivation, RLS, permissions, and concurrency protection;
+- existing project Equipment rows and Daily Site Log observations remain preserved as legacy/evidence context rather than becoming competing authority.
 
-Do not invent warehouse count, valuation method, reservation semantics, serial/lot policy, reorder policy, barcode/QR rules, purchase-receipt automation or adjustment authority until the client rules are explicit.
+Still undecided and intentionally excluded: inventory valuation/FIFO, depreciation, reservation semantics, serial/lot policy, reorder policy, barcode/QR rules, automatic receipt-to-stock posting, and broader accounting-period policy.
 
 ## Parallel post-R5 productization track
 
@@ -155,7 +153,7 @@ For the next implementation session:
 3. read `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 4. read `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
 5. read this handoff and client deployment strategy;
-6. start Warehouse work from the latest green merged `main`;
+6. continue the post-Warehouse integration from the latest green merged `main` and inspect the exact branch/PR head;
 7. generate one bounded `agent:context` packet;
 8. inspect current materials/procurement/project-cost implementation before designing inventory contracts;
 9. use Docker/local Supabase for inventory migrations/RLS/RPC/trigger/concurrency work;

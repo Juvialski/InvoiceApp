@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ClipboardList, Cog, Edit3, Package, Plus, ShieldAlert, Truck, Warehouse as WarehouseIcon, X } from "lucide-react";
-import type { Project, ProjectCostCode, ProjectEquipment, ProjectMaterial, PurchaseOrder, PurchaseOrderReceipt, Vendor } from "../../types.ts";
+import type { Equipment, EquipmentAssignment, Project, ProjectCostCode, ProjectEquipment, ProjectMaterial, PurchaseOrder, PurchaseOrderReceipt, Vendor } from "../../types.ts";
 import { emptyDailySiteLogsWorkspaceData, scopeDailySiteLogsToProject, type EngineeringDailySiteLogsWorkspaceData } from "../../lib/dailySiteLogs.ts";
 import { useDailySiteLogsController } from "../../features/engineering/useDailySiteLogsController.ts";
 import {
@@ -174,6 +174,8 @@ export interface ProjectMaterialsEquipmentProps {
   project: Project;
   materials?: readonly ProjectMaterial[];
   equipment?: readonly ProjectEquipment[];
+  canonicalEquipment?: readonly Equipment[];
+  equipmentAssignments?: readonly EquipmentAssignment[];
   inventoryItems?: readonly InventoryItem[];
   inventoryMovements?: readonly InventoryMovement[];
   inventoryBalances?: readonly InventoryBalance[];
@@ -197,6 +199,8 @@ export const ProjectMaterialsEquipment: React.FC<ProjectMaterialsEquipmentProps>
   project,
   materials = [],
   equipment = [],
+  canonicalEquipment = [],
+  equipmentAssignments = [],
   inventoryItems = [],
   inventoryMovements = [],
   inventoryBalances,
@@ -246,6 +250,7 @@ export const ProjectMaterialsEquipment: React.FC<ProjectMaterialsEquipmentProps>
   const needle = query.trim().toLowerCase();
   const filteredMaterials = materialViews.filter((item) => !needle || `${item.material.materialName} ${item.material.referenceCode || ""} ${item.material.category || ""} ${item.procurement.poNumber || ""}`.toLowerCase().includes(needle));
   const filteredEquipment = equipmentViews.filter((item) => !needle || `${item.equipment.equipmentName} ${item.equipment.assetReference || ""} ${item.equipment.equipmentType || ""} ${item.equipment.equipmentSource}`.toLowerCase().includes(needle));
+  const formalEquipment = canonicalEquipment.filter((item) => equipmentAssignments.some((assignment) => assignment.equipmentId === item.id && assignment.projectId === project.id && !assignment.assignmentEnd)).filter((item) => !needle || `${item.equipmentName} ${item.assetReference || ""} ${item.equipmentType || ""}`.toLowerCase().includes(needle));
 
   const saveMaterial = async (input: MaterialForm) => {
     if (!onSaveMaterial) throw new Error("Material editing is not available in this workspace.");
@@ -271,6 +276,8 @@ export const ProjectMaterialsEquipment: React.FC<ProjectMaterialsEquipmentProps>
         <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4"><Cog className="h-5 w-5 text-orange-600" /><p className="mt-3 text-2xl font-black text-orange-950">{equipmentViews.length}</p><p className="mt-1 text-[10px] font-black uppercase tracking-[0.1em] text-orange-700">Registered equipment</p></div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><Truck className="h-5 w-5 text-slate-600" /><p className="mt-3 text-2xl font-black text-slate-950">{siteLogsLoading ? "Loading" : canReadSiteLogs ? equipmentViews.reduce((sum, item) => sum + item.evidence.observationCount, 0) : "Restricted"}</p><p className="mt-1 text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">Linked field observations</p></div>
       </div>
+
+      {view === "equipment" && <section className="rounded-2xl border border-orange-100 bg-orange-50/60 p-4"><div className="flex items-start gap-2"><Cog className="mt-0.5 h-4 w-4 shrink-0 text-orange-700" /><div><p className="text-xs font-black text-orange-950">Formal Equipment assigned here</p><p className="mt-1 text-[10px] leading-4 text-orange-900">These rows reference the company Equipment Registry. This Project is the current operational context, not the owner of the canonical asset.</p></div></div>{formalEquipment.length ? <div className="mt-3 grid gap-2 sm:grid-cols-2">{formalEquipment.map((item) => <div key={item.id} className="rounded-xl border border-orange-100 bg-white p-3"><p className="text-xs font-black text-slate-900">{item.assetReference || "No asset code"} · {item.equipmentName}</p><p className="mt-1 text-[10px] text-slate-600">{item.equipmentType || "Type not recorded"} · {item.equipmentSource} · Assigned {item.currentAssignmentStart || "date unavailable"}</p><p className="mt-1 text-[10px] font-semibold text-orange-800">Canonical Registry identity · assignment history preserved</p></div>)}</div> : <p className="mt-3 text-[10px] text-orange-900">No canonical Equipment is formally assigned to this Project. Existing project-register rows below remain preserved as historical/read-through data.</p>}</section>}
 
       <div className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-[180px_minmax(0,1fr)]"><div className="flex rounded-xl bg-slate-100 p-1"><button type="button" onClick={() => setView("materials")} className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-black ${view === "materials" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500"}`}><Package className="h-3.5 w-3.5" />Materials</button><button type="button" onClick={() => setView("equipment")} className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-xs font-black ${view === "equipment" ? "bg-white text-orange-700 shadow-sm" : "text-slate-500"}`}><Cog className="h-3.5 w-3.5" />Equipment</button></div><input aria-label="Search materials and equipment" className={`${inputClass} mt-0`} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={view === "materials" ? "Search material, category, PO…" : "Search equipment, reference, type…"} /></div>
 

@@ -91,6 +91,19 @@ const verifyWarehouseInventoryScreen: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyEquipmentRegistryScreen: QaScenarioAction = async (page) => {
+  const headingCount = await page.getByRole("heading", { name: "Equipment Registry", exact: true }).count();
+  const registryCount = await page.locator('[data-domain="equipment-registry"]').count();
+  const authorityCount = await page.locator("text=Assignment authority is separate from field evidence").count();
+  const historyButtons = await page.getByRole("button", { name: "History", exact: true }).count();
+  return [
+    { id: "equipment-heading-visible", passed: headingCount === 1, details: `equipment headings: ${headingCount}` },
+    { id: "equipment-registry-visible", passed: registryCount === 1, details: `equipment registry regions: ${registryCount}` },
+    { id: "equipment-authority-boundary-visible", passed: authorityCount === 1, details: `authority banners: ${authorityCount}` },
+    { id: "equipment-history-actions-visible", passed: historyButtons > 0, details: `history controls: ${historyButtons}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifyPortfolioDashboard: QaScenarioAction = async (page) => {
   const headingCount = await page.getByRole("heading", { name: "Portfolio Management", exact: true }).count();
   const totalsCount = await page.locator('[aria-label="Portfolio Financial Totals"]').count();
@@ -192,6 +205,7 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim and variation parity verified", viewport: QA_VIEWPORTS.desktop, action: verifyProcurementSubcontractParity }),
   defineQaScenario({ feature: "warehouse-inventory", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "warehouse ledger rendered", viewport: QA_VIEWPORTS.desktop, action: verifyWarehouseInventoryScreen }),
+  defineQaScenario({ feature: "equipment-registry", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "Equipment Registry rendered", viewport: QA_VIEWPORTS.desktop, action: verifyEquipmentRegistryScreen }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: "/demo/app/projects", interactionState: "project selected", viewport: QA_VIEWPORTS.desktop, action: openProjectFromDirectory }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "attention and engineering drilldowns verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectAttentionAndEngineering }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.desktop, action: verifyProjectFinancialControlDashboard }),

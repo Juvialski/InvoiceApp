@@ -7,11 +7,13 @@ import { getInvoiceWorkspaceMode } from "../utils/invoiceWorkspace";
 import { SupplierInvoiceReview } from "./SupplierInvoiceReview.tsx";
 import { SourceComparison } from "./SourceComparison";
 import { PurchaseOrderMatchSection } from "./invoices/PurchaseOrderMatchSection";
+import { PurchasedMaterialIntakePanel } from "./invoices/PurchasedMaterialIntakePanel.tsx";
 import { normalizedInvoiceAllocationAmount } from "../utils/projectCosting";
 import { validateInvoiceProjectAllocationSet } from "../utils/projectAllocations";
 import { suggestProjectMatches } from "../utils/projectMatching";
 import { listCompanyVendors } from "../lib/persistence";
 import { formatCostCodeOptionLabel, getSelectableCostCodes } from "../lib/projectCostCodes";
+import type { InventoryItem } from "../lib/inventory.ts";
 
 export type SaveState = "saved" | "saving" | "unsaved" | "error";
 
@@ -67,6 +69,11 @@ interface VerificationWorkspaceProps {
   onOpenPurchaseOrder?: (purchaseOrderId: string) => void;
   canReadProcurement?: boolean;
   canManageProcurement?: boolean;
+  inventoryItems?: readonly InventoryItem[];
+  onRecordReceipt?: (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
+  ) => Promise<void>;
 }
 
 interface ProjectAssignmentPanelProps {
@@ -143,6 +150,8 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   onOpenPurchaseOrder,
   canReadProcurement = true,
   canManageProcurement = true,
+  inventoryItems = [],
+  onRecordReceipt,
 }) => {
   const [loadedVendors, setLoadedVendors] = useState<Vendor[]>(vendors || []);
   const [mobilePane, setMobilePane] = useState<"details" | "source">("details");
@@ -170,7 +179,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   const extractionIncomplete = Boolean(quality?.requiresRetry || quality?.status === "NEEDS_REVIEW" || (!quality && ((!invoice.currency && invoice.grandTotal > 0) || (invoice.items.length === 0 && (invoice.subtotal > 0 || invoice.grandTotal > 0)))));
   const humanEdits = useMemo(() => {
     if (!invoice.aiSnapshot) return false;
-    const paths = ["invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "currency", "vendor", "customer", "items", "subtotal", "totalTax", "grandTotal", "balanceDue", "philippineTaxDetails"];
+    const paths = ["invoiceNumber", "invoiceDate", "dueDate", "purchaseOrderNumber", "projectReference", "currency", "vendor", "customer", "items", "subtotal", "totalTax", "grandTotal", "balanceDue", "philippineTaxDetails", "purchasedMaterialIntake"];
     return paths.some((path) => JSON.stringify(path.split(".").reduce((value: any, key) => value?.[key], invoice.aiSnapshot) ?? null) !== JSON.stringify(path.split(".").reduce((value: any, key) => value?.[key], invoice) ?? null));
   }, [invoice]);
   const verifiedCount = useMemo(() => queue.filter((item) => item.reviewStatus === "VERIFIED").length, [queue]);
@@ -307,6 +316,19 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
               onConfirmMatch={onConfirmPurchaseOrderMatch}
               onUnmatch={onUnmatchPurchaseOrderMatch}
               onOpenPurchaseOrder={onOpenPurchaseOrder}
+            />
+          )}
+          {canReadProcurement && (
+            <PurchasedMaterialIntakePanel
+              invoice={invoice}
+              inventoryItems={inventoryItems}
+              purchaseOrders={purchaseOrders}
+              receipts={purchaseOrderReceipts}
+              matches={purchaseOrderMatches}
+              readOnly={invoice.lifecycleStatus === "VOID"}
+              canManage={canManageProcurement && invoice.lifecycleStatus !== "VOID"}
+              onUpdateInvoice={handleInvoiceUpdate}
+              onRecordReceipt={onRecordReceipt}
             />
           )}
           <SupplierInvoiceReview

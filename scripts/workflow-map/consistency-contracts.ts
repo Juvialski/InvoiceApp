@@ -107,6 +107,7 @@ export const WORKFLOW_ROUTE_CONTRACT_IDS: Readonly<Record<string, string>> = Obj
   "route-dashboard": "dashboard",
   "route-cash": "cash",
   "route-warehouse-inventory": "warehouse",
+  "route-equipment-registry": "equipment",
   "route-projects": "projects",
   "route-project-workspace": "project-workspace",
   "route-project-documents": "project-documents",

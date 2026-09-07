@@ -2938,6 +2938,30 @@ const p2Invariants: readonly WorkflowInvariant[] = [
     fileRefs: ["src/lib/inventory.ts", "src/components/inventory/WarehouseInventoryPage.tsx", "src/components/projects/ProjectMaterialsEquipment.tsx", "supabase/migrations/20260906104212_warehouse_inventory_project_allocation.sql", "supabase/migrations/20260906114550_warehouse_inventory_realtime.sql"],
     testRefs: ["tests/inventory.test.ts", "tests/inventoryMigration.test.ts", "tests/inventoryRuntime.test.ts", "supabase/tests/database/26_warehouse_inventory_project_allocation.test.sql"],
   }),
+  invariant({
+    id: "supplier-expense-projection-follows-invoice-allocation",
+    label: "Supplier Expense project projection follows canonical invoice allocation",
+    description: "An active supplier-linked Expense is a convenience projection of the invoice's canonical positive allocation rows. A single allocation projects its project and cost code; split or empty allocations remain explicit and do not create duplicate Expenses or rewrite financial amounts/history.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/utils/supplierInvoiceCostOwnership.ts", "src/utils/supplierExpenseWorkspace.ts", "src/App.tsx", "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "tests/r4SupplierExpenseBridge.test.ts", "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"],
+  }),
+  invariant({
+    id: "purchase-material-intake-is-reviewed-before-receipt",
+    label: "Purchased-material intake requires human confirmation before receipt",
+    description: "Source documents and extraction can suggest purchased materials, but only a human-confirmed exact-unit canonical Inventory Item, confirmed PO line, positive remaining quantity, and explicit Procurement receipt action may establish receipt provenance. Warehouse posting remains a separate explicit movement.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/purchasedMaterialIntake.ts", "src/components/invoices/PurchasedMaterialIntakePanel.tsx", "src/lib/purchaseOrderReceipts.ts", "src/components/inventory/WarehouseInventoryPage.tsx", "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "tests/purchaseOrderReceiptsDomain.test.ts", "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"],
+  }),
+  invariant({
+    id: "equipment-registry-assignment-is-single-active-history",
+    label: "Equipment uses one canonical registry and single-active assignment history",
+    description: "Company Equipment identity is canonical and separate from project register rows and field observations. Guarded assignment, transfer, return, and lifecycle operations lock and recheck the asset/project state so at most one active assignment exists while prior assignments remain auditable.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/equipment.ts", "src/components/equipment/EquipmentPage.tsx", "src/components/projects/ProjectMaterialsEquipment.tsx", "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "tests/postWarehouseRuntime.test.ts", "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"],
+  }),
 ] as const;
 
 const p2Nodes: readonly WorkflowNode[] = [
@@ -3530,6 +3554,108 @@ const p3Nodes: readonly WorkflowNode[] = [
   }),
 ] as const;
 
+const postWarehouseNodes: readonly WorkflowNode[] = [
+  node({
+    id: "supplier-invoice-expense-reconciliation",
+    label: "Supplier invoice allocation and Expense reconciliation",
+    domain: "finance",
+    type: "workflow",
+    scope: "company-and-project",
+    statusValues: ["UNALLOCATED", "SINGLE_PROJECT", "SPLIT_PROJECTS"],
+    description: "Canonical invoice_project_allocations determine the project/cost-code convenience projection on an active linked supplier Expense; allocation changes reconcile atomically and never create another Expense.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/utils/supplierInvoiceCostOwnership.ts", "src/utils/supplierExpenseWorkspace.ts", "src/App.tsx", "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "tests/r4SupplierExpenseBridge.test.ts", "tests/postWarehouseRuntime.test.ts", "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"],
+    permissionKeys: ["invoices.verify", "invoices.manage", "expenses.manage"],
+    invariantIds: ["company-rbac-is-authoritative", "supplier-expense-projection-follows-invoice-allocation", "financial-corrections-preserve-history"],
+    tags: ["supplier invoice", "linked Expense", "allocation reconciliation", "split allocation"],
+  }),
+  node({
+    id: "purchased-material-intake-review",
+    label: "Reviewed purchased-material intake",
+    domain: "procurement",
+    type: "workflow",
+    scope: "company-and-project",
+    statusValues: ["UNRESOLVED", "SUGGESTED", "CONFIRMED"],
+    description: "Human-reviewed source-document material meaning, exact-unit canonical item selection, confirmed PO line, and partial quantity are prepared before the existing Procurement receipt is recorded.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/purchasedMaterialIntake.ts", "src/components/invoices/PurchasedMaterialIntakePanel.tsx", "src/components/VerificationWorkspace.tsx", "src/lib/purchaseOrderReceipts.ts"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "tests/purchaseOrderReceiptsDomain.test.ts", "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"],
+    permissionKeys: ["procurement.read", "procurement.manage", "invoices.verify"],
+    confirmationRequirement: "human",
+    invariantIds: ["company-rbac-is-authoritative", "purchase-material-intake-is-reviewed-before-receipt", "field-operations-source-separation"],
+    tags: ["source document", "purchased material", "human review", "partial receipt", "exact unit"],
+  }),
+  node({
+    id: "route-equipment-registry",
+    label: "Equipment Registry route",
+    domain: "engineering",
+    type: "route",
+    scope: "global",
+    route: route({ routeId: "equipment", canonicalPath: "/equipment", pathPattern: "/equipment", scope: "production-and-demo" }),
+    description: "Company-level canonical Equipment Registry route with permission-based read/manage access and isolated demo rendering.",
+    sourceClassification: "code-derived",
+    fileRefs: ["src/utils/routes.ts", "src/navigation/navigationModel.ts", "src/app/routes/AppRouter.tsx", "src/app/routes/EquipmentRoute.tsx"],
+    testRefs: ["tests/navigationRoutes.test.ts", "tests/appRouting.test.ts", "tests/postWarehouseOperationalIntegration.test.ts"],
+    permissionKeys: ["equipment.read"],
+  }),
+  node({
+    id: "equipment-registry-workspace",
+    label: "Equipment Registry workspace",
+    domain: "engineering",
+    type: "screen",
+    scope: "global",
+    description: "Responsive canonical company Equipment view with current Project, field evidence, assignment history, lifecycle controls, and guarded assign/transfer/return actions.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/components/equipment/EquipmentPage.tsx", "src/lib/equipment.ts", "src/app/routes/EquipmentRoute.tsx", "src/App.tsx"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "tests/postWarehouseRuntime.test.ts"],
+    permissionKeys: ["equipment.read", "equipment.manage", "engineering.sitelogs.read"],
+    invariantIds: ["company-rbac-is-authoritative", "equipment-registry-assignment-is-single-active-history", "field-operations-source-separation"],
+  }),
+  node({
+    id: "canonical-equipment-registry",
+    label: "Canonical company Equipment Registry",
+    domain: "engineering",
+    type: "data",
+    scope: "company",
+    statusValues: ["AVAILABLE", "MAINTENANCE", "OUT_OF_SERVICE", "RETIRED"],
+    description: "Company-bound asset identity and lifecycle source, bridged deterministically from uniquely identifiable legacy project equipment without fuzzy merges.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/types.ts", "src/lib/equipment.ts", "src/lib/materialsEquipment.ts", "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"],
+    permissionKeys: ["equipment.read", "equipment.manage"],
+    invariantIds: ["company-rbac-is-authoritative", "equipment-registry-assignment-is-single-active-history"],
+  }),
+  node({
+    id: "equipment-assignment-history",
+    label: "Auditable Equipment assignment history",
+    domain: "engineering",
+    type: "workflow",
+    scope: "company-and-project",
+    statusValues: ["ASSIGNED", "RETURNED", "TRANSFERRED"],
+    description: "Assignment rows preserve Project, dates, actors, transfer lineage, and return history; a partial unique guard permits at most one active assignment per company asset.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/equipment.ts", "src/components/equipment/EquipmentPage.tsx", "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "tests/postWarehouseRuntime.test.ts", "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"],
+    permissionKeys: ["equipment.read", "equipment.manage"],
+    confirmationRequirement: "human",
+    invariantIds: ["company-rbac-is-authoritative", "equipment-registry-assignment-is-single-active-history", "formal-engineering-history-is-preserved"],
+  }),
+  node({
+    id: "equipment-current-state",
+    label: "Derived current Equipment state",
+    domain: "engineering",
+    type: "derived-data",
+    scope: "company",
+    description: "Current state and Project are derived from lifecycle status plus the active assignment, exposed through the guarded security-invoker view; it is not a second editable master.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/lib/equipment.ts", "src/components/equipment/EquipmentPage.tsx", "supabase/migrations/20260906132222_post_warehouse_operational_integration.sql"],
+    testRefs: ["tests/postWarehouseOperationalIntegration.test.ts", "supabase/tests/database/27_post_warehouse_operational_integration.test.sql"],
+    permissionKeys: ["equipment.read"],
+    invariantIds: ["equipment-registry-assignment-is-single-active-history"],
+  }),
+] as const;
+
 const p2Edges: readonly WorkflowEdge[] = [
   edge({ id: "p2-project-procurement", source: "project-cost-aggregation", target: "procurement-workspace", type: "links-to", kind: "context", label: "project procurement contributes commitment context" }),
   edge({ id: "p2-procurement-po", source: "procurement-workspace", target: "purchase-order-lifecycle", type: "contains", kind: "context", label: "procurement manages purchase orders" }),
@@ -3612,6 +3738,20 @@ const p3Edges: readonly WorkflowEdge[] = [
   edge({ id: "p2-parity-to-procurement", source: "production-p2-integration-parity", target: "procurement-workspace", type: "feeds", kind: "read-flow", label: "production Procurement register records and actions", permissionKeys: ["procurement.read"] }),
 ] as const;
 
+const postWarehouseEdges: readonly WorkflowEdge[] = [
+  edge({ id: "post-warehouse-invoice-to-expense-reconciliation", source: "invoice-project-allocation", target: "supplier-invoice-expense-reconciliation", type: "feeds", kind: "mutation", label: "canonical allocations reconcile linked supplier Expense", permissionKeys: ["invoices.verify", "invoices.manage"], invariantIds: ["supplier-expense-projection-follows-invoice-allocation"] }),
+  edge({ id: "post-warehouse-expense-reconciliation-to-cost", source: "supplier-invoice-expense-reconciliation", target: "project-cost-aggregation", type: "feeds", kind: "derived-data", label: "project attribution remains separate from amount/status history", invariantIds: ["supplier-expense-projection-follows-invoice-allocation", "invoice-project-cost-independent-from-settlement"] }),
+  edge({ id: "post-warehouse-invoice-to-material-intake", source: "invoice-human-verification", target: "purchased-material-intake-review", type: "opens", kind: "confirmation", label: "review source document for financial or delivery meaning", permissionKeys: ["invoices.verify", "procurement.read"], confirmationRequirement: "human", invariantIds: ["purchase-material-intake-is-reviewed-before-receipt"] }),
+  edge({ id: "post-warehouse-intake-to-po-receipt", source: "purchased-material-intake-review", target: "purchase-order-receipts", type: "writes", kind: "mutation", label: "records existing Procurement receipt with source and item provenance", permissionKeys: ["procurement.manage"], confirmationRequirement: "human", invariantIds: ["purchase-material-intake-is-reviewed-before-receipt", "field-operations-source-separation"] }),
+  edge({ id: "post-warehouse-receipt-to-ledger", source: "purchase-order-receipts", target: "inventory-movement-ledger", type: "executes-through", kind: "confirmation", label: "separate explicit Warehouse posting", permissionKeys: ["inventory.manage"], confirmationRequirement: "human", invariantIds: ["purchase-material-intake-is-reviewed-before-receipt", "inventory-stock-is-movement-derived"] }),
+  edge({ id: "post-warehouse-equipment-route-to-workspace", source: "route-equipment-registry", target: "equipment-registry-workspace", type: "routes-to", kind: "navigation", label: "opens company Equipment Registry", permissionKeys: ["equipment.read"] }),
+  edge({ id: "post-warehouse-equipment-workspace-to-registry", source: "equipment-registry-workspace", target: "canonical-equipment-registry", type: "reads", kind: "read-flow", label: "canonical asset identity and lifecycle", permissionKeys: ["equipment.read"], invariantIds: ["equipment-registry-assignment-is-single-active-history"] }),
+  edge({ id: "post-warehouse-equipment-workspace-to-assignments", source: "equipment-registry-workspace", target: "equipment-assignment-history", type: "executes-through", kind: "mutation", label: "guarded assign, transfer, return, and lifecycle actions", permissionKeys: ["equipment.manage"], confirmationRequirement: "human", invariantIds: ["company-rbac-is-authoritative", "equipment-registry-assignment-is-single-active-history"] }),
+  edge({ id: "post-warehouse-assignments-to-current-state", source: "equipment-assignment-history", target: "equipment-current-state", type: "derives", kind: "derived-data", label: "active assignment plus lifecycle derives current state", permissionKeys: ["equipment.read"], invariantIds: ["equipment-registry-assignment-is-single-active-history"] }),
+  edge({ id: "post-warehouse-equipment-current-to-workspace", source: "equipment-current-state", target: "equipment-registry-workspace", type: "feeds", kind: "derived-data", label: "current Project and lifecycle view", permissionKeys: ["equipment.read"] }),
+  edge({ id: "post-warehouse-field-evidence-separation", source: "equipment-registry-workspace", target: "equipment-field-usage-evidence", type: "reads", kind: "read-flow", label: "shows Daily Site Log observations without changing authority", permissionKeys: ["engineering.sitelogs.read"], invariantIds: ["field-operations-source-separation", "equipment-registry-assignment-is-single-active-history"] }),
+] as const;
+
 const diagrams = [
   {
     id: "overview",
@@ -3630,6 +3770,16 @@ const diagrams = [
     description: "Canonical company item master, append-only movement ledger, derived on-hand, explicit procurement provenance, project issues/returns, and history-preserving corrections.",
     nodeIds: [
       "route-warehouse-inventory", "warehouse-inventory-workspace", "inventory-item-master", "inventory-movement-ledger", "inventory-current-balance", "project-material-inventory-link", "project-material-register", "purchase-order-receipts", "project-correction-lifecycle", "project-cost-aggregation",
+    ],
+  },
+  {
+    id: "post-warehouse-operational-integration",
+    title: "Post-Warehouse operational integration flow",
+    description: "Canonical supplier allocation reconciliation, human-reviewed purchased-material intake into existing Procurement receipts, explicit Warehouse posting, and company Equipment authority with auditable assignment history.",
+    nodeIds: [
+      "route-invoices", "invoice-human-verification", "invoice-project-allocation", "supplier-invoice-expense-reconciliation", "project-cost-aggregation",
+      "purchased-material-intake-review", "purchase-order-receipts", "inventory-movement-ledger",
+      "route-equipment-registry", "equipment-registry-workspace", "canonical-equipment-registry", "equipment-assignment-history", "equipment-current-state", "equipment-field-usage-evidence",
     ],
   },
   {
@@ -3692,14 +3842,14 @@ const diagrams = [
 export const WORKFLOW_GRAPH: WorkflowGraph = {
   schemaVersion: WORKFLOW_MAP_SCHEMA_VERSION,
   graphId: "engoryx-product-workflow",
-  version: "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory",
+  version: "wm-1+p2-procurement-commercial-client-billing+p3a-project-financial-control+p3a3-p3d1+p3b-p3c-field-operations+p4-warehouse-inventory+p5-post-warehouse-operational-integration",
   product: "Engoryx Engineering Operations Platform",
   purpose: "A bounded, repository-native product workflow graph for human understanding, agent context, deterministic integrity checks, and future browser-evidence linkage.",
   canonicalSource: "scripts/workflow-map/graph.ts",
   sourceClassification: "mixed",
-  reviewedCommitSha: "d00986dda4bec2d1d5b4b8af058db5f3ee43b3fe",
-  reviewedAt: "2026-09-06",
-  phaseTags: ["Phase 0", "Phase 1A", "Phase 1B", "Phase 1C", "Core Hardening Wave 1", "Core Hardening Wave 2A", "Core Hardening Wave 2B2", "Cross-Domain Settlement", "P2 Procurement + Commercial", "P3A-2 Project Financial Control", "P3A-3 Explainable Project Attention", "P3B Materials & Equipment", "P3C Enhanced Daily Site Operations", "P3D-1 Engineering Coordination Integration", "P4 Warehouse Inventory & Project Allocation", "QA-1", "WM-1"],
+  reviewedCommitSha: "4cf644eef681000de607fa0177e108ade03941d8",
+  reviewedAt: "2026-09-07",
+  phaseTags: ["Phase 0", "Phase 1A", "Phase 1B", "Phase 1C", "Core Hardening Wave 1", "Core Hardening Wave 2A", "Core Hardening Wave 2B2", "Cross-Domain Settlement", "P2 Procurement + Commercial", "P3A-2 Project Financial Control", "P3A-3 Explainable Project Attention", "P3B Materials & Equipment", "P3C Enhanced Daily Site Operations", "P3D-1 Engineering Coordination Integration", "P4 Warehouse Inventory & Project Allocation", "P5 Post-Warehouse Operational Integration", "QA-1", "WM-1"],
   explorationInputs: [
     {
       tool: "GitDiagram",
@@ -3720,8 +3870,8 @@ export const WORKFLOW_GRAPH: WorkflowGraph = {
     },
   ],
   invariants: [...invariants, ...p2Invariants],
-  nodes: [...nodes, ...p2Nodes, ...p3Nodes],
-  edges: [...edges, ...p2Edges, ...p3Edges],
+  nodes: [...nodes, ...p2Nodes, ...p3Nodes, ...postWarehouseNodes],
+  edges: [...edges, ...p2Edges, ...p3Edges, ...postWarehouseEdges],
   diagrams,
 };
 

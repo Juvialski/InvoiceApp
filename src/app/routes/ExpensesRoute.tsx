@@ -1,7 +1,7 @@
 import React from "react";
 import { ExpensesPage } from "../../components/expenses/ExpensesPage";
 import { ConnectedExpenseReview } from "../../components/ConnectedExpenseReview.tsx";
-import type { Expense, FinancialFxSnapshot, InvoiceData, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../../types";
+import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, Vendor } from "../../types";
 import type { FinancialFxSnapshotInput } from "../../lib/financialFx.ts";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
@@ -11,6 +11,7 @@ export interface ExpensesRouteProps {
   expenses: Expense[];
   projects: Project[];
   invoices?: readonly InvoiceData[];
+  projectAllocations?: readonly InvoiceProjectAllocation[];
   purchaseOrders?: readonly PurchaseOrder[];
   vendors?: readonly Vendor[];
   costCodes?: ProjectCostCode[];
