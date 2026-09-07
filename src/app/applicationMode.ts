@@ -65,15 +65,21 @@ export function isPublicFunnelApplicationPath(
   return !isPasswordRecoveryPath(normalized, search, hash);
 }
 
+function publicFunnelEnabledFromBuildEnv(): boolean {
+  const env = (import.meta as ImportMeta & { env?: Record<string, unknown> }).env;
+  const value = env?.VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED;
+  return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
+}
+
 export function applicationModeForPath(
   pathname: string | null | undefined,
   search?: string | null,
   hash?: string | null,
+  publicFunnelEnabled = publicFunnelEnabledFromBuildEnv(),
 ): ApplicationMode {
   if (isWorkflowMapApplicationPath(pathname, search)) {
     return "workflow-map";
   }
   if (isDemoApplicationPath(pathname)) return "demo";
-  return isPublicFunnelApplicationPath(pathname, search, hash) ? "public" : "production";
+  return publicFunnelEnabled && isPublicFunnelApplicationPath(pathname, search, hash) ? "public" : "production";
 }
-
