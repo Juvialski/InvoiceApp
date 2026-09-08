@@ -8,9 +8,9 @@ Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUAL
 
 ## Current repository state
 
-Runtime baseline after merged PR #101:
+Runtime baseline after merged PR #103:
 
-`2daaff92b0f597eb3f52eeb06ecb0a03cf4dd881`
+`7d41c83ae03775c1c055628883debd62888212ac`
 
 Completed recent phases:
 
@@ -20,13 +20,16 @@ Completed recent phases:
 - PR #99 — public client funnel + isolated deployment/release productization foundation.
 - PR #100 — verified supplier invoice -> Expense repair + Client A transfer/readiness tooling.
 - PR #101 — truthful supplier Expense-link readiness, guarded legacy re-review, explicit QA deployment identity, QA database push/reset wrappers, QA inventory template, and QA runbook guidance.
+- PR #103 — streamlined supplier invoice repair UX with inline canonical Vendor resolution, human-confirmed Expense description repair, direct guarded posting, clearer delete/void/archive actions, and demo/responsive parity. Review also corrected the shared invoice/Expense permanent-delete confirmation so it remains entity-aware. No migration or database contract changed.
 
-PR #101 exact head `b416686009fea69df63a28191e0c616c7b4663ac` passed the four protected checks before squash merge:
+PR #103 final exact head `722798b0e485c8288304e2e145db2de4528d2634` passed all four protected checks before squash merge:
 
 - Application Validation & Build;
 - Database Migrations & Upgrade Suite;
 - chromium-demo-qa;
 - Graph and Source Contract Consistency.
+
+The exact-head database suite included static migration invariants, isolated local Supabase startup, clean migration replay, pgTAP schema assertions, and the historical-data upgrade-path suite.
 
 ## Live deployment topology
 
@@ -34,14 +37,18 @@ HydroQualiSense remains:
 
 `one source repository -> many isolated client deployments`
 
+Supabase MCP state was re-verified on 2026-09-08 after PR #103 review and before live QA initialization. No QA or production write was performed during this verification.
+
 ### Client A production
 
 - public URL: `https://hydroqualisense.com`
 - Supabase project ref: `qijjshdwiylojvqojxyz`
 - operational role: real Client A production
+- current project health: `ACTIVE_HEALTHY`
 - current database migration level verified on 2026-09-08: `20260908024017_supplier_invoice_repair_guards`
 - public prospect funnel must remain disabled unless a future explicit production decision changes that.
 - production data must never be copied into QA merely for demos/testing.
+- during the QA initialization/certification phase, production Supabase is **read-only by default**. Do not perform DDL/DML, reset, seed, Auth/Storage mutations, secret/config writes, or side-effecting RPC calls unless a separate explicit production change is approved.
 
 Recommended explicit production identity values:
 
@@ -62,10 +69,12 @@ Do not place secret values in repository documentation.
 - Render URL: `https://hydroqualisense-qa.onrender.com`
 - Supabase project ref: `vrpuznofrntyqsbugrib`
 - role: isolated QA + temporary demo environment
-- current state verified on 2026-09-08: Supabase project is active, has one Auth user, and has **zero HydroQualiSense public application tables / zero applied repository migrations**.
+- current project health: `ACTIVE_HEALTHY`
+- current state re-verified on 2026-09-08: one Auth user, **zero HydroQualiSense public application/base tables and zero applied repository migrations**.
 - therefore the current QA blocker is database initialization/bootstrap, not email confirmation.
+- QA is authorized for read/write initialization and certification in the next bounded phase.
 
-Recommended explicit QA identity values after PR #101:
+Recommended explicit QA identity values:
 
 ```text
 HYDROQUALISENSE_ENVIRONMENT=qa
@@ -82,7 +91,7 @@ The QA Supabase Auth Site URL / redirect allow-list should point to `https://hyd
 
 ## Supplier invoice -> Expense status
 
-PR #101 closes the misleading UI state that previously treated every `VERIFIED` unlinked invoice as ready to create an Expense.
+PR #101 established truthful posting readiness and guarded legacy repair. PR #103 makes that repair path direct and understandable without weakening the same financial/source-of-truth boundaries.
 
 Current rule:
 
@@ -90,7 +99,10 @@ Current rule:
 - Expense remains the authoritative payable / Actual Cost row;
 - `READY_TO_LINK` requires the guarded posting facts to be resolved, including canonical Vendor identity, invoice number/date/currency/positive total, Expense category/description, buyer compatibility, and valid allocation context where present;
 - an already-verified invoice without an active Expense may be deliberately reopened to resolve missing facts;
+- canonical Vendor selection/creation and Expense-description repair require explicit human confirmation;
+- once complete, the guarded posting action is available directly from Supplier Review;
 - an invoice with an active linked Expense cannot be reopened through ordinary source editing;
+- invoice lifecycle actions remain guarded and distinguish permanent deletion of truly unused records from voiding and visibility-only archive/restore;
 - posting remains idempotent and must not create duplicate Actual Cost/payable truth.
 
 The production example that exposed the issue had valid project allocation but unresolved canonical Vendor and Expense description. Do not hard-code or silently auto-repair that production row; resolve it through the human review workflow.
@@ -101,14 +113,16 @@ This is the immediate next bounded phase before Worker Registration.
 
 Goals:
 
-1. update QA Render with the explicit PR #101 QA identity variables;
+1. update/verify QA Render with the explicit QA identity variables;
 2. link an approved checkout to Supabase QA ref `vrpuznofrntyqsbugrib`;
 3. apply the full forward migration chain using the guarded QA wrapper;
 4. bootstrap one QA company and the already-confirmed QA Auth user through the existing guarded company/admin bootstrap authority — no manual unsafe table edits;
 5. configure required Storage/Auth/provider settings for QA without copying production secrets/data;
-6. verify RLS/RBAC/company boundary, `/api/health`, Storage, major read paths, and one safe supplier-review workflow;
+6. verify RLS/RBAC/company boundary, `/api/health`, Storage, major read paths, critical RPC behavior, and one safe supplier-review workflow;
 7. seed only synthetic/demo data through an explicitly QA-only path;
-8. record the actual QA migration level and release identity after successful initialization.
+8. run relevant Supabase security/performance advisor checks after initialization and investigate material findings;
+9. record the actual QA migration level, release identity, bootstrap method, and certification evidence after successful initialization;
+10. re-confirm Client A production health/migration state read-only and unchanged.
 
 Preferred migration command after linking and setting the required local operator assertions:
 
@@ -116,7 +130,7 @@ Preferred migration command after linking and setting the required local operato
 npm.cmd run qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa
 ```
 
-Do not use the destructive reset wrapper unless a deliberate QA reset is required. Never run QA wrappers against Client A production.
+Before any live write, inspect the current wrapper/CLI help and prove the exact target/project assertions. Do not use the destructive reset wrapper unless a deliberate QA reset is required. Never run QA wrappers against Client A production.
 
 ## After QA is healthy
 
@@ -153,8 +167,9 @@ For the next chat/session:
 3. read `docs/AGENT_EXECUTION_EFFICIENCY.md`;
 4. read `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
 5. read this handoff and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`;
-6. inspect live QA Supabase migration state before assuming initialization has happened;
-7. generate one bounded `agent:context` packet if implementation is required;
-8. use Docker/local Supabase for DB-contract changes;
-9. validate focused -> affected, then exact-head CI;
-10. local Codex opens PRs but does not merge its own PR; ChatGPT reviews and merges safe exact heads automatically.
+6. inspect live QA Supabase migration/state before assuming initialization has happened;
+7. treat QA as the only read/write Supabase target for the initialization/certification phase and production as read-only by default;
+8. generate one bounded `agent:context` packet if implementation is required;
+9. use Docker/local Supabase when a DB contract/migration must change; do not rerun broad historical validation merely because a new phase starts;
+10. validate focused -> affected, then exact-head CI when repository changes are made;
+11. local Codex opens PRs but does not merge its own PR; ChatGPT reviews and merges safe exact heads automatically.
