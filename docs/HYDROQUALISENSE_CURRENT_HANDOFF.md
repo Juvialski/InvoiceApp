@@ -108,7 +108,7 @@ Additional unresolved certification checks:
 - QA Supabase security advisors currently report three WARN findings on the blank project: the provider `public.rls_auto_enable()` event-trigger function is executable by browser roles, and Auth leaked-password protection is disabled. Investigate/accept only with provider evidence after initialization.
 - QA Render identity must be corrected to the documented `qa-hydroqualisense`/`qa` values and redeployed before release verification can be PASS.
 
-No production mutation occurred. Worker Registration remains blocked until a later run reaches `QA CERTIFICATION: READY`.
+No production mutation was performed by Codex during this QA attempt. Production had already advanced to `20260908051740_deployment_bootstrap_authority` through an operator-triggered Render redeploy before this checkpoint, and that observed state is now the accepted production baseline for further read-only verification. Worker Registration remains blocked until a later run reaches `QA CERTIFICATION: READY`.
 
 ## Supplier invoice -> Expense status
 
@@ -166,7 +166,7 @@ Continue in this order unless the user reprioritizes:
 ## Permanent invariants
 
 1. `one deployment -> one client company -> active membership/RBAC -> permitted workflows`.
-2. One repository may serve many isolated deployments; unrelated clients do not share operational databases.
+2. One repository may serve many isolated client deployments; unrelated clients do not share operational databases.
 3. Keep company-scoped RLS, permissions, company-bound integrity, audit history, and company-prefixed Storage paths.
 4. Supplier evidence linked to an Expense must not become duplicate payable/Actual Cost truth.
 5. Actual Cost and Committed Cost remain distinct.
