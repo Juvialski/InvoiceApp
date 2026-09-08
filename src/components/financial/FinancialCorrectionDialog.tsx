@@ -30,7 +30,7 @@ export const FinancialCorrectionDialog: React.FC<FinancialCorrectionDialogProps>
   const displayLabel = entityLabel === "invoice" ? "Invoice" : "Expense";
   const canApply = (action: FinancialCorrectionAction) => action === "DELETE_UNUSED" || reason.trim().length >= 3;
   const applyAction = (action: FinancialCorrectionAction) => {
-    if (action === "DELETE_UNUSED" && typeof window !== "undefined" && !window.confirm(`Delete permanently? This unused invoice (${recordLabel}) has passed the authoritative no-protected-history check. This cannot be undone.`)) return;
+    if (action === "DELETE_UNUSED" && typeof window !== "undefined" && !window.confirm(`Delete permanently? This unused ${entityLabel} (${recordLabel}) has passed the authoritative no-protected-history check. This cannot be undone.`)) return;
     onApply(action);
   };
   const closeButtonRef = useRef<HTMLButtonElement>(null);
