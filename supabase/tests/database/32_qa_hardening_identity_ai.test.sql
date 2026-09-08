@@ -90,9 +90,43 @@ select is(
     'cipher-v2', 'iv-v2', 'tag-v2', 1, '9999'
   )->>'idempotent',
   'true',
-  'initial AI bootstrap retry is metadata-only and idempotent'
+  'active initial AI bootstrap retry is metadata-only and idempotent'
 );
-select is((select ciphertext from public.company_ai_credentials where company_id = (select company_a from qa_identity_ids)), 'cipher-v1', 'idempotent AI bootstrap never overwrites the first encrypted envelope');
+select is((select ciphertext from public.company_ai_credentials where company_id = (select company_a from qa_identity_ids)), 'cipher-v1', 'idempotent active bootstrap never overwrites the first encrypted envelope');
+
+select is(
+  (public.server_record_company_ai_test((select company_a from qa_identity_ids), 'INVALID_CREDENTIAL'))->>'status',
+  'INVALID',
+  'invalid provider validation marks the initial bootstrap credential invalid'
+);
+select is(
+  public.bootstrap_deployment_company_ai_credential(
+    (select company_a from qa_identity_ids),
+    (select admin_user from qa_identity_ids),
+    'cipher-recovery', 'iv-recovery', 'tag-recovery', 1, '5678'
+  )->>'recoveredInvalidBootstrap',
+  'true',
+  'initial operator can replace an invalid first credential before any successful validation'
+);
+select is((select ciphertext from public.company_ai_credentials where company_id = (select company_a from qa_identity_ids)), 'cipher-recovery', 'invalid-bootstrap recovery replaces only the failed encrypted envelope');
+select is((select credential_version from public.company_ai_credentials where company_id = (select company_a from qa_identity_ids)), 2, 'invalid-bootstrap recovery advances credential version');
+
+select is(
+  (public.server_record_company_ai_test((select company_a from qa_identity_ids), 'SUCCESS'))->>'last_test_status',
+  'SUCCESS',
+  'successful provider validation finalizes bootstrap credential authority'
+);
+select is(
+  (public.server_record_company_ai_test((select company_a from qa_identity_ids), 'INVALID_CREDENTIAL'))->>'status',
+  'INVALID',
+  'a later provider invalidation remains recorded'
+);
+select throws_ok(
+  $$select public.bootstrap_deployment_company_ai_credential((select company_a from qa_identity_ids), (select admin_user from qa_identity_ids), 'cipher-v3', 'iv-v3', 'tag-v3', 1, '0000')$$,
+  '55000', null,
+  'bootstrap cannot rotate a credential after a successful provider validation'
+);
+select is((select ciphertext from public.company_ai_credentials where company_id = (select company_a from qa_identity_ids)), 'cipher-recovery', 'post-success invalidation requires platform maintenance and preserves the validated bootstrap envelope');
 reset role;
 
 set local role authenticated;
