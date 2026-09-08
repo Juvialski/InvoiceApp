@@ -14,7 +14,7 @@ jobs:
     env:
       QA_E2E_BASE_URL: https://hydroqualisense-qa.onrender.com
       QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
-      QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ vars.QA_E2E_EXPECTED_REPOSITORY_SHA }}
+      QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ github.sha }}
       QA_E2E_EXPECTED_MIGRATION_LEVEL: ${{ vars.QA_E2E_EXPECTED_MIGRATION_LEVEL }}
       QA_E2E_EMAIL: ${{ secrets.QA_E2E_EMAIL }}
       QA_E2E_PASSWORD: ${{ secrets.QA_E2E_PASSWORD }}
