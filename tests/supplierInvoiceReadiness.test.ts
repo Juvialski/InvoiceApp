@@ -134,6 +134,9 @@ test("the posting boundary remains the guarded idempotent RPC and the linked Exp
   assert.match(repairGuardMigration, /active linked Expense cannot be reopened/i);
   assert.match(persistenceSource, /const reopenOnly = eventType === "REOPENED"/);
   assert.match(persistenceSource, /const vendorId = reopenOnly\s*\?\s*existingRow\.vendor_id/);
+  assert.match(persistenceSource, /invoice_number: reopenOnly \? existingRow\.invoice_number/);
+  assert.match(persistenceSource, /duplicate_status: reopenOnly \? existingRow\.duplicate_status/);
+  assert.match(persistenceSource, /document_type: reopenOnly \? existingRow\.document_type/);
   assert.match(persistenceSource, /currentData = reopenOnly\s*\?\s*\{\s*\.\.\.\(existingRow\.current_data \|\| \{\}\)/s);
   assert.match(persistenceSource, /const persistedReviewStatus = reopenOnly \? "NEEDS_REVIEW"/);
   assert.match(persistenceSource, /reviewStatus: persistedReviewStatus/);

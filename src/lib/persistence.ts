@@ -968,7 +968,7 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   const userId = await requireUserId();
   const { data: existingRow, error: existingError } = await client
     .from("invoices")
-    .select("vendor_id,current_data,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status,updated_at")
+    .select("vendor_id,invoice_number,invoice_date,due_date,currency,grand_total,document_type,duplicate_status,duplicate_of_id,lifecycle_status,archived_at,voided_at,voided_by_user_id,void_reason,payment_status,review_status,current_data,updated_at")
     .eq("id", updated.id).eq("company_id", requireActiveCompanyId())
     .single();
   if (existingError) throw existingError;
@@ -1008,17 +1008,17 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
         ...(durableAiSnapshot ? { aiSnapshot: clone(durableAiSnapshot) } : {}),
       };
   const { data: savedRow, error } = await client.from("invoices").update({
-    vendor_id: vendorId,
-    invoice_number: updated.invoiceNumber || null,
-    invoice_date: updated.invoiceDate || null,
-    due_date: updated.dueDate || null,
-    currency: updated.currency || null,
-    grand_total: updated.grandTotal ?? null,
-    payment_status: updated.status || "UNPAID",
+    vendor_id: reopenOnly ? existingRow.vendor_id || null : vendorId,
+    invoice_number: reopenOnly ? existingRow.invoice_number : updated.invoiceNumber || null,
+    invoice_date: reopenOnly ? existingRow.invoice_date : updated.invoiceDate || null,
+    due_date: reopenOnly ? existingRow.due_date : updated.dueDate || null,
+    currency: reopenOnly ? existingRow.currency : updated.currency || null,
+    grand_total: reopenOnly ? existingRow.grand_total : updated.grandTotal ?? null,
+    payment_status: reopenOnly ? existingRow.payment_status : updated.status || "UNPAID",
     review_status: persistedReviewStatus,
-    duplicate_status: updated.duplicateStatus || existingRow?.duplicate_status || "UNIQUE",
-    duplicate_of_id: updated.duplicateOfId || existingRow?.duplicate_of_id || null,
-    document_type: updated.documentType || "OTHER",
+    duplicate_status: reopenOnly ? existingRow.duplicate_status : updated.duplicateStatus || existingRow?.duplicate_status || "UNIQUE",
+    duplicate_of_id: reopenOnly ? existingRow.duplicate_of_id : updated.duplicateOfId || existingRow?.duplicate_of_id || null,
+    document_type: reopenOnly ? existingRow.document_type : updated.documentType || "OTHER",
     current_data: currentData,
     verified_at: reopenOnly ? null : updated.verifiedAt || null,
     updated_at: new Date().toISOString(),
