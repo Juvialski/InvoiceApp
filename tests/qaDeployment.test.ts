@@ -61,3 +61,8 @@ test("QA banner and sample presets remain deployment-gated and the wrapper never
   assert.match(runbook, /Blank-project migration sequence/);
   assert.match(runbook, /Never copy Client A.*production data/i);
 });
+
+test("QA wrapper launches the Windows Supabase CLI through cmd.exe", () => {
+  assert.match(qaScript, /process\.env\.ComSpec \|\| "cmd\.exe"/);
+  assert.match(qaScript, /\["\/d", "\/s", "\/c", "npx\.cmd", \.\.\.cliArgs\]/);
+});

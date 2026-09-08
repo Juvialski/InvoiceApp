@@ -76,6 +76,8 @@ From a clean checkout of the approved repository SHA:
 
    The wrapper requires `HYDROQUALISENSE_ENVIRONMENT=qa`, a `qa-` deployment ID, an exact expected/linked project-reference match, and the explicit push confirmation. It invokes `supabase db push --linked --include-all --yes`; it does not create a project or seed production data.
 
+   On the supported Windows runtime, the wrapper launches `npx.cmd` through `ComSpec` because direct `execFileSync("npx.cmd", ...)` can fail with `EINVAL`; do not replace the guarded wrapper with an unguarded CLI command.
+
    If `supabase link` or the wrapper reports that no Supabase access token is available, stop and complete the operator-owned CLI authentication step (`npx.cmd supabase login`) before continuing. Do not replace the guarded wrapper with direct SQL, dashboard SQL Editor, or MCP migration calls merely because those paths are available; the exact QA target and wrapper assertions are part of the safety boundary.
 4. If a deliberate QA-only reset is required, use the guarded wrapper only after confirming the linked project is QA:
 
@@ -212,6 +214,8 @@ Promote a reviewed repository SHA deliberately, one isolated deployment at a tim
 - the migration set is compatible with the client’s current state;
 - the client-specific configuration is approved and compatible;
 - the deployment’s health, authentication/authorization, database, and backup checks are ready to run.
+
+The 2026-09-08 QA investigation found no migration command in the repository `build` or `start` paths, GitHub deployment workflows, or application runtime. If a routine Render application redeploy advances a production migration, inspect the Render service’s external pre-deploy/release command and remove the implicit database promotion. Keep migration promotion as a separately approved operation so QA may be ahead of an individual client deployment.
 
 Set these non-secret runtime values in the isolated Render environment so `/api/health` can report what is actually running. Leave them unset rather than inventing a value when the release state is unknown:
 

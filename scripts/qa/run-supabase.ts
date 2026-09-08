@@ -57,13 +57,16 @@ function main() {
   });
   if (!validation.valid) throw new Error(`QA database command refused: ${validation.errors.join(" ")}`);
 
-  const executable = process.platform === "win32" ? "npx.cmd" : "npx";
   const cliArgs = ["supabase", "db", operation, "--linked", "--yes"];
   if (operation === "push") cliArgs.push("--include-all");
   else cliArgs.push("--no-seed");
+  const executable = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : "npx";
+  const executableArgs = process.platform === "win32"
+    ? ["/d", "/s", "/c", "npx.cmd", ...cliArgs]
+    : cliArgs;
   console.log(`QA-only Supabase ${operation}: ${validation.projectRef}`);
   console.log(operation === "reset" ? "No seed file will be executed; synthetic data remains outside this database reset." : "Applying the complete forward migration chain to the linked QA project.");
-  execFileSync(executable, cliArgs, { cwd: process.cwd(), env: process.env, stdio: "inherit" });
+  execFileSync(executable, executableArgs, { cwd: process.cwd(), env: process.env, stdio: "inherit" });
 }
 
 try {
