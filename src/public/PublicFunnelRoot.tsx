@@ -16,6 +16,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { BRAND, formatPageTitle } from "../config/brand.ts";
 import { BrandMark } from "../components/BrandMark.tsx";
+import { DeploymentEnvironmentBanner } from "../components/DeploymentEnvironmentBanner.tsx";
 import {
   PUBLIC_PROSPECT_FIELD_LIMITS,
   PUBLIC_PROSPECT_MODULES,
@@ -100,7 +101,9 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 
 function PublicHeader({ onRequestDemo }: { onRequestDemo?: () => void }) {
   return (
-    <header className="border-b border-slate-200/80 bg-white/85 backdrop-blur">
+    <>
+      <DeploymentEnvironmentBanner />
+      <header className="border-b border-slate-200/80 bg-white/85 backdrop-blur">
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-12">
         <a href="/" className="flex min-w-0 items-center gap-3" aria-label={`${BRAND.productName} home`}>
           <BrandMark variant="header" decorative={false} />
@@ -116,7 +119,8 @@ function PublicHeader({ onRequestDemo }: { onRequestDemo?: () => void }) {
           <a href="/dashboard" className="rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-slate-700 transition hover:border-slate-300 hover:text-slate-950">Client sign in</a>
         </nav>
       </div>
-    </header>
+      </header>
+    </>
   );
 }
 

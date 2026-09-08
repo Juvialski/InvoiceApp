@@ -274,6 +274,8 @@ export interface InvoiceData {
   philippineTaxDetails?: PhilippineTaxDetails;
   philippineInvoiceCompleteness?: PhilippineInvoiceCompleteness;
 
+  /** Human-confirmed description copied to the authoritative supplier Expense. */
+  description?: string;
   notes?: string;
   termsAndConditions?: string;
   category?: string;

@@ -1,6 +1,7 @@
 import type { InvoiceData, InvoiceProjectAllocation, PartyDetails } from "../../types.ts";
 import { addDemoDays, demoTimestamp } from "./demoDates.ts";
 import { DEMO_PROJECT_IDS } from "./projects.ts";
+import { DEMO_VENDOR_IDS } from "./procurement.ts";
 
 const CUSTOMER: PartyDetails = {
   name: "HydroQualiSense Solutions Corp.",
@@ -103,13 +104,14 @@ export function createDemoInvoices(anchorDate: string): { invoices: InvoiceData[
       currencySymbol: spec.currencySymbol || "₱",
       paymentTerms: `Net ${spec.dueInDays}`,
       status: spec.status,
-      vendor: SUPPLIERS[spec.vendor],
+      vendor: { ...SUPPLIERS[spec.vendor], vendorId: DEMO_VENDOR_IDS[spec.vendor] },
       customer: CUSTOMER,
       items: [{ id: `${id}-line-1`, itemNumber: 1, description: spec.description, quantity: 1, unitOfMeasure: "lot", unitPrice: subtotal, taxRate: 12, taxAmount: vat, taxTreatment: "VATABLE", total: spec.gross }],
       subtotal,
       totalTax: vat,
       taxBreakdown: [{ name: "VAT", rate: 12, amount: vat }],
       grandTotal: spec.gross,
+      description: spec.description,
       amountPaid,
       balanceDue,
       philippineTaxDetails: {

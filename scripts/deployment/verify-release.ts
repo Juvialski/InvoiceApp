@@ -69,6 +69,7 @@ async function main() {
       appVersion: verification.observedAppVersion,
       migrationLevel: verification.observedMigrationLevel,
       configurationVersion: verification.observedConfigurationVersion,
+      environment: verification.observedEnvironment,
     },
     notes: verification.notes,
     recorded: options.record,

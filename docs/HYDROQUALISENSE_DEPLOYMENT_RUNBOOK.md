@@ -32,6 +32,64 @@ Do not enable either switch on an operational client production deployment merel
 
 Before exposing the form broadly on the public internet, verify the hosting platform's reverse-proxy/client-IP behavior for the process-local rate limiter or replace it with an appropriate provider-level abuse-control mechanism.
 
+## QA deployment bootstrap
+
+QA is a separate deployment boundary, not a second company inside Client A production:
+
+`one repository -> QA Render service + QA Supabase project/Auth/Storage -> synthetic data only`
+
+Codex does not create either external resource. The operator creates the new Supabase project and Render service manually, then records their non-secret references in a private copy of `deployment/qa-inventory.template.json`. Never copy Client A financial, worker, authentication, document, Storage, or other production data into QA.
+
+### QA identity and defaults
+
+Set the following non-secret values in the QA Render build/runtime configuration. Keep the two identity pairs aligned:
+
+```text
+HYDROQUALISENSE_ENVIRONMENT=qa
+HYDROQUALISENSE_DEPLOYMENT_ID=qa-hydroqualisense
+HYDROQUALISENSE_QA_PROJECT_REF=<manually-created-qa-project-ref>
+HYDROQUALISENSE_PRODUCTION_PROJECT_REF=<operator-recorded-production-project-ref>
+VITE_HYDROQUALISENSE_ENVIRONMENT=qa
+VITE_HYDROQUALISENSE_DEPLOYMENT_ID=qa-hydroqualisense
+VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=false
+VITE_ENABLE_SAMPLE_INVOICES=false
+```
+
+The application shows an explicit `QA ENVIRONMENT · SYNTHETIC DATA ONLY` banner in the authenticated and public surfaces. A normal production build defaults to `production` and does not show the QA banner. The public funnel remains off until both the build flag and the database gate are deliberately enabled in QA.
+
+### Blank-project migration sequence
+
+From a clean checkout of the approved repository SHA:
+
+1. Confirm the new QA project reference and set the QA environment assertions above in the operator shell or isolated deployment configuration. Do not put values in the repository.
+2. Link this checkout to the new project. The Supabase CLI may prompt for the database password; do not place the password in command arguments or files:
+
+   ```text
+   npx.cmd supabase link --project-ref <QA_PROJECT_REF>
+   ```
+
+3. Confirm that `supabase/.temp/project-ref` contains the same QA project reference, then apply the complete forward migration chain without seed data:
+
+   ```text
+   npm.cmd run qa:db:push -- --project-ref <QA_PROJECT_REF> --confirm-qa
+   ```
+
+   The wrapper requires `HYDROQUALISENSE_ENVIRONMENT=qa`, a `qa-` deployment ID, an exact expected/linked project-reference match, and the explicit push confirmation. It invokes `supabase db push --linked --include-all --yes`; it does not create a project or seed production data.
+4. If a deliberate QA-only reset is required, use the guarded wrapper only after confirming the linked project is QA:
+
+   ```text
+   npm.cmd run qa:db:reset -- --project-ref <QA_PROJECT_REF> --confirm-qa-reset
+   ```
+
+   Reset requires a separate confirmation, uses `--no-seed`, and refuses production identity, missing assertions, mismatched linked projects, or a configured production-project match. Do not use raw `--db-url` or `--linked` reset commands for Client A production.
+5. Verify migration history with the CLI and run the application smoke/auth/RLS checks against the QA URL. Record the observed repository SHA, migration level, configuration version, and backup/provider checks in the private QA inventory.
+
+The existing `/demo` route is the safe synthetic-data path for visual/product QA: it mounts no production Auth, Supabase queries, Storage, or company writes; its fictional records are session-local and resettable. The authenticated QA workspace may expose sample invoice presets only when the build is explicitly `qa`; those presets remain fictional and are never copied from Client A. `supabase/seed.sql` remains non-authoritative and empty, so a QA database reset is blank unless an explicitly approved synthetic-data procedure is later added.
+
+### Backup truth boundary
+
+No application-recorded `database_backup_runs`, `database_restore_drills`, or `document_backup_replicas` were manufactured for this phase. The absence of app-level records is not proof that Supabase platform backups are absent or present. The operator must manually confirm provider backup status for each isolated deployment. A database backup alone does not prove that Storage object bytes, metadata, or permission behavior are recoverable.
+
 ## Inventory file
 
 Copy `deployment/inventory.template.json` into an operator-controlled inventory location that is private to the deployment team. Validate it before use:
@@ -114,7 +172,7 @@ After the existing project ownership/organization transfer completes, perform on
 - Warehouse inventory and movement history load;
 - Payroll loads within the caller's permitted summary/detail boundary;
 - Storage source/issued documents can be accessed according to permissions and company-prefixed paths remain intact;
-- `/api/health` reports the expected non-secret release metadata;
+- `/api/health` reports the expected non-secret release metadata, including the explicit deployment environment;
 - the observed migration level matches the approved Client A inventory/release record;
 - one non-destructive critical workflow smoke test completes and leaves no extra financial/inventory rows;
 - the repaired verified supplier invoice -> linked Expense path works for a valid already-verified invoice and creates/reuses exactly one authoritative Expense.

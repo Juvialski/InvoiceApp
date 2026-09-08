@@ -4258,6 +4258,11 @@ function InvoiceWorkspace() {
   };
 
   const handleReopen = async (invoice: InvoiceData) => {
+    const activeLinkedExpense = expenses.find((expense) => expense.supplierInvoiceId === invoice.id && expense.status !== "VOID");
+    if (activeLinkedExpense) {
+      showNotification("info", "This supplier invoice already has an active authoritative Expense. Use the Expense correction workflow; the source facts remain preserved.");
+      return;
+    }
     const reopened = { ...invoice, reviewStatus: "NEEDS_REVIEW" as const, verifiedAt: undefined };
     if (!await flushInvoiceSave(reopened, "REOPENED")) return;
     const saved = invoicesRef.current.find((item) => item.id === reopened.id) || reopened;
@@ -4402,7 +4407,8 @@ function InvoiceWorkspace() {
   };
 
   const openInvoiceForReview = (invoice: InvoiceData, origin: AppTab = activeTab) => {
-    const queue = invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW");
+    const reviewQueue = invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW");
+    const queue = reviewQueue.some((item) => item.id === invoice.id) ? reviewQueue : [invoice, ...reviewQueue];
     const returnPath = typeof window === "undefined" ? appPathForTab(origin) : appPathFromLocation(window.location);
     setWorkspaceReturnPath(returnPath);
     startReview(queue, invoice.id, origin, returnPath);
@@ -5016,8 +5022,9 @@ function InvoiceWorkspace() {
           onApplyPayrollMaintenance={(action, confirmation) => handleApplyPayrollMaintenance(action, confirmation)}
           onPreviewFactoryReset={() => handlePreviewPayrollWorkspaceReset()}
           onApplyFactoryReset={(confirmation) => handleApplyPayrollWorkspaceReset(confirmation)}
-           expenses={expenses}
-           expenseInvoiceProjectAllocations={invoiceProjectAllocations}
+          expenses={expenses}
+          activeSupplierExpenseInvoiceIds={expenses.filter((expense) => Boolean(expense.supplierInvoiceId) && expense.status !== "VOID").map((expense) => expense.supplierInvoiceId as string)}
+          expenseInvoiceProjectAllocations={invoiceProjectAllocations}
           financialFxSnapshots={financialFxSnapshots}
           baseCurrency={activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY}
           onSaveFinancialFxSnapshot={handleSaveFinancialFxSnapshot}

@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { AlertCircle, FileText, Loader2, RotateCcw, SlidersHorizontal, UploadCloud, Zap } from "lucide-react";
 import { SAMPLE_INVOICES } from "../data/sampleInvoices";
 import { InvoiceData, OriginalSourcePayload } from "../types";
+import { currentDeploymentIdentity } from "../lib/deploymentIdentity.ts";
 
 export interface ExtractPayload extends OriginalSourcePayload {
   sourceType?: "UPLOAD" | "PASTED_TEXT" | "EMAIL";
@@ -41,7 +42,7 @@ function fileToPayload(file: File, model: string): Promise<ExtractPayload> {
   });
 }
 
-const sampleInvoicesEnabled = import.meta.env.VITE_ENABLE_SAMPLE_INVOICES === "true";
+const sampleInvoicesEnabled = currentDeploymentIdentity().sampleInvoicesEnabled;
 
 export const UploadZone: React.FC<UploadZoneProps> = ({ onExtract, onLoadPreset, onBatchComplete, isLoading }) => {
   const [dragOver, setDragOver] = useState(false);

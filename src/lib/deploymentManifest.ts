@@ -3,7 +3,7 @@ import { DEPLOYMENT_MODULE_KEYS, type DeploymentModuleKey } from "../config/modu
 export const DEPLOYMENT_MANIFEST_SCHEMA_VERSION = 1 as const;
 export const DEPLOYMENT_MANIFEST_MODULE_KEYS = DEPLOYMENT_MODULE_KEYS;
 
-export type DeploymentEnvironment = "production" | "staging" | "demo";
+export type DeploymentEnvironment = "production" | "qa" | "staging" | "demo";
 export type DeploymentBackupStatus = "UNKNOWN" | "CURRENT" | "DUE" | "FAILED" | "NOT_CONFIGURED";
 export type DeploymentPrerequisiteStatus = "UNKNOWN" | "READY" | "BLOCKED";
 export type DeploymentCompatibilityStatus = "UNKNOWN" | "COMPATIBLE" | "REQUIRES_REVIEW" | "BLOCKED";
@@ -50,6 +50,7 @@ export interface DeploymentManifestEntry {
     observedAppVersion: string | null;
     observedMigrationLevel: string | null;
     observedConfigurationVersion: string | null;
+    observedEnvironment: DeploymentEnvironment | null;
     notes: string[];
   };
   notes: string[];
@@ -83,10 +84,11 @@ export interface DeploymentHealthVerificationRecord {
   observedAppVersion: string | null;
   observedMigrationLevel: string | null;
   observedConfigurationVersion: string | null;
+  observedEnvironment: DeploymentEnvironment | null;
   notes: string[];
 }
 
-const ENVIRONMENTS = new Set<string>(["production", "staging", "demo"]);
+const ENVIRONMENTS = new Set<string>(["production", "qa", "staging", "demo"]);
 const BACKUP_STATUSES = new Set<string>(["UNKNOWN", "CURRENT", "DUE", "FAILED", "NOT_CONFIGURED"]);
 const PREREQUISITE_STATUSES = new Set<string>(["UNKNOWN", "READY", "BLOCKED"]);
 const COMPATIBILITY_STATUSES = new Set<string>(["UNKNOWN", "COMPATIBLE", "REQUIRES_REVIEW", "BLOCKED"]);
@@ -166,6 +168,16 @@ function enumValue(record: Record<string, unknown>, key: string, label: string, 
     return "";
   }
   return value;
+}
+
+function nullableEnvironmentValue(record: Record<string, unknown>, key: string, label: string, errors: string[]) {
+  const value = record[key];
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string" || !ENVIRONMENTS.has(value)) {
+    errors.push(`${label} is invalid.`);
+    return null;
+  }
+  return value as DeploymentEnvironment;
 }
 
 function notesValue(value: unknown, path: string, errors: string[]) {
@@ -273,6 +285,7 @@ function validateEntry(input: unknown, index: number, errors: string[], warnings
     observedAppVersion: nullableString(healthRecord, "observedAppVersion", `${path}.lastHealthVerification.observedAppVersion`, errors, 120),
     observedMigrationLevel: nullableString(healthRecord, "observedMigrationLevel", `${path}.lastHealthVerification.observedMigrationLevel`, errors, 160),
     observedConfigurationVersion: nullableString(healthRecord, "observedConfigurationVersion", `${path}.lastHealthVerification.observedConfigurationVersion`, errors, 120),
+    observedEnvironment: nullableEnvironmentValue(healthRecord, "observedEnvironment", `${path}.lastHealthVerification.observedEnvironment`, errors),
     notes: notesValue(healthRecord.notes, `${path}.lastHealthVerification.notes`, errors),
   };
 
@@ -311,6 +324,11 @@ function nullableHealthString(value: unknown, maxLength: number) {
   return normalized && normalized.length <= maxLength ? normalized : null;
 }
 
+function nullableHealthEnvironment(value: unknown): DeploymentEnvironment | null {
+  const normalized = nullableHealthString(value, 32)?.toLowerCase();
+  return normalized && ENVIRONMENTS.has(normalized) ? normalized as DeploymentEnvironment : null;
+}
+
 function healthRelease(payload: unknown): Record<string, unknown> {
   if (!isRecord(payload) || !isRecord(payload.release)) return {};
   return payload.release;
@@ -327,6 +345,7 @@ export function verifyDeploymentHealth(
   const observedAppVersion = nullableHealthString(release.appVersion, 120);
   const observedMigrationLevel = nullableHealthString(release.migrationLevel, 160);
   const observedConfigurationVersion = nullableHealthString(release.configurationVersion, 120);
+  const observedEnvironment = nullableHealthEnvironment(release.environment);
   const notes: string[] = [];
   const errors: string[] = [];
   const payloadStatus = isRecord(payload) ? payload.status : undefined;
@@ -363,8 +382,14 @@ export function verifyDeploymentHealth(
     notes.push("Configuration version is unknown; set a version when client-specific configuration is approved.");
   }
 
+  if (observedEnvironment) {
+    if (observedEnvironment !== entry.environment) errors.push("The observed deployment environment does not match the manifest expectation.");
+  } else {
+    notes.push("Deployment environment is unknown; record the explicit production, QA, staging, or demo identity.");
+  }
+
   const status: DeploymentHealthVerificationStatus = errors.length > 0 ? "FAIL" : notes.length > 0 ? "UNKNOWN" : "PASS";
-  return { status, checkedAt, httpStatus, observedRepositorySha, observedAppVersion, observedMigrationLevel, observedConfigurationVersion, notes: [...errors, ...notes] };
+  return { status, checkedAt, httpStatus, observedRepositorySha, observedAppVersion, observedMigrationLevel, observedConfigurationVersion, observedEnvironment, notes: [...errors, ...notes] };
 }
 
 export function recordDeploymentHealthVerification(

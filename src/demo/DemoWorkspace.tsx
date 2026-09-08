@@ -698,6 +698,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onSavePayrollEntry={(entry: PayrollEntry) => dispatch({ type: "SAVE_PAYROLL_ENTRY", value: entry })}
             onUpdatePayrollRun={(run: PayrollRun) => dispatch({ type: "UPDATE_PAYROLL_RUN", value: run })}
             expenses={data.expenses}
+            activeSupplierExpenseInvoiceIds={data.expenses.filter((expense) => Boolean(expense.supplierInvoiceId) && expense.status !== "VOID").map((expense) => expense.supplierInvoiceId as string)}
             financialFxSnapshots={data.financialFxSnapshots}
             baseCurrency={data.company.currency}
             onSaveFinancialFxSnapshot={saveFinancialFxSnapshot}

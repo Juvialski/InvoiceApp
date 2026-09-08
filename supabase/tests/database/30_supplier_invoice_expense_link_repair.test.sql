@@ -13,6 +13,8 @@ select
   '20000000-0000-4000-8000-000000001301'::uuid as vendor_a,
   '20000000-0000-4000-8000-000000001302'::uuid as vendor_b,
   '30000000-0000-4000-8000-000000001301'::uuid as verified_invoice,
+  '30000000-0000-4000-8000-000000001303'::uuid as unlinked_verified_invoice,
+  '30000000-0000-4000-8000-000000001304'::uuid as missing_description_invoice,
   '30000000-0000-4000-8000-000000001302'::uuid as invalid_invoice;
 
 grant select on supplier_link_repair_ids to authenticated, service_role;
@@ -98,6 +100,36 @@ values (
   'VERIFIED',
   'INVOICE',
   jsonb_build_object('category', 'Materials', 'description', 'Invalid supplier invoice')
+);
+
+insert into public.invoices (id, user_id, company_id, vendor_id, invoice_number, invoice_date, currency, grand_total, review_status, document_type, current_data)
+values (
+  (select unlinked_verified_invoice from supplier_link_repair_ids),
+  (select admin_user from supplier_link_repair_ids),
+  (select company_a from supplier_link_repair_ids),
+  (select vendor_a from supplier_link_repair_ids),
+  'SL-INV-UNLINKED',
+  date '2026-09-08',
+  'PHP',
+  2500,
+  'VERIFIED',
+  'INVOICE',
+  jsonb_build_object('category', 'Materials', 'description', 'Unlinked repair invoice')
+);
+
+insert into public.invoices (id, user_id, company_id, vendor_id, invoice_number, invoice_date, currency, grand_total, review_status, document_type, current_data)
+values (
+  (select missing_description_invoice from supplier_link_repair_ids),
+  (select admin_user from supplier_link_repair_ids),
+  (select company_a from supplier_link_repair_ids),
+  (select vendor_a from supplier_link_repair_ids),
+  'SL-INV-DESCRIPTION',
+  date '2026-09-08',
+  'PHP',
+  2500,
+  'VERIFIED',
+  'INVOICE',
+  jsonb_build_object('category', 'Materials')
 );
 
 set local role authenticated;
@@ -188,6 +220,55 @@ select is(
   (select amount from public.expenses where supplier_invoice_id = (select verified_invoice from supplier_link_repair_ids)),
   19500::numeric,
   'blocked supplier-derived Expense mutation leaves the authoritative amount unchanged'
+);
+
+select throws_ok(
+  $$update public.invoices
+      set review_status = 'NEEDS_REVIEW', verified_at = null
+    where id = (select verified_invoice from supplier_link_repair_ids)$$,
+  '42501',
+  null,
+  'a verified invoice with an active linked Expense cannot be reopened through generic invoice editing'
+);
+
+select lives_ok(
+  $$update public.invoices
+      set review_status = 'NEEDS_REVIEW', verified_at = null
+    where id = (select unlinked_verified_invoice from supplier_link_repair_ids)$$,
+  'an already-verified invoice without an active Expense can be reopened for deliberate repair'
+);
+select is(
+  (select review_status from public.invoices where id = (select unlinked_verified_invoice from supplier_link_repair_ids)),
+  'NEEDS_REVIEW',
+  'reopening an unlinked verified source changes only its review state'
+);
+
+select throws_ok(
+  $$select public.verify_supplier_invoice_and_create_expense((select missing_description_invoice from supplier_link_repair_ids))$$,
+  '22023',
+  null,
+  'a verified invoice without a confirmed Expense description cannot post'
+);
+select lives_ok(
+  $$update public.invoices
+      set review_status = 'NEEDS_REVIEW', verified_at = null
+    where id = (select missing_description_invoice from supplier_link_repair_ids)$$,
+  'the missing-description invoice can enter the deliberate repair review state'
+);
+select lives_ok(
+  $$update public.invoices
+      set current_data = current_data || jsonb_build_object('description', 'Confirmed repair description'), updated_at = now()
+    where id = (select missing_description_invoice from supplier_link_repair_ids)$$,
+  'repairing the Expense description is a human-editable source fact after reopen'
+);
+select lives_ok(
+  $$select public.verify_supplier_invoice_and_create_expense((select missing_description_invoice from supplier_link_repair_ids))$$,
+  'fixing the required description allows the existing guarded posting path'
+);
+select is(
+  (select count(*) from public.expenses where supplier_invoice_id = (select missing_description_invoice from supplier_link_repair_ids)),
+  1::bigint,
+  'the repaired invoice creates exactly one authoritative Expense'
 );
 
 reset role;
