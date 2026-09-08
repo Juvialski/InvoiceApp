@@ -59,6 +59,8 @@ test("transfer preflight distinguishes recorded PASS checks from unavoidable man
   assert.ok(report.checks.some((item) => item.key === "supabase-transfer-eligibility" && item.status === "MANUAL CHECK REQUIRED"));
   assert.ok(report.checks.some((item) => item.key === "storage-object-preservation" && item.status === "MANUAL CHECK REQUIRED"));
   assert.match(report.checks.find((item) => item.key === "backup-evidence")?.detail || "", /Storage object bytes/i);
+  assert.match(report.checks.find((item) => item.key === "supabase-transfer-eligibility")?.detail || "", /two-free-project limit/i);
+  assert.match(report.checks.find((item) => item.key === "supabase-transfer-eligibility")?.detail || "", /feature loss/i);
   assert.doesNotMatch(JSON.stringify(report), /MY_SUPABASE|secret-value|password-value/i);
 });
 
