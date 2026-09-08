@@ -33,11 +33,14 @@ test("hosted QA authentication preflight requires a persisted session before rou
   assert.doesNotMatch(authPreflight, /SUPABASE_SERVICE_ROLE|SUPABASE_AI_SERVER_KEY/i);
 });
 
-test("manual hosted QA workflow is explicit and does not run in ordinary CI", () => {
+test("manual hosted QA workflow is explicit, exact-SHA bound, and does not run in ordinary CI", () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.doesNotMatch(workflow, /^\s+(push|pull_request):/m);
   assert.match(workflow, /QA_E2E_EMAIL/);
   assert.match(workflow, /QA_E2E_PASSWORD/);
   assert.match(workflow, /QA_E2E_STORAGE_PROBE: "1"/);
   assert.match(workflow, /QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense/);
+  assert.match(workflow, /QA_E2E_EXPECTED_REPOSITORY_SHA: \$\{\{ github\.sha \}\}/);
+  assert.doesNotMatch(workflow, /vars\.QA_E2E_EXPECTED_REPOSITORY_SHA/);
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
 });
