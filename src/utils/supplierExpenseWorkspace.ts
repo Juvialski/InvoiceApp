@@ -130,8 +130,11 @@ export function getSupplierInvoiceExpenseReadiness(
 
   const buyerProfile = options.buyerProfile === undefined ? DEFAULT_COMPANY_DOCUMENT_PROFILE : options.buyerProfile;
   const buyerEvidence = [invoice.customer?.name, invoice.customer?.registeredName, invoice.customer?.companyName, invoice.customer?.taxId].some((value) => text(value));
-  if (buyerEvidence && buyerProfile === null) {
-    add("BUYER_PROFILE_UNAVAILABLE", "customer", "Confirm the buyer against this deployment company before linking the Expense.");
+  if (buyerProfile === null || !text(buyerProfile.legalName)) {
+    // The authoritative DB posting RPC requires the deployment legal name even
+    // when the source document omits buyer fields. Keep UI readiness aligned
+    // with that fail-closed boundary instead of advertising READY_TO_LINK.
+    add("BUYER_PROFILE_UNAVAILABLE", "customer", "Complete the deployment company document profile before linking the Expense.");
   } else if (buyerEvidence) {
     const buyerIssue = supplierInvoiceBuyerMismatch(invoice, buyerProfile);
     if (buyerIssue) {
