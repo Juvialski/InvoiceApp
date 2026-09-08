@@ -2,12 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { Expense, InvoiceData } from "../src/types.ts";
-import { classifySupplierDocuments, getSupplierInvoiceExpenseReadiness } from "../src/utils/supplierExpenseWorkspace.ts";
+import { classifySupplierDocuments, getSupplierInvoiceExpenseReadiness, getSupplierInvoiceValidationAdvisories, suggestSupplierExpenseDescription } from "../src/utils/supplierExpenseWorkspace.ts";
 
 const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");
 const reviewSource = readFileSync(new URL("../src/components/SupplierInvoiceReview.tsx", import.meta.url), "utf8");
 const readinessSource = readFileSync(new URL("../src/utils/supplierExpenseWorkspace.ts", import.meta.url), "utf8");
 const workspaceSource = readFileSync(new URL("../src/components/VerificationWorkspace.tsx", import.meta.url), "utf8");
+const correctionSource = readFileSync(new URL("../src/components/financial/FinancialCorrectionDialog.tsx", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const persistenceSource = readFileSync(new URL("../src/lib/persistence.ts", import.meta.url), "utf8");
 const r3Migration = readFileSync(new URL("../supabase/migrations/20260906010750_hydroqualisense_r3_unified_financial_documents.sql", import.meta.url), "utf8");
@@ -97,6 +98,19 @@ test("extracted vendor evidence is not automatically promoted to a canonical Ven
   assert.ok(readiness.issues.some((issue) => issue.code === "CANONICAL_VENDOR"));
 });
 
+test("description suggestions use preserved line-item evidence and remain human-confirmed", () => {
+  assert.equal(suggestSupplierExpenseDescription(invoice({ description: "", items: [{ id: "line-1", description: "Concrete materials", quantity: 2, unitPrice: 50, total: 100 }] })), "Concrete materials");
+  assert.equal(suggestSupplierExpenseDescription(invoice({ description: "", items: [], invoiceNumber: "READY-002" })), "Supplier invoice READY-002");
+});
+
+test("VAT-rate validation remains an advisory when the posting readiness contract is complete", () => {
+  const source = invoice({ validation: { status: "REVIEW", issues: [{ id: "ph-vat-rate-not-evaluated", severity: "warning", field: "philippineTaxDetails.vatAmount", message: "VAT rate consistency was not evaluated because no authoritative VAT rate is configured." }] } });
+  const readiness = getSupplierInvoiceExpenseReadiness(source);
+  assert.equal(readiness.complete, true);
+  assert.equal(getSupplierInvoiceValidationAdvisories(source, readiness).length, 1);
+  assert.match(getSupplierInvoiceValidationAdvisories(source, readiness)[0]!.message, /no authoritative VAT rate/i);
+});
+
 test("the posting boundary remains the guarded idempotent RPC and the linked Expense remains one authoritative row", () => {
   assert.match(persistenceSource, /verify_supplier_invoice_and_create_expense/);
   assert.match(r3Migration, /expenses_company_supplier_invoice_unique/);
@@ -106,9 +120,21 @@ test("the posting boundary remains the guarded idempotent RPC and the linked Exp
 
 test("the UI presents readiness reasons, exposes Expense posting facts, and routes legacy repairs into review", () => {
   assert.match(expensesPage, /Needs completion/);
+  assert.match(expensesPage, /Fix invoice/);
   assert.match(expensesPage, /Supplier documents requiring review or completion/);
   assert.match(reviewSource, /Expense description/);
+  assert.match(reviewSource, /Create &amp; Link Vendor/);
+  assert.match(reviewSource, /Link this Vendor/);
+  assert.match(reviewSource, /Confirm description/);
+  assert.match(reviewSource, /Blocking actions required/);
+  assert.match(reviewSource, /Advisories and review notes/);
+  assert.match(reviewSource, /Editing correction/);
+  assert.match(reviewSource, /Invoice actions/);
   assert.match(readinessSource, /Select or create a canonical Vendor/);
   assert.match(workspaceSource, /supplierReadiness\.complete/);
+  assert.match(workspaceSource, /repairMode/);
   assert.match(appSource, /active authoritative Expense/);
+  assert.match(appSource, /handleFixSupplierInvoice/);
+  assert.match(correctionSource, /Delete unused invoice/);
+  assert.match(correctionSource, /Archive \/ hide invoice/);
 });

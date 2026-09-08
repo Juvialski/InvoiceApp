@@ -25,6 +25,7 @@ import type {
   SubcontractProgressClaimStatus,
   SubcontractVariation,
   SubcontractVariationStatus,
+  Vendor,
   Worker,
   WorkEntry,
 } from "../types.ts";
@@ -46,6 +47,7 @@ export type DemoWorkspaceMutation =
   | { type: "ARCHIVE_PROJECT"; value: Project }
   | { type: "PROJECT_LIFECYCLE"; project: Project; action: ProjectLifecycleAction }
   | { type: "SAVE_INVOICE"; value: InvoiceData }
+  | { type: "SAVE_VENDOR"; value: Vendor }
   /** Legacy test-only demo transition; production routes use FINANCIAL_CORRECTION. */
   | { type: "DELETE_INVOICE"; id: string }
   | { type: "FINANCIAL_CORRECTION"; entity: "INVOICE" | "EXPENSE"; id: string; action: FinancialCorrectionAction; reason?: string }
@@ -154,6 +156,8 @@ export function reduceDemoWorkspace(state: DemoWorkspaceData, mutation: DemoWork
     }
     case "SAVE_INVOICE":
       return { ...state, invoices: upsert(state.invoices, mutation.value) };
+    case "SAVE_VENDOR":
+      return { ...state, vendors: upsert(state.vendors || [], mutation.value) };
     case "DELETE_INVOICE":
       return { ...state, invoices: state.invoices.filter((invoice) => invoice.id !== mutation.id), invoiceAllocations: state.invoiceAllocations.filter((allocation) => allocation.invoiceId !== mutation.id) };
     case "FINANCIAL_CORRECTION": {

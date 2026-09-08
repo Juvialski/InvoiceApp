@@ -8,7 +8,7 @@ import type { DashboardActivityPeriod } from "../components/engineering/Engineer
 import type { AppTab } from "../utils/routes.ts";
 import type { AppLocation, ProjectWorkspaceView } from "../utils/appRouting.ts";
 import type { FinancialAccount, FinancialBalanceSnapshot, FinancialReconciliationCandidate, FinancialTransaction } from "../lib/cashBanking.ts";
-import type { AttendanceRecord, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrderReceipt, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, WorkEntry, Worker } from "../types.ts";
+import type { AttendanceRecord, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, InvoiceData, InvoiceProjectAllocation, LeaveRequest, OvertimeRequest, PayrollEntry, PayrollPeriod, PayrollRun, Project, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrderReceipt, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, Vendor, WorkEntry, Worker } from "../types.ts";
 import type { PayrollSchedule } from "../lib/payrollSchedule.ts";
 import type { PayrollLifecycleRequest } from "../lib/payrollLifecycle.ts";
 import { buildProjectLifecyclePreview, type ProjectLifecycleAction, type ProjectLifecyclePreview } from "../lib/projects.ts";
@@ -529,6 +529,26 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     return sample;
   };
 
+  const addDemoVendor = async (input: Partial<Vendor> & { name: string }): Promise<Vendor> => {
+    const saved: Vendor = {
+      id: globalThis.crypto?.randomUUID?.() || `demo-vendor-${Date.now()}`,
+      companyId: DEMO_COMPANY_ID,
+      name: input.name.trim(),
+      normalizedName: input.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(),
+      email: input.email || null,
+      phone: input.phone || null,
+      taxId: input.taxId || null,
+      address: input.address || null,
+      defaultCurrency: input.defaultCurrency || "PHP",
+      defaultCategory: input.defaultCategory || null,
+      active: true,
+      createdAt: demoTimestamp(data.anchorDate, 15, 30),
+      updatedAt: demoTimestamp(data.anchorDate, 15, 30),
+    };
+    dispatch({ type: "SAVE_VENDOR", value: saved });
+    return saved;
+  };
+
   const resetDemo = () => {
     if (!window.confirm("Reset the Demo Workspace to Meridian's original sample data? This affects demo state only.")) return;
     reset();
@@ -573,6 +593,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onRecordClientCollection={recordClientCollection}
             onReverseClientCollection={reverseClientCollection}
             vendors={data.vendors || []}
+            onAddVendor={addDemoVendor}
             selectedProject={selectedProject}
             projectSummaries={summaries}
             projectDashboard={projectDashboard}
@@ -638,6 +659,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onReviewSave={async () => true}
             onVerifyAndNext={verifySelected}
             onReopenInvoice={async (invoice) => dispatch({ type: "SAVE_INVOICE", value: { ...invoice, reviewStatus: "NEEDS_REVIEW", verifiedAt: undefined } })}
+            onFixSupplierInvoice={async (invoice) => { const reopened = { ...invoice, reviewStatus: "NEEDS_REVIEW" as const, verifiedAt: undefined }; dispatch({ type: "SAVE_INVOICE", value: reopened }); openInvoice(reopened); }}
+            activeSupplierExpenseInvoiceIds={(data.expenses || []).filter((expense) => Boolean(expense.supplierInvoiceId) && expense.status !== "VOID").map((expense) => expense.supplierInvoiceId as string)}
             onReturnToDashboard={() => onNavigate(demoPathForTab("dashboard"))}
             onViewVerified={() => onNavigate(demoPathForTab("invoices"))}
             onSelectInvoice={openInvoice}
@@ -698,7 +721,6 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
             onSavePayrollEntry={(entry: PayrollEntry) => dispatch({ type: "SAVE_PAYROLL_ENTRY", value: entry })}
             onUpdatePayrollRun={(run: PayrollRun) => dispatch({ type: "UPDATE_PAYROLL_RUN", value: run })}
             expenses={data.expenses}
-            activeSupplierExpenseInvoiceIds={data.expenses.filter((expense) => Boolean(expense.supplierInvoiceId) && expense.status !== "VOID").map((expense) => expense.supplierInvoiceId as string)}
             financialFxSnapshots={data.financialFxSnapshots}
             baseCurrency={data.company.currency}
             onSaveFinancialFxSnapshot={saveFinancialFxSnapshot}

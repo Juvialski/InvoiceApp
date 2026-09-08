@@ -1,4 +1,4 @@
-import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project } from "../types.ts";
+import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ValidationIssue } from "../types.ts";
 import { DEFAULT_COMPANY_DOCUMENT_PROFILE, supplierInvoiceBuyerMismatch, type CompanyDocumentProfile } from "../lib/companyDocumentProfile.ts";
 import { hasFinancialFxSnapshot, normalizeFinancialCurrency } from "./financialCurrency.ts";
 import { validateInvoiceProjectAllocationSet } from "./projectAllocations.ts";
@@ -32,6 +32,38 @@ export interface SupplierInvoiceExpenseReadiness {
   readyToLink: boolean;
   issues: SupplierInvoiceReadinessIssue[];
   blockingReasons: string[];
+}
+
+/**
+ * Suggest only text already present in the preserved supplier evidence. This
+ * is a human-confirmation aid, never an accounting classification.
+ */
+export function suggestSupplierExpenseDescription(invoice: InvoiceData) {
+  const lineDescriptions = invoice.items
+    .map((item) => text(item.description))
+    .filter(Boolean);
+  if (lineDescriptions.length > 0) {
+    const visible = lineDescriptions.slice(0, 3);
+    return visible.length < lineDescriptions.length
+      ? `${visible.join(" / ")} + ${lineDescriptions.length - visible.length} more line item${lineDescriptions.length - visible.length === 1 ? "" : "s"}`
+      : visible.join(" / ");
+  }
+  const invoiceNumber = text(invoice.invoiceNumber);
+  return invoiceNumber ? `Supplier invoice ${invoiceNumber}` : "";
+}
+
+/**
+ * Validation arithmetic and tax messages are informational unless the
+ * authoritative posting-readiness contract also marks the same field as a
+ * blocker. This keeps advisories, including the unconfigured VAT-rate note,
+ * from competing with required posting actions.
+ */
+export function getSupplierInvoiceValidationAdvisories(
+  invoice: InvoiceData,
+  readiness: SupplierInvoiceExpenseReadiness = getSupplierInvoiceExpenseReadiness(invoice),
+): ValidationIssue[] {
+  const blockingFields = new Set(readiness.issues.map((issue) => issue.field));
+  return (invoice.validation?.issues || []).filter((issue) => issue.severity !== "error" && !blockingFields.has(issue.field));
 }
 
 export interface SupplierDocumentWorkspaceRow {

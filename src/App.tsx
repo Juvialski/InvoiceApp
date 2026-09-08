@@ -378,6 +378,7 @@ function InvoiceWorkspace() {
   const sourcePayloadsRef = useRef(new Map<string, ExtractPayload>());
   const retryingInvoiceRef = useRef<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceData | null>(null);
+  const [supplierRepairInvoiceId, setSupplierRepairInvoiceId] = useState<string | null>(null);
   const [reviewSessionIds, setReviewSessionIds] = useState<string[]>([]);
   const [reviewCompletion, setReviewCompletion] = useState<{ verifiedCount: number; totalCount: number; newItems: number } | null>(null);
   const [workspaceOrigin, setWorkspaceOrigin] = useState<AppTab>("dashboard");
@@ -4136,6 +4137,11 @@ function InvoiceWorkspace() {
     }
   };
 
+  const handleCommitInvoiceRepair = async (updated: InvoiceData) => {
+    handleUpdateInvoice(updated);
+    return flushInvoiceSave(updated, "HUMAN_EDIT");
+  };
+
   const reloadLatestRemoteInvoice = () => {
     const pending = remoteInvoiceUpdate;
     if (!pending || saveStateRef.current === "saving") return;
@@ -4234,6 +4240,7 @@ function InvoiceWorkspace() {
     setInvoices(next);
     lastPersistedRef.current.set(verified.id, verified);
     if (selectedInvoice?.id === verified.id) setSelectedInvoice(verified);
+    setSupplierRepairInvoiceId((current) => current === verified.id ? null : current);
     showNotification("success", `Verified ${verified.invoiceNumber || "supplier invoice"}. Expense ${verified.linkedExpenseId ? `#${verified.linkedExpenseId.slice(0, 8)} ` : ""}is now the authoritative supplier payable; the source invoice remains preserved evidence.`);
     return verified;
   };
@@ -4257,20 +4264,22 @@ function InvoiceWorkspace() {
     setRegionalSettingsState(saved);
   };
 
-  const handleReopen = async (invoice: InvoiceData) => {
+  const handleReopen = async (invoice: InvoiceData): Promise<boolean> => {
     const activeLinkedExpense = expenses.find((expense) => expense.supplierInvoiceId === invoice.id && expense.status !== "VOID");
     if (activeLinkedExpense) {
       showNotification("info", "This supplier invoice already has an active authoritative Expense. Use the Expense correction workflow; the source facts remain preserved.");
-      return;
+      return false;
     }
     const reopened = { ...invoice, reviewStatus: "NEEDS_REVIEW" as const, verifiedAt: undefined };
-    if (!await flushInvoiceSave(reopened, "REOPENED")) return;
+    if (!await flushInvoiceSave(reopened, "REOPENED")) return false;
     const saved = invoicesRef.current.find((item) => item.id === reopened.id) || reopened;
     const next = invoicesRef.current.map((item) => item.id === saved.id ? saved : item);
     invoicesRef.current = next;
     setInvoices(next);
     setSelectedInvoice((current) => current?.id === saved.id ? saved : current);
+    setSupplierRepairInvoiceId(saved.id);
     showNotification("info", `Reopened ${saved.invoiceNumber || "invoice"} for review.`);
+    return true;
   };
 
   const handleRetryExtraction = async (invoice: InvoiceData): Promise<InvoiceData | null> => {
@@ -4412,6 +4421,16 @@ function InvoiceWorkspace() {
     const returnPath = typeof window === "undefined" ? appPathForTab(origin) : appPathFromLocation(window.location);
     setWorkspaceReturnPath(returnPath);
     startReview(queue, invoice.id, origin, returnPath);
+  };
+
+  const handleFixSupplierInvoice = async (invoice: InvoiceData) => {
+    let repairInvoice = invoice;
+    if (invoice.reviewStatus === "VERIFIED") {
+      if (!await handleReopen(invoice)) return;
+      repairInvoice = invoicesRef.current.find((candidate) => candidate.id === invoice.id) || { ...invoice, reviewStatus: "NEEDS_REVIEW", verifiedAt: undefined };
+    }
+    setSupplierRepairInvoiceId(repairInvoice.id);
+    openInvoiceForReview(repairInvoice, "expenses");
   };
 
   const openInvoice = (invoice: InvoiceData) => {
@@ -4965,6 +4984,8 @@ function InvoiceWorkspace() {
           onReviewSave={saveCurrentReview}
           onVerifyAndNext={verifyAndNext}
           onReopenInvoice={(invoice) => handleReopen(invoice)}
+          onCommitInvoiceRepair={handleCommitInvoiceRepair}
+          supplierRepairInvoiceId={supplierRepairInvoiceId}
           onContinueWithNewItems={() => startReview(invoicesRef.current.filter((item) => item.reviewStatus === "NEEDS_REVIEW"), undefined, workspaceOrigin)}
           onReturnToDashboard={() => resetWorkspaceSelection("dashboard")}
           onViewVerified={() => resetWorkspaceSelection("invoices")}
@@ -5029,6 +5050,7 @@ function InvoiceWorkspace() {
           baseCurrency={activeCompany?.defaultCurrency || regionalSettings.currency || DEFAULT_CURRENCY}
           onSaveFinancialFxSnapshot={handleSaveFinancialFxSnapshot}
           onVerifySupplierInvoice={(invoice) => handleLinkSupplierInvoice(invoice)}
+          onFixSupplierInvoice={!isSupabaseConfigured || (can(PERMISSION_KEYS.invoicesWrite) && can(PERMISSION_KEYS.invoicesVerify) && can(PERMISSION_KEYS.expensesWrite)) ? handleFixSupplierInvoice : undefined}
           expenseFormContext={expenseFormContext}
           expenseCorrectionContext={expenseCorrectionContext}
           onSaveExpense={(expense) => void handleSaveExpense(expense)}
