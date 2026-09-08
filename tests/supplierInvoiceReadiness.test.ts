@@ -137,4 +137,5 @@ test("the UI presents readiness reasons, exposes Expense posting facts, and rout
   assert.match(appSource, /handleFixSupplierInvoice/);
   assert.match(correctionSource, /Delete unused invoice/);
   assert.match(correctionSource, /Archive \/ hide invoice/);
+  assert.match(correctionSource, /window\.confirm\(`Delete permanently\? This unused \$\{entityLabel\}/);
 });
