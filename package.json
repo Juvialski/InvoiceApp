@@ -18,7 +18,7 @@
     "agent:context": "tsx scripts/agent-context.ts",
     "ci:failure-context": "tsx scripts/ci-failure-context.ts",
     "qa:demo": "tsx scripts/demo-visual-qa.ts",
-    "qa:hosted": "tsx scripts/hosted-qa-certification.ts",
+    "qa:hosted": "tsx scripts/hosted-qa-auth-preflight.ts && tsx scripts/hosted-qa-certification.ts",
     "workflow-map:generate": "tsx scripts/workflow-map/generate.ts",
     "workflow-map:check": "tsx scripts/workflow-map/validate.ts --check",
     "workflow-map:consistency": "tsx scripts/workflow-map/consistency.ts",
