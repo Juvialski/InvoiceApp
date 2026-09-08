@@ -39,7 +39,7 @@ export interface SupplierInvoiceExpenseReadiness {
  * is a human-confirmation aid, never an accounting classification.
  */
 export function suggestSupplierExpenseDescription(invoice: InvoiceData) {
-  const lineDescriptions = invoice.items
+  const lineDescriptions = (Array.isArray(invoice.items) ? invoice.items : [])
     .map((item) => text(item.description))
     .filter(Boolean);
   if (lineDescriptions.length > 0) {

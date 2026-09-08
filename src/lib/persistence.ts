@@ -976,22 +976,37 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   if (!expectedUpdatedAt || String(existingRow.updated_at || "") !== expectedUpdatedAt) {
     throw new Error("This invoice changed in another session. Refresh it before saving.");
   }
+  const reopenOnly = eventType === "REOPENED";
+  const persistedReviewStatus = reopenOnly ? "NEEDS_REVIEW" : updated.reviewStatus || "NEEDS_REVIEW";
   // Check freshness before any related vendor upsert. A stale invoice edit
   // must not create or rewrite a vendor as a side effect of being rejected.
-  const vendorId = (await findExistingVendorId(updated)) || existingRow.vendor_id || null;
+  // Reopening changes review state only; canonical Vendor resolution remains
+  // an explicit repair action in Supplier Review.
+  const vendorId = reopenOnly
+    ? existingRow.vendor_id || null
+    : (await findExistingVendorId(updated)) || existingRow.vendor_id || null;
   const durableAiSnapshot = existingRow?.current_data?.aiSnapshot || previous.aiSnapshot || updated.aiSnapshot;
   const persistedBefore = existingRow?.current_data
     ? { ...(existingRow.current_data as Partial<InvoiceData>), id: updated.id }
     : previous;
-  const currentData = {
-    ...updated,
-    lifecycleStatus: existingRow?.lifecycle_status || updated.lifecycleStatus || "ACTIVE",
-    archivedAt: existingRow?.archived_at ?? undefined,
-    voidedAt: existingRow?.voided_at ?? undefined,
-    voidedByUserId: existingRow?.voided_by_user_id ?? undefined,
-    voidReason: existingRow?.void_reason ?? undefined,
-    ...(durableAiSnapshot ? { aiSnapshot: clone(durableAiSnapshot) } : {}),
-  };
+  // Reopening a legacy verified row must not reserialize derived client-side
+  // validation fields into current_data. The database guard compares the
+  // source/business snapshot and correctly rejects those as an edit.
+  const currentData = reopenOnly
+    ? {
+        ...(existingRow.current_data || {}),
+        reviewStatus: persistedReviewStatus,
+        verifiedAt: null,
+      }
+    : {
+        ...updated,
+        lifecycleStatus: existingRow?.lifecycle_status || updated.lifecycleStatus || "ACTIVE",
+        archivedAt: existingRow?.archived_at ?? undefined,
+        voidedAt: existingRow?.voided_at ?? undefined,
+        voidedByUserId: existingRow?.voided_by_user_id ?? undefined,
+        voidReason: existingRow?.void_reason ?? undefined,
+        ...(durableAiSnapshot ? { aiSnapshot: clone(durableAiSnapshot) } : {}),
+      };
   const { data: savedRow, error } = await client.from("invoices").update({
     vendor_id: vendorId,
     invoice_number: updated.invoiceNumber || null,
@@ -1000,17 +1015,19 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     currency: updated.currency || null,
     grand_total: updated.grandTotal ?? null,
     payment_status: updated.status || "UNPAID",
-    review_status: updated.reviewStatus || "NEEDS_REVIEW",
+    review_status: persistedReviewStatus,
     duplicate_status: updated.duplicateStatus || existingRow?.duplicate_status || "UNIQUE",
     duplicate_of_id: updated.duplicateOfId || existingRow?.duplicate_of_id || null,
     document_type: updated.documentType || "OTHER",
     current_data: currentData,
-    verified_at: updated.verifiedAt || null,
+    verified_at: reopenOnly ? null : updated.verifiedAt || null,
     updated_at: new Date().toISOString(),
   }).eq("id", updated.id).eq("company_id", requireActiveCompanyId()).eq("updated_at", expectedUpdatedAt).select("updated_at").maybeSingle();
   if (error) throw error;
   if (!savedRow) throw new Error("This invoice changed in another session. Refresh it before saving.");
-  await replaceLineItems(updated.id, updated.items);
+  // Reopening is a review-state transition, not a line-item edit. Do not
+  // replace source line items while entering the repair workflow.
+  if (!reopenOnly) await replaceLineItems(updated.id, updated.items);
 
   // The database row is the final source of truth. The caller normally passes
   // the serialized queue's previous snapshot, but reading the row here also
@@ -1018,7 +1035,9 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
   // local state.
   const before = comparableSnapshot(persistedBefore as InvoiceData);
   const after = comparableSnapshot(updated);
-  const fields = Array.from(new Set([...Object.keys(before), ...Object.keys(after)])).filter((field) => JSON.stringify((before as any)[field] ?? null) !== JSON.stringify((after as any)[field] ?? null));
+  const fields = reopenOnly
+    ? []
+    : Array.from(new Set([...Object.keys(before), ...Object.keys(after)])).filter((field) => JSON.stringify((before as any)[field] ?? null) !== JSON.stringify((after as any)[field] ?? null));
   if (fields.length || eventType !== "HUMAN_EDIT") {
     const events = (fields.length ? fields : [undefined]).map((field) => ({
       user_id: userId,

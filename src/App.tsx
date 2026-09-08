@@ -4045,13 +4045,14 @@ function InvoiceWorkspace() {
     });
     try {
       const saved = await operation;
-      if (editRevisionRef.current.get(invoice.id) === revision) {
+      const revisionIsCurrent = (editRevisionRef.current.get(invoice.id) || 0) === revision;
+      if (revisionIsCurrent) {
         const next = invoicesRef.current.map((item) => item.id === saved.id ? saved : item);
         invoicesRef.current = next;
         setInvoices(next);
         setSelectedInvoice((current) => current?.id === saved.id ? saved : current);
       }
-      if (editRevisionRef.current.get(invoice.id) === revision) updateSaveState("saved");
+      if (revisionIsCurrent) updateSaveState("saved");
     } catch (error) {
       if (editRevisionRef.current.get(invoice.id) === revision) updateSaveState("error");
       throw error;
@@ -4424,10 +4425,18 @@ function InvoiceWorkspace() {
   };
 
   const handleFixSupplierInvoice = async (invoice: InvoiceData) => {
-    let repairInvoice = invoice;
-    if (invoice.reviewStatus === "VERIFIED") {
-      if (!await handleReopen(invoice)) return;
-      repairInvoice = invoicesRef.current.find((candidate) => candidate.id === invoice.id) || { ...invoice, reviewStatus: "NEEDS_REVIEW", verifiedAt: undefined };
+    // Resolve the callback's ID against the current source collection before
+    // changing route state. The Expenses row can outlive a refresh, but the
+    // repair workflow must never open a different or stale supplier document.
+    const currentInvoice = invoicesRef.current.find((candidate) => candidate.id === invoice.id);
+    if (!currentInvoice) {
+      showNotification("error", "This supplier invoice is no longer available. Refresh Expenses and retry.");
+      return;
+    }
+    let repairInvoice = currentInvoice;
+    if (currentInvoice.reviewStatus === "VERIFIED") {
+      if (!await handleReopen(currentInvoice)) return;
+      repairInvoice = invoicesRef.current.find((candidate) => candidate.id === currentInvoice.id) || { ...currentInvoice, reviewStatus: "NEEDS_REVIEW", verifiedAt: undefined };
     }
     setSupplierRepairInvoiceId(repairInvoice.id);
     openInvoiceForReview(repairInvoice, "expenses");
@@ -4558,15 +4567,17 @@ function InvoiceWorkspace() {
     ? "Dashboard"
     : workspaceOrigin === "cash"
       ? "Cash & Banking"
-    : workspaceOrigin === "projects"
-      ? "Projects"
-    : workspaceOrigin === "inbox"
-      ? "Gmail Inbox"
-      : workspaceOrigin === "review"
-        ? "Review Queue"
-        : workspaceOrigin === "extractor"
-          ? "Extract"
-          : "Invoices";
+      : workspaceOrigin === "projects"
+        ? "Projects"
+        : workspaceOrigin === "inbox"
+          ? "Gmail Inbox"
+          : workspaceOrigin === "review"
+            ? "Review Queue"
+            : workspaceOrigin === "extractor"
+              ? "Extract"
+              : workspaceOrigin === "expenses"
+                ? "Expenses"
+                : "Invoices";
 
   const resetWorkspaceSelection = (tab: AppTab) => {
     setSelectedInvoice(null);
