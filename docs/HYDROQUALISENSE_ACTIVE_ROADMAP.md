@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — QA LIVE INITIALIZATION BLOCKED, CERTIFICATION NOT READY**
+Status: **ACTIVE — QA INITIALIZATION COMPLETE, CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-08**  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -22,17 +22,20 @@ Completed recent milestones:
 - PR #100 — supplier Expense-link repair + Client A transfer/readiness tooling.
 - PR #101 — supplier readiness truth + guarded legacy repair + QA deployment identity and guarded QA database tooling.
 - PR #103 — streamlined supplier invoice repair UX, inline canonical Vendor resolution, explicit Expense-description confirmation, direct guarded posting, and clearer invoice lifecycle actions; no migration or database contract change.
+- PR #105 — guarded deployment bootstrap authority.
+- PR #106 — recorded the blocked QA certification checkpoint and corrected the production migration baseline.
 
-Runtime baseline after PR #105:
+Runtime baseline after PR #106:
 
-`8c74bf1101aaad92d7e05170f7898be5988f881d`
+`5d7ddd62be627ae8ae79cc9f6965b5554006cb97`
 
-Supabase connector, public health, and repository state re-verified on 2026-09-08 during the QA certification attempt:
+Supabase connector, public health, repository state, and QA runtime state were re-verified on 2026-09-08 during the current certification attempt:
 
-- QA `vrpuznofrntyqsbugrib` is `ACTIVE_HEALTHY`, has one Auth user, zero HydroQualiSense public application/base tables, and zero applied repository migrations.
-- Client A production `qijjshdwiylojvqojxyz` is `ACTIVE_HEALTHY`; a read-only query observed migration head `20260908051740_deployment_bootstrap_authority`, while `/api/health` reports stale migration metadata `20260908005120`.
-- QA `/api/health` reports the correct repository SHA but incomplete identity metadata (`deploymentId=qa`, null environment/migration/configuration).
-- Production inspection was read-only. No QA or production mutation was performed by Codex during this attempt.
+- QA `vrpuznofrntyqsbugrib` is `ACTIVE_HEALTHY`, has one confirmed Auth user, the full repository migration chain through `20260908051740_deployment_bootstrap_authority`, one synthetic QA company/configuration/admin membership, and synthetic QA workflow rows only.
+- Client A production `qijjshdwiylojvqojxyz` is `ACTIVE_HEALTHY`; its read-only observed database migration head is `20260908051740_deployment_bootstrap_authority`.
+- QA `/api/health` reports repository SHA `5d7ddd62be627ae8ae79cc9f6965b5554006cb97` and `environment=qa`, but still reports `deploymentId=qa` and null migration/configuration metadata.
+- Production `/api/health` remains stale relative to the database, reporting repository SHA `8c74bf1101aaad92d7e05170f7898be5988f881d` and migration level `20260908005120`.
+- Production inspection remained read-only. Codex caused no production mutation during this certification attempt.
 
 The product architecture remains:
 
@@ -48,7 +51,7 @@ Core rules remain:
 
 ## Completed — client deployment/productization foundation
 
-The initial productization slice is complete enough to move into live QA initialization.
+The initial productization slice is complete enough to support live QA certification.
 
 Established capabilities:
 
@@ -81,9 +84,9 @@ Do not turn this into a shared multi-client operational control plane yet.
 - Supabase ref: `vrpuznofrntyqsbugrib`
 - current verified state after the 2026-09-08 guarded initialization: `ACTIVE_HEALTHY`, one confirmed Auth user, the full repository migration chain through `20260908051740_deployment_bootstrap_authority`, one synthetic QA company/bootstrap membership, and synthetic QA workflow rows only.
 - intended role: isolated QA plus temporary client-demo environment using synthetic data only.
-- QA is authorized for read/write initialization and certification work; initialization/bootstrap completed, but certification remains `NOT READY` pending provider, hosted-auth/Storage, release-identity, migration-promotion, and recovery evidence.
+- QA initialization/bootstrap completed, but certification remains `NOT READY` pending provider, hosted-auth/Storage, release-identity, migration-promotion, and recovery evidence.
 
-## NEXT — live QA initialization and certification
+## NEXT — complete live QA certification
 
 This is the immediate bounded phase.
 
@@ -98,16 +101,14 @@ Observed checkpoint on 2026-09-08:
 - provider Auth settings, authenticated hosted Storage byte access, and database/Storage/deployment recovery evidence remain unresolved;
 - production was read-only; its DB head is `20260908051740_deployment_bootstrap_authority` while `/api/health` still reports stale metadata.
 
-Required outcome:
+Remaining required outcome:
 
-1. QA Render uses explicit QA environment/deployment identity.
-2. The blank QA Supabase project receives the full approved migration chain.
-3. A QA company and the already-confirmed QA user are bootstrapped through guarded existing authority, not raw unsafe table edits.
-4. Storage/Auth/provider configuration is QA-specific and does not reuse/copy Client A operational data.
-5. Synthetic/demo data is introduced only through an explicit QA-only path.
-6. QA proves company boundary, RBAC/RLS/RPC behavior, major read paths, Storage access, `/api/health`, and one safe supplier-review flow.
-7. QA release/migration identity is recorded after successful verification.
-8. Client A production remains read-only by default throughout this phase; no production mutation is part of QA certification.
+1. QA Render reports the explicit approved QA deployment identity and truthful release/migration metadata.
+2. QA Auth Site URL/redirect configuration and leaked-password protection are verified with provider evidence.
+3. Hosted authenticated sign-in/deep-link behavior, effective permissions, major read paths, and real Storage byte upload/read are verified using synthetic QA data only.
+4. PostgreSQL recovery, Storage-object recovery, deployment reconstruction/rollback, and required secret/configuration recovery have explicit evidence.
+5. Routine application redeploy is separated from deliberate database migration promotion, or the external provider behavior is explicitly documented and guarded.
+6. Client A production remains read-only throughout QA certification and its observed release/database mismatch remains documented until a separately approved production reconciliation.
 
 Use `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` for the operator workflow.
 
@@ -116,6 +117,7 @@ Use `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` for the operator workflow.
 - Never copy Client A financial, payroll, worker, document, Auth or Storage data into QA by default.
 - Never place service-role/secret keys in browser variables or repository files.
 - `qa:db:push` and `qa:db:reset` must fail closed unless explicit QA identity and exact project-ref assertions match.
+- Do not rerun the guarded migration push merely because certification continues; use it again only when a newer approved merged migration must be applied.
 - Do not treat an unavailable provider/backup check as a pass.
 - Database backup evidence does not by itself prove Storage object recovery.
 - Do not enable the public prospect funnel merely because QA exists; its build and DB gates remain deliberate.
@@ -214,7 +216,7 @@ Old Engoryx planned/deferred phases are not implementation authority. Scheduling
 
 Unless explicitly reprioritized:
 
-1. **Live QA initialization and certification**
+1. **Complete live QA certification**
 2. **Worker Registration foundation**
 3. **Site Attendance state machine + device registration**
 4. **Face-Recognition Attendance** after explicit privacy/security design
