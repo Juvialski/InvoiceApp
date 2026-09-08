@@ -56,7 +56,9 @@ export interface InvoicesRouteProps {
   onNext?: () => Promise<boolean>;
   onSave?: () => Promise<boolean>;
   onVerifyAndNext?: () => Promise<boolean>;
-  onReopen?: (invoice: InvoiceData) => Promise<void> | void;
+  onReopen?: (invoice: InvoiceData) => Promise<void | boolean> | void;
+  onCommitRepair?: (invoice: InvoiceData) => Promise<boolean>;
+  repairMode?: boolean;
   onContinueWithNewItems?: () => void;
   onReturnToDashboard?: () => void;
   onViewVerified?: () => void;
@@ -101,6 +103,7 @@ export interface InvoicesRouteProps {
   onOpenPurchaseOrder?: (purchaseOrderId: string) => void;
   onDeactivateVendor?: (vendorId: string, reason: string) => Promise<void>;
   onReactivateVendor?: (vendorId: string) => Promise<void>;
+  onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
 }
 
 export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
@@ -129,6 +132,8 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onSave = async () => false,
   onVerifyAndNext = async () => false,
   onReopen,
+  onCommitRepair,
+  repairMode = false,
   onContinueWithNewItems,
   onReturnToDashboard = () => {},
   onViewVerified = () => {},
@@ -161,6 +166,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   onOpenPurchaseOrder,
   onDeactivateVendor,
   onReactivateVendor,
+  onAddVendor,
 }) => {
   const permissions = useAppPermissions();
   const canManageInvoices = hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
@@ -226,7 +232,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
     if (!canManageInvoices && !canVerifyInvoices) {
       return <div className="space-y-5">{!selectedInvoice.linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} onNavigatePath={onNavigatePath} />}<InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
     }
-    const handleReopenCallback = async () => { if (onReopen) await onReopen(selectedInvoice); };
+    const handleReopenCallback = async () => { if (onReopen) return onReopen(selectedInvoice); return undefined; };
     const canRepairVerifiedInvoice = !activeSupplierExpenseInvoiceIds.includes(selectedInvoice.id);
     return (
       <div className="space-y-5">
@@ -249,6 +255,10 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onVerifyAndNext={canVerifySupplierInvoices ? onVerifyAndNext : async () => false}
           canVerify={canVerifySupplierInvoices}
           onReopen={canVerifySupplierInvoices && selectedInvoice.lifecycleStatus !== "VOID" ? handleReopenCallback : undefined}
+          onCommitRepair={onCommitRepair}
+          onAddVendor={canManageVendors ? onAddVendor : undefined}
+          onOpenCorrection={onPreviewCorrection ? () => void openCorrection(selectedInvoice) : undefined}
+          repairMode={repairMode}
           canRepairVerifiedInvoice={canRepairVerifiedInvoice}
           onContinueWithNewItems={onContinueWithNewItems}
           onReturnToDashboard={onReturnToDashboard}

@@ -22,6 +22,7 @@ export interface ExpensesRouteProps {
   baseCurrency?: string;
   onSaveFinancialFxSnapshot?: (input: FinancialFxSnapshotInput) => Promise<FinancialFxSnapshot | void>;
   onVerifySupplierInvoice?: (invoice: InvoiceData) => Promise<InvoiceData | void>;
+  onFixSupplierInvoice?: (invoice: InvoiceData) => Promise<void> | void;
   onOpenSupplierInvoiceReview?: (invoice: InvoiceData) => void;
   onUploadSupplierInvoice?: () => void;
   onPreviewCorrection: (expense: Expense) => Promise<FinancialCorrectionPreview>;

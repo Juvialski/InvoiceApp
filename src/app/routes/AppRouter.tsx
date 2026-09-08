@@ -244,7 +244,9 @@ export interface AppRouterProps {
   onReviewNext?: () => Promise<boolean>;
   onReviewSave?: () => Promise<boolean>;
   onVerifyAndNext?: () => Promise<boolean>;
-  onReopenInvoice?: (invoice: InvoiceData) => Promise<void>;
+  onReopenInvoice?: (invoice: InvoiceData) => Promise<void | boolean>;
+  onCommitInvoiceRepair?: (invoice: InvoiceData) => Promise<boolean>;
+  supplierRepairInvoiceId?: string | null;
   onContinueWithNewItems?: () => void;
   onReturnToDashboard?: () => void;
   onViewVerified?: () => void;
@@ -358,6 +360,7 @@ export interface AppRouterProps {
   baseCurrency?: string;
   onSaveFinancialFxSnapshot?: (input: FinancialFxSnapshotInput) => Promise<FinancialFxSnapshot | void>;
   onVerifySupplierInvoice?: (invoice: InvoiceData) => Promise<InvoiceData | void>;
+  onFixSupplierInvoice?: (invoice: InvoiceData) => Promise<void> | void;
   onPreviewExpenseCorrection?: (expense: Expense) => Promise<FinancialCorrectionPreview>;
   onApplyExpenseCorrection?: (expense: Expense, action: FinancialCorrectionAction, reason?: string) => Promise<FinancialCorrectionResult>;
   onExpenseCorrectionContextConsumed?: () => void;
@@ -575,6 +578,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onReviewSave,
   onVerifyAndNext,
   onReopenInvoice,
+  onCommitInvoiceRepair,
+  supplierRepairInvoiceId = null,
   onContinueWithNewItems,
   onReturnToDashboard,
   onViewVerified,
@@ -665,6 +670,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   baseCurrency = "PHP",
   onSaveFinancialFxSnapshot,
   onVerifySupplierInvoice,
+  onFixSupplierInvoice,
   onPreviewExpenseCorrection,
   onApplyExpenseCorrection,
   onExpenseCorrectionContextConsumed,
@@ -708,6 +714,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onSave={onReviewSave}
         onVerifyAndNext={onVerifyAndNext}
         onReopen={onReopenInvoice}
+        onCommitRepair={onCommitInvoiceRepair}
+        repairMode={supplierRepairInvoiceId === selectedInvoice.id}
+        onAddVendor={onAddVendor}
         onContinueWithNewItems={onContinueWithNewItems}
         onReturnToDashboard={onReturnToDashboard}
         onViewVerified={onViewVerified}
@@ -1017,6 +1026,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         baseCurrency={baseCurrency}
         onSaveFinancialFxSnapshot={onSaveFinancialFxSnapshot}
         onVerifySupplierInvoice={onVerifySupplierInvoice}
+        onFixSupplierInvoice={onFixSupplierInvoice}
         onOpenSupplierInvoiceReview={onOpenInvoiceForReview}
         onUploadSupplierInvoice={onAddNewInvoice}
         costCodes={costCodes as ProjectCostCode[]}
