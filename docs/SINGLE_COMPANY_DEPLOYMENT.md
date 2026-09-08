@@ -31,50 +31,19 @@ Create/invite the client's initial administrator through the normal Supabase Aut
 
 ### 4. Provision exactly one deployment company
 
-Use an administrative SQL/service-role provisioning step, not a browser-exposed company-creation workflow. Replace placeholders before execution:
+Use the guarded operator/service-role bootstrap authority, not direct table edits or a browser-exposed company-creation workflow. Replace placeholders before execution:
 
 ```sql
-begin;
-
-insert into public.companies (
-  name,
-  company_code,
-  status,
-  default_currency,
-  timezone
-)
-values (
+select public.bootstrap_deployment_company(
+  '<INITIAL ADMIN AUTH USER UUID>'::uuid,
   '<CLIENT COMPANY NAME>',
   '<lowercase-company-code>',
-  'ACTIVE',
   'PHP',
   'Asia/Manila'
-)
-returning id;
-
--- Use the returned company UUID below.
-insert into public.deployment_configuration (singleton, company_id)
-values (true, '<COMPANY UUID>'::uuid);
-
-insert into public.company_members (
-  company_id,
-  user_id,
-  role_key,
-  status,
-  joined_at
-)
-values (
-  '<COMPANY UUID>'::uuid,
-  '<INITIAL ADMIN AUTH USER UUID>'::uuid,
-  'COMPANY_ADMIN',
-  'ACTIVE',
-  now()
 );
-
-commit;
 ```
 
-Verify that `public.deployment_configuration` has exactly one row and that its `company_id` matches the one company intended for this deployment.
+The function is granted only to `service_role`, requires an existing confirmed Auth user, refuses any project with company history or an existing deployment configuration, creates the company/configuration/initial `COMPANY_ADMIN` membership and audit event atomically, and safely returns the same result on an exact retry. Verify that `public.deployment_configuration` has exactly one row and that its `company_id` matches the one company intended for this deployment.
 
 Do not create a second client company in this Supabase project. The forward database guards reject additional company inserts after deployment configuration.
 
