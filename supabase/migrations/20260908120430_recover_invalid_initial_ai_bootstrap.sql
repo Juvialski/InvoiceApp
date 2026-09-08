@@ -88,7 +88,7 @@ begin
       select 1
       from public.company_audit_events ae
       where ae.company_id = p_company_id
-        and ae.event_type in ('COMPANY_AI_CREDENTIAL_CONFIGURED', 'COMPANY_AI_BOOTSTRAP_CREDENTIAL_REPLACED')
+        and ae.event_type in ('COMPANY_AI_CREDENTIAL_CONFIGURED', 'COMPANY_AI_CREDENTIAL_ROTATED')
         and coalesce((ae.metadata ->> 'bootstrap')::boolean, false)
         and ae.metadata ->> 'operator_user_id' = p_operator_user_id::text
     ) into v_bootstrap_owned;
@@ -134,7 +134,7 @@ begin
       insert into public.company_audit_events (
         company_id, actor_user_id, event_type, target_type, target_id, metadata
       ) values (
-        p_company_id, p_operator_user_id, 'COMPANY_AI_BOOTSTRAP_CREDENTIAL_REPLACED', 'company_ai_credential', null,
+        p_company_id, p_operator_user_id, 'COMPANY_AI_CREDENTIAL_ROTATED', 'company_ai_credential', null,
         jsonb_build_object(
           'provider', 'GEMINI',
           'credential_version', v_version,
