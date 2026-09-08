@@ -67,6 +67,14 @@ test("VERIFIED with a missing Expense description is not READY_TO_LINK", () => {
   assert.match(row.readiness.blockingReasons.join(" "), /Expense description/i);
 });
 
+test("an incomplete deployment buyer profile blocks posting even when the source omits buyer evidence", () => {
+  const source = invoice({ customer: undefined });
+  const readiness = getSupplierInvoiceExpenseReadiness(source, { buyerProfile: { legalName: "" } });
+  assert.equal(readiness.readyToLink, false);
+  assert.ok(readiness.issues.some((issue) => issue.code === "BUYER_PROFILE_UNAVAILABLE"));
+  assert.match(readiness.blockingReasons.join(" "), /document profile/i);
+});
+
 test("a complete VERIFIED invoice with no Expense is READY_TO_LINK", () => {
   const row = classifySupplierDocuments([invoice()], [], [], [], configuredBuyerProfile)[0]!;
   assert.equal(row.state, "READY_TO_LINK");
