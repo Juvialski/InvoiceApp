@@ -103,8 +103,8 @@ For a new client, follow [`SINGLE_COMPANY_DEPLOYMENT.md`](SINGLE_COMPANY_DEPLOYM
 
 1. create a separate Supabase project and application deployment;
 2. apply all migrations;
-3. create exactly one client company and set `deployment_configuration.company_id` using an administrative/service-role provisioning step;
-4. create the initial `COMPANY_ADMIN` membership;
+3. call the guarded `public.bootstrap_deployment_company(...)` operator/service-role authority on a blank deployment; it creates exactly one client company, sets `deployment_configuration.company_id`, creates the initial `COMPANY_ADMIN` membership, and records an audit event atomically;
+4. never stuff company, configuration, or membership rows with ad hoc browser/service SQL; the bootstrap authority refuses configured or historically populated projects and is idempotent for an exact retry;
 5. configure the Supabase URL/publishable key and any existing server-side AI secrets; no invitation-delivery secret or SMTP configuration is required for access authorization;
 6. run RLS/Storage/role smoke tests before inviting remaining users.
 

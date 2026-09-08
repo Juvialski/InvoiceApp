@@ -14,6 +14,7 @@ const migrationNames = [
 ] as const;
 const sql = migrationNames.map((name) => readFileSync(new URL(`../supabase/migrations/${name}`, import.meta.url), "utf8")).join("\n");
 const platformMaintenance = readFileSync(new URL("../supabase/migrations/20260828152000_single_company_platform_maintenance.sql", import.meta.url), "utf8");
+const deploymentBootstrap = readFileSync(new URL("../supabase/migrations/20260908051740_deployment_bootstrap_authority.sql", import.meta.url), "utf8");
 
 const tenantTables = [
   "gmail_connections", "gmail_sync_state", "email_messages", "source_documents", "vendors", "invoices",
@@ -65,6 +66,18 @@ test("SECURITY DEFINER functions pin search_path and direct writes stay closed",
   assert.match(sql, /revoke insert, update, delete on table public\.company_members/);
   assert.match(sql, /revoke execute on function public\.platform_create_company/);
   assert.match(sql, /revoke execute on function private\.write_company_audit/);
+});
+
+test("blank deployment bootstrap is operator-controlled, idempotent, and fail-closed", () => {
+  assert.match(deploymentBootstrap, /create or replace function public\.bootstrap_deployment_company\(\s*p_admin_user_id uuid,\s*p_name text,\s*p_company_code text/s);
+  assert.match(deploymentBootstrap, /security definer[\s\S]{0,120}set search_path = ''/i);
+  assert.match(deploymentBootstrap, /pg_advisory_xact_lock/);
+  assert.match(deploymentBootstrap, /coalesce\(u\.email_confirmed_at, u\.confirmed_at\)/);
+  assert.match(deploymentBootstrap, /if exists \(select 1 from public\.companies\)/);
+  assert.match(deploymentBootstrap, /idempotent/);
+  assert.match(deploymentBootstrap, /revoke all on function public\.bootstrap_deployment_company\(uuid, text, text, text, text\)\s+from public, anon, authenticated/s);
+  assert.match(deploymentBootstrap, /grant execute on function public\.bootstrap_deployment_company\(uuid, text, text, text, text\)\s+to service_role/s);
+  assert.doesNotMatch(deploymentBootstrap, /grant execute on function public\.bootstrap_deployment_company\([\s\S]*\)\s+to authenticated/i);
 });
 
 test("RLS, same-company integrity, and company-path storage are explicit", () => {

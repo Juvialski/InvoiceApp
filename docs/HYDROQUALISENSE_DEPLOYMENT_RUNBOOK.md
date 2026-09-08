@@ -84,6 +84,12 @@ From a clean checkout of the approved repository SHA:
    Reset requires a separate confirmation, uses `--no-seed`, and refuses production identity, missing assertions, mismatched linked projects, or a configured production-project match. Do not use raw `--db-url` or `--linked` reset commands for Client A production.
 5. Verify migration history with the CLI and run the application smoke/auth/RLS checks against the QA URL. Record the observed repository SHA, migration level, configuration version, and backup/provider checks in the private QA inventory.
 
+### Guarded company and initial-admin bootstrap
+
+After the complete migration chain is applied, call `public.bootstrap_deployment_company(...)` from an operator-controlled `service_role` SQL/API session. Pass the existing confirmed Auth user UUID and explicit synthetic/client deployment company values. The authority creates the company, singleton deployment configuration, active `COMPANY_ADMIN` membership, and bootstrap audit event atomically; it serializes first bootstrap, refuses configured or historically populated projects, and returns the same result for an exact retry.
+
+Do not grant this function to `anon` or `authenticated`, expose a service-role key to the browser, or replace it with direct `companies`, `deployment_configuration`, or `company_members` table edits. Verify the singleton configuration and membership after the call, then sign in through the normal authenticated application path.
+
 The existing `/demo` route is the safe synthetic-data path for visual/product QA: it mounts no production Auth, Supabase queries, Storage, or company writes; its fictional records are session-local and resettable. The authenticated QA workspace may expose sample invoice presets only when the build is explicitly `qa`; those presets remain fictional and are never copied from Client A. `supabase/seed.sql` remains non-authoritative and empty, so a QA database reset is blank unless an explicitly approved synthetic-data procedure is later added.
 
 ### Backup truth boundary
