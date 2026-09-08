@@ -52,6 +52,75 @@ The inventory records identifiers and verification state only:
 
 Do not put passwords, tokens, API keys, provider credentials, connection strings, private keys, or secret values in the inventory. Keep those in the isolated Render/Supabase/provider secret stores. The validator rejects secret-shaped field names as a second line of defense.
 
+## Client A Supabase ownership transfer — pre-transfer checklist
+
+This checklist prepares the existing Client A Supabase project for an ownership/organization transfer. It does not transfer the project, create a replacement database, copy or delete production data, change Render configuration, rotate keys, or create a QA project. Prefer transferring the existing project when Supabase supports the intended organization/account move; do not substitute a data-copy migration without a separately approved migration plan.
+
+The current Supabase project-transfer workflow moves a project between organizations rather than between regions. Before scheduling it, confirm the [Supabase Project Transfers prerequisites](https://supabase.com/docs/guides/platform/project-transfer): the operator owns the source organization, is a member of the target organization, and the project has no active GitHub integration, project-scoped roles pointing to it, or log drains. A region change is a separate migration decision and is outside this phase.
+
+Use a private, operator-controlled inventory entry. Do not commit the Client A inventory or any secret values. Before scheduling the transfer, record and independently confirm:
+
+- the existing Supabase project reference;
+- the current deployed repository SHA from the Client A Render release, not an assumed local branch SHA;
+- the database migration level actually applied to Client A;
+- the current Render service reference and production URL;
+- the database backup status, last successful backup and last verified recovery evidence;
+- Supabase Auth providers, email/confirmation/session settings, existing-user continuity and any client-specific Auth configuration;
+- Supabase Auth site URL, redirect allow-list, custom domain and application/email redirect URLs;
+- Storage bucket names, visibility, policies, company-prefixed path rules and object metadata;
+- preservation evidence for existing Storage object bytes, hashes and issued/source document access;
+- deployed Edge Functions, schedules, consumers and configuration names, or an explicit record that none are used;
+- enabled database extensions and any client-specific database configuration;
+- the singleton deployment configuration and the expected deployment company boundary;
+- the Render environment variable names that must remain present, without copying their values;
+- Gmail/OAuth, AI, email, backup and other integration/provider configuration and scopes;
+- backup and recovery ownership, restore evidence, recovery target and rollback/forward-recovery expectation;
+- the post-transfer smoke owner, timing and evidence location.
+
+`supabaseProjectRef`, Render service reference, production URL, deployed SHA and migration level are operational metadata, not substitutes for live confirmation. Never place passwords, database connection strings, service-role keys, API keys, OAuth secrets, encryption keys or tokens in the repository, inventory, command arguments or generated report.
+
+### Read-only transfer preflight
+
+Run the preflight from the checked-out repository with the private inventory file:
+
+```text
+npm.cmd run deployment:transfer-preflight -- --file <private-inventory-file> [--deployment <deployment-id>]
+```
+
+The command reads only local repository metadata, the supplied inventory and `.env.example`. It does not call Supabase, Render, Storage or provider APIs; it does not inspect environment-variable values; and it never writes the inventory. With multiple deployments, pass `--deployment` explicitly. `--json` is available for a machine-readable report that still contains names/metadata only.
+
+Interpret results as follows:
+
+- `PASS`: the specific local or recorded fact passed; it is not proof that a remote provider check was performed;
+- `BLOCKED`: do not proceed until the issue is corrected and the preflight is rerun;
+- `MANUAL CHECK REQUIRED`: the tool cannot verify the remote or provider-side fact, so an authorized operator must collect evidence.
+
+Exit code `0` means no check is blocked and no manual check remains in the supplied metadata; exit code `1` means at least one check is blocked; exit code `2` means no recorded blocker was found but manual checks remain. A normal Client A transfer should retain evidence for every manual check before the transfer is scheduled.
+
+The backup check is deliberately strict. A PostgreSQL/database backup does not by itself prove that Supabase Storage object bytes, metadata and permission behavior have been backed up or are restorable. Treat missing Storage-byte evidence as unresolved even when the database backup is current.
+
+## Client A Supabase ownership transfer — immediate post-transfer verification
+
+After the existing project ownership/organization transfer completes, perform only non-destructive checks and record timestamps, actor and evidence. Do not delete, overwrite, rotate, reset, or bulk-rewrite production data as part of verification.
+
+- the production URL loads the expected HydroQualiSense application;
+- authentication succeeds and existing Client A users remain usable;
+- the singleton deployment company is present and the deployment-company boundary is correct;
+- RBAC, RLS and guarded RPC authorization checks succeed, including a rejected wrong-company/insufficient-permission probe;
+- Projects load with the expected company scope;
+- preserved supplier documents load according to permission;
+- Expenses load and show the authoritative supplier payable/cost records;
+- Procurement and Purchase Orders load;
+- Warehouse inventory and movement history load;
+- Payroll loads within the caller's permitted summary/detail boundary;
+- Storage source/issued documents can be accessed according to permissions and company-prefixed paths remain intact;
+- `/api/health` reports the expected non-secret release metadata;
+- the observed migration level matches the approved Client A inventory/release record;
+- one non-destructive critical workflow smoke test completes and leaves no extra financial/inventory rows;
+- the repaired verified supplier invoice -> linked Expense path works for a valid already-verified invoice and creates/reuses exactly one authoritative Expense.
+
+Record any failed or unavailable check as `BLOCKED` or `MANUAL CHECK REQUIRED`; do not convert an unavailable provider check into a pass.
+
 ## Approved client lifecycle
 
 1. Qualify the client requirements through the public funnel or a controlled operator conversation.
