@@ -166,7 +166,7 @@ Continue in this order unless the user reprioritizes:
 ## Permanent invariants
 
 1. `one deployment -> one client company -> active membership/RBAC -> permitted workflows`.
-2. One repository may serve many isolated client deployments; unrelated clients do not share operational databases.
+2. One repository may serve many isolated deployments; unrelated clients do not share operational databases.
 3. Keep company-scoped RLS, permissions, company-bound integrity, audit history, and company-prefixed Storage paths.
 4. Supplier evidence linked to an Expense must not become duplicate payable/Actual Cost truth.
 5. Actual Cost and Committed Cost remain distinct.
