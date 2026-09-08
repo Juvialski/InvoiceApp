@@ -25,5 +25,7 @@ test("internal AI configuration API remains server-authorized and stores no brow
   assert.doesNotMatch(deploymentApi, /localStorage|sessionStorage|service[_-]?role|AI_CREDENTIALS_MASTER_KEY/i);
   assert.match(bootstrapUi, /initial deployment operator/i);
   assert.match(bootstrapUi, /setApiKey\(""\)/);
+  assert.match(bootstrapUi, /config\.status === "INVALID"/);
+  assert.match(bootstrapUi, /Replace invalid bootstrap key/);
   assert.doesNotMatch(app, /companyAiApi|onOpenAiConfiguration/);
 });
