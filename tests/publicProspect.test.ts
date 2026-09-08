@@ -94,16 +94,18 @@ test("server public intake uses a bounded parser, rate limit, anonymous RPC, and
 
 test("release metadata exposes only explicit non-secret values and preserves unknown state", () => {
   const unknown = releaseMetadataFromEnv({});
-  assert.deepEqual(unknown, { appVersion: null, repositorySha: null, migrationLevel: null, deploymentId: null, configurationVersion: null });
+  assert.deepEqual(unknown, { appVersion: null, repositorySha: null, migrationLevel: null, deploymentId: null, configurationVersion: null, environment: null });
   const known = releaseMetadataFromEnv({
     RENDER_GIT_COMMIT: "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD",
     HYDROQUALISENSE_APP_VERSION: "release-2026.09.07",
     HYDROQUALISENSE_MIGRATION_LEVEL: "20260907024119_public_prospect_funnel.sql",
     HYDROQUALISENSE_DEPLOYMENT_ID: "client-alpha",
     HYDROQUALISENSE_CONFIGURATION_VERSION: "config-3",
+    HYDROQUALISENSE_ENVIRONMENT: "production",
   });
   assert.equal(known.repositorySha, "abcdefabcdefabcdefabcdefabcdefabcdefabcd");
   assert.equal(known.migrationLevel, "20260907024119_public_prospect_funnel.sql");
+  assert.equal(known.environment, "production");
   assert.equal(releaseMetadataFromEnv({ RELEASE_SHA: "not-a-sha" }).repositorySha, null);
   assert.match(server, /releaseMetadataFromEnv\(process\.env\)/);
 });
@@ -128,7 +130,7 @@ test("deployment inventory is bounded, secret-free, and can distinguish pass fro
   };
   const pass = verifyDeploymentHealth(entry, {
     status: "ok",
-    release: { repositorySha: sha.toUpperCase(), appVersion: "release-1", migrationLevel: "migration-1", configurationVersion: "config-1" },
+    release: { repositorySha: sha.toUpperCase(), appVersion: "release-1", migrationLevel: "migration-1", configurationVersion: "config-1", environment: "production" },
   }, "2026-09-07T00:00:00.000Z", 200);
   assert.equal(pass.status, "PASS");
 

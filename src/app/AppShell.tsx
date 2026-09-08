@@ -11,6 +11,7 @@ import type { DataCompleteness, ProjectCostSource } from "../utils/dataCompleten
 import { AppPermissionProvider } from "./AppPermissionContext.tsx";
 import { workspacePresentationState } from "../lib/workspacePresentation.ts";
 import { ErrorState } from "../components/ui/OperationsUI.tsx";
+import { DeploymentEnvironmentBanner } from "../components/DeploymentEnvironmentBanner.tsx";
 
 export interface ShellNotification {
   type: "success" | "error" | "info";
@@ -183,6 +184,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       workspaceDataPending={workspaceDataPending}
     >
       <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+        <DeploymentEnvironmentBanner />
         <Header
           activeTab={activeTab}
           setActiveTab={setActiveTab}

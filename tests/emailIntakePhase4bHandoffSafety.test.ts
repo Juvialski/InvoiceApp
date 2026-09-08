@@ -39,7 +39,7 @@ test("master Vendor linkage cannot overwrite invoice document Vendor evidence", 
   assert.match(workspace, /const resolutionChanged =/);
   assert.match(workspace, /const vendorChanged =/);
   assert.match(workspace, /if \(resolutionChanged && vendorChanged\)/);
-  assert.match(workspace, /onUpdateInvoice\(\{ \.\.\.updated, vendor: invoice\.vendor \}\)/);
+  assert.match(workspace, /onUpdateInvoice\(\{ \.\.\.updated, vendor: \{ \.\.\.invoice\.vendor, vendorId: updated\.vendor\?\.vendorId \} \}\)/);
   assert.match(workspace, /<SupplierInvoiceReview[\s\S]*?onUpdateInvoice=\{handleInvoiceUpdate\}/);
 });
 

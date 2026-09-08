@@ -957,6 +957,7 @@ function comparableSnapshot(invoice: InvoiceData) {
     withholdingTaxAmount: invoice.withholdingTaxAmount,
     netAmountPayable: invoice.netAmountPayable,
     philippineInvoiceCompleteness: invoice.philippineInvoiceCompleteness,
+    description: invoice.description,
     category: invoice.category,
     notes: invoice.notes,
   };
@@ -1031,7 +1032,11 @@ export async function updateInvoiceInSupabase(previous: InvoiceData, updated: In
     const { error: eventError } = await client.from("invoice_review_events").insert(events);
     if (eventError) throw eventError;
   }
-  return { ...updated, updatedAt: String(savedRow.updated_at || new Date().toISOString()) };
+  return {
+    ...updated,
+    vendor: { ...updated.vendor, vendorId: vendorId || undefined },
+    updatedAt: String(savedRow.updated_at || new Date().toISOString()),
+  };
 }
 
 function invoiceFromLifecycleRecord(value: Record<string, unknown>): InvoiceData {

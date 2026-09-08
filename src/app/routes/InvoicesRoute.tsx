@@ -45,6 +45,7 @@ export interface InvoicesRouteProps {
   saveState?: SaveState;
   reviewCompletion?: { verifiedCount: number; totalCount: number; newItems: number } | null;
   retryingInvoiceId?: string | null;
+  activeSupplierExpenseInvoiceIds?: readonly string[];
   workspaceOriginLabel?: string;
   processingCount?: number;
   gmailConnection?: GmailConnectionInfo;
@@ -116,6 +117,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   saveState = "saved",
   reviewCompletion = null,
   retryingInvoiceId = null,
+  activeSupplierExpenseInvoiceIds = [],
   workspaceOriginLabel,
   processingCount = 0,
   gmailConnection,
@@ -225,6 +227,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
       return <div className="space-y-5">{!selectedInvoice.linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} onNavigatePath={onNavigatePath} />}<InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
     }
     const handleReopenCallback = async () => { if (onReopen) await onReopen(selectedInvoice); };
+    const canRepairVerifiedInvoice = !activeSupplierExpenseInvoiceIds.includes(selectedInvoice.id);
     return (
       <div className="space-y-5">
         {!selectedInvoice.linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} onNavigatePath={onNavigatePath} />}
@@ -246,6 +249,7 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onVerifyAndNext={canVerifySupplierInvoices ? onVerifyAndNext : async () => false}
           canVerify={canVerifySupplierInvoices}
           onReopen={canVerifySupplierInvoices && selectedInvoice.lifecycleStatus !== "VOID" ? handleReopenCallback : undefined}
+          canRepairVerifiedInvoice={canRepairVerifiedInvoice}
           onContinueWithNewItems={onContinueWithNewItems}
           onReturnToDashboard={onReturnToDashboard}
           onViewVerified={onViewVerified}

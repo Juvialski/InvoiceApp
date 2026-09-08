@@ -347,6 +347,7 @@ export interface AppRouterProps {
   // Expenses Data & Handlers
   expenses: Expense[];
   supplierInvoicesForExpenses?: readonly InvoiceData[];
+  activeSupplierExpenseInvoiceIds?: readonly string[];
   expenseInvoiceProjectAllocations?: readonly InvoiceProjectAllocation[];
   expensePurchaseOrders?: readonly PurchaseOrder[];
   expenseVendors?: readonly Vendor[];
@@ -653,6 +654,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   onApplyFactoryReset,
   expenses,
   supplierInvoicesForExpenses = invoices,
+  activeSupplierExpenseInvoiceIds = [],
   expenseInvoiceProjectAllocations = invoiceProjectAllocations,
   expensePurchaseOrders = purchaseOrders,
   expenseVendors = vendors,
@@ -696,6 +698,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         saveState={saveState}
         reviewCompletion={reviewCompletion}
         retryingInvoiceId={retryingInvoiceId}
+        activeSupplierExpenseInvoiceIds={activeSupplierExpenseInvoiceIds}
         workspaceOriginLabel={workspaceOriginLabel}
         onRetryExtraction={onRetryExtraction}
         onUpdateInvoice={onUpdateInvoice}

@@ -3,9 +3,9 @@
   "repository": "Juvialski/InvoiceApp",
   "deployments": [
     {
-      "deploymentId": "client-deployment-to-be-confirmed",
-      "clientName": "Client to be confirmed",
-      "environment": "production",
+      "deploymentId": "qa-hydroqualisense",
+      "clientName": "HydroQualiSense QA",
+      "environment": "qa",
       "productionUrl": null,
       "renderServiceRef": null,
       "supabaseProjectRef": null,
@@ -17,7 +17,11 @@
       "enabledModules": [],
       "configuration": {
         "version": null,
-        "values": {}
+        "values": {
+          "public_funnel_enabled": false,
+          "synthetic_data_only": true,
+          "sample_invoices_enabled": false
+        }
       },
       "backup": {
         "status": "UNKNOWN",
@@ -44,7 +48,7 @@
         "notes": []
       },
       "notes": [
-        "Replace this template entry only after the client is qualified and an isolated deployment is approved."
+        "QA only: synthetic/demo data and a separately provisioned Supabase/Render boundary. Never copy Client A data here."
       ]
     }
   ]

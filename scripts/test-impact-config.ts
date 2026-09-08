@@ -69,6 +69,23 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
     'tests/clientCollectionsDomain.test.ts',
     'tests/publicProspect.test.ts'
   ],
+  'src/utils/supplierExpenseWorkspace.ts': [
+    'tests/supplierInvoiceReadiness.test.ts',
+    'tests/r4SupplierExpenseBridge.test.ts',
+    'tests/postWarehouseOperationalIntegration.test.ts',
+  ],
+  'src/components/SupplierInvoiceReview.tsx': [
+    'tests/supplierInvoiceReadiness.test.ts',
+    'tests/r3UnifiedFinancialDocuments.test.ts',
+  ],
+  'src/components/VerificationWorkspace.tsx': [
+    'tests/supplierInvoiceReadiness.test.ts',
+    'tests/appRouting.test.ts',
+  ],
+  'src/components/expenses/ExpensesPage.tsx': [
+    'tests/supplierInvoiceReadiness.test.ts',
+    'tests/r4SupplierExpenseBridge.test.ts',
+  ],
   'src/main.tsx': [
     'tests/publicProspect.test.ts',
     'tests/appRouting.test.ts',
@@ -84,6 +101,16 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
   ],
   'src/lib/deploymentManifest.ts': [
     'tests/publicProspect.test.ts',
+    'tests/qaDeployment.test.ts',
+  ],
+  'src/lib/deploymentIdentity.ts': [
+    'tests/qaDeployment.test.ts',
+  ],
+  'src/lib/qaDatabaseTarget.ts': [
+    'tests/qaDeployment.test.ts',
+  ],
+  'src/components/DeploymentEnvironmentBanner.tsx': [
+    'tests/qaDeployment.test.ts',
   ],
   'src/server/releaseMetadata.ts': [
     'tests/publicProspect.test.ts',
@@ -95,11 +122,16 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
   'scripts/deployment/**': [
     'tests/publicProspect.test.ts',
   ],
+  'scripts/qa/**': [
+    'tests/qaDeployment.test.ts',
+  ],
   'deployment/**': [
     'tests/publicProspect.test.ts',
+    'tests/qaDeployment.test.ts',
   ],
   'docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md': [
     'tests/publicProspect.test.ts',
+    'tests/qaDeployment.test.ts',
   ],
   'src/config/branding.ts': [
     'tests/brandConfig.test.ts'

@@ -23,6 +23,7 @@ import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { FinancialCorrectionDialog } from "../financial/FinancialCorrectionDialog.tsx";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 import type { FinancialFxSnapshotInput } from "../../lib/financialFx.ts";
+import { loadCompanyDocumentProfileFromSupabase, type CompanyDocumentProfile } from "../../lib/companyDocumentProfile.ts";
 import { isConfirmedSupplierExpense } from "../../utils/projectCosting.ts";
 import { convertFinancialAmount, findFinancialFxSnapshot, normalizeFinancialCurrency } from "../../utils/financialCurrency.ts";
 import { classifySupplierDocuments, unresolvedForeignExpenseIds, type SupplierDocumentWorkspaceRow } from "../../utils/supplierExpenseWorkspace.ts";
@@ -62,8 +63,8 @@ function supplierStateTone(state: SupplierDocumentWorkspaceRow["state"]): Status
   return state === "LINKED" ? "success" : state === "READY_TO_LINK" ? "info" : "warning";
 }
 
-function supplierStateLabel(state: SupplierDocumentWorkspaceRow["state"]) {
-  return state === "LINKED" ? "Linked Expense" : state === "READY_TO_LINK" ? "Verified · Expense link required" : "Needs review";
+function supplierStateLabel(row: Pick<SupplierDocumentWorkspaceRow, "state" | "invoice">) {
+  return row.state === "LINKED" ? "Linked Expense" : row.state === "READY_TO_LINK" ? "Verified · Expense link required" : row.invoice.reviewStatus === "VERIFIED" ? "Needs completion" : "Needs review";
 }
 
 function localDate() {
@@ -113,11 +114,18 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   const [fxNote, setFxNote] = useState("");
   const [fxError, setFxError] = useState("");
   const [fxBusy, setFxBusy] = useState(false);
+  const [buyerProfile, setBuyerProfile] = useState<CompanyDocumentProfile | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadCompanyDocumentProfileFromSupabase().then((next) => { if (!cancelled) setBuyerProfile(next); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const invoiceMap = useMemo(() => new Map(invoices.map((invoice) => [invoice.id, invoice])), [invoices]);
   const purchaseOrderMap = useMemo(() => new Map(purchaseOrders.map((po) => [po.id, po])), [purchaseOrders]);
   const vendorMap = useMemo(() => new Map(vendors.map((vendor) => [vendor.id, vendor])), [vendors]);
-  const supplierDocuments = useMemo(() => classifySupplierDocuments(invoices, expenses, projectAllocations, projects), [expenses, invoices, projectAllocations, projects]);
+  const supplierDocuments = useMemo(() => classifySupplierDocuments(invoices, expenses, projectAllocations, projects, buyerProfile), [buyerProfile, expenses, invoices, projectAllocations, projects]);
   const needsReviewDocuments = useMemo(() => supplierDocuments.filter((row) => row.state === "NEEDS_REVIEW"), [supplierDocuments]);
   const readyToLinkDocuments = useMemo(() => supplierDocuments.filter((row) => row.state === "READY_TO_LINK"), [supplierDocuments]);
   const unresolvedFxExpenseIds = useMemo(() => unresolvedForeignExpenseIds(expenses, financialFxSnapshots, baseCurrency), [baseCurrency, expenses, financialFxSnapshots]);
@@ -177,7 +185,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
   };
 
   const linkSupplierInvoice = async (row: SupplierDocumentWorkspaceRow) => {
-    if (!onVerifySupplierInvoice || !canManage || !canVerifySupplierInvoice || linkingInvoiceId) return;
+    if (!onVerifySupplierInvoice || !canManage || !canVerifySupplierInvoice || linkingInvoiceId || !row.readiness.readyToLink) return;
     setLinkingInvoiceId(row.invoice.id);
     setLinkError("");
     try { await onVerifySupplierInvoice(row.invoice); }
@@ -259,7 +267,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
 
     {supplierDocuments.length > 0 && <section className="space-y-3" aria-label="Supplier document work">
       <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-xs font-black text-slate-950">Supplier document work</p><p className="mt-0.5 text-[10px] text-slate-500">Source evidence stays visible here while the linked Expense remains the only authoritative payable/cost row.</p></div><StatusBadge tone="info">{supplierDocuments.length} preserved</StatusBadge></div>
-      {needsReviewDocuments.length > 0 && <SupplierDocumentSection title="Supplier documents requiring review" rows={needsReviewDocuments} projects={projects} onOpenReview={onOpenSupplierInvoiceReview} />}
+      {needsReviewDocuments.length > 0 && <SupplierDocumentSection title="Supplier documents requiring review or completion" rows={needsReviewDocuments} projects={projects} onOpenReview={onOpenSupplierInvoiceReview} />}
       {readyToLinkDocuments.length > 0 && <SupplierDocumentSection title="Verified supplier invoices awaiting Expense link" rows={readyToLinkDocuments} projects={projects} canManage={canManage && canVerifySupplierInvoice} linkingInvoiceId={linkingInvoiceId} onLink={linkSupplierInvoice} onOpenReview={onOpenSupplierInvoiceReview} />}
       {supplierDocuments.some((row) => row.state === "LINKED") && <SupplierDocumentSection title="Linked supplier source evidence" rows={supplierDocuments.filter((row) => row.state === "LINKED")} projects={projects} />}
     </section>}
@@ -286,5 +294,5 @@ interface SupplierDocumentSectionProps {
 }
 
 function SupplierDocumentSection({ title, rows, projects: _projects, canManage = false, linkingInvoiceId, onLink, onOpenReview }: SupplierDocumentSectionProps) {
-  return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label={title}><div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3"><div><h3 className="text-xs font-black text-slate-900">{title}</h3><p className="mt-0.5 text-[10px] text-slate-500">{rows.length} document{rows.length === 1 ? "" : "s"}</p></div><StatusBadge tone={supplierStateTone(rows[0]?.state || "NEEDS_REVIEW")}>{rows[0] ? supplierStateLabel(rows[0].state) : ""}</StatusBadge></div><div className="divide-y divide-slate-100">{rows.map(({ invoice, state, linkedExpense, allocationLabel, allocationSummaries }) => <div key={invoice.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-xs text-slate-900">{invoice.invoiceNumber || `Supplier document ${invoice.id.slice(0, 8)}`}</strong><StatusBadge tone={supplierStateTone(state)}>{supplierStateLabel(state)}</StatusBadge></div><p className="mt-1 truncate text-[10px] text-slate-600">{invoice.vendor?.name || "Supplier unresolved"} · {money(invoice.grandTotal, invoice.currency)}</p><p className="mt-0.5 truncate text-[10px] font-semibold text-slate-600">{allocationLabel}{invoice.purchaseOrderNumber ? ` · PO ${invoice.purchaseOrderNumber}` : ""}</p>{allocationSummaries.length > 1 && <p className="mt-1 truncate text-[10px] text-slate-500">{allocationSummaries.map((allocation) => `${allocation.projectCode || allocation.projectName || "Project"} · ${money(allocation.amount, allocation.currency)}`).join(" · ")}</p>}</div><div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{state === "NEEDS_REVIEW" && onOpenReview && <button type="button" onClick={() => onOpenReview(invoice)} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[10px] font-bold text-amber-900"><ExternalLink className="h-3 w-3" /> Supplier Review</button>}{state === "READY_TO_LINK" && canManage && onLink && <button type="button" onClick={() => onLink({ invoice, state, linkedExpense, allocationSummaries, allocationLabel })} disabled={linkingInvoiceId === invoice.id} className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2 text-[10px] font-bold text-white disabled:opacity-50">{linkingInvoiceId === invoice.id ? "Creating…" : "Create linked Expense"}</button>}{state === "READY_TO_LINK" && (!canManage || !onLink) && <span className="text-[10px] font-semibold text-slate-500">Expense management permission required</span>}{state === "LINKED" && linkedExpense && <span className="text-[10px] font-semibold text-emerald-700">Expense #{linkedExpense.id.slice(0, 8)} owns cost</span>}</div></div>)}</div></section>;
+  return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label={title}><div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3"><div><h3 className="text-xs font-black text-slate-900">{title}</h3><p className="mt-0.5 text-[10px] text-slate-500">{rows.length} document{rows.length === 1 ? "" : "s"}</p></div><StatusBadge tone={supplierStateTone(rows[0]?.state || "NEEDS_REVIEW")}>{rows[0] ? supplierStateLabel(rows[0]) : ""}</StatusBadge></div><div className="divide-y divide-slate-100">{rows.map((row) => { const { invoice, state, linkedExpense, allocationLabel, allocationSummaries, readiness } = row; return <div key={invoice.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><strong className="text-xs text-slate-900">{invoice.invoiceNumber || `Supplier document ${invoice.id.slice(0, 8)}`}</strong><StatusBadge tone={supplierStateTone(state)}>{supplierStateLabel(row)}</StatusBadge></div><p className="mt-1 truncate text-[10px] text-slate-600">{invoice.vendor?.name || "Supplier unresolved"} · {money(invoice.grandTotal, invoice.currency)}</p><p className="mt-0.5 truncate text-[10px] font-semibold text-slate-600">{allocationLabel}{invoice.purchaseOrderNumber ? ` · PO ${invoice.purchaseOrderNumber}` : ""}</p>{allocationSummaries.length > 1 && <p className="mt-1 truncate text-[10px] text-slate-500">{allocationSummaries.map((allocation) => `${allocation.projectCode || allocation.projectName || "Project"} · ${money(allocation.amount, allocation.currency)}`).join(" · ")}</p>}{state === "NEEDS_REVIEW" && readiness.issues.length > 0 && <ul className="mt-2 space-y-1 text-[10px] font-semibold text-amber-800">{readiness.issues.slice(0, 3).map((issue) => <li key={issue.code}>• {issue.message}</li>)}</ul>}</div><div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{state === "NEEDS_REVIEW" && onOpenReview && <button type="button" onClick={() => onOpenReview(invoice)} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[10px] font-bold text-amber-900"><ExternalLink className="h-3 w-3" /> Supplier Review</button>}{state === "READY_TO_LINK" && canManage && onLink && <button type="button" onClick={() => onLink(row)} disabled={linkingInvoiceId === invoice.id} className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-2 text-[10px] font-bold text-white disabled:opacity-50">{linkingInvoiceId === invoice.id ? "Creating…" : "Create linked Expense"}</button>}{state === "READY_TO_LINK" && (!canManage || !onLink) && <span className="text-[10px] font-semibold text-slate-500">Expense management permission required</span>}{state === "LINKED" && linkedExpense && <span className="text-[10px] font-semibold text-emerald-700">Expense #{linkedExpense.id.slice(0, 8)} owns cost</span>}</div></div>; })}</div></section>;
 }
