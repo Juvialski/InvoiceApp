@@ -21,10 +21,17 @@ Completed recent milestones:
 - PR #99 — public client funnel + repeatable isolated deployment/release productization foundation.
 - PR #100 — supplier Expense-link repair + Client A transfer/readiness tooling.
 - PR #101 — supplier readiness truth + guarded legacy repair + QA deployment identity and guarded QA database tooling.
+- PR #103 — streamlined supplier invoice repair UX, inline canonical Vendor resolution, explicit Expense-description confirmation, direct guarded posting, and clearer invoice lifecycle actions; no migration or database contract change.
 
-Runtime baseline after PR #101:
+Runtime baseline after PR #103:
 
-`2daaff92b0f597eb3f52eeb06ecb0a03cf4dd881`
+`7d41c83ae03775c1c055628883debd62888212ac`
+
+Supabase MCP state re-verified on 2026-09-08 before the QA initialization phase:
+
+- QA `vrpuznofrntyqsbugrib` is `ACTIVE_HEALTHY`, has one Auth user, zero HydroQualiSense public application/base tables, and zero applied repository migrations.
+- Client A production `qijjshdwiylojvqojxyz` is `ACTIVE_HEALTHY`; its repository migration head remains `20260908024017_supplier_invoice_repair_guards`.
+- Production inspection was read-only. No QA or production mutation was performed during this verification.
 
 The product architecture remains:
 
@@ -65,13 +72,15 @@ Do not turn this into a shared multi-client operational control plane yet.
 - Supabase ref: `qijjshdwiylojvqojxyz`
 - current verified migration level: `20260908024017_supplier_invoice_repair_guards`
 - real client production data; never use as disposable QA data.
+- default operational rule for the QA phase: production Supabase is read-only unless a separate explicit production change is approved.
 
 ### QA
 
 - URL: `https://hydroqualisense-qa.onrender.com`
 - Supabase ref: `vrpuznofrntyqsbugrib`
-- current verified state on 2026-09-08: one Auth user, zero HydroQualiSense public application tables, zero applied repository migrations.
+- current verified state on 2026-09-08: `ACTIVE_HEALTHY`, one Auth user, zero HydroQualiSense public application/base tables, zero applied repository migrations.
 - intended role: isolated QA plus temporary client-demo environment using synthetic data only.
+- QA is authorized for read/write initialization and certification work in the next bounded phase.
 
 ## NEXT — live QA initialization and certification
 
@@ -86,7 +95,7 @@ Required outcome:
 5. Synthetic/demo data is introduced only through an explicit QA-only path.
 6. QA proves company boundary, RBAC/RLS/RPC behavior, major read paths, Storage access, `/api/health`, and one safe supplier-review flow.
 7. QA release/migration identity is recorded after successful verification.
-8. Client A production remains isolated and unchanged except for deliberately promoted approved releases/migrations.
+8. Client A production remains read-only by default throughout this phase; no production mutation is part of QA certification.
 
 Use `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` for the operator workflow.
 
@@ -98,6 +107,7 @@ Use `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` for the operator workflow.
 - Do not treat an unavailable provider/backup check as a pass.
 - Database backup evidence does not by itself prove Storage object recovery.
 - Do not enable the public prospect funnel merely because QA exists; its build and DB gates remain deliberate.
+- Production Supabase inspection during this phase is SELECT/read-only by default; do not invoke functions with mutation side effects.
 
 ## NEXT AFTER QA — Worker Registration foundation
 
