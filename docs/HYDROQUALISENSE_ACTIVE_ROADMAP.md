@@ -79,15 +79,24 @@ Do not turn this into a shared multi-client operational control plane yet.
 
 - URL: `https://hydroqualisense-qa.onrender.com`
 - Supabase ref: `vrpuznofrntyqsbugrib`
-- current verified state on 2026-09-08: `ACTIVE_HEALTHY`, one confirmed Auth user, zero HydroQualiSense public application/base tables, zero applied repository migrations.
+- current verified state after the 2026-09-08 guarded initialization: `ACTIVE_HEALTHY`, one confirmed Auth user, the full repository migration chain through `20260908051740_deployment_bootstrap_authority`, one synthetic QA company/bootstrap membership, and synthetic QA workflow rows only.
 - intended role: isolated QA plus temporary client-demo environment using synthetic data only.
-- QA is authorized for read/write initialization and certification work, but the current attempt is blocked before the first guarded migration write.
+- QA is authorized for read/write initialization and certification work; initialization/bootstrap completed, but certification remains `NOT READY` pending provider, hosted-auth/Storage, release-identity, migration-promotion, and recovery evidence.
 
 ## NEXT — live QA initialization and certification
 
 This is the immediate bounded phase.
 
 Current gate result: `QA CERTIFICATION: NOT READY`. Worker Registration and all later product phases remain blocked.
+
+Observed checkpoint on 2026-09-08:
+
+- guarded CLI authentication/link/target checks passed; the Windows wrapper was corrected to launch `npx.cmd` through `ComSpec`;
+- QA migration head is `20260908051740_deployment_bootstrap_authority`;
+- guarded bootstrap, exact idempotent retry, conflicting retry rejection, RLS/RBAC probes, and one synthetic supplier invoice -> Expense workflow passed;
+- QA health still reports `deploymentId=qa` and null migration/configuration metadata, so Render identity/release variables require correction and redeploy;
+- provider Auth settings, authenticated hosted Storage byte access, and database/Storage/deployment recovery evidence remain unresolved;
+- production was read-only; its DB head is `20260908051740_deployment_bootstrap_authority` while `/api/health` still reports stale metadata.
 
 Required outcome:
 
