@@ -329,7 +329,7 @@ export async function testCompanyAiRuntime(runtime: CompanyAiRuntime, options: {
   }
 }
 
-export async function testCompanyAiConnection(options: { supabase: SupabaseClient; companyId: string; environment?: NodeJS.ProcessEnv }) {
+export async function testCompanyAiConnection(options: { supabase: SupabaseClient; companyId: string; environment?: NodeJS.ProcessEnv; recordTest?: (result: CompanyAiTestStatus) => Promise<CompanyAiConfigMetadata> }) {
   let result: CompanyAiTestStatus;
   let failureCode: CompanyAiErrorCode | string | undefined;
   let failureReference: string | undefined;
@@ -345,7 +345,7 @@ export async function testCompanyAiConnection(options: { supabase: SupabaseClien
     failureCode = normalized.code;
     failureReference = normalized.correlationRef;
   }
-  const metadata: CompanyAiConfigMetadata = await recordCompanyAiTest(options.supabase, options.companyId, result);
+  const metadata: CompanyAiConfigMetadata = await (options.recordTest || ((status) => recordCompanyAiTest(options.supabase, options.companyId, status)))(result);
   if (result === "INVALID_CREDENTIAL") invalidateCompanyAiRuntime(options.companyId);
   return { status: result, metadata, ...(failureCode ? { errorCode: failureCode } : {}), ...(failureReference ? { reference: failureReference } : {}) };
 }

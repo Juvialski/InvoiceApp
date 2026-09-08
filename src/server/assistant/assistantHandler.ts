@@ -18,7 +18,7 @@ import { getAssistantToolDefinition, validateAssistantToolArguments } from "./to
 import { requireCompanyPermissions } from "./toolAuthorization.ts";
 import { boundToolValue, toolOk } from "./toolResults.ts";
 import { isUuid, requireUuid, validateAssistantMessage } from "./toolValidation.ts";
-import { withCompanyAiRuntime } from "../ai/companyAiRuntime.ts";
+import { resolveCompanyAiRuntime, withCompanyAiRuntime } from "../ai/companyAiRuntime.ts";
 import { CompanyAiError } from "../ai/companyAiTypes.ts";
 import { claimAiRequest, releaseAiRequest } from "../ai/aiRequestBudget.ts";
 import { BRAND } from "../../config/brand.ts";
@@ -246,6 +246,10 @@ async function handleAssistantRequest(req: Request, res: Response, options: Assi
     budgetAuth = auth;
     const body = requestBody(req);
     const parsedRequest = parseAssistantRequest(body, auth.companyId);
+    // Test-only injected model clients do not need company configuration. The
+    // production runtime is resolved before claiming provider budget so a
+    // missing/disabled/misconfigured company does not consume request_count.
+    if (!options.createModelClient) await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     await claimAiRequest(auth.supabase, auth.companyId, "ASSISTANT", { maxRequests: 30, maxConcurrency: 2 });
     aiBudgetClaimed = true;
     const request = { ...parsedRequest, context: await hydrateWorkspaceContext(auth, parsedRequest.context) };

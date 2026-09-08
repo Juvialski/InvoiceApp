@@ -37,6 +37,16 @@ test("company AI endpoints are internal-operator scoped and metadata-only", () =
   assert.match(runtime, /credentialSupabase/);
 });
 
+test("initial deployment AI bootstrap is exact-deployment, server-encrypted, and browser-safe", () => {
+  assert.match(server, /\/api\/deployment\/company-ai/);
+  assert.match(server, /\/api\/deployment\/company-ai\/gemini\/bootstrap/);
+  assert.match(server, /authorizeCompanyRequest\(req, "company\.settings\.manage"\)/);
+  assert.match(server, /companyAiServerSupabase\(\)/);
+  assert.match(server, /encryptCompanyGeminiCredential\(apiKey, auth\.companyId\)/);
+  assert.match(credentials, /bootstrap_deployment_company_ai_credential/);
+  assert.match(credentials, /recordServerCompanyAiTest/);
+});
+
 test("all production Gemini paths resolve the centralized company runtime", () => {
   assert.match(server, /resolveCompanyAiRuntime\(\{ supabase: auth\.supabase, companyId: auth\.companyId \}\)/);
   assert.match(handler, /withCompanyAiRuntime\(\{ supabase: auth\.supabase, companyId: auth\.companyId \}/);

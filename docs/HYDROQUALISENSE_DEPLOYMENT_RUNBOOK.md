@@ -96,6 +96,38 @@ Do not grant this function to `anon` or `authenticated`, expose a service-role k
 
 The existing `/demo` route is the safe synthetic-data path for visual/product QA: it mounts no production Auth, Supabase queries, Storage, or company writes; its fictional records are session-local and resettable. The authenticated QA workspace may expose sample invoice presets only when the build is explicitly `qa`; those presets remain fictional and are never copied from Client A. `supabase/seed.sql` remains non-authoritative and empty, so a QA database reset is blank unless an explicitly approved synthetic-data procedure is later added.
 
+### Company document identity bootstrap
+
+The product shell name is not a client legal identity. A new deployment document profile derives only the explicitly supplied deployment company name; address, phone, email, TIN, logo, payment instructions, and terms remain incomplete until an authorized administrator supplies approved values. Existing configured profiles and immutable issued-document snapshots are preserved. Do not backfill HydroQualiSense legal/contact values into an unrelated deployment.
+
+Buyer validation and new supplier-invoice posting must remain blocked when the deployment profile is incomplete or a supplied buyer TIN cannot be compared. Resolve the canonical profile and source evidence through the normal Settings and Supplier Review workflows; do not bypass the guarded verification RPC or invent legal identity.
+
+### Initial deployment AI operator workflow
+
+After `bootstrap_deployment_company(...)` has created the isolated company and initial confirmed Company Admin, the initial operator may use Settings → Deployment AI bootstrap once:
+
+1. Confirm the browser is authenticated to the exact deployment and the operator is the initial Company Admin created by the guarded bootstrap audit.
+2. Enter the approved Gemini key in the one-time form. The browser sends it only to the authenticated deployment server; it must not store it in local/session storage or expose `AI_CREDENTIALS_MASTER_KEY`, `SUPABASE_AI_SERVER_KEY`, or `service_role`.
+3. The server encrypts the key with `AI_CREDENTIALS_MASTER_KEY`, persists only the encrypted envelope through the service-only `bootstrap_deployment_company_ai_credential` RPC, and records an audit event. The RPC is exact-deployment, initial-operator-bound, idempotent, and refuses replacement after first configuration.
+4. Optionally run provider validation. The result distinguishes invalid credential, provider/quota/model/network failure, and server encryption/configuration failure without returning provider details.
+
+Credential rotation, disablement, removal, and ongoing platform maintenance remain platform-operator operations. A normal Company Admin is not granted platform-admin authority by this bootstrap path. Do not manually edit `company_ai_settings` or `company_ai_credentials`.
+
+### Authenticated hosted-QA certification harness
+
+The reusable harness is intentionally opt-in and separate from ordinary PR/demo QA. Install the QA-only browser dependency, then run it only against the isolated QA deployment:
+
+```text
+npm.cmd install --no-save --package-lock=false playwright@1.55.0
+npx.cmd playwright install chromium
+$env:QA_E2E_BASE_URL = 'https://hydroqualisense-qa.onrender.com'
+$env:QA_E2E_EMAIL = '<local secret>'
+$env:QA_E2E_PASSWORD = '<local secret>'
+npm.cmd run qa:hosted
+```
+
+Alternatively provide `QA_E2E_STORAGE_STATE_PATH` for a locally captured Playwright state. Treat that file as an authentication secret; it is ignored, never uploaded, and never committed. The harness rejects production hosts, requires QA health/deployment assertions, exercises authenticated deep links, captures sanitized console/request evidence, and can run the explicit synthetic Storage-byte probe with a publishable key only. The manual GitHub workflow is `workflow_dispatch`-only and must use QA environment secrets; it is not part of ordinary PR CI.
+
 ### Backup truth boundary
 
 No application-recorded `database_backup_runs`, `database_restore_drills`, or `document_backup_replicas` were manufactured for this phase. The absence of app-level records is not proof that Supabase platform backups are absent or present. The operator must manually confirm provider backup status for each isolated deployment. A database backup alone does not prove that Storage object bytes, metadata, or permission behavior are recoverable.

@@ -13,7 +13,8 @@ import { createAssistantRouter } from "./src/server/assistant/assistantHandler.t
 import { createStorageRouter } from "./src/server/storage/storageRouter.ts";
 import { getStorageHealth } from "./src/lib/storage/index.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
-import { disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
+import { companyAiServerSupabase } from "./src/server/ai/companyAiServerSupabase.ts";
+import { bootstrapDeploymentCompanyAiCredential, disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, loadServerCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, recordServerCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
 import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, isCompanyAiFallbackEligible, logCompanyAiFailure, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
 import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
 import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyInvitationEmail, invitationRedirectUrl } from "./src/server/access/invitationDelivery.ts";
@@ -39,6 +40,7 @@ type CompanyPermission =
   | "gmail.manage"
   | "invoices.extract"
   | "expenses.manage"
+  | "company.settings.read"
   | "company.members.manage"
   | "company.settings.manage"
   | "storage.read"
@@ -868,6 +870,46 @@ function platformCompanyAiPath(req: express.Request) {
   return String(req.params.companyId || "").trim();
 }
 
+app.get("/api/deployment/company-ai", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "company.settings.read");
+    const data = await loadServerCompanyAiConfig(companyAiServerSupabase(), auth.companyId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "Deployment AI configuration could not be loaded safely."), ...apiAiErrorDetails(error) });
+  }
+});
+
+app.put("/api/deployment/company-ai/gemini/bootstrap", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "company.settings.manage");
+    const apiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
+    if (!apiKey || apiKey.length > 4096) return res.status(400).json({ success: false, error: "A valid Gemini API key is required." });
+
+    // The authenticated initial Company Admin is only an operator identity for
+    // this one-time, exact-deployment bootstrap. The server encrypts the key
+    // before any Supabase call and never returns or logs the plaintext.
+    const serverClient = companyAiServerSupabase();
+    const encrypted = encryptCompanyGeminiCredential(apiKey, auth.companyId);
+    const stored = await bootstrapDeploymentCompanyAiCredential(serverClient, auth.companyId, auth.user.id, encrypted, credentialLast4(apiKey));
+    invalidateCompanyAiRuntime(auth.companyId);
+
+    if (stored.idempotent || req.body?.validate === false) {
+      return res.json({ success: true, data: { ...stored, bootstrap: true, validation: "NOT_RUN" } });
+    }
+
+    const tested = await testCompanyAiConnection({
+      supabase: serverClient,
+      companyId: auth.companyId,
+      recordTest: (status) => recordServerCompanyAiTest(serverClient, auth.companyId, status),
+    });
+    invalidateCompanyAiRuntime(auth.companyId);
+    return res.json({ success: true, data: { ...tested.metadata, bootstrap: true, validation: tested.status, ...(tested.errorCode ? { testErrorCode: tested.errorCode } : {}), ...(tested.reference ? { reference: tested.reference } : {}) } });
+  } catch (error) {
+    return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "The deployment AI credential could not be configured safely."), ...apiAiErrorDetails(error) });
+  }
+});
+
 app.get("/api/platform/companies/:companyId/ai-config", async (req, res) => {
   try {
     const auth = await authorizePlatformCompanyRequest(req, platformCompanyAiPath(req));
@@ -977,6 +1019,9 @@ app.post("/api/classify-email", async (req, res) => {
     if (sender.length > 2_000 || subject.length > 2_000 || body.length > AI_TEXT_MAX_CHARS || attachmentNames.length > MAX_GMAIL_ATTACHMENT_COUNT || attachmentNames.some((item: unknown) => String(item || "").length > 300)) {
       return res.status(413).json({ success: false, error: "Email classification input exceeds the safe size limit." });
     }
+    // Resolve company configuration before reserving provider budget. A
+    // missing/disabled/misconfigured company must not consume request_count.
+    await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     await claimAiRequest(auth.supabase, auth.companyId, "EMAIL_CLASSIFICATION", { maxRequests: 60, maxConcurrency: 4 });
     aiBudgetClaimed = true;
     const prompt = `Classify whether this email is related to an invoice or adjacent financial document. Use the email subject, sender, body, and attachment names. Do not assume an attachment is an invoice only because it is a PDF. Recognize Philippine terms including invoice, sales invoice, service invoice, VAT invoice, billing, statement of account, SOA, BIR, VAT, TIN, and amount due. Treat "Official Receipt", "SOA", and "Billing Statement" as candidate finance documents, not automatically as a principal invoice. For current Philippine workflow, an Official Receipt may be RECEIPT or SUPPLEMENTARY_DOCUMENT; preserve uncertainty and route it to human review.\n\nSender: ${sender}\nSubject: ${subject}\nAttachments: ${attachmentNames.join(", ") || "None"}\n\nBody:\n${body}`;
@@ -1027,6 +1072,7 @@ app.post("/api/classify-email-batch", async (req, res) => {
     if (boundedItems.some((item) => item.sender.length > 2_000 || item.subject.length > 2_000 || item.snippet.length > 2_000 || item.attachmentNames.some((name) => name.length > 300))) {
       return res.status(413).json({ success: false, error: "Email batch classification input exceeds the safe size limit." });
     }
+    await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     await claimAiRequest(auth.supabase, auth.companyId, "EMAIL_BATCH_CLASSIFICATION", { maxRequests: 30, maxConcurrency: 2 });
     aiBudgetClaimed = true;
 
@@ -1314,10 +1360,9 @@ app.post("/api/extract-invoice", async (req, res) => {
         return res.status(400).json({ success: false, error: error?.message || "Invoice source file is invalid." });
       }
     }
+    let aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     await claimAiRequest(auth.supabase, auth.companyId, "INVOICE_EXTRACTION", { maxRequests: 20, maxConcurrency: 2 });
     aiBudgetClaimed = true;
-
-    let aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     let authenticationRetryUsed = false;
     const parts: any[] = [];
     if (fileData && mimeType) parts.push({ inlineData: { mimeType, data: fileData } });
@@ -1534,10 +1579,9 @@ app.post("/api/extract-expense", async (req, res) => {
         return res.status(400).json({ success: false, error: error?.message || "Receipt source file is invalid." });
       }
     }
+    let aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     await claimAiRequest(auth.supabase, auth.companyId, "EXPENSE_EXTRACTION", { maxRequests: 30, maxConcurrency: 2 });
     aiBudgetClaimed = true;
-
-    let aiRuntime = await resolveCompanyAiRuntime({ supabase: auth.supabase, companyId: auth.companyId });
     let authenticationRetryUsed = false;
     const parts: any[] = [];
     if (fileData && mimeType) parts.push({ inlineData: { mimeType, data: fileData } });

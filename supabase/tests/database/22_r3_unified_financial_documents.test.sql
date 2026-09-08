@@ -40,8 +40,8 @@ values ((select company_id from r3_ids), (select admin_user from r3_ids), 'COMPA
 insert into public.deployment_configuration (singleton, company_id)
 values (true, (select company_id from r3_ids))
 on conflict (singleton) do update set company_id = excluded.company_id;
-select is((select legal_name from public.company_document_profiles where company_id = (select company_id from r3_ids)), 'HydroQualiSense Solutions Corp.', 'document profile starts from the supplied HSC template identity');
-select is((select vat_tin from public.company_document_profiles where company_id = (select company_id from r3_ids)), '777-823-517-000', 'document profile preserves the supplied HSC VAT TIN');
+select is((select legal_name from public.company_document_profiles where company_id = (select company_id from r3_ids)), 'R3 Test Company', 'new deployment document profile derives only the approved company name');
+select is((select vat_tin from public.company_document_profiles where company_id = (select company_id from r3_ids)), null, 'new deployment document profile does not invent a VAT TIN');
 insert into public.projects (id, user_id, company_id, project_code, project_name, client_name, client_reference, billing_contact_name, billing_email, billing_address, status, contract_value, project_budget, currency, tax_treatment)
 values ((select project_id from r3_ids), (select admin_user from r3_ids), (select company_id from r3_ids), 'R3-PROJ', 'R3 Water Project', 'Client R3', 'R3-REF', 'Billing Contact', 'billing@client.test', 'Client billing address', 'ACTIVE', 10000, 7000, 'PHP', 'VAT');
 insert into public.vendors (id, user_id, company_id, name, normalized_name, email, address, tax_id, default_currency)
@@ -60,7 +60,7 @@ select is((select amount from public.expenses where supplier_invoice_id = (selec
 select is((select status from public.expenses where supplier_invoice_id = (select invoice_id from r3_ids)), 'DRAFT', 'new supplier Expense is Draft until approved');
 select is((select review_status from public.invoices where id = (select invoice_id from r3_ids)), 'VERIFIED', 'supplier invoice is verified in the same operation');
 select is((select current_data->>'linkedExpenseId' from public.invoices where id = (select invoice_id from r3_ids)), (select id::text from public.expenses where supplier_invoice_id = (select invoice_id from r3_ids)), 'invoice stores the durable linked Expense id');
-select is((select legal_name from public.company_document_profiles where company_id = (select company_id from r3_ids)), 'HydroQualiSense Solutions Corp.', 'supplier verification uses the HSC document profile identity');
+select is((select legal_name from public.company_document_profiles where company_id = (select company_id from r3_ids)), 'R3 Test Company', 'supplier verification retains the deployment document profile identity');
 select is((select public.get_financial_settlement_summary((select company_id from r3_ids), 'INVOICE', (select invoice_id from r3_ids))->>'settlementState'), 'TRANSFERRED_TO_EXPENSE', 'linked supplier invoice cannot become a second payable settlement target');
 select lives_ok($$select public.verify_supplier_invoice_and_create_expense((select invoice_id from r3_ids))$$, 'repeated supplier verification is idempotent');
 select is((select count(*) from public.expenses where supplier_invoice_id = (select invoice_id from r3_ids)), 1::bigint, 'repeated verification does not duplicate the Expense');

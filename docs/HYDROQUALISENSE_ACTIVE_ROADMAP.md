@@ -24,16 +24,17 @@ Completed recent milestones:
 - PR #103 — streamlined supplier invoice repair UX, inline canonical Vendor resolution, explicit Expense-description confirmation, direct guarded posting, and clearer invoice lifecycle actions; no migration or database contract change.
 - PR #105 — guarded deployment bootstrap authority.
 - PR #106 — recorded the blocked QA certification checkpoint and corrected the production migration baseline.
+- PR #108 — dashboard and supplier-invoice repair regressions corrected; merged at exact head `32778f62d925643f9d0fa1183a40c09ffc9b812e` and deployed to QA.
 
-Runtime baseline after PR #106:
+Runtime baseline after PR #108:
 
-`5d7ddd62be627ae8ae79cc9f6965b5554006cb97`
+`32778f62d925643f9d0fa1183a40c09ffc9b812e`
 
 Supabase connector, public health, repository state, and QA runtime state were re-verified on 2026-09-08 during the current certification attempt:
 
 - QA `vrpuznofrntyqsbugrib` is `ACTIVE_HEALTHY`, has one confirmed Auth user, the full repository migration chain through `20260908051740_deployment_bootstrap_authority`, one synthetic QA company/configuration/admin membership, and synthetic QA workflow rows only.
 - Client A production `qijjshdwiylojvqojxyz` is `ACTIVE_HEALTHY`; its read-only observed database migration head is `20260908051740_deployment_bootstrap_authority`.
-- QA `/api/health` reports repository SHA `5d7ddd62be627ae8ae79cc9f6965b5554006cb97` and `environment=qa`, but still reports `deploymentId=qa` and null migration/configuration metadata.
+- QA `/api/health` currently reports repository SHA `32778f62d925643f9d0fa1183a40c09ffc9b812e`, `environment=qa`, deployment `qa-hydroqualisense`, migration level `20260908051740`, and null configuration version.
 - Production `/api/health` remains stale relative to the database, reporting repository SHA `8c74bf1101aaad92d7e05170f7898be5988f881d` and migration level `20260908005120`.
 - Production inspection remained read-only. Codex caused no production mutation during this certification attempt.
 
@@ -48,6 +49,14 @@ Core rules remain:
 > **One concept -> one primary place -> one authoritative number.**
 
 > **One business entity -> one canonical identity -> every module references it.**
+
+## 2026-09-08 hosted QA hardening checkpoint
+
+The dedicated authenticated QA browser session for `alpogimatubis14344@gmail.com` is now available and visibly reports `QA ENVIRONMENT · SYNTHETIC DATA ONLY`, deployment `qa-hydroqualisense`, the synthetic QA company, and Company Admin access. Read-only authenticated deep-link/refresh checks passed for Dashboard, Projects, Expenses, Procurement, Warehouse, Payroll, and Settings; no PR #108 crash text or visible application error signal was observed.
+
+The QA-only browser probe also created `QA-E2E-STORAGE-20260908` through the normal Engineering Documents workflow using a synthetic PDF, then opened the persisted revision successfully. The object is retained as clearly labeled synthetic audit evidence; no production file or record was used. A second-company Storage denial probe was not available from the single-company QA session.
+
+This checkpoint remains **QA CERTIFICATION: NOT READY**. The P0/P1 hardening implementation is being prepared from the exact PR #108 base and is not evidence that the currently deployed QA build has the new document-identity or initial-AI-bootstrap code until that branch is merged and deliberately deployed. Provider Auth settings, release metadata, recovery evidence, migration-promotion separation, and the hosted reusable Playwright workflow remain required gates.
 
 ## Completed — client deployment/productization foundation
 
