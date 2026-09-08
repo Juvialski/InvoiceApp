@@ -146,6 +146,10 @@ export function checkPhilippineInvoiceCompleteness(invoice: InvoiceData): Philip
     return { status: "NOT_APPLICABLE", items: [], disclaimer: "This is a review aid, not a legal certification of BIR compliance." };
   }
 
+  // Persisted extraction JSON can predate the line-item field or omit it on a
+  // partial result. Treat that as an unresolved empty collection so loading
+  // remains safe and the completeness result still asks for review.
+  const lineItems = Array.isArray(invoice.items) ? invoice.items : [];
   const vatInvoice = isPhilippineVatInvoice(invoice);
   const items: PhilippineInvoiceCompletenessItem[] = [
     completenessItem("invoice-label", "Invoice label detected", invoice.documentType === "INVOICE" || (invoice.invoiceSubtype && invoice.invoiceSubtype !== "UNKNOWN"), "documentType"),
@@ -154,10 +158,10 @@ export function checkPhilippineInvoiceCompleteness(invoice: InvoiceData): Philip
     completenessItem("seller-address", "Seller business address", invoice.vendor?.address || invoice.vendor?.cityMunicipality || invoice.vendor?.city, "vendor.address"),
     completenessItem("invoice-serial", "Invoice serial number", invoice.invoiceNumber, "invoiceNumber"),
     completenessItem("transaction-date", "Transaction date", invoice.invoiceDate, "invoiceDate"),
-    completenessItem("description", "Description / nature of service", invoice.items, "items"),
-    completenessItem("quantity", "Quantity where applicable", invoice.items.some((item) => presentNumber(item.quantity)), "items.quantity", true),
-    completenessItem("unit-price", "Unit price / cost", invoice.items.some((item) => presentNumber(item.unitPrice)), "items.unitPrice", true),
-    completenessItem("amount", "Amount", invoice.items.some((item) => presentNumber(item.total)), "items.total", true),
+    completenessItem("description", "Description / nature of service", lineItems, "items"),
+    completenessItem("quantity", "Quantity where applicable", lineItems.some((item) => presentNumber(item.quantity)), "items.quantity", true),
+    completenessItem("unit-price", "Unit price / cost", lineItems.some((item) => presentNumber(item.unitPrice)), "items.unitPrice", true),
+    completenessItem("amount", "Amount", lineItems.some((item) => presentNumber(item.total)), "items.total", true),
     ...(vatInvoice ? [
       completenessItem("vatable-sales", "VATable Sales", invoice.philippineTaxDetails?.vatableSales, "philippineTaxDetails.vatableSales"),
       completenessItem("vat-amount", "VAT Amount", invoice.philippineTaxDetails?.vatAmount, "philippineTaxDetails.vatAmount"),
@@ -328,6 +332,9 @@ export function applyLocalChecks(invoice: InvoiceData): InvoiceData {
   const currency = normalizeCurrency(invoice.currency, invoice.currencySymbol);
   const normalizedInvoice = {
     ...invoice,
+    // Keep the persisted invoice contract total: missing line-item JSON is an
+    // unresolved empty collection, never a reason to crash a loaded workspace.
+    items: Array.isArray(invoice.items) ? invoice.items : [],
     currency,
     currencySymbol: currency ? currencySymbolFor(currency) : invoice.currencySymbol,
   };

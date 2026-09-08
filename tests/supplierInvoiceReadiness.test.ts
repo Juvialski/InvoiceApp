@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { Expense, InvoiceData } from "../src/types.ts";
+import { applyLocalChecks } from "../src/utils/invoiceLogic.ts";
 import { classifySupplierDocuments, getSupplierInvoiceExpenseReadiness, getSupplierInvoiceValidationAdvisories, suggestSupplierExpenseDescription } from "../src/utils/supplierExpenseWorkspace.ts";
 
 const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPage.tsx", import.meta.url), "utf8");
@@ -103,6 +104,20 @@ test("description suggestions use preserved line-item evidence and remain human-
   assert.equal(suggestSupplierExpenseDescription(invoice({ description: "", items: [], invoiceNumber: "READY-002" })), "Supplier invoice READY-002");
 });
 
+test("partial persisted invoices with no line-item collection remain reviewable instead of crashing", () => {
+  const partial = invoice({
+    items: undefined as unknown as InvoiceData["items"],
+    vendor: { name: "Extracted Supplier" },
+    description: "",
+  });
+
+  assert.doesNotThrow(() => applyLocalChecks(partial));
+  const checked = applyLocalChecks(partial);
+  assert.deepEqual(checked.items, []);
+  assert.equal(checked.philippineInvoiceCompleteness?.status, "MISSING_INFORMATION");
+  assert.equal(suggestSupplierExpenseDescription(partial), "Supplier invoice READY-001");
+});
+
 test("VAT-rate validation remains an advisory when the posting readiness contract is complete", () => {
   const source = invoice({ validation: { status: "REVIEW", issues: [{ id: "ph-vat-rate-not-evaluated", severity: "warning", field: "philippineTaxDetails.vatAmount", message: "VAT rate consistency was not evaluated because no authoritative VAT rate is configured." }] } });
   const readiness = getSupplierInvoiceExpenseReadiness(source);
@@ -116,6 +131,13 @@ test("the posting boundary remains the guarded idempotent RPC and the linked Exp
   assert.match(r3Migration, /expenses_company_supplier_invoice_unique/);
   assert.match(r3Migration, /for update/);
   assert.match(repairGuardMigration, /active linked Expense cannot be reopened/i);
+  assert.match(persistenceSource, /const reopenOnly = eventType === "REOPENED"/);
+  assert.match(persistenceSource, /const vendorId = reopenOnly\s*\?\s*existingRow\.vendor_id/);
+  assert.match(persistenceSource, /currentData = reopenOnly\s*\?\s*\{\s*\.\.\.\(existingRow\.current_data \|\| \{\}\)/s);
+  assert.match(persistenceSource, /const persistedReviewStatus = reopenOnly \? "NEEDS_REVIEW"/);
+  assert.match(persistenceSource, /reviewStatus: persistedReviewStatus/);
+  assert.match(persistenceSource, /verifiedAt: null/);
+  assert.match(persistenceSource, /if \(!reopenOnly\) await replaceLineItems\(updated\.id, updated\.items\)/);
 });
 
 test("the UI presents readiness reasons, exposes Expense posting facts, and routes legacy repairs into review", () => {
@@ -135,6 +157,11 @@ test("the UI presents readiness reasons, exposes Expense posting facts, and rout
   assert.match(workspaceSource, /repairMode/);
   assert.match(appSource, /active authoritative Expense/);
   assert.match(appSource, /handleFixSupplierInvoice/);
+  assert.match(expensesPage, /onClick=\{\(\) => void onFix\(invoice\)\}/);
+  assert.match(appSource, /const currentInvoice = invoicesRef\.current\.find\(\(candidate\) => candidate\.id === invoice\.id\)/);
+  assert.match(appSource, /setSupplierRepairInvoiceId\(repairInvoice\.id\);\s*openInvoiceForReview\(repairInvoice, "expenses"\)/);
+  assert.match(appSource, /workspaceOrigin === "expenses"/);
+  assert.match(appSource, /const revisionIsCurrent = \(editRevisionRef\.current\.get\(invoice\.id\) \|\| 0\) === revision/);
   assert.match(correctionSource, /Delete unused invoice/);
   assert.match(correctionSource, /Archive \/ hide invoice/);
   assert.match(correctionSource, /window\.confirm\(`Delete permanently\? This unused \$\{entityLabel\}/);
