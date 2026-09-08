@@ -9,6 +9,7 @@ import { classifySupplierDocuments } from "../src/utils/supplierExpenseWorkspace
 import { supplierExpenseAmountForProject, supplierExpenseProjectProjection } from "../src/utils/supplierInvoiceCostOwnership.ts";
 
 const migration = readFileSync(new URL("../supabase/migrations/20260906132222_post_warehouse_operational_integration.sql", import.meta.url), "utf8");
+const configuredBuyerProfile = { legalName: "HydroQualiSense Solutions Corp.", vatTin: "777-823-517-000" };
 
 function invoice(overrides: Partial<InvoiceData> = {}): InvoiceData {
   return {
@@ -66,7 +67,7 @@ test("supplier document workspace uses canonical allocation labels and never fal
   const rows = classifySupplierDocuments([source], [expense({ supplierInvoiceId: source.id })], [
     { id: "a", invoiceId: source.id, projectId: "project-a", allocationType: "AMOUNT", allocationAmount: 60 },
     { id: "b", invoiceId: source.id, projectId: "project-b", allocationType: "AMOUNT", allocationAmount: 40 },
-  ], [project("project-a", "A"), project("project-b", "B")]);
+  ], [project("project-a", "A"), project("project-b", "B")], configuredBuyerProfile);
   assert.equal(rows[0]?.state, "LINKED");
   assert.equal(rows[0]?.allocationLabel, "Allocated across 2 projects");
   assert.match(rows[0]?.allocationSummaries.map((summary) => summary.projectCode).join(" ") || "", /A/);

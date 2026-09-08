@@ -10,6 +10,7 @@ const expensesPage = readFileSync(new URL("../src/components/expenses/ExpensesPa
 const migration = readFileSync(new URL("../supabase/migrations/20260906041647_r4_fx_tax_and_payroll_safety.sql", import.meta.url), "utf8");
 const r3Migration = readFileSync(new URL("../supabase/migrations/20260906010750_hydroqualisense_r3_unified_financial_documents.sql", import.meta.url), "utf8");
 const repairMigration = readFileSync(new URL("../supabase/migrations/20260908005120_verified_supplier_invoice_expense_link_repair.sql", import.meta.url), "utf8");
+const configuredBuyerProfile = { legalName: "HydroQualiSense Solutions Corp.", vatTin: "777-823-517-000" };
 
 function invoice(overrides: Partial<InvoiceData> = {}): InvoiceData {
   return {
@@ -53,7 +54,7 @@ test("Expenses workspace distinguishes needs-review, verified-ready, and linked 
     invoice({ id: "needs-review", reviewStatus: "NEEDS_REVIEW" }),
     invoice({ id: "ready", reviewStatus: "VERIFIED" }),
     invoice({ id: "linked", reviewStatus: "VERIFIED" }),
-  ], [expense({ id: "linked-expense", supplierInvoiceId: "linked" })]);
+  ], [expense({ id: "linked-expense", supplierInvoiceId: "linked" })], undefined, [], configuredBuyerProfile);
   assert.deepEqual(rows.map((row) => row.state), ["NEEDS_REVIEW", "READY_TO_LINK", "LINKED"]);
   assert.equal(rows[1]?.linkedExpense, undefined);
   assert.equal(rows[2]?.linkedExpense?.id, "linked-expense");

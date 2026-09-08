@@ -127,6 +127,12 @@ export async function loadCompanyAiConfig(client: SupabaseClient, companyId: str
   return metadataFromRecord(data, scope);
 }
 
+export async function loadServerCompanyAiConfig(client: SupabaseClient, companyId: string): Promise<CompanyAiConfigMetadata> {
+  const scope = companyScope(companyId);
+  const data = await rpc(client, "server_get_company_ai_config", { p_company_id: scope });
+  return metadataFromRecord(data, scope);
+}
+
 export async function storeCompanyAiCredential(client: SupabaseClient, companyId: string, envelope: EncryptedCompanyCredential, keyLast4: string): Promise<CompanyAiConfigMetadata> {
   const scope = companyScope(companyId);
   const data = await rpc(client, "platform_store_company_ai_credential", {
@@ -140,9 +146,44 @@ export async function storeCompanyAiCredential(client: SupabaseClient, companyId
   return metadataFromRecord(data, scope);
 }
 
+export async function bootstrapDeploymentCompanyAiCredential(
+  client: SupabaseClient,
+  companyId: string,
+  operatorUserId: string,
+  envelope: EncryptedCompanyCredential,
+  keyLast4: string,
+): Promise<CompanyAiConfigMetadata & { idempotent?: boolean }> {
+  const scope = companyScope(companyId);
+  const result = await client.rpc("bootstrap_deployment_company_ai_credential", {
+    p_company_id: scope,
+    p_operator_user_id: operatorUserId,
+    p_ciphertext: envelope.ciphertext,
+    p_iv: envelope.iv,
+    p_auth_tag: envelope.authTag,
+    p_encryption_version: envelope.encryptionVersion,
+    p_key_last4: keyLast4,
+  });
+  if (result.error) {
+    const code = String((result.error as { code?: unknown }).code || "");
+    if (code === "42501") throw new CompanyAiError("AI_BOOTSTRAP_NOT_AUTHORIZED", "Initial deployment operator authorization is required.", 403);
+    if (code === "55000") throw new CompanyAiError("AI_BOOTSTRAP_ALREADY_CONFIGURED", "Initial deployment AI configuration is already complete. Use the platform maintenance workflow.", 409);
+    if (code === "22023") throw new CompanyAiError("AI_BOOTSTRAP_INVALID", "The deployment AI credential could not be configured safely.", 400);
+    throw new CompanyAiError("AI_CONFIG_UNAVAILABLE", "Company AI configuration is temporarily unavailable.", 503);
+  }
+  const data = result.data;
+  const source = row(data);
+  return { ...metadataFromRecord(source, scope), ...(typeof source.idempotent === "boolean" ? { idempotent: source.idempotent } : {}) };
+}
+
 export async function recordCompanyAiTest(client: SupabaseClient, companyId: string, result: CompanyAiTestStatus): Promise<CompanyAiConfigMetadata> {
   const scope = companyScope(companyId);
   const data = await rpc(client, "platform_record_company_ai_test", { p_company_id: scope, p_test_status: result });
+  return metadataFromRecord(data, scope);
+}
+
+export async function recordServerCompanyAiTest(client: SupabaseClient, companyId: string, result: CompanyAiTestStatus): Promise<CompanyAiConfigMetadata> {
+  const scope = companyScope(companyId);
+  const data = await rpc(client, "server_record_company_ai_test", { p_company_id: scope, p_test_status: result });
   return metadataFromRecord(data, scope);
 }
 

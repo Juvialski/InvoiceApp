@@ -132,8 +132,11 @@ export function getSupplierInvoiceExpenseReadiness(
   const buyerEvidence = [invoice.customer?.name, invoice.customer?.registeredName, invoice.customer?.companyName, invoice.customer?.taxId].some((value) => text(value));
   if (buyerEvidence && buyerProfile === null) {
     add("BUYER_PROFILE_UNAVAILABLE", "customer", "Confirm the buyer against this deployment company before linking the Expense.");
-  } else if (buyerProfile && supplierInvoiceBuyerMismatch(invoice, buyerProfile)) {
-    add("BUYER_MISMATCH", "customer", "Resolve the supplier invoice buyer mismatch before linking the Expense.");
+  } else if (buyerEvidence) {
+    const buyerIssue = supplierInvoiceBuyerMismatch(invoice, buyerProfile);
+    if (buyerIssue) {
+      add(buyerIssue.includes("profile is incomplete") ? "BUYER_PROFILE_UNAVAILABLE" : "BUYER_MISMATCH", "customer", buyerIssue);
+    }
   }
 
   const scopedAllocations = invoiceAllocations(invoice, options.allocations);

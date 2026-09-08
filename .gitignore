@@ -10,3 +10,4 @@ deployment/inventory.local.json
 .env*
 !.env.example
 .vscode/
+.qa-e2e/

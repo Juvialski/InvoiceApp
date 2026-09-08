@@ -1,4 +1,3 @@
-import { BRAND } from "../config/brand.ts";
 import type { InvoiceData } from "../types.ts";
 import { requireActiveCompanyId } from "./companyContext.ts";
 import { supabase } from "./supabase.ts";
@@ -18,12 +17,10 @@ export interface CompanyDocumentProfile {
 }
 
 export const DEFAULT_COMPANY_DOCUMENT_PROFILE: CompanyDocumentProfile = Object.freeze({
-  legalName: BRAND.companyName,
-  address: "01 Pasong Tulo, Santa Rita Bata, San Miguel, Bulacan",
-  contactNumber: "09760721144",
-  email: "hydroqualisensesolutions@gmail.com",
-  vatTin: "777-823-517-000",
-  logoPath: "/brand/hydroqualisense-po-logo.png",
+  // Product branding is not a client legal identity. A fresh or unavailable
+  // deployment profile must remain incomplete until an operator supplies
+  // approved company details.
+  legalName: "",
 });
 
 export function documentPartyNameKey(value: unknown) {
@@ -39,9 +36,11 @@ export function supplierInvoiceBuyerMismatch(invoice: Pick<InvoiceData, "custome
   const buyer = invoice.customer;
   const buyerName = buyer?.registeredName || buyer?.companyName || buyer?.name;
   const buyerTin = buyer?.taxId?.replace(/\D/g, "");
+  const expectedName = profile.legalName.trim();
   const expectedTin = profile.vatTin?.replace(/\D/g, "");
   if (!buyerName && !buyerTin) return undefined;
-  const nameMismatch = Boolean(buyerName && documentPartyNameKey(buyerName) && documentPartyNameKey(profile.legalName) && !documentPartyNameKey(buyerName).includes(documentPartyNameKey(profile.legalName)) && !documentPartyNameKey(profile.legalName).includes(documentPartyNameKey(buyerName)));
+  if (!expectedName || (buyerTin && !expectedTin)) return "The deployment company document profile is incomplete; confirm the legal identity before verification.";
+  const nameMismatch = Boolean(buyerName && documentPartyNameKey(buyerName) && documentPartyNameKey(expectedName) && !documentPartyNameKey(buyerName).includes(documentPartyNameKey(expectedName)) && !documentPartyNameKey(expectedName).includes(documentPartyNameKey(buyerName)));
   const tinMismatch = Boolean(buyerTin && expectedTin && buyerTin !== expectedTin);
   return nameMismatch || tinMismatch ? "This document appears to be issued to another company." : undefined;
 }
@@ -54,12 +53,12 @@ export function companyDocumentProfileFromRow(row: Record<string, unknown> | nul
   return {
     id: text(row?.id),
     companyId: text(row?.company_id || row?.companyId),
-    legalName: text(row?.legal_name || row?.legalName) || DEFAULT_COMPANY_DOCUMENT_PROFILE.legalName,
+    legalName: text(row?.legal_name || row?.legalName) || "",
     address: text(row?.address),
     contactNumber: text(row?.contact_number || row?.contactNumber),
     email: text(row?.email),
     vatTin: text(row?.vat_tin || row?.vatTin),
-    logoPath: text(row?.logo_path || row?.logoPath) || DEFAULT_COMPANY_DOCUMENT_PROFILE.logoPath,
+    logoPath: text(row?.logo_path || row?.logoPath),
     paymentInstructions: text(row?.payment_instructions || row?.paymentInstructions),
     defaultTerms: text(row?.default_terms || row?.defaultTerms),
     updatedAt: text(row?.updated_at || row?.updatedAt),
@@ -74,7 +73,7 @@ export function mergeCompanyDocumentProfile(
     ...DEFAULT_COMPANY_DOCUMENT_PROFILE,
     ...(profile || {}),
     ...overrides,
-    legalName: (overrides.legalName || profile?.legalName || DEFAULT_COMPANY_DOCUMENT_PROFILE.legalName).trim(),
+    legalName: (overrides.legalName ?? profile?.legalName ?? DEFAULT_COMPANY_DOCUMENT_PROFILE.legalName).trim(),
   };
 }
 

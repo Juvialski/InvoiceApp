@@ -14,6 +14,7 @@ const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8
 const persistenceSource = readFileSync(new URL("../src/lib/persistence.ts", import.meta.url), "utf8");
 const r3Migration = readFileSync(new URL("../supabase/migrations/20260906010750_hydroqualisense_r3_unified_financial_documents.sql", import.meta.url), "utf8");
 const repairGuardMigration = readFileSync(new URL("../supabase/migrations/20260908024017_supplier_invoice_repair_guards.sql", import.meta.url), "utf8");
+const configuredBuyerProfile = { legalName: "HydroQualiSense Solutions Corp.", vatTin: "777-823-517-000" };
 
 function invoice(overrides: Partial<InvoiceData> = {}): InvoiceData {
   return {
@@ -53,21 +54,21 @@ function expense(overrides: Partial<Expense> = {}): Expense {
 }
 
 test("VERIFIED with no canonical Vendor is not READY_TO_LINK", () => {
-  const row = classifySupplierDocuments([invoice({ vendor: { name: "Extracted Supplier" } })], [], [], [])[0]!;
+  const row = classifySupplierDocuments([invoice({ vendor: { name: "Extracted Supplier" } })], [], [], [], configuredBuyerProfile)[0]!;
   assert.equal(row.state, "NEEDS_REVIEW");
   assert.equal(row.readiness.readyToLink, false);
   assert.match(row.readiness.blockingReasons.join(" "), /canonical Vendor/i);
 });
 
 test("VERIFIED with a missing Expense description is not READY_TO_LINK", () => {
-  const row = classifySupplierDocuments([invoice({ description: "   " })], [], [], [])[0]!;
+  const row = classifySupplierDocuments([invoice({ description: "   " })], [], [], [], configuredBuyerProfile)[0]!;
   assert.equal(row.state, "NEEDS_REVIEW");
   assert.equal(row.readiness.readyToLink, false);
   assert.match(row.readiness.blockingReasons.join(" "), /Expense description/i);
 });
 
 test("a complete VERIFIED invoice with no Expense is READY_TO_LINK", () => {
-  const row = classifySupplierDocuments([invoice()], [], [], [])[0]!;
+  const row = classifySupplierDocuments([invoice()], [], [], [], configuredBuyerProfile)[0]!;
   assert.equal(row.state, "READY_TO_LINK");
   assert.equal(row.readiness.complete, true);
   assert.equal(row.readiness.readyToLink, true);
@@ -75,16 +76,16 @@ test("a complete VERIFIED invoice with no Expense is READY_TO_LINK", () => {
 });
 
 test("a linked invoice remains LINKED even when its source facts need no new posting", () => {
-  const row = classifySupplierDocuments([invoice()], [expense({ supplierInvoiceId: "readiness-invoice" })], [], [])[0]!;
+  const row = classifySupplierDocuments([invoice()], [expense({ supplierInvoiceId: "readiness-invoice" })], [], [], configuredBuyerProfile)[0]!;
   assert.equal(row.state, "LINKED");
   assert.equal(row.linkedExpense?.id, "readiness-expense");
 });
 
 test("fixing required facts changes readiness without changing the historical review status", () => {
   const incomplete = invoice({ vendor: { name: "Extracted Supplier" }, description: "" });
-  const before = getSupplierInvoiceExpenseReadiness(incomplete);
+  const before = getSupplierInvoiceExpenseReadiness(incomplete, { buyerProfile: configuredBuyerProfile });
   const fixed = { ...incomplete, vendor: { ...incomplete.vendor, vendorId: "vendor-1" }, description: "Confirmed materials" };
-  const after = getSupplierInvoiceExpenseReadiness(fixed);
+  const after = getSupplierInvoiceExpenseReadiness(fixed, { buyerProfile: configuredBuyerProfile });
   assert.equal(before.readyToLink, false);
   assert.equal(after.readyToLink, true);
   assert.equal(fixed.reviewStatus, "VERIFIED");
@@ -94,7 +95,7 @@ test("extracted vendor evidence is not automatically promoted to a canonical Ven
   const readiness = getSupplierInvoiceExpenseReadiness(invoice({
     vendor: { name: "Extracted Supplier" },
     entityResolution: { proposedAction: "CREATE_NEW", entityType: "VENDOR", candidateId: "readiness-invoice", confidence: "HIGH", confidenceScore: 99, matchReasons: [], conflicts: [], proposedEnrichments: [], extractedEvidence: { name: "Extracted Supplier" }, normalizedEvidence: { name: "extracted supplier" } },
-  }));
+  }), { buyerProfile: configuredBuyerProfile });
   assert.equal(readiness.readyToLink, false);
   assert.ok(readiness.issues.some((issue) => issue.code === "CANONICAL_VENDOR"));
 });
@@ -120,7 +121,7 @@ test("partial persisted invoices with no line-item collection remain reviewable 
 
 test("VAT-rate validation remains an advisory when the posting readiness contract is complete", () => {
   const source = invoice({ validation: { status: "REVIEW", issues: [{ id: "ph-vat-rate-not-evaluated", severity: "warning", field: "philippineTaxDetails.vatAmount", message: "VAT rate consistency was not evaluated because no authoritative VAT rate is configured." }] } });
-  const readiness = getSupplierInvoiceExpenseReadiness(source);
+  const readiness = getSupplierInvoiceExpenseReadiness(source, { buyerProfile: configuredBuyerProfile });
   assert.equal(readiness.complete, true);
   assert.equal(getSupplierInvoiceValidationAdvisories(source, readiness).length, 1);
   assert.match(getSupplierInvoiceValidationAdvisories(source, readiness)[0]!.message, /no authoritative VAT rate/i);

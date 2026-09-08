@@ -7,6 +7,7 @@ import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.tsx";
 import { CompanyProfileSettings } from "./access/CompanyProfileSettings.tsx";
 import { CompanyDocumentProfileSettings } from "./access/CompanyDocumentProfileSettings.tsx";
+import { DeploymentAiBootstrapSettings } from "./access/DeploymentAiBootstrapSettings.tsx";
 
 interface SettingsProps {
   settings: RegionalSettings;
@@ -110,6 +111,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
       </div>
 
       {showDeploymentAccessManagement && <CompanyDocumentProfileSettings />}
+
+      {showDeploymentAccessManagement && <DeploymentAiBootstrapSettings />}
 
       {showDeploymentAccessManagement && <DeploymentAccessManagement />}
       <FeatureStatusOverview />

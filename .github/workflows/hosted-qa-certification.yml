@@ -1,0 +1,56 @@
+name: Hosted QA Certification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-hosted-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: qa
+    env:
+      QA_E2E_BASE_URL: https://hydroqualisense-qa.onrender.com
+      QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
+      QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ vars.QA_E2E_EXPECTED_REPOSITORY_SHA }}
+      QA_E2E_EXPECTED_MIGRATION_LEVEL: ${{ vars.QA_E2E_EXPECTED_MIGRATION_LEVEL }}
+      QA_E2E_EMAIL: ${{ secrets.QA_E2E_EMAIL }}
+      QA_E2E_PASSWORD: ${{ secrets.QA_E2E_PASSWORD }}
+      QA_E2E_SUPABASE_URL: ${{ vars.QA_E2E_SUPABASE_URL }}
+      QA_E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.QA_E2E_SUPABASE_PUBLISHABLE_KEY }}
+      QA_E2E_STORAGE_BUCKET: engineering-documents
+      QA_E2E_STORAGE_PROBE: "1"
+      QA_E2E_STORAGE_STATE_PATH: .qa-e2e/qa-storage-state.json
+    steps:
+      - name: Checkout exact workflow SHA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright for hosted QA only
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run authenticated hosted QA certification
+        run: npm run qa:hosted
+
+      - name: Upload hosted QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-qa-certification
+          path: artifacts/hosted-qa
+          if-no-files-found: error
+          retention-days: 14

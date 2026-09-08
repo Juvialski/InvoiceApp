@@ -8,9 +8,9 @@ Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUAL
 
 ## Current repository state
 
-Runtime baseline after merged PR #106:
+Runtime baseline after merged PR #108:
 
-`5d7ddd62be627ae8ae79cc9f6965b5554006cb97`
+`32778f62d925643f9d0fa1183a40c09ffc9b812e`
 
 Completed recent phases:
 
@@ -23,6 +23,7 @@ Completed recent phases:
 - PR #103 — streamlined supplier invoice repair UX with inline canonical Vendor resolution, human-confirmed Expense description repair, direct guarded posting, clearer delete/void/archive actions, and demo/responsive parity. Review also corrected the shared invoice/Expense permanent-delete confirmation so it remains entity-aware. No migration or database contract changed.
 - PR #105 — guarded first-company/deployment bootstrap authority for a blank isolated deployment, with idempotency, serialization, audit coverage, and browser-role execute denial.
 - PR #106 — recorded the previously blocked QA certification checkpoint.
+- PR #108 — dashboard and supplier-invoice repair regressions; exact merged head `32778f62d925643f9d0fa1183a40c09ffc9b812e`.
 
 PR #103 final exact head `722798b0e485c8288304e2e145db2de4528d2634` passed all four protected checks before squash merge:
 
@@ -74,9 +75,11 @@ Do not place secret values in repository documentation.
 - role: isolated QA + temporary demo environment
 - current project health: `ACTIVE_HEALTHY`
 - current state after the guarded push: `ACTIVE_HEALTHY`, one confirmed Auth user, the complete repository migration chain through `20260908051740_deployment_bootstrap_authority`, one synthetic QA company/configuration/admin membership/audit, and synthetic supplier-review data only;
-- QA `/api/health` returned HTTP 200 with repository SHA `5d7ddd62be627ae8ae79cc9f6965b5554006cb97` and `environment=qa`, but still reports `deploymentId=qa` instead of `qa-hydroqualisense` and null migration/configuration metadata;
-- unauthenticated `/projects` deep-linking rendered the Auth sign-in screen; an authenticated browser session/credentials were not available for hosted sign-in or byte-level Storage upload/read verification;
-- QA initialization/bootstrap is complete. Current blockers are Render identity/release configuration, provider Auth checks, authenticated hosted-flow evidence, migration-promotion controls, and backup/recovery evidence.
+- QA `/api/health` currently returns HTTP 200 with repository SHA `32778f62d925643f9d0fa1183a40c09ffc9b812e`, `environment=qa`, deployment ID `qa-hydroqualisense`, migration level `20260908051740`, and null configuration version;
+- an authenticated QA browser session is now available for `alpogimatubis14344@gmail.com`; the browser visibly reports `QA ENVIRONMENT · SYNTHETIC DATA ONLY`, `qa-hydroqualisense`, the synthetic QA company, and Company Admin access;
+- authenticated direct navigation and refresh checks passed for `/dashboard`, `/projects`, `/expenses`, `/procurement`, `/warehouse`, `/payroll`, and `/settings`; no PR #108 dashboard crash text or visible application error signal was observed;
+- the normal Engineering Documents workflow uploaded and reopened synthetic `QA-E2E-STORAGE-20260908.pdf` as document `QA-E2E-STORAGE-20260908`; the persisted one-page revision opened successfully. The clearly labeled synthetic QA evidence remains retained. Wrong-company byte denial was not separately exercised because this deployment has one company and one available session;
+- QA initialization/bootstrap is complete. Current blockers are provider Auth checks, configuration-version/release evidence, migration-promotion controls, and database/Storage/deployment/secret recovery evidence.
 - QA remains the only authorized read/write environment for bounded certification probes and synthetic QA data; do not repeat initialization unless a newer approved migration requires it.
 
 Recommended explicit QA identity values:
@@ -98,21 +101,23 @@ The QA Supabase Auth Site URL / redirect allow-list should point to `https://hyd
 
 `QA CERTIFICATION: NOT READY`
 
+The current working-tree hardening branch is based on merged PR #108 and is not deployed to QA yet. It adds a forward company-document identity seed correction, fail-closed incomplete-profile buyer checks, an exact-initial-operator server-encrypted AI bootstrap workflow, preflight-before-budget AI request handling, and a manual-only authenticated Playwright certification harness. These changes must not be counted as hosted QA evidence until merged and deliberately deployed.
+
 The installed Supabase CLI was `2.117.0` and authenticated. The QA wrapper rejected the production ref before CLI invocation, linked exactly `vrpuznofrntyqsbugrib`, and initially failed on Windows because `execFileSync("npx.cmd", ...)` returned `EINVAL`. The focused wrapper fix invokes `npx.cmd` through `ComSpec`; the guarded push then completed the full approved chain through `20260908051740_deployment_bootstrap_authority`.
 
 Bootstrap used `public.bootstrap_deployment_company(...)` with the existing confirmed Auth user and synthetic QA identity. Verification observed exactly one company, one singleton configuration, one active confirmed `COMPANY_ADMIN` membership, and one bootstrap audit. Exact retry returned `idempotent=true`; a conflicting retry failed closed with SQLSTATE `55000`; `anon` and `authenticated` lacked execute while `service_role` had execute.
 
 Runtime RLS/RBAC/RPC probes passed for active admin access, missing membership, rollback-scoped suspended membership, rollback-scoped `VIEWER` permission limits, anonymous REST denial, wrong-company Storage insert denial, and guarded supplier posting. The synthetic supplier workflow created exactly one `4321.50 PHP` Expense projected to the synthetic QA project; retry was idempotent, and a deliberate VOID retained the row with one `EXPENSE_VOIDED` audit event. The synthetic project used `NON_VAT` only as an explicit fixture value; this is not a production tax-policy decision.
 
-Storage metadata showed four private buckets: `email-originals`, `engineering-documents`, `invoice-originals`, and `payroll-import-sources`. Company-prefixed policy simulation passed, but authenticated browser upload/read of actual bytes remains unverified because no hosted QA credentials/session were available. Database, Storage-byte, and provider recovery evidence was not manufactured.
+Storage metadata showed four private buckets: `email-originals`, `engineering-documents`, `invoice-originals`, and `payroll-import-sources`. Company-prefixed policy simulation passed. The authenticated QA browser uploaded and reopened synthetic `QA-E2E-STORAGE-20260908.pdf` through Engineering Documents; wrong-company byte denial and provider recovery evidence remain unverified.
 
 Security advisors after initialization reported 7 INFO `rls_enabled_no_policy` notices, 2 WARN anonymous `SECURITY DEFINER` notices, 153 WARN authenticated `SECURITY DEFINER` notices, and 1 WARN for disabled Auth leaked-password protection. `public.rls_auto_enable()` is a provider-owned event-trigger function absent from the repository; `submit_public_prospect` is an intentional anonymous-only RPC with the QA database gate verified `enabled=false`. The remaining provider Auth warning requires explicit operator confirmation and is not waived.
 
 Remaining blockers and exact actions:
 
-- Set QA Render `HYDROQUALISENSE_DEPLOYMENT_ID=qa-hydroqualisense`, `HYDROQUALISENSE_MIGRATION_LEVEL=20260908051740`, and the documented `VITE_*` QA identity values, then redeploy. Record an approved configuration version only when one exists; do not invent one.
+- PASS: QA `/api/health` now reports `qa-hydroqualisense`, repository SHA `32778f62d925643f9d0fa1183a40c09ffc9b812e`, and migration level `20260908051740`. Configuration version remains null and must remain unknown until an approved value exists.
 - In QA Supabase Auth, set the Site URL and redirect allow-list for `https://hydroqualisense-qa.onrender.com`, and enable leaked-password protection. Record provider evidence.
-- Sign in with the confirmed QA user and verify hosted authenticated deep links, permissions, Storage byte upload/read, and major read paths. Do not change the user password or create another user merely for this certification.
+- PASS for this checkpoint: the existing authenticated QA user verified hosted deep links, Company Admin access, major read paths, and synthetic Storage byte upload/read. A lower-permission session and wrong-company byte probe were not created because they require additional Auth/company setup.
 - Obtain separate PostgreSQL backup/restore, Storage-object recovery, deployment reconstruction/rollback, and required secret/configuration recovery evidence. App-level recovery tables are empty and do not prove provider recovery.
 - Inspect the Render service’s external pre-deploy/release command. The repository `build`/`start` paths contain no migration push; routine application redeploy must not run database promotion. Move migration promotion to an explicit, separately approved QA/production operation.
 
