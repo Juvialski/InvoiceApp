@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — CLIENT PRODUCTIZATION BASELINE COMPLETE, QA LIVE INITIALIZATION NEXT**  
+Status: **ACTIVE — QA LIVE INITIALIZATION BLOCKED, CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-08**  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -23,15 +23,16 @@ Completed recent milestones:
 - PR #101 — supplier readiness truth + guarded legacy repair + QA deployment identity and guarded QA database tooling.
 - PR #103 — streamlined supplier invoice repair UX, inline canonical Vendor resolution, explicit Expense-description confirmation, direct guarded posting, and clearer invoice lifecycle actions; no migration or database contract change.
 
-Runtime baseline after PR #103:
+Runtime baseline after PR #105:
 
-`7d41c83ae03775c1c055628883debd62888212ac`
+`8c74bf1101aaad92d7e05170f7898be5988f881d`
 
-Supabase MCP state re-verified on 2026-09-08 before the QA initialization phase:
+Supabase connector, public health, and repository state re-verified on 2026-09-08 during the QA certification attempt:
 
 - QA `vrpuznofrntyqsbugrib` is `ACTIVE_HEALTHY`, has one Auth user, zero HydroQualiSense public application/base tables, and zero applied repository migrations.
-- Client A production `qijjshdwiylojvqojxyz` is `ACTIVE_HEALTHY`; its repository migration head remains `20260908024017_supplier_invoice_repair_guards`.
-- Production inspection was read-only. No QA or production mutation was performed during this verification.
+- Client A production `qijjshdwiylojvqojxyz` is `ACTIVE_HEALTHY`; a read-only query observed migration head `20260908051740_deployment_bootstrap_authority`, while `/api/health` reports stale migration metadata `20260908005120`.
+- QA `/api/health` reports the correct repository SHA but incomplete identity metadata (`deploymentId=qa`, null environment/migration/configuration).
+- Production inspection was read-only. No QA or production mutation was performed by Codex during this attempt.
 
 The product architecture remains:
 
@@ -70,7 +71,7 @@ Do not turn this into a shared multi-client operational control plane yet.
 
 - URL: `https://hydroqualisense.com`
 - Supabase ref: `qijjshdwiylojvqojxyz`
-- current verified migration level: `20260908024017_supplier_invoice_repair_guards`
+- read-only observed database migration head: `20260908051740_deployment_bootstrap_authority`; this supersedes the prior handoff snapshot and was not applied by Codex during this phase.
 - real client production data; never use as disposable QA data.
 - default operational rule for the QA phase: production Supabase is read-only unless a separate explicit production change is approved.
 
@@ -78,13 +79,15 @@ Do not turn this into a shared multi-client operational control plane yet.
 
 - URL: `https://hydroqualisense-qa.onrender.com`
 - Supabase ref: `vrpuznofrntyqsbugrib`
-- current verified state on 2026-09-08: `ACTIVE_HEALTHY`, one Auth user, zero HydroQualiSense public application/base tables, zero applied repository migrations.
+- current verified state on 2026-09-08: `ACTIVE_HEALTHY`, one confirmed Auth user, zero HydroQualiSense public application/base tables, zero applied repository migrations.
 - intended role: isolated QA plus temporary client-demo environment using synthetic data only.
-- QA is authorized for read/write initialization and certification work in the next bounded phase.
+- QA is authorized for read/write initialization and certification work, but the current attempt is blocked before the first guarded migration write.
 
 ## NEXT — live QA initialization and certification
 
 This is the immediate bounded phase.
+
+Current gate result: `QA CERTIFICATION: NOT READY`. Worker Registration and all later product phases remain blocked.
 
 Required outcome:
 

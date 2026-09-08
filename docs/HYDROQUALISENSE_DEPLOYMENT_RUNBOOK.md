@@ -75,6 +75,8 @@ From a clean checkout of the approved repository SHA:
    ```
 
    The wrapper requires `HYDROQUALISENSE_ENVIRONMENT=qa`, a `qa-` deployment ID, an exact expected/linked project-reference match, and the explicit push confirmation. It invokes `supabase db push --linked --include-all --yes`; it does not create a project or seed production data.
+
+   If `supabase link` or the wrapper reports that no Supabase access token is available, stop and complete the operator-owned CLI authentication step (`npx.cmd supabase login`) before continuing. Do not replace the guarded wrapper with direct SQL, dashboard SQL Editor, or MCP migration calls merely because those paths are available; the exact QA target and wrapper assertions are part of the safety boundary.
 4. If a deliberate QA-only reset is required, use the guarded wrapper only after confirming the linked project is QA:
 
    ```text
