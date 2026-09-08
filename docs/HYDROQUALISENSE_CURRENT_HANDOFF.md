@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — QA LIVE INITIALIZATION NEXT**  
+Status: **CURRENT — QA CERTIFICATION NOT READY (LIVE INITIALIZATION BLOCKED)**
 Date: **2026-09-08**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -8,9 +8,9 @@ Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUAL
 
 ## Current repository state
 
-Runtime baseline after merged PR #103:
+Runtime baseline after merged PR #105:
 
-`7d41c83ae03775c1c055628883debd62888212ac`
+`8c74bf1101aaad92d7e05170f7898be5988f881d`
 
 Completed recent phases:
 
@@ -21,6 +21,7 @@ Completed recent phases:
 - PR #100 — verified supplier invoice -> Expense repair + Client A transfer/readiness tooling.
 - PR #101 — truthful supplier Expense-link readiness, guarded legacy re-review, explicit QA deployment identity, QA database push/reset wrappers, QA inventory template, and QA runbook guidance.
 - PR #103 — streamlined supplier invoice repair UX with inline canonical Vendor resolution, human-confirmed Expense description repair, direct guarded posting, clearer delete/void/archive actions, and demo/responsive parity. Review also corrected the shared invoice/Expense permanent-delete confirmation so it remains entity-aware. No migration or database contract changed.
+- PR #105 — guarded first-company/deployment bootstrap authority for a blank isolated deployment, with idempotency, serialization, audit coverage, and browser-role execute denial.
 
 PR #103 final exact head `722798b0e485c8288304e2e145db2de4528d2634` passed all four protected checks before squash merge:
 
@@ -37,7 +38,7 @@ HydroQualiSense remains:
 
 `one source repository -> many isolated client deployments`
 
-Supabase MCP state was re-verified on 2026-09-08 after PR #103 review and before live QA initialization. No QA or production write was performed during this verification.
+Supabase connector, public health, and repository state were re-verified on 2026-09-08 during the QA certification attempt. No QA or production write was performed by Codex during this attempt. Production remains read-only for this phase.
 
 ### Client A production
 
@@ -45,7 +46,8 @@ Supabase MCP state was re-verified on 2026-09-08 after PR #103 review and before
 - Supabase project ref: `qijjshdwiylojvqojxyz`
 - operational role: real Client A production
 - current project health: `ACTIVE_HEALTHY`
-- current database migration level verified on 2026-09-08: `20260908024017_supplier_invoice_repair_guards`
+- a read-only query during this checkpoint observed the actual latest migration as `20260908051740_deployment_bootstrap_authority`, although the prior handoff recorded `20260908024017_supplier_invoice_repair_guards`;
+- production `/api/health` still reports `20260908005120`, so deployed release metadata is stale relative to the observed database head and requires a separate operator-controlled reconciliation;
 - public prospect funnel must remain disabled unless a future explicit production decision changes that.
 - production data must never be copied into QA merely for demos/testing.
 - during the QA initialization/certification phase, production Supabase is **read-only by default**. Do not perform DDL/DML, reset, seed, Auth/Storage mutations, secret/config writes, or side-effecting RPC calls unless a separate explicit production change is approved.
@@ -59,7 +61,7 @@ VITE_HYDROQUALISENSE_ENVIRONMENT=production
 VITE_HYDROQUALISENSE_DEPLOYMENT_ID=client-a-prod
 VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=false
 VITE_ENABLE_SAMPLE_INVOICES=false
-HYDROQUALISENSE_MIGRATION_LEVEL=20260908024017
+HYDROQUALISENSE_MIGRATION_LEVEL=20260908051740
 ```
 
 Do not place secret values in repository documentation.
@@ -70,8 +72,10 @@ Do not place secret values in repository documentation.
 - Supabase project ref: `vrpuznofrntyqsbugrib`
 - role: isolated QA + temporary demo environment
 - current project health: `ACTIVE_HEALTHY`
-- current state re-verified on 2026-09-08: one Auth user, **zero HydroQualiSense public application/base tables and zero applied repository migrations**.
-- therefore the current QA blocker is database initialization/bootstrap, not email confirmation.
+- current state re-verified on 2026-09-08: one confirmed Auth user, **zero HydroQualiSense public application/base tables and zero applied repository migrations**;
+- QA `/api/health` returned HTTP 200 with the repository SHA, but reported `deploymentId=qa` and null environment, migration, and configuration metadata instead of the required explicit QA identity;
+- unauthenticated `/dashboard` rendered the Auth sign-in screen and `/api/storage/health` returned HTTP 401;
+- therefore the current QA blockers are guarded database initialization/bootstrap and deployment/provider identity configuration, not repository migration compatibility.
 - QA is authorized for read/write initialization and certification in the next bounded phase.
 
 Recommended explicit QA identity values:
@@ -88,6 +92,23 @@ VITE_ENABLE_SAMPLE_INVOICES=false
 ```
 
 The QA Supabase Auth Site URL / redirect allow-list should point to `https://hydroqualisense-qa.onrender.com` for hosted confirmation/reset flows. This provider-side setting is manual and is not controlled by repository migrations.
+
+## QA certification checkpoint — 2026-09-08
+
+`QA CERTIFICATION: NOT READY`
+
+The repository migration chain passed clean local replay, pgTAP, static migration invariants, upgrade fixtures, and bounded application tests. Live QA certification did not proceed because the approved guarded CLI path could not link the checkout: the installed Supabase CLI (`2.117.0`) reported that no access token was available. The production ref was independently rejected by the QA wrapper before any CLI call.
+
+The next operator action is to authenticate the CLI (`npx.cmd supabase login`), link only `vrpuznofrntyqsbugrib`, set the documented QA assertions, and rerun `npm.cmd run qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa`. Do not substitute direct SQL/MCP migration application for the guarded wrapper.
+
+Additional unresolved certification checks:
+
+- Auth Site URL/redirect allow-list and leaked-password protection require provider-side confirmation; the dashboard session available to this run was signed out.
+- Storage buckets, company-prefixed object paths, authenticated upload/read behavior, and live RLS/RBAC/RPC behavior cannot be certified while QA has no repository migrations.
+- QA Supabase security advisors currently report three WARN findings on the blank project: the provider `public.rls_auto_enable()` event-trigger function is executable by browser roles, and Auth leaked-password protection is disabled. Investigate/accept only with provider evidence after initialization.
+- QA Render identity must be corrected to the documented `qa-hydroqualisense`/`qa` values and redeployed before release verification can be PASS.
+
+No production mutation occurred. Worker Registration remains blocked until a later run reaches `QA CERTIFICATION: READY`.
 
 ## Supplier invoice -> Expense status
 
