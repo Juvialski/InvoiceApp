@@ -30,9 +30,9 @@ Read these before deciding scope:
 
 Live repository state overrides remembered chat summaries, old prompts and historical Engoryx plans.
 
-R5 Cross-Module Integration & Data-Contract Hardening is complete in PR #95. Warehouse Inventory & Project Allocation is complete in PR #96, and Post-Warehouse Operational Integration is complete in PR #97. Current sequence unless explicitly reprioritized:
+R5 Cross-Module Integration & Data-Contract Hardening is complete in PR #95. Warehouse Inventory & Project Allocation is complete in PR #96, Post-Warehouse Operational Integration is complete in PR #97, and the first client-productization/QA foundation is complete through PR #101. Current sequence unless explicitly reprioritized:
 
-1. **Public client funnel + repeatable isolated deployment/provisioning tooling**
+1. **Live QA initialization and certification**
 2. **Worker Registration foundation**
 3. **Site Attendance state machine + device registration**
 4. **Face-Recognition Attendance** — only after explicit design/privacy/security review
