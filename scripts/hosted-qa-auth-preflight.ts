@@ -11,6 +11,7 @@ const BASE_URL = (process.env.QA_E2E_BASE_URL || "https://hydroqualisense-qa.onr
 const OUTPUT_DIR = path.resolve(process.env.QA_E2E_OUTPUT_DIR || "artifacts/hosted-qa");
 const STORAGE_STATE_PATH = path.resolve(process.env.QA_E2E_STORAGE_STATE_PATH || ".qa-e2e/qa-storage-state.json");
 const NAVIGATION_TIMEOUT_MS = 60_000;
+const AUTH_FORM_TIMEOUT_MS = 20_000;
 const AUTH_SESSION_TIMEOUT_MS = 15_000;
 
 interface BrowserSessionSnapshot {
@@ -91,6 +92,17 @@ async function waitForPersistedSession(page: any, timeoutMs = AUTH_SESSION_TIMEO
   return browserSessionSnapshot(page);
 }
 
+async function waitForSignInForm(page: any) {
+  const emailInput = page.locator("#auth-email");
+  try {
+    await emailInput.waitFor({ state: "visible", timeout: AUTH_FORM_TIMEOUT_MS });
+  } catch {
+    const currentUrl = safeDetails(page.url());
+    throw new Error(`Hosted QA sign-in form did not become ready within ${AUTH_FORM_TIMEOUT_MS}ms after protected-page navigation. Current URL: ${currentUrl}`);
+  }
+  return emailInput;
+}
+
 async function assertNotAuthScreen(page: any) {
   const body = await page.locator("body").innerText().catch(() => "");
   if (body.includes("Welcome back") || body.includes("Sign in to continue")) {
@@ -132,11 +144,7 @@ async function main() {
     if (hasCredentials) {
       const page = await context.newPage();
       await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
-      await page.waitForTimeout(500);
-      const emailInput = page.locator("#auth-email");
-      if (await emailInput.count() === 0) {
-        throw new Error("Hosted QA sign-in form was not available before authentication.");
-      }
+      const emailInput = await waitForSignInForm(page);
       await emailInput.fill(email);
       await page.locator("#auth-password").fill(password);
       await page.getByRole("button", { name: "Sign in", exact: true }).click();

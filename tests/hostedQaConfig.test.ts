@@ -28,8 +28,12 @@ test("hosted QA harness fails closed on production and requires authenticated st
   assert.match(gitignore, /\.qa-e2e\//);
 });
 
-test("hosted QA authentication preflight requires a persisted session before route certification", () => {
+test("hosted QA authentication preflight requires bounded sign-in readiness and a persisted session", () => {
   assert.match(packageJson, /"qa:hosted": "tsx scripts\/hosted-qa-auth-preflight\.ts && tsx scripts\/hosted-qa-certification\.ts"/);
+  assert.match(authPreflight, /AUTH_FORM_TIMEOUT_MS = 20_000/);
+  assert.match(authPreflight, /waitForSignInForm/);
+  assert.match(authPreflight, /emailInput\.waitFor\(\{ state: "visible", timeout: AUTH_FORM_TIMEOUT_MS \}\)/);
+  assert.doesNotMatch(authPreflight, /page\.waitForTimeout\(500\)/);
   assert.match(authPreflight, /waitForPersistedSession/);
   assert.match(authPreflight, /access_token/);
   assert.match(authPreflight, /refresh_token/);
