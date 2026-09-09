@@ -25,7 +25,6 @@ export function createDemoExpenses(anchorDate: string): Expense[] {
     ["17", DEMO_PROJECT_IDS.cebu, 46_915.40, "Testing & Inspection", "Electrical insulation and plumbing pressure tests", "VisMin Technical Testing", "PAID"],
     ["18", undefined, 31_684.75, "General Operations", "Printing, courier, project-document reproduction, and office supplies", "Central Office Supplies", "APPROVED"],
     ["19", undefined, 659.25, "Foreign supplier review", "Converted PHP value for software and document service charge", "International Document Services", "APPROVED"],
-    ["20", DEMO_PROJECT_IDS.solar, 137_812.50, "Foreign site services", "Converted PHP value for site licensing and document-control service charge", "International Site Services", "APPROVED"],
   ];
 
   return rows.map(([id, projectId, amount, category, description, payee, status], index) => {

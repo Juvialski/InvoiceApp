@@ -15,7 +15,7 @@ test("public demo monetary source data is PHP-only", () => {
   assert.deepEqual(workspace.financialFxSnapshots, []);
 });
 
-test("former USD demo samples retain their explicit converted PHP values", () => {
+test("demo samples with prior explicit FX evidence retain their converted PHP values", () => {
   const invoice17 = workspace.invoices.find((invoice) => invoice.id === "demo-invoice-17");
   assert.ok(invoice17);
   assert.equal(invoice17.currency, "PHP");
@@ -27,8 +27,4 @@ test("former USD demo samples retain their explicit converted PHP values", () =>
   assert.equal(expense19.currency, "PHP");
   assert.equal(expense19.amount, 659.25);
 
-  const expense20 = workspace.expenses.find((expense) => expense.id === "demo-expense-20");
-  assert.ok(expense20);
-  assert.equal(expense20.currency, "PHP");
-  assert.equal(expense20.amount, 137_812.50);
 });
