@@ -238,6 +238,8 @@ export interface FinancialReconciliationCandidate {
   description?: string;
   lifecycleStatus?: string;
   projectId?: string;
+  /** Billing selected when a client-collection target returns to its invoice. */
+  billingId?: string;
 }
 
 /** Keep cash candidate rendering aligned with the guarded settlement lifecycle. */

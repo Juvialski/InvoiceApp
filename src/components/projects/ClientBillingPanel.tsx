@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ArrowRight,
   AlertTriangle,
   Ban,
   CheckCircle2,
@@ -31,18 +32,21 @@ import {
 } from "../../lib/clientBilling.ts";
 import {
   calculateClientCollectionSummary,
+  calculateClientBillingCollectionSummary,
   clientCollectionTotal,
   billingCollectedAmount,
   billingOutstandingAmount,
   isClientCollectionProjectStatusAllowed,
   type ClientCollection,
+  type ClientBillingCollectionState,
   type ClientCollectionAllocationInput,
   type ClientCollectionEvent,
   type ClientCollectionInput,
   type ClientCollectionStatus,
 } from "../../lib/clientCollections.ts";
-import type { CashBankingWorkspaceData, FinancialTransaction, FinancialTransactionMatch } from "../../lib/cashBanking.ts";
+import { confirmedTargetMatchedAmount, type CashBankingWorkspaceData, type FinancialTransaction, type FinancialTransactionMatch } from "../../lib/cashBanking.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
+import { appPathForProject } from "../../utils/appRouting.ts";
 import { ClientCollectionSettlementPanel } from "./ClientCollectionSettlementPanel.tsx";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { DocumentPreviewModal } from "../DocumentPreviewModal.tsx";
@@ -52,6 +56,7 @@ import { isClassifiedProjectTaxTreatment, projectTaxTreatmentLabel } from "../..
 
 interface ClientBillingPanelProps {
   project: Project;
+  initialBillingId?: string;
   billings: readonly ClientBilling[];
   events: readonly ClientBillingEvent[];
   collections?: readonly ClientCollection[];
@@ -87,6 +92,35 @@ function billingStatusTone(status: ClientBillingStatus): StatusTone {
 
 function collectionStatusTone(status: ClientCollectionStatus): StatusTone {
   return status === "RECORDED" ? "success" : status === "REVERSED" ? "neutral" : "info";
+}
+
+function clientBillingCollectionStateLabel(state: ClientBillingCollectionState) {
+  switch (state) {
+    case "FULLY_COLLECTED": return "Fully collected";
+    case "PARTIALLY_COLLECTED": return "Partially collected";
+    case "CURRENCY_MISMATCH": return "Currency mismatch";
+    case "NOT_COLLECTIBLE": return "Not collectible yet";
+    default: return "Uncollected";
+  }
+}
+
+function clientBillingCollectionStateTone(state: ClientBillingCollectionState): StatusTone {
+  if (state === "FULLY_COLLECTED") return "success";
+  if (state === "PARTIALLY_COLLECTED" || state === "CURRENCY_MISMATCH") return "warning";
+  return state === "NOT_COLLECTIBLE" ? "neutral" : "info";
+}
+
+function collectionBankLinkState(collection: ClientCollection, cashData?: CashBankingWorkspaceData) {
+  if (collection.status !== "RECORDED") return "Not eligible";
+  if (!cashData) return "Unavailable";
+  const total = clientCollectionTotal(collection);
+  const linked = confirmedTargetMatchedAmount("CLIENT_COLLECTION", collection.id, cashData.matches);
+  if (linked <= 0.005) return "Unlinked";
+  return linked >= total - 0.005 ? "Linked" : "Partially linked";
+}
+
+function collectionAllocationsForUi(collection?: ClientCollection) {
+  return collection && Array.isArray(collection.allocations) ? collection.allocations : [];
 }
 
 function today() {
@@ -131,6 +165,7 @@ function formFromBilling(billing: ClientBilling): { input: ClientBillingInput; l
 
 export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   project,
+  initialBillingId,
   billings,
   events,
   collections = [],
@@ -156,7 +191,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   const projectBillings = useMemo(() => billings.filter((billing) => billing.projectId === project.id), [billings, project.id]);
   const projectEvents = useMemo(() => events.filter((event) => projectBillings.some((billing) => billing.id === event.billingId)), [events, projectBillings]);
   const billingSummary = useMemo(() => calculateClientBillingSummary(project, projectBillings), [project, projectBillings]);
-  const [selectedBillingId, setSelectedBillingId] = useState<string | null>(projectBillings[0]?.id || null);
+  const [selectedBillingId, setSelectedBillingId] = useState<string | null>(initialBillingId || projectBillings[0]?.id || null);
   const [editingBilling, setEditingBilling] = useState(false);
   const [billingForm, setBillingForm] = useState<ClientBillingInput>(() => ({
     projectId: project.id,
@@ -188,6 +223,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
     currency: project.currency,
   }));
   const [collectionAllocations, setCollectionAllocations] = useState<Record<string, number>>({});
+  const [collectionTargetBillingId, setCollectionTargetBillingId] = useState<string | null>(null);
   const [reversalReason, setReversalReason] = useState("");
   const [reversingCollectionId, setReversingCollectionId] = useState<string | null>(null);
   const [previewBilling, setPreviewBilling] = useState<ClientBilling | null>(null);
@@ -200,11 +236,24 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   const selectedCollection = projectCollections.find((c) => c.id === selectedCollectionId) || projectCollections[0];
 
   const issuedBillings = useMemo(() => projectBillings.filter((b) => b.status === "ISSUED"), [projectBillings]);
+  const projectCanReceiveActivity = isClientBillingProjectStatusAllowed(project.status) && isClientCollectionProjectStatusAllowed(project.status);
+  const selectedBillingCollectionSummary = useMemo(
+    () => selectedBilling ? calculateClientBillingCollectionSummary(selectedBilling, projectCollections) : undefined,
+    [projectCollections, selectedBilling],
+  );
 
   useEffect(() => {
+    if (initialBillingId && projectBillings.some((billing) => billing.id === initialBillingId)) {
+      setSelectedBillingId(initialBillingId);
+      setActiveTab("billings");
+    }
+  }, [initialBillingId, projectBillings]);
+
+  useEffect(() => {
+    if (initialBillingId && projectBillings.some((billing) => billing.id === initialBillingId)) return;
     if (selectedBillingId && projectBillings.some((billing) => billing.id === selectedBillingId)) return;
     setSelectedBillingId(projectBillings[0]?.id || null);
-  }, [projectBillings, selectedBillingId]);
+  }, [initialBillingId, projectBillings, selectedBillingId]);
 
   useEffect(() => {
     if (selectedCollectionId && projectCollections.some((c) => c.id === selectedCollectionId)) return;
@@ -297,8 +346,9 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
   };
 
   // Collection Actions
-  const startCreateCollection = () => {
+  const startCreateCollection = (targetBillingId?: string) => {
     setError(null);
+    setActiveTab("collections");
     setCollectionForm({
       projectId: project.id,
       collectionNumber: nextCollectionNumber(project, projectCollections.length),
@@ -311,10 +361,11 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
     for (const b of issuedBillings) {
       const outstanding = billingOutstandingAmount(b, projectCollections);
       if (outstanding > 0) {
-        initialAlloc[b.id] = 0;
+        initialAlloc[b.id] = b.id === targetBillingId ? outstanding : 0;
       }
     }
     setCollectionAllocations(initialAlloc);
+    setCollectionTargetBillingId(targetBillingId || null);
     setEditingCollection(true);
     setSelectedCollectionId(null);
   };
@@ -332,7 +383,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
       notes: collection.notes,
     });
     const currentAlloc: Record<string, number> = {};
-    for (const alloc of collection.allocations) {
+    for (const alloc of collectionAllocationsForUi(collection)) {
       currentAlloc[alloc.billingId] = alloc.amount;
     }
     for (const b of issuedBillings) {
@@ -341,6 +392,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
       }
     }
     setCollectionAllocations(currentAlloc);
+    setCollectionTargetBillingId(collection.allocations[0]?.billingId || null);
     setSelectedCollectionId(collection.id);
     setEditingCollection(true);
   };
@@ -491,6 +543,11 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-600">Client collections & receivables</p>
             <h2 id="client-collection-editor-heading" className="mt-1 text-xl font-black text-slate-950">{collectionForm.id ? "Edit collection draft" : "Record client collection draft"}</h2>
             <p className="mt-1 text-xs text-slate-500">Commercial collections allocate strictly against ISSUED client billings. Drafts do not mutate collected metrics until RECORDED.</p>
+            {collectionTargetBillingId && (() => {
+              const targetBilling = issuedBillings.find((billing) => billing.id === collectionTargetBillingId);
+              if (!targetBilling) return null;
+              return <p className="mt-2 inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[10px] font-bold text-indigo-800" data-testid="client-collection-target-context">Target client invoice: <span className="break-all">{targetBilling.billingNumber}</span> · remaining {money(billingOutstandingAmount(targetBilling, projectCollections), targetBilling.currency)}</p>;
+            })()}
           </div>
           <Button variant="secondary" label="Cancel" onClick={() => setEditingCollection(false)} />
         </div>
@@ -537,7 +594,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
                       return (
                         <tr key={b.id} className="align-middle">
                           <td className="px-4 py-3">
-                            <strong className="block text-xs text-indigo-700">{b.billingNumber}</strong>
+                            <div className="flex flex-wrap items-center gap-1.5"><strong className="block text-xs text-indigo-700">{b.billingNumber}</strong>{collectionTargetBillingId === b.id && <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-[9px] font-black text-white">Requested invoice</span>}</div>
                             <span className="block text-[10px] text-slate-500">{b.billingDate}</span>
                           </td>
                           <td className="px-4 py-3 text-right font-semibold tabular-nums">{money(billed, b.currency)}</td>
@@ -585,7 +642,22 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
 
   const selectedBillingEvents = selectedBilling ? projectEvents.filter((event) => event.billingId === selectedBilling.id).sort((left, right) => right.createdAt.localeCompare(left.createdAt)) : [];
   const selectedCollectionEvents = selectedCollection ? projectCollectionEvents.filter((event) => event.collectionId === selectedCollection.id).sort((left, right) => right.createdAt.localeCompare(left.createdAt)) : [];
-  const projectCanReceiveActivity = isClientBillingProjectStatusAllowed(project.status) && isClientCollectionProjectStatusAllowed(project.status);
+  const canRecordSelectedBillingCollection = Boolean(
+    selectedBilling
+    && selectedBilling.status === "ISSUED"
+    && canManage
+    && !loading
+    && projectCanReceiveActivity
+    && onSaveCollection
+    && onRecordCollection
+    && selectedBillingCollectionSummary
+    && !selectedBillingCollectionSummary.hasCurrencyMismatch
+    && (selectedBillingCollectionSummary.remainingAmount || 0) > 0.005,
+  );
+  const selectedCollectionReturnBillingId = selectedCollection && selectedBilling && Array.isArray(selectedCollection.allocations) && selectedCollection.allocations.some((allocation) => allocation.billingId === selectedBilling.id)
+    ? selectedBilling.id
+    : selectedCollection && Array.isArray(selectedCollection.allocations) ? selectedCollection.allocations[0]?.billingId : undefined;
+  const selectedCollectionAllocations = collectionAllocationsForUi(selectedCollection);
 
   return (
     <section aria-labelledby="client-billing-heading" className="space-y-5">
@@ -603,7 +675,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
             </button>
           )}
           {activeTab === "collections" && canManage && (
-            <button type="button" onClick={startCreateCollection} disabled={!projectCanReceiveActivity || loading || issuedBillings.length === 0} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="button" onClick={() => startCreateCollection()} disabled={!projectCanReceiveActivity || loading || issuedBillings.length === 0} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
               <Coins className="h-3.5 w-3.5" /> Record collection
             </button>
           )}
@@ -729,7 +801,35 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
                     <span className="text-base font-black tabular-nums">{money(clientBillingTotal(selectedBilling), selectedBilling.currency)}</span>
                   </div>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
+                 {selectedBillingCollectionSummary && (
+                   <section className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/40 p-3" aria-label="Client invoice collection position" data-testid="client-invoice-collection-position">
+                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                       <div>
+                         <p className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Collection position</p>
+                         <p className="mt-1 text-[10px] leading-4 text-slate-600">Commercial collection allocations are separate from bank or cash settlement evidence.</p>
+                       </div>
+                       <StatusBadge tone={clientBillingCollectionStateTone(selectedBillingCollectionSummary.state)}>{clientBillingCollectionStateLabel(selectedBillingCollectionSummary.state)}</StatusBadge>
+                     </div>
+                     <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                       <Metric label="Invoice amount" value={money(selectedBillingCollectionSummary.invoiceAmount, selectedBillingCollectionSummary.currency)} />
+                       <Metric label="Amount collected" value={selectedBillingCollectionSummary.collectedAmount === undefined ? "Unavailable" : money(selectedBillingCollectionSummary.collectedAmount, selectedBillingCollectionSummary.currency)} />
+                       <Metric label="Amount remaining" value={selectedBillingCollectionSummary.remainingAmount === undefined ? "Unavailable" : money(selectedBillingCollectionSummary.remainingAmount, selectedBillingCollectionSummary.currency)} emphasis={Boolean((selectedBillingCollectionSummary.remainingAmount || 0) > 0.005)} />
+                     </div>
+                     {selectedBillingCollectionSummary.reason && <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] leading-4 text-amber-900">{selectedBillingCollectionSummary.reason}</p>}
+                     {canRecordSelectedBillingCollection && <button type="button" onClick={() => startCreateCollection(selectedBilling.id)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2.5 text-xs font-black text-white shadow-sm hover:bg-emerald-700 sm:w-auto" data-testid="record-client-collection"><Coins className="h-3.5 w-3.5" /> Record Collection <ArrowRight className="h-3.5 w-3.5" /></button>}
+                   </section>
+                 )}
+                 {selectedBillingCollectionSummary && (
+                   <section className="mt-4 border-t border-slate-100 pt-4" aria-label="Client invoice collection history" data-testid="client-invoice-collection-history">
+                     <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><History className="h-3.5 w-3.5 text-emerald-600" /><h4 className="text-xs font-black text-slate-800">Collection history</h4></div><span className="text-[10px] font-semibold text-slate-400">{selectedBillingCollectionSummary.relatedCollections.length} record{selectedBillingCollectionSummary.relatedCollections.length === 1 ? "" : "s"}</span></div>
+                     {selectedBillingCollectionSummary.relatedCollections.length ? <div className="mt-3 space-y-2">{selectedBillingCollectionSummary.relatedCollections.map((collection) => {
+                       const allocated = collectionAllocationsForUi(collection).filter((allocation) => allocation.billingId === selectedBilling.id).reduce((sum, allocation) => sum + allocation.amount, 0);
+                       const bankState = collection.status === "RECORDED" ? collectionBankLinkState(collection, cashData) : "Not eligible";
+                       return <div key={collection.id} className="flex flex-col gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><strong className="text-xs text-emerald-700">{collection.collectionNumber}</strong><StatusBadge tone={collectionStatusTone(collection.status)}>{collection.status}</StatusBadge></div><p className="mt-1 text-[10px] text-slate-500">{collection.collectionDate} · allocated {money(allocated, selectedBillingCollectionSummary.currency)}{cashData && ` · cash settlement ${bankState}`}</p></div><button type="button" onClick={() => { setActiveTab("collections"); setSelectedCollectionId(collection.id); }} className="inline-flex min-h-9 shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-200 bg-white px-2.5 py-1.5 text-[10px] font-black text-emerald-700 hover:bg-emerald-50">Open collection <ArrowRight className="h-3 w-3" /></button></div>;
+                     })}</div> : <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-3 text-[10px] text-slate-500">No collection allocations have been recorded against this client invoice.</p>}
+                   </section>
+                 )}
+                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => setPreviewBilling(selectedBilling)} className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-bold text-indigo-700"><FileDown className="h-3 w-3" /> Preview / generate Client Invoice</button>
                 </div>
                 {canManage && (
@@ -878,7 +978,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
 
                 <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100">
                   <div className="bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Billing allocations</div>
-                  {selectedCollection.allocations.length ? selectedCollection.allocations.map((alloc) => {
+                   {selectedCollectionAllocations.length ? selectedCollectionAllocations.map((alloc) => {
                     const matchedBilling = projectBillings.find((b) => b.id === alloc.billingId);
                     return (
                       <div key={alloc.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs">
@@ -902,9 +1002,10 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
                   canReconcileCash={canReconcileCash}
                   canSettleClientCollection={canSettleClientCollection}
                   onSaveMatch={onSaveFinancialMatch}
-                  onReverseMatch={onReverseFinancialMatch}
-                  canReverseMatch={canReverseFinancialMatch}
-                  onNavigatePath={onNavigatePath}
+                   onReverseMatch={onReverseFinancialMatch}
+                   canReverseMatch={canReverseFinancialMatch}
+                   returnToPath={appPathForProject(project.id, "billing", selectedCollectionReturnBillingId ? { billingId: selectedCollectionReturnBillingId } : undefined)}
+                   onNavigatePath={onNavigatePath}
                 />
 
                 {/* Action Buttons */}
@@ -1008,3 +1109,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
     </section>
   );
 };
+
+function Metric({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return <div className={`rounded-lg border p-2.5 ${emphasis ? "border-amber-200 bg-amber-50" : "border-white bg-white"}`}><p className="text-[10px] font-semibold text-slate-500">{label}</p><p className={`mt-1 text-xs font-black tabular-nums ${emphasis ? "text-amber-900" : "text-slate-900"}`}>{value}</p></div>;
+}

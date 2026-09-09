@@ -27,7 +27,7 @@ import type {
 } from "../types.ts";
 import type { ProjectLaborCostAggregate, ProjectLaborSource } from "./projectLaborCostAggregate.ts";
 import { supplierExpenseAmountForProject, supplierExpenseCostOwnership } from "./supplierInvoiceCostOwnership.ts";
-import { convertFinancialAmount } from "./financialCurrency.ts";
+import { convertFinancialAmountWithFallback } from "./financialCurrency.ts";
 
 export interface CostInvoice extends Pick<InvoiceData, "id" | "grandTotal" | "currency" | "reviewStatus" | "status" | "amountPaid" | "lifecycleStatus" | "archivedAt" | "sourceDocumentId" | "linkedExpenseId"> {
   allocations?: InvoiceProjectAllocation[];
@@ -540,8 +540,7 @@ export function calculateProjectCost(
   ) => {
     const value = positiveMoney(amount);
     if (!value) return 0;
-    const converted = convertFinancialAmount(value, sourceCurrency, baseCurrency, sourceType, sourceId, input.fxSnapshots)
-      ?? (fallback ? convertFinancialAmount(value, fallback.sourceCurrency, baseCurrency, fallback.sourceType, fallback.sourceId, input.fxSnapshots) : undefined);
+    const converted = convertFinancialAmountWithFallback(value, sourceCurrency, baseCurrency, sourceType, sourceId, input.fxSnapshots, fallback);
     if (converted === undefined) {
       addForeign(normalizeCurrency(sourceCurrency), value);
       return undefined;
@@ -766,6 +765,84 @@ export function calculateProjectCost(
 }
 
 export const PROJECT_HEALTH_THRESHOLD_PERCENT = 90;
+
+export interface UnallocatedCostCurrencyRow {
+  currency: string;
+  invoices: number;
+  payroll: number;
+  expenses: number;
+  total: number;
+}
+
+function unallocatedCostCurrencyRow(currency: string, summary: ProjectCostSummaryWithCurrency): UnallocatedCostCurrencyRow {
+  const invoices = roundMoney(summary.unallocatedInvoiceCost + summary.unallocatedPendingInvoiceCost);
+  const payroll = roundMoney(summary.unallocatedPayrollCost + summary.unallocatedPendingPayrollCost);
+  const expenses = roundMoney(summary.unallocatedExpenseCost + summary.unallocatedPendingExpenseCost);
+  return { currency, invoices, payroll, expenses, total: roundMoney(invoices + payroll + expenses) };
+}
+
+/**
+ * Builds the unallocated reporting buckets from one authoritative base
+ * projection. Converted foreign sources belong to the base-currency row;
+ * only sources without an immutable conversion remain in their source-currency
+ * row. This prevents a converted USD source from appearing both as PHP cost
+ * and as an unresolved USD residual while preserving the source document.
+ */
+export function unallocatedCostByCurrency(input: ProjectCostInput, baseCurrency = "PHP"): UnallocatedCostCurrencyRow[] {
+  const base = normalizeCurrency(baseCurrency);
+  const baseSummary = calculateProjectCost(undefined, { ...input, baseCurrency: base });
+  const rows: UnallocatedCostCurrencyRow[] = [];
+  const baseRow = unallocatedCostCurrencyRow(base, baseSummary);
+  if (baseRow.total > 0) rows.push(baseRow);
+
+  const sourceOwners = linkedSourceOwners(undefined, input);
+  const supplierOwnership = supplierExpenseCostOwnership(input.invoices || [], input.expenses || []);
+  const sourceCurrencies = new Set<string>();
+  for (const invoice of input.invoices || []) sourceCurrencies.add(normalizeCurrency(invoice.currency));
+  for (const expense of input.expenses || []) sourceCurrencies.add(normalizeCurrency(expense.currency));
+  for (const payroll of input.payroll || []) sourceCurrencies.add(normalizeCurrency(payroll.currency || base));
+
+  for (const code of [...sourceCurrencies].filter((currency) => currency !== base).sort()) {
+    const unresolvedInvoices = (input.invoices || []).filter((invoice) => {
+      if (isVoidedInvoice(invoice) || normalizeCurrency(invoice.currency) !== code) return false;
+      if (supplierOwnership.byInvoiceId.has(invoice.id)) return false;
+      const sourceId = normalizedSourceDocumentId(invoice.sourceDocumentId);
+      if (sourceId && sourceOwners.get(sourceId) === "expense") return false;
+      const residual = invoiceResidualAmount(invoice);
+      if (residual <= 0) return false;
+      return convertFinancialAmountWithFallback(residual, invoice.currency, base, "SUPPLIER_INVOICE", invoice.id, input.fxSnapshots) === undefined;
+    });
+    const unresolvedExpenses = (input.expenses || []).filter((expense) => {
+      if (expense.status === "VOID" || expense.projectId || normalizeCurrency(expense.currency) !== code) return false;
+      const sourceId = normalizedSourceDocumentId(expense.receiptSourceDocumentId);
+      if (sourceId && sourceOwners.get(sourceId) === "invoice") return false;
+      const linkedInvoice = expense.supplierInvoiceId ? supplierOwnership.invoiceById.get(expense.supplierInvoiceId) : undefined;
+      const amount = linkedInvoice ? supplierExpenseAmountForProject(expense, linkedInvoice) : positiveMoney(expense.amount);
+      if (amount <= 0) return false;
+      return convertFinancialAmountWithFallback(
+        amount,
+        expense.currency,
+        base,
+        "EXPENSE",
+        expense.id,
+        input.fxSnapshots,
+        linkedInvoice ? { sourceCurrency: linkedInvoice.currency, sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id } : undefined,
+      ) === undefined;
+    });
+    const unresolvedPayroll = (input.payroll || []).filter((payroll) => normalizeCurrency(payroll.currency || base) === code);
+    if (!unresolvedInvoices.length && !unresolvedExpenses.length && !unresolvedPayroll.length) continue;
+    const summary = calculateProjectCost(undefined, {
+      invoices: unresolvedInvoices,
+      expenses: unresolvedExpenses,
+      payroll: unresolvedPayroll,
+      baseCurrency: code,
+      fxSnapshots: input.fxSnapshots,
+    });
+    const row = unallocatedCostCurrencyRow(code, summary);
+    if (row.total > 0) rows.push(row);
+  }
+  return rows;
+}
 
 export function projectHealth(summary: Pick<ProjectCostSummary, "budget" | "budgetUsedPercent" | "remainingBudget">) {
   if (summary.budget <= 0) return "NO BUDGET" as const;
@@ -995,8 +1072,7 @@ export function calculateProjectBudgetControl(
     const converted = normalizedCodeCurrency === baseCurrency
       ? value
       : sourceType && sourceId
-        ? convertFinancialAmount(value, normalizedCodeCurrency, baseCurrency, sourceType, sourceId, input.fxSnapshots)
-          ?? (fallback ? convertFinancialAmount(value, fallback.sourceCurrency, baseCurrency, fallback.sourceType, fallback.sourceId, input.fxSnapshots) : undefined)
+        ? convertFinancialAmountWithFallback(value, normalizedCodeCurrency, baseCurrency, sourceType, sourceId, input.fxSnapshots, fallback)
         : undefined;
     if (converted === undefined) {
       target.foreignCosts[normalizedCodeCurrency] = roundMoney((target.foreignCosts[normalizedCodeCurrency] || 0) + value);

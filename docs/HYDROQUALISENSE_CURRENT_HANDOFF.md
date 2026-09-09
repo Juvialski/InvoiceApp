@@ -1,7 +1,7 @@
 # HydroQualiSense Current Handoff
 
 Status: **CURRENT — QA CERTIFICATION NOT READY**  
-Date: **2026-09-09**  
+Date: **2026-09-10**
 Repository: `Juvialski/InvoiceApp`
 
 Use this with `AGENTS.md`, `docs/AGENTS_BASELINE_20260909.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`, `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`, and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`. Live repository state remains authoritative.
@@ -68,8 +68,8 @@ Wave 1A also repaired settlement-candidate lifecycle context for payroll so the 
 
 Unless the user reprioritizes again:
 
-1. **Wave 1B — Client Receivable Lifecycle UX — NEXT**
-2. **Wave 2 — Cross-module routing and handoffs**
+1. **Wave 1B — Client Receivable Lifecycle UX — COMPLETE**
+2. **Wave 2 — Cross-module routing and handoffs — NEXT**
 3. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions**
 4. resume the broader approved product roadmap:
    - Email/SMS + Documents;
@@ -80,7 +80,7 @@ Unless the user reprioritizes again:
 
 Do not jump directly from QA work to Email/SMS + Documents while ignoring this explicit UX reprioritization.
 
-## Wave 1B — next intended UX implementation phase
+## Wave 1B — Client Receivable Lifecycle UX — COMPLETE
 
 Primary findings: UX-006 and UX-007.
 
@@ -104,14 +104,20 @@ Required user-facing information:
 - reversals where supported;
 - contextual `Record Collection` only when permitted and lifecycle-eligible.
 
-Reuse Wave 1A's object-first settlement-routing pattern. Client receivable truth must remain distinct from supplier obligations and project Actual Cost.
+Delivered:
+
+`Issued Client Invoice` → contextual `Record Collection` with exact billing selection → canonical ClientCollection allocation/recording → Cash & Banking with exact `CLIENT_COLLECTION` target → legitimate posted CREDIT transaction and explicit settlement → partial/full link state and history → direct return to the originating client invoice.
+
+The client invoice detail now derives invoice amount, amount collected, amount remaining, collection state, associated collection history, and cash-link status from the existing records. ClientCollection remains commercial receivable truth; financial transaction matches remain separate settlement evidence and do not change project cost.
+
+The same phase also corrects the production-like base-reporting projection: a source with USD 11.72 and authoritative PHP 760.16 is reported in PHP once, while its USD source evidence remains preserved; a foreign source without conversion evidence remains explicitly unconverted.
 
 Do **not** include payroll payment redesign, subcontract payable design, PO close changes, Warehouse redesign, Worker Registration, Attendance, Face Recognition, or Email/SMS/Documents implementation in Wave 1B.
 
 ## Remaining audit findings
 
 - UX-003 — Expense/source relationship navigation: partially remediated by Wave 1A; broader navigation remains Wave 2.
-- UX-006 / UX-007 — client collection continuation/status/history: Wave 1B.
+- UX-006 / UX-007 — client collection continuation/status/history: **RESOLVED in Wave 1B.**
 - UX-008 — PO close guard: still `UNCERTAIN`; runtime/database confirmation required before any fix.
 - UX-009 — Procurement receipt → Warehouse continuation: Wave 2.
 - UX-010 — payroll manual-paid semantics: Wave 3 deliberate design.
@@ -121,6 +127,8 @@ Do **not** include payroll payment redesign, subcontract payable design, PO clos
 - UX-014 — domain-aware stale/invalid deep-link recovery: Wave 2.
 - UX-015 — targeted Wave 1A mobile flows passed around 390px, but broader dense Expense/table states remain partially evidenced/open.
 - UX-016 — subcontract mobile density: later subcontract workflow phase.
+
+Wave 2 must include the supplier-side routing handoff that remains outside this phase: expose an obvious `Invoices` entry in normal sidebar navigation, make existing supplier invoices easy to discover, make the verified-invoice reopen/correction continuation easy to find, and keep invoice breadcrumbs/back navigation consistent.
 
 ## Permanent financial invariants from the audit
 

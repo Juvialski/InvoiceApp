@@ -9,6 +9,7 @@ export interface CashSettlementTargetContext {
   invalid: boolean;
   targetType?: CashSettlementTargetType;
   targetId?: string;
+  returnTo?: string;
 }
 
 export type ProjectWorkspaceView = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "materials-equipment" | "invoices" | "payroll" | "expenses" | "people" | "reports";
@@ -17,7 +18,7 @@ export type AppLocation =
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
   | {
       kind: "project"; tab: "projects"; routeId: "projects"; projectId: string; view: ProjectWorkspaceView; pathname: string; search: string;
-      documentId?: string; revisionId?: string; rfiId?: string; submittalId?: string; roundId?: string; siteLogId?: string;
+      billingId?: string; documentId?: string; revisionId?: string; rfiId?: string; submittalId?: string; roundId?: string; siteLogId?: string;
     }
   | { kind: "invoice"; tab: "invoices"; routeId: "invoices"; invoiceId: string; returnTo?: string; pathname: string; search: string }
   | { kind: "review-invoice"; tab: "review"; routeId: "review"; invoiceId: string; returnTo?: string; pathname: string; search: string }
@@ -89,6 +90,7 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
     const submittalId = routeQueryValue(query, "submittal-detail", "submittalId")?.trim() || undefined;
     const roundId = routeQueryValue(query, "submittal-detail", "roundId")?.trim() || undefined;
     const siteLogId = routeQueryValue(query, "site-log-detail", "siteLogId")?.trim() || undefined;
+    const billingId = routeQueryValue(query, "project-billing", "billingId")?.trim() || undefined;
     return {
       kind: "project",
       tab: "projects",
@@ -97,6 +99,7 @@ export function parseAppLocation(pathname: string, search = ""): AppLocation {
       view,
       pathname: normalizedPath,
       search: normalizedSearch,
+      ...(billingId ? { billingId } : {}),
       ...(documentId ? { documentId } : {}),
       ...(revisionId ? { revisionId } : {}),
       ...(rfiId ? { rfiId } : {}),
@@ -142,10 +145,11 @@ export function appPathForTab(tab: AppTab) {
 export function appPathForProject(
   projectId: string,
   view: ProjectWorkspaceView = "overview",
-  options?: { docId?: string; revId?: string; rfiId?: string; submittalId?: string; roundId?: string; siteLogId?: string }
+  options?: { billingId?: string; docId?: string; revId?: string; rfiId?: string; submittalId?: string; roundId?: string; siteLogId?: string }
 ) {
   const suffix = view === "overview" ? "" : `/${view}`;
   const query = new URLSearchParams();
+  setRouteQueryValue(query, "project-billing", "billingId", view === "billing" ? options?.billingId : undefined, true);
   setRouteQueryValue(query, "project-documents", "docId", options?.docId);
   setRouteQueryValue(query, "project-documents", "revId", options?.revId);
   setRouteQueryValue(query, "rfi-detail", "rfiId", options?.rfiId);
@@ -185,19 +189,26 @@ export function appPathForReviewInvoice(invoiceId: string, returnTo?: string) {
 }
 
 /** Stable financial deep link. Cash remains one canonical route; transactionId selects context. */
-export function appPathForCashTransaction(transactionId: string, fromTargetType?: string, fromTargetId?: string) {
+function safeReturnPath(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.startsWith("/") && !trimmed.startsWith("//") ? trimmed : undefined;
+}
+
+export function appPathForCashTransaction(transactionId: string, fromTargetType?: string, fromTargetId?: string, returnTo?: string) {
   const query = new URLSearchParams();
   setRouteQueryValue(query, "cash", "transactionId", transactionId, true);
   setRouteQueryValue(query, "cash", "fromTargetType", fromTargetType);
   setRouteQueryValue(query, "cash", "fromTargetId", fromTargetId);
+  setRouteQueryValue(query, "cash", "returnTo", safeReturnPath(returnTo));
   return `${routeContractPath("cash")}?${query.toString()}`;
 }
 
 /** Cash route entry point for an object-first payment workflow before a transaction is selected. */
-export function appPathForCashTarget(targetType: CashSettlementTargetType, targetId: string) {
+export function appPathForCashTarget(targetType: CashSettlementTargetType, targetId: string, returnTo?: string) {
   const query = new URLSearchParams();
   setRouteQueryValue(query, "cash", "fromTargetType", targetType, true);
   setRouteQueryValue(query, "cash", "fromTargetId", targetId, true);
+  setRouteQueryValue(query, "cash", "returnTo", safeReturnPath(returnTo));
   return `${routeContractPath("cash")}?${query.toString()}`;
 }
 
@@ -234,11 +245,12 @@ export function cashSettlementTargetContextFromSearch(search: string): CashSettl
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   const rawType = routeQueryValue(query, "cash", "fromTargetType")?.trim().toUpperCase();
   const targetId = routeQueryValue(query, "cash", "fromTargetId")?.trim() || undefined;
+  const returnTo = safeReturnPath(routeQueryValue(query, "cash", "returnTo") || undefined);
   const requested = Boolean(rawType || targetId);
   const targetType = ["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION"].includes(rawType || "")
     ? rawType as CashSettlementTargetType
     : undefined;
-  return { requested, invalid: requested && (!targetType || !targetId), ...(targetType ? { targetType } : {}), ...(targetId ? { targetId } : {}) };
+  return { requested, invalid: requested && (!targetType || !targetId), ...(targetType ? { targetType } : {}), ...(targetId ? { targetId } : {}), ...(returnTo ? { returnTo } : {}) };
 }
 
 export function expenseIdFromSearch(search: string) {

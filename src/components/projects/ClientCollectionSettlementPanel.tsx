@@ -16,8 +16,8 @@ import {
   type FinancialTransaction,
   type FinancialTransactionMatch,
 } from "../../lib/cashBanking.ts";
-import type { AppNavigate } from "../../utils/clientNavigation.ts";
-import { appPathForCashTransaction } from "../../utils/appRouting.ts";
+import { appPathForCashTarget, appPathForCashTransaction } from "../../utils/appRouting.ts";
+import { navigateInApp, type AppNavigate } from "../../utils/clientNavigation.ts";
 import { safeErrorMessage } from "../../utils/errorNormalization.ts";
 import { SettlementReversalDialog } from "../financial/SettlementReversalDialog.tsx";
 
@@ -30,6 +30,7 @@ interface ClientCollectionSettlementPanelProps {
   onReverseMatch?: (matchId: string, reason: string) => Promise<void> | void;
   canReverseMatch?: (match: FinancialTransactionMatch) => boolean;
   onNavigatePath?: AppNavigate;
+  returnToPath?: string;
 }
 
 function round(value: unknown) {
@@ -99,6 +100,7 @@ export const ClientCollectionSettlementPanel: React.FC<ClientCollectionSettlemen
   onReverseMatch,
   canReverseMatch,
   onNavigatePath,
+  returnToPath,
 }) => {
   const workspaceHistory = useMemo(() => historyFromWorkspace(collection, cashData), [cashData, collection]);
   const localSummary = useMemo(
@@ -232,8 +234,15 @@ export const ClientCollectionSettlementPanel: React.FC<ClientCollectionSettlemen
   };
 
   const openTransaction = (transactionId: string) => {
-    const path = appPathForCashTransaction(transactionId, "CLIENT_COLLECTION", collection.id);
+    const path = appPathForCashTransaction(transactionId, "CLIENT_COLLECTION", collection.id, returnToPath);
     if (onNavigatePath) onNavigatePath(path);
+    else navigateInApp(path);
+  };
+
+  const openCashTarget = () => {
+    const path = appPathForCashTarget("CLIENT_COLLECTION", collection.id, returnToPath);
+    if (onNavigatePath) onNavigatePath(path);
+    else navigateInApp(path);
   };
 
   return (
@@ -255,6 +264,8 @@ export const ClientCollectionSettlementPanel: React.FC<ClientCollectionSettlemen
         <Metric label="Remaining unlinked" value={money(remainingUnlinkedAmount, collection.currency)} emphasis={remainingUnlinkedAmount > 0.005} />
         <Metric label="Commercial status" value={collection.status} />
       </div>
+
+      {canLink && remainingUnlinkedAmount > 0.005 && <button type="button" onClick={openCashTarget} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2.5 text-xs font-black text-white shadow-sm hover:bg-indigo-700 sm:w-auto" data-testid="continue-client-collection-to-cash"><Landmark className="h-3.5 w-3.5" /> Continue to Cash &amp; Banking <ArrowRight className="h-3.5 w-3.5" /></button>}
 
       {notice && <p className={`mt-3 rounded-lg border px-3 py-2 text-[10px] font-semibold ${notice.tone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{notice.text}</p>}
       {summary.historyRedacted && linkedAmount > 0.005 && <p className="mt-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] text-slate-600">Confirmed bank linkage exists, but transaction metadata and reversal controls require cash transaction read access.</p>}

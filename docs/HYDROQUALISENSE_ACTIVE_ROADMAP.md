@@ -2,7 +2,7 @@
 
 Status: **ACTIVE — QA CERTIFICATION NOT READY**  
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-09**  
+Last updated: **2026-09-10**
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
@@ -25,8 +25,8 @@ The latest application-bearing `main` above is newer than the last retained host
 The user explicitly reprioritized the broad UX/workflow audit remediation ahead of the remaining broader product phases:
 
 1. **Wave 1A — Supplier Payable Lifecycle UX — COMPLETE**
-2. **Wave 1B — Client Receivable Lifecycle UX — NEXT**
-3. **Wave 2 — Cross-module routing and handoffs**
+2. **Wave 1B — Client Receivable Lifecycle UX — COMPLETE**
+3. **Wave 2 — Cross-module routing and handoffs — NEXT**
 4. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions**
 5. Resume the broader approved product roadmap unless the user reprioritizes again:
    - Email/SMS + Documents;
@@ -51,7 +51,7 @@ Permanent semantics preserved:
 - partial/full settlement, reversals, history, RBAC, original currency, and FX semantics remain intact;
 - canonical Expense detail/deep linking remains separate from the old correction-opening path.
 
-### Wave 1B — Client Receivable Lifecycle UX — NEXT
+### Wave 1B — Client Receivable Lifecycle UX — COMPLETE
 
 Primary audit findings: UX-006 and UX-007.
 
@@ -69,9 +69,15 @@ User-facing requirements:
 - reversals where supported;
 - `Record Collection` only when permitted and lifecycle-eligible.
 
-Reuse Wave 1A's object-first settlement routing pattern. Do not combine client receivable truth with supplier payable truth or project Actual Cost.
+Delivered object-first journey:
+
+`Issued Client Invoice` → `Record Collection` with the exact billing selected → canonical `ClientCollection` allocation and recording → Cash & Banking with exact `CLIENT_COLLECTION` context → legitimate posted CREDIT evidence and explicit settlement → partial/full collection-link state and history → direct return to the selected client invoice.
+
+The detail view derives invoice amount, collected amount, remaining amount, collection state, related collection records, and available cash-link status from the existing authoritative records. ClientCollection commercial truth remains separate from cash settlement evidence and project Actual Cost.
 
 ### Wave 2 — Cross-module routing and handoffs
+
+**Status: NEXT after Wave 1B.**
 
 Primary audit targets:
 
@@ -82,6 +88,8 @@ Primary audit targets:
 - Email Intake post-import continuation only after runtime confirmation (UX-013);
 - domain-aware stale/invalid deep-link recovery without leaking unauthorized existence (UX-014);
 - bounded mobile/discoverability work supported by actual runtime evidence.
+
+Wave 2 must also make the existing supplier `Invoices` register obvious in normal sidebar navigation, improve discovery of existing supplier invoices, expose the verified-invoice reopen/correction continuation, and keep invoice breadcrumbs/back navigation consistent. This remains explicitly outside Wave 1B.
 
 Keep this wave focused on navigation, context, discoverability, and truthful handoffs. Do not invent duplicate domain records to make navigation easier.
 
@@ -185,7 +193,7 @@ Wave 1A's new supplier/Expense/Cash scenarios passed deterministic desktop and a
 - **Engineering Documents** remains a project-owned register; supplier evidence, issued financial documents, and other attachments remain owned by canonical workflows.
 - **Internal audit IDs/waves** are repository/operator information and must not be exposed in client Settings.
 - **AI Settings** separates runtime/configuration status from one-time bootstrap and must never expose credentials.
-- **Settings Features & Roadmap** already reflects Wave 1A's actual Available supplier-payment behavior. Do not add internal audit IDs, PRs, CI, migration names, SHAs, or agent terminology there.
+- **Settings Features & Roadmap** reflects the actual Available supplier-payment and client-invoice collection behavior. Do not add internal audit IDs, PRs, CI, migration names, SHAs, or agent terminology there.
 
 ## Initial AI bootstrap gate — PENDING
 

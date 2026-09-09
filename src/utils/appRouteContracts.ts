@@ -12,7 +12,7 @@ export interface AppRouteContract {
 }
 
 const BASE_ROUTE_QUERY_KEYS: Partial<Record<RouteId, readonly string[]>> = {
-  cash: ["transactionId", "fromTargetType", "fromTargetId"],
+  cash: ["transactionId", "fromTargetType", "fromTargetId", "returnTo"],
   expenses: ["expenseId", "from"],
   payroll: ["runId", "periodId", "attendanceDate", "from"],
 };
@@ -46,6 +46,7 @@ export const APP_ROUTE_CONTRACTS: readonly AppRouteContract[] = Object.freeze([
     routeId: "projects",
     canonicalPath: "/projects/:projectId/billing",
     pathPattern: "/projects/:projectId/billing",
+    queryKeys: ["billingId"],
     scope: "production-and-demo",
   },
   {

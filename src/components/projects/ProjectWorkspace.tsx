@@ -100,6 +100,7 @@ interface ProjectWorkspaceProps {
   payrollAllocations?: PayrollProjectAllocation[];
   payrollPeriods?: PayrollPeriod[];
   initialTab?: WorkspaceTab;
+  initialBillingId?: string;
   initialDocumentId?: string;
   initialRevisionId?: string;
   initialRfiId?: string;
@@ -281,6 +282,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   payrollAllocations = [],
   payrollPeriods = [],
   initialTab = "overview",
+  initialBillingId,
   initialDocumentId,
   initialRevisionId,
   initialRfiId,
@@ -500,6 +502,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       {tab === "billing" && canReadClientBilling && (
         <ClientBillingPanel
           project={project}
+          initialBillingId={initialBillingId}
           billings={clientBillings}
           events={clientBillingEvents}
           collections={clientCollections}

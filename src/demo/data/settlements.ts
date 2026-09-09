@@ -79,6 +79,7 @@ export function enrichDemoCashWithSettlements(base: CashBankingWorkspaceData, an
   const secondPayrollDebit = demoTransaction("demo-transaction-payroll-partial-02", "demo-account-bpi", addDemoDays(anchorDate, -5), 50_000, "Second partial payroll disbursement", "PAY-RUN-09-B", "MATCHED");
   const transferOut = demoTransaction("demo-transaction-transfer-out-01", "demo-account-bdo", addDemoDays(anchorDate, -17), 620_000, "Payroll funding transfer to BPI Payroll Account", "PAY-FUND-01", "MATCHED", transferGroupId);
   const collectionCredit = demoTransaction("demo-transaction-client-collection-01", "demo-account-bdo", addDemoDays(anchorDate, -8), 1_200_000, "Client receipt — SunPower Renewables Philippines", "EFT-88319", "MATCHED", undefined, "CREDIT");
+  const warehouseCollectionCredit = demoTransaction("demo-transaction-client-collection-02", "demo-account-bdo", addDemoDays(anchorDate, -9), 1_240_000, "Client receipt — Northern Goods Logistics Corp.", "WIRE-2026-0814", "UNMATCHED", undefined, "CREDIT");
   const transactions = base.transactions.map((transaction) => transaction.id === "demo-transaction-11" ? { ...transaction, transferGroupId } : transaction);
   const transferIn = transactions.find((transaction) => transaction.id === "demo-transaction-11");
 
@@ -101,7 +102,7 @@ export function enrichDemoCashWithSettlements(base: CashBankingWorkspaceData, an
 
   return {
     ...base,
-    transactions: [...transactions, split, secondPayrollDebit, transferOut, collectionCredit],
+    transactions: [...transactions, split, secondPayrollDebit, transferOut, collectionCredit, warehouseCollectionCredit],
     matches: [...base.matches, ...matches],
   };
 }

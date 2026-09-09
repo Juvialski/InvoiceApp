@@ -468,6 +468,23 @@
       ]
     },
     {
+      "id": "base-reporting-uses-authoritative-fx",
+      "label": "Base reporting uses authoritative FX evidence",
+      "description": "When an immutable conversion snapshot exists, base-currency reporting uses its persisted base amount and removes the converted source from unresolved foreign residual buckets; without that evidence the source remains foreign and unconverted.",
+      "sourceClassification": "mixed",
+      "fileRefs": [
+        "src/utils/financialCurrency.ts",
+        "src/utils/projectCosting.ts",
+        "src/utils/dashboardViewModel.ts",
+        "src/components/expenses/ExpensesPage.tsx",
+        "src/components/VerificationWorkspace.tsx"
+      ],
+      "testRefs": [
+        "tests/financialReportingCurrency.test.ts",
+        "tests/r4CurrencyAndTax.test.ts"
+      ]
+    },
+    {
       "id": "commercial-client-billing-issued-only",
       "label": "Only issued client billing contributes to billed-to-date",
       "description": "Client progress billing is project revenue-side history. Header totals derive from billing lines, and only ISSUED records contribute to Billed to Date; drafts, submitted, cancelled, and voided records remain excluded. Issuance is bounded by the authoritative project contract value.",
@@ -486,7 +503,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientProgressBilling.test.ts",
-        "tests/clientProgressBillingMigration.test.ts"
+        "tests/clientProgressBillingMigration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ]
     },
     {
@@ -508,7 +527,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientProgressBilling.test.ts",
-        "tests/clientProgressBillingMigration.test.ts"
+        "tests/clientProgressBillingMigration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ]
     },
     {
@@ -532,6 +553,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ]
     },
@@ -556,6 +578,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ]
     },
@@ -577,6 +600,8 @@
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
         "src/App.tsx",
+        "src/utils/appRouteContracts.ts",
+        "src/utils/appRouting.ts",
         "src/utils/projectFinancialSummary.ts",
         "supabase/migrations/20260904090000_client_collections_foundation.sql",
         "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
@@ -591,6 +616,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ]
     },
@@ -612,6 +638,8 @@
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
         "src/App.tsx",
+        "src/utils/appRouteContracts.ts",
+        "src/utils/appRouting.ts",
         "src/utils/projectFinancialSummary.ts",
         "supabase/migrations/20260904090000_client_collections_foundation.sql",
         "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
@@ -626,6 +654,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ]
     },
@@ -1317,11 +1346,12 @@
         "queryKeys": [
           "transactionId",
           "fromTargetType",
-          "fromTargetId"
+          "fromTargetId",
+          "returnTo"
         ],
         "scope": "production-and-demo"
       },
-      "description": "Canonical Cash & Banking route; transactionId selects a reconciliation/settlement context.",
+      "description": "Canonical Cash & Banking route; transactionId selects a reconciliation/settlement context and returnTo preserves the originating client invoice when supplied.",
       "fileRefs": [
         "src/utils/routes.ts",
         "src/utils/appRouting.ts",
@@ -1398,6 +1428,40 @@
       "qaScenarioIds": [
         "project-workspace--project-overview--project-selected--desktop-1440",
         "project-workspace--project-overview--base-route-loaded--tablet-768"
+      ]
+    },
+    {
+      "sourceClassification": "code-derived",
+      "id": "route-project-billing",
+      "label": "Project Client Billing route",
+      "domain": "commercial",
+      "type": "route",
+      "scope": "project",
+      "route": {
+        "routeId": "projects",
+        "canonicalPath": "/projects/:projectId/billing",
+        "pathPattern": "/projects/:projectId/billing",
+        "queryKeys": [
+          "billingId"
+        ],
+        "scope": "production-and-demo"
+      },
+      "description": "Project Client Billing route; billingId selects the exact client invoice for object-first collection work and return navigation.",
+      "fileRefs": [
+        "src/utils/appRouting.ts",
+        "src/utils/appRouteContracts.ts",
+        "src/app/routes/AppRouter.tsx",
+        "src/app/routes/ProjectsRoute.tsx",
+        "src/components/projects/ProjectWorkspace.tsx",
+        "src/components/projects/ClientBillingPanel.tsx"
+      ],
+      "testRefs": [
+        "tests/appRouting.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
+      ],
+      "qaScenarioIds": [
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440",
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"
       ]
     },
     {
@@ -1977,12 +2041,14 @@
       ],
       "testRefs": [
         "tests/accountingStatistics.test.ts",
-        "tests/financialSettlement.test.ts"
+        "tests/financialSettlement.test.ts",
+        "tests/financialReportingCurrency.test.ts"
       ],
       "invariantIds": [
         "reports-are-derived-surfaces",
         "invoice-project-cost-independent-from-settlement",
-        "payroll-labor-cost-independent-from-net-pay-settlement"
+        "payroll-labor-cost-independent-from-net-pay-settlement",
+        "base-reporting-uses-authoritative-fx"
       ]
     },
     {
@@ -4340,7 +4406,8 @@
         "tests/financialSettlement.test.ts",
         "tests/structuredBrowserEvidence.test.ts",
         "tests/coreHardeningWave2B3CashCorrections.test.ts",
-        "tests/wave1aSupplierPayableUx.test.ts"
+        "tests/wave1aSupplierPayableUx.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ],
       "permissionKeys": [
         "cash.summary.read",
@@ -4350,7 +4417,9 @@
       "qaScenarioIds": [
         "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440",
         "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440",
-        "supplier-payables--cash--cash-expense-target-context-opened--mobile-390"
+        "supplier-payables--cash--cash-expense-target-context-opened--mobile-390",
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440",
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"
       ]
     },
     {
@@ -6412,6 +6481,8 @@
         "src/components/projects/ProjectWorkspace.tsx",
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
+        "src/utils/appRouteContracts.ts",
+        "src/utils/appRouting.ts",
         "src/utils/projectFinancialSummary.ts",
         "supabase/migrations/20260903224406_client_progress_billing_foundation.sql",
         "supabase/migrations/20260903232024_client_billing_realtime.sql"
@@ -6424,7 +6495,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientProgressBilling.test.ts",
-        "tests/clientProgressBillingMigration.test.ts"
+        "tests/clientProgressBillingMigration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ],
       "permissionKeys": [
         "projects.read",
@@ -6434,6 +6507,10 @@
         "company-rbac-is-authoritative",
         "commercial-client-billing-issued-only",
         "commercial-client-billing-cash-separation"
+      ],
+      "qaScenarioIds": [
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440",
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"
       ],
       "tags": [
         "client billing",
@@ -6462,6 +6539,8 @@
         "src/components/projects/ProjectWorkspace.tsx",
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
+        "src/utils/appRouteContracts.ts",
+        "src/utils/appRouting.ts",
         "src/utils/projectFinancialSummary.ts",
         "supabase/migrations/20260903224406_client_progress_billing_foundation.sql",
         "supabase/migrations/20260903232024_client_billing_realtime.sql"
@@ -6474,7 +6553,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientProgressBilling.test.ts",
-        "tests/clientProgressBillingMigration.test.ts"
+        "tests/clientProgressBillingMigration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ],
       "permissionKeys": [
         "projects.manage"
@@ -6513,7 +6594,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientProgressBilling.test.ts",
-        "tests/clientProgressBillingMigration.test.ts"
+        "tests/clientProgressBillingMigration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ],
       "invariantIds": [
         "commercial-client-billing-issued-only"
@@ -6544,7 +6627,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientProgressBilling.test.ts",
-        "tests/clientProgressBillingMigration.test.ts"
+        "tests/clientProgressBillingMigration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ],
       "invariantIds": [
         "commercial-client-billing-issued-only",
@@ -6576,7 +6661,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientProgressBilling.test.ts",
-        "tests/clientProgressBillingMigration.test.ts"
+        "tests/clientProgressBillingMigration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ],
       "permissionKeys": [
         "projects.manage"
@@ -6612,7 +6699,9 @@
         "tests/subcontractVariationsFinancialInvariants.test.ts",
         "tests/subcontractVariationsClaimIntegration.test.ts",
         "tests/clientProgressBilling.test.ts",
-        "tests/clientProgressBillingMigration.test.ts"
+        "tests/clientProgressBillingMigration.test.ts",
+        "tests/clientCollectionsDomain.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts"
       ],
       "invariantIds": [
         "commercial-client-billing-cash-separation"
@@ -6644,6 +6733,8 @@
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
         "src/App.tsx",
+        "src/utils/appRouteContracts.ts",
+        "src/utils/appRouting.ts",
         "src/utils/projectFinancialSummary.ts",
         "supabase/migrations/20260904090000_client_collections_foundation.sql",
         "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
@@ -6658,6 +6749,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "permissionKeys": [
@@ -6668,6 +6760,10 @@
         "company-rbac-is-authoritative",
         "commercial-client-collection-recorded-only",
         "commercial-client-collection-cash-separation"
+      ],
+      "qaScenarioIds": [
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440",
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"
       ],
       "tags": [
         "client collections",
@@ -6701,6 +6797,8 @@
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
         "src/App.tsx",
+        "src/utils/appRouteContracts.ts",
+        "src/utils/appRouting.ts",
         "src/utils/projectFinancialSummary.ts",
         "supabase/migrations/20260904090000_client_collections_foundation.sql",
         "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
@@ -6715,6 +6813,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "permissionKeys": [
@@ -6756,6 +6855,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "invariantIds": [
@@ -6790,6 +6890,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "invariantIds": [
@@ -6824,6 +6925,7 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "permissionKeys": [
@@ -6870,6 +6972,8 @@
         "src/components/projects/ProjectOverview.tsx",
         "src/app/routes/ProjectsRoute.tsx",
         "src/App.tsx",
+        "src/utils/appRouteContracts.ts",
+        "src/utils/appRouting.ts",
         "src/utils/projectFinancialSummary.ts",
         "supabase/migrations/20260904090000_client_collections_foundation.sql",
         "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
@@ -6884,12 +6988,17 @@
         "tests/clientCollectionsDomain.test.ts",
         "tests/clientCollectionsMigration.test.ts",
         "tests/clientCollectionSettlement.test.ts",
+        "tests/wave1bClientReceivableUx.test.ts",
         "supabase/tests/database/16_client_collection_settlement.test.sql"
       ],
       "invariantIds": [
         "commercial-client-collection-cash-linkage",
         "commercial-client-collection-settlement-reversal-guard",
         "company-rbac-is-authoritative"
+      ],
+      "qaScenarioIds": [
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440",
+        "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"
       ],
       "tags": [
         "client collection settlement",
@@ -8095,6 +8204,22 @@
       "type": "routes-to",
       "kind": "navigation",
       "label": "opens"
+    },
+    {
+      "id": "workspace-to-billing-route",
+      "source": "project-workspace",
+      "target": "route-project-billing",
+      "type": "opens",
+      "kind": "navigation",
+      "label": "Client Invoices tab"
+    },
+    {
+      "id": "billing-route-to-workspace",
+      "source": "route-project-billing",
+      "target": "client-billing-workspace",
+      "type": "routes-to",
+      "kind": "navigation",
+      "label": "opens exact client invoice"
     },
     {
       "id": "workspace-to-aggregate",

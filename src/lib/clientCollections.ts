@@ -48,6 +48,19 @@ export interface ClientCollectionSummary {
   reason?: string;
 }
 
+export type ClientBillingCollectionState = "NOT_COLLECTIBLE" | "UNCOLLECTED" | "PARTIALLY_COLLECTED" | "FULLY_COLLECTED" | "CURRENCY_MISMATCH";
+
+export interface ClientBillingCollectionSummary {
+  currency: string;
+  invoiceAmount: number;
+  collectedAmount?: number;
+  remainingAmount?: number;
+  state: ClientBillingCollectionState;
+  relatedCollections: ClientCollection[];
+  hasCurrencyMismatch: boolean;
+  reason?: string;
+}
+
 const CLIENT_COLLECTIONS_STORAGE_KEY = "engoryx:client-collections:v1";
 const CLIENT_COLLECTION_EVENTS_STORAGE_KEY = "engoryx:client-collection-events:v1";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -61,6 +74,16 @@ function text(value: unknown): string | undefined {
 function numberValue(value: unknown, fallback = 0): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizedCurrency(value: unknown) {
+  return String(value || "").trim().toUpperCase() || "UNKNOWN";
+}
+
+type CollectionAllocationLike = Pick<ClientCollectionAllocation, "amount"> & Partial<Pick<ClientCollectionAllocation, "id" | "createdAt">>;
+
+function safeCollectionAllocations(collection: { allocations?: readonly CollectionAllocationLike[] }) {
+  return Array.isArray(collection.allocations) ? collection.allocations : [];
 }
 
 export function roundCollectionMoney(value: unknown): number {
@@ -80,7 +103,7 @@ export function clientCollectionTotal(
   collection: Pick<ClientCollection, "allocations"> | { allocations?: readonly Pick<ClientCollectionAllocation, "amount">[] }
 ): number {
   return roundCollectionMoney(
-    (collection.allocations || []).reduce((sum, alloc) => sum + Math.max(0, numberValue(alloc.amount)), 0)
+    safeCollectionAllocations(collection).reduce((sum, alloc) => sum + Math.max(0, numberValue(alloc.amount)), 0)
   );
 }
 
@@ -88,12 +111,14 @@ export function billingCollectedAmount(
   billingId: string,
   collections: readonly ClientCollection[],
   excludeCollectionId?: string,
+  expectedCurrency?: string,
 ): number {
   let total = 0;
   for (const collection of collections) {
     if (excludeCollectionId && collection.id === excludeCollectionId) continue;
     if (!isRecordedClientCollection(collection)) continue;
-    for (const alloc of collection.allocations || []) {
+    if (expectedCurrency && normalizedCurrency(collection.currency) !== normalizedCurrency(expectedCurrency)) continue;
+    for (const alloc of safeCollectionAllocations(collection)) {
       if (alloc.billingId === billingId) {
         total += Math.max(0, numberValue(alloc.amount));
       }
@@ -108,8 +133,39 @@ export function billingOutstandingAmount(
   excludeCollectionId?: string,
 ): number {
   const lineTotal = clientBillingTotal(billing);
-  const collected = billingCollectedAmount(billing.id, collections, excludeCollectionId);
+  const collected = billingCollectedAmount(billing.id, collections, excludeCollectionId, billing.currency);
   return roundCollectionMoney(Math.max(0, lineTotal - collected));
+}
+
+export function calculateClientBillingCollectionSummary(
+  billing: Pick<ClientBilling, "id" | "currency" | "status" | "lines">,
+  collections: readonly ClientCollection[],
+): ClientBillingCollectionSummary {
+  const currency = normalizedCurrency(billing.currency);
+  const invoiceAmount = clientBillingTotal(billing);
+  const relatedCollections = collections.filter((collection) => safeCollectionAllocations(collection).some((allocation) => allocation.billingId === billing.id));
+  const hasCurrencyMismatch = relatedCollections.some((collection) => normalizedCurrency(collection.currency) !== currency);
+  if (hasCurrencyMismatch) {
+    return {
+      currency,
+      invoiceAmount,
+      state: "CURRENCY_MISMATCH",
+      relatedCollections,
+      hasCurrencyMismatch: true,
+      reason: "A related collection is in another currency; collected and remaining amounts are withheld until the billing currency contract is restored.",
+    };
+  }
+
+  const collectedAmount = billingCollectedAmount(billing.id, collections, undefined, currency);
+  const remainingAmount = roundCollectionMoney(Math.max(0, invoiceAmount - collectedAmount));
+  const state: ClientBillingCollectionState = billing.status !== "ISSUED"
+    ? "NOT_COLLECTIBLE"
+    : collectedAmount <= 0.005
+      ? "UNCOLLECTED"
+      : remainingAmount <= 0.005
+        ? "FULLY_COLLECTED"
+        : "PARTIALLY_COLLECTED";
+  return { currency, invoiceAmount, collectedAmount, remainingAmount, state, relatedCollections, hasCurrencyMismatch: false };
 }
 
 export function calculateClientCollectionSummary(
@@ -245,7 +301,7 @@ function writeJson<T>(key: string, value: T[], storage?: Storage) {
 export function readClientCollectionsFromLocal(storage?: Storage): ClientCollection[] {
   return readJson<ClientCollection>(CLIENT_COLLECTIONS_STORAGE_KEY, storage).map((c) => ({
     ...c,
-    allocations: c.allocations || [],
+    allocations: Array.isArray(c.allocations) ? c.allocations : [],
   }));
 }
 
@@ -274,14 +330,15 @@ export function buildLocalClientCollection(
   timestamp = new Date().toISOString(),
 ): ClientCollection {
   const id = existing?.id || input.id || localId("collection");
+  const existingAllocations = existing ? safeCollectionAllocations(existing) : [];
   const normalizedAllocations = allocations.map((alloc, index) => ({
-    id: existing?.allocations[index]?.id || localId("collection-alloc"),
+    id: existingAllocations[index]?.id || localId("collection-alloc"),
     companyId: existing?.companyId || companyId,
     collectionId: id,
     billingId: alloc.billingId,
     amount: roundCollectionMoney(Math.max(0, Number(alloc.amount) || 0)),
     notes: alloc.notes?.trim() || undefined,
-    createdAt: existing?.allocations[index]?.createdAt || timestamp,
+    createdAt: existingAllocations[index]?.createdAt || timestamp,
     updatedAt: timestamp,
   }));
 
@@ -342,7 +399,8 @@ export function applyLocalClientCollectionRecord(
   if (["ARCHIVED", "CANCELLED"].includes(project.status)) {
     throw new Error("Archived or cancelled projects cannot receive new collection activity.");
   }
-  if (!collection.allocations || collection.allocations.length === 0) {
+  const allocations = safeCollectionAllocations(collection);
+  if (allocations.length === 0) {
     throw new Error("Client collection must have at least one allocation before it can be recorded.");
   }
 
@@ -351,7 +409,7 @@ export function applyLocalClientCollectionRecord(
     throw new Error("Client collection currency must match project currency.");
   }
 
-  for (const alloc of collection.allocations) {
+  for (const alloc of allocations) {
     const billing = allBillings.find((b) => b.id === alloc.billingId);
     if (!billing) {
       throw new Error(`Target client billing ${alloc.billingId} does not exist.`);

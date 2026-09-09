@@ -91,6 +91,28 @@ test("Expense detail and object-first cash routes preserve exact target context"
   assert.equal(cashSettlementTargetContextFromSearch("fromTargetType=EXPENSE").invalid, true);
 });
 
+test("client receivable routes preserve the selected billing and safe Cash return path", () => {
+  const billingPath = appPathForProject("project 42", "billing", { billingId: "billing 7" });
+  assert.equal(billingPath, "/projects/project%2042/billing?billingId=billing+7");
+  const billingLocation = parseAppLocation(billingPath);
+  assert.equal(billingLocation.kind, "project");
+  if (billingLocation.kind === "project") {
+    assert.equal(billingLocation.view, "billing");
+    assert.equal(billingLocation.billingId, "billing 7");
+  }
+
+  const cashPath = appPathForCashTarget("CLIENT_COLLECTION", "collection 42", billingPath);
+  assert.equal(cashPath, "/cash?fromTargetType=CLIENT_COLLECTION&fromTargetId=collection+42&returnTo=%2Fprojects%2Fproject%252042%2Fbilling%3FbillingId%3Dbilling%2B7");
+  assert.deepEqual(cashSettlementTargetContextFromSearch(cashPath.split("?", 2)[1] || ""), {
+    requested: true,
+    invalid: false,
+    targetType: "CLIENT_COLLECTION",
+    targetId: "collection 42",
+    returnTo: billingPath,
+  });
+  assert.equal(cashSettlementTargetContextFromSearch("fromTargetType=CLIENT_COLLECTION&fromTargetId=collection-42&returnTo=https%3A%2F%2Fevil.example").returnTo, undefined);
+});
+
 test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForTab("payroll"), "/payroll");
   assert.equal(appPathForTab("inbox"), "/email-intake");
