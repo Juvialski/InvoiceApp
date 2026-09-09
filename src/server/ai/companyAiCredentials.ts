@@ -56,6 +56,71 @@ function testStatus(value: unknown): CompanyAiTestStatus {
   return value === "SUCCESS" || value === "INVALID_CREDENTIAL" || value === "QUOTA_LIMITED" || value === "PROVIDER_UNAVAILABLE" || value === "PROVIDER_ACCESS_DENIED" || value === "MODEL_UNAVAILABLE" ? value : "NOT_TESTED";
 }
 
+export interface DeploymentAiBootstrapAuthorizationInput {
+  companyStatus?: unknown;
+  membershipStatus?: unknown;
+  membershipRole?: unknown;
+  aiStatus?: unknown;
+  credentialConfigured?: unknown;
+  auditEvents?: readonly unknown[];
+  operatorUserId: string;
+}
+
+/** Mirror the safe, non-secret eligibility facts checked by the bootstrap RPC. */
+export function isDeploymentAiBootstrapAuthorized(input: DeploymentAiBootstrapAuthorizationInput): boolean {
+  if (input.companyStatus !== "ACTIVE" || input.membershipStatus !== "ACTIVE" || input.membershipRole !== "COMPANY_ADMIN") return false;
+  const auditEvents = input.auditEvents || [];
+  const initialOperator = auditEvents.some((event) => {
+    const record = row(event);
+    const metadata = row(record.metadata);
+    return record.event_type === "COMPANY_CREATED"
+      && metadata.bootstrap === true
+      && String(metadata.initial_admin_user_id || "") === input.operatorUserId;
+  });
+  if (!initialOperator) return false;
+  if (input.aiStatus === "NOT_CONFIGURED") return input.credentialConfigured === false;
+  if (input.aiStatus !== "INVALID") return false;
+
+  const bootstrapOwned = auditEvents.some((event) => {
+    const record = row(event);
+    const metadata = row(record.metadata);
+    return (record.event_type === "COMPANY_AI_CREDENTIAL_CONFIGURED" || record.event_type === "COMPANY_AI_CREDENTIAL_ROTATED")
+      && metadata.bootstrap === true
+      && String(metadata.operator_user_id || "") === input.operatorUserId;
+  });
+  const hasSuccessfulTest = auditEvents.some((event) => {
+    const record = row(event);
+    const metadata = row(record.metadata);
+    return record.event_type === "COMPANY_AI_CREDENTIAL_TESTED" && metadata.test_status === "SUCCESS";
+  });
+  return bootstrapOwned && !hasSuccessfulTest;
+}
+
+export async function canBootstrapDeploymentCompanyAiCredential(
+  client: SupabaseClient,
+  companyId: string,
+  operatorUserId: string,
+  config: Pick<CompanyAiConfigMetadata, "status" | "credentialConfigured">,
+): Promise<boolean> {
+  const [companyResult, membershipResult, auditResult] = await Promise.all([
+    client.from("companies").select("status").eq("id", companyId).maybeSingle(),
+    client.from("company_members").select("status,role_key").eq("company_id", companyId).eq("user_id", operatorUserId).maybeSingle(),
+    client.from("company_audit_events").select("event_type,metadata").eq("company_id", companyId).in("event_type", ["COMPANY_CREATED", "COMPANY_AI_CREDENTIAL_CONFIGURED", "COMPANY_AI_CREDENTIAL_ROTATED", "COMPANY_AI_CREDENTIAL_TESTED"]),
+  ]);
+  if (companyResult.error || membershipResult.error || auditResult.error) {
+    throw new CompanyAiError("AI_CONFIG_UNAVAILABLE", "Company AI configuration is temporarily unavailable.", 503);
+  }
+  return isDeploymentAiBootstrapAuthorized({
+    companyStatus: row(companyResult.data).status,
+    membershipStatus: row(membershipResult.data).status,
+    membershipRole: row(membershipResult.data).role_key,
+    aiStatus: config.status,
+    credentialConfigured: config.credentialConfigured,
+    auditEvents: Array.isArray(auditResult.data) ? auditResult.data : [],
+    operatorUserId,
+  });
+}
+
 function metadataFromRecord(value: unknown, companyId: string): CompanyAiConfigMetadata {
   const source = row(value);
   assertRecordScope(source, companyId);

@@ -24,6 +24,8 @@ test("company AI endpoints are internal-operator scoped and metadata-only", () =
   assert.match(server, /authorizePlatformCompanyRequest/);
   assert.match(server, /is_platform_admin/);
   assert.match(credentials, /platform_store_company_ai_credential/);
+  assert.match(credentials, /isDeploymentAiBootstrapAuthorized/);
+  assert.match(server, /bootstrapAuthorized/);
   assert.match(server, /invalidateCompanyAiRuntime/);
   assert.doesNotMatch(server, /res\.json\([^\n]*apiKey/i);
   assert.doesNotMatch(server, /console\.(?:log|info|warn|error)\([\s\S]{0,300}(?:apiKey|ciphertext|authTag|plaintext)/i);
@@ -45,6 +47,7 @@ test("initial deployment AI bootstrap is exact-deployment, server-encrypted, and
   assert.match(server, /encryptCompanyGeminiCredential\(apiKey, auth\.companyId\)/);
   assert.match(credentials, /bootstrap_deployment_company_ai_credential/);
   assert.match(credentials, /recordServerCompanyAiTest/);
+  assert.match(server, /canBootstrapDeploymentCompanyAiCredential/);
 });
 
 test("all production Gemini paths resolve the centralized company runtime", () => {

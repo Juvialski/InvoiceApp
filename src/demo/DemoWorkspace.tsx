@@ -762,7 +762,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setTourOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><Presentation className="h-3.5 w-3.5" /> Tour</button>
-          <button type="button" onClick={() => onNavigate(demoDocumentsPath())} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><FileStack className="h-3.5 w-3.5" /> Documents</button>
+          <button type="button" onClick={() => onNavigate(demoDocumentsPath())} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><FileStack className="h-3.5 w-3.5" /> Engineering Documents</button>
           <button type="button" onClick={() => onNavigate(demoAssistantPath())} className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-100"><Bot className="h-3.5 w-3.5" /> AI Assistant</button>
           <button type="button" onClick={resetDemo} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
         </div>

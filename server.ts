@@ -14,7 +14,7 @@ import { createStorageRouter } from "./src/server/storage/storageRouter.ts";
 import { getStorageHealth } from "./src/lib/storage/index.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
 import { companyAiServerSupabase } from "./src/server/ai/companyAiServerSupabase.ts";
-import { bootstrapDeploymentCompanyAiCredential, disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, loadServerCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, recordServerCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
+import { bootstrapDeploymentCompanyAiCredential, canBootstrapDeploymentCompanyAiCredential, disableCompanyAi, enableCompanyAi, loadCompanyAiConfig, loadServerCompanyAiConfig, markCompanyAiCredentialInvalid, recordCompanyAiTest, recordServerCompanyAiTest, removeCompanyAiCredential, storeCompanyAiCredential } from "./src/server/ai/companyAiCredentials.ts";
 import { companyAiProviderError, invalidateCompanyAiRuntime, isCompanyAiAuthenticationError, isCompanyAiFallbackEligible, logCompanyAiFailure, resolveCompanyAiRuntime, testCompanyAiConnection, withCompanyAiRuntime } from "./src/server/ai/companyAiRuntime.ts";
 import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } from "./src/server/ai/companyAiTypes.ts";
 import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyInvitationEmail, invitationRedirectUrl } from "./src/server/access/invitationDelivery.ts";
@@ -873,8 +873,12 @@ function platformCompanyAiPath(req: express.Request) {
 app.get("/api/deployment/company-ai", async (req, res) => {
   try {
     const auth = await authorizeCompanyRequest(req, "company.settings.read");
-    const data = await loadServerCompanyAiConfig(companyAiServerSupabase(), auth.companyId);
-    return res.json({ success: true, data });
+    const serverClient = companyAiServerSupabase();
+    const data = await loadServerCompanyAiConfig(serverClient, auth.companyId);
+    const bootstrapAuthorized = !data.credentialConfigured || data.status === "INVALID"
+      ? await canBootstrapDeploymentCompanyAiCredential(serverClient, auth.companyId, auth.user.id, data)
+      : false;
+    return res.json({ success: true, data: { ...data, bootstrapAuthorized } });
   } catch (error) {
     return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "Deployment AI configuration could not be loaded safely."), ...apiAiErrorDetails(error) });
   }
@@ -904,7 +908,10 @@ app.put("/api/deployment/company-ai/gemini/bootstrap", async (req, res) => {
       recordTest: (status) => recordServerCompanyAiTest(serverClient, auth.companyId, status),
     });
     invalidateCompanyAiRuntime(auth.companyId);
-    return res.json({ success: true, data: { ...tested.metadata, bootstrap: true, validation: tested.status, ...(tested.errorCode ? { testErrorCode: tested.errorCode } : {}), ...(tested.reference ? { reference: tested.reference } : {}) } });
+    const bootstrapAuthorized = tested.metadata.status === "INVALID"
+      ? await canBootstrapDeploymentCompanyAiCredential(serverClient, auth.companyId, auth.user.id, tested.metadata)
+      : false;
+    return res.json({ success: true, data: { ...tested.metadata, bootstrapAuthorized, bootstrap: true, validation: tested.status, ...(tested.errorCode ? { testErrorCode: tested.errorCode } : {}), ...(tested.reference ? { reference: tested.reference } : {}) } });
   } catch (error) {
     return res.status(apiErrorStatus(error)).json({ success: false, error: apiErrorMessage(error, "The deployment AI credential could not be configured safely."), ...apiAiErrorDetails(error) });
   }

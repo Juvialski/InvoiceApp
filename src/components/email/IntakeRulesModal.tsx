@@ -229,7 +229,7 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
                 Email Intake Rules
               </h2>
               <p className="text-xs text-slate-500">
-                Saved company sender and template profiles for deterministic routing
+                Saved sender and template profiles for predictable email routing
               </p>
             </div>
           </div>
@@ -310,7 +310,7 @@ export const IntakeRulesModal: React.FC<IntakeRulesModalProps> = ({
                 <Mail className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                 <h3 className="text-sm font-black text-slate-800">No saved sender rules yet</h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-4">
-                  Create rules for recurring suppliers, bank statement senders, or receipt providers to automatically discover and classify incoming emails with zero AI calls.
+                  Create rules for recurring suppliers, bank statement senders, or receipt providers so incoming email is routed consistently for review.
                 </p>
                 {canManageMailbox && (
                   <button

@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFile as execFileCallback } from "node:child_process";
+import { promisify } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import { prepareEngineeringPdf } from "../src/lib/engineeringDocumentsPersistence.ts";
 // Playwright is intentionally installed by the explicit hosted-QA command or
@@ -10,23 +12,49 @@ import { chromium } from "playwright";
 import { normalizeErrorMessage, normalizeFailedRequest, normalizeRequestPath, redactSensitiveText } from "./qa/structuredEvidence.ts";
 import {
   assertHostedQaTarget,
+  HOSTED_QA_DEPLOYMENT_READY_TIMEOUT_MS,
   createHostedQaEngineeringStorageFixture,
   createHostedQaStorageFailure,
   HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS,
   probeHostedQaStorageObject,
   sanitizeHostedQaStorageError,
+  waitForHostedQaHealth,
   waitForHostedQaRouteReadiness,
+  type HostedQaHealthExpectation,
+  type HostedQaHealthReadiness,
+  type HostedQaHealthSnapshot,
   type HostedQaStorageFailure,
 } from "./qa/hostedQaContracts.ts";
+import { repositoryMigrationLevel } from "../src/server/repositoryMigrationLevel.ts";
+
+const execFile = promisify(execFileCallback);
 
 const BASE_URL = (process.env.QA_E2E_BASE_URL || "https://hydroqualisense-qa.onrender.com").replace(/\/+$/, "");
 const EXPECTED_DEPLOYMENT_ID = (process.env.QA_E2E_EXPECTED_DEPLOYMENT_ID || "qa-hydroqualisense").trim();
 const EXPECTED_MIGRATION_LEVEL = (process.env.QA_E2E_EXPECTED_MIGRATION_LEVEL || "").trim();
-const EXPECTED_REPOSITORY_SHA = (process.env.QA_E2E_EXPECTED_REPOSITORY_SHA || "").trim().toLowerCase();
+const EXPECTED_REPOSITORY_SHA = (process.env.QA_E2E_EXPECTED_REPOSITORY_SHA || process.env.GITHUB_SHA || "").trim().toLowerCase();
 const OUTPUT_DIR = path.resolve(process.env.QA_E2E_OUTPUT_DIR || "artifacts/hosted-qa");
 const STORAGE_STATE_PATH = path.resolve(process.env.QA_E2E_STORAGE_STATE_PATH || ".qa-e2e/qa-storage-state.json");
-const ROUTES = ["/dashboard", "/projects", "/expenses", "/procurement", "/warehouse", "/payroll", "/settings"] as const;
 const NAVIGATION_TIMEOUT_MS = 60_000;
+const AUTH_FORM_TIMEOUT_MS = 20_000;
+const AUTH_SESSION_TIMEOUT_MS = 15_000;
+
+interface HostedRouteContract {
+  route: string;
+  heading: string | RegExp;
+  requiredText: readonly string[];
+}
+
+const ROUTE_CONTRACTS: readonly HostedRouteContract[] = [
+  { route: "/dashboard", heading: "Executive Dashboard", requiredText: ["Supplier document operations"] },
+  { route: "/projects", heading: "Portfolio Management", requiredText: ["Portfolio snapshot"] },
+  { route: "/expenses", heading: "Expenses", requiredText: ["Supplier invoices remain preserved evidence"] },
+  { route: "/procurement", heading: "Procurement & Purchase Orders", requiredText: ["Purchase Orders"] },
+  { route: "/warehouse", heading: "Warehouse Inventory", requiredText: ["Movement-derived stock truth"] },
+  { route: "/payroll", heading: "Payroll & labor", requiredText: ["Active workers"] },
+  { route: "/settings", heading: "Operational settings", requiredText: ["Regional display preferences", "AI configuration"] },
+  { route: "/email-intake", heading: "Email intake", requiredText: ["Supported email workflows", "Read-only Gmail intake"] },
+];
 
 interface HostedRouteEvidence {
   route: string;
@@ -43,6 +71,7 @@ interface HostedRouteEvidence {
   consoleErrors: string[];
   pageErrors: string[];
   failedRequests: NonNullable<ReturnType<typeof normalizeFailedRequest>>[];
+  assertions: Array<{ id: string; passed: boolean; details: string }>;
   screenshotPath: string | null;
   status: "PASS" | "FAIL";
   failureReasons: string[];
@@ -62,6 +91,9 @@ interface HostedQaManifest {
     httpStatus: number | null;
     release: Record<string, unknown> | null;
     failureReasons: string[];
+    readiness: HostedQaHealthReadiness["status"];
+    readinessAttempts: number;
+    readinessWaitedMs: number;
   };
   identity: {
     visibleAuthenticatedUser: boolean;
@@ -104,23 +136,71 @@ function safeDetails(value: unknown) {
 }
 
 async function readHealth() {
-  const reasons: string[] = [];
-  let status: number | null = null;
-  let release: Record<string, unknown> | null = null;
   try {
     const response = await fetch(`${BASE_URL}/api/health`, { headers: { Accept: "application/json" } });
-    status = response.status;
-    const body = await response.json() as { release?: Record<string, unknown> };
-    release = body.release || null;
-    if (!response.ok || body.release === undefined) reasons.push("health_unavailable");
-    if (release?.environment !== "qa") reasons.push("environment_not_qa");
-    if (EXPECTED_DEPLOYMENT_ID && release?.deploymentId !== EXPECTED_DEPLOYMENT_ID) reasons.push("deployment_id_mismatch");
-    if (EXPECTED_MIGRATION_LEVEL && release?.migrationLevel !== EXPECTED_MIGRATION_LEVEL) reasons.push("migration_level_mismatch");
-    if (EXPECTED_REPOSITORY_SHA && String(release?.repositorySha || "").toLowerCase() !== EXPECTED_REPOSITORY_SHA) reasons.push("repository_sha_mismatch");
+    let body: unknown = null;
+    try { body = await response.json(); } catch { /* normalize below */ }
+    const release = body && typeof body === "object" && !Array.isArray(body) && "release" in body
+      && (body as { release?: unknown }).release && typeof (body as { release?: unknown }).release === "object"
+      ? (body as { release: Record<string, unknown> }).release
+      : null;
+    return { httpStatus: response.status, release } satisfies HostedQaHealthSnapshot;
   } catch (error) {
-    reasons.push(`health_request_failed:${safeDetails(error)}`);
+    return { httpStatus: null, release: null, failure: safeDetails(error) } satisfies HostedQaHealthSnapshot;
   }
-  return { status: reasons.length ? "FAIL" as const : "PASS" as const, httpStatus: status, release, failureReasons: reasons };
+}
+
+async function localRepositorySha() {
+  try {
+    const result = await execFile("git", ["rev-parse", "HEAD"], { cwd: process.cwd() });
+    return result.stdout.trim().toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+async function expectedHealth(): Promise<HostedQaHealthExpectation> {
+  const repositorySha = EXPECTED_REPOSITORY_SHA || await localRepositorySha();
+  const migrationLevel = EXPECTED_MIGRATION_LEVEL || repositoryMigrationLevel() || "";
+  if (!EXPECTED_DEPLOYMENT_ID || !repositorySha || !migrationLevel) {
+    throw new Error("Hosted QA exact-deployment checks require a deployment ID, repository SHA, and canonical migration level.");
+  }
+  return { environment: "qa", deploymentId: EXPECTED_DEPLOYMENT_ID, repositorySha, migrationLevel };
+}
+
+async function waitForExactQaDeployment(expectation: HostedQaHealthExpectation) {
+  const configuredTimeout = Number(process.env.QA_E2E_DEPLOYMENT_READY_TIMEOUT_MS || "");
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? Math.min(Math.trunc(configuredTimeout), HOSTED_QA_DEPLOYMENT_READY_TIMEOUT_MS)
+    : HOSTED_QA_DEPLOYMENT_READY_TIMEOUT_MS;
+  return waitForHostedQaHealth(readHealth, expectation, { timeoutMs });
+}
+
+async function waitForSignInForm(page: any) {
+  const emailInput = page.locator("#auth-email");
+  await emailInput.waitFor({ state: "visible", timeout: AUTH_FORM_TIMEOUT_MS });
+  return emailInput;
+}
+
+async function waitForPersistedSession(page: any, timeoutMs = AUTH_SESSION_TIMEOUT_MS) {
+  await page.waitForFunction(() => {
+    const raw = Object.entries(localStorage).find(([key]) => key.startsWith("sb-") && key.endsWith("-auth-token"))?.[1] || "";
+    if (!raw) return false;
+    try {
+      const parsed = JSON.parse(raw) as { access_token?: unknown; refresh_token?: unknown };
+      return typeof parsed.access_token === "string" && parsed.access_token.length > 0
+        && typeof parsed.refresh_token === "string" && parsed.refresh_token.length > 0;
+    } catch {
+      return false;
+    }
+  }, undefined, { timeout: timeoutMs });
+}
+
+async function assertNotAuthScreen(page: any) {
+  const body = await page.locator("body").innerText().catch(() => "");
+  if (body.includes("Welcome back") || body.includes("Sign in to continue")) {
+    throw new Error("Hosted QA authenticated session returned to the sign-in screen.");
+  }
 }
 
 async function createAuthenticatedContext(browser: any) {
@@ -137,16 +217,16 @@ async function createAuthenticatedContext(browser: any) {
   if (!hasState) {
     const page = await context.newPage();
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
-    await page.waitForTimeout(500);
-    const emailInput = page.locator("#auth-email");
-    if (await emailInput.count()) {
-      await emailInput.fill(email);
-      await page.locator("#auth-password").fill(password);
-      await page.getByRole("button", { name: "Sign in", exact: true }).click();
-      await page.waitForTimeout(2_000);
+    const emailInput = await waitForSignInForm(page);
+    await emailInput.fill(email);
+    await page.locator("#auth-password").fill(password);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    try {
+      await waitForPersistedSession(page);
+    } catch {
+      throw new Error("Hosted QA Auth sign-in did not establish a persisted Supabase session.");
     }
-    const body = await page.locator("body").innerText();
-    if (body.includes("Welcome back") || body.includes("Sign in to continue")) throw new Error("Hosted QA Auth sign-in did not establish an authenticated session.");
+    await assertNotAuthScreen(page);
     await fs.mkdir(path.dirname(STORAGE_STATE_PATH), { recursive: true });
     await context.storageState({ path: STORAGE_STATE_PATH });
     await page.close();
@@ -154,7 +234,8 @@ async function createAuthenticatedContext(browser: any) {
   return { context, authMode };
 }
 
-async function runRoute(context: any, route: string, expectedEmail: string) : Promise<HostedRouteEvidence> {
+async function runRoute(context: any, contract: HostedRouteContract, expectedEmail: string) : Promise<HostedRouteEvidence> {
+  const route = contract.route;
   const page = await context.newPage();
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
@@ -192,12 +273,13 @@ async function runRoute(context: any, route: string, expectedEmail: string) : Pr
   } catch (error) {
     navigationError = safeDetails(error);
   }
-  const body = await page.locator("body").innerText().catch(() => "");
+  let body = await page.locator("body").innerText().catch(() => "");
   const authenticated = !body.includes("Welcome back") && !body.includes("Sign in to continue") && (expectedEmail ? body.includes(expectedEmail) : /@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(body));
   const qaBanner = body.includes("QA ENVIRONMENT · SYNTHETIC DATA ONLY");
   const deploymentCompany = body.includes("HydroQualiSense QA Synthetic");
-  const crashText = body.includes("Cannot read properties of undefined") || body.includes("Application error");
-  const bodyErrorSignal = /\b(error|failed|unavailable|could not)\b/i.test(body);
+  const crashText = /Cannot read properties of undefined|Application error|This workspace section could not be displayed/i.test(body);
+  const bodyErrorSignal = /Page not found|Navigation error|could not be loaded safely|could not be displayed/i.test(body);
+  const assertions: Array<{ id: string; passed: boolean; details: string }> = [];
   const failureReasons: string[] = [];
   if (navigationError || httpStatus === null || httpStatus < 200 || httpStatus >= 400) failureReasons.push("navigation_failed");
   if (readiness === "TIMEOUT") failureReasons.push("company_access_readiness_timeout");
@@ -205,7 +287,28 @@ async function runRoute(context: any, route: string, expectedEmail: string) : Pr
     if (!authenticated) failureReasons.push("authenticated_identity_not_visible");
     if (!qaBanner) failureReasons.push("qa_banner_missing");
     if (!deploymentCompany) failureReasons.push("deployment_company_not_visible");
+    const headingCount = await page.getByRole("heading", { name: contract.heading }).count();
+    assertions.push({ id: `${route}-heading-visible`, passed: headingCount > 0, details: `matching route headings: ${headingCount}` });
+    for (const requiredText of contract.requiredText) {
+      const present = body.includes(requiredText);
+      assertions.push({ id: `${route}-${requiredText.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-visible`, passed: present, details: present ? `Found: ${requiredText}` : `Missing: ${requiredText}` });
+    }
+    if (route === "/settings") {
+      const aiState = page.locator('[data-ai-config-state="loaded"], [data-ai-config-state="error"]');
+      try {
+        await aiState.first().waitFor({ state: "visible", timeout: HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS });
+        body = await page.locator("body").innerText().catch(() => body);
+      } catch {
+        // The route assertion below records the missing settings state.
+      }
+      const aiStatusVisible = /AI configured|AI not configured|AI configuration status is temporarily unavailable/i.test(body);
+      assertions.push({ id: "settings-ai-status-visible", passed: aiStatusVisible, details: aiStatusVisible ? "AI configuration status is visible." : "AI configuration status is missing." });
+      const credentialInputCount = await page.locator('input[type="password"]').count();
+      const configuredHealthy = /AI configured/i.test(body) && !/needs attention/i.test(body);
+      assertions.push({ id: "settings-configured-ai-hides-credential-input", passed: !configuredHealthy || credentialInputCount === 0, details: configuredHealthy ? `credential inputs: ${credentialInputCount}` : "Credential input is not required for the current AI state." });
+    }
   }
+  if (assertions.some((assertion) => !assertion.passed)) failureReasons.push("route_contract_assertion_failed");
   if (crashText) failureReasons.push("application_crash_text");
   if (bodyErrorSignal) failureReasons.push("body_error_signal");
   if (consoleErrors.length) failureReasons.push("console_errors");
@@ -235,6 +338,7 @@ async function runRoute(context: any, route: string, expectedEmail: string) : Pr
     consoleErrors,
     pageErrors,
     failedRequests,
+    assertions,
     screenshotPath: existsSync(screenshotPath) ? path.relative(OUTPUT_DIR, screenshotPath).replaceAll("\\", "/") : null,
     status: failureReasons.length ? "FAIL" : "PASS",
     failureReasons,
@@ -367,7 +471,34 @@ async function runStorageProbe(context: any) : Promise<HostedQaManifest["storage
 async function main() {
   assertQaTarget();
   await fs.mkdir(path.join(OUTPUT_DIR, "screenshots"), { recursive: true });
-  const health = await readHealth();
+  const expectation = await expectedHealth();
+  const readiness = await waitForExactQaDeployment(expectation);
+  const health: HostedQaManifest["health"] = {
+    status: readiness.status === "PASS" ? "PASS" : "FAIL",
+    httpStatus: readiness.snapshot.httpStatus,
+    release: readiness.snapshot.release,
+    failureReasons: readiness.failureReasons,
+    readiness: readiness.status,
+    readinessAttempts: readiness.attempts,
+    readinessWaitedMs: readiness.waitedMs,
+  };
+  if (health.status !== "PASS") {
+    const authMode = existsSync(STORAGE_STATE_PATH) ? "storage-state" as const : "email-password" as const;
+    const manifest: HostedQaManifest = {
+      schemaVersion: 1,
+      run: { appMode: "hosted-qa", baseUrl: BASE_URL, timestamp: new Date().toISOString(), authMode, storageStatePath: path.relative(process.cwd(), STORAGE_STATE_PATH).replaceAll("\\", "/") },
+      health,
+      identity: { visibleAuthenticatedUser: false, visibleQaBanner: false, visibleDeploymentCompany: false, expectedDeploymentId: expectation.deploymentId },
+      routes: [],
+      storage: { status: "NOT_RUN", wrongCompanyProbe: "NOT_RUN", cleanup: "NOT_RUN" },
+      summary: { routesPassed: 0, routesFailed: 0, consoleErrors: 0, pageErrors: 0, failedRequests: 0 },
+    };
+    await fs.writeFile(path.join(OUTPUT_DIR, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    const detail = health.failureReasons.join(", ") || readiness.snapshot.failure || "unknown readiness failure";
+    console.error(`Hosted QA health=FAIL reason=QA deployment not ready for expected SHA ${expectation.repositorySha}: ${detail}`);
+    process.exitCode = 1;
+    return;
+  }
   const browser = await chromium.launch({ headless: process.env.QA_E2E_HEADED !== "1" });
   let context: any = null;
   try {
@@ -375,7 +506,7 @@ async function main() {
     context = auth.context;
     const expectedEmail = (process.env.QA_E2E_EMAIL || "").trim();
     const routes: HostedRouteEvidence[] = [];
-    for (const route of ROUTES) routes.push(await runRoute(context, route, expectedEmail));
+    for (const contract of ROUTE_CONTRACTS) routes.push(await runRoute(context, contract, expectedEmail));
     const storage = await runStorageProbe(context);
     const identity = {
       visibleAuthenticatedUser: routes.every((route) => route.authenticated),
@@ -399,8 +530,8 @@ async function main() {
       },
     };
     await fs.writeFile(path.join(OUTPUT_DIR, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-    console.log(`Hosted QA health=${health.status} routes=${manifest.summary.routesPassed}/${ROUTES.length} storage=${storage.status}`);
-    if (health.status === "FAIL" || manifest.summary.routesFailed > 0 || storage.status === "FAIL") process.exitCode = 1;
+    console.log(`Hosted QA health=${health.status} routes=${manifest.summary.routesPassed}/${ROUTE_CONTRACTS.length} storage=${storage.status} contractFailures=${routes.reduce((sum, route) => sum + route.assertions.filter((assertion) => !assertion.passed).length, 0)}`);
+    if (manifest.summary.routesFailed > 0 || storage.status === "FAIL") process.exitCode = 1;
   } finally {
     if (context) await context.close();
     await browser.close();

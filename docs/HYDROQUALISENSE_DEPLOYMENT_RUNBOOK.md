@@ -104,7 +104,7 @@ Buyer validation and new supplier-invoice posting must remain blocked when the d
 
 ### Initial deployment AI operator workflow
 
-After `bootstrap_deployment_company(...)` has created the isolated company and initial confirmed Company Admin, the initial operator may use Settings → Deployment AI bootstrap once:
+After `bootstrap_deployment_company(...)` has created the isolated company and initial confirmed Company Admin, the initial operator may use Settings → initial AI setup once:
 
 1. Confirm the browser is authenticated to the exact deployment and the operator is the initial Company Admin created by the guarded bootstrap audit.
 2. Enter the approved Gemini key in the one-time form. The browser sends it only to the authenticated deployment server; it must not store it in local/session storage or expose `AI_CREDENTIALS_MASTER_KEY`, `SUPABASE_AI_SERVER_KEY`, or `service_role`.
@@ -113,9 +113,22 @@ After `bootstrap_deployment_company(...)` has created the isolated company and i
 
 Credential rotation, disablement, removal, and ongoing platform maintenance remain platform-operator operations. A normal Company Admin is not granted platform-admin authority by this bootstrap path. Do not manually edit `company_ai_settings` or `company_ai_credentials`.
 
-### Authenticated hosted-QA certification harness
+### Product-truth settings and document boundaries
 
-The reusable harness is intentionally opt-in and separate from ordinary PR/demo QA. Install the QA-only browser dependency, then run it only against the isolated QA deployment:
+Settings reads safe AI metadata separately from credential administration. A configured deployment shows Gemini, enabled state, provider validation, and last-tested metadata without exposing a credential. A metadata-load failure is shown as a temporary status-unavailable state and never opens a key form. Initial setup is rendered only after a loaded unconfigured state for an authorized candidate; the server and service-only RPC remain the final authority. An invalid initial credential follows the existing authorized recovery path.
+
+Email Intake supports read-only Gmail search/sync, source-preserving import into the existing invoice, statement, and expense review workflows, saved sender rules, and a forwarded-invoice fallback. It does not represent SMS or broadcast automation. Issued-document email delivery remains owned by the issued-document workflow.
+
+Engineering Documents is a project-owned register for drawings, specifications, reports, calculations, submittals, and immutable source revisions. Supplier evidence, issued financial documents, and other attachments remain in their canonical workflows. A hub or shortcut may aggregate/navigation-link those records but must not create a duplicate document truth.
+
+### Browser QA layers and authenticated hosted-QA harness
+
+Browser validation has two deliberately separate layers:
+
+1. **Pre-merge local PR/demo QA** builds the checked-out PR, serves `/demo` locally, and checks fictional session-local rendering/navigation/interaction state. It does not mount production Auth, Supabase queries, Storage, Gmail authorization, or company writes.
+2. **Post-deploy hosted QA** runs only against the isolated QA deployment and uses the protected GitHub `qa` environment credentials. It first polls `/api/health` within a bounded deployment window and continues only when environment, deployment ID, repository SHA, and canonical migration level match the exact workflow checkout. It then checks authenticated session persistence, loaded route contracts, the unauthenticated protected-route boundary, and the safe synthetic Storage byte probe.
+
+The reusable hosted harness is intentionally separate from ordinary PR/demo QA. Install the QA-only browser dependency, then run it only against the isolated QA deployment:
 
 ```text
 npm.cmd install --no-save --package-lock=false playwright@1.55.0
@@ -123,10 +136,12 @@ npx.cmd playwright install chromium
 $env:QA_E2E_BASE_URL = 'https://hydroqualisense-qa.onrender.com'
 $env:QA_E2E_EMAIL = '<local secret>'
 $env:QA_E2E_PASSWORD = '<local secret>'
+$env:QA_E2E_EXPECTED_REPOSITORY_SHA = (git rev-parse HEAD)
+$env:QA_E2E_EXPECTED_MIGRATION_LEVEL = (npx.cmd --no-install tsx scripts/repository-migration-level.ts)
 npm.cmd run qa:hosted
 ```
 
-Alternatively provide `QA_E2E_STORAGE_STATE_PATH` for a locally captured Playwright state. Treat that file as an authentication secret; it is ignored, never uploaded, and never committed. The harness rejects production hosts, requires QA health/deployment assertions, exercises authenticated deep links, captures sanitized console/request evidence, and can run the explicit synthetic Storage-byte probe with a publishable key only. The manual GitHub workflow is `workflow_dispatch`-only and must use QA environment secrets; it is not part of ordinary PR CI.
+Alternatively provide `QA_E2E_STORAGE_STATE_PATH` for a locally captured Playwright state. Treat that file as an authentication secret; it is ignored, never uploaded, and never committed. The harness rejects production hosts, requires exact QA health/deployment assertions, exercises authenticated deep links, captures sanitized console/request evidence, and can run the explicit synthetic Storage-byte probe with a publishable key only. The GitHub workflow supports explicit `workflow_dispatch` and bounded pushes to `main`; it uses only protected QA environment secrets and remains separate from pull-request validation. Hosted probe objects are uniquely named, company-scoped, cleaned in `finally`, and create no document metadata rows.
 
 ### Backup truth boundary
 

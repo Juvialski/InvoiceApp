@@ -450,7 +450,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-domain="engineering-documents">
       {(loadError || deepLinkError || archiveError) && (
         <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-900 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -461,15 +461,20 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
         </div>
       )}
       {isLoading && hasLoaded && <p role="status" className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800">Refreshing engineering documents… Existing records remain available.</p>}
+      <section className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 text-xs text-indigo-950" data-document-authority="engineering">
+        <p className="font-black">Project engineering documents</p>
+        <p className="mt-1 max-w-4xl leading-5 text-indigo-900">This register owns project drawings, specifications, reports, calculations, submittals, and their immutable revisions. Supplier evidence, issued financial documents, and other workflow attachments remain in the workflow that owns them.</p>
+      </section>
+
       {/* 1. Header & KPI Metric Summary Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">Total Documents</span>
+            <span className="text-xs font-bold text-slate-500">Project documents</span>
             <FileText className="h-4 w-4 text-blue-600" />
           </div>
           <p className="mt-2 text-2xl font-black text-slate-900">{stats.total}</p>
-          <p className="mt-0.5 text-[11px] text-slate-400">Engineering document set</p>
+          <p className="mt-0.5 text-[11px] text-slate-400">Current engineering register</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
@@ -478,7 +483,7 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({
             <Compass className="h-4 w-4 text-purple-600" />
           </div>
           <p className="mt-2 text-2xl font-black text-slate-900">{stats.drawings}</p>
-          <p className="mt-0.5 text-[11px] text-purple-600 font-medium">CAD / BIM Blueprints</p>
+          <p className="mt-0.5 text-[11px] text-purple-600 font-medium">PDF drawings and plans</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">

@@ -410,7 +410,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     ...(canReadClientBilling && isProjectWorkspaceTabDeploymentVisible("billing") ? [["billing", "Client Invoices", FileText] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("budget") ? [["budget", "Budget Control", Calculator] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(canReadProcurement && isProjectWorkspaceTabDeploymentVisible("procurement") ? [["procurement", "Procurement", ShoppingCart] as [WorkspaceTab, string, React.ElementType]] : []),
-    ...(isProjectWorkspaceTabDeploymentVisible("documents") ? [["documents", "Documents", Compass] as [WorkspaceTab, string, React.ElementType]] : []),
+    ...(isProjectWorkspaceTabDeploymentVisible("documents") ? [["documents", "Engineering Documents", Compass] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("rfis") ? [["rfis", "RFIs", FileQuestion] as [WorkspaceTab, string, React.ElementType]] : []),
     ...(isProjectWorkspaceTabDeploymentVisible("submittals") ? [["submittals", "Submittals", ClipboardCheck] as [WorkspaceTab, string, React.ElementType]] : []),
     ["site-logs", "Site Logs", ClipboardList],

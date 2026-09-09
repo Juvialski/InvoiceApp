@@ -2,7 +2,6 @@ import React from "react";
 import { Clock3, Coins, Globe2, MapPin, RotateCcw } from "lucide-react";
 import { DEFAULT_COUNTRY, DEFAULT_CURRENCY, DEFAULT_LOCALE, DEFAULT_TIMEZONE, RegionalSettings } from "../config/regional";
 import { BRAND } from "../config/brand.ts";
-import { FeatureStatusOverview } from "./FeatureStatusOverview";
 import { PageHeader, SectionHeader, StatusBadge } from "./ui/OperationsUI";
 import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.tsx";
 import { CompanyProfileSettings } from "./access/CompanyProfileSettings.tsx";
@@ -115,7 +114,6 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
       {showDeploymentAccessManagement && <DeploymentAiBootstrapSettings />}
 
       {showDeploymentAccessManagement && <DeploymentAccessManagement />}
-      <FeatureStatusOverview />
     </div>
   );
 };

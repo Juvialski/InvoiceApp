@@ -80,8 +80,13 @@ interface QaBrowserLike {
 const BASE_URL = (process.env.DEMO_QA_BASE_URL || "http://127.0.0.1:4173").replace(/\/+$/, "");
 const OUTPUT_DIR = path.resolve(process.env.DEMO_QA_OUTPUT_DIR || "artifacts/demo-visual-qa");
 const NAVIGATION_TIMEOUT_MS = 60_000;
-const SETTLE_DELAY_MS = 900;
-const ACTION_SETTLE_DELAY_MS = 350;
+const READY_TIMEOUT_MS = 30_000;
+const DEMO_LOADING_MARKERS = [
+  "Loading HydroQualiSense",
+  "Loading company access",
+  "Checking your workspace session",
+  "Loading workspace",
+] as const;
 
 function joinUrl(baseUrl: string, routePath: string): string {
   return `${baseUrl}${routePath.startsWith("/") ? routePath : `/${routePath}`}`;
@@ -98,6 +103,18 @@ async function gitValue(args: readonly string[], fallback: string): Promise<stri
 
 function pageMetricsFallback(): PageMetrics {
   return { documentWidth: 0, viewportWidth: 0, bodyWidth: 0, title: "", bodyTextLength: 0 };
+}
+
+async function waitForDemoReady(page: QaBrowserPage) {
+  await page.locator("body").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  await page.waitForFunction(
+    (loadingMarkers: readonly string[]) => {
+      const text = document.body?.innerText || "";
+      return text.length >= 80 && !loadingMarkers.some((marker) => text.includes(marker));
+    },
+    [...DEMO_LOADING_MARKERS],
+    { timeout: READY_TIMEOUT_MS, polling: 100 },
+  );
 }
 
 async function runScenario(browser: QaBrowserLike, scenario: QaScenarioDefinition): Promise<ReturnType<typeof createScenarioEvidence>> {
@@ -151,7 +168,7 @@ async function runScenario(browser: QaBrowserLike, scenario: QaScenarioDefinitio
     const response = await page.goto(joinUrl(BASE_URL, scenario.path), { waitUntil: "networkidle", timeout: NAVIGATION_TIMEOUT_MS });
     responseStatus = response?.status() ?? null;
     navigationLoaded = Boolean(response) && responseStatus !== null && responseStatus >= 200 && responseStatus < 400;
-    await page.waitForTimeout(SETTLE_DELAY_MS);
+    if (navigationLoaded) await waitForDemoReady(page);
   } catch (error) {
     navigationError = normalizeErrorMessage(error, "Navigation failed.");
   }
@@ -160,7 +177,6 @@ async function runScenario(browser: QaBrowserLike, scenario: QaScenarioDefinitio
     try {
       const returnedAssertions = await scenario.action(page);
       if (returnedAssertions) actionAssertions.push(...returnedAssertions);
-      await page.waitForTimeout(ACTION_SETTLE_DELAY_MS);
     } catch (error) {
       actionError = normalizeErrorMessage(error, "Scenario interaction failed.");
     }

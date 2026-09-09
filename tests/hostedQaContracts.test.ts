@@ -3,9 +3,11 @@ import test from "node:test";
 import {
   assertHostedQaTarget,
   createHostedQaEngineeringStorageFixture,
+  hostedQaHealthFailureReasons,
   hostedQaRouteReadinessState,
   probeHostedQaStorageObject,
   sanitizeHostedQaStorageError,
+  waitForHostedQaHealth,
   waitForHostedQaRouteReadiness,
 } from "../scripts/qa/hostedQaContracts.ts";
 
@@ -17,7 +19,33 @@ test("hosted QA route readiness stays unresolved while app/auth/company access i
   assert.equal(hostedQaRouteReadinessState("Loading HydroQualiSense…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Loading company access…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Checking your workspace session…"), "loading");
+  assert.equal(hostedQaRouteReadinessState("Loading workspace…"), "loading");
   assert.equal(hostedQaRouteReadinessState("QA ENVIRONMENT · SYNTHETIC DATA ONLY HydroQualiSense QA Synthetic"), "resolved");
+});
+
+test("hosted QA health identity requires QA, deployment, exact SHA, and migration parity", () => {
+  const expected = { environment: "qa" as const, deploymentId: "qa-hydroqualisense", repositorySha: "a".repeat(40), migrationLevel: "20260908235742" };
+  assert.deepEqual(hostedQaHealthFailureReasons({ httpStatus: 200, release: { environment: "qa", deploymentId: "qa-hydroqualisense", repositorySha: expected.repositorySha, migrationLevel: expected.migrationLevel } }, expected), []);
+  assert.deepEqual(hostedQaHealthFailureReasons({ httpStatus: 200, release: { environment: "qa", deploymentId: "qa-hydroqualisense", repositorySha: "b".repeat(40), migrationLevel: expected.migrationLevel } }, expected), ["repository_sha_mismatch"]);
+  assert.deepEqual(hostedQaHealthFailureReasons({ httpStatus: 200, release: { environment: "production", deploymentId: "wrong", repositorySha: expected.repositorySha, migrationLevel: "old" } }, expected), ["environment_not_qa", "deployment_id_mismatch", "migration_level_mismatch"]);
+});
+
+test("hosted QA exact deployment readiness polls old SHA only within a bounded window", async () => {
+  let now = 0;
+  let reads = 0;
+  const expected = { environment: "qa" as const, deploymentId: "qa-hydroqualisense", repositorySha: "a".repeat(40), migrationLevel: "20260908235742" };
+  const result = await waitForHostedQaHealth(async () => {
+    reads += 1;
+    return { httpStatus: 200, release: { environment: "qa", deploymentId: "qa-hydroqualisense", repositorySha: reads === 1 ? "b".repeat(40) : expected.repositorySha, migrationLevel: expected.migrationLevel } };
+  }, expected, { timeoutMs: 100, pollMs: 20, now: () => now, sleep: async (milliseconds) => { now += milliseconds; } });
+  assert.equal(result.status, "PASS");
+  assert.equal(result.attempts, 2);
+  assert.equal(result.waitedMs, 20);
+
+  now = 0;
+  const timedOut = await waitForHostedQaHealth(async () => ({ httpStatus: 200, release: { environment: "qa", deploymentId: "qa-hydroqualisense", repositorySha: "b".repeat(40), migrationLevel: expected.migrationLevel } }), expected, { timeoutMs: 40, pollMs: 20, now: () => now, sleep: async (milliseconds) => { now += milliseconds; } });
+  assert.equal(timedOut.status, "TIMEOUT");
+  assert.ok(timedOut.failureReasons.includes("qa_deployment_not_ready_for_expected_sha"));
 });
 
 test("hosted QA route readiness uses a bounded timeout and preserves timeout failures", async () => {
