@@ -131,7 +131,7 @@ test("Storage insert policy accepts only immutable revision PDF paths", () => {
   assert.match(storagePathPolicySql, /\[A-Za-z0-9\._-\]\+\\\.pdf\$'/);
 });
 
-test("Storage cleanup policy is limited to unlinked canonical Engineering revision objects", () => {
+test("Storage cleanup policy is limited to uploader-owned unlinked canonical Engineering revision objects", () => {
   assert.match(storageCleanupSql, /create or replace function private\.engineering_document_storage_object_is_unlinked/);
   assert.match(storageCleanupSql, /security definer\s+set search_path = ''/i);
   assert.match(storageCleanupSql, /select \(select auth\.uid\(\)\) is not null/);
@@ -139,6 +139,7 @@ test("Storage cleanup policy is limited to unlinked canonical Engineering revisi
   assert.match(storageCleanupSql, /r\.id::text = split_part\(p_name, '\/', 6\)/);
   assert.match(storageCleanupSql, /create policy "company engineering documents cleanup unlinked" on storage\.objects/);
   assert.match(storageCleanupSql, /for delete to authenticated/);
+  assert.match(storageCleanupSql, /owner_id = \(select auth\.uid\(\)::text\)/);
   assert.match(storageCleanupSql, /engineering\.documents\.create/);
   assert.match(storageCleanupSql, /engineering\.documents\.manage/);
   assert.match(storageCleanupSql, /grant execute on function private\.engineering_document_storage_object_is_unlinked[\s\S]*to authenticated/);
