@@ -6,11 +6,13 @@ Repository: `Juvialski/InvoiceApp`
 
 Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`, and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`. Live repository state remains authoritative.
 
-## Exact repository baseline
+## Repository/application baseline
 
-Current merged `main` at this checkpoint:
+Last application-code-bearing `main` merged before this documentation checkpoint:
 
 `8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba`
+
+Documentation-only commits after that SHA can advance GitHub `main` and Render's reported repository SHA without changing application/database contracts. Always re-read live `main` and the current Render deploy before dispatching exact-head Hosted QA.
 
 There were no open PRs when this certification continuation began.
 
@@ -43,8 +45,10 @@ Unrelated clients do not share operational databases, Auth, Storage, or secrets.
 - Supabase ref: `vrpuznofrntyqsbugrib`
 - role: isolated QA + temporary synthetic demo environment
 - Supabase project status: `ACTIVE_HEALTHY`
-- exact live Render deploy: `8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba`
+- last application-code-bearing Render deploy verified live before the documentation checkpoint: `8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba`
 - observed QA migration head: `20260908235742_engineering_document_unlinked_storage_cleanup`
+
+Documentation-only merges may auto-deploy and advance the Render release SHA. That does not change application behavior, but the exact current SHA still must match the Hosted QA run used as certification evidence.
 
 No migration push/reset was run simply because certification resumed. QA already matched the approved repository migration chain.
 
@@ -117,7 +121,7 @@ That older run established useful historical evidence:
 
 PR #112 specifically replaced the brittle readiness timing and repaired the Storage probe to use a valid Engineering Document/Revision fixture and authorized byte upload/read. Those fixes are now merged and live.
 
-**Still required:** dispatch a brand-new manual `Hosted QA Certification` workflow on current exact `main` and retain the artifact showing all seven authenticated routes plus Storage byte probe PASS. The connected GitHub capability used in this session can inspect/rerun existing jobs but cannot initiate a new `workflow_dispatch`; do not rerun an older SHA and call it current evidence.
+**Still required:** dispatch a brand-new manual `Hosted QA Certification` workflow on exact current `main` and retain the artifact showing all seven authenticated routes plus Storage byte probe PASS. The connected GitHub capability used in this session can inspect/rerun existing jobs but cannot initiate a new `workflow_dispatch`; do not rerun an older SHA and call it current evidence.
 
 ## Supabase Auth provider state — BLOCKER
 
@@ -204,7 +208,7 @@ Do not weaken RLS/RBAC or change function security semantics simply to reduce ad
 
 ### Passed / verified
 
-- exact current `main` and live QA deploy match;
+- the last application-code-bearing baseline and its then-current QA Render deploy were verified before documentation-only SHA advancement;
 - QA Supabase healthy;
 - QA migration history independently matches repository migration head `20260908235742`;
 - no unnecessary QA migration push/reset was performed;
@@ -233,12 +237,13 @@ Do **not** start Worker Registration until these required certification gates ar
 1. QA Supabase Dashboard → Auth URL configuration: verify QA Site URL and approved redirect URLs.
 2. QA Supabase Auth password/security settings: enable leaked-password protection; retain evidence; re-run security advisor.
 3. In authenticated QA Settings, complete Deployment AI bootstrap with the approved QA Gemini credential and run provider validation.
-4. GitHub Actions → manually dispatch `Hosted QA Certification` on current `main`; require health, 7/7 routes, and Storage PASS; retain the generated artifact.
-5. Create an off-site QA database dump and restore it to an isolated recovery target.
-6. Back up representative QA Storage object bytes separately and complete an isolated restore/read/hash/permission drill.
-7. Record deployment reconstruction/rollback and required configuration/secret ownership without recording secret values.
-8. Re-check exact `main`, Render QA deploy, QA migration history, Auth advisor, current Hosted QA artifact, recovery evidence, and production separation.
-9. Only then set `QA CERTIFICATION: READY` and prepare Worker Registration immediately.
+4. Re-read exact current `main` and confirm Render QA has deployed that exact SHA.
+5. GitHub Actions → manually dispatch `Hosted QA Certification` on that exact current `main`; require health, 7/7 routes, and Storage PASS; retain the generated artifact.
+6. Create an off-site QA database dump and restore it to an isolated recovery target.
+7. Back up representative QA Storage object bytes separately and complete an isolated restore/read/hash/permission drill.
+8. Record deployment reconstruction/rollback and required configuration/secret ownership without recording secret values.
+9. Re-check exact `main`, Render QA deploy, QA migration history, Auth advisor, current Hosted QA artifact, recovery evidence, and production separation.
+10. Only then set `QA CERTIFICATION: READY` and prepare Worker Registration immediately.
 
 ## Next phase after READY — Worker Registration foundation
 
