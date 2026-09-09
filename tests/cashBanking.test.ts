@@ -224,7 +224,7 @@ test("dashboard cash position keeps bank, GCash, currencies, and reconciliation 
 
 test("reconciliation suggestions remain non-mutating and confirmed matches cannot overmatch", () => {
   const row = transaction({ id: "tx", accountId: "acct", transactionDate: "2026-08-10", direction: "DEBIT", amount: 6250, description: "Shell Station", currency: "PHP" });
-  const suggestions = suggestFinancialMatches(row, [{ targetType: "EXPENSE", targetId: "expense-1", label: "Fuel", amount: 6250, date: "2026-08-10", description: "Shell Station" }]);
+  const suggestions = suggestFinancialMatches(row, [{ targetType: "EXPENSE", targetId: "expense-1", label: "Fuel", amount: 6250, date: "2026-08-10", description: "Shell Station", lifecycleStatus: "APPROVED" }]);
   assert.ok((suggestions[0]?.score || 0) >= 80);
   assert.deepEqual(row.reconciliationStatus, "UNMATCHED");
   const match = createFinancialMatch({ transactionId: row.id, targetType: "EXPENSE", targetId: "expense-1", matchedAmount: 6250, status: "CONFIRMED" }, now);

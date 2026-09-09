@@ -84,7 +84,7 @@ export function enrichDemoCashWithSettlements(base: CashBankingWorkspaceData, an
 
   const matches: FinancialTransactionMatch[] = [
     match("demo-match-invoice-01", "demo-transaction-02", "INVOICE", "demo-invoice-01", 1_487_360.40, anchorDate, 22, "Full supplier invoice payment."),
-    match("demo-match-invoice-02", "demo-transaction-07", "INVOICE", "demo-invoice-02", 570_000, anchorDate, 7, "Partial supplier invoice payment."),
+    match("demo-match-expense-supplier-02", "demo-transaction-07", "EXPENSE", "demo-expense-supplier-bm-02", 570_000, anchorDate, 7, "Partial supplier Expense payment."),
     match("demo-match-split-a", split.id, "INVOICE", "demo-invoice-03", 180_000, anchorDate, 4, "First allocation from a split bank debit."),
     match("demo-match-split-b", split.id, "INVOICE", "demo-invoice-06", 120_000, anchorDate, 4, "Second allocation from the same split bank debit."),
     match("demo-match-payroll-08", "demo-transaction-12", "PAYROLL", "demo-payroll-run-8", 241_886.50, anchorDate, 14, "Employee net-pay disbursement."),
@@ -125,6 +125,10 @@ export function demoSettlementSummaryForTarget(targetType: SettlementTargetType,
       reversedPayment("demo-settlement-reversed-example", "demo-transaction-reversed-example", 72_660.44, anchorDate, 9, "REV-EXAMPLE"),
     ];
     return { targetType, targetId, currency: "PHP", lifecycleStatus: "VERIFIED", settlementBasis: 192_660.44, basisSource: "GROSS_DOCUMENT_AMOUNT", reconciledCashPaid: 120_000, documentReportedPaid: 0, effectiveSettled: 120_000, outstanding: 72_660.44, settlementState: "PARTIALLY_PAID", history };
+  }
+  if (targetType === "EXPENSE" && targetId === "demo-expense-supplier-bm-02") {
+    const history = [payment("demo-settlement-expense-supplier-02", "demo-transaction-07", 570_000, anchorDate, 7, "BDO", "BM-118204")];
+    return { targetType, targetId, currency: "PHP", lifecycleStatus: "APPROVED", settlementBasis: 982_415.75, basisSource: "EXPENSE_AMOUNT", reconciledCashPaid: 570_000, documentReportedPaid: 0, effectiveSettled: 570_000, outstanding: 412_415.75, settlementState: "PARTIALLY_PAID", history };
   }
   if (targetType === "PAYROLL" && targetId === "demo-payroll-run-8") {
     const history = [payment("demo-settlement-payroll-08", "demo-transaction-12", 241_886.50, anchorDate, 14, "BPI", "PAY-RUN-08")];

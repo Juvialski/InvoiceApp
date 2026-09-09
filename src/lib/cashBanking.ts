@@ -1,3 +1,5 @@
+import { isSettlementTargetLifecycleEligible } from "./financialSettlement.ts";
+
 export type FinancialAccountType = "BANK" | "EWALLET" | "CASH";
 export type FinancialConnectionType = "MANUAL" | "STATEMENT" | "PROVIDER";
 export type FinancialBalanceSource = "MANUAL" | "STATEMENT" | "PROVIDER" | "CALCULATED";
@@ -236,6 +238,12 @@ export interface FinancialReconciliationCandidate {
   description?: string;
   lifecycleStatus?: string;
   projectId?: string;
+}
+
+/** Keep cash candidate rendering aligned with the guarded settlement lifecycle. */
+export function isFinancialReconciliationCandidateLifecycleEligible(candidate: Pick<FinancialReconciliationCandidate, "targetType" | "lifecycleStatus">) {
+  return candidate.targetType !== "OTHER"
+    && isSettlementTargetLifecycleEligible(candidate.targetType, candidate.lifecycleStatus);
 }
 
 export interface FinancialMatchSuggestion {
@@ -868,7 +876,7 @@ export function suggestFinancialMatches(transaction: FinancialTransaction, candi
     : new Set<FinancialReconciliationCandidate["targetType"]>(["INVOICE", "PAYROLL", "EXPENSE"]);
   return candidates.filter((candidate) => directionTargetTypes.has(candidate.targetType)
     && (!candidate.currency || normalizeFinancialCurrency(candidate.currency) === normalizeFinancialCurrency(transaction.currency))
-    && (candidate.targetType !== "CLIENT_COLLECTION" || !candidate.lifecycleStatus || candidate.lifecycleStatus === "RECORDED"))
+    && isFinancialReconciliationCandidateLifecycleEligible(candidate))
     .map((candidate) => {
     const reasons: string[] = [];
     let score = 0;

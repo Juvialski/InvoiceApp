@@ -168,7 +168,7 @@ export function validatePublicProspectSubmission(input: unknown): PublicProspect
   const desiredTimeline = enumValue<PublicProspectTimeline>(record, "desiredTimeline", TIMELINE_SET, "deployment timeline", fields);
   const requestType = enumValue<PublicProspectRequestType>(record, "requestType", REQUEST_TYPE_SET, "request type", fields);
 
-  if (record.consentConfirmed !== true) fields.consentConfirmed = "Confirm that HydroQualiSense may use these details to respond to your request.";
+  if (record.consentConfirmed !== true) fields.consentConfirmed = "Confirm that Hydroqualisense may use these details to respond to your request.";
 
   if (Object.keys(fields).length > 0) return { ok: false, fields };
   return {

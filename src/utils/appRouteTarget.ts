@@ -10,6 +10,7 @@ export type AppRouteTarget = "invoice-workspace" | "unknown" | AppTab;
 
 export function appRouteTargetForLocation(location: AppLocation): AppRouteTarget {
   if (location.kind === "invoice" || location.kind === "review-invoice") return "invoice-workspace";
+  if (location.kind === "expense") return "expenses";
   if (location.kind === "project") return "projects";
   if (location.kind === "tab") return location.tab;
   return "unknown";

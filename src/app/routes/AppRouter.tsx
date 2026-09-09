@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { financialTransactionIdFromSearch, type AppLocation } from "../../utils/appRouting";
+import { cashSettlementTargetContextFromSearch, financialTransactionIdFromSearch, type AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
 import type {
@@ -132,6 +132,7 @@ export interface AppRouterProps {
   route: AppLocation;
   activeTab: AppTab;
   workspaceRouteVisible?: boolean;
+  workspaceLoading?: boolean;
   onNavigatePath?: AppNavigate;
 
   // Dashboard Data & Handlers
@@ -355,6 +356,8 @@ export interface AppRouterProps {
   expenseVendors?: readonly Vendor[];
   expenseFormContext?: string | null;
   expenseCorrectionContext?: string | null;
+  selectedExpenseId?: string | null;
+  expenseReturnPath?: string;
   onSaveExpense?: (expense: Expense) => void;
   financialFxSnapshots?: readonly FinancialFxSnapshot[];
   baseCurrency?: string;
@@ -447,6 +450,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   route,
   activeTab,
   workspaceRouteVisible = true,
+  workspaceLoading = false,
   onNavigatePath,
   dashboardData,
   dashboardProjectId,
@@ -665,6 +669,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   expenseVendors = vendors,
   expenseFormContext,
   expenseCorrectionContext,
+  selectedExpenseId,
+  expenseReturnPath,
   onSaveExpense = () => {},
   financialFxSnapshots = [],
   baseCurrency = "PHP",
@@ -695,6 +701,9 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         selectedInvoice={selectedInvoice}
         onNavigatePath={onNavigatePath}
         invoices={invoices}
+        expenses={expenses}
+        expensesLoaded={!workspaceLoading}
+        financialFxSnapshots={financialFxSnapshots}
         vendors={vendors}
         projects={projects}
         invoiceProjectAllocations={invoiceProjectAllocations}
@@ -879,6 +888,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
       <CashBankingRoute
         data={cashData}
         selectedTransactionId={financialTransactionIdFromSearch(route.search)}
+        targetContext={cashSettlementTargetContextFromSearch(route.search)}
         onNavigatePath={onNavigatePath}
         onSaveAccount={onSaveFinancialAccount}
         onDeactivateAccount={onDeactivateFinancialAccount}
@@ -916,6 +926,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         activeSubTab={["extractor", "inbox", "review", "invoices", "vendors"].includes(routeTarget) ? (routeTarget as any) : activeTab}
         onNavigatePath={onNavigatePath}
         invoices={invoices}
+        financialFxSnapshots={financialFxSnapshots}
         vendors={vendors}
         projects={projects}
         costCodes={costCodes as ProjectCostCode[]}
@@ -1031,6 +1042,10 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         onUploadSupplierInvoice={onAddNewInvoice}
         costCodes={costCodes as ProjectCostCode[]}
         initialProjectId={expenseFormContext || undefined}
+        selectedExpenseId={route.kind === "expense" ? route.expenseId : selectedExpenseId}
+        expenseReturnPath={route.kind === "expense" ? route.returnTo : expenseReturnPath}
+        expensesLoaded={!workspaceLoading}
+        onNavigatePath={onNavigatePath}
         initialExpenseId={expenseCorrectionContext}
         onSave={onSaveExpense}
         onPreviewCorrection={onPreviewExpenseCorrection || (async () => { throw new Error("Expense correction is not available in this workspace."); })}

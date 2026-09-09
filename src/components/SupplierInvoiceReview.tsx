@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Archive, CheckCircle2, ChevronDown, Edit3, Link2, Loader2, Mail, Plus, ShieldCheck, Undo2, X } from "lucide-react";
-import type { EntityResolutionResult, InvoiceData, InvoiceProjectAllocation, LineItem, Project, Vendor } from "../types.ts";
+import type { EntityResolutionResult, Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, LineItem, Project, Vendor } from "../types.ts";
 import { formatDateTime } from "../config/regional.ts";
-import { formatMoney } from "../utils/invoiceLogic.ts";
 import { DEFAULT_COMPANY_DOCUMENT_PROFILE, loadCompanyDocumentProfileFromSupabase, supplierInvoiceBuyerMismatch, type CompanyDocumentProfile } from "../lib/companyDocumentProfile.ts";
 import { getSupplierInvoiceExpenseReadiness, getSupplierInvoiceValidationAdvisories, suggestSupplierExpenseDescription } from "../utils/supplierExpenseWorkspace.ts";
+import type { AppNavigate } from "../utils/clientNavigation.ts";
+import { displayFinancialAmountInPhp } from "../utils/financialCurrency.ts";
+import { SupplierInvoiceExpenseSurface } from "./SupplierInvoiceExpenseSurface.tsx";
 
 export interface SupplierInvoiceReviewProps {
   invoice: InvoiceData;
@@ -31,6 +33,13 @@ export interface SupplierInvoiceReviewProps {
   onOpenCorrection?: () => void;
   /** True after a verified invoice was reopened through the repair flow. */
   repairMode?: boolean;
+  /** The linked Expense is the only payable and settlement target after verification. */
+  linkedExpense?: Expense;
+  linkedExpenseLoading?: boolean;
+  canRecordExpensePayment?: boolean;
+  canReverseExpensePayment?: boolean;
+  onNavigatePath?: AppNavigate;
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
 }
 
 function valueAt(value: unknown, path: string): unknown {
@@ -48,10 +57,6 @@ function setPath(invoice: InvoiceData, path: string, value: unknown) {
 
 function present(value: unknown) {
   return value !== undefined && value !== null && String(value).trim() !== "";
-}
-
-function displayMoney(value: unknown, currency: string) {
-  return present(value) ? formatMoney(Number(value), currency) : "Not stated";
 }
 
 function textValue(value: unknown) {
@@ -235,7 +240,8 @@ const headerFields = [
   ["projectReference", "Project / reference"],
 ] as const;
 
-function ReadOnlyLineRow({ item, index, invoice, showTax }: { item: LineItem; index: number; invoice: InvoiceData; showTax: boolean }) {
+function ReadOnlyLineRow({ item, index, invoice, showTax, financialFxSnapshots }: { item: LineItem; index: number; invoice: InvoiceData; showTax: boolean; financialFxSnapshots: readonly FinancialFxSnapshot[] }) {
+  const displayMoney = (value: unknown, _sourceCurrency?: string) => displayFinancialAmountInPhp(value, invoice.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots).baseLabel;
   return (
     <tr>
       <td className="px-4 py-2 font-mono text-slate-500">{item.itemNumber || index + 1}</td>
@@ -249,7 +255,7 @@ function ReadOnlyLineRow({ item, index, invoice, showTax }: { item: LineItem; in
   );
 }
 
-function ReadOnlyLineItems({ invoice }: { invoice: InvoiceData }) {
+function ReadOnlyLineItems({ invoice, financialFxSnapshots }: { invoice: InvoiceData; financialFxSnapshots: readonly FinancialFxSnapshot[] }) {
   const showTax = invoice.items.some((item) => present(item.taxAmount) || present(item.taxRate));
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -259,7 +265,7 @@ function ReadOnlyLineItems({ invoice }: { invoice: InvoiceData }) {
           <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-2">Item</th><th className="px-4 py-2 text-right">Qty</th><th className="px-4 py-2">Unit</th><th className="px-4 py-2">Description</th><th className="px-4 py-2 text-right">Unit price</th><th className="px-4 py-2 text-right">Amount</th>{showTax && <th className="px-4 py-2 text-right">Tax</th>}</tr></thead>
           <tbody className="divide-y divide-slate-100">
             {invoice.items.length > 0
-              ? invoice.items.map((item, index) => <ReadOnlyLineRow key={item.id} item={item} index={index} invoice={invoice} showTax={showTax} />)
+              ? invoice.items.map((item, index) => <ReadOnlyLineRow key={item.id} item={item} index={index} invoice={invoice} showTax={showTax} financialFxSnapshots={financialFxSnapshots} />)
               : <tr><td colSpan={showTax ? 7 : 6} className="px-4 py-8 text-center text-xs text-amber-700">No line items extracted. Review before verification.</td></tr>}
           </tbody>
         </table>
@@ -286,7 +292,7 @@ function EditableLineItems({ invoice, update }: { invoice: InvoiceData; update: 
   );
 }
 
-export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ invoice, readOnly = false, onUpdateInvoice, onVerify: verifyHandler, verifyLabel = "Verify & Create Expense", onReopen, onRevertToAI, onFocusField, vendors = [], projects = [], projectAllocations = [], buyerProfile, allowReopen = true, onCommitRepair, onAddVendor, onOpenCorrection, repairMode = false }) => {
+export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ invoice, readOnly = false, onUpdateInvoice, onVerify: verifyHandler, verifyLabel = "Verify & Create Expense", onReopen, onRevertToAI, onFocusField, vendors = [], projects = [], projectAllocations = [], buyerProfile, allowReopen = true, onCommitRepair, onAddVendor, onOpenCorrection, repairMode = false, linkedExpense, linkedExpenseLoading = false, canRecordExpensePayment = false, canReverseExpensePayment = false, onNavigatePath, financialFxSnapshots = [] }) => {
   const [editMode, setEditMode] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [profile, setProfile] = useState<CompanyDocumentProfile | null>(buyerProfile === undefined ? null : buyerProfile);
@@ -414,6 +420,8 @@ export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ in
   const visibleOptionalTotals = optionalTotals.filter(([field]) => present(valueAt(invoice, field)) && Number(valueAt(invoice, field)) !== 0);
   const vendorResolution = !readOnly && hasVendorBlocker ? <VendorResolutionPanel invoice={invoice} vendors={vendors} onUpdateInvoice={onUpdateInvoice} onCommitRepair={onCommitRepair} onAddVendor={onAddVendor} /> : null;
   const descriptionResolution = !readOnly && hasDescriptionBlocker ? <section className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3" data-testid="supplier-description-resolution"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-indigo-800">Confirm Expense description</p><p className="mt-1 text-[10px] leading-4 text-indigo-950">This suggestion uses preserved invoice evidence. Edit it if needed, then confirm the human-facing description for the authoritative Expense.</p><div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end"><label className="min-w-0 flex-1 space-y-1"><span className="field-label">Expense description</span><input data-supplier-field="description" value={descriptionDraft} onChange={(event) => setDescriptionDraft(event.target.value)} className="field-input" /></label><button type="button" onClick={() => void confirmDescription()} disabled={descriptionBusy} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-2 text-[10px] font-black text-white disabled:opacity-50">{descriptionBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}Confirm description</button></div>{descriptionMessage && <p role="status" className="mt-2 text-[10px] font-bold text-emerald-800">{descriptionMessage}</p>}{descriptionError && <p role="alert" className="mt-2 text-[10px] font-bold text-rose-700">{descriptionError}</p>}</section> : null;
+  const expenseSurface = <SupplierInvoiceExpenseSurface invoice={invoice} linkedExpenseId={invoice.linkedExpenseId} linkedExpense={linkedExpense} loading={linkedExpenseLoading} canRecordPayment={canRecordExpensePayment} canReversePayment={canReverseExpensePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />;
+  const displayMoney = (value: unknown, _sourceCurrency?: string) => displayFinancialAmountInPhp(value, invoice.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots).baseLabel;
 
   return (
     <section className="space-y-3" data-testid="supplier-invoice-review" aria-label="Supplier invoice review">
@@ -430,6 +438,7 @@ export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ in
 
       {vendorResolution}
       {descriptionResolution}
+      {expenseSurface}
 
       {editMode && !readOnly ? (
         <div className="space-y-3 rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm" data-testid="supplier-invoice-edit-details">
@@ -446,7 +455,7 @@ export const SupplierInvoiceReview: React.FC<SupplierInvoiceReviewProps> = ({ in
           <div className="grid gap-3 lg:grid-cols-2"><section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-2"><h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-700">Supplier</h3>{invoice.entityResolution?.matchedEntityId && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700"><Link2 className="h-3 w-3" />Matched vendor</span>}</div><p className="mt-3 text-sm font-black text-slate-950">{vendorName}</p>{invoice.vendor?.taxId && <p className="mt-1 text-xs text-slate-600">TIN {invoice.vendor.taxId}</p>}{invoice.vendor?.address && <p className="mt-1 text-xs text-slate-600">{invoice.vendor.address}</p>}<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500">{invoice.vendor?.email && <span>{invoice.vendor.email}</span>}{invoice.vendor?.phone && <span>{invoice.vendor.phone}</span>}</div>{invoice.entityResolution?.matchedEntityName && <p className="mt-3 border-t border-slate-100 pt-2 text-[10px] text-slate-500">Master vendor: <strong className="text-slate-700">{invoice.entityResolution.matchedEntityName}</strong></p>}</section><section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-700">Invoice details</h3><dl className="mt-3 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-[10px] text-slate-500">Invoice number</dt><dd className={`mt-0.5 font-bold ${invoice.invoiceNumber ? "text-slate-900" : "text-amber-700"}`}>{invoice.invoiceNumber || "Missing · Add"}</dd></div><div><dt className="text-[10px] text-slate-500">Invoice date</dt><dd className="mt-0.5 font-bold">{invoice.invoiceDate || "Missing · Add"}</dd></div><div><dt className="text-[10px] text-slate-500">Due date</dt><dd className="mt-0.5 font-bold">{invoice.dueDate || "Not supplied"}</dd></div><div><dt className="text-[10px] text-slate-500">Currency</dt><dd className="mt-0.5 font-bold">{invoice.currency || "Unclear · Add"}</dd></div></dl></section></div>
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-700">Purchase / project</h3><div className="mt-3 grid gap-3 text-xs sm:grid-cols-3"><div><p className="text-[10px] text-slate-500">Purchase order</p><p className="mt-0.5 font-bold">{invoice.purchaseOrderNumber || "Not supplied"}</p></div><div><p className="text-[10px] text-slate-500">Project</p><p className="mt-0.5 font-bold">{invoice.projectReference || "Unallocated until confirmed"}</p></div><div><p className="text-[10px] text-slate-500">Category</p><p className="mt-0.5 font-bold">{invoice.category || "Missing · Confirm"}</p></div></div></section>
           <section className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-sm" data-testid="supplier-invoice-expense-facts"><h3 className="text-xs font-black uppercase tracking-[0.14em] text-indigo-800">Expense posting facts</h3><dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2"><div><dt className="text-[10px] text-slate-500">Category</dt><dd className={`mt-0.5 font-bold ${invoice.category ? "text-slate-900" : "text-amber-700"}`}>{invoice.category || "Missing · Confirm"}</dd></div><div><dt className="text-[10px] text-slate-500">Description</dt><dd className={`mt-0.5 font-bold ${invoice.description ? "text-slate-900" : "text-amber-700"}`}>{invoice.description || "Missing · Confirm"}</dd></div></dl><p className="mt-3 text-[10px] leading-4 text-indigo-900">The linked Expense is the authoritative payable/cost row. Confirm these facts before posting; the supplier invoice remains source evidence.</p></section>
-          <ReadOnlyLineItems invoice={invoice} />
+          <ReadOnlyLineItems invoice={invoice} financialFxSnapshots={financialFxSnapshots} />
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><h3 className="text-xs font-black uppercase tracking-[0.14em] text-slate-700">Totals</h3><div className="mt-3 space-y-2 text-xs">{present(invoice.subtotal) && <p className="flex justify-between gap-8"><span className="text-slate-500">Subtotal</span><strong>{displayMoney(invoice.subtotal, invoice.currency)}</strong></p>}{present(invoice.totalTax) && invoice.totalTax !== 0 && <p className="flex justify-between gap-8"><span className="text-slate-500">Tax / VAT</span><strong>{displayMoney(invoice.totalTax, invoice.currency)}</strong></p>}{visibleOptionalTotals.map(([field, label]) => <p key={field} className="flex justify-between gap-8"><span className="text-slate-500">{label}</span><strong>{displayMoney(valueAt(invoice, field), invoice.currency)}</strong></p>)}<p className="flex justify-between gap-8 border-t border-slate-100 pt-2 text-sm"><span className="font-black">Total</span><strong className="text-indigo-700">{displayMoney(invoice.grandTotal, invoice.currency)}</strong></p></div></div><div className="min-w-[14rem] rounded-xl border border-indigo-100 bg-indigo-50/50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-indigo-700">Expense record</p><p className="mt-2 text-xs font-black text-slate-900">{invoice.linkedExpenseId ? "Authoritative Expense linked" : invoice.reviewStatus === "VERIFIED" ? "Expense created" : "Will become authoritative"}</p><p className="mt-1 text-[10px] leading-4 text-slate-600">Supplier invoice is preserved as evidence. {invoice.linkedExpenseId ? `Expense #${invoice.linkedExpenseId.slice(0, 8)} owns cost and payable. ` : "Verification creates a Draft Expense; approve it in Expenses before payment."}No duplicate Actual Cost is posted.</p></div></div></section>
           <details open={moreOpen} onToggle={(event) => setMoreOpen((event.currentTarget as HTMLDetailsElement).open)} className="rounded-2xl border border-slate-200 bg-white shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-xs font-black text-slate-700 [&::-webkit-details-marker]:hidden"><span>More extracted details</span><ChevronDown className={`h-4 w-4 transition ${moreOpen ? "rotate-180" : ""}`} /></summary><div className="grid gap-3 border-t border-slate-100 p-4 text-xs sm:grid-cols-2"><div><p className="text-[10px] font-black uppercase text-slate-500">Buyer fields</p><p className="mt-1">{invoice.customer?.name || "Not supplied"}</p><p className="text-slate-500">{invoice.customer?.taxId || "TIN not supplied"}</p><p className="text-slate-500">{invoice.customer?.address || "Address not supplied"}</p></div><div><p className="text-[10px] font-black uppercase text-slate-500">Extraction diagnostics</p><p className="mt-1">Model: {invoice.modelUsed || "Unknown"}</p><p className="text-slate-500">Confidence: {invoice.confidenceScore === undefined ? "Not supplied" : `${Math.round(invoice.confidenceScore)}%`}</p><p className="text-slate-500">Source: {invoice.fileName || invoice.sourceType || "Unknown"}</p></div><div className="sm:col-span-2"><p className="text-[10px] font-black uppercase text-slate-500">PH metadata</p><p className="mt-1 whitespace-pre-wrap text-slate-600">{invoice.philippineTaxDetails ? JSON.stringify(invoice.philippineTaxDetails, null, 2) : "No additional tax metadata extracted."}</p></div></div></details>
         </>

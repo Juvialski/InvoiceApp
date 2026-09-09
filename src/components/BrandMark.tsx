@@ -16,7 +16,7 @@ const sizeClasses: Record<BrandMarkVariant, string> = {
   auth: "h-16 w-24 sm:h-[4.5rem] sm:w-28",
 };
 
-/** Shared official HydroQualiSense mark treatment for restrained identity surfaces. */
+/** Shared official Hydroqualisense mark treatment for restrained identity surfaces. */
 export function BrandMark({ variant = "compact", decorative = true, className = "" }: BrandMarkProps) {
   return (
     <img

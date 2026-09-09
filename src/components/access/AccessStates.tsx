@@ -12,7 +12,7 @@ export interface CompanySwitcherProps {
 }
 
 /**
- * Compatibility surface retained for Header/App callers. In a client HydroQualiSense
+ * Compatibility surface retained for Header/App callers. In a client Hydroqualisense
  * deployment this is a read-only identity badge, never a tenant selector.
  */
 export function CompanySwitcher({ companies, activeCompanyId, collapsed = false }: CompanySwitcherProps) {

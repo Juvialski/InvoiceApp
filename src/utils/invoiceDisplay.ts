@@ -1,6 +1,7 @@
-import type { InvoiceData, LineItem, PartyDetails } from "../types.ts";
+import type { FinancialFxSnapshot, InvoiceData, LineItem, PartyDetails } from "../types.ts";
 import { formatDate, formatMoney } from "../config/regional.ts";
 import { normalizeCurrency } from "./extractionQuality.ts";
+import { displayFinancialAmountInPhp } from "./financialCurrency.ts";
 
 export const UNKNOWN_VENDOR_LABEL = "Unknown vendor";
 export const AMOUNT_UNCLEAR_LABEL = "Amount unclear";
@@ -51,6 +52,11 @@ export interface InvoiceDisplay {
   amountHasQualityGap: boolean;
   statusLabel: string;
   lineItemLabel: string;
+}
+
+export interface InvoiceDisplayOptions {
+  reportingCurrency?: "PHP";
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
 }
 
 function text(value: unknown) {
@@ -151,7 +157,7 @@ function hasZeroTotalEvidence(invoice: InvoiceDisplayInput, qualityCritical: str
  * In particular, a filename is source context only and is never a vendor
  * fallback.
  */
-export function getInvoiceDisplay(invoice: InvoiceDisplayInput): InvoiceDisplay {
+export function getInvoiceDisplay(invoice: InvoiceDisplayInput, options: InvoiceDisplayOptions = {}): InvoiceDisplay {
   const vendorLabel = firstText(
     invoice.vendor?.registeredName,
     invoice.vendor?.companyName,
@@ -183,11 +189,17 @@ export function getInvoiceDisplay(invoice: InvoiceDisplayInput): InvoiceDisplay 
   const amountKnown = grandTotal !== undefined
     && !amountHasQualityGap
     && (grandTotal !== 0 || hasZeroTotalEvidence(invoice, qualityCritical));
-  const amountLabel = !amountKnown
+  let amountLabel = !amountKnown
     ? AMOUNT_UNCLEAR_LABEL
     : !currencyKnown
       ? CURRENCY_UNCLEAR_LABEL
       : formatMoney(grandTotal, currency);
+  let displayCurrencyLabel = currencyLabel;
+  if (amountKnown && currencyKnown && options.reportingCurrency === "PHP") {
+    const php = displayFinancialAmountInPhp(grandTotal, currency, "SUPPLIER_INVOICE", text(invoice.id), options.financialFxSnapshots);
+    amountLabel = php.baseLabel;
+    displayCurrencyLabel = php.sourceLabel || currencyLabel;
+  }
   const lineItemCount = Array.isArray(invoice.items) ? invoice.items.length : 0;
 
   return {
@@ -209,7 +221,7 @@ export function getInvoiceDisplay(invoice: InvoiceDisplayInput): InvoiceDisplay 
     sourceFileLabel,
     fileName,
     currency,
-    currencyLabel,
+    currencyLabel: displayCurrencyLabel,
     currencyKnown,
     amount: grandTotal ?? null,
     amountValue: grandTotal ?? null,

@@ -13,10 +13,17 @@ test("demo settlement fixtures include full, partial, split and payroll examples
   const partialInvoice = demoSettlementSummaryForTarget("INVOICE", "demo-invoice-02", ANCHOR);
   const fullPayroll = demoSettlementSummaryForTarget("PAYROLL", "demo-payroll-run-8", ANCHOR);
   const partialPayroll = demoSettlementSummaryForTarget("PAYROLL", "demo-payroll-run-9", ANCHOR);
+  const supplierInvoice = workspace.invoices.find((invoice) => invoice.id === "demo-invoice-02");
+  const supplierExpense = workspace.expenses.find((expense) => expense.id === "demo-expense-supplier-bm-02");
+  const partialSupplierExpense = demoSettlementSummaryForTarget("EXPENSE", "demo-expense-supplier-bm-02", ANCHOR);
   assert.equal(fullInvoice?.settlementState, "PAID");
   assert.equal(partialInvoice?.settlementState, "PARTIALLY_PAID");
   assert.equal(fullPayroll?.settlementState, "SETTLED");
   assert.equal(partialPayroll?.settlementState, "PARTIALLY_DISBURSED");
+  assert.equal(supplierInvoice?.linkedExpenseId, supplierExpense?.id);
+  assert.equal(partialSupplierExpense?.settlementState, "PARTIALLY_PAID");
+  assert.equal(partialSupplierExpense?.outstanding, 412_415.75);
+  assert.equal(workspace.cash.matches.some((match) => match.targetType === "INVOICE" && match.targetId === "demo-invoice-02"), false);
   assert.ok((partialPayroll?.history.length || 0) >= 2);
 
   const splitMatches = workspace.cash.matches.filter((match) => match.transactionId === "demo-transaction-split-01" && match.status === "CONFIRMED");

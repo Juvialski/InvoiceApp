@@ -1,5 +1,5 @@
 /**
- * Authoritative runtime brand configuration for HydroQualiSense.
+ * Authoritative runtime brand configuration for Hydroqualisense.
  * Centralizes product naming, descriptors, and metadata across the web workspace.
  */
 
@@ -19,24 +19,24 @@ export interface BrandConfig {
 }
 
 export const BRAND: BrandConfig = Object.freeze({
-  productName: "HydroQualiSense",
-  shortName: "HydroQualiSense",
-  companyName: "HydroQualiSense Solutions Corp.",
+  productName: "Hydroqualisense",
+  shortName: "Hydroqualisense",
+  companyName: "Hydroqualisense",
   logoPath: "/brand/hydroqualisense-logo.png",
-  displayUppercase: "HYDROQUALISENSE",
+  displayUppercase: "Hydroqualisense",
   canonicalOrigin: "https://hydroqualisense.com",
-  tagline: "HydroQualiSense Solutions Corp.",
-  description: "HydroQualiSense Solutions Corp. workspace for projects, finance, workforce, documents, and field operations.",
-  assistantName: "HydroQualiSense Assistant",
-  browserTitle: "HydroQualiSense | HydroQualiSense Solutions Corp.",
-  footerText: "HydroQualiSense • HydroQualiSense Solutions Corp. • Original sources & audit history",
-  companyContextLabel: "HydroQualiSense Solutions Corp. workspace",
+  tagline: "Hydroqualisense",
+  description: "Hydroqualisense workspace for projects, finance, workforce, documents, and field operations.",
+  assistantName: "Hydroqualisense Assistant",
+  browserTitle: "Hydroqualisense | Hydroqualisense",
+  footerText: "Hydroqualisense • Original sources & audit history",
+  companyContextLabel: "Hydroqualisense workspace",
 });
 
 /**
  * Format standard browser document title.
- * E.g., formatPageTitle("Projects") => "Projects | HydroQualiSense"
- * E.g., formatPageTitle() => "HydroQualiSense | HydroQualiSense Solutions Corp."
+ * E.g., formatPageTitle("Projects") => "Projects | Hydroqualisense"
+ * E.g., formatPageTitle() => "Hydroqualisense | Hydroqualisense"
  */
 export function formatPageTitle(pageName?: string | null): string {
   if (!pageName || pageName.trim() === "") {

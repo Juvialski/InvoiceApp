@@ -13,6 +13,7 @@ import { ALL_PERMISSION_KEYS } from "../../src/utils/accessControl.ts";
 import { APP_ROUTE_CONTRACTS } from "../../src/utils/appRouteContracts.ts";
 import {
   appPathForCashTransaction,
+  appPathForExpense,
   appPathForInvoice,
   appPathForTab,
   appPathForPayrollRun,
@@ -149,6 +150,9 @@ function locationSummary(path: string): WorkflowRouteRoundTripResult {
   } else if (location.kind === "invoice" || location.kind === "review-invoice") {
     selected.invoiceId = location.invoiceId;
     selected.returnTo = location.returnTo;
+  } else if (location.kind === "expense") {
+    selected.expenseId = location.expenseId;
+    selected.returnTo = location.returnTo;
   } else if (location.kind === "tab" && location.routeId === "cash") {
     const query = new URLSearchParams(location.search);
     selected.transactionId = financialTransactionIdFromSearch(location.search);
@@ -200,6 +204,7 @@ const ROUND_ID = "00000000-0000-4000-8000-000000000007";
 const SITE_LOG_ID = "00000000-0000-4000-8000-000000000008";
 const MATERIALS_EQUIPMENT_PROJECT_ID = PROJECT_ID;
 const INVOICE_ID = "00000000-0000-4000-8000-000000000009";
+const EXPENSE_ID = "00000000-0000-4000-8000-000000000012";
 const TRANSACTION_ID = "00000000-0000-4000-8000-000000000010";
 const PAYROLL_RUN_ID = "00000000-0000-4000-8000-000000000011";
 
@@ -266,6 +271,13 @@ const ROUTE_ROUND_TRIPS: readonly WorkflowRouteRoundTripContract[] = [
     () => appPathForCashTransaction(TRANSACTION_ID, "INVOICE", INVOICE_ID),
     `/cash?transactionId=${TRANSACTION_ID}&fromTargetType=INVOICE&fromTargetId=${INVOICE_ID}`,
     (path) => expectedLocation(path, "tab", "cash", { transactionId: TRANSACTION_ID, fromTargetType: "INVOICE", fromTargetId: INVOICE_ID }),
+  ),
+  roundTrip(
+    "route-expenses",
+    "authoritative Expense detail selection",
+    () => appPathForExpense(EXPENSE_ID, "/cash"),
+    `/expenses?expenseId=${EXPENSE_ID}&from=%2Fcash`,
+    (path) => expectedLocation(path, "expense", "expenses", { expenseId: EXPENSE_ID, returnTo: "/cash" }),
   ),
   roundTrip(
     "route-payroll-run",

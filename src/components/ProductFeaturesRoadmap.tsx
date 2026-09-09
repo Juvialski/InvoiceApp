@@ -137,14 +137,14 @@ function StatusSection({ status }: { status: ProductFeatureStatus }) {
 
 /** Client-facing product truth surface. Informational only; it does not activate roadmap work. */
 export const ProductFeaturesRoadmap: React.FC = () => (
-  <section aria-label="HydroQualiSense Features & Roadmap" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+  <section aria-label="Hydroqualisense Features & Roadmap" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
     <div className="flex items-start gap-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
         <Sparkles aria-hidden="true" className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
         <SectionHeader
-          title="HydroQualiSense Features & Roadmap"
+          title="Hydroqualisense Features & Roadmap"
           description="A clear guide to what is available now, what is approved next, and what remains in future design. No delivery dates are implied."
         />
       </div>
