@@ -1,0 +1,49 @@
+name: Remove final demo USD project context
+
+on:
+  push:
+    branches:
+      - fix/php-only-demo-reporting
+    paths:
+      - .github/workflows/php-demo-project-currency.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/php-only-demo-reporting
+          fetch-depth: 0
+      - name: Make public demo project context PHP-only
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path("src/demo/data/projects.ts")
+          text = p.read_text(encoding="utf-8")
+          old = '''      projectBudget: 2_600_000,\n      currency: "USD",\n      taxTreatment: "UNCLASSIFIED",'''
+          new = '''      projectBudget: 2_600_000,\n      currency: "PHP",\n      taxTreatment: "UNCLASSIFIED",'''
+          if old not in text:
+              raise SystemExit("Expected international demo project USD context not found")
+          p.write_text(text.replace(old, new), encoding="utf-8")
+
+          p = Path("tests/demoPhpCurrency.test.ts")
+          text = p.read_text(encoding="utf-8")
+          old = '  assert.ok(workspace.invoices.length > 0);\n  assert.ok(workspace.expenses.length > 0);\n'
+          new = '  assert.ok(workspace.invoices.length > 0);\n  assert.ok(workspace.expenses.length > 0);\n  assert.ok(workspace.projects.every((project) => project.currency === "PHP"));\n'
+          if old not in text:
+              raise SystemExit("Expected PHP-only demo test insertion point not found")
+          p.write_text(text.replace(old, new), encoding="utf-8")
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          rm .github/workflows/php-demo-project-currency.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/demo/data/projects.ts tests/demoPhpCurrency.test.ts .github/workflows/php-demo-project-currency.yml
+          git commit -m "fix: make demo project currencies PHP-only"
+          git push origin HEAD:fix/php-only-demo-reporting
