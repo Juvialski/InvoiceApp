@@ -54,6 +54,12 @@ Render start: npm start
 DB promotion: explicit guarded qa:db:push / qa:db:reset only
 ```
 
+For QA certification, separate release actions are sequenced as:
+
+`merge -> QA app deploy -> guarded QA DB promotion -> verify exact SHA + migration parity -> manual Hosted QA dispatch`
+
+If merged `main` contains a newer migration than live QA and QA writes are already authorized, the guarded QA DB promotion is an immediate prerequisite. Do not run Hosted QA or other DB-dependent hosted certification first and then diagnose the predictable stale-DB failure.
+
 PR #113 made migration-level release truth repository-derived. Stale legacy migration environment values do not override the canonical repository migration head.
 
 ## QA migration parity — PASS
@@ -129,7 +135,7 @@ The production-host refusal and protected GitHub `qa` credential boundary remain
 
 Pre-merge `qa:demo` targets a locally built PR at `/demo` with fictional session-local data and no production Auth/Supabase/Storage/Gmail/company writes. Post-deploy `qa:hosted` targets only `https://hydroqualisense-qa.onrender.com`, uses protected GitHub `qa` environment credentials, waits for exact `/api/health` repository/deployment/migration identity, and then exercises real authenticated routes and the safe synthetic Storage byte probe. Hosted temporary objects are namespaced and cleaned; no auditable metadata rows are created.
 
-The hosted workflow retains explicit `workflow_dispatch` and also runs on pushes to `main`; the latter is bounded by the exact-SHA readiness poll and does not replace pull-request validation.
+The Hosted QA workflow is now **manual `workflow_dispatch` only**. Dispatch it after the intended QA app SHA is live, any required guarded QA migration promotion is complete, and migration parity is verified. Automatic post-`main` Hosted QA was removed because it could start before the separate DB promotion step and waste a browser run on a known stale-DB state.
 
 ## Product-truth and Settings correction
 
@@ -227,9 +233,15 @@ Do not block READY on paid-only Supabase features unavailable to this Free proje
 3. Complete the separate Storage byte backup/restore/path-permission drill using protected QA credentials.
 4. Re-check exact main/deploy/migration/Auth/Hosted QA/recovery evidence.
 5. If all achievable gates pass, set `QA CERTIFICATION: READY`.
-6. Immediately prepare Worker Registration foundation.
+6. Immediately prepare the Email/SMS + Documents phase.
 
-## Next phase after READY — Worker Registration foundation
+## Next phase after READY — Email/SMS + Documents
+
+The first post-QA implementation priority is the user-confirmed **Email/SMS + Documents phase**. Bound its exact implementation scope from current product truth at phase start. Do not jump directly to Worker Registration.
+
+## Third priority — Worker Registration foundation
+
+Worker Registration follows the Email/SMS + Documents phase.
 
 Target:
 
