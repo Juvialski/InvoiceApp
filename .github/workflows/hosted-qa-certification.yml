@@ -40,7 +40,7 @@ jobs:
       - name: Derive expected migration level from exact checkout
         shell: bash
         run: |
-          migration_level="$(npm run --silent release:migration-level)"
+          migration_level="$(npx --no-install tsx scripts/repository-migration-level.ts)"
           if [[ ! "$migration_level" =~ ^[0-9]{14}$ ]]; then
             echo "Failed to derive a canonical migration level from the checked-out repository." >&2
             exit 1
