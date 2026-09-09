@@ -1,3 +1,5 @@
+import { repositoryMigrationLevel } from "./repositoryMigrationLevel.ts";
+
 export interface ReleaseMetadata {
   appVersion: string | null;
   repositorySha: string | null;
@@ -37,14 +39,19 @@ function nullableEnvironment(env: Readonly<Record<string, string | undefined>>) 
 }
 
 /**
- * Reads only explicitly supplied, non-secret release metadata. Missing values
- * remain null so health and verification output never invent deployment state.
+ * Reads non-secret deployment metadata and derives the expected database
+ * migration level from the exact checked-out repository. Legacy migration
+ * environment variables are intentionally ignored so stale operator metadata
+ * cannot override repository truth.
  */
-export function releaseMetadataFromEnv(env: Readonly<Record<string, string | undefined>>): ReleaseMetadata {
+export function releaseMetadataFromEnv(
+  env: Readonly<Record<string, string | undefined>>,
+  expectedMigrationLevel: string | null = repositoryMigrationLevel(),
+): ReleaseMetadata {
   return {
     appVersion: firstValue(env, ["HYDROQUALISENSE_APP_VERSION", "APP_VERSION"], 120),
     repositorySha: nullableSha(env),
-    migrationLevel: firstValue(env, ["HYDROQUALISENSE_MIGRATION_LEVEL", "SUPABASE_MIGRATION_LEVEL", "MIGRATION_LEVEL"], 160),
+    migrationLevel: expectedMigrationLevel,
     deploymentId: nullableIdentifier(env, ["HYDROQUALISENSE_DEPLOYMENT_ID"]),
     configurationVersion: firstValue(env, ["HYDROQUALISENSE_CONFIGURATION_VERSION"], 120),
     environment: nullableEnvironment(env),
