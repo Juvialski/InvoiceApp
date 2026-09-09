@@ -15,7 +15,6 @@ jobs:
       QA_E2E_BASE_URL: https://hydroqualisense-qa.onrender.com
       QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
       QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ github.sha }}
-      QA_E2E_EXPECTED_MIGRATION_LEVEL: ${{ vars.QA_E2E_EXPECTED_MIGRATION_LEVEL }}
       QA_E2E_EMAIL: ${{ secrets.QA_E2E_EMAIL }}
       QA_E2E_PASSWORD: ${{ secrets.QA_E2E_PASSWORD }}
       QA_E2E_SUPABASE_URL: ${{ vars.QA_E2E_SUPABASE_URL }}
@@ -37,6 +36,16 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Derive expected migration level from exact checkout
+        shell: bash
+        run: |
+          migration_level="$(npx --no-install tsx scripts/repository-migration-level.ts)"
+          if [[ ! "$migration_level" =~ ^[0-9]{14}$ ]]; then
+            echo "Failed to derive a canonical migration level from the checked-out repository." >&2
+            exit 1
+          fi
+          echo "QA_E2E_EXPECTED_MIGRATION_LEVEL=$migration_level" >> "$GITHUB_ENV"
 
       - name: Install Playwright for hosted QA only
         run: |
