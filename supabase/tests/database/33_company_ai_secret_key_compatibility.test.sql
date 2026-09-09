@@ -43,6 +43,11 @@ select is(
   5::bigint,
   'service_role is the only Data API execution role for server-only AI RPCs'
 );
+select ok(
+  has_schema_privilege('service_role', 'private', 'USAGE')
+  and has_function_privilege('service_role', 'private.deployment_company_id()', 'EXECUTE'),
+  'service_role can invoke the deployment-company helper used by the SECURITY INVOKER credential resolver'
+);
 
 select is_empty(
   $$select 1
@@ -203,6 +208,21 @@ select ok(
   and not (public.server_get_company_ai_config((select company_a from company_ai_secret_key_ids)) ? 'iv')
   and not (public.server_get_company_ai_config((select company_a from company_ai_secret_key_ids)) ? 'auth_tag'),
   'configured metadata still exposes no ciphertext, IV, or auth tag'
+);
+select is(
+  (public.server_get_company_ai_config((select company_a from company_ai_secret_key_ids))->>'last_test_status'),
+  'NOT_TESTED',
+  'Settings metadata exposes a configured but not-yet-tested AI state'
+);
+select is(
+  (public.resolve_company_ai_credential((select company_a from company_ai_secret_key_ids))->>'status'),
+  'ACTIVE',
+  'Assistant credential resolution accepts configured enabled AI before provider validation'
+);
+select is(
+  (public.resolve_company_ai_credential((select company_a from company_ai_secret_key_ids))->>'enabled'),
+  'true',
+  'Assistant credential resolution preserves enabled state before provider validation'
 );
 
 select is(
