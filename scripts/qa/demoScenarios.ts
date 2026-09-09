@@ -220,7 +220,7 @@ const verifyProcurementSubcontractParity: QaScenarioAction = async (page) => {
 const verifySettingsScreen: QaScenarioAction = async (page) => {
   const settingsHeading = await page.getByRole("heading", { name: "Operational settings", exact: true }).count();
   const regionalPreferences = await page.getByRole("heading", { name: "Regional display preferences", exact: true }).count();
-  const roadmapHeading = await page.getByRole("heading", { name: "HydroQualiSense Features & Roadmap", exact: true }).count();
+  const roadmapHeading = await page.getByRole("heading", { name: "Hydroqualisense Features & Roadmap", exact: true }).count();
   const plannedWorkerRegistration = await page.locator('[data-product-feature-id="worker-registration"][data-product-feature-status="PLANNED"]').count();
   const futureFaceAttendance = await page.locator('[data-product-feature-id="face-recognition-attendance"][data-product-feature-status="FUTURE_DESIGN"]').count();
   const internalFeatureRegistry = await page.locator('[aria-label="Internal feature registry"]').count();
