@@ -7,20 +7,20 @@ import { ENGORYX_FEATURE_REGISTRY, getFeaturesByPhase, getFeaturesByStatus, getF
 test('brand configuration contains canonical Hydroqualisense values', () => {
   assert.equal(BRAND.productName, 'Hydroqualisense');
   assert.equal(BRAND.shortName, 'Hydroqualisense');
-  assert.equal(BRAND.companyName, 'Hydroqualisense');
+  assert.equal(BRAND.companyName, 'Hydroqualisense Solutions Corp.');
   assert.equal(BRAND.logoPath, '/brand/hydroqualisense-logo.png');
   assert.equal(BRAND.displayUppercase, 'Hydroqualisense');
   assert.equal(BRAND.canonicalOrigin, 'https://hydroqualisense.com');
-  assert.equal(BRAND.tagline, 'Hydroqualisense');
+  assert.equal(BRAND.tagline, 'Hydroqualisense Solutions Corp.');
   assert.equal(BRAND.assistantName, 'Hydroqualisense Assistant');
-  assert.equal(BRAND.browserTitle, 'Hydroqualisense | Hydroqualisense');
-  assert.match(BRAND.description, /Hydroqualisense workspace/i);
-  assert.match(BRAND.footerText, /Hydroqualisense/);
-  assert.equal(BRAND.companyContextLabel, 'Hydroqualisense workspace');
+  assert.equal(BRAND.browserTitle, 'Hydroqualisense | Hydroqualisense Solutions Corp.');
+  assert.match(BRAND.description, /Hydroqualisense Solutions Corp\. workspace/i);
+  assert.match(BRAND.footerText, /Hydroqualisense Solutions Corp\./);
+  assert.equal(BRAND.companyContextLabel, 'Hydroqualisense Solutions Corp. workspace');
 });
 
 test('page title and breadcrumb formatting helpers produce correct branded labels', () => {
-  assert.equal(formatPageTitle(), 'Hydroqualisense | Hydroqualisense');
+  assert.equal(formatPageTitle(), 'Hydroqualisense | Hydroqualisense Solutions Corp.');
   assert.equal(formatPageTitle('Projects'), 'Projects | Hydroqualisense');
   assert.equal(formatPageTitle('Cash and Banking'), 'Cash and Banking | Hydroqualisense');
 
@@ -31,14 +31,14 @@ test('page title and breadcrumb formatting helpers produce correct branded label
 
 test('index.html, metadata.json, and package.json are synchronized with Hydroqualisense brand', () => {
   const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(indexHtml, /<title>Hydroqualisense \| Hydroqualisense<\/title>/);
+  assert.match(indexHtml, /<title>Hydroqualisense \| Hydroqualisense Solutions Corp\.<\/title>/);
   assert.match(indexHtml, /<link rel="canonical" href="https:\/\/hydroqualisense\.com" \/>/);
   assert.match(indexHtml, /<meta property="og:url" content="https:\/\/hydroqualisense\.com" \/>/);
   assert.doesNotMatch(indexHtml, /My Google AI Studio App/);
 
   const metadataJson = JSON.parse(readFileSync(new URL('../metadata.json', import.meta.url), 'utf8'));
   assert.equal(metadataJson.name, 'Hydroqualisense');
-  assert.match(metadataJson.description, /Hydroqualisense workspace/i);
+  assert.match(metadataJson.description, /Hydroqualisense Solutions Corp\. workspace/i);
 
   const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(pkgJson.name, 'engoryx');
