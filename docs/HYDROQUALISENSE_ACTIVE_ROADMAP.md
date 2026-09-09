@@ -52,7 +52,7 @@ Free-tier alternatives that are technically available may still be required when
 - guarded QA-only migration promotion completed through `npm.cmd run qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa`
 - live QA migration history independently matches repository migration head `20260909053311`
 
-Do not run a migration push merely because application code or documentation redeploys.
+For QA certification, application deployment and migration promotion remain separate release actions but must be sequenced correctly. When merged `main` contains a newer migration than live QA and QA writes are authorized, promote QA immediately through the guarded wrapper and verify parity **before** Hosted QA or other DB-dependent hosted certification. Do not spend a hosted run proving an already-known stale-DB mismatch.
 
 ## Render exact-deployment gate — PASS
 
@@ -92,7 +92,7 @@ HydroQualiSense intentionally uses two browser-validation layers:
 1. **Local PR/demo QA** builds the checked-out PR, serves the isolated `/demo` workspace locally, uses fictional session-local data, and performs deterministic rendering/navigation/interaction checks. It does not mount production Auth, Supabase queries, Storage, Gmail authorization, or company writes.
 2. **Hosted QA browser regression** runs only against `https://hydroqualisense-qa.onrender.com` with the protected GitHub `qa` environment credentials. It verifies the exact live repository SHA, deployment identity, canonical migration level, authenticated session persistence, real route data states, and the synthetic Storage byte probe.
 
-The hosted workflow supports both `workflow_dispatch` and bounded post-`main` push execution. It waits for Render to expose the exact expected SHA and fails clearly if the deployment is not ready; it never replaces pre-merge branch validation. Hosted mutations are limited to uniquely named temporary synthetic Storage objects, cleaned in `finally`, with no document metadata rows. Production hosts are rejected.
+Hosted QA is intentionally **manual `workflow_dispatch` only**. Dispatch it after the exact QA app SHA is live, any required guarded QA migration promotion is complete, and migration parity is independently confirmed. This prevents expensive browser setup and route checks from running against a knowingly stale database. Hosted mutations are limited to uniquely named temporary synthetic Storage objects, cleaned in `finally`, with no document metadata rows. Production hosts are rejected.
 
 ## Product-truth surface boundaries
 
@@ -160,9 +160,21 @@ Remaining achievable gates:
 
 Do **not** block READY on paid-only Supabase controls that cannot be enabled on the current Free plan. Do **not** mark READY until the remaining achievable gates above are evidenced.
 
-## NEXT AFTER READY — Worker Registration foundation
+## NEXT AFTER READY — Email/SMS + Documents phase
 
-Only after READY:
+After QA reaches READY, the next implementation priority is the user-confirmed **Email/SMS + Documents phase**. Bound its exact implementation scope from the current product truth at phase start; do not jump directly to Worker Registration.
+
+Current ordering after QA:
+
+1. Email/SMS + Documents phase;
+2. Worker Registration foundation;
+3. Site Attendance state machine + registered site/device;
+4. Face-Recognition Attendance only after explicit privacy/security/retention/liveness/confidence/fallback design;
+5. final pre-production security/data-integrity certification before broad rollout.
+
+## Third priority — Worker Registration foundation
+
+Worker Registration follows the Email/SMS + Documents phase:
 
 `project/site QR -> PENDING worker submission -> supervisor/admin duplicate/identity/project review -> canonical Worker/payroll/project assignment`
 
@@ -179,8 +191,7 @@ Rules:
 
 1. Site Attendance state machine + registered site/device + explicit time-in/time-out + duplicate-punch/offline/correction audit.
 2. Face-Recognition Attendance only after explicit consent/privacy, retention/deletion, liveness, confidence/fallback, device binding, offline/concurrency and payroll-boundary design.
-3. Other client-confirmed requirements.
-4. Final pre-production security/data-integrity certification before broad rollout.
+3. Final pre-production security/data-integrity certification before broad rollout.
 
 ## Permanent invariants
 
