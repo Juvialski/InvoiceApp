@@ -10,6 +10,7 @@ const bannerSource = readFileSync(new URL("../src/components/DeploymentEnvironme
 const uploadSource = readFileSync(new URL("../src/components/UploadZone.tsx", import.meta.url), "utf8");
 const publicSource = readFileSync(new URL("../src/public/PublicFunnelRoot.tsx", import.meta.url), "utf8");
 const qaScript = readFileSync(new URL("../scripts/qa/run-supabase.ts", import.meta.url), "utf8");
+const qaCliScript = readFileSync(new URL("../scripts/qa/supabaseCli.ts", import.meta.url), "utf8");
 const runbook = readFileSync(new URL("../docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md", import.meta.url), "utf8");
 
 test("QA identity is explicit while normal production configuration has no QA marker", () => {
@@ -41,11 +42,13 @@ test("QA database push requires explicit QA identity, expected/linked reference,
   assert.equal(validateQaDatabaseTarget({ ...base, confirmation: "QA_DATABASE_PUSH" }).valid, true);
   assert.equal(validateQaDatabaseTarget({ ...base, environment: "production", confirmation: "QA_DATABASE_PUSH" }).valid, false);
   assert.equal(validateQaDatabaseTarget({ ...base, targetProjectRef: "prod-project-ref", confirmation: "QA_DATABASE_PUSH" }).valid, false);
+  assert.equal(validateQaDatabaseTarget({ ...base, deploymentId: "qa", confirmation: "QA_DATABASE_PUSH" }).valid, false);
+  assert.equal(validateQaDatabaseTarget({ ...base, linkedProjectRef: "prod-project-ref", confirmation: "QA_DATABASE_PUSH" }).valid, false);
   assert.equal(validateQaDatabaseTarget({ ...base, confirmation: "" }).valid, false);
 });
 
 test("QA database reset fails closed without the separate destructive confirmation", () => {
-  const base = { environment: "qa", deploymentId: "qa-hydroqualisense", targetProjectRef: "qa-project-ref", expectedQaProjectRef: "qa-project-ref", linkedProjectRef: "qa-project-ref", operation: "reset" as const };
+  const base = { environment: "qa", deploymentId: "qa-hydroqualisense", targetProjectRef: "qa-project-ref", expectedQaProjectRef: "qa-project-ref", linkedProjectRef: "qa-project-ref", productionProjectRef: "prod-project-ref", operation: "reset" as const };
   assert.equal(validateQaDatabaseTarget({ ...base, confirmation: "QA_DATABASE_PUSH" }).valid, false);
   assert.equal(validateQaDatabaseTarget({ ...base, confirmation: "QA_DATABASE_RESET" }).valid, true);
 });
@@ -55,14 +58,15 @@ test("QA banner and sample presets remain deployment-gated and the wrapper never
   assert.match(bannerSource, /identity\.environment === "production"/);
   assert.match(uploadSource, /currentDeploymentIdentity\(\)\.sampleInvoicesEnabled/);
   assert.match(publicSource, /DeploymentEnvironmentBanner/);
-  assert.match(qaScript, /supabase.*db.*operation/);
+  assert.match(qaScript, /runSupabaseCliSync/);
   assert.match(qaScript, /--linked/);
   assert.match(qaScript, /--no-seed/);
-  assert.match(runbook, /Blank-project migration sequence/);
+  assert.match(qaCliScript, /process\.env\.ComSpec \|\| "cmd\.exe"/);
+  assert.match(runbook, /Blank-project bootstrap and protected release sequence/);
   assert.match(runbook, /Never copy Client A.*production data/i);
 });
 
 test("QA wrapper launches the Windows Supabase CLI through cmd.exe", () => {
-  assert.match(qaScript, /process\.env\.ComSpec \|\| "cmd\.exe"/);
-  assert.match(qaScript, /\["\/d", "\/s", "\/c", "npx\.cmd", \.\.\.cliArgs\]/);
+  assert.match(qaCliScript, /process\.env\.ComSpec \|\| "cmd\.exe"/);
+  assert.match(qaCliScript, /\["\/d", "\/s", "\/c", "npx\.cmd", \.\.\.cliArgs\]/);
 });

@@ -820,6 +820,37 @@
     },
     {
       "sourceClassification": "mixed",
+      "id": "protected-qa-release-orchestration",
+      "label": "Protected QA release orchestration",
+      "domain": "platform-tenancy",
+      "type": "external-boundary",
+      "scope": "global",
+      "description": "Protected main releases wait for exact QA Render identity, inspect the repository-derived QA migration history, invoke only the guarded QA migration wrapper when behind, verify complete parity, preserve sanitized evidence, and call Hosted QA only after the parity gate; production remains outside the target boundary.",
+      "fileRefs": [
+        ".github/workflows/qa-release.yml",
+        ".github/workflows/hosted-qa-certification.yml",
+        "src/lib/qaReleaseOrchestration.ts",
+        "src/lib/qaDatabaseTarget.ts",
+        "src/server/repositoryMigrationLevel.ts",
+        "scripts/qa/classify-release.ts",
+        "scripts/qa/supabaseCli.ts",
+        "scripts/qa/verify-migration-parity.ts",
+        "scripts/qa/wait-for-qa-deployment.ts",
+        "docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md"
+      ],
+      "testRefs": [
+        "tests/qaReleaseOrchestration.test.ts",
+        "tests/qaReleaseWorkflow.test.ts",
+        "tests/qaDeployment.test.ts",
+        "tests/hostedQaConfig.test.ts"
+      ],
+      "invariantIds": [
+        "isolated-release-promotion-is-explicit",
+        "deployment-inventory-never-stores-secrets"
+      ]
+    },
+    {
+      "sourceClassification": "mixed",
       "id": "production-mode",
       "label": "Authenticated production mode",
       "domain": "platform-tenancy",
@@ -7692,6 +7723,18 @@
       ]
     },
     {
+      "id": "release-verification-to-protected-qa",
+      "source": "deployment-release-verification",
+      "target": "protected-qa-release-orchestration",
+      "type": "feeds",
+      "kind": "guard",
+      "label": "exact QA release identity and migration gate",
+      "invariantIds": [
+        "isolated-release-promotion-is-explicit",
+        "deployment-inventory-never-stores-secrets"
+      ]
+    },
+    {
       "id": "production-to-deployment-company",
       "source": "production-mode",
       "target": "deployment-company",
@@ -11127,6 +11170,7 @@
         "public-prospect-intake",
         "deployment-inventory",
         "deployment-release-verification",
+        "protected-qa-release-orchestration",
         "production-mode",
         "demo-mode",
         "company-context",
@@ -11215,7 +11259,8 @@
         "public-prospect-intake",
         "production-mode",
         "deployment-inventory",
-        "deployment-release-verification"
+        "deployment-release-verification",
+        "protected-qa-release-orchestration"
       ]
     },
     {

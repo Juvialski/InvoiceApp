@@ -1,0 +1,252 @@
+name: Protected QA Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_hosted_qa:
+        description: Run Hosted QA after the guarded migration/parity gate (use for an explicit protected recovery rerun).
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: protected-qa-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  QA_E2E_BASE_URL: https://hydroqualisense-qa.onrender.com
+  QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
+  HYDROQUALISENSE_ENVIRONMENT: qa
+  HYDROQUALISENSE_DEPLOYMENT_ID: qa-hydroqualisense
+  HYDROQUALISENSE_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
+  HYDROQUALISENSE_QA_PROJECT_REF: vrpuznofrntyqsbugrib
+  HYDROQUALISENSE_PRODUCTION_PROJECT_REF: qijjshdwiylojvqojxyz
+  SUPABASE_CLI_BIN: supabase
+
+jobs:
+  classify:
+    name: Classify protected QA release
+    runs-on: ubuntu-latest
+    outputs:
+      target_sha: ${{ steps.identity.outputs.target_sha }}
+      expected_migration: ${{ steps.migration.outputs.expected_migration }}
+      change_class: ${{ steps.classify.outputs.change_class }}
+      requires_hosted_qa: ${{ steps.classify.outputs.requires_hosted_qa }}
+    steps:
+      - name: Checkout exact main SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Confirm protected main target
+        id: identity
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error title=Protected QA release target refused::The release workflow may run only for refs/heads/main." >&2
+            exit 1
+          fi
+          target_sha="$(git rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$target_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Protected QA release target refused::The checkout did not resolve to an exact 40-character commit SHA." >&2
+            exit 1
+          fi
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Derive repository migration head
+        id: migration
+        shell: bash
+        run: |
+          migration_level="$(npx --no-install tsx scripts/repository-migration-level.ts)"
+          if [[ ! "$migration_level" =~ ^[0-9]{14}$ ]]; then
+            echo "::error title=Repository migration derivation failed::No canonical repository migration head was derived from supabase/migrations." >&2
+            exit 1
+          fi
+          echo "expected_migration=$migration_level" >> "$GITHUB_OUTPUT"
+
+      - name: Classify changed paths
+        id: classify
+        env:
+          QA_RELEASE_BEFORE_SHA: ${{ github.event.before }}
+          QA_RELEASE_MANUAL_HOSTED_QA: ${{ inputs.run_hosted_qa }}
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$QA_RELEASE_BEFORE_SHA" =~ ^[0]{40}$ ]]; then
+            git show --format= --name-only "$GITHUB_SHA" > changed-files.txt
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            git diff --name-only "$QA_RELEASE_BEFORE_SHA" "$GITHUB_SHA" > changed-files.txt
+          else
+            : > changed-files.txt
+          fi
+          echo "Changed paths for protected QA release classification:"
+          cat changed-files.txt
+          npx --no-install tsx scripts/qa/classify-release.ts < changed-files.txt
+
+  qa_release:
+    name: Promote and verify protected QA
+    needs: classify
+    if: needs.classify.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: qa
+    outputs:
+      migration_was_behind: ${{ steps.pre_parity.outputs.needs_promotion }}
+      release_still_current: ${{ steps.final_identity.outputs.release_still_current }}
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ needs.classify.outputs.target_sha }}
+      QA_E2E_EXPECTED_MIGRATION_LEVEL: ${{ needs.classify.outputs.expected_migration }}
+    steps:
+      - name: Checkout exact release SHA
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.classify.outputs.target_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup pinned Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+
+      - name: Verify protected QA configuration and credentials
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error title=Protected QA identity failure::The promotion job is not running on main." >&2
+            exit 1
+          fi
+          if [[ "$HYDROQUALISENSE_ENVIRONMENT" != "qa" || "$HYDROQUALISENSE_DEPLOYMENT_ID" != "qa-hydroqualisense" || "$HYDROQUALISENSE_EXPECTED_DEPLOYMENT_ID" != "qa-hydroqualisense" ]]; then
+            echo "::error title=Protected QA identity failure::Environment or deployment identity is not the expected QA deployment." >&2
+            exit 1
+          fi
+          if [[ "$HYDROQUALISENSE_QA_PROJECT_REF" != "vrpuznofrntyqsbugrib" || "$HYDROQUALISENSE_PRODUCTION_PROJECT_REF" != "qijjshdwiylojvqojxyz" || "$HYDROQUALISENSE_QA_PROJECT_REF" == "$HYDROQUALISENSE_PRODUCTION_PROJECT_REF" ]]; then
+            echo "::error title=Production boundary violation::The configured QA and production project references are invalid or collide." >&2
+            exit 1
+          fi
+          if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
+            echo "::error title=Missing QA secret::Configure the protected qa environment secret SUPABASE_ACCESS_TOKEN once." >&2
+            exit 1
+          fi
+          if [[ -z "${SUPABASE_DB_PASSWORD:-}" ]]; then
+            echo "::error title=Missing QA secret::Configure the protected qa environment secret SUPABASE_DB_PASSWORD once." >&2
+            exit 1
+          fi
+
+      - name: Link the exact protected QA Supabase project
+        shell: bash
+        run: |
+          if ! supabase link --project-ref "$HYDROQUALISENSE_QA_PROJECT_REF"; then
+            echo "::error title=Supabase authentication or project-link failure::The protected QA Supabase project could not be linked; no migration command was attempted." >&2
+            exit 1
+          fi
+          linked_ref="$(tr -d '\r\n ' < supabase/.temp/project-ref 2>/dev/null || true)"
+          if [[ "$linked_ref" != "$HYDROQUALISENSE_QA_PROJECT_REF" || "$linked_ref" == "$HYDROQUALISENSE_PRODUCTION_PROJECT_REF" ]]; then
+            echo "::error title=Project-link mismatch::The linked project reference is not the expected non-production QA project." >&2
+            exit 1
+          fi
+
+      - name: Independently inspect QA migration parity before promotion
+        id: pre_parity
+        shell: bash
+        run: npx --no-install tsx scripts/qa/verify-migration-parity.ts --phase before --output artifacts/qa-release/migration-parity-before.json
+
+      - name: Confirm release is still the current main before Render/migration work
+        if: steps.pre_parity.outputs.needs_promotion == 'true' || needs.classify.outputs.requires_hosted_qa == 'true'
+        shell: bash
+        run: |
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print tolower($1)}')"
+          if [[ "$current_main" != "${{ needs.classify.outputs.target_sha }}" ]]; then
+            echo "::error title=Stale QA release refused::A newer main SHA is available; this release must not promote or certify the older SHA." >&2
+            exit 1
+          fi
+
+      - name: Wait for exact QA Render deployment
+        if: steps.pre_parity.outputs.needs_promotion == 'true' || needs.classify.outputs.requires_hosted_qa == 'true'
+        shell: bash
+        run: npx --no-install tsx scripts/qa/wait-for-qa-deployment.ts
+
+      - name: Confirm release is still the current main before migration promotion
+        if: steps.pre_parity.outputs.needs_promotion == 'true'
+        shell: bash
+        run: |
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print tolower($1)}')"
+          if [[ "$current_main" != "${{ needs.classify.outputs.target_sha }}" ]]; then
+            echo "::error title=Stale QA migration promotion refused::A newer main SHA is available; the older SHA cannot promote QA." >&2
+            exit 1
+          fi
+
+      - name: Run the existing guarded QA migration promotion
+        if: steps.pre_parity.outputs.needs_promotion == 'true'
+        shell: bash
+        run: npm run qa:db:push -- --project-ref "$HYDROQUALISENSE_QA_PROJECT_REF" --confirm-qa
+
+      - name: Independently verify QA migration parity after promotion
+        if: steps.pre_parity.outputs.needs_promotion == 'true' || needs.classify.outputs.requires_hosted_qa == 'true'
+        shell: bash
+        run: npx --no-install tsx scripts/qa/verify-migration-parity.ts --phase after --output artifacts/qa-release/migration-parity-after.json
+
+      - name: Verify production separation
+        shell: bash
+        run: |
+          if [[ "$HYDROQUALISENSE_QA_PROJECT_REF" == "$HYDROQUALISENSE_PRODUCTION_PROJECT_REF" ]]; then
+            echo "::error title=Production boundary violation::QA and production project references collide." >&2
+            exit 1
+          fi
+          echo "Production separation=PASS; all Supabase link, history, and migration commands in this job target QA only."
+
+      - name: Confirm release is still current main before Hosted QA
+        id: final_identity
+        shell: bash
+        run: |
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print tolower($1)}')"
+          if [[ "$current_main" == "${{ needs.classify.outputs.target_sha }}" ]]; then
+            echo "release_still_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "release_still_current=false" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Hosted QA superseded::A newer main SHA is available. Database work already completed safely, but Hosted QA for this older SHA will be skipped."
+
+      - name: Upload QA release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-release-${{ needs.classify.outputs.target_sha }}
+          path: artifacts/qa-release
+          if-no-files-found: ignore
+          retention-days: 14
+
+  hosted_qa:
+    name: Hosted QA after migration parity
+    needs: [classify, qa_release]
+    if: needs.qa_release.result == 'success' && needs.qa_release.outputs.release_still_current == 'true' && (needs.classify.outputs.requires_hosted_qa == 'true' || needs.qa_release.outputs.migration_was_behind == 'true')
+    uses: ./.github/workflows/hosted-qa-certification.yml
+    with:
+      expected_repository_sha: ${{ needs.classify.outputs.target_sha }}
+      expected_migration_level: ${{ needs.classify.outputs.expected_migration }}
+      expected_deployment_id: qa-hydroqualisense
+    secrets: inherit

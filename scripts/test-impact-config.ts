@@ -109,6 +109,14 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
   'src/lib/qaDatabaseTarget.ts': [
     'tests/qaDeployment.test.ts',
   ],
+  'src/lib/qaReleaseOrchestration.ts': [
+    'tests/qaReleaseOrchestration.test.ts',
+    'tests/qaReleaseWorkflow.test.ts',
+  ],
+  'src/server/repositoryMigrationLevel.ts': [
+    'tests/repositoryMigrationLevel.test.ts',
+    'tests/qaReleaseOrchestration.test.ts',
+  ],
   'src/components/DeploymentEnvironmentBanner.tsx': [
     'tests/qaDeployment.test.ts',
   ],
@@ -124,6 +132,10 @@ export const STATIC_CONTRACT_MAPPINGS: Record<string, string[]> = {
   ],
   'scripts/qa/**': [
     'tests/qaDeployment.test.ts',
+    'tests/qaReleaseOrchestration.test.ts',
+    'tests/qaReleaseWorkflow.test.ts',
+    'tests/hostedQaConfig.test.ts',
+    'tests/hostedQaContracts.test.ts',
   ],
   'deployment/**': [
     'tests/publicProspect.test.ts',

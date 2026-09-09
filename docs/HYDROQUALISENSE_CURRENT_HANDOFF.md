@@ -56,13 +56,15 @@ Render start: npm start
 DB promotion: explicit guarded qa:db:push / qa:db:reset only
 ```
 
-For an application/runtime-bearing QA release with a newer migration, sequence it as:
+For every push to protected `main`, `.github/workflows/qa-release.yml` now performs the routine QA release sequence:
 
-`merge -> QA app deploy -> guarded QA DB promotion -> verify exact app SHA + migration parity -> manual Hosted QA dispatch`
+`merge -> classify exact SHA/migration -> read QA parity -> wait for exact QA Render health -> guarded QA DB promotion when behind -> independently verify QA parity -> reusable Hosted QA when application/runtime/migration-bearing`
 
-If merged application/runtime-bearing `main` contains a newer migration than live QA and QA writes are already authorized, guarded QA DB promotion is an immediate prerequisite. Do not run Hosted QA or another DB-dependent hosted certification first and then diagnose the predictable stale-DB failure.
+The workflow waits for `/api/health` to report `environment=qa`, deployment `qa-hydroqualisense`, the exact repository SHA, and the repository-derived migration level before any automatic migration promotion. It links only QA `vrpuznofrntyqsbugrib`, invokes the existing `qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa` wrapper, and compares the complete local/remote migration history independently before allowing Hosted QA. A Render timeout/identity mismatch, missing protected secret, Supabase auth/link failure, wrapper refusal, migration failure, parity failure, or Hosted QA failure stops the chain.
 
-Docs-only/CI-only merges do not require another Hosted QA run merely to chase their newer repository SHA.
+Docs/tests/CI-only merges with QA already at parity perform only the protected read-only parity/boundary check. If QA is behind during such a merge—including the first merge that installs this workflow—the same automatic workflow catches up the QA database but intentionally skips an unnecessary browser certification. `workflow_dispatch` on `Protected QA Release` is available for a protected recovery/rerun; direct `Hosted QA Certification` dispatch remains a manual post-parity rerun path.
+
+The base `main` at handoff still records QA behind at `20260909053311` while the repository head is `20260909073452`. This branch adds the automation; after it is merged, the merge push is the bounded catch-up trigger. No manual terminal `qa:db:push` is part of the normal path.
 
 PR #113 made migration-level release truth repository-derived. Stale legacy migration environment values do not override the canonical repository migration head.
 
@@ -141,7 +143,7 @@ The production-host refusal and protected GitHub `qa` credential boundary remain
 
 Pre-merge `qa:demo` targets a locally built PR at `/demo` with fictional session-local data and no production Auth/Supabase/Storage/Gmail/company writes. Post-deploy `qa:hosted` targets only `https://hydroqualisense-qa.onrender.com`, uses protected GitHub `qa` environment credentials, waits for exact `/api/health` repository/deployment/migration identity for the application-bearing SHA under certification, and then exercises real authenticated routes and the safe synthetic Storage byte probe. Hosted temporary objects are namespaced and cleaned; no auditable metadata rows are created.
 
-The Hosted QA workflow is **manual `workflow_dispatch` only**. Dispatch it after the intended application/runtime-bearing QA SHA is live, any required guarded QA migration promotion is complete, and migration parity is verified. Automatic post-`main` Hosted QA was removed because it could start before the separate DB promotion step and waste a browser run on a known stale-DB state.
+The Hosted QA workflow remains manually dispatchable and is also reusable by `Protected QA Release`. Routine `main` releases reach it only after exact Render readiness and independent migration parity. Direct dispatch is a recovery/rerun path and must target an already-live exact SHA; it must not be used to bypass the protected migration gate.
 
 ## Product-truth and Settings correction
 
@@ -187,7 +189,7 @@ Reconstruction target for the certified application-bearing baseline:
 - QA Supabase project ref: `vrpuznofrntyqsbugrib`;
 - migration level: `20260909053311_company_ai_secret_key_rpc_compatibility`;
 - required non-secret identity/configuration names: `HYDROQUALISENSE_ENVIRONMENT`, `HYDROQUALISENSE_DEPLOYMENT_ID`, `HYDROQUALISENSE_QA_PROJECT_REF`, `HYDROQUALISENSE_PRODUCTION_PROJECT_REF`, `VITE_HYDROQUALISENSE_ENVIRONMENT`, `VITE_HYDROQUALISENSE_DEPLOYMENT_ID`, `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED`, `VITE_ENABLE_SAMPLE_INVOICES`;
-- required secret/configuration names only: `AI_CREDENTIALS_MASTER_KEY`, `SUPABASE_AI_SERVER_KEY`, `QA_E2E_EMAIL`, `QA_E2E_PASSWORD`, `QA_E2E_SUPABASE_PUBLISHABLE_KEY`.
+- required secret/configuration names only: `AI_CREDENTIALS_MASTER_KEY`, `SUPABASE_AI_SERVER_KEY`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `QA_E2E_EMAIL`, `QA_E2E_PASSWORD`, `QA_E2E_SUPABASE_PUBLISHABLE_KEY`.
 
 Rollback remains application-build rollback only when compatible with the forward database state. Applied migrations are forward-only; no production rollback or promotion was attempted.
 

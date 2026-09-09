@@ -57,7 +57,7 @@ Free-tier alternatives that are technically available may still be required when
 - guarded QA-only migration promotion completed through `npm.cmd run qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa`
 - live QA migration history independently matches repository migration head `20260909053311`
 
-For QA certification, application deployment and migration promotion remain separate release actions but must be sequenced correctly. When an application/runtime-bearing merged `main` contains a newer migration than live QA and QA writes are authorized, promote QA immediately through the guarded wrapper and verify parity **before** Hosted QA or other DB-dependent hosted certification. Do not spend a hosted run proving an already-known stale-DB mismatch.
+For QA certification, application deployment and migration promotion remain separate release actions but are now orchestrated automatically by `.github/workflows/qa-release.yml`. Every protected `main` push derives the repository migration head, reads QA parity, waits for exact QA Render health, promotes QA through the guarded wrapper only when behind, independently verifies complete migration parity, and then invokes reusable Hosted QA for application/runtime- or migration-bearing changes. Docs/tests/CI-only changes with QA already at parity stop after the protected read-only check. Do not spend a hosted run proving an already-known stale-DB mismatch.
 
 ## Certified application deployment gate — PASS
 
@@ -101,7 +101,7 @@ HydroQualiSense intentionally uses two browser-validation layers:
 1. **Local PR/demo QA** builds the checked-out PR, serves the isolated `/demo` workspace locally, uses fictional session-local data, and performs deterministic rendering/navigation/interaction checks. It does not mount production Auth, Supabase queries, Storage, Gmail authorization, or company writes.
 2. **Hosted QA browser regression** runs only against `https://hydroqualisense-qa.onrender.com` with the protected GitHub `qa` environment credentials. It verifies the exact application-bearing repository SHA under certification, deployment identity, canonical migration level, authenticated session persistence, real route data states, and the synthetic Storage byte probe.
 
-Hosted QA is intentionally **manual `workflow_dispatch` only**. Dispatch it after the intended application/runtime-bearing QA SHA is live, any required guarded QA migration promotion is complete, and migration parity is independently confirmed. This prevents expensive browser setup and route checks from running against a knowingly stale database. Hosted mutations are limited to uniquely named temporary synthetic Storage objects, cleaned in `finally`, with no document metadata rows. Production hosts are rejected.
+Hosted QA remains directly dispatchable for manual recovery and is also called by the protected release workflow only after exact SHA readiness and independent migration parity. This prevents expensive browser setup and route checks from running against a knowingly stale database. Hosted mutations are limited to uniquely named temporary synthetic Storage objects, cleaned in `finally`, with no document metadata rows. Production hosts are rejected.
 
 ## Product-truth surface boundaries
 
