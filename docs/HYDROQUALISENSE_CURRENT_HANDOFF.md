@@ -1,200 +1,274 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — QA CERTIFICATION NOT READY (INITIALIZATION COMPLETE; EXTERNAL GATES BLOCKED)**
-Date: **2026-09-08**  
+Status: **CURRENT — QA CERTIFICATION NOT READY (EXTERNAL PROVIDER/RECOVERY GATES REMAIN)**  
+Date: **2026-09-09**  
 Repository: `Juvialski/InvoiceApp`
 
 Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`, and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`. Live repository state remains authoritative.
 
-## Current repository state
+## Exact repository baseline
 
-Runtime baseline after merged PR #108:
+Current merged `main` at this checkpoint:
 
-`32778f62d925643f9d0fa1183a40c09ffc9b812e`
+`8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba`
 
-Completed recent phases:
+There were no open PRs when this certification continuation began.
 
-- PR #95 — R5 Cross-Module Integration & Data-Contract Hardening.
-- PR #96 — Warehouse Inventory & Project Allocation.
-- PR #97 — Post-Warehouse Operational Integration.
-- PR #99 — public client funnel + isolated deployment/release productization foundation.
-- PR #100 — verified supplier invoice -> Expense repair + Client A transfer/readiness tooling.
-- PR #101 — truthful supplier Expense-link readiness, guarded legacy re-review, explicit QA deployment identity, QA database push/reset wrappers, QA inventory template, and QA runbook guidance.
-- PR #103 — streamlined supplier invoice repair UX with inline canonical Vendor resolution, human-confirmed Expense description repair, direct guarded posting, clearer delete/void/archive actions, and demo/responsive parity. Review also corrected the shared invoice/Expense permanent-delete confirmation so it remains entity-aware. No migration or database contract changed.
-- PR #105 — guarded first-company/deployment bootstrap authority for a blank isolated deployment, with idempotency, serialization, audit coverage, and browser-role execute denial.
-- PR #106 — recorded the previously blocked QA certification checkpoint.
-- PR #108 — dashboard and supplier-invoice repair regressions; exact merged head `32778f62d925643f9d0fa1183a40c09ffc9b812e`.
+Recent QA-certification hardening:
 
-PR #103 final exact head `722798b0e485c8288304e2e145db2de4528d2634` passed all four protected checks before squash merge:
+- PR #109 — QA identity, exact initial-operator AI bootstrap, hosted certification hardening, and bounded invalid-credential recovery.
+- PR #110 — hosted QA authentication persistence fails closed.
+- PR #111 — Hosted QA Certification bound to the exact workflow SHA.
+- PR #112 — route-readiness stabilization, valid Engineering Storage byte probe, uploader-scoped orphan cleanup, and migration `20260908235742_engineering_document_unlinked_storage_cleanup`.
+- PR #113 — repository-derived migration-level truth in `/api/health` and Hosted QA; manual migration timestamp bookkeeping is no longer release authority.
 
-- Application Validation & Build;
-- Database Migrations & Upgrade Suite;
-- chromium-demo-qa;
-- Graph and Source Contract Consistency.
+PR #113 was reviewed at exact final head and merged only after all four protected checks passed. Its database suite successfully completed isolated local Supabase startup, clean migration replay, pgTAP, and historical upgrade-path validation.
 
-The exact-head database suite included static migration invariants, isolated local Supabase startup, clean migration replay, pgTAP schema assertions, and the historical-data upgrade-path suite.
-
-## Live deployment topology
+## Deployment topology
 
 HydroQualiSense remains:
 
 `one source repository -> many isolated client deployments`
 
-Supabase connector, public health, repository state, and QA runtime state were re-verified on 2026-09-08. Codex performed only the approved QA migration, bootstrap, synthetic QA workflow, and rollback-scoped authorization probes. Production remained read-only.
+Each operational deployment remains:
 
-### Client A production
+`one deployment -> one client company -> active membership/RBAC -> permitted workflows`
 
-- public URL: `https://hydroqualisense.com`
-- Supabase project ref: `qijjshdwiylojvqojxyz`
-- operational role: real Client A production
-- current project health: `ACTIVE_HEALTHY`
-- a read-only query during this checkpoint observed the actual latest migration as `20260908051740_deployment_bootstrap_authority`;
-- production `/api/health` returned HTTP 200 but still reports repository SHA `8c74bf1101aaad92d7e05170f7898be5988f881d` and migration level `20260908005120`, stale relative to the observed database head and requiring separate operator-controlled reconciliation;
-- public prospect funnel must remain disabled unless a future explicit production decision changes that.
-- production data must never be copied into QA merely for demos/testing.
-- during the QA certification phase, production Supabase is **read-only by default**. Do not perform DDL/DML, reset, seed, Auth/Storage mutations, secret/config writes, or side-effecting RPC calls unless a separate explicit production change is approved.
-
-Recommended explicit production identity values:
-
-```text
-HYDROQUALISENSE_ENVIRONMENT=production
-HYDROQUALISENSE_DEPLOYMENT_ID=client-a-prod
-VITE_HYDROQUALISENSE_ENVIRONMENT=production
-VITE_HYDROQUALISENSE_DEPLOYMENT_ID=client-a-prod
-VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=false
-VITE_ENABLE_SAMPLE_INVOICES=false
-HYDROQUALISENSE_MIGRATION_LEVEL=20260908051740
-```
-
-Do not place secret values in repository documentation.
+Unrelated clients do not share operational databases, Auth, Storage, or secrets.
 
 ### QA
 
-- Render URL: `https://hydroqualisense-qa.onrender.com`
-- Supabase project ref: `vrpuznofrntyqsbugrib`
-- role: isolated QA + temporary demo environment
-- current project health: `ACTIVE_HEALTHY`
-- current state after the guarded push: `ACTIVE_HEALTHY`, one confirmed Auth user, the complete repository migration chain through `20260908051740_deployment_bootstrap_authority`, one synthetic QA company/configuration/admin membership/audit, and synthetic supplier-review data only;
-- QA `/api/health` currently returns HTTP 200 with repository SHA `32778f62d925643f9d0fa1183a40c09ffc9b812e`, `environment=qa`, deployment ID `qa-hydroqualisense`, migration level `20260908051740`, and null configuration version;
-- an authenticated QA browser session is now available for `alpogimatubis14344@gmail.com`; the browser visibly reports `QA ENVIRONMENT · SYNTHETIC DATA ONLY`, `qa-hydroqualisense`, the synthetic QA company, and Company Admin access;
-- authenticated direct navigation and refresh checks passed for `/dashboard`, `/projects`, `/expenses`, `/procurement`, `/warehouse`, `/payroll`, and `/settings`; no PR #108 dashboard crash text or visible application error signal was observed;
-- the normal Engineering Documents workflow uploaded and reopened synthetic `QA-E2E-STORAGE-20260908.pdf` as document `QA-E2E-STORAGE-20260908`; the persisted one-page revision opened successfully. The clearly labeled synthetic QA evidence remains retained. Wrong-company byte denial was not separately exercised because this deployment has one company and one available session;
-- QA initialization/bootstrap is complete. Current blockers are provider Auth checks, configuration-version/release evidence, migration-promotion controls, and database/Storage/deployment/secret recovery evidence.
-- QA remains the only authorized read/write environment for bounded certification probes and synthetic QA data; do not repeat initialization unless a newer approved migration requires it.
+- URL: `https://hydroqualisense-qa.onrender.com`
+- Render service: `hydroqualisense-qa`
+- Supabase ref: `vrpuznofrntyqsbugrib`
+- role: isolated QA + temporary synthetic demo environment
+- Supabase project status: `ACTIVE_HEALTHY`
+- exact live Render deploy: `8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba`
+- observed QA migration head: `20260908235742_engineering_document_unlinked_storage_cleanup`
 
-Recommended explicit QA identity values:
+No migration push/reset was run simply because certification resumed. QA already matched the approved repository migration chain.
+
+Current live QA data-level facts:
+
+- one synthetic deployment company and singleton deployment configuration;
+- two Auth users and two active company memberships at this checkpoint;
+- no current `company_ai_settings` / configured AI credential for the synthetic QA company;
+- `bootstrap_deployment_company(...)` and `bootstrap_deployment_company_ai_credential(...)` remain service-role-only `SECURITY DEFINER` functions.
+
+Do not copy production financial, payroll, worker, Auth, document, or Storage data into QA.
+
+### Client A production
+
+- URL: `https://hydroqualisense.com`
+- Supabase ref: `qijjshdwiylojvqojxyz`
+- role: real Client A production
+- Supabase project status: `ACTIVE_HEALTHY`
+- read-only observed database migration head on 2026-09-09: `20260908235742_engineering_document_unlinked_storage_cleanup`
+
+Production inspection in this continuation was SELECT/read-only only. No production DDL/DML, Auth/Storage mutation, secret/config write, reset, seed, or side-effecting RPC call was performed by ChatGPT.
+
+A fresh production `/api/health` response body was not available through the connected runtime tools during this checkpoint, so do not infer current production Render release identity from database state alone.
+
+## Release / migration truth — PASS
+
+PR #113 removed the repeated migration-level bookkeeping hazard:
+
+- application release metadata derives the expected migration level from canonical `supabase/migrations/*.sql` filenames in the exact repository checkout;
+- Hosted QA derives its expected migration level from that same exact checkout;
+- stale legacy migration env values do not override repository truth.
+
+Database migration promotion remains independently verified against the live database migration history.
+
+## Routine app deploy vs migration promotion — PASS
+
+Connected Render QA configuration currently shows:
 
 ```text
-HYDROQUALISENSE_ENVIRONMENT=qa
-HYDROQUALISENSE_DEPLOYMENT_ID=qa-hydroqualisense
-HYDROQUALISENSE_QA_PROJECT_REF=vrpuznofrntyqsbugrib
-HYDROQUALISENSE_PRODUCTION_PROJECT_REF=qijjshdwiylojvqojxyz
-VITE_HYDROQUALISENSE_ENVIRONMENT=qa
-VITE_HYDROQUALISENSE_DEPLOYMENT_ID=qa-hydroqualisense
-VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED=false
-VITE_ENABLE_SAMPLE_INVOICES=false
+build: npm install && npm run build
+start: npm start
+branch: main
+auto deploy: yes
 ```
 
-The QA Supabase Auth Site URL / redirect allow-list should point to `https://hydroqualisense-qa.onrender.com` for hosted confirmation/reset flows. This provider-side setting is manual and is not controlled by repository migrations.
+Repository scripts show:
 
-## QA certification checkpoint — 2026-09-08
+```text
+build -> theme build + vite build + esbuild server bundle
+start -> node dist/server.cjs
+qa:db:push -> guarded Supabase QA migration wrapper
+qa:db:reset -> separately guarded QA reset wrapper
+```
+
+No migration promotion command is in routine Render build/start. App redeploy and database promotion remain separate decisions. Preserve this contract.
+
+## Hosted QA evidence
+
+The latest completed manual Hosted QA Certification artifact still belongs to older SHA `61addbfabf12493ef115e248c246f0b919aa8014`, so it cannot certify current `main`.
+
+That older run established useful historical evidence:
+
+- email/password auth preflight: PASS;
+- persisted auth after reload: PASS;
+- fresh-navigation auth persistence: PASS;
+- health/deployment identity for that old exact SHA: PASS;
+- five of seven route-readiness checks: PASS;
+- two route-readiness failures had HTTP 200, correct final paths, and no crash text/page error/console error/failed-request signal;
+- old Storage probe: FAIL.
+
+PR #112 specifically replaced the brittle readiness timing and repaired the Storage probe to use a valid Engineering Document/Revision fixture and authorized byte upload/read. Those fixes are now merged and live.
+
+**Still required:** dispatch a brand-new manual `Hosted QA Certification` workflow on current exact `main` and retain the artifact showing all seven authenticated routes plus Storage byte probe PASS. The connected GitHub capability used in this session can inspect/rerun existing jobs but cannot initiate a new `workflow_dispatch`; do not rerun an older SHA and call it current evidence.
+
+## Supabase Auth provider state — BLOCKER
+
+Fresh QA security-advisor output on 2026-09-09 still reports:
+
+`Leaked Password Protection Disabled` — WARN
+
+The current connected Supabase tools do not expose the provider Auth Site URL, redirect allow-list, or password-security settings for read/write management.
+
+Before READY, an authorized operator must verify in the QA Supabase dashboard/provider configuration:
+
+1. Site URL = `https://hydroqualisense-qa.onrender.com`.
+2. Redirect allow-list covers the approved hosted confirmation/recovery URLs.
+3. Leaked-password protection is enabled.
+4. Fresh advisor/provider evidence is retained after the change.
+
+Unavailable provider evidence is not a pass.
+
+## QA initial AI bootstrap — BLOCKER
+
+The repository-side AI bootstrap contract exists and its privileged database function is service-role-only, but live QA has no configured AI credential/settings record yet.
+
+Required before READY:
+
+1. initial authorized QA operator opens Settings → Deployment AI bootstrap;
+2. submits an approved QA Gemini credential through the normal authenticated server workflow;
+3. server encrypts and stores only the credential envelope;
+4. provider validation is run and the bounded status is recorded;
+5. no plaintext key is put in SQL, repository files, browser storage, logs, or handoff documentation.
+
+Merged PR #109's bounded recovery path remains the authority if the initial credential is invalid.
+
+## Recovery evidence — BLOCKER
+
+The Supabase organization is currently on the **Free** plan.
+
+Current provider documentation says:
+
+- automatic daily backups are provided for Pro/Team/Enterprise projects;
+- Free projects should regularly create their own off-site database exports;
+- database backups do not restore Supabase Storage object bytes.
+
+Current QA application recovery records are also empty:
+
+```text
+database_backup_runs = 0
+database_restore_drills = 0
+document_backup_replicas = 0
+```
+
+These empty tables do not prove provider backup absence or presence, but they provide no recovery certification evidence.
+
+Before READY obtain and retain:
+
+1. current off-site PostgreSQL backup/export for QA;
+2. isolated PostgreSQL restore drill;
+3. separate Storage-object backup;
+4. byte-level Storage restore drill with permission/path behavior checked;
+5. Render/Supabase/provider configuration and required-secret recovery ownership/inventory, names only in repo evidence;
+6. deployment reconstruction/rollback evidence using the approved SHA and migration state.
+
+Never treat database backup as Storage backup.
+
+## Security advisor context
+
+Fresh QA advisor inventory currently reports:
+
+- 7 INFO RLS-enabled/no-policy tables;
+- 2 WARN anonymous `SECURITY DEFINER` functions;
+- 153 WARN authenticated `SECURITY DEFINER` functions;
+- 1 WARN leaked-password protection disabled.
+
+Known context:
+
+- `public.rls_auto_enable()` is provider-owned rather than repository-owned.
+- `submit_public_prospect(...)` is intentionally anonymous but remains behind the separate public-prospect database gate, which is not authorized for general QA use merely because QA exists.
+- many authenticated `SECURITY DEFINER` RPCs are deliberately callable entrypoints and rely on explicit grants plus internal membership/permission guards.
+
+Do not weaken RLS/RBAC or change function security semantics simply to reduce advisor counts. The leaked-password provider warning is a concrete unresolved configuration gate.
+
+## QA certification verdict
 
 `QA CERTIFICATION: NOT READY`
 
-The current working-tree hardening branch is based on merged PR #108 and is not deployed to QA yet. It adds a forward company-document identity seed correction, fail-closed incomplete-profile buyer checks, an exact-initial-operator server-encrypted AI bootstrap workflow, preflight-before-budget AI request handling, and a manual-only authenticated Playwright certification harness. These changes must not be counted as hosted QA evidence until merged and deliberately deployed.
+### Passed / verified
 
-The installed Supabase CLI was `2.117.0` and authenticated. The QA wrapper rejected the production ref before CLI invocation, linked exactly `vrpuznofrntyqsbugrib`, and initially failed on Windows because `execFileSync("npx.cmd", ...)` returned `EINVAL`. The focused wrapper fix invokes `npx.cmd` through `ComSpec`; the guarded push then completed the full approved chain through `20260908051740_deployment_bootstrap_authority`.
+- exact current `main` and live QA deploy match;
+- QA Supabase healthy;
+- QA migration history independently matches repository migration head `20260908235742`;
+- no unnecessary QA migration push/reset was performed;
+- repository-derived migration-level bookkeeping is live;
+- routine app deploy is separated from deliberate migration promotion;
+- QA provider security advisor was freshly re-checked;
+- AI bootstrap DB privilege boundary remains service-role-only;
+- live QA AI bootstrap state was checked and is truthfully unconfigured;
+- production Supabase was re-checked read-only and remains healthy;
+- production database head was observed read-only at `20260908235742`.
 
-Bootstrap used `public.bootstrap_deployment_company(...)` with the existing confirmed Auth user and synthetic QA identity. Verification observed exactly one company, one singleton configuration, one active confirmed `COMPANY_ADMIN` membership, and one bootstrap audit. Exact retry returned `idempotent=true`; a conflicting retry failed closed with SQLSTATE `55000`; `anon` and `authenticated` lacked execute while `service_role` had execute.
+### Blocking READY
 
-Runtime RLS/RBAC/RPC probes passed for active admin access, missing membership, rollback-scoped suspended membership, rollback-scoped `VIEWER` permission limits, anonymous REST denial, wrong-company Storage insert denial, and guarded supplier posting. The synthetic supplier workflow created exactly one `4321.50 PHP` Expense projected to the synthetic QA project; retry was idempotent, and a deliberate VOID retained the row with one `EXPENSE_VOIDED` audit event. The synthetic project used `NON_VAT` only as an explicit fixture value; this is not a production tax-policy decision.
+1. QA Supabase Auth Site URL / redirect evidence.
+2. QA leaked-password protection enabled and verified.
+3. successful current-head manual Hosted QA Certification artifact after PR #112/#113.
+4. live QA initial AI bootstrap + provider validation.
+5. off-site PostgreSQL backup + isolated restore drill.
+6. separate Storage-object backup + byte-level restore drill.
+7. deployment/configuration/required-secret recovery evidence.
 
-Storage metadata showed four private buckets: `email-originals`, `engineering-documents`, `invoice-originals`, and `payroll-import-sources`. Company-prefixed policy simulation passed. The authenticated QA browser uploaded and reopened synthetic `QA-E2E-STORAGE-20260908.pdf` through Engineering Documents; wrong-company byte denial and provider recovery evidence remain unverified.
+Do **not** start Worker Registration until these required certification gates are closed and the status is deliberately changed to `QA CERTIFICATION: READY`.
 
-Security advisors after initialization reported 7 INFO `rls_enabled_no_policy` notices, 2 WARN anonymous `SECURITY DEFINER` notices, 153 WARN authenticated `SECURITY DEFINER` notices, and 1 WARN for disabled Auth leaked-password protection. `public.rls_auto_enable()` is a provider-owned event-trigger function absent from the repository; `submit_public_prospect` is an intentional anonymous-only RPC with the QA database gate verified `enabled=false`. The remaining provider Auth warning requires explicit operator confirmation and is not waived.
+## Immediate operator sequence to reach READY
 
-Remaining blockers and exact actions:
+1. QA Supabase Dashboard → Auth URL configuration: verify QA Site URL and approved redirect URLs.
+2. QA Supabase Auth password/security settings: enable leaked-password protection; retain evidence; re-run security advisor.
+3. In authenticated QA Settings, complete Deployment AI bootstrap with the approved QA Gemini credential and run provider validation.
+4. GitHub Actions → manually dispatch `Hosted QA Certification` on current `main`; require health, 7/7 routes, and Storage PASS; retain the generated artifact.
+5. Create an off-site QA database dump and restore it to an isolated recovery target.
+6. Back up representative QA Storage object bytes separately and complete an isolated restore/read/hash/permission drill.
+7. Record deployment reconstruction/rollback and required configuration/secret ownership without recording secret values.
+8. Re-check exact `main`, Render QA deploy, QA migration history, Auth advisor, current Hosted QA artifact, recovery evidence, and production separation.
+9. Only then set `QA CERTIFICATION: READY` and prepare Worker Registration immediately.
 
-- PASS: QA `/api/health` now reports `qa-hydroqualisense`, repository SHA `32778f62d925643f9d0fa1183a40c09ffc9b812e`, and migration level `20260908051740`. Configuration version remains null and must remain unknown until an approved value exists.
-- In QA Supabase Auth, set the Site URL and redirect allow-list for `https://hydroqualisense-qa.onrender.com`, and enable leaked-password protection. Record provider evidence.
-- PASS for this checkpoint: the existing authenticated QA user verified hosted deep links, Company Admin access, major read paths, and synthetic Storage byte upload/read. A lower-permission session and wrong-company byte probe were not created because they require additional Auth/company setup.
-- Obtain separate PostgreSQL backup/restore, Storage-object recovery, deployment reconstruction/rollback, and required secret/configuration recovery evidence. App-level recovery tables are empty and do not prove provider recovery.
-- Inspect the Render service’s external pre-deploy/release command. The repository `build`/`start` paths contain no migration push; routine application redeploy must not run database promotion. Move migration promotion to an explicit, separately approved QA/production operation.
+## Next phase after READY — Worker Registration foundation
 
-Production remained read-only throughout this run. Codex caused no production mutation. Worker Registration remains blocked until a later run reaches `QA CERTIFICATION: READY`.
+Target:
 
-## Supplier invoice -> Expense status
+`project/site QR -> PENDING worker submission -> supervisor/admin duplicate/identity/project review -> canonical Worker/payroll/project assignment`
 
-PR #101 established truthful posting readiness and guarded legacy repair. PR #103 makes that repair path direct and understandable without weakening the same financial/source-of-truth boundaries.
+Rules:
 
-Current rule:
+- registration starts `PENDING`;
+- ambiguous duplicates/identity require human review;
+- approval creates or links canonical workforce truth;
+- project/site assignment and approval history remain auditable;
+- uploaded image is evidence/enrollment input, not authoritative identity by itself;
+- no face-recognition implementation is authorized in this phase.
 
-- supplier invoice remains preserved source evidence;
-- Expense remains the authoritative payable / Actual Cost row;
-- `READY_TO_LINK` requires the guarded posting facts to be resolved, including canonical Vendor identity, invoice number/date/currency/positive total, Expense category/description, buyer compatibility, and valid allocation context where present;
-- an already-verified invoice without an active Expense may be deliberately reopened to resolve missing facts;
-- canonical Vendor selection/creation and Expense-description repair require explicit human confirmation;
-- once complete, the guarded posting action is available directly from Supplier Review;
-- an invoice with an active linked Expense cannot be reopened through ordinary source editing;
-- invoice lifecycle actions remain guarded and distinguish permanent deletion of truly unused records from voiding and visibility-only archive/restore;
-- posting remains idempotent and must not create duplicate Actual Cost/payable truth.
-
-The production example that exposed the issue had valid project allocation but unresolved canonical Vendor and Expense description. Do not hard-code or silently auto-repair that production row; resolve it through the human review workflow.
-
-## NEXT — complete QA certification
-
-This is the immediate next bounded phase before Worker Registration.
-
-Remaining goals:
-
-1. verify QA Render reports the intended `qa` environment, `qa-hydroqualisense` deployment ID, truthful migration level, and any approved configuration version;
-2. verify QA Supabase Auth Site URL/redirect allow-list and leaked-password protection with provider evidence;
-3. use the confirmed QA user to verify hosted authenticated deep links, major read paths, effective permissions, and byte-level Storage upload/read using synthetic data only;
-4. investigate material Supabase advisor findings against the initialized schema without weakening RLS/RBAC or broadening privileged function grants;
-5. obtain separate database recovery, Storage-object recovery, deployment reconstruction/rollback, and required secret/configuration recovery evidence;
-6. inspect and harden the external Render migration-promotion path so routine app redeploy cannot silently decide DB promotion;
-7. re-confirm Client A production health/migration state read-only and unchanged.
-
-The full migration chain is already applied through `20260908051740_deployment_bootstrap_authority`. Do not rerun `qa:db:push` solely because certification continues. Use the guarded wrapper again only if a newer approved merged migration must be applied, after re-verifying the exact QA target and current wrapper/CLI help. Never run QA wrappers against Client A production.
-
-## After QA is healthy
-
-Continue in this order unless the user reprioritizes:
-
-1. Worker Registration foundation — project/site QR -> `PENDING` worker submission -> supervisor/admin duplicate/identity/project review -> canonical Worker/payroll/project linkage.
-2. Site Attendance state machine + registered site/device + correction/offline/duplicate-punch semantics.
-3. Face Recognition only after explicit consent/privacy, retention/deletion, liveness, confidence/fallback, device binding, offline/concurrency and payroll-boundary design.
-4. other client-confirmed requirements.
-5. final pre-production security/data-integrity certification before broad multi-client rollout.
+After Worker Registration, proceed to Site Attendance state machine/device registration, then Face Recognition only after explicit privacy/security/retention/liveness/confidence/fallback design.
 
 ## Permanent invariants
 
 1. `one deployment -> one client company -> active membership/RBAC -> permitted workflows`.
-2. One repository may serve many isolated deployments; unrelated clients do not share operational databases.
-3. Keep company-scoped RLS, permissions, company-bound integrity, audit history, and company-prefixed Storage paths.
-4. Supplier evidence linked to an Expense must not become duplicate payable/Actual Cost truth.
-5. Actual Cost and Committed Cost remain distinct.
-6. Client Invoices/Collections remain distinct from supplier obligations/project Actual Cost.
-7. Preserve original currency and never invent FX.
-8. Finalized/verified/issued/paid/collected/voided/reversed history changes only through deliberate auditable lifecycle/correction paths.
-9. Imported/AI identity is evidence, not automatically canonical identity when ambiguous.
-10. Inventory stock remains explainable from authoritative movements.
-11. Biometric attendance requires explicit privacy/identity/device/correction/audit semantics before production use.
+2. Keep company-scoped RLS, permission checks, company-bound integrity, audit boundaries, and company-prefixed Storage paths.
+3. Supplier invoice evidence linked to Expense must not duplicate Actual Cost/payable truth.
+4. Actual Cost and Committed Cost remain distinct.
+5. Client billing/collections remain distinct from supplier obligations and project Actual Cost.
+6. Preserve original currency; never invent FX.
+7. Finalized/auditable financial, inventory, engineering, payroll, document, and future attendance history changes only through deliberate lifecycle/correction paths.
+8. Imported/AI identity is evidence when ambiguous, not canonical truth by default.
+9. Inventory balances remain explainable from authoritative movements.
+10. Biometric attendance requires explicit privacy, identity, retention/deletion, device, correction, liveness, confidence/fallback, and audit semantics before production use.
+11. Consequential AI mutations preserve prepare/validate/human-confirm/execute boundaries.
 
 Still unresolved by design: VAT rate, VAT-inclusive vs VAT-exclusive contract value, withholding/BIR classification, automatic/external FX-provider policy, and broader accounting-period policy. Do not infer them.
-
-## Fresh-session bootstrap
-
-For the next chat/session:
-
-1. inspect exact current `main`, open PRs, and exact-head CI;
-2. read live `AGENTS.md`;
-3. read `docs/AGENT_EXECUTION_EFFICIENCY.md`;
-4. read `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-5. read this handoff and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`;
-6. inspect live QA Supabase migration/state before assuming initialization or certification state;
-7. treat QA as the only read/write Supabase target for the certification phase and production as read-only by default;
-8. generate one bounded `agent:context` packet if implementation is required;
-9. use Docker/local Supabase when a DB contract/migration must change; do not rerun broad historical validation merely because a new phase starts;
-10. validate focused -> affected, then exact-head CI when repository changes are made;
-11. local Codex opens PRs but does not merge its own PR; ChatGPT reviews and merges safe exact heads automatically.
