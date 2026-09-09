@@ -1,7 +1,9 @@
 -- Allow the existing upload-compensation path to remove only an unlinked
 -- Engineering Documents object.  Committed revision objects remain immutable:
 -- the policy rejects any object whose revision id or file path is present in
--- engineering_document_revisions.
+-- engineering_document_revisions. Cleanup is additionally limited to the
+-- authenticated user that uploaded the temporary object so another creator in
+-- the same company cannot delete a concurrent in-flight upload.
 
 create or replace function private.engineering_document_storage_object_is_unlinked(
   p_company_id uuid,
@@ -40,6 +42,7 @@ create policy "company engineering documents cleanup unlinked" on storage.object
 for delete to authenticated
 using (
   bucket_id = 'engineering-documents'
+  and owner_id = (select auth.uid()::text)
   and name ~* '^companies/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/documents/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/revisions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[A-Za-z0-9._-]+\.pdf$'
   and private.storage_company_id(name) is not null
   and (
