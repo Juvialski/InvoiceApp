@@ -21,22 +21,22 @@ export interface BrandConfig {
 export const BRAND: BrandConfig = Object.freeze({
   productName: "Hydroqualisense",
   shortName: "Hydroqualisense",
-  companyName: "Hydroqualisense",
+  companyName: "Hydroqualisense Solutions Corp.",
   logoPath: "/brand/hydroqualisense-logo.png",
   displayUppercase: "Hydroqualisense",
   canonicalOrigin: "https://hydroqualisense.com",
-  tagline: "Hydroqualisense",
-  description: "Hydroqualisense workspace for projects, finance, workforce, documents, and field operations.",
+  tagline: "Hydroqualisense Solutions Corp.",
+  description: "Hydroqualisense Solutions Corp. workspace for projects, finance, workforce, documents, and field operations.",
   assistantName: "Hydroqualisense Assistant",
-  browserTitle: "Hydroqualisense | Hydroqualisense",
-  footerText: "Hydroqualisense • Original sources & audit history",
-  companyContextLabel: "Hydroqualisense workspace",
+  browserTitle: "Hydroqualisense | Hydroqualisense Solutions Corp.",
+  footerText: "Hydroqualisense • Hydroqualisense Solutions Corp. • Original sources & audit history",
+  companyContextLabel: "Hydroqualisense Solutions Corp. workspace",
 });
 
 /**
  * Format standard browser document title.
  * E.g., formatPageTitle("Projects") => "Projects | Hydroqualisense"
- * E.g., formatPageTitle() => "Hydroqualisense | Hydroqualisense"
+ * E.g., formatPageTitle() => "Hydroqualisense | Hydroqualisense Solutions Corp."
  */
 export function formatPageTitle(pageName?: string | null): string {
   if (!pageName || pageName.trim() === "") {
