@@ -27,6 +27,14 @@ test("protected QA release workflow is push-driven, QA-environment protected, an
   assert.match(releaseWorkflow, /migration-history|migration parity|parity/i);
 });
 
+test("protected QA release serializes active promotion and correctly references pre-parity outputs", () => {
+  assert.match(releaseWorkflow, /cancel-in-progress:\s*false/);
+  assert.doesNotMatch(releaseWorkflow, /steps\.pre-parity/);
+  assert.match(releaseWorkflow, /steps\.pre_parity\.outputs\.needs_promotion/);
+  assert.match(releaseWorkflow, /migration_was_behind:\s*\$\{\{\s*steps\.pre_parity\.outputs\.needs_promotion\s*\}\}/);
+  assert.match(releaseWorkflow, /needs\.qa_release\.outputs\.migration_was_behind == 'true'/);
+});
+
 test("Hosted QA remains manually dispatchable and is reusable only after the protected release job", () => {
   assert.match(hostedWorkflow, /workflow_call:/);
   assert.match(hostedWorkflow, /workflow_dispatch:/);
