@@ -119,7 +119,7 @@ export function createDemoProjects(anchorDate: string): {
       targetEndDate: addDemoDays(anchorDate, 240),
       contractValue: undefined,
       projectBudget: 2_600_000,
-      currency: "USD",
+      currency: "PHP",
       taxTreatment: "UNCLASSIFIED",
       notes: "Pre-award planning record: contract value has not yet been recorded. Budget is an internal planning control only.",
       createdAt: demoTimestamp(addDemoDays(anchorDate, -20)),

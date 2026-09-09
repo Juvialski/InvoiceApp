@@ -7,6 +7,7 @@ const workspace = createDemoWorkspace("2026-09-09");
 test("public demo monetary source data is PHP-only", () => {
   assert.ok(workspace.invoices.length > 0);
   assert.ok(workspace.expenses.length > 0);
+  assert.ok(workspace.projects.every((project) => project.currency === "PHP"));
   assert.ok(workspace.invoices.every((invoice) => invoice.currency === "PHP"));
   assert.ok(workspace.invoices.every((invoice) => invoice.currencySymbol !== "$"));
   assert.ok(workspace.expenses.every((expense) => expense.currency === "PHP"));
