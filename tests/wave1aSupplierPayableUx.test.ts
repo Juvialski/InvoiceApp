@@ -30,6 +30,15 @@ test("Wave 1A routes carry exact Expense and Cash target identity", () => {
   assert.equal(isFinancialReconciliationCandidateLifecycleEligible({ targetType: "EXPENSE", lifecycleStatus: "DRAFT" }), false);
 });
 
+test("cash candidate builders preserve lifecycle context required by the shared settlement gate", () => {
+  assert.equal(isFinancialReconciliationCandidateLifecycleEligible({ targetType: "PAYROLL", lifecycleStatus: "APPROVED" }), true);
+  assert.equal(isFinancialReconciliationCandidateLifecycleEligible({ targetType: "PAYROLL", lifecycleStatus: "CALCULATED" }), false);
+  const app = source("src/App.tsx");
+  const demo = source("src/demo/DemoWorkspace.tsx");
+  assert.match(app, /description: "Payroll payment", lifecycleStatus: run\.status/);
+  assert.match(demo, /description: "Payroll payment", lifecycleStatus: run\.status/);
+});
+
 test("Wave 1A UI uses the existing settlement evidence and guarded Cash route", () => {
   const surface = source("src/components/SupplierInvoiceExpenseSurface.tsx");
   const card = source("src/components/FinancialSettlementCard.tsx");
