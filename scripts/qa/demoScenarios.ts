@@ -40,14 +40,16 @@ const verifyProjectFinancialControlDashboard: QaScenarioAction = async (page) =>
   ] satisfies readonly QaAssertion[];
 };
 
-const verifyMixedCurrencyProjectControlState: QaScenarioAction = async (page) => {
+const verifyPhpOnlyProjectControlState: QaScenarioAction = async (page) => {
   const mixedCurrencyCount = await page.locator("text=Mixed currencies present").count();
   const withheldChartCount = await page.locator("text=Complete budget position withheld while unconverted foreign-currency costs are present.").count();
   const partialMetricCount = await page.locator('[data-financial-metric-status="partial"]').count();
+  const availableMetricCount = await page.locator('[data-financial-metric-status="available"]').count();
   return [
-    { id: "mixed-currency-warning-visible", passed: mixedCurrencyCount > 0, details: `mixed-currency warnings: ${mixedCurrencyCount}` },
-    { id: "mixed-currency-budget-chart-withheld", passed: withheldChartCount > 0, details: `withheld budget chart messages: ${withheldChartCount}` },
-    { id: "mixed-currency-metrics-marked-partial", passed: partialMetricCount > 0, details: `partial financial metrics: ${partialMetricCount}` },
+    { id: "php-only-mixed-currency-warning-absent", passed: mixedCurrencyCount === 0, details: `mixed-currency warnings: ${mixedCurrencyCount}` },
+    { id: "php-only-budget-chart-not-withheld", passed: withheldChartCount === 0, details: `withheld budget chart messages: ${withheldChartCount}` },
+    { id: "php-only-financial-metrics-not-partial", passed: partialMetricCount === 0, details: `partial financial metrics: ${partialMetricCount}` },
+    { id: "php-only-financial-metrics-available", passed: availableMetricCount > 0, details: `available financial metrics: ${availableMetricCount}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -258,7 +260,7 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.laptop, action: verifyProjectFinancialControlDashboard }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.tablet, action: verifyProjectFinancialControlDashboard }),
   defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "financial control dashboard verified", viewport: QA_VIEWPORTS.mobile, action: verifyProjectFinancialControlDashboard }),
-  defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: "/demo/app/projects/demo-project-solar", interactionState: "mixed-currency control state verified", viewport: QA_VIEWPORTS.desktop, action: verifyMixedCurrencyProjectControlState }),
+  defineQaScenario({ feature: "project-financial-control", route: route("project-financial-control", "/projects/:projectId"), path: "/demo/app/projects/demo-project-solar", interactionState: "mixed-currency control state verified", viewport: QA_VIEWPORTS.desktop, action: verifyPhpOnlyProjectControlState }),
   defineQaScenario({ feature: "project-workspace", route: route("project-overview", "/projects/:projectId"), path: PROJECT_ROOT, interactionState: "base route loaded", viewport: QA_VIEWPORTS.tablet }),
   defineQaScenario({ feature: "project-workspace", route: route("project-documents", "/projects/:projectId/documents"), path: `${PROJECT_ROOT}/documents`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "project-workspace", route: route("project-documents", "/projects/:projectId/documents"), path: `${PROJECT_ROOT}/documents`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.mobile }),
