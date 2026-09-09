@@ -35,6 +35,13 @@ test("protected QA release serializes active promotion and correctly references 
   assert.match(releaseWorkflow, /needs\.qa_release\.outputs\.migration_was_behind == 'true'/);
 });
 
+test("a newer main SHA can supersede Hosted QA without cancelling an in-flight database promotion", () => {
+  assert.match(releaseWorkflow, /id:\s*final_identity/);
+  assert.match(releaseWorkflow, /release_still_current:\s*\$\{\{\s*steps\.final_identity\.outputs\.release_still_current\s*\}\}/);
+  assert.match(releaseWorkflow, /Hosted QA superseded/);
+  assert.match(releaseWorkflow, /needs\.qa_release\.outputs\.release_still_current == 'true'/);
+});
+
 test("Hosted QA remains manually dispatchable and is reusable only after the protected release job", () => {
   assert.match(hostedWorkflow, /workflow_call:/);
   assert.match(hostedWorkflow, /workflow_dispatch:/);
