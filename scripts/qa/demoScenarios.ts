@@ -190,10 +190,16 @@ const verifyProcurementSubcontractParity: QaScenarioAction = async (page) => {
 const verifySettingsScreen: QaScenarioAction = async (page) => {
   const settingsHeading = await page.getByRole("heading", { name: "Operational settings", exact: true }).count();
   const regionalPreferences = await page.getByRole("heading", { name: "Regional display preferences", exact: true }).count();
+  const roadmapHeading = await page.getByRole("heading", { name: "HydroQualiSense Features & Roadmap", exact: true }).count();
+  const plannedWorkerRegistration = await page.locator('[data-product-feature-id="worker-registration"][data-product-feature-status="PLANNED"]').count();
+  const futureFaceAttendance = await page.locator('[data-product-feature-id="face-recognition-attendance"][data-product-feature-status="FUTURE_DESIGN"]').count();
   const internalFeatureRegistry = await page.locator('[aria-label="Internal feature registry"]').count();
   return [
     { id: "settings-heading-visible", passed: settingsHeading === 1, details: `settings headings: ${settingsHeading}` },
     { id: "regional-preferences-visible", passed: regionalPreferences === 1, details: `regional preference headings: ${regionalPreferences}` },
+    { id: "client-roadmap-visible", passed: roadmapHeading === 1, details: `client roadmap headings: ${roadmapHeading}` },
+    { id: "planned-worker-registration-visible", passed: plannedWorkerRegistration === 1, details: `Worker Registration cards: ${plannedWorkerRegistration}` },
+    { id: "future-face-attendance-visible", passed: futureFaceAttendance === 1, details: `Future / Design Stage cards: ${futureFaceAttendance}` },
     { id: "internal-feature-registry-hidden", passed: internalFeatureRegistry === 0, details: `internal feature registry panels: ${internalFeatureRegistry}` },
   ] satisfies readonly QaAssertion[];
 };

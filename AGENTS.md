@@ -270,6 +270,15 @@ Never use CI from an older head as proof for a newer head. Do not merge with a r
 
 Do not weaken branch protection merely to bypass a required independent approval. If GitHub requires another reviewer and the connected identity cannot self-approve, complete every other safe step and report that exact external gate.
 
+## Client-facing Features & Roadmap synchronization
+
+For applicable product feature work, the `HydroQualiSense Features & Roadmap` section in Settings must remain synchronized with actual product state. Live implementation and `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md` remain development sources of truth; the Settings roadmap is their client-friendly representation.
+
+- When a feature shown as `Planned` or `Future / Design Stage` is completed, the same PR must review and update its Settings status and description. Mark it `Available` only when the usable production-facing workflow is complete; backend-only scaffolding, migrations, hidden infrastructure, or incomplete UI flows are insufficient.
+- Update an Available description when a material expansion changes what users can do. Update planned/future documentation whenever the approved roadmap changes; remove or correct stale promises when a feature is cancelled, replaced, renamed, split, or materially redesigned.
+- During final diff review ask: `Does this implementation require a Settings Features & Roadmap status or description update?` Applicable synchronization is part of Definition of Done.
+- Never copy internal engineering information into the client-facing roadmap, including PRs, migration names, CI/workflow status, QA certification terminology, Git SHAs, Codex/agent/subagent terminology, test commands, implementation notes, or internal security mechanics.
+
 ## Prompt creation
 
 Every substantial implementation prompt should carry forward:
