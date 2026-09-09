@@ -1,0 +1,100 @@
+name: PHP-only demo currency recovery
+
+on:
+  push:
+    branches:
+      - fix/php-only-demo-reporting
+    paths:
+      - .github/workflows/php-demo-currency-recovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/php-only-demo-reporting
+          fetch-depth: 0
+      - name: Convert remaining demo USD sources to PHP
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_exact(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"Expected text not found in {path}: {old[:120]!r}")
+              p.write_text(text.replace(old, new), encoding="utf-8")
+
+          # Supplier demo invoice 17 already had an explicit approved demo conversion
+          # snapshot at 56.25 PHP/USD. Store the fictional sample natively in PHP so
+          # report grouping no longer exposes an artificial USD bucket.
+          replace_exact(
+              "src/demo/data/invoices.ts",
+              '  currency?: string;\n  currencySymbol?: string;\n',
+              '',
+          )
+          replace_exact(
+              "src/demo/data/invoices.ts",
+              '  { id: "17", number: "PET-69318", vendor: "prime", projectId: DEMO_PROJECT_IDS.solar, daysAgo: 3, dueInDays: 30, gross: 843_215.28, status: "PENDING", reviewStatus: "NEEDS_REVIEW", description: "Underground conduits, cable markers, grounding materials, and pull boxes", category: "Electrical", currency: "USD", currencySymbol: "$" },',
+              '  { id: "17", number: "PET-69318", vendor: "prime", projectId: DEMO_PROJECT_IDS.solar, daysAgo: 3, dueInDays: 30, gross: 47_430_859.50, status: "PENDING", reviewStatus: "NEEDS_REVIEW", description: "Underground conduits, cable markers, grounding materials, and pull boxes", category: "Electrical" },',
+          )
+          replace_exact(
+              "src/demo/data/invoices.ts",
+              '      currency: spec.currency || "PHP",\n      currencySymbol: spec.currencySymbol || "₱",',
+              '      currency: "PHP",\n      currencySymbol: "₱",',
+          )
+
+          # The two fictional foreign-currency expenses use the same existing demo
+          # conversion rate (56.25 PHP/USD): 11.72 -> 659.25 and 2450 -> 137812.50.
+          replace_exact(
+              "src/demo/data/financial.ts",
+              '  const rows: Array<[string, string | undefined, number, string, string, string, Expense["status"], string?]> = [',
+              '  const rows: Array<[string, string | undefined, number, string, string, string, Expense["status"]]> = [',
+          )
+          replace_exact(
+              "src/demo/data/financial.ts",
+              '    ["19", undefined, 11.72, "Foreign supplier review", "Small foreign-currency software and document service charge", "International Document Services", "APPROVED", "USD"],\n    ["20", DEMO_PROJECT_IDS.solar, 2_450, "Foreign site services", "Foreign-currency site licensing and document-control service charge", "International Site Services", "APPROVED", "USD"],',
+              '    ["19", undefined, 659.25, "Foreign supplier review", "Converted PHP value for software and document service charge", "International Document Services", "APPROVED"],\n    ["20", DEMO_PROJECT_IDS.solar, 137_812.50, "Foreign site services", "Converted PHP value for site licensing and document-control service charge", "International Site Services", "APPROVED"],',
+          )
+          replace_exact(
+              "src/demo/data/financial.ts",
+              '  return rows.map(([id, projectId, amount, category, description, payee, status, rowCurrency], index) => {',
+              '  return rows.map(([id, projectId, amount, category, description, payee, status], index) => {',
+          )
+          replace_exact(
+              "src/demo/data/financial.ts",
+              '      currency: rowCurrency || "PHP",',
+              '      currency: "PHP",',
+          )
+
+          # Once demo sources are native PHP, the old USD->PHP snapshots would be
+          # stale/incorrect evidence. Keep the collection present but empty.
+          replace_exact(
+              "src/demo/data/createDemoWorkspace.ts",
+              'import type { Expense, FinancialFxSnapshot } from "../../types.ts";',
+              'import type { Expense } from "../../types.ts";',
+          )
+          p = Path("src/demo/data/createDemoWorkspace.ts")
+          text = p.read_text(encoding="utf-8")
+          start = text.index('  const fxTimestamp = demoTimestamp(anchorDate, 11, 45);')
+          end_marker = '  }];\n\n  // The public demo deliberately keeps explicit OT requests'
+          end = text.index(end_marker, start)
+          replacement = '  const financialFxSnapshots: DemoWorkspaceData["financialFxSnapshots"] = [];\n\n  // The public demo deliberately keeps explicit OT requests'
+          text = text[:start] + replacement + text[end + len(end_marker):]
+          p.write_text(text, encoding="utf-8")
+
+          Path("tests/demoPhpCurrency.test.ts").write_text('''import assert from "node:assert/strict";\nimport test from "node:test";\nimport { createDemoWorkspace } from "../src/demo/data/createDemoWorkspace.ts";\n\nconst workspace = createDemoWorkspace("2026-09-09");\n\ntest("public demo monetary source data is PHP-only", () => {\n  assert.ok(workspace.invoices.length > 0);\n  assert.ok(workspace.expenses.length > 0);\n  assert.ok(workspace.invoices.every((invoice) => invoice.currency === "PHP"));\n  assert.ok(workspace.invoices.every((invoice) => invoice.currencySymbol !== "$"));\n  assert.ok(workspace.expenses.every((expense) => expense.currency === "PHP"));\n  assert.ok(workspace.cash.accounts.every((account) => account.currency === "PHP"));\n  assert.ok(workspace.cash.transactions.every((transaction) => transaction.currency === "PHP"));\n  assert.deepEqual(workspace.financialFxSnapshots, []);\n});\n\ntest("former USD demo samples retain their explicit converted PHP values", () => {\n  const invoice17 = workspace.invoices.find((invoice) => invoice.id === "demo-invoice-17");\n  assert.ok(invoice17);\n  assert.equal(invoice17.currency, "PHP");\n  assert.equal(invoice17.currencySymbol, "₱");\n  assert.equal(invoice17.grandTotal, 47_430_859.50);\n\n  const expense19 = workspace.expenses.find((expense) => expense.id === "demo-expense-19");\n  assert.ok(expense19);\n  assert.equal(expense19.currency, "PHP");\n  assert.equal(expense19.amount, 659.25);\n\n  const expense20 = workspace.expenses.find((expense) => expense.id === "demo-expense-20");\n  assert.ok(expense20);\n  assert.equal(expense20.currency, "PHP");\n  assert.equal(expense20.amount, 137_812.50);\n});\n''', encoding="utf-8")
+      - name: Remove temporary recovery workflow and commit
+        shell: bash
+        run: |
+          rm .github/workflows/php-demo-currency-recovery.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/demo/data/invoices.ts src/demo/data/financial.ts src/demo/data/createDemoWorkspace.ts tests/demoPhpCurrency.test.ts .github/workflows/php-demo-currency-recovery.yml
+          git commit -m "fix: convert demo currency examples to PHP"
+          git push origin HEAD:fix/php-only-demo-reporting
