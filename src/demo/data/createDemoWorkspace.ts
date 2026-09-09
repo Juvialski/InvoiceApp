@@ -100,7 +100,7 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     anchorDate,
     company: {
       id: DEMO_COMPANY_ID,
-      name: "Hydroqualisense",
+      name: "Hydroqualisense Solutions Corp.",
       country: "Philippines",
       currency: "PHP",
       locale: "en-PH",
