@@ -51,4 +51,3 @@ export function deploymentAiValidationLabel(config: CompanyAiConfigMetadata): st
   if (config.lastTestStatus === "MODEL_UNAVAILABLE") return "Model unavailable during last test";
   return "Test result unavailable";
 }
-

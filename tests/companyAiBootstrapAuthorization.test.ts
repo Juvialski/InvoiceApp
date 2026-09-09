@@ -42,4 +42,3 @@ test("configured healthy or disabled AI never exposes bootstrap eligibility", ()
   assert.equal(isDeploymentAiBootstrapAuthorized({ ...initial, aiStatus: "ACTIVE", credentialConfigured: true }), false);
   assert.equal(isDeploymentAiBootstrapAuthorized({ ...initial, aiStatus: "DISABLED", credentialConfigured: true }), false);
 });
-

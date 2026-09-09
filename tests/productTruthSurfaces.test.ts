@@ -34,4 +34,3 @@ test("client Settings does not mount repository roadmap status", () => {
   const settings = source("src/components/Settings.tsx");
   assert.doesNotMatch(settings, /FeatureStatusOverview|Product feature status|Future roadmap/i);
 });
-
