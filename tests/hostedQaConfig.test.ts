@@ -41,7 +41,7 @@ test("hosted QA authentication preflight requires a persisted session before rou
   assert.doesNotMatch(authPreflight, /SUPABASE_SERVICE_ROLE|SUPABASE_AI_SERVER_KEY/i);
 });
 
-test("manual hosted QA workflow is explicit, exact-SHA bound, and does not run in ordinary CI", () => {
+test("manual hosted QA workflow is explicit, exact-SHA bound, and derives migration expectation from checkout", () => {
   assert.match(workflow, /workflow_dispatch:/);
   assert.doesNotMatch(workflow, /^\s+(push|pull_request):/m);
   assert.match(workflow, /QA_E2E_EMAIL/);
@@ -50,5 +50,10 @@ test("manual hosted QA workflow is explicit, exact-SHA bound, and does not run i
   assert.match(workflow, /QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense/);
   assert.match(workflow, /QA_E2E_EXPECTED_REPOSITORY_SHA: \$\{\{ github\.sha \}\}/);
   assert.doesNotMatch(workflow, /vars\.QA_E2E_EXPECTED_REPOSITORY_SHA/);
+  assert.doesNotMatch(workflow, /vars\.QA_E2E_EXPECTED_MIGRATION_LEVEL/);
+  assert.match(workflow, /npm run --silent release:migration-level/);
+  assert.match(workflow, /QA_E2E_EXPECTED_MIGRATION_LEVEL=\$migration_level/);
+  assert.match(workflow, /\$GITHUB_ENV/);
+  assert.match(packageJson, /"release:migration-level": "tsx scripts\/repository-migration-level\.ts"/);
   assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
 });
