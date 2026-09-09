@@ -181,13 +181,12 @@ Do not block READY on paid-only Supabase features unavailable to this Free proje
 ## Immediate sequence
 
 1. Complete the focused product-truth, Settings, and hosted-browser expansion through exact-head PR CI and merge when safe.
-2. Wait for Render QA to report the new exact `main` as live.
-3. Manually dispatch `Hosted QA Certification` once on that exact SHA and retain its artifact.
-4. Complete Settings → initial AI setup and provider validation in QA.
-5. Complete the Free-tier-achievable database and Storage recovery drills.
-6. Re-check exact main/deploy/migration/Auth/Hosted QA/recovery evidence.
-7. If all achievable gates pass, set `QA CERTIFICATION: READY`.
-8. Immediately prepare Worker Registration foundation.
+2. Let the automatic post-`main` Hosted QA workflow wait for Render QA to expose the new exact `main`, then retain its artifact. Use manual `workflow_dispatch` only for an explicit rerun/debugging need.
+3. Complete Settings → initial AI setup and provider validation in QA.
+4. Complete the Free-tier-achievable database and Storage recovery drills.
+5. Re-check exact main/deploy/migration/Auth/Hosted QA/recovery evidence.
+6. If all achievable gates pass, set `QA CERTIFICATION: READY`.
+7. Immediately prepare Worker Registration foundation.
 
 ## Next phase after READY — Worker Registration foundation
 
