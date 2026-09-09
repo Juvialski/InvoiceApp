@@ -106,6 +106,7 @@ jobs:
     environment: qa
     outputs:
       migration_was_behind: ${{ steps.pre_parity.outputs.needs_promotion }}
+      release_still_current: ${{ steps.final_identity.outputs.release_still_current }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -218,6 +219,18 @@ jobs:
           fi
           echo "Production separation=PASS; all Supabase link, history, and migration commands in this job target QA only."
 
+      - name: Confirm release is still current main before Hosted QA
+        id: final_identity
+        shell: bash
+        run: |
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print tolower($1)}')"
+          if [[ "$current_main" == "${{ needs.classify.outputs.target_sha }}" ]]; then
+            echo "release_still_current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "release_still_current=false" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Hosted QA superseded::A newer main SHA is available. Database work already completed safely, but Hosted QA for this older SHA will be skipped."
+
       - name: Upload QA release evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -230,7 +243,7 @@ jobs:
   hosted_qa:
     name: Hosted QA after migration parity
     needs: [classify, qa_release]
-    if: needs.qa_release.result == 'success' && (needs.classify.outputs.requires_hosted_qa == 'true' || needs.qa_release.outputs.migration_was_behind == 'true')
+    if: needs.qa_release.result == 'success' && needs.qa_release.outputs.release_still_current == 'true' && (needs.classify.outputs.requires_hosted_qa == 'true' || needs.qa_release.outputs.migration_was_behind == 'true')
     uses: ./.github/workflows/hosted-qa-certification.yml
     with:
       expected_repository_sha: ${{ needs.classify.outputs.target_sha }}
