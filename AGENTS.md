@@ -17,14 +17,17 @@ Live repository state overrides remembered chat summaries and old prompts.
 
 ## Current product sequence
 
-Unless the user explicitly reprioritizes it:
+The user has explicitly reprioritized the immediate product workflow sequence through `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`. Unless the user reprioritizes again:
 
-1. Live QA initialization and certification
-2. Email/SMS + Documents phase
-3. Worker Registration foundation
-4. Site Attendance state machine + device registration
-5. Face-Recognition Attendance only after explicit privacy/security design
-6. Final pre-production security/data-integrity certification before broad rollout
+1. Wave 1A — Supplier Payable Lifecycle UX — complete on merged `main`
+2. Wave 1B — Client Receivable Lifecycle UX
+3. Wave 2 — cross-module routing and handoffs
+4. Wave 3 — deliberate payroll/subcontract/PO workflow decisions
+5. Resume the broader approved product roadmap: Email/SMS + Documents, Worker Registration, Site Attendance, Face-Recognition Attendance after explicit privacy/security design, then final pre-production certification
+
+QA certification/recovery/provider/deployment work remains a **parallel release/readiness track**, not a reason to erase or skip the user-prioritized UX sequence. Do not represent unfinished QA certification as complete merely because product development continues.
+
+Read the active roadmap and workflow UX audit before preparing the next implementation phase.
 
 All permanent financial, audit, RLS, company-isolation, inventory-history, document-history, payroll/privacy, AI confirmation, and migration-forward-only invariants in the preserved baseline remain in force.
 
