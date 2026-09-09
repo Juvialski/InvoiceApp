@@ -12,6 +12,8 @@ const sourceValidationUrl = new URL("../supabase/migrations/20260826235525_engin
 const sourceValidationSql = readFileSync(sourceValidationUrl, "utf8");
 const storagePathPolicyUrl = new URL("../supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql", import.meta.url);
 const storagePathPolicySql = readFileSync(storagePathPolicyUrl, "utf8");
+const storageCleanupUrl = new URL("../supabase/migrations/20260908235742_engineering_document_unlinked_storage_cleanup.sql", import.meta.url);
+const storageCleanupSql = readFileSync(storageCleanupUrl, "utf8");
 const wave7AuthorityUrl = new URL("../supabase/migrations/20260831003455_wave7_engineering_revision_authority.sql", import.meta.url);
 const wave7AuthoritySql = readFileSync(wave7AuthorityUrl, "utf8");
 
@@ -127,6 +129,19 @@ test("Storage insert policy accepts only immutable revision PDF paths", () => {
   assert.match(storagePathPolicySql, /\/documents\/\[0-9a-f\]\{8\}/);
   assert.match(storagePathPolicySql, /\/revisions\/\[0-9a-f\]\{8\}/);
   assert.match(storagePathPolicySql, /\[A-Za-z0-9\._-\]\+\\\.pdf\$'/);
+});
+
+test("Storage cleanup policy is limited to unlinked canonical Engineering revision objects", () => {
+  assert.match(storageCleanupSql, /create or replace function private\.engineering_document_storage_object_is_unlinked/);
+  assert.match(storageCleanupSql, /security definer\s+set search_path = ''/i);
+  assert.match(storageCleanupSql, /select \(select auth\.uid\(\)\) is not null/);
+  assert.match(storageCleanupSql, /r\.file_path = p_name/);
+  assert.match(storageCleanupSql, /r\.id::text = split_part\(p_name, '\/', 6\)/);
+  assert.match(storageCleanupSql, /create policy "company engineering documents cleanup unlinked" on storage\.objects/);
+  assert.match(storageCleanupSql, /for delete to authenticated/);
+  assert.match(storageCleanupSql, /engineering\.documents\.create/);
+  assert.match(storageCleanupSql, /engineering\.documents\.manage/);
+  assert.match(storageCleanupSql, /grant execute on function private\.engineering_document_storage_object_is_unlinked[\s\S]*to authenticated/);
 });
 
 test("realtime publication includes engineering documents tables", () => {

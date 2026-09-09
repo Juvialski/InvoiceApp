@@ -2553,7 +2553,8 @@
         "src/lib/engineeringDocuments.ts",
         "src/lib/engineeringDocumentsPersistence.ts",
         "supabase/migrations/20260826140000_engineering_documents_hardening.sql",
-        "supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql"
+        "supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql",
+        "supabase/migrations/20260908235742_engineering_document_unlinked_storage_cleanup.sql"
       ],
       "testRefs": [
         "tests/engineeringDocuments.test.ts",
@@ -2667,7 +2668,8 @@
       "fileRefs": [
         "src/lib/engineeringDocumentsPersistence.ts",
         "src/features/engineering/useEngineeringDocumentsController.ts",
-        "supabase/migrations/20260826140000_engineering_documents_hardening.sql"
+        "supabase/migrations/20260826140000_engineering_documents_hardening.sql",
+        "supabase/migrations/20260908235742_engineering_document_unlinked_storage_cleanup.sql"
       ],
       "testRefs": [
         "tests/engineeringDocuments.test.ts",
@@ -2694,7 +2696,8 @@
         "supabase/migrations/20260826130000_engineering_documents_foundation.sql",
         "supabase/migrations/20260826140000_engineering_documents_hardening.sql",
         "supabase/migrations/20260827000204_engineering_documents_storage_path_policy.sql",
-        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql"
+        "supabase/migrations/20260829100003_core_hardening_wave2c_engineering_corrections.sql",
+        "supabase/migrations/20260908235742_engineering_document_unlinked_storage_cleanup.sql"
       ],
       "testRefs": [
         "tests/engineeringDocumentsMigration.test.ts",

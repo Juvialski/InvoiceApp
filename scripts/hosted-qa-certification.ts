@@ -1,13 +1,23 @@
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { prepareEngineeringPdf } from "../src/lib/engineeringDocumentsPersistence.ts";
 // Playwright is intentionally installed by the explicit hosted-QA command or
 // manual workflow, not by the ordinary application dependency set.
 // @ts-ignore -- the QA-only dependency is present when this script executes.
 import { chromium } from "playwright";
 import { normalizeErrorMessage, normalizeFailedRequest, normalizeRequestPath, redactSensitiveText } from "./qa/structuredEvidence.ts";
+import {
+  assertHostedQaTarget,
+  createHostedQaEngineeringStorageFixture,
+  createHostedQaStorageFailure,
+  HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS,
+  probeHostedQaStorageObject,
+  sanitizeHostedQaStorageError,
+  waitForHostedQaRouteReadiness,
+  type HostedQaStorageFailure,
+} from "./qa/hostedQaContracts.ts";
 
 const BASE_URL = (process.env.QA_E2E_BASE_URL || "https://hydroqualisense-qa.onrender.com").replace(/\/+$/, "");
 const EXPECTED_DEPLOYMENT_ID = (process.env.QA_E2E_EXPECTED_DEPLOYMENT_ID || "qa-hydroqualisense").trim();
@@ -17,13 +27,14 @@ const OUTPUT_DIR = path.resolve(process.env.QA_E2E_OUTPUT_DIR || "artifacts/host
 const STORAGE_STATE_PATH = path.resolve(process.env.QA_E2E_STORAGE_STATE_PATH || ".qa-e2e/qa-storage-state.json");
 const ROUTES = ["/dashboard", "/projects", "/expenses", "/procurement", "/warehouse", "/payroll", "/settings"] as const;
 const NAVIGATION_TIMEOUT_MS = 60_000;
-const SETTLE_DELAY_MS = 1_500;
 
 interface HostedRouteEvidence {
   route: string;
   requestedUrl: string;
   finalPath: string;
   httpStatus: number | null;
+  readiness: "PASS" | "TIMEOUT" | "NOT_RUN";
+  readinessFailure: string | null;
   authenticated: boolean;
   qaBanner: boolean;
   deploymentCompany: boolean;
@@ -63,12 +74,17 @@ interface HostedQaManifest {
     status: "PASS" | "NOT_RUN" | "FAIL";
     bucket?: string;
     companyPath?: string;
+    documentId?: string;
+    revisionId?: string;
+    metadataRowsCreated?: number;
     byteCount?: number;
     sha256?: string;
+    downloadedSha256?: string;
     authorizedRead?: boolean;
     cleanup?: "PASS" | "FAIL" | "NOT_RUN";
     wrongCompanyProbe: "NOT_RUN";
-    failure?: string;
+    failure?: HostedQaStorageFailure;
+    cleanupFailure?: HostedQaStorageFailure;
   };
   summary: {
     routesPassed: number;
@@ -80,16 +96,7 @@ interface HostedQaManifest {
 }
 
 function assertQaTarget() {
-  const parsed = new URL(BASE_URL);
-  if (parsed.protocol !== "https:" && process.env.QA_E2E_ALLOW_NON_QA_HOST !== "1") {
-    throw new Error("Hosted QA requires an HTTPS QA target. Set QA_E2E_ALLOW_NON_QA_HOST=1 only for an explicit local harness run.");
-  }
-  if (/hydroqualisense\.com$/i.test(parsed.hostname) || /production/i.test(parsed.hostname)) {
-    throw new Error("Hosted QA refuses the production host.");
-  }
-  if (!/-qa\.onrender\.com$/i.test(parsed.hostname) && process.env.QA_E2E_ALLOW_NON_QA_HOST !== "1") {
-    throw new Error("Hosted QA refuses an unapproved host; expected a -qa.onrender.com deployment.");
-  }
+  assertHostedQaTarget(BASE_URL, process.env.QA_E2E_ALLOW_NON_QA_HOST === "1");
 }
 
 function safeDetails(value: unknown) {
@@ -170,10 +177,18 @@ async function runRoute(context: any, route: string, expectedEmail: string) : Pr
 
   let httpStatus: number | null = null;
   let navigationError: string | null = null;
+  let readiness: HostedRouteEvidence["readiness"] = "NOT_RUN";
+  let readinessFailure: string | null = null;
   try {
     const response = await page.goto(`${BASE_URL}${route}`, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
     httpStatus = response?.status() ?? null;
-    await page.waitForTimeout(SETTLE_DELAY_MS);
+    try {
+      await waitForHostedQaRouteReadiness(page, HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS);
+      readiness = "PASS";
+    } catch (error) {
+      readiness = "TIMEOUT";
+      readinessFailure = safeDetails(error);
+    }
   } catch (error) {
     navigationError = safeDetails(error);
   }
@@ -185,9 +200,12 @@ async function runRoute(context: any, route: string, expectedEmail: string) : Pr
   const bodyErrorSignal = /\b(error|failed|unavailable|could not)\b/i.test(body);
   const failureReasons: string[] = [];
   if (navigationError || httpStatus === null || httpStatus < 200 || httpStatus >= 400) failureReasons.push("navigation_failed");
-  if (!authenticated) failureReasons.push("authenticated_identity_not_visible");
-  if (!qaBanner) failureReasons.push("qa_banner_missing");
-  if (!deploymentCompany) failureReasons.push("deployment_company_not_visible");
+  if (readiness === "TIMEOUT") failureReasons.push("company_access_readiness_timeout");
+  if (readiness === "PASS") {
+    if (!authenticated) failureReasons.push("authenticated_identity_not_visible");
+    if (!qaBanner) failureReasons.push("qa_banner_missing");
+    if (!deploymentCompany) failureReasons.push("deployment_company_not_visible");
+  }
   if (crashText) failureReasons.push("application_crash_text");
   if (bodyErrorSignal) failureReasons.push("body_error_signal");
   if (consoleErrors.length) failureReasons.push("console_errors");
@@ -207,6 +225,8 @@ async function runRoute(context: any, route: string, expectedEmail: string) : Pr
     requestedUrl: `${BASE_URL}${route}`,
     finalPath: normalizeRequestPath(finalPath),
     httpStatus,
+    readiness,
+    readinessFailure,
     authenticated,
     qaBanner,
     deploymentCompany,
@@ -226,34 +246,121 @@ async function runStorageProbe(context: any) : Promise<HostedQaManifest["storage
   const supabaseUrl = (process.env.QA_E2E_SUPABASE_URL || "").trim();
   const publishableKey = (process.env.QA_E2E_SUPABASE_PUBLISHABLE_KEY || "").trim();
   const bucket = (process.env.QA_E2E_STORAGE_BUCKET || "engineering-documents").trim();
-  if (!supabaseUrl || !publishableKey || /service[_-]?role|secret/i.test(publishableKey)) return { status: "FAIL", wrongCompanyProbe: "NOT_RUN", cleanup: "NOT_RUN", failure: "Storage probe requires a non-service-role Supabase URL and publishable key." };
+  if (!supabaseUrl || !publishableKey || /service[_-]?role|secret/i.test(publishableKey)) {
+    return {
+      status: "FAIL",
+      wrongCompanyProbe: "NOT_RUN",
+      cleanup: "NOT_RUN",
+      failure: createHostedQaStorageFailure(
+        "configuration",
+        "configuration-error",
+        "MISSING_OR_UNSAFE_CONFIG",
+        "Storage probe requires a non-service-role Supabase URL and publishable key.",
+      ),
+    };
+  }
   const page = await context.newPage();
   try {
     await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
-    await page.waitForTimeout(1_000);
+    try {
+      await waitForHostedQaRouteReadiness(page, HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS);
+    } catch (error) {
+      return {
+        status: "FAIL",
+        bucket,
+        wrongCompanyProbe: "NOT_RUN",
+        cleanup: "NOT_RUN",
+        failure: createHostedQaStorageFailure("session", "readiness-timeout", "READINESS_TIMEOUT", error, "Storage probe page readiness did not resolve."),
+      };
+    }
     const authJson = await page.evaluate(() => Object.entries(localStorage).find(([key]) => key.startsWith("sb-") && key.endsWith("-auth-token"))?.[1] || "");
-    if (!authJson) return { status: "FAIL", wrongCompanyProbe: "NOT_RUN", cleanup: "NOT_RUN", failure: "Authenticated browser session storage was not available for the Storage probe." };
+    if (!authJson) {
+      return {
+        status: "FAIL",
+        bucket,
+        wrongCompanyProbe: "NOT_RUN",
+        cleanup: "NOT_RUN",
+        failure: createHostedQaStorageFailure("session", "auth-session-error", "SESSION_NOT_FOUND", "Authenticated browser session storage was not available for the Storage probe."),
+      };
+    }
     const auth = JSON.parse(authJson) as { access_token?: string; refresh_token?: string };
-    if (!auth.access_token || !auth.refresh_token) return { status: "FAIL", wrongCompanyProbe: "NOT_RUN", cleanup: "NOT_RUN", failure: "Authenticated browser session storage was incomplete." };
+    if (!auth.access_token || !auth.refresh_token) {
+      return {
+        status: "FAIL",
+        bucket,
+        wrongCompanyProbe: "NOT_RUN",
+        cleanup: "NOT_RUN",
+        failure: createHostedQaStorageFailure("session", "auth-session-error", "SESSION_INCOMPLETE", "Authenticated browser session storage was incomplete."),
+      };
+    }
     const client = createClient(supabaseUrl, publishableKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    await client.auth.setSession({ access_token: auth.access_token, refresh_token: auth.refresh_token });
+    const session = await client.auth.setSession({ access_token: auth.access_token, refresh_token: auth.refresh_token });
+    if (session.error) {
+      return {
+        status: "FAIL",
+        bucket,
+        wrongCompanyProbe: "NOT_RUN",
+        cleanup: "NOT_RUN",
+        failure: sanitizeHostedQaStorageError("session", session.error, "The Storage probe could not establish the authenticated Supabase session."),
+      };
+    }
     const company = await client.from("companies").select("id").limit(1).maybeSingle();
-    if (company.error || !company.data?.id) return { status: "FAIL", wrongCompanyProbe: "NOT_RUN", cleanup: "NOT_RUN", failure: "The authenticated company could not be resolved for the Storage probe." };
-    const bytes = Buffer.from(`QA-E2E-STORAGE-${new Date().toISOString()}\nsynthetic-only\n`, "utf8");
-    const sha256 = createHash("sha256").update(bytes).digest("hex");
-    const objectPath = `companies/${company.data.id}/qa-e2e/${Date.now()}-${sha256.slice(0, 12)}.txt`;
-    const uploaded = await client.storage.from(bucket).upload(objectPath, bytes, { contentType: "text/plain", upsert: false });
-    if (uploaded.error) return { status: "FAIL", bucket, companyPath: objectPath, wrongCompanyProbe: "NOT_RUN", cleanup: "NOT_RUN", failure: "Authorized Storage upload failed." };
-    const downloaded = await client.storage.from(bucket).download(objectPath);
-    if (downloaded.error || !downloaded.data) return { status: "FAIL", bucket, companyPath: objectPath, byteCount: bytes.length, sha256, authorizedRead: false, wrongCompanyProbe: "NOT_RUN", cleanup: "NOT_RUN", failure: "Authorized Storage download failed." };
-    const downloadedBytes = Buffer.from(await downloaded.data.arrayBuffer());
-    const readMatches = downloadedBytes.equals(bytes);
-    const removed = await client.storage.from(bucket).remove([objectPath]);
-    return { status: readMatches ? "PASS" : "FAIL", bucket, companyPath: objectPath, byteCount: downloadedBytes.length, sha256, authorizedRead: readMatches, cleanup: removed.error ? "FAIL" : "PASS", wrongCompanyProbe: "NOT_RUN", ...(readMatches ? {} : { failure: "Downloaded Storage bytes did not match the uploaded synthetic bytes." }) };
+    if (company.error || !company.data?.id) {
+      return {
+        status: "FAIL",
+        bucket,
+        wrongCompanyProbe: "NOT_RUN",
+        cleanup: "NOT_RUN",
+        failure: company.error
+          ? sanitizeHostedQaStorageError("company", company.error, "The authenticated company could not be resolved for the Storage probe.")
+          : createHostedQaStorageFailure("company", "auth-session-error", "COMPANY_NOT_FOUND", "The authenticated company could not be resolved for the Storage probe."),
+      };
+    }
+
+    // This is the same supported upload contract used by the Engineering
+    // Documents controller: a real PDF, the immutable UUID-bound revision
+    // path, application/pdf, and upsert=false.  The metadata RPC is not
+    // called here because revisions are append-only and authenticated clients
+    // have no cleanup path; the probe deliberately creates zero metadata rows.
+    const bytes = new TextEncoder().encode(`%PDF-1.4\n% HydroQualiSense synthetic hosted QA document\n${new Date().toISOString()}\n`);
+    const fixture = createHostedQaEngineeringStorageFixture(String(company.data.id), { uniqueSuffix: `${Date.now()}` });
+    const prepared = await prepareEngineeringPdf(bytes, { fileName: fixture.fileName, contentType: "application/pdf" });
+    const storageBucket = client.storage.from(bucket);
+    const probe = await probeHostedQaStorageObject({
+      objectPath: fixture.objectPath,
+      bytes: prepared.bytes,
+      bucket: {
+        upload: (objectPath, body, options) => storageBucket.upload(objectPath, body, options),
+        download: (objectPath) => storageBucket.download(objectPath),
+        remove: (objectPaths) => storageBucket.remove(objectPaths),
+      },
+    });
+    return {
+      status: probe.status,
+      bucket,
+      companyPath: fixture.objectPath,
+      documentId: fixture.documentId,
+      revisionId: fixture.revisionId,
+      metadataRowsCreated: 0,
+      byteCount: probe.byteCount,
+      sha256: probe.sha256,
+      downloadedSha256: probe.downloadedSha256,
+      authorizedRead: probe.authorizedRead,
+      cleanup: probe.cleanup,
+      wrongCompanyProbe: "NOT_RUN",
+      ...(probe.failure ? { failure: probe.failure } : {}),
+      ...(probe.cleanupFailure ? { cleanupFailure: probe.cleanupFailure } : {}),
+    };
   } catch (error) {
-    return { status: "FAIL", wrongCompanyProbe: "NOT_RUN", cleanup: "NOT_RUN", failure: safeDetails(error) };
+    return {
+      status: "FAIL",
+      bucket,
+      wrongCompanyProbe: "NOT_RUN",
+      cleanup: "NOT_RUN",
+      failure: sanitizeHostedQaStorageError("session", error),
+    };
   } finally {
-    await page.close();
+    await page.close().catch(() => undefined);
   }
 }
 
