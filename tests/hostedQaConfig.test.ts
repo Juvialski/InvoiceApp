@@ -51,9 +51,8 @@ test("manual hosted QA workflow is explicit, exact-SHA bound, and derives migrat
   assert.match(workflow, /QA_E2E_EXPECTED_REPOSITORY_SHA: \$\{\{ github\.sha \}\}/);
   assert.doesNotMatch(workflow, /vars\.QA_E2E_EXPECTED_REPOSITORY_SHA/);
   assert.doesNotMatch(workflow, /vars\.QA_E2E_EXPECTED_MIGRATION_LEVEL/);
-  assert.match(workflow, /npm run --silent release:migration-level/);
+  assert.match(workflow, /npx --no-install tsx scripts\/repository-migration-level\.ts/);
   assert.match(workflow, /QA_E2E_EXPECTED_MIGRATION_LEVEL=\$migration_level/);
   assert.match(workflow, /\$GITHUB_ENV/);
-  assert.match(packageJson, /"release:migration-level": "tsx scripts\/repository-migration-level\.ts"/);
   assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
 });
