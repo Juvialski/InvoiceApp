@@ -30,7 +30,8 @@ test("engineering documents remain a project-owned register rather than a duplic
   assert.match(demoDocuments, /records are fictional and remain separate from authenticated company documents/i);
 });
 
-test("client Settings does not mount repository roadmap status", () => {
+test("client Settings mounts the client roadmap without mounting the internal registry", () => {
   const settings = source("src/components/Settings.tsx");
-  assert.doesNotMatch(settings, /FeatureStatusOverview|Product feature status|Future roadmap/i);
+  assert.match(settings, /ProductFeaturesRoadmap/);
+  assert.doesNotMatch(settings, /FeatureStatusOverview|ENGORYX_FEATURE_REGISTRY/);
 });

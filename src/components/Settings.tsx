@@ -7,6 +7,7 @@ import { DeploymentAccessManagement } from "./access/DeploymentAccessManagement.
 import { CompanyProfileSettings } from "./access/CompanyProfileSettings.tsx";
 import { CompanyDocumentProfileSettings } from "./access/CompanyDocumentProfileSettings.tsx";
 import { DeploymentAiBootstrapSettings } from "./access/DeploymentAiBootstrapSettings.tsx";
+import { ProductFeaturesRoadmap } from "./ProductFeaturesRoadmap.tsx";
 
 interface SettingsProps {
   settings: RegionalSettings;
@@ -108,6 +109,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
           </div>
         </section>
       </div>
+
+      <ProductFeaturesRoadmap />
 
       {showDeploymentAccessManagement && <CompanyDocumentProfileSettings />}
 
