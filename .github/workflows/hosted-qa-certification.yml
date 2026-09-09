@@ -1,6 +1,21 @@
 name: Hosted QA Certification
 
 on:
+  workflow_call:
+    inputs:
+      expected_repository_sha:
+        description: Exact application-bearing repository SHA already deployed to QA.
+        required: true
+        type: string
+      expected_migration_level:
+        description: Repository-derived migration level already verified in QA.
+        required: true
+        type: string
+      expected_deployment_id:
+        default: qa-hydroqualisense
+        description: Protected QA Render deployment identity.
+        required: false
+        type: string
   workflow_dispatch:
 
 concurrency:
@@ -17,8 +32,9 @@ jobs:
     environment: qa
     env:
       QA_E2E_BASE_URL: https://hydroqualisense-qa.onrender.com
-      QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
-      QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ github.sha }}
+      QA_E2E_EXPECTED_DEPLOYMENT_ID: ${{ inputs.expected_deployment_id || 'qa-hydroqualisense' }}
+      QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ inputs.expected_repository_sha || github.sha }}
+      QA_E2E_INPUT_MIGRATION_LEVEL: ${{ inputs.expected_migration_level || '' }}
       QA_E2E_EMAIL: ${{ secrets.QA_E2E_EMAIL }}
       QA_E2E_PASSWORD: ${{ secrets.QA_E2E_PASSWORD }}
       QA_E2E_SUPABASE_URL: ${{ vars.QA_E2E_SUPABASE_URL }}
@@ -30,7 +46,7 @@ jobs:
       - name: Checkout exact workflow SHA
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.expected_repository_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -47,6 +63,14 @@ jobs:
           migration_level="$(npx --no-install tsx scripts/repository-migration-level.ts)"
           if [[ ! "$migration_level" =~ ^[0-9]{14}$ ]]; then
             echo "Failed to derive a canonical migration level from the checked-out repository." >&2
+            exit 1
+          fi
+          if [[ -n "$QA_E2E_INPUT_MIGRATION_LEVEL" && "$QA_E2E_INPUT_MIGRATION_LEVEL" != "$migration_level" ]]; then
+            echo "Protected Hosted QA input migration level does not match the exact checkout." >&2
+            exit 1
+          fi
+          if [[ ! "$QA_E2E_EXPECTED_REPOSITORY_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Protected Hosted QA requires an exact 40-character repository SHA." >&2
             exit 1
           fi
           echo "QA_E2E_EXPECTED_MIGRATION_LEVEL=$migration_level" >> "$GITHUB_ENV"

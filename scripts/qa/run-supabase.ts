@@ -1,7 +1,7 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { validateQaDatabaseTarget, type QaDatabaseOperation } from "../../src/lib/qaDatabaseTarget.ts";
+import { runSupabaseCliSync } from "./supabaseCli.ts";
 
 interface CliOptions {
   projectRef: string;
@@ -53,20 +53,17 @@ function main() {
     expectedQaProjectRef: process.env.HYDROQUALISENSE_QA_PROJECT_REF,
     linkedProjectRef: linkedProjectRef(),
     productionProjectRef: process.env.HYDROQUALISENSE_PRODUCTION_PROJECT_REF,
+    expectedDeploymentId: process.env.HYDROQUALISENSE_EXPECTED_DEPLOYMENT_ID,
     confirmation: options.confirmation,
   });
   if (!validation.valid) throw new Error(`QA database command refused: ${validation.errors.join(" ")}`);
 
-  const cliArgs = ["supabase", "db", operation, "--linked", "--yes"];
+  const cliArgs = ["db", operation, "--linked", "--yes"];
   if (operation === "push") cliArgs.push("--include-all");
   else cliArgs.push("--no-seed");
-  const executable = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : "npx";
-  const executableArgs = process.platform === "win32"
-    ? ["/d", "/s", "/c", "npx.cmd", ...cliArgs]
-    : cliArgs;
   console.log(`QA-only Supabase ${operation}: ${validation.projectRef}`);
   console.log(operation === "reset" ? "No seed file will be executed; synthetic data remains outside this database reset." : "Applying the complete forward migration chain to the linked QA project.");
-  execFileSync(executable, executableArgs, { cwd: process.cwd(), env: process.env, stdio: "inherit" });
+  runSupabaseCliSync(cliArgs, { cwd: process.cwd(), env: process.env });
 }
 
 try {

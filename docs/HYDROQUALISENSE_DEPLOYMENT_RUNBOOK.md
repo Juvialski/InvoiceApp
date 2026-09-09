@@ -57,9 +57,9 @@ VITE_ENABLE_SAMPLE_INVOICES=false
 
 The application shows an explicit `QA ENVIRONMENT · SYNTHETIC DATA ONLY` banner in the authenticated and public surfaces. A normal production build defaults to `production` and does not show the QA banner. The public funnel remains off until both the build flag and the database gate are deliberately enabled in QA.
 
-### Blank-project migration sequence
+### Blank-project bootstrap and protected release sequence
 
-From a clean checkout of the approved repository SHA:
+For a new blank QA project, the initial link/bootstrap is an operator setup action from a clean checkout of the approved repository SHA:
 
 1. Confirm the new QA project reference and set the QA environment assertions above in the operator shell or isolated deployment configuration. Do not put values in the repository.
 2. Link this checkout to the new project. The Supabase CLI may prompt for the database password; do not place the password in command arguments or files:
@@ -68,13 +68,13 @@ From a clean checkout of the approved repository SHA:
    npx.cmd supabase link --project-ref <QA_PROJECT_REF>
    ```
 
-3. Confirm that `supabase/.temp/project-ref` contains the same QA project reference, then apply the complete forward migration chain without seed data:
+3. Confirm that `supabase/.temp/project-ref` contains the same QA project reference, then apply the complete forward migration chain without seed data only when the protected release workflow has not yet been configured:
 
    ```text
    npm.cmd run qa:db:push -- --project-ref <QA_PROJECT_REF> --confirm-qa
    ```
 
-   The wrapper requires `HYDROQUALISENSE_ENVIRONMENT=qa`, a `qa-` deployment ID, an exact expected/linked project-reference match, and the explicit push confirmation. It invokes `supabase db push --linked --include-all --yes`; it does not create a project or seed production data.
+   The wrapper requires `HYDROQUALISENSE_ENVIRONMENT=qa`, a `qa-` deployment ID, an exact expected/linked project-reference match, a configured production reference that differs from QA, and the explicit push confirmation. It invokes `supabase db push --linked --include-all --yes`; it does not create a project or seed production data.
 
    On the supported Windows runtime, the wrapper launches `npx.cmd` through `ComSpec` because direct `execFileSync("npx.cmd", ...)` can fail with `EINVAL`; do not replace the guarded wrapper with an unguarded CLI command.
 
@@ -87,6 +87,30 @@ From a clean checkout of the approved repository SHA:
 
    Reset requires a separate confirmation, uses `--no-seed`, and refuses production identity, missing assertions, mismatched linked projects, or a configured production-project match. Do not use raw `--db-url` or `--linked` reset commands for Client A production.
 5. Verify migration history with the CLI and run the application smoke/auth/RLS checks against the QA URL. Record the observed repository SHA, migration level, configuration version, and backup/provider checks in the private QA inventory.
+
+Normal releases do not require an operator to repeat these commands. The protected GitHub `qa` environment runs the same guarded wrapper automatically after a `main` push when QA is behind the repository migration set.
+
+### Automatic protected QA release
+
+`.github/workflows/qa-release.yml` runs on every push to protected `main` and uses the fixed isolated references for this QA deployment:
+
+```text
+QA project:         vrpuznofrntyqsbugrib
+Production project: qijjshdwiylojvqojxyz
+Render deployment:  qa-hydroqualisense
+```
+
+Configure these protected GitHub Environment → `qa` secrets once:
+
+- `SUPABASE_ACCESS_TOKEN` — Supabase personal access token used only by the CLI in the protected workflow;
+- `SUPABASE_DB_PASSWORD` — QA database password used through the CLI environment, never placed in command arguments or artifacts;
+- the existing Hosted QA secrets `QA_E2E_EMAIL`, `QA_E2E_PASSWORD`, and `QA_E2E_SUPABASE_PUBLISHABLE_KEY`, plus the existing non-secret `QA_E2E_SUPABASE_URL` variable.
+
+The workflow fails closed when either CLI secret is missing. It links only the expected QA reference, independently reads the complete QA migration history, waits for `/api/health` to report `environment=qa`, `deployment_id=qa-hydroqualisense`, the exact `main` SHA, and the repository-derived migration level, then invokes `npm run qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa` when parity is behind. It verifies the complete migration history again after promotion and only then calls the reusable Hosted QA workflow for application/runtime- or migration-bearing changes. Hosted QA failures, Render timeout/identity mismatch, authentication/linking errors, wrapper refusal, migration errors, and parity divergence fail the chain and preserve sanitized evidence artifacts.
+
+Docs/tests/CI-only changes with QA already at parity perform only the protected read-only parity/boundary check. If QA is behind during such a merge (including the first merge that installs this workflow), the same automatic workflow catches QA up but does not spend a browser certification on a non-application change.
+
+The optional `workflow_dispatch` on `Protected QA Release` is for an explicit protected recovery/rerun. Direct `Hosted QA Certification` dispatch remains available, but it must be used only after the intended SHA is live and migration parity has already passed. Production is never linked, migrated, reset, or queried by this workflow.
 
 ### Guarded company and initial-admin bootstrap
 
@@ -130,7 +154,7 @@ Browser validation has two deliberately separate layers:
 1. **Pre-merge local PR/demo QA** builds the checked-out PR, serves `/demo` locally, and checks fictional session-local rendering/navigation/interaction state. It does not mount production Auth, Supabase queries, Storage, Gmail authorization, or company writes.
 2. **Post-deploy hosted QA** runs only against the isolated QA deployment and uses the protected GitHub `qa` environment credentials. It first polls `/api/health` within a bounded deployment window and continues only when environment, deployment ID, repository SHA, and canonical migration level match the exact workflow checkout. It then checks authenticated session persistence, loaded route contracts, the unauthenticated protected-route boundary, and the safe synthetic Storage byte probe.
 
-The reusable hosted harness is intentionally separate from ordinary PR/demo QA. Install the QA-only browser dependency, then run it only against the isolated QA deployment:
+The reusable hosted harness is intentionally separate from ordinary PR/demo QA. The protected `Protected QA Release` workflow calls it only after Render readiness and independent migration parity. For a direct/manual rerun, install the QA-only browser dependency, then run it only against the isolated QA deployment:
 
 ```text
 npm.cmd install --no-save --package-lock=false playwright@1.55.0
@@ -143,7 +167,7 @@ $env:QA_E2E_EXPECTED_MIGRATION_LEVEL = (npx.cmd --no-install tsx scripts/reposit
 npm.cmd run qa:hosted
 ```
 
-Alternatively provide `QA_E2E_STORAGE_STATE_PATH` for a locally captured Playwright state. Treat that file as an authentication secret; it is ignored, never uploaded, and never committed. The harness rejects production hosts, requires exact QA health/deployment assertions, exercises authenticated deep links, captures sanitized console/request evidence, and can run the explicit synthetic Storage-byte probe with a publishable key only. The GitHub workflow supports explicit `workflow_dispatch` and bounded pushes to `main`; it uses only protected QA environment secrets and remains separate from pull-request validation. Hosted probe objects are uniquely named, company-scoped, cleaned in `finally`, and create no document metadata rows.
+Alternatively provide `QA_E2E_STORAGE_STATE_PATH` for a locally captured Playwright state. Treat that file as an authentication secret; it is ignored, never uploaded, and never committed. The harness rejects production hosts, requires exact QA health/deployment assertions, exercises authenticated deep links, captures sanitized console/request evidence, and can run the explicit synthetic Storage-byte probe with a publishable key only. The Hosted QA workflow supports both reusable protected-release calls and explicit `workflow_dispatch`; it uses only protected QA environment secrets and remains separate from pull-request validation. Hosted probe objects are uniquely named, company-scoped, cleaned in `finally`, and create no document metadata rows.
 
 ### Backup truth boundary
 
@@ -257,12 +281,13 @@ The public form is a qualification input only. It never performs steps 3–8 and
 
 ## Release promotion
 
-Promote a reviewed repository SHA deliberately, one isolated deployment at a time when client prerequisites differ. Before a migration-bearing release, the operator must confirm:
+Promote a reviewed repository SHA deliberately, one isolated deployment at a time when client prerequisites differ. For the HydroQualiSense QA deployment, the protected `Protected QA Release` workflow performs the routine release gate:
 
-- a verified backup or an explicitly documented reason the release is blocked;
-- the migration set is compatible with the client’s current state;
-- the client-specific configuration is approved and compatible;
-- the deployment’s health, authentication/authorization, database, and backup checks are ready to run.
+`main push -> classify exact SHA/migration -> read QA parity -> wait for exact QA Render health -> guarded QA promotion when behind -> independently verify QA parity -> reusable Hosted QA`
+
+The workflow classifies docs-only and CI-only changes so they do not trigger Hosted QA when QA is already at parity. A migration-only change still follows the full migration/parity/Hosted-QA chain. A failed stage stops the chain; it is never converted into a successful certification by falling back to a manual reminder.
+
+The operator still owns the one-time protected `qa` environment setup, approved backup/recovery prerequisites, provider credentials used by Hosted QA, and any deliberate production promotion. The automated workflow never promotes production.
 
 The 2026-09-08 QA investigation found no migration command in the repository `build` or `start` paths, GitHub deployment workflows, or application runtime. If a routine Render application redeploy advances a production migration, inspect the Render service’s external pre-deploy/release command and remove the implicit database promotion. Keep migration promotion as a separately approved operation so QA may be ahead of an individual client deployment.
 
