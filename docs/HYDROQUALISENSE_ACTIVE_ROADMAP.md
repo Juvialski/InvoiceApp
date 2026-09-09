@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — QA CERTIFICATION NOT READY (EXTERNAL PROVIDER/RECOVERY GATES REMAIN)**  
+Status: **ACTIVE — QA CERTIFICATION NOT READY**  
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-09**  
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -9,205 +9,175 @@ Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
 
-## Application baseline for this checkpoint
+## Current QA certification baseline
 
-Last application-code-bearing `main` merged before this documentation checkpoint:
+Current repository/deployment checkpoint before this focused fix:
 
-`8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba`
+- exact merged `main`: `fbb924f40ef91c9d1e9154367dba0e04b092ef76`
+- QA Render URL: `https://hydroqualisense-qa.onrender.com`
+- QA Render service: `hydroqualisense-qa`
+- QA Render deploy for `fbb924f40ef91c9d1e9154367dba0e04b092ef76`: **LIVE**
+- QA Supabase ref: `vrpuznofrntyqsbugrib`
+- QA migration head: `20260908235742_engineering_document_unlinked_storage_cleanup`
+- Client A production Supabase ref: `qijjshdwiylojvqojxyz`
+- production inspection during QA certification remains strictly read-only
 
-Documentation-only commits after that SHA may advance repository and Render release identity without changing application/database contracts. Always re-read live `main` and the current Render deploy before dispatching current-head Hosted QA.
+Recent QA hardening:
 
-Recent QA-certification hardening completed through:
-
-- PR #109 — QA identity / initial AI bootstrap / hosted certification hardening.
-- PR #110 — hosted QA persisted-auth fail-closed guard.
+- PR #109 — QA identity, initial AI bootstrap and hosted-certification hardening.
+- PR #110 — persisted-auth fail-closed guard.
 - PR #111 — exact-SHA binding for Hosted QA Certification.
-- PR #112 — hosted QA route-readiness and Engineering Storage probe repair plus forward cleanup migration.
-- PR #113 — automatic repository-derived migration-level truth for `/api/health` and Hosted QA, removing the manual migration-level bookkeeping dependency.
+- PR #112 — route-readiness stabilization and valid Engineering Storage byte probe.
+- PR #113 — repository-derived migration-level truth; manual migration timestamp bookkeeping is no longer release authority.
+- PRs #114/#115 — current QA checkpoint documentation and durable application-vs-docs SHA wording.
 
-All four protected checks were green on PR #113's exact final head before merge, including isolated local Supabase startup, clean migration replay, pgTAP, historical upgrade-path validation, application validation/build, Chromium demo QA, and Workflow Map consistency.
+## Plan-tier policy
 
-## Live QA state — 2026-09-09
+QA certification must distinguish a real defect from a provider capability that is unavailable on the current plan.
 
-QA topology remains:
+**Paid-only provider controls are not certification blockers merely because the QA deployment is on a Free tier.** Record them as accepted plan limitations and carry them into the final production-readiness review. Do not invent evidence that an unavailable control is enabled.
 
-- Render URL: `https://hydroqualisense-qa.onrender.com`
-- Render service: `hydroqualisense-qa`
-- Supabase project ref: `vrpuznofrntyqsbugrib`
-- role: isolated QA + temporary synthetic demo environment only
+Free-tier alternatives that are technically available may still be required when they validate a safety property. Examples include a manual off-site database export/restore and a separate Storage byte backup/restore instead of paid managed PITR/backups.
 
-Verified live state:
+## Migration and release-promotion gate — PASS
 
-- The application-code-bearing PR #113 deploy at `8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba` was verified `live` before this documentation update. Documentation-only commits may subsequently advance the reported repository SHA; use the current live SHA for Hosted QA evidence.
-- QA Supabase is `ACTIVE_HEALTHY`.
-- QA migration head is independently `20260908235742_engineering_document_unlinked_storage_cleanup`.
-- No `qa:db:push` was run merely to continue certification.
-- QA contains the synthetic deployment company/configuration and currently has two Auth users / two active company memberships.
-- Initial deployment AI bootstrap has **not** been completed in live QA: no current `company_ai_settings` / credential state exists for the synthetic QA company.
-- `bootstrap_deployment_company(...)` and `bootstrap_deployment_company_ai_credential(...)` remain `SECURITY DEFINER` functions executable only by `postgres` / `service_role`, not browser roles.
+- Render build: `npm install && npm run build`
+- Render start: `npm start`
+- routine Render deployment contains no Supabase migration promotion command
+- database promotion remains explicit through guarded `qa:db:push` / `qa:db:reset`
+- expected migration level is derived from canonical repository migration filenames
+- live QA migration history independently matches repository migration head `20260908235742`
 
-## Migration / release-promotion gate — PASS
+Do not run a migration push merely because application code or documentation redeploys.
 
-Routine application deployment is separated from database promotion:
+## Render exact-deployment gate — PASS
 
-- Render build command: `npm install && npm run build`
-- Render start command: `npm start`
-- repository `build` / `start` scripts contain no Supabase migration push
-- database promotion remains the explicit guarded `qa:db:push` / `qa:db:reset` operator path
-- PR #113 derives the expected migration level from canonical `supabase/migrations/*.sql` filenames in the exact checkout rather than requiring a manually copied timestamp in Render/GitHub variables
+Render independently reports exact current checkpoint SHA `fbb924f40ef91c9d1e9154367dba0e04b092ef76` as **live**. The prior application-bearing PR #113 code is therefore present under the current documentation-bearing release identity.
 
-This separation must remain intact for future QA and production releases.
+## Supabase Auth URL/provider gate — PASS WITH FREE-TIER LIMITATION
 
-## Hosted authenticated QA gate — CURRENT-HEAD EVIDENCE STILL REQUIRED
+Verified operator evidence:
 
-The most recent completed manual Hosted QA Certification run predates PRs #112/#113. That older run proved:
+- Site URL: `https://hydroqualisense-qa.onrender.com`
+- redirect allow-list uses the QA deployment and exact application callback targets, including password recovery `/?auth=reset` and Gmail/Google OAuth `/email-intake`
+- the unsafe catch-all `https://**` redirect was removed
 
-- email/password authentication preflight passed;
-- persisted session reload passed;
-- fresh-navigation auth persistence passed;
-- health identity passed for that old exact SHA;
-- five of seven route-readiness checks passed;
-- no application crash, page error, console error, or failed-request signal was observed on the two route-readiness false negatives;
-- the old Storage probe failed.
+Supabase's current official password-security documentation states that leaked-password protection is available on the **Pro Plan and above**. QA is on Free, so the advisor warning `Leaked Password Protection Disabled` is an **accepted Free-tier limitation and is non-blocking**.
 
-PR #112 specifically replaced the brittle route-settle logic and repaired the Storage probe to create a valid Engineering Document/Revision fixture, verify authorized byte upload/read, and clean up correctly. Those repairs are merged and deployed, but a **new manual Hosted QA Certification run on exact current `main`** is still required before this gate can be marked PASS.
+Do not weaken application Auth/RBAC controls because this paid-only control is unavailable. Reassess it when a production deployment uses an eligible plan.
 
-The GitHub-connected review capability in the 2026-09-09 certification session could inspect prior runs/artifacts but could not initiate a new `workflow_dispatch`; therefore absence of a current-head run is recorded as an external/operator execution gate, not silently waived.
+## Hosted authenticated QA gate — FIX IN PROGRESS
 
-## Supabase Auth provider gate — BLOCKED
+A manual `Hosted QA Certification` run was dispatched on exact live SHA `fbb924f40ef91c9d1e9154367dba0e04b092ef76`.
 
-Fresh QA Supabase security-advisor evidence on 2026-09-09 still reports:
+The run failed in authentication preflight before credential/session/route/Storage certification because `scripts/hosted-qa-auth-preflight.ts` waited a fixed 500 ms after protected-route navigation and then immediately required `#auth-email` to exist. The application intentionally renders a short `Checking your workspace session...` state while Supabase resolves authentication, so the fixed 500 ms assumption is not a valid hosted-readiness contract.
 
-- **Leaked Password Protection Disabled** — WARN
+Current focused fix:
 
-The connected Supabase capability does not expose Auth Site URL / redirect allow-list / password-security mutation or inspection endpoints. Therefore the following provider-side checks remain required and cannot be certified from repository/database state alone:
+- replace the 500 ms assumption with a bounded visible-form readiness wait;
+- keep production-host refusal and persisted-session checks unchanged;
+- add regression coverage so the fixed 500 ms check cannot return;
+- merge only after exact-head protected CI is green;
+- after the new `main` is live on QA, dispatch Hosted QA once on that exact SHA and retain the artifact.
 
-1. Site URL is `https://hydroqualisense-qa.onrender.com`.
-2. Allowed redirect URLs cover the approved hosted QA confirmation/recovery flows.
-3. Leaked-password protection is enabled.
-4. Re-run the security advisor and retain provider evidence after the change.
+Required final Hosted QA evidence remains:
 
-Do not treat this unavailable provider setting as a pass.
+- authentication preflight PASS;
+- persisted session after reload PASS;
+- persisted session on fresh protected navigation PASS;
+- exact health/repository/migration identity PASS;
+- 7/7 authenticated route checks PASS;
+- Engineering Storage byte probe PASS;
+- Storage probe creates no leftover metadata row (`metadataRowsCreated=0`);
+- no crash/page/console/request blocker.
 
-## Recovery gate — BLOCKED ON FREE-TIER RECOVERY EVIDENCE
+## Initial AI bootstrap gate — PENDING
 
-The Supabase organization is currently on the **Free** plan.
+The privileged bootstrap contract is present and service-role-only, but live QA previously had no configured `company_ai_settings`/credential state for the synthetic company.
 
-Current Supabase backup documentation states that automatic daily backups are provided for Pro, Team, and Enterprise projects; Free projects should regularly create their own off-site database exports. The same provider documentation states that database backups do **not** restore Supabase Storage object bytes.
+Before READY, use the normal authenticated Settings → Deployment AI bootstrap flow with an approved QA Gemini credential and run provider validation. The server must store only the encrypted envelope. Do not place plaintext provider secrets in SQL, repository files, browser storage, logs or handoff documentation.
 
-Current QA application evidence tables also contain no completed recovery proof:
+## Recovery gate — PENDING FREE-TIER-ACHIEVABLE EVIDENCE
 
-- `database_backup_runs`: 0 rows
-- `database_restore_drills`: 0 rows
-- `document_backup_replicas`: 0 rows
+Supabase managed automatic daily backups/PITR that require a paid plan are **not QA blockers on Free**. Their absence is an accepted plan limitation.
 
-Therefore QA recovery is not certified yet. Required evidence remains:
+QA still needs achievable recovery evidence for the data paths the product controls:
 
-1. a current off-site PostgreSQL backup/export for QA;
-2. a restore drill into an isolated recovery target without damaging QA;
-3. a separate Storage-object backup and byte-level restore drill;
-4. documented recovery of required Render/Supabase/provider configuration and secret names/ownership without storing secret values in the repository;
-5. deployment reconstruction/rollback evidence using the known repository SHA, Render configuration, and migration state.
+1. current off-site PostgreSQL export for QA;
+2. restore drill into an isolated recovery target;
+3. separate backup of representative Supabase Storage object bytes;
+4. isolated byte restore/read/hash/path-permission verification;
+5. deployment reconstruction/rollback notes using repository SHA, Render configuration names and migration state;
+6. required secret/configuration ownership recorded by name only, never secret values.
 
-Database backup evidence alone never closes the Storage recovery gate.
+Database backup evidence alone does not prove Storage object recovery.
 
-## Initial AI bootstrap gate — NOT YET VERIFIED LIVE
+## Production separation — PASS
 
-Repository/migration authorization is present and restricted correctly, but the live synthetic QA company has no configured AI credential/settings record yet.
+Client A production remains read-only during QA certification. Its database was observed at migration head `20260908235742_engineering_document_unlinked_storage_cleanup`; no production DDL, DML, Auth, Storage, secret/configuration or side-effecting RPC mutation was performed by ChatGPT.
 
-Before QA can be READY:
-
-1. the authorized initial QA operator must complete the one-time Settings → Deployment AI bootstrap with an approved QA Gemini credential;
-2. the server must store only the encrypted credential envelope;
-3. provider validation must be run and its bounded status recorded;
-4. no browser/client secret exposure is allowed;
-5. invalid-initial-credential recovery remains bounded by the merged PR #109 recovery contract.
-
-Do not insert or inspect plaintext provider secrets through SQL or repository files.
-
-## Security-advisor checkpoint
-
-Fresh QA advisor results still include:
-
-- 7 INFO `rls_enabled_no_policy` findings on deliberately closed/service-owned tables;
-- 2 WARN anonymous `SECURITY DEFINER` findings (`rls_auto_enable()` provider-owned and `submit_public_prospect(...)` intentional anonymous intake with the QA DB gate disabled);
-- 153 WARN authenticated `SECURITY DEFINER` findings across the RPC surface;
-- 1 WARN Auth leaked-password protection disabled.
-
-The broad `SECURITY DEFINER` count is an inventory signal, not automatic proof of a vulnerability; authorization remains governed by explicit grants plus function-internal membership/permission guards. Do not weaken RLS/RBAC to silence advisor counts. The leaked-password warning is a concrete provider configuration blocker and remains unresolved.
-
-## Production separation — READ-ONLY CONFIRMED
-
-Client A production remains:
-
-- Supabase ref: `qijjshdwiylojvqojxyz`
-- public URL: `https://hydroqualisense.com`
-- project status: `ACTIVE_HEALTHY`
-
-During the 2026-09-09 continuation, production was queried **read-only only**. Its observed migration head is now also `20260908235742_engineering_document_unlinked_storage_cleanup`. No production DDL, DML, Auth, Storage, secret, or side-effecting RPC mutation was performed by ChatGPT.
-
-A fresh production `/api/health` body was not obtained by the connected tools during this checkpoint, so runtime release identity must not be inferred from the database head alone.
+Application SHA and database migration level are independent release facts; do not infer one from the other.
 
 ## QA CERTIFICATION result
 
 `QA CERTIFICATION: NOT READY`
 
-Passed now:
+Passed:
 
-- the last application-code-bearing baseline and its then-current QA deploy were verified before the documentation checkpoint; exact SHA must be re-read after docs-only merges;
-- no open PRs at checkpoint start;
-- QA database is healthy and independently matches repository migration level `20260908235742`;
-- migration-level bookkeeping is repository-derived;
-- routine Render app deploy is separated from deliberate database migration promotion;
-- production inspection remained read-only;
-- current QA provider security advisor was re-checked;
-- live AI-bootstrap state was checked and truthfully remains unconfigured.
+- exact repository/Render deployment synchronization at the current checkpoint;
+- QA database health and migration parity;
+- repository-derived migration truth;
+- routine application deploy separated from database promotion;
+- Auth Site URL and redirect allow-list corrected;
+- leaked-password protection correctly classified as a non-blocking Free-tier limitation;
+- production separation/read-only policy maintained.
 
-Blocking READY:
+Remaining achievable gates:
 
-1. Supabase Auth provider URL/redirect evidence and leaked-password protection enabled.
-2. One successful manual Hosted QA Certification run on exact current `main` after PR #112/#113.
-3. Live initial AI bootstrap/provider validation in QA.
-4. PostgreSQL backup + isolated restore evidence.
-5. Separate Storage-object backup + byte-level restore evidence.
-6. Deployment/configuration/secret recovery ownership and reconstruction evidence.
+1. merge and deploy the bounded Hosted QA auth-readiness harness fix;
+2. successful Hosted QA artifact on the new exact live `main`;
+3. live QA initial AI bootstrap + provider validation;
+4. Free-tier-achievable PostgreSQL export + isolated restore evidence;
+5. separate Storage byte backup + isolated restore evidence;
+6. deployment/configuration recovery notes.
 
-Worker Registration remains blocked until all required certification gates are evidenced and the status is explicitly changed to `QA CERTIFICATION: READY`.
+Do **not** block READY on paid-only Supabase controls that cannot be enabled on the current Free plan. Do **not** mark READY until the remaining achievable gates above are evidenced.
 
-## NEXT AFTER QA — Worker Registration foundation
+## NEXT AFTER READY — Worker Registration foundation
 
-Only after READY, implement:
+Only after READY:
 
 `project/site QR -> PENDING worker submission -> supervisor/admin duplicate/identity/project review -> canonical Worker/payroll/project assignment`
 
 Rules:
 
 - registration begins `PENDING`;
-- ambiguous identity/duplicates require review;
+- ambiguous identity/duplicates require human review;
 - approval creates or links canonical workforce truth;
-- worker identity, project/site assignment, and approval history remain auditable;
-- uploaded images are evidence/enrollment input, not authoritative identity by themselves.
+- worker identity, project/site assignment and approval history remain auditable;
+- uploaded images are evidence/enrollment input, not authoritative identity by themselves;
+- face recognition is out of scope for this phase.
 
 ## Later phases
 
 1. Site Attendance state machine + registered site/device + explicit time-in/time-out + duplicate-punch/offline/correction audit.
-2. Face-Recognition Attendance only after explicit consent/privacy, template/raw-photo retention/deletion, liveness, confidence/fallback, device binding, offline/concurrency, and payroll-boundary design.
+2. Face-Recognition Attendance only after explicit consent/privacy, retention/deletion, liveness, confidence/fallback, device binding, offline/concurrency and payroll-boundary design.
 3. Other client-confirmed requirements.
-4. Final pre-production security/data-integrity certification before broad multi-client rollout.
+4. Final pre-production security/data-integrity certification before broad rollout.
 
 ## Permanent invariants
 
 1. `one deployment -> one client company -> active membership/RBAC -> permitted workflows`.
-2. One repository may serve many isolated deployments; unrelated clients do not share operational databases.
-3. Keep company-scoped RLS, permissions, company-bound integrity, audit history, and company-prefixed Storage paths.
+2. Unrelated clients do not share operational databases/Auth/Storage/secrets.
+3. Keep company-scoped RLS, permissions, company-bound integrity, audit history and company-prefixed Storage paths.
 4. Supplier evidence linked to an Expense must not become duplicate payable/Actual Cost truth.
 5. Actual Cost and Committed Cost remain distinct.
 6. Client Invoices/Collections remain distinct from supplier obligations/project Actual Cost.
 7. Preserve original currency; never invent FX.
-8. Finalized/verified/issued/paid/collected/voided/reversed history changes only through deliberate auditable lifecycle/correction paths.
-9. Imported/AI identity is evidence, not automatically canonical identity when ambiguous.
+8. Finalized/auditable financial, inventory, engineering, payroll, document and future attendance history changes only through deliberate lifecycle/correction paths.
+9. Imported/AI identity is evidence when ambiguous, not canonical truth by default.
 10. Inventory stock remains explainable from authoritative movements.
 11. Biometric attendance requires explicit privacy/identity/device/correction/audit semantics before production use.
 12. Consequential AI-assisted mutations preserve prepare/validate/human-confirm/execute boundaries.
 
-Still unresolved by design: VAT rate, VAT-inclusive vs VAT-exclusive contract value, withholding/BIR classification, automatic/external FX-provider policy, and broader accounting-period policy. Do not infer them.
+Still unresolved by design: VAT rate, VAT-inclusive vs VAT-exclusive contract value, withholding/BIR classification, automatic/external FX-provider policy and broader accounting-period policy. Do not infer them.
