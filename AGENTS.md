@@ -20,7 +20,7 @@ Live repository state overrides remembered chat summaries and old prompts.
 The user has explicitly reprioritized the immediate product workflow sequence through `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`. Unless the user reprioritizes again:
 
 1. Wave 1A — Supplier Payable Lifecycle UX — complete on merged `main`
-2. Wave 1B — Client Receivable Lifecycle UX
+2. Wave 1B — Client Receivable Lifecycle UX — complete on the current product branch
 3. Wave 2 — cross-module routing and handoffs
 4. Wave 3 — deliberate payroll/subcontract/PO workflow decisions
 5. Resume the broader approved product roadmap: Email/SMS + Documents, Worker Registration, Site Attendance, Face-Recognition Attendance after explicit privacy/security design, then final pre-production certification

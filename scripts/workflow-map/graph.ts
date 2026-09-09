@@ -584,8 +584,8 @@ const nodes: readonly WorkflowNode[] = [
     domain: "finance",
     type: "route",
     scope: "company",
-    route: route({ routeId: "cash", canonicalPath: "/cash", pathPattern: "/cash", queryKeys: ["transactionId", "fromTargetType", "fromTargetId"], scope: "production-and-demo" }),
-    description: "Canonical Cash & Banking route; transactionId selects a reconciliation/settlement context.",
+    route: route({ routeId: "cash", canonicalPath: "/cash", pathPattern: "/cash", queryKeys: ["transactionId", "fromTargetType", "fromTargetId", "returnTo"], scope: "production-and-demo" }),
+    description: "Canonical Cash & Banking route; transactionId selects a reconciliation/settlement context and returnTo preserves the originating client invoice when supplied.",
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/routes.ts", "src/utils/appRouting.ts", "src/app/routes/CashBankingRoute.tsx", "src/components/CashBankingPage.tsx", "src/components/CashSettlementAllocationWorkspace.tsx"],
     testRefs: ["tests/appRouting.test.ts", "tests/financialSettlement.test.ts", "tests/wave1aSupplierPayableUx.test.ts"],
@@ -616,6 +616,19 @@ const nodes: readonly WorkflowNode[] = [
     fileRefs: ["src/utils/appRouting.ts", "src/components/projects/ProjectWorkspace.tsx", "src/app/routes/ProjectsRoute.tsx"],
     testRefs: ["tests/appRouting.test.ts", "tests/projectWorkspaceNavigation.test.ts"],
     qaScenarioIds: ["project-workspace--project-overview--project-selected--desktop-1440", "project-workspace--project-overview--base-route-loaded--tablet-768"],
+  }),
+  node({
+    id: "route-project-billing",
+    label: "Project Client Billing route",
+    domain: "commercial",
+    type: "route",
+    scope: "project",
+    route: route({ routeId: "projects", canonicalPath: "/projects/:projectId/billing", pathPattern: "/projects/:projectId/billing", queryKeys: ["billingId"], scope: "production-and-demo" }),
+    description: "Project Client Billing route; billingId selects the exact client invoice for object-first collection work and return navigation.",
+    sourceClassification: "code-derived",
+    fileRefs: ["src/utils/appRouting.ts", "src/utils/appRouteContracts.ts", "src/app/routes/AppRouter.tsx", "src/app/routes/ProjectsRoute.tsx", "src/components/projects/ProjectWorkspace.tsx", "src/components/projects/ClientBillingPanel.tsx"],
+    testRefs: ["tests/appRouting.test.ts", "tests/wave1bClientReceivableUx.test.ts"],
+    qaScenarioIds: ["client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"],
   }),
   node({
     id: "route-project-documents",
@@ -872,8 +885,8 @@ const nodes: readonly WorkflowNode[] = [
     description: "Derived KPIs and activity metrics composed from projects, verified invoice allocations, confirmed payroll allocations, expenses, and cash state.",
     sourceClassification: "mixed",
     fileRefs: ["src/utils/dashboardStats.ts", "src/utils/dashboardViewModel.ts", "src/App.tsx"],
-    testRefs: ["tests/accountingStatistics.test.ts", "tests/financialSettlement.test.ts"],
-    invariantIds: ["reports-are-derived-surfaces", "invoice-project-cost-independent-from-settlement", "payroll-labor-cost-independent-from-net-pay-settlement"],
+    testRefs: ["tests/accountingStatistics.test.ts", "tests/financialSettlement.test.ts", "tests/financialReportingCurrency.test.ts"],
+    invariantIds: ["reports-are-derived-surfaces", "invoice-project-cost-independent-from-settlement", "payroll-labor-cost-independent-from-net-pay-settlement", "base-reporting-uses-authoritative-fx"],
   }),
   node({
     id: "project-directory",
@@ -1903,9 +1916,9 @@ const nodes: readonly WorkflowNode[] = [
     description: "Account, transaction, candidate, partial/split allocation, confirmation, ignore/review restoration, transfer reversal, and settlement reversal review surface.",
     sourceClassification: "mixed",
     fileRefs: ["src/components/CashBankingPage.tsx", "src/components/CashSettlementAllocationWorkspace.tsx", "src/components/InvoiceSettlementDirectoryPanel.tsx", "src/components/financial/FinancialReasonDialog.tsx"],
-    testRefs: ["tests/cashBanking.test.ts", "tests/financialSettlement.test.ts", "tests/structuredBrowserEvidence.test.ts", "tests/coreHardeningWave2B3CashCorrections.test.ts", "tests/wave1aSupplierPayableUx.test.ts"],
+    testRefs: ["tests/cashBanking.test.ts", "tests/financialSettlement.test.ts", "tests/structuredBrowserEvidence.test.ts", "tests/coreHardeningWave2B3CashCorrections.test.ts", "tests/wave1aSupplierPayableUx.test.ts", "tests/wave1bClientReceivableUx.test.ts"],
     permissionKeys: ["cash.summary.read", "cash.transactions.read", "cash.reconcile"],
-    qaScenarioIds: ["cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-context-opened--mobile-390"],
+    qaScenarioIds: ["cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-context-opened--mobile-390", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"],
   }),
   node({
     id: "cash-settlement-candidates",
@@ -2634,6 +2647,8 @@ const edges: readonly WorkflowEdge[] = [
   edge({ id: "directory-to-selection", source: "project-directory", target: "project-selection", type: "opens", kind: "navigation", label: "selects project", permissionKeys: ["projects.read"] }),
   edge({ id: "selection-to-workspace", source: "project-selection", target: "route-project-workspace", type: "routes-to", kind: "navigation", label: "canonical project path", permissionKeys: ["projects.read"] }),
   edge({ id: "route-workspace-to-screen", source: "route-project-workspace", target: "project-workspace", type: "routes-to", kind: "navigation", label: "opens" }),
+  edge({ id: "workspace-to-billing-route", source: "project-workspace", target: "route-project-billing", type: "opens", kind: "navigation", label: "Client Invoices tab" }),
+  edge({ id: "billing-route-to-workspace", source: "route-project-billing", target: "client-billing-workspace", type: "routes-to", kind: "navigation", label: "opens exact client invoice" }),
   edge({ id: "workspace-to-aggregate", source: "project-workspace", target: "project-aggregate", type: "reads", kind: "read-flow", label: "selected project" }),
   edge({ id: "workspace-to-overview", source: "project-workspace", target: "project-overview", type: "contains", kind: "context", label: "Financial Control Dashboard / Overview tab" }),
   edge({ id: "directory-to-project-lifecycle", source: "project-directory", target: "project-correction-lifecycle", type: "opens", kind: "mutation", label: "reviews correction options", permissionKeys: ["projects.manage"], confirmationRequirement: "human", invariantIds: ["company-rbac-is-authoritative", "approved-payroll-history-is-immutable"] }),
@@ -2886,6 +2901,8 @@ const clientBillingRefs = [
   "src/components/projects/ProjectWorkspace.tsx",
   "src/components/projects/ProjectOverview.tsx",
   "src/app/routes/ProjectsRoute.tsx",
+  "src/utils/appRouteContracts.ts",
+  "src/utils/appRouting.ts",
   "src/utils/projectFinancialSummary.ts",
   "supabase/migrations/20260903224406_client_progress_billing_foundation.sql",
   "supabase/migrations/20260903232024_client_billing_realtime.sql",
@@ -2913,6 +2930,8 @@ const clientBillingTests = [
   ...commercialTests,
   "tests/clientProgressBilling.test.ts",
   "tests/clientProgressBillingMigration.test.ts",
+  "tests/clientCollectionsDomain.test.ts",
+  "tests/wave1bClientReceivableUx.test.ts",
 ] as const;
 
 const clientCollectionRefs = [
@@ -2928,6 +2947,8 @@ const clientCollectionRefs = [
   "src/components/projects/ProjectOverview.tsx",
   "src/app/routes/ProjectsRoute.tsx",
   "src/App.tsx",
+  "src/utils/appRouteContracts.ts",
+  "src/utils/appRouting.ts",
   "src/utils/projectFinancialSummary.ts",
   "supabase/migrations/20260904090000_client_collections_foundation.sql",
   "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql",
@@ -2938,6 +2959,7 @@ const clientCollectionTests = [
   "tests/clientCollectionsDomain.test.ts",
   "tests/clientCollectionsMigration.test.ts",
   "tests/clientCollectionSettlement.test.ts",
+  "tests/wave1bClientReceivableUx.test.ts",
   "supabase/tests/database/16_client_collection_settlement.test.sql",
 ] as const;
 
@@ -2989,6 +3011,14 @@ const p2Invariants: readonly WorkflowInvariant[] = [
     sourceClassification: "curated",
     fileRefs: ["src/lib/purchaseOrders.ts", "src/lib/subcontracts.ts", "src/utils/projectCosting.ts"],
     testRefs: [...procurementTests, ...commercialTests],
+  }),
+  invariant({
+    id: "base-reporting-uses-authoritative-fx",
+    label: "Base reporting uses authoritative FX evidence",
+    description: "When an immutable conversion snapshot exists, base-currency reporting uses its persisted base amount and removes the converted source from unresolved foreign residual buckets; without that evidence the source remains foreign and unconverted.",
+    sourceClassification: "mixed",
+    fileRefs: ["src/utils/financialCurrency.ts", "src/utils/projectCosting.ts", "src/utils/dashboardViewModel.ts", "src/components/expenses/ExpensesPage.tsx", "src/components/VerificationWorkspace.tsx"],
+    testRefs: ["tests/financialReportingCurrency.test.ts", "tests/r4CurrencyAndTax.test.ts"],
   }),
   invariant({
     id: "commercial-client-billing-issued-only",
@@ -3267,6 +3297,7 @@ const p2Nodes: readonly WorkflowNode[] = [
     testRefs: clientBillingTests,
     permissionKeys: ["projects.read", "projects.manage"],
     invariantIds: ["company-rbac-is-authoritative", "commercial-client-billing-issued-only", "commercial-client-billing-cash-separation"],
+    qaScenarioIds: ["client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"],
     tags: ["client billing", "progress billing", "commercial register"],
   }),
   node({
@@ -3351,6 +3382,7 @@ const p2Nodes: readonly WorkflowNode[] = [
     testRefs: clientCollectionTests,
     permissionKeys: ["projects.read", "projects.manage"],
     invariantIds: ["company-rbac-is-authoritative", "commercial-client-collection-recorded-only", "commercial-client-collection-cash-separation"],
+    qaScenarioIds: ["client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"],
     tags: ["client collections", "receivables register", "commercial register"],
   }),
   node({
@@ -3424,6 +3456,7 @@ const p2Nodes: readonly WorkflowNode[] = [
     fileRefs: clientCollectionRefs,
     testRefs: clientCollectionTests,
     invariantIds: ["commercial-client-collection-cash-linkage", "commercial-client-collection-settlement-reversal-guard", "company-rbac-is-authoritative"],
+    qaScenarioIds: ["client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"],
     tags: ["client collection settlement", "cash settlement link", "incoming credit", "bank evidence"],
   }),
   node({

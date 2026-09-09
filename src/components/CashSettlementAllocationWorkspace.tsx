@@ -34,7 +34,7 @@ function targetPath(candidate: FinancialReconciliationCandidate) {
   if (candidate.targetType === "INVOICE") return appPathForInvoice(candidate.targetId, "/cash");
   if (candidate.targetType === "PAYROLL") return appPathForPayrollRun(candidate.targetId, "/cash");
   if (candidate.targetType === "EXPENSE") return appPathForExpense(candidate.targetId, "/cash");
-  if (candidate.targetType === "CLIENT_COLLECTION" && candidate.projectId) return appPathForProject(candidate.projectId, "billing");
+  if (candidate.targetType === "CLIENT_COLLECTION" && candidate.projectId) return appPathForProject(candidate.projectId, "billing", candidate.billingId ? { billingId: candidate.billingId } : undefined);
   return undefined;
 }
 
@@ -242,8 +242,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
 
   return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-label="Settlement allocation workspace" data-tour="cash-settlement-workspace">
     {targetContext?.requested && <div className={`mb-3 rounded-xl border px-3 py-2.5 text-xs ${targetContext.invalid || !requestedTargetCandidate || (requestedTargetCandidate && !isFinancialReconciliationCandidateLifecycleEligible(requestedTargetCandidate)) ? "border-amber-200 bg-amber-50 text-amber-950" : "border-indigo-200 bg-indigo-50 text-indigo-950"}`} role={targetContext.invalid || !requestedTargetCandidate ? "alert" : undefined} data-testid="cash-target-context">
-      <p className="break-words font-black">Payment target: {targetLabel}</p>
-      {targetMessage && <p className="mt-1 break-words text-[10px] leading-4">{targetMessage}</p>}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><p className="break-words font-black">Payment target: {targetLabel}</p>{targetMessage && <p className="mt-1 break-words text-[10px] leading-4">{targetMessage}</p>}</div>{targetContext.returnTo && <a href={targetContext.returnTo} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); navigate(targetContext.returnTo!); }} className="inline-flex min-h-9 shrink-0 items-center justify-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-indigo-700 shadow-sm hover:bg-indigo-50" data-testid="cash-return-to-client-invoice">Return to client invoice <ArrowRight className="h-3 w-3" /></a>}</div>
     </div>}
     {requestedTransactionUnavailable && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"><span>The requested cash transaction is not available in this workspace.</span><button type="button" onClick={() => navigate("/cash")} className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-amber-900 shadow-sm">Return to Cash &amp; Banking</button></div>}
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">

@@ -19,6 +19,8 @@ import {
   appPathForPayrollRun,
   appPathForProject,
   appPathForReviewInvoice,
+  appPathForCashTarget,
+  cashSettlementTargetContextFromSearch,
   financialTransactionIdFromSearch,
   parseAppLocation,
   payrollRunIdFromSearch,
@@ -111,6 +113,7 @@ export const WORKFLOW_ROUTE_CONTRACT_IDS: Readonly<Record<string, string>> = Obj
   "route-equipment-registry": "equipment",
   "route-projects": "projects",
   "route-project-workspace": "project-workspace",
+  "route-project-billing": "project-billing",
   "route-project-documents": "project-documents",
   "route-project-rfis": "project-rfis",
   "route-rfi-detail": "rfi-detail",
@@ -141,6 +144,7 @@ function locationSummary(path: string): WorkflowRouteRoundTripResult {
   if (location.kind === "project") {
     selected.projectId = location.projectId;
     selected.view = location.view;
+    selected.billingId = location.billingId;
     selected.documentId = location.documentId;
     selected.revisionId = location.revisionId;
     selected.rfiId = location.rfiId;
@@ -158,6 +162,7 @@ function locationSummary(path: string): WorkflowRouteRoundTripResult {
     selected.transactionId = financialTransactionIdFromSearch(location.search);
     selected.fromTargetType = query.get("fromTargetType") || undefined;
     selected.fromTargetId = query.get("fromTargetId") || undefined;
+    selected.returnTo = cashSettlementTargetContextFromSearch(location.search).returnTo;
   } else if (location.kind === "tab" && location.routeId === "payroll") {
     const query = new URLSearchParams(location.search);
     selected.runId = payrollRunIdFromSearch(location.search);
@@ -207,6 +212,7 @@ const INVOICE_ID = "00000000-0000-4000-8000-000000000009";
 const EXPENSE_ID = "00000000-0000-4000-8000-000000000012";
 const TRANSACTION_ID = "00000000-0000-4000-8000-000000000010";
 const PAYROLL_RUN_ID = "00000000-0000-4000-8000-000000000011";
+const BILLING_ID = "00000000-0000-4000-8000-000000000013";
 
 const ROUTE_ROUND_TRIPS: readonly WorkflowRouteRoundTripContract[] = [
   roundTrip(
@@ -252,6 +258,13 @@ const ROUTE_ROUND_TRIPS: readonly WorkflowRouteRoundTripContract[] = [
     (path) => expectedLocation(path, "project", "projects", { projectId: MATERIALS_EQUIPMENT_PROJECT_ID, view: "materials-equipment" }),
   ),
   roundTrip(
+    "route-project-billing",
+    "project client billing selects the exact client invoice",
+    () => appPathForProject(PROJECT_ID, "billing", { billingId: BILLING_ID }),
+    `/projects/${PROJECT_ID}/billing?billingId=${BILLING_ID}`,
+    (path) => expectedLocation(path, "project", "projects", { projectId: PROJECT_ID, view: "billing", billingId: BILLING_ID }),
+  ),
+  roundTrip(
     "route-invoice-detail",
     "invoice detail with safe return path",
     () => appPathForInvoice(INVOICE_ID, `/projects/${PROJECT_ID}/invoices`),
@@ -264,6 +277,13 @@ const ROUTE_ROUND_TRIPS: readonly WorkflowRouteRoundTripContract[] = [
     () => appPathForReviewInvoice(INVOICE_ID, "/inbox"),
     `/review?invoiceId=${INVOICE_ID}&from=%2Finbox`,
     (path) => expectedLocation(path, "review-invoice", "review", { invoiceId: INVOICE_ID, returnTo: "/inbox" }),
+  ),
+  roundTrip(
+    "route-cash",
+    "Cash & Banking client collection target with safe return path",
+    () => appPathForCashTarget("CLIENT_COLLECTION", TRANSACTION_ID, appPathForProject(PROJECT_ID, "billing", { billingId: BILLING_ID })),
+    `/cash?fromTargetType=CLIENT_COLLECTION&fromTargetId=${TRANSACTION_ID}&returnTo=%2Fprojects%2F${PROJECT_ID}%2Fbilling%3FbillingId%3D${BILLING_ID}`,
+    (path) => expectedLocation(path, "tab", "cash", { fromTargetType: "CLIENT_COLLECTION", fromTargetId: TRANSACTION_ID, returnTo: appPathForProject(PROJECT_ID, "billing", { billingId: BILLING_ID }) }),
   ),
   roundTrip(
     "route-cash",
@@ -347,6 +367,7 @@ export const WORKFLOW_MAP_CONSISTENCY_CONTRACTS: WorkflowMapConsistencyContracts
     "approved-payroll-history-is-immutable",
     "formal-engineering-history-is-preserved",
     "settlement-reversal-is-additive-history",
+    "base-reporting-uses-authoritative-fx",
     "inventory-stock-is-movement-derived",
     "assistant-mutations-require-confirmation",
   ],

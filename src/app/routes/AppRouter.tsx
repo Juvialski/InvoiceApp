@@ -795,6 +795,7 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         payrollPeriods={payrollData.periods}
         projectFormSeed={projectFormSeed}
         initialTab={route.kind === "project" ? route.view : "overview"}
+        initialBillingId={route.kind === "project" ? route.billingId : undefined}
         initialDocumentId={route.kind === "project" ? route.documentId : undefined}
         initialRevisionId={route.kind === "project" ? route.revisionId : undefined}
         initialSiteLogId={route.kind === "project" ? route.siteLogId : undefined}

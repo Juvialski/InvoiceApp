@@ -97,6 +97,49 @@ const verifyCashExpenseTarget: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyClientReceivableLifecycle: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Client Invoices & Collections");
+  await waitForVisible(page, '[data-testid="client-invoice-collection-position"]');
+  const position = await page.locator('[data-testid="client-invoice-collection-position"]').count();
+  const recordCollection = await page.getByRole("button", { name: /Record Collection/ }).count();
+  const collectionHistory = await page.locator('[data-testid="client-invoice-collection-history"]').count();
+
+  await page.getByRole("button", { name: /Record Collection/ }).first().click();
+  await waitForHeading(page, "Record client collection draft");
+  const exactBillingContext = await page.locator('[data-testid="client-collection-target-context"]').count();
+  await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Client Invoices \(/ }).first().click();
+  await waitForVisible(page, '[data-testid="client-invoice-collection-history"]');
+  await page.getByRole("button", { name: /Open collection/ }).first().click();
+  await waitForVisible(page, '[data-testid="continue-client-collection-to-cash"]');
+  const continueToCash = await page.locator('[data-testid="continue-client-collection-to-cash"]').count();
+  await page.locator('[data-testid="continue-client-collection-to-cash"]').first().click();
+  await waitForVisible(page, '[data-testid="cash-target-context"]');
+  const cashTargetContext = await page.locator('[data-testid="cash-target-context"]').count();
+  const requestedTarget = await page.locator("text=Requested target").count();
+  const cashReturn = await page.locator('[data-testid="cash-return-to-client-invoice"]').count();
+
+  const requestedAllocation = page.locator('article:has-text("COL-MEC-24-017-002") button:has-text("Allocate")').first();
+  await requestedAllocation.click();
+  await page.getByRole("button", { name: "Confirm settlement", exact: true }).click();
+  await waitForVisible(page, '[data-testid="cash-return-to-client-invoice"]');
+  await page.locator('[data-testid="cash-return-to-client-invoice"]').first().click();
+  await waitForVisible(page, '[data-testid="client-invoice-collection-position"]');
+  const returnedPosition = await page.locator('[data-testid="client-invoice-collection-position"]').count();
+  const returnedHistory = await page.locator('[data-testid="client-invoice-collection-history"]').count();
+  return [
+    { id: "client-invoice-collection-position-visible", passed: position === 1, details: `invoice collection position panels: ${position}` } satisfies QaAssertion,
+    { id: "client-invoice-record-collection-visible", passed: recordCollection === 1, details: `contextual Record Collection CTAs: ${recordCollection}` } satisfies QaAssertion,
+    { id: "client-invoice-collection-history-visible", passed: collectionHistory === 1, details: `invoice collection history panels: ${collectionHistory}` } satisfies QaAssertion,
+    { id: "client-collection-exact-billing-context-visible", passed: exactBillingContext === 1, details: `exact billing contexts in collection editor: ${exactBillingContext}` } satisfies QaAssertion,
+    { id: "client-collection-cash-continuation-visible", passed: continueToCash === 1, details: `Cash continuation CTAs: ${continueToCash}` } satisfies QaAssertion,
+    { id: "client-collection-cash-target-context-visible", passed: cashTargetContext === 1, details: `CLIENT_COLLECTION cash target contexts: ${cashTargetContext}` } satisfies QaAssertion,
+    { id: "client-collection-cash-target-prioritized", passed: requestedTarget >= 1, details: `requested-target badges: ${requestedTarget}` } satisfies QaAssertion,
+    { id: "client-collection-cash-return-visible", passed: cashReturn === 1, details: `client-invoice return links: ${cashReturn}` } satisfies QaAssertion,
+    { id: "client-collection-returned-to-invoice", passed: returnedPosition === 1 && returnedHistory === 1, details: `returned invoice position/history panels: ${returnedPosition}/${returnedHistory}` } satisfies QaAssertion,
+  ] satisfies readonly QaAssertion[];
+};
+
 const openMobileNavigation: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   await waitForVisible(page, 'button[aria-label="Close navigation"]');
@@ -292,6 +335,8 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "supplier-payables", route: route("expenses", "/expenses?expenseId=:expenseId"), path: "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02", interactionState: "authoritative Expense payment surface opened", viewport: QA_VIEWPORTS.mobile, action: verifyExpensePaymentSurface }),
   defineQaScenario({ feature: "supplier-payables", route: route("cash", "/cash?fromTargetType=:fromTargetType&fromTargetId=:fromTargetId"), path: "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02", interactionState: "Cash Expense target context opened", viewport: QA_VIEWPORTS.desktop, action: verifyCashExpenseTarget }),
   defineQaScenario({ feature: "supplier-payables", route: route("cash", "/cash?fromTargetType=:fromTargetType&fromTargetId=:fromTargetId"), path: "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02", interactionState: "Cash Expense target context opened", viewport: QA_VIEWPORTS.mobile, action: verifyCashExpenseTarget }),
+  defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "client invoice collection lifecycle verified", viewport: QA_VIEWPORTS.desktop, action: verifyClientReceivableLifecycle }),
+  defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "client invoice collection lifecycle verified", viewport: QA_VIEWPORTS.mobile, action: verifyClientReceivableLifecycle }),
   defineQaScenario({ feature: "reports", route: route("reports", "/reports"), path: "/demo/app/reports", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "settings", route: route("settings", "/settings"), path: "/demo/app/settings", interactionState: "settings product surface verified", viewport: QA_VIEWPORTS.desktop, action: verifySettingsScreen }),
   defineQaScenario({ feature: "assistant", route: route("assistant", "/assistant"), path: "/demo/app/assistant", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),

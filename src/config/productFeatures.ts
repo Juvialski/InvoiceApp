@@ -83,10 +83,11 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     title: "Client invoices and collections",
     category: "Client Billing & Collections",
     status: "AVAILABLE",
-    shortDescription: "Create draft and issued client progress billings, record collections, and follow the billing history for each project.",
+    shortDescription: "Create draft and issued client progress billings, record partial or full collections, and follow each invoice's receivable history.",
     details: [
       "Collections allocate against issued client billings and keep commercial receipt history visible.",
-      "Bank evidence can be linked separately to support reconciliation without changing the recorded collection or project cost.",
+      "Issued client invoices show amount collected, amount remaining, collection state, and related collection history without manual calculation.",
+      "Recorded collections continue to Cash & Banking with the exact target context so legitimate bank evidence can be selected and reconciled separately from commercial collection truth.",
     ],
     sortOrder: 40,
   },

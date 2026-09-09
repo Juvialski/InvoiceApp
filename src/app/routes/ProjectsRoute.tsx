@@ -91,6 +91,7 @@ export interface ProjectsRouteProps {
   payrollPeriods?: PayrollPeriod[];
   projectFormSeed?: Project | null;
   initialTab?: WorkspaceTab;
+  initialBillingId?: string;
   initialDocumentId?: string;
   initialRevisionId?: string;
   initialRfiId?: string;
@@ -241,6 +242,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
   payrollPeriods = [],
   projectFormSeed,
   initialTab = "overview",
+  initialBillingId,
   initialDocumentId,
   initialRevisionId,
   initialRfiId,
@@ -375,6 +377,7 @@ export const ProjectsRoute: React.FC<ProjectsRouteProps> = ({
         payrollAllocations={payrollAllocations}
         payrollPeriods={payrollPeriods}
         initialTab={initialTab}
+        initialBillingId={initialBillingId}
         initialDocumentId={initialDocumentId}
         initialRevisionId={initialRevisionId}
         initialRfiId={linkedRfiId}

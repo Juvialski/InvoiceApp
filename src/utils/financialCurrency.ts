@@ -57,6 +57,30 @@ export function convertFinancialAmount(
   return roundFinancialAmount(value * Number(snapshot.rate));
 }
 
+export interface FinancialConversionFallback {
+  sourceCurrency: string | undefined;
+  sourceType: FinancialFxSourceType;
+  sourceId: string | undefined;
+}
+
+/**
+ * Use the record's own immutable conversion first, then an explicitly linked
+ * source record's snapshot. A missing snapshot remains unresolved; no live or
+ * guessed FX rate is ever applied.
+ */
+export function convertFinancialAmountWithFallback(
+  amount: unknown,
+  sourceCurrency: string | undefined,
+  targetCurrency: string | undefined,
+  sourceType: FinancialFxSourceType,
+  sourceId: string | undefined,
+  snapshots: readonly FinancialFxSnapshot[] | undefined,
+  fallback?: FinancialConversionFallback,
+) {
+  return convertFinancialAmount(amount, sourceCurrency, targetCurrency, sourceType, sourceId, snapshots)
+    ?? (fallback ? convertFinancialAmount(amount, fallback.sourceCurrency, targetCurrency, fallback.sourceType, fallback.sourceId, snapshots) : undefined);
+}
+
 export function hasFinancialFxSnapshot(
   amount: unknown,
   sourceCurrency: string | undefined,

@@ -1,6 +1,6 @@
 import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ValidationIssue } from "../types.ts";
 import { DEFAULT_COMPANY_DOCUMENT_PROFILE, supplierInvoiceBuyerMismatch, type CompanyDocumentProfile } from "../lib/companyDocumentProfile.ts";
-import { hasFinancialFxSnapshot, normalizeFinancialCurrency } from "./financialCurrency.ts";
+import { convertFinancialAmountWithFallback, normalizeFinancialCurrency } from "./financialCurrency.ts";
 import { validateInvoiceProjectAllocationSet } from "./projectAllocations.ts";
 import { supplierInvoiceAllocationSummaries } from "./supplierInvoiceCostOwnership.ts";
 
@@ -209,10 +209,23 @@ export function unresolvedForeignExpenseIds(
   expenses: readonly Expense[],
   snapshots: readonly FinancialFxSnapshot[] | undefined,
   baseCurrency: string,
+  invoices: readonly InvoiceData[] = [],
 ) {
   const base = normalizeFinancialCurrency(baseCurrency);
+  const invoiceById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
   return expenses
     .filter((expense) => expense.status !== "VOID" && normalizeFinancialCurrency(expense.currency) !== base)
-    .filter((expense) => !hasFinancialFxSnapshot(expense.amount, expense.currency, base, "EXPENSE", expense.id, snapshots))
+    .filter((expense) => {
+      const linkedInvoice = expense.supplierInvoiceId ? invoiceById.get(expense.supplierInvoiceId) : undefined;
+      return convertFinancialAmountWithFallback(
+        expense.amount,
+        expense.currency,
+        base,
+        "EXPENSE",
+        expense.id,
+        snapshots,
+        linkedInvoice ? { sourceCurrency: linkedInvoice.currency, sourceType: "SUPPLIER_INVOICE", sourceId: linkedInvoice.id } : undefined,
+      ) === undefined;
+    })
     .map((expense) => expense.id);
 }

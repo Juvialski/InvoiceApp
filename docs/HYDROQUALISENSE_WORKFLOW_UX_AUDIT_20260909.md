@@ -84,13 +84,13 @@ Supplier invoice evidence linked to an Expense must not become duplicate payable
 
 **Classification:** `PARTIAL — workflow incomplete`  
 **Finding:** An issued client invoice lacks an obvious contextual `Record Collection` path that preserves authoritative Cash/Bank settlement semantics.  
-**Current status:** **OPEN — Wave 1B primary target.**
+**Current status:** **RESOLVED in Wave 1B.** The issued client invoice detail starts the canonical ClientCollection allocation flow, carries the exact target into Cash & Banking, and provides a direct return path.
 
 ### UX-007 — P2
 
 **Classification:** `PARTIAL — workflow incomplete`  
 **Finding:** Client invoice detail does not present sufficiently clear per-invoice amount collected, amount remaining, collection state, and collection history.  
-**Current status:** **OPEN — Wave 1B.**
+**Current status:** **RESOLVED in Wave 1B.** The detail view derives amount, collected, remaining, state, related collection history, and available bank-link status from the existing authoritative records.
 
 ### UX-008 — P2
 
@@ -167,7 +167,7 @@ Wave 1A preserves Expense authority, supplier evidence, no duplicate Actual Cost
 
 ### Wave 1B — Client Receivable Lifecycle UX
 
-**Status: NEXT USER-PRIORITIZED PRODUCT WORKFLOW WAVE.**
+**Status: COMPLETE on the current product branch.**
 
 Target journey:
 
@@ -191,11 +191,15 @@ Required user-facing information:
 
 Reuse the object-first settlement routing pattern from Wave 1A. Do not combine client receivable truth with supplier payable truth.
 
+Wave 1B now provides the complete usable object-first client receivable continuation: selected issued invoice → guarded ClientCollection allocation → recorded collection → exact Cash & Banking target context → explicit posted CREDIT settlement evidence → partial/full link state and history → return to the selected client invoice. The commercial collection and cash settlement records remain distinct.
+
 ### Wave 2 — Cross-module routing and handoffs
 
-**Status: PLANNED after Wave 1B.**
+**Status: NEXT after Wave 1B.**
 
 Primary targets: UX-003, any residual UX-004 routing gaps, UX-009, UX-012, UX-013 after runtime confirmation, UX-014, and bounded mobile/discoverability improvements that do not redesign canonical ownership.
+
+The Wave 2 supplier-invoice handoff must include an obvious sidebar `Invoices` entry, easy discovery of the existing supplier invoice register, clear continuation into the verified-invoice reopen/correction path, and consistent invoice breadcrumbs/back navigation. Do not expand the Wave 1B client-receivable work into that supplier navigation redesign.
 
 Keep Wave 2 focused on navigation, context, discoverability, and truthful handoffs. Do not invent duplicate domain records to simplify navigation.
 
@@ -252,4 +256,4 @@ This audit does not authorize:
 
 Internal IDs (`UX-*`), waves, PR numbers, CI, migrations, SHAs, agent terminology, and engineering notes belong only in internal documentation. The client-facing `Hydroqualisense Features & Roadmap` must describe only actual usable behavior and approved future product direction.
 
-At the reviewed baseline, Wave 1A's material user-facing behavior is already reflected in the Available Supplier Invoices/Expenses and Cash & Banking descriptions. No additional client-facing roadmap change is required solely to persist this audit.
+At the reviewed baseline, Wave 1A's material user-facing behavior is reflected in the Available Supplier Invoices/Expenses and Cash & Banking descriptions. Wave 1B's usable client-invoice collection continuation is reflected in the Available Client invoices and collections description; internal wave IDs and implementation details remain excluded.

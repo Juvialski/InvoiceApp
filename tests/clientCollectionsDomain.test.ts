@@ -6,6 +6,7 @@ import {
   billingCollectedAmount,
   billingOutstandingAmount,
   buildLocalClientCollection,
+  calculateClientBillingCollectionSummary,
   calculateClientCollectionSummary,
   clientCollectionTotal,
   isClientCollectionProjectStatusAllowed,
@@ -120,6 +121,33 @@ test("client collection totals derive from allocation values and drafts do not i
   assert.equal(summary.recordedCollectionCount, 1);
   assert.equal(summary.totalCollectionCount, 3);
   assert.equal(summary.hasCurrencyMismatch, false);
+});
+
+test("client invoice collection position derives partial/full state from recorded allocations only", () => {
+  const b1 = billing("b1", "PB-001", 1_000, "ISSUED");
+  const draft = collection({ id: "draft", status: "DRAFT", allocations: [{ id: "draft-a", collectionId: "draft", billingId: b1.id, amount: 300 }] });
+  const first = collection({ id: "first", status: "RECORDED", allocations: [{ id: "first-a", collectionId: "first", billingId: b1.id, amount: 400 }] });
+
+  const partial = calculateClientBillingCollectionSummary(b1, [draft, first]);
+  assert.equal(partial.invoiceAmount, 1_000);
+  assert.equal(partial.collectedAmount, 400);
+  assert.equal(partial.remainingAmount, 600);
+  assert.equal(partial.state, "PARTIALLY_COLLECTED");
+  assert.deepEqual(partial.relatedCollections.map((item) => item.id), ["draft", "first"]);
+
+  const full = calculateClientBillingCollectionSummary(b1, [first, collection({ id: "second", status: "RECORDED", allocations: [{ id: "second-a", collectionId: "second", billingId: b1.id, amount: 600 }] })]);
+  assert.equal(full.collectedAmount, 1_000);
+  assert.equal(full.remainingAmount, 0);
+  assert.equal(full.state, "FULLY_COLLECTED");
+});
+
+test("client invoice collection position withholds mixed-currency evidence", () => {
+  const b1 = billing("b1", "PB-001", 1_000, "ISSUED", "PHP");
+  const mismatched = collection({ id: "usd", status: "RECORDED", currency: "USD", allocations: [{ id: "usd-a", collectionId: "usd", billingId: b1.id, amount: 100 }] });
+  const summary = calculateClientBillingCollectionSummary(b1, [mismatched]);
+  assert.equal(summary.state, "CURRENCY_MISMATCH");
+  assert.equal(summary.collectedAmount, undefined);
+  assert.equal(summary.remainingAmount, undefined);
 });
 
 test("client collection summary withholds mixed currencies instead of silently aggregating", () => {
