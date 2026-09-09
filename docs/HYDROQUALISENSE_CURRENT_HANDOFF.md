@@ -8,19 +8,19 @@ Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUAL
 
 ## Exact current checkpoint
 
-Repository/deployment state before this focused product-truth and Hosted QA expansion:
+Repository/deployment state verified after the focused product-truth and Hosted QA expansion:
 
-- merged `main`: `e0c89e5cb8bbe1b59471d380fab28347c8e2542d`
+- merged `main`: `288940a196ff5886d352ed665f0d06dd998513b0`
 - open PRs at checkpoint start: none
 - QA Render URL: `https://hydroqualisense-qa.onrender.com`
 - QA Render service: `hydroqualisense-qa`
-- Render deploy for `e0c89e5cb8bbe1b59471d380fab28347c8e2542d`: **LIVE**
+- Render deploy for `288940a196ff5886d352ed665f0d06dd998513b0`: **LIVE**
 - QA Supabase ref: `vrpuznofrntyqsbugrib`
-- QA migration head: `20260908235742_engineering_document_unlinked_storage_cleanup`
+- QA migration head: `20260909053311_company_ai_secret_key_rpc_compatibility`
 - Client A production Supabase ref: `qijjshdwiylojvqojxyz`
 - production remains strictly read-only throughout QA certification
 
-Recent hardening is complete through PR #117. PRs #116/#117 contain the bounded Hosted QA readiness stabilization. This new focused product-truth, Settings, and browser-QA phase is not yet merged or deployed to QA.
+Recent hardening is complete through merged PR #119. The guarded QA migration promotion and post-promotion Hosted QA certification for this checkpoint are recorded below.
 
 ## Deployment model
 
@@ -44,7 +44,7 @@ Where a Free-tier alternative can validate the same operational recovery propert
 
 ## QA Render/release identity — PASS
 
-Render independently reports exact current checkpoint SHA `e0c89e5cb8bbe1b59471d380fab28347c8e2542d` as live.
+`/api/health` reports exact current checkpoint SHA `288940a196ff5886d352ed665f0d06dd998513b0` as live with `environment=qa`, deployment `qa-hydroqualisense`, and migration level `20260909053311`.
 
 Routine app deploy and database promotion remain separate:
 
@@ -54,15 +54,40 @@ Render start: npm start
 DB promotion: explicit guarded qa:db:push / qa:db:reset only
 ```
 
+For QA certification, separate release actions are sequenced as:
+
+`merge -> QA app deploy -> guarded QA DB promotion -> verify exact SHA + migration parity -> manual Hosted QA dispatch`
+
+If merged `main` contains a newer migration than live QA and QA writes are already authorized, the guarded QA DB promotion is an immediate prerequisite. Do not run Hosted QA or other DB-dependent hosted certification first and then diagnose the predictable stale-DB failure.
+
 PR #113 made migration-level release truth repository-derived. Stale legacy migration environment values do not override the canonical repository migration head.
 
 ## QA migration parity — PASS
 
+The repository-approved guarded command completed successfully:
+
+```text
+npm.cmd run qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa
+```
+
 QA Supabase is healthy and independently reports migration head:
 
-`20260908235742_engineering_document_unlinked_storage_cleanup`
+`20260909053311_company_ai_secret_key_rpc_compatibility`
 
-No migration push/reset was run simply because certification continued or documentation redeployed.
+Production remains at `20260908235742_engineering_document_unlinked_storage_cleanup`; `20260909053311` is not applied there. No production migration, DDL, DML, Auth, Storage, secret/configuration or side-effecting RPC mutation was performed.
+
+## AI RPC compatibility promotion — PASS
+
+Post-promotion QA catalog checks confirmed for all five server-only AI RPCs:
+
+- legacy `request.jwt.claim.role` and `current_user` caller checks are absent;
+- `anon` and `authenticated` do not have `EXECUTE`;
+- `service_role` retains `EXECUTE`;
+- deployment-company guards remain present;
+- bootstrap, metadata lookup and test recording remain `SECURITY DEFINER` with empty `search_path`;
+- credential resolution and invalidation remain `SECURITY INVOKER` with empty `search_path`.
+
+The post-promotion security advisor reported no finding for these five RPCs. Its broader existing warnings remain recorded as provider/application hardening follow-up; the single leaked-password warning is an accepted Free-tier limitation.
 
 ## Supabase Auth URL configuration — PASS
 
@@ -87,21 +112,22 @@ QA is on Free. Therefore the security-advisor warning:
 
 is expected on this plan and does **not** block QA certification. Preserve normal password/Auth/RBAC controls and re-evaluate leaked-password protection for an eligible production plan.
 
-## Hosted QA exact-head run — CURRENT BASELINE PASS / FOCUSED EXPANSION PENDING
+## Hosted QA exact-head run — PASS
 
-Hosted QA Certification run #34305523363 succeeded against exact live SHA:
+Manual Hosted QA Certification run [#34318578911](https://github.com/Juvialski/InvoiceApp/actions/runs/34318578911) succeeded against exact live SHA:
 
-`e0c89e5cb8bbe1b59471d380fab28347c8e2542d`
+`288940a196ff5886d352ed665f0d06dd998513b0`
 
-The retained baseline artifact recorded the following successful checks:
+The retained artifact recorded:
 
+- exact-SHA readiness before authentication and scenario assertions;
 - authenticated email/session state persisted through reload and fresh protected navigation;
+- unauthenticated protected-route rejection;
 - QA environment, deployment ID, repository SHA, and migration level matched;
-- 7/7 baseline routes passed;
-- Engineering Storage byte upload/read/hash/cleanup passed with `metadataRowsCreated=0`;
-- zero console errors, page errors, or failed requests.
-
-The focused phase adds a shared exact-SHA readiness poll before authentication, semantic AppShell loading detection, route-specific loaded-state assertions for the seven baseline routes plus Email Intake, and an unauthenticated protected-route check. It also removes arbitrary fixed waits from local demo scenario actions. These additions require a new post-merge QA artifact; the current baseline artifact is not evidence for the new branch.
+- 8/8 authenticated routes passed, including Settings and Email Intake;
+- Settings loaded healthy AI metadata in the legitimate unconfigured state;
+- Engineering Storage byte upload/read/hash passed with `metadataRowsCreated=0` and cleanup PASS;
+- zero console errors, page errors, failed requests, or contract failures.
 
 The production-host refusal and protected GitHub `qa` credential boundary remain unchanged.
 
@@ -109,7 +135,7 @@ The production-host refusal and protected GitHub `qa` credential boundary remain
 
 Pre-merge `qa:demo` targets a locally built PR at `/demo` with fictional session-local data and no production Auth/Supabase/Storage/Gmail/company writes. Post-deploy `qa:hosted` targets only `https://hydroqualisense-qa.onrender.com`, uses protected GitHub `qa` environment credentials, waits for exact `/api/health` repository/deployment/migration identity, and then exercises real authenticated routes and the safe synthetic Storage byte probe. Hosted temporary objects are namespaced and cleaned; no auditable metadata rows are created.
 
-The hosted workflow retains explicit `workflow_dispatch` and also runs on pushes to `main`; the latter is bounded by the exact-SHA readiness poll and does not replace pull-request validation.
+The Hosted QA workflow is now **manual `workflow_dispatch` only**. Dispatch it after the intended QA app SHA is live, any required guarded QA migration promotion is complete, and migration parity is verified. Automatic post-`main` Hosted QA was removed because it could start before the separate DB promotion step and waste a browser run on a known stale-DB state.
 
 ## Product-truth and Settings correction
 
@@ -124,18 +150,40 @@ The database bootstrap authority remains service-role-only. The supported QA Ren
 
 Do not put plaintext AI credentials in SQL, repository files, browser storage, logs or this handoff.
 
-## Recovery evidence — PENDING ACHIEVABLE FREE-TIER DRILLS
+No approved QA Gemini credential was present in the operator environment or protected QA secrets during this run. The healthy `NOT_CONFIGURED` / untested state is therefore recorded, but bootstrap and provider validation remain pending and were not attempted.
+
+## Recovery evidence — PARTIALLY EVIDENCED / NOT READY
 
 Paid managed daily backups/PITR are not required for this Free-tier QA certification.
 
-Still required because they are achievable on Free and directly test recoverability:
+Completed evidence:
 
-1. current off-site PostgreSQL export of QA;
-2. isolated PostgreSQL restore drill;
-3. separate backup of representative Supabase Storage object bytes;
-4. isolated byte restore/read/hash/path-permission check;
-5. deployment reconstruction/rollback notes using repository SHA, migration state and configuration/secret names only;
-6. clear ownership for required provider secrets/configuration without recording their values.
+- a current `public,private` QA PostgreSQL schema/data export was created outside the database;
+- the export restored successfully into a fresh isolated PostgreSQL 17 target;
+- representative restored counts matched QA: `companies=1`, `deployment_configuration=1`, `company_members=2`, `projects=1`;
+- the deployment resolver and AI bootstrap RPC were present in the restored schema.
+
+Still required:
+
+1. transfer/retain the PostgreSQL export in an approved off-site operator location;
+2. separate backup of representative Supabase Storage object bytes;
+3. isolated byte restore/read/hash/path-permission check.
+
+The export files were kept in an operator-controlled local temporary location for this drill; that local copy is not being represented as off-site retention. The Hosted QA Storage probe is application smoke evidence only and does not substitute for this separate recovery gate.
+
+### Deployment reconstruction and rollback facts
+
+Reconstruction target:
+
+- repository SHA: `288940a196ff5886d352ed665f0d06dd998513b0`;
+- Render service: `hydroqualisense-qa`;
+- QA URL: `https://hydroqualisense-qa.onrender.com`;
+- QA Supabase project ref: `vrpuznofrntyqsbugrib`;
+- migration level: `20260909053311_company_ai_secret_key_rpc_compatibility`;
+- required non-secret identity/configuration names: `HYDROQUALISENSE_ENVIRONMENT`, `HYDROQUALISENSE_DEPLOYMENT_ID`, `HYDROQUALISENSE_QA_PROJECT_REF`, `HYDROQUALISENSE_PRODUCTION_PROJECT_REF`, `VITE_HYDROQUALISENSE_ENVIRONMENT`, `VITE_HYDROQUALISENSE_DEPLOYMENT_ID`, `VITE_HYDROQUALISENSE_PUBLIC_FUNNEL_ENABLED`, `VITE_ENABLE_SAMPLE_INVOICES`;
+- required secret/configuration names only: `AI_CREDENTIALS_MASTER_KEY`, `SUPABASE_AI_SERVER_KEY`, `QA_E2E_EMAIL`, `QA_E2E_PASSWORD`, `QA_E2E_SUPABASE_PUBLISHABLE_KEY`.
+
+Rollback remains application-build rollback only when compatible with the forward database state. Applied migrations are forward-only; no production rollback or promotion was attempted.
 
 The current app-level recovery evidence tables were previously empty; do not manufacture rows. Database backup evidence never substitutes for Storage byte recovery evidence.
 
@@ -158,9 +206,12 @@ Do not infer production application SHA from the production database migration h
 ### Passed / no longer blocking
 
 - exact current checkpoint repository SHA deployed live to QA;
-- QA Supabase healthy and migration parity confirmed;
+- QA Supabase healthy and guarded migration parity confirmed;
+- five server-only AI RPC definitions/grants verified after promotion;
 - repository-derived migration truth;
 - app deployment separated from database promotion;
+- exact-head Hosted QA artifact with 8/8 routes, Auth, and Storage probe passing;
+- off-provider QA PostgreSQL export and isolated restore drill;
 - QA Auth Site URL confirmed;
 - redirect allow-list corrected to exact application callback targets;
 - leaked-password protection correctly reclassified as an accepted, non-blocking Free-tier limitation;
@@ -169,26 +220,28 @@ Do not infer production application SHA from the production database migration h
 
 ### Remaining achievable blockers
 
-1. merge/deploy the focused product-truth, Settings, and hosted-browser expansion;
-2. successful Hosted QA Certification artifact on the new exact live `main`;
-3. live QA AI bootstrap + provider validation;
-4. off-site QA PostgreSQL export + isolated restore drill;
-5. separate Storage byte backup + isolated restore drill;
-6. deployment/configuration recovery evidence.
+1. live QA AI bootstrap + provider validation with an approved QA Gemini credential;
+2. approved off-site retention of the QA PostgreSQL export;
+3. separate Storage byte backup + isolated restore drill.
 
 Do not block READY on paid-only Supabase features unavailable to this Free project. Do not mark READY until the achievable blockers above are closed.
 
 ## Immediate sequence
 
-1. Complete the focused product-truth, Settings, and hosted-browser expansion through exact-head PR CI and merge when safe.
-2. Let the automatic post-`main` Hosted QA workflow wait for Render QA to expose the new exact `main`, then retain its artifact. Use manual `workflow_dispatch` only for an explicit rerun/debugging need.
-3. Complete Settings → initial AI setup and provider validation in QA.
-4. Complete the Free-tier-achievable database and Storage recovery drills.
-5. Re-check exact main/deploy/migration/Auth/Hosted QA/recovery evidence.
-6. If all achievable gates pass, set `QA CERTIFICATION: READY`.
-7. Immediately prepare Worker Registration foundation.
+1. Complete Settings → initial AI setup and provider validation in QA when an approved QA Gemini credential is available.
+2. Transfer the current PostgreSQL export to an approved off-site operator location.
+3. Complete the separate Storage byte backup/restore/path-permission drill using protected QA credentials.
+4. Re-check exact main/deploy/migration/Auth/Hosted QA/recovery evidence.
+5. If all achievable gates pass, set `QA CERTIFICATION: READY`.
+6. Immediately prepare the Email/SMS + Documents phase.
 
-## Next phase after READY — Worker Registration foundation
+## Next phase after READY — Email/SMS + Documents
+
+The first post-QA implementation priority is the user-confirmed **Email/SMS + Documents phase**. Bound its exact implementation scope from current product truth at phase start. Do not jump directly to Worker Registration.
+
+## Third priority — Worker Registration foundation
+
+Worker Registration follows the Email/SMS + Documents phase.
 
 Target:
 

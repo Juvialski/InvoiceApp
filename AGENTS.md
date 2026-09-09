@@ -33,10 +33,10 @@ Live repository state overrides remembered chat summaries, old prompts and histo
 R5 Cross-Module Integration & Data-Contract Hardening is complete in PR #95. Warehouse Inventory & Project Allocation is complete in PR #96, Post-Warehouse Operational Integration is complete in PR #97, and the first client-productization/QA foundation is complete through PR #101. Current sequence unless explicitly reprioritized:
 
 1. **Live QA initialization and certification**
-2. **Worker Registration foundation**
-3. **Site Attendance state machine + device registration**
-4. **Face-Recognition Attendance** — only after explicit design/privacy/security review
-5. other client-confirmed requirements
+2. **Email/SMS + Documents phase**
+3. **Worker Registration foundation**
+4. **Site Attendance state machine + device registration**
+5. **Face-Recognition Attendance** — only after explicit design/privacy/security review
 6. **Final pre-production security/data-integrity certification** before broad rollout
 
 Old Scheduling/Gantt/CPM, broad MRP/manufacturing expansion, autonomous accounting/AI posting and other historical Engoryx future phases are not authorized unless explicitly reconfirmed.
@@ -189,6 +189,24 @@ Once a migration may have reached a shared/protected environment or any client d
 
 Shared-repository migrations must remain compatible with the intended client deployment fleet or have an explicit controlled upgrade path.
 
+### Mandatory QA migration-first certification order
+
+For QA certification or post-merge release validation, application deployment and database promotion remain separate actions, but **separate does not mean delayed**.
+
+If the exact merged repository migration head is newer than the live QA migration head and QA writes are already authorized:
+
+1. wait only for the intended QA app SHA to be live when that identity is required;
+2. immediately promote QA through the guarded `qa:db:push` wrapper;
+3. independently verify the QA migration head matches the repository migration head;
+4. verify exact app SHA + QA deployment identity + migration parity;
+5. only then dispatch Hosted QA or run browser/RPC/AI/provider checks that depend on the new database contract.
+
+Do not run expensive hosted certification against a knowingly stale QA database and then debug the predictable failure. A newer migration on `main` plus an older QA migration head is an actionable release prerequisite, not merely a test finding.
+
+Hosted QA is **manual `workflow_dispatch` after migration parity**. Do not re-enable automatic post-`main` Hosted QA execution unless an orchestration mechanism can guarantee guarded QA DB promotion completes first.
+
+If guarded QA promotion cannot run because of authentication, project-link, migration, or target-safety failure, stop at that exact blocker. Never bypass the wrapper with raw SQL, Dashboard SQL Editor, direct MCP migration calls, or an unguarded push. Production remains a separate promotion decision and must never be inferred from QA success.
+
 ## Docker / local Supabase validation
 
 Docker Desktop is normally available on the user's Windows laptop.
@@ -264,7 +282,8 @@ Every substantial implementation prompt should carry forward:
 - conditional Docker validation;
 - no ritual full-suite runs;
 - exact integrated diff review;
-- PR creation without local-agent self-merging.
+- PR creation without local-agent self-merging;
+- for QA/release work, the mandatory migration-first order: guarded QA DB promotion and verified parity before Hosted QA or any DB-dependent hosted certification.
 
 For wide/unattended runs, set explicit priority order and stop boundary. Spare time/subagent capacity is not permission for unrelated scope creep.
 
