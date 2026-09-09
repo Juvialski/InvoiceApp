@@ -322,7 +322,7 @@ test("demo fixtures cover deterministic attention examples and preserve producti
   const planning = views.find((view) => view.project.id === "demo-project-international")!;
   assert.equal(flags(drainage).has("OVER_BUDGET"), true);
   assert.equal(flags(drainage).has("CONTROL_CAPACITY_EXCEEDED"), true);
-  assert.equal(flags(solar).has("MIXED_CURRENCY"), true);
+  assert.equal(flags(solar).has("MIXED_CURRENCY"), false);
   assert.equal(flags(warehouse).has("OUTSTANDING_RECEIVABLE"), true);
   assert.equal(flags(warehouse).has("OVERDUE_RFI"), true);
   assert.equal(completed.attentionFlags.length, 0);

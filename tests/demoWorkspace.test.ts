@@ -143,7 +143,7 @@ test("public demo route is selected before production application auth mounting"
   assert.equal(isDemoApplicationPath("/demo/app/projects/demo-project-warehouse"), true);
 });
 
-test("demo portfolio fixtures cover multiple currencies plus partial and unavailable truth", () => {
+test("demo portfolio fixtures use PHP-only monetary values plus unavailable planning truth", () => {
   const data = workspace();
   const summaries = buildDemoProjectSummaries(data);
   const views = data.projects.map((project) => buildProjectManagementView(project, summaries[project.id]!, {
@@ -155,11 +155,11 @@ test("demo portfolio fixtures cover multiple currencies plus partial and unavail
   const solar = views.find((view) => view.project.id === "demo-project-solar");
 
   assert.ok(portfolio.currencies.includes("PHP"));
-  assert.ok(portfolio.currencies.includes("USD"));
+  assert.equal(portfolio.currencies.includes("USD"), false);
   assert.equal(planning?.financialTruth.contractValue.status, "unavailable");
   assert.equal(planning?.financialTruth.remainingToBill.status, "unavailable");
-  assert.equal(solar?.financialTruth.actualCost.status, "partial");
-  assert.ok((summaries["demo-project-solar"]?.foreignCosts.USD || 0) > 0);
+  assert.equal(solar?.financialTruth.actualCost.status, "available");
+  assert.equal(summaries["demo-project-solar"]?.foreignCosts.USD || 0, 0);
 });
 
 test("demo Procurement route is available through the existing production-safe route contract", () => {
