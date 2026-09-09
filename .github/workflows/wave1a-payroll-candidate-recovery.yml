@@ -1,0 +1,42 @@
+name: Wave 1A payroll candidate recovery
+
+on:
+  push:
+    branches:
+      - codex/wave-1a-supplier-payable-ux
+    paths:
+      - .github/workflows/wave1a-payroll-candidate-recovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/wave-1a-supplier-payable-ux
+      - name: Restore payroll settlement lifecycle context
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          old = 'reference: run.id, description: "Payroll payment" }))'
+          new = 'reference: run.id, description: "Payroll payment", lifecycleStatus: run.status }))'
+          for filename in ('src/App.tsx', 'src/demo/DemoWorkspace.tsx'):
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{filename}: expected exactly one payroll candidate pattern, found {count}')
+              path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+      - name: Remove temporary recovery workflow and commit repair
+        run: |
+          git rm .github/workflows/wave1a-payroll-candidate-recovery.yml
+          git add src/App.tsx src/demo/DemoWorkspace.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix: preserve payroll settlement candidates"
+          git push origin HEAD:codex/wave-1a-supplier-payable-ux
