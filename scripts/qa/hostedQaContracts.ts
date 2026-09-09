@@ -8,6 +8,7 @@ import { normalizeErrorMessage, redactSensitiveText } from "./structuredEvidence
 export const HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS = 30_000;
 export const HOSTED_QA_ROUTE_READINESS_POLL_MS = 100;
 export const HOSTED_QA_ROUTE_LOADING_MARKERS = [
+  "Loading HydroQualiSense",
   "Loading company access",
   "Checking your workspace session",
 ] as const;
@@ -15,9 +16,9 @@ export const HOSTED_QA_ROUTE_LOADING_MARKERS = [
 export type HostedQaRouteReadinessState = "loading" | "resolved";
 
 /**
- * The authenticated application deliberately renders a loading-only shell
- * while deployment-company access is being resolved.  Route assertions must
- * not interpret that shell as an unauthenticated page.
+ * The authenticated application deliberately renders loading-only shells
+ * while app bootstrap, auth, and deployment-company access are being resolved.
+ * Route assertions must not interpret those shells as resolved application UI.
  */
 export function hostedQaRouteReadinessState(bodyText: unknown): HostedQaRouteReadinessState {
   const text = typeof bodyText === "string" ? bodyText : "";
@@ -31,7 +32,7 @@ export interface HostedQaReadinessPage {
   waitForFunction: (...args: any[]) => Promise<unknown>;
 }
 
-/** Wait for the application shell to leave auth/company-access initialization. */
+/** Wait for the application shell to leave app/auth/company initialization. */
 export async function waitForHostedQaRouteReadiness(
   page: HostedQaReadinessPage,
   timeoutMs = HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS,
