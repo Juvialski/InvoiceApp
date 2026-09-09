@@ -2,9 +2,6 @@ name: Hosted QA Certification
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 concurrency:
   group: hosted-qa-${{ github.ref }}
