@@ -40,12 +40,15 @@ const activeProductionSurfaceFiles = [
 test("Hydroqualisense owns the active production identity and canonical origin", () => {
   assert.equal(BRAND.productName, "Hydroqualisense");
   assert.equal(BRAND.shortName, "Hydroqualisense");
+  assert.equal(BRAND.companyName, "Hydroqualisense Solutions Corp.");
   assert.equal(BRAND.displayUppercase, "Hydroqualisense");
   assert.equal(BRAND.assistantName, "Hydroqualisense Assistant");
+  assert.equal(BRAND.browserTitle, "Hydroqualisense | Hydroqualisense Solutions Corp.");
   assert.equal(BRAND.canonicalOrigin, "https://hydroqualisense.com");
   assert.ok(existsSync("public/brand/hydroqualisense-logo.png"));
 
   const indexHtml = readFileSync("index.html", "utf8");
+  assert.match(indexHtml, /<title>Hydroqualisense \| Hydroqualisense Solutions Corp\.<\/title>/);
   assert.match(indexHtml, /<link rel="canonical" href="https:\/\/hydroqualisense\.com" \/>/);
   assert.match(indexHtml, /<meta property="og:url" content="https:\/\/hydroqualisense\.com" \/>/);
 });
