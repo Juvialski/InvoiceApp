@@ -92,9 +92,10 @@ test("server public intake uses a bounded parser, rate limit, anonymous RPC, and
   assert.doesNotMatch(server, /SUPABASE_SERVICE_ROLE_KEY/);
 });
 
-test("release metadata exposes only explicit non-secret values and preserves unknown state", () => {
-  const unknown = releaseMetadataFromEnv({});
-  assert.deepEqual(unknown, { appVersion: null, repositorySha: null, migrationLevel: null, deploymentId: null, configurationVersion: null, environment: null });
+test("release metadata keeps env-only unknowns null while migration truth comes from the repository", () => {
+  const expectedMigrationLevel = "20270101000000";
+  const unknown = releaseMetadataFromEnv({}, expectedMigrationLevel);
+  assert.deepEqual(unknown, { appVersion: null, repositorySha: null, migrationLevel: expectedMigrationLevel, deploymentId: null, configurationVersion: null, environment: null });
   const known = releaseMetadataFromEnv({
     RENDER_GIT_COMMIT: "ABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD",
     HYDROQUALISENSE_APP_VERSION: "release-2026.09.07",
@@ -102,11 +103,11 @@ test("release metadata exposes only explicit non-secret values and preserves unk
     HYDROQUALISENSE_DEPLOYMENT_ID: "client-alpha",
     HYDROQUALISENSE_CONFIGURATION_VERSION: "config-3",
     HYDROQUALISENSE_ENVIRONMENT: "production",
-  });
+  }, expectedMigrationLevel);
   assert.equal(known.repositorySha, "abcdefabcdefabcdefabcdefabcdefabcdefabcd");
-  assert.equal(known.migrationLevel, "20260907024119_public_prospect_funnel.sql");
+  assert.equal(known.migrationLevel, expectedMigrationLevel);
   assert.equal(known.environment, "production");
-  assert.equal(releaseMetadataFromEnv({ RELEASE_SHA: "not-a-sha" }).repositorySha, null);
+  assert.equal(releaseMetadataFromEnv({ RELEASE_SHA: "not-a-sha" }, expectedMigrationLevel).repositorySha, null);
   assert.match(server, /releaseMetadataFromEnv\(process\.env\)/);
 });
 
