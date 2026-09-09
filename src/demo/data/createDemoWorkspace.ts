@@ -14,7 +14,7 @@ import { createDemoPurchaseOrderMatches, createDemoPurchaseOrders, createDemoPur
 import { createDemoClientBillings } from "./clientBillings.ts";
 import { createDemoClientCollections } from "./clientCollections.ts";
 import { createDemoInventoryItems, createDemoInventoryMovements } from "./inventory.ts";
-import type { Expense, FinancialFxSnapshot } from "../../types.ts";
+import type { Expense } from "../../types.ts";
 
 const DEMO_OVERTIME_QUEUE_STATUSES = ["PENDING", "PENDING", "REJECTED", "CANCELLED", "PENDING"] as const;
 
@@ -46,40 +46,7 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     ? invoiceData.invoices.map((invoice) => invoice.id === linkedSupplierInvoice.id ? { ...invoice, linkedExpenseId: linkedSupplierExpense.id } : invoice)
     : invoiceData.invoices;
   const demoExpenses = linkedSupplierExpense ? [...expenses, linkedSupplierExpense] : expenses;
-  const fxTimestamp = demoTimestamp(anchorDate, 11, 45);
-  const financialFxSnapshots: FinancialFxSnapshot[] = [{
-    id: "demo-fx-expense-19",
-    companyId: DEMO_COMPANY_ID,
-    sourceType: "EXPENSE",
-    sourceId: "demo-expense-19",
-    sourceAmount: 11.72,
-    sourceCurrency: "USD",
-    baseCurrency: "PHP",
-    rate: 56.25,
-    rateDate: anchorDate,
-    rateSource: "MANUAL",
-    note: "Demo-approved manual reporting rate.",
-    enteredByUserId: "demo-user-finance",
-    confirmedAt: fxTimestamp,
-    createdAt: fxTimestamp,
-    baseAmount: 659.25,
-  }, {
-    id: "demo-fx-invoice-17",
-    companyId: DEMO_COMPANY_ID,
-    sourceType: "SUPPLIER_INVOICE",
-    sourceId: "demo-invoice-17",
-    sourceAmount: 843_215.28,
-    sourceCurrency: "USD",
-    baseCurrency: "PHP",
-    rate: 56.25,
-    rateDate: anchorDate,
-    rateSource: "MANUAL",
-    note: "Demo-approved manual reporting rate for PHP display.",
-    enteredByUserId: "demo-user-finance",
-    confirmedAt: fxTimestamp,
-    createdAt: fxTimestamp,
-    baseAmount: 47_430_859.50,
-  }];
+  const financialFxSnapshots: DemoWorkspaceData["financialFxSnapshots"] = [];
 
   // The public demo deliberately keeps explicit OT requests in the human-review
   // queue because the production domain does not assume a statutory multiplier.
