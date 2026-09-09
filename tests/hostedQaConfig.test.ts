@@ -3,19 +3,27 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const script = readFileSync(new URL("../scripts/hosted-qa-certification.ts", import.meta.url), "utf8");
+const hostedQaContracts = readFileSync(new URL("../scripts/qa/hostedQaContracts.ts", import.meta.url), "utf8");
 const authPreflight = readFileSync(new URL("../scripts/hosted-qa-auth-preflight.ts", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../.github/workflows/hosted-qa-certification.yml", import.meta.url), "utf8");
 const packageJson = readFileSync(new URL("../package.json", import.meta.url), "utf8");
 const gitignore = readFileSync(new URL("../.gitignore", import.meta.url), "utf8");
 
 test("hosted QA harness fails closed on production and requires authenticated state", () => {
-  assert.match(script, /hydroqualisense\\\.com/);
+  assert.match(script, /assertHostedQaTarget/);
   assert.match(script, /QA_E2E_STORAGE_STATE_PATH/);
   assert.match(script, /QA_E2E_EMAIL/);
   assert.match(script, /QA_E2E_PASSWORD/);
   assert.match(script, /qa-hydroqualisense/);
   assert.match(script, /QA ENVIRONMENT · SYNTHETIC DATA ONLY/);
   assert.match(script, /HydroQualiSense QA Synthetic/);
+  assert.match(script, /waitForHostedQaRouteReadiness/);
+  assert.match(script, /company_access_readiness_timeout/);
+  assert.match(script, /prepareEngineeringPdf/);
+  assert.match(script, /createHostedQaEngineeringStorageFixture/);
+  assert.match(script, /probeHostedQaStorageObject/);
+  assert.match(hostedQaContracts, /upsert: false/);
+  assert.match(script, /metadataRowsCreated: 0/);
   assert.doesNotMatch(script, /SUPABASE_SERVICE_ROLE|SUPABASE_AI_SERVER_KEY/i);
   assert.match(gitignore, /\.qa-e2e\//);
 });

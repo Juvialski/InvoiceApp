@@ -220,6 +220,20 @@ select is((public.apply_engineering_document_lifecycle((select document_supersed
 select is((select status from public.engineering_documents where id = (select document_supersede from wave2c_ids)), 'SUPERSEDED', 'document supersede state is persisted');
 select throws_ok($$update public.engineering_documents set status = 'ARCHIVED' where id = 'c2c40000-0000-4000-8000-000000000003'::uuid$$, '42501', null, 'direct document lifecycle update is denied');
 select throws_ok($$delete from public.engineering_documents where id = 'c2c40000-0000-4000-8000-000000000001'::uuid$$, '42501', null, 'direct document DELETE is denied');
+select throws_ok(
+  format(
+    $$delete from storage.objects where bucket_id = 'engineering-documents' and name = '%s'$$,
+    format('companies/%s/documents/%s/revisions/%s/archive.pdf', (select company_a from wave2c_ids), (select document_archive from wave2c_ids), (select revision_archive from wave2c_ids))
+  ),
+  '42501',
+  'Direct deletion from storage tables is not allowed. Use the Storage API instead.',
+  'direct storage table deletion remains forbidden'
+);
+select is(
+  (select count(*) from storage.objects where bucket_id = 'engineering-documents' and name = format('companies/%s/documents/%s/revisions/%s/archive.pdf', (select company_a from wave2c_ids), (select document_archive from wave2c_ids), (select revision_archive from wave2c_ids))),
+  1::bigint,
+  'committed Engineering revision objects remain immutable to authenticated users'
+);
 select is((public.apply_engineering_document_lifecycle((select document_unused from wave2c_ids), 'DELETE_UNUSED', 'Empty intake shell')->>'deleted')::boolean, true, 'unused document deletes through guarded RPC');
 select is((select count(*) from public.engineering_documents where id = (select document_unused from wave2c_ids)), 0::bigint, 'unused document row is removed');
 select is((select count(*) from public.company_audit_events where event_type = 'ENGINEERING_DOCUMENT_DELETED_UNUSED' and target_id = (select document_unused from wave2c_ids)), 1::bigint, 'unused document deletion is audited');
