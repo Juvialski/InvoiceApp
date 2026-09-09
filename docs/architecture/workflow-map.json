@@ -1338,7 +1338,8 @@
         "cash-banking--cash--base-route-loaded--desktop-1440",
         "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440",
         "cash-banking--cash--base-route-loaded--tablet-768",
-        "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440"
+        "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440",
+        "supplier-payables--cash--cash-expense-target-context-opened--mobile-390"
       ]
     },
     {
@@ -1722,7 +1723,8 @@
       ],
       "qaScenarioIds": [
         "invoices--invoice-detail--invoice-detail-opened--desktop-1440",
-        "supplier-payables--invoice-detail--linked-expense-payment-surface-opened--desktop-1440"
+        "supplier-payables--invoice-detail--linked-expense-payment-surface-opened--desktop-1440",
+        "supplier-payables--invoice-detail--linked-expense-payment-surface-opened--mobile-390"
       ]
     },
     {
@@ -1877,7 +1879,8 @@
       ],
       "qaScenarioIds": [
         "expenses--expenses--base-route-loaded--desktop-1440",
-        "supplier-payables--expenses--authoritative-expense-payment-surface-opened--desktop-1440"
+        "supplier-payables--expenses--authoritative-expense-payment-surface-opened--desktop-1440",
+        "supplier-payables--expenses--authoritative-expense-payment-surface-opened--mobile-390"
       ]
     },
     {
@@ -4346,7 +4349,8 @@
       ],
       "qaScenarioIds": [
         "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440",
-        "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440"
+        "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440",
+        "supplier-payables--cash--cash-expense-target-context-opened--mobile-390"
       ]
     },
     {
