@@ -23,8 +23,8 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Source classification | `mixed` |
 | Reviewed against | `fb3cdbbac3290396e7bac985a19287a091dc733c` |
 | Reviewed at | `2026-09-07` |
-| Node count | 256 |
-| Edge count | 335 |
+| Node count | 257 |
+| Edge count | 336 |
 | Invariant count | 33 |
 | Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `P5 Post-Warehouse Operational Integration`, `Client Productization`, `QA-1`, `WM-1` |
 
@@ -77,6 +77,7 @@ flowchart LR
     n_public_prospect_intake[["Bounded public prospect intake<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_deployment_inventory[["Operator deployment inventory<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_deployment_release_verification{{"Isolated deployment release verification<br/><small>GUARD</small>"}}
+    n_protected_qa_release_orchestration[["Protected QA release orchestration<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_production_mode{"Authenticated production mode<br/><small>WORKFLOW</small>"}
     n_demo_mode{"Isolated demo mode<br/><small>WORKFLOW</small>"}
     n_company_context[("Deployment company context<br/><small>DATA</small>")]
@@ -132,6 +133,7 @@ flowchart LR
   n_public_funnel_mode -->|bounded requirements form| n_public_prospect_intake
   n_public_prospect_intake -->|no company or provisioning side effect| n_production_mode
   n_deployment_inventory -->|expected release metadata| n_deployment_release_verification
+  n_deployment_release_verification -->|exact QA release identity and migration gate| n_protected_qa_release_orchestration
   n_company_context -->|permission snapshot| n_company_rbac
   n_company_rbac -->|RLS/RPC authority| n_production_persistence_boundary
   n_demo_mode -->|local/session boundary| n_demo_isolation
@@ -171,6 +173,7 @@ flowchart LR
   class n_public_prospect_intake platformTenancy
   class n_deployment_inventory platformTenancy
   class n_deployment_release_verification platformTenancy
+  class n_protected_qa_release_orchestration platformTenancy
   class n_production_mode platformTenancy
   class n_demo_mode platformTenancy
   class n_company_context platformTenancy
@@ -351,6 +354,7 @@ flowchart LR
     n_public_prospect_intake[["Bounded public prospect intake<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_deployment_inventory[["Operator deployment inventory<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_deployment_release_verification{{"Isolated deployment release verification<br/><small>GUARD</small>"}}
+    n_protected_qa_release_orchestration[["Protected QA release orchestration<br/><small>EXTERNAL-BOUNDARY</small>"]]
     n_production_mode{"Authenticated production mode<br/><small>WORKFLOW</small>"}
   end
   n_platform_entry -->|production path| n_production_mode
@@ -358,6 +362,7 @@ flowchart LR
   n_public_funnel_mode -->|bounded requirements form| n_public_prospect_intake
   n_public_prospect_intake -->|no company or provisioning side effect| n_production_mode
   n_deployment_inventory -->|expected release metadata| n_deployment_release_verification
+  n_deployment_release_verification -->|exact QA release identity and migration gate| n_protected_qa_release_orchestration
   classDef platformTenancy fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
   classDef dashboard fill:#f1f5f9,stroke:#475569,color:#0f172a;
   classDef projects fill:#ecfeff,stroke:#0891b2,color:#164e63;
@@ -372,6 +377,7 @@ flowchart LR
   class n_public_prospect_intake platformTenancy
   class n_deployment_inventory platformTenancy
   class n_deployment_release_verification platformTenancy
+  class n_protected_qa_release_orchestration platformTenancy
   class n_production_mode platformTenancy
 ```
 
@@ -1259,6 +1265,7 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 | **Bounded public prospect intake**<br/><small>`public-prospect-intake`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `src/lib/publicProspect.ts`<br/>`src/public/PublicFunnelRoot.tsx`<br/>`server.ts`<br/>`supabase/migrations/20260907024119_public_prospect_funnel.sql` | `tests/publicProspect.test.ts`<br/>`supabase/tests/database/29_public_prospect_funnel.test.sql` | — |
 | **Operator deployment inventory**<br/><small>`deployment-inventory`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `src/lib/deploymentManifest.ts`<br/>`scripts/deployment/validate-manifest.ts`<br/>`deployment/inventory.template.json`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` | — |
 | **Isolated deployment release verification**<br/><small>`deployment-release-verification`</small> | `guard` | `global`<br/>— | — | — | `mixed` | `src/server/releaseMetadata.ts`<br/>`src/lib/deploymentManifest.ts`<br/>`scripts/deployment/verify-release.ts`<br/>`server.ts`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/publicProspect.test.ts` | — |
+| **Protected QA release orchestration**<br/><small>`protected-qa-release-orchestration`</small> | `external-boundary` | `global`<br/>— | — | — | `mixed` | `.github/workflows/qa-release.yml`<br/>`.github/workflows/hosted-qa-certification.yml`<br/>`src/lib/qaReleaseOrchestration.ts`<br/>`src/lib/qaDatabaseTarget.ts`<br/>`src/server/repositoryMigrationLevel.ts`<br/>`scripts/qa/classify-release.ts`<br/>`scripts/qa/supabaseCli.ts`<br/>`scripts/qa/verify-migration-parity.ts`<br/>`scripts/qa/wait-for-qa-deployment.ts`<br/>`docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md` | `tests/qaReleaseOrchestration.test.ts`<br/>`tests/qaReleaseWorkflow.test.ts`<br/>`tests/qaDeployment.test.ts`<br/>`tests/hostedQaConfig.test.ts` | — |
 | **Authenticated production mode**<br/><small>`production-mode`</small> | `workflow` | `company`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/App.tsx`<br/>`src/app/AppProviders.tsx`<br/>`src/context/CompanyAccessContext.tsx`<br/>`src/lib/deploymentCompany.ts` | `tests/auth.test.ts`<br/>`tests/companyAccess.test.ts`<br/>`tests/singleCompanyDeployment.test.ts` | — |
 | **Deployment configured company**<br/><small>`deployment-company`</small> | `data` | `company`<br/>— | — | — | `mixed` | `src/lib/deploymentCompany.ts`<br/>`src/context/CompanyAccessContext.tsx`<br/>`supabase/migrations/20260828150000_single_company_deployment.sql` | `tests/singleCompanyDeployment.test.ts` | — |
 | **Isolated demo mode**<br/><small>`demo-mode`</small> | `workflow` | `demo-only`<br/>— | — | — | `mixed` | `src/main.tsx`<br/>`src/demo/DemoRoot.tsx`<br/>`src/demo/DemoWorkspace.tsx`<br/>`src/demo/demoRouting.ts` | `tests/demoWorkspace.test.ts`<br/>`tests/demoCleanup.test.ts` | `demo--landing--base-route-loaded--desktop-1440` |

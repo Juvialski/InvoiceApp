@@ -51,20 +51,21 @@ test("hosted QA authentication preflight requires bounded sign-in readiness and 
   assert.doesNotMatch(authPreflight, /SUPABASE_SERVICE_ROLE|SUPABASE_AI_SERVER_KEY/i);
 });
 
-test("manual hosted QA workflow is explicit, exact-SHA bound, and derives migration expectation from checkout", () => {
+test("Hosted QA workflow is reusable after protected parity and remains manually dispatchable", () => {
+  assert.match(workflow, /workflow_call:/);
   assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /push:/);
-  assert.match(workflow, /branches:[\s\S]*- main/);
   assert.match(workflow, /concurrency:/);
   assert.match(workflow, /QA_E2E_EMAIL/);
   assert.match(workflow, /QA_E2E_PASSWORD/);
   assert.match(workflow, /QA_E2E_STORAGE_PROBE: "1"/);
-  assert.match(workflow, /QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense/);
-  assert.match(workflow, /QA_E2E_EXPECTED_REPOSITORY_SHA: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /expected_repository_sha/);
+  assert.match(workflow, /QA_E2E_EXPECTED_DEPLOYMENT_ID: \$\{\{ inputs\.expected_deployment_id \|\| 'qa-hydroqualisense' \}\}/);
+  assert.match(workflow, /QA_E2E_EXPECTED_REPOSITORY_SHA: \$\{\{ inputs\.expected_repository_sha \|\| github\.sha \}\}/);
   assert.doesNotMatch(workflow, /vars\.QA_E2E_EXPECTED_REPOSITORY_SHA/);
+  assert.match(workflow, /expected_migration_level/);
   assert.doesNotMatch(workflow, /vars\.QA_E2E_EXPECTED_MIGRATION_LEVEL/);
   assert.match(workflow, /npx --no-install tsx scripts\/repository-migration-level\.ts/);
   assert.match(workflow, /QA_E2E_EXPECTED_MIGRATION_LEVEL=\$migration_level/);
   assert.match(workflow, /\$GITHUB_ENV/);
-  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /ref: \$\{\{ inputs\.expected_repository_sha \|\| github\.sha \}\}/);
 });

@@ -338,6 +338,18 @@ const nodes: readonly WorkflowNode[] = [
     invariantIds: ["isolated-release-promotion-is-explicit"],
   }),
   node({
+    id: "protected-qa-release-orchestration",
+    label: "Protected QA release orchestration",
+    domain: "platform-tenancy",
+    type: "external-boundary",
+    scope: "global",
+    description: "Protected main releases wait for exact QA Render identity, inspect the repository-derived QA migration history, invoke only the guarded QA migration wrapper when behind, verify complete parity, preserve sanitized evidence, and call Hosted QA only after the parity gate; production remains outside the target boundary.",
+    sourceClassification: "mixed",
+    fileRefs: [".github/workflows/qa-release.yml", ".github/workflows/hosted-qa-certification.yml", "src/lib/qaReleaseOrchestration.ts", "src/lib/qaDatabaseTarget.ts", "src/server/repositoryMigrationLevel.ts", "scripts/qa/classify-release.ts", "scripts/qa/supabaseCli.ts", "scripts/qa/verify-migration-parity.ts", "scripts/qa/wait-for-qa-deployment.ts", "docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md"],
+    testRefs: ["tests/qaReleaseOrchestration.test.ts", "tests/qaReleaseWorkflow.test.ts", "tests/qaDeployment.test.ts", "tests/hostedQaConfig.test.ts"],
+    invariantIds: ["isolated-release-promotion-is-explicit", "deployment-inventory-never-stores-secrets"],
+  }),
+  node({
     id: "production-mode",
     label: "Authenticated production mode",
     domain: "platform-tenancy",
@@ -2587,6 +2599,7 @@ const edges: readonly WorkflowEdge[] = [
   edge({ id: "public-mode-to-intake", source: "public-funnel-mode", target: "public-prospect-intake", type: "contains", kind: "context", label: "bounded requirements form", invariantIds: ["public-funnel-cannot-provision"] }),
   edge({ id: "public-intake-separates-production", source: "public-prospect-intake", target: "production-mode", type: "separates", kind: "separation", label: "no company or provisioning side effect", invariantIds: ["public-funnel-cannot-provision"] }),
   edge({ id: "operator-inventory-to-release-verification", source: "deployment-inventory", target: "deployment-release-verification", type: "feeds", kind: "guard", label: "expected release metadata", invariantIds: ["deployment-inventory-never-stores-secrets", "isolated-release-promotion-is-explicit"] }),
+  edge({ id: "release-verification-to-protected-qa", source: "deployment-release-verification", target: "protected-qa-release-orchestration", type: "feeds", kind: "guard", label: "exact QA release identity and migration gate", invariantIds: ["isolated-release-promotion-is-explicit", "deployment-inventory-never-stores-secrets"] }),
   edge({ id: "production-to-deployment-company", source: "production-mode", target: "deployment-company", type: "reads", kind: "context", label: "resolves configured company", invariantIds: ["company-rbac-is-authoritative"] }),
   edge({ id: "deployment-company-to-membership", source: "deployment-company", target: "company-membership", type: "guards", kind: "guard", label: "deployment membership only", invariantIds: ["company-rbac-is-authoritative"] }),
   edge({ id: "company-membership-to-company-context", source: "company-membership", target: "company-context", type: "feeds", kind: "context", label: "membership and permissions", invariantIds: ["company-rbac-is-authoritative"] }),
@@ -3853,7 +3866,7 @@ const diagrams = [
     title: "Whole-platform overview",
     description: "Bounded view of application entry, project cost, invoice/cash separation, payroll labor/net-pay separation, reports, and the guarded Assistant seam.",
     nodeIds: [
-      "platform-entry", "public-funnel-mode", "public-prospect-intake", "deployment-inventory", "deployment-release-verification", "production-mode", "demo-mode", "company-context", "company-rbac", "company-profile-settings", "company-access-management", "company-invitation-delivery", "company-member-permission-editor", "demo-isolation", "production-persistence-boundary",
+      "platform-entry", "public-funnel-mode", "public-prospect-intake", "deployment-inventory", "deployment-release-verification", "protected-qa-release-orchestration", "production-mode", "demo-mode", "company-context", "company-rbac", "company-profile-settings", "company-access-management", "company-invitation-delivery", "company-member-permission-editor", "demo-isolation", "production-persistence-boundary",
       "route-projects", "project-workspace", "project-cost-aggregation", "project-labor-aggregate-rpc", "route-invoices", "invoice-state-verified", "invoice-state-void", "invoice-correction-lifecycle", "invoice-correction-rpc-boundary", "invoice-project-allocation", "invoice-project-cost-contribution", "invoice-payable-obligation", "direct-project-expense", "expense-correction-lifecycle", "expense-correction-rpc-boundary",
       "route-cash", "cash-settlement-match", "cash-settlement-evidence", "route-payroll", "payroll-run", "payroll-project-labor-cost", "payroll-net-pay-basis",
       "route-reports", "reports-derived-surface", "assistant-mutation-request", "assistant-prepared-action", "assistant-human-confirmation", "assistant-guarded-execution",
@@ -3882,7 +3895,7 @@ const diagrams = [
     title: "Public funnel and isolated deployment productization flow",
     description: "Bounded unauthenticated requirements intake stays separate from operator-controlled isolated deployment inventory and explicit release verification.",
     nodeIds: [
-      "platform-entry", "public-funnel-mode", "public-prospect-intake", "production-mode", "deployment-inventory", "deployment-release-verification",
+      "platform-entry", "public-funnel-mode", "public-prospect-intake", "production-mode", "deployment-inventory", "deployment-release-verification", "protected-qa-release-orchestration",
     ],
   },
   {
