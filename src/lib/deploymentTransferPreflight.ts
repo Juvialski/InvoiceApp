@@ -172,7 +172,7 @@ export function buildDeploymentTransferPreflight(input: TransferPreflightInput):
     manualCheck("edge-functions", "Edge Functions", "Inventory deployed Edge Functions, schedules, secrets/configuration names and consumers, or record that none are used."),
     manualCheck("database-extensions", "Database extensions", "Record enabled PostgreSQL/Supabase extensions and confirm the destination organization/project retains the required set."),
     manualCheck("integrations-provider-configuration", "Integrations and provider configuration", "Confirm Gmail/OAuth, AI, email, backup and other provider configuration and scopes through the operator secret stores; do not copy secrets into this report."),
-    manualCheck("post-transfer-smoke", "Post-transfer smoke checks", "Run the non-destructive post-transfer checklist in the HydroQualiSense Deployment and Release Runbook, including authentication, RBAC/RLS/RPC, Storage reads, module loads, health metadata and the verified supplier invoice to linked Expense workflow."),
+    manualCheck("post-transfer-smoke", "Post-transfer smoke checks", "Run the non-destructive post-transfer checklist in the Hydroqualisense Deployment and Release Runbook, including authentication, RBAC/RLS/RPC, Storage reads, module loads, health metadata and the verified supplier invoice to linked Expense workflow."),
   );
 
   const summary = checks.reduce((counts, item) => {

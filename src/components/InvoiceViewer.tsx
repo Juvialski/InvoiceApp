@@ -26,6 +26,7 @@ import {
   EntityResolutionAction,
   EntityResolutionConflict,
   EntityResolutionResult,
+  FinancialFxSnapshot,
   InvoiceData,
   LineItem,
   Vendor,
@@ -34,8 +35,9 @@ import {
   exportSingleInvoiceToExcel,
   exportInvoiceLineItemsToCSV,
 } from "../utils/excelExport";
-import { formatDate, formatMoney } from "../config/regional";
+import { formatDate } from "../config/regional";
 import { listCompanyVendors } from "../lib/persistence";
+import { displayFinancialAmountInPhp } from "../utils/financialCurrency.ts";
 
 function valueAtPath(value: any, path: string) {
   return path.split(".").reduce((current, key) => current?.[key], value);
@@ -92,6 +94,7 @@ interface InvoiceViewerProps {
   focusFieldPath?: string;
   focusFieldToken?: number;
   vendors?: Vendor[];
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
 }
 
 export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
@@ -103,6 +106,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   focusFieldPath,
   focusFieldToken,
   vendors,
+  financialFxSnapshots = [],
 }) => {
   const [copied, setCopied] = useState(false);
   const [activeView, setActiveView] = useState<"details" | "preview">("details");
@@ -153,6 +157,8 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
   }, [focusFieldPath, focusFieldToken]);
 
   const edited = (path: string) => changedPaths.has(path);
+  const phpAmount = (amount: unknown) => displayFinancialAmountInPhp(amount, invoice.currency, "SUPPLIER_INVOICE", invoice.id, financialFxSnapshots);
+  const formatMoney = (amount: unknown, _sourceCurrency?: string) => phpAmount(amount).baseLabel;
 
   const handleExportExcel = () => {
     exportSingleInvoiceToExcel(invoice);
@@ -456,6 +462,7 @@ export const InvoiceViewer: React.FC<InvoiceViewerProps> = ({
           <div className="text-[10px] font-bold uppercase text-slate-400 bg-slate-50 py-1 px-2 rounded-lg text-center mt-2">
             Currency: {invoice.currency || "Currency unclear"}
           </div>
+          {phpAmount(invoice.grandTotal).sourceLabel && <p className={`mt-2 text-[10px] font-semibold ${phpAmount(invoice.grandTotal).requiresFx ? "text-amber-700" : "text-slate-400"}`}>{phpAmount(invoice.grandTotal).sourceLabel}{phpAmount(invoice.grandTotal).requiresFx ? " · PHP conversion required" : ""}</p>}
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import type {
   FinancialFxSnapshot,
   FinancialFxSourceType,
 } from "../types.ts";
+import { formatMoney } from "../config/regional.ts";
 
 export function normalizeFinancialCurrency(value?: string) {
   return String(value || "").trim().toUpperCase() || "UNKNOWN";
@@ -65,4 +66,33 @@ export function hasFinancialFxSnapshot(
   snapshots: readonly FinancialFxSnapshot[] | undefined,
 ) {
   return convertFinancialAmount(amount, sourceCurrency, targetCurrency, sourceType, sourceId, snapshots) !== undefined;
+}
+
+export interface PhpDisplayAmount {
+  baseAmount?: number;
+  baseLabel: string;
+  sourceLabel?: string;
+  requiresFx: boolean;
+}
+
+/**
+ * Render a source amount in PHP only when the exact immutable FX evidence is
+ * available. The source label remains visible so conversion never erases the
+ * original currency context.
+ */
+export function displayFinancialAmountInPhp(
+  amount: unknown,
+  sourceCurrency: string | undefined,
+  sourceType: FinancialFxSourceType,
+  sourceId: string | undefined,
+  snapshots: readonly FinancialFxSnapshot[] | undefined,
+): PhpDisplayAmount {
+  const value = roundFinancialAmount(Math.max(0, Number(amount) || 0));
+  const source = normalizeFinancialCurrency(sourceCurrency);
+  const converted = convertFinancialAmount(value, source, "PHP", sourceType, sourceId, snapshots);
+  const sourceLabel = source !== "PHP" && source !== "UNKNOWN" ? `Source ${formatMoney(value, source)}` : undefined;
+  if (converted === undefined) {
+    return { baseLabel: "PHP conversion required", ...(sourceLabel ? { sourceLabel } : {}), requiresFx: true };
+  }
+  return { baseAmount: converted, baseLabel: formatMoney(converted, "PHP"), ...(sourceLabel ? { sourceLabel } : {}), requiresFx: false };
 }

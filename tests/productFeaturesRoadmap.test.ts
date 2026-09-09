@@ -66,7 +66,7 @@ test("Settings mounts the client-facing roadmap as an informational surface", ()
   const settings = source("src/components/Settings.tsx");
   const roadmap = source("src/components/ProductFeaturesRoadmap.tsx");
   assert.match(settings, /ProductFeaturesRoadmap/);
-  assert.match(roadmap, /HydroQualiSense Features & Roadmap/);
+  assert.match(roadmap, /Hydroqualisense Features & Roadmap/);
   assert.match(roadmap, /Planned and future cards describe direction only/);
   assert.match(roadmap, /data-product-feature-status/);
   assert.doesNotMatch(roadmap, /onClick=|<button\b/);

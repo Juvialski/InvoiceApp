@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, History, Landmark, LockKeyhole, RotateCcw, ShieldCheck, WalletCards } from "lucide-react";
-import type { FinancialSettlementHistoryItem, FinancialSettlementSummary, SettlementTargetType } from "../lib/financialSettlement.ts";
+import { isSettlementTargetLifecycleEligible, type FinancialSettlementHistoryItem, type FinancialSettlementSummary, type SettlementTargetType } from "../lib/financialSettlement.ts";
 import { loadFinancialSettlementSummary, reverseFinancialSettlement } from "../lib/financialSettlementPersistence.ts";
 import { demoSettlementSummaryForTarget } from "../demo/data/settlements.ts";
 import { appPathForCashTransaction } from "../utils/appRouting.ts";
 import type { AppNavigate } from "../utils/clientNavigation.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
+import type { FinancialFxSnapshot, FinancialFxSourceType } from "../types.ts";
+import { displayFinancialAmountInPhp } from "../utils/financialCurrency.ts";
 import { SettlementReversalDialog } from "./financial/SettlementReversalDialog.tsx";
 
 export interface FinancialSettlementCardProps {
@@ -17,11 +19,18 @@ export interface FinancialSettlementCardProps {
   canReverse?: boolean;
   fallbackSummary?: FinancialSettlementSummary | null;
   lifecycleStatus?: string;
+  recordPaymentPath?: string;
+  canRecordPayment?: boolean;
+  openTargetPath?: string;
+  openTargetLabel?: string;
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
+  fxSourceType?: FinancialFxSourceType;
+  fxSourceId?: string;
   onReversed?: (item: FinancialSettlementHistoryItem) => void;
   onNavigatePath?: AppNavigate;
 }
 
-function money(value: number, currency: string) {
+function formatSettlementMoney(value: number, currency: string) {
   try { return new Intl.NumberFormat("en-PH", { style: "currency", currency, maximumFractionDigits: 2 }).format(value || 0); }
   catch { return `${currency} ${(value || 0).toFixed(2)}`; }
 }
@@ -44,6 +53,10 @@ function cashNavigationPath(transactionId: string, path: string) {
   return transactionId.startsWith("demo-") ? `/demo/app${path}` : path;
 }
 
+function targetNavigationPath(targetId: string, path: string) {
+  return targetId.startsWith("demo-") ? `/demo/app${path}` : path;
+}
+
 export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = ({
   targetType,
   targetId,
@@ -53,11 +66,18 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   canReverse = false,
   fallbackSummary,
   lifecycleStatus,
+  recordPaymentPath,
+  canRecordPayment = false,
+  openTargetPath,
+  openTargetLabel = "Open target",
+  financialFxSnapshots = [],
+  fxSourceType,
+  fxSourceId,
   onReversed,
   onNavigatePath,
 }) => {
   const demoSummary = useMemo(() => targetId.startsWith("demo-") ? demoSettlementSummaryForTarget(targetType, targetId) : null, [targetId, targetType]);
-  const [summary, setSummary] = useState<FinancialSettlementSummary | null>(fallbackSummary || demoSummary);
+  const [summary, setSummary] = useState<FinancialSettlementSummary | null>(demoSummary || fallbackSummary);
   const [loading, setLoading] = useState(!fallbackSummary && !demoSummary);
   const [refreshing, setRefreshing] = useState(false);
   const targetKey = `${targetType}:${targetId}`;
@@ -73,7 +93,7 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   const refresh = async () => {
     const requestId = ++refreshRequestRef.current;
     if (targetId.startsWith("demo-")) {
-      setSummary(fallbackSummary || demoSummary);
+      setSummary(demoSummary || fallbackSummary || null);
       resolvedTargetKeyRef.current = targetKey;
       setError("");
       setLoading(false);
@@ -86,7 +106,7 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
     try {
       const loaded = await loadFinancialSettlementSummary(targetType, targetId);
       if (refreshRequestRef.current !== requestId) return;
-      setSummary(loaded);
+      setSummary(loaded || fallbackSummary || null);
       resolvedTargetKeyRef.current = targetKey;
     }
     catch (cause) {
@@ -185,8 +205,33 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
   if (!visibleSummary && error) return <section className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800"><div className="flex items-center justify-between gap-3"><span>{error}</span><button type="button" onClick={() => void refresh()} className="shrink-0 rounded-md bg-white px-2 py-1 font-black text-rose-800 shadow-sm">Retry</button></div></section>;
   if (!visibleSummary) return <section className="rounded-xl border border-slate-200 bg-white p-4" aria-label="Settlement evidence"><p className="text-sm font-black text-slate-800">No settlement evidence recorded</p><p className="mt-1 text-xs leading-5 text-slate-500">No confirmed cash or bank reconciliation evidence is available for this obligation yet. The original {targetType.toLowerCase()} remains unchanged.</p></section>;
 
+  const displaySettlementAmount = (value: number, currency: string) => {
+    const sourceType = targetType === "INVOICE" ? "SUPPLIER_INVOICE" : targetType === "EXPENSE" ? "EXPENSE" : undefined;
+    if (sourceType) {
+      const direct = displayFinancialAmountInPhp(value, currency, sourceType, targetId, financialFxSnapshots);
+      if (!direct.requiresFx || !fxSourceType || !fxSourceId) return direct;
+      return displayFinancialAmountInPhp(value, currency, fxSourceType, fxSourceId, financialFxSnapshots);
+    }
+    return undefined;
+  };
+  const money = (value: number, currency: string) => {
+    const display = displaySettlementAmount(value, currency);
+    if (display) return display.baseLabel;
+    return formatSettlementMoney(value, currency);
+  };
+  const sourceAmount = targetType === "INVOICE" || targetType === "EXPENSE"
+    ? displaySettlementAmount(visibleSummary.settlementBasis, visibleSummary.currency)
+    : undefined;
   const active = visibleSummary?.history.filter((item) => item.status === "CONFIRMED") || [];
   const reversed = visibleSummary?.history.filter((item) => item.status === "REVERSED") || [];
+  const targetLifecycleStatus = lifecycleStatus || visibleSummary?.lifecycleStatus;
+  const targetLifecycleEligible = isSettlementTargetLifecycleEligible(targetType, targetLifecycleStatus);
+  const hasOutstanding = visibleSummary.outstanding > 0.005;
+  const recordPaymentUnavailableReason = !targetLifecycleEligible
+    ? targetLifecycleStatus
+      ? `Payment settlement is unavailable while this ${targetType.toLowerCase()} is ${targetLifecycleStatus}.`
+      : "Payment settlement is unavailable until the target lifecycle is confirmed."
+    : "Cash & Banking access and reconciliation permission are required to record payment.";
 
   const defaultTitle = targetType === "PAYROLL"
     ? "Disbursement evidence"
@@ -240,6 +285,38 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
               <Metric label={targetType === "PAYROLL" ? "Confirmed disbursement" : targetType === "CLIENT_COLLECTION" ? "Bank-linked amount" : "Confirmed bank payments"} value={money(summary.reconciledCashPaid, summary.currency)} />
               <Metric label="Outstanding" value={money(summary.outstanding, summary.currency)} emphasis={summary.outstanding > 0.005} />
             </div>
+            {sourceAmount?.sourceLabel && <p className={`mt-2 break-words text-[10px] font-semibold ${sourceAmount.requiresFx ? "text-amber-700" : "text-slate-400"}`}>{sourceAmount.sourceLabel}{sourceAmount.requiresFx ? " · PHP conversion required" : ""}</p>}
+
+            {(openTargetPath || recordPaymentPath) && (
+              <div className="mt-4 flex flex-wrap items-center gap-2" aria-label="Settlement actions">
+                {openTargetPath && <a
+                  href={targetNavigationPath(targetId, openTargetPath)}
+                  onClick={(event) => {
+                    if (!onNavigatePath) return;
+                    event.preventDefault();
+                    onNavigatePath(openTargetPath);
+                  }}
+                  className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-[10px] font-black text-indigo-800 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+                >
+                  {openTargetLabel} <ArrowRight className="h-3.5 w-3.5" />
+                </a>}
+                {recordPaymentPath && hasOutstanding && targetLifecycleEligible && canRecordPayment && <a
+                  href={targetNavigationPath(targetId, recordPaymentPath)}
+                  onClick={(event) => {
+                    if (!onNavigatePath) return;
+                    event.preventDefault();
+                    onNavigatePath(recordPaymentPath);
+                  }}
+                  className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-[10px] font-black text-white shadow-sm hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+                >
+                  <WalletCards className="h-3.5 w-3.5" /> Record Payment <ArrowRight className="h-3.5 w-3.5" />
+                </a>}
+                {recordPaymentPath && hasOutstanding && (!targetLifecycleEligible || !canRecordPayment) && <p className="basis-full break-words text-[10px] font-semibold text-slate-600">
+                  {recordPaymentUnavailableReason}
+                </p>}
+                {recordPaymentPath && !hasOutstanding && <p className="basis-full text-[10px] font-semibold text-emerald-700">No remaining balance. Review or reverse existing settlement evidence when authorized.</p>}
+              </div>
+            )}
 
             {summary.settlementState === "TRANSFERRED_TO_EXPENSE" && (
               <p className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-[10px] text-indigo-800">

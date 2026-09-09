@@ -7,9 +7,11 @@ import {
   confirmedSettlementTotal,
   defaultSettlementAllocation,
   deriveInvoiceSettlementSummary,
+  deriveExpenseSettlementSummary,
   derivePayrollSettlementSummary,
   eligibleSettlementCandidates,
   invoiceCashPayableBasis,
+  isSettlementTargetLifecycleEligible,
   payrollNetPayBasis,
   remainingTransactionAmount,
   type FinancialSettlementHistoryItem,
@@ -102,6 +104,17 @@ test("transaction allocation supports split and multiple-payment math without ov
   assert.equal(remainingTransactionAmount(tx, history), 0);
   assert.equal(defaultSettlementAllocation(40_000, 55_000), 40_000);
   assert.equal(defaultSettlementAllocation(70_000, 55_000), 55_000);
+});
+
+test("Expense settlement state is derived from cash evidence and lifecycle eligibility", () => {
+  const expense = { id: "expense-1", amount: 100_000, currency: "PHP", status: "APPROVED" };
+  const partial = deriveExpenseSettlementSummary(expense, [confirmed("match-1", "bank-1", 40_000)]);
+  assert.equal(partial.settlementState, "PARTIALLY_PAID");
+  assert.equal(partial.reconciledCashPaid, 40_000);
+  assert.equal(partial.outstanding, 60_000);
+  assert.equal(isSettlementTargetLifecycleEligible("EXPENSE", "APPROVED"), true);
+  assert.equal(isSettlementTargetLifecycleEligible("EXPENSE", "DRAFT"), false);
+  assert.equal(isSettlementTargetLifecycleEligible("EXPENSE", "VOID"), false);
 });
 
 test("client settlement validation rejects wrong direction, lifecycle and currency before server confirmation", () => {

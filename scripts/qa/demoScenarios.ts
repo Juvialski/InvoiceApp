@@ -60,9 +60,39 @@ const openDemoDrawingPreview: QaScenarioAction = async (page) => {
 
 const openDemoTour: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Demo Tour", exact: true }).first().click();
-  await page.getByRole("dialog", { name: "HydroQualiSense Demo Tour", exact: true }).first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
-  const count = await page.getByRole("dialog", { name: "HydroQualiSense Demo Tour", exact: true }).count();
+  await page.getByRole("dialog", { name: "Hydroqualisense Demo Tour", exact: true }).first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const count = await page.getByRole("dialog", { name: "Hydroqualisense Demo Tour", exact: true }).count();
   return [{ id: "demo-tour-visible", passed: count === 1, details: `tour panels: ${count}` } satisfies QaAssertion];
+};
+
+const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[data-testid="supplier-invoice-expense-bridge"]');
+  const expenseLink = await page.getByRole("link", { name: /Open Expense/ }).count();
+  const recordPayment = await page.getByRole("link", { name: /Record Payment/ }).count();
+  return [
+    { id: "supplier-expense-bridge-visible", passed: expenseLink === 1, details: `Open Expense links: ${expenseLink}` },
+    { id: "supplier-expense-record-payment-visible", passed: recordPayment === 1, details: `Record Payment links: ${recordPayment}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyExpensePaymentSurface: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[data-testid="expense-detail-panel"]');
+  const panel = await page.locator('[data-testid="expense-detail-panel"]').count();
+  const recordPayment = await page.getByRole("link", { name: /Record Payment/ }).count();
+  return [
+    { id: "expense-detail-visible", passed: panel === 1, details: `Expense detail panels: ${panel}` },
+    { id: "expense-payment-cta-visible", passed: recordPayment === 1, details: `Record Payment links: ${recordPayment}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyCashExpenseTarget: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[data-testid="cash-target-context"]');
+  const context = await page.locator('[data-testid="cash-target-context"]').count();
+  const requested = await page.locator("text=Requested target").count();
+  return [
+    { id: "cash-expense-target-context-visible", passed: context === 1, details: `cash target contexts: ${context}` },
+    { id: "cash-expense-target-prioritized", passed: requested >= 1, details: `requested-target badges: ${requested}` },
+  ] satisfies readonly QaAssertion[];
 };
 
 const openMobileNavigation: QaScenarioAction = async (page) => {
@@ -249,11 +279,17 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "gmail-inbox", route: route("inbox", "/email-intake"), path: "/demo/app/inbox", interactionState: "Email Intake screen rendered in disconnected demo state", viewport: QA_VIEWPORTS.desktop, action: verifyGmailInboxScreen }),
   defineQaScenario({ feature: "invoices", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "invoices", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-01", interactionState: "invoice detail opened", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "linked Expense payment surface opened", viewport: QA_VIEWPORTS.desktop, action: verifySupplierPayableBridge }),
+  defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "linked Expense payment surface opened", viewport: QA_VIEWPORTS.mobile, action: verifySupplierPayableBridge }),
   defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "invoice review opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor directory rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorsScreen }),
   defineQaScenario({ feature: "payroll", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "payroll", route: route("payroll-run", "/payroll?runId=:runId"), path: "/demo/app/payroll?runId=demo-payroll-run-9", interactionState: "payroll run opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "expenses", route: route("expenses", "/expenses"), path: "/demo/app/expenses", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "supplier-payables", route: route("expenses", "/expenses?expenseId=:expenseId"), path: "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02", interactionState: "authoritative Expense payment surface opened", viewport: QA_VIEWPORTS.desktop, action: verifyExpensePaymentSurface }),
+  defineQaScenario({ feature: "supplier-payables", route: route("expenses", "/expenses?expenseId=:expenseId"), path: "/demo/app/expenses?expenseId=demo-expense-supplier-bm-02", interactionState: "authoritative Expense payment surface opened", viewport: QA_VIEWPORTS.mobile, action: verifyExpensePaymentSurface }),
+  defineQaScenario({ feature: "supplier-payables", route: route("cash", "/cash?fromTargetType=:fromTargetType&fromTargetId=:fromTargetId"), path: "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02", interactionState: "Cash Expense target context opened", viewport: QA_VIEWPORTS.desktop, action: verifyCashExpenseTarget }),
+  defineQaScenario({ feature: "supplier-payables", route: route("cash", "/cash?fromTargetType=:fromTargetType&fromTargetId=:fromTargetId"), path: "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02", interactionState: "Cash Expense target context opened", viewport: QA_VIEWPORTS.mobile, action: verifyCashExpenseTarget }),
   defineQaScenario({ feature: "reports", route: route("reports", "/reports"), path: "/demo/app/reports", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "settings", route: route("settings", "/settings"), path: "/demo/app/settings", interactionState: "settings product surface verified", viewport: QA_VIEWPORTS.desktop, action: verifySettingsScreen }),
   defineQaScenario({ feature: "assistant", route: route("assistant", "/assistant"), path: "/demo/app/assistant", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),

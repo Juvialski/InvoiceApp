@@ -14,7 +14,7 @@ import { createDemoPurchaseOrderMatches, createDemoPurchaseOrders, createDemoPur
 import { createDemoClientBillings } from "./clientBillings.ts";
 import { createDemoClientCollections } from "./clientCollections.ts";
 import { createDemoInventoryItems, createDemoInventoryMovements } from "./inventory.ts";
-import type { FinancialFxSnapshot } from "../../types.ts";
+import type { Expense, FinancialFxSnapshot } from "../../types.ts";
 
 const DEMO_OVERTIME_QUEUE_STATUSES = ["PENDING", "PENDING", "REJECTED", "CANCELLED", "PENDING"] as const;
 
@@ -23,6 +23,29 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
   const invoiceData = createDemoInvoices(anchorDate);
   const payroll = createDemoPayroll(anchorDate);
   const expenses = createDemoExpenses(anchorDate);
+  const linkedSupplierInvoice = invoiceData.invoices.find((invoice) => invoice.id === "demo-invoice-02");
+  const linkedSupplierExpense: Expense | undefined = linkedSupplierInvoice ? {
+    id: "demo-expense-supplier-bm-02",
+    projectId: linkedSupplierInvoice.projectReference,
+    expenseDate: linkedSupplierInvoice.invoiceDate,
+    category: linkedSupplierInvoice.category || "Materials",
+    description: linkedSupplierInvoice.description || `Supplier invoice ${linkedSupplierInvoice.invoiceNumber}`,
+    payee: linkedSupplierInvoice.vendor?.name,
+    supplierInvoiceId: linkedSupplierInvoice.id,
+    vendorId: linkedSupplierInvoice.vendor?.vendorId,
+    amount: Number(linkedSupplierInvoice.grandTotal) || 0,
+    currency: linkedSupplierInvoice.currency,
+    paymentMethod: "Bank Transfer",
+    referenceNumber: linkedSupplierInvoice.invoiceNumber,
+    status: "APPROVED",
+    notes: "Authoritative Expense linked from preserved supplier invoice evidence.",
+    createdAt: demoTimestamp(linkedSupplierInvoice.invoiceDate, 15, 30),
+    updatedAt: demoTimestamp(linkedSupplierInvoice.invoiceDate, 15, 30),
+  } : undefined;
+  const demoInvoices = linkedSupplierInvoice && linkedSupplierExpense
+    ? invoiceData.invoices.map((invoice) => invoice.id === linkedSupplierInvoice.id ? { ...invoice, linkedExpenseId: linkedSupplierExpense.id } : invoice)
+    : invoiceData.invoices;
+  const demoExpenses = linkedSupplierExpense ? [...expenses, linkedSupplierExpense] : expenses;
   const fxTimestamp = demoTimestamp(anchorDate, 11, 45);
   const financialFxSnapshots: FinancialFxSnapshot[] = [{
     id: "demo-fx-expense-19",
@@ -40,6 +63,22 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     confirmedAt: fxTimestamp,
     createdAt: fxTimestamp,
     baseAmount: 659.25,
+  }, {
+    id: "demo-fx-invoice-17",
+    companyId: DEMO_COMPANY_ID,
+    sourceType: "SUPPLIER_INVOICE",
+    sourceId: "demo-invoice-17",
+    sourceAmount: 843_215.28,
+    sourceCurrency: "USD",
+    baseCurrency: "PHP",
+    rate: 56.25,
+    rateDate: anchorDate,
+    rateSource: "MANUAL",
+    note: "Demo-approved manual reporting rate for PHP display.",
+    enteredByUserId: "demo-user-finance",
+    confirmedAt: fxTimestamp,
+    createdAt: fxTimestamp,
+    baseAmount: 47_430_859.50,
   }];
 
   // The public demo deliberately keeps explicit OT requests in the human-review
@@ -61,7 +100,7 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     anchorDate,
     company: {
       id: DEMO_COMPANY_ID,
-      name: "HydroQualiSense Solutions Corp.",
+      name: "Hydroqualisense",
       country: "Philippines",
       currency: "PHP",
       locale: "en-PH",
@@ -74,9 +113,9 @@ export function createDemoWorkspace(anchorDate = defaultDemoAnchorDate()): DemoW
     projects: projectData.projects,
     costCodes: projectData.costCodes,
     projectPresentation: projectData.presentation,
-    invoices: invoiceData.invoices,
+    invoices: demoInvoices,
     invoiceAllocations: invoiceData.allocations,
-    expenses,
+    expenses: demoExpenses,
     financialFxSnapshots,
     cash: enrichDemoCashWithSettlements(createDemoCashBanking(anchorDate), anchorDate),
     payroll,

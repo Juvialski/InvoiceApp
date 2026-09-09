@@ -56,6 +56,14 @@ test("migration list parsing accepts the current Supabase CLI JSON output", () =
   ]);
 });
 
+test("migration list parsing accepts the current Supabase CLI table output with backtick-quoted timestamps", () => {
+  const rows = parseSupabaseMigrationList("Initialising login role...\n   `20260909053311` | `20260909053311` | 2026-09-09 05:33:11\n   `20260909073452` |                  | 2026-09-09 07:34:52");
+  assert.deepEqual(rows, [
+    { local: "20260909053311", remote: "20260909053311" },
+    { local: "20260909073452", remote: null },
+  ]);
+});
+
 test("protected QA release identity fails closed for every target-boundary defect", () => {
   const valid = {
     environment: "qa",

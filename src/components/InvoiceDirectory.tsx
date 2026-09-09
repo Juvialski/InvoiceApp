@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AlertTriangle, Archive, Ban, CheckCircle2, ChevronDown, Eye, Files, Filter, Plus, RotateCcw, Search } from "lucide-react";
-import type { InvoiceData, InvoiceProjectAllocation, Project } from "../types";
+import type { FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { EmptyState, PageHeader, StatusBadge, type StatusTone } from "./ui/OperationsUI";
 import { useWorkspaceDataPending } from "../app/AppPermissionContext.tsx";
@@ -12,13 +12,14 @@ interface InvoiceDirectoryProps {
   onAddNew: () => void;
   projects?: Project[];
   projectAllocations?: InvoiceProjectAllocation[];
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
 }
 
 function reviewTone(status: string): StatusTone { return status === "VERIFIED" ? "success" : "warning"; }
 function paymentTone(status: string): StatusTone { return status === "PAID" ? "success" : status === "OVERDUE" ? "danger" : status === "PARTIALLY_PAID" ? "info" : "neutral"; }
 function sourceTone(source: string): StatusTone { return source === "EMAIL" ? "info" : source === "SAMPLE" ? "warning" : "neutral"; }
 
-export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, onSelectInvoice, onOpenCorrection, onAddNew, projects = [], projectAllocations = [] }) => {
+export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, onSelectInvoice, onOpenCorrection, onAddNew, projects = [], projectAllocations = [], financialFxSnapshots = [] }) => {
   const workspaceDataPending = useWorkspaceDataPending();
   const [query, setQuery] = useState("");
   const [reviewFilter, setReviewFilter] = useState("ALL");
@@ -97,7 +98,7 @@ export const InvoiceDirectory: React.FC<InvoiceDirectoryProps> = ({ invoices, on
     </section>
 
     {filtered.length ? <section id="invoice-directory-results" className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Invoice directory table"><div className="ops-scrollbar overflow-auto"><table className="ops-table min-w-[1080px] w-full text-left text-xs"><caption className="sr-only">Invoice directory results: {invoiceResultLabel}</caption><thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th scope="col" className="px-4 py-3">Invoice / vendor</th><th scope="col" className="px-4 py-3">Project</th><th scope="col" className="px-4 py-3">Date</th><th scope="col" className="px-4 py-3 text-right">Amount</th><th scope="col" className="px-4 py-3">Source</th><th scope="col" className="px-4 py-3">Review</th><th scope="col" className="px-4 py-3">Payment</th><th scope="col" className="sticky right-0 bg-slate-50 px-4 py-3 text-right">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((invoice) => {
-      const display = getInvoiceDisplay(invoice);
+      const display = getInvoiceDisplay(invoice, { reportingCurrency: "PHP", financialFxSnapshots });
       const assignedProjects = (allocationsByInvoice.get(invoice.id) || []).map((allocation) => projectById.get(allocation.projectId)).filter(Boolean) as Project[];
       const source = invoice.sourceType || "UPLOAD";
       const voided = invoice.lifecycleStatus === "VOID";

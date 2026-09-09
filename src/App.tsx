@@ -220,6 +220,7 @@ import {
   writeCashBankingWorkspaceToLocal,
 } from "./lib/cashBankingPersistence.ts";
 import { reverseFinancialSettlement } from "./lib/financialSettlementPersistence.ts";
+import { invoiceCashPayableBasis } from "./lib/financialSettlement.ts";
 import {
   extractVendorEvidenceFromInvoice,
   resolveBatchVendors,
@@ -524,6 +525,10 @@ function InvoiceWorkspace() {
       setWorkspaceOrigin(appTabForLocation(parseAppLocation(returnPath)));
       setReviewCompletion(null);
       if (route.kind === "invoice") setReviewSessionIds([]);
+    } else if (route.kind === "expense") {
+      const returnPath = route.returnTo || appPathForTab(route.tab);
+      setWorkspaceReturnPath(returnPath);
+      setWorkspaceOrigin(appTabForLocation(parseAppLocation(returnPath)));
     } else if (route.kind !== "unknown") {
       setWorkspaceReturnPath(appPathForTab(route.tab));
       setWorkspaceOrigin(route.tab);
@@ -4666,10 +4671,10 @@ function InvoiceWorkspace() {
     return next;
   }, [projects, costInvoices, detailPayrollForProjectCost, expenses, financialFxSnapshots, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, projectLaborAggregates, projectLaborSource, activeCompany?.defaultCurrency, regionalSettings.currency]);
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
-    ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
+    ...expenses.filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}`, lifecycleStatus: expense.status })),
     // Linked supplier invoices are evidence only; the Expense is the sole
     // supplier payable candidate for cash settlement.
-    ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
+    ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: invoiceCashPayableBasis(invoice).amount, currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name, lifecycleStatus: invoice.reviewStatus })),
     ...payrollData.runs.filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: payrollData.entries.filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: payrollData.periods.find((period) => period.id === run.periodId)?.payDate || payrollData.periods.find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment" })),
     ...clientCollectionData.collections.filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId })),
   ].filter((candidate) => candidate.amount > 0), [clientCollectionData.collections, expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods]);
@@ -4715,8 +4720,10 @@ function InvoiceWorkspace() {
   const routeInvoice = route.kind === "invoice" || route.kind === "review-invoice"
     ? resolveEntityById(invoices, route.invoiceId)
     : undefined;
+  const routeExpense = route.kind === "expense" ? resolveEntityById(expenses, route.expenseId) : undefined;
   const routeNotFound = route.kind === "unknown"
     || (route.kind === "project" && !workspaceLoading && !routeProject)
+    || (route.kind === "expense" && !workspaceLoading && !routeExpense)
     || ((route.kind === "invoice" || route.kind === "review-invoice") && !workspaceLoading && !routeInvoice);
   const visibleRouteIds = useMemo<readonly RouteId[] | undefined>(() => {
     if (!isSupabaseConfigured || !session) return undefined;
@@ -4819,6 +4826,7 @@ function InvoiceWorkspace() {
           activeTab={activeTab}
           onNavigatePath={navigateToPath}
           workspaceRouteVisible={workspaceRouteVisible}
+          workspaceLoading={workspaceLoading}
           dashboardData={dashboardViewData}
           dashboardProjectId={dashboardProjectId}
           onDashboardProjectChange={(projectId) => {

@@ -70,6 +70,16 @@ export interface SettlementCandidate {
   projectId?: string;
 }
 
+/** Canonical lifecycle gate shared by settlement summaries and cash candidates. */
+export function isSettlementTargetLifecycleEligible(targetType: SettlementTargetType, lifecycleStatus?: string) {
+  const status = String(lifecycleStatus || "").trim().toUpperCase();
+  if (targetType === "INVOICE") return status === "VERIFIED";
+  if (targetType === "PAYROLL") return status === "APPROVED" || status === "PAID";
+  if (targetType === "EXPENSE") return status === "APPROVED" || status === "PAID";
+  if (targetType === "CLIENT_COLLECTION") return status === "RECORDED";
+  return false;
+}
+
 function money(value: unknown): number {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? Math.round((numeric + Number.EPSILON) * 100) / 100 : 0;
@@ -266,10 +276,6 @@ export function eligibleSettlementCandidates(transaction: FinancialTransaction, 
     candidate.outstandingAmount > 0.005 &&
     candidate.currency.toUpperCase() === transaction.currency.toUpperCase() &&
     targetTypes.includes(candidate.targetType) &&
-    (candidate.targetType === "INVOICE"
-      ? candidate.lifecycleStatus === "VERIFIED"
-      : candidate.targetType === "CLIENT_COLLECTION"
-        ? candidate.lifecycleStatus === "RECORDED"
-        : ["APPROVED", "PAID"].includes(candidate.lifecycleStatus || ""))
+    isSettlementTargetLifecycleEligible(candidate.targetType, candidate.lifecycleStatus)
   );
 }

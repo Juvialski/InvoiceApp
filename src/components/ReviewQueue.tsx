@@ -1,20 +1,21 @@
 import React, { useMemo } from "react";
 import { AlertTriangle, CheckCircle2, Eye, FileSearch } from "lucide-react";
-import type { InvoiceData } from "../types";
+import type { FinancialFxSnapshot, InvoiceData } from "../types";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { EmptyState, PageHeader, StatusBadge } from "./ui/OperationsUI";
 
 interface ReviewQueueProps {
   invoices: InvoiceData[];
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
   onOpenInvoice: (invoice: InvoiceData) => void;
   onStartReview?: (queue: InvoiceData[]) => void;
   readOnly?: boolean;
 }
 
-function reasonBadges(invoice: InvoiceData) {
+function reasonBadges(invoice: InvoiceData, financialFxSnapshots: readonly FinancialFxSnapshot[] = []) {
   const issues = invoice.validation?.issues || [];
   const criticalMissing = invoice.extractionQuality?.criticalMissing || [];
-  const display = getInvoiceDisplay(invoice);
+  const display = getInvoiceDisplay(invoice, { reportingCurrency: "PHP", financialFxSnapshots });
   const badges: string[] = [];
   const add = (label: string) => { if (label && !badges.includes(label)) badges.push(label); };
   if (invoice.duplicateStatus === "POSSIBLE_DUPLICATE") add("Potential duplicate");
@@ -38,7 +39,7 @@ function reasonBadges(invoice: InvoiceData) {
   return badges.slice(0, 3);
 }
 
-export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, onOpenInvoice, onStartReview, readOnly = false }) => {
+export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, financialFxSnapshots = [], onOpenInvoice, onStartReview, readOnly = false }) => {
   const queue = useMemo(() => invoices.filter((invoice) => invoice.reviewStatus === "NEEDS_REVIEW" && !invoice.archivedAt && invoice.lifecycleStatus !== "VOID"), [invoices]);
   const description = readOnly
     ? "Inspect supplier invoices that are awaiting verification. Your role can read these records but cannot edit or post the linked Expense."
@@ -50,8 +51,8 @@ export const ReviewQueue: React.FC<ReviewQueueProps> = ({ invoices, onOpenInvoic
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white" aria-label="Supplier invoices awaiting review">
       <div className="border-b border-slate-200 bg-slate-50 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{readOnly ? "Records awaiting verification" : "Next records to verify"}</p></div>
       <div className="divide-y divide-slate-100">{queue.map((invoice) => {
-        const display = getInvoiceDisplay(invoice);
-        const reasons = reasonBadges(invoice);
+        const display = getInvoiceDisplay(invoice, { reportingCurrency: "PHP", financialFxSnapshots });
+        const reasons = reasonBadges(invoice, financialFxSnapshots);
         const ActionIcon = readOnly ? Eye : FileSearch;
         return <article key={invoice.id} className="flex flex-col gap-4 px-4 py-4 transition hover:bg-slate-50 lg:flex-row lg:items-center lg:px-5"><div className="flex min-w-0 flex-1 items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700"><FileSearch className="h-4 w-4" aria-hidden="true" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="truncate text-sm font-black text-slate-900">{display.primaryLabel}</h2><StatusBadge tone="warning" icon={AlertTriangle}>Needs review</StatusBadge></div><p className="mt-1 truncate text-[10px] text-slate-600">{display.invoiceLabel} · {display.dateLabel}</p><div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600"><span className="font-sans font-bold tabular-nums">{display.amountLabel}</span>{display.projectKnown && <span className="truncate">{display.projectReference ? `Project: ${display.projectLabel}` : `PO: ${display.projectLabel}`}</span>}<span className="truncate text-slate-400">{display.sourceLabel} · {display.sourceFileLabel}</span></div><div className="mt-2 flex flex-wrap gap-1.5">{reasons.map((reason) => <span key={reason}><StatusBadge tone={reason === "Potential duplicate" ? "danger" : "warning"}>{reason}</StatusBadge></span>)}</div></div></div><button type="button" onClick={() => onOpenInvoice(invoice)} className="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-lg bg-indigo-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 lg:self-center" aria-label={`${readOnly ? "Inspect" : "Open and review"} ${display.primaryLabel}`}><ActionIcon className="h-3.5 w-3.5" aria-hidden="true" /> {readOnly ? "Inspect" : "Open & review"}</button></article>;
       })}</div>

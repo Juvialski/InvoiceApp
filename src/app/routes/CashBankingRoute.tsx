@@ -15,6 +15,7 @@ export const CashBankingRoute: React.FC<CashBankingRouteProps> = (props) => {
     <CashSettlementAllocationWorkspace
       data={props.data}
       selectedTransactionId={props.selectedTransactionId}
+      targetContext={props.targetContext}
       onNavigatePath={props.onNavigatePath}
       candidates={props.reconciliationCandidates || []}
       canReconcile={props.canReconcile}

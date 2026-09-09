@@ -34,6 +34,7 @@ import { buildLocalInventoryItem, recordInventoryMovementLocally, type Inventory
 import { applyLocalEquipmentAssignment, applyLocalEquipmentReturn, applyLocalEquipmentTransfer, buildEquipmentWorkspaceFromProjectRegister, buildLocalEquipment, type EquipmentSaveInput } from "../lib/equipment.ts";
 import { calculateLineReceiptProgress } from "../utils/purchaseOrderReceipts.ts";
 import { supplierExpenseProjectProjection } from "../utils/supplierInvoiceCostOwnership.ts";
+import { invoiceCashPayableBasis } from "../lib/financialSettlement.ts";
 
 const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
@@ -61,18 +62,19 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const activeTab = activeTabFor(location);
   const selectedProject = appLocation?.kind === "project" ? data.projects.find((project) => project.id === appLocation.projectId) || null : null;
   const selectedInvoice = appLocation && (appLocation.kind === "invoice" || appLocation.kind === "review-invoice") ? data.invoices.find((invoice) => invoice.id === appLocation.invoiceId) || null : null;
+  const selectedExpense = appLocation?.kind === "expense" ? data.expenses.find((expense) => expense.id === appLocation.expenseId) || null : null;
   const demoEquipmentSeed = useMemo(() => buildEquipmentWorkspaceFromProjectRegister(data.equipment, DEMO_COMPANY_ID), [data.equipment]);
   const [demoEquipmentRegistry, setDemoEquipmentRegistry] = useState<Equipment[]>(() => demoEquipmentSeed.equipment);
   const [demoEquipmentAssignments, setDemoEquipmentAssignments] = useState<EquipmentAssignment[]>(() => demoEquipmentSeed.assignments);
   useEffect(() => { setDemoEquipmentRegistry(demoEquipmentSeed.equipment); setDemoEquipmentAssignments(demoEquipmentSeed.assignments); }, [demoEquipmentSeed]);
-  const routeNotFound = Boolean(appLocation && ((appLocation.kind === "project" && !selectedProject) || ((appLocation.kind === "invoice" || appLocation.kind === "review-invoice") && !selectedInvoice)));
+  const routeNotFound = Boolean(appLocation && ((appLocation.kind === "project" && !selectedProject) || ((appLocation.kind === "invoice" || appLocation.kind === "review-invoice") && !selectedInvoice) || (appLocation.kind === "expense" && !selectedExpense)));
   const summaries = useMemo(() => buildDemoProjectSummaries(data), [data]);
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
   const clientBillings = data.clientBillings || [];
   const cashReconciliationCandidates = useMemo<FinancialReconciliationCandidate[]>(() => [
-    ...(data.expenses || []).filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}` })),
-    ...(data.invoices || []).filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: Math.max(0, invoice.grandTotal - (invoice.amountPaid || 0)), currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name })),
+    ...(data.expenses || []).filter((expense) => expense.status !== "VOID").map((expense) => ({ targetType: "EXPENSE" as const, targetId: expense.id, label: `${expense.category} · ${expense.description}`, amount: expense.amount, currency: expense.currency, date: expense.expenseDate, reference: expense.referenceNumber, description: `${expense.payee || ""} ${expense.description}`, lifecycleStatus: expense.status })),
+    ...(data.invoices || []).filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: invoiceCashPayableBasis(invoice).amount, currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name, lifecycleStatus: invoice.reviewStatus })),
     ...(data.payroll.runs || []).filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: (data.payroll.entries || []).filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: (data.payroll.periods || []).find((period) => period.id === run.periodId)?.payDate || (data.payroll.periods || []).find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment" })),
     ...(data.clientCollections || []).filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId })),
   ].filter((candidate) => candidate.amount > 0), [data]);
@@ -753,7 +755,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       isSupabaseConfigured={true}
       routeNotFound={routeNotFound}
       onReturnToDashboard={() => onNavigate(demoPathForTab("dashboard"))}
-      footerText={`${BRAND.productName} Demo Workspace • HydroQualiSense Solutions Corp. • Sample data only`}
+            footerText={`${BRAND.productName} Demo Workspace • ${BRAND.companyName} • Sample data only`}
     >
       <div className="sticky top-2 z-40 mb-5 flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white/95 px-3.5 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">

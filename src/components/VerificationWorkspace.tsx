@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Keyboard, Loader2, Plus, RotateCcw, Save, ShieldCheck, Trash2 } from "lucide-react";
-import { InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, Vendor } from "../types";
+import { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocation, Project, ProjectCostCode, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderReceipt, Vendor } from "../types";
 import { formatDateTime } from "../config/regional";
 import { getInvoiceDisplay } from "../utils/invoiceDisplay";
 import { getInvoiceWorkspaceMode } from "../utils/invoiceWorkspace";
@@ -16,6 +16,7 @@ import { loadCompanyDocumentProfileFromSupabase, type CompanyDocumentProfile } f
 import { formatCostCodeOptionLabel, getSelectableCostCodes } from "../lib/projectCostCodes";
 import type { InventoryItem } from "../lib/inventory.ts";
 import { getSupplierInvoiceExpenseReadiness } from "../utils/supplierExpenseWorkspace.ts";
+import type { AppNavigate } from "../utils/clientNavigation.ts";
 
 export type SaveState = "saved" | "saving" | "unsaved" | "error";
 
@@ -59,6 +60,12 @@ interface VerificationWorkspaceProps {
   onCommitRepair?: (invoice: InvoiceData) => Promise<boolean>;
   onOpenCorrection?: () => void;
   repairMode?: boolean;
+  linkedExpense?: Expense;
+  linkedExpenseLoading?: boolean;
+  canRecordExpensePayment?: boolean;
+  canReverseExpensePayment?: boolean;
+  onNavigatePath?: AppNavigate;
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
   onOpenExistingInvoice?: (invoiceId: string) => void;
   purchaseOrders?: readonly PurchaseOrder[];
   purchaseOrderReceipts?: readonly PurchaseOrderReceipt[];
@@ -154,6 +161,12 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
   onCommitRepair,
   onOpenCorrection,
   repairMode = false,
+  linkedExpense,
+  linkedExpenseLoading = false,
+  canRecordExpensePayment = false,
+  canReverseExpensePayment = false,
+  onNavigatePath,
+  financialFxSnapshots = [],
   onOpenExistingInvoice,
   purchaseOrders = [],
   purchaseOrderReceipts = [],
@@ -197,7 +210,7 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
     projects,
     buyerProfile: companyDocumentProfile,
   }), [companyDocumentProfile, invoice, invoiceProjectAllocations, projects]);
-  const display = useMemo(() => getInvoiceDisplay(invoice), [invoice]);
+  const display = useMemo(() => getInvoiceDisplay(invoice, { reportingCurrency: "PHP", financialFxSnapshots }), [financialFxSnapshots, invoice]);
   const issueCount = invoice.validation?.issues?.length || 0;
   const quality = invoice.extractionQuality;
   const extractionIncomplete = Boolean(quality?.requiresRetry || quality?.status === "NEEDS_REVIEW" || (!quality && ((!invoice.currency && invoice.grandTotal > 0) || (invoice.items.length === 0 && (invoice.subtotal > 0 || invoice.grandTotal > 0)))));
@@ -371,6 +384,12 @@ export const VerificationWorkspace: React.FC<VerificationWorkspaceProps> = ({
              onCommitRepair={onCommitRepair}
              onOpenCorrection={onOpenCorrection}
              repairMode={repairMode}
+            linkedExpense={linkedExpense}
+            linkedExpenseLoading={linkedExpenseLoading}
+            canRecordExpensePayment={canRecordExpensePayment}
+            canReverseExpensePayment={canReverseExpensePayment}
+            onNavigatePath={onNavigatePath}
+            financialFxSnapshots={financialFxSnapshots}
             projects={projects}
             projectAllocations={invoiceProjectAllocations}
             buyerProfile={companyDocumentProfile}

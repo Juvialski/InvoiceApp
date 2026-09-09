@@ -732,7 +732,7 @@ app.get("/api/health", (_req, res) => {
   const release = releaseMetadataFromEnv(process.env);
   res.json({
     status: "ok",
-    product: "HydroQualiSense",
+    product: "Hydroqualisense",
     timestamp: new Date().toISOString(),
     release,
   });

@@ -1325,16 +1325,20 @@
       "fileRefs": [
         "src/utils/routes.ts",
         "src/utils/appRouting.ts",
-        "src/app/routes/CashBankingRoute.tsx"
+        "src/app/routes/CashBankingRoute.tsx",
+        "src/components/CashBankingPage.tsx",
+        "src/components/CashSettlementAllocationWorkspace.tsx"
       ],
       "testRefs": [
         "tests/appRouting.test.ts",
-        "tests/financialSettlement.test.ts"
+        "tests/financialSettlement.test.ts",
+        "tests/wave1aSupplierPayableUx.test.ts"
       ],
       "qaScenarioIds": [
         "cash-banking--cash--base-route-loaded--desktop-1440",
         "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440",
-        "cash-banking--cash--base-route-loaded--tablet-768"
+        "cash-banking--cash--base-route-loaded--tablet-768",
+        "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440"
       ]
     },
     {
@@ -1708,14 +1712,17 @@
       "fileRefs": [
         "src/utils/appRouting.ts",
         "src/app/routes/InvoicesRoute.tsx",
-        "src/components/VerificationWorkspace.tsx"
+        "src/components/VerificationWorkspace.tsx",
+        "src/components/SupplierInvoiceExpenseSurface.tsx"
       ],
       "testRefs": [
         "tests/appRouting.test.ts",
-        "tests/financialSettlement.test.ts"
+        "tests/financialSettlement.test.ts",
+        "tests/wave1aSupplierPayableUx.test.ts"
       ],
       "qaScenarioIds": [
-        "invoices--invoice-detail--invoice-detail-opened--desktop-1440"
+        "invoices--invoice-detail--invoice-detail-opened--desktop-1440",
+        "supplier-payables--invoice-detail--linked-expense-payment-surface-opened--desktop-1440"
       ]
     },
     {
@@ -1849,20 +1856,28 @@
         "routeId": "expenses",
         "canonicalPath": "/expenses",
         "pathPattern": "/expenses",
+        "queryKeys": [
+          "expenseId",
+          "from"
+        ],
         "scope": "production-and-demo"
       },
-      "description": "Direct project expense directory and draft-entry route.",
+      "description": "Direct project expense directory and exact authoritative Expense detail route.",
       "fileRefs": [
         "src/utils/routes.ts",
+        "src/utils/appRouting.ts",
         "src/app/routes/ExpensesRoute.tsx",
-        "src/components/expenses/ExpensesPage.tsx"
+        "src/components/expenses/ExpensesPage.tsx",
+        "src/components/FinancialSettlementCard.tsx"
       ],
       "testRefs": [
         "tests/accountingStatistics.test.ts",
-        "tests/financialSettlement.test.ts"
+        "tests/financialSettlement.test.ts",
+        "tests/wave1aSupplierPayableUx.test.ts"
       ],
       "qaScenarioIds": [
-        "expenses--expenses--base-route-loaded--desktop-1440"
+        "expenses--expenses--base-route-loaded--desktop-1440",
+        "supplier-payables--expenses--authoritative-expense-payment-surface-opened--desktop-1440"
       ]
     },
     {
@@ -4321,7 +4336,8 @@
         "tests/cashBanking.test.ts",
         "tests/financialSettlement.test.ts",
         "tests/structuredBrowserEvidence.test.ts",
-        "tests/coreHardeningWave2B3CashCorrections.test.ts"
+        "tests/coreHardeningWave2B3CashCorrections.test.ts",
+        "tests/wave1aSupplierPayableUx.test.ts"
       ],
       "permissionKeys": [
         "cash.summary.read",
@@ -4329,7 +4345,8 @@
         "cash.reconcile"
       ],
       "qaScenarioIds": [
-        "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440"
+        "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440",
+        "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440"
       ]
     },
     {

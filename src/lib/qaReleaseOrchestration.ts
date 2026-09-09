@@ -81,7 +81,7 @@ export interface SupabaseMigrationRow {
   remote: string | null;
 }
 
-const MIGRATION_ROW_PATTERN = /^\s*(\d{14})?\s*[|│]\s*(\d{14})?\s*[|│]/;
+const MIGRATION_ROW_PATTERN = /^\s*`?(\d{14})?`?\s*[|│]\s*`?(\d{14})?`?\s*[|│]/;
 
 /** Parse the stable timestamp columns from `supabase migration list`. */
 export function parseSupabaseMigrationList(output: string): SupabaseMigrationRow[] {

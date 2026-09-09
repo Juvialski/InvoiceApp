@@ -6,11 +6,14 @@ import { ReviewQueue } from "../../components/ReviewQueue";
 import { InvoiceDirectory } from "../../components/InvoiceDirectory";
 import { InvoiceDirectoryReadOnly } from "../../components/InvoiceDirectoryReadOnly.tsx";
 import { InvoiceViewer } from "../../components/InvoiceViewer.tsx";
+import { SupplierInvoiceExpenseSurface } from "../../components/SupplierInvoiceExpenseSurface.tsx";
 import { Vendors } from "../../components/Vendors";
 import { FinancialSettlementCard } from "../../components/FinancialSettlementCard.tsx";
 import { InvoiceSettlementDirectoryPanel } from "../../components/InvoiceSettlementDirectoryPanel.tsx";
 import type {
   EmailClassification,
+  Expense,
+  FinancialFxSnapshot,
   GmailConnectionInfo,
   GmailMessageCandidate,
   GmailScanWindow,
@@ -29,6 +32,7 @@ import { useAppPermissions } from "../AppPermissionContext.tsx";
 import { FinancialCorrectionDialog } from "../../components/financial/FinancialCorrectionDialog.tsx";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
+import { appPathForCashTarget } from "../../utils/appRouting.ts";
 import type { InventoryItem } from "../../lib/inventory.ts";
 
 export interface InvoicesRouteProps {
@@ -37,6 +41,9 @@ export interface InvoicesRouteProps {
   invoices: InvoiceData[];
   vendors?: Vendor[];
   projects?: Project[];
+  expenses?: readonly Expense[];
+  expensesLoaded?: boolean;
+  financialFxSnapshots?: readonly FinancialFxSnapshot[];
   costCodes?: ProjectCostCode[];
   invoiceProjectAllocations?: InvoiceProjectAllocation[];
   preferredProjectId?: string;
@@ -112,6 +119,9 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   invoices,
   vendors = [],
   projects = [],
+  expenses = [],
+  expensesLoaded = true,
+  financialFxSnapshots = [],
   costCodes = [],
   invoiceProjectAllocations = [],
   preferredProjectId,
@@ -183,6 +193,11 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
   const canImportBankStatements = hasPermission(permissions, PERMISSION_KEYS.cashImport);
   const canManageExpenses = hasAllPermissions(permissions, [PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.expensesWrite]);
   const canReverseSettlement = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.invoicesWrite);
+  const canRecordInvoicePayment = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.invoicesWrite]);
+  const canRecordExpensePayment = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.expensesWrite]);
+  const linkedExpense = selectedInvoice?.linkedExpenseId ? expenses.find((expense) => expense.id === selectedInvoice.linkedExpenseId) : undefined;
+  const linkedExpenseLoading = Boolean(selectedInvoice?.linkedExpenseId && !expensesLoaded);
+  const canReverseExpensePayment = canRecordExpensePayment;
   const [correctionInvoice, setCorrectionInvoice] = useState<InvoiceData | null>(null);
   const [correctionPreview, setCorrectionPreview] = useState<FinancialCorrectionPreview | null>(null);
   const [correctionLoading, setCorrectionLoading] = useState(false);
@@ -230,13 +245,13 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
 
   if (selectedInvoice) {
     if (!canManageInvoices && !canVerifyInvoices) {
-      return <div className="space-y-5">{!selectedInvoice.linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} onNavigatePath={onNavigatePath} />}<InvoiceViewer invoice={selectedInvoice} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
+      return <div className="space-y-5">{selectedInvoice.linkedExpenseId ? <SupplierInvoiceExpenseSurface invoice={selectedInvoice} linkedExpenseId={selectedInvoice.linkedExpenseId} linkedExpense={linkedExpense} loading={linkedExpenseLoading} canRecordPayment={canRecordExpensePayment} canReversePayment={canReverseExpensePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} /> : <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} recordPaymentPath={appPathForCashTarget("INVOICE", selectedInvoice.id)} canRecordPayment={canRecordInvoicePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />}<InvoiceViewer invoice={selectedInvoice} financialFxSnapshots={financialFxSnapshots} onUpdateInvoice={() => {}} onBack={() => void onBack()} readOnly /></div>;
     }
     const handleReopenCallback = async () => { if (onReopen) return onReopen(selectedInvoice); return undefined; };
     const canRepairVerifiedInvoice = !activeSupplierExpenseInvoiceIds.includes(selectedInvoice.id);
     return (
       <div className="space-y-5">
-        {!selectedInvoice.linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} onNavigatePath={onNavigatePath} />}
+        {!selectedInvoice.linkedExpenseId && <FinancialSettlementCard targetType="INVOICE" targetId={selectedInvoice.id} lifecycleStatus={selectedInvoice.lifecycleStatus} compact canReverse={canReverseSettlement} recordPaymentPath={appPathForCashTarget("INVOICE", selectedInvoice.id)} canRecordPayment={canRecordInvoicePayment} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />}
         {canManageInvoices && onPreviewCorrection && <button type="button" onClick={() => void openCorrection(selectedInvoice)} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100">Review correction options</button>}
         <VerificationWorkspace
           invoice={selectedInvoice}
@@ -259,6 +274,12 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
           onAddVendor={canManageVendors ? onAddVendor : undefined}
           onOpenCorrection={onPreviewCorrection ? () => void openCorrection(selectedInvoice) : undefined}
           repairMode={repairMode}
+          linkedExpense={linkedExpense}
+          linkedExpenseLoading={linkedExpenseLoading}
+          canRecordExpensePayment={canRecordExpensePayment}
+          canReverseExpensePayment={canReverseExpensePayment}
+          onNavigatePath={onNavigatePath}
+          financialFxSnapshots={financialFxSnapshots}
           canRepairVerifiedInvoice={canRepairVerifiedInvoice}
           onContinueWithNewItems={onContinueWithNewItems}
           onReturnToDashboard={onReturnToDashboard}
@@ -295,9 +316,9 @@ export const InvoicesRoute: React.FC<InvoicesRouteProps> = ({
     const connection = gmailConnection || fallbackConnection;
     return <EmailInbox invoices={invoices} isProcessing={processingCount > 0} connection={connection} onConnectGmail={onConnectGmail} onSignOut={onSignOut} onScanGmail={onScanGmail} onSyncGmail={onSyncGmail} onImportGmailMessage={onImportGmailMessage} onProcessEmail={onProcessEmail} onOpenInvoice={onSelectInvoice} onNavigatePath={onNavigatePath} canManageMailbox={canManageGmail} canProcessInvoices={canExtractInvoices} canImportBankStatements={canImportBankStatements} canManageExpenses={canManageExpenses} />;
   }
-  if (activeSubTab === "review") return <ReviewQueue invoices={invoices} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifySupplierInvoices ? onStartReview : undefined} readOnly={!canVerifySupplierInvoices} />;
+  if (activeSubTab === "review") return <ReviewQueue invoices={invoices} financialFxSnapshots={financialFxSnapshots} onOpenInvoice={onOpenInvoiceForReview} onStartReview={canVerifySupplierInvoices ? onStartReview : undefined} readOnly={!canVerifySupplierInvoices} />;
   if (activeSubTab === "vendors") return <Vendors invoices={invoices} vendors={vendors} canManage={canManageVendors} onDeactivateVendor={onDeactivateVendor} onReactivateVendor={onReactivateVendor} />;
-  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} onNavigatePath={onNavigatePath} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}{correctionDialog}</div>;
+  return <div className="space-y-5"><InvoiceSettlementDirectoryPanel invoices={invoices} financialFxSnapshots={financialFxSnapshots} onNavigatePath={onNavigatePath} />{canManageInvoices ? <InvoiceDirectory invoices={invoices} projects={projects} projectAllocations={invoiceProjectAllocations} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onOpenCorrection={onPreviewCorrection ? (invoice) => void openCorrection(invoice) : undefined} onAddNew={onAddNew} /> : <InvoiceDirectoryReadOnly invoices={invoices} financialFxSnapshots={financialFxSnapshots} onSelectInvoice={onSelectInvoice} onAddNew={canExtractInvoices ? onAddNew : undefined} />}{correctionDialog}</div>;
 };
 
 export default InvoicesRoute;

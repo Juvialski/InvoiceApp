@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   appPathForInvoice,
+  appPathForExpense,
+  appPathForCashTarget,
   appPathForAttendanceDate,
   appPathForPayrollPeriod,
   appPathForPayrollRun,
@@ -13,6 +15,8 @@ import {
   isKnownWorkspaceLocation,
   parseAppLocation,
   attendanceDateFromSearch,
+  cashSettlementTargetContextFromSearch,
+  expenseIdFromSearch,
   payrollPeriodIdFromSearch,
   payrollRunIdFromSearch,
 } from "../src/utils/appRouting.ts";
@@ -59,6 +63,32 @@ test("parses invoice and review-session URLs with safe return paths", () => {
   assert.equal(review.kind, "review-invoice");
   assert.equal(review.invoiceId, "invoice-7");
   assert.equal(review.returnTo, "/inbox");
+});
+
+test("Expense detail and object-first cash routes preserve exact target context", () => {
+  const expensePath = appPathForExpense("expense 42", "/invoices/invoice-7");
+  assert.equal(expensePath, "/expenses?expenseId=expense+42&from=%2Finvoices%2Finvoice-7");
+  const expense = parseAppLocation(expensePath);
+  assert.deepEqual(expense, {
+    kind: "expense",
+    tab: "expenses",
+    routeId: "expenses",
+    expenseId: "expense 42",
+    returnTo: "/invoices/invoice-7",
+    pathname: "/expenses",
+    search: "?expenseId=expense+42&from=%2Finvoices%2Finvoice-7",
+  });
+  assert.equal(expenseIdFromSearch(expense.search), "expense 42");
+
+  const cashPath = appPathForCashTarget("EXPENSE", "expense-42");
+  assert.equal(cashPath, "/cash?fromTargetType=EXPENSE&fromTargetId=expense-42");
+  assert.deepEqual(cashSettlementTargetContextFromSearch(cashPath.split("?", 2)[1] || ""), {
+    requested: true,
+    invalid: false,
+    targetType: "EXPENSE",
+    targetId: "expense-42",
+  });
+  assert.equal(cashSettlementTargetContextFromSearch("fromTargetType=EXPENSE").invalid, true);
 });
 
 test("builds predictable route URLs without embedding invoice contents", () => {

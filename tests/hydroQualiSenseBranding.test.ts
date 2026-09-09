@@ -37,11 +37,11 @@ const activeProductionSurfaceFiles = [
   "src/workflow-map/WorkflowToolbar.tsx",
 ] as const;
 
-test("HydroQualiSense owns the active production identity and canonical origin", () => {
-  assert.equal(BRAND.productName, "HydroQualiSense");
-  assert.equal(BRAND.shortName, "HydroQualiSense");
-  assert.equal(BRAND.displayUppercase, "HYDROQUALISENSE");
-  assert.equal(BRAND.assistantName, "HydroQualiSense Assistant");
+test("Hydroqualisense owns the active production identity and canonical origin", () => {
+  assert.equal(BRAND.productName, "Hydroqualisense");
+  assert.equal(BRAND.shortName, "Hydroqualisense");
+  assert.equal(BRAND.displayUppercase, "Hydroqualisense");
+  assert.equal(BRAND.assistantName, "Hydroqualisense Assistant");
   assert.equal(BRAND.canonicalOrigin, "https://hydroqualisense.com");
   assert.ok(existsSync("public/brand/hydroqualisense-logo.png"));
 

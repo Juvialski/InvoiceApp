@@ -27,6 +27,16 @@ test("protected QA release workflow is push-driven, QA-environment protected, an
   assert.match(releaseWorkflow, /migration-history|migration parity|parity/i);
 });
 
+test("protected QA credentials stay environment-scoped secrets and fail closed", () => {
+  assert.match(releaseWorkflow, /environment:\s+qa[\s\S]*SUPABASE_ACCESS_TOKEN:\s*\$\{\{\s*secrets\.SUPABASE_ACCESS_TOKEN\s*\}\}/);
+  assert.match(releaseWorkflow, /SUPABASE_DB_PASSWORD:\s*\$\{\{\s*secrets\.SUPABASE_DB_PASSWORD\s*\}\}/);
+  assert.doesNotMatch(releaseWorkflow, /\$\{\{\s*vars\.(?:SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD)\s*\}\}/);
+  assert.match(releaseWorkflow, /-z "\$\{SUPABASE_ACCESS_TOKEN:-\}"/);
+  assert.match(releaseWorkflow, /-z "\$\{SUPABASE_DB_PASSWORD:-\}"/);
+  assert.match(releaseWorkflow, /Independently inspect QA migration parity before promotion/);
+  assert.match(releaseWorkflow, /Verify production separation/);
+});
+
 test("protected QA release serializes active promotion and correctly references pre-parity outputs", () => {
   assert.match(releaseWorkflow, /cancel-in-progress:\s*false/);
   assert.doesNotMatch(releaseWorkflow, /steps\.pre-parity/);

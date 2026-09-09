@@ -5,7 +5,8 @@ import type { Expense, FinancialFxSnapshot, InvoiceData, InvoiceProjectAllocatio
 import type { FinancialFxSnapshotInput } from "../../lib/financialFx.ts";
 import type { FinancialCorrectionAction, FinancialCorrectionPreview, FinancialCorrectionResult } from "../../lib/financialLifecycle.ts";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
-import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import { hasAllPermissions, hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ExpensesRouteProps {
   expenses: Expense[];
@@ -16,6 +17,10 @@ export interface ExpensesRouteProps {
   vendors?: readonly Vendor[];
   costCodes?: ProjectCostCode[];
   initialProjectId?: string;
+  selectedExpenseId?: string | null;
+  expenseReturnPath?: string;
+  expensesLoaded?: boolean;
+  onNavigatePath?: AppNavigate;
   initialExpenseId?: string | null;
   onSave: (expense: Expense) => void;
   financialFxSnapshots?: readonly FinancialFxSnapshot[];
@@ -33,6 +38,7 @@ export interface ExpensesRouteProps {
 export const ExpensesRoute: React.FC<ExpensesRouteProps> = (props) => {
   const permissions = useAppPermissions();
   const canManage = hasPermission(permissions, PERMISSION_KEYS.expensesWrite);
+  const canRecordPayments = hasAllPermissions(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashReconcile, PERMISSION_KEYS.expensesWrite]);
 
   return (
     <div className="space-y-5">
@@ -42,7 +48,7 @@ export const ExpensesRoute: React.FC<ExpensesRouteProps> = (props) => {
         canManage={canManage}
         onSaveExpense={props.onSave}
       />
-      <ExpensesPage {...props} />
+      <ExpensesPage {...props} canRecordPayments={canRecordPayments} canReversePayments={canRecordPayments} />
     </div>
   );
 };

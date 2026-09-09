@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { InvoiceData } from "../src/types.ts";
+import type { FinancialFxSnapshot, InvoiceData } from "../src/types.ts";
 import { getInvoiceDisplayIdentity } from "../src/utils/invoiceDisplay.ts";
 import { getInvoiceWorkspaceMode } from "../src/utils/invoiceWorkspace.ts";
 
@@ -57,6 +57,21 @@ test("amount display distinguishes missing totals, genuine zero, and missing cur
   assert.equal(getInvoiceDisplayIdentity(invoice({ grandTotal: 158592 })).amountLabel, "₱158,592.00");
   assert.equal(getInvoiceDisplayIdentity(invoice({ grandTotal: 1000, currency: "USD" })).amountLabel, "$1,000.00");
   assert.equal(getInvoiceDisplayIdentity(invoice({ grandTotal: 1000, currency: "" })).amountLabel, "Currency unclear");
+});
+
+test("PHP reporting display uses the exact confirmed invoice FX snapshot and fails closed when absent", () => {
+  const sourceInvoice = invoice({ id: "usd-invoice", grandTotal: 1000, currency: "USD" });
+  const snapshot: FinancialFxSnapshot = {
+    id: "fx-1", sourceType: "SUPPLIER_INVOICE", sourceId: sourceInvoice.id, sourceAmount: 1000,
+    sourceCurrency: "USD", baseCurrency: "PHP", rate: 56.25, rateDate: "2026-08-23", rateSource: "MANUAL",
+    confirmedAt: "2026-08-23T09:00:00+08:00", createdAt: "2026-08-23T09:00:00+08:00", baseAmount: 56_250,
+  };
+  const converted = getInvoiceDisplayIdentity(sourceInvoice, { reportingCurrency: "PHP", financialFxSnapshots: [snapshot] });
+  assert.equal(converted.amountLabel, "₱56,250.00");
+  assert.equal(converted.currencyLabel, "Source $1,000.00");
+  const blocked = getInvoiceDisplayIdentity(sourceInvoice, { reportingCurrency: "PHP" });
+  assert.equal(blocked.amountLabel, "PHP conversion required");
+  assert.equal(blocked.currencyLabel, "Source $1,000.00");
 });
 
 test("workspace mode follows invoice review status", () => {
