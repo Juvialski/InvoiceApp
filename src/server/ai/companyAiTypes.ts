@@ -37,6 +37,8 @@ export interface CompanyAiConfigMetadata {
   status: CompanyAiStatus;
   lastTestedAt?: string;
   lastTestStatus: CompanyAiTestStatus;
+  /** Safe eligibility metadata for the one-time deployment bootstrap UI. */
+  bootstrapAuthorized?: boolean;
   /** Returned only by the live Test Connection response; not persisted as credential data. */
   lastTestErrorCode?: string;
   lastTestReference?: string;

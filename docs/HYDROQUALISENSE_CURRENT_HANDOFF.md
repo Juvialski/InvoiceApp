@@ -8,19 +8,19 @@ Use this with `AGENTS.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUAL
 
 ## Exact current checkpoint
 
-Repository/deployment state before the focused Hosted QA fix:
+Repository/deployment state before this focused product-truth and Hosted QA expansion:
 
-- merged `main`: `fbb924f40ef91c9d1e9154367dba0e04b092ef76`
+- merged `main`: `e0c89e5cb8bbe1b59471d380fab28347c8e2542d`
 - open PRs at checkpoint start: none
 - QA Render URL: `https://hydroqualisense-qa.onrender.com`
 - QA Render service: `hydroqualisense-qa`
-- Render deploy for `fbb924f40ef91c9d1e9154367dba0e04b092ef76`: **LIVE**
+- Render deploy for `e0c89e5cb8bbe1b59471d380fab28347c8e2542d`: **LIVE**
 - QA Supabase ref: `vrpuznofrntyqsbugrib`
 - QA migration head: `20260908235742_engineering_document_unlinked_storage_cleanup`
 - Client A production Supabase ref: `qijjshdwiylojvqojxyz`
 - production remains strictly read-only throughout QA certification
 
-Recent hardening is complete through PR #115. PR #113 remains the last application-code-bearing hardening merge before the current Hosted QA harness fix; PRs #114/#115 were documentation-only.
+Recent hardening is complete through PR #117. PRs #116/#117 contain the bounded Hosted QA readiness stabilization. This new focused product-truth, Settings, and browser-QA phase is not yet merged or deployed to QA.
 
 ## Deployment model
 
@@ -44,7 +44,7 @@ Where a Free-tier alternative can validate the same operational recovery propert
 
 ## QA Render/release identity — PASS
 
-Render independently reports exact current checkpoint SHA `fbb924f40ef91c9d1e9154367dba0e04b092ef76` as live.
+Render independently reports exact current checkpoint SHA `e0c89e5cb8bbe1b59471d380fab28347c8e2542d` as live.
 
 Routine app deploy and database promotion remain separate:
 
@@ -87,34 +87,40 @@ QA is on Free. Therefore the security-advisor warning:
 
 is expected on this plan and does **not** block QA certification. Preserve normal password/Auth/RBAC controls and re-evaluate leaked-password protection for an eligible production plan.
 
-## Hosted QA exact-head run — FAILED ON HARNESS READINESS, FIX IN PROGRESS
+## Hosted QA exact-head run — CURRENT BASELINE PASS / FOCUSED EXPANSION PENDING
 
-A manual Hosted QA Certification run was dispatched against exact live SHA:
+Hosted QA Certification run #34305523363 succeeded against exact live SHA:
 
-`fbb924f40ef91c9d1e9154367dba0e04b092ef76`
+`e0c89e5cb8bbe1b59471d380fab28347c8e2542d`
 
-GitHub run id: `34302642480`
+The retained baseline artifact recorded the following successful checks:
 
-The run failed during `Hosted QA authentication preflight` with:
+- authenticated email/session state persisted through reload and fresh protected navigation;
+- QA environment, deployment ID, repository SHA, and migration level matched;
+- 7/7 baseline routes passed;
+- Engineering Storage byte upload/read/hash/cleanup passed with `metadataRowsCreated=0`;
+- zero console errors, page errors, or failed requests.
 
-`Hosted QA sign-in form was not available before authentication.`
+The focused phase adds a shared exact-SHA readiness poll before authentication, semantic AppShell loading detection, route-specific loaded-state assertions for the seven baseline routes plus Email Intake, and an unauthenticated protected-route check. It also removes arbitrary fixed waits from local demo scenario actions. These additions require a new post-merge QA artifact; the current baseline artifact is not evidence for the new branch.
 
-Inspection showed the harness navigated to `/dashboard`, waited only 500 ms, then immediately required `#auth-email`. The application legitimately renders a short `Checking your workspace session...` state while Supabase resolves Auth, so the fixed 500 ms check is a harness timing defect rather than evidence of bad credentials, migration drift, Storage failure or route failure.
+The production-host refusal and protected GitHub `qa` credential boundary remain unchanged.
 
-Focused correction in progress:
+## Browser QA layers
 
-- `scripts/hosted-qa-auth-preflight.ts` now waits boundedly for the visible sign-in form instead of sleeping 500 ms;
-- production-host refusal is unchanged;
-- persisted Supabase session, reload persistence and fresh-navigation persistence checks remain unchanged;
-- regression coverage prevents the fixed 500 ms assumption from returning.
+Pre-merge `qa:demo` targets a locally built PR at `/demo` with fictional session-local data and no production Auth/Supabase/Storage/Gmail/company writes. Post-deploy `qa:hosted` targets only `https://hydroqualisense-qa.onrender.com`, uses protected GitHub `qa` environment credentials, waits for exact `/api/health` repository/deployment/migration identity, and then exercises real authenticated routes and the safe synthetic Storage byte probe. Hosted temporary objects are namespaced and cleaned; no auditable metadata rows are created.
 
-After this fix merges and the new exact `main` is live, dispatch Hosted QA once on that exact SHA. Final acceptance requires auth PASS, health identity PASS, 7/7 routes PASS and Engineering Storage probe PASS with no leftover metadata row.
+The hosted workflow retains explicit `workflow_dispatch` and also runs on pushes to `main`; the latter is bounded by the exact-SHA readiness poll and does not replace pull-request validation.
+
+## Product-truth and Settings correction
+
+- Email Intake now describes the actual read-only Gmail discovery/sync, source-preserving review routing, saved rules, and forwarded-invoice fallback. SMS/broadcast automation is not presented; issued-document email delivery remains with the owning document workflow.
+- Engineering Documents is presented as a project-owned register for supported drawings/specifications/reports/calculations/submittals and immutable revisions. Supplier evidence, issued financial documents, and other attachments remain in their owning workflows. The demo shortcut is explicitly fictional.
+- The internal feature registry is no longer mounted in client Settings. Worker Registration, Attendance, and Face Recognition remain future work and are not client-facing active features.
+- AI Settings now loads safe metadata for settings readers, displays configured/validated Gemini state without credential material, shows a bounded temporary-unavailable state on metadata failure, and only renders the bootstrap key form after a loaded unconfigured/authorized-candidate state or the existing authorized invalid-initial-credential recovery state. Server/RPC authorization is unchanged.
 
 ## QA initial AI bootstrap — PENDING
 
-Live QA previously had no configured `company_ai_settings` / AI credential for the synthetic QA company.
-
-The database bootstrap authority remains service-role-only. Before READY, the authorized QA operator must use Settings → Deployment AI bootstrap with an approved QA Gemini credential and run provider validation. The server stores only the encrypted credential envelope.
+The database bootstrap authority remains service-role-only. Production inspection recorded a configured, enabled, provider-validated Gemini state and remained read-only. Before READY, the authorized QA operator must use Settings → initial AI setup with an approved QA Gemini credential and run provider validation for the synthetic QA company. The server stores only the encrypted credential envelope.
 
 Do not put plaintext AI credentials in SQL, repository files, browser storage, logs or this handoff.
 
@@ -163,7 +169,7 @@ Do not infer production application SHA from the production database migration h
 
 ### Remaining achievable blockers
 
-1. merge/deploy the bounded Hosted QA auth-readiness harness fix;
+1. merge/deploy the focused product-truth, Settings, and hosted-browser expansion;
 2. successful Hosted QA Certification artifact on the new exact live `main`;
 3. live QA AI bootstrap + provider validation;
 4. off-site QA PostgreSQL export + isolated restore drill;
@@ -174,10 +180,10 @@ Do not block READY on paid-only Supabase features unavailable to this Free proje
 
 ## Immediate sequence
 
-1. Complete the focused Hosted QA preflight fix through exact-head PR CI and merge when safe.
+1. Complete the focused product-truth, Settings, and hosted-browser expansion through exact-head PR CI and merge when safe.
 2. Wait for Render QA to report the new exact `main` as live.
 3. Manually dispatch `Hosted QA Certification` once on that exact SHA and retain its artifact.
-4. Complete Settings → Deployment AI bootstrap and provider validation in QA.
+4. Complete Settings → initial AI setup and provider validation in QA.
 5. Complete the Free-tier-achievable database and Storage recovery drills.
 6. Re-check exact main/deploy/migration/Auth/Hosted QA/recovery evidence.
 7. If all achievable gates pass, set `QA CERTIFICATION: READY`.

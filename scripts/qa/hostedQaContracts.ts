@@ -11,7 +11,11 @@ export const HOSTED_QA_ROUTE_LOADING_MARKERS = [
   "Loading HydroQualiSense",
   "Loading company access",
   "Checking your workspace session",
+  "Loading workspace",
 ] as const;
+
+export const HOSTED_QA_DEPLOYMENT_READY_TIMEOUT_MS = 10 * 60_000;
+export const HOSTED_QA_DEPLOYMENT_READY_POLL_MS = 15_000;
 
 export type HostedQaRouteReadinessState = "loading" | "resolved";
 
@@ -46,6 +50,86 @@ export async function waitForHostedQaRouteReadiness(
     [...HOSTED_QA_ROUTE_LOADING_MARKERS],
     { timeout: boundedTimeoutMs, polling: HOSTED_QA_ROUTE_READINESS_POLL_MS },
   );
+}
+
+export interface HostedQaHealthExpectation {
+  environment: "qa";
+  deploymentId: string;
+  repositorySha: string;
+  migrationLevel: string;
+}
+
+export interface HostedQaHealthSnapshot {
+  httpStatus: number | null;
+  release: Record<string, unknown> | null;
+  failure?: string;
+}
+
+export function hostedQaHealthFailureReasons(
+  snapshot: HostedQaHealthSnapshot,
+  expected: HostedQaHealthExpectation,
+): string[] {
+  if (!snapshot.release || snapshot.httpStatus === null || snapshot.httpStatus < 200 || snapshot.httpStatus >= 400) {
+    return ["health_unavailable"];
+  }
+
+  const reasons: string[] = [];
+  if (snapshot.release.environment !== expected.environment) reasons.push("environment_not_qa");
+  if (String(snapshot.release.deploymentId || "") !== expected.deploymentId) reasons.push("deployment_id_mismatch");
+  if (String(snapshot.release.repositorySha || "").toLowerCase() !== expected.repositorySha.toLowerCase()) reasons.push("repository_sha_mismatch");
+  if (String(snapshot.release.migrationLevel || "") !== expected.migrationLevel) reasons.push("migration_level_mismatch");
+  return reasons;
+}
+
+export interface HostedQaHealthReadiness {
+  status: "PASS" | "TIMEOUT" | "FAIL";
+  attempts: number;
+  waitedMs: number;
+  snapshot: HostedQaHealthSnapshot;
+  failureReasons: string[];
+}
+
+/**
+ * Wait for the exact QA deployment identity instead of asserting against an
+ * older Render release. Environment and deployment mismatches fail fast;
+ * transient health, SHA, and migration mismatches receive a bounded poll.
+ */
+export async function waitForHostedQaHealth(
+  read: () => Promise<HostedQaHealthSnapshot>,
+  expected: HostedQaHealthExpectation,
+  options: {
+    timeoutMs?: number;
+    pollMs?: number;
+    now?: () => number;
+    sleep?: (milliseconds: number) => Promise<void>;
+  } = {},
+): Promise<HostedQaHealthReadiness> {
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1, Math.trunc(options.timeoutMs as number)) : HOSTED_QA_DEPLOYMENT_READY_TIMEOUT_MS;
+  const pollMs = Number.isFinite(options.pollMs) ? Math.max(1, Math.trunc(options.pollMs as number)) : HOSTED_QA_DEPLOYMENT_READY_POLL_MS;
+  const now = options.now || Date.now;
+  const sleep = options.sleep || ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const startedAt = now();
+  let attempts = 0;
+  let snapshot = await read();
+
+  while (true) {
+    attempts += 1;
+    const failureReasons = hostedQaHealthFailureReasons(snapshot, expected);
+    if (failureReasons.length === 0) {
+      return { status: "PASS", attempts, waitedMs: Math.max(0, now() - startedAt), snapshot, failureReasons: [] };
+    }
+
+    const waitedMs = Math.max(0, now() - startedAt);
+    const failFast = failureReasons.includes("environment_not_qa") || failureReasons.includes("deployment_id_mismatch");
+    if (failFast || waitedMs >= timeoutMs) {
+      const finalReasons = [...failureReasons];
+      if (!failFast && failureReasons.includes("repository_sha_mismatch")) finalReasons.push("qa_deployment_not_ready_for_expected_sha");
+      return { status: failFast ? "FAIL" : "TIMEOUT", attempts, waitedMs, snapshot, failureReasons: finalReasons };
+    }
+
+    await sleep(Math.min(pollMs, timeoutMs - waitedMs));
+    snapshot = await read();
+  }
 }
 
 /** The hosted certification harness may only target the isolated QA host. */

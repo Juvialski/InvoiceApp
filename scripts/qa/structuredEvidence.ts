@@ -46,12 +46,13 @@ export interface QaBrowserLocator {
   click(): Promise<void>;
   selectOption(value: string): Promise<void>;
   count(): Promise<number>;
+  waitFor(options?: { state?: "attached" | "detached" | "visible" | "hidden"; timeout?: number }): Promise<void>;
 }
 
 export interface QaBrowserPage {
   getByRole(role: string, options?: { name?: string | RegExp; exact?: boolean }): QaBrowserLocator;
   locator(selector: string): QaBrowserLocator;
-  waitForTimeout(timeoutMs: number): Promise<void>;
+  waitForFunction: (...args: any[]) => Promise<unknown>;
 }
 
 export type QaScenarioAction = (page: QaBrowserPage) => Promise<readonly QaAssertion[] | void>;

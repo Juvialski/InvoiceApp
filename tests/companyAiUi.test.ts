@@ -6,6 +6,7 @@ const accessManagement = readFileSync(new URL("../src/components/access/Deployme
 const api = readFileSync(new URL("../src/lib/companyAiApi.ts", import.meta.url), "utf8");
 const deploymentApi = readFileSync(new URL("../src/lib/deploymentAiApi.ts", import.meta.url), "utf8");
 const bootstrapUi = readFileSync(new URL("../src/components/access/DeploymentAiBootstrapSettings.tsx", import.meta.url), "utf8");
+const settings = readFileSync(new URL("../src/components/Settings.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 
 test("deployment access management is the only client company-access surface", () => {
@@ -23,9 +24,17 @@ test("internal AI configuration API remains server-authorized and stores no brow
   assert.doesNotMatch(api, /localStorage|sessionStorage|credential\.ciphertext|plaintext/i);
   assert.match(deploymentApi, /companyApiRequest/);
   assert.doesNotMatch(deploymentApi, /localStorage|sessionStorage|service[_-]?role|AI_CREDENTIALS_MASTER_KEY/i);
-  assert.match(bootstrapUi, /initial deployment operator/i);
+  assert.match(bootstrapUi, /authorized setup|approved operator process/i);
   assert.match(bootstrapUi, /setApiKey\(""\)/);
-  assert.match(bootstrapUi, /config\.status === "INVALID"/);
+  assert.match(bootstrapUi, /status === "INVALID"/);
   assert.match(bootstrapUi, /Replace invalid bootstrap key/);
+  assert.match(bootstrapUi, /loadState\.kind === "loaded"/);
+  assert.match(bootstrapUi, /DEPLOYMENT_AI_STATUS_UNAVAILABLE/);
+  assert.match(bootstrapUi, /settingsRead/);
+  assert.match(bootstrapUi, /bootstrapAuthorized/);
+  assert.doesNotMatch(bootstrapUi, /activeMembership\?\.roleKey/);
+  assert.match(deploymentApi, /operation === "load"/);
+  assert.match(deploymentApi, /if \(!isRecord\(body\?\.data\)\)/);
+  assert.doesNotMatch(settings, /FeatureStatusOverview/);
   assert.doesNotMatch(app, /companyAiApi|onOpenAiConfiguration/);
 });

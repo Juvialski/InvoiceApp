@@ -1,11 +1,24 @@
 import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFile as execFileCallback } from "node:child_process";
+import { promisify } from "node:util";
 // Playwright is intentionally installed only by the explicit hosted-QA command
 // or manual workflow, not by the ordinary application dependency set.
 // @ts-ignore -- the QA-only dependency is present when this script executes.
 import { chromium } from "playwright";
 import { normalizeErrorMessage, redactSensitiveText } from "./qa/structuredEvidence.ts";
+import {
+  assertHostedQaTarget,
+  HOSTED_QA_DEPLOYMENT_READY_TIMEOUT_MS,
+  waitForHostedQaHealth,
+  type HostedQaHealthExpectation,
+  type HostedQaHealthReadiness,
+  type HostedQaHealthSnapshot,
+} from "./qa/hostedQaContracts.ts";
+import { repositoryMigrationLevel } from "../src/server/repositoryMigrationLevel.ts";
+
+const execFile = promisify(execFileCallback);
 
 const BASE_URL = (process.env.QA_E2E_BASE_URL || "https://hydroqualisense-qa.onrender.com").replace(/\/+$/, "");
 const OUTPUT_DIR = path.resolve(process.env.QA_E2E_OUTPUT_DIR || "artifacts/hosted-qa");
@@ -13,6 +26,9 @@ const STORAGE_STATE_PATH = path.resolve(process.env.QA_E2E_STORAGE_STATE_PATH ||
 const NAVIGATION_TIMEOUT_MS = 60_000;
 const AUTH_FORM_TIMEOUT_MS = 20_000;
 const AUTH_SESSION_TIMEOUT_MS = 15_000;
+const EXPECTED_DEPLOYMENT_ID = (process.env.QA_E2E_EXPECTED_DEPLOYMENT_ID || "qa-hydroqualisense").trim();
+const EXPECTED_REPOSITORY_SHA = (process.env.QA_E2E_EXPECTED_REPOSITORY_SHA || process.env.GITHUB_SHA || "").trim().toLowerCase();
+const EXPECTED_MIGRATION_LEVEL = (process.env.QA_E2E_EXPECTED_MIGRATION_LEVEL || "").trim();
 
 interface BrowserSessionSnapshot {
   accessTokenPresent: boolean;
@@ -33,20 +49,22 @@ interface AuthEvidence {
   };
   reloadPersisted?: boolean | null;
   freshNavigationPersisted?: boolean;
+  health?: {
+    status: HostedQaHealthReadiness["status"];
+    attempts: number;
+    waitedMs: number;
+    release: Record<string, unknown> | null;
+    failureReasons: string[];
+  };
+  unauthenticatedProtectedNavigation?: {
+    route: string;
+    signInFormVisible: boolean;
+  };
   failure?: string;
 }
 
 function assertQaTarget() {
-  const parsed = new URL(BASE_URL);
-  if (parsed.protocol !== "https:" && process.env.QA_E2E_ALLOW_NON_QA_HOST !== "1") {
-    throw new Error("Hosted QA requires an HTTPS QA target. Set QA_E2E_ALLOW_NON_QA_HOST=1 only for an explicit local harness run.");
-  }
-  if (/hydroqualisense\.com$/i.test(parsed.hostname) || /production/i.test(parsed.hostname)) {
-    throw new Error("Hosted QA refuses the production host.");
-  }
-  if (!/-qa\.onrender\.com$/i.test(parsed.hostname) && process.env.QA_E2E_ALLOW_NON_QA_HOST !== "1") {
-    throw new Error("Hosted QA refuses an unapproved host; expected a -qa.onrender.com deployment.");
-  }
+  assertHostedQaTarget(BASE_URL, process.env.QA_E2E_ALLOW_NON_QA_HOST === "1");
 }
 
 function safeDetails(value: unknown) {
@@ -56,6 +74,48 @@ function safeDetails(value: unknown) {
 async function writeEvidence(evidence: AuthEvidence) {
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
   await fs.writeFile(path.join(OUTPUT_DIR, "authentication.json"), `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+async function localRepositorySha() {
+  try {
+    const result = await execFile("git", ["rev-parse", "HEAD"], { cwd: process.cwd() });
+    return result.stdout.trim().toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+async function expectedHealth(): Promise<HostedQaHealthExpectation> {
+  const repositorySha = EXPECTED_REPOSITORY_SHA || await localRepositorySha();
+  const migrationLevel = EXPECTED_MIGRATION_LEVEL || repositoryMigrationLevel() || "";
+  if (!EXPECTED_DEPLOYMENT_ID || !repositorySha || !migrationLevel) {
+    throw new Error("Hosted QA exact-deployment checks require a deployment ID, repository SHA, and canonical migration level.");
+  }
+  return { environment: "qa", deploymentId: EXPECTED_DEPLOYMENT_ID, repositorySha, migrationLevel };
+}
+
+async function readHealthSnapshot(): Promise<HostedQaHealthSnapshot> {
+  try {
+    const response = await fetch(`${BASE_URL}/api/health`, { headers: { Accept: "application/json" } });
+    let body: unknown = null;
+    try { body = await response.json(); } catch { /* normalize below */ }
+    const release = isRecord(body) && isRecord(body.release) ? body.release : null;
+    return { httpStatus: response.status, release };
+  } catch (error) {
+    return { httpStatus: null, release: null, failure: safeDetails(error) };
+  }
+}
+
+async function waitForExactQaDeployment(expectation: HostedQaHealthExpectation) {
+  const configuredTimeout = Number(process.env.QA_E2E_DEPLOYMENT_READY_TIMEOUT_MS || "");
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? Math.min(Math.trunc(configuredTimeout), HOSTED_QA_DEPLOYMENT_READY_TIMEOUT_MS)
+    : HOSTED_QA_DEPLOYMENT_READY_TIMEOUT_MS;
+  return waitForHostedQaHealth(readHealthSnapshot, expectation, { timeoutMs });
 }
 
 async function browserSessionSnapshot(page: any): Promise<BrowserSessionSnapshot> {
@@ -103,6 +163,18 @@ async function waitForSignInForm(page: any) {
   return emailInput;
 }
 
+async function checkUnauthenticatedProtectedNavigation(browser: any) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  try {
+    await page.goto(`${BASE_URL}/settings`, { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
+    await waitForSignInForm(page);
+    return { route: "/settings", signInFormVisible: true };
+  } finally {
+    await context.close();
+  }
+}
+
 async function assertNotAuthScreen(page: any) {
   const body = await page.locator("body").innerText().catch(() => "");
   if (body.includes("Welcome back") || body.includes("Sign in to continue")) {
@@ -115,8 +187,23 @@ function emailMatches(snapshot: BrowserSessionSnapshot, expectedEmail: string) {
   return snapshot.userEmail.trim().toLowerCase() === expectedEmail.trim().toLowerCase();
 }
 
+let deploymentReadinessEvidence: AuthEvidence["health"] | undefined;
+
 async function main() {
   assertQaTarget();
+  const expectation = await expectedHealth();
+  const health = await waitForExactQaDeployment(expectation);
+  deploymentReadinessEvidence = {
+    status: health.status,
+    attempts: health.attempts,
+    waitedMs: health.waitedMs,
+    release: health.snapshot.release,
+    failureReasons: health.failureReasons,
+  };
+  if (health.status !== "PASS") {
+    const detail = health.failureReasons.join(", ") || health.snapshot.failure || "unknown readiness failure";
+    throw new Error(`QA deployment not ready for expected SHA ${expectation.repositorySha}. ${detail}`);
+  }
   const email = (process.env.QA_E2E_EMAIL || "").trim();
   const password = process.env.QA_E2E_PASSWORD || "";
   const hasCredentials = Boolean(email && password);
@@ -137,6 +224,7 @@ async function main() {
   let lastSnapshot: BrowserSessionSnapshot = { accessTokenPresent: false, refreshTokenPresent: false, userEmail: "" };
 
   try {
+    const unauthenticatedProtectedNavigation = await checkUnauthenticatedProtectedNavigation(browser);
     context = hasCredentials
       ? await browser.newContext()
       : await browser.newContext({ storageState: STORAGE_STATE_PATH });
@@ -201,8 +289,16 @@ async function main() {
       },
       reloadPersisted,
       freshNavigationPersisted,
+      health: {
+        status: health.status,
+        attempts: health.attempts,
+        waitedMs: health.waitedMs,
+        release: health.snapshot.release,
+        failureReasons: health.failureReasons,
+      },
+      unauthenticatedProtectedNavigation,
     });
-    console.log(`Hosted QA authentication=PASS mode=${authMode} reload=${reloadPersisted === null ? "NOT_RUN" : "PASS"} fresh-navigation=PASS`);
+    console.log(`Hosted QA deployment-readiness=PASS attempts=${health.attempts} authentication=PASS mode=${authMode} reload=${reloadPersisted === null ? "NOT_RUN" : "PASS"} fresh-navigation=PASS unauthenticated-protected-route=PASS`);
   } finally {
     if (context) await context.close();
     await browser.close();
@@ -218,6 +314,7 @@ try {
     status: "FAIL",
     baseUrl: BASE_URL,
     timestamp: new Date().toISOString(),
+    ...(deploymentReadinessEvidence ? { health: deploymentReadinessEvidence } : {}),
     failure,
   });
   console.error(`Hosted QA authentication=FAIL reason=${failure}`);

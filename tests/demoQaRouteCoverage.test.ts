@@ -13,10 +13,10 @@ test("every canonical active application route has demo browser smoke coverage",
   assert.deepEqual(missing, []);
 });
 
-test("settings QA verifies product roadmap status labels", () => {
+test("settings QA verifies the client settings surface without internal roadmap content", () => {
   const scenario = DEMO_QA_SCENARIOS.find((candidate) => candidate.route.id === "settings");
   assert.ok(scenario);
-  assert.equal(scenario.interactionState, "feature status verified");
+  assert.equal(scenario.interactionState, "settings product surface verified");
   assert.equal(typeof scenario.action, "function");
 });
 

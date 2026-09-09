@@ -9,7 +9,7 @@ function source(path: string) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("the Phase 2 feature and status surface remain explicitly unavailable", () => {
+test("the Phase 2 feature remains explicitly unavailable and its registry is operator-only", () => {
   const feature = ENGORYX_FEATURE_REGISTRY.find((candidate) => candidate.id === "eng-schedule-gantt");
   assert.ok(feature);
   assert.equal(feature.status, "PLANNED");
@@ -20,7 +20,9 @@ test("the Phase 2 feature and status surface remain explicitly unavailable", () 
   const statusSource = source("src/components/FeatureStatusOverview.tsx");
   assert.match(availabilitySource, /PLANNED_NOT_AVAILABLE/);
   assert.doesNotMatch(availabilitySource, /COMING_SOON/);
+  assert.match(statusSource, /not mounted in client Settings/i);
   assert.match(statusSource, /no implied delivery date or production access/i);
+  assert.match(statusSource, /Internal feature registry/i);
   assert.doesNotMatch(statusSource, /Coming soon/i);
 });
 

@@ -546,12 +546,27 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-domain="email-intake">
       <PageHeader
         eyebrow="Financial operations"
-        title="Email Intake Review Queue"
-        description="Unified finance queue for supplier invoices, bank statements, and expense receipts. Supplier invoices route into Expense review while their original source remains preserved."
+        title="Email intake"
+        description="Bring supplier invoices, bank statements, and expense receipts from email into their existing review workflows. Original messages and attachments remain preserved as source evidence."
       />
+
+      <section aria-label="Email intake capabilities" className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 text-xs text-indigo-950 shadow-sm sm:p-5">
+        <div className="flex items-start gap-3">
+          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-indigo-700" />
+          <div className="min-w-0">
+            <h2 className="font-black">Supported email workflows</h2>
+            <div className="mt-2 grid gap-2 text-[11px] leading-5 text-indigo-900 sm:grid-cols-3">
+              <p><strong>Read-only Gmail intake.</strong> Search and sync finance-related messages after the user authorizes Gmail.</p>
+              <p><strong>Reviewable source records.</strong> Choose which messages or attachments to preserve and route for invoice, statement, or expense review.</p>
+              <p><strong>Forwarded-email fallback.</strong> Paste a supplier invoice email or attach its source file when a connected mailbox is not available.</p>
+            </div>
+            <p className="mt-3 border-t border-indigo-200/70 pt-3 text-[10px] leading-4 text-indigo-800">Gmail is read-only on this screen. Issued-document email delivery, when enabled, stays with the document workflow that owns the issued record; no SMS or broadcast channel is configured here.</p>
+          </div>
+        </div>
+      </section>
 
       {/* Gmail Connection & Scan Control Header */}
       <section
@@ -632,7 +647,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           </div>
 
           <div className="flex flex-wrap gap-2 items-center">
-            <button
+            {canManageMailbox && <button
               type="button"
               onClick={handleOpenRulesModal}
               className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 inline-flex items-center gap-2 hover:bg-slate-50 transition"
@@ -645,7 +660,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
                   {profiles.length}
                 </span>
               )}
-            </button>
+            </button>}
 
             {connectionStatus === "HEALTHY" && (
               <>
@@ -1415,8 +1430,8 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
           <div className="flex items-center gap-2.5">
             <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
             <div>
-              <h3 className="text-sm font-bold text-slate-800">Manual supplier invoice email fallback (Optional)</h3>
-              <p className="text-[10px] text-slate-500">For forwarded supplier invoice text or unsupported mailboxes. The verified result becomes an Expense.</p>
+              <h3 className="text-sm font-bold text-slate-800">Forwarded supplier invoice fallback (Optional)</h3>
+              <p className="text-[10px] text-slate-500">For forwarded email text or a mailbox that is not connected here. The verified result becomes the authoritative Expense record.</p>
             </div>
           </div>
           <span className="text-xs font-bold text-indigo-600 group-open:rotate-180 transition-transform duration-200 inline-flex items-center gap-1">

@@ -33,7 +33,7 @@ const RESTRICTED_DASHBOARD_SHORTCUTS: ReadonlyArray<{ tab: AppTab; label: string
   { tab: "expenses", label: "Expenses", description: "Open direct expense records available to your role." },
   { tab: "payroll", label: "Payroll", description: "Open detailed payroll only when payroll-detail access is granted." },
   { tab: "cash", label: "Cash & Banking", description: "Open permitted cash and reconciliation information." },
-  { tab: "inbox", label: "Gmail", description: "Open imported Gmail records with management controls hidden when unavailable." },
+  { tab: "inbox", label: "Email intake", description: "Open read-only Gmail intake and imported financial records; outbound messaging is handled by owning document workflows." },
   { tab: "reports", label: "Reports", description: "Open only reports supported by your current source permissions." },
 ];
 

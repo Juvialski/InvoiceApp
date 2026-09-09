@@ -2,15 +2,25 @@ import {
   defineQaScenario,
   QA_VIEWPORTS,
   type QaAssertion,
+  type QaBrowserPage,
   type QaScenarioAction,
   type QaScenarioDefinition,
 } from "./structuredEvidence.ts";
 
 const PROJECT_ROOT = "/demo/app/projects/demo-project-warehouse";
+const READY_TIMEOUT_MS = 30_000;
+
+async function waitForVisible(page: QaBrowserPage, selector: string, timeout = READY_TIMEOUT_MS) {
+  await page.locator(selector).first().waitFor({ state: "visible", timeout });
+}
+
+async function waitForHeading(page: QaBrowserPage, name: string | RegExp, timeout = READY_TIMEOUT_MS) {
+  await page.getByRole("heading", typeof name === "string" ? { name, exact: true } : { name }).first().waitFor({ state: "visible", timeout });
+}
 
 const openProjectFromDirectory: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: /Quezon City Warehouse Expansion/ }).first().click();
-  await page.waitForTimeout(350);
+  await waitForHeading(page, "Quezon City Warehouse Expansion");
   const count = await page.getByRole("heading", { name: "Quezon City Warehouse Expansion", exact: true }).count();
   return [{ id: "project-workspace-visible", passed: count === 1, details: `matching project headings: ${count}` } satisfies QaAssertion];
 };
@@ -43,21 +53,21 @@ const verifyMixedCurrencyProjectControlState: QaScenarioAction = async (page) =>
 
 const openDemoDrawingPreview: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Open original demo drawing", exact: true }).first().click();
-  await page.waitForTimeout(350);
+  await waitForVisible(page, '[aria-label="Demo drawing preview"]');
   const count = await page.locator('[aria-label="Demo drawing preview"]').count();
   return [{ id: "blueprint-viewer-visible", passed: count === 1, details: `demo drawing preview panels: ${count}` } satisfies QaAssertion];
 };
 
 const openDemoTour: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Demo Tour", exact: true }).first().click();
-  await page.waitForTimeout(350);
+  await page.getByRole("dialog", { name: "HydroQualiSense Demo Tour", exact: true }).first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const count = await page.getByRole("dialog", { name: "HydroQualiSense Demo Tour", exact: true }).count();
   return [{ id: "demo-tour-visible", passed: count === 1, details: `tour panels: ${count}` } satisfies QaAssertion];
 };
 
 const openMobileNavigation: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
-  await page.waitForTimeout(350);
+  await waitForVisible(page, 'button[aria-label="Close navigation"]');
   const count = await page.locator('button[aria-label="Close navigation"]').count();
   return [{ id: "mobile-navigation-visible", passed: count > 0, details: `close-navigation controls: ${count}` } satisfies QaAssertion];
 };
@@ -70,7 +80,7 @@ function assertHeading(name: string | RegExp, assertionId: string): QaScenarioAc
 }
 
 const verifyExtractorScreen = assertHeading("Extract invoice documents", "invoice-extractor-visible");
-const verifyGmailInboxScreen = assertHeading(/Email Intake|Gmail inbox/, "gmail-inbox-visible");
+const verifyGmailInboxScreen = assertHeading(/Email intake|Gmail inbox/, "gmail-inbox-visible");
 const verifyVendorsScreen = assertHeading("Vendors", "vendor-directory-visible");
 
 const verifyWarehouseInventoryScreen: QaScenarioAction = async (page) => {
@@ -78,7 +88,7 @@ const verifyWarehouseInventoryScreen: QaScenarioAction = async (page) => {
   const itemCount = await page.locator('[data-domain="warehouse-inventory"] [data-inventory-item]').count();
   const movementTruthCount = await page.locator("text=Movement-derived stock truth").count();
   await page.getByRole("button", { name: "History", exact: true }).first().click();
-  await page.waitForTimeout(250);
+  await waitForVisible(page, '[role="dialog"]');
   const historyDialogCount = await page.getByRole("dialog", { name: /Ready-mix concrete 28 MPa/ }).count();
   const movementHistoryCount = await page.locator("text=Opening physical count").count();
   await page.getByRole("button", { name: "Close dialog", exact: true }).first().click();
@@ -121,7 +131,7 @@ const verifyPortfolioAttention: QaScenarioAction = async (page) => {
   await page.locator('summary:has-text("More filters")').first().click();
   const filter = page.getByRole("combobox", { name: "Filter by financial health and attention signals", exact: true }).first();
   await filter.selectOption("NEEDS_ATTENTION");
-  await page.waitForTimeout(250);
+  await page.locator("[data-project-id]").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const flaggedProjects = await page.locator("[data-project-id]").count();
   await filter.selectOption("ALL");
   return [
@@ -136,20 +146,20 @@ const verifyProjectAttentionAndEngineering: QaScenarioAction = async (page) => {
   const engineeringSummary = await page.getByRole("heading", { name: "Engineering Coordination", exact: true }).count();
   const evidence = await page.locator("text=Evidence:").count();
   await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Documents")').first().click();
-  await page.waitForTimeout(250);
+  await waitForHeading(page, /Engineering Document Register/);
   const documentRegister = await page.getByRole("heading", { name: /Engineering Document Register/ }).count();
   await page.locator('nav[aria-label="Project workspace sections"] button:has-text("RFIs")').first().click();
-  await page.waitForTimeout(250);
+  await waitForHeading(page, /Project RFIs|RFI Register/);
   const rfiRegister = await page.getByRole("heading", { name: /Project RFIs|RFI Register/ }).count();
   await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Submittals")').first().click();
-  await page.waitForTimeout(250);
+  await waitForHeading(page, /Technical Submittal Register|Submittals/);
   const submittalRegister = await page.getByRole("heading", { name: /Technical Submittal Register|Submittals/ }).count();
   await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Site Logs")').first().click();
-  await page.waitForTimeout(250);
+  await waitForHeading(page, /Daily Site Logs|Site Logs/);
   const siteLogRegister = await page.getByRole("heading", { name: /Daily Site Logs|Site Logs/ }).count();
   await page.locator('nav[aria-label="Project workspace sections"] button:has-text("Materials & Equipment")').first().click();
-  await page.waitForTimeout(250);
-  const projectWarehouseReadThrough = await page.locator("text=Warehouse on-hand").count();
+  await page.locator("text=Current warehouse on-hand").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const projectWarehouseReadThrough = await page.locator("text=Current warehouse on-hand").count();
   return [
     { id: "project-management-attention-visible", passed: managementAttention === 1, details: `management-attention headings: ${managementAttention}` } satisfies QaAssertion,
     { id: "project-engineering-summary-visible", passed: engineeringSummary === 1, details: `engineering summaries: ${engineeringSummary}` } satisfies QaAssertion,
@@ -164,7 +174,7 @@ const verifyProjectAttentionAndEngineering: QaScenarioAction = async (page) => {
 
 const verifyProcurementSubcontractParity: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: /^Subcontracts/ }).first().click();
-  await page.waitForTimeout(250);
+  await page.locator("text=Total Subcontracts").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
   const totalSubcontracts = await page.locator("text=Total Subcontracts").count();
   const claimsMetric = await page.locator("text=Approved progress claims").count();
   const variationsMetric = await page.locator("text=Variations").count();
@@ -177,14 +187,14 @@ const verifyProcurementSubcontractParity: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
-const verifyFeatureStatusRoadmap: QaScenarioAction = async (page) => {
-  const panelCount = await page.locator('[aria-label="Product feature status"]').count();
-  const plannedNotAvailableCount = await page.locator('text=Planned — not available').count();
-  const futureRoadmapCount = await page.locator('text=Future roadmap').count();
+const verifySettingsScreen: QaScenarioAction = async (page) => {
+  const settingsHeading = await page.getByRole("heading", { name: "Operational settings", exact: true }).count();
+  const regionalPreferences = await page.getByRole("heading", { name: "Regional display preferences", exact: true }).count();
+  const internalFeatureRegistry = await page.locator('[aria-label="Internal feature registry"]').count();
   return [
-    { id: "feature-status-panel-visible", passed: panelCount === 1, details: `feature status panels: ${panelCount}` },
-    { id: "planned-features-marked-not-available", passed: plannedNotAvailableCount > 0, details: `Planned-not-available labels: ${plannedNotAvailableCount}` },
-    { id: "future-features-marked-roadmap", passed: futureRoadmapCount > 0, details: `Future roadmap labels: ${futureRoadmapCount}` },
+    { id: "settings-heading-visible", passed: settingsHeading === 1, details: `settings headings: ${settingsHeading}` },
+    { id: "regional-preferences-visible", passed: regionalPreferences === 1, details: `regional preference headings: ${regionalPreferences}` },
+    { id: "internal-feature-registry-hidden", passed: internalFeatureRegistry === 0, details: `internal feature registry panels: ${internalFeatureRegistry}` },
   ] satisfies readonly QaAssertion[];
 };
 
@@ -239,7 +249,7 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "payroll", route: route("payroll-run", "/payroll?runId=:runId"), path: "/demo/app/payroll?runId=demo-payroll-run-9", interactionState: "payroll run opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "expenses", route: route("expenses", "/expenses"), path: "/demo/app/expenses", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "reports", route: route("reports", "/reports"), path: "/demo/app/reports", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
-  defineQaScenario({ feature: "settings", route: route("settings", "/settings"), path: "/demo/app/settings", interactionState: "feature status verified", viewport: QA_VIEWPORTS.desktop, action: verifyFeatureStatusRoadmap }),
+  defineQaScenario({ feature: "settings", route: route("settings", "/settings"), path: "/demo/app/settings", interactionState: "settings product surface verified", viewport: QA_VIEWPORTS.desktop, action: verifySettingsScreen }),
   defineQaScenario({ feature: "assistant", route: route("assistant", "/assistant"), path: "/demo/app/assistant", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "demo", route: route("demo-tour", "/demo/app/dashboard"), path: "/demo/app/dashboard", interactionState: "demo tour opened", viewport: QA_VIEWPORTS.desktop, action: openDemoTour }),
 ];

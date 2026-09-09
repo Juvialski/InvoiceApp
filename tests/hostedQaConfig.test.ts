@@ -18,6 +18,10 @@ test("hosted QA harness fails closed on production and requires authenticated st
   assert.match(script, /QA ENVIRONMENT · SYNTHETIC DATA ONLY/);
   assert.match(script, /HydroQualiSense QA Synthetic/);
   assert.match(script, /waitForHostedQaRouteReadiness/);
+  assert.match(script, /waitForHostedQaHealth/);
+  assert.match(script, /ROUTE_CONTRACTS/);
+  assert.match(script, /Supported email workflows/);
+  assert.doesNotMatch(script, /page\.waitForTimeout\(/);
   assert.match(script, /company_access_readiness_timeout/);
   assert.match(script, /prepareEngineeringPdf/);
   assert.match(script, /createHostedQaEngineeringStorageFixture/);
@@ -35,6 +39,8 @@ test("hosted QA authentication preflight requires bounded sign-in readiness and 
   assert.match(authPreflight, /emailInput\.waitFor\(\{ state: "visible", timeout: AUTH_FORM_TIMEOUT_MS \}\)/);
   assert.doesNotMatch(authPreflight, /page\.waitForTimeout\(500\)/);
   assert.match(authPreflight, /waitForPersistedSession/);
+  assert.match(authPreflight, /waitForHostedQaHealth/);
+  assert.match(authPreflight, /unauthenticatedProtectedNavigation/);
   assert.match(authPreflight, /access_token/);
   assert.match(authPreflight, /refresh_token/);
   assert.match(authPreflight, /page\.reload/);
@@ -47,7 +53,9 @@ test("hosted QA authentication preflight requires bounded sign-in readiness and 
 
 test("manual hosted QA workflow is explicit, exact-SHA bound, and derives migration expectation from checkout", () => {
   assert.match(workflow, /workflow_dispatch:/);
-  assert.doesNotMatch(workflow, /^\s+(push|pull_request):/m);
+  assert.match(workflow, /push:/);
+  assert.match(workflow, /branches:[\s\S]*- main/);
+  assert.match(workflow, /concurrency:/);
   assert.match(workflow, /QA_E2E_EMAIL/);
   assert.match(workflow, /QA_E2E_PASSWORD/);
   assert.match(workflow, /QA_E2E_STORAGE_PROBE: "1"/);

@@ -100,6 +100,23 @@ The inventory must not contain plaintext secrets.
 
 A release should be promoted deliberately across client deployments. Do not assume all clients can be upgraded simultaneously when a migration or feature depends on client-specific decisions.
 
+## Product surface and browser QA truth
+
+Client-facing Settings should describe the configured deployment, not the repository roadmap. The internal feature registry is operator/development information and must not expose PRs, migration names, QA gates, agent terminology, speculative Engoryx-era features, or future Worker Registration/Attendance/Face Recognition work to ordinary users.
+
+Email Intake is an inbound, read-only Gmail surface for searching/syncing finance-related messages and routing selected source evidence into the existing invoice, statement, and expense workflows. Saved sender rules and a forwarded-invoice fallback are supported. SMS/broadcast automation is not implied, and issued-document email delivery remains in the workflow that owns the issued record.
+
+Engineering Documents is project-owned and revision-aware. Drawings, specifications, reports, calculations, submittals, source bytes, hashes, annotations, and lifecycle history remain under the engineering document contracts. Supplier evidence, issued financial documents, and other attachments remain owned by their canonical workflows; a navigation hub may link them but must not duplicate their authority or lifecycle.
+
+AI status and credential administration remain separate. A configured deployment may show provider, enabled state, validation result, and last-tested metadata without exposing the credential. A metadata-load failure must not be interpreted as `NOT_CONFIGURED` or open a key form. Initial bootstrap remains exact-deployment, initial-operator-bound, server-encrypted, auditable, and service/RPC-authorized.
+
+Browser evidence is deliberately layered:
+
+1. **Pre-merge local PR/demo QA** targets a locally built `/demo` workspace with fictional session-local data and no production Auth, Supabase, Storage, Gmail, or company writes.
+2. **Post-deploy hosted QA** targets only the isolated QA Render deployment, uses protected GitHub `qa` environment credentials, waits for exact `/api/health` environment/deployment/repository-SHA/migration identity, and runs safe synthetic integration probes. It refuses production hosts and cleans temporary namespaced Storage objects.
+
+Hosted QA is not a substitute for local migration/RLS/invariant validation, and a hosted result from an older SHA is never evidence for a newer release. Application promotion and database migration promotion remain separate operator decisions.
+
 ## Role and permission model
 
 Authorization remains permission-based rather than role-name-based.
