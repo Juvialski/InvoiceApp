@@ -19,6 +19,7 @@
     "ci:failure-context": "tsx scripts/ci-failure-context.ts",
     "qa:demo": "tsx scripts/demo-visual-qa.ts",
     "qa:hosted": "tsx scripts/hosted-qa-auth-preflight.ts && tsx scripts/hosted-qa-certification.ts",
+    "release:migration-level": "tsx scripts/repository-migration-level.ts",
     "workflow-map:generate": "tsx scripts/workflow-map/generate.ts",
     "workflow-map:check": "tsx scripts/workflow-map/validate.ts --check",
     "workflow-map:consistency": "tsx scripts/workflow-map/consistency.ts",
@@ -62,7 +63,7 @@
     "react-is": "^19.0.0",
     "react-markdown": "^10.1.0",
     "recharts": "^3.10.1",
-    "remark-gfm": "^4.0.1",
+    "remark-gfm": "^4.10.1",
     "vite": "^6.2.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
