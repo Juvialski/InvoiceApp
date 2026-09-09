@@ -207,6 +207,8 @@ Hosted QA is **manual `workflow_dispatch` after migration parity**. Do not re-en
 
 If guarded QA promotion cannot run because of authentication, project-link, migration, or target-safety failure, stop at that exact blocker. Never bypass the wrapper with raw SQL, Dashboard SQL Editor, direct MCP migration calls, or an unguarded push. Production remains a separate promotion decision and must never be inferred from QA success.
 
+Documentation-only or CI-orchestration-only merges that do not change the built application/runtime contract or database migration contract do **not** invalidate the most recent successful Hosted QA artifact for the last application-bearing SHA. Record the last application-bearing certified SHA separately from current repository `main`; do not rerun Hosted QA merely to chase a docs-only SHA. Any application/runtime/migration change still requires a new exact deployed SHA + migration-parity + Hosted QA cycle.
+
 ## Docker / local Supabase validation
 
 Docker Desktop is normally available on the user's Windows laptop.
