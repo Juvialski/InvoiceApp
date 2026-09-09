@@ -9,11 +9,13 @@ Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
 
-## Current exact baseline
+## Application baseline for this checkpoint
 
-Current merged `main`:
+Last application-code-bearing `main` merged before this documentation checkpoint:
 
 `8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba`
+
+Documentation-only commits after that SHA may advance repository and Render release identity without changing application/database contracts. Always re-read live `main` and the current Render deploy before dispatching current-head Hosted QA.
 
 Recent QA-certification hardening completed through:
 
@@ -36,7 +38,7 @@ QA topology remains:
 
 Verified live state:
 
-- Render auto-deployed exact `main` SHA `8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba`; the deploy is `live`.
+- The application-code-bearing PR #113 deploy at `8f43ac9320ddaf4ce6076ee8f6f37fa4f9002eba` was verified `live` before this documentation update. Documentation-only commits may subsequently advance the reported repository SHA; use the current live SHA for Hosted QA evidence.
 - QA Supabase is `ACTIVE_HEALTHY`.
 - QA migration head is independently `20260908235742_engineering_document_unlinked_storage_cleanup`.
 - No `qa:db:push` was run merely to continue certification.
@@ -152,9 +154,8 @@ A fresh production `/api/health` body was not obtained by the connected tools du
 
 Passed now:
 
-- exact current `main` verified;
+- the last application-code-bearing baseline and its then-current QA deploy were verified before the documentation checkpoint; exact SHA must be re-read after docs-only merges;
 - no open PRs at checkpoint start;
-- exact current QA Render deploy is live;
 - QA database is healthy and independently matches repository migration level `20260908235742`;
 - migration-level bookkeeping is repository-derived;
 - routine Render app deploy is separated from deliberate database migration promotion;
