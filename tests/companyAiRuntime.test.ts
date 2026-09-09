@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { encryptCompanyGeminiCredential } from "../src/server/ai/companyAiEncryption.ts";
+import { loadServerCompanyAiConfig } from "../src/server/ai/companyAiCredentials.ts";
 import { ASSISTANT_TOOL_DEFINITIONS } from "../src/server/assistant/toolRegistry.ts";
 import {
   classifyCompanyAiProviderError,
@@ -76,6 +77,54 @@ test("runtime credentials remain company-bound and cache invalidation follows ve
   assert.equal(invalidatedA.companyId, COMPANY_A);
   const cachedB = await resolveCompanyAiRuntime({ supabase: fake.client, credentialSupabase: fake.client, companyId: COMPANY_B, now: 103, environment: ENVIRONMENT });
   assert.strictEqual(cachedB, firstB, "company A invalidation must not evict company B");
+});
+
+test("Settings metadata and Assistant runtime agree for configured but untested AI, while RPC failure stays unavailable", async () => {
+  clearCompanyAiRuntimeCache();
+  const calls: string[] = [];
+  const fake = {
+    rpc: async (name: string) => {
+      calls.push(name);
+      if (name === "server_get_company_ai_config") {
+        return {
+          data: {
+            company_id: COMPANY_A,
+            provider: "GEMINI",
+            enabled: true,
+            credential_configured: true,
+            credential_version: 1,
+            status: "ACTIVE",
+            last_test_status: "NOT_TESTED",
+          },
+          error: null,
+        };
+      }
+      return { data: activeCredential(COMPANY_A, "Key-A-secret-value", 1), error: null };
+    },
+  } as any;
+
+  const settingsMetadata = await loadServerCompanyAiConfig(fake, COMPANY_A);
+  const runtime = await resolveCompanyAiRuntime({ supabase: fake, credentialSupabase: fake, companyId: COMPANY_A, environment: ENVIRONMENT });
+  assert.equal(settingsMetadata.credentialConfigured, true);
+  assert.equal(settingsMetadata.enabled, true);
+  assert.equal(settingsMetadata.status, "ACTIVE");
+  assert.equal(settingsMetadata.lastTestStatus, "NOT_TESTED");
+  assert.equal(runtime.companyId, COMPANY_A);
+  assert.equal(runtime.credentialVersion, 1);
+  assert.deepEqual(calls, ["server_get_company_ai_config", "resolve_company_ai_credential"]);
+
+  const failing = { rpc: async () => ({ data: null, error: { code: "42501", message: "permission denied" } }) } as any;
+  await assert.rejects(
+    () => loadServerCompanyAiConfig(failing, COMPANY_A),
+    (error: any) => error.code === "AI_CONFIG_UNAVAILABLE"
+      && error.message === "Company AI configuration is temporarily unavailable.",
+  );
+  clearCompanyAiRuntimeCache();
+  await assert.rejects(
+    () => resolveCompanyAiRuntime({ supabase: failing, credentialSupabase: failing, companyId: COMPANY_A, environment: ENVIRONMENT }),
+    (error: any) => error.code === "AI_CONFIG_UNAVAILABLE"
+      && error.message === "Company AI configuration is temporarily unavailable.",
+  );
 });
 
 test("a mismatched resolver row fails closed instead of being relabeled to the requested company", async () => {
