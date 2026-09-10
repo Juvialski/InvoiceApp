@@ -1,4 +1,4 @@
-name: Diagnose QA Pooler Routing
+name: Diagnose QA Direct Database Path
 
 on:
   push:
@@ -7,28 +7,32 @@ on:
 permissions:
   contents: read
 
+env:
+  HYDROQUALISENSE_ENVIRONMENT: qa
+  HYDROQUALISENSE_DEPLOYMENT_ID: qa-hydroqualisense
+  HYDROQUALISENSE_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
+  HYDROQUALISENSE_QA_PROJECT_REF: vrpuznofrntyqsbugrib
+  HYDROQUALISENSE_PRODUCTION_PROJECT_REF: qijjshdwiylojvqojxyz
+  SUPABASE_CLI_BIN: supabase
+
 jobs:
-  discover:
+  direct-parity:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    environment: qa
+    env:
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
     steps:
-      - name: Discover QA session-pooler cluster without credentials
-        shell: bash
-        run: |
-          set -euo pipefail
-          project_ref="vrpuznofrntyqsbugrib"
-          region="ap-southeast-1"
-          found=""
-          for index in $(seq 0 12); do
-            host="aws-${index}-${region}.pooler.supabase.com"
-            output="$(PGPASSWORD='' psql "host=${host} port=5432 dbname=postgres user=postgres.${project_ref} sslmode=require connect_timeout=3" -w -c 'select 1' 2>&1 || true)"
-            if grep -Eqi 'no password supplied|password authentication failed|SASL|SCRAM' <<<"$output" && ! grep -Eqi 'tenant or user not found|could not translate host name|Name or service not known' <<<"$output"; then
-              found="$host"
-              break
-            fi
-          done
-          if [[ -z "$found" ]]; then
-            echo "::error title=QA pooler discovery failed::No session-pooler cluster accepted the QA tenant identity in the bounded official region scan." >&2
-            exit 1
-          fi
-          echo "QA_SESSION_POOLER_HOST=$found"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Read QA migration parity through the protected session pooler
+        run: npx --no-install tsx scripts/qa/verify-migration-parity.ts --direct-db --phase before --output artifacts/qa-release/direct-parity.json
