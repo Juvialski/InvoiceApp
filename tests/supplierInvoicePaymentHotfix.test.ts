@@ -86,6 +86,24 @@ test("normal supplier payment stays inside Change Status and uses canonical Expe
   assert.doesNotMatch(dialog, /invoice\.(?:status|paymentStatus)\s*=/);
 });
 
+test("live supplier payment state fails closed until authoritative settlement evidence is available", () => {
+  const surface = readFileSync("src/components/SupplierInvoiceExpenseSurface.tsx", "utf8");
+  assert.match(surface, /setSummary\(currentExpense\.id\.startsWith\("demo-"\) \? demoSummary : null\)/);
+  assert.match(surface, /Loading authoritative payment status/);
+  assert.match(surface, /No payment status change is offered until the authoritative Expense settlement can be read\./);
+  assert.doesNotMatch(surface, /setSummary\(fallbackSummary\)/);
+});
+
+test("DRAFT approval survives a later payment failure and successful settlement is never undone by refresh failure", () => {
+  const dialog = readFileSync("src/components/SupplierInvoicePaymentDialog.tsx", "utf8");
+  assert.match(dialog, /paymentExpense = await saveExpenseToSupabase\(\{ \.\.\.paymentExpense, status: "APPROVED" \}\)/);
+  assert.match(dialog, /onExpenseUpdated\?\.\(paymentExpense\)/);
+  assert.match(dialog, /let settlementConfirmed = false/);
+  assert.match(dialog, /settlementConfirmed = true/);
+  assert.match(dialog, /if \(transactionId && !settlementConfirmed\)/);
+  assert.match(dialog, /Keep the confirmed local projection/);
+});
+
 test("zero-account and mobile payment flow remain inline and bounded", () => {
   const dialog = readFileSync("src/components/SupplierInvoicePaymentDialog.tsx", "utf8");
   assert.match(dialog, /Add Cash\/Bank Account/);
