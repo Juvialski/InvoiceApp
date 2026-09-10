@@ -23,7 +23,7 @@ Before any QA migration write, ChatGPT must:
 7. independently re-read migration history and verify parity after the write;
 8. run the relevant database/RPC/security/runtime checks and Hosted QA when the release contract requires them.
 
-The repository `qa:db:push` wrapper remains the normal CI/CLI implementation. A connected ChatGPT Supabase operation is an equally authorized operator path only when it preserves the same target and canonical-history guarantees.
+The repository `qa:db:push` wrapper remains the normal CI/CLI implementation. In protected GitHub Actions it uses the fixed QA Supabase Session Pooler plus the QA database password, so normal promotion does not depend on Supabase Management API project linking or a personal access token. Linked CLI mode remains available for deliberate local/bootstrap operations. A connected ChatGPT Supabase operation is an equally authorized operator path only when it preserves the same target and canonical-history guarantees.
 
 ## Canonical-history rule for connected Supabase tooling
 
