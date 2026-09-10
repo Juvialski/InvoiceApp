@@ -8,6 +8,7 @@ const expenses = readFileSync(new URL("../src/components/expenses/ExpensesPage.t
 const cash = readFileSync(new URL("../src/components/CashSettlementAllocationWorkspace.tsx", import.meta.url), "utf8");
 const procurement = readFileSync(new URL("../src/components/procurement/ProcurementPage.tsx", import.meta.url), "utf8");
 const warehouse = readFileSync(new URL("../src/components/inventory/WarehouseInventoryPage.tsx", import.meta.url), "utf8");
+const warehouseRoute = readFileSync(new URL("../src/app/routes/WarehouseInventoryRoute.tsx", import.meta.url), "utf8");
 const shell = readFileSync(new URL("../src/app/AppShell.tsx", import.meta.url), "utf8");
 
 test("Wave 2 navigation exposes the authoritative supplier invoice register without duplicating Expenses", () => {
@@ -26,6 +27,12 @@ test("Wave 2 source and continuation surfaces use exact persisted identifiers", 
   assert.match(procurement, /appPathForWarehouseReceipt/);
   assert.match(warehouse, /appPathForPurchaseOrderReceipt/);
   assert.match(warehouse, /MovementSourceCell/);
+});
+
+test("Wave 2 Warehouse source navigation does not expose Procurement links without procurement.read", () => {
+  assert.match(warehouseRoute, /canReadProcurement\s*\?\s*movements/);
+  assert.match(warehouseRoute, /sourcePurchaseOrderId:\s*null/);
+  assert.match(warehouseRoute, /movements=\{warehouseMovements\}/);
 });
 
 test("Wave 2 stale-link recovery copy stays domain-aware and does not expose alternate records", () => {
