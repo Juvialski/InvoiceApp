@@ -1,0 +1,124 @@
+name: PR 133 targeted repair
+
+on:
+  push:
+    branches:
+      - hotfix/supplier-invoice-payment-status-flow
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply bounded PR 133 corrections
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function replaceExact(path, before, after, expected = 1) {
+            const source = fs.readFileSync(path, 'utf8');
+            const count = source.split(before).length - 1;
+            if (count !== expected) {
+              throw new Error(`${path}: expected ${expected} occurrence(s), found ${count}: ${before}`);
+            }
+            fs.writeFileSync(path, source.split(before).join(after));
+          }
+
+          replaceExact(
+            'tests/companyAiRuntime.test.ts',
+            'assert.equal(ASSISTANT_TOOL_DEFINITIONS.length, 132);',
+            'assert.equal(ASSISTANT_TOOL_DEFINITIONS.length, 134);',
+          );
+
+          replaceExact(
+            'src/server/assistant/financialSettlementAssistant.ts',
+            '["invoices.read", "cash.transactions.read"], { invoiceId: uuid }, ["invoiceId"]),',
+            '["invoices.read", "expenses.read", "cash.transactions.read"], { invoiceId: uuid }, ["invoiceId"]),',
+          );
+          replaceExact(
+            'src/server/assistant/financialSettlementAssistant.ts',
+            '["invoices.read", "cash.transactions.read"], { query: { type: "string" }, limit }),',
+            '["invoices.read", "expenses.read", "cash.transactions.read"], { query: { type: "string" }, limit }),',
+          );
+          replaceExact(
+            'src/server/assistant/financialSettlementAssistant.ts',
+            '["invoices.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"], { invoiceId: uuid, accountId: uuid, paymentMode: supplierPaymentModeSchema,',
+            '["invoices.read", "expenses.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"], { invoiceId: uuid, accountId: uuid, paymentMode: supplierPaymentModeSchema,',
+          );
+          replaceExact(
+            'src/server/assistant/financialSettlementAssistant.ts',
+            '["cash.reconcile", "invoices.manage"], { transactionId: uuid, invoiceId: uuid, amount: amountSchema, notes:',
+            '["cash.reconcile", "invoices.manage", "expenses.read"], { transactionId: uuid, invoiceId: uuid, amount: amountSchema, notes:',
+          );
+          replaceExact(
+            'src/server/assistant/financialSettlementAssistant.ts',
+            '...(targetTypes.has("INVOICE") ? ["invoices.manage"] : []),',
+            '...(targetTypes.has("INVOICE") ? ["invoices.manage", "expenses.read"] : []),',
+          );
+
+          replaceExact(
+            'tests/assistantFinancialSettlement.test.ts',
+            '["cash.reconcile", "invoices.manage", "payroll.approve"]',
+            '["cash.reconcile", "invoices.manage", "expenses.read", "payroll.approve"]',
+          );
+          replaceExact(
+            'tests/assistantFinancialSettlement.test.ts',
+            '["invoices.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"]',
+            '["invoices.read", "expenses.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"]',
+          );
+
+          const anchor = `test("supplier payment preparation requires the same financial authorities as the manual flow", () => {\n  const definition = getAssistantToolDefinition("prepare_supplier_invoice_payment");\n  assert.ok(definition);\n  assert.deepEqual(definition.permissions, ["invoices.read", "expenses.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"]);\n});\n`;
+          const regression = `${anchor}\ntest("linked Expense authority inspection always requires expenses.read", () => {\n  for (const name of ["get_invoice_settlement", "list_open_invoice_settlements", "prepare_match_transaction_to_invoice"]) {\n    const definition = getAssistantToolDefinition(name);\n    assert.ok(definition);\n    assert.ok(Array.isArray(definition.permissions));\n    assert.ok(definition.permissions.includes("expenses.read"), \`${name} must require expenses.read before inspecting linked Expense authority\`);\n  }\n  const split = getAssistantToolDefinition("prepare_split_transaction_allocation");\n  assert.ok(split);\n  assert.equal(typeof split.permissions, "function");\n  const resolve = split.permissions as (args: Record<string, unknown>) => string[];\n  assert.ok(resolve({ allocations: [{ targetType: "INVOICE" }] }).includes("expenses.read"));\n});\n`;
+          replaceExact('tests/assistantFinancialSettlement.test.ts', anchor, regression);
+
+          for (const path of ['scripts/workflow-map/graph.ts']) {
+            replaceExact(
+              path,
+              'supplier-payables--invoice-detail--linked-expense-payment-surface-opened--desktop-1440',
+              'supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--desktop-1440',
+            );
+            replaceExact(
+              path,
+              'supplier-payables--invoice-detail--linked-expense-payment-surface-opened--mobile-390',
+              'supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--mobile-390',
+            );
+          }
+          NODE
+
+          if grep -R -n -E 'ASSISTANT_TOOL_DEFINITIONS\.length, 132|EXPECTED_ASSISTANT_TOOL_COUNT = 132' tests src; then
+            echo 'Stale Assistant tool-count expectation remains.' >&2
+            exit 1
+          fi
+
+          npm run workflow-map:generate
+      - name: Focused validation
+        run: |
+          npx tsx --test tests/companyAiRuntime.test.ts tests/assistantGeminiCompatibility.test.ts tests/assistantFinancialSettlement.test.ts tests/supplierInvoicePaymentHotfix.test.ts tests/wave1aSupplierPayableUx.test.ts tests/productFeaturesRoadmap.test.ts
+          npm run workflow-map:check
+          npm run test:affected:agent
+      - name: Review and commit bounded diff
+        shell: bash
+        run: |
+          git status --short
+          git diff --check
+          git diff --stat
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/server/assistant/financialSettlementAssistant.ts tests/companyAiRuntime.test.ts tests/assistantFinancialSettlement.test.ts scripts/workflow-map/graph.ts docs/architecture/workflow-map.json docs/architecture/APP_WORKFLOW_MAP.md
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "fix: finalize supplier payment parity"
+          git push origin HEAD:hotfix/supplier-invoice-payment-status-flow
