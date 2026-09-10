@@ -126,6 +126,14 @@ The product shell name is not a client legal identity. A new deployment document
 
 Buyer validation and new supplier-invoice posting must remain blocked when the deployment profile is incomplete or a supplied buyer TIN cannot be compared. Resolve the canonical profile and source evidence through the normal Settings and Supplier Review workflows; do not bypass the guarded verification RPC or invent legal identity.
 
+### Optional company-template PDF runtime
+
+High-fidelity PDF finalization is an optional server capability. The current native Node/Render service does not install an office converter and must report `documentPdfFinalization.status=UNAVAILABLE`; issued documents retain the existing programmatic PDF fallback. Do not mark the capability available from an environment variable alone.
+
+For a deployment that deliberately enables company-template PDF output, configure Render to use the repository `Dockerfile.document-pdf` runtime. It installs Node 22, LibreOffice Writer, fontconfig, Liberation fonts, and Noto Core fonts, and sets the server-only `DOCUMENT_PDF_CONVERTER_PATH=/usr/bin/soffice`. An explicitly managed compatible runtime may instead set that path directly. `DOCUMENT_PDF_CONVERTER_TIMEOUT_MS` is optional and remains bounded by the application.
+
+Before treating the feature as operational, verify `GET /api/health` reports `documentPdfFinalization.status=AVAILABLE` with a converter identity/version, then run the authenticated Settings test with a non-authoritative demo snapshot. A missing, timed-out, failed, or invalid conversion produces no PDF evidence and does not change any financial record. The server never exposes converter paths, command details, credentials, or provider errors.
+
 ### Initial deployment AI operator workflow
 
 After `bootstrap_deployment_company(...)` has created the isolated company and initial confirmed Company Admin, the initial operator may use Settings → initial AI setup once:

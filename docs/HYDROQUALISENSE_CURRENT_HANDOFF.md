@@ -1,16 +1,22 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — WAVE 4A DOCUMENT TEMPLATES IN PROGRESS / QA CERTIFICATION NOT READY**
+Status: **CURRENT — WAVE 4B HIGH-FIDELITY PDF FINALIZATION ACTIVE / QA CERTIFICATION NOT READY**
 Date: **2026-09-10**
 Repository: `Juvialski/InvoiceApp`
 
-## User-selected Wave 4A — Intelligent Document Templates & Mail Merge Foundation
+## Wave 4A — Intelligent Document Templates & Mail Merge Foundation — COMPLETE
 
-The current bounded product phase starts from green `main` at `b9ffc21c2332d5cc1d6e7ea137917957afd4d5b0`. It adds company-bound editable DOCX templates for Purchase Orders and Client Invoices while preserving the existing PDF and Gmail paths.
+Wave 4A is complete through merged PR #134. The exact merged `main` head is `7fbfe40938571f7e3223687cdc03ac549aa2454f`. It adds company-bound editable DOCX templates for Purchase Orders and Client Invoices while preserving the existing PDF and Gmail paths.
 
 The template path is `authoritative issued snapshot -> immutable company template version -> deterministic DOCX merge`. Uploads are standard `.docx` only, macro-enabled files and unsafe archives are rejected, and arbitrary uploaded layouts remain preserved when manual Word binding is required. AI receives only bounded document structure marked as untrusted data; structured blueprint/mapping responses are validated and remain human-confirmed proposals.
 
 Template administration uses the existing company settings permission. Issued snapshots pin the active validated template version and SHA-256 when configured; historical snapshots without a pin deliberately remain on the existing PDF fallback. No production database or client data was changed by this product implementation. QA certification remains a separate readiness track.
+
+## Wave 4B — High-Fidelity PDF Finalization — ACTIVE
+
+The current implementation extends the Wave 4A contract to `authoritative issued snapshot -> pinned immutable template -> merged DOCX -> finalized PDF`. LibreOffice Writer is invoked server-side in an isolated temporary profile with bounded time/output and no shell command. The current native Node/Render runtime has no converter installed, so capability is reported as unavailable and the existing programmatic PDF remains the safe fallback. `Dockerfile.document-pdf` documents the reproducible optional runtime.
+
+Issued PDF evidence is stored only after the exact merged DOCX source artifact is evidenced, and records the PDF hash, source DOCX hash/path, template hash/version, company/user, timestamp, and converter identity/version. Settings uses the same pipeline with a bounded demo snapshot and never issues a financial record. Wave 4C outbound delivery/history and new SMS functionality remain future work.
 
 The server-only AI credential boundary remains unchanged: modern `sb_secret_` server keys are used only for protected server operations, legacy JWT `service_role` keys are not exposed to browser code, and an unconfigured deployment remains `NOT_CONFIGURED` rather than being presented as healthy. Production remains read-only during this phase and migration promotion remains separate from application deployment.
 
@@ -148,7 +154,7 @@ The merged `main` baseline implements the bounded Wave 3 design:
 - runtime evidence reproduced unsafe partial PO close, so the forward close guard blocks outstanding committed quantities while fully received POs may close with receipt history preserved;
 - subcontract claim cards are responsive around 390px and expose certification, net payable, payment state, history, and return context.
 
-The product implementation is complete on merged `main` through PRs #132 and #133. Wave 4A document templates is the current user-selected feature branch; QA certification remains a separate readiness track.
+The product implementation is complete on merged `main` through PRs #132, #133, and #134. Wave 4A is complete; Wave 4B high-fidelity PDF finalization is the current active feature branch. QA certification remains a separate readiness track.
 
 ## Remaining audit findings
 

@@ -354,6 +354,7 @@ const verifySettingsScreen: QaScenarioAction = async (page) => {
   const plannedWorkerRegistration = await page.locator('[data-product-feature-id="worker-registration"][data-product-feature-status="PLANNED"]').count();
   const futureFaceAttendance = await page.locator('[data-product-feature-id="face-recognition-attendance"][data-product-feature-status="FUTURE_DESIGN"]').count();
   const internalFeatureRegistry = await page.locator('[aria-label="Internal feature registry"]').count();
+  const templatePdfCapability = await page.locator('[data-document-pdf-capability="unavailable"]').count();
   return [
     { id: "settings-heading-visible", passed: settingsHeading === 1, details: `settings headings: ${settingsHeading}` },
     { id: "regional-preferences-visible", passed: regionalPreferences === 1, details: `regional preference headings: ${regionalPreferences}` },
@@ -361,6 +362,7 @@ const verifySettingsScreen: QaScenarioAction = async (page) => {
     { id: "planned-worker-registration-visible", passed: plannedWorkerRegistration === 1, details: `Worker Registration cards: ${plannedWorkerRegistration}` },
     { id: "future-face-attendance-visible", passed: futureFaceAttendance === 1, details: `Future / Design Stage cards: ${futureFaceAttendance}` },
     { id: "internal-feature-registry-hidden", passed: internalFeatureRegistry === 0, details: `internal feature registry panels: ${internalFeatureRegistry}` },
+    { id: "template-pdf-capability-truthful", passed: templatePdfCapability === 1, details: `template PDF unavailable states: ${templatePdfCapability}` },
   ] satisfies readonly QaAssertion[];
 };
 

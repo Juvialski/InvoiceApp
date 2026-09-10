@@ -155,6 +155,13 @@ test("DOCX validation rejects macro formats, invalid OOXML, unsafe paths, and ex
   const malformedBytes = new Uint8Array(malformed.generate({ type: "uint8array" }));
   assert.throws(() => validateDocxTemplateBytes(malformedBytes, "malformed.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), /complete supported Word document|readable Word document/i);
 
+  const external = new PizZip();
+  external.file("[Content_Types].xml", "<Types><Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/></Types>");
+  external.file("_rels/.rels", "<Relationships><Relationship Id=\"rId1\" Target=\"https://example.test/resource\" TargetMode=\"External\"/></Relationships>");
+  external.file("word/document.xml", "<w:document xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\"><w:body><w:p><w:r><w:t>Safe</w:t></w:r></w:p></w:body></w:document>");
+  const externalBytes = new Uint8Array(external.generate({ type: "uint8array" }));
+  assert.throws(() => validateDocxTemplateBytes(externalBytes, "external.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), /external|network resources/i);
+
   const bomb = new PizZip();
   const repeated = "A".repeat(2 * 1024 * 1024);
   bomb.file("[Content_Types].xml", repeated);

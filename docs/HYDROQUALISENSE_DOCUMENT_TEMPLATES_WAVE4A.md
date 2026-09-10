@@ -1,6 +1,6 @@
 # HydroQualiSense Document Templates — Wave 4A
 
-Status: **implemented on the Wave 4A feature branch**
+Status: **COMPLETE through merged PR #134**
 
 Wave 4A adds a company-bound DOCX template foundation for `PURCHASE_ORDER` and `CLIENT_INVOICE`. It does not replace the existing programmatic PDF fallback, Gmail send contract, or authoritative financial snapshot builders.
 
@@ -30,4 +30,6 @@ AI analysis receives bounded normalized structure/text marked as untrusted docum
 
 Template roots and versions are company-bound. Versions start as `DRAFT`, can become `ACTIVE`, and can be `RETIRED`; content identity, Storage path, hash, origin and version number are immutable. Issuance pins the active validated default version and its SHA-256 when one exists. Historical snapshots without a pinned template deliberately use the legacy PDF fallback rather than silently selecting a newer template.
 
-Issued DOCX generation stores immutable evidence tying the issued snapshot, template version/hash and generated artifact/hash together. Wave 4B will extend this to high-fidelity PDF finalization; Wave 4C will address outbound delivery/history UX.
+Issued DOCX generation stores immutable evidence tying the issued snapshot, template version/hash and generated artifact/hash together. Wave 4B extends this contract to optional server-side high-fidelity PDF finalization; Wave 4C will address outbound delivery/history UX.
+
+See `docs/HYDROQUALISENSE_DOCUMENT_TEMPLATES_WAVE4B.md` for the active PDF architecture and runtime requirement.

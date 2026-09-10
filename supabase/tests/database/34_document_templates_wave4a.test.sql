@@ -19,6 +19,9 @@ grant insert, select on wave4_billing_ids to authenticated, service_role;
 select has_table('public', 'document_templates', 'document template roots exist');
 select has_table('public', 'document_template_versions', 'document template versions exist');
 select has_table('public', 'document_generation_evidence', 'document generation evidence exists');
+select has_column('public', 'document_generation_evidence', 'source_artifact_sha256', 'PDF evidence retains merged DOCX source hash');
+select has_column('public', 'document_generation_evidence', 'converter_id', 'PDF evidence retains converter identity');
+select has_column('public', 'document_generation_evidence', 'converter_version', 'PDF evidence retains converter version');
 select has_column('public', 'issued_document_snapshots', 'template_version_id', 'issued snapshots pin template versions');
 select has_column('public', 'issued_document_snapshots', 'template_sha256', 'issued snapshots retain template hash');
 select has_function('public', 'create_document_template_version', 'internal template creation RPC exists');
@@ -127,6 +130,56 @@ select lives_ok($$select public.record_document_generation_evidence(jsonb_build_
 ))$$, 'trusted server can record issued DOCX evidence against the pinned snapshot and deterministic artifact path');
 select is((select count(*) from public.document_generation_evidence where snapshot_id = (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids))), 1::bigint, 'generation evidence is durable and company scoped');
 select is((select generated_by_user_id from public.document_generation_evidence where snapshot_id = (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids))), (select admin_user from wave4_ids), 'generation evidence retains the originating authenticated user');
+select lives_ok($$select public.record_document_generation_evidence(jsonb_build_object(
+  'generatedByUserId', (select admin_user from wave4_ids),
+  'companyId', (select company_id from wave4_ids),
+  'snapshotId', (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)),
+  'templateVersionId', (select version_one_id from wave4_template_ids),
+  'documentType', 'PURCHASE_ORDER',
+  'documentId', (select po_one_id from wave4_ids),
+  'templateContentSha256', repeat('a', 64),
+  'artifactType', 'PDF',
+  'artifactStoragePath', format(
+    'companies/%s/document-template-artifacts/%s/PURCHASE_ORDER/%s/%s.pdf',
+    (select company_id from wave4_ids),
+    (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)),
+    (select version_one_id from wave4_template_ids),
+    repeat('c', 64)
+  ),
+  'artifactStorageProvider', 'supabase',
+  'artifactStorageBucket', 'company-document-templates',
+  'artifactSize', 240,
+  'artifactSha256', repeat('c', 64),
+  'sourceArtifactType', 'DOCX',
+  'sourceArtifactStoragePath', format(
+    'companies/%s/document-template-artifacts/%s/PURCHASE_ORDER/%s/%s.docx',
+    (select company_id from wave4_ids),
+    (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)),
+    (select version_one_id from wave4_template_ids),
+    repeat('b', 64)
+  ),
+  'sourceArtifactStorageProvider', 'supabase',
+  'sourceArtifactStorageBucket', 'company-document-templates',
+  'sourceArtifactSize', 120,
+  'sourceArtifactSha256', repeat('b', 64),
+  'converterId', 'libreoffice',
+  'converterVersion', 'LibreOffice 25.2.3.2'
+))$$, 'trusted server can record PDF evidence against the exact merged DOCX source artifact');
+select is((select count(*) from public.document_generation_evidence where snapshot_id = (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids))), 2::bigint, 'PDF evidence is appended without replacing the immutable DOCX evidence');
+select is((select source_artifact_sha256 from public.document_generation_evidence where snapshot_id = (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)) and artifact_type = 'PDF'), repeat('b', 64), 'PDF evidence retains the exact merged DOCX hash');
+select is((select converter_id from public.document_generation_evidence where snapshot_id = (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)) and artifact_type = 'PDF'), 'libreoffice', 'PDF evidence retains converter identity');
+select throws_ok($$select public.record_document_generation_evidence(jsonb_build_object(
+  'generatedByUserId', (select admin_user from wave4_ids), 'companyId', (select company_id from wave4_ids),
+  'snapshotId', (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)),
+  'templateVersionId', (select version_one_id from wave4_template_ids), 'documentType', 'PURCHASE_ORDER', 'documentId', (select po_one_id from wave4_ids),
+  'templateContentSha256', repeat('a', 64), 'artifactType', 'PDF',
+  'artifactStoragePath', format('companies/%s/document-template-artifacts/%s/PURCHASE_ORDER/%s/%s.pdf', (select company_id from wave4_ids), (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)), (select version_one_id from wave4_template_ids), repeat('d', 64)),
+  'artifactStorageProvider', 'supabase', 'artifactStorageBucket', 'company-document-templates', 'artifactSize', 240, 'artifactSha256', repeat('d', 64),
+  'sourceArtifactType', 'DOCX',
+  'sourceArtifactStoragePath', format('companies/%s/document-template-artifacts/%s/PURCHASE_ORDER/%s/%s.docx', (select company_id from wave4_ids), (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)), (select version_one_id from wave4_template_ids), repeat('d', 64)),
+  'sourceArtifactStorageProvider', 'supabase', 'sourceArtifactStorageBucket', 'company-document-templates', 'sourceArtifactSize', 120, 'sourceArtifactSha256', repeat('d', 64),
+  'converterId', 'libreoffice', 'converterVersion', 'LibreOffice 25.2.3.2'
+))$$, '42501', null, 'PDF evidence cannot reference a DOCX source artifact that has no immutable evidence row');
 
 with created as (
   select public.server_create_document_template_version(
@@ -182,7 +235,7 @@ select (payload->>'id')::uuid, (payload->>'template_id')::uuid from created;
 select lives_ok($$select public.server_activate_document_template_version((select version_two_id from wave4_template_ids where version_two_id is not null), (select admin_user from wave4_ids))$$, 'a second validated version can replace the active template');
 select is((select status from public.document_template_versions where id = (select version_one_id from wave4_template_ids where version_one_id is not null)), 'RETIRED', 'replacing the active template retires only the prior version');
 select is((select template_version_id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)), (select version_one_id from wave4_template_ids where version_one_id is not null), 'historical issued documents retain the original template version after replacement');
-select is((select count(*) from public.document_generation_evidence where template_version_id = (select version_one_id from wave4_template_ids where version_one_id is not null)), 1::bigint, 'historical generation evidence remains readable after replacement');
+select is((select count(*) from public.document_generation_evidence where template_version_id = (select version_one_id from wave4_template_ids where version_one_id is not null)), 2::bigint, 'historical DOCX and PDF generation evidence remains readable after replacement');
 select throws_ok($$select public.server_create_document_template_version(jsonb_build_object('companyId', (select other_company_id from wave4_ids), 'documentType', 'PURCHASE_ORDER', 'displayName', 'Cross company', 'origin', 'STARTER', 'sourceStoragePath', format('companies/%s/document-templates/x/PURCHASE_ORDER/y/template.docx', (select other_company_id from wave4_ids)), 'contentStoragePath', format('companies/%s/document-templates/x/PURCHASE_ORDER/y/template.docx', (select other_company_id from wave4_ids)), 'storageBucket', 'company-document-templates', 'mimeType', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'contentSize', 100, 'contentSha256', repeat('e', 64)), (select admin_user from wave4_ids))$$, '42501', null, 'server wrapper cannot target another deployment company');
 
 set local role authenticated;

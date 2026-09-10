@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — USER-SELECTED WAVE 4A DOCUMENT TEMPLATES IN PROGRESS / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — WAVE 4B HIGH-FIDELITY PDF FINALIZATION / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-10**
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -10,21 +10,25 @@ Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
 
-## Current user-selected bounded phase — Wave 4A Document Templates
+## Current user-selected bounded phase — Wave 4B High-Fidelity PDF Finalization
 
-The Documents portion of the broader Email/SMS + Documents direction is the current implementation priority from green `main` at `b9ffc21c2332d5cc1d6e7ea137917957afd4d5b0`. This phase connects authoritative Purchase Order and Client Invoice snapshots to company-bound immutable DOCX template versions, deterministic mail merge, structured AI proposals, and Settings-based validation/activation. The existing PDF and Gmail paths remain compatibility fallbacks; high-fidelity PDF conversion and outbound delivery/history remain later phases.
+Wave 4A Intelligent Document Templates & Mail Merge Foundation is complete through merged PR #134 at `7fbfe40938571f7e3223687cdc03ac549aa2454f`. Wave 4B extends the same path for Purchase Orders and Client Invoices: authoritative issued snapshot -> pinned immutable template -> deterministic merged DOCX -> server-side high-fidelity PDF when the deployment has an operational LibreOffice Writer converter.
 
-QA certification remains **NOT READY** and production remains read-only unless separately authorized. This product phase does not imply that SMS, broader custom documents, or high-fidelity PDF conversion are available.
+The current native Node/Render deployment does not install the optional converter, so it must truthfully report high-fidelity PDF as unavailable and retain the existing programmatic PDF fallback. A reproducible Docker runtime is documented for deployments that deliberately enable the converter. PDF evidence remains company-bound and references the exact merged DOCX source artifact; outbound delivery/history and SMS remain future Wave 4C scope.
+
+QA certification remains **NOT READY** and production remains read-only unless separately authorized.
 
 ## Wave 3 completed baseline and current workflow-remediation state
 
-Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1B Client Receivable Lifecycle UX is complete through merged PR #129. Wave 2 cross-module routing and handoffs is complete through merged PR #131. Wave 3 payroll/subcontract/PO workflow decisions are complete through merged PRs #132 and #133. The current Wave 4A starting baseline is the exact green `main` SHA:
+Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1B Client Receivable Lifecycle UX is complete through merged PR #129. Wave 2 cross-module routing and handoffs is complete through merged PR #131. Wave 3 payroll/subcontract/PO workflow decisions are complete through merged PRs #132 and #133. Wave 4A started from the exact green `main` SHA:
 
 `b9ffc21c2332d5cc1d6e7ea137917957afd4d5b0`
 
+Wave 4A is complete through PR #134. The current Wave 4B starting baseline is the exact merged `main` SHA `7fbfe40938571f7e3223687cdc03ac549aa2454f`.
+
 The prior Protected QA Release completed green, including migration parity and authenticated hosted QA. That release evidence is a readiness fact for its exact SHA; it does not change the separate `QA CERTIFICATION NOT READY` product-readiness status or certify Wave 3 application or migration changes.
 
-Wave 4A is **ACTIVE**. The detailed audit source of truth, finding IDs, classifications, and earlier remediation mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
+Wave 4A is **COMPLETE through PR #134**. Wave 4B is **ACTIVE**. The detailed audit source of truth, finding IDs, classifications, and earlier remediation mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
 
 ## Immediate user-prioritized product workflow sequence
 

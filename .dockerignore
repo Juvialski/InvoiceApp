@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+dist
+build
+coverage
+artifacts
+tmp
+.qa-e2e
+.env*
+!.env.example
+*.log
