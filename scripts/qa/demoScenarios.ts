@@ -194,6 +194,48 @@ const verifyClientReceivableLifecycle: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyPurchaseOrderDocumentDeliverySurface: QaScenarioAction = async (page) => {
+  const preview = page.getByRole("button", { name: "Preview", exact: true }).first();
+  const previewCount = await page.getByRole("button", { name: "Preview", exact: true }).count();
+  if (previewCount > 0) await preview.click();
+  await waitForVisible(page, '[data-document-delivery-history]');
+  const documentPreview = await page.locator("#document-preview-title").count();
+  const deliveryHistory = await page.locator('[data-document-delivery-history]').count();
+  const fallbackPdf = await page.getByRole("button", { name: "Generate / Download PDF", exact: true }).count();
+  const companyTemplatePdf = await page.getByRole("button", { name: "Company-template PDF", exact: true }).count();
+  const sendButton = await page.getByRole("button", { name: /Send by Email|Resend by Email|Try send again/ }).count();
+  const disconnectedHistory = await page.locator("text=Connect the authenticated workspace to load immutable delivery history.").count();
+  return [
+    { id: "po-document-preview-visible", passed: documentPreview === 1, details: `Purchase Order preview headings: ${documentPreview}` },
+    { id: "po-delivery-history-surface-visible", passed: deliveryHistory === 1, details: `delivery history surfaces: ${deliveryHistory}` },
+    { id: "po-programmatic-pdf-fallback-control-visible", passed: fallbackPdf === 1, details: `programmatic PDF controls: ${fallbackPdf}` },
+    { id: "po-company-template-pdf-control-visible", passed: companyTemplatePdf === 1, details: `company-template PDF controls: ${companyTemplatePdf}` },
+    { id: "po-email-send-control-visible", passed: sendButton === 1, details: `email send controls: ${sendButton}` },
+    { id: "po-demo-history-disconnected-state-visible", passed: disconnectedHistory === 1, details: `disconnected delivery-history notices: ${disconnectedHistory}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyClientInvoiceDocumentDeliverySurface: QaScenarioAction = async (page) => {
+  const preview = page.getByRole("button", { name: "Preview / generate Client Invoice", exact: true }).first();
+  const previewCount = await page.getByRole("button", { name: "Preview / generate Client Invoice", exact: true }).count();
+  if (previewCount > 0) await preview.click();
+  await waitForVisible(page, '[data-document-delivery-history]');
+  const documentPreview = await page.locator("#document-preview-title").count();
+  const deliveryHistory = await page.locator('[data-document-delivery-history]').count();
+  const fallbackPdf = await page.getByRole("button", { name: "Generate / Download PDF", exact: true }).count();
+  const companyTemplatePdf = await page.getByRole("button", { name: "Company-template PDF", exact: true }).count();
+  const sendButton = await page.getByRole("button", { name: /Send by Email|Resend by Email|Try send again/ }).count();
+  const disconnectedHistory = await page.locator("text=Connect the authenticated workspace to load immutable delivery history.").count();
+  return [
+    { id: "client-invoice-document-preview-visible", passed: documentPreview === 1, details: `Client Invoice preview headings: ${documentPreview}` },
+    { id: "client-invoice-delivery-history-surface-visible", passed: deliveryHistory === 1, details: `delivery history surfaces: ${deliveryHistory}` },
+    { id: "client-invoice-programmatic-pdf-fallback-control-visible", passed: fallbackPdf === 1, details: `programmatic PDF controls: ${fallbackPdf}` },
+    { id: "client-invoice-company-template-pdf-control-visible", passed: companyTemplatePdf === 1, details: `company-template PDF controls: ${companyTemplatePdf}` },
+    { id: "client-invoice-email-send-control-visible", passed: sendButton === 1, details: `email send controls: ${sendButton}` },
+    { id: "client-invoice-demo-history-disconnected-state-visible", passed: disconnectedHistory === 1, details: `disconnected delivery-history notices: ${disconnectedHistory}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const openMobileNavigation: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   await waitForVisible(page, 'button[aria-label="Close navigation"]');
@@ -383,6 +425,8 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim and variation parity verified", viewport: QA_VIEWPORTS.desktop, action: verifyProcurementSubcontractParity }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim settlement workflow verified", viewport: QA_VIEWPORTS.mobile, action: verifySubcontractMobileSettlementWorkflow }),
+  defineQaScenario({ feature: "document-delivery", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "Purchase Order delivery preview and disconnected history verified", viewport: QA_VIEWPORTS.desktop, action: verifyPurchaseOrderDocumentDeliverySurface }),
+  defineQaScenario({ feature: "document-delivery", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "Purchase Order delivery preview and disconnected history verified", viewport: QA_VIEWPORTS.mobile, action: verifyPurchaseOrderDocumentDeliverySurface }),
   defineQaScenario({ feature: "warehouse-inventory", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "warehouse ledger rendered", viewport: QA_VIEWPORTS.desktop, action: verifyWarehouseInventoryScreen }),
   defineQaScenario({ feature: "warehouse-inventory", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "warehouse source continuation verified", viewport: QA_VIEWPORTS.mobile, action: verifyWarehouseInventoryScreen }),
   defineQaScenario({ feature: "equipment-registry", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "Equipment Registry rendered", viewport: QA_VIEWPORTS.desktop, action: verifyEquipmentRegistryScreen }),
@@ -427,6 +471,8 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "supplier-payables", route: route("cash", "/cash?fromTargetType=:fromTargetType&fromTargetId=:fromTargetId&returnTo=:returnTo"), path: "/demo/app/cash?fromTargetType=EXPENSE&fromTargetId=demo-expense-supplier-bm-02&returnTo=%2Fexpenses%3FexpenseId%3Ddemo-expense-supplier-bm-02", interactionState: "Cash Expense target and return context opened", viewport: QA_VIEWPORTS.mobile, action: verifyCashExpenseTarget }),
   defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "client invoice collection lifecycle verified", viewport: QA_VIEWPORTS.desktop, action: verifyClientReceivableLifecycle }),
   defineQaScenario({ feature: "client-receivables", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "client invoice collection lifecycle verified", viewport: QA_VIEWPORTS.mobile, action: verifyClientReceivableLifecycle }),
+  defineQaScenario({ feature: "document-delivery", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "Client Invoice delivery preview and disconnected history verified", viewport: QA_VIEWPORTS.desktop, action: verifyClientInvoiceDocumentDeliverySurface }),
+  defineQaScenario({ feature: "document-delivery", route: route("project-billing", "/projects/:projectId/billing?billingId=:billingId"), path: "/demo/app/projects/demo-project-warehouse/billing?billingId=demo-client-billing-warehouse-02", interactionState: "Client Invoice delivery preview and disconnected history verified", viewport: QA_VIEWPORTS.mobile, action: verifyClientInvoiceDocumentDeliverySurface }),
   defineQaScenario({ feature: "reports", route: route("reports", "/reports"), path: "/demo/app/reports", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "settings", route: route("settings", "/settings"), path: "/demo/app/settings", interactionState: "settings product surface verified", viewport: QA_VIEWPORTS.desktop, action: verifySettingsScreen }),
   defineQaScenario({ feature: "assistant", route: route("assistant", "/assistant"), path: "/demo/app/assistant", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),

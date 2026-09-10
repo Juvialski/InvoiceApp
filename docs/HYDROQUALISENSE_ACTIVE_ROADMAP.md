@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — WAVE 4B HIGH-FIDELITY PDF FINALIZATION / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — WAVE 4C OUTBOUND DOCUMENT DELIVERY & HISTORY / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-10**
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -10,11 +10,15 @@ Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
 
-## Current user-selected bounded phase — Wave 4B High-Fidelity PDF Finalization
+## Current user-selected bounded phase — Wave 4C Outbound Document Delivery & Delivery History
 
-Wave 4A Intelligent Document Templates & Mail Merge Foundation is complete through merged PR #134 at `7fbfe40938571f7e3223687cdc03ac549aa2454f`. Wave 4B extends the same path for Purchase Orders and Client Invoices: authoritative issued snapshot -> pinned immutable template -> deterministic merged DOCX -> server-side high-fidelity PDF when the deployment has an operational LibreOffice Writer converter.
+Wave 4A Intelligent Document Templates & Mail Merge Foundation is complete through merged PR #134 at `7fbfe40938571f7e3223687cdc03ac549aa2454f`. Wave 4B High-Fidelity PDF Finalization is complete through merged PR #135 at `bd636325292471eb6060ec2df4ecde9619a546db`.
 
-The current native Node/Render deployment does not install the optional converter, so it must truthfully report high-fidelity PDF as unavailable and retain the existing programmatic PDF fallback. A reproducible Docker runtime is documented for deployments that deliberately enable the converter. PDF evidence remains company-bound and references the exact merged DOCX source artifact; outbound delivery/history and SMS remain future Wave 4C scope.
+Wave 4C extends the existing issued-document Gmail sender for Purchase Orders and Client Invoices. When a snapshot has a pinned template and the deployment has an operational converter, the exact finalized company-template PDF is attached; otherwise the existing programmatic PDF fallback remains explicit. Durable send intents and append-only audit rows now retain attachment source, exact PDF hash, template/generation provenance, recipients, outcome, and safe history visibility. Explicit resends create new delivery attempts, while unresolved delivery states remain locked until reconciliation.
+
+SMS remains provider-neutral foundation only. No SMS provider, credential, delivery guarantee, campaign automation, or client-facing Available claim is introduced.
+
+The current native Node/Render deployment does not install the optional converter, so it truthfully reports high-fidelity PDF as unavailable and retains the existing programmatic PDF fallback. PDF and delivery evidence remain company-bound; the optional Docker runtime is documented for deployments that deliberately enable the converter.
 
 QA certification remains **NOT READY** and production remains read-only unless separately authorized.
 
@@ -24,11 +28,11 @@ Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1
 
 `b9ffc21c2332d5cc1d6e7ea137917957afd4d5b0`
 
-Wave 4A is complete through PR #134. The current Wave 4B starting baseline is the exact merged `main` SHA `7fbfe40938571f7e3223687cdc03ac549aa2454f`.
+Wave 4A is complete through PR #134 and Wave 4B is complete through PR #135. The current Wave 4C starting baseline is the exact merged `main` SHA `bd636325292471eb6060ec2df4ecde9619a546db`.
 
 The prior Protected QA Release completed green, including migration parity and authenticated hosted QA. That release evidence is a readiness fact for its exact SHA; it does not change the separate `QA CERTIFICATION NOT READY` product-readiness status or certify Wave 3 application or migration changes.
 
-Wave 4A is **COMPLETE through PR #134**. Wave 4B is **ACTIVE**. The detailed audit source of truth, finding IDs, classifications, and earlier remediation mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
+Wave 4A is **COMPLETE through PR #134**. Wave 4B is **COMPLETE through PR #135**. Wave 4C is **ACTIVE on the current feature branch**. The detailed audit source of truth, finding IDs, classifications, and earlier remediation mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
 
 ## Immediate user-prioritized product workflow sequence
 

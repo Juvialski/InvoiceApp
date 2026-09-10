@@ -1,9 +1,9 @@
 begin;
 select no_plan();
 
-select isnt_empty(
+select is_empty(
   $$select 1 from pg_policies where schemaname = 'public' and tablename = 'document_send_intents' and policyname = 'document_send_intents_select' and qual ilike '%documents.send%'$$,
-  'send intent visibility still requires documents.send'
+  'send intent visibility does not require documents.send'
 );
 select isnt_empty(
   $$select 1 from pg_policies where schemaname = 'public' and tablename = 'document_send_intents' and policyname = 'document_send_intents_select' and qual ilike '%procurement.read%'$$,

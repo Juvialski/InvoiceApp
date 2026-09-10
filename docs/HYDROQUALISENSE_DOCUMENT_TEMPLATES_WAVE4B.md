@@ -1,6 +1,6 @@
 # HydroQualiSense Document Templates — Wave 4B
 
-Status: **ACTIVE — high-fidelity PDF finalization**
+Status: **COMPLETE through merged PR #135**
 
 Wave 4B extends the existing Wave 4A document path without creating a second document system:
 
@@ -76,4 +76,4 @@ The database requires a PDF evidence row to reference an existing matching DOCX 
 
 LibreOffice is the supported self-hosted renderer, not Microsoft Word. Complex Word-only features, uncommon fonts, embedded external content, macros, unsupported fields, and provider-specific rendering differences may not reproduce exactly. External content is rejected rather than fetched. The health/capability check and final PDF validation are deliberately fail-closed; the existing programmatic PDF remains the compatibility fallback.
 
-Wave 4C remains future work for outbound delivery history and any new SMS functionality.
+Wave 4C extends this evidence into outbound delivery history. SMS remains provider-neutral foundation only until an approved provider is configured and runtime-tested.

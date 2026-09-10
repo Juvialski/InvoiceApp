@@ -291,7 +291,7 @@ function artifactObjectPath(companyId: string, snapshotId: string, documentType:
   return `companies/${companyId}/document-template-artifacts/${snapshotId}/${documentType}/${versionId}/${hash}.${extension}`;
 }
 
-interface GeneratedArtifactReference {
+export interface GeneratedArtifactReference {
   readonly artifactType: GeneratedArtifactType;
   readonly artifactSha256: string;
   readonly artifactStoragePath: string;
@@ -475,6 +475,102 @@ async function pdfConverter(options: DocumentTemplateRouterOptions): Promise<Doc
     throw new DocumentPdfFinalizationError("PDF_CONVERTER_UNAVAILABLE", "High-fidelity PDF conversion is unavailable on this deployment. Use the existing PDF fallback.");
   }
   return converter;
+}
+
+export interface IssuedDocumentTemplatePdfDelivery {
+  readonly bytes: Uint8Array;
+  readonly attachmentSource: "COMPANY_TEMPLATE_PDF";
+  readonly templateVersionId: string;
+  readonly templateVersion: string;
+  readonly templateContentSha256: string;
+  readonly sourceArtifact: GeneratedArtifactReference;
+  readonly artifact: GeneratedArtifactReference;
+  readonly converterId: string;
+  readonly converterVersion: string;
+}
+
+/**
+ * Render the exact pinned company-template PDF for an outbound send. This is
+ * deliberately shared with the document-template route so Gmail cannot drift
+ * to a second merge or conversion implementation. A missing operational
+ * converter is the one compatibility case that returns null to let the caller
+ * use the existing programmatic PDF fallback.
+ */
+export async function finalizeIssuedDocumentTemplatePdfForDelivery(
+  auth: StorageAuthContext,
+  options: DocumentTemplateRouterOptions,
+  input: {
+    readonly snapshotId: string;
+    readonly documentType: DocumentTemplateType;
+    readonly documentId: string;
+  },
+): Promise<IssuedDocumentTemplatePdfDelivery | null> {
+  const { data, error } = await auth.supabase
+    .from("issued_document_snapshots")
+    .select("id,document_type,document_id,template_version_id,template_sha256")
+    .eq("id", input.snapshotId)
+    .eq("company_id", auth.companyId)
+    .eq("document_type", input.documentType)
+    .eq("document_id", input.documentId)
+    .maybeSingle();
+  if (error) throw new StorageApiError(503, "DATABASE_ERROR", "The issued document snapshot could not be loaded safely.");
+  if (!data) throw new StorageApiError(409, "SNAPSHOT_UNAVAILABLE", "The issued document snapshot is unavailable.");
+  if (!data.template_version_id) return null;
+
+  let converter: DocumentPdfConverter;
+  try {
+    converter = await pdfConverter(options);
+  } catch (conversionError) {
+    if (conversionError instanceof DocumentPdfFinalizationError && conversionError.code === "PDF_CONVERTER_UNAVAILABLE") return null;
+    throw conversionError;
+  }
+
+  const { version } = await readTemplateVersion(auth, options, String(data.template_version_id));
+  if (version.documentType !== input.documentType) throw new StorageApiError(409, "TEMPLATE_VERSION_MISMATCH", "The issued document is pinned to a different immutable template version.");
+  const snapshotTemplateHash = String(data.template_sha256 || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(snapshotTemplateHash) || snapshotTemplateHash !== version.contentSha256.toLowerCase()) {
+    throw new StorageApiError(409, "TEMPLATE_HASH_MISMATCH", "The issued document template hash does not match the pinned template version.");
+  }
+
+  const { bytes: templateBytes } = await readTemplateBytes(auth, options, version);
+  const generation = await loadGenerationSnapshot(auth, version, input.documentType, { snapshotId: input.snapshotId });
+  if (!generation.issued || generation.snapshotId !== input.snapshotId || String(generation.snapshot.documentId || "") !== input.documentId) {
+    throw new StorageApiError(409, "SNAPSHOT_UNAVAILABLE", "The issued document snapshot is unavailable.");
+  }
+  const merged = mergeDocxTemplate(templateBytes, version.sourceFilename || "template.docx", generation.snapshot, version.bindings);
+  const pdfBytes = await finalizeMergedDocxToPdf(merged, converter);
+  const sourceArtifact = await persistGeneratedArtifact(auth, options, {
+    snapshotId: input.snapshotId,
+    documentType: input.documentType,
+    documentId: input.documentId,
+    templateVersionId: version.id,
+    templateContentSha256: version.contentSha256,
+    artifactType: "DOCX",
+    bytes: merged,
+  });
+  const artifact = await persistGeneratedArtifact(auth, options, {
+    snapshotId: input.snapshotId,
+    documentType: input.documentType,
+    documentId: input.documentId,
+    templateVersionId: version.id,
+    templateContentSha256: version.contentSha256,
+    artifactType: "PDF",
+    bytes: pdfBytes,
+    source: sourceArtifact,
+    converterId: converter.id,
+    converterVersion: converter.version,
+  });
+  return {
+    bytes: pdfBytes,
+    attachmentSource: "COMPANY_TEMPLATE_PDF",
+    templateVersionId: version.id,
+    templateVersion: String(generation.snapshot.templateVersion || "").slice(0, 200),
+    templateContentSha256: version.contentSha256,
+    sourceArtifact,
+    artifact,
+    converterId: converter.id,
+    converterVersion: converter.version,
+  };
 }
 
 async function persistVersion(
