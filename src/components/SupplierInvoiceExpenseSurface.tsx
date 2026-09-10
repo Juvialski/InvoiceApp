@@ -64,6 +64,7 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
       <a
         href={demoHref(expensePath, linkedExpense.id)}
         onClick={(event) => navigate(event, expensePath)}
+        aria-label="Open Expense — Open/Correct linked Expense"
         className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-[10px] font-black text-indigo-800 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
       >
         Open/Correct linked Expense <ArrowRight className="h-3.5 w-3.5" />
