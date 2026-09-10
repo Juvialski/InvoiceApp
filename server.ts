@@ -11,6 +11,7 @@ import { decodeBase64Payload, MAX_EXTRACTION_TEXT_CHARS, MAX_GMAIL_ATTACHMENT_BY
 import { AiRequestBudgetError, claimAiRequest, releaseAiRequest } from "./src/server/ai/aiRequestBudget.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import { createStorageRouter } from "./src/server/storage/storageRouter.ts";
+import { createDocumentTemplateRouter } from "./src/server/documentTemplates/documentTemplateRouter.ts";
 import { getStorageHealth } from "./src/lib/storage/index.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
 import { companyAiServerSupabase } from "./src/server/ai/companyAiServerSupabase.ts";
@@ -1004,6 +1005,7 @@ app.use("/api/assistant", (req, res, next) => {
   return next();
 });
 app.use("/api/assistant", createAssistantRouter());
+app.use("/api/document-templates", createDocumentTemplateRouter());
 app.use("/api/documents", createStorageRouter());
 app.get("/api/storage/health", async (req, res) => {
   try {

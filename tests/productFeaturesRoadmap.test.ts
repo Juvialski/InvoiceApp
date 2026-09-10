@@ -56,6 +56,9 @@ test("supplier payment feature truth reflects the inline linked-Expense workflow
 });
 
 test("approved next and future items are explicit and do not imply unfinished access", () => {
+  const templates = getProductFeatureById("company-document-templates");
+  assert.equal(templates?.status, "AVAILABLE");
+  assert.match(JSON.stringify(templates), /editable DOCX|immutable snapshot|mapping/i);
   assert.equal(getProductFeatureById("email-sms-documents-improvements")?.status, "PLANNED");
   assert.equal(getProductFeatureById("worker-registration")?.status, "PLANNED");
   assert.equal(getProductFeatureById("site-attendance")?.status, "PLANNED");

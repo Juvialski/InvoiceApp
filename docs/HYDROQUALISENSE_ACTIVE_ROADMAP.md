@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — WAVE 3 IN PROGRESS / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — USER-SELECTED WAVE 4A DOCUMENT TEMPLATES IN PROGRESS / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-10**
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -10,15 +10,21 @@ Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
 
-## Wave 3 starting baseline and current workflow-remediation state
+## Current user-selected bounded phase — Wave 4A Document Templates
 
-Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1B Client Receivable Lifecycle UX is complete through merged PR #129. Wave 2 cross-module routing and handoffs is complete through merged PR #131. The current Wave 3 starting baseline is the exact green `main` SHA:
+The Documents portion of the broader Email/SMS + Documents direction is the current implementation priority from green `main` at `b9ffc21c2332d5cc1d6e7ea137917957afd4d5b0`. This phase connects authoritative Purchase Order and Client Invoice snapshots to company-bound immutable DOCX template versions, deterministic mail merge, structured AI proposals, and Settings-based validation/activation. The existing PDF and Gmail paths remain compatibility fallbacks; high-fidelity PDF conversion and outbound delivery/history remain later phases.
 
-`18503d271b9a3081cc484c106a88e333e67e030c`
+QA certification remains **NOT READY** and production remains read-only unless separately authorized. This product phase does not imply that SMS, broader custom documents, or high-fidelity PDF conversion are available.
+
+## Wave 3 completed baseline and current workflow-remediation state
+
+Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1B Client Receivable Lifecycle UX is complete through merged PR #129. Wave 2 cross-module routing and handoffs is complete through merged PR #131. Wave 3 payroll/subcontract/PO workflow decisions are complete through merged PRs #132 and #133. The current Wave 4A starting baseline is the exact green `main` SHA:
+
+`b9ffc21c2332d5cc1d6e7ea137917957afd4d5b0`
 
 The prior Protected QA Release completed green, including migration parity and authenticated hosted QA. That release evidence is a readiness fact for its exact SHA; it does not change the separate `QA CERTIFICATION NOT READY` product-readiness status or certify Wave 3 application or migration changes.
 
-Wave 3 is **ACTIVE**. The detailed audit source of truth, finding IDs, classifications, and wave mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
+Wave 4A is **ACTIVE**. The detailed audit source of truth, finding IDs, classifications, and earlier remediation mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
 
 ## Immediate user-prioritized product workflow sequence
 
@@ -27,7 +33,7 @@ The user explicitly reprioritized the broad UX/workflow audit remediation ahead 
 1. **Wave 1A — Supplier Payable Lifecycle UX — COMPLETE**
 2. **Wave 1B — Client Receivable Lifecycle UX — COMPLETE**
 3. **Wave 2 — Cross-module routing and handoffs — COMPLETE**
-4. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — ACTIVE**
+4. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — COMPLETE**
 5. Resume the broader approved product roadmap unless the user reprioritizes again:
    - Email/SMS + Documents;
    - Worker Registration foundation;
@@ -95,9 +101,9 @@ The current bounded implementation also carries exact Expense, Cash, Procurement
 
 Keep this wave focused on navigation, context, discoverability, and truthful handoffs. Do not invent duplicate domain records to make navigation easier.
 
-### Wave 3 — Deliberate business-workflow decisions
+### Wave 3 — Deliberate business-workflow decisions — COMPLETE
 
-**Status: ACTIVE from exact merged `main` `18503d2`; implementation is complete on the current feature branch pending PR review and exact-head CI.**
+**Status: COMPLETE on merged `main` through PRs #132 and #133.**
 
 These require explicit lifecycle/source-of-truth design rather than opportunistic routing polish:
 

@@ -62,6 +62,8 @@ export interface PurchaseOrderDocumentSnapshot {
   amountInWords?: string;
   processor: ProcessorSnapshot;
   templateVersion: string;
+  templateVersionId?: string;
+  templateContentSha256?: string;
   generatedAt?: string;
 }
 
@@ -99,6 +101,8 @@ export interface ClientInvoiceDocumentSnapshot {
   termsAndConditions?: string | null;
   processor: ProcessorSnapshot;
   templateVersion: string;
+  templateVersionId?: string;
+  templateContentSha256?: string;
   generatedAt?: string;
 }
 

@@ -5,7 +5,9 @@ import { documentFileName, downloadPdfBytes, generateFinancialDocumentPdf } from
 import { loadCompanyDocumentProfileFromSupabase } from "../lib/companyDocumentProfile.ts";
 import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "../lib/documentSnapshots.ts";
 import { sendFinancialDocumentByGmail } from "../lib/documentEmail.ts";
+import { downloadDocxBytes, generateDocumentTemplateDocument } from "../lib/documentTemplates.ts";
 import { useAppPermission } from "../app/AppPermissionContext.tsx";
+import { useOptionalCompanyAccess } from "../context/CompanyAccessContext.tsx";
 import { PERMISSION_KEYS } from "../utils/accessControl.ts";
 
 interface DocumentPreviewModalProps {
@@ -26,9 +28,12 @@ function shortDate(value?: string | null) {
 
 export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ document: initialDocument, onClose, onSent }) => {
   const canSendIssuedDocument = useAppPermission(PERMISSION_KEYS.documentSend);
+  const companyAccess = useOptionalCompanyAccess();
   const [document, setDocument] = useState(initialDocument);
   const [loadingSnapshot, setLoadingSnapshot] = useState(initialDocument.status === "ISSUED" && !initialDocument.snapshotId);
   const [downloadBusy, setDownloadBusy] = useState(false);
+  const [docxBusy, setDocxBusy] = useState(false);
+  const [docxError, setDocxError] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -71,6 +76,25 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
     setDownloadBusy(true);
     try { downloadPdfBytes(await generateFinancialDocumentPdf(document), fileName); }
     finally { setDownloadBusy(false); }
+  };
+
+  const downloadCompanyDocx = async () => {
+    setDocxBusy(true);
+    setDocxError("");
+    try {
+      if (document.status !== "ISSUED" || !document.snapshotId || !document.templateVersionId) {
+        throw new Error("This issued snapshot has no pinned company template version. Use the existing PDF fallback or issue a new document after activating a template.");
+      }
+      const result = await generateDocumentTemplateDocument(companyAccess?.activeCompanyId || "", document.templateVersionId, {
+        documentType: document.documentType,
+        snapshotId: document.snapshotId,
+      });
+      downloadDocxBytes(result.bytes, result.fileName);
+    } catch (error) {
+      setDocxError(error instanceof Error ? error.message : "The company DOCX could not be generated safely.");
+    } finally {
+      setDocxBusy(false);
+    }
   };
 
   const print = () => {
@@ -158,10 +182,12 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
 
         <footer className="border-t border-slate-200 bg-white px-4 py-3 sm:px-5">
           {sendError && <p role="alert" className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{sendError}</p>}
+          {docxError && <p role="alert" className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{docxError}</p>}
           {sendResult && <p role="status" className="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"><CheckCircle2 className="mr-1 inline h-3.5 w-3.5" />{sendResult}</p>}
           {composeOpen && <div className="mb-3 grid gap-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 sm:grid-cols-2"><label className="text-[10px] font-bold text-slate-700 sm:col-span-2">To<input value={to} onChange={(event) => setTo(event.target.value)} className="field-input mt-1" placeholder="vendor@example.com" /></label><label className="text-[10px] font-bold text-slate-700">CC<input value={cc} onChange={(event) => setCc(event.target.value)} className="field-input mt-1" /></label><label className="text-[10px] font-bold text-slate-700">Subject<input value={subject} onChange={(event) => setSubject(event.target.value)} className="field-input mt-1" /></label><label className="text-[10px] font-bold text-slate-700 sm:col-span-2">Message<textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={3} className="field-input mt-1 resize-y" /></label><div className="flex flex-wrap justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setComposeOpen(false)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700">Cancel</button><button type="button" onClick={() => void send()} disabled={sendBusy} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white disabled:opacity-50">{sendBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}Confirm &amp; Send</button></div></div>}
-          <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-[10px] text-slate-500">{isIssued ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : <FileText className="h-3.5 w-3.5 text-amber-600" />}{document.templateVersion}</div><div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={print} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700"><Printer className="h-3.5 w-3.5" />Print</button><button type="button" onClick={() => void download()} disabled={downloadBusy || loadingSnapshot} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white disabled:opacity-50">{downloadBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Generate / Download PDF</button><button type="button" onClick={() => setComposeOpen(true)} disabled={!isIssued || !document.snapshotId || !canSendIssuedDocument} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 disabled:cursor-not-allowed disabled:opacity-45"><Mail className="h-3.5 w-3.5" />Send by Email</button></div></div>
+          <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-[10px] text-slate-500">{isIssued ? <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> : <FileText className="h-3.5 w-3.5 text-amber-600" />}{document.templateVersion}</div><div className="flex flex-wrap justify-end gap-2"><button type="button" onClick={print} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700"><Printer className="h-3.5 w-3.5" />Print</button><button type="button" onClick={() => void download()} disabled={downloadBusy || loadingSnapshot} className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-black text-white disabled:opacity-50">{downloadBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}Generate / Download PDF</button><button type="button" onClick={() => void downloadCompanyDocx()} disabled={!isIssued || !document.snapshotId || !document.templateVersionId || docxBusy || loadingSnapshot} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 disabled:cursor-not-allowed disabled:opacity-45">{docxBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}Generate company DOCX</button><button type="button" onClick={() => setComposeOpen(true)} disabled={!isIssued || !document.snapshotId || !canSendIssuedDocument} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-black text-indigo-700 disabled:cursor-not-allowed disabled:opacity-45"><Mail className="h-3.5 w-3.5" />Send by Email</button></div></div>
           {!isIssued && <p className="mt-2 text-right text-[10px] text-amber-700">{isDraft ? "Issuance is required before email sending and immutable resend." : "Cancelled or voided documents cannot be emailed."}</p>}
+          {isIssued && !document.templateVersionId && <p className="mt-2 text-right text-[10px] text-slate-500">This historical snapshot uses the PDF fallback because no company template version was pinned at issuance.</p>}
           {isIssued && !canSendIssuedDocument && <p className="mt-2 text-right text-[10px] text-amber-700">Issued-document sending is restricted to users with the dedicated send permission.</p>}
         </footer>
       </section>

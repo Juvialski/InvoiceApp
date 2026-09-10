@@ -19,8 +19,17 @@ function record(value: unknown): Record<string, any> {
 export function snapshotFromRpc(value: unknown): IssuedDocumentSnapshot {
   const row = record(value);
   const snapshot = record(row.snapshot);
-  if (snapshot.documentType === "CLIENT_INVOICE") return { ...snapshot, documentId: String(row.documentId || ""), snapshotId: String(row.id || "") } as ClientInvoiceDocumentSnapshot;
-  return { ...snapshot, documentId: String(row.documentId || ""), snapshotId: String(row.id || "") } as PurchaseOrderDocumentSnapshot;
+  const templateVersionId = String(row.templateVersionId || row.template_version_id || snapshot.templateVersionId || "").trim() || undefined;
+  const templateContentSha256 = String(row.templateContentSha256 || row.template_sha256 || snapshot.templateContentSha256 || "").trim() || undefined;
+  const shared = {
+    ...snapshot,
+    documentId: String(row.documentId || row.document_id || ""),
+    snapshotId: String(row.id || ""),
+    ...(templateVersionId ? { templateVersionId } : {}),
+    ...(templateContentSha256 ? { templateContentSha256 } : {}),
+  };
+  if (snapshot.documentType === "CLIENT_INVOICE") return shared as ClientInvoiceDocumentSnapshot;
+  return shared as PurchaseOrderDocumentSnapshot;
 }
 
 export async function ensurePurchaseOrderDocumentSnapshot(
