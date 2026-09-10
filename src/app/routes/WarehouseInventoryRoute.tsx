@@ -57,11 +57,19 @@ export const WarehouseInventoryRoute: React.FC<WarehouseInventoryRouteProps> = (
       : { purchaseOrders: [], receipts: [] },
     [canReadProcurement, purchaseOrders, receipts],
   );
+  const warehouseMovements = useMemo(
+    () => canReadProcurement
+      ? movements
+      : movements.map((movement) => movement.sourceType === "PURCHASE_ORDER_RECEIPT" && movement.sourcePurchaseOrderId
+        ? { ...movement, sourcePurchaseOrderId: null }
+        : movement),
+    [canReadProcurement, movements],
+  );
 
   return (
     <WarehouseInventoryPage
       items={items}
-      movements={movements}
+      movements={warehouseMovements}
       balances={balances}
       projects={canReadProjects ? projects : []}
       projectMaterials={canReadProjects ? projectMaterials : []}
