@@ -39,15 +39,19 @@ test("cash candidate builders preserve lifecycle context required by the shared 
   assert.match(demo, /description: "Payroll payment", lifecycleStatus: run\.status/);
 });
 
-test("Wave 1A UI uses the existing settlement evidence and guarded Cash route", () => {
+test("supplier invoice now starts routine payment from Change Status while retaining guarded correction and Cash tooling", () => {
   const surface = source("src/components/SupplierInvoiceExpenseSurface.tsx");
+  const dialog = source("src/components/SupplierInvoicePaymentDialog.tsx");
   const card = source("src/components/FinancialSettlementCard.tsx");
   const expensePage = source("src/components/expenses/ExpensesPage.tsx");
   const cashWorkspace = source("src/components/CashSettlementAllocationWorkspace.tsx");
   const cashPage = source("src/components/CashBankingPage.tsx");
-  assert.match(surface, /Open Expense/);
-  assert.match(surface, /recordPaymentPath=\{appPathForCashTarget\("EXPENSE", linkedExpense\.id, appPathForExpense\(linkedExpense\.id/);
-  assert.match(card, /Record Payment/);
+  assert.match(surface, /Change Status/);
+  assert.match(surface, /Open\/Correct linked Expense/);
+  assert.doesNotMatch(surface, /recordPaymentPath=/);
+  assert.match(dialog, /Confirm Payment/);
+  assert.match(dialog, /Add Cash\/Bank Account/);
+  assert.match(dialog, /targetType: "EXPENSE"/);
   assert.match(card, /isSettlementTargetLifecycleEligible/);
   assert.doesNotMatch(card, /Mark Paid/);
   assert.match(expensePage, /selectedExpenseId/);
