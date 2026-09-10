@@ -421,8 +421,10 @@ async function approveLinkedExpenseForPayment(context: AssistantToolContext, exp
 export async function executePreparedFinancialSettlementAction(context: AssistantToolContext, toolName: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (toolName === "prepare_supplier_invoice_payment") {
     const resolved = await resolveSupplierInvoicePayment(args, context);
+    const approvedExpense = await approveLinkedExpenseForPayment(context, resolved.expense);
     const transactionId = String(args.transactionId);
     let transactionCreated = false;
+    let settlementConfirmed = false;
     try {
       const transaction = await rpc(context, "create_financial_transaction", {
         p_transaction_id: transactionId,
@@ -433,11 +435,10 @@ export async function executePreparedFinancialSettlementAction(context: Assistan
         p_description: `Supplier invoice ${resolved.invoice.invoice_number || resolved.invoice.id} payment`,
         p_direction: "DEBIT",
         p_amount: resolved.amount,
-        p_currency: String(resolved.expense.currency || "PHP").toUpperCase(),
+        p_currency: String(approvedExpense.currency || "PHP").toUpperCase(),
         p_source_fingerprint: `assistant-supplier-payment-${transactionId}`,
       });
       transactionCreated = true;
-      const approvedExpense = await approveLinkedExpenseForPayment(context, resolved.expense);
       await validatePreparedAllocation(context, transactionId, "EXPENSE", String(approvedExpense.id), resolved.amount);
       const match = await rpc(context, "confirm_financial_settlement", {
         p_transaction_id: transactionId,
@@ -449,10 +450,17 @@ export async function executePreparedFinancialSettlementAction(context: Assistan
         p_notes: args.notes || null,
         p_confirmation_source: "ASSISTANT",
       });
-      const settlement = await settlementSummary(context, "EXPENSE", String(approvedExpense.id));
-      return { operation: "supplier_invoice_payment_recorded", invoiceId: resolved.invoice.id, paymentAuthority: { targetType: "EXPENSE", targetId: approvedExpense.id }, transaction, match, settlement, paymentMode: args.paymentMode, amount: resolved.amount, projectCostImpact: 0 };
+      settlementConfirmed = true;
+      let settlement: Record<string, unknown> | null = null;
+      let settlementRefreshRequired = false;
+      try {
+        settlement = await settlementSummary(context, "EXPENSE", String(approvedExpense.id));
+      } catch {
+        settlementRefreshRequired = true;
+      }
+      return { operation: "supplier_invoice_payment_recorded", invoiceId: resolved.invoice.id, paymentAuthority: { targetType: "EXPENSE", targetId: approvedExpense.id }, transaction, match, settlement, settlementRefreshRequired, paymentMode: args.paymentMode, amount: resolved.amount, projectCostImpact: 0 };
     } catch (cause) {
-      if (transactionCreated) {
+      if (transactionCreated && !settlementConfirmed) {
         try {
           await rpc(context, "reverse_financial_transaction", { p_transaction_id: transactionId, p_reason: "Assistant supplier invoice payment flow did not complete." });
         } catch {
