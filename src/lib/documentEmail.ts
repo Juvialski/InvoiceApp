@@ -66,11 +66,15 @@ export async function sendFinancialDocumentByGmail(input: SendFinancialDocumentI
   }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload.success) {
-    const code = typeof payload.code === "string" ? payload.code : undefined;
+    const responseCode = typeof payload.code === "string" ? payload.code : undefined;
+    const reconciliationRequired = responseCode === "DOCUMENT_SEND_RECONCILE_REQUIRED"
+      || response.status >= 500
+      || (response.ok && payload.success !== true);
+    const code = responseCode || (!reconciliationRequired ? "DOCUMENT_SEND_FAILED" : undefined);
     throw new DocumentSendError(payload.error || "Gmail could not send the document.", {
       code,
       status: response.status,
-      reconciliationRequired: code === "DOCUMENT_SEND_RECONCILE_REQUIRED" || response.status >= 500 || (response.ok && payload.success !== true),
+      reconciliationRequired,
     });
   }
   return payload.data as DocumentSendResult;
