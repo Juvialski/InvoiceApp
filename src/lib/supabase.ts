@@ -176,6 +176,8 @@ export function resolveGoogleGmailConnectionMode(identities: readonly { provider
     : "LINK_IDENTITY";
 }
 
+// Keep the existing allow-listed callback target while the legacy path is
+// supported as an alias for the Email / SMS workspace.
 export async function connectGoogleAndGmail(redirectToPath = "/email-intake") {
   const redirectTo = getAuthRedirectUrl(redirectToPath);
   if (!redirectTo) throw new Error("Google sign-in is only available in a browser.");

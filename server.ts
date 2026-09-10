@@ -23,6 +23,7 @@ import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyIn
 import { validatePublicProspectSubmission } from "./src/lib/publicProspect.ts";
 import { releaseMetadataFromEnv } from "./src/server/releaseMetadata.ts";
 import { getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
+import { getSmsProviderStatus } from "./src/server/messaging/smsProvider.ts";
 import {
   chooseBestExtractionCandidate,
   evaluateExtractionQuality,
@@ -1020,29 +1021,40 @@ app.use("/api/document-templates", createDocumentTemplateRouter());
 app.use("/api/documents", createStorageRouter());
 app.get("/api/document-delivery-history", async (req, res) => {
   try {
-    const documentType = issuedDocumentType(req.query.documentType);
+    const requestedType = String(req.query.documentType || "").trim().toUpperCase();
+    const documentType = issuedDocumentType(requestedType);
+    const isGeneralEmail = requestedType === "GENERAL_EMAIL";
     const documentId = String(req.query.documentId || "").trim();
-    if (!documentType || !UUID_PATTERN.test(documentId)) {
+    if ((!documentType && !isGeneralEmail && requestedType) || (documentType && !UUID_PATTERN.test(documentId)) || (isGeneralEmail && documentId)) {
       return res.status(400).json({ success: false, error: "A supported document type and valid document are required." });
     }
-    const auth = await authorizeCompanyRequest(req, documentReadPermission(documentType));
+    const auth = documentType
+      ? await authorizeCompanyRequest(req, documentReadPermission(documentType))
+      : await authorizeCompanyRequest(req, "documents.send");
+    const intentSelect = "id,delivery_kind,document_type,document_id,sender_user_id,recipients,cc,subject,attachment_name,trusted_sha256,message_body_sha256,status,attempt_count,created_at,updated_at,attachment_source,attachment_size,template_version";
+    const auditSelect = "id,send_intent_id,delivery_kind,document_type,document_id,sender_user_id,recipients,cc,subject,attachment_name,status,created_at,attachment_source,attachment_size,template_version,attachment_sha256,message_body_sha256";
+    let intentsQuery = auth.supabase
+      .from("document_send_intents")
+      .select(intentSelect)
+      .eq("company_id", auth.companyId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    let auditsQuery = auth.supabase
+      .from("document_send_audits")
+      .select(auditSelect)
+      .eq("company_id", auth.companyId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (documentType) {
+      intentsQuery = intentsQuery.eq("document_type", documentType).eq("document_id", documentId);
+      auditsQuery = auditsQuery.eq("document_type", documentType).eq("document_id", documentId);
+    } else if (isGeneralEmail) {
+      intentsQuery = intentsQuery.eq("document_type", "GENERAL_EMAIL");
+      auditsQuery = auditsQuery.eq("document_type", "GENERAL_EMAIL");
+    }
     const [intentsResult, auditsResult] = await Promise.all([
-      auth.supabase
-        .from("document_send_intents")
-        .select("id,sender_user_id,recipients,cc,subject,attachment_name,trusted_sha256,status,attempt_count,created_at,updated_at,attachment_source,attachment_size,template_version")
-        .eq("company_id", auth.companyId)
-        .eq("document_type", documentType)
-        .eq("document_id", documentId)
-        .order("created_at", { ascending: false })
-        .limit(100),
-      auth.supabase
-        .from("document_send_audits")
-        .select("id,send_intent_id,sender_user_id,recipients,cc,subject,attachment_name,status,created_at,attachment_source,attachment_size,template_version,attachment_sha256")
-        .eq("company_id", auth.companyId)
-        .eq("document_type", documentType)
-        .eq("document_id", documentId)
-        .order("created_at", { ascending: false })
-        .limit(100),
+      intentsQuery,
+      auditsQuery,
     ]);
     if (intentsResult.error || auditsResult.error) throw intentsResult.error || auditsResult.error;
     const deliveries = mapDocumentDeliveryHistory(
@@ -1055,6 +1067,15 @@ app.get("/api/document-delivery-history", async (req, res) => {
     const status = error instanceof ApiAuthorizationError ? error.status : Number(error?.status) || 503;
     const message = error instanceof ApiAuthorizationError ? error.message : "Document delivery history is temporarily unavailable.";
     return res.status(status).json({ success: false, error: message });
+  }
+});
+app.get("/api/messaging/status", async (req, res) => {
+  try {
+    const auth = await authorizeCompanyRequest(req, "documents.send");
+    return res.json({ success: true, data: { companyId: auth.companyId, sms: getSmsProviderStatus(process.env) } });
+  } catch (error) {
+    const status = error instanceof ApiAuthorizationError ? error.status : 503;
+    return res.status(status).json({ success: false, error: error instanceof Error ? error.message : "Messaging provider status is unavailable." });
   }
 });
 app.get("/api/storage/health", async (req, res) => {
@@ -2085,7 +2106,20 @@ function base64Url(value: Buffer) {
   return value.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-function buildDocumentMimeMessage(input: { to: string[]; cc: string[]; subject: string; message: string; attachmentName: string; pdfBytes: Buffer }) {
+function buildDocumentMimeMessage(input: { to: string[]; cc: string[]; subject: string; message: string; attachmentName?: string; pdfBytes?: Buffer }) {
+  if (!input.pdfBytes || !input.attachmentName) {
+    return Buffer.from([
+      `To: ${input.to.join(", ")}`,
+      ...(input.cc.length ? [`Cc: ${input.cc.join(", ")}`] : []),
+      `Subject: ${input.subject}`,
+      "MIME-Version: 1.0",
+      "Content-Type: text/plain; charset=UTF-8",
+      "Content-Transfer-Encoding: 8bit",
+      "",
+      input.message,
+      "",
+    ].join("\r\n"), "utf8");
+  }
   const boundary = `=_HydroQualiSense_${randomUUID()}`;
   const attachment = input.pdfBytes.toString("base64").replace(/(.{1,76})/g, "$1\r\n").trim();
   const headers = [
@@ -2220,47 +2254,61 @@ app.post("/api/gmail/send", async (req, res) => {
   let gmailDelivered = false;
   try {
     auth = await authorizeCompanyRequest(req, "documents.send");
-    const documentType = issuedDocumentType(req.body?.documentType);
-    if (!documentType) return res.status(400).json({ success: false, error: "A supported issued document type is required." });
+    const requestedType = String(req.body?.documentType || "").trim().toUpperCase();
+    const documentType = issuedDocumentType(requestedType);
+    const generalEmail = requestedType === "GENERAL_EMAIL";
+    if (!documentType && !generalEmail) return res.status(400).json({ success: false, error: "A supported email or issued document type is required." });
     const documentId = String(req.body?.documentId || "").trim();
     const snapshotId = String(req.body?.snapshotId || "").trim();
-    if (!UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) return res.status(400).json({ success: false, error: "An issued document snapshot is required before sending." });
-    const documentPermission = documentReadPermission(documentType);
-    const { data: allowed, error: permissionError } = await auth.supabase.rpc("has_company_permission", { p_company_id: auth.companyId, p_permission_key: documentPermission });
-    if (permissionError || allowed !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission to send this document type.");
-    await assertIssuedDocumentDeliveryLifecycle(auth, documentType, documentId);
-    const { data: snapshot, error: snapshotError } = await auth.supabase
-      .from("issued_document_snapshots")
-      .select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot")
-      .eq("company_id", auth.companyId)
-      .eq("id", snapshotId)
-      .eq("document_type", documentType)
-      .eq("document_id", documentId)
-      .maybeSingle();
-    if (snapshotError) throw snapshotError;
-    if (!snapshot) throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued document snapshot is unavailable. Generate the document again before sending.");
+    let snapshot: { id: string; document_type: string; document_id: string; document_number: string; template_version: string; template_version_id?: string | null; template_sha256?: string | null; snapshot: unknown } | null = null;
+    if (documentType) {
+      if (!UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) return res.status(400).json({ success: false, error: "An issued document snapshot is required before sending." });
+      const documentPermission = documentReadPermission(documentType);
+      const { data: allowed, error: permissionError } = await auth.supabase.rpc("has_company_permission", { p_company_id: auth.companyId, p_permission_key: documentPermission });
+      if (permissionError || allowed !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission to send this document type.");
+      await assertIssuedDocumentDeliveryLifecycle(auth, documentType, documentId);
+      const { data: loadedSnapshot, error: snapshotError } = await auth.supabase
+        .from("issued_document_snapshots")
+        .select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot")
+        .eq("company_id", auth.companyId)
+        .eq("id", snapshotId)
+        .eq("document_type", documentType)
+        .eq("document_id", documentId)
+        .maybeSingle();
+      if (snapshotError) throw snapshotError;
+      if (!loadedSnapshot) throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued document snapshot is unavailable. Generate the document again before sending.");
+      snapshot = loadedSnapshot as typeof snapshot;
+    } else if (documentId || snapshotId) {
+      throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "An ordinary email cannot include issued-document identifiers.");
+    }
     const recipients = normalizedEmailList(req.body?.to, "To");
     const cc = normalizedEmailList(req.body?.cc, "CC");
     if (!recipients.length) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "At least one To recipient is required.");
-    const subject = safeMailHeader(req.body?.subject, (documentType === "PURCHASE_ORDER" ? "Purchase Order " : "Client Invoice ") + snapshot.document_number);
+    const subject = safeMailHeader(req.body?.subject, documentType && snapshot ? (documentType === "PURCHASE_ORDER" ? "Purchase Order " : "Client Invoice ") + snapshot.document_number : "New message");
     const message = String(req.body?.message || "").replace(/[\u0000]/g, "").slice(0, 20_000);
-    const attachmentName = safeMailHeader(req.body?.attachmentName, String(snapshot.document_number) + ".pdf").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 180) || String(snapshot.document_number) + ".pdf";
-    const templatePdf = await finalizeIssuedDocumentTemplatePdfForDelivery(
-      { accessToken: auth.accessToken, companyId: auth.companyId, supabase: auth.supabase, user: auth.user },
-      {},
-      { snapshotId, documentType, documentId },
-    );
-    const attachmentSource: DocumentAttachmentSource = templatePdf ? "COMPANY_TEMPLATE_PDF" : "PROGRAMMATIC_PDF_FALLBACK";
-    const pdfBytes = templatePdf
-      ? Buffer.from(templatePdf.bytes)
-      : renderTrustedIssuedPdf(snapshot, documentType);
-    const trustedSha256 = createHash("sha256").update(pdfBytes).digest("hex");
+    if (!message.trim()) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "A message body is required.");
+    const attachmentName = documentType && snapshot
+      ? safeMailHeader(req.body?.attachmentName, String(snapshot.document_number) + ".pdf").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 180) || String(snapshot.document_number) + ".pdf"
+      : undefined;
+    let attachmentSource: DocumentAttachmentSource | "NONE" = "NONE";
+    let pdfBytes: Buffer | undefined;
+    if (documentType && snapshot) {
+      const templatePdf = await finalizeIssuedDocumentTemplatePdfForDelivery(
+        { accessToken: auth.accessToken, companyId: auth.companyId, supabase: auth.supabase, user: auth.user },
+        {},
+        { snapshotId, documentType, documentId },
+      );
+      attachmentSource = templatePdf ? "COMPANY_TEMPLATE_PDF" : "PROGRAMMATIC_PDF_FALLBACK";
+      pdfBytes = templatePdf ? Buffer.from(templatePdf.bytes) : renderTrustedIssuedPdf(snapshot, documentType);
+    }
+    const trustedSha256 = pdfBytes ? createHash("sha256").update(pdfBytes).digest("hex") : null;
+    const messageBodySha256 = createHash("sha256").update(message, "utf8").digest("hex");
     const requestedKey = String(req.body?.idempotencyKey || "").trim();
     if (requestedKey && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(requestedKey)) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "Send idempotency key is invalid.");
-    const idempotencyKey = requestedKey || "document:" + createHash("sha256").update(JSON.stringify({ snapshotId, documentType, documentId, recipients, cc, subject, message, attachmentName, attachmentSource, templateVersionId: snapshot.template_version_id || null, templateSha256: snapshot.template_sha256 || null, trustedSha256 })).digest("hex");
+    const idempotencyKey = requestedKey || "document:" + createHash("sha256").update(JSON.stringify({ snapshotId: snapshotId || null, documentType: documentType || "GENERAL_EMAIL", documentId: documentId || null, recipients, cc, subject, message, attachmentName: attachmentName || null, attachmentSource, templateVersionId: snapshot?.template_version_id || null, templateSha256: snapshot?.template_sha256 || null, trustedSha256 })).digest("hex");
     const claimResult = await auth.supabase.rpc("claim_document_send_intent", {
-      p_snapshot_id: snapshotId, p_document_type: documentType, p_document_id: documentId, p_idempotency_key: idempotencyKey,
-      p_trusted_sha256: trustedSha256, p_recipients: recipients, p_cc: cc, p_subject: subject, p_attachment_name: attachmentName,
+      p_snapshot_id: snapshotId || null, p_document_type: documentType || "GENERAL_EMAIL", p_document_id: documentId || null, p_idempotency_key: idempotencyKey,
+      p_trusted_sha256: trustedSha256, p_recipients: recipients, p_cc: cc, p_subject: subject, p_attachment_name: attachmentName || null, p_message_body_sha256: messageBodySha256,
     });
     if (claimResult.error) throw claimResult.error;
     const claim = rpcRow(claimResult.data);
@@ -2284,7 +2332,7 @@ app.post("/api/gmail/send", async (req, res) => {
     const accessToken = getGoogleAccessToken(req);
     let sent: any;
     try {
-      sent = await gmailFetch(accessToken, "messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: base64Url(buildDocumentMimeMessage({ to: recipients, cc, subject, message, attachmentName, pdfBytes })) }) });
+      sent = await gmailFetch(accessToken, "messages/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: base64Url(buildDocumentMimeMessage({ to: recipients, cc, subject, message, ...(attachmentName ? { attachmentName } : {}), ...(pdfBytes ? { pdfBytes } : {}) })) }) });
       gmailDelivered = true;
     } catch (error: any) {
       const providerStatus = Number(error?.status || 0);

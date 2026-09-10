@@ -24,7 +24,7 @@ const RUN_SELECT = "id,period_id,status,created_at,calculated_at,calculated_sour
 const FINANCIAL_ACCOUNT_SELECT = "id,account_type,institution_code,institution_name,display_name,masked_identifier,currency,opening_balance,opening_balance_date,connection_type,provider,provider_account_id,active,created_at,updated_at";
 const FINANCIAL_SNAPSHOT_SELECT = "id,account_id,captured_at,ledger_balance,available_balance,pending_balance,source,import_batch_id,created_at";
 const FINANCIAL_TRANSACTION_SELECT = "id,account_id,transaction_date,posted_at,reference_number,description,direction,amount,currency,running_balance,status,source,reconciliation_status,transfer_group_id,created_at,updated_at";
-const ALLOWED_ROUTE_IDS = new Set(["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"]);
+const ALLOWED_ROUTE_IDS = new Set(["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "documents", "review", "settings"]);
 
 function isAssistantRouteId(value: string): boolean {
   return ALLOWED_ROUTE_IDS.has(value);

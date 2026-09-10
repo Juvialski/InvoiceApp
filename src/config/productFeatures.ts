@@ -189,7 +189,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Use read-only Gmail-assisted intake to find supplier invoices, bank statements, and expense receipts and route selected source evidence into existing review flows.",
     details: [
       "Save sender and template routing rules where needed, and use the forwarded supplier invoice fallback when a mailbox is not connected.",
-      "Original messages and attachments remain preserved; outgoing document delivery stays with the workflow that owns the issued document.",
+      "Original messages and attachments remain preserved; outbound messages continue through the shared permission-aware delivery history.",
     ],
     sortOrder: 120,
   },
@@ -237,10 +237,11 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     title: "Email / SMS + Documents improvements",
     category: "Email & Document Intake",
     status: "PLANNED",
-    shortDescription: "Continue improving document communication with future messaging channels and broader delivery workflow support.",
+    shortDescription: "Use one communications workspace for Gmail intake, reviewed outbound email, delivery history, and a unified Documents index; SMS is not active until an approved provider is connected.",
     details: [
-      "Issued-document Gmail delivery, supported company-template PDF finalization, and delivery history are available in the relevant document workflows.",
-      "SMS-related communication remains part of the planned direction and is not active today; no provider, pricing, delivery guarantee, or campaign automation is implied.",
+      "Inbox / Intake preserves Gmail-assisted source routing, while Compose supports ordinary email and eligible issued-document attachments through the audited delivery path.",
+      "Documents brings together permission-approved records and artifacts while Procurement, Client Billing, supplier evidence, Expenses, Cash & Banking, and Engineering remain authoritative owners.",
+      "SMS remains planned and not active until an approved provider is configured and real delivery/status behavior is tested; no pricing, delivery guarantee, or campaign automation is implied.",
     ],
     sortOrder: 210,
   },

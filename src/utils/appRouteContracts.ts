@@ -17,6 +17,7 @@ const BASE_ROUTE_QUERY_KEYS: Partial<Record<RouteId, readonly string[]>> = {
   warehouse: ["movementId", "receiptId", "from"],
   expenses: ["expenseId", "from"],
   payroll: ["runId", "periodId", "attendanceDate", "from"],
+  inbox: ["view", "documentType", "documentId", "from"],
 };
 
 const BASE_ROUTE_CONTRACTS: readonly AppRouteContract[] = ROUTE_DEFINITIONS.map((route) => ({

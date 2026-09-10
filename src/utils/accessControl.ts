@@ -93,10 +93,21 @@ export const ROUTE_PERMISSION_REQUIREMENTS: Readonly<Partial<Record<AppTab, Perm
   vendors: PERMISSION_KEYS.vendorsRead,
   reports: PERMISSION_KEYS.reportsRead,
   settings: PERMISSION_KEYS.settingsRead,
+  documents: PERMISSION_KEYS.invoicesRead,
 });
 
 export const ROUTE_PERMISSION_ALTERNATIVES: Readonly<Partial<Record<AppTab, readonly PermissionKey[]>>> = Object.freeze({
   reports: [PERMISSION_KEYS.reportsPayrollRead],
+  inbox: [PERMISSION_KEYS.documentSend],
+  documents: [
+    PERMISSION_KEYS.projectsRead,
+    PERMISSION_KEYS.procurementRead,
+    PERMISSION_KEYS.expensesRead,
+    PERMISSION_KEYS.engineeringDocumentsRead,
+    PERMISSION_KEYS.cashSummaryRead,
+    PERMISSION_KEYS.cashImport,
+    PERMISSION_KEYS.documentSend,
+  ],
 });
 
 export function normalizePermissionKey(value: unknown): PermissionKey | null {

@@ -224,5 +224,34 @@ select throws_ok($$select public.claim_document_send_intent(
   '["client@wave4c.test"]'::jsonb, '[]'::jsonb, 'Voided client invoice', 'W4C-INV-001.pdf'
 )$$, '42501', null, 'voided Client Invoices cannot receive a new delivery');
 
+set local role authenticated;
+select set_config('request.jwt.claim.role', 'authenticated', true);
+select set_config('request.jwt.claim.sub', (select admin_user::text from wave4c_ids), true);
+create temp table wave4d_general as
+select (claim->'intent'->>'id')::uuid as intent_id
+from (
+  select public.claim_document_send_intent(
+    null,
+    'GENERAL_EMAIL',
+    null,
+    'wave4d-general-first',
+    null,
+    '["recipient@wave4d.test"]'::jsonb,
+    '[]'::jsonb,
+    'Wave 4D plain email',
+    null,
+    repeat('a', 64)
+  ) as claim
+) payload;
+grant select on wave4d_general to authenticated, service_role;
+select is((select count(*) from public.document_send_intents where id = (select intent_id from wave4d_general) and delivery_kind = 'GENERAL_EMAIL' and document_type = 'GENERAL_EMAIL' and snapshot_id is null and document_id is null and attachment_source = 'NONE'), 1::bigint, 'plain email uses the existing delivery intent without document provenance');
+select lives_ok($$select public.complete_document_send_intent((select intent_id from wave4d_general), 'SENT', 'gmail-wave4d-general', null)$$, 'plain email can complete through the shared delivery intent');
+select is((select count(*) from public.document_send_audits where send_intent_id = (select intent_id from wave4d_general) and delivery_kind = 'GENERAL_EMAIL' and attachment_name is null and attachment_sha256 is null), 1::bigint, 'plain email terminal history is recorded without an attachment');
+
+set local role authenticated;
+select set_config('request.jwt.claim.role', 'authenticated', true);
+select set_config('request.jwt.claim.sub', (select viewer_user::text from wave4c_ids), true);
+select is((select count(*) from public.document_send_intents where id = (select intent_id from wave4d_general)), 0::bigint, 'plain email history is not visible without outbound permission');
+
 select * from finish();
 rollback;

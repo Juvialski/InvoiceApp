@@ -36,7 +36,7 @@ export function parseDemoLocation(pathname: string, search = ""): DemoLocation {
 
   const suffix = clean.slice(DEMO_APP_ROOT_PATH.length) || "/dashboard";
   if (clean === demoRoutePath("demo-assistant")) return { kind: "assistant" };
-  if (clean === demoRoutePath("demo-documents")) return { kind: "documents" };
+  if (clean === demoRoutePath("demo-documents")) return { kind: "app", appLocation: parseAppLocation("/documents", search) };
 
   return { kind: "app", appLocation: parseAppLocation(suffix, search) };
 }

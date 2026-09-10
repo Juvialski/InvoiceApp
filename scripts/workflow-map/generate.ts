@@ -187,7 +187,7 @@ export function renderWorkflowMapMarkdown(graph: WorkflowGraph): string {
     "",
     "## Canonical route rule",
     "",
-    "Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContracts.ts`, and `src/utils/appRouting.ts`; they are context links, not a second router. Project subviews remain one `projects` route with view/query selection. The standalone `/demo/app/documents` and `/demo/app/assistant` entries are explicitly demo-only.",
+    "Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContracts.ts`, and `src/utils/appRouting.ts`; they are context links, not a second router. Project subviews remain one `projects` route with view/query selection. The `/demo/app/documents` and `/demo/app/assistant` entries are explicitly demo-only surfaces.",
     "",
     "| Node | Route ID | Canonical path | Query keys | Scope |",
     "| --- | --- | --- | --- | --- |",

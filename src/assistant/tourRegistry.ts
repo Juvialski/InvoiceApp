@@ -102,7 +102,7 @@ export const TOUR_REGISTRY: Readonly<Record<AssistantTourId, AssistantTour>> = O
     title: "Import from Gmail",
     summary: "Use Gmail read-only intake to find messages and bring invoice sources into review.",
     steps: [
-      routeStep("gmail-inbox", "Open Gmail Inbox", "Connect Gmail with read-only access, scan messages, and choose what to import.", "inbox"),
+      routeStep("gmail-inbox", "Open Email / SMS", "Connect Gmail with read-only access, scan messages, compose outbound email, and review delivery history.", "inbox"),
       routeStep("gmail-review", "Review imported invoices", "Imported sources still go through the normal invoice review flow.", "review"),
     ],
   },

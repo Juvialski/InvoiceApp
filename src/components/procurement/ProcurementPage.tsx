@@ -92,7 +92,7 @@ import { SubcontractVariationsDrawer } from "./SubcontractVariationsDrawer.tsx";
 import { DocumentPreviewModal } from "../DocumentPreviewModal.tsx";
 import { buildPurchaseOrderDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import { DEFAULT_COMPANY_DOCUMENT_PROFILE } from "../../lib/companyDocumentProfile.ts";
-import { appPathForPurchaseOrder, appPathForWarehouseMovement, appPathForWarehouseReceipt } from "../../utils/appRouting.ts";
+import { appPathForEmailWorkspace, appPathForPurchaseOrder, appPathForWarehouseMovement, appPathForWarehouseReceipt } from "../../utils/appRouting.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ProcurementPageProps {
@@ -2259,7 +2259,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
         />
       )}
 
-      {previewPo && <DocumentPreviewModal document={buildPurchaseOrderDocumentSnapshot(previewPo, vendorMap.get(previewPo.vendorId), projectMap.get(previewPo.projectId), DEFAULT_COMPANY_DOCUMENT_PROFILE)} onClose={() => setPreviewPo(null)} />}
+      {previewPo && <DocumentPreviewModal document={buildPurchaseOrderDocumentSnapshot(previewPo, vendorMap.get(previewPo.vendorId), projectMap.get(previewPo.projectId), DEFAULT_COMPANY_DOCUMENT_PROFILE)} onClose={() => setPreviewPo(null)} onOpenCommunications={() => { setPreviewPo(null); onNavigatePath?.(appPathForEmailWorkspace("compose", { documentType: "PURCHASE_ORDER", documentId: previewPo.id, returnTo: appPathForPurchaseOrder(previewPo.id) })); }} />}
 
       {/* 2. RFQ Editor Modal */}
       {activeRfqModal !== undefined && (
