@@ -5,6 +5,7 @@ import test from "node:test";
 const assistantOperations = readFileSync(new URL("../src/server/assistant/assistantOperations.ts", import.meta.url), "utf8");
 const assistantPayrollExecutors = readFileSync(new URL("../src/server/assistant/assistantToolExecutors.ts", import.meta.url), "utf8");
 const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const supplierInvoiceExpenseSurface = readFileSync(new URL("../src/components/SupplierInvoiceExpenseSurface.tsx", import.meta.url), "utf8");
 
 test("Assistant and manual invoice review paths agree on linked Expense ownership", () => {
   assert.match(assistantOperations, /supplier_invoice_id/);
@@ -13,6 +14,9 @@ test("Assistant and manual invoice review paths agree on linked Expense ownershi
   assert.match(assistantOperations, /authoritative linked Expense/);
   assert.match(app, /activeLinkedExpense/);
   assert.match(app, /Use the Expense correction workflow/);
+  assert.match(supplierInvoiceExpenseSurface, /Open\/Correct linked Expense/);
+  assert.match(supplierInvoiceExpenseSurface, /appPathForExpense/);
+  assert.match(supplierInvoiceExpenseSurface, /onNavigatePath/);
 });
 
 test("Assistant reopen execution does not weaken the database-owned linked Expense boundary", () => {
