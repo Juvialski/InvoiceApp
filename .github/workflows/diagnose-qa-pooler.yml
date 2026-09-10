@@ -1,0 +1,34 @@
+name: Diagnose QA Pooler Routing
+
+on:
+  push:
+    branches: [fix/qa-release-direct-db-v2]
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Discover QA session-pooler cluster without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_ref="vrpuznofrntyqsbugrib"
+          region="ap-southeast-1"
+          found=""
+          for index in $(seq 0 12); do
+            host="aws-${index}-${region}.pooler.supabase.com"
+            output="$(PGPASSWORD='' psql "host=${host} port=5432 dbname=postgres user=postgres.${project_ref} sslmode=require connect_timeout=3" -w -c 'select 1' 2>&1 || true)"
+            if grep -Eqi 'no password supplied|password authentication failed|SASL|SCRAM' <<<"$output" && ! grep -Eqi 'tenant or user not found|could not translate host name|Name or service not known' <<<"$output"; then
+              found="$host"
+              break
+            fi
+          done
+          if [[ -z "$found" ]]; then
+            echo "::error title=QA pooler discovery failed::No session-pooler cluster accepted the QA tenant identity in the bounded official region scan." >&2
+            exit 1
+          fi
+          echo "QA_SESSION_POOLER_HOST=$found"
