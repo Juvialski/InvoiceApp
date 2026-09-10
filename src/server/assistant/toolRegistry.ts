@@ -169,7 +169,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   mutation("assign_invoice_to_project", "Prepare a validated invoice-to-project allocation without verifying or deleting the invoice.", ["projects.manage", "invoices.manage"], { invoiceId: uuid, projectId: uuid, allocationAmount: { type: "number", minimum: 0 }, allocationPercentage: { type: "number", minimum: 0, maximum: 100 }, notes: { type: "string" } }, ["invoiceId", "projectId"]),
   mutation("update_invoice_draft", "Prepare a limited update to an unverified invoice draft. Verification remains manual.", ["invoices.manage"], { invoiceId: uuid, invoiceNumber: { type: "string" }, dueDate: date, projectReference: { type: "string" }, notes: { type: "string" } }, ["invoiceId"]),
   finalization("approve_payroll", "Prepare approval of a calculated payroll run after source freshness and entry checks. Confirmation is required.", ["payroll.approve"], { runId: uuid }, ["runId"]),
-  finalization("mark_payroll_paid", "Prepare marking an approved payroll run as paid. Confirmation is required.", ["payroll.approve"], { runId: uuid }, ["runId"]),
+  finalization("mark_payroll_paid", "Explain the Cash & Banking settlement path for an approved payroll run; this compatibility action never changes payroll status to PAID.", ["payroll.approve"], { runId: uuid }, ["runId"]),
 ]);
 
 const DEFINITIONS_BY_NAME = new Map(ASSISTANT_TOOL_DEFINITIONS.map((definition) => [definition.name, definition]));

@@ -3,7 +3,7 @@ import { ArrowRight, CheckCircle2, Landmark, Link2, RotateCcw, Search, Split, Wa
 import { confirmedTargetMatchedAmount, financialId, isFinancialReconciliationCandidateLifecycleEligible, reconciliationStatusForTransaction, type CashBankingWorkspaceData, type FinancialReconciliationCandidate, type FinancialTransaction, type FinancialTransactionMatch } from "../lib/cashBanking.ts";
 import { defaultSettlementAllocation, type FinancialSettlementHistoryItem } from "../lib/financialSettlement.ts";
 import { reverseFinancialSettlement } from "../lib/financialSettlementPersistence.ts";
-import { appPathForExpense, appPathForInvoice, appPathForPayrollRun, appPathForProject, financialTransactionIdFromSearch, type CashSettlementTargetContext } from "../utils/appRouting.ts";
+import { appPathForExpense, appPathForInvoice, appPathForPayrollRun, appPathForProject, appPathForSubcontractClaim, financialTransactionIdFromSearch, type CashSettlementTargetContext } from "../utils/appRouting.ts";
 import { navigateInApp, type AppNavigate } from "../utils/clientNavigation.ts";
 import { safeErrorMessage } from "../utils/errorNormalization.ts";
 import { useWorkspaceDataPending } from "../app/AppPermissionContext.tsx";
@@ -34,6 +34,7 @@ function targetPath(candidate: FinancialReconciliationCandidate) {
   if (candidate.targetType === "INVOICE") return appPathForInvoice(candidate.targetId, "/cash");
   if (candidate.targetType === "PAYROLL") return appPathForPayrollRun(candidate.targetId, "/cash");
   if (candidate.targetType === "EXPENSE") return appPathForExpense(candidate.targetId, "/cash");
+  if (candidate.targetType === "SUBCONTRACT_CLAIM" && candidate.subcontractId) return appPathForSubcontractClaim(candidate.targetId, candidate.subcontractId, "/cash");
   if (candidate.targetType === "CLIENT_COLLECTION" && candidate.projectId) return appPathForProject(candidate.projectId, "billing", candidate.billingId ? { billingId: candidate.billingId } : undefined);
   return undefined;
 }
@@ -89,8 +90,8 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
   const requestedTransactionUnavailable = Boolean(selectedTransactionId && !workspaceDataPending && !data.transactions.some((item) => item.id === selectedTransactionId));
   const account = transaction ? data.accounts.find((item) => item.id === transaction.accountId) : undefined;
   const activeMatches = useMemo(() => data.matches.filter((match) => match.status === "CONFIRMED" && !reversedIds.has(match.id)), [data.matches, reversedIds]);
-  const transactionMatches = transaction ? activeMatches.filter((match) => match.transactionId === transaction.id && ["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION"].includes(match.targetType) && Boolean(match.targetId)) : [];
-  const reversedTransactionMatches = transaction ? data.matches.filter((match) => match.transactionId === transaction.id && match.status === "REVERSED" && ["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION"].includes(match.targetType)) : [];
+  const transactionMatches = transaction ? activeMatches.filter((match) => match.transactionId === transaction.id && ["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION", "SUBCONTRACT_CLAIM"].includes(match.targetType) && Boolean(match.targetId)) : [];
+  const reversedTransactionMatches = transaction ? data.matches.filter((match) => match.transactionId === transaction.id && match.status === "REVERSED" && ["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION", "SUBCONTRACT_CLAIM"].includes(match.targetType)) : [];
   const alreadyAllocated = transaction ? round(activeMatches.filter((match) => match.transactionId === transaction.id).reduce((sum, match) => sum + match.matchedAmount, 0)) : 0;
   const remaining = transaction ? round(Math.max(0, transaction.amount - alreadyAllocated)) : 0;
   const targetSettled = requestedTargetCandidate ? confirmedTargetMatchedAmount(requestedTargetCandidate.targetType, requestedTargetCandidate.targetId, activeMatches) : 0;
@@ -101,7 +102,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
   const rows = useMemo(() => {
     if (!transaction || transaction.status !== "POSTED" || transaction.reconciliationStatus === "IGNORED" || activeMatches.some((match) => match.transactionId === transaction.id && match.targetType === "TRANSFER")) return [];
     const search = query.trim().toLowerCase();
-    const allowedTypes = transaction.direction === "CREDIT" ? ["CLIENT_COLLECTION"] : ["INVOICE", "PAYROLL", "EXPENSE"];
+    const allowedTypes = transaction.direction === "CREDIT" ? ["CLIENT_COLLECTION"] : ["INVOICE", "PAYROLL", "EXPENSE", "SUBCONTRACT_CLAIM"];
     return candidates.map((candidate) => {
       const settled = round(activeMatches.filter((match) => match.targetType === candidate.targetType && match.targetId === candidate.targetId).reduce((sum, match) => sum + match.matchedAmount, 0));
       const outstanding = round(Math.max(0, candidate.amount - settled));
@@ -219,7 +220,7 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
   } : null;
 
   const reversalTargetCandidate = reversalMatch ? candidates.find((item) => item.targetType === reversalMatch.targetType && item.targetId === reversalMatch.targetId) : undefined;
-  const directionLabel = transaction?.direction === "CREDIT" ? "client collections" : "supplier invoices, payroll, and expenses";
+  const directionLabel = transaction?.direction === "CREDIT" ? "client collections" : "supplier invoices, payroll, expenses, and subcontract claims";
 
   const targetLabel = requestedTargetCandidate?.label || `${targetContext?.targetType || "Settlement"} ${targetContext?.targetId || ""}`;
   const returnTargetLabel = targetContext?.targetType === "EXPENSE"
@@ -228,6 +229,8 @@ export const CashSettlementAllocationWorkspace: React.FC<Props> = ({ data, selec
       ? "Return to supplier invoice"
       : targetContext?.targetType === "PAYROLL"
         ? "Return to Payroll"
+        : targetContext?.targetType === "SUBCONTRACT_CLAIM"
+          ? "Return to subcontract claim"
         : "Return to client invoice";
   const targetMessage = !targetContext?.requested
     ? undefined

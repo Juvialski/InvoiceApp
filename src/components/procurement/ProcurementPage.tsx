@@ -105,6 +105,8 @@ export interface ProcurementPageProps {
   initialTab?: "purchase_orders" | "rfqs" | "subcontracts";
   initialPurchaseOrderId?: string;
   initialReceiptId?: string;
+  initialSubcontractId?: string;
+  initialSubcontractClaimId?: string;
   initialReturnPath?: string;
   onNavigatePath?: AppNavigate;
   workspaceLoading?: boolean;
@@ -196,6 +198,8 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   initialTab,
   initialPurchaseOrderId,
   initialReceiptId,
+  initialSubcontractId,
+  initialSubcontractClaimId,
   initialReturnPath,
   onNavigatePath,
   workspaceLoading = false,
@@ -346,6 +350,18 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
 
   const [claimsDrawerSubcontract, setClaimsDrawerSubcontract] = useState<Subcontract | null>(null);
   const [activeClaimModal, setActiveClaimModal] = useState<SubcontractProgressClaim | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!initialSubcontractId) return;
+    const requested = localSubcontracts.find((subcontract) => subcontract.id === initialSubcontractId);
+    if (!requested) return;
+    setActiveTab("subcontracts");
+    setClaimsDrawerSubcontract(requested);
+    if (initialSubcontractClaimId) {
+      const claim = localClaims.find((candidate) => candidate.id === initialSubcontractClaimId && candidate.subcontractId === requested.id);
+      if (claim) setActiveClaimModal(claim);
+    }
+  }, [initialSubcontractClaimId, initialSubcontractId, localClaims, localSubcontracts]);
 
   // Subcontract Variations State
   const useProvidedVariations = initialSubcontractVariations !== undefined;
@@ -2412,6 +2428,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           existingVariations={localVariations}
           canManage={canManage}
           canApprove={canApprove}
+          onNavigatePath={onNavigatePath}
           onSave={handleSaveClaimInternal}
           onTransition={handleTransitionClaimInternal}
         />

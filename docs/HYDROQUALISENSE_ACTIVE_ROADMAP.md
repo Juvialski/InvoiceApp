@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — WAVE 2 IN PROGRESS / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — WAVE 3 IN PROGRESS / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-10**
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -10,15 +10,15 @@ Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
 
-## Wave 2 starting baseline and current workflow-remediation state
+## Wave 3 starting baseline and current workflow-remediation state
 
-Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1B Client Receivable Lifecycle UX is complete through merged PR #129. The current Wave 2 starting baseline is the exact green `main` SHA:
+Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1B Client Receivable Lifecycle UX is complete through merged PR #129. Wave 2 cross-module routing and handoffs is complete through merged PR #131. The current Wave 3 starting baseline is the exact green `main` SHA:
 
-`b7c550158d00798de33b2ce9853e9232b95aea16`
+`18503d271b9a3081cc484c106a88e333e67e030c`
 
-The exact baseline Protected QA Release completed green, including migration parity and authenticated hosted QA. That release evidence is a readiness fact for this SHA; it does not change the separate `QA CERTIFICATION NOT READY` product-readiness status or certify future Wave 2 application changes.
+The prior Protected QA Release completed green, including migration parity and authenticated hosted QA. That release evidence is a readiness fact for its exact SHA; it does not change the separate `QA CERTIFICATION NOT READY` product-readiness status or certify Wave 3 application or migration changes.
 
-Wave 2 is **ACTIVE**. The detailed audit source of truth, finding IDs, classifications, and wave mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
+Wave 3 is **ACTIVE**. The detailed audit source of truth, finding IDs, classifications, and wave mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
 
 ## Immediate user-prioritized product workflow sequence
 
@@ -26,8 +26,8 @@ The user explicitly reprioritized the broad UX/workflow audit remediation ahead 
 
 1. **Wave 1A — Supplier Payable Lifecycle UX — COMPLETE**
 2. **Wave 1B — Client Receivable Lifecycle UX — COMPLETE**
-3. **Wave 2 — Cross-module routing and handoffs — ACTIVE**
-4. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — NEXT**
+3. **Wave 2 — Cross-module routing and handoffs — COMPLETE**
+4. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — ACTIVE**
 5. Resume the broader approved product roadmap unless the user reprioritizes again:
    - Email/SMS + Documents;
    - Worker Registration foundation;
@@ -75,9 +75,9 @@ Delivered object-first journey:
 
 The detail view derives invoice amount, collected amount, remaining amount, collection state, related collection records, and available cash-link status from the existing authoritative records. ClientCollection commercial truth remains separate from cash settlement evidence and project Actual Cost.
 
-### Wave 2 — Cross-module routing and handoffs
+### Wave 2 — Cross-module routing and handoffs — COMPLETE
 
-**Status: ACTIVE from the Wave 2 starting baseline.**
+**Status: COMPLETE on merged `main` through PR #131.**
 
 Primary audit targets:
 
@@ -97,12 +97,14 @@ Keep this wave focused on navigation, context, discoverability, and truthful han
 
 ### Wave 3 — Deliberate business-workflow decisions
 
+**Status: ACTIVE from exact merged `main` `18503d2`; implementation is complete on the current feature branch pending PR review and exact-head CI.**
+
 These require explicit lifecycle/source-of-truth design rather than opportunistic routing polish:
 
-- payroll settlement semantics (UX-010), including removal/rework of manual-paid semantics that bypass authoritative settlement evidence;
+- payroll settlement semantics (UX-010): approval remains separate from Cash & Banking disbursement evidence, with direct paid-status paths blocked;
 - subcontract payable bridge (UX-011): `Approved/Certified Claim -> Net Certified Payable -> authoritative payable obligation -> settlement` without duplicate Expense/payable/Actual Cost truth;
-- Purchase Order close guard (UX-008) only after runtime/database behavior is proven;
-- subcontract mobile workflow (UX-016) together with the subcontract lifecycle work.
+- Purchase Order close guard (UX-008): runtime-confirmed partial/unreceived obligations block close while receipt history remains preserved;
+- subcontract mobile workflow (UX-016), including responsive claim cards, settlement state/history, account onboarding, and return context.
 
 ## Parallel QA / release-readiness track
 

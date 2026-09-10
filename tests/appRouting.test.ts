@@ -5,6 +5,7 @@ import {
   appPathForInvoice,
   appPathForPurchaseOrder,
   appPathForPurchaseOrderReceipt,
+  appPathForSubcontractClaim,
   appPathForWarehouseMovement,
   appPathForWarehouseReceipt,
   appPathForExpense,
@@ -157,6 +158,26 @@ test("cross-module procurement and warehouse links preserve exact source identif
   const movementPath = appPathForWarehouseMovement("movement-9", warehouseReceiptPath);
   assert.equal(warehouseContextFromSearch(movementPath.split("?", 2)[1] || "").movementId, "movement-9");
   assert.equal(parseAppLocation(movementPath).kind, "tab");
+});
+
+test("subcontract claim settlement links return to the exact procurement claim", () => {
+  const procurementPath = appPathForSubcontractClaim("claim-42", "subcontract-7", "/cash");
+  assert.equal(procurementPath, "/procurement?subcontractId=subcontract-7&subcontractClaimId=claim-42&from=%2Fcash");
+  assert.deepEqual(procurementContextFromSearch(procurementPath.split("?", 2)[1] || ""), {
+    requested: true,
+    invalid: false,
+    subcontractId: "subcontract-7",
+    subcontractClaimId: "claim-42",
+    returnTo: "/cash",
+  });
+  const cashPath = appPathForCashTarget("SUBCONTRACT_CLAIM", "claim-42", procurementPath);
+  assert.deepEqual(cashSettlementTargetContextFromSearch(cashPath.split("?", 2)[1] || ""), {
+    requested: true,
+    invalid: false,
+    targetType: "SUBCONTRACT_CLAIM",
+    targetId: "claim-42",
+    returnTo: procurementPath,
+  });
 });
 
 test("parses email-intake canonical route and legacy /inbox alias", () => {

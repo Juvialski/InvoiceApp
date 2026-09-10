@@ -4677,8 +4677,25 @@ function InvoiceWorkspace() {
     // supplier payable candidate for cash settlement.
     ...invoices.filter((invoice) => invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && invoice.status !== "PAID" && !invoice.linkedExpenseId).map((invoice) => ({ targetType: "INVOICE" as const, targetId: invoice.id, label: `${invoice.invoiceNumber || "Invoice"} · ${invoice.vendor?.name || "Supplier"}`, amount: invoiceCashPayableBasis(invoice).amount, currency: invoice.currency, date: invoice.invoiceDate, reference: invoice.invoiceNumber, description: invoice.vendor?.name, lifecycleStatus: invoice.reviewStatus })),
     ...payrollData.runs.filter((run) => run.status === "APPROVED" || run.status === "PAID").map((run) => ({ targetType: "PAYROLL" as const, targetId: run.id, label: `Payroll run · ${run.status}`, amount: payrollData.entries.filter((entry) => entry.payrollRunId === run.id).reduce((sum, entry) => sum + entry.netPay, 0), currency: "PHP", date: payrollData.periods.find((period) => period.id === run.periodId)?.payDate || payrollData.periods.find((period) => period.id === run.periodId)?.periodEnd, reference: run.id, description: "Payroll payment", lifecycleStatus: run.status })),
+    ...subcontractClaims.filter((claim) => claim.status === "APPROVED" && claim.netCertifiedAmount > 0).map((claim) => {
+      const subcontract = subcontracts.find((item) => item.id === claim.subcontractId);
+      const vendor = subcontract ? vendors.find((item) => item.id === subcontract.vendorId) : undefined;
+      return {
+        targetType: "SUBCONTRACT_CLAIM" as const,
+        targetId: claim.id,
+        label: `${claim.claimNumber} · ${vendor?.name || "Subcontract claim"}`,
+        amount: claim.netCertifiedAmount,
+        currency: subcontract?.currency || "PHP",
+        date: claim.valuationDate,
+        reference: claim.claimNumber,
+        description: `${vendor?.name || "Subcontract"} net certified payable`,
+        lifecycleStatus: claim.status,
+        subcontractId: claim.subcontractId,
+        projectId: claim.projectId,
+      };
+    }),
     ...clientCollectionData.collections.filter((collection) => collection.status === "RECORDED").map((collection) => ({ targetType: "CLIENT_COLLECTION" as const, targetId: collection.id, label: `${collection.collectionNumber} · ${collection.payerSnapshot || "Client"}`, amount: clientCollectionTotal(collection), currency: collection.currency, date: collection.collectionDate, reference: collection.externalReference || collection.collectionNumber, description: `${collection.payerSnapshot || ""} ${collection.notes || ""}`.trim(), lifecycleStatus: collection.status, projectId: collection.projectId, billingId: Array.isArray(collection.allocations) ? collection.allocations[0]?.billingId : undefined })),
-  ].filter((candidate) => candidate.amount > 0), [clientCollectionData.collections, expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods]);
+  ].filter((candidate) => candidate.amount > 0), [clientCollectionData.collections, expenses, invoices, payrollData.runs, payrollData.entries, payrollData.periods, subcontractClaims, subcontracts, vendors]);
   const dashboardViewData = useMemo(() => buildDashboardViewData({
     projects,
     invoices: costInvoices,
@@ -4996,7 +5013,7 @@ function InvoiceWorkspace() {
           onReverseFinancialMatch={handleReverseFinancialMatch}
           canReverseFinancialMatch={(match) => isSupabaseConfigured
             ? can(PERMISSION_KEYS.cashReconcile)
-              && (match.targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : match.targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : match.targetType === "EXPENSE" ? can(PERMISSION_KEYS.expensesWrite) : match.targetType === "CLIENT_COLLECTION" ? can(PERMISSION_KEYS.projectsWrite) : false)
+              && (match.targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : match.targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : match.targetType === "EXPENSE" ? can(PERMISSION_KEYS.expensesWrite) : match.targetType === "CLIENT_COLLECTION" ? can(PERMISSION_KEYS.projectsWrite) : match.targetType === "SUBCONTRACT_CLAIM" ? can(PERMISSION_KEYS.procurementApprove) : false)
             : true}
           onCorrectFinancialTransaction={handleCorrectFinancialTransaction}
           onReverseFinancialTransaction={handleReverseFinancialTransaction}
@@ -5009,7 +5026,7 @@ function InvoiceWorkspace() {
           canManageCashTransactions={!isSupabaseConfigured || can(PERMISSION_KEYS.cashTransactionsManage)}
           canCashImport={!isSupabaseConfigured || can(PERMISSION_KEYS.cashImport)}
           canCashReconcile={!isSupabaseConfigured || can(PERMISSION_KEYS.cashReconcile)}
-          canSettleCashTarget={(targetType) => !isSupabaseConfigured || (targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : targetType === "CLIENT_COLLECTION" ? can(PERMISSION_KEYS.projectsWrite) : can(PERMISSION_KEYS.expensesWrite))}
+          canSettleCashTarget={(targetType) => !isSupabaseConfigured || (targetType === "INVOICE" ? can(PERMISSION_KEYS.invoicesWrite) : targetType === "PAYROLL" ? can(PERMISSION_KEYS.payrollApprove) : targetType === "CLIENT_COLLECTION" ? can(PERMISSION_KEYS.projectsWrite) : targetType === "SUBCONTRACT_CLAIM" ? can(PERMISSION_KEYS.procurementApprove) : can(PERMISSION_KEYS.expensesWrite))}
           onOpenCashDashboard={() => setActiveTab("dashboard")}
           invoices={invoices}
           selectedInvoice={selectedInvoice}

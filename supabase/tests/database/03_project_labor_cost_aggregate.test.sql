@@ -176,9 +176,8 @@ where id in (
   (select run_approved from project_labor_test_ids),
   (select run_paid from project_labor_test_ids)
 );
-update public.payroll_runs
-set status = 'PAID'
-where id = (select run_paid from project_labor_test_ids);
+-- Payment state is derived from Cash & Banking evidence; a historical PAID
+-- period does not authorize a direct APPROVED -> PAID run mutation.
 update public.payroll_runs
 set status = 'VOID'
 where id = (select run_void from project_labor_test_ids);

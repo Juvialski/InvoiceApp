@@ -201,7 +201,7 @@ test("authoritative loader includes every payroll domain table", () => {
 test("payroll run transitions follow the database state machine", () => {
   assert.equal(canTransitionPayrollRun("DRAFT", "CALCULATED"), true);
   assert.equal(canTransitionPayrollRun("CALCULATED", "APPROVED"), true);
-  assert.equal(canTransitionPayrollRun("APPROVED", "PAID"), true);
+  assert.equal(canTransitionPayrollRun("APPROVED", "PAID"), false);
   assert.equal(canTransitionPayrollRun("DRAFT", "APPROVED"), false);
   assert.equal(canTransitionPayrollRun("PAID", "DRAFT"), false);
 });

@@ -376,7 +376,7 @@ export function payrollStatusIsConfirmed(status: string) { return status === "AP
 export const PAYROLL_RUN_TRANSITIONS: Readonly<Record<PayrollRunStatus, readonly PayrollRunStatus[]>> = Object.freeze({
   DRAFT: ["CALCULATED", "VOID"],
   CALCULATED: ["APPROVED", "VOID"],
-  APPROVED: ["PAID", "VOID"],
+  APPROVED: ["VOID"],
   PAID: [],
   VOID: [],
 });

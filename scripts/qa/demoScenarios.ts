@@ -313,6 +313,27 @@ const verifyProcurementSubcontractParity: QaScenarioAction = async (page) => {
   ] satisfies readonly QaAssertion[];
 };
 
+const verifySubcontractMobileSettlementWorkflow: QaScenarioAction = async (page) => {
+  await page.getByRole("button", { name: /^Subcontracts/ }).first().click();
+  await page.locator("text=Total Subcontracts").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const claimsButton = page.getByRole("button", { name: /Claims \(/ }).first();
+  await claimsButton.click();
+  await page.getByRole("heading", { name: /Subcontract Claims:/ }).waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const responsiveCards = await page.locator('[aria-label="Responsive subcontract claim cards"]').count();
+  const inspectClaim = page.getByRole("button", { name: /Inspect claim|Edit claim/ }).first();
+  await inspectClaim.click();
+  await page.locator("text=Net Certified Payable").first().waitFor({ state: "visible", timeout: READY_TIMEOUT_MS });
+  const paymentEvidence = await page.locator("text=Payment / settlement").count();
+  const netPayable = await page.locator("text=Net Certified Payable").count();
+  const recordPayment = await page.getByRole("link", { name: /Record Payment/ }).count();
+  return [
+    { id: "subcontract-mobile-claim-cards-visible", passed: responsiveCards === 1, details: `responsive claim card regions: ${responsiveCards}` },
+    { id: "subcontract-net-payable-visible", passed: netPayable > 0, details: `net certified payable labels: ${netPayable}` },
+    { id: "subcontract-settlement-evidence-visible", passed: paymentEvidence > 0, details: `settlement evidence panels: ${paymentEvidence}` },
+    { id: "subcontract-record-payment-visible", passed: recordPayment > 0, details: `Record Payment links: ${recordPayment}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const verifySettingsScreen: QaScenarioAction = async (page) => {
   const settingsHeading = await page.getByRole("heading", { name: "Operational settings", exact: true }).count();
   const regionalPreferences = await page.getByRole("heading", { name: "Regional display preferences", exact: true }).count();
@@ -346,6 +367,7 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "projects", route: route("projects", "/projects"), path: "/demo/app/projects", interactionState: "portfolio dashboard verified", viewport: QA_VIEWPORTS.mobile, action: verifyPortfolioDashboard }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim and variation parity verified", viewport: QA_VIEWPORTS.desktop, action: verifyProcurementSubcontractParity }),
+  defineQaScenario({ feature: "procurement", route: route("procurement", "/procurement"), path: "/demo/app/procurement", interactionState: "subcontract claim settlement workflow verified", viewport: QA_VIEWPORTS.mobile, action: verifySubcontractMobileSettlementWorkflow }),
   defineQaScenario({ feature: "warehouse-inventory", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "warehouse ledger rendered", viewport: QA_VIEWPORTS.desktop, action: verifyWarehouseInventoryScreen }),
   defineQaScenario({ feature: "warehouse-inventory", route: route("warehouse", "/warehouse"), path: "/demo/app/warehouse", interactionState: "warehouse source continuation verified", viewport: QA_VIEWPORTS.mobile, action: verifyWarehouseInventoryScreen }),
   defineQaScenario({ feature: "equipment-registry", route: route("equipment", "/equipment"), path: "/demo/app/equipment", interactionState: "Equipment Registry rendered", viewport: QA_VIEWPORTS.desktop, action: verifyEquipmentRegistryScreen }),

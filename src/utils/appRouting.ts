@@ -2,7 +2,7 @@ import type { AppTab } from "./routes.ts";
 import { getRouteForAppTab, normalizeRoutePath, resolveRoute, type RouteId } from "./routes.ts";
 import { getAppRouteContract } from "./appRouteContracts.ts";
 
-export type CashSettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE" | "CLIENT_COLLECTION";
+export type CashSettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE" | "CLIENT_COLLECTION" | "SUBCONTRACT_CLAIM";
 
 export interface CashSettlementTargetContext {
   requested: boolean;
@@ -17,6 +17,8 @@ export interface ProcurementContext {
   invalid: boolean;
   purchaseOrderId?: string;
   receiptId?: string;
+  subcontractId?: string;
+  subcontractClaimId?: string;
   returnTo?: string;
 }
 
@@ -202,6 +204,15 @@ export function appPathForPurchaseOrderReceipt(purchaseOrderId: string, receiptI
   return appPathForPurchaseOrder(purchaseOrderId, returnTo, receiptId);
 }
 
+/** Stable Procurement deep link for one certified subcontract claim. */
+export function appPathForSubcontractClaim(claimId: string, subcontractId: string, returnTo?: string) {
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "procurement", "subcontractId", subcontractId, true);
+  setRouteQueryValue(query, "procurement", "subcontractClaimId", claimId, true);
+  setRouteQueryValue(query, "procurement", "from", safeReturnPath(returnTo));
+  return `${routeContractPath("procurement")}?${query.toString()}`;
+}
+
 /** Stable Expense detail deep link. This is intentionally separate from the legacy correction context. */
 export function appPathForExpense(expenseId: string, returnTo?: string) {
   const path = routeContractPath("expense-detail");
@@ -293,7 +304,7 @@ export function cashSettlementTargetContextFromSearch(search: string): CashSettl
   const targetId = routeQueryValue(query, "cash", "fromTargetId")?.trim() || undefined;
   const returnTo = safeReturnPath(routeQueryValue(query, "cash", "returnTo") || undefined);
   const requested = Boolean(rawType || targetId);
-  const targetType = ["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION"].includes(rawType || "")
+  const targetType = ["INVOICE", "PAYROLL", "EXPENSE", "CLIENT_COLLECTION", "SUBCONTRACT_CLAIM"].includes(rawType || "")
     ? rawType as CashSettlementTargetType
     : undefined;
   return { requested, invalid: requested && (!targetType || !targetId), ...(targetType ? { targetType } : {}), ...(targetId ? { targetId } : {}), ...(returnTo ? { returnTo } : {}) };
@@ -303,9 +314,12 @@ export function procurementContextFromSearch(search: string): ProcurementContext
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   const purchaseOrderId = routeQueryValue(query, "procurement", "poId")?.trim() || undefined;
   const receiptId = routeQueryValue(query, "procurement", "receiptId")?.trim() || undefined;
+  const subcontractId = routeQueryValue(query, "procurement", "subcontractId")?.trim() || undefined;
+  const subcontractClaimId = routeQueryValue(query, "procurement", "subcontractClaimId")?.trim() || undefined;
   const returnTo = safeReturnPath(routeQueryValue(query, "procurement", "from") || undefined);
-  const requested = Boolean(purchaseOrderId || receiptId);
-  return { requested, invalid: requested && !purchaseOrderId, ...(purchaseOrderId ? { purchaseOrderId } : {}), ...(receiptId ? { receiptId } : {}), ...(returnTo ? { returnTo } : {}) };
+  const requested = Boolean(purchaseOrderId || receiptId || subcontractId || subcontractClaimId);
+  const invalid = requested && !purchaseOrderId && !subcontractId;
+  return { requested, invalid, ...(purchaseOrderId ? { purchaseOrderId } : {}), ...(receiptId ? { receiptId } : {}), ...(subcontractId ? { subcontractId } : {}), ...(subcontractClaimId ? { subcontractClaimId } : {}), ...(returnTo ? { returnTo } : {}) };
 }
 
 export function warehouseContextFromSearch(search: string): WarehouseContext {
