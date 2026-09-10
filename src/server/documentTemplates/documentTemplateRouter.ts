@@ -683,7 +683,10 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
     let auth: StorageAuthContext | null = null;
     try {
       const documentType = requestedDocumentType(req.body?.documentType);
-      const permission = documentType === "PURCHASE_ORDER" ? "procurement.read" : "projects.read";
+      const issuedGeneration = req.body?.snapshotId !== undefined;
+      const permission: StoragePermissionKey = issuedGeneration
+        ? (documentType === "PURCHASE_ORDER" ? "procurement.read" : "projects.read")
+        : "company.settings.manage";
       auth = await authorizer(req, permission);
       const versionId = requestedUuid(req.params.versionId, "Template version ID");
       const { version } = await readTemplateVersion(auth, options, versionId);
@@ -692,7 +695,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       let snapshot: FinancialDocumentSnapshot;
       let issued = false;
       let snapshotId = "";
-      if (req.body?.snapshotId !== undefined) {
+      if (issuedGeneration) {
         snapshotId = requestedUuid(req.body.snapshotId, "Issued snapshot ID");
         const { data, error } = await auth.supabase.from("issued_document_snapshots").select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot").eq("id", snapshotId).eq("company_id", auth.companyId).eq("document_type", documentType).maybeSingle();
         if (error) throw new StorageApiError(503, "DATABASE_ERROR", "The issued document snapshot could not be loaded safely.");
