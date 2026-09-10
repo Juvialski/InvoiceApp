@@ -114,11 +114,13 @@ select lives_ok($$select public.transition_client_billing((select billing_id fro
 select is((select count(*) from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_id from wave4b_ids)), 1::bigint, 'PO issuance snapshot exists before cancellation');
 select is((select count(*) from public.issued_document_snapshots where document_type = 'CLIENT_INVOICE' and document_id = (select billing_id from wave4b_billing_ids)), 1::bigint, 'client invoice issuance snapshot exists before voiding');
 
+select lives_ok($$select public.transition_purchase_order_status((select po_id from wave4b_ids), 'CANCELLED', 'Lifecycle regression')$$, 'issued PO can be cancelled through the guarded lifecycle RPC');
+select lives_ok($$select public.transition_client_billing((select billing_id from wave4b_billing_ids), 'VOIDED', 'Lifecycle regression')$$, 'issued client invoice can be voided through the guarded lifecycle RPC');
+select is((select count(*) from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_id from wave4b_ids)), 1::bigint, 'PO issuance snapshot remains after cancellation');
+select is((select count(*) from public.issued_document_snapshots where document_type = 'CLIENT_INVOICE' and document_id = (select billing_id from wave4b_billing_ids)), 1::bigint, 'client invoice issuance snapshot remains after voiding');
+
 set local role service_role;
 select set_config('request.jwt.claim.role', 'service_role', true);
-update public.purchase_orders set status = 'CANCELLED' where id = (select po_id from wave4b_ids);
-update public.client_billings set status = 'VOIDED' where id = (select billing_id from wave4b_billing_ids);
-
 select throws_ok($$select public.record_document_generation_evidence(jsonb_build_object(
   'generatedByUserId', (select admin_user from wave4b_ids),
   'companyId', (select company_id from wave4b_ids),
