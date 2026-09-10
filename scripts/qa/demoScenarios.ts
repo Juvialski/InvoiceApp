@@ -69,12 +69,25 @@ const openDemoTour: QaScenarioAction = async (page) => {
 
 const verifySupplierPayableBridge: QaScenarioAction = async (page) => {
   await waitForVisible(page, '[data-testid="supplier-invoice-expense-bridge"]');
-  const expenseLink = await page.getByRole("link", { name: /Open Expense/ }).count();
-  const recordPayment = await page.getByRole("link", { name: /Record Payment/ }).count();
+  const changeStatus = await page.getByRole("button", { name: "Change Status", exact: true }).count();
+  const expenseLink = await page.getByRole("link", { name: /Open\/Correct linked Expense/ }).count();
   const correctionLink = await page.getByRole("button", { name: /Review correction options/ }).count();
+  if (changeStatus === 1) {
+    await page.getByRole("button", { name: "Change Status", exact: true }).click();
+    await waitForVisible(page, '[data-testid="supplier-payment-dialog"]');
+  }
+  const paymentDialog = await page.locator('[data-testid="supplier-payment-dialog"]').count();
+  const paidOption = await page.getByRole("button", { name: "Paid", exact: true }).count();
+  const partialOption = await page.getByRole("button", { name: "Partially Paid", exact: true }).count();
+  const confirmPayment = await page.getByRole("button", { name: /Confirm Payment/ }).count();
+  const addAccount = await page.getByRole("button", { name: /Add Cash\/Bank Account/ }).count();
   return [
-    { id: "supplier-expense-bridge-visible", passed: expenseLink === 1, details: `Open Expense links: ${expenseLink}` },
-    { id: "supplier-expense-record-payment-visible", passed: recordPayment === 1, details: `Record Payment links: ${recordPayment}` },
+    { id: "supplier-payment-change-status-visible", passed: changeStatus === 1, details: `Change Status controls: ${changeStatus}` },
+    { id: "supplier-payment-dialog-visible", passed: paymentDialog === 1, details: `supplier payment dialogs: ${paymentDialog}` },
+    { id: "supplier-payment-status-options-visible", passed: paidOption === 1 && partialOption === 1, details: `Paid/Partially Paid controls: ${paidOption}/${partialOption}` },
+    { id: "supplier-payment-confirm-visible", passed: confirmPayment === 1, details: `Confirm Payment controls: ${confirmPayment}` },
+    { id: "supplier-payment-inline-account-visible", passed: addAccount === 1, details: `Add Cash/Bank Account controls: ${addAccount}` },
+    { id: "supplier-expense-secondary-correction-link-visible", passed: expenseLink === 1, details: `linked Expense correction links: ${expenseLink}` },
     { id: "supplier-invoice-correction-continuation-visible", passed: correctionLink > 0, details: `correction continuation controls: ${correctionLink}` },
   ] satisfies readonly QaAssertion[];
 };
@@ -398,8 +411,8 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "gmail-inbox", route: route("inbox", "/email-intake"), path: "/demo/app/inbox", interactionState: "Email Intake screen rendered in disconnected demo state", viewport: QA_VIEWPORTS.desktop, action: verifyGmailInboxScreen }),
   defineQaScenario({ feature: "invoices", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "supplier invoice navigation and register verified", viewport: QA_VIEWPORTS.desktop, action: verifySupplierInvoiceNavigation }),
   defineQaScenario({ feature: "invoices", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-01", interactionState: "invoice detail opened", viewport: QA_VIEWPORTS.desktop }),
-  defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "linked Expense payment surface opened", viewport: QA_VIEWPORTS.desktop, action: verifySupplierPayableBridge }),
-  defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "linked Expense payment surface opened", viewport: QA_VIEWPORTS.mobile, action: verifySupplierPayableBridge }),
+  defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "inline supplier payment modal opened", viewport: QA_VIEWPORTS.desktop, action: verifySupplierPayableBridge }),
+  defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "inline supplier payment modal opened", viewport: QA_VIEWPORTS.mobile, action: verifySupplierPayableBridge }),
   defineQaScenario({ feature: "invoices", route: route("review", "/review?invoiceId=:invoiceId"), path: "/demo/app/review?invoiceId=demo-invoice-07", interactionState: "invoice review opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "vendors", route: route("vendors", "/vendors"), path: "/demo/app/vendors", interactionState: "vendor directory rendered", viewport: QA_VIEWPORTS.desktop, action: verifyVendorsScreen }),
   defineQaScenario({ feature: "payroll", route: route("payroll", "/payroll"), path: "/demo/app/payroll", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
