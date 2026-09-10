@@ -105,6 +105,7 @@ declare
   v_converter_version text := nullif(left(btrim(coalesce(p_payload->>'converterVersion', p_payload->>'converter_version', '')), 120), '');
   v_expected_artifact_path text;
   v_expected_source_artifact_path text;
+  v_document_status text;
   v_row public.document_generation_evidence;
   v_template public.document_template_versions;
   v_snapshot public.issued_document_snapshots;
@@ -146,6 +147,28 @@ begin
     or v_snapshot.template_sha256 is null
     or lower(v_snapshot.template_sha256) is distinct from lower(v_template.content_sha256) then
     raise exception 'Generation evidence must reference the pinned issued snapshot and template version' using errcode = '42501';
+  end if;
+
+  if v_document_type = 'PURCHASE_ORDER' then
+    select po.status::text into v_document_status
+    from public.purchase_orders po
+    where po.id = v_document_id
+      and po.company_id = v_company_id
+    for share;
+    if not found or v_document_status not in ('ISSUED', 'CLOSED') then
+      raise exception 'Document generation evidence requires an issued or closed purchase order' using errcode = '42501';
+    end if;
+  elsif v_document_type = 'CLIENT_INVOICE' then
+    select billing.status::text into v_document_status
+    from public.client_billings billing
+    where billing.id = v_document_id
+      and billing.company_id = v_company_id
+    for share;
+    if not found or v_document_status <> 'ISSUED' then
+      raise exception 'Document generation evidence requires an issued client invoice' using errcode = '42501';
+    end if;
+  else
+    raise exception 'Document generation evidence document type is invalid' using errcode = '22023';
   end if;
 
   v_expected_artifact_path := format(
