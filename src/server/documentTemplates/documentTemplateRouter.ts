@@ -24,7 +24,6 @@ import {
 import { getStorageServerServiceRoleClient } from "../storage/storageCompensation.ts";
 import type { FinancialDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import {
-  DOCUMENT_TEMPLATE_TYPES,
   getDocumentTemplateFields,
   isDocumentTemplateType,
   validateDocumentTemplateBindings,
@@ -43,7 +42,6 @@ import {
   mergeDocxTemplate,
   generatedTemplateFileName,
   sha256Hex,
-  validateDocxTemplateBytes,
 } from "./documentTemplateEngine.ts";
 
 const TEMPLATE_BUCKET = "company-document-templates";
@@ -215,9 +213,11 @@ function serverSupabase(options: DocumentTemplateRouterOptions): SupabaseClient 
   return getStorageServerServiceRoleClient();
 }
 
-function artifactWriteProvider(options: DocumentTemplateRouterOptions, provider: DocumentStorageProvider): DocumentStorageProvider {
+function serverWriteProvider(options: DocumentTemplateRouterOptions, provider: DocumentStorageProvider): DocumentStorageProvider {
   if (provider.id !== "supabase") return provider;
   const serviceClient = serverSupabase(options);
+  if (options.primaryProviderSupplier) return options.primaryProviderSupplier(process.env, () => serviceClient);
+  if (options.providerSupplier) return options.providerSupplier("supabase", () => serviceClient);
   return createStorageProvider("supabase", undefined, () => serviceClient);
 }
 
@@ -235,15 +235,10 @@ async function authorizeTemplateRead(
   }
 }
 
-async function cleanupObject(auth: StorageAuthContext, provider: DocumentStorageProvider, bucket: string, key: string) {
+async function cleanupObject(auth: StorageAuthContext, options: DocumentTemplateRouterOptions, provider: DocumentStorageProvider, bucket: string, key: string) {
   try {
-    if (provider.id === "supabase") {
-      const serviceClient = getStorageServerServiceRoleClient();
-      const privileged = createStorageProvider("supabase", undefined, () => serviceClient);
-      await privileged.deleteObject({ companyId: auth.companyId, bucket, key });
-    } else {
-      await provider.deleteObject({ companyId: auth.companyId, bucket, key });
-    }
+    const writer = serverWriteProvider(options, provider);
+    await writer.deleteObject({ companyId: auth.companyId, bucket, key });
   } catch {
     // The metadata write remains the authoritative boundary. A failed cleanup
     // is deliberately not surfaced with provider details or credentials.
@@ -269,7 +264,6 @@ async function readTemplateBytes(auth: StorageAuthContext, options: DocumentTemp
   const { bytes } = await provider.getObject({ companyId: auth.companyId, bucket: version.storageBucket, key: version.contentStoragePath });
   const hash = await calculateSha256Hex(bytes);
   if (hash.toLowerCase() !== version.contentSha256.toLowerCase()) throw new StorageIntegrityError("The document template failed its stored integrity check.");
-  validateDocxTemplateBytes(bytes, version.sourceFilename || "template.docx", version.mimeType);
   return { bytes, provider };
 }
 
@@ -318,10 +312,12 @@ async function persistVersion(
   const path = templateObjectPath(auth.companyId, resolvedTemplateId, input.documentType, versionId, sourceFilename);
   const hash = sha256Hex(input.bytes);
   const provider = primaryProvider(auth, options);
+  const writer = serverWriteProvider(options, provider);
   const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : undefined;
-  const put = await provider.putObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: path, bytes: input.bytes, contentType: DOCX_MIME_TYPE, sha256: hash, upsert: false });
+  const put = await writer.putObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: path, bytes: input.bytes, contentType: DOCX_MIME_TYPE, sha256: hash, upsert: false });
   try {
-    const { data, error } = await auth.supabase.rpc("create_document_template_version", {
+    const mutationClient = serverSupabase(options);
+    const { data, error } = await mutationClient.rpc("server_create_document_template_version", {
       p_payload: {
         companyId: auth.companyId,
         templateId: resolvedTemplateId,
@@ -345,12 +341,13 @@ async function persistVersion(
         validationReport: input.validationReport,
         ...(input.parentVersionId ? { parentVersionId: input.parentVersionId } : {}),
       },
+      p_actor_user_id: auth.user.id,
     });
     if (error || !data) throw error || new Error("The document template version was not returned.");
     const row = record(data);
     return { version: mapVersion(row), template: row.template ? mapRoot(record(row.template), []) : undefined };
   } catch (error: any) {
-    await cleanupObject(auth, provider, put.ref.bucket, path);
+    await cleanupObject(auth, options, provider, put.ref.bucket, path);
     throw new StorageApiError(apiStatus(error), "TEMPLATE_METADATA_FAILED", apiMessage(error, "The document template could not be recorded safely."));
   }
 }
@@ -601,11 +598,13 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       })) as DocumentTemplateBinding[];
       const structure = extractDocxStructure(bytes, version.sourceFilename || "template.docx");
       const report = validateDocumentTemplateBindings(version.documentType, structure.tags, bindings);
-      const { data, error } = await auth.supabase.rpc("update_document_template_bindings", {
+      const mutationClient = serverSupabase(options);
+      const { data, error } = await mutationClient.rpc("server_update_document_template_bindings", {
         p_version_id: versionId,
         p_bindings: bindings,
         p_validation_state: report.state,
         p_validation_report: report,
+        p_actor_user_id: auth.user.id,
       });
       if (error || !data) throw new StorageApiError(apiStatus(error), "TEMPLATE_MAPPING_FAILED", apiMessage(error, "The template mappings could not be saved safely."));
       return res.json({ success: true, data: { version: mapVersion(record(data)), report } });
@@ -642,7 +641,8 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
     try {
       const auth = await authorizer(req, "company.settings.manage");
       const versionId = requestedUuid(req.params.versionId, "Template version ID");
-      const { data, error } = await auth.supabase.rpc("activate_document_template_version", { p_version_id: versionId });
+      const mutationClient = serverSupabase(options);
+      const { data, error } = await mutationClient.rpc("server_activate_document_template_version", { p_version_id: versionId, p_actor_user_id: auth.user.id });
       if (error || !data) throw new StorageApiError(apiStatus(error), "TEMPLATE_ACTIVATION_FAILED", apiMessage(error, "The document template could not be activated safely."));
       return res.json({ success: true, data: mapVersion(record(data)) });
     } catch (error: any) {
@@ -654,7 +654,8 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
     try {
       const auth = await authorizer(req, "company.settings.manage");
       const versionId = requestedUuid(req.params.versionId, "Template version ID");
-      const { data, error } = await auth.supabase.rpc("retire_document_template_version", { p_version_id: versionId });
+      const mutationClient = serverSupabase(options);
+      const { data, error } = await mutationClient.rpc("server_retire_document_template_version", { p_version_id: versionId, p_actor_user_id: auth.user.id });
       if (error || !data) throw new StorageApiError(apiStatus(error), "TEMPLATE_RETIRE_FAILED", apiMessage(error, "The document template could not be retired safely."));
       return res.json({ success: true, data: mapVersion(record(data)) });
     } catch (error: any) {
@@ -711,7 +712,7 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const artifactHash = await calculateSha256Hex(merged);
       if (issued && auth) {
         const provider = primaryProvider(auth, options);
-        const artifactProvider = artifactWriteProvider(options, provider);
+        const artifactProvider = serverWriteProvider(options, provider);
         const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : undefined;
         const artifactPath = artifactObjectPath(auth.companyId, snapshotId, documentType, version.id, artifactHash);
         let artifactBucket = bucket || "";
