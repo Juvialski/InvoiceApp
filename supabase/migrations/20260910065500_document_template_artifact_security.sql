@@ -1,12 +1,12 @@
--- Wave 4A hardening: keep application-owned DOCX validation and issued artifact
--- provenance behind the trusted server boundary. Browser-authenticated users
--- retain scoped reads, but cannot write template bytes, forge validated
--- metadata, activate versions, or manufacture immutable generation evidence.
+-- Wave 4A hardening: separate mutable template setup from issued artifact history.
+-- Template files remain manageable by company settings administrators. Generated
+-- issued artifacts are financial/history records and are written only by the
+-- trusted server after domain authorization and deterministic generation.
 --
 -- Modern Supabase sb_secret_ keys are not JWTs. The Data API authorizes them
--- through the service_role Postgres role, so the exact EXECUTE grants below
--- are the server-only caller boundary. Do not inspect auth.role() inside these
--- SECURITY DEFINER functions; that claim may be absent for a modern secret key.
+-- through the service_role Postgres role, so the exact EXECUTE grant below is
+-- the server-only caller boundary. Do not inspect auth.role() inside this
+-- SECURITY DEFINER function; that claim may be absent for a modern secret key.
 
 -- Settings access is appropriate for template source files, but it must not
 -- expose issued artifacts containing supplier/client financial information.
@@ -37,148 +37,18 @@ using (
   )
 );
 
--- All template/artifact writes now arrive through the server after the route
--- has validated the DOCX and authorized the originating company user. The
--- service role bypasses Storage RLS; authenticated browsers intentionally have
--- no INSERT/UPDATE/DELETE policy on this bucket.
+-- Authenticated clients may upload only template source files. Issued artifact
+-- paths intentionally have no authenticated INSERT policy; the server service
+-- role writes them after the request has passed document-domain authorization.
 drop policy if exists "company document templates insert" on storage.objects;
-
--- Existing mutation functions contain the authoritative company-permission,
--- state-transition, and immutability rules. Remove direct browser execution so
--- callers cannot bypass application-owned DOCX validation by invoking them
--- directly through PostgREST.
-revoke all on function public.create_document_template_version(jsonb) from public, anon, authenticated, service_role;
-revoke all on function public.update_document_template_bindings(uuid, jsonb, text, jsonb) from public, anon, authenticated, service_role;
-revoke all on function public.activate_document_template_version(uuid) from public, anon, authenticated, service_role;
-revoke all on function public.retire_document_template_version(uuid) from public, anon, authenticated, service_role;
-
--- These service-only wrappers temporarily expose the already-authorized
--- originating user's identity to the existing mutation functions. That keeps
--- their established has_company_permission checks authoritative while making
--- the application server the only path to validated template mutation.
-create or replace function public.server_create_document_template_version(
-  p_payload jsonb,
-  p_actor_user_id uuid
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_result jsonb;
-begin
-  if p_actor_user_id is null then
-    raise exception 'Document template mutation requires an originating user' using errcode = '22023';
-  end if;
-  perform set_config('request.jwt.claim.sub', p_actor_user_id::text, true);
-  perform set_config('request.jwt.claim.role', 'authenticated', true);
-  v_result := public.create_document_template_version(p_payload);
-  perform set_config('request.jwt.claim.sub', '', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-  return v_result;
-exception when others then
-  perform set_config('request.jwt.claim.sub', '', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-  raise;
-end;
-$$;
-
-create or replace function public.server_update_document_template_bindings(
-  p_version_id uuid,
-  p_bindings jsonb,
-  p_validation_state text,
-  p_validation_report jsonb,
-  p_actor_user_id uuid
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_result jsonb;
-begin
-  if p_actor_user_id is null then
-    raise exception 'Document template mutation requires an originating user' using errcode = '22023';
-  end if;
-  perform set_config('request.jwt.claim.sub', p_actor_user_id::text, true);
-  perform set_config('request.jwt.claim.role', 'authenticated', true);
-  v_result := public.update_document_template_bindings(p_version_id, p_bindings, p_validation_state, p_validation_report);
-  perform set_config('request.jwt.claim.sub', '', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-  return v_result;
-exception when others then
-  perform set_config('request.jwt.claim.sub', '', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-  raise;
-end;
-$$;
-
-create or replace function public.server_activate_document_template_version(
-  p_version_id uuid,
-  p_actor_user_id uuid
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_result jsonb;
-begin
-  if p_actor_user_id is null then
-    raise exception 'Document template mutation requires an originating user' using errcode = '22023';
-  end if;
-  perform set_config('request.jwt.claim.sub', p_actor_user_id::text, true);
-  perform set_config('request.jwt.claim.role', 'authenticated', true);
-  v_result := public.activate_document_template_version(p_version_id);
-  perform set_config('request.jwt.claim.sub', '', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-  return v_result;
-exception when others then
-  perform set_config('request.jwt.claim.sub', '', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-  raise;
-end;
-$$;
-
-create or replace function public.server_retire_document_template_version(
-  p_version_id uuid,
-  p_actor_user_id uuid
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_result jsonb;
-begin
-  if p_actor_user_id is null then
-    raise exception 'Document template mutation requires an originating user' using errcode = '22023';
-  end if;
-  perform set_config('request.jwt.claim.sub', p_actor_user_id::text, true);
-  perform set_config('request.jwt.claim.role', 'authenticated', true);
-  v_result := public.retire_document_template_version(p_version_id);
-  perform set_config('request.jwt.claim.sub', '', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-  return v_result;
-exception when others then
-  perform set_config('request.jwt.claim.sub', '', true);
-  perform set_config('request.jwt.claim.role', 'service_role', true);
-  raise;
-end;
-$$;
-
-revoke all on function public.server_create_document_template_version(jsonb, uuid) from public, anon, authenticated;
-revoke all on function public.server_update_document_template_bindings(uuid, jsonb, text, jsonb, uuid) from public, anon, authenticated;
-revoke all on function public.server_activate_document_template_version(uuid, uuid) from public, anon, authenticated;
-revoke all on function public.server_retire_document_template_version(uuid, uuid) from public, anon, authenticated;
-grant execute on function public.server_create_document_template_version(jsonb, uuid) to service_role;
-grant execute on function public.server_update_document_template_bindings(uuid, jsonb, text, jsonb, uuid) to service_role;
-grant execute on function public.server_activate_document_template_version(uuid, uuid) to service_role;
-grant execute on function public.server_retire_document_template_version(uuid, uuid) to service_role;
+create policy "company document templates insert" on storage.objects
+for insert to authenticated
+with check (
+  bucket_id = 'company-document-templates'
+  and name like 'companies/%/document-templates/%'
+  and private.storage_company_id(name) is not null
+  and (select public.has_company_permission(private.storage_company_id(name), 'company.settings.manage'))
+);
 
 create or replace function public.record_document_generation_evidence(p_payload jsonb)
 returns jsonb
