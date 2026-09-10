@@ -10,7 +10,7 @@ import type { ExtractPayload } from "./components/UploadZone";
 import type { SaveState } from "./components/VerificationWorkspace";
 import { AppShell } from "./app/AppShell";
 import { AppRouter } from "./app/routes/AppRouter";
-import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
+import { appPathForAttendanceDate, appPathForInvoice, appPathForPayrollPeriod, appPathForProject, appPathForPurchaseOrder, appPathForReviewInvoice, appPathForTab, appPathFromLocation, appTabForLocation, attendanceDateFromSearch, parseAppLocation, payrollPeriodIdFromSearch, payrollRunIdFromSearch, type AppLocation, type ProjectWorkspaceView } from "./utils/appRouting";
 import { DEFAULT_ROUTE_PATH, ROUTE_DEFINITIONS, type RouteId } from "./utils/routes";
 import { canAccessAppTab, defaultAppTabForPermissions, hasAllPermissions, hasAnyPermission, hasPermission, PERMISSION_KEYS, permittedAppTabs, requiredPermissionForAppTab } from "./utils/accessControl";
 import { Department, EmailClassification, Equipment, EquipmentAssignment, EquipmentLifecycleStatus, Expense, FinancialFxSnapshot, GmailConnectionInfo, GmailImportedMessage, GmailMessageCandidate, GmailScanWindow, InvoiceData, InvoiceProjectAllocation, PayrollEntry, PayrollPeriod, PayrollProjectAllocation, PayrollRun, Project, ProjectCostCode, ProjectCostSummary, ProjectEquipment, ProjectMaterial, ProjectWorkerAssignment, PurchaseOrder, PurchaseOrderInvoiceMatch, PurchaseOrderLine, PurchaseOrderReceipt, PurchaseOrderStatus, RFQ, RFQLine, RFQStatus, Subcontract, SubcontractLine, SubcontractProgressClaim, SubcontractProgressClaimLine, SubcontractProgressClaimStatus, SubcontractStatus, SubcontractVariation, SubcontractVariationLine, SubcontractVariationStatus, SupplierQuotation, SupplierQuotationLine, Vendor, Worker, WorkEntry } from "./types";
@@ -3010,6 +3010,7 @@ function InvoiceWorkspace() {
         return next;
       });
       showNotification("success", `Goods receipt ${saved.receiptNumber} recorded successfully.`);
+      return saved;
     } catch (error: any) {
       showNotification("error", userFacingError(error, "Could not record delivery receipt."));
       throw error;
@@ -4721,10 +4722,31 @@ function InvoiceWorkspace() {
     ? resolveEntityById(invoices, route.invoiceId)
     : undefined;
   const routeExpense = route.kind === "expense" ? resolveEntityById(expenses, route.expenseId) : undefined;
-  const routeNotFound = route.kind === "unknown"
+  const routeDataUnavailable = Boolean(!workspaceLoading && workspaceRefreshFailureRef.current);
+  const routeNotFound = !routeDataUnavailable && (route.kind === "unknown"
     || (route.kind === "project" && !workspaceLoading && !routeProject)
     || (route.kind === "expense" && !workspaceLoading && !routeExpense)
-    || ((route.kind === "invoice" || route.kind === "review-invoice") && !workspaceLoading && !routeInvoice);
+    || ((route.kind === "invoice" || route.kind === "review-invoice") && !workspaceLoading && !routeInvoice));
+  const routeRecovery = routeNotFound
+    ? route.kind === "invoice"
+      ? { title: "Supplier invoice unavailable", description: "This supplier invoice is not available in the current company workspace. No alternate invoice or payment record was selected.", actionLabel: "Return to Supplier Invoices" }
+      : route.kind === "review-invoice"
+        ? { title: "Review item unavailable", description: "This supplier review item is not available in the current company workspace. The review queue remains unchanged.", actionLabel: "Return to Review Queue" }
+        : route.kind === "expense"
+          ? { title: "Expense unavailable", description: "This Expense is not available in the current company workspace. No correction or payment action was opened.", actionLabel: "Return to Expenses" }
+          : route.kind === "project"
+            ? { title: "Project unavailable", description: "This project is not available in the current company workspace. No alternate project was selected.", actionLabel: "Return to Projects" }
+            : { title: "Workspace destination unavailable", description: "The requested workspace destination is not available. No unauthorized record was revealed or selected.", actionLabel: "Return to your workspace" }
+    : undefined;
+  const routeRecoveryPath = route.kind === "invoice"
+    ? appPathForTab("invoices")
+    : route.kind === "review-invoice"
+      ? appPathForTab("review")
+      : route.kind === "expense"
+        ? appPathForTab("expenses")
+        : route.kind === "project"
+          ? appPathForTab("projects")
+          : appPathForTab(defaultAppTabForPermissions(permissions));
   const visibleRouteIds = useMemo<readonly RouteId[] | undefined>(() => {
     if (!isSupabaseConfigured || !session) return undefined;
     return ROUTE_DEFINITIONS
@@ -4820,6 +4842,8 @@ function InvoiceWorkspace() {
         workspaceLoading={workspaceLoading}
         routeNotFound={routeNotFound}
         onReturnToDashboard={() => navigateToPath(appPathForTab("dashboard"))}
+        routeRecovery={routeRecovery}
+        onRecoverRoute={() => navigateToPath(routeRecoveryPath, true)}
       >
         <AppRouter
           route={route}
@@ -4921,7 +4945,7 @@ function InvoiceWorkspace() {
           purchaseOrderMatches={purchaseOrderMatches}
           onConfirmPurchaseOrderMatch={handleConfirmPurchaseOrderMatch}
           onUnmatchPurchaseOrderMatch={handleUnmatchPurchaseOrderMatch}
-          onOpenPurchaseOrder={(_id) => navigateToPath(appPathForTab("procurement"))}
+          onOpenPurchaseOrder={(id) => navigateToPath(appPathForPurchaseOrder(id, appPathForTab(activeTab)))}
           rfqs={rfqs}
           supplierQuotations={supplierQuotations}
           onSaveRFQ={handleSaveRFQ}

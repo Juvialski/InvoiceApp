@@ -24,7 +24,7 @@ export interface PurchasedMaterialIntakePanelProps {
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
-  ) => Promise<void>;
+  ) => Promise<PurchaseOrderReceipt | void>;
 }
 
 function today() {

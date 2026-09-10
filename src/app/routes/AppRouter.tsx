@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { cashSettlementTargetContextFromSearch, financialTransactionIdFromSearch, type AppLocation } from "../../utils/appRouting";
+import { cashSettlementTargetContextFromSearch, financialTransactionIdFromSearch, procurementContextFromSearch, warehouseContextFromSearch, type AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
 import type {
@@ -402,7 +402,7 @@ export interface AppRouterProps {
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
-  ) => Promise<void>;
+  ) => Promise<PurchaseOrderReceipt | void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
   onDeactivateVendor?: (vendorId: string, reason: string) => Promise<void>;
@@ -693,6 +693,8 @@ export const AppRouter: React.FC<AppRouterProps> = ({
   // which may still describe the previous location for one render after a
   // history transition.
   const routeTarget = appRouteTargetForLocation(route);
+  const procurementContext = routeTarget === "procurement" ? procurementContextFromSearch(route.search) : undefined;
+  const warehouseContext = routeTarget === "warehouse" ? warehouseContextFromSearch(route.search) : undefined;
 
   // 1. Single Invoice Verification / Review Workspace Mode
   if (routeTarget === "invoice-workspace" && selectedInvoice) {
@@ -1063,6 +1065,12 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         purchaseOrders={purchaseOrders}
         subcontracts={subcontracts}
         receipts={receipts}
+        initialPurchaseOrderId={procurementContext?.purchaseOrderId}
+        initialReceiptId={procurementContext?.receiptId}
+        initialReturnPath={procurementContext?.returnTo}
+        onNavigatePath={onNavigatePath}
+        workspaceLoading={workspaceLoading}
+        inventoryMovements={inventoryMovements}
         projects={projects}
         vendors={vendors}
         costCodes={costCodes as ProjectCostCode[]}
@@ -1110,6 +1118,11 @@ export const AppRouter: React.FC<AppRouterProps> = ({
         projectMaterials={materials}
         purchaseOrders={purchaseOrders}
         receipts={receipts}
+        initialMovementId={warehouseContext?.movementId}
+        initialReceiptId={warehouseContext?.receiptId}
+        initialReturnPath={warehouseContext?.returnTo}
+        onNavigatePath={onNavigatePath}
+        workspaceLoading={workspaceLoading}
         guestMode={engineeringDocumentsGuestMode}
         onOpenProject={onOpenProject}
         onSaveItem={onSaveInventoryItem}

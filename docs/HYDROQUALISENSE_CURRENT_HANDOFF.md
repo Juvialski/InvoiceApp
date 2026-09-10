@@ -1,24 +1,24 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — QA CERTIFICATION NOT READY**  
+Status: **CURRENT — WAVE 2 IN PROGRESS / QA CERTIFICATION NOT READY**
 Date: **2026-09-10**
 Repository: `Juvialski/InvoiceApp`
 
 Use this with `AGENTS.md`, `docs/AGENTS_BASELINE_20260909.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`, `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`, and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`. Live repository state remains authoritative.
 
-## Repository/application baseline
+## Wave 2 starting baseline
 
-This documentation update started from exact merged `main`:
+Wave 1A is complete through PR #126 and Wave 1B is complete through PR #129. This Wave 2 implementation starts from exact green `main`:
 
-`354cfd6ad9a834979c81ef990365f661b33fc829`
+`b7c550158d00798de33b2ce9853e9232b95aea16`
 
-That commit is the merged Wave 1A application-bearing state from PR #126.
+The associated Protected QA Release completed green, including migration parity and authenticated hosted QA. That evidence belongs to this exact starting SHA and does not certify later Wave 2 changes.
 
 The last retained successful Hosted QA application baseline predating Wave 1A remains:
 
 `288940a196ff5886d352ed665f0d06dd998513b0`
 
-Do not confuse these facts. Wave 1A is complete as product implementation, but the newer application-bearing SHA is not covered automatically by the older Hosted QA artifact. Exact deployed-SHA identity, migration parity, and Hosted QA remain a separate readiness requirement for the newer application baseline.
+The older retained Hosted QA artifact remains evidence only for `288940a...`; exact deployed-SHA identity, migration parity, and Hosted QA remain separate readiness facts for every later application-bearing SHA.
 
 ## Workflow UX audit — persisted
 
@@ -69,8 +69,8 @@ Wave 1A also repaired settlement-candidate lifecycle context for payroll so the 
 Unless the user reprioritizes again:
 
 1. **Wave 1B — Client Receivable Lifecycle UX — COMPLETE**
-2. **Wave 2 — Cross-module routing and handoffs — NEXT**
-3. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions**
+2. **Wave 2 — Cross-module routing and handoffs — ACTIVE**
+3. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — NEXT**
 4. resume the broader approved product roadmap:
    - Email/SMS + Documents;
    - Worker Registration;
@@ -114,21 +114,35 @@ The same phase also corrects the production-like base-reporting projection: a so
 
 Do **not** include payroll payment redesign, subcontract payable design, PO close changes, Warehouse redesign, Worker Registration, Attendance, Face Recognition, or Email/SMS/Documents implementation in Wave 1B.
 
+## Wave 2 — Cross-module routing and handoffs — ACTIVE
+
+The bounded Wave 2 implementation keeps existing domain authority intact while connecting exact records across the workflow:
+
+- Supplier Invoices are exposed through normal navigation using the existing invoice register and RBAC contract.
+- Expense rows and detail can continue to authoritative supplier invoice and purchase-order records only when persisted identifiers exist.
+- Cash & Banking returns use target-aware labels and preserve the exact Expense context.
+- Procurement receipt continuation opens the exact Warehouse receipt context; an existing persisted movement is preferred when available, while Warehouse posting remains an explicit human action.
+- Warehouse movements link back to the exact persisted Procurement purchase-order receipt when source metadata exists.
+- Missing entity links recover to the nearest authorized register without revealing inaccessible records; loader failures remain runtime errors rather than false not-found states.
+- Email Intake remains unchanged after proof-first focused tests and deterministic demo browser evidence found no concrete continuation defect.
+
+Wave 2 remains bounded to routing, discoverability, context, stale-link recovery, and targeted 390px usability. Payroll settlement, subcontract payable, PO close semantics, and broad responsive redesign remain deferred.
+
 ## Remaining audit findings
 
-- UX-003 — Expense/source relationship navigation: partially remediated by Wave 1A; broader navigation remains Wave 2.
+- UX-003 — Expense/source relationship navigation: **RESOLVED for the delivered supplier invoice and purchase-order source links; further domains remain outside this wave.**
 - UX-006 / UX-007 — client collection continuation/status/history: **RESOLVED in Wave 1B.**
 - UX-008 — PO close guard: still `UNCERTAIN`; runtime/database confirmation required before any fix.
-- UX-009 — Procurement receipt → Warehouse continuation: Wave 2.
+- UX-009 — Procurement receipt → Warehouse continuation: **RESOLVED for exact receipt/movement continuation; automatic posting remains intentionally separate.**
 - UX-010 — payroll manual-paid semantics: Wave 3 deliberate design.
 - UX-011 — subcontract certified-payable bridge: Wave 3 deliberate financial design.
-- UX-012 — Warehouse movement → source navigation: Wave 2.
+- UX-012 — Warehouse movement → source navigation: **RESOLVED where persisted purchase-order receipt metadata exists.**
 - UX-013 — Email Intake post-import continuation: still `UNCERTAIN`; runtime/manual confirmation required.
-- UX-014 — domain-aware stale/invalid deep-link recovery: Wave 2.
+- UX-014 — domain-aware stale/invalid deep-link recovery: **RESOLVED for the delivered invoice, Expense, project, Procurement, and Warehouse deep-link surfaces.**
 - UX-015 — targeted Wave 1A mobile flows passed around 390px, but broader dense Expense/table states remain partially evidenced/open.
 - UX-016 — subcontract mobile density: later subcontract workflow phase.
 
-Wave 2 must include the supplier-side routing handoff that remains outside this phase: expose an obvious `Invoices` entry in normal sidebar navigation, make existing supplier invoices easy to discover, make the verified-invoice reopen/correction continuation easy to find, and keep invoice breadcrumbs/back navigation consistent.
+The supplier-side routing handoff is now part of the active Wave 2 implementation: the normal sidebar exposes `Supplier Invoices`, existing supplier invoices remain in the authoritative register, and the existing correction/history workflow remains the only legitimate reopen path.
 
 ## Permanent financial invariants from the audit
 

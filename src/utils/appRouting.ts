@@ -12,6 +12,22 @@ export interface CashSettlementTargetContext {
   returnTo?: string;
 }
 
+export interface ProcurementContext {
+  requested: boolean;
+  invalid: boolean;
+  purchaseOrderId?: string;
+  receiptId?: string;
+  returnTo?: string;
+}
+
+export interface WarehouseContext {
+  requested: boolean;
+  invalid: boolean;
+  movementId?: string;
+  receiptId?: string;
+  returnTo?: string;
+}
+
 export type ProjectWorkspaceView = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "materials-equipment" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
 export type AppLocation =
@@ -172,6 +188,20 @@ export function appPathForInvoice(invoiceId: string, returnTo?: string) {
   return suffix ? `${path}?${suffix}` : path;
 }
 
+/** Stable Procurement deep link for the exact purchase order/source context. */
+export function appPathForPurchaseOrder(purchaseOrderId: string, returnTo?: string, receiptId?: string) {
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "procurement", "poId", purchaseOrderId, true);
+  setRouteQueryValue(query, "procurement", "receiptId", receiptId);
+  setRouteQueryValue(query, "procurement", "from", safeReturnPath(returnTo));
+  return `${routeContractPath("procurement")}?${query.toString()}`;
+}
+
+/** Stable Procurement deep link for one exact purchase-order receipt. */
+export function appPathForPurchaseOrderReceipt(purchaseOrderId: string, receiptId: string, returnTo?: string) {
+  return appPathForPurchaseOrder(purchaseOrderId, returnTo, receiptId);
+}
+
 /** Stable Expense detail deep link. This is intentionally separate from the legacy correction context. */
 export function appPathForExpense(expenseId: string, returnTo?: string) {
   const path = routeContractPath("expense-detail");
@@ -210,6 +240,22 @@ export function appPathForCashTarget(targetType: CashSettlementTargetType, targe
   setRouteQueryValue(query, "cash", "fromTargetId", targetId, true);
   setRouteQueryValue(query, "cash", "returnTo", safeReturnPath(returnTo));
   return `${routeContractPath("cash")}?${query.toString()}`;
+}
+
+/** Continue to the explicit Warehouse posting context for a Procurement receipt. */
+export function appPathForWarehouseReceipt(receiptId: string, returnTo?: string) {
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "warehouse", "receiptId", receiptId, true);
+  setRouteQueryValue(query, "warehouse", "from", safeReturnPath(returnTo));
+  return `${routeContractPath("warehouse")}?${query.toString()}`;
+}
+
+/** Stable Warehouse deep link for one persisted movement. */
+export function appPathForWarehouseMovement(movementId: string, returnTo?: string) {
+  const query = new URLSearchParams();
+  setRouteQueryValue(query, "warehouse", "movementId", movementId, true);
+  setRouteQueryValue(query, "warehouse", "from", safeReturnPath(returnTo));
+  return `${routeContractPath("warehouse")}?${query.toString()}`;
 }
 
 /** Stable payroll deep link without inventing a second payroll routing system. */
@@ -251,6 +297,24 @@ export function cashSettlementTargetContextFromSearch(search: string): CashSettl
     ? rawType as CashSettlementTargetType
     : undefined;
   return { requested, invalid: requested && (!targetType || !targetId), ...(targetType ? { targetType } : {}), ...(targetId ? { targetId } : {}), ...(returnTo ? { returnTo } : {}) };
+}
+
+export function procurementContextFromSearch(search: string): ProcurementContext {
+  const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  const purchaseOrderId = routeQueryValue(query, "procurement", "poId")?.trim() || undefined;
+  const receiptId = routeQueryValue(query, "procurement", "receiptId")?.trim() || undefined;
+  const returnTo = safeReturnPath(routeQueryValue(query, "procurement", "from") || undefined);
+  const requested = Boolean(purchaseOrderId || receiptId);
+  return { requested, invalid: requested && !purchaseOrderId, ...(purchaseOrderId ? { purchaseOrderId } : {}), ...(receiptId ? { receiptId } : {}), ...(returnTo ? { returnTo } : {}) };
+}
+
+export function warehouseContextFromSearch(search: string): WarehouseContext {
+  const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  const movementId = routeQueryValue(query, "warehouse", "movementId")?.trim() || undefined;
+  const receiptId = routeQueryValue(query, "warehouse", "receiptId")?.trim() || undefined;
+  const returnTo = safeReturnPath(routeQueryValue(query, "warehouse", "from") || undefined);
+  const requested = Boolean(movementId || receiptId);
+  return { requested, invalid: requested && !movementId && !receiptId, ...(movementId ? { movementId } : {}), ...(receiptId ? { receiptId } : {}), ...(returnTo ? { returnTo } : {}) };
 }
 
 export function expenseIdFromSearch(search: string) {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -28,6 +28,9 @@ import {
   type InventoryMovementType,
 } from "../../lib/inventory.ts";
 import { PageHeader, StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
+import { useWorkspaceDataPending } from "../../app/AppPermissionContext.tsx";
+import { appPathForPurchaseOrderReceipt, appPathForWarehouseMovement } from "../../utils/appRouting.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 const inputClass = "mt-1 w-full min-h-10 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";
 const labelClass = "block text-[11px] font-black uppercase tracking-[0.08em] text-slate-500";
@@ -73,6 +76,28 @@ function quantity(value: number) {
 
 function movementLabel(type: InventoryMovementType) {
   return type === "PROJECT_ISSUE" ? "Project issue" : type === "PROJECT_RETURN" ? "Project return" : type === "OPENING" ? "Opening stock" : type === "RECEIPT" ? "Stock receipt" : "Reversal";
+}
+
+function purchaseOrderSourcePath(movement: InventoryMovement) {
+  if (!movement.sourcePurchaseOrderId || !movement.purchaseOrderReceiptId) return undefined;
+  return appPathForPurchaseOrderReceipt(
+    movement.sourcePurchaseOrderId,
+    movement.purchaseOrderReceiptId,
+    appPathForWarehouseMovement(movement.id),
+  );
+}
+
+function MovementSourceCell({ movement, project, onOpenProject, onNavigatePath }: { movement: InventoryMovement; project?: Project; onOpenProject?: (project: Project) => void; onNavigatePath?: AppNavigate }) {
+  if (project) {
+    return <>{onOpenProject ? <button type="button" onClick={() => onOpenProject(project)} className="font-black text-indigo-700 hover:underline">{project.projectCode} · {project.projectName}</button> : <span className="font-black">{project.projectName}</span>}{movement.projectMaterialId && <span className="mt-1 block text-[10px] text-slate-500">Project material requirement linked</span>}</>;
+  }
+  if (movement.sourceType === "PURCHASE_ORDER_RECEIPT") {
+    const sourcePath = purchaseOrderSourcePath(movement);
+    return sourcePath
+      ? <a href={sourcePath} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(sourcePath); }} className="font-semibold text-indigo-700 hover:underline">Procurement receipt {movement.sourcePurchaseOrderReceiptNumber || movement.purchaseOrderReceiptId}{movement.sourcePurchaseOrderId ? ` · ${movement.sourcePurchaseOrderId}` : ""}</a>
+      : <span className="font-semibold">Procurement receipt {movement.sourcePurchaseOrderReceiptNumber || movement.purchaseOrderReceiptId}{movement.sourcePurchaseOrderId ? ` · ${movement.sourcePurchaseOrderId}` : ""}</span>;
+  }
+  return <span className="text-slate-500">Company warehouse custody</span>;
 }
 
 function statusTone(status: InventoryItem["status"]): StatusTone {
@@ -166,6 +191,7 @@ function ItemFormModal({ item, onClose, onSave }: { item?: InventoryItem; onClos
 function MovementFormModal({
   action,
   initialItemId,
+  initialReceiptId,
   items,
   balances,
   projects,
@@ -178,6 +204,7 @@ function MovementFormModal({
 }: {
   action: MovementAction;
   initialItemId?: string;
+  initialReceiptId?: string;
   items: readonly InventoryItem[];
   balances: readonly InventoryBalance[];
   projects: readonly Project[];
@@ -203,6 +230,19 @@ function MovementFormModal({
   const materialOptions = projectMaterials.filter((material) => material.projectId === form.projectId && material.inventoryItemId === form.inventoryItemId && normalizeUnit(material.unit) === normalizeUnit(selectedItem?.stockUnit));
   const isProcurementReceipt = action === "RECEIPT" && form.sourceMode === "PURCHASE_ORDER_RECEIPT";
   const update = <K extends keyof MovementFormState>(key: K, value: MovementFormState[K]) => setForm((current) => ({ ...current, [key]: value }));
+
+  useEffect(() => {
+    if (action !== "RECEIPT" || !initialReceiptId || form.receiptSourceKey) return;
+    const requestedReceipt = receiptOptions.find((option) => option.receipt.id === initialReceiptId);
+    if (!requestedReceipt) return;
+    setForm((current) => ({
+      ...current,
+      sourceMode: "PURCHASE_ORDER_RECEIPT",
+      receiptSourceKey: requestedReceipt.key,
+      inventoryItemId: requestedReceipt.line.inventoryItemId || current.inventoryItemId,
+      quantity: String(requestedReceipt.line.quantity),
+    }));
+  }, [action, form.receiptSourceKey, initialReceiptId, receiptOptions]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -305,6 +345,11 @@ export interface WarehouseInventoryPageProps {
   projectMaterials?: readonly ProjectMaterial[];
   purchaseOrders?: readonly PurchaseOrder[];
   receipts?: readonly PurchaseOrderReceipt[];
+  initialMovementId?: string;
+  initialReceiptId?: string;
+  initialReturnPath?: string;
+  onNavigatePath?: AppNavigate;
+  workspaceLoading?: boolean;
   canRead?: boolean;
   canManage?: boolean;
   canReadProjects?: boolean;
@@ -323,6 +368,11 @@ export const WarehouseInventoryPage: React.FC<WarehouseInventoryPageProps> = ({
   projectMaterials = [],
   purchaseOrders = [],
   receipts = [],
+  initialMovementId,
+  initialReceiptId,
+  initialReturnPath,
+  onNavigatePath,
+  workspaceLoading = false,
   canRead = false,
   canManage = false,
   canReadProjects = false,
@@ -332,11 +382,12 @@ export const WarehouseInventoryPage: React.FC<WarehouseInventoryPageProps> = ({
   onRecordMovement,
   onReverseMovement,
 }) => {
+  const workspaceDataPending = useWorkspaceDataPending();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | InventoryItem["status"]>("ALL");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [itemModal, setItemModal] = useState<{ item?: InventoryItem } | null>(null);
-  const [movementModal, setMovementModal] = useState<{ action: MovementAction; itemId?: string } | null>(null);
+  const [movementModal, setMovementModal] = useState<{ action: MovementAction; itemId?: string; receiptId?: string } | null>(null);
   const [reverseMovement, setReverseMovement] = useState<InventoryMovement | null>(null);
   const balances = useMemo(() => providedBalances || deriveInventoryBalances(items, movements), [items, movements, providedBalances]);
   const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
@@ -359,6 +410,17 @@ export const WarehouseInventoryPage: React.FC<WarehouseInventoryPageProps> = ({
       });
     });
   }, [movements, purchaseOrders, receipts]);
+  const requestedMovement = initialMovementId ? movements.find((movement) => movement.id === initialMovementId) : undefined;
+  const requestedReceipt = initialReceiptId ? receipts.find((receipt) => receipt.id === initialReceiptId) : undefined;
+  const requestedReceiptMovement = initialReceiptId
+    ? movements.find((movement) => movement.sourceType === "PURCHASE_ORDER_RECEIPT" && movement.purchaseOrderReceiptId === initialReceiptId)
+    : undefined;
+  const requestedMovementUnavailable = Boolean(initialMovementId && !workspaceLoading && !workspaceDataPending && !requestedMovement);
+  const requestedReceiptUnavailable = Boolean(initialReceiptId && !workspaceLoading && !workspaceDataPending && !requestedReceipt);
+  useEffect(() => {
+    if (workspaceLoading || workspaceDataPending || !requestedMovement) return;
+    setSelectedItemId(requestedMovement.inventoryItemId);
+  }, [requestedMovement, workspaceDataPending, workspaceLoading]);
   const filteredBalances = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return balances.filter((balance) => (statusFilter === "ALL" || balance.status === statusFilter)
@@ -372,7 +434,7 @@ export const WarehouseInventoryPage: React.FC<WarehouseInventoryPageProps> = ({
     return <section className="space-y-4"><PageHeader eyebrow="Warehouse" title="Warehouse Inventory" description="Company-level physical stock and custody history." /><div role="status" className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-sm leading-6 text-slate-600 shadow-sm"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" /><div><p className="font-black text-slate-900">Inventory access is restricted.</p><p className="mt-1">Your current permission set does not include warehouse inventory read access. No stock quantities are shown.</p></div></div></section>;
   }
 
-  const openMovement = (action: MovementAction, itemId?: string) => setMovementModal({ action, itemId });
+  const openMovement = (action: MovementAction, itemId?: string, receiptId?: string) => setMovementModal({ action, itemId, receiptId });
   const saveMovement = async (input: InventoryMovementInput) => {
     if (!onRecordMovement) throw new Error("Warehouse movement recording is not available in this workspace.");
     await onRecordMovement(input);
@@ -380,6 +442,9 @@ export const WarehouseInventoryPage: React.FC<WarehouseInventoryPageProps> = ({
 
   return (
     <section className="space-y-5" data-domain="warehouse-inventory">
+      {requestedMovementUnavailable && <section role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950"><p className="font-black">The requested Warehouse movement is unavailable.</p><p className="mt-1">It may have been archived, reversed, or is no longer accessible in this company workspace.</p>{initialReturnPath && <a href={initialReturnPath} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(initialReturnPath); }} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-white px-3 py-2 font-black text-amber-900 shadow-sm">Return to previous workspace</a>}</section>}
+      {requestedReceiptUnavailable && <section role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950"><p className="font-black">The requested Procurement receipt is unavailable.</p><p className="mt-1">No Warehouse movement was selected because the authoritative receipt is not available in this company workspace.</p>{initialReturnPath && <a href={initialReturnPath} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(initialReturnPath); }} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-white px-3 py-2 font-black text-amber-900 shadow-sm">Return to previous workspace</a>}</section>}
+      {initialReceiptId && requestedReceipt && !requestedReceiptUnavailable && <section role="status" className="flex flex-col gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-xs text-indigo-950 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-black">Procurement receipt {requestedReceipt.receiptNumber}</p><p className="mt-1">Warehouse posting remains a separate explicit movement tied to this exact receipt.</p></div>{requestedReceiptMovement ? <span className="shrink-0 rounded-lg bg-white px-3 py-2 font-black text-indigo-800">Movement already recorded</span> : canManage ? <button type="button" onClick={() => openMovement("RECEIPT", undefined, requestedReceipt.id)} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-indigo-700 px-3 py-2 font-black text-white">Post exact receipt to Warehouse</button> : <span className="shrink-0 rounded-lg bg-white px-3 py-2 font-black text-indigo-800">Warehouse management permission required</span>}</section>}
       <PageHeader eyebrow="Company operations" title="Warehouse Inventory" description="Quantity and custody ledger derived from authoritative movements. No valuation or automatic procurement posting is performed." actions={canManage ? <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setItemModal({})} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-black text-white"><Plus className="h-3.5 w-3.5" />Add item</button><button type="button" onClick={() => openMovement("OPENING")} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700"><ArrowDownToLine className="h-3.5 w-3.5" />Opening stock</button></div> : undefined} />
       <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-xs leading-5 text-indigo-950"><Warehouse className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" /><div><p className="font-black">Movement-derived stock truth</p><p className="mt-1">Opening stock, receipts, project issues, project returns, and compensating reversals are recorded as history. Planned project quantity, PO receipt quantity, and field observations remain visibly separate.</p></div></div>
       {movements.some((movement) => movement.requiresReconciliation) && <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" /><div><p className="font-black">Procurement reconciliation needs review</p><p className="mt-1">One or more warehouse receipts reference a PO receipt that is now voided. Stock history remains intact; review the movement and use the controlled reversal path when appropriate.</p></div></div>}
@@ -389,11 +454,11 @@ export const WarehouseInventoryPage: React.FC<WarehouseInventoryPageProps> = ({
       {!canManage && <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" /><span>Read-only inventory view. Stock actions and corrections require inventory.manage; no quantities are editable from this screen.</span></div>}
 
       {selectedItem && <ModalShell title={selectedItem.itemName} eyebrow="Item history" onClose={() => setSelectedItemId(null)} wide>
-        <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">On-hand</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.onHandQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Opening</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.openingQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Received</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.receivedQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Issued / returned</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.issuedQuantity || 0)} / {quantity(selectedBalance?.returnedQuantity || 0)}</p></div></div><div className="flex flex-wrap gap-2">{canManage && <><button type="button" onClick={() => openMovement("RECEIPT", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-800"><Truck className="h-3.5 w-3.5" />Receive stock</button><button type="button" onClick={() => openMovement("PROJECT_ISSUE", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-amber-200 px-3 py-2 text-xs font-black text-amber-800"><ArrowUpFromLine className="h-3.5 w-3.5" />Issue to project</button><button type="button" onClick={() => openMovement("PROJECT_RETURN", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-cyan-200 px-3 py-2 text-xs font-black text-cyan-800"><Undo2 className="h-3.5 w-3.5" />Return from project</button><button type="button" onClick={() => setItemModal({ item: selectedItem })} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700"><Edit3 className="h-3.5 w-3.5" />Edit item</button></>}</div><div className="overflow-hidden rounded-xl border border-slate-200"><div className="hidden grid-cols-[150px_110px_120px_minmax(220px,1fr)_minmax(180px,1fr)_110px] gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2.5 text-[10px] font-black uppercase tracking-wide text-slate-500 md:grid"><span>Date</span><span>Movement</span><span>Quantity</span><span>Project / source</span><span>Reason / reference</span><span /></div>{selectedMovements.length ? selectedMovements.map((movement) => { const project = movement.projectId ? projectById.get(movement.projectId) : undefined; const canReverse = canManage && movement.movementType !== "REVERSAL" && !reversedMovementIds.has(movement.id) && Boolean(onReverseMovement); return <div key={movement.id} className="grid gap-2 border-b border-slate-100 px-3 py-3 last:border-b-0 md:grid-cols-[150px_110px_120px_minmax(220px,1fr)_minmax(180px,1fr)_110px] md:items-center"><div className="text-xs font-bold text-slate-700">{movement.effectiveDate}<span className="mt-1 block text-[10px] text-slate-400">{movement.createdAt ? new Date(movement.createdAt).toLocaleString() : "Recorded time unavailable"}</span></div><div><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-black ${movement.movementType === "REVERSAL" ? "border-amber-200 bg-amber-50 text-amber-800" : movement.direction === "IN" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{movementLabel(movement.movementType)}</span>{movement.movementType === "REVERSAL" && <span className="mt-1 block text-[10px] text-slate-500">Compensating history</span>}</div><div className={`text-sm font-black tabular-nums ${movement.direction === "IN" ? "text-emerald-700" : "text-rose-700"}`}>{movement.direction === "IN" ? "+" : "−"}{quantity(movement.quantity)} {movement.stockUnitSnapshot}</div><div className="text-xs text-slate-700">{project ? <>{onOpenProject ? <button type="button" onClick={() => onOpenProject(project)} className="font-black text-indigo-700 hover:underline">{project.projectCode} · {project.projectName}</button> : <span className="font-black">{project.projectName}</span>}{movement.projectMaterialId && <span className="mt-1 block text-[10px] text-slate-500">Project material requirement linked</span>}</> : movement.sourceType === "PURCHASE_ORDER_RECEIPT" ? <span className="font-semibold">Procurement receipt {movement.sourcePurchaseOrderReceiptNumber || movement.purchaseOrderReceiptId}{movement.sourcePurchaseOrderId ? ` · ${movement.sourcePurchaseOrderId}` : ""}</span> : <span className="text-slate-500">Company warehouse custody</span>}{movement.requiresReconciliation && <span className="mt-1 flex items-center gap-1 text-[10px] font-black text-amber-700"><AlertTriangle className="h-3 w-3" />PO receipt voided · review</span>}</div><div className="text-xs text-slate-700"><p>{movement.reason}</p>{movement.reference && <p className="mt-1 text-[10px] text-slate-500">Ref: {movement.reference}</p>}{movement.createdByUserId && <p className="mt-1 text-[10px] text-slate-400">Actor recorded</p>}</div><div className="flex justify-start md:justify-end">{canReverse ? <button type="button" onClick={() => setReverseMovement(movement)} className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1.5 text-[10px] font-black text-amber-800"><RotateCcw className="h-3 w-3" />Reverse</button> : movement.movementType !== "REVERSAL" && reversedMovementIds.has(movement.id) ? <span className="text-[10px] font-bold text-slate-400">Reversed</span> : null}</div></div>; }) : <div className="p-8 text-center text-xs text-slate-500">No movement history for this item yet.</div>}</div></div>
+        <div className="space-y-4"><div className="grid gap-3 sm:grid-cols-4"><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">On-hand</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.onHandQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Opening</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.openingQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Received</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.receivedQuantity || 0)} {selectedItem.stockUnit}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Issued / returned</p><p className="mt-1 text-lg font-black tabular-nums">{quantity(selectedBalance?.issuedQuantity || 0)} / {quantity(selectedBalance?.returnedQuantity || 0)}</p></div></div><div className="flex flex-wrap gap-2">{canManage && <><button type="button" onClick={() => openMovement("RECEIPT", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-200 px-3 py-2 text-xs font-black text-emerald-800"><Truck className="h-3.5 w-3.5" />Receive stock</button><button type="button" onClick={() => openMovement("PROJECT_ISSUE", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-amber-200 px-3 py-2 text-xs font-black text-amber-800"><ArrowUpFromLine className="h-3.5 w-3.5" />Issue to project</button><button type="button" onClick={() => openMovement("PROJECT_RETURN", selectedItem.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-cyan-200 px-3 py-2 text-xs font-black text-cyan-800"><Undo2 className="h-3.5 w-3.5" />Return from project</button><button type="button" onClick={() => setItemModal({ item: selectedItem })} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black text-slate-700"><Edit3 className="h-3.5 w-3.5" />Edit item</button></>}</div><div className="overflow-hidden rounded-xl border border-slate-200"><div className="hidden grid-cols-[150px_110px_120px_minmax(220px,1fr)_minmax(180px,1fr)_110px] gap-3 border-b border-slate-100 bg-slate-50 px-3 py-2.5 text-[10px] font-black uppercase tracking-wide text-slate-500 md:grid"><span>Date</span><span>Movement</span><span>Quantity</span><span>Project / source</span><span>Reason / reference</span><span /></div>{selectedMovements.length ? selectedMovements.map((movement) => { const project = movement.projectId ? projectById.get(movement.projectId) : undefined; const canReverse = canManage && movement.movementType !== "REVERSAL" && !reversedMovementIds.has(movement.id) && Boolean(onReverseMovement); return <div key={movement.id} className="grid gap-2 border-b border-slate-100 px-3 py-3 last:border-b-0 md:grid-cols-[150px_110px_120px_minmax(220px,1fr)_minmax(180px,1fr)_110px] md:items-center"><div className="text-xs font-bold text-slate-700">{movement.effectiveDate}<span className="mt-1 block text-[10px] text-slate-400">{movement.createdAt ? new Date(movement.createdAt).toLocaleString() : "Recorded time unavailable"}</span></div><div><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-black ${movement.movementType === "REVERSAL" ? "border-amber-200 bg-amber-50 text-amber-800" : movement.direction === "IN" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>{movementLabel(movement.movementType)}</span>{movement.movementType === "REVERSAL" && <span className="mt-1 block text-[10px] text-slate-500">Compensating history</span>}</div><div className={`text-sm font-black tabular-nums ${movement.direction === "IN" ? "text-emerald-700" : "text-rose-700"}`}>{movement.direction === "IN" ? "+" : "−"}{quantity(movement.quantity)} {movement.stockUnitSnapshot}</div><div className="text-xs text-slate-700"><MovementSourceCell movement={movement} project={project} onOpenProject={onOpenProject} onNavigatePath={onNavigatePath} />{movement.requiresReconciliation && <span className="mt-1 flex items-center gap-1 text-[10px] font-black text-amber-700"><AlertTriangle className="h-3 w-3" />PO receipt voided · review</span>}</div><div className="text-xs text-slate-700"><p>{movement.reason}</p>{movement.reference && <p className="mt-1 text-[10px] text-slate-500">Ref: {movement.reference}</p>}{movement.createdByUserId && <p className="mt-1 text-[10px] text-slate-400">Actor recorded</p>}</div><div className="flex justify-start md:justify-end">{canReverse ? <button type="button" onClick={() => setReverseMovement(movement)} className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-amber-200 px-2.5 py-1.5 text-[10px] font-black text-amber-800"><RotateCcw className="h-3 w-3" />Reverse</button> : movement.movementType !== "REVERSAL" && reversedMovementIds.has(movement.id) ? <span className="text-[10px] font-bold text-slate-400">Reversed</span> : null}</div></div>; }) : <div className="p-8 text-center text-xs text-slate-500">No movement history for this item yet.</div>}</div></div>
       </ModalShell>}
 
       {itemModal && onSaveItem && <ItemFormModal item={itemModal.item} onClose={() => setItemModal(null)} onSave={onSaveItem} />}
-      {movementModal && <MovementFormModal action={movementModal.action} initialItemId={movementModal.itemId} items={items} balances={balances} projects={projects} projectMaterials={projectMaterials} receiptOptions={receiptOptions} canReadProjects={canReadProjects} canReadProcurement={canReadProcurement} onClose={() => setMovementModal(null)} onSubmit={saveMovement} />}
+      {movementModal && <MovementFormModal action={movementModal.action} initialItemId={movementModal.itemId} initialReceiptId={movementModal.receiptId} items={items} balances={balances} projects={projects} projectMaterials={projectMaterials} receiptOptions={receiptOptions} canReadProjects={canReadProjects} canReadProcurement={canReadProcurement} onClose={() => setMovementModal(null)} onSubmit={saveMovement} />}
       {reverseMovement && onReverseMovement && <ReverseMovementModal movement={reverseMovement} onClose={() => setReverseMovement(null)} onSubmit={async (movementId, reason, idempotencyKey) => { await onReverseMovement(movementId, reason, idempotencyKey); }} />}
     </section>
   );

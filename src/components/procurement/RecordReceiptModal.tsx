@@ -11,7 +11,7 @@ export interface RecordReceiptModalProps {
   onRecordReceipt: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
-  ) => Promise<void> | void;
+  ) => Promise<PurchaseOrderReceipt | void> | PurchaseOrderReceipt | void;
   onClose: () => void;
 }
 

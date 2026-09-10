@@ -127,10 +127,10 @@ test("R3 UI keeps buyer data available only in the collapsed details path", () =
   assert.doesNotMatch(review, /Customer \/ Buyer/);
 });
 
-test("R3 primary navigation contains Expenses but no standalone invoice module", () => {
+test("R3 primary navigation exposes the authoritative supplier invoice module alongside Expenses", () => {
   const nav = readFileSync(new URL("../src/navigation/navigationModel.ts", import.meta.url), "utf8");
   assert.match(nav, /id: "expenses"/);
-  assert.doesNotMatch(nav, /id: "invoices", label: "Invoices"/);
+  assert.match(nav, /id: "invoices", label: "Supplier Invoices"/);
 });
 
 test("R3 Gmail sending requires explicit send endpoint, snapshot identity, and audited status", () => {

@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — QA CERTIFICATION NOT READY**  
+Status: **ACTIVE — WAVE 2 IN PROGRESS / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-10**
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
@@ -10,15 +10,15 @@ Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
 
-## Current repository and workflow-remediation baseline
+## Wave 2 starting baseline and current workflow-remediation state
 
-PR #126 — Wave 1A Supplier Payable Lifecycle UX — is merged. The application-bearing `main` established by that merge is:
+Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1B Client Receivable Lifecycle UX is complete through merged PR #129. The current Wave 2 starting baseline is the exact green `main` SHA:
 
-`354cfd6ad9a834979c81ef990365f661b33fc829`
+`b7c550158d00798de33b2ce9853e9232b95aea16`
 
-Wave 1A is **COMPLETE** in internal product-development status because the merged implementation and exact-head required CI support that claim. The detailed audit source of truth, finding IDs, classifications, and wave mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
+The exact baseline Protected QA Release completed green, including migration parity and authenticated hosted QA. That release evidence is a readiness fact for this SHA; it does not change the separate `QA CERTIFICATION NOT READY` product-readiness status or certify future Wave 2 application changes.
 
-The latest application-bearing `main` above is newer than the last retained hosted-QA certification baseline below. Do not imply that Wave 1A completion also certifies the newer application SHA for QA. Product workflow remediation and QA/release readiness are separate tracks.
+Wave 2 is **ACTIVE**. The detailed audit source of truth, finding IDs, classifications, and wave mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
 
 ## Immediate user-prioritized product workflow sequence
 
@@ -26,8 +26,8 @@ The user explicitly reprioritized the broad UX/workflow audit remediation ahead 
 
 1. **Wave 1A — Supplier Payable Lifecycle UX — COMPLETE**
 2. **Wave 1B — Client Receivable Lifecycle UX — COMPLETE**
-3. **Wave 2 — Cross-module routing and handoffs — NEXT**
-4. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions**
+3. **Wave 2 — Cross-module routing and handoffs — ACTIVE**
+4. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — NEXT**
 5. Resume the broader approved product roadmap unless the user reprioritizes again:
    - Email/SMS + Documents;
    - Worker Registration foundation;
@@ -77,7 +77,7 @@ The detail view derives invoice amount, collected amount, remaining amount, coll
 
 ### Wave 2 — Cross-module routing and handoffs
 
-**Status: NEXT after Wave 1B.**
+**Status: ACTIVE from the Wave 2 starting baseline.**
 
 Primary audit targets:
 
@@ -90,6 +90,8 @@ Primary audit targets:
 - bounded mobile/discoverability work supported by actual runtime evidence.
 
 Wave 2 must also make the existing supplier `Invoices` register obvious in normal sidebar navigation, improve discovery of existing supplier invoices, expose the verified-invoice reopen/correction continuation, and keep invoice breadcrumbs/back navigation consistent. This remains explicitly outside Wave 1B.
+
+The current bounded implementation also carries exact Expense, Cash, Procurement, and Warehouse source context through centralized route contracts, recovers stale entity links to the nearest authorized register, and keeps Email Intake proof-first unless runtime evidence demonstrates a concrete continuation gap.
 
 Keep this wave focused on navigation, context, discoverability, and truthful handoffs. Do not invent duplicate domain records to make navigation easier.
 

@@ -46,6 +46,7 @@ import type {
   SupplierQuotationLine,
   Vendor,
 } from "../../types.ts";
+import type { InventoryMovement } from "../../lib/inventory.ts";
 import { createDemoRFQs, createDemoSubcontractClaims, createDemoSubcontracts, createDemoSubcontractVariations, createDemoSupplierQuotations } from "../../demo/data/procurement.ts";
 import { defaultDemoAnchorDate } from "../../demo/data/demoDates.ts";
 import { isDemoApplicationPath } from "../../app/applicationMode.ts";
@@ -91,6 +92,8 @@ import { SubcontractVariationsDrawer } from "./SubcontractVariationsDrawer.tsx";
 import { DocumentPreviewModal } from "../DocumentPreviewModal.tsx";
 import { buildPurchaseOrderDocumentSnapshot } from "../../lib/documentGeneration.ts";
 import { DEFAULT_COMPANY_DOCUMENT_PROFILE } from "../../lib/companyDocumentProfile.ts";
+import { appPathForPurchaseOrder, appPathForWarehouseMovement, appPathForWarehouseReceipt } from "../../utils/appRouting.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface ProcurementPageProps {
   purchaseOrders: PurchaseOrder[];
@@ -100,6 +103,11 @@ export interface ProcurementPageProps {
   costCodes: ProjectCostCode[];
   selectedProjectId?: string;
   initialTab?: "purchase_orders" | "rfqs" | "subcontracts";
+  initialPurchaseOrderId?: string;
+  initialReceiptId?: string;
+  initialReturnPath?: string;
+  onNavigatePath?: AppNavigate;
+  workspaceLoading?: boolean;
   canRead?: boolean;
   canManage?: boolean;
   canApprove?: boolean;
@@ -117,10 +125,11 @@ export interface ProcurementPageProps {
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
-  ) => Promise<void>;
+  ) => Promise<PurchaseOrderReceipt | void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
   onOpenInvoice?: (invoiceId: string) => void;
+  inventoryMovements?: readonly InventoryMovement[];
   onSaveRFQ?: (
     rfq: Partial<RFQ> & { rfqNumber: string; title: string },
     lines: Array<Partial<RFQLine> & { description: string; quantity: number }>,
@@ -185,6 +194,11 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   costCodes,
   selectedProjectId,
   initialTab,
+  initialPurchaseOrderId,
+  initialReceiptId,
+  initialReturnPath,
+  onNavigatePath,
+  workspaceLoading = false,
   canRead = false,
   canManage = false,
   canApprove = false,
@@ -202,6 +216,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   onVoidReceipt,
   onAddVendor,
   onOpenInvoice,
+  inventoryMovements = [],
   onSaveRFQ,
   onTransitionRFQ,
   onDeleteRFQ,
@@ -231,6 +246,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   // Purchase Order State
   const [activePo, setActivePo] = useState<PurchaseOrder | null | undefined>(undefined);
   const [previewPo, setPreviewPo] = useState<PurchaseOrder | null>(null);
+  const [receiptContinuation, setReceiptContinuation] = useState<{ receipt: PurchaseOrderReceipt; purchaseOrder: PurchaseOrder } | null>(null);
 
   // RFQ State (with graceful fallback to demo seed when not provided)
   const defaultAnchor = useMemo(() => defaultDemoAnchorDate(), []);
@@ -267,6 +283,47 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   useEffect(() => {
     setProjectFilter(selectedProjectId || "ALL");
   }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (!initialPurchaseOrderId) return;
+    const requested = purchaseOrders.find((purchaseOrder) => purchaseOrder.id === initialPurchaseOrderId);
+    if (requested) {
+      setActiveTab("purchase_orders");
+      setActivePo(requested);
+    }
+  }, [initialPurchaseOrderId, purchaseOrders]);
+
+  const handleRecordReceiptInternal = async (
+    receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
+    lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
+  ) => {
+    if (!onRecordReceipt) return undefined;
+    const saved = await onRecordReceipt(receipt, lines);
+    if (saved) {
+      const purchaseOrder = purchaseOrders.find((candidate) => candidate.id === saved.purchaseOrderId);
+      if (purchaseOrder) setReceiptContinuation({ receipt: saved, purchaseOrder });
+    }
+    return saved;
+  };
+
+  const requestedPurchaseOrder = initialPurchaseOrderId
+    ? purchaseOrders.find((purchaseOrder) => purchaseOrder.id === initialPurchaseOrderId)
+    : undefined;
+  const requestedReceipt = initialReceiptId
+    ? receipts.find((receipt) => receipt.id === initialReceiptId)
+    : undefined;
+  const requestedContextUnavailable = !workspaceLoading && Boolean(
+    (initialPurchaseOrderId && !requestedPurchaseOrder)
+      || (initialReceiptId && (!requestedReceipt || !requestedPurchaseOrder || requestedReceipt.purchaseOrderId !== requestedPurchaseOrder.id)),
+  );
+  const continuationMovement = receiptContinuation
+    ? inventoryMovements.find((movement) => movement.sourceType === "PURCHASE_ORDER_RECEIPT" && movement.purchaseOrderReceiptId === receiptContinuation.receipt.id)
+    : undefined;
+  const continuationPath = receiptContinuation
+    ? continuationMovement
+      ? appPathForWarehouseMovement(continuationMovement.id, initialReturnPath || appPathForPurchaseOrder(receiptContinuation.purchaseOrder.id))
+      : appPathForWarehouseReceipt(receiptContinuation.receipt.id, initialReturnPath || appPathForPurchaseOrder(receiptContinuation.purchaseOrder.id))
+    : undefined;
 
   const [activeSubcontractModal, setActiveSubcontractModal] = useState<Subcontract | null | undefined>(undefined);
   const [cancellationSubcontract, setCancellationSubcontract] = useState<Subcontract | null>(null);
@@ -995,6 +1052,15 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
 
   return (
     <div className="space-y-6">
+      {requestedContextUnavailable && <section role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
+        <p className="font-black">The requested purchase order or receipt is unavailable.</p>
+        <p className="mt-1">It may have been archived, removed from this company workspace, or is no longer accessible with the current permissions. No alternate record was selected.</p>
+        {initialReturnPath && <a href={initialReturnPath} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(initialReturnPath); }} className="mt-3 inline-flex min-h-10 items-center rounded-lg bg-white px-3 py-2 font-black text-amber-900 shadow-sm">Return to previous workspace</a>}
+      </section>}
+      {receiptContinuation && continuationPath && <section role="status" className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-950 sm:flex-row sm:items-center sm:justify-between">
+        <div><p className="font-black">Goods receipt {receiptContinuation.receipt.receiptNumber} recorded.</p><p className="mt-1">Warehouse posting remains a separate explicit movement. Continue with the exact receipt context{continuationMovement ? " or persisted movement" : ""}.</p></div>
+        <a href={continuationPath} onClick={(event) => { if (!onNavigatePath) return; event.preventDefault(); onNavigatePath(continuationPath); }} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-emerald-700 px-3 py-2 font-black text-white hover:bg-emerald-800">{continuationMovement ? "Open exact Warehouse movement" : "Continue to Warehouse"}</a>
+      </section>}
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
@@ -2168,7 +2234,8 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
           onSave={onSavePO}
           onTransition={onTransitionPO}
           onDelete={onDeletePO}
-          onRecordReceipt={onRecordReceipt}
+          initialReceiptId={initialReceiptId}
+          onRecordReceipt={handleRecordReceiptInternal}
           onVoidReceipt={onVoidReceipt}
           onClose={() => setActivePo(undefined)}
           onAddVendor={onAddVendor}
