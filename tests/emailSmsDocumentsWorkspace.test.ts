@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { buildDocumentRegister } from "../src/lib/documentRegister.ts";
 import { emailWorkspaceContextFromSearch, appPathForEmailWorkspace } from "../src/utils/appRouting.ts";
+import { canAccessAppTab, PERMISSION_KEYS } from "../src/utils/accessControl.ts";
 import { getSmsProviderStatus, resolveSmsProvider } from "../src/server/messaging/smsProvider.ts";
 
 const workspace = readFileSync(new URL("../src/app/routes/EmailSmsRoute.tsx", import.meta.url), "utf8");
@@ -32,6 +33,21 @@ test("Documents is a projection over authoritative records with permission-scope
     visibility: { invoices: true, projects: false, procurement: false, expenses: false, cash: false, engineering: false },
   });
   assert.deepEqual(financeOnly.map((entry) => entry.kind), ["SUPPLIER_INVOICE"]);
+});
+
+test("Documents route admits every permission that can expose a projected record", () => {
+  for (const permission of [
+    PERMISSION_KEYS.invoicesRead,
+    PERMISSION_KEYS.projectsRead,
+    PERMISSION_KEYS.procurementRead,
+    PERMISSION_KEYS.expensesRead,
+    PERMISSION_KEYS.engineeringDocumentsRead,
+    PERMISSION_KEYS.cashSummaryRead,
+    PERMISSION_KEYS.cashImport,
+    PERMISSION_KEYS.documentSend,
+  ]) {
+    assert.equal(canAccessAppTab("documents", [permission]), true, `${permission} should admit the Documents route`);
+  }
 });
 
 test("Email / SMS document handoff is exact and does not embed message content in URLs", () => {
