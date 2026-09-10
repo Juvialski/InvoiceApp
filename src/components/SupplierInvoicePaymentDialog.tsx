@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CircleAlert, Landmark, Plus, WalletCards, X } from "lucide-react";
 import { useAppPermissions } from "../app/AppPermissionContext.tsx";
-import {
-  financialId,
-  type FinancialAccount,
-} from "../lib/cashBanking.ts";
+import { financialId, type FinancialAccount } from "../lib/cashBanking.ts";
 import {
   listFinancialAccounts,
   reverseFinancialTransactionInSupabase,
@@ -12,7 +9,7 @@ import {
   saveFinancialTransactionToSupabase,
 } from "../lib/cashBankingPersistence.ts";
 import { saveExpenseToSupabase } from "../lib/expenses.ts";
-import type { FinancialSettlementSummary } from "../lib/financialSettlement.ts";
+import type { FinancialSettlementHistoryItem, FinancialSettlementSummary } from "../lib/financialSettlement.ts";
 import { confirmFinancialSettlement, loadFinancialSettlementSummary } from "../lib/financialSettlementPersistence.ts";
 import {
   buildSupplierInvoicePaymentTransaction,
@@ -29,6 +26,7 @@ interface SupplierInvoicePaymentDialogProps {
   settlement: FinancialSettlementSummary;
   canRecordPayment?: boolean;
   onClose: () => void;
+  onExpenseUpdated?: (expense: Expense) => void;
   onRecorded: (expense: Expense, settlement: FinancialSettlementSummary) => void;
 }
 
@@ -41,6 +39,36 @@ function formatMoney(value: number, currency: string) {
   catch { return `${currency} ${value.toFixed(2)}`; }
 }
 
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function settlementAfterConfirmation(
+  current: FinancialSettlementSummary,
+  expense: Expense,
+  amount: number,
+  confirmed: FinancialSettlementHistoryItem,
+): FinancialSettlementSummary {
+  const reconciledCashPaid = Math.min(current.settlementBasis, roundMoney(current.reconciledCashPaid + amount));
+  const outstanding = Math.max(0, roundMoney(current.settlementBasis - reconciledCashPaid));
+  const settlementState = expense.status === "VOID"
+    ? "VOID"
+    : outstanding <= 0.005
+      ? "PAID"
+      : reconciledCashPaid > 0.005
+        ? "PARTIALLY_PAID"
+        : "UNPAID";
+  return {
+    ...current,
+    lifecycleStatus: expense.status,
+    reconciledCashPaid,
+    effectiveSettled: reconciledCashPaid,
+    outstanding,
+    settlementState,
+    history: [...current.history.filter((item) => item.id !== confirmed.id), confirmed],
+  };
+}
+
 export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialogProps> = ({
   open,
   invoice,
@@ -48,6 +76,7 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
   settlement,
   canRecordPayment = false,
   onClose,
+  onExpenseUpdated,
   onRecorded,
 }) => {
   const permissions = useAppPermissions();
@@ -183,12 +212,19 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
 
     setSubmitting(true);
     setError("");
+    let paymentExpense = expense;
     let transactionId = "";
+    let settlementConfirmed = false;
     try {
+      if (paymentExpense.status === "DRAFT") {
+        paymentExpense = await saveExpenseToSupabase({ ...paymentExpense, status: "APPROVED" });
+        onExpenseUpdated?.(paymentExpense);
+      }
+
       const transaction = await saveFinancialTransactionToSupabase(buildSupplierInvoicePaymentTransaction({
         invoiceId: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
-        expenseId: expense.id,
+        expenseId: paymentExpense.id,
         accountId: selectedAccount.id,
         paymentDate,
         amount: resolvedAmount,
@@ -197,11 +233,7 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
       }));
       transactionId = transaction.id;
 
-      const paymentExpense = expense.status === "DRAFT"
-        ? await saveExpenseToSupabase({ ...expense, status: "APPROVED" })
-        : expense;
-
-      await confirmFinancialSettlement({
+      const confirmed = await confirmFinancialSettlement({
         transactionId: transaction.id,
         targetType: "EXPENSE",
         targetId: paymentExpense.id,
@@ -210,20 +242,29 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
         notes: note.trim() || undefined,
         confirmationSource: "INVOICE_STATUS_UI",
       });
+      settlementConfirmed = true;
 
-      const refreshed = await loadFinancialSettlementSummary("EXPENSE", paymentExpense.id);
-      if (!refreshed) throw new Error("The payment was recorded, but the updated settlement status could not be loaded.");
-      onRecorded(paymentExpense, refreshed);
+      let updatedSummary = settlementAfterConfirmation(settlement, paymentExpense, resolvedAmount, confirmed);
+      try {
+        updatedSummary = await loadFinancialSettlementSummary("EXPENSE", paymentExpense.id) || updatedSummary;
+      } catch {
+        // The settlement is already authoritative. Keep the confirmed local projection
+        // instead of undoing a legitimate payment because a follow-up read failed.
+      }
+      onRecorded(paymentExpense, updatedSummary);
       onClose();
     } catch (cause) {
       let message = errorMessage(cause, "The supplier payment could not be recorded.");
-      if (transactionId) {
+      if (transactionId && !settlementConfirmed) {
         try {
           await reverseFinancialTransactionInSupabase(transactionId, "Supplier invoice payment flow did not complete.");
         } catch (rollbackCause) {
           message = `${message} The created transaction also could not be reversed automatically; open Cash & Banking to review it before retrying.`;
           console.error("Supplier payment transaction rollback failed", rollbackCause);
         }
+      }
+      if (paymentExpense.status === "APPROVED" && expense.status === "DRAFT" && !settlementConfirmed) {
+        message = `${message} The linked Expense was approved as confirmed, but no payment settlement was created. You can retry this payment.`;
       }
       setError(message);
     } finally {
@@ -261,9 +302,9 @@ export const SupplierInvoicePaymentDialog: React.FC<SupplierInvoicePaymentDialog
         </div>}
 
         <div>
-          <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label htmlFor="supplier-payment-account" className="text-xs font-black text-slate-700">Payment account</label>
-            <button type="button" onClick={() => { setAddingAccount(true); setError(""); }} disabled={!canManageAccounts || submitting} className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 text-[11px] font-black text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-3.5 w-3.5" /> Add Cash/Bank Account</button>
+            <button type="button" onClick={() => { setAddingAccount(true); setError(""); }} disabled={!canManageAccounts || submitting} className="inline-flex min-h-9 w-full items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 text-[11px] font-black text-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"><Plus className="h-3.5 w-3.5" /> Add Cash/Bank Account</button>
           </div>
           {loadingAccounts ? <p className="text-xs text-slate-500">Loading payment accounts…</p> : matchingAccounts.length ? <select id="supplier-payment-account" value={accountId} onChange={(event) => setAccountId(event.target.value)} className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900">
             <option value="">Select Cash/Bank</option>
