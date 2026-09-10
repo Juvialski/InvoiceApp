@@ -104,6 +104,16 @@ test("DRAFT approval survives a later payment failure and successful settlement 
   assert.match(dialog, /Keep the confirmed local projection/);
 });
 
+test("Assistant compensation stops once supplier settlement confirmation is authoritative", () => {
+  const assistant = readFileSync("src/server/assistant/financialSettlementAssistant.ts", "utf8");
+  assert.match(assistant, /const approvedExpense = await approveLinkedExpenseForPayment\(context, resolved\.expense\)/);
+  assert.match(assistant, /let settlementConfirmed = false/);
+  assert.match(assistant, /settlementConfirmed = true/);
+  assert.match(assistant, /if \(transactionCreated && !settlementConfirmed\)/);
+  assert.match(assistant, /settlementRefreshRequired/);
+  assert.match(assistant, /paymentAuthority: \{ targetType: "EXPENSE"/);
+});
+
 test("zero-account and mobile payment flow remain inline and bounded", () => {
   const dialog = readFileSync("src/components/SupplierInvoicePaymentDialog.tsx", "utf8");
   assert.match(dialog, /Add Cash\/Bank Account/);
