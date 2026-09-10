@@ -106,7 +106,9 @@ import {
   writeInvoiceProjectAllocationsToLocal,
 } from "./lib/projects";
 import { type EngineeringDailySiteLogsWorkspaceData } from "./lib/dailySiteLogs.ts";
+import type { EngineeringDocumentsWorkspaceData } from "./lib/engineeringDocuments.ts";
 import { loadDailySiteLogsFromSupabase, readDailySiteLogsFromLocal, writeDailySiteLogsToLocal } from "./lib/dailySiteLogsPersistence.ts";
+import { loadEngineeringDocumentsWorkspaceFromSupabase, readEngineeringDocumentsWorkspaceFromLocal } from "./lib/engineeringDocumentsPersistence.ts";
 import {
   appendClientBillingEvent,
   applyLocalClientBillingTransition,
@@ -448,6 +450,7 @@ function InvoiceWorkspace() {
   const [inventoryMovements, setInventoryMovements] = useState<InventoryMovement[]>(() => isSupabaseConfigured ? [] : readInventoryMovementsFromLocal());
   const [inventoryBalances, setInventoryBalances] = useState<InventoryBalance[] | undefined>(() => undefined);
   const [dailySiteLogsData, setDailySiteLogsData] = useState<EngineeringDailySiteLogsWorkspaceData | undefined>(() => isSupabaseConfigured ? undefined : readDailySiteLogsFromLocal());
+  const [engineeringDocumentsData, setEngineeringDocumentsData] = useState<EngineeringDocumentsWorkspaceData | undefined>(() => isSupabaseConfigured ? undefined : readEngineeringDocumentsWorkspaceFromLocal());
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => isSupabaseConfigured ? [] : readPurchaseOrdersFromLocal());
   const [subcontracts, setSubcontracts] = useState<Subcontract[]>(() => isSupabaseConfigured ? [] : readSubcontractsFromLocal());
   const [subcontractClaims, setSubcontractClaims] = useState<SubcontractProgressClaim[]>(() => isSupabaseConfigured ? [] : readSubcontractClaimsFromLocal());
@@ -682,7 +685,7 @@ function InvoiceWorkspace() {
     : group === "cash"
       ? hasAnyPermission(permissions, [PERMISSION_KEYS.cashSummaryRead, PERMISSION_KEYS.cashTransactionsRead, PERMISSION_KEYS.cashImport, PERMISSION_KEYS.cashReconcile])
     : group === "engineering"
-      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringSiteLogsRead, PERMISSION_KEYS.inventoryRead, PERMISSION_KEYS.equipmentRead])
+      ? hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.procurementRead, PERMISSION_KEYS.engineeringDocumentsRead, PERMISSION_KEYS.engineeringSiteLogsRead, PERMISSION_KEYS.inventoryRead, PERMISSION_KEYS.equipmentRead])
       : group === "payroll"
         ? can(PERMISSION_KEYS.payrollRead)
         : group === "payroll-imports"
@@ -707,6 +710,7 @@ function InvoiceWorkspace() {
     inventoryMovements: InventoryMovement[];
     inventoryBalances?: InventoryBalance[];
     dailySiteLogsData?: EngineeringDailySiteLogsWorkspaceData;
+    engineeringDocumentsData?: EngineeringDocumentsWorkspaceData;
     purchaseOrders: PurchaseOrder[];
     subcontracts: Subcontract[];
     subcontractClaims: SubcontractProgressClaim[];
@@ -785,6 +789,7 @@ function InvoiceWorkspace() {
     setInventoryMovements(data.inventoryMovements);
     setInventoryBalances(data.inventoryBalances);
     setDailySiteLogsData(data.dailySiteLogsData);
+    setEngineeringDocumentsData(data.engineeringDocumentsData);
     setPurchaseOrders(data.purchaseOrders);
     setSubcontracts(data.subcontracts);
     setSubcontractClaims(data.subcontractClaims);
@@ -821,6 +826,7 @@ function InvoiceWorkspace() {
       hasAnyPermission(permissions, [PERMISSION_KEYS.projectsRead, PERMISSION_KEYS.invoicesRead, PERMISSION_KEYS.expensesRead, PERMISSION_KEYS.settingsRead]) ? loadFinancialFxSnapshotsFromSupabase() : Promise.resolve([]),
       can(PERMISSION_KEYS.inventoryRead) ? loadInventoryWorkspaceFromSupabase() : Promise.resolve({ items: [], movements: [], balances: [] as InventoryBalance[] }),
       can(PERMISSION_KEYS.equipmentRead) ? loadEquipmentWorkspaceFromSupabase() : Promise.resolve({ equipment: [], assignments: [] as EquipmentAssignment[] }),
+      can(PERMISSION_KEYS.engineeringDocumentsRead) ? loadEngineeringDocumentsWorkspaceFromSupabase(activeCompanyId || undefined) : Promise.resolve(undefined),
     ]);
     const failures: string[] = [];
     const projects = results[0].status === "fulfilled" ? results[0].value : [];
@@ -843,6 +849,7 @@ function InvoiceWorkspace() {
     const financialFxSnapshots = results[17].status === "fulfilled" ? results[17].value : [];
     const inventory = results[18].status === "fulfilled" ? results[18].value : { items: [], movements: [] };
     const equipmentRegistry = results[19].status === "fulfilled" ? results[19].value : { equipment: [], assignments: [] };
+    const engineeringDocumentsData = results[20].status === "fulfilled" ? results[20].value : undefined;
     if (results[0].status !== "fulfilled") failures.push("projects");
     if (results[1].status !== "fulfilled") failures.push("invoice allocations");
     if (results[2].status !== "fulfilled") failures.push("client billings");
@@ -862,6 +869,7 @@ function InvoiceWorkspace() {
     if (results[17].status !== "fulfilled") failures.push("financial FX snapshots");
     if (results[18].status !== "fulfilled") failures.push("inventory");
     if (results[19].status !== "fulfilled") failures.push("equipment registry");
+    if (can(PERMISSION_KEYS.engineeringDocumentsRead) && results[20].status !== "fulfilled") failures.push("engineering documents");
     if (failures.length) throw new Error(`Engineering refresh failed for: ${failures.join(", ")}.`);
 
     let laborAggregates: ProjectLaborCostAggregate[] = [];
@@ -886,7 +894,7 @@ function InvoiceWorkspace() {
         }
       }
     }
-    return { projects, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, equipmentRegistry: equipmentRegistry.equipment, equipmentAssignments: equipmentRegistry.assignments, inventoryItems: inventory.items, inventoryMovements: inventory.movements, inventoryBalances: inventory.balances, dailySiteLogsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
+    return { projects, allocations, clientBillingData, clientCollectionData, expenses, financialFxSnapshots, costCodes, materials: materialsEquipment.materials, equipment: materialsEquipment.equipment, equipmentRegistry: equipmentRegistry.equipment, equipmentAssignments: equipmentRegistry.assignments, inventoryItems: inventory.items, inventoryMovements: inventory.movements, inventoryBalances: inventory.balances, dailySiteLogsData, engineeringDocumentsData, purchaseOrders, subcontracts, subcontractClaims, subcontractVariations, receipts, purchaseOrderMatches, rfqs, supplierQuotations, vendors, laborAggregates, laborAggregateLoadState };
   };
 
   const loadPayrollGroup = async () => loadPayrollWorkspaceFromSupabase();
@@ -4900,6 +4908,7 @@ function InvoiceWorkspace() {
           engineeringDocumentsCanAnnotate={engineeringDocumentsCanAnnotate}
           engineeringDocumentsCanManage={engineeringDocumentsCanManage}
           engineeringDocumentsGuestMode={engineeringDocumentsGuestMode}
+          engineeringDocumentsData={engineeringDocumentsData}
           dailySiteLogsData={dailySiteLogsData}
           onDailySiteLogsDataChange={setDailySiteLogsData}
           selectedProject={selectedProject}

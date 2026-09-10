@@ -15,6 +15,7 @@ import {
   appPathForPayrollRun,
   appPathForProject,
   appPathForReviewInvoice,
+  appPathForEmailWorkspace,
   appPathForTab,
   appTabForLocation,
   isKnownWorkspaceLocation,
@@ -26,6 +27,7 @@ import {
   expenseIdFromSearch,
   payrollPeriodIdFromSearch,
   payrollRunIdFromSearch,
+  emailWorkspaceContextFromSearch,
 } from "../src/utils/appRouting.ts";
 import { pathForAssistantAction } from "../src/assistant/assistantNavigation.ts";
 
@@ -124,7 +126,7 @@ test("client receivable routes preserve the selected billing and safe Cash retur
 
 test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForTab("payroll"), "/payroll");
-  assert.equal(appPathForTab("inbox"), "/email-intake");
+  assert.equal(appPathForTab("inbox"), "/email-sms");
   assert.equal(appPathForTab("warehouse"), "/warehouse");
   assert.equal(appPathForProject("project 42", "expenses"), "/projects/project%2042/expenses");
   assert.equal(appPathForProject("project 42", "documents", { docId: "doc-1", revId: "rev-2" }), "/projects/project%2042/documents?docId=doc-1&revId=rev-2");
@@ -192,6 +194,17 @@ test("parses email-intake canonical route and legacy /inbox alias", () => {
   assert.equal(legacy.tab, "inbox");
   assert.equal(legacy.routeId, "inbox");
   assert.equal(legacy.pathname, "/inbox");
+});
+
+test("builds and parses Email / SMS compose handoff with an exact issued document", () => {
+  const path = appPathForEmailWorkspace("compose", { documentType: "PURCHASE_ORDER", documentId: "po-42", returnTo: "/documents" });
+  assert.equal(path, "/email-sms?view=compose&documentType=PURCHASE_ORDER&documentId=po-42&from=%2Fdocuments");
+  assert.deepEqual(emailWorkspaceContextFromSearch(path.split("?", 2)[1] || ""), {
+    view: "compose",
+    documentType: "PURCHASE_ORDER",
+    documentId: "po-42",
+    returnTo: "/documents",
+  });
 });
 
 test("payroll run links keep the canonical payroll route and target the exact run", () => {

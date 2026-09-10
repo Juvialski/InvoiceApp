@@ -17,7 +17,7 @@ export const DEMO_TOUR_STOPS: DemoTourStop[] = [
   { id: "invoices", label: "AI Invoice Processing", detail: "Review realistic supplier invoices, VAT fields, status, and project allocation.", path: "/demo/app/invoices", icon: FileCheck2 },
   { id: "cash", label: "Cash & Banking", detail: "Explore operating cash, payroll funding, and reconciliation-ready transactions.", path: "/demo/app/cash", icon: Landmark },
   { id: "payroll", label: "Workforce & Payroll", detail: "See workers, attendance, overtime, leave, and weekly payroll history.", path: "/demo/app/payroll", icon: HardHat },
-  { id: "documents", label: "Engineering Documents", detail: "Inspect project documents and immutable Rev 0 / Rev 1 history.", path: "/demo/app/documents", icon: FileStack },
+  { id: "documents", label: "Documents", detail: "Search unified sample documents and follow each item to its authoritative owner.", path: "/demo/app/documents", icon: FileStack },
   { id: "site-logs", label: "Daily Site Logs", detail: "Review weather, field progress, crew observations, equipment downtime, safety, and formal history.", path: "/demo/app/projects/demo-project-warehouse/site-logs", icon: ClipboardList },
   { id: "assistant", label: "AI Assistant", detail: "Ask operational questions or prepare a sandboxed employee action for confirmation.", path: "/demo/app/assistant", icon: Bot },
 ];

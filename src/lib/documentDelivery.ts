@@ -12,7 +12,10 @@ export type DocumentDeliveryStatus = "PENDING" | "SENT" | "FAILED" | "UNKNOWN";
 export type DocumentDeliveryAttachmentSource =
   | "COMPANY_TEMPLATE_PDF"
   | "PROGRAMMATIC_PDF_FALLBACK"
-  | "LEGACY_PDF";
+  | "LEGACY_PDF"
+  | "NONE";
+
+export type DocumentDeliveryKind = "ISSUED_DOCUMENT" | "GENERAL_EMAIL";
 
 export interface DocumentDeliveryHistoryEntry {
   readonly id: string;
@@ -23,6 +26,9 @@ export interface DocumentDeliveryHistoryEntry {
   readonly sentAt: string;
   readonly senderLabel: string;
   readonly status: DocumentDeliveryStatus;
+  readonly deliveryKind: DocumentDeliveryKind;
+  readonly documentType?: "PURCHASE_ORDER" | "CLIENT_INVOICE";
+  readonly documentId?: string;
   readonly attachmentSource: DocumentDeliveryAttachmentSource;
   readonly attachmentName: string;
   readonly attachmentSha256?: string;
@@ -39,6 +45,7 @@ export function documentDeliveryAttachmentLabel(source: DocumentDeliveryAttachme
   switch (source) {
     case "COMPANY_TEMPLATE_PDF": return "Company-template PDF";
     case "PROGRAMMATIC_PDF_FALLBACK": return "Programmatic PDF fallback";
+    case "NONE": return "No attachment";
     default: return "Legacy PDF";
   }
 }
@@ -61,7 +68,10 @@ function safeHistoryEntry(value: unknown): DocumentDeliveryHistoryEntry | null {
   const source = String(row.attachmentSource || "LEGACY_PDF").toUpperCase();
   const attachmentSource: DocumentDeliveryAttachmentSource = source === "COMPANY_TEMPLATE_PDF"
     ? "COMPANY_TEMPLATE_PDF"
-    : source === "PROGRAMMATIC_PDF_FALLBACK" ? "PROGRAMMATIC_PDF_FALLBACK" : "LEGACY_PDF";
+    : source === "PROGRAMMATIC_PDF_FALLBACK" ? "PROGRAMMATIC_PDF_FALLBACK" : source === "NONE" ? "NONE" : "LEGACY_PDF";
+  const deliveryKind: DocumentDeliveryKind = String(row.deliveryKind || "ISSUED_DOCUMENT").toUpperCase() === "GENERAL_EMAIL" ? "GENERAL_EMAIL" : "ISSUED_DOCUMENT";
+  const documentType = String(row.documentType || "").toUpperCase();
+  const documentId = String(row.documentId || "").trim();
   const attachmentSize = Number(row.attachmentSize);
   const attemptCount = Number(row.attemptCount);
   const reconciliationRequired = row.reconciliationRequired === true || status === "UNKNOWN" || status === "PENDING";
@@ -74,8 +84,11 @@ function safeHistoryEntry(value: unknown): DocumentDeliveryHistoryEntry | null {
     sentAt: String(row.sentAt || ""),
     senderLabel: String(row.senderLabel || "Company user").slice(0, 120),
     status: status as DocumentDeliveryStatus,
+    deliveryKind,
+    ...(documentType === "PURCHASE_ORDER" || documentType === "CLIENT_INVOICE" ? { documentType } : {}),
+    ...(documentId ? { documentId } : {}),
     attachmentSource,
-    attachmentName: String(row.attachmentName || "issued-document.pdf").slice(0, 180),
+    attachmentName: String(row.attachmentName || (attachmentSource === "NONE" ? "No attachment" : "issued-document.pdf")).slice(0, 180),
     ...(typeof row.attachmentSha256 === "string" && /^[0-9a-f]{64}$/i.test(row.attachmentSha256) ? { attachmentSha256: row.attachmentSha256.toLowerCase() } : {}),
     ...(Number.isFinite(attachmentSize) && attachmentSize > 0 ? { attachmentSize } : {}),
     ...(typeof row.templateVersion === "string" && row.templateVersion.trim() ? { templateVersion: row.templateVersion.trim().slice(0, 200) } : {}),
@@ -98,6 +111,20 @@ export async function loadDocumentDeliveryHistory(snapshot: Pick<FinancialDocume
   const response = await companyApiRequest(`/api/document-delivery-history?${params.toString()}`, { companyId });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.success === false) throw new Error(payload.error || "Document delivery history could not be loaded safely.");
+  const rows = Array.isArray(payload.data?.deliveries) ? payload.data.deliveries : [];
+  return rows.map(safeHistoryEntry).filter((entry): entry is DocumentDeliveryHistoryEntry => Boolean(entry));
+}
+
+export async function loadCommunicationsDeliveryHistory(filter: { documentType?: "PURCHASE_ORDER" | "CLIENT_INVOICE"; documentId?: string } = {}): Promise<readonly DocumentDeliveryHistoryEntry[]> {
+  const companyId = requireActiveCompanyId();
+  const params = new URLSearchParams();
+  if (filter.documentType && filter.documentId) {
+    params.set("documentType", filter.documentType);
+    params.set("documentId", filter.documentId);
+  }
+  const response = await companyApiRequest(`/api/document-delivery-history${params.toString() ? `?${params.toString()}` : ""}`, { companyId });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.success === false) throw new Error(payload.error || "Communication delivery history could not be loaded safely.");
   const rows = Array.isArray(payload.data?.deliveries) ? payload.data.deliveries : [];
   return rows.map(safeHistoryEntry).filter((entry): entry is DocumentDeliveryHistoryEntry => Boolean(entry));
 }

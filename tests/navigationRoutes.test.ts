@@ -28,11 +28,12 @@ test("defines one predictable canonical route for every application destination"
     "reports",
     "inbox",
     "review",
+    "documents",
     "settings",
   ]);
   assert.equal(new Set(ROUTE_DEFINITIONS.map((route) => route.path)).size, ROUTE_DEFINITIONS.length);
   assert.equal(getRouteForAppTab("extractor")?.id, "extract");
-  assert.equal(getRouteForAppTab("inbox")?.path, "/email-intake");
+  assert.equal(getRouteForAppTab("inbox")?.path, "/email-sms");
   assert.equal(getRouteForAppTab("cash")?.path, "/cash");
 });
 

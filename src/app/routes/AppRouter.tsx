@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { cashSettlementTargetContextFromSearch, financialTransactionIdFromSearch, procurementContextFromSearch, warehouseContextFromSearch, type AppLocation } from "../../utils/appRouting";
+import { cashSettlementTargetContextFromSearch, emailWorkspaceContextFromSearch, financialTransactionIdFromSearch, procurementContextFromSearch, warehouseContextFromSearch, type AppLocation } from "../../utils/appRouting";
 import type { AppTab } from "../../utils/routes";
 import { DashboardRoute } from "./DashboardRoute";
 import type {
@@ -120,6 +120,8 @@ const PayrollRoute = lazy(() => import("./PayrollRoute"));
 const ExpensesRoute = lazy(() => import("./ExpensesRoute"));
 const ReportsRoute = lazy(() => import("./ReportsRoute"));
 const SettingsRoute = lazy(() => import("./SettingsRoute"));
+const EmailSmsRoute = lazy(() => import("./EmailSmsRoute"));
+const DocumentsRoute = lazy(() => import("./DocumentsRoute"));
 
 const lazyRouteFallback = <RouteLoadingSkeleton />;
 
@@ -920,13 +922,59 @@ export const AppRouter: React.FC<AppRouterProps> = ({
     );
   }
 
-  // 5. Invoices and Related Tabs
+  // 5. Company communications workspace. Existing Email Intake behavior is
+  // preserved as the Inbox / Intake section inside this top-level area.
+  if (routeTarget === "inbox") {
+    return lazyRoute(
+      <EmailSmsRoute
+        context={emailWorkspaceContextFromSearch(route.search)}
+        invoices={invoices}
+        expenses={expenses}
+        clientBillings={clientBillings}
+        purchaseOrders={purchaseOrders}
+        projects={projects}
+        vendors={vendors}
+        cashData={cashData}
+        engineeringDocumentsData={engineeringDocumentsData}
+        gmailConnection={gmailConnection}
+        processingCount={processingCount}
+        onConnectGmail={onConnectGmail}
+        onSignOut={onSignOut}
+        onScanGmail={onScanGmail}
+        onSyncGmail={onSyncGmail}
+        onImportGmailMessage={onImportGmailMessage}
+        onProcessEmail={onProcessEmail}
+        onOpenInvoice={onSelectInvoice || (() => {})}
+        onNavigatePath={onNavigatePath}
+      />,
+    );
+  }
+
+  // 6. Unified permission-aware document index. Owning domains remain the
+  // source of truth for every action and lifecycle transition.
+  if (routeTarget === "documents") {
+    return lazyRoute(
+      <DocumentsRoute
+        invoices={invoices}
+        clientBillings={clientBillings}
+        purchaseOrders={purchaseOrders}
+        expenses={expenses}
+        projects={projects}
+        vendors={vendors}
+        cashData={cashData}
+        engineeringDocumentsData={engineeringDocumentsData}
+        onNavigatePath={onNavigatePath}
+      />,
+    );
+  }
+
+  // 7. Invoices and Related Tabs
   if (
-    ["extractor", "inbox", "review", "invoices", "vendors"].includes(routeTarget)
+    ["extractor", "review", "invoices", "vendors"].includes(routeTarget)
   ) {
     return lazyRoute(
       <InvoicesRoute
-        activeSubTab={["extractor", "inbox", "review", "invoices", "vendors"].includes(routeTarget) ? (routeTarget as any) : activeTab}
+        activeSubTab={["extractor", "review", "invoices", "vendors"].includes(routeTarget) ? (routeTarget as any) : activeTab}
         onNavigatePath={onNavigatePath}
         invoices={invoices}
         financialFxSnapshots={financialFxSnapshots}

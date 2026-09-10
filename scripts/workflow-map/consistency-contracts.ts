@@ -20,7 +20,9 @@ import {
   appPathForProject,
   appPathForReviewInvoice,
   appPathForCashTarget,
+  appPathForEmailWorkspace,
   cashSettlementTargetContextFromSearch,
+  emailWorkspaceContextFromSearch,
   financialTransactionIdFromSearch,
   parseAppLocation,
   payrollRunIdFromSearch,
@@ -124,6 +126,7 @@ export const WORKFLOW_ROUTE_CONTRACT_IDS: Readonly<Record<string, string>> = Obj
   "route-project-materials-equipment": "project-materials-equipment",
   "route-extract": "extract",
   "route-inbox": "inbox",
+  "route-documents": "documents",
   "route-invoices": "invoices",
   "route-invoice-detail": "invoice-detail",
   "route-review-invoice": "review-invoice",
@@ -167,6 +170,12 @@ function locationSummary(path: string): WorkflowRouteRoundTripResult {
     const query = new URLSearchParams(location.search);
     selected.runId = payrollRunIdFromSearch(location.search);
     selected.returnTo = query.get("from") || undefined;
+  } else if (location.kind === "tab" && location.routeId === "inbox") {
+    const context = emailWorkspaceContextFromSearch(location.search);
+    selected.view = context.view;
+    selected.documentType = context.documentType;
+    selected.documentId = context.documentId;
+    selected.returnTo = context.returnTo;
   }
 
   return {
@@ -221,6 +230,20 @@ const ROUTE_ROUND_TRIPS: readonly WorkflowRouteRoundTripContract[] = [
     () => appPathForTab("warehouse"),
     "/warehouse",
     (path) => expectedLocation(path, "tab", "warehouse", {}),
+  ),
+  roundTrip(
+    "route-documents",
+    "unified Documents register route",
+    () => appPathForTab("documents"),
+    "/documents",
+    (path) => expectedLocation(path, "tab", "documents", {}),
+  ),
+  roundTrip(
+    "route-inbox",
+    "Email / SMS compose document handoff",
+    () => appPathForEmailWorkspace("compose", { documentType: "PURCHASE_ORDER", documentId: INVOICE_ID, returnTo: "/documents" }),
+    `/email-sms?view=compose&documentType=PURCHASE_ORDER&documentId=${INVOICE_ID}&from=%2Fdocuments`,
+    (path) => expectedLocation(path, "tab", "inbox", { view: "compose", documentType: "PURCHASE_ORDER", documentId: INVOICE_ID, returnTo: "/documents" }),
   ),
   roundTrip(
     "route-project-documents",

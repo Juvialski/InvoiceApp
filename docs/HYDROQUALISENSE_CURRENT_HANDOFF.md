@@ -1,14 +1,14 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — WAVE 4D EMAIL/SMS + DOCUMENTS PRODUCT COMPLETION NEXT / QA CERTIFICATION NOT READY**  
+Status: **CURRENT — WAVE 4D EMAIL/SMS + DOCUMENTS IMPLEMENTATION ACTIVE / SMS NOT CONFIGURED / QA CERTIFICATION NOT READY**
 Date: **2026-09-10**  
 Repository: `Juvialski/InvoiceApp`
 
 ## Exact current product baseline
 
-Current merged `main` before this documentation-only correction:
+Current merged `main` baseline:
 
-`3fd73039afd018b1bb630bfee2a68a38c6d37fcc`
+`1b49eaa601d23289b4591fe6ba5a98da130430dd`
 
 Completed product work through that baseline:
 
@@ -52,9 +52,22 @@ Eligible issued Purchase Orders and Client Invoices can be sent through connecte
 
 Wave 4C did **not** create a unified communications center and did **not** activate SMS.
 
-## Next product phase — Wave 4D
+## Wave 4D implementation progress — incomplete
 
-**Wave 4D — Email/SMS Workspace + Documents Workspace** is the next blocking product phase.
+The active implementation now provides:
+
+- a top-level Email / SMS workspace with Inbox / Intake, Compose, Sent / Delivery History, and SMS / Provider Status sections;
+- preserved Gmail-assisted source discovery and routing, with the existing OAuth identity and read/send scopes reused;
+- shared audited Gmail delivery for ordinary messages and eligible issued-document attachments, retaining idempotency and reconciliation safeguards;
+- a top-level Documents index over permission-approved existing records and artifacts, with owner-aware navigation and exact document handoff into Compose;
+- a discoverable link from Documents to the existing company document-template administration in Settings;
+- Assistant entry from Compose for reviewable drafting; the Assistant cannot silently send.
+
+No SMS provider is approved or configured in the current deployment. SMS remains visibly not configured, and provider-backed delivery/status QA has not been performed. Wave 4D is **NOT COMPLETE**. Worker Registration remains **PAUSED**.
+
+## Current product phase — Wave 4D
+
+**Wave 4D — Email/SMS Workspace + Documents Workspace** remains the active blocking product phase.
 
 ### Email / SMS target
 
@@ -98,6 +111,16 @@ No outbound SMS provider is currently approved/configured as HydroQualiSense pro
 Do not claim SMS is Available and do not fake provider health/delivery. A future approved provider must use server-side credentials and the existing company-scoped permission/history/idempotency principles.
 
 If Wave 4D implementation reaches the external-provider boundary before the user creates/configures an SMS account, report that blocker precisely, leave SMS truthfully not configured, and keep Wave 4D incomplete rather than moving on to Worker Registration.
+
+## Server-side Supabase key and AI state
+
+Modern `sb_secret_` server keys are accepted only by protected server-side
+operations. Legacy JWT `service_role` keys are not exposed to browser code.
+Missing or unavailable AI metadata remains distinct from the legitimate
+`NOT_CONFIGURED` company state, and database migration promotion remains
+separate from application deployment. Migration promotion remains separate.
+Production remains read-only unless
+explicitly authorized.
 
 ## Gmail provider state
 

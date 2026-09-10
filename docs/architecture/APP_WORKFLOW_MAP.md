@@ -23,20 +23,20 @@ Use the overview for orientation, then choose the domain diagram closest to the 
 | Source classification | `mixed` |
 | Reviewed against | `fb3cdbbac3290396e7bac985a19287a091dc733c` |
 | Reviewed at | `2026-09-07` |
-| Node count | 258 |
-| Edge count | 338 |
+| Node count | 262 |
+| Edge count | 346 |
 | Invariant count | 34 |
 | Phase/module tags | `Phase 0`, `Phase 1A`, `Phase 1B`, `Phase 1C`, `Core Hardening Wave 1`, `Core Hardening Wave 2A`, `Core Hardening Wave 2B2`, `Cross-Domain Settlement`, `P2 Procurement + Commercial`, `P3A-2 Project Financial Control`, `P3A-3 Explainable Project Attention`, `P3B Materials & Equipment`, `P3C Enhanced Daily Site Operations`, `P3D-1 Engineering Coordination Integration`, `P4 Warehouse Inventory & Project Allocation`, `P5 Post-Warehouse Operational Integration`, `Client Productization`, `QA-1`, `WM-1` |
 
 ## Canonical route rule
 
-Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContracts.ts`, and `src/utils/appRouting.ts`; they are context links, not a second router. Project subviews remain one `projects` route with view/query selection. The standalone `/demo/app/documents` and `/demo/app/assistant` entries are explicitly demo-only.
+Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContracts.ts`, and `src/utils/appRouting.ts`; they are context links, not a second router. Project subviews remain one `projects` route with view/query selection. The `/demo/app/documents` and `/demo/app/assistant` entries are explicitly demo-only surfaces.
 
 | Node | Route ID | Canonical path | Query keys | Scope |
 | --- | --- | --- | --- | --- |
 | **Demo landing route**<br/><small>`route-demo-landing`</small> | demo-only | `/demo` | — | `demo-only` |
 | **Demo Assistant route**<br/><small>`route-demo-assistant`</small> | demo-only | `/demo/app/assistant` | — | `demo-only` |
-| **Demo standalone Engineering Documents route**<br/><small>`route-demo-documents`</small> | demo-only | `/demo/app/documents` | — | `demo-only` |
+| **Demo unified Documents route**<br/><small>`route-demo-documents`</small> | demo-only | `/demo/app/documents` | — | `demo-only` |
 | **Dashboard route**<br/><small>`route-dashboard`</small> | `dashboard` | `/dashboard` | — | `company` |
 | **Cash & Banking route**<br/><small>`route-cash`</small> | `cash` | `/cash` | `transactionId`, `fromTargetType`, `fromTargetId`, `returnTo` | `company` |
 | **Projects directory route**<br/><small>`route-projects`</small> | `projects` | `/projects` | — | `company` |
@@ -50,7 +50,8 @@ Route references below mirror `src/utils/routes.ts`, `src/utils/appRouteContract
 | **Project Site Logs route**<br/><small>`route-project-site-logs`</small> | `projects` | `/projects/:projectId/site-logs` | `siteLogId` | `project` |
 | **Site Log detail route**<br/><small>`route-site-log-detail`</small> | `projects` | `/projects/:projectId/site-logs?siteLogId=:siteLogId` | `siteLogId` | `project` |
 | **Invoice extraction route**<br/><small>`route-extract`</small> | `extract` | `/extract` | — | `company` |
-| **Email Intake route**<br/><small>`route-inbox`</small> | `inbox` | `/email-intake` | — | `company` |
+| **Email / SMS route**<br/><small>`route-inbox`</small> | `inbox` | `/email-sms` | `view`, `documentType`, `documentId`, `from` | `company` |
+| **Documents route**<br/><small>`route-documents`</small> | `documents` | `/documents` | — | `company` |
 | **Invoices route**<br/><small>`route-invoices`</small> | `invoices` | `/invoices` | — | `company` |
 | **Invoice detail route**<br/><small>`route-invoice-detail`</small> | `invoices` | `/invoices/:invoiceId` | `from` | `company` |
 | **Invoice review route**<br/><small>`route-review-invoice`</small> | `review` | `/review?invoiceId=:invoiceId` | `invoiceId`, `from` | `company` |
@@ -875,7 +876,7 @@ Source/extraction/review/verified project allocation alongside separate payable 
 flowchart LR
   subgraph g_finance["Finance"]
     n_route_extract(["Invoice extraction route<br/><small>ROUTE · /extract</small>"])
-    n_route_inbox(["Email Intake route<br/><small>ROUTE · /email-intake</small>"])
+    n_route_inbox(["Email / SMS route<br/><small>ROUTE · /email-sms</small>"])
     n_route_invoices(["Invoices route<br/><small>ROUTE · /invoices</small>"])
     n_route_invoice_detail(["Invoice detail route<br/><small>ROUTE · /invoices/:invoiceId</small>"])
     n_route_review_invoice(["Invoice review route<br/><small>ROUTE · /review?invoiceId=:invoiceId</small>"])
@@ -1370,7 +1371,6 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 
 | Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Demo standalone Engineering Documents route**<br/><small>`route-demo-documents`</small> | `route` | `demo-only`<br/>demo-only<br/>`/demo/app/documents` | — | — | `code-derived` | `src/demo/demoRouting.ts`<br/>`src/demo/DemoEngineeringDocuments.tsx` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/structuredBrowserEvidence.test.ts` | `engineering-documents--engineering-documents--base-route-loaded--desktop-1440` |
 | **Project Documents route**<br/><small>`route-project-documents`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId/documents`<br/>query: `docId`, `revId` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/engineering/ProjectDocuments.tsx` | `tests/appRouting.test.ts`<br/>`tests/projectWorkspaceNavigation.test.ts`<br/>`tests/engineeringDocumentsHardening.test.ts` | `project-workspace--project-documents--base-route-loaded--desktop-1440`<br/>`project-workspace--project-documents--base-route-loaded--mobile-390`<br/>`engineering-documents--blueprint-viewer--demo-drawing-preview-opened--desktop-1440` |
 | **Project RFI register route**<br/><small>`route-project-rfis`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId/rfis`<br/>query: `rfiId` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/components/projects/ProjectWorkspace.tsx`<br/>`src/components/engineering/ProjectRfis.tsx` | `tests/appRouting.test.ts`<br/>`tests/assistantActionPolicy.test.ts` | `rfis--rfis--base-route-loaded--desktop-1440` |
 | **RFI detail route**<br/><small>`route-rfi-detail`</small> | `route` | `project`<br/>`projects`<br/>`/projects/:projectId/rfis?rfiId=:rfiId`<br/>query: `rfiId` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/app/routes/ProjectsRoute.tsx`<br/>`src/components/engineering/ProjectRfis.tsx` | `tests/appRouting.test.ts`<br/>`tests/assistantActionPolicy.test.ts` | `rfis--rfi-detail--rfi-detail-opened--desktop-1440` |
@@ -1437,9 +1437,14 @@ State nodes are rendered in the lifecycle diagrams; the index below keeps the su
 
 | Node | Type | Scope / route | Status values | Permissions | Source / confirmation | Source files | Tests | QA-1 scenarios |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **Demo unified Documents route**<br/><small>`route-demo-documents`</small> | `route` | `demo-only`<br/>demo-only<br/>`/demo/app/documents` | — | — | `mixed` | `src/demo/demoRouting.ts`<br/>`src/demo/DemoWorkspace.tsx`<br/>`src/app/routes/DocumentsRoute.tsx`<br/>`src/lib/documentRegister.ts` | `tests/projectWorkspaceNavigation.test.ts`<br/>`tests/emailSmsDocumentsWorkspace.test.ts`<br/>`tests/structuredBrowserEvidence.test.ts` | `engineering-documents--engineering-documents--base-route-loaded--desktop-1440` |
 | **Cash & Banking route**<br/><small>`route-cash`</small> | `route` | `company`<br/>`cash`<br/>`/cash`<br/>query: `transactionId`, `fromTargetType`, `fromTargetId`, `returnTo` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/CashBankingRoute.tsx`<br/>`src/components/CashBankingPage.tsx`<br/>`src/components/CashSettlementAllocationWorkspace.tsx` | `tests/appRouting.test.ts`<br/>`tests/financialSettlement.test.ts`<br/>`tests/wave1aSupplierPayableUx.test.ts` | `cash-banking--cash--base-route-loaded--desktop-1440`<br/>`cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440`<br/>`cash-banking--cash--base-route-loaded--tablet-768`<br/>`supplier-payables--cash--cash-expense-target-and-return-context-opened--desktop-1440`<br/>`supplier-payables--cash--cash-expense-target-and-return-context-opened--mobile-390` |
 | **Invoice extraction route**<br/><small>`route-extract`</small> | `route` | `company`<br/>`extract`<br/>`/extract` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/UploadZone.tsx` | `tests/appRouting.test.ts`<br/>`tests/invoiceLogic.test.ts` | — |
-| **Email Intake route**<br/><small>`route-inbox`</small> | `route` | `company`<br/>`inbox`<br/>`/email-intake` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/EmailInbox.tsx` | `tests/appRouting.test.ts`<br/>`tests/assistantBackend.test.ts` | — |
+| **Email / SMS route**<br/><small>`route-inbox`</small> | `route` | `company`<br/>`inbox`<br/>`/email-sms`<br/>query: `view`, `documentType`, `documentId`, `from` | — | — | `mixed` | `src/utils/routes.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/EmailSmsRoute.tsx`<br/>`src/components/EmailInbox.tsx` | `tests/appRouting.test.ts`<br/>`tests/assistantBackend.test.ts`<br/>`tests/emailSmsDocumentsWorkspace.test.ts` | — |
+| **Documents route**<br/><small>`route-documents`</small> | `route` | `company`<br/>`documents`<br/>`/documents` | — | — | `mixed` | `src/utils/routes.ts`<br/>`src/utils/appRouteContracts.ts`<br/>`src/utils/appRouting.ts`<br/>`src/app/routes/AppRouter.tsx`<br/>`src/app/routes/DocumentsRoute.tsx`<br/>`src/lib/documentRegister.ts` | `tests/navigationRoutes.test.ts`<br/>`tests/appRouting.test.ts`<br/>`tests/emailSmsDocumentsWorkspace.test.ts` | — |
+| **Email / SMS communications workspace**<br/><small>`email-sms-workspace`</small> | `screen` | `company`<br/>— | — | `gmail.read`<br/>`gmail.manage`<br/>`documents.send` | `mixed` | `src/app/routes/EmailSmsRoute.tsx`<br/>`src/components/EmailInbox.tsx`<br/>`src/components/EmailComposePanel.tsx`<br/>`src/components/CommunicationHistoryPanel.tsx`<br/>`src/components/SmsProviderStatusPanel.tsx` | `tests/emailIntakePhase1.test.ts`<br/>`tests/documentDelivery.test.ts`<br/>`tests/emailSmsDocumentsWorkspace.test.ts` | — |
+| **Unified Documents workspace**<br/><small>`documents-workspace`</small> | `screen` | `company`<br/>— | — | `invoices.read`<br/>`projects.read`<br/>`procurement.read`<br/>`expenses.read`<br/>`cash.summary.read`<br/>`engineering.documents.read`<br/>`documents.send` | `mixed` | `src/app/routes/DocumentsRoute.tsx`<br/>`src/lib/documentRegister.ts`<br/>`src/components/DocumentPreviewModal.tsx` | `tests/emailSmsDocumentsWorkspace.test.ts`<br/>`tests/documentDelivery.test.ts` | — |
+| **SMS provider adapter boundary**<br/><small>`sms-provider-boundary`</small> | `external-boundary` | `company`<br/>— | — | `documents.send` | `mixed` | `src/server/messaging/smsProvider.ts`<br/>`src/lib/messaging.ts`<br/>`server.ts` | `tests/emailSmsDocumentsWorkspace.test.ts` | — |
 | **Invoices route**<br/><small>`route-invoices`</small> | `route` | `company`<br/>`invoices`<br/>`/invoices` | — | — | `code-derived` | `src/utils/routes.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/InvoiceDirectory.tsx` | `tests/appRouting.test.ts`<br/>`tests/invoiceDisplay.test.ts` | `invoices--invoices--supplier-invoice-navigation-and-register-verified--desktop-1440` |
 | **Invoice detail route**<br/><small>`route-invoice-detail`</small> | `route` | `company`<br/>`invoices`<br/>`/invoices/:invoiceId`<br/>query: `from` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/VerificationWorkspace.tsx`<br/>`src/components/SupplierInvoiceExpenseSurface.tsx` | `tests/appRouting.test.ts`<br/>`tests/financialSettlement.test.ts`<br/>`tests/wave1aSupplierPayableUx.test.ts` | `invoices--invoice-detail--invoice-detail-opened--desktop-1440`<br/>`supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--desktop-1440`<br/>`supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--mobile-390` |
 | **Invoice review route**<br/><small>`route-review-invoice`</small> | `route` | `company`<br/>`review`<br/>`/review?invoiceId=:invoiceId`<br/>query: `invoiceId`, `from` | — | — | `code-derived` | `src/utils/appRouting.ts`<br/>`src/app/routes/InvoicesRoute.tsx`<br/>`src/components/VerificationWorkspace.tsx` | `tests/appRouting.test.ts`<br/>`tests/invoiceLogic.test.ts` | `invoices--review--invoice-review-opened--desktop-1440` |

@@ -19,7 +19,8 @@ export type PrimaryModuleId =
   | "dashboard"
   | "cash"
   | "invoices"
-  | "email-intake"
+  | "email-sms"
+  | "documents"
   | "projects"
   | "procurement"
   | "warehouse"
@@ -74,7 +75,8 @@ const INVOICE_CONTEXTUAL_LABELS: Readonly<Partial<Record<RouteId, string>>> = Ob
 export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.freeze([
   { id: "dashboard", label: "Dashboard", routeIds: ["dashboard"], defaultRouteId: "dashboard" },
   { id: "cash", label: "Cash & Banking", routeIds: ["cash"], defaultRouteId: "cash" },
-  { id: "email-intake", label: "Email Intake", routeIds: ["inbox"], defaultRouteId: "inbox" },
+  { id: "email-sms", label: "Email / SMS", routeIds: ["inbox"], defaultRouteId: "inbox" },
+  { id: "documents", label: "Documents", routeIds: ["documents"], defaultRouteId: "documents" },
   { id: "projects", label: "Projects", routeIds: ["projects"], defaultRouteId: "projects" },
   { id: "procurement", label: "Procurement", routeIds: ["procurement"], defaultRouteId: "procurement" },
   { id: "warehouse", label: "Warehouse Inventory", routeIds: ["warehouse"], defaultRouteId: "warehouse" },

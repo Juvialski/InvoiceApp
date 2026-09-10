@@ -20,7 +20,7 @@ test("hosted QA harness fails closed on production and requires authenticated st
   assert.match(script, /waitForHostedQaRouteReadiness/);
   assert.match(script, /waitForHostedQaHealth/);
   assert.match(script, /ROUTE_CONTRACTS/);
-  assert.match(script, /Supported email workflows/);
+  assert.match(script, /Inbox \/ Intake/);
   assert.doesNotMatch(script, /page\.waitForTimeout\(/);
   assert.match(script, /company_access_readiness_timeout/);
   assert.match(script, /prepareEngineeringPdf/);

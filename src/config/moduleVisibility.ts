@@ -2,7 +2,8 @@ export const DEPLOYMENT_MODULE_KEYS = [
   "dashboard",
   "cash",
   "invoices",
-  "email-intake",
+  "email-sms",
+  "documents",
   "projects",
   "procurement",
   "warehouse",
@@ -34,6 +35,10 @@ export function parseHiddenDeploymentModules(value?: string | null): ReadonlySet
   const hidden = new Set<DeploymentModuleKey>();
   for (const token of String(value || "").split(",")) {
     const key = token.trim().toLowerCase();
+    if (key === "email-intake") {
+      hidden.add("email-sms");
+      continue;
+    }
     if (DEPLOYMENT_MODULE_KEY_SET.has(key)) hidden.add(key as DeploymentModuleKey);
   }
   return hidden;

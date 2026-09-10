@@ -53,7 +53,8 @@ const ROUTE_CONTRACTS: readonly HostedRouteContract[] = [
   { route: "/warehouse", heading: "Warehouse Inventory", requiredText: ["Movement-derived stock truth"] },
   { route: "/payroll", heading: "Payroll & labor", requiredText: ["Active workers"] },
   { route: "/settings", heading: "Operational settings", requiredText: ["Regional display preferences", "AI configuration"] },
-  { route: "/email-intake", heading: "Email intake", requiredText: ["Supported email workflows", "Read-only Gmail intake"] },
+  { route: "/email-sms", heading: "Email / SMS", requiredText: ["Inbox / Intake", "Read-only Gmail intake"] },
+  { route: "/documents", heading: "Documents", requiredText: ["Unified access surface", "Procurement"] },
 ];
 
 interface HostedRouteEvidence {

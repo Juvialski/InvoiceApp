@@ -24,8 +24,12 @@ test("demo project Documents uses the canonical project workspace route", () => 
   assert.equal(location.appLocation.view, "documents");
 });
 
-test("global demo Documents remains a standalone register", () => {
-  assert.equal(parseDemoLocation("/demo/app/documents").kind, "documents");
+test("global demo Documents uses the unified Documents workspace", () => {
+  const location = parseDemoLocation("/demo/app/documents");
+  assert.equal(location.kind, "app");
+  if (location.kind !== "app") return;
+  assert.equal(location.appLocation.kind, "tab");
+  assert.equal(location.appLocation.tab, "documents");
 });
 
 test("project workspace renders header then tabs then Overview content", () => {

@@ -6,20 +6,21 @@ import { appPathForTab, parseAppLocation } from "../src/utils/appRouting.ts";
 import { getRouteForAppTab, resolveRoute, ROUTE_DEFINITIONS } from "../src/utils/routes.ts";
 import type { GmailConnectionInfo, GmailMessageCandidate } from "../src/types.ts";
 
-test("Email Intake Phase 3: Top-level navigation and module structure", () => {
-  // 1. Route definition points to /email-intake canonically with /inbox alias
+test("Email / SMS preserves Inbox / Intake navigation and legacy aliases", () => {
+  // 1. Route definition points to /email-sms with the legacy paths retained.
   const inboxRoute = getRouteForAppTab("inbox");
   assert.ok(inboxRoute);
-  assert.equal(inboxRoute.path, "/email-intake");
-  assert.equal(inboxRoute.label, "Email Intake");
-  assert.deepEqual(inboxRoute.aliases, ["/inbox"]);
+  assert.equal(inboxRoute.path, "/email-sms");
+  assert.equal(inboxRoute.label, "Email / SMS");
+  assert.deepEqual(inboxRoute.aliases, ["/email-intake", "/inbox"]);
 
   // 2. Navigation modules expose the authoritative supplier invoice register.
   const moduleIds = NAVIGATION_MODULES.map((m) => m.id);
   assert.deepEqual(moduleIds, [
     "dashboard",
     "cash",
-    "email-intake",
+    "email-sms",
+    "documents",
     "projects",
     "procurement",
     "warehouse",
@@ -38,28 +39,38 @@ test("Email Intake Phase 3: Top-level navigation and module structure", () => {
   const expensesModule = NAVIGATION_MODULES.find((m) => m.id === "expenses");
   assert.deepEqual(expensesModule?.routeIds, ["expenses"]);
 
-  // 4. email-intake module definition
-  const emailIntakeModule = NAVIGATION_MODULES.find((m) => m.id === "email-intake");
-  assert.ok(emailIntakeModule);
-  assert.equal(emailIntakeModule.label, "Email Intake");
-  assert.equal(emailIntakeModule.defaultRouteId, "inbox");
-  assert.deepEqual(emailIntakeModule.routeIds, ["inbox"]);
+  // 4. communications and Documents module definitions
+  const communicationsModule = NAVIGATION_MODULES.find((m) => m.id === "email-sms");
+  assert.ok(communicationsModule);
+  assert.equal(communicationsModule.label, "Email / SMS");
+  assert.equal(communicationsModule.defaultRouteId, "inbox");
+  assert.deepEqual(communicationsModule.routeIds, ["inbox"]);
+  const documentsModule = NAVIGATION_MODULES.find((m) => m.id === "documents");
+  assert.equal(documentsModule?.label, "Documents");
+  assert.deepEqual(documentsModule?.routeIds, ["documents"]);
 
   // 5. getPrimaryModuleForRoute mapping
-  assert.equal(getPrimaryModuleForRoute("inbox")?.id, "email-intake");
+  assert.equal(getPrimaryModuleForRoute("inbox")?.id, "email-sms");
   assert.equal(getPrimaryModuleForRoute("invoices")?.id, "invoices");
 
   // 6. getNavigationModel output
   const navModel = getNavigationModel();
   const navModuleIds = navModel.modules.map((m) => m.id);
-  assert.ok(navModuleIds.includes("email-intake"));
-  const navEmailIntake = navModel.modules.find((m) => m.id === "email-intake");
-  assert.equal(navEmailIntake?.label, "Email Intake");
-  assert.equal(navEmailIntake?.defaultRoute?.path, "/email-intake");
+  assert.ok(navModuleIds.includes("email-sms"));
+  assert.ok(navModuleIds.includes("documents"));
+  const navEmailSms = navModel.modules.find((m) => m.id === "email-sms");
+  assert.equal(navEmailSms?.label, "Email / SMS");
+  assert.equal(navEmailSms?.defaultRoute?.path, "/email-sms");
 });
 
-test("Email Intake Phase 3: Route parsing and aliases", () => {
-  // Canonical /email-intake
+test("Email / SMS route parsing keeps old saved paths working", () => {
+  // Canonical /email-sms
+  const modern = parseAppLocation("/email-sms");
+  assert.equal(modern.kind, "tab");
+  assert.equal(modern.tab, "inbox");
+  assert.equal(modern.routeId, "inbox");
+
+  // Legacy /email-intake
   const canonical = parseAppLocation("/email-intake");
   assert.equal(canonical.kind, "tab");
   assert.equal(canonical.tab, "inbox");
@@ -75,8 +86,8 @@ test("Email Intake Phase 3: Route parsing and aliases", () => {
   assert.equal(resolveRoute("/email-intake").routeId, "inbox");
   assert.equal(resolveRoute("/inbox").routeId, "inbox");
 
-  // appPathForTab
-  assert.equal(appPathForTab("inbox"), "/email-intake");
+  // appPathForTab now emits the modern canonical route.
+  assert.equal(appPathForTab("inbox"), "/email-sms");
 });
 
 test("Email Intake Phase 3: Deterministic Gmail Connection State Model", () => {

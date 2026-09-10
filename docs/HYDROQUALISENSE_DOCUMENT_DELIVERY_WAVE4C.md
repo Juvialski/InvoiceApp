@@ -1,8 +1,8 @@
 # HydroQualiSense Outbound Document Delivery — Wave 4C
 
-Status: **ACTIVE on the current feature branch**
+Status: **COMPLETE FOUNDATION — EXTENDED BY THE ACTIVE WAVE 4D WORKSPACE**
 
-Wave 4C extends the existing issued-document Gmail sender and durable send-intent/audit contract for `PURCHASE_ORDER` and `CLIENT_INVOICE`. It does not create a second document or delivery system.
+Wave 4C established the issued-document Gmail sender and durable send-intent/audit contract for `PURCHASE_ORDER` and `CLIENT_INVOICE`. The active Wave 4D workspace extends those same intent/audit tables with an audited `GENERAL_EMAIL` shape for ordinary messages; it does not create a second document or delivery system.
 
 ## Delivery path
 
@@ -14,7 +14,7 @@ The send intent stores the exact PDF SHA-256 and the database derives the attach
 
 ## History and resend boundary
 
-The normal Purchase Order and Client Invoice document experience shows company-scoped delivery history with channel, recipients, sender label, timestamp, status, safe wording, attachment name/hash identity, and company-template versus fallback source. Raw provider errors, access tokens, credentials, filesystem/converter paths, and other sensitive implementation metadata are not returned to the browser.
+The communications workspace and normal Purchase Order/Client Invoice document experience show company-scoped delivery history with channel, recipients, sender label, timestamp, status, safe wording, optional attachment name/hash identity, and company-template versus fallback source. Raw provider errors, access tokens, credentials, filesystem/converter paths, and other sensitive implementation metadata are not returned to the browser.
 
 One idempotency key represents one delivery attempt. Network retries and double-clicks reuse that key and cannot create another Gmail delivery. A deliberate resend opens an explicit confirmation flow with a new key and therefore creates a separate durable attempt/history event. PENDING, UNKNOWN, or incomplete audit states remain locked until reconciliation; no blind resend is offered when Gmail may already have accepted the message.
 
@@ -29,7 +29,7 @@ One idempotency key represents one delivery attempt. Network retries and double-
 
 ## SMS boundary
 
-No approved, configured SMS provider exists for outbound document delivery in this repository. Existing Auth configuration and future httpSMS references are not an operational document-delivery provider. Wave 4C keeps the channel model provider-neutral and does not add credentials, hard-coded vendor behavior, delivery guarantees, campaigns, bulk messaging, or an Available SMS claim. A future provider must use the same company-scoped attempt/history and permission boundaries.
+No approved, configured SMS provider exists for outbound delivery in this repository. Existing Auth configuration and future provider references are not an operational SMS provider. Wave 4D keeps the channel model provider-neutral and does not add credentials, hard-coded vendor behavior, delivery guarantees, campaigns, bulk messaging, or an Available SMS claim. A future provider must use the same company-scoped attempt/history and permission boundaries.
 
 ## Readiness boundary
 

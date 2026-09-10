@@ -10,6 +10,7 @@ import {
   Download,
   FilePlus2,
   Files,
+  FolderOpen,
   HardHat,
   Mail,
   LogOut,
@@ -77,6 +78,7 @@ const routeIcons: Record<RouteId, React.ElementType> = {
   reports: BarChart3,
   inbox: Mail,
   review: ClipboardCheck,
+  documents: FolderOpen,
   settings: SettingsIcon,
 };
 

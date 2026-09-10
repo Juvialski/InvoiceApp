@@ -32,6 +32,16 @@ export interface WarehouseContext {
 
 export type ProjectWorkspaceView = "overview" | "billing" | "budget" | "procurement" | "documents" | "rfis" | "submittals" | "site-logs" | "materials-equipment" | "invoices" | "payroll" | "expenses" | "people" | "reports";
 
+export type EmailWorkspaceView = "inbox" | "compose" | "sent" | "sms";
+export type EmailWorkspaceDocumentType = "PURCHASE_ORDER" | "CLIENT_INVOICE";
+
+export interface EmailWorkspaceContext {
+  view: EmailWorkspaceView;
+  documentType?: EmailWorkspaceDocumentType;
+  documentId?: string;
+  returnTo?: string;
+}
+
 export type AppLocation =
   | { kind: "tab"; tab: AppTab; routeId: RouteId; pathname: string; search: string }
   | {
@@ -158,6 +168,19 @@ export function isKnownWorkspaceLocation(location: AppLocation): location is Exc
 
 export function appPathForTab(tab: AppTab) {
   return getRouteForAppTab(tab)?.path || "/dashboard";
+}
+
+export function appPathForEmailWorkspace(
+  view: EmailWorkspaceView = "inbox",
+  options: { documentType?: EmailWorkspaceDocumentType; documentId?: string; returnTo?: string } = {},
+) {
+  const query = new URLSearchParams();
+  if (view !== "inbox") setRouteQueryValue(query, "inbox", "view", view, true);
+  setRouteQueryValue(query, "inbox", "documentType", options.documentType);
+  setRouteQueryValue(query, "inbox", "documentId", options.documentId);
+  setRouteQueryValue(query, "inbox", "from", safeReturnPath(options.returnTo));
+  const queryString = query.toString();
+  return `${appPathForTab("inbox")}${queryString ? `?${queryString}` : ""}`;
 }
 
 export function appPathForProject(
@@ -350,6 +373,26 @@ export function attendanceDateFromSearch(search: string) {
   const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
   const value = routeQueryValue(query, "payroll", "attendanceDate")?.trim();
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+export function emailWorkspaceContextFromSearch(search: string): EmailWorkspaceContext {
+  const query = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+  const rawView = (routeQueryValue(query, "inbox", "view") || "inbox").trim().toLowerCase();
+  const view: EmailWorkspaceView = ["inbox", "compose", "sent", "sms"].includes(rawView)
+    ? rawView as EmailWorkspaceView
+    : "inbox";
+  const rawDocumentType = (routeQueryValue(query, "inbox", "documentType") || "").trim().toUpperCase();
+  const documentType = ["PURCHASE_ORDER", "CLIENT_INVOICE"].includes(rawDocumentType)
+    ? rawDocumentType as EmailWorkspaceDocumentType
+    : undefined;
+  const documentId = routeQueryValue(query, "inbox", "documentId")?.trim() || undefined;
+  const returnTo = safeReturnPath(routeQueryValue(query, "inbox", "from") || undefined);
+  return {
+    view,
+    ...(documentType ? { documentType } : {}),
+    ...(documentId ? { documentId } : {}),
+    ...(returnTo ? { returnTo } : {}),
+  };
 }
 
 export function appPathFromLocation(location: Pick<Location, "pathname" | "search">) {

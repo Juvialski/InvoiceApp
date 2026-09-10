@@ -13,6 +13,7 @@ export const ASSISTANT_NAVIGATION_ROUTE_IDS = [
   "vendors",
   "reports",
   "inbox",
+  "documents",
   "review",
   "settings",
 ] as const satisfies readonly RouteId[];

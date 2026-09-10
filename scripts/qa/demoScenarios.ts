@@ -236,6 +236,72 @@ const verifyClientInvoiceDocumentDeliverySurface: QaScenarioAction = async (page
   ] satisfies readonly QaAssertion[];
 };
 
+const verifyEmailSmsWorkspace: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Email / SMS");
+  const workspace = await page.locator('[data-email-sms-workspace]').count();
+  const tabs = await page.locator('[data-email-sms-tabs] button').count();
+  const intake = await page.getByRole("heading", { name: "Inbox / Intake", exact: true }).count();
+  const connect = await page.getByRole("heading", { name: "Connect Gmail", exact: true }).count();
+  return [
+    { id: "email-sms-workspace-visible", passed: workspace === 1, details: `Email / SMS workspace surfaces: ${workspace}` },
+    { id: "email-sms-section-tabs-visible", passed: tabs === 4, details: `Email / SMS section tabs: ${tabs}` },
+    { id: "email-sms-intake-preserved", passed: intake === 1, details: `Inbox / Intake headings: ${intake}` },
+    { id: "email-sms-gmail-disconnected-state-visible", passed: connect > 0, details: `Gmail connection controls: ${connect}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyEmailComposeWorkspace: QaScenarioAction = async (page) => {
+  await waitForVisible(page, '[data-email-compose]');
+  const compose = await page.locator('[data-email-compose]').count();
+  const to = await page.getByRole("textbox", { name: "To" }).count();
+  const subject = await page.getByRole("textbox", { name: "Subject" }).count();
+  const body = await page.getByRole("textbox", { name: "Message" }).count();
+  const review = await page.getByRole("button", { name: "Preview / Review", exact: true }).count();
+  const send = await page.getByRole("button", { name: "Confirm & Send", exact: true }).count();
+  return [
+    { id: "email-compose-visible", passed: compose === 1, details: `compose panels: ${compose}` },
+    { id: "email-compose-fields-visible", passed: to === 1 && subject === 1 && body === 1, details: `To/Subject/Message fields: ${to}/${subject}/${body}` },
+    { id: "email-compose-review-visible", passed: review === 1, details: `review controls: ${review}` },
+    { id: "email-compose-confirm-visible", passed: send === 1, details: `confirm controls: ${send}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyDocumentsWorkspace: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "Documents");
+  const workspace = await page.locator('[data-documents-workspace]').count();
+  const entries = await page.locator('[data-document-register-entry]').count();
+  const ownerLinks = await page.getByRole("button", { name: "Open owning record", exact: true }).count();
+  const templateLink = await page.getByRole("button", { name: "Document templates", exact: true }).count();
+  return [
+    { id: "documents-workspace-visible", passed: workspace === 1, details: `Documents workspace surfaces: ${workspace}` },
+    { id: "documents-register-populated", passed: entries > 0, details: `document register entries: ${entries}` },
+    { id: "documents-owner-navigation-visible", passed: ownerLinks > 0, details: `owner navigation controls: ${ownerLinks}` },
+    { id: "documents-template-management-link-visible", passed: templateLink === 1, details: `template management controls: ${templateLink}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifyDocumentsToEmailHandoff: QaScenarioAction = async (page) => {
+  const send = page.getByRole("button", { name: "Send", exact: true }).first();
+  const sendCount = await page.getByRole("button", { name: "Send", exact: true }).count();
+  if (sendCount > 0) await send.click();
+  await waitForVisible(page, '[data-email-compose]');
+  const compose = await page.locator('[data-email-compose]').count();
+  const selected = page.url();
+  return [
+    { id: "documents-to-email-compose-handoff", passed: compose === 1, details: `compose panels after handoff: ${compose}` },
+    { id: "documents-to-email-exact-selection", passed: (selected.includes("documentType=PURCHASE_ORDER") || selected.includes("documentType=CLIENT_INVOICE")) && selected.includes("documentId="), details: `handoff URL: ${selected}` },
+  ] satisfies readonly QaAssertion[];
+};
+
+const verifySmsNotConfigured: QaScenarioAction = async (page) => {
+  await waitForHeading(page, "SMS provider status");
+  const status = await page.locator('[data-sms-provider-status="NOT_CONFIGURED"]').count();
+  const notConfigured = await page.locator("text=SMS · Not configured").count();
+  return [
+    { id: "sms-not-configured-visible", passed: status === 1 && notConfigured === 1, details: `SMS not-configured panels/text: ${status}/${notConfigured}` },
+  ] satisfies readonly QaAssertion[];
+};
+
 const openMobileNavigation: QaScenarioAction = async (page) => {
   await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   await waitForVisible(page, 'button[aria-label="Close navigation"]');
@@ -251,7 +317,7 @@ function assertHeading(name: string | RegExp, assertionId: string): QaScenarioAc
 }
 
 const verifyExtractorScreen = assertHeading("Extract invoice documents", "invoice-extractor-visible");
-const verifyGmailInboxScreen = assertHeading(/Email intake|Gmail inbox/, "gmail-inbox-visible");
+const verifyGmailInboxScreen = assertHeading(/Inbox \/ Intake|Email intake|Gmail inbox/, "gmail-inbox-visible");
 const verifyVendorsScreen = assertHeading("Vendors", "vendor-directory-visible");
 
 const verifyWarehouseInventoryScreen: QaScenarioAction = async (page) => {
@@ -441,6 +507,10 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "project-workspace", route: route("project-documents", "/projects/:projectId/documents"), path: `${PROJECT_ROOT}/documents`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "project-workspace", route: route("project-documents", "/projects/:projectId/documents"), path: `${PROJECT_ROOT}/documents`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.mobile }),
   defineQaScenario({ feature: "engineering-documents", route: route("blueprint-viewer", "/projects/:projectId/documents"), path: `${PROJECT_ROOT}/documents`, interactionState: "demo drawing preview opened", viewport: QA_VIEWPORTS.desktop, action: openDemoDrawingPreview }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document register rendered", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document register rendered", viewport: QA_VIEWPORTS.tablet, action: verifyDocumentsWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "unified document register rendered", viewport: QA_VIEWPORTS.mobile, action: verifyDocumentsWorkspace }),
+  defineQaScenario({ feature: "documents", route: route("documents", "/documents"), path: "/demo/app/documents", interactionState: "exact document handoff to Email / SMS compose", viewport: QA_VIEWPORTS.desktop, action: verifyDocumentsToEmailHandoff }),
   defineQaScenario({ feature: "engineering-documents", route: route("engineering-documents", "/documents"), path: "/demo/app/documents", interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "rfis", route: route("rfis", "/projects/:projectId/rfis"), path: `${PROJECT_ROOT}/rfis`, interactionState: "base route loaded", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "rfis", route: route("rfi-detail", "/projects/:projectId/rfis?rfiId=:rfiId"), path: `${PROJECT_ROOT}/rfis?rfiId=demo-rfi-wh-001`, interactionState: "RFI detail opened", viewport: QA_VIEWPORTS.desktop }),
@@ -454,7 +524,15 @@ export const DEMO_QA_SCENARIOS: readonly QaScenarioDefinition[] = [
   defineQaScenario({ feature: "cash-banking", route: route("cash-settlement", "/cash?transactionId=:transactionId"), path: "/demo/app/cash?transactionId=demo-transaction-split-01", interactionState: "cash settlement workspace opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "cash-banking", route: route("cash", "/cash"), path: "/demo/app/cash", interactionState: "base route loaded", viewport: QA_VIEWPORTS.tablet }),
   defineQaScenario({ feature: "invoice-extraction", route: route("extract", "/extract"), path: "/demo/app/extract", interactionState: "extractor screen rendered", viewport: QA_VIEWPORTS.desktop, action: verifyExtractorScreen }),
-  defineQaScenario({ feature: "gmail-inbox", route: route("inbox", "/email-intake"), path: "/demo/app/inbox", interactionState: "Email Intake screen rendered in disconnected demo state", viewport: QA_VIEWPORTS.desktop, action: verifyGmailInboxScreen }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms", interactionState: "Email / SMS workspace rendered with disconnected Gmail", viewport: QA_VIEWPORTS.desktop, action: verifyEmailSmsWorkspace }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms", interactionState: "Email / SMS workspace rendered with disconnected Gmail", viewport: QA_VIEWPORTS.tablet, action: verifyEmailSmsWorkspace }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms", interactionState: "Email / SMS workspace rendered with disconnected Gmail", viewport: QA_VIEWPORTS.mobile, action: verifyEmailSmsWorkspace }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "Email compose review surface rendered", viewport: QA_VIEWPORTS.desktop, action: verifyEmailComposeWorkspace }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=compose", interactionState: "Email compose review surface rendered", viewport: QA_VIEWPORTS.mobile, action: verifyEmailComposeWorkspace }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=sent", interactionState: "sent delivery history surface rendered", viewport: QA_VIEWPORTS.desktop }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=sms", interactionState: "SMS not-configured surface rendered", viewport: QA_VIEWPORTS.desktop, action: verifySmsNotConfigured }),
+  defineQaScenario({ feature: "email-sms", route: route("inbox", "/email-sms"), path: "/demo/app/email-sms?view=sms", interactionState: "SMS not-configured surface rendered", viewport: QA_VIEWPORTS.mobile, action: verifySmsNotConfigured }),
+  defineQaScenario({ feature: "gmail-inbox", route: route("inbox", "/email-sms"), path: "/demo/app/email-intake", interactionState: "legacy Email Intake path opens the communications workspace", viewport: QA_VIEWPORTS.desktop, action: verifyGmailInboxScreen }),
   defineQaScenario({ feature: "invoices", route: route("invoices", "/invoices"), path: "/demo/app/invoices", interactionState: "supplier invoice navigation and register verified", viewport: QA_VIEWPORTS.desktop, action: verifySupplierInvoiceNavigation }),
   defineQaScenario({ feature: "invoices", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-01", interactionState: "invoice detail opened", viewport: QA_VIEWPORTS.desktop }),
   defineQaScenario({ feature: "supplier-payables", route: route("invoice-detail", "/invoices/:invoiceId"), path: "/demo/app/invoices/demo-invoice-02", interactionState: "inline supplier payment modal opened", viewport: QA_VIEWPORTS.desktop, action: verifySupplierPayableBridge }),

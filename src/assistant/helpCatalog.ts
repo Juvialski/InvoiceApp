@@ -27,6 +27,7 @@ export type HelpEntryId =
   | "compensation-components"
   | "reports"
   | "gmail-import"
+  | "documents"
   | "settings"
   | "company-access";
 
@@ -218,11 +219,19 @@ export const HELP_CATALOG: readonly HelpCatalogEntry[] = Object.freeze([
   },
   {
     id: "gmail-import",
-    title: "Gmail read-only import",
-    summary: `Scan Gmail read-only messages and choose invoice sources to bring into ${BRAND.productName}.`,
-    details: "Gmail intake is read-only. It helps find messages and attachments for invoice processing; it does not send or modify Gmail messages.",
+    title: "Email / SMS workspace",
+    summary: `Use the ${BRAND.productName} communications center for Gmail intake, reviewed email compose, delivery history, and SMS status.`,
+    details: "Inbox / Intake remains read-only for Gmail discovery and source routing. Compose uses the audited delivery path and the Assistant can prepare drafts, but sending always requires human confirmation. SMS stays unavailable until a provider is configured and tested.",
     routeId: "inbox",
-    keywords: ["gmail", "email", "inbox", "read-only", "readonly", "import", "message"],
+    keywords: ["gmail", "email", "sms", "inbox", "compose", "send", "delivery", "history", "read-only", "readonly", "import", "message"],
+  },
+  {
+    id: "documents",
+    title: "Documents",
+    summary: "Search permission-approved document records and artifacts, then open the authoritative owning workflow.",
+    details: "Documents is an access/index surface rather than a second business-document register. Issued Purchase Orders and Client Invoices can continue into the shared Email / SMS compose flow; source evidence and Engineering revisions remain owned by their canonical domains.",
+    routeId: "documents",
+    keywords: ["documents", "document", "files", "artifacts", "purchase order", "client invoice", "supplier invoice", "source", "issued"],
   },
   {
     id: "settings",
@@ -294,7 +303,7 @@ export function helpEntryPath(entry: HelpCatalogEntry) {
 
 export function unknownHelpResponse(query: string) {
   const label = query.trim() ? ` for “${query.trim().slice(0, 80)}”` : "";
-  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Engineering Documents and blueprints, Daily Site Logs, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, Gmail read-only import, or settings.`;
+  return `I don’t have a verified ${BRAND.productName} help answer${label} yet. I can help with Documents, Email / SMS and Gmail intake, Engineering Documents and blueprints, Daily Site Logs, Cash & Banking, invoice extraction and review, project costing, expenses, attendance and overtime, payroll readiness and runs/imports, reports, or settings.`;
 }
 
 export type HelpResponse =

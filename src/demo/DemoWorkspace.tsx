@@ -36,17 +36,17 @@ import { calculateLineReceiptProgress } from "../utils/purchaseOrderReceipts.ts"
 import { supplierExpenseProjectProjection } from "../utils/supplierInvoiceCostOwnership.ts";
 import { invoiceCashPayableBasis } from "../lib/financialSettlement.ts";
 
-const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
+const VISIBLE_ROUTES = ["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extract", "invoices", "review", "documents", "payroll", "expenses", "vendors", "reports", "inbox", "settings"] as const;
 
 function activeTabFor(location: DemoLocation): AppTab {
-  if (location.kind === "documents") return "projects";
+  if (location.kind === "documents") return "documents";
   if (location.kind === "assistant" || location.kind === "landing") return "dashboard";
   return location.appLocation.tab;
 }
 
 function safeAppLocation(location: DemoLocation): AppLocation | null {
   if (location.kind !== "app") return null;
-  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extractor", "inbox", "review", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
+  const allowed = new Set<AppTab>(["dashboard", "cash", "projects", "procurement", "warehouse", "equipment", "extractor", "inbox", "review", "documents", "invoices", "payroll", "expenses", "vendors", "reports", "settings"]);
   return allowed.has(location.appLocation.tab) ? location.appLocation : null;
 }
 
@@ -783,7 +783,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setTourOpen(true)} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><Presentation className="h-3.5 w-3.5" /> Tour</button>
-          <button type="button" onClick={() => onNavigate(demoDocumentsPath())} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><FileStack className="h-3.5 w-3.5" /> Engineering Documents</button>
+          <button type="button" onClick={() => onNavigate(demoDocumentsPath())} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><FileStack className="h-3.5 w-3.5" /> Documents</button>
           <button type="button" onClick={() => onNavigate(demoAssistantPath())} className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-2 text-[10px] font-black text-indigo-700 hover:bg-indigo-100"><Bot className="h-3.5 w-3.5" /> AI Assistant</button>
           <button type="button" onClick={resetDemo} className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-black text-slate-700 hover:bg-slate-50"><RotateCcw className="h-3.5 w-3.5" /> Reset</button>
         </div>

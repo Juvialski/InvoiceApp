@@ -22,13 +22,13 @@ Wave 4A Company Document Templates / Mail Merge Foundation is complete through P
 Wave 4B High-Fidelity PDF Finalization Foundation is complete through PR #135.  
 Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History is complete through PR #136.
 
-Current merged application baseline before the Wave 4D documentation correction:
+Current merged application baseline after the Wave 4D priority correction:
 
-`3fd73039afd018b1bb630bfee2a68a38c6d37fcc`
+`1b49eaa601d23289b4591fe6ba5a98da130430dd`
 
 Wave 4A-4C are **supporting foundations**, not completion of the broader Email/SMS + Documents product experience.
 
-## Explicit user reprioritization — Wave 4D is next
+## Explicit user reprioritization — Wave 4D is active and blocking
 
 The intended product architecture is now explicit:
 
@@ -40,9 +40,31 @@ The intended product architecture is now explicit:
 
 The authoritative detailed scope and completion gate are in `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
+## Wave 4D implementation progress — not complete
+
+The current implementation provides the product surfaces needed to continue
+this phase:
+
+- the top-level Email / SMS workspace preserves Inbox / Intake and adds Compose,
+  Sent / Delivery History, and SMS / Provider Status sections;
+- outbound Gmail uses the existing company-scoped delivery intent, idempotency,
+  immutable document provenance, and reconciliation safeguards, including
+  audited ordinary messages without an attachment;
+- the top-level Documents workspace is a permission-filtered index over existing
+  Procurement, Client Billing, supplier evidence, Expenses, Cash & Banking, and
+  Engineering records and routes actions back to their canonical owners;
+- company document templates remain administered through the existing Settings
+  workflow and are discoverable from Documents.
+
+SMS provider activation remains blocked externally: no approved provider is
+configured, so SMS is not active and real provider-backed delivery/status QA has
+not been performed. Wave 4D remains **INCOMPLETE** until that boundary and the
+remaining completion criteria are satisfied. Worker Registration remains
+**PAUSED**.
+
 ## Immediate product sequence
 
-1. **Wave 4D — Email/SMS Workspace + Documents Workspace — NEXT / BLOCKING**
+1. **Wave 4D — Email/SMS Workspace + Documents Workspace — ACTIVE / BLOCKING**
 2. **Worker Registration — PAUSED** until Wave 4D completion criteria are satisfied and the user explicitly resumes it
 3. Site Attendance state machine + registered site/device
 4. Face-Recognition Attendance only after explicit privacy/security/retention/liveness/confidence/fallback design

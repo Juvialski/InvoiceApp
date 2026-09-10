@@ -1,11 +1,15 @@
 import type {
   DocumentDeliveryAttachmentSource,
+  DocumentDeliveryKind,
   DocumentDeliveryHistoryEntry,
   DocumentDeliveryStatus,
 } from "../../lib/documentDelivery.ts";
 
 export interface DocumentDeliveryIntentRow {
   readonly id?: unknown;
+  readonly delivery_kind?: unknown;
+  readonly document_type?: unknown;
+  readonly document_id?: unknown;
   readonly sender_user_id?: unknown;
   readonly recipients?: unknown;
   readonly cc?: unknown;
@@ -19,11 +23,15 @@ export interface DocumentDeliveryIntentRow {
   readonly attachment_source?: unknown;
   readonly attachment_size?: unknown;
   readonly template_version?: unknown;
+  readonly message_body_sha256?: unknown;
 }
 
 export interface DocumentDeliveryAuditRow {
   readonly id?: unknown;
   readonly send_intent_id?: unknown;
+  readonly delivery_kind?: unknown;
+  readonly document_type?: unknown;
+  readonly document_id?: unknown;
   readonly sender_user_id?: unknown;
   readonly recipients?: unknown;
   readonly cc?: unknown;
@@ -35,6 +43,7 @@ export interface DocumentDeliveryAuditRow {
   readonly attachment_size?: unknown;
   readonly template_version?: unknown;
   readonly attachment_sha256?: unknown;
+  readonly message_body_sha256?: unknown;
 }
 
 function boundedString(value: unknown, max: number): string {
@@ -50,7 +59,12 @@ function source(value: unknown): DocumentDeliveryAttachmentSource {
   const normalized = boundedString(value, 40).toUpperCase();
   if (normalized === "COMPANY_TEMPLATE_PDF") return "COMPANY_TEMPLATE_PDF";
   if (normalized === "PROGRAMMATIC_PDF_FALLBACK") return "PROGRAMMATIC_PDF_FALLBACK";
+  if (normalized === "NONE") return "NONE";
   return "LEGACY_PDF";
+}
+
+function deliveryKind(value: unknown): DocumentDeliveryKind {
+  return boundedString(value, 40).toUpperCase() === "GENERAL_EMAIL" ? "GENERAL_EMAIL" : "ISSUED_DOCUMENT";
 }
 
 function status(value: unknown): DocumentDeliveryStatus {
@@ -92,6 +106,12 @@ export function mapDocumentDeliveryHistory(
     const currentStatus = status(intent.status);
     const auditRecorded = Boolean(audit);
     const auditStatus = audit ? status(audit.status) : currentStatus;
+    const currentKind = deliveryKind(intent.delivery_kind || audit?.delivery_kind);
+    const documentTypeValue = boundedString(intent.document_type || audit?.document_type, 40).toUpperCase();
+    const documentType = documentTypeValue === "PURCHASE_ORDER" || documentTypeValue === "CLIENT_INVOICE"
+      ? documentTypeValue as "PURCHASE_ORDER" | "CLIENT_INVOICE"
+      : undefined;
+    const documentId = boundedString(intent.document_id || audit?.document_id, 80);
     const reconciliationRequired = currentStatus === "UNKNOWN"
       || currentStatus === "PENDING"
       || !auditRecorded
@@ -109,8 +129,11 @@ export function mapDocumentDeliveryHistory(
       sentAt: timestamp(audit?.created_at, intent.updated_at, intent.created_at),
       senderLabel: boundedString(intent.sender_user_id, 80) === currentUserId ? "You" : "Company user",
       status: currentStatus,
+      deliveryKind: currentKind,
+      ...(documentType ? { documentType } : {}),
+      ...(documentId ? { documentId } : {}),
       attachmentSource,
-      attachmentName: boundedString(intent.attachment_name, 180) || "issued-document.pdf",
+      attachmentName: boundedString(intent.attachment_name, 180) || (attachmentSource === "NONE" ? "No attachment" : "issued-document.pdf"),
       ...(attachmentSha256 ? { attachmentSha256 } : {}),
       ...(Number.isFinite(attachmentSize) && attachmentSize > 0 ? { attachmentSize } : {}),
       ...(boundedString(intent.template_version, 200) ? { templateVersion: boundedString(intent.template_version, 200) } : {}),
@@ -143,6 +166,9 @@ export function mapDocumentDeliveryHistory(
       sentAt: timestamp(audit.created_at),
       senderLabel: boundedString(audit.sender_user_id, 80) === currentUserId ? "You" : "Company user",
       status: auditStatus,
+      deliveryKind: "ISSUED_DOCUMENT",
+      ...(boundedString(audit.document_type, 40).toUpperCase() === "PURCHASE_ORDER" || boundedString(audit.document_type, 40).toUpperCase() === "CLIENT_INVOICE" ? { documentType: boundedString(audit.document_type, 40).toUpperCase() as "PURCHASE_ORDER" | "CLIENT_INVOICE" } : {}),
+      ...(boundedString(audit.document_id, 80) ? { documentId: boundedString(audit.document_id, 80) } : {}),
       attachmentSource: source(audit.attachment_source),
       attachmentName: boundedString(audit.attachment_name, 180) || "issued-document.pdf",
       ...(hash(audit.attachment_sha256) ? { attachmentSha256: hash(audit.attachment_sha256) } : {}),

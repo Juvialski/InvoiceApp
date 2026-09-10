@@ -139,7 +139,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: readonly AssistantToolDefinition[] = Ob
   ...CORE_HARDENING_TOOL_DEFINITIONS,
   ...ASSISTANT_OPERATION_TOOL_DEFINITIONS,
 
-  navigation("navigate_to", `Navigate to an allowlisted ${BRAND.productName} route.`, (args) => [routePermission(args.routeId)], { routeId: { type: "string", enum: ["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "review", "settings"] } }, ["routeId"]),
+  navigation("navigate_to", `Navigate to an allowlisted ${BRAND.productName} route.`, (args) => [routePermission(args.routeId)], { routeId: { type: "string", enum: ["dashboard", "cash", "projects", "extract", "invoices", "payroll", "expenses", "vendors", "reports", "inbox", "documents", "review", "settings"] } }, ["routeId"]),
   navigation("navigate_to_project", "Open a company project or one of its shipped workspace tabs in the app.", projectNavigationPermissions, { projectId: uuid, view: { type: "string", enum: ["overview", "documents", "rfis", "submittals", "site-logs", "invoices", "payroll", "expenses", "people", "reports"] } }, ["projectId"]),
   navigation("navigate_to_invoice", "Open a company invoice in the app.", ["invoices.read"], { invoiceId: uuid }, ["invoiceId"]),
   navigation("navigate_to_review_invoice", "Open a company invoice in the review screen.", ["invoices.read"], { invoiceId: uuid }, ["invoiceId"]),

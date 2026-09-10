@@ -28,13 +28,19 @@ Current state through merged PR #136:
 5. Wave 4A — company document templates / mail merge foundation — complete.
 6. Wave 4B — high-fidelity PDF finalization foundation — complete.
 7. Wave 4C — issued-document Gmail delivery/history foundation — complete through merged PR #136.
-8. **Wave 4D — Email/SMS Workspace + Documents Workspace — NEXT and BLOCKING.**
+8. **Wave 4D — Email/SMS Workspace + Documents Workspace — ACTIVE and BLOCKING.**
 9. Worker Registration — **PAUSED by explicit user instruction** until Wave 4D and the broader Email/SMS + Documents product experience are complete and the user explicitly resumes Worker Registration.
 10. Site Attendance follows Worker Registration.
 11. Face-Recognition Attendance follows only after explicit privacy/security design.
 12. Final pre-production certification follows the major product domains.
 
 The detailed Wave 4D contract is `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` and is authoritative for this reprioritization. Where older priority wording in product-direction, handoff, or audit documents conflicts with this explicit sequence, this section plus the active roadmap and Wave 4D contract control the next-phase decision. Older documents remain authoritative for permanent product, financial, security, history, and architecture invariants unless specifically superseded.
+
+The current Wave 4D implementation adds the top-level Email / SMS and Documents
+surfaces, preserves the Gmail intake path, reuses the audited delivery intent
+for ordinary email and eligible issued-document attachments, and keeps SMS
+truthfully not configured until an approved provider is runtime-tested in QA.
+This implementation progress does not satisfy the broader completion gate.
 
 ### Email/SMS + Documents completion gate
 

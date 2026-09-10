@@ -46,7 +46,7 @@ import {
 } from "../../lib/clientCollections.ts";
 import { confirmedTargetMatchedAmount, type CashBankingWorkspaceData, type FinancialTransaction, type FinancialTransactionMatch } from "../../lib/cashBanking.ts";
 import type { AppNavigate } from "../../utils/clientNavigation.ts";
-import { appPathForProject } from "../../utils/appRouting.ts";
+import { appPathForEmailWorkspace, appPathForProject } from "../../utils/appRouting.ts";
 import { ClientCollectionSettlementPanel } from "./ClientCollectionSettlementPanel.tsx";
 import { StatusBadge, type StatusTone } from "../ui/OperationsUI.tsx";
 import { DocumentPreviewModal } from "../DocumentPreviewModal.tsx";
@@ -1105,7 +1105,7 @@ export const ClientBillingPanel: React.FC<ClientBillingPanelProps> = ({
           <p className="mt-1">Bank reconciliation and Cash Settlement linkage are handled by the P2B-6 bank-evidence workflow below; linking evidence never changes commercial collection totals or project cost.</p>
         </div>
       </div>
-      {previewBilling && <DocumentPreviewModal document={buildClientInvoiceDocumentSnapshot(previewBilling, project, DEFAULT_COMPANY_DOCUMENT_PROFILE)} onClose={() => setPreviewBilling(null)} />}
+      {previewBilling && <DocumentPreviewModal document={buildClientInvoiceDocumentSnapshot(previewBilling, project, DEFAULT_COMPANY_DOCUMENT_PROFILE)} onClose={() => setPreviewBilling(null)} onOpenCommunications={() => { setPreviewBilling(null); onNavigatePath?.(appPathForEmailWorkspace("compose", { documentType: "CLIENT_INVOICE", documentId: previewBilling.id, returnTo: appPathForProject(project.id, "billing", { billingId: previewBilling.id }) })); }} />}
     </section>
   );
 };

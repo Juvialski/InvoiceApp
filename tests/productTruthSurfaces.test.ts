@@ -6,16 +6,16 @@ function source(path: string) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-test("Email Intake describes the supported inbound Gmail and review boundaries", () => {
+test("Email / SMS describes the supported inbound Gmail and outbound boundaries", () => {
   const emailInbox = source("src/components/EmailInbox.tsx");
   const dashboard = source("src/app/routes/DashboardRoute.tsx");
-  assert.match(emailInbox, /Supported email workflows/);
+  assert.match(emailInbox, /Supported inbox workflows/);
   assert.match(emailInbox, /Read-only Gmail intake/);
   assert.match(emailInbox, /Forwarded supplier invoice fallback/);
-  assert.match(emailInbox, /no SMS or broadcast channel is configured here/i);
+  assert.match(emailInbox, /no SMS provider is configured here/i);
   assert.match(emailInbox, /canManageMailbox &&/);
-  assert.match(dashboard, /Email intake/);
-  assert.match(dashboard, /outbound messaging is handled by owning document workflows/i);
+  assert.match(dashboard, /Email \/ SMS/);
+  assert.match(dashboard, /delivery history/i);
 });
 
 test("engineering documents remain a project-owned register rather than a duplicate generic hub", () => {
