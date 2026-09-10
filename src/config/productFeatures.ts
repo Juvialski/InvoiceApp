@@ -194,6 +194,19 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     sortOrder: 120,
   },
   {
+    id: "company-document-templates",
+    title: "Company document templates",
+    category: "Email & Document Intake",
+    status: "AVAILABLE",
+    shortDescription: "Keep company-designed Word templates for Purchase Orders and Client Invoices, then merge approved snapshot values into editable DOCX files.",
+    details: [
+      "Upload an existing DOCX, start from a HydroQualiSense template, duplicate a version, or generate an editable draft with AI assistance.",
+      "Review allowlisted field mappings and repeating line-item rows before activating a template version.",
+      "Issued document generation stays tied to the immutable snapshot and template version used at issuance; the existing PDF path remains available.",
+    ],
+    sortOrder: 125,
+  },
+  {
     id: "ai-assistance",
     title: "Assistant and AI extraction",
     category: "AI Assistance",
@@ -222,9 +235,9 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     title: "Email / SMS + Documents improvements",
     category: "Email & Document Intake",
     status: "PLANNED",
-    shortDescription: "Improve communication around business documents and connect document workflows more smoothly across email and future messaging channels.",
+    shortDescription: "Further improve document communication with high-fidelity PDF conversion, delivery history, and future messaging channels.",
     details: [
-      "The direction includes better document-related messaging and delivery and tighter email/document workflow integration.",
+      "The direction includes high-fidelity PDF conversion, document delivery history, and tighter email/document workflow integration.",
       "SMS-related communication remains part of the planned direction and is not active today; no provider, pricing, delivery guarantee, or campaign automation is implied.",
     ],
     sortOrder: 210,

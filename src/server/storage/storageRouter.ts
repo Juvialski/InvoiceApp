@@ -65,6 +65,10 @@ export type StoragePermissionKey =
   | "storage.read"
   | "expenses.manage"
   | "expenses.read"
+  | "company.settings.read"
+  | "company.settings.manage"
+  | "procurement.read"
+  | "projects.read"
   | "engineering.documents.read"
   | "payroll.import";
 

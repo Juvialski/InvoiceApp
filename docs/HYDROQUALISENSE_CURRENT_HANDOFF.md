@@ -1,8 +1,18 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — WAVE 3 IN PROGRESS / QA CERTIFICATION NOT READY**
+Status: **CURRENT — WAVE 4A DOCUMENT TEMPLATES IN PROGRESS / QA CERTIFICATION NOT READY**
 Date: **2026-09-10**
 Repository: `Juvialski/InvoiceApp`
+
+## User-selected Wave 4A — Intelligent Document Templates & Mail Merge Foundation
+
+The current bounded product phase starts from green `main` at `b9ffc21c2332d5cc1d6e7ea137917957afd4d5b0`. It adds company-bound editable DOCX templates for Purchase Orders and Client Invoices while preserving the existing PDF and Gmail paths.
+
+The template path is `authoritative issued snapshot -> immutable company template version -> deterministic DOCX merge`. Uploads are standard `.docx` only, macro-enabled files and unsafe archives are rejected, and arbitrary uploaded layouts remain preserved when manual Word binding is required. AI receives only bounded document structure marked as untrusted data; structured blueprint/mapping responses are validated and remain human-confirmed proposals.
+
+Template administration uses the existing company settings permission. Issued snapshots pin the active validated template version and SHA-256 when configured; historical snapshots without a pin deliberately remain on the existing PDF fallback. No production database or client data was changed by this product implementation. QA certification remains a separate readiness track.
+
+The server-only AI credential boundary remains unchanged: modern `sb_secret_` server keys are used only for protected server operations, legacy JWT `service_role` keys are not exposed to browser code, and an unconfigured deployment remains `NOT_CONFIGURED` rather than being presented as healthy. Production remains read-only during this phase and migration promotion remains separate from application deployment.
 
 Use this with `AGENTS.md`, `docs/AGENTS_BASELINE_20260909.md`, `docs/AGENT_EXECUTION_EFFICIENCY.md`, `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`, `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`, `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`, and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`. Live repository state remains authoritative.
 
@@ -128,9 +138,9 @@ The bounded Wave 2 implementation kept existing domain authority intact while co
 
 Wave 2 remains bounded to routing, discoverability, context, stale-link recovery, and targeted 390px usability. Its implementation is complete; payroll settlement, subcontract payable, PO close semantics, and subcontract responsive workflow are carried by active Wave 3.
 
-## Wave 3 — deliberate payroll/subcontract/PO workflow decisions — ACTIVE
+## Wave 3 — deliberate payroll/subcontract/PO workflow decisions — COMPLETE
 
-The current feature branch implements the bounded Wave 3 design:
+The merged `main` baseline implements the bounded Wave 3 design:
 
 - payroll approval remains separate from payment; direct APPROVED → PAID UI, Assistant, and database paths are blocked, while Cash & Banking settlement evidence drives partial/full disbursement and reversal history;
 - approved subcontract claims themselves are settlement targets, using `net_certified_amount` as payable basis and preserving gross certified work as project-cost truth;
@@ -138,7 +148,7 @@ The current feature branch implements the bounded Wave 3 design:
 - runtime evidence reproduced unsafe partial PO close, so the forward close guard blocks outstanding committed quantities while fully received POs may close with receipt history preserved;
 - subcontract claim cards are responsive around 390px and expose certification, net payable, payment state, history, and return context.
 
-The product implementation is complete on this feature branch pending PR review and exact-head CI. QA certification remains a separate readiness track.
+The product implementation is complete on merged `main` through PRs #132 and #133. Wave 4A document templates is the current user-selected feature branch; QA certification remains a separate readiness track.
 
 ## Remaining audit findings
 

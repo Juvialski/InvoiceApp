@@ -84,10 +84,11 @@ test("all graph file, test, route, and QA-1 references resolve from the current 
 test("generated JSON and Markdown are deterministic and match committed outputs", () => {
   const expectedJson = serializeWorkflowGraph(WORKFLOW_GRAPH);
   const expectedMarkdown = renderWorkflowMapMarkdown(WORKFLOW_GRAPH);
+  const normalizeLineEndings = (value: string) => value.replace(/\r\n/g, "\n");
   assert.equal(serializeWorkflowGraph(WORKFLOW_GRAPH), expectedJson);
   assert.equal(renderWorkflowMapMarkdown(WORKFLOW_GRAPH), expectedMarkdown);
-  assert.equal(readFileSync(new URL(`../${WORKFLOW_MAP_JSON_PATH}`, import.meta.url), "utf8"), expectedJson);
-  assert.equal(readFileSync(new URL(`../${WORKFLOW_MAP_MARKDOWN_PATH}`, import.meta.url), "utf8"), expectedMarkdown);
+  assert.equal(normalizeLineEndings(readFileSync(new URL(`../${WORKFLOW_MAP_JSON_PATH}`, import.meta.url), "utf8")), expectedJson);
+  assert.equal(normalizeLineEndings(readFileSync(new URL(`../${WORKFLOW_MAP_MARKDOWN_PATH}`, import.meta.url), "utf8")), expectedMarkdown);
   assert.match(expectedMarkdown, /```mermaid/);
   assert.match(expectedMarkdown, /Whole-platform overview/);
   assert.match(expectedMarkdown, /Assistant guarded mutation flow/);
