@@ -21,7 +21,8 @@ test("artifact storage and evidence cannot be forged through browser-authenticat
 
   assert.match(migration, /name like 'companies\/%\/document-templates\/%'/);
   assert.match(migration, /name like 'companies\/%\/document-template-artifacts\/%'/);
-  assert.match(migration, /Document generation evidence may only be recorded by the trusted server/);
+  assert.match(migration, /Modern Supabase sb_secret_ keys are not JWTs/);
+  assert.doesNotMatch(migration, /v_request_role/);
   assert.match(migration, /v_artifact_path is distinct from v_expected_artifact_path/);
   assert.match(migration, /revoke all on function public\.record_document_generation_evidence\(jsonb\) from public, anon, authenticated/);
   assert.match(migration, /grant execute on function public\.record_document_generation_evidence\(jsonb\) to service_role/);
