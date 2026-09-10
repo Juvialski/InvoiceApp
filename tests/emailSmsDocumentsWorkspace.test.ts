@@ -72,6 +72,12 @@ test("ambiguous Gmail delivery fails closed without creating a fresh retry attem
   assert.doesNotMatch(branch, /setIdempotencyKey\(newDocumentDeliveryAttemptKey\(\)\)/);
 });
 
+test("Compose requires the explicit review step before human send confirmation", () => {
+  assert.match(compose, /if \(!reviewOpen\) \{ setError\("Review the message before confirming the send\."\); return; \}/);
+  assert.match(compose, /disabled=\{busy \|\| !canUseGmail \|\| !reviewOpen\}/);
+  assert.match(compose, /data-email-compose-review="true"/);
+});
+
 test("Wave 4D workspace surfaces reuse existing intake, send, history, and template ownership", () => {
   assert.match(workspace, /<EmailInbox/);
   assert.match(workspace, /<EmailComposePanel/);
