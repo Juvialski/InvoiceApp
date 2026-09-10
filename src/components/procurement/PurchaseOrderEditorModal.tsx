@@ -15,6 +15,7 @@ export interface PurchaseOrderEditorModalProps {
   vendors: readonly Vendor[];
   costCodes: readonly ProjectCostCode[];
   defaultProjectId?: string;
+  initialReceiptId?: string;
   canApprove?: boolean;
   canManage?: boolean;
   loading?: boolean;
@@ -29,7 +30,7 @@ export interface PurchaseOrderEditorModalProps {
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
-  ) => Promise<void> | void;
+  ) => Promise<PurchaseOrderReceipt | void> | PurchaseOrderReceipt | void;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void> | void;
   onClose: () => void;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
@@ -63,6 +64,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
   vendors,
   costCodes,
   defaultProjectId,
+  initialReceiptId,
   canApprove = true,
   canManage = true,
   loading = false,
@@ -111,6 +113,13 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
   const poReceipts = useMemo(() => {
     return purchaseOrder?.id ? getReceiptsForPO(purchaseOrder.id, receipts) : [];
   }, [purchaseOrder?.id, receipts]);
+
+  useEffect(() => {
+    if (!open || !initialReceiptId) return;
+    const target = [...document.querySelectorAll<HTMLElement>("[data-receipt-id]")]
+      .find((element) => element.dataset.receiptId === initialReceiptId);
+    target?.scrollIntoView({ block: "center" });
+  }, [initialReceiptId, open, poReceipts.length]);
 
   const poReceiptProgress = useMemo(() => {
     return purchaseOrder ? calculatePOReceiptProgress(purchaseOrder, receipts) : null;
@@ -368,8 +377,9 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
     lineInputs: Array<{ purchaseOrderLineId: string; receivedQuantity: number; notes?: string }>,
   ) => {
     if (!onRecordReceipt) return;
-    await onRecordReceipt(receiptInput, lineInputs);
+    const saved = await onRecordReceipt(receiptInput, lineInputs);
     setShowRecordReceiptModal(false);
+    return saved;
   };
 
   const handleConfirmVoidReceipt = async () => {
@@ -880,6 +890,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
                       return (
                         <div
                           key={receipt.id}
+                          data-receipt-id={receipt.id}
                           className={`rounded-xl border p-3.5 text-xs transition ${
                             isVoided
                               ? "border-slate-200 bg-slate-50/80 opacity-75"

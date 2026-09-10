@@ -68,6 +68,22 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const [demoEquipmentAssignments, setDemoEquipmentAssignments] = useState<EquipmentAssignment[]>(() => demoEquipmentSeed.assignments);
   useEffect(() => { setDemoEquipmentRegistry(demoEquipmentSeed.equipment); setDemoEquipmentAssignments(demoEquipmentSeed.assignments); }, [demoEquipmentSeed]);
   const routeNotFound = Boolean(appLocation && ((appLocation.kind === "project" && !selectedProject) || ((appLocation.kind === "invoice" || appLocation.kind === "review-invoice") && !selectedInvoice) || (appLocation.kind === "expense" && !selectedExpense)));
+  const routeRecovery = routeNotFound
+    ? appLocation?.kind === "invoice"
+      ? { title: "Supplier invoice unavailable", description: "This supplier invoice is not available in the demo workspace. No alternate record was selected.", actionLabel: "Return to Supplier Invoices" }
+      : appLocation?.kind === "review-invoice"
+        ? { title: "Review item unavailable", description: "This supplier review item is not available in the demo workspace. The review queue remains unchanged.", actionLabel: "Return to Review Queue" }
+        : appLocation?.kind === "expense"
+          ? { title: "Expense unavailable", description: "This Expense is not available in the demo workspace. No correction or payment action was opened.", actionLabel: "Return to Expenses" }
+          : { title: "Project unavailable", description: "This project is not available in the demo workspace. No alternate project was selected.", actionLabel: "Return to Projects" }
+    : undefined;
+  const routeRecoveryPath = appLocation?.kind === "invoice"
+    ? demoPathForTab("invoices")
+    : appLocation?.kind === "review-invoice"
+      ? demoPathForTab("review")
+      : appLocation?.kind === "expense"
+        ? demoPathForTab("expenses")
+        : demoPathForTab("projects");
   const summaries = useMemo(() => buildDemoProjectSummaries(data), [data]);
   const dashboardData = useMemo(() => buildDemoDashboard(data, { activityPeriod, selectedProjectId: dashboardProjectId, selectedCurrency: dashboardCurrency, customStart, customEnd }), [activityPeriod, customEnd, customStart, dashboardCurrency, dashboardProjectId, data]);
   const projectDashboard = useMemo(() => selectedProject ? buildDemoProjectDashboard(data, selectedProject.id) : undefined, [data, selectedProject]);
@@ -275,7 +291,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
   const recordReceipt = async (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
-  ): Promise<void> => {
+  ): Promise<PurchaseOrderReceipt> => {
     const purchaseOrder = (data.purchaseOrders || []).find((candidate) => candidate.id === receipt.purchaseOrderId);
     if (!purchaseOrder) throw new Error("Purchase order not found in the demo workspace.");
     if (purchaseOrder.status !== "ISSUED") throw new Error(`Receipts can only be recorded against ISSUED purchase orders (current status: ${purchaseOrder.status}).`);
@@ -325,6 +341,7 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
     })),
     };
     dispatch({ type: "SAVE_RECEIPT", value: saved });
+    return saved;
   };
 
   const reverseInventoryMovement = async (movementId: string, reason: string, idempotencyKey: string): Promise<InventoryMovement> => {
@@ -755,6 +772,8 @@ export function DemoWorkspace({ location, onNavigate }: { location: DemoLocation
       isSupabaseConfigured={true}
       routeNotFound={routeNotFound}
       onReturnToDashboard={() => onNavigate(demoPathForTab("dashboard"))}
+      routeRecovery={routeRecovery}
+      onRecoverRoute={() => onNavigate(routeRecoveryPath, true)}
             footerText={`${BRAND.productName} Demo Workspace • ${BRAND.companyName} • Sample data only`}
     >
       <div className="sticky top-2 z-40 mb-5 flex flex-col gap-3 rounded-lg border border-indigo-200 bg-white/95 px-3.5 py-3 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">

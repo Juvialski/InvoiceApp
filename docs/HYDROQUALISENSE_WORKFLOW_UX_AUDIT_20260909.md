@@ -2,7 +2,7 @@
 
 Status: **ACTIVE INTERNAL PRODUCT AUDIT**  
 Repository: `Juvialski/InvoiceApp`  
-Baseline reviewed: merged `main` at `354cfd6ad9a834979c81ef990365f661b33fc829` (PR #126 merged)
+Audit baseline: merged `main` at `354cfd6ad9a834979c81ef990365f661b33fc829` (PR #126 merged). Wave 2 starting baseline: exact green `main` at `b7c550158d00798de33b2ce9853e9232b95aea16` after Wave 1B / PR #129.
 
 This document preserves the broad user-facing workflow audit that produced the current remediation waves. It is an internal development source of truth, not a client-facing roadmap or implementation log.
 
@@ -66,7 +66,7 @@ Supplier invoice evidence linked to an Expense must not become duplicate payable
 
 **Classification:** `EXISTS — UX/discoverability gap`  
 **Finding:** Expense relationships to supplier invoice, PO, and related financial evidence were too passive.  
-**Current status:** **PARTIALLY REMEDIATED.** Wave 1A improved supplier-invoice/Expense navigation and context, but broader relationship/source navigation remains a Wave 2 target. Do not introduce duplicate financial authority to improve navigation.
+**Current status:** **RESOLVED for delivered supplier-invoice and purchase-order source links.** Wave 2 points to authoritative records only when persisted identifiers exist; no duplicate financial authority was introduced.
 
 ### UX-004 — P1
 
@@ -102,7 +102,7 @@ Supplier invoice evidence linked to an Expense must not become duplicate payable
 
 **Classification:** `EXISTS — UX/discoverability gap`  
 **Finding:** Procurement receipt → Warehouse continuation is hidden or weak.  
-**Current status:** **OPEN — Wave 2.** Improve truthful handoff/navigation only; do not create a second receipt or stock source of truth.
+**Current status:** **RESOLVED in Wave 2 for exact receipt/movement continuation.** Warehouse posting remains a separate explicit movement and no second receipt or stock source was created.
 
 ### UX-010 — P1
 
@@ -120,19 +120,19 @@ Supplier invoice evidence linked to an Expense must not become duplicate payable
 
 **Classification:** `EXISTS — UX/discoverability gap`  
 **Finding:** Warehouse movement/source relationships need better source navigation.  
-**Current status:** **OPEN — Wave 2.** Preserve immutable movement/history semantics.
+**Current status:** **RESOLVED in Wave 2 where persisted purchase-order receipt metadata exists.** Preserve immutable movement/history semantics.
 
 ### UX-013 — P2
 
 **Classification:** `UNCERTAIN — needs runtime/manual confirmation`  
 **Finding:** Email Intake post-import continuation may be unclear after importing into an invoice, statement, Expense, or review workflow.  
-**Current status:** **UNCERTAIN / OPEN.** Runtime/manual confirmation must precede redesign.
+**Current status:** **PROOF PASSED — no implementation change required in Wave 2.** Focused Email Intake tests and deterministic demo browser evidence found no concrete continuation defect; retain the existing flow.
 
 ### UX-014 — P2
 
 **Classification:** `PARTIAL — workflow incomplete`  
 **Finding:** Stale or invalid deep links fall back too generically.  
-**Current status:** **OPEN — Wave 2.** Prefer domain-aware recovery for missing, deleted/archived, inaccessible, malformed, or no-longer-valid targets without exposing unauthorized object existence.
+**Current status:** **RESOLVED for delivered invoice, Expense, project, Procurement, and Warehouse deep-link surfaces.** Recovery stays domain-aware, company-scoped, and does not reveal inaccessible record existence; loader failures remain distinct from stale-record recovery.
 
 ### UX-015 — P2
 
@@ -195,11 +195,13 @@ Wave 1B now provides the complete usable object-first client receivable continua
 
 ### Wave 2 — Cross-module routing and handoffs
 
-**Status: NEXT after Wave 1B.**
+**Status: ACTIVE from the exact Wave 2 starting baseline.**
 
 Primary targets: UX-003, any residual UX-004 routing gaps, UX-009, UX-012, UX-013 after runtime confirmation, UX-014, and bounded mobile/discoverability improvements that do not redesign canonical ownership.
 
 The Wave 2 supplier-invoice handoff must include an obvious sidebar `Invoices` entry, easy discovery of the existing supplier invoice register, clear continuation into the verified-invoice reopen/correction path, and consistent invoice breadcrumbs/back navigation. Do not expand the Wave 1B client-receivable work into that supplier navigation redesign.
+
+The delivered bounded handoffs also carry exact Expense, Cash, Procurement, and Warehouse identifiers through centralized route contracts, prefer persisted Warehouse movement identifiers when available, and recover stale entity links to the nearest authorized register without treating loader failures as missing records. Email Intake remains unchanged after proof-first validation found no continuation defect.
 
 Keep Wave 2 focused on navigation, context, discoverability, and truthful handoffs. Do not invent duplicate domain records to simplify navigation.
 
@@ -221,9 +223,9 @@ These are not routing-polish tasks. Financial/source-of-truth decisions must be 
 ### Immediate user-prioritized product workflow sequence
 
 1. Wave 1A — Supplier Payable Lifecycle UX — **COMPLETE**
-2. Wave 1B — Client Receivable Lifecycle UX — **NEXT**
-3. Wave 2 — Cross-module routing/handoffs
-4. Wave 3 — payroll/subcontract/PO workflow decisions
+2. Wave 1B — Client Receivable Lifecycle UX — **COMPLETE**
+3. Wave 2 — Cross-module routing/handoffs — **ACTIVE**
+4. Wave 3 — payroll/subcontract/PO workflow decisions — **NEXT**
 5. Resume the broader approved product roadmap unless the user reprioritizes again:
    - Email/SMS + Documents;
    - Worker Registration;

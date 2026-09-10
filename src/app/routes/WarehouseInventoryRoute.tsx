@@ -5,6 +5,7 @@ import type { InventoryBalance, InventoryItem, InventoryItemSaveInput, Inventory
 import { buildWarehouseReceiptPresentationSources } from "../../lib/inventoryReceiptPresentation.ts";
 import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
 import { useAppPermissions } from "../AppPermissionContext.tsx";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface WarehouseInventoryRouteProps {
   items: InventoryItem[];
@@ -14,6 +15,11 @@ export interface WarehouseInventoryRouteProps {
   projectMaterials?: ProjectMaterial[];
   purchaseOrders?: PurchaseOrder[];
   receipts?: PurchaseOrderReceipt[];
+  initialMovementId?: string;
+  initialReceiptId?: string;
+  initialReturnPath?: string;
+  onNavigatePath?: AppNavigate;
+  workspaceLoading?: boolean;
   guestMode?: boolean;
   onOpenProject?: (project: Project) => void;
   onSaveItem?: (input: InventoryItemSaveInput) => Promise<InventoryItem>;
@@ -29,6 +35,11 @@ export const WarehouseInventoryRoute: React.FC<WarehouseInventoryRouteProps> = (
   projectMaterials = [],
   purchaseOrders = [],
   receipts = [],
+  initialMovementId,
+  initialReceiptId,
+  initialReturnPath,
+  onNavigatePath,
+  workspaceLoading = false,
   guestMode = false,
   onOpenProject,
   onSaveItem,
@@ -46,16 +57,29 @@ export const WarehouseInventoryRoute: React.FC<WarehouseInventoryRouteProps> = (
       : { purchaseOrders: [], receipts: [] },
     [canReadProcurement, purchaseOrders, receipts],
   );
+  const warehouseMovements = useMemo(
+    () => canReadProcurement
+      ? movements
+      : movements.map((movement) => movement.sourceType === "PURCHASE_ORDER_RECEIPT" && movement.sourcePurchaseOrderId
+        ? { ...movement, sourcePurchaseOrderId: null }
+        : movement),
+    [canReadProcurement, movements],
+  );
 
   return (
     <WarehouseInventoryPage
       items={items}
-      movements={movements}
+      movements={warehouseMovements}
       balances={balances}
       projects={canReadProjects ? projects : []}
       projectMaterials={canReadProjects ? projectMaterials : []}
       purchaseOrders={warehouseReceiptSources.purchaseOrders}
       receipts={warehouseReceiptSources.receipts}
+      initialMovementId={initialMovementId}
+      initialReceiptId={initialReceiptId}
+      initialReturnPath={initialReturnPath}
+      onNavigatePath={onNavigatePath}
+      workspaceLoading={workspaceLoading}
       canRead={canRead}
       canManage={canManage}
       canReadProjects={canReadProjects}

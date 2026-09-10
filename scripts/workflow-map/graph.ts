@@ -589,7 +589,7 @@ const nodes: readonly WorkflowNode[] = [
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/routes.ts", "src/utils/appRouting.ts", "src/app/routes/CashBankingRoute.tsx", "src/components/CashBankingPage.tsx", "src/components/CashSettlementAllocationWorkspace.tsx"],
     testRefs: ["tests/appRouting.test.ts", "tests/financialSettlement.test.ts", "tests/wave1aSupplierPayableUx.test.ts"],
-    qaScenarioIds: ["cash-banking--cash--base-route-loaded--desktop-1440", "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440", "cash-banking--cash--base-route-loaded--tablet-768", "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-context-opened--mobile-390"],
+    qaScenarioIds: ["cash-banking--cash--base-route-loaded--desktop-1440", "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440", "cash-banking--cash--base-route-loaded--tablet-768", "supplier-payables--cash--cash-expense-target-and-return-context-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-and-return-context-opened--mobile-390"],
   }),
   node({
     id: "route-projects",
@@ -756,7 +756,7 @@ const nodes: readonly WorkflowNode[] = [
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/routes.ts", "src/app/routes/InvoicesRoute.tsx", "src/components/InvoiceDirectory.tsx"],
     testRefs: ["tests/appRouting.test.ts", "tests/invoiceDisplay.test.ts"],
-    qaScenarioIds: ["invoices--invoices--base-route-loaded--desktop-1440"],
+    qaScenarioIds: ["invoices--invoices--supplier-invoice-navigation-and-register-verified--desktop-1440"],
   }),
   node({
     id: "route-invoice-detail",
@@ -1918,7 +1918,7 @@ const nodes: readonly WorkflowNode[] = [
     fileRefs: ["src/components/CashBankingPage.tsx", "src/components/CashSettlementAllocationWorkspace.tsx", "src/components/InvoiceSettlementDirectoryPanel.tsx", "src/components/financial/FinancialReasonDialog.tsx"],
     testRefs: ["tests/cashBanking.test.ts", "tests/financialSettlement.test.ts", "tests/structuredBrowserEvidence.test.ts", "tests/coreHardeningWave2B3CashCorrections.test.ts", "tests/wave1aSupplierPayableUx.test.ts", "tests/wave1bClientReceivableUx.test.ts"],
     permissionKeys: ["cash.summary.read", "cash.transactions.read", "cash.reconcile"],
-    qaScenarioIds: ["cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-context-opened--mobile-390", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"],
+    qaScenarioIds: ["cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-and-return-context-opened--desktop-1440", "supplier-payables--cash--cash-expense-target-and-return-context-opened--mobile-390", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440", "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"],
   }),
   node({
     id: "cash-settlement-candidates",
@@ -3481,7 +3481,7 @@ const p3Nodes: readonly WorkflowNode[] = [
     domain: "inventory",
     type: "route",
     scope: "global",
-    route: route({ routeId: "warehouse", canonicalPath: "/warehouse", pathPattern: "/warehouse", scope: "production-and-demo" }),
+    route: route({ routeId: "warehouse", canonicalPath: "/warehouse", pathPattern: "/warehouse", queryKeys: ["movementId", "receiptId", "from"], scope: "production-and-demo" }),
     description: "Company-level Warehouse Inventory entry point for canonical items, movement-derived balances, stock actions, and auditable history.",
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/routes.ts", "src/utils/appRouting.ts", "src/app/routes/AppRouter.tsx", "src/app/routes/WarehouseInventoryRoute.tsx"],

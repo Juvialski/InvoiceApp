@@ -23,6 +23,12 @@ export interface ShellRemoteInvoiceUpdate {
   [key: string]: unknown;
 }
 
+export interface RouteRecoveryCopy {
+  title: string;
+  description: string;
+  actionLabel: string;
+}
+
 export interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode);
@@ -119,6 +125,8 @@ export interface AppShellProps {
   // Route error / not found
   routeNotFound?: boolean;
   onReturnToDashboard?: () => void;
+  routeRecovery?: RouteRecoveryCopy;
+  onRecoverRoute?: () => void;
 
   // Optional custom footer
   footerText?: string;
@@ -150,6 +158,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   workspaceLoading = false,
   routeNotFound = false,
   onReturnToDashboard,
+  routeRecovery,
+  onRecoverRoute,
   footerText = BRAND.footerText,
 }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -278,15 +288,15 @@ export const AppShell: React.FC<AppShellProps> = ({
           {routeNotFound && (
             <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-6">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-rose-700">Navigation error</p>
-              <h2 className="mt-1 text-lg font-black text-rose-950">Page not found</h2>
-              <p className="mt-1 text-xs text-rose-900">The requested workspace record or destination is not available.</p>
-              {onReturnToDashboard && (
+              <h2 className="mt-1 text-lg font-black text-rose-950">{routeRecovery?.title || "Page not found"}</h2>
+              <p className="mt-1 text-xs text-rose-900">{routeRecovery?.description || "The requested workspace record or destination is not available."}</p>
+              {(onRecoverRoute || onReturnToDashboard) && (
                 <button
                   type="button"
-                  onClick={onReturnToDashboard}
+                  onClick={onRecoverRoute || onReturnToDashboard}
                   className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-rose-700 px-3 py-2 text-xs font-black text-white"
                 >
-                  Return to dashboard
+                  {routeRecovery?.actionLabel || "Return to dashboard"}
                 </button>
               )}
             </div>

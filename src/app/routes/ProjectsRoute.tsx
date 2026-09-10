@@ -171,7 +171,7 @@ export interface ProjectsRouteProps {
   onRecordReceipt?: (
     receipt: Partial<PurchaseOrderReceipt> & { purchaseOrderId: string; receiptNumber: string },
     lines: Array<{ purchaseOrderLineId: string; receivedQuantity: number; inventoryItemId?: string | null; notes?: string }>,
-  ) => Promise<void>;
+  ) => Promise<PurchaseOrderReceipt | void>;
   onVoidReceipt?: (receiptId: string, reason: string) => Promise<void>;
   onAddVendor?: (vendor: Partial<Vendor> & { name: string }) => Promise<Vendor>;
   rfqs?: RFQ[];

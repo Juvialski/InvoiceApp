@@ -79,7 +79,8 @@ export const NAVIGATION_MODULES: readonly NavigationModuleDefinition[] = Object.
   { id: "procurement", label: "Procurement", routeIds: ["procurement"], defaultRouteId: "procurement" },
   { id: "warehouse", label: "Warehouse Inventory", routeIds: ["warehouse"], defaultRouteId: "warehouse" },
   { id: "equipment", label: "Equipment Registry", routeIds: ["equipment"], defaultRouteId: "equipment" },
-  { id: "expenses", label: "Expenses", routeIds: ["expenses", "extract", "review", "vendors"], defaultRouteId: "expenses" },
+  { id: "invoices", label: "Supplier Invoices", routeIds: ["invoices", "extract", "review", "vendors"], defaultRouteId: "invoices" },
+  { id: "expenses", label: "Expenses", routeIds: ["expenses"], defaultRouteId: "expenses" },
   { id: "payroll", label: "Payroll", routeIds: ["payroll"], defaultRouteId: "payroll" },
   { id: "reports", label: "Reports", routeIds: ["reports"], defaultRouteId: "reports" },
 ]);

@@ -53,6 +53,7 @@ export interface QaBrowserPage {
   getByRole(role: string, options?: { name?: string | RegExp; exact?: boolean }): QaBrowserLocator;
   locator(selector: string): QaBrowserLocator;
   waitForFunction: (...args: any[]) => Promise<unknown>;
+  url(): string;
 }
 
 export type QaScenarioAction = (page: QaBrowserPage) => Promise<readonly QaAssertion[] | void>;

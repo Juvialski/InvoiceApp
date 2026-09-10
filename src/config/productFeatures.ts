@@ -70,11 +70,12 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     title: "Supplier invoice review",
     category: "Supplier Invoices & Expenses",
     status: "AVAILABLE",
-    shortDescription: "Capture supplier invoices, preserve source documents, and move from the authoritative Expense into explicit payment reconciliation.",
+    shortDescription: "Browse and review supplier invoices, preserve source documents, and move from the authoritative Expense into explicit payment reconciliation.",
     details: [
       "Review supplier identity, invoice facts, project allocations, purchase-order matching, duplicate signals, and source history before confirmation.",
       "Verified supplier evidence links to the expense record that owns the payable and cost, without creating a second cost record.",
       "Open the linked Expense, see confirmed and outstanding payment state, and continue to Cash & Banking without searching for the record again.",
+      "Follow supplier invoice, Expense, purchase-order, and receipt context links to the exact record that owns each step of the workflow.",
     ],
     sortOrder: 30,
   },
@@ -124,6 +125,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Manage purchase orders and receipts, requests for quotation, supplier quotations, supplier selection, and project-linked procurement.",
     details: [
       "Track purchase commitments and received quantities, with supplier invoice matching available in the review workflow.",
+      "After recording a receipt, continue to the exact Warehouse receipt context when explicit stock posting is required.",
       "Manage subcontracts, progress claims, and variations with their project context and history.",
     ],
     sortOrder: 70,
@@ -149,6 +151,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     details: [
       "Receive stock, issue material to a project, record returns, and review movement history.",
       "Project material requirements and field observations remain visible alongside stock without replacing movement history.",
+      "Open the authoritative Procurement receipt from a warehouse movement when persisted source metadata is available.",
     ],
     sortOrder: 90,
   },

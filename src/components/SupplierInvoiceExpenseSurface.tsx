@@ -76,7 +76,7 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
       targetLabel={`${linkedExpense.category} · ${linkedExpense.description}`}
       lifecycleStatus={linkedExpense.status}
       fallbackSummary={deriveExpenseSettlementSummary(linkedExpense, [])}
-      recordPaymentPath={appPathForCashTarget("EXPENSE", linkedExpense.id)}
+      recordPaymentPath={appPathForCashTarget("EXPENSE", linkedExpense.id, appPathForExpense(linkedExpense.id, appPathForInvoice(invoice.id)))}
       canRecordPayment={canRecordPayment}
       canReverse={canReversePayment}
       financialFxSnapshots={financialFxSnapshots}

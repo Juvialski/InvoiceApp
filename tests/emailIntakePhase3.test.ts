@@ -14,7 +14,7 @@ test("Email Intake Phase 3: Top-level navigation and module structure", () => {
   assert.equal(inboxRoute.label, "Email Intake");
   assert.deepEqual(inboxRoute.aliases, ["/inbox"]);
 
-  // 2. Navigation modules: supplier invoice work is grouped under Expenses.
+  // 2. Navigation modules expose the authoritative supplier invoice register.
   const moduleIds = NAVIGATION_MODULES.map((m) => m.id);
   assert.deepEqual(moduleIds, [
     "dashboard",
@@ -24,15 +24,19 @@ test("Email Intake Phase 3: Top-level navigation and module structure", () => {
     "procurement",
     "warehouse",
     "equipment",
+    "invoices",
     "expenses",
     "payroll",
     "reports",
   ]);
 
-  // 3. There is no standalone invoice module; supplier actions live in Expenses.
+  // 3. Supplier invoice actions stay together under the existing invoice route vocabulary.
+  const invoicesModule = NAVIGATION_MODULES.find((m) => m.id === "invoices");
+  assert.ok(invoicesModule);
+  assert.equal(invoicesModule.label, "Supplier Invoices");
+  assert.deepEqual(invoicesModule.routeIds, ["invoices", "extract", "review", "vendors"]);
   const expensesModule = NAVIGATION_MODULES.find((m) => m.id === "expenses");
-  assert.ok(expensesModule);
-  assert.deepEqual(expensesModule.routeIds, ["expenses", "extract", "review", "vendors"]);
+  assert.deepEqual(expensesModule?.routeIds, ["expenses"]);
 
   // 4. email-intake module definition
   const emailIntakeModule = NAVIGATION_MODULES.find((m) => m.id === "email-intake");
@@ -43,7 +47,7 @@ test("Email Intake Phase 3: Top-level navigation and module structure", () => {
 
   // 5. getPrimaryModuleForRoute mapping
   assert.equal(getPrimaryModuleForRoute("inbox")?.id, "email-intake");
-  assert.equal(getPrimaryModuleForRoute("invoices"), undefined);
+  assert.equal(getPrimaryModuleForRoute("invoices")?.id, "invoices");
 
   // 6. getNavigationModel output
   const navModel = getNavigationModel();

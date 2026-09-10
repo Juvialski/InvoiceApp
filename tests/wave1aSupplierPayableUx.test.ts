@@ -46,7 +46,7 @@ test("Wave 1A UI uses the existing settlement evidence and guarded Cash route", 
   const cashWorkspace = source("src/components/CashSettlementAllocationWorkspace.tsx");
   const cashPage = source("src/components/CashBankingPage.tsx");
   assert.match(surface, /Open Expense/);
-  assert.match(surface, /recordPaymentPath=\{appPathForCashTarget\("EXPENSE", linkedExpense\.id\)\}/);
+  assert.match(surface, /recordPaymentPath=\{appPathForCashTarget\("EXPENSE", linkedExpense\.id, appPathForExpense\(linkedExpense\.id/);
   assert.match(card, /Record Payment/);
   assert.match(card, /isSettlementTargetLifecycleEligible/);
   assert.doesNotMatch(card, /Mark Paid/);

@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   appPathForInvoice,
+  appPathForPurchaseOrder,
+  appPathForPurchaseOrderReceipt,
+  appPathForWarehouseMovement,
+  appPathForWarehouseReceipt,
   appPathForExpense,
   appPathForCashTarget,
   appPathForAttendanceDate,
@@ -14,6 +18,8 @@ import {
   appTabForLocation,
   isKnownWorkspaceLocation,
   parseAppLocation,
+  procurementContextFromSearch,
+  warehouseContextFromSearch,
   attendanceDateFromSearch,
   cashSettlementTargetContextFromSearch,
   expenseIdFromSearch,
@@ -89,6 +95,8 @@ test("Expense detail and object-first cash routes preserve exact target context"
     targetId: "expense-42",
   });
   assert.equal(cashSettlementTargetContextFromSearch("fromTargetType=EXPENSE").invalid, true);
+  const cashReturnPath = appPathForCashTarget("EXPENSE", "expense-42", expensePath);
+  assert.equal(cashSettlementTargetContextFromSearch(cashReturnPath.split("?", 2)[1] || "").returnTo, expensePath);
 });
 
 test("client receivable routes preserve the selected billing and safe Cash return path", () => {
@@ -123,6 +131,32 @@ test("builds predictable route URLs without embedding invoice contents", () => {
   assert.equal(appPathForInvoice("invoice/7", "/projects/project-42/invoices"), "/invoices/invoice%2F7?from=%2Fprojects%2Fproject-42%2Finvoices");
   assert.equal(appPathForReviewInvoice("invoice-7", "/inbox"), "/review?invoiceId=invoice-7&from=%2Finbox");
   assert.equal(appPathForReviewInvoice("invoice-7", "/email-intake"), "/review?invoiceId=invoice-7&from=%2Femail-intake");
+});
+
+test("cross-module procurement and warehouse links preserve exact source identifiers", () => {
+  assert.equal(appPathForPurchaseOrder("po-42"), "/procurement?poId=po-42");
+  const purchaseOrderPath = appPathForPurchaseOrderReceipt("po-42", "receipt-7", "/expenses?expenseId=expense-9");
+  assert.equal(purchaseOrderPath, "/procurement?poId=po-42&receiptId=receipt-7&from=%2Fexpenses%3FexpenseId%3Dexpense-9");
+  assert.deepEqual(procurementContextFromSearch(purchaseOrderPath.split("?", 2)[1] || ""), {
+    requested: true,
+    invalid: false,
+    purchaseOrderId: "po-42",
+    receiptId: "receipt-7",
+    returnTo: "/expenses?expenseId=expense-9",
+  });
+
+  const warehouseReceiptPath = appPathForWarehouseReceipt("receipt-7", "/procurement?poId=po-42&receiptId=receipt-7");
+  assert.equal(warehouseReceiptPath, "/warehouse?receiptId=receipt-7&from=%2Fprocurement%3FpoId%3Dpo-42%26receiptId%3Dreceipt-7");
+  assert.deepEqual(warehouseContextFromSearch(warehouseReceiptPath.split("?", 2)[1] || ""), {
+    requested: true,
+    invalid: false,
+    receiptId: "receipt-7",
+    returnTo: "/procurement?poId=po-42&receiptId=receipt-7",
+  });
+
+  const movementPath = appPathForWarehouseMovement("movement-9", warehouseReceiptPath);
+  assert.equal(warehouseContextFromSearch(movementPath.split("?", 2)[1] || "").movementId, "movement-9");
+  assert.equal(parseAppLocation(movementPath).kind, "tab");
 });
 
 test("parses email-intake canonical route and legacy /inbox alias", () => {

@@ -1368,8 +1368,8 @@
         "cash-banking--cash--base-route-loaded--desktop-1440",
         "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440",
         "cash-banking--cash--base-route-loaded--tablet-768",
-        "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440",
-        "supplier-payables--cash--cash-expense-target-context-opened--mobile-390"
+        "supplier-payables--cash--cash-expense-target-and-return-context-opened--desktop-1440",
+        "supplier-payables--cash--cash-expense-target-and-return-context-opened--mobile-390"
       ]
     },
     {
@@ -1754,7 +1754,7 @@
         "tests/invoiceDisplay.test.ts"
       ],
       "qaScenarioIds": [
-        "invoices--invoices--base-route-loaded--desktop-1440"
+        "invoices--invoices--supplier-invoice-navigation-and-register-verified--desktop-1440"
       ]
     },
     {
@@ -4416,8 +4416,8 @@
       ],
       "qaScenarioIds": [
         "cash-banking--cash-settlement--cash-settlement-workspace-opened--desktop-1440",
-        "supplier-payables--cash--cash-expense-target-context-opened--desktop-1440",
-        "supplier-payables--cash--cash-expense-target-context-opened--mobile-390",
+        "supplier-payables--cash--cash-expense-target-and-return-context-opened--desktop-1440",
+        "supplier-payables--cash--cash-expense-target-and-return-context-opened--mobile-390",
         "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--desktop-1440",
         "client-receivables--project-billing--client-invoice-collection-lifecycle-verified--mobile-390"
       ]
@@ -7048,6 +7048,11 @@
         "routeId": "warehouse",
         "canonicalPath": "/warehouse",
         "pathPattern": "/warehouse",
+        "queryKeys": [
+          "movementId",
+          "receiptId",
+          "from"
+        ],
         "scope": "production-and-demo"
       },
       "description": "Company-level Warehouse Inventory entry point for canonical items, movement-derived balances, stock actions, and auditable history.",
