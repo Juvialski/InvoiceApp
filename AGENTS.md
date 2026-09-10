@@ -91,6 +91,34 @@ Codex remains the default lead implementation/integration engine. During the cur
 
 When ChatGPT is performing the repository-native PR review/fix/finalization role, it must inspect exact current head and exact-head CI, fix concrete issues, and merge automatically if safe as defined by the baseline rules.
 
+## Mandatory roadmap and handoff synchronization gate
+
+Roadmap/handoff maintenance is a required delivery step, not optional documentation cleanup.
+
+Before **every implementation handoff, PR completion handoff, next-phase recommendation, or claim that a phase is complete**, the lead agent must reconcile the actual final repository state against all applicable product-truth documents and surfaces.
+
+At minimum, inspect and update when stale:
+
+- `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
+- `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`;
+- the active phase contract/design document, when one exists;
+- `src/config/productFeatures.ts` for client-facing feature/roadmap truth when user-visible capability or status changed;
+- `AGENTS.md` when the user changed product sequence, completion gates, or implementation policy.
+
+Required final-handoff sequence:
+
+1. review the complete final diff and exact implemented behavior;
+2. compare that behavior with the active roadmap and current handoff;
+3. mark completed work complete and identify the exact next unfinished phase—never infer completion from backend scaffolding or a partial UI;
+4. carry forward explicit user reprioritizations, paused phases, blockers, and external-provider dependencies;
+5. update client-facing Settings truth only to what is genuinely usable;
+6. verify the updated roadmap/handoff do not contradict each other, `AGENTS.md`, or live implementation;
+7. only then provide the final handoff or next-phase prompt.
+
+A PR that materially changes product capability, phase status, or approved sequence is **not done** if the roadmap/handoff remain stale. Include required documentation synchronization in the same PR whenever practical. If an implementation PR is already merged and the docs are discovered stale during review, correct the docs immediately before recommending the next phase.
+
+Never hand off with phrases such as “next is X” based only on an older roadmap entry. The next phase must be derived from the reconciled live roadmap after the current work's actual completion criteria are checked.
+
 ## Client-facing Features & Roadmap synchronization
 
 For applicable product feature work, the `HydroQualiSense Features & Roadmap` section in Settings must remain synchronized with actual product state. Live implementation and `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md` remain development sources of truth; the Settings roadmap is their client-friendly representation.
@@ -102,4 +130,4 @@ For applicable product feature work, the `HydroQualiSense Features & Roadmap` se
 
 ## Definition of done
 
-A substantial task is done only when repository state is current, scope remains disciplined, applicable security/data-integrity/history invariants are preserved, relevant runtime evidence is obtained, exact-head CI is checked when applicable, and the final handoff says clearly what passed, what was skipped, and what remains blocked.
+A substantial task is done only when repository state is current, scope remains disciplined, applicable security/data-integrity/history invariants are preserved, relevant runtime evidence is obtained, exact-head CI is checked when applicable, **the mandatory roadmap/handoff synchronization gate has been completed**, and the final handoff says clearly what passed, what was skipped, what remains blocked, and what the reconciled next phase actually is.
