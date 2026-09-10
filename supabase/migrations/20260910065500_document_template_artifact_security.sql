@@ -2,6 +2,11 @@
 -- Template files remain manageable by company settings administrators. Generated
 -- issued artifacts are financial/history records and are written only by the
 -- trusted server after domain authorization and deterministic generation.
+--
+-- Modern Supabase sb_secret_ keys are not JWTs. The Data API authorizes them
+-- through the service_role Postgres role, so the exact EXECUTE grant below is
+-- the server-only caller boundary. Do not inspect auth.role() inside this
+-- SECURITY DEFINER function; that claim may be absent for a modern secret key.
 
 -- Settings access is appropriate for template source files, but it must not
 -- expose issued artifacts containing supplier/client financial information.
@@ -52,7 +57,6 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_request_role text := coalesce((select auth.role()), '');
   v_generated_by_user_id uuid := nullif(btrim(coalesce(p_payload->>'generatedByUserId', p_payload->>'generated_by_user_id', '')), '')::uuid;
   v_company_id uuid := nullif(btrim(coalesce(p_payload->>'companyId', p_payload->>'company_id', '')), '')::uuid;
   v_snapshot_id uuid := nullif(btrim(coalesce(p_payload->>'snapshotId', p_payload->>'snapshot_id', '')), '')::uuid;
@@ -71,9 +75,6 @@ declare
   v_template public.document_template_versions;
   v_snapshot public.issued_document_snapshots;
 begin
-  if v_request_role <> 'service_role' then
-    raise exception 'Document generation evidence may only be recorded by the trusted server' using errcode = '42501';
-  end if;
   if v_generated_by_user_id is null then
     raise exception 'Document generation evidence requires an authenticated originating user' using errcode = '22023';
   end if;
