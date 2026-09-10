@@ -36,3 +36,21 @@ jobs:
           version: 2.117.0
       - name: Read QA migration parity through the protected session pooler
         run: npx --no-install tsx scripts/qa/verify-migration-parity.ts --direct-db --phase before --output artifacts/qa-release/direct-parity.json
+      - name: Dry-run the exact protected QA migration-push transport
+        shell: bash
+        run: |
+          npx --no-install tsx -e '
+            import { buildQaSessionPoolerDatabaseUrl, HYDROQUALISENSE_QA_POOLER_HOST } from "./src/lib/qaReleaseOrchestration.ts";
+            import { runSupabaseCliSync } from "./scripts/qa/supabaseCli.ts";
+            const databaseUrl = buildQaSessionPoolerDatabaseUrl({
+              projectRef: process.env.HYDROQUALISENSE_QA_PROJECT_REF,
+              password: process.env.SUPABASE_DB_PASSWORD,
+              poolerHost: HYDROQUALISENSE_QA_POOLER_HOST,
+            });
+            try {
+              runSupabaseCliSync(["db", "push", "--db-url", databaseUrl, "--dry-run", "--include-all"], { cwd: process.cwd(), env: process.env });
+            } catch {
+              console.error("Protected QA migration push dry-run failed.");
+              process.exit(1);
+            }
+          '
