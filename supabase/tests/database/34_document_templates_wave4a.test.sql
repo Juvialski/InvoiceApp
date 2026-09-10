@@ -36,6 +36,8 @@ select isnt_empty($$select 1 from pg_policy where polrelid = 'public.document_te
 select is((select public from storage.buckets where id = 'company-document-templates'), false, 'company template Storage bucket is private');
 select isnt_empty($$select 1 from pg_policy where polrelid = 'storage.objects'::regclass and polname = 'company document templates read'$$, 'company template Storage read policy exists');
 select isnt_empty($$select 1 from pg_policy where polrelid = 'storage.objects'::regclass and polname = 'company document templates insert'$$, 'company template Storage insert policy exists');
+select ok(not has_function_privilege('authenticated', 'public.record_document_generation_evidence(jsonb)', 'EXECUTE'), 'browser-authenticated users cannot call the generation-evidence RPC directly');
+select ok(has_function_privilege('service_role', 'public.record_document_generation_evidence(jsonb)', 'EXECUTE'), 'trusted service role can record generation evidence');
 
 insert into auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values ((select admin_user from wave4_ids), 'wave4-admin@test.local', 'x', now(), now(), now());
@@ -52,6 +54,7 @@ insert into public.vendors (id, user_id, company_id, name, normalized_name, defa
 values ((select vendor_id from wave4_ids), (select admin_user from wave4_ids), (select company_id from wave4_ids), 'Wave 4 Supplier', 'wave 4 supplier', 'PHP');
 
 set local role authenticated;
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select set_config('request.jwt.claim.sub', (select admin_user::text from wave4_ids), true);
 
 with created as (
@@ -86,16 +89,31 @@ select lives_ok($$select public.transition_purchase_order_status((select po_one_
 select lives_ok($$select public.transition_purchase_order_status((select po_one_id from wave4_ids), 'ISSUED', null)$$, 'PO can be issued with template configured');
 select is((select template_version_id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)), (select version_one_id from wave4_template_ids), 'issuance pins the active immutable template version');
 select is((select template_sha256 from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)), repeat('a', 64), 'issuance pins the template content hash');
+select throws_ok($$select public.record_document_generation_evidence('{}'::jsonb)$$, '42501', null, 'authenticated users cannot forge generation evidence even when otherwise privileged');
 
+set local role service_role;
+select set_config('request.jwt.claim.role', 'service_role', true);
 select lives_ok($$select public.record_document_generation_evidence(jsonb_build_object(
+  'generatedByUserId', (select admin_user from wave4_ids),
   'companyId', (select company_id from wave4_ids),
   'snapshotId', (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)),
   'templateVersionId', (select version_one_id from wave4_template_ids), 'documentType', 'PURCHASE_ORDER', 'documentId', (select po_one_id from wave4_ids),
   'templateContentSha256', repeat('a', 64), 'artifactType', 'DOCX',
-  'artifactStoragePath', format('companies/%s/document-template-artifacts/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/PURCHASE_ORDER/11111111-1111-4111-8111-111111111102/%s.docx', (select company_id from wave4_ids), repeat('b', 64)),
+  'artifactStoragePath', format(
+    'companies/%s/document-template-artifacts/%s/PURCHASE_ORDER/%s/%s.docx',
+    (select company_id from wave4_ids),
+    (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids)),
+    (select version_one_id from wave4_template_ids),
+    repeat('b', 64)
+  ),
   'artifactStorageProvider', 'supabase', 'artifactStorageBucket', 'company-document-templates', 'artifactSize', 120, 'artifactSha256', repeat('b', 64)
-))$$, 'issued DOCX generation evidence can be recorded against the pinned snapshot');
+))$$, 'trusted server can record issued DOCX evidence against the pinned snapshot and deterministic artifact path');
 select is((select count(*) from public.document_generation_evidence where snapshot_id = (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids))), 1::bigint, 'generation evidence is durable and company scoped');
+select is((select generated_by_user_id from public.document_generation_evidence where snapshot_id = (select id from public.issued_document_snapshots where document_type = 'PURCHASE_ORDER' and document_id = (select po_one_id from wave4_ids))), (select admin_user from wave4_ids), 'generation evidence retains the originating authenticated user');
+
+set local role authenticated;
+select set_config('request.jwt.claim.role', 'authenticated', true);
+select set_config('request.jwt.claim.sub', (select admin_user::text from wave4_ids), true);
 
 with created as (
   select public.create_document_template_version(jsonb_build_object(
