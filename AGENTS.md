@@ -19,7 +19,7 @@ Live repository state overrides remembered chat summaries and old prompts.
 
 The user has explicitly clarified that the broad `Email/SMS + Documents` phase is **not complete** merely because document templates, PDF generation, Gmail delivery, or delivery history exist inside individual record workflows.
 
-Current state through merged PR #136:
+Current state through merged PR #138:
 
 1. Wave 1A — Supplier Payable Lifecycle UX — complete on merged `main`.
 2. Wave 1B — Client Receivable Lifecycle UX — complete on merged `main`.

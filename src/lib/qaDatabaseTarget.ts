@@ -1,3 +1,5 @@
+import { HYDROQUALISENSE_QA_POOLER_HOST, type QaDatabaseConnectionMode } from "./qaReleaseOrchestration.ts";
+
 export type QaDatabaseOperation = "push" | "reset";
 
 export interface QaDatabaseTargetInput {
@@ -8,6 +10,8 @@ export interface QaDatabaseTargetInput {
   linkedProjectRef?: unknown;
   productionProjectRef?: unknown;
   expectedDeploymentId?: unknown;
+  connectionMode?: unknown;
+  databaseHost?: unknown;
   confirmation?: unknown;
   operation: QaDatabaseOperation;
 }
@@ -35,6 +39,8 @@ export function validateQaDatabaseTarget(input: QaDatabaseTargetInput): QaDataba
   const linkedProjectRef = text(input.linkedProjectRef).toLowerCase();
   const productionProjectRef = text(input.productionProjectRef).toLowerCase();
   const expectedDeploymentId = text(input.expectedDeploymentId);
+  const connectionMode = text(input.connectionMode || "linked").toLowerCase() as QaDatabaseConnectionMode;
+  const databaseHost = text(input.databaseHost).toLowerCase();
   const confirmation = text(input.confirmation);
 
   if (environment !== "qa") errors.push("QA database commands require HYDROQUALISENSE_ENVIRONMENT=qa.");
@@ -43,11 +49,15 @@ export function validateQaDatabaseTarget(input: QaDatabaseTargetInput): QaDataba
   if (!expectedQaProjectRef) errors.push("Set HYDROQUALISENSE_QA_PROJECT_REF to the manually created QA project reference.");
   if (!targetProjectRef) errors.push("A QA Supabase project reference is required.");
   if (expectedQaProjectRef && targetProjectRef && expectedQaProjectRef !== targetProjectRef) errors.push("The requested project does not match HYDROQUALISENSE_QA_PROJECT_REF.");
-  if (!linkedProjectRef) errors.push("Link this checkout to the intended QA project before running the command.");
-  if (targetProjectRef && linkedProjectRef && targetProjectRef !== linkedProjectRef) errors.push("The linked Supabase project does not match the asserted QA project.");
+  if (connectionMode !== "linked" && connectionMode !== "direct") errors.push("The QA database connection mode must be linked or direct.");
+  if (connectionMode === "linked") {
+    if (!linkedProjectRef) errors.push("Link this checkout to the intended QA project before running the command.");
+    if (targetProjectRef && linkedProjectRef && targetProjectRef !== linkedProjectRef) errors.push("The linked Supabase project does not match the asserted QA project.");
+    if (productionProjectRef && linkedProjectRef === productionProjectRef) errors.push("The linked Supabase project is the configured production project; refusing to continue.");
+  }
+  if (connectionMode === "direct" && databaseHost !== HYDROQUALISENSE_QA_POOLER_HOST) errors.push("The direct QA database host does not match the approved protected QA session pooler.");
   if (!productionProjectRef) errors.push("Set HYDROQUALISENSE_PRODUCTION_PROJECT_REF so the target can be proven non-production.");
   if (productionProjectRef && targetProjectRef === productionProjectRef) errors.push("The asserted QA project matches the configured production project; refusing to continue.");
-  if (productionProjectRef && linkedProjectRef === productionProjectRef) errors.push("The linked Supabase project is the configured production project; refusing to continue.");
   if (input.operation === "push" && confirmation !== "QA_DATABASE_PUSH") errors.push("Confirm the QA migration push with --confirm-qa (QA_DATABASE_PUSH).");
   if (input.operation === "reset" && confirmation !== "QA_DATABASE_RESET") errors.push("Confirm the destructive QA reset with --confirm-qa-reset (QA_DATABASE_RESET).");
 

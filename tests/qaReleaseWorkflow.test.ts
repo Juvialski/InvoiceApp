@@ -12,14 +12,16 @@ test("protected QA release workflow is push-driven, QA-environment protected, an
   assert.match(releaseWorkflow, /environment:\s+qa/);
   assert.match(releaseWorkflow, /HYDROQUALISENSE_QA_PROJECT_REF:\s*vrpuznofrntyqsbugrib/);
   assert.match(releaseWorkflow, /HYDROQUALISENSE_PRODUCTION_PROJECT_REF:\s*qijjshdwiylojvqojxyz/);
-  assert.match(releaseWorkflow, /SUPABASE_ACCESS_TOKEN/);
+  assert.match(releaseWorkflow, /HYDROQUALISENSE_QA_POOLER_HOST:\s*aws-0-ap-southeast-1\.pooler\.supabase\.com/);
+  assert.doesNotMatch(releaseWorkflow, /SUPABASE_ACCESS_TOKEN/);
   assert.match(releaseWorkflow, /SUPABASE_DB_PASSWORD/);
   assert.match(releaseWorkflow, /Missing QA secret/);
-  assert.match(releaseWorkflow, /Supabase authentication or project-link failure/);
-  assert.match(releaseWorkflow, /Run the existing guarded QA migration promotion/);
+  assert.doesNotMatch(releaseWorkflow, /supabase link --project-ref/);
+  assert.match(releaseWorkflow, /Run the guarded QA migration promotion through the session pooler/);
   assert.match(releaseWorkflow, /wait-for-qa-deployment\.ts/);
-  assert.match(releaseWorkflow, /npm run qa:db:push -- --project-ref "\$HYDROQUALISENSE_QA_PROJECT_REF" --confirm-qa/);
-  assert.match(releaseWorkflow, /verify-migration-parity\.ts --phase after/);
+  assert.match(releaseWorkflow, /npm run qa:db:push -- --project-ref "\$HYDROQUALISENSE_QA_PROJECT_REF" --confirm-qa --direct-db/);
+  assert.match(releaseWorkflow, /verify-migration-parity\.ts --direct-db --phase before/);
+  assert.match(releaseWorkflow, /verify-migration-parity\.ts --direct-db --phase after/);
   assert.match(releaseWorkflow, /needs: \[classify, qa_release\]/);
   assert.match(releaseWorkflow, /\.\/\.github\/workflows\/hosted-qa-certification\.yml/);
   assert.match(renderWaitScript, /render_deployment_timeout/);
@@ -27,12 +29,12 @@ test("protected QA release workflow is push-driven, QA-environment protected, an
   assert.match(releaseWorkflow, /migration-history|migration parity|parity/i);
 });
 
-test("protected QA credentials stay environment-scoped secrets and fail closed", () => {
-  assert.match(releaseWorkflow, /environment:\s+qa[\s\S]*SUPABASE_ACCESS_TOKEN:\s*\$\{\{\s*secrets\.SUPABASE_ACCESS_TOKEN\s*\}\}/);
-  assert.match(releaseWorkflow, /SUPABASE_DB_PASSWORD:\s*\$\{\{\s*secrets\.SUPABASE_DB_PASSWORD\s*\}\}/);
+test("protected QA database credentials stay environment-scoped and fail closed without the Management API token", () => {
+  assert.match(releaseWorkflow, /environment:\s+qa[\s\S]*SUPABASE_DB_PASSWORD:\s*\$\{\{\s*secrets\.SUPABASE_DB_PASSWORD\s*\}\}/);
+  assert.doesNotMatch(releaseWorkflow, /SUPABASE_ACCESS_TOKEN/);
   assert.doesNotMatch(releaseWorkflow, /\$\{\{\s*vars\.(?:SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD)\s*\}\}/);
-  assert.match(releaseWorkflow, /-z "\$\{SUPABASE_ACCESS_TOKEN:-\}"/);
   assert.match(releaseWorkflow, /-z "\$\{SUPABASE_DB_PASSWORD:-\}"/);
+  assert.match(releaseWorkflow, /approved QA session pooler/);
   assert.match(releaseWorkflow, /Independently inspect QA migration parity before promotion/);
   assert.match(releaseWorkflow, /Verify production separation/);
 });

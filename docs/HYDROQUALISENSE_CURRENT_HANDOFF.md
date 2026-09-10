@@ -1,14 +1,14 @@
 # HydroQualiSense Current Handoff
 
 Status: **CURRENT — WAVE 4D EMAIL/SMS + DOCUMENTS IMPLEMENTATION ACTIVE / SMS NOT CONFIGURED / QA CERTIFICATION NOT READY**
-Date: **2026-09-10**  
+Date: **2026-09-11**  
 Repository: `Juvialski/InvoiceApp`
 
 ## Exact current product baseline
 
-Current merged `main` baseline:
+Current merged application baseline:
 
-`1b49eaa601d23289b4591fe6ba5a98da130430dd`
+`41fff7149c88bbadba6e40d3e5e2da7bcdb24d4a` (PR #138; this release-infrastructure fix does not change product behavior)
 
 Completed product work through that baseline:
 
@@ -18,7 +18,8 @@ Completed product work through that baseline:
 - Wave 3 Payroll/Subcontract/PO Workflow Decisions — complete through PRs #132 and #133;
 - Wave 4A Company Document Templates / Mail Merge Foundation — complete through PR #134;
 - Wave 4B High-Fidelity PDF Finalization — complete through PR #135;
-- Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History — complete through PR #136.
+- Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History — complete through PR #136;
+- Wave 4D Email/SMS + Documents workspace implementation — integrated through PR #138, with SMS provider activation/runtime QA still blocking phase completion.
 
 The detailed current priority is `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 

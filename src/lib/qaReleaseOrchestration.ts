@@ -2,6 +2,7 @@ export const HYDROQUALISENSE_QA_PROJECT_REF = "vrpuznofrntyqsbugrib";
 export const HYDROQUALISENSE_PRODUCTION_PROJECT_REF = "qijjshdwiylojvqojxyz";
 export const HYDROQUALISENSE_QA_DEPLOYMENT_ID = "qa-hydroqualisense";
 export const HYDROQUALISENSE_QA_BASE_URL = "https://hydroqualisense-qa.onrender.com";
+export const HYDROQUALISENSE_QA_POOLER_HOST = "aws-0-ap-southeast-1.pooler.supabase.com";
 export const QA_DATABASE_PUSH_CONFIRMATION = "QA_DATABASE_PUSH";
 
 const MIGRATION_VERSION = /^\d{14}$/;
@@ -12,9 +13,11 @@ const RELEASE_ORCHESTRATION_PATHS = new Set([
   ".github/workflows/qa-release.yml",
   "scripts/qa/classify-release.ts",
   "scripts/qa/qaReleaseContracts.ts",
+  "scripts/qa/run-supabase.ts",
   "scripts/qa/supabaseCli.ts",
   "scripts/qa/verify-migration-parity.ts",
   "scripts/qa/wait-for-qa-deployment.ts",
+  "src/lib/qaDatabaseTarget.ts",
   "src/lib/qaReleaseOrchestration.ts",
 ]);
 const HOSTED_QA_HARNESS_PATH = /^(?:scripts\/hosted-qa[^/]*\.ts|scripts\/qa\/hostedQaContracts\.ts)$/i;
@@ -172,12 +175,16 @@ export function evaluateMigrationParity(
   return { status: "PASS", needsPromotion: false, expectedHead, observedRemoteHead, localLevels: local, remoteLevels: remoteUnique, mismatches: [] };
 }
 
+export type QaDatabaseConnectionMode = "linked" | "direct";
+
 export interface QaReleaseIdentityInput {
   environment?: unknown;
   deploymentId?: unknown;
   qaProjectRef?: unknown;
   productionProjectRef?: unknown;
   linkedProjectRef?: unknown;
+  connectionMode?: unknown;
+  databaseHost?: unknown;
   confirmation?: unknown;
 }
 
@@ -189,6 +196,8 @@ export function validateQaReleaseIdentity(input: QaReleaseIdentityInput): string
   const qaProjectRef = String(input.qaProjectRef ?? "").trim().toLowerCase();
   const productionProjectRef = String(input.productionProjectRef ?? "").trim().toLowerCase();
   const linkedProjectRef = String(input.linkedProjectRef ?? "").trim().toLowerCase();
+  const connectionMode = String(input.connectionMode ?? "linked").trim().toLowerCase();
+  const databaseHost = String(input.databaseHost ?? "").trim().toLowerCase();
   const confirmation = String(input.confirmation ?? "").trim();
 
   if (environment !== "qa") errors.push("environment_not_qa");
@@ -196,9 +205,27 @@ export function validateQaReleaseIdentity(input: QaReleaseIdentityInput): string
   if (qaProjectRef !== HYDROQUALISENSE_QA_PROJECT_REF) errors.push("qa_project_ref_mismatch");
   if (productionProjectRef !== HYDROQUALISENSE_PRODUCTION_PROJECT_REF) errors.push("production_project_ref_mismatch");
   if (!qaProjectRef || qaProjectRef === productionProjectRef) errors.push("qa_target_is_production");
-  if (!linkedProjectRef) errors.push("linked_project_missing");
-  else if (linkedProjectRef !== qaProjectRef) errors.push("linked_project_ref_mismatch");
-  if (linkedProjectRef === productionProjectRef) errors.push("linked_project_is_production");
+  if (connectionMode !== "linked" && connectionMode !== "direct") errors.push("database_connection_mode_invalid");
+  if (connectionMode === "linked") {
+    if (!linkedProjectRef) errors.push("linked_project_missing");
+    else if (linkedProjectRef !== qaProjectRef) errors.push("linked_project_ref_mismatch");
+    if (linkedProjectRef === productionProjectRef) errors.push("linked_project_is_production");
+  }
+  if (connectionMode === "direct" && databaseHost !== HYDROQUALISENSE_QA_POOLER_HOST) errors.push("qa_database_host_mismatch");
   if (confirmation !== QA_DATABASE_PUSH_CONFIRMATION) errors.push("missing_explicit_qa_confirmation");
   return [...new Set(errors)];
+}
+
+export function buildQaSessionPoolerDatabaseUrl(input: {
+  projectRef?: unknown;
+  password?: unknown;
+  poolerHost?: unknown;
+}): string {
+  const projectRef = String(input.projectRef ?? "").trim().toLowerCase();
+  const password = String(input.password ?? "");
+  const poolerHost = String(input.poolerHost ?? HYDROQUALISENSE_QA_POOLER_HOST).trim().toLowerCase();
+  if (projectRef !== HYDROQUALISENSE_QA_PROJECT_REF) throw new Error("Refusing to construct a database URL for a non-QA project.");
+  if (poolerHost !== HYDROQUALISENSE_QA_POOLER_HOST) throw new Error("Refusing to construct a database URL for an unapproved database host.");
+  if (!password) throw new Error("SUPABASE_DB_PASSWORD is required for protected QA database access.");
+  return `postgresql://postgres.${projectRef}:${encodeURIComponent(password)}@${poolerHost}:5432/postgres?sslmode=require`;
 }

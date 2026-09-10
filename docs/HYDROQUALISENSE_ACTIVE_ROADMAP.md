@@ -2,7 +2,7 @@
 
 Status: **ACTIVE — WAVE 4D EMAIL/SMS WORKSPACE + DOCUMENTS WORKSPACE / QA CERTIFICATION NOT READY**  
 Repository: `Juvialski/InvoiceApp`  
-Last updated: **2026-09-10**
+Last updated: **2026-09-11**
 
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
@@ -21,10 +21,11 @@ Wave 3 Payroll/Subcontract/PO Workflow Decisions is complete through PRs #132 an
 Wave 4A Company Document Templates / Mail Merge Foundation is complete through PR #134.  
 Wave 4B High-Fidelity PDF Finalization Foundation is complete through PR #135.  
 Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History is complete through PR #136.
+Wave 4D Email/SMS + Documents workspace implementation is integrated through PR #138, but Wave 4D remains incomplete until approved provider-backed SMS is configured and runtime-tested in QA.
 
-Current merged application baseline after the Wave 4D priority correction:
+Current merged application baseline after the Wave 4D workspace implementation:
 
-`1b49eaa601d23289b4591fe6ba5a98da130430dd`
+`41fff7149c88bbadba6e40d3e5e2da7bcdb24d4a`
 
 Wave 4A-4C are **supporting foundations**, not completion of the broader Email/SMS + Documents product experience.
 

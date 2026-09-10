@@ -102,15 +102,14 @@ Render deployment:  qa-hydroqualisense
 
 Configure these protected GitHub Environment → `qa` secrets once:
 
-- `SUPABASE_ACCESS_TOKEN` — Supabase personal access token used only by the CLI in the protected workflow;
-- `SUPABASE_DB_PASSWORD` — QA database password used through the CLI environment, never placed in command arguments or artifacts;
+- `SUPABASE_DB_PASSWORD` — QA database password used by the guarded direct-database wrapper; the constructed connection URL is never printed, persisted, or stored in evidence;
 - the existing Hosted QA secrets `QA_E2E_EMAIL`, `QA_E2E_PASSWORD`, and `QA_E2E_SUPABASE_PUBLISHABLE_KEY`, plus the existing non-secret `QA_E2E_SUPABASE_URL` variable.
 
-The workflow fails closed when either CLI secret is missing. It links only the expected QA reference, independently reads the complete QA migration history, waits for `/api/health` to report `environment=qa`, `deployment_id=qa-hydroqualisense`, the exact `main` SHA, and the repository-derived migration level, then invokes `npm run qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa` when parity is behind. It verifies the complete migration history again after promotion and only then calls the reusable Hosted QA workflow for application/runtime- or migration-bearing changes. Hosted QA failures, Render timeout/identity mismatch, authentication/linking errors, wrapper refusal, migration errors, and parity divergence fail the chain and preserve sanitized evidence artifacts.
+The workflow fails closed when the QA database password is missing or when the fixed QA/project/deployment/session-pooler identity does not match the protected configuration. It does not call `supabase link` or require `SUPABASE_ACCESS_TOKEN`. Instead, it uses the fixed QA Supabase Session Pooler (`aws-0-ap-southeast-1.pooler.supabase.com`) with the `postgres.vrpuznofrntyqsbugrib` database user, independently reads the complete QA migration history through `--db-url`, waits for `/api/health` to report `environment=qa`, `deployment_id=qa-hydroqualisense`, the exact `main` SHA, and the repository-derived migration level, then invokes `npm run qa:db:push -- --project-ref vrpuznofrntyqsbugrib --confirm-qa --direct-db` when parity is behind. The wrapper constructs the percent-encoded database URL in memory and never logs or persists it. It verifies the complete migration history again after promotion and only then calls the reusable Hosted QA workflow for application/runtime- or migration-bearing changes. Hosted QA failures, Render timeout/identity mismatch, database authentication/connection errors, wrapper refusal, migration errors, and parity divergence fail the chain and preserve sanitized evidence artifacts.
 
 Docs/tests/CI-only changes with QA already at parity perform only the protected read-only parity/boundary check. If QA is behind during such a merge (including the first merge that installs this workflow), the same automatic workflow catches QA up but does not spend a browser certification on a non-application change.
 
-The optional `workflow_dispatch` on `Protected QA Release` is for an explicit protected recovery/rerun. Direct `Hosted QA Certification` dispatch remains available, but it must be used only after the intended SHA is live and migration parity has already passed. Production is never linked, migrated, reset, or queried by this workflow.
+The optional `workflow_dispatch` on `Protected QA Release` is for an explicit protected recovery/rerun. Direct `Hosted QA Certification` dispatch remains available, but it must be used only after the intended SHA is live and migration parity has already passed. Production is never targeted, migrated, reset, or queried by this workflow.
 
 ### Guarded company and initial-admin bootstrap
 
