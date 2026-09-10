@@ -99,6 +99,25 @@ function assertSafeArchiveName(name: string): void {
   }
 }
 
+function assertNoExternalRelationships(zip: PizZip, entries: readonly DocumentTemplateZipEntry[]): void {
+  if (entries.some((entry) => /^word\/externalLinks\//i.test(entry.name))) {
+    throw new DocumentTemplateValidationError("Word templates with external links are not supported.");
+  }
+  for (const entry of entries) {
+    const xml = zip.file(entry.name)?.asText() || "";
+    if (/^word\/.*\.xml$/i.test(entry.name) && (
+      /\b(?:target|href|src)\s*=\s*["'](?:https?|file|ftp):\/\//i.test(xml)
+      || /<w:instrText\b[^>]*>[\s\S]*?(?:https?|file|ftp):\/\//i.test(xml)
+    )) {
+      throw new DocumentTemplateValidationError("Word templates with external links or network resources are not supported.");
+    }
+    if (!/(?:^|\/)_[Rr]els\/[^/]+\.rels$|^_rels\/\.rels$/i.test(entry.name)) continue;
+    if (/<Relationship\b[^>]*(?:TargetMode\s*=\s*["']External["']|Target\s*=\s*["'](?:https?:|file:|ftp:|\\\\|\/\/))/i.test(xml)) {
+      throw new DocumentTemplateValidationError("Word templates with external links or network resources are not supported.");
+    }
+  }
+}
+
 function findEndOfCentralDirectory(bytes: Uint8Array): number {
   const start = Math.max(0, bytes.byteLength - 65_557);
   for (let offset = bytes.byteLength - 22; offset >= start; offset -= 1) {
@@ -181,6 +200,7 @@ export function validateDocxTemplateBytes(bytes: Uint8Array, fileName: string, m
   try {
     // checkCRC32 verifies the package after the central-directory safety pass.
     const zip = new PizZip(bytes, { checkCRC32: true });
+    assertNoExternalRelationships(zip, entries);
     const contentTypes = zip.file("[Content_Types].xml")?.asText() || "";
     const documentXml = zip.file("word/document.xml")?.asText() || "";
     if (!/application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document\.main\+xml/i.test(contentTypes)
@@ -188,7 +208,8 @@ export function validateDocxTemplateBytes(bytes: Uint8Array, fileName: string, m
       || !/<w:body\b[^>]*>/i.test(documentXml)) {
       throw new DocumentTemplateValidationError("The uploaded file is not a complete supported Word document.");
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof DocumentTemplateValidationError) throw error;
     throw new DocumentTemplateValidationError("The uploaded file is not a readable Word document.");
   }
   return entries;
@@ -213,6 +234,24 @@ function textFromWordXml(fragment: string): string {
 
 function tagsFromText(value: string): string[] {
   return [...value.matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)].map((match) => String(match[1] || "").trim()).filter(Boolean);
+}
+
+function mergeTagsFromArchive(zip: PizZip, entries: readonly DocumentTemplateZipEntry[]): string[] {
+  const tags = new Set<string>();
+  for (const entry of entries) {
+    if (!/^word\/.*\.xml$/i.test(entry.name)) continue;
+    const xml = zip.file(entry.name)?.asText() || "";
+    const paragraphs = [...xml.matchAll(/<w:p\b[\s\S]*?<\/w:p>/gi)].map((match) => textFromWordXml(match[0] || ""));
+    const searchableText = paragraphs.length ? paragraphs.join("\n") : textFromWordXml(xml);
+    for (const tag of tagsFromText(searchableText)) tags.add(tag);
+  }
+  return [...tags];
+}
+
+export function extractDocxMergeTags(bytes: Uint8Array, fileName = "template.docx"): readonly string[] {
+  const entries = validateDocxTemplateBytes(bytes, fileName, DOCX_MIME_TYPE);
+  const zip = new PizZip(bytes, { checkCRC32: true });
+  return mergeTagsFromArchive(zip, entries);
 }
 
 function structureFromXml(xml: string) {
@@ -246,7 +285,7 @@ export function extractDocxStructure(bytes: Uint8Array, fileName = "template.doc
     paragraphs,
     tables,
     text,
-    tags: [...new Set(tagsFromText(text))],
+    tags: mergeTagsFromArchive(zip, entries),
   };
 }
 
@@ -257,7 +296,7 @@ function snapshotLineValue(snapshot: FinancialDocumentSnapshot, fieldKey: string
 
 function validateSnapshotForMerge(snapshot: FinancialDocumentSnapshot, bindings: readonly DocumentTemplateBinding[]) {
   if (snapshot.status === "CANCELLED" || snapshot.status === "VOIDED") throw new DocumentTemplateValidationError("Cancelled or voided financial documents cannot generate a company template document.");
-  if (!snapshot.lines.length) throw new DocumentTemplateValidationError("The financial snapshot has no line items; a financial template cannot replace required values with an empty line.");
+  if (!Array.isArray(snapshot.lines) || !snapshot.lines.length) throw new DocumentTemplateValidationError("The financial snapshot has no line items; a financial template cannot replace required values with an empty line.");
   for (const key of minimumRequiredFieldKeys(snapshot.documentType)) {
     if (key.startsWith("lines.")) continue;
     const value = resolveDocumentTemplateFieldValue(snapshot, snapshot.documentType, key);

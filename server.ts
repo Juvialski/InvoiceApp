@@ -21,6 +21,7 @@ import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } f
 import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyInvitationEmail, invitationRedirectUrl } from "./src/server/access/invitationDelivery.ts";
 import { validatePublicProspectSubmission } from "./src/lib/publicProspect.ts";
 import { releaseMetadataFromEnv } from "./src/server/releaseMetadata.ts";
+import { getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
 import {
   chooseBestExtractionCandidate,
   evaluateExtractionQuality,
@@ -729,13 +730,20 @@ async function generateStructured(ai: GeminiClientLike, requestedModel: unknown,
   }
 }
 
-app.get("/api/health", (_req, res) => {
+app.get("/api/health", async (_req, res) => {
   const release = releaseMetadataFromEnv(process.env);
+  let documentPdfFinalization;
+  try {
+    documentPdfFinalization = await getDocumentPdfFinalizationHealth(process.env);
+  } catch {
+    documentPdfFinalization = { status: "UNAVAILABLE", message: "High-fidelity PDF conversion is unavailable on this deployment." } as const;
+  }
   res.json({
     status: "ok",
     product: "Hydroqualisense",
     timestamp: new Date().toISOString(),
     release,
+    documentPdfFinalization,
   });
 });
 

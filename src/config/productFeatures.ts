@@ -198,11 +198,11 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     title: "Company document templates",
     category: "Email & Document Intake",
     status: "AVAILABLE",
-    shortDescription: "Keep company-designed Word templates for Purchase Orders and Client Invoices, then merge approved snapshot values into editable DOCX files.",
+    shortDescription: "Keep company-designed Word templates for Purchase Orders and Client Invoices, then merge approved snapshot values into editable DOCX files and, where the deployment supports it, a matching PDF.",
     details: [
       "Upload an existing DOCX, start from a HydroQualiSense template, duplicate a version, or generate an editable draft with AI assistance.",
       "Review allowlisted field mappings and repeating line-item rows before activating a template version.",
-      "Issued document generation stays tied to the immutable snapshot and template version used at issuance; the existing PDF path remains available.",
+      "Issued document generation stays tied to the immutable snapshot and template version used at issuance. If company-designed PDF finalization is unavailable in a deployment, the existing PDF option remains available and the limitation is shown.",
     ],
     sortOrder: 125,
   },

@@ -51,6 +51,13 @@ export interface DocumentTemplateAnalysisResult {
   model?: string;
 }
 
+export interface DocumentTemplatePdfCapability {
+  status: "AVAILABLE" | "UNAVAILABLE";
+  converterId?: string;
+  converterVersion?: string;
+  message: string;
+}
+
 function base64(bytes: Uint8Array): string {
   let binary = "";
   const chunkSize = 0x8000;
@@ -77,6 +84,10 @@ async function requestJson<T>(path: string, options: { companyId: string; method
 export async function listDocumentTemplates(companyId: string): Promise<readonly DocumentTemplateRoot[]> {
   const data = await requestJson<{ templates: DocumentTemplateRoot[] }>("/api/document-templates", { companyId });
   return data.templates || [];
+}
+
+export async function getDocumentTemplatePdfCapability(companyId: string): Promise<DocumentTemplatePdfCapability> {
+  return requestJson<DocumentTemplatePdfCapability>("/api/document-templates/capability", { companyId });
 }
 
 export async function uploadDocumentTemplate(companyId: string, input: { documentType: DocumentTemplateType; file: File; displayName?: string }): Promise<DocumentTemplateVersion & { structure?: DocumentTemplateAnalysisResult["structure"]; preparation?: string }> {
@@ -137,6 +148,10 @@ export async function downloadDocumentTemplate(companyId: string, versionId: str
 
 export async function generateDocumentTemplateDocument(companyId: string, versionId: string, input: { documentType: DocumentTemplateType; snapshotId?: string; previewSnapshot?: unknown }) {
   return binaryRequest(`/api/document-templates/${encodeURIComponent(versionId)}/generate`, companyId, input);
+}
+
+export async function generateDocumentTemplatePdf(companyId: string, versionId: string, input: { documentType: DocumentTemplateType; snapshotId?: string; previewSnapshot?: unknown }) {
+  return binaryRequest(`/api/document-templates/${encodeURIComponent(versionId)}/finalize-pdf`, companyId, input);
 }
 
 export function downloadDocxBytes(bytes: Uint8Array, fileName: string) {

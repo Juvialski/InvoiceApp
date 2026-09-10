@@ -37,12 +37,23 @@ import {
   buildDocxTemplateFromBlueprint,
   buildStarterDocxTemplate,
   DOCX_MIME_TYPE,
+  MAX_DOCUMENT_TEMPLATE_BYTES,
   DocumentTemplateValidationError,
   extractDocxStructure,
   mergeDocxTemplate,
   generatedTemplateFileName,
   sha256Hex,
 } from "./documentTemplateEngine.ts";
+import {
+  createDocumentPdfConverter,
+  finalizeMergedDocxToPdf,
+  getDocumentPdfFinalizationHealth,
+  MAX_FINALIZED_PDF_BYTES,
+  PDF_MIME_TYPE,
+  DocumentPdfFinalizationError,
+  type DocumentPdfConverter,
+  type DocumentPdfFinalizationHealth,
+} from "./documentPdfFinalizer.ts";
 
 const TEMPLATE_BUCKET = "company-document-templates";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -89,11 +100,13 @@ export interface DocumentTemplateRootApi {
   readonly versions: readonly DocumentTemplateVersionApi[];
 }
 
-interface DocumentTemplateRouterOptions {
+export interface DocumentTemplateRouterOptions {
   readonly authorizer?: (req: Request, permission: StoragePermissionKey) => Promise<StorageAuthContext>;
   readonly providerSupplier?: (providerId: "supabase" | "s3" | "gcs" | "memory" | "custom", clientGetter?: () => SupabaseClient) => DocumentStorageProvider;
   readonly primaryProviderSupplier?: (environment?: NodeJS.ProcessEnv, clientGetter?: () => SupabaseClient) => DocumentStorageProvider;
   readonly serverSupabaseSupplier?: () => SupabaseClient;
+  readonly pdfConverterSupplier?: () => Promise<DocumentPdfConverter> | DocumentPdfConverter;
+  readonly pdfCapabilitySupplier?: () => Promise<DocumentPdfFinalizationHealth> | DocumentPdfFinalizationHealth;
 }
 
 function stringValue(value: unknown): string | undefined {
@@ -121,7 +134,7 @@ function apiMessage(error: any, fallback: string): string {
   if (code === "42501") return "You do not have permission for this document-template operation.";
   if (code === "22023" || code === "22P02") return "The document-template request is invalid.";
   if (code === "23505") return "A document template with that identity already exists.";
-  return error instanceof StorageApiError || error instanceof DocumentTemplateValidationError ? error.message : fallback;
+  return error instanceof StorageApiError || error instanceof DocumentTemplateValidationError || error instanceof DocumentPdfFinalizationError ? error.message : fallback;
 }
 
 function mapVersion(row: Record<string, any>): DocumentTemplateVersionApi {
@@ -271,8 +284,197 @@ function templateObjectPath(companyId: string, templateId: string, documentType:
   return `companies/${companyId}/document-templates/${templateId}/${documentType}/${versionId}/${sanitizeStorageFileName(fileName, "template.docx")}`;
 }
 
-function artifactObjectPath(companyId: string, snapshotId: string, documentType: DocumentTemplateType, versionId: string, hash: string) {
-  return `companies/${companyId}/document-template-artifacts/${snapshotId}/${documentType}/${versionId}/${hash}.docx`;
+type GeneratedArtifactType = "DOCX" | "PDF";
+
+function artifactObjectPath(companyId: string, snapshotId: string, documentType: DocumentTemplateType, versionId: string, artifactType: GeneratedArtifactType, hash: string) {
+  const extension = artifactType === "PDF" ? "pdf" : "docx";
+  return `companies/${companyId}/document-template-artifacts/${snapshotId}/${documentType}/${versionId}/${hash}.${extension}`;
+}
+
+interface GeneratedArtifactReference {
+  readonly artifactType: GeneratedArtifactType;
+  readonly artifactSha256: string;
+  readonly artifactStoragePath: string;
+  readonly artifactStorageProvider: string;
+  readonly artifactStorageBucket: string;
+  readonly artifactSize: number;
+}
+
+async function existingArtifactHash(
+  provider: DocumentStorageProvider,
+  companyId: string,
+  bucket: string,
+  key: string,
+  metadata: { sha256?: string },
+): Promise<string | null> {
+  if (metadata.sha256) return metadata.sha256;
+  try {
+    const existing = await provider.getObject({ companyId, bucket, key });
+    return await calculateSha256Hex(existing.bytes);
+  } catch {
+    return null;
+  }
+}
+
+async function persistGeneratedArtifact(
+  auth: StorageAuthContext,
+  options: DocumentTemplateRouterOptions,
+  input: {
+    readonly snapshotId: string;
+    readonly documentType: DocumentTemplateType;
+    readonly documentId: string;
+    readonly templateVersionId: string;
+    readonly templateContentSha256: string;
+    readonly artifactType: GeneratedArtifactType;
+    readonly bytes: Uint8Array;
+    readonly source?: GeneratedArtifactReference;
+    readonly converterId?: string;
+    readonly converterVersion?: string;
+  },
+): Promise<GeneratedArtifactReference> {
+  const maxArtifactBytes = input.artifactType === "PDF" ? MAX_FINALIZED_PDF_BYTES : MAX_DOCUMENT_TEMPLATE_BYTES;
+  if (input.bytes.byteLength === 0 || input.bytes.byteLength > maxArtifactBytes) {
+    throw new StorageApiError(413, "ARTIFACT_TOO_LARGE", "The generated document artifact exceeds the safe size limit.");
+  }
+  const artifactSha256 = await calculateSha256Hex(input.bytes);
+  const provider = primaryProvider(auth, options);
+  const writer = serverWriteProvider(options, provider);
+  const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : "";
+  const artifactStoragePath = artifactObjectPath(auth.companyId, input.snapshotId, input.documentType, input.templateVersionId, input.artifactType, artifactSha256);
+  let artifactStorageBucket = bucket;
+  let created = false;
+  try {
+    const put = await writer.putObject({
+      companyId: auth.companyId,
+      ...(bucket ? { bucket } : {}),
+      key: artifactStoragePath,
+      bytes: input.bytes,
+      contentType: input.artifactType === "PDF" ? PDF_MIME_TYPE : DOCX_MIME_TYPE,
+      sha256: artifactSha256,
+      customMetadata: { sha256: artifactSha256, artifactType: input.artifactType },
+      upsert: false,
+    });
+    const artifactBucket = put.ref.bucket || artifactStorageBucket;
+    artifactStorageBucket = artifactBucket;
+    created = true;
+  } catch {
+    const existing = await writer.headObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: artifactStoragePath });
+    if (!existing) throw new StorageApiError(503, "ARTIFACT_STORAGE_FAILED", "The generated document artifact could not be stored with integrity evidence.");
+    const storedHash = await existingArtifactHash(writer, auth.companyId, existing.bucket || artifactStorageBucket, artifactStoragePath, existing);
+    if (!storedHash || storedHash.toLowerCase() !== artifactSha256.toLowerCase()) throw new StorageApiError(503, "ARTIFACT_STORAGE_FAILED", "The generated document artifact could not be verified with integrity evidence.");
+    artifactStorageBucket = existing.bucket || artifactStorageBucket;
+    if (!artifactStorageBucket) throw new StorageApiError(503, "ARTIFACT_STORAGE_FAILED", "The generated document artifact storage bucket could not be verified.");
+  }
+
+  const reference: GeneratedArtifactReference = {
+    artifactType: input.artifactType,
+    artifactSha256,
+    artifactStoragePath,
+    artifactStorageProvider: provider.id,
+    artifactStorageBucket,
+    artifactSize: input.bytes.byteLength,
+  };
+  try {
+    const evidenceClient = serverSupabase(options);
+    const { error } = await evidenceClient.rpc("record_document_generation_evidence", {
+      p_payload: {
+        companyId: auth.companyId,
+        snapshotId: input.snapshotId,
+        templateVersionId: input.templateVersionId,
+        documentType: input.documentType,
+        documentId: input.documentId,
+        templateContentSha256: input.templateContentSha256,
+        artifactType: input.artifactType,
+        artifactStoragePath: reference.artifactStoragePath,
+        artifactStorageProvider: reference.artifactStorageProvider,
+        artifactStorageBucket: reference.artifactStorageBucket,
+        artifactSize: reference.artifactSize,
+        artifactSha256: reference.artifactSha256,
+        ...(input.source ? {
+          sourceArtifactType: input.source.artifactType,
+          sourceArtifactStoragePath: input.source.artifactStoragePath,
+          sourceArtifactStorageProvider: input.source.artifactStorageProvider,
+          sourceArtifactStorageBucket: input.source.artifactStorageBucket,
+          sourceArtifactSize: input.source.artifactSize,
+          sourceArtifactSha256: input.source.artifactSha256,
+        } : {}),
+        ...(input.converterId ? { converterId: input.converterId } : {}),
+        ...(input.converterVersion ? { converterVersion: input.converterVersion } : {}),
+        generatedByUserId: auth.user.id,
+      },
+    });
+    if (error) throw new StorageApiError(503, "ARTIFACT_EVIDENCE_FAILED", "The generated document was produced, but its immutable history could not be recorded. Retry after checking template history.");
+  } catch (error) {
+    if (created) await cleanupObject(auth, options, provider, artifactStorageBucket, artifactStoragePath);
+    throw error;
+  }
+  return reference;
+}
+
+async function loadGenerationSnapshot(
+  auth: StorageAuthContext,
+  version: DocumentTemplateVersionApi,
+  documentType: DocumentTemplateType,
+  body: Record<string, any>,
+): Promise<{ snapshot: FinancialDocumentSnapshot; issued: boolean; snapshotId: string }> {
+  const issuedGeneration = body.snapshotId !== undefined;
+  if (issuedGeneration) {
+    const snapshotId = requestedUuid(body.snapshotId, "Issued snapshot ID");
+    const { data, error } = await auth.supabase
+      .from("issued_document_snapshots")
+      .select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot")
+      .eq("id", snapshotId)
+      .eq("company_id", auth.companyId)
+      .eq("document_type", documentType)
+      .maybeSingle();
+    if (error) throw new StorageApiError(503, "DATABASE_ERROR", "The issued document snapshot could not be loaded safely.");
+    if (!data) throw new StorageApiError(409, "SNAPSHOT_UNAVAILABLE", "The issued document snapshot is unavailable.");
+    if (!data.template_version_id) throw new StorageApiError(409, "HISTORICAL_TEMPLATE_NOT_PINNED", "This historical document predates company-template pinning. Use the existing PDF fallback or issue a new document; a newer template will not be guessed.");
+    if (String(data.template_version_id) !== version.id) throw new StorageApiError(409, "TEMPLATE_VERSION_MISMATCH", "The issued document is pinned to a different immutable template version.");
+    const snapshotTemplateHash = String(data.template_sha256 || "").trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(snapshotTemplateHash) || snapshotTemplateHash !== version.contentSha256.toLowerCase()) {
+      throw new StorageApiError(409, "TEMPLATE_HASH_MISMATCH", "The issued document template hash does not match the pinned template version.");
+    }
+    const stored = record(data.snapshot);
+    const storedStatus = stored.status === "CANCELLED" || stored.status === "VOIDED" ? stored.status : "ISSUED";
+    return {
+      snapshot: {
+        ...stored,
+        snapshotId: String(data.id),
+        documentId: String(data.document_id),
+        documentType,
+        documentNumber: String(data.document_number),
+        templateVersion: String(data.template_version),
+        templateVersionId: String(data.template_version_id),
+        templateContentSha256: snapshotTemplateHash,
+        status: storedStatus,
+      } as FinancialDocumentSnapshot,
+      issued: true,
+      snapshotId,
+    };
+  }
+
+  const candidate = body.previewSnapshot;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate) || JSON.stringify(candidate).length > 250_000) {
+    throw new StorageApiError(400, "PREVIEW_SNAPSHOT_INVALID", "A bounded non-authoritative preview snapshot is required for test generation.");
+  }
+  if (String(candidate.documentType || "").toUpperCase() !== documentType) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", "The preview snapshot and template types must match.");
+  return { snapshot: { ...(candidate as Record<string, unknown>), documentType } as FinancialDocumentSnapshot, issued: false, snapshotId: "" };
+}
+
+async function pdfConverter(options: DocumentTemplateRouterOptions): Promise<DocumentPdfConverter> {
+  const converter = options.pdfConverterSupplier
+    ? await options.pdfConverterSupplier()
+    : await createDocumentPdfConverter(process.env);
+  if (!converter
+    || !converter.id
+    || !converter.version
+    || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(converter.id)
+    || !/^[A-Za-z0-9][A-Za-z0-9._+() -]{0,119}$/.test(converter.version)
+    || typeof converter.convert !== "function") {
+    throw new DocumentPdfFinalizationError("PDF_CONVERTER_UNAVAILABLE", "High-fidelity PDF conversion is unavailable on this deployment. Use the existing PDF fallback.");
+  }
+  return converter;
 }
 
 async function persistVersion(
@@ -461,6 +663,21 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       return res.json({ success: true, data: { templates: (rootsResult.data || []).map((row) => mapRoot(record(row), versions)) } });
     } catch (error: any) {
       return res.status(error instanceof StorageApiError ? error.status : 503).json({ success: false, error: apiMessage(error, "Document templates could not be loaded safely.") });
+    }
+  });
+
+  router.get("/capability", async (req: Request, res: Response) => {
+    try {
+      await authorizeTemplateRead(req, authorizer);
+      const health = options.pdfCapabilitySupplier
+        ? await options.pdfCapabilitySupplier()
+        : await getDocumentPdfFinalizationHealth(process.env);
+      return res.json({ success: true, data: health });
+    } catch (error: any) {
+      return res.status(error instanceof StorageApiError ? error.status : 503).json({
+        success: false,
+        error: apiMessage(error, "High-fidelity PDF capability could not be verified safely."),
+      });
     }
   });
 
@@ -692,53 +909,20 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const { version } = await readTemplateVersion(auth, options, versionId);
       if (version.documentType !== documentType) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", "The template and source document types must match.");
       const { bytes: templateBytes } = await readTemplateBytes(auth, options, version);
-      let snapshot: FinancialDocumentSnapshot;
-      let issued = false;
-      let snapshotId = "";
-      if (issuedGeneration) {
-        snapshotId = requestedUuid(req.body.snapshotId, "Issued snapshot ID");
-        const { data, error } = await auth.supabase.from("issued_document_snapshots").select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot").eq("id", snapshotId).eq("company_id", auth.companyId).eq("document_type", documentType).maybeSingle();
-        if (error) throw new StorageApiError(503, "DATABASE_ERROR", "The issued document snapshot could not be loaded safely.");
-        if (!data) throw new StorageApiError(409, "SNAPSHOT_UNAVAILABLE", "The issued document snapshot is unavailable.");
-        if (!data.template_version_id) throw new StorageApiError(409, "HISTORICAL_TEMPLATE_NOT_PINNED", "This historical document predates company-template pinning. Use the existing PDF fallback or issue a new document; a newer template will not be guessed.");
-        if (String(data.template_version_id) !== version.id) throw new StorageApiError(409, "TEMPLATE_VERSION_MISMATCH", "The issued document is pinned to a different immutable template version.");
-        const stored = record(data.snapshot);
-        snapshot = { ...stored, snapshotId: String(data.id), documentId: String(data.document_id), documentType, documentNumber: String(data.document_number), templateVersion: String(data.template_version), templateVersionId: String(data.template_version_id), status: "ISSUED" } as FinancialDocumentSnapshot;
-        issued = true;
-      } else {
-        const candidate = req.body?.previewSnapshot;
-        if (!candidate || typeof candidate !== "object" || Array.isArray(candidate) || JSON.stringify(candidate).length > 250_000) throw new StorageApiError(400, "PREVIEW_SNAPSHOT_INVALID", "A bounded non-authoritative preview snapshot is required for test generation.");
-        if (String((candidate as any).documentType || "").toUpperCase() !== documentType) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", "The preview snapshot and template types must match.");
-        snapshot = { ...(candidate as Record<string, unknown>), documentType } as FinancialDocumentSnapshot;
-      }
+      const { snapshot, issued, snapshotId } = await loadGenerationSnapshot(auth, version, documentType, record(req.body));
       const merged = mergeDocxTemplate(templateBytes, version.sourceFilename || "template.docx", snapshot, version.bindings);
-      const artifactHash = await calculateSha256Hex(merged);
       if (issued && auth) {
-        const provider = primaryProvider(auth, options);
-        const artifactProvider = serverWriteProvider(options, provider);
-        const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : undefined;
-        const artifactPath = artifactObjectPath(auth.companyId, snapshotId, documentType, version.id, artifactHash);
-        let artifactBucket = bucket || "";
-        try {
-          const put = await artifactProvider.putObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: artifactPath, bytes: merged, contentType: DOCX_MIME_TYPE, sha256: artifactHash, upsert: false });
-          artifactBucket = put.ref.bucket;
-        } catch {
-          const existing = await artifactProvider.headObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: artifactPath });
-          if (!existing || (existing.sha256 && existing.sha256.toLowerCase() !== artifactHash.toLowerCase())) throw new StorageApiError(503, "ARTIFACT_STORAGE_FAILED", "The generated document artifact could not be stored with integrity evidence.");
-          artifactBucket = existing.bucket || artifactBucket;
-        }
-        if (!artifactBucket) throw new StorageApiError(503, "ARTIFACT_STORAGE_FAILED", "The generated document artifact storage bucket could not be verified.");
-        const evidenceClient = serverSupabase(options);
-        const { error } = await evidenceClient.rpc("record_document_generation_evidence", {
-          p_payload: {
-            companyId: auth.companyId, snapshotId, templateVersionId: version.id, documentType, documentId: snapshot.documentId,
-            templateContentSha256: version.contentSha256, artifactType: "DOCX", artifactStoragePath: artifactPath,
-            artifactStorageProvider: provider.id, artifactStorageBucket: artifactBucket, artifactSize: merged.byteLength, artifactSha256: artifactHash,
-            generatedByUserId: auth.user.id,
-          },
+        await persistGeneratedArtifact(auth, options, {
+          snapshotId,
+          documentType,
+          documentId: String(snapshot.documentId || ""),
+          templateVersionId: version.id,
+          templateContentSha256: version.contentSha256,
+          artifactType: "DOCX",
+          bytes: merged,
         });
-        if (error) throw new StorageApiError(503, "ARTIFACT_EVIDENCE_FAILED", "The generated document was produced, but its immutable history could not be recorded. Retry after checking template history.");
       }
+      const artifactHash = await calculateSha256Hex(merged);
       res.setHeader("Content-Type", DOCX_MIME_TYPE);
       res.setHeader("Content-Disposition", `attachment; filename="${sanitizeStorageFileName(generatedTemplateFileName(documentType, snapshot.documentNumber || version.displayName))}"`);
       res.setHeader("X-Document-Template-Version-Id", version.id);
@@ -748,6 +932,69 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
     } catch (error: any) {
       const status = error instanceof StorageApiError ? error.status : error instanceof DocumentTemplateValidationError ? 422 : 503;
       return res.status(status).json({ success: false, error: apiMessage(error, "The company DOCX could not be generated safely.") });
+    }
+  });
+
+  router.post("/:versionId/finalize-pdf", async (req: Request, res: Response) => {
+    let auth: StorageAuthContext | null = null;
+    try {
+      const documentType = requestedDocumentType(req.body?.documentType);
+      const issuedGeneration = req.body?.snapshotId !== undefined;
+      const permission: StoragePermissionKey = issuedGeneration
+        ? (documentType === "PURCHASE_ORDER" ? "procurement.read" : "projects.read")
+        : "company.settings.manage";
+      auth = await authorizer(req, permission);
+      const versionId = requestedUuid(req.params.versionId, "Template version ID");
+      const { version } = await readTemplateVersion(auth, options, versionId);
+      if (version.documentType !== documentType) throw new StorageApiError(400, "INVALID_DOCUMENT_TYPE", "The template and source document types must match.");
+      const { bytes: templateBytes } = await readTemplateBytes(auth, options, version);
+      const { snapshot, issued, snapshotId } = await loadGenerationSnapshot(auth, version, documentType, record(req.body));
+      const merged = mergeDocxTemplate(templateBytes, version.sourceFilename || "template.docx", snapshot, version.bindings);
+      const converter = await pdfConverter(options);
+      const pdfBytes = await finalizeMergedDocxToPdf(merged, converter);
+      const sourceArtifactSha256 = await calculateSha256Hex(merged);
+      const pdfArtifactSha256 = await calculateSha256Hex(pdfBytes);
+      let sourceArtifact: GeneratedArtifactReference | undefined;
+      if (issued) {
+        sourceArtifact = await persistGeneratedArtifact(auth, options, {
+          snapshotId,
+          documentType,
+          documentId: String(snapshot.documentId || ""),
+          templateVersionId: version.id,
+          templateContentSha256: version.contentSha256,
+          artifactType: "DOCX",
+          bytes: merged,
+        });
+        await persistGeneratedArtifact(auth, options, {
+          snapshotId,
+          documentType,
+          documentId: String(snapshot.documentId || ""),
+          templateVersionId: version.id,
+          templateContentSha256: version.contentSha256,
+          artifactType: "PDF",
+          bytes: pdfBytes,
+          source: sourceArtifact,
+          converterId: converter.id,
+          converterVersion: converter.version,
+        });
+      }
+      const prefix = documentType === "PURCHASE_ORDER" ? "Purchase_Order" : "Client_Invoice";
+      const fileName = sanitizeStorageFileName(`${prefix}_${String(snapshot.documentNumber || version.displayName)}.pdf`);
+      res.setHeader("Content-Type", PDF_MIME_TYPE);
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.setHeader("X-Document-Template-Version-Id", version.id);
+      res.setHeader("X-Document-Template-Sha256", version.contentSha256);
+      res.setHeader("X-Document-Source-Artifact-Sha256", sourceArtifact?.artifactSha256 || sourceArtifactSha256);
+      res.setHeader("X-Document-Artifact-Sha256", pdfArtifactSha256);
+      res.setHeader("X-Document-Pdf-Converter", `${converter.id}/${converter.version}`);
+      return res.send(Buffer.from(pdfBytes));
+    } catch (error: any) {
+      const status = error instanceof StorageApiError
+        ? error.status
+        : error instanceof DocumentTemplateValidationError
+          ? 422
+          : error instanceof DocumentPdfFinalizationError ? error.status : 503;
+      return res.status(status).json({ success: false, error: apiMessage(error, "The company-template PDF could not be finalized safely.") });
     }
   });
 
