@@ -9,7 +9,7 @@ import { buildClientInvoicePdf, buildPurchaseOrderPdf, type ClientInvoiceDocumen
 import { calculateSha256Hex } from "../src/lib/storage/dedup.ts";
 import { MemoryStorageProvider } from "../src/lib/storage/providers/memoryProvider.ts";
 import { StorageApiError, type StorageAuthContext } from "../src/server/storage/storageRouter.ts";
-import { createDocumentTemplateRouter } from "../src/server/documentTemplates/documentTemplateRouter.ts";
+import { createDocumentTemplateRouter, finalizeIssuedDocumentTemplatePdfForDelivery } from "../src/server/documentTemplates/documentTemplateRouter.ts";
 import {
   buildStarterDocxTemplate,
   extractDocxStructure,
@@ -198,7 +198,7 @@ async function setupRouterServer(options: {
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address() as { port: number };
-  return { server, url: `http://127.0.0.1:${address.port}`, built, templateHash, evidencePayloads, requestedPermissions, storage };
+  return { server, url: `http://127.0.0.1:${address.port}`, built, templateHash, evidencePayloads, requestedPermissions, storage, authSupabase };
 }
 
 async function closeServer(server: http.Server) {
@@ -314,6 +314,37 @@ test("issued PDF route binds company, exact template version/hash, source DOCX e
     assert.equal(pdfEvidence.converterVersion, "fixture-1");
     assert.match(pdfEvidence.artifactStoragePath, /\.pdf$/);
     assert.match(docxEvidence.artifactStoragePath, /\.docx$/);
+  } finally {
+    await closeServer(fixture.server);
+  }
+});
+
+test("outbound delivery finalization reuses the exact company-template PDF pipeline and returns provenance", async () => {
+  const fixture = await setupRouterServer({
+    converter: { id: "test", version: "fixture-1", convert: async () => buildPurchaseOrderPdf(purchaseOrderSnapshot()) },
+  });
+  try {
+    const delivery = await finalizeIssuedDocumentTemplatePdfForDelivery(
+      { accessToken: "test-token", companyId: COMPANY_ID, user: { id: USER_ID } as any, supabase: fixture.authSupabase },
+      {
+        providerSupplier: () => fixture.storage.provider,
+        primaryProviderSupplier: () => fixture.storage.provider,
+        serverSupabaseSupplier: () => ({ rpc: async (name: string, args: any) => {
+          if (name === "record_document_generation_evidence") fixture.evidencePayloads.push(args.p_payload);
+          return { data: { id: "55555555-5555-4555-8555-555555555555" }, error: null };
+        } }) as any,
+        pdfConverterSupplier: () => ({ id: "test", version: "fixture-1", convert: async () => buildPurchaseOrderPdf(purchaseOrderSnapshot()) }),
+      },
+      { snapshotId: SNAPSHOT_ID, documentType: "PURCHASE_ORDER", documentId: DOCUMENT_ID },
+    );
+    assert.ok(delivery);
+    assert.equal(delivery.attachmentSource, "COMPANY_TEMPLATE_PDF");
+    assert.equal(delivery.templateVersionId, VERSION_ID);
+    assert.equal(delivery.converterId, "test");
+    assert.equal(delivery.converterVersion, "fixture-1");
+    assert.equal(await calculateSha256Hex(delivery.bytes), delivery.artifact.artifactSha256);
+    assert.equal(delivery.artifact.artifactType, "PDF");
+    assert.equal(delivery.sourceArtifact.artifactType, "DOCX");
   } finally {
     await closeServer(fixture.server);
   }

@@ -11,7 +11,8 @@ import { decodeBase64Payload, MAX_EXTRACTION_TEXT_CHARS, MAX_GMAIL_ATTACHMENT_BY
 import { AiRequestBudgetError, claimAiRequest, releaseAiRequest } from "./src/server/ai/aiRequestBudget.ts";
 import { createAssistantRouter } from "./src/server/assistant/assistantHandler.ts";
 import { createStorageRouter } from "./src/server/storage/storageRouter.ts";
-import { createDocumentTemplateRouter } from "./src/server/documentTemplates/documentTemplateRouter.ts";
+import { createDocumentTemplateRouter, finalizeIssuedDocumentTemplatePdfForDelivery } from "./src/server/documentTemplates/documentTemplateRouter.ts";
+import { mapDocumentDeliveryHistory } from "./src/server/documentDelivery/documentDeliveryHistory.ts";
 import { getStorageHealth } from "./src/lib/storage/index.ts";
 import { encryptCompanyGeminiCredential, credentialLast4 } from "./src/server/ai/companyAiEncryption.ts";
 import { companyAiServerSupabase } from "./src/server/ai/companyAiServerSupabase.ts";
@@ -46,7 +47,9 @@ type CompanyPermission =
   | "company.members.manage"
   | "company.settings.manage"
   | "storage.read"
-  | "documents.send";
+  | "documents.send"
+  | "procurement.read"
+  | "projects.read";
 
 interface CompanyRequestAuthorization {
   accessToken: string;
@@ -1015,6 +1018,45 @@ app.use("/api/assistant", (req, res, next) => {
 app.use("/api/assistant", createAssistantRouter());
 app.use("/api/document-templates", createDocumentTemplateRouter());
 app.use("/api/documents", createStorageRouter());
+app.get("/api/document-delivery-history", async (req, res) => {
+  try {
+    const documentType = issuedDocumentType(req.query.documentType);
+    const documentId = String(req.query.documentId || "").trim();
+    if (!documentType || !UUID_PATTERN.test(documentId)) {
+      return res.status(400).json({ success: false, error: "A supported document type and valid document are required." });
+    }
+    const auth = await authorizeCompanyRequest(req, documentReadPermission(documentType));
+    const [intentsResult, auditsResult] = await Promise.all([
+      auth.supabase
+        .from("document_send_intents")
+        .select("id,sender_user_id,recipients,cc,subject,attachment_name,trusted_sha256,status,attempt_count,created_at,updated_at,attachment_source,attachment_size,template_version")
+        .eq("company_id", auth.companyId)
+        .eq("document_type", documentType)
+        .eq("document_id", documentId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      auth.supabase
+        .from("document_send_audits")
+        .select("id,send_intent_id,sender_user_id,recipients,cc,subject,attachment_name,status,created_at,attachment_source,attachment_size,template_version,attachment_sha256")
+        .eq("company_id", auth.companyId)
+        .eq("document_type", documentType)
+        .eq("document_id", documentId)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
+    if (intentsResult.error || auditsResult.error) throw intentsResult.error || auditsResult.error;
+    const deliveries = mapDocumentDeliveryHistory(
+      (intentsResult.data || []) as Array<Record<string, unknown>>,
+      (auditsResult.data || []) as Array<Record<string, unknown>>,
+      auth.user.id,
+    );
+    return res.json({ success: true, data: { deliveries } });
+  } catch (error: any) {
+    const status = error instanceof ApiAuthorizationError ? error.status : Number(error?.status) || 503;
+    const message = error instanceof ApiAuthorizationError ? error.message : "Document delivery history is temporarily unavailable.";
+    return res.status(status).json({ success: false, error: message });
+  }
+});
 app.get("/api/storage/health", async (req, res) => {
   try {
     const auth = await authorizeCompanyRequest(req, "storage.read");
@@ -2073,6 +2115,63 @@ function buildDocumentMimeMessage(input: { to: string[]; cc: string[]; subject: 
   return Buffer.from(raw, "utf8");
 }
 
+type IssuedDocumentType = "PURCHASE_ORDER" | "CLIENT_INVOICE";
+type DocumentAttachmentSource = "COMPANY_TEMPLATE_PDF" | "PROGRAMMATIC_PDF_FALLBACK";
+
+function issuedDocumentType(value: unknown): IssuedDocumentType | null {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized === "PURCHASE_ORDER" || normalized === "CLIENT_INVOICE" ? normalized : null;
+}
+
+function documentReadPermission(documentType: IssuedDocumentType): "procurement.read" | "projects.read" {
+  return documentType === "PURCHASE_ORDER" ? "procurement.read" : "projects.read";
+}
+
+async function assertIssuedDocumentDeliveryLifecycle(
+  auth: CompanyRequestAuthorization,
+  documentType: IssuedDocumentType,
+  documentId: string,
+) {
+  const table = documentType === "PURCHASE_ORDER" ? "purchase_orders" : "client_billings";
+  const { data, error } = await auth.supabase
+    .from(table)
+    .select("status")
+    .eq("company_id", auth.companyId)
+    .eq("id", documentId)
+    .maybeSingle();
+  if (error) throw error;
+  const status = String(data?.status || "").toUpperCase();
+  const allowed = documentType === "PURCHASE_ORDER"
+    ? status === "ISSUED" || status === "CLOSED"
+    : status === "ISSUED";
+  if (!allowed) {
+    throw new ApiAuthorizationError(
+      409,
+      "COMPANY_REQUIRED",
+      documentType === "PURCHASE_ORDER"
+        ? "Only issued or closed purchase orders can be sent. Cancelled and draft orders remain unavailable for delivery."
+        : "Only issued client invoices can be sent. Cancelled and voided invoices remain unavailable for delivery.",
+    );
+  }
+}
+
+function documentSendResponseData(intent: Record<string, any>, extras: Record<string, unknown> = {}) {
+  const source = String(intent.attachment_source || "").toUpperCase();
+  const attachmentSource: DocumentAttachmentSource | undefined = source === "COMPANY_TEMPLATE_PDF"
+    ? "COMPANY_TEMPLATE_PDF"
+    : source === "PROGRAMMATIC_PDF_FALLBACK" ? "PROGRAMMATIC_PDF_FALLBACK" : undefined;
+  const trustedSha256 = String(intent.trusted_sha256 || "").toLowerCase();
+  return {
+    status: "SENT" as const,
+    ...(intent.gmail_message_id ? { gmailMessageId: String(intent.gmail_message_id) } : {}),
+    ...(intent.attachment_name ? { attachmentName: String(intent.attachment_name).slice(0, 180) } : {}),
+    ...(attachmentSource ? { attachmentSource } : {}),
+    ...(/^[0-9a-f]{64}$/.test(trustedSha256) ? { attachmentSha256: trustedSha256 } : {}),
+    ...(intent.template_version ? { templateVersion: String(intent.template_version).slice(0, 200) } : {}),
+    ...extras,
+  };
+}
+
 function renderTrustedIssuedPdf(row: { id: string; document_type: string; document_id: string; document_number: string; template_version: string; snapshot: unknown }, documentType: "PURCHASE_ORDER" | "CLIENT_INVOICE") {
   if (!row.snapshot || typeof row.snapshot !== "object" || Array.isArray(row.snapshot)) {
     throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The immutable issued snapshot cannot be rendered for sending.");
@@ -2121,17 +2220,18 @@ app.post("/api/gmail/send", async (req, res) => {
   let gmailDelivered = false;
   try {
     auth = await authorizeCompanyRequest(req, "documents.send");
-    const documentType = String(req.body?.documentType || "").trim().toUpperCase();
-    if (documentType !== "PURCHASE_ORDER" && documentType !== "CLIENT_INVOICE") return res.status(400).json({ success: false, error: "A supported issued document type is required." });
+    const documentType = issuedDocumentType(req.body?.documentType);
+    if (!documentType) return res.status(400).json({ success: false, error: "A supported issued document type is required." });
     const documentId = String(req.body?.documentId || "").trim();
     const snapshotId = String(req.body?.snapshotId || "").trim();
     if (!UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) return res.status(400).json({ success: false, error: "An issued document snapshot is required before sending." });
-    const documentPermission = documentType === "PURCHASE_ORDER" ? "procurement.read" : "projects.read";
+    const documentPermission = documentReadPermission(documentType);
     const { data: allowed, error: permissionError } = await auth.supabase.rpc("has_company_permission", { p_company_id: auth.companyId, p_permission_key: documentPermission });
     if (permissionError || allowed !== true) throw new ApiAuthorizationError(403, "FORBIDDEN", "You do not have permission to send this document type.");
+    await assertIssuedDocumentDeliveryLifecycle(auth, documentType, documentId);
     const { data: snapshot, error: snapshotError } = await auth.supabase
       .from("issued_document_snapshots")
-      .select("id,document_type,document_id,document_number,template_version,snapshot")
+      .select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot")
       .eq("company_id", auth.companyId)
       .eq("id", snapshotId)
       .eq("document_type", documentType)
@@ -2145,11 +2245,19 @@ app.post("/api/gmail/send", async (req, res) => {
     const subject = safeMailHeader(req.body?.subject, (documentType === "PURCHASE_ORDER" ? "Purchase Order " : "Client Invoice ") + snapshot.document_number);
     const message = String(req.body?.message || "").replace(/[\u0000]/g, "").slice(0, 20_000);
     const attachmentName = safeMailHeader(req.body?.attachmentName, String(snapshot.document_number) + ".pdf").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 180) || String(snapshot.document_number) + ".pdf";
-    const pdfBytes = renderTrustedIssuedPdf(snapshot, documentType as "PURCHASE_ORDER" | "CLIENT_INVOICE");
+    const templatePdf = await finalizeIssuedDocumentTemplatePdfForDelivery(
+      { accessToken: auth.accessToken, companyId: auth.companyId, supabase: auth.supabase, user: auth.user },
+      {},
+      { snapshotId, documentType, documentId },
+    );
+    const attachmentSource: DocumentAttachmentSource = templatePdf ? "COMPANY_TEMPLATE_PDF" : "PROGRAMMATIC_PDF_FALLBACK";
+    const pdfBytes = templatePdf
+      ? Buffer.from(templatePdf.bytes)
+      : renderTrustedIssuedPdf(snapshot, documentType);
     const trustedSha256 = createHash("sha256").update(pdfBytes).digest("hex");
     const requestedKey = String(req.body?.idempotencyKey || "").trim();
     if (requestedKey && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/.test(requestedKey)) throw new ApiAuthorizationError(400, "COMPANY_REQUIRED", "Send idempotency key is invalid.");
-    const idempotencyKey = requestedKey || "document:" + createHash("sha256").update(JSON.stringify({ snapshotId, documentType, documentId, recipients, cc, subject, message, attachmentName, trustedSha256 })).digest("hex");
+    const idempotencyKey = requestedKey || "document:" + createHash("sha256").update(JSON.stringify({ snapshotId, documentType, documentId, recipients, cc, subject, message, attachmentName, attachmentSource, templateVersionId: snapshot.template_version_id || null, templateSha256: snapshot.template_sha256 || null, trustedSha256 })).digest("hex");
     const claimResult = await auth.supabase.rpc("claim_document_send_intent", {
       p_snapshot_id: snapshotId, p_document_type: documentType, p_document_id: documentId, p_idempotency_key: idempotencyKey,
       p_trusted_sha256: trustedSha256, p_recipients: recipients, p_cc: cc, p_subject: subject, p_attachment_name: attachmentName,
@@ -2158,7 +2266,19 @@ app.post("/api/gmail/send", async (req, res) => {
     const claim = rpcRow(claimResult.data);
     const intent = claim?.intent && typeof claim.intent === "object" ? claim.intent as Record<string, any> : null;
     if (!intent?.id) throw new Error("The document send intent was not returned.");
-    if (String(intent.status) === "SENT") return res.json({ success: true, data: { status: "SENT", gmailMessageId: intent.gmail_message_id || undefined, idempotent: true } });
+    if (String(intent.attachment_source || "").toUpperCase() !== attachmentSource) {
+      throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The issued PDF provenance changed while preparing this send. Check delivery history before retrying.");
+    }
+    if (String(intent.status) === "SENT") {
+      const { data: audit, error: auditError } = await auth.supabase
+        .from("document_send_audits")
+        .select("id")
+        .eq("company_id", auth.companyId)
+        .eq("send_intent_id", String(intent.id))
+        .maybeSingle();
+      if (auditError || !audit) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail accepted the document, but its immutable delivery history is incomplete. Do not resend until send history is reconciled." });
+      return res.json({ success: true, data: documentSendResponseData(intent, { idempotent: true }) });
+    }
     if (claim?.claimed !== true) return res.status(409).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "This issued document send is already in progress or requires reconciliation. Check send history before retrying." });
     sendIntentId = String(intent.id);
     const accessToken = getGoogleAccessToken(req);
@@ -2184,7 +2304,7 @@ app.post("/api/gmail/send", async (req, res) => {
     if (completion.error) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail accepted the document, but the durable send state could not be completed. Do not resend until send history is reconciled." });
     intentStateCompleted = true;
     const auditId = await recordDocumentSendAudit(auth, { sendIntentId, status: "SENT", gmailMessageId });
-    return res.json({ success: true, data: { status: "SENT", gmailMessageId, auditId, idempotent: false } });
+    return res.json({ success: true, data: documentSendResponseData(intent, { gmailMessageId, auditId, idempotent: false }) });
   } catch (error: any) {
     if (gmailDelivered) return res.status(503).json({ success: false, code: "DOCUMENT_SEND_RECONCILE_REQUIRED", error: "Gmail accepted the document, but durable send history could not be completed. Do not resend until send history is reconciled." });
     if (sendIntentId && auth && !intentStateCompleted) {

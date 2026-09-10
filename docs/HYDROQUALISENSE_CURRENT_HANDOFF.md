@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — WAVE 4B HIGH-FIDELITY PDF FINALIZATION ACTIVE / QA CERTIFICATION NOT READY**
+Status: **CURRENT — WAVE 4C OUTBOUND DOCUMENT DELIVERY & HISTORY ACTIVE / QA CERTIFICATION NOT READY**
 Date: **2026-09-10**
 Repository: `Juvialski/InvoiceApp`
 
@@ -12,11 +12,19 @@ The template path is `authoritative issued snapshot -> immutable company templat
 
 Template administration uses the existing company settings permission. Issued snapshots pin the active validated template version and SHA-256 when configured; historical snapshots without a pin deliberately remain on the existing PDF fallback. No production database or client data was changed by this product implementation. QA certification remains a separate readiness track.
 
-## Wave 4B — High-Fidelity PDF Finalization — ACTIVE
+## Wave 4B — High-Fidelity PDF Finalization — COMPLETE
 
-The current implementation extends the Wave 4A contract to `authoritative issued snapshot -> pinned immutable template -> merged DOCX -> finalized PDF`. LibreOffice Writer is invoked server-side in an isolated temporary profile with bounded time/output and no shell command. The current native Node/Render runtime has no converter installed, so capability is reported as unavailable and the existing programmatic PDF remains the safe fallback. `Dockerfile.document-pdf` documents the reproducible optional runtime.
+Wave 4B is complete through merged PR #135 at `bd636325292471eb6060ec2df4ecde9619a546db`. It extends the Wave 4A contract to `authoritative issued snapshot -> pinned immutable template -> merged DOCX -> finalized PDF`. LibreOffice Writer is invoked server-side in an isolated temporary profile with bounded time/output and no shell command. The current native Node/Render runtime has no converter installed, so capability is reported as unavailable and the existing programmatic PDF remains the safe fallback. `Dockerfile.document-pdf` documents the reproducible optional runtime.
 
-Issued PDF evidence is stored only after the exact merged DOCX source artifact is evidenced, and records the PDF hash, source DOCX hash/path, template hash/version, company/user, timestamp, and converter identity/version. Settings uses the same pipeline with a bounded demo snapshot and never issues a financial record. Wave 4C outbound delivery/history and new SMS functionality remain future work.
+Issued PDF evidence is stored only after the exact merged DOCX source artifact is evidenced, and records the PDF hash, source DOCX hash/path, template hash/version, company/user, timestamp, and converter identity/version. Settings uses the same pipeline with a bounded demo snapshot and never issues a financial record. Wave 4C builds on this evidence without changing financial or document ownership.
+
+## Wave 4C — Outbound Document Delivery & Delivery History — ACTIVE
+
+The current bounded implementation extends the existing Gmail sender rather than introducing another delivery system. For an eligible issued Purchase Order or Client Invoice, the server selects the exact finalized company-template PDF when the immutable snapshot has a pinned template and the deployment converter is operational; historical unpinned snapshots, unavailable conversion, and legacy paths retain the server-rendered programmatic PDF fallback. Send intent identity includes the exact PDF content hash, and the durable intent/audit history records the attachment source and matching template/generation provenance without storing credentials or exposing provider internals.
+
+The normal document preview now shows company-scoped delivery history with channel, recipients, sender label, timestamp, safe status wording, attachment identity/source, and separate resend attempts. Resend is an explicit action that creates a new idempotency key/history event. PENDING, UNKNOWN, or incomplete audit states remain fail-closed and do not offer a blind resend. History visibility follows the document read permission; sending still requires dedicated `documents.send` authority.
+
+Cancelled Purchase Orders and voided Client Invoices retain their historical snapshots and delivery records but cannot receive a new delivery. Closed Purchase Orders follow the existing eligible issued-document rules. SMS remains provider-neutral foundation only because no approved runtime provider exists.
 
 The server-only AI credential boundary remains unchanged: modern `sb_secret_` server keys are used only for protected server operations, legacy JWT `service_role` keys are not exposed to browser code, and an unconfigured deployment remains `NOT_CONFIGURED` rather than being presented as healthy. Production remains read-only during this phase and migration promotion remains separate from application deployment.
 
@@ -86,7 +94,7 @@ Unless the user reprioritizes again:
 
 1. **Wave 1B — Client Receivable Lifecycle UX — COMPLETE**
 2. **Wave 2 — Cross-module routing and handoffs — COMPLETE**
-3. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — ACTIVE**
+3. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — COMPLETE**
 4. resume the broader approved product roadmap:
    - Email/SMS + Documents;
    - Worker Registration;
@@ -154,7 +162,7 @@ The merged `main` baseline implements the bounded Wave 3 design:
 - runtime evidence reproduced unsafe partial PO close, so the forward close guard blocks outstanding committed quantities while fully received POs may close with receipt history preserved;
 - subcontract claim cards are responsive around 390px and expose certification, net payable, payment state, history, and return context.
 
-The product implementation is complete on merged `main` through PRs #132, #133, and #134. Wave 4A is complete; Wave 4B high-fidelity PDF finalization is the current active feature branch. QA certification remains a separate readiness track.
+The product implementation is complete on merged `main` through PRs #132, #133, #134, and #135. Wave 4A and Wave 4B are complete; Wave 4C outbound delivery/history is the current active feature branch. QA certification remains a separate readiness track.
 
 ## Remaining audit findings
 
