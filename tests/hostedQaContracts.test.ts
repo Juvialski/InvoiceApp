@@ -17,6 +17,8 @@ const REVISION_ID = "e1234567-0000-4000-a000-000000000001";
 
 test("hosted QA route readiness stays unresolved while app/auth/company access is loading", () => {
   assert.equal(hostedQaRouteReadinessState("Loading HydroQualiSense…"), "loading");
+  assert.equal(hostedQaRouteReadinessState("Loading Hydroqualisense…"), "loading");
+  assert.equal(hostedQaRouteReadinessState("LOADING HYDROQUALISENSE…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Loading company access…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Checking your workspace session…"), "loading");
   assert.equal(hostedQaRouteReadinessState("Loading workspace…"), "loading");
@@ -63,6 +65,34 @@ test("hosted QA route readiness uses a bounded timeout and preserves timeout fai
     () => waitForHostedQaRouteReadiness({ waitForFunction: async () => { throw new Error("Timeout while waiting for company access"); } }, 50),
     /Timeout while waiting for company access/,
   );
+});
+
+test("hosted QA browser readiness predicate is case-insensitive for loading shells", async () => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  let invoked = false;
+
+  try {
+    await waitForHostedQaRouteReadiness({
+      waitForFunction: async (predicate: (markers: readonly string[]) => boolean, markers: readonly string[]) => {
+        invoked = true;
+        Object.defineProperty(globalThis, "document", {
+          configurable: true,
+          value: { body: { innerText: "Loading Hydroqualisense…" } },
+        });
+        assert.equal(predicate(markers), false);
+
+        Object.defineProperty(globalThis, "document", {
+          configurable: true,
+          value: { body: { innerText: "Dashboard\nEngineering operations" } },
+        });
+        assert.equal(predicate(markers), true);
+      },
+    }, 250);
+    assert.equal(invoked, true);
+  } finally {
+    if (originalDocument) Object.defineProperty(globalThis, "document", originalDocument);
+    else delete (globalThis as { document?: unknown }).document;
+  }
 });
 
 test("hosted QA Engineering Documents fixtures use the canonical UUID-bound PDF path", () => {

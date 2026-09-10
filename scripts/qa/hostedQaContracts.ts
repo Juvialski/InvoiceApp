@@ -26,7 +26,8 @@ export type HostedQaRouteReadinessState = "loading" | "resolved";
  */
 export function hostedQaRouteReadinessState(bodyText: unknown): HostedQaRouteReadinessState {
   const text = typeof bodyText === "string" ? bodyText : "";
-  if (!text.trim() || HOSTED_QA_ROUTE_LOADING_MARKERS.some((marker) => text.includes(marker))) {
+  const normalizedText = text.toLowerCase();
+  if (!text.trim() || HOSTED_QA_ROUTE_LOADING_MARKERS.some((marker) => normalizedText.includes(marker.toLowerCase()))) {
     return "loading";
   }
   return "resolved";
@@ -45,7 +46,8 @@ export async function waitForHostedQaRouteReadiness(
   await page.waitForFunction(
     (loadingMarkers: readonly string[]) => {
       const text = document.body?.innerText || "";
-      return Boolean(text.trim()) && !loadingMarkers.some((marker) => text.includes(marker));
+      const normalizedText = text.toLowerCase();
+      return Boolean(text.trim()) && !loadingMarkers.some((marker) => normalizedText.includes(marker.toLowerCase()));
     },
     [...HOSTED_QA_ROUTE_LOADING_MARKERS],
     { timeout: boundedTimeoutMs, polling: HOSTED_QA_ROUTE_READINESS_POLL_MS },
