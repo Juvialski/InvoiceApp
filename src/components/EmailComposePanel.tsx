@@ -158,11 +158,13 @@ export function EmailComposePanel({
       onSent?.();
     } catch (nextError) {
       if (nextError instanceof DocumentSendError && nextError.reconciliationRequired) {
+        setHistoryBlocked(true);
+        setReviewOpen(false);
         setError("Gmail delivery could not be confirmed safely. Check Sent / Delivery History before retrying.");
       } else {
         setError(nextError instanceof Error ? nextError.message : "The message could not be sent safely.");
+        setIdempotencyKey(newDocumentDeliveryAttemptKey());
       }
-      setIdempotencyKey(newDocumentDeliveryAttemptKey());
     } finally {
       setBusy(false);
     }

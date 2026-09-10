@@ -49,6 +49,13 @@ test("SMS remains truthful and provider-neutral without configured credentials",
   assert.match(sms, /server-side provider adapter/);
 });
 
+test("ambiguous Gmail delivery fails closed without creating a fresh retry attempt", () => {
+  const branch = compose.match(/if \(nextError instanceof DocumentSendError && nextError\.reconciliationRequired\) \{([\s\S]*?)\} else \{/)?.[1] || "";
+  assert.match(branch, /setHistoryBlocked\(true\)/);
+  assert.match(branch, /setReviewOpen\(false\)/);
+  assert.doesNotMatch(branch, /setIdempotencyKey\(newDocumentDeliveryAttemptKey\(\)\)/);
+});
+
 test("Wave 4D workspace surfaces reuse existing intake, send, history, and template ownership", () => {
   assert.match(workspace, /<EmailInbox/);
   assert.match(workspace, /<EmailComposePanel/);
