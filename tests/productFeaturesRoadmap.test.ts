@@ -44,6 +44,17 @@ test("client product roadmap covers the current and approved future status model
   for (const category of expectedAvailableCategories) assert.ok(availableCategories.has(category), `missing available category: ${category}`);
 });
 
+test("supplier payment feature truth reflects the inline linked-Expense workflow", () => {
+  const supplierFeature = getProductFeatureById("supplier-invoices-expenses");
+  assert.equal(supplierFeature?.status, "AVAILABLE");
+  const text = JSON.stringify(supplierFeature);
+  assert.match(text, /Change Status/);
+  assert.match(text, /full or partial payment/i);
+  assert.match(text, /linked-Expense settlement evidence/i);
+  assert.match(text, /Cash & Banking remains available for deeper reconciliation/i);
+  assert.doesNotMatch(text, /continue to Cash & Banking without searching/i);
+});
+
 test("approved next and future items are explicit and do not imply unfinished access", () => {
   assert.equal(getProductFeatureById("email-sms-documents-improvements")?.status, "PLANNED");
   assert.equal(getProductFeatureById("worker-registration")?.status, "PLANNED");

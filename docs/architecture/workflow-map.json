@@ -1787,8 +1787,8 @@
       ],
       "qaScenarioIds": [
         "invoices--invoice-detail--invoice-detail-opened--desktop-1440",
-        "supplier-payables--invoice-detail--linked-expense-payment-surface-opened--desktop-1440",
-        "supplier-payables--invoice-detail--linked-expense-payment-surface-opened--mobile-390"
+        "supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--desktop-1440",
+        "supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--mobile-390"
       ]
     },
     {
