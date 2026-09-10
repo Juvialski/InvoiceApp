@@ -8,7 +8,7 @@ export type FinancialTransactionStatus = "PENDING" | "POSTED" | "REVERSED";
 export type FinancialTransactionSource = "MANUAL" | "CSV" | "XLSX" | "PDF" | "PROVIDER";
 export type FinancialReconciliationStatus = "UNMATCHED" | "SUGGESTED" | "PARTIAL" | "MATCHED" | "IGNORED";
 export type FinancialImportStatus = "PREVIEW" | "IMPORTED" | "FAILED";
-export type FinancialMatchTargetType = "EXPENSE" | "INVOICE" | "PAYROLL" | "CLIENT_COLLECTION" | "TRANSFER" | "OTHER";
+export type FinancialMatchTargetType = "EXPENSE" | "INVOICE" | "PAYROLL" | "CLIENT_COLLECTION" | "SUBCONTRACT_CLAIM" | "TRANSFER" | "OTHER";
 export type FinancialMatchStatus = "SUGGESTED" | "CONFIRMED" | "REJECTED" | "REVERSED";
 
 export interface FinancialAccount {
@@ -240,6 +240,8 @@ export interface FinancialReconciliationCandidate {
   projectId?: string;
   /** Billing selected when a client-collection target returns to its invoice. */
   billingId?: string;
+  /** Parent subcontract used when a certified claim returns to Procurement. */
+  subcontractId?: string;
 }
 
 /** Keep cash candidate rendering aligned with the guarded settlement lifecycle. */
@@ -875,7 +877,7 @@ function dateDistance(left?: string, right?: string) {
 export function suggestFinancialMatches(transaction: FinancialTransaction, candidates: readonly FinancialReconciliationCandidate[], limit = 3): FinancialMatchSuggestion[] {
   const directionTargetTypes = transaction.direction === "CREDIT"
     ? new Set<FinancialReconciliationCandidate["targetType"]>(["CLIENT_COLLECTION"])
-    : new Set<FinancialReconciliationCandidate["targetType"]>(["INVOICE", "PAYROLL", "EXPENSE"]);
+    : new Set<FinancialReconciliationCandidate["targetType"]>(["INVOICE", "PAYROLL", "EXPENSE", "SUBCONTRACT_CLAIM"]);
   return candidates.filter((candidate) => directionTargetTypes.has(candidate.targetType)
     && (!candidate.currency || normalizeFinancialCurrency(candidate.currency) === normalizeFinancialCurrency(transaction.currency))
     && isFinancialReconciliationCandidateLifecycleEligible(candidate))

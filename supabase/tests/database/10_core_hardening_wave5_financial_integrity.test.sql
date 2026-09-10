@@ -146,7 +146,7 @@ select lives_ok($$update public.payroll_runs set status = 'APPROVED' where id = 
 select throws_ok($$update public.payroll_runs set status = 'APPROVED', calculated_source_revision = 0 where id = (select run_source_tamper from wave5_ids)$$, '42501', null, 'approval cannot rewrite calculated source revision');
 select throws_ok($$update public.payroll_runs set status = 'APPROVED', source_fingerprint = 'fingerprint-tampered' where id = (select run_fingerprint_tamper from wave5_ids)$$, '42501', null, 'approval cannot rewrite calculated source fingerprint');
 select throws_ok($$update public.payroll_runs set status = 'APPROVED', calculated_at = timestamptz '2026-04-15 09:00:00+00' where id = (select run_calculated_at_tamper from wave5_ids)$$, '42501', null, 'approval cannot rewrite calculated timestamp');
-select lives_ok($$update public.payroll_runs set status = 'PAID' where id = (select run_main from wave5_ids)$$, 'payroll.approve can pay an approved run');
+select throws_ok($$update public.payroll_runs set status = 'PAID' where id = (select run_main from wave5_ids)$$, '42501', null, 'approved payroll cannot become paid without settlement evidence');
 select throws_ok($$update public.payroll_runs set notes = 'rewritten' where id = (select run_main from wave5_ids)$$, '42501', null, 'paid payroll history remains immutable');
 reset role;
 

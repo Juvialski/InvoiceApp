@@ -142,6 +142,9 @@ export function demoSettlementSummaryForTarget(targetType: SettlementTargetType,
     ];
     return { targetType, targetId, currency: "PHP", lifecycleStatus: "APPROVED", settlementBasis: 248_411.75, basisSource: "EMPLOYEE_NET_PAY", reconciledCashPaid: 200_000, documentReportedPaid: 0, effectiveSettled: 200_000, outstanding: 48_411.75, settlementState: "PARTIALLY_DISBURSED", history };
   }
+  if (targetType === "SUBCONTRACT_CLAIM" && targetId === "demo-claim-hvac-001") {
+    return { targetType, targetId, currency: "PHP", lifecycleStatus: "APPROVED", settlementBasis: 630_000, basisSource: "NET_CERTIFIED_SUBCONTRACT_CLAIM", reconciledCashPaid: 0, documentReportedPaid: 0, effectiveSettled: 0, outstanding: 630_000, settlementState: "UNSETTLED", history: [] };
+  }
   if (targetType === "CLIENT_COLLECTION" && targetId === "demo-client-collection-solar-01") {
     const history = [payment("demo-settlement-collection-solar-01", "demo-transaction-client-collection-01", 1_200_000, anchorDate, 8, "BDO", "EFT-88319")];
     return { targetType, targetId, currency: "PHP", lifecycleStatus: "RECORDED", settlementBasis: 1_200_000, basisSource: "CLIENT_COLLECTION_ALLOCATIONS", reconciledCashPaid: 1_200_000, documentReportedPaid: 0, effectiveSettled: 1_200_000, outstanding: 0, settlementState: "LINKED", collectionTotal: 1_200_000, linkedAmount: 1_200_000, remainingUnlinkedAmount: 0, linkState: "LINKED", history };

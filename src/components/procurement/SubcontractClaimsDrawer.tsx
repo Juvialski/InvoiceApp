@@ -255,7 +255,8 @@ export const SubcontractClaimsDrawer: React.FC<SubcontractClaimsDrawerProps> = (
               )}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <>
+            <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm sm:block">
               <table className="w-full text-left text-xs">
                 <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 font-bold">
                   <tr>
@@ -339,6 +340,19 @@ export const SubcontractClaimsDrawer: React.FC<SubcontractClaimsDrawerProps> = (
                 </tbody>
               </table>
             </div>
+            <div className="space-y-2 sm:hidden" aria-label="Responsive subcontract claim cards">
+              {filteredClaims.map((c) => (
+                <article key={`mobile-${c.id}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0"><p className="truncate text-xs font-black text-slate-900">{c.claimNumber}</p><p className="mt-1 text-[10px] text-slate-500">{formatDate(c.valuationDate)} · {c.status}</p></div>
+                    <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-700">{formatMoney(c.netCertifiedAmount, subcontract.currency)}</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-[10px]"><div><p className="text-slate-500">Certified gross</p><p className="mt-0.5 font-black text-emerald-700">{formatMoney(c.approvedGrossAmount, subcontract.currency)}</p></div><div><p className="text-slate-500">Retention</p><p className="mt-0.5 font-black text-amber-700">{formatMoney(c.retentionAmount, subcontract.currency)}</p></div><div><p className="text-slate-500">Net payable</p><p className="mt-0.5 font-black text-indigo-700">{formatMoney(c.netCertifiedAmount, subcontract.currency)}</p></div></div>
+                  <div className="mt-3 flex justify-end"><button type="button" onClick={() => onEditClaim(c)} className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-slate-700">{c.status === "DRAFT" && canManage ? "Edit claim" : "Inspect claim"}</button></div>
+                </article>
+              ))}
+            </div>
+            </>
           )}
         </div>
 

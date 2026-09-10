@@ -2,7 +2,7 @@
 
 Status: **ACTIVE INTERNAL PRODUCT AUDIT**  
 Repository: `Juvialski/InvoiceApp`  
-Audit baseline: merged `main` at `354cfd6ad9a834979c81ef990365f661b33fc829` (PR #126 merged). Wave 2 starting baseline: exact green `main` at `b7c550158d00798de33b2ce9853e9232b95aea16` after Wave 1B / PR #129.
+Audit baseline: merged `main` at `354cfd6ad9a834979c81ef990365f661b33fc829` (PR #126 merged). Wave 3 starting baseline: exact green `main` at `18503d271b9a3081cc484c106a88e333e67e030c` after Wave 2 / PR #131.
 
 This document preserves the broad user-facing workflow audit that produced the current remediation waves. It is an internal development source of truth, not a client-facing roadmap or implementation log.
 
@@ -96,7 +96,7 @@ Supplier invoice evidence linked to an Expense must not become duplicate payable
 
 **Classification:** `UNCERTAIN — needs runtime/manual confirmation`  
 **Finding:** Purchase Order close guard may need lifecycle hardening. Static inspection alone was insufficient to prove unsafe behavior.  
-**Current status:** **UNCERTAIN / OPEN.** Before any fix, prove at runtime/database level whether received or committed obligations prevent unsafe close.
+**Current status:** **RESOLVED in the current Wave 3 implementation.** Local runtime evidence reproduced an unsafe partial-receipt close; the forward guard now blocks close while committed line quantity remains outstanding, permits fully received close, and preserves receipt history.
 
 ### UX-009 — P2
 
@@ -108,13 +108,13 @@ Supplier invoice evidence linked to an Expense must not become duplicate payable
 
 **Classification:** `PARTIAL — workflow incomplete`  
 **Finding:** Payroll exposes or conceptually permits manual-paid semantics that conflict with authoritative settlement evidence.  
-**Current status:** **OPEN — Wave 3 deliberate design.** Do not opportunistically change payroll payment semantics during supplier/client waves. Dedicated review must define finalized payroll, payable obligation, Cash/Bank transaction, settlement evidence, partial/full payment if supported, reversals/corrections, permissions, and payroll-detail privacy.
+**Current status:** **REMEDIATED in the current Wave 3 implementation.** Approval remains separate from payment; direct APPROVED → PAID mutation and manual UI/Assistant paid-status paths are blocked, while partial/full disbursement, reversal history, Cash & Banking evidence, permissions, and payroll-detail boundaries remain authoritative.
 
 ### UX-011 — P1
 
 **Classification:** `MISSING — product capability gap`  
 **Finding:** An approved/certified subcontract claim can reach `Net Certified Payable` but lacks an explicit accounting/payable bridge.  
-**Current status:** **OPEN — Wave 3 deliberate design.** Define the authoritative payable bridge without duplicating Expense, payable, or Actual Cost truth before implementation.
+**Current status:** **REMEDIATED in the current Wave 3 implementation.** An approved claim itself is the settlement target; net certified payable is the basis, gross certified work remains the project-cost source, and no synthetic Expense bridge is created.
 
 ### UX-012 — P2
 
@@ -144,7 +144,7 @@ Supplier invoice evidence linked to an Expense must not become duplicate payable
 
 **Classification:** `EXISTS — UX/mobile gap`  
 **Finding:** Subcontract claim UI is too table-dense on mobile.  
-**Current status:** **OPEN — address with the later subcontract workflow phase**, not as an isolated CSS patch.
+**Current status:** **REMEDIATED in the current Wave 3 implementation.** The subcontract journey now presents responsive claim cards around 390px, net certified payable, settlement evidence, legitimate payment continuation, and return context to the originating claim/subcontract.
 
 ## Remediation waves
 
@@ -195,7 +195,7 @@ Wave 1B now provides the complete usable object-first client receivable continua
 
 ### Wave 2 — Cross-module routing and handoffs
 
-**Status: ACTIVE from the exact Wave 2 starting baseline.**
+**Status: COMPLETE on merged `main` through PR #131.**
 
 Primary targets: UX-003, any residual UX-004 routing gaps, UX-009, UX-012, UX-013 after runtime confirmation, UX-014, and bounded mobile/discoverability improvements that do not redesign canonical ownership.
 
@@ -207,7 +207,7 @@ Keep Wave 2 focused on navigation, context, discoverability, and truthful handof
 
 ### Wave 3 — Deliberate business-workflow decisions
 
-**Status: PLANNED after Wave 2.**
+**Status: ACTIVE from exact merged `main` `18503d2`; implementation is complete on the current feature branch pending PR review and exact-head CI.**
 
 Primary targets:
 
@@ -224,8 +224,8 @@ These are not routing-polish tasks. Financial/source-of-truth decisions must be 
 
 1. Wave 1A — Supplier Payable Lifecycle UX — **COMPLETE**
 2. Wave 1B — Client Receivable Lifecycle UX — **COMPLETE**
-3. Wave 2 — Cross-module routing/handoffs — **ACTIVE**
-4. Wave 3 — payroll/subcontract/PO workflow decisions — **NEXT**
+3. Wave 2 — Cross-module routing/handoffs — **COMPLETE**
+4. Wave 3 — payroll/subcontract/PO workflow decisions — **ACTIVE**
 5. Resume the broader approved product roadmap unless the user reprioritizes again:
    - Email/SMS + Documents;
    - Worker Registration;

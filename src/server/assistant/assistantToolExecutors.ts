@@ -1012,6 +1012,7 @@ async function preparePayrollRunCreation(context: AssistantToolContext, args: Re
 async function preparePayrollFinalization(context: AssistantToolContext, toolName: string, args: Record<string, unknown>) {
   const run = await getRun(context, String(args.runId));
   const period = await getPeriod(context, text(run, "period_id"));
+  if (toolName === "mark_payroll_paid") throw new AssistantToolError("PAYROLL_SETTLEMENT_REQUIRED", "Payroll approval does not mark payment. Record a legitimate DEBIT transaction in Cash & Banking and confirm settlement evidence; no payroll paid-status action was prepared.");
   const target = toolName === "approve_payroll" ? "APPROVED" : "PAID";
   if (target === "APPROVED" && text(run, "status") !== "CALCULATED") throw new AssistantToolError("INVALID_TRANSITION", "Only a calculated payroll run can be approved.");
   if (target === "PAID" && text(run, "status") !== "APPROVED") throw new AssistantToolError("INVALID_TRANSITION", "Only an approved payroll run can be marked paid.");
@@ -1290,6 +1291,7 @@ async function executePayrollRunCreation(context: AssistantToolContext, args: Re
 async function executePayrollFinalization(context: AssistantToolContext, toolName: string, args: Record<string, unknown>, preview: Record<string, unknown>) {
   const run = await getRun(context, String(args.runId));
   const period = await getPeriod(context, text(run, "period_id"));
+  if (toolName === "mark_payroll_paid") throw new AssistantToolError("PAYROLL_SETTLEMENT_REQUIRED", "Payroll approval does not mark payment. Record a legitimate DEBIT transaction in Cash & Banking and confirm settlement evidence; no payroll paid-status action was applied.");
   const target = toolName === "approve_payroll" ? "APPROVED" : "PAID";
   const currentStatus = text(run, "status");
   if (currentStatus === target) return { operation: "payroll_already_in_target_state", run: runView(run) };

@@ -4,12 +4,13 @@ import { clientCollectionTotal } from "./clientCollections.ts";
 import type { FinancialAccount, FinancialTransaction } from "./cashBanking.ts";
 import { derivePaymentStatus } from "../utils/invoiceLogic.ts";
 
-export type SettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE" | "CLIENT_COLLECTION";
+export type SettlementTargetType = "INVOICE" | "PAYROLL" | "EXPENSE" | "CLIENT_COLLECTION" | "SUBCONTRACT_CLAIM";
 export const SETTLEMENT_RECORD_STATUSES = ["CONFIRMED", "REVERSED"] as const;
 export type SettlementRecordStatus = (typeof SETTLEMENT_RECORD_STATUSES)[number];
 export type InvoiceSettlementState = "UNPAID" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "VOID" | "TRANSFERRED_TO_EXPENSE";
 export type PayrollSettlementState = "UNSETTLED" | "PARTIALLY_DISBURSED" | "SETTLED";
 export type ClientCollectionSettlementState = "UNLINKED" | "PARTIALLY_LINKED" | "LINKED";
+export type SubcontractClaimSettlementState = "UNSETTLED" | "PARTIALLY_PAID" | "SETTLED";
 
 export interface FinancialSettlementHistoryItem {
   id: string;
@@ -38,12 +39,12 @@ export interface FinancialSettlementSummary {
   currency: string;
   lifecycleStatus?: string;
   settlementBasis: number;
-  basisSource: "EXPLICIT_NET_PAYABLE" | "GROSS_DOCUMENT_AMOUNT" | "EMPLOYEE_NET_PAY" | "EXPENSE_AMOUNT" | "CLIENT_COLLECTION_ALLOCATIONS" | "SUPPLIER_EXPENSE";
+  basisSource: "EXPLICIT_NET_PAYABLE" | "GROSS_DOCUMENT_AMOUNT" | "EMPLOYEE_NET_PAY" | "EXPENSE_AMOUNT" | "CLIENT_COLLECTION_ALLOCATIONS" | "SUPPLIER_EXPENSE" | "NET_CERTIFIED_SUBCONTRACT_CLAIM";
   reconciledCashPaid: number;
   documentReportedPaid: number;
   effectiveSettled: number;
   outstanding: number;
-  settlementState: InvoiceSettlementState | PayrollSettlementState | ClientCollectionSettlementState;
+  settlementState: InvoiceSettlementState | PayrollSettlementState | ClientCollectionSettlementState | SubcontractClaimSettlementState;
   collectionTotal?: number;
   linkedAmount?: number;
   remainingUnlinkedAmount?: number;
@@ -77,6 +78,7 @@ export function isSettlementTargetLifecycleEligible(targetType: SettlementTarget
   if (targetType === "PAYROLL") return status === "APPROVED" || status === "PAID";
   if (targetType === "EXPENSE") return status === "APPROVED" || status === "PAID";
   if (targetType === "CLIENT_COLLECTION") return status === "RECORDED";
+  if (targetType === "SUBCONTRACT_CLAIM") return status === "APPROVED";
   return false;
 }
 
@@ -246,6 +248,31 @@ export function deriveClientCollectionSettlementSummary(
   };
 }
 
+export function deriveSubcontractClaimSettlementSummary(
+  claim: { id: string; netCertifiedAmount: number; status: string; currency?: string },
+  history: readonly FinancialSettlementHistoryItem[],
+  currency = claim.currency || "PHP",
+): FinancialSettlementSummary {
+  const basis = money(Math.max(0, claim.netCertifiedAmount));
+  const bankPaid = Math.min(basis, confirmedSettlementTotal(history));
+  const outstanding = money(Math.max(0, basis - bankPaid));
+  const state: SubcontractClaimSettlementState = bankPaid <= 0.005 ? "UNSETTLED" : outstanding <= 0.005 ? "SETTLED" : "PARTIALLY_PAID";
+  return {
+    targetType: "SUBCONTRACT_CLAIM",
+    targetId: claim.id,
+    currency,
+    lifecycleStatus: claim.status,
+    settlementBasis: basis,
+    basisSource: "NET_CERTIFIED_SUBCONTRACT_CLAIM",
+    reconciledCashPaid: bankPaid,
+    documentReportedPaid: 0,
+    effectiveSettled: bankPaid,
+    outstanding,
+    settlementState: state,
+    history: [...history],
+  };
+}
+
 export function assertSettlementInput(
   transaction: Pick<FinancialTransaction, "status" | "direction" | "currency">,
   targetCurrency: string,
@@ -257,7 +284,7 @@ export function assertSettlementInput(
   if (transaction.direction !== expectedDirection) {
     throw new Error(targetType === "CLIENT_COLLECTION"
       ? "Client collection settlements require a CREDIT transaction."
-      : "Supplier invoice, payroll, and expense settlements require a DEBIT transaction.");
+      : "Supplier invoice, payroll, expense, and subcontract settlements require a DEBIT transaction.");
   }
   if (transaction.currency.toUpperCase() !== targetCurrency.toUpperCase()) throw new Error("Transaction and target currency must match; FX settlement is not supported.");
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Settlement amount must be positive.");
@@ -271,7 +298,7 @@ export function eligibleSettlementCandidates(transaction: FinancialTransaction, 
   if (transaction.status !== "POSTED") return [];
   const targetTypes = transaction.direction === "CREDIT"
     ? ["CLIENT_COLLECTION"]
-    : ["INVOICE", "PAYROLL", "EXPENSE"];
+    : ["INVOICE", "PAYROLL", "EXPENSE", "SUBCONTRACT_CLAIM"];
   return candidates.filter((candidate) =>
     candidate.outstandingAmount > 0.005 &&
     candidate.currency.toUpperCase() === transaction.currency.toUpperCase() &&

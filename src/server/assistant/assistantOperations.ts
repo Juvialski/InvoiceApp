@@ -522,6 +522,9 @@ async function prepareReopenInvoiceReview(context: AssistantToolContext, args: R
   const invoice = await getRow(context, "invoices", String(args.invoiceId), "id,invoice_number,invoice_date,review_status,lifecycle_status,verified_at,updated_at");
   if (text(invoice.lifecycle_status) === "VOID") throw new AssistantToolError("INVOICE_VOID", "A void invoice cannot be reopened for review.");
   if (text(invoice.review_status) === "NEEDS_REVIEW") throw new AssistantToolError("ALREADY_IN_REVIEW", "The invoice is already in the review queue.");
+  const linkedExpense = await db(context).from("expenses").select("id,status").eq("company_id", context.auth.companyId).eq("supplier_invoice_id", String(args.invoiceId)).neq("status", "VOID").limit(1).maybeSingle();
+  if (linkedExpense.error) throw new AssistantBackendError("TOOL_READ_FAILED", "The invoice's linked payable could not be checked safely.", 503);
+  if (linkedExpense.data) throw new AssistantToolError("INVOICE_LINKED_EXPENSE", "This verified supplier invoice has an active authoritative Expense. Use Open/Correct linked Expense; the source invoice remains preserved evidence and cannot be reopened for review.");
   return prepareOperation(context, "prepare_reopen_invoice_review", { ...args, expectedUpdatedAt: invoice.updated_at || undefined }, targetLabel(invoice, ["invoice_number", "invoice_date"]), { currentReviewStatus: invoice.review_status, targetReviewStatus: "NEEDS_REVIEW", reason: args.reason || "Reopened for human review", historyPolicy: "The original extraction snapshot and source evidence remain unchanged." });
 }
 
@@ -728,12 +731,15 @@ async function reopenInvoiceReview(context: AssistantToolContext, args: Record<s
   const current = await getRow(context, "invoices", String(args.invoiceId), "Invoice", "id,company_id,invoice_number,review_status,lifecycle_status,verified_at,updated_at,current_data");
   if (text(current.lifecycle_status) === "VOID") throw new AssistantToolError("INVOICE_VOID", "A void invoice cannot be reopened for review.");
   if (text(current.review_status) === "NEEDS_REVIEW") return { operation: "invoice_already_in_review", entityType: "INVOICE", entityId: String(current.id), displayLabel: targetLabel(current, ["invoice_number"]), record: current };
+  const linkedExpense = await db(context).from("expenses").select("id,status").eq("company_id", context.auth.companyId).eq("supplier_invoice_id", String(args.invoiceId)).neq("status", "VOID").limit(1).maybeSingle();
+  if (linkedExpense.error) throw new AssistantBackendError("TOOL_READ_FAILED", "The invoice's linked payable could not be checked safely.", 503);
+  if (linkedExpense.data) throw new AssistantToolError("INVOICE_LINKED_EXPENSE", "This verified supplier invoice has an active authoritative Expense. Use Open/Correct linked Expense; the source invoice remains preserved evidence and cannot be reopened for review.");
   if (args.expectedUpdatedAt !== undefined && String(current.updated_at || "") !== String(args.expectedUpdatedAt || "")) throw new AssistantToolError("STALE_PREVIEW", "The invoice changed after the preview. Prepare the review action again.");
   const currentData = current.current_data && typeof current.current_data === "object" && !Array.isArray(current.current_data) ? (() => { const next: Record<string, unknown> = { ...(current.current_data as Record<string, unknown>), reviewStatus: "NEEDS_REVIEW" }; delete next.verifiedAt; return next; })() : undefined;
   let query = db(context).from("invoices").update({ review_status: "NEEDS_REVIEW", verified_at: null, ...(currentData ? { current_data: currentData } : {}), updated_at: context.now.toISOString() }).eq("id", String(args.invoiceId)).eq("company_id", context.auth.companyId).neq("lifecycle_status", "VOID");
   if (args.expectedUpdatedAt !== undefined) query = query.eq("updated_at", args.expectedUpdatedAt);
   const result = await query.select("*").maybeSingle();
-  if (result.error || !result.data) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The invoice changed before it could be reopened for review.");
+  if (result.error || !result.data) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The invoice could not be reopened. It may have changed, or an authoritative linked Expense now owns its payable and cost truth; use Open/Correct linked Expense.");
   const event = await db(context).from("invoice_review_events").insert({ user_id: context.auth.user.id, company_id: context.auth.companyId, invoice_id: args.invoiceId, event_type: "REOPENED", previous_value: { reviewStatus: current.review_status, verifiedAt: current.verified_at }, new_value: { reviewStatus: "NEEDS_REVIEW", reason: args.reason || "Reopened for human review" } });
   if (event.error) throw new AssistantToolError("DOMAIN_WRITE_REJECTED", "The invoice reopened, but its review history could not be recorded safely.");
   return { operation: "invoice_reopened_for_review", entityType: "INVOICE", entityId: String(result.data.id), displayLabel: targetLabel(result.data, ["invoice_number", "invoice_date"]), record: result.data };

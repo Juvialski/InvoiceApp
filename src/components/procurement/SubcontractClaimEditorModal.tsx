@@ -24,6 +24,11 @@ import type {
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { calculateRetention, computeSubcontractClaimMetrics, roundMoney } from "../../lib/subcontractClaims.ts";
+import { FinancialSettlementCard } from "../FinancialSettlementCard.tsx";
+import { useAppPermissions } from "../../app/AppPermissionContext.tsx";
+import { hasPermission, PERMISSION_KEYS } from "../../utils/accessControl.ts";
+import { appPathForCashTarget, appPathForSubcontractClaim } from "../../utils/appRouting.ts";
+import type { AppNavigate } from "../../utils/clientNavigation.ts";
 
 export interface SubcontractClaimEditorModalProps {
   isOpen: boolean;
@@ -36,6 +41,7 @@ export interface SubcontractClaimEditorModalProps {
   existingVariations?: SubcontractVariation[];
   canManage?: boolean;
   canApprove?: boolean;
+  onNavigatePath?: AppNavigate;
   onSave: (
     claim: Partial<SubcontractProgressClaim> & {
       subcontractId: string;
@@ -199,6 +205,7 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
   existingVariations = [],
   canManage = false,
   canApprove = false,
+  onNavigatePath,
   onSave,
   onTransition,
 }) => {
@@ -208,6 +215,9 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
   const isSubmitted = claim?.status === "SUBMITTED";
   const isApproved = claim?.status === "APPROVED";
   const isTerminal = claim?.status === "REJECTED" || claim?.status === "CANCELLED" || claim?.status === "VOIDED";
+  const permissions = useAppPermissions();
+  const canRecordPayment = hasPermission(permissions, PERMISSION_KEYS.cashReconcile) && hasPermission(permissions, PERMISSION_KEYS.procurementApprove);
+  const canReverseSettlement = canRecordPayment;
 
   const metrics = useMemo(
     () => computeSubcontractClaimMetrics(subcontract, existingClaims, existingVariations),
@@ -782,6 +792,18 @@ export const SubcontractClaimEditorModal: React.FC<SubcontractClaimEditorModalPr
               </div>
             </div>
           </div>
+
+          {claim?.status === "APPROVED" && (
+            <FinancialSettlementCard
+              targetType="SUBCONTRACT_CLAIM"
+              targetId={claim.id}
+              targetLabel={`${claim.claimNumber} · ${subcontract.title}`}
+              recordPaymentPath={appPathForCashTarget("SUBCONTRACT_CLAIM", claim.id, appPathForSubcontractClaim(claim.id, subcontract.id))}
+              canRecordPayment={canRecordPayment}
+              canReverse={canReverseSettlement}
+              onNavigatePath={onNavigatePath}
+            />
+          )}
 
           {/* Prompt Dialog for Rejection / Cancellation / Void Reason */}
           {reasonAction && (

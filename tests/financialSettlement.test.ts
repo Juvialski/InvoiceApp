@@ -9,6 +9,7 @@ import {
   deriveInvoiceSettlementSummary,
   deriveExpenseSettlementSummary,
   derivePayrollSettlementSummary,
+  deriveSubcontractClaimSettlementSummary,
   eligibleSettlementCandidates,
   invoiceCashPayableBasis,
   isSettlementTargetLifecycleEligible,
@@ -115,6 +116,17 @@ test("Expense settlement state is derived from cash evidence and lifecycle eligi
   assert.equal(isSettlementTargetLifecycleEligible("EXPENSE", "APPROVED"), true);
   assert.equal(isSettlementTargetLifecycleEligible("EXPENSE", "DRAFT"), false);
   assert.equal(isSettlementTargetLifecycleEligible("EXPENSE", "VOID"), false);
+});
+
+test("subcontract settlement basis uses net certified payable without changing gross project cost", () => {
+  const claim = { id: "claim-1", status: "APPROVED", netCertifiedAmount: 900, currency: "PHP" };
+  const partial = deriveSubcontractClaimSettlementSummary(claim, [confirmed("claim-match", "tx-1", 400)]);
+  assert.equal(partial.settlementBasis, 900);
+  assert.equal(partial.outstanding, 500);
+  assert.equal(partial.basisSource, "NET_CERTIFIED_SUBCONTRACT_CLAIM");
+  assert.equal(partial.settlementState, "PARTIALLY_PAID");
+  assert.equal(isSettlementTargetLifecycleEligible("SUBCONTRACT_CLAIM", "APPROVED"), true);
+  assert.equal(isSettlementTargetLifecycleEligible("SUBCONTRACT_CLAIM", "SUBMITTED"), false);
 });
 
 test("client settlement validation rejects wrong direction, lifecycle and currency before server confirmation", () => {

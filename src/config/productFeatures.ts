@@ -100,7 +100,8 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     shortDescription: "Manage company bank, cash-on-hand, and GCash or e-wallet accounts, balances, statements, and explicit reconciliation for expenses and other obligations.",
     details: [
       "Import CSV or spreadsheet statements, review balance and duplicate checks, and confirm transaction matches.",
-      "Payment entry can carry an exact Expense target into Cash & Banking, where legitimate evidence is selected and explicitly confirmed.",
+      "Payment entry can carry an exact Expense, payroll, or certified subcontract payable target into Cash & Banking, where legitimate evidence is selected and explicitly confirmed.",
+      "If no payment account is configured, users with permission can add a bank, e-wallet, or permitted cash-on-hand account and continue the selected payment flow.",
       "The current workflow is ledger- and statement-based rather than a live bank connection; account, settlement, and correction history remains visible.",
     ],
     sortOrder: 50,
@@ -112,7 +113,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     status: "AVAILABLE",
     shortDescription: "Manage workforce records, project assignments, payroll schedules, time and attendance records, leave, overtime, compensation, recurring components, and payroll runs.",
     details: [
-      "Import payroll workbooks, review exceptions, calculate drafts, approve runs, mark paid, and retain the resulting history.",
+      "Import payroll workbooks, review exceptions, calculate drafts, approve runs, and record employee net-pay disbursement through Cash & Banking while retaining the resulting history.",
       "Connect approved project labor allocations to project cost visibility while keeping administrative and project labor distinct.",
     ],
     sortOrder: 60,
@@ -127,6 +128,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
       "Track purchase commitments and received quantities, with supplier invoice matching available in the review workflow.",
       "After recording a receipt, continue to the exact Warehouse receipt context when explicit stock posting is required.",
       "Manage subcontracts, progress claims, and variations with their project context and history.",
+      "Approved progress claims show the net certified payable and continue into legitimate Cash & Banking settlement without duplicating project cost or payable truth.",
     ],
     sortOrder: 70,
   },

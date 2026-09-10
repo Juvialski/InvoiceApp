@@ -4429,7 +4429,7 @@
       "domain": "finance",
       "type": "derived-data",
       "scope": "company",
-      "description": "Deterministic eligible invoice, payroll, and supported expense obligations from posted DEBIT transactions plus RECORDED client collections from posted CREDIT transactions, filtered by currency, lifecycle, and remaining amount.",
+      "description": "Deterministic eligible invoice, payroll, expense, and certified subcontract obligations from posted DEBIT transactions plus RECORDED client collections from posted CREDIT transactions, filtered by currency, lifecycle, and remaining amount.",
       "fileRefs": [
         "src/lib/financialSettlement.ts",
         "src/App.tsx",
@@ -4460,21 +4460,23 @@
         "REJECTED",
         "REVERSED"
       ],
-      "description": "Canonical bridge between a financial transaction and an invoice, payroll run, supported expense, recorded client collection, or internal transfer.",
+      "description": "Canonical bridge between a financial transaction and an invoice, payroll run, supported expense, certified subcontract claim, recorded client collection, or internal transfer.",
       "fileRefs": [
         "src/lib/cashBanking.ts",
         "src/lib/financialSettlement.ts",
         "supabase/migrations/20260826120000_cash_banking_foundation.sql",
         "supabase/migrations/20260827210000_financial_settlement_integration.sql",
         "supabase/migrations/20260829234056_core_hardening_wave2b3_cash_corrections.sql",
-        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql",
+        "supabase/migrations/20260910014343_wave3_payroll_subcontract_settlement_po_guards.sql"
       ],
       "testRefs": [
         "tests/financialSettlement.test.ts",
         "tests/clientCollectionSettlement.test.ts",
         "tests/cashBankingMigration.test.ts",
         "tests/coreHardeningWave2B3CashCorrections.test.ts",
-        "supabase/tests/database/16_client_collection_settlement.test.sql"
+        "supabase/tests/database/16_client_collection_settlement.test.sql",
+        "supabase/tests/database/31_wave3_payroll_subcontract_settlement_po.test.sql"
       ],
       "permissionKeys": [
         "cash.reconcile"
@@ -4504,7 +4506,8 @@
       "fileRefs": [
         "src/components/CashSettlementAllocationWorkspace.tsx",
         "src/lib/financialSettlementPersistence.ts",
-        "src/server/assistant/financialSettlementAssistant.ts"
+        "src/server/assistant/financialSettlementAssistant.ts",
+        "supabase/migrations/20260910014343_wave3_payroll_subcontract_settlement_po_guards.sql"
       ],
       "testRefs": [
         "tests/financialSettlement.test.ts",
@@ -4522,14 +4525,15 @@
       "domain": "finance",
       "type": "derived-data",
       "scope": "company",
-      "description": "Confirmed cash paid, outstanding amount, settlement state, and linked transaction history for an invoice, payroll run, supported expense, or recorded client collection; collection states use UNLINKED, PARTIALLY_LINKED, or LINKED.",
+      "description": "Confirmed cash paid, outstanding amount, settlement state, and linked transaction history for an invoice, payroll run, supported expense, certified subcontract claim, or recorded client collection; collection states use UNLINKED, PARTIALLY_LINKED, or LINKED.",
       "fileRefs": [
         "src/lib/financialSettlement.ts",
         "src/lib/financialSettlementPersistence.ts",
         "src/components/FinancialSettlementCard.tsx",
         "src/components/projects/ClientCollectionSettlementPanel.tsx",
         "supabase/migrations/20260827216000_financial_settlement_summary_rbac.sql",
-        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql"
+        "supabase/migrations/20260904100000_client_collection_cash_settlement_linkage.sql",
+        "supabase/migrations/20260910014343_wave3_payroll_subcontract_settlement_po_guards.sql"
       ],
       "testRefs": [
         "tests/financialSettlement.test.ts",
@@ -4672,6 +4676,7 @@
         "invoices.manage",
         "payroll.approve",
         "expenses.manage",
+        "procurement.approve",
         "projects.manage"
       ],
       "fileRefs": [
@@ -5149,11 +5154,12 @@
         "PAID",
         "VOID"
       ],
-      "description": "DRAFT → CALCULATED → APPROVED → PAID, with explicit terminal VOID and locked historical states.",
+      "description": "DRAFT → CALCULATED → APPROVED, with explicit terminal VOID; historical PAID rows remain read-only and payment state derives from Cash & Banking evidence.",
       "fileRefs": [
         "src/lib/payroll.ts",
         "src/lib/payrollIntegrity.ts",
-        "supabase/migrations/20260823150000_payroll_workforce_integrity.sql"
+        "supabase/migrations/20260823150000_payroll_workforce_integrity.sql",
+        "supabase/migrations/20260910014343_wave3_payroll_subcontract_settlement_po_guards.sql"
       ],
       "testRefs": [
         "tests/payrollWorkflow.test.ts",
@@ -5402,11 +5408,11 @@
     {
       "sourceClassification": "mixed",
       "id": "payroll-run-action",
-      "label": "Calculate, approve, or pay payroll run",
+      "label": "Calculate or approve payroll run",
       "domain": "workforce",
       "type": "action",
       "scope": "company",
-      "description": "Lifecycle action subject to source freshness, entry/allocation validation, approval/payment authority, and explicit confirmation for Assistant requests.",
+      "description": "Lifecycle action subject to source freshness, entry/allocation validation, approval authority, and explicit confirmation for Assistant requests; payment is a separate Cash & Banking settlement workflow.",
       "permissionKeys": [
         "payroll.manage",
         "payroll.approve"
@@ -9811,6 +9817,14 @@
       "label": "status"
     },
     {
+      "id": "payroll-paid-historical-state",
+      "source": "payroll-state-paid",
+      "target": "payroll-lifecycle",
+      "type": "links-to",
+      "kind": "context",
+      "label": "historical compatibility state"
+    },
+    {
       "id": "payroll-draft-to-calculated",
       "source": "payroll-state-draft",
       "target": "payroll-state-calculated",
@@ -9825,14 +9839,6 @@
       "type": "transitions",
       "kind": "state-transition",
       "label": "approve"
-    },
-    {
-      "id": "payroll-approved-to-paid",
-      "source": "payroll-state-approved",
-      "target": "payroll-state-paid",
-      "type": "transitions",
-      "kind": "state-transition",
-      "label": "pay"
     },
     {
       "id": "payroll-draft-to-void",

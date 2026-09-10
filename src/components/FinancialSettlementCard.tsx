@@ -239,6 +239,8 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
       ? "Expense payment evidence"
       : targetType === "CLIENT_COLLECTION"
         ? "Client collection bank linkage"
+        : targetType === "SUBCONTRACT_CLAIM"
+          ? "Subcontract certified payable evidence"
       : "Supplier payment evidence";
 
   const basisLabel = targetType === "PAYROLL"
@@ -247,6 +249,8 @@ export const FinancialSettlementCard: React.FC<FinancialSettlementCardProps> = (
       ? "Expense obligation"
       : targetType === "CLIENT_COLLECTION"
         ? "Recorded collection amount"
+      : targetType === "SUBCONTRACT_CLAIM"
+        ? "Net Certified Payable"
       : summary?.basisSource === "EXPLICIT_NET_PAYABLE"
         ? "Invoice net payable"
         : "Invoice payable";
