@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CircleAlert, LockKeyhole, WalletCards } from "lucide-react";
+import { ArrowRight, CircleAlert, LockKeyhole, RotateCcw, WalletCards } from "lucide-react";
 import type { Expense, FinancialFxSnapshot, InvoiceData } from "../types.ts";
 import { deriveExpenseSettlementSummary, type FinancialSettlementHistoryItem, type FinancialSettlementSummary } from "../lib/financialSettlement.ts";
 import { loadFinancialSettlementSummary } from "../lib/financialSettlementPersistence.ts";
@@ -55,32 +55,38 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
 
   useEffect(() => { setCurrentExpense(linkedExpense); }, [linkedExpense?.id, linkedExpense?.updatedAt]);
 
-  const fallbackSummary = useMemo(() => {
-    if (!currentExpense) return null;
-    if (currentExpense.id.startsWith("demo-")) return demoSettlementSummaryForTarget("EXPENSE", currentExpense.id) || deriveExpenseSettlementSummary(currentExpense, []);
-    return deriveExpenseSettlementSummary(currentExpense, []);
-  }, [currentExpense]);
+  const demoSummary = useMemo(() => {
+    if (!currentExpense?.id.startsWith("demo-")) return null;
+    return demoSettlementSummaryForTarget("EXPENSE", currentExpense.id) || deriveExpenseSettlementSummary(currentExpense, []);
+  }, [currentExpense?.id]);
 
   const refreshSummary = async () => {
     if (!currentExpense) return;
     if (currentExpense.id.startsWith("demo-")) {
-      setSummary((existing) => existing || fallbackSummary);
+      setSummary(demoSummary);
       setSummaryError("");
+      setSummaryLoading(false);
       return;
     }
     setSummaryLoading(true);
     setSummaryError("");
     try {
-      setSummary(await loadFinancialSettlementSummary("EXPENSE", currentExpense.id) || fallbackSummary);
+      const loaded = await loadFinancialSettlementSummary("EXPENSE", currentExpense.id);
+      if (!loaded) throw new Error("Payment status is unavailable for the linked Expense.");
+      setSummary(loaded);
     } catch (cause) {
       setSummaryError(cause instanceof Error ? cause.message : "Payment status could not be loaded.");
-      setSummary(fallbackSummary);
     } finally {
       setSummaryLoading(false);
     }
   };
 
-  useEffect(() => { setSummary(fallbackSummary); void refreshSummary(); }, [currentExpense?.id, currentExpense?.updatedAt]);
+  useEffect(() => {
+    if (!currentExpense) return;
+    setSummary(currentExpense.id.startsWith("demo-") ? demoSummary : null);
+    setSummaryError("");
+    void refreshSummary();
+  }, [currentExpense?.id]);
 
   if (!linkedExpenseId) return null;
 
@@ -90,6 +96,14 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
     event.preventDefault();
     onNavigatePath(path);
   };
+  const secondaryExpenseLink = currentExpense ? <a
+    href={demoHref(expensePath, currentExpense.id)}
+    onClick={(event) => navigate(event, expensePath)}
+    aria-label="Open/Correct linked Expense"
+    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
+  >
+    Open/Correct linked Expense <ArrowRight className="h-3.5 w-3.5" />
+  </a> : null;
 
   if (loading) {
     return <section className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4" aria-label="Supplier payment" data-testid="supplier-invoice-expense-bridge">
@@ -104,7 +118,18 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
     </section>;
   }
 
-  const visibleSummary = summary || fallbackSummary || deriveExpenseSettlementSummary(currentExpense, []);
+  if (!summary && !demoSummary) {
+    return <section className="space-y-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4" aria-label="Supplier payment" data-testid="supplier-invoice-expense-bridge">
+      {summaryError ? <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+        <p className="flex items-center gap-2 text-xs font-black text-amber-950"><CircleAlert className="h-4 w-4" />Payment status unavailable</p>
+        <p className="mt-1 text-[10px] leading-4 text-amber-900">{summaryError} No payment status change is offered until the authoritative Expense settlement can be read.</p>
+        <button type="button" onClick={() => void refreshSummary()} className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 text-[10px] font-black text-amber-900"><RotateCcw className="h-3.5 w-3.5" />Retry</button>
+      </div> : <p className="flex items-center gap-2 text-xs font-black text-indigo-950"><LockKeyhole className="h-4 w-4" />Loading authoritative payment status…</p>}
+      <div className="flex justify-end border-t border-indigo-100 pt-2">{secondaryExpenseLink}</div>
+    </section>;
+  }
+
+  const visibleSummary = summary || demoSummary!;
   const paymentStatus = deriveSupplierInvoicePaymentState(invoice, currentExpense, visibleSummary);
   const hasOutstanding = visibleSummary.outstanding > 0.005;
   const canChangeStatus = invoice.reviewStatus === "VERIFIED" && invoice.lifecycleStatus !== "VOID" && currentExpense.status !== "VOID" && hasOutstanding;
@@ -153,16 +178,7 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
       onNavigatePath={onNavigatePath}
     />
 
-    <div className="flex justify-end border-t border-indigo-100 pt-2">
-      <a
-        href={demoHref(expensePath, currentExpense.id)}
-        onClick={(event) => navigate(event, expensePath)}
-        aria-label="Open/Correct linked Expense"
-        className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-      >
-        Open/Correct linked Expense <ArrowRight className="h-3.5 w-3.5" />
-      </a>
-    </div>
+    <div className="flex justify-end border-t border-indigo-100 pt-2">{secondaryExpenseLink}</div>
 
     <SupplierInvoicePaymentDialog
       open={paymentOpen}
@@ -171,6 +187,7 @@ export const SupplierInvoiceExpenseSurface: React.FC<SupplierInvoiceExpenseSurfa
       settlement={visibleSummary}
       canRecordPayment={canRecordPayment}
       onClose={() => setPaymentOpen(false)}
+      onExpenseUpdated={(updatedExpense) => setCurrentExpense(updatedExpense)}
       onRecorded={(updatedExpense, updatedSummary) => {
         setCurrentExpense(updatedExpense);
         setSummary(updatedSummary);
