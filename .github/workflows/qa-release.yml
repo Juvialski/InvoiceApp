@@ -26,6 +26,7 @@ env:
   HYDROQUALISENSE_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
   HYDROQUALISENSE_QA_PROJECT_REF: vrpuznofrntyqsbugrib
   HYDROQUALISENSE_PRODUCTION_PROJECT_REF: qijjshdwiylojvqojxyz
+  HYDROQUALISENSE_QA_POOLER_HOST: aws-0-ap-southeast-1.pooler.supabase.com
   SUPABASE_CLI_BIN: supabase
 
 jobs:
@@ -108,7 +109,6 @@ jobs:
       migration_was_behind: ${{ steps.pre_parity.outputs.needs_promotion }}
       release_still_current: ${{ steps.final_identity.outputs.release_still_current }}
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ needs.classify.outputs.target_sha }}
       QA_E2E_EXPECTED_MIGRATION_LEVEL: ${{ needs.classify.outputs.expected_migration }}
@@ -148,8 +148,8 @@ jobs:
             echo "::error title=Production boundary violation::The configured QA and production project references are invalid or collide." >&2
             exit 1
           fi
-          if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
-            echo "::error title=Missing QA secret::Configure the protected qa environment secret SUPABASE_ACCESS_TOKEN once." >&2
+          if [[ "$HYDROQUALISENSE_QA_POOLER_HOST" != "aws-0-ap-southeast-1.pooler.supabase.com" ]]; then
+            echo "::error title=Protected QA database host failure::The configured database host is not the approved QA session pooler." >&2
             exit 1
           fi
           if [[ -z "${SUPABASE_DB_PASSWORD:-}" ]]; then
@@ -157,23 +157,10 @@ jobs:
             exit 1
           fi
 
-      - name: Link the exact protected QA Supabase project
-        shell: bash
-        run: |
-          if ! supabase link --project-ref "$HYDROQUALISENSE_QA_PROJECT_REF"; then
-            echo "::error title=Supabase authentication or project-link failure::The protected QA Supabase project could not be linked; no migration command was attempted." >&2
-            exit 1
-          fi
-          linked_ref="$(tr -d '\r\n ' < supabase/.temp/project-ref 2>/dev/null || true)"
-          if [[ "$linked_ref" != "$HYDROQUALISENSE_QA_PROJECT_REF" || "$linked_ref" == "$HYDROQUALISENSE_PRODUCTION_PROJECT_REF" ]]; then
-            echo "::error title=Project-link mismatch::The linked project reference is not the expected non-production QA project." >&2
-            exit 1
-          fi
-
       - name: Independently inspect QA migration parity before promotion
         id: pre_parity
         shell: bash
-        run: npx --no-install tsx scripts/qa/verify-migration-parity.ts --phase before --output artifacts/qa-release/migration-parity-before.json
+        run: npx --no-install tsx scripts/qa/verify-migration-parity.ts --direct-db --phase before --output artifacts/qa-release/migration-parity-before.json
 
       - name: Confirm release is still the current main before Render/migration work
         if: steps.pre_parity.outputs.needs_promotion == 'true' || needs.classify.outputs.requires_hosted_qa == 'true'
@@ -200,15 +187,15 @@ jobs:
             exit 1
           fi
 
-      - name: Run the existing guarded QA migration promotion
+      - name: Run the guarded QA migration promotion through the session pooler
         if: steps.pre_parity.outputs.needs_promotion == 'true'
         shell: bash
-        run: npm run qa:db:push -- --project-ref "$HYDROQUALISENSE_QA_PROJECT_REF" --confirm-qa
+        run: npm run qa:db:push -- --project-ref "$HYDROQUALISENSE_QA_PROJECT_REF" --confirm-qa --direct-db
 
       - name: Independently verify QA migration parity after promotion
         if: steps.pre_parity.outputs.needs_promotion == 'true' || needs.classify.outputs.requires_hosted_qa == 'true'
         shell: bash
-        run: npx --no-install tsx scripts/qa/verify-migration-parity.ts --phase after --output artifacts/qa-release/migration-parity-after.json
+        run: npx --no-install tsx scripts/qa/verify-migration-parity.ts --direct-db --phase after --output artifacts/qa-release/migration-parity-after.json
 
       - name: Verify production separation
         shell: bash
@@ -217,7 +204,11 @@ jobs:
             echo "::error title=Production boundary violation::QA and production project references collide." >&2
             exit 1
           fi
-          echo "Production separation=PASS; all Supabase link, history, and migration commands in this job target QA only."
+          if [[ "$HYDROQUALISENSE_QA_POOLER_HOST" != "aws-0-ap-southeast-1.pooler.supabase.com" ]]; then
+            echo "::error title=Production boundary violation::The database host is not the exact protected QA session pooler." >&2
+            exit 1
+          fi
+          echo "Production separation=PASS; all migration-history and promotion commands in this job target the exact protected QA session pooler."
 
       - name: Confirm release is still current main before Hosted QA
         id: final_identity
