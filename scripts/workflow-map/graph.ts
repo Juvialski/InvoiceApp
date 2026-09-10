@@ -769,7 +769,7 @@ const nodes: readonly WorkflowNode[] = [
     sourceClassification: "code-derived",
     fileRefs: ["src/utils/appRouting.ts", "src/app/routes/InvoicesRoute.tsx", "src/components/VerificationWorkspace.tsx", "src/components/SupplierInvoiceExpenseSurface.tsx"],
     testRefs: ["tests/appRouting.test.ts", "tests/financialSettlement.test.ts", "tests/wave1aSupplierPayableUx.test.ts"],
-    qaScenarioIds: ["invoices--invoice-detail--invoice-detail-opened--desktop-1440", "supplier-payables--invoice-detail--linked-expense-payment-surface-opened--desktop-1440", "supplier-payables--invoice-detail--linked-expense-payment-surface-opened--mobile-390"],
+    qaScenarioIds: ["invoices--invoice-detail--invoice-detail-opened--desktop-1440", "supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--desktop-1440", "supplier-payables--invoice-detail--inline-supplier-payment-modal-opened--mobile-390"],
   }),
   node({
     id: "route-review-invoice",

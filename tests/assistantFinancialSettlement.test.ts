@@ -74,15 +74,29 @@ test("split settlement permissions only require the target domains actually pres
   assert.ok(definition);
   assert.equal(typeof definition.permissions, "function");
   const resolve = definition.permissions as (args: Record<string, unknown>) => string[];
-  assert.deepEqual(resolve({ allocations: [{ targetType: "INVOICE" }] }), ["cash.reconcile", "invoices.manage"]);
+  assert.deepEqual(resolve({ allocations: [{ targetType: "INVOICE" }] }), ["cash.reconcile", "invoices.manage", "expenses.read"]);
   assert.deepEqual(resolve({ allocations: [{ targetType: "PAYROLL" }] }), ["cash.reconcile", "payroll.approve"]);
-  assert.deepEqual(resolve({ allocations: [{ targetType: "INVOICE" }, { targetType: "PAYROLL" }] }), ["cash.reconcile", "invoices.manage", "payroll.approve"]);
+  assert.deepEqual(resolve({ allocations: [{ targetType: "INVOICE" }, { targetType: "PAYROLL" }] }), ["cash.reconcile", "invoices.manage", "expenses.read", "payroll.approve"]);
 });
 
 test("supplier payment preparation requires the same financial authorities as the manual flow", () => {
   const definition = getAssistantToolDefinition("prepare_supplier_invoice_payment");
   assert.ok(definition);
-  assert.deepEqual(definition.permissions, ["invoices.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"]);
+  assert.deepEqual(definition.permissions, ["invoices.read", "expenses.read", "expenses.manage", "cash.summary.read", "cash.transactions.manage", "cash.reconcile"]);
+});
+
+test("linked Expense authority inspection always requires expenses.read", () => {
+  for (const name of ["get_invoice_settlement", "list_open_invoice_settlements", "prepare_match_transaction_to_invoice"]) {
+    const definition = getAssistantToolDefinition(name);
+    assert.ok(definition);
+    assert.ok(Array.isArray(definition.permissions));
+    assert.ok(definition.permissions.includes("expenses.read"), "linked Expense authority inspection must require expenses.read");
+  }
+  const split = getAssistantToolDefinition("prepare_split_transaction_allocation");
+  assert.ok(split);
+  assert.equal(typeof split.permissions, "function");
+  const resolve = split.permissions as (args: Record<string, unknown>) => string[];
+  assert.ok(resolve({ allocations: [{ targetType: "INVOICE" }] }).includes("expenses.read"));
 });
 
 test("settlement Assistant navigation uses exact canonical deep links", () => {
