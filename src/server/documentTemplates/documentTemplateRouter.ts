@@ -95,6 +95,7 @@ interface DocumentTemplateRouterOptions {
   readonly authorizer?: (req: Request, permission: StoragePermissionKey) => Promise<StorageAuthContext>;
   readonly providerSupplier?: (providerId: "supabase" | "s3" | "gcs" | "memory" | "custom", clientGetter?: () => SupabaseClient) => DocumentStorageProvider;
   readonly primaryProviderSupplier?: (environment?: NodeJS.ProcessEnv, clientGetter?: () => SupabaseClient) => DocumentStorageProvider;
+  readonly serverSupabaseSupplier?: () => SupabaseClient;
 }
 
 function stringValue(value: unknown): string | undefined {
@@ -207,6 +208,17 @@ function providerForAuth(auth: StorageAuthContext, options: DocumentTemplateRout
 function primaryProvider(auth: StorageAuthContext, options: DocumentTemplateRouterOptions): DocumentStorageProvider {
   if (options.primaryProviderSupplier) return options.primaryProviderSupplier(process.env, () => auth.supabase);
   return getPrimaryStorageProvider(process.env, () => auth.supabase);
+}
+
+function serverSupabase(options: DocumentTemplateRouterOptions): SupabaseClient {
+  if (options.serverSupabaseSupplier) return options.serverSupabaseSupplier();
+  return getStorageServerServiceRoleClient();
+}
+
+function artifactWriteProvider(options: DocumentTemplateRouterOptions, provider: DocumentStorageProvider): DocumentStorageProvider {
+  if (provider.id !== "supabase") return provider;
+  const serviceClient = serverSupabase(options);
+  return createStorageProvider("supabase", undefined, () => serviceClient);
 }
 
 async function authorizeTemplateRead(
@@ -699,19 +711,26 @@ export function createDocumentTemplateRouter(options: DocumentTemplateRouterOpti
       const artifactHash = await calculateSha256Hex(merged);
       if (issued && auth) {
         const provider = primaryProvider(auth, options);
+        const artifactProvider = artifactWriteProvider(options, provider);
         const bucket = provider.id === "supabase" ? TEMPLATE_BUCKET : undefined;
         const artifactPath = artifactObjectPath(auth.companyId, snapshotId, documentType, version.id, artifactHash);
+        let artifactBucket = bucket || "";
         try {
-          await provider.putObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: artifactPath, bytes: merged, contentType: DOCX_MIME_TYPE, sha256: artifactHash, upsert: false });
+          const put = await artifactProvider.putObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: artifactPath, bytes: merged, contentType: DOCX_MIME_TYPE, sha256: artifactHash, upsert: false });
+          artifactBucket = put.ref.bucket;
         } catch {
-          const existing = await provider.headObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: artifactPath });
+          const existing = await artifactProvider.headObject({ companyId: auth.companyId, ...(bucket ? { bucket } : {}), key: artifactPath });
           if (!existing || (existing.sha256 && existing.sha256.toLowerCase() !== artifactHash.toLowerCase())) throw new StorageApiError(503, "ARTIFACT_STORAGE_FAILED", "The generated document artifact could not be stored with integrity evidence.");
+          artifactBucket = existing.bucket || artifactBucket;
         }
-        const { error } = await auth.supabase.rpc("record_document_generation_evidence", {
+        if (!artifactBucket) throw new StorageApiError(503, "ARTIFACT_STORAGE_FAILED", "The generated document artifact storage bucket could not be verified.");
+        const evidenceClient = serverSupabase(options);
+        const { error } = await evidenceClient.rpc("record_document_generation_evidence", {
           p_payload: {
             companyId: auth.companyId, snapshotId, templateVersionId: version.id, documentType, documentId: snapshot.documentId,
             templateContentSha256: version.contentSha256, artifactType: "DOCX", artifactStoragePath: artifactPath,
-            artifactStorageProvider: provider.id, artifactStorageBucket: bucket || TEMPLATE_BUCKET, artifactSize: merged.byteLength, artifactSha256: artifactHash,
+            artifactStorageProvider: provider.id, artifactStorageBucket: artifactBucket, artifactSize: merged.byteLength, artifactSha256: artifactHash,
+            generatedByUserId: auth.user.id,
           },
         });
         if (error) throw new StorageApiError(503, "ARTIFACT_EVIDENCE_FAILED", "The generated document was produced, but its immutable history could not be recorded. Retry after checking template history.");
