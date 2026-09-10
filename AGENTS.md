@@ -15,19 +15,43 @@ Before implementation, PR review, migration/release work, or preparing a Codex p
 
 Live repository state overrides remembered chat summaries and old prompts.
 
-## Current product sequence
+## Current product sequence — explicit 2026-09-10 reprioritization
 
-The user has explicitly reprioritized the immediate product workflow sequence through `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`. Unless the user reprioritizes again:
+The user has explicitly clarified that the broad `Email/SMS + Documents` phase is **not complete** merely because document templates, PDF generation, Gmail delivery, or delivery history exist inside individual record workflows.
 
-1. Wave 1A — Supplier Payable Lifecycle UX — complete on merged `main`
-2. Wave 1B — Client Receivable Lifecycle UX — complete on the current product branch
-3. Wave 2 — cross-module routing and handoffs
-4. Wave 3 — deliberate payroll/subcontract/PO workflow decisions
-5. Resume the broader approved product roadmap: Email/SMS + Documents, Worker Registration, Site Attendance, Face-Recognition Attendance after explicit privacy/security design, then final pre-production certification
+Current state through merged PR #136:
 
-QA certification/recovery/provider/deployment work remains a **parallel release/readiness track**, not a reason to erase or skip the user-prioritized UX sequence. Do not represent unfinished QA certification as complete merely because product development continues.
+1. Wave 1A — Supplier Payable Lifecycle UX — complete on merged `main`.
+2. Wave 1B — Client Receivable Lifecycle UX — complete on merged `main`.
+3. Wave 2 — cross-module routing and handoffs — complete on merged `main`.
+4. Wave 3 — deliberate payroll/subcontract/PO workflow decisions — complete on merged `main`.
+5. Wave 4A — company document templates / mail merge foundation — complete.
+6. Wave 4B — high-fidelity PDF finalization foundation — complete.
+7. Wave 4C — issued-document Gmail delivery/history foundation — complete through merged PR #136.
+8. **Wave 4D — Email/SMS Workspace + Documents Workspace — NEXT and BLOCKING.**
+9. Worker Registration — **PAUSED by explicit user instruction** until Wave 4D and the broader Email/SMS + Documents product experience are complete and the user explicitly resumes Worker Registration.
+10. Site Attendance follows Worker Registration.
+11. Face-Recognition Attendance follows only after explicit privacy/security design.
+12. Final pre-production certification follows the major product domains.
 
-Read the active roadmap and workflow UX audit before preparing the next implementation phase.
+The detailed Wave 4D contract is `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` and is authoritative for this reprioritization. Where older priority wording in product-direction, handoff, or audit documents conflicts with this explicit sequence, this section plus the active roadmap and Wave 4D contract control the next-phase decision. Older documents remain authoritative for permanent product, financial, security, history, and architecture invariants unless specifically superseded.
+
+### Email/SMS + Documents completion gate
+
+Do **not** suggest, prepare, or start Worker Registration as the next product phase while any of the following remain unfinished:
+
+- the current top-level `Email Intake` experience has not been evolved into the intended top-level **Email / SMS** communications workspace while preserving inbound Gmail intake;
+- a separate top-level **Documents** workspace has not been implemented for unified, permission-aware access to document-bearing records/artifacts without duplicating canonical source ownership;
+- outbound email composition/history is still limited to scattered record-local controls rather than being usable from the Email/SMS communications experience;
+- SMS is only provider-neutral scaffolding and no approved provider-backed sending path has been configured and runtime-tested in QA;
+- Assistant-assisted message drafting/attachment selection does not preserve human review/confirmation before sending;
+- existing Wave 4A/4B/4C template, PDF, Gmail delivery, idempotency, reconciliation, lifecycle, and immutable-history foundations have not been integrated into the new workspaces.
+
+Wave 4A-4C are supporting foundations for the broader Email/SMS + Documents product phase. They must not be represented as satisfying this completion gate by themselves.
+
+QA certification/recovery/provider/deployment work remains a **parallel release/readiness track**. Do not represent unfinished QA certification as complete merely because product development continues, and do not infer production authorization from QA or merge success.
+
+Read the active roadmap and `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` before preparing the next implementation phase.
 
 All permanent financial, audit, RLS, company-isolation, inventory-history, document-history, payroll/privacy, AI confirmation, and migration-forward-only invariants in the preserved baseline remain in force.
 
@@ -67,6 +91,34 @@ Codex remains the default lead implementation/integration engine. During the cur
 
 When ChatGPT is performing the repository-native PR review/fix/finalization role, it must inspect exact current head and exact-head CI, fix concrete issues, and merge automatically if safe as defined by the baseline rules.
 
+## Mandatory roadmap and handoff synchronization gate
+
+Roadmap/handoff maintenance is a required delivery step, not optional documentation cleanup.
+
+Before **every implementation handoff, PR completion handoff, next-phase recommendation, or claim that a phase is complete**, the lead agent must reconcile the actual final repository state against all applicable product-truth documents and surfaces.
+
+At minimum, inspect and update when stale:
+
+- `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
+- `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`;
+- the active phase contract/design document, when one exists;
+- `src/config/productFeatures.ts` for client-facing feature/roadmap truth when user-visible capability or status changed;
+- `AGENTS.md` when the user changed product sequence, completion gates, or implementation policy.
+
+Required final-handoff sequence:
+
+1. review the complete final diff and exact implemented behavior;
+2. compare that behavior with the active roadmap and current handoff;
+3. mark completed work complete and identify the exact next unfinished phase—never infer completion from backend scaffolding or a partial UI;
+4. carry forward explicit user reprioritizations, paused phases, blockers, and external-provider dependencies;
+5. update client-facing Settings truth only to what is genuinely usable;
+6. verify the updated roadmap/handoff do not contradict each other, `AGENTS.md`, or live implementation;
+7. only then provide the final handoff or next-phase prompt.
+
+A PR that materially changes product capability, phase status, or approved sequence is **not done** if the roadmap/handoff remain stale. Include required documentation synchronization in the same PR whenever practical. If an implementation PR is already merged and the docs are discovered stale during review, correct the docs immediately before recommending the next phase.
+
+Never hand off with phrases such as “next is X” based only on an older roadmap entry. The next phase must be derived from the reconciled live roadmap after the current work's actual completion criteria are checked.
+
 ## Client-facing Features & Roadmap synchronization
 
 For applicable product feature work, the `HydroQualiSense Features & Roadmap` section in Settings must remain synchronized with actual product state. Live implementation and `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md` remain development sources of truth; the Settings roadmap is their client-friendly representation.
@@ -75,6 +127,7 @@ For applicable product feature work, the `HydroQualiSense Features & Roadmap` se
 - Update an Available description when a material expansion changes what users can do. Update planned/future documentation whenever the approved roadmap changes; remove or correct stale promises when a feature is cancelled, replaced, renamed, split, or materially redesigned.
 - During final diff review ask: `Does this implementation require a Settings Features & Roadmap status or description update?` Applicable synchronization is part of Definition of Done.
 - Never copy internal engineering information into the client-facing roadmap, including PRs, migration names, CI/workflow status, QA certification terminology, Git SHAs, Codex/agent/subagent terminology, test commands, implementation notes, or internal security mechanics.
+
 ## Definition of done
 
-A substantial task is done only when repository state is current, scope remains disciplined, applicable security/data-integrity/history invariants are preserved, relevant runtime evidence is obtained, exact-head CI is checked when applicable, and the final handoff says clearly what passed, what was skipped, and what remains blocked.
+A substantial task is done only when repository state is current, scope remains disciplined, applicable security/data-integrity/history invariants are preserved, relevant runtime evidence is obtained, exact-head CI is checked when applicable, **the mandatory roadmap/handoff synchronization gate has been completed**, and the final handoff says clearly what passed, what was skipped, what remains blocked, and what the reconciled next phase actually is.

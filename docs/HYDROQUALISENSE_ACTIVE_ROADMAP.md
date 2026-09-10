@@ -1,299 +1,194 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — WAVE 4C OUTBOUND DOCUMENT DELIVERY & HISTORY / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — WAVE 4D EMAIL/SMS WORKSPACE + DOCUMENTS WORKSPACE / QA CERTIFICATION NOT READY**  
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-10**
+
 Product direction: `docs/HYDROQUALISENSE_PRODUCT_DIRECTION.md`  
-Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`  
 Current handoff: `docs/HYDROQUALISENSE_CURRENT_HANDOFF.md`  
-Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`
+Wave 4D contract: `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`  
+Workflow UX audit: `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`  
+Client deployment strategy: `docs/HYDROQUALISENSE_CLIENT_DEPLOYMENT_STRATEGY.md`
 
 Live repository state and `AGENTS.md` override remembered chat summaries and historical Engoryx plans.
 
-## Current user-selected bounded phase — Wave 4C Outbound Document Delivery & Delivery History
+## Current exact product baseline
 
-Wave 4A Intelligent Document Templates & Mail Merge Foundation is complete through merged PR #134 at `7fbfe40938571f7e3223687cdc03ac549aa2454f`. Wave 4B High-Fidelity PDF Finalization is complete through merged PR #135 at `bd636325292471eb6060ec2df4ecde9619a546db`.
+Wave 1A Supplier Payable Lifecycle UX is complete through PR #126.  
+Wave 1B Client Receivable Lifecycle UX is complete through PR #129.  
+Wave 2 Cross-module Routing and Handoffs is complete through PR #131.  
+Wave 3 Payroll/Subcontract/PO Workflow Decisions is complete through PRs #132 and #133.  
+Wave 4A Company Document Templates / Mail Merge Foundation is complete through PR #134.  
+Wave 4B High-Fidelity PDF Finalization Foundation is complete through PR #135.  
+Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History is complete through PR #136.
 
-Wave 4C extends the existing issued-document Gmail sender for Purchase Orders and Client Invoices. When a snapshot has a pinned template and the deployment has an operational converter, the exact finalized company-template PDF is attached; otherwise the existing programmatic PDF fallback remains explicit. Durable send intents and append-only audit rows now retain attachment source, exact PDF hash, template/generation provenance, recipients, outcome, and safe history visibility. Explicit resends create new delivery attempts, while unresolved delivery states remain locked until reconciliation.
+Current merged application baseline before the Wave 4D documentation correction:
 
-SMS remains provider-neutral foundation only. No SMS provider, credential, delivery guarantee, campaign automation, or client-facing Available claim is introduced.
+`3fd73039afd018b1bb630bfee2a68a38c6d37fcc`
 
-The current native Node/Render deployment does not install the optional converter, so it truthfully reports high-fidelity PDF as unavailable and retains the existing programmatic PDF fallback. PDF and delivery evidence remain company-bound; the optional Docker runtime is documented for deployments that deliberately enable the converter.
+Wave 4A-4C are **supporting foundations**, not completion of the broader Email/SMS + Documents product experience.
 
-QA certification remains **NOT READY** and production remains read-only unless separately authorized.
+## Explicit user reprioritization — Wave 4D is next
 
-## Wave 3 completed baseline and current workflow-remediation state
+The intended product architecture is now explicit:
 
-Wave 1A Supplier Payable Lifecycle UX is complete through merged PR #126. Wave 1B Client Receivable Lifecycle UX is complete through merged PR #129. Wave 2 cross-module routing and handoffs is complete through merged PR #131. Wave 3 payroll/subcontract/PO workflow decisions are complete through merged PRs #132 and #133. Wave 4A started from the exact green `main` SHA:
+1. the existing top-level **Email Intake** experience evolves into the top-level **Email / SMS** communications workspace while preserving inbound Gmail intake;
+2. a separate top-level **Documents** workspace provides unified, permission-aware access to document-bearing records and immutable/generated artifacts without duplicating canonical ownership;
+3. the existing Wave 4A template, Wave 4B PDF, and Wave 4C Gmail delivery/history foundations are integrated into those workspaces;
+4. real SMS remains incomplete until an approved provider account is configured and provider-backed sending is runtime-tested in QA;
+5. Worker Registration is paused until this phase is genuinely complete and the user explicitly resumes it.
 
-`b9ffc21c2332d5cc1d6e7ea137917957afd4d5b0`
+The authoritative detailed scope and completion gate are in `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
-Wave 4A is complete through PR #134 and Wave 4B is complete through PR #135. The current Wave 4C starting baseline is the exact merged `main` SHA `bd636325292471eb6060ec2df4ecde9619a546db`.
+## Immediate product sequence
 
-The prior Protected QA Release completed green, including migration parity and authenticated hosted QA. That release evidence is a readiness fact for its exact SHA; it does not change the separate `QA CERTIFICATION NOT READY` product-readiness status or certify Wave 3 application or migration changes.
+1. **Wave 4D — Email/SMS Workspace + Documents Workspace — NEXT / BLOCKING**
+2. **Worker Registration — PAUSED** until Wave 4D completion criteria are satisfied and the user explicitly resumes it
+3. Site Attendance state machine + registered site/device
+4. Face-Recognition Attendance only after explicit privacy/security/retention/liveness/confidence/fallback design
+5. final pre-production security/data-integrity certification before broad rollout
 
-Wave 4A is **COMPLETE through PR #134**. Wave 4B is **COMPLETE through PR #135**. Wave 4C is **ACTIVE on the current feature branch**. The detailed audit source of truth, finding IDs, classifications, and earlier remediation mapping live in `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`.
+Do not prepare Worker Registration as the next implementation phase while Wave 4D remains incomplete.
 
-## Immediate user-prioritized product workflow sequence
+## Wave 4D required product outcome
 
-The user explicitly reprioritized the broad UX/workflow audit remediation ahead of the remaining broader product phases:
+### Email / SMS
 
-1. **Wave 1A — Supplier Payable Lifecycle UX — COMPLETE**
-2. **Wave 1B — Client Receivable Lifecycle UX — COMPLETE**
-3. **Wave 2 — Cross-module routing and handoffs — COMPLETE**
-4. **Wave 3 — deliberate payroll/subcontract/PO workflow decisions — COMPLETE**
-5. Resume the broader approved product roadmap unless the user reprioritizes again:
-   - Email/SMS + Documents;
-   - Worker Registration foundation;
-   - Site Attendance state machine + registered site/device;
-   - Face-Recognition Attendance only after explicit privacy/security/retention/liveness/confidence/fallback design;
-   - final pre-production security/data-integrity certification before broad rollout.
+The top-level communications workspace must contain or coherently route:
 
-### Wave 1A — Supplier Payable Lifecycle UX — COMPLETE
+- the existing read-only Gmail Inbox/Intake workflow;
+- Gmail reconnect/re-consent behavior;
+- outbound email compose and send;
+- Assistant-assisted drafting with human review and confirmation;
+- document/attachment selection from authorized context;
+- unified sent/delivery history, retry, and reconciliation behavior;
+- SMS composition/provider status;
+- actual SMS delivery only after a real provider is selected/configured and QA-tested.
 
-Implemented pattern:
+The Assistant may prepare messages, but it must not silently send consequential communications. Send authority must remain permission-based and no broader than the current user.
 
-`Supplier Invoice -> authoritative linked Expense -> Record Payment -> Cash & Banking with exact EXPENSE target -> legitimate financial transaction -> explicit settlement -> partial/full state + history/reversal -> return navigation`
+### Documents
 
-Permanent semantics preserved:
+The new top-level Documents workspace is a unified access/index surface over existing canonical domains. It does not become a second financial, procurement, engineering, payroll, or evidence truth.
 
-- linked Expense is the authoritative payable/cost after supplier-invoice verification;
-- supplier invoice remains source evidence;
-- no duplicate Actual Cost or payable;
-- no manual paid flag;
-- payment state derives from settlement/reconciliation evidence;
-- partial/full settlement, reversals, history, RBAC, original currency, and FX semantics remain intact;
-- canonical Expense detail/deep linking remains separate from the old correction-opening path.
+At minimum it should provide:
 
-### Wave 1B — Client Receivable Lifecycle UX — COMPLETE
+- permission-aware unified document listing/search/filtering;
+- preview/open/download for supported records/artifacts;
+- links back to the authoritative owning workflow;
+- issued/generated/source document classifications where useful;
+- project/counterparty/type/status/date filters where supported by existing data;
+- delivery status/history where applicable;
+- continuation from a selected eligible document into Email / SMS compose;
+- company document-template administration discoverable from Documents using the existing Wave 4A engine.
 
-Primary audit findings: UX-006 and UX-007.
+Examples of ownership that must remain intact:
 
-Target pattern:
+- Purchase Order -> Procurement;
+- Client Invoice -> Client Billing/Collections;
+- Supplier Invoice source -> Supplier Invoice review / linked authoritative Expense semantics;
+- Expense receipt/source -> Expense;
+- bank statement -> Cash & Banking;
+- Engineering Document/revision -> Engineering;
+- generated DOCX/PDF -> immutable source/snapshot/template/version evidence.
 
-`Issued Client Invoice -> Record Collection -> Cash & Banking with exact client-invoice/collection target context -> legitimate bank/cash transaction -> explicit settlement -> partial/full collection state + history -> return to client invoice`
+## Existing Wave 4A-4C foundations to preserve
 
-User-facing requirements:
+### Wave 4A
 
-- invoice amount;
-- collected amount;
-- remaining amount;
-- collection state;
-- collection history;
-- reversals where supported;
-- `Record Collection` only when permitted and lifecycle-eligible.
+- company-bound DOCX templates for supported issued documents;
+- deterministic immutable-snapshot mail merge;
+- template validation/versioning/pinning;
+- bounded AI-assisted mapping proposals with human review.
 
-Delivered object-first journey:
+### Wave 4B
 
-`Issued Client Invoice` → `Record Collection` with the exact billing selected → canonical `ClientCollection` allocation and recording → Cash & Banking with exact `CLIENT_COLLECTION` context → legitimate posted CREDIT evidence and explicit settlement → partial/full collection-link state and history → direct return to the selected client invoice.
+- high-fidelity server-side PDF finalization when the supported converter is operational;
+- truthful programmatic PDF fallback where conversion is unavailable;
+- exact generation/template/source provenance.
 
-The detail view derives invoice amount, collected amount, remaining amount, collection state, related collection records, and available cash-link status from the existing authoritative records. ClientCollection commercial truth remains separate from cash settlement evidence and project Actual Cost.
+The current native Node/Render deployment does not install the optional LibreOffice converter, so it must continue to report that limitation truthfully unless the supported Docker runtime is deliberately enabled.
 
-### Wave 2 — Cross-module routing and handoffs — COMPLETE
+### Wave 4C
 
-**Status: COMPLETE on merged `main` through PR #131.**
+- Gmail sending for eligible issued Purchase Orders and Client Invoices;
+- exact attachment identity/provenance;
+- durable send intents and append-only delivery history;
+- idempotency and explicit resend;
+- reconciliation-required fail-closed behavior;
+- document-read/send permission and lifecycle protections.
 
-Primary audit targets:
+Wave 4C did not implement a unified communications center or provider-backed SMS.
 
-- remaining Expense relationship/source navigation (UX-003);
-- any residual Cash -> Expense navigation issues (UX-004);
-- Procurement receipt -> Warehouse continuation (UX-009);
-- Warehouse movement -> source navigation (UX-012);
-- Email Intake post-import continuation only after runtime confirmation (UX-013);
-- domain-aware stale/invalid deep-link recovery without leaking unauthorized existence (UX-014);
-- bounded mobile/discoverability work supported by actual runtime evidence.
+## SMS provider boundary
 
-Wave 2 must also make the existing supplier `Invoices` register obvious in normal sidebar navigation, improve discovery of existing supplier invoices, expose the verified-invoice reopen/correction continuation, and keep invoice breadcrumbs/back navigation consistent. This remains explicitly outside Wave 1B.
+No SMS provider is currently approved/configured as product truth.
 
-The current bounded implementation also carries exact Expense, Cash, Procurement, and Warehouse source context through centralized route contracts, recovers stale entity links to the nearest authorized register, and keeps Email Intake proof-first unless runtime evidence demonstrates a concrete continuation gap.
+Do not hard-code a vendor simply because an adapter can be written. Until the user chooses and configures an approved provider, SMS must remain visibly not configured/not active.
 
-Keep this wave focused on navigation, context, discoverability, and truthful handoffs. Do not invent duplicate domain records to make navigation easier.
+Provider-backed completion later requires at least:
 
-### Wave 3 — Deliberate business-workflow decisions — COMPLETE
+- server-side credential storage/configuration;
+- sender/originator rules for the selected provider/destination;
+- bounded sending API;
+- normalized status/failure handling;
+- idempotency/retry/reconciliation semantics;
+- delivery-status/webhook processing where supported;
+- live QA proof with synthetic/test recipients and no production customer data.
 
-**Status: COMPLETE on merged `main` through PRs #132 and #133.**
+## Permanent financial / history boundaries
 
-These require explicit lifecycle/source-of-truth design rather than opportunistic routing polish:
+Wave 4D is an information-architecture and communications/document-access phase. It must not change authoritative business truth.
 
-- payroll settlement semantics (UX-010): approval remains separate from Cash & Banking disbursement evidence, with direct paid-status paths blocked;
-- subcontract payable bridge (UX-011): `Approved/Certified Claim -> Net Certified Payable -> authoritative payable obligation -> settlement` without duplicate Expense/payable/Actual Cost truth;
-- Purchase Order close guard (UX-008): runtime-confirmed partial/unreceived obligations block close while receipt history remains preserved;
-- subcontract mobile workflow (UX-016), including responsive claim cards, settlement state/history, account onboarding, and return context.
+Preserve:
+
+- linked Expense as authoritative supplier payable/cost after invoice verification;
+- Client Invoice/Collection receivable truth separate from Cash settlement evidence;
+- Actual Cost distinct from Committed Cost;
+- payroll settlement authority/history;
+- Purchase Order receipt/close rules;
+- original currency and explicit FX semantics;
+- immutable issued/finalized document snapshots and artifact provenance;
+- append-only delivery history and deliberate retry/reconciliation;
+- RLS/RBAC/company isolation and permission parity;
+- AI prepare/review/human-confirm/execute boundaries.
 
 ## Parallel QA / release-readiness track
 
-QA certification, recovery evidence, provider validation, deployment identity, migration parity, and production separation remain active operational gates in parallel with the UX sequence.
-
 `QA CERTIFICATION: NOT READY`
 
-UX development may continue without falsely declaring QA READY. Conversely, QA work must not silently erase the explicit Wave 1B -> Wave 2 -> Wave 3 product priority.
+QA certification, provider validation, recovery evidence, deployment identity, migration parity, and production separation remain a parallel release/readiness track.
 
-Production Supabase remains read-only unless explicitly authorized under repository policy.
+The last retained hosted certification artifact predates the newer Wave 1A-4C application-bearing changes and must not be used as proof for the current application baseline.
 
-## Certified application baseline for this checkpoint
+A newer application/runtime/migration-bearing main requires the normal sequence before becoming the certified QA baseline:
 
-The last retained successful hosted application/runtime certification baseline before the newer application-bearing Wave 1A merge remains:
+`exact intended app SHA -> verify QA deployment identity -> verify/promote canonical QA migrations when required -> hosted authenticated QA/provider/runtime checks`
 
-`288940a196ff5886d352ed665f0d06dd998513b0`
+Paid-only provider controls unavailable on the current Supabase Free plan are not blockers by themselves when an approved alternative validation path exists. Do not claim unavailable controls are enabled.
 
-Certification facts for that retained baseline:
+Remaining readiness work continues to include current-main hosted certification, approved QA AI/provider validation, and remaining recovery/Storage evidence as required by the deployment runbook and migration-operator policy.
 
-- QA Render URL: `https://hydroqualisense-qa.onrender.com`
-- QA Render service: `hydroqualisense-qa`
-- application-bearing Render deploy at `288940a196ff5886d352ed665f0d06dd998513b0`: **verified LIVE at certification time**
-- QA Supabase ref: `vrpuznofrntyqsbugrib`
-- QA migration head recorded for that certification evidence: `20260909053311_company_ai_secret_key_rpc_compatibility`
-- Client A production Supabase ref: `qijjshdwiylojvqojxyz`
-- production inspection during QA certification remains strictly read-only
+## Production boundary
 
-Documentation-only or CI-orchestration-only commits do not invalidate the most recent hosted runtime artifact. Application/runtime/migration-bearing changes do require a new exact deployed SHA + migration-parity + Hosted QA cycle before they become the new certified application baseline. Wave 1A was application-bearing, so `354cfd6a...` must not be represented as hosted-certified based on the older artifact.
+Production remains read-only unless explicitly authorized under `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md`.
 
-Recent QA hardening remains recorded through PRs #109-#120, including QA identity, persisted-auth fail-closed behavior, exact-SHA binding, route-readiness stabilization, repository-derived migration truth, Auth URL correction, modern Supabase secret-key compatibility, migration-first release sequencing, and protected Hosted QA boundaries.
+A merge, green PR CI, Render deployment, QA success, or documentation update does not authorize production database/Auth/Storage/secret writes or migration promotion.
 
-## Plan-tier policy
+## Settings Features & Roadmap synchronization
 
-QA certification must distinguish a real defect from a provider capability unavailable on the current plan.
+`src/config/productFeatures.ts` must remain client-facing product truth.
 
-**Paid-only provider controls are not certification blockers merely because QA is on a Free tier.** Record them as accepted plan limitations and carry them into final production-readiness review. Do not invent evidence that an unavailable control is enabled.
+During Wave 4D:
 
-Free-tier alternatives that can validate a safety property may still be required, such as manual off-site database export/restore and separate Storage byte backup/restore instead of paid managed PITR/backups.
+- do not mark SMS Available before real provider-backed QA evidence exists;
+- update Email/SMS and Documents descriptions/status only when the user-facing workflows are genuinely usable;
+- never expose internal waves, PRs, CI, SHAs, migration names, agent terminology, or provider secrets in Settings.
 
-## Migration and release-promotion gate — PASS / DURABLE RULE
+## Definition of Wave 4D completion
 
-- Render build: `npm install && npm run build`
-- Render start: `npm start`
-- routine Render deployment contains no Supabase migration promotion command
-- database promotion remains explicit through guarded repository/connected-operator policy
-- expected migration level is derived from canonical repository migration filenames
-- application deployment and migration promotion remain separate release actions
-- protected QA release sequencing must verify exact intended SHA and canonical migration parity before Hosted QA
+The broader Email/SMS + Documents phase is complete only when the completion criteria in `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md` are satisfied, including the separate Email/SMS and Documents product surfaces and real provider-backed SMS unless the user explicitly changes that requirement.
 
-Docs/tests/CI-only changes do not justify expensive hosted runtime certification merely to chase repository SHA. Application/runtime/migration changes do.
+Until then:
 
-## Supabase Auth URL/provider gate — PASS WITH FREE-TIER LIMITATION
-
-Verified operator evidence recorded for QA:
-
-- Site URL: `https://hydroqualisense-qa.onrender.com`
-- redirect allow-list uses exact QA application callback targets, including password recovery `/?auth=reset` and Gmail/Google OAuth `/email-intake`
-- unsafe catch-all `https://**` redirect was removed
-
-Leaked-password protection is unavailable on the current Free plan and is an accepted non-blocking plan limitation. Do not weaken application Auth/RBAC controls because the provider control is unavailable.
-
-## Hosted authenticated QA gate — LAST RETAINED PASS
-
-Hosted QA Certification run `#34318578911` succeeded on application-bearing SHA `288940a196ff5886d352ed665f0d06dd998513b0` against the QA deployment after migration promotion.
-
-Retained evidence includes:
-
-- exact-SHA readiness before authentication/scenarios;
-- authenticated persistence and unauthenticated protected-route rejection;
-- `/api/health` QA deployment identity and migration-level match for that baseline;
-- 8/8 authenticated route checks, including Settings and Email Intake;
-- healthy AI metadata in the legitimate unconfigured state;
-- Engineering Storage byte upload/read/hash probe with cleanup;
-- zero console errors, page errors, failed requests, or contract failures.
-
-This artifact remains evidence for **that** application-bearing SHA only. It is not proof for the newer Wave 1A application-bearing `main`.
-
-## Browser QA layers
-
-HydroQualiSense intentionally uses two browser-validation layers:
-
-1. **Local PR/demo QA** builds the checked-out PR, serves isolated `/demo` data, and performs deterministic rendering/navigation/interaction checks without production Auth/Supabase/Storage/Gmail/company writes.
-2. **Hosted QA browser regression** targets only the protected QA deployment and verifies exact application-bearing repository SHA, deployment identity, canonical migration level, authenticated state, real route data states, and bounded synthetic Storage evidence.
-
-Wave 1A's new supplier/Expense/Cash scenarios passed deterministic desktop and approximately 390px mobile browser QA on the final exact PR head. That evidence closes the targeted Wave 1A mobile flow but does not prove every existing dense Expense/table state is fully mobile-optimized; UX-015 therefore remains partially evidenced/open in the audit.
-
-## Product-truth surface boundaries
-
-- **Email Intake** supports read-only Gmail search/sync, user-selected preservation/import into existing invoice, statement, or Expense review workflows, saved routing rules, and a manual forwarded-invoice fallback. SMS/broadcast automation is not presented as active.
-- **Engineering Documents** remains a project-owned register; supplier evidence, issued financial documents, and other attachments remain owned by canonical workflows.
-- **Internal audit IDs/waves** are repository/operator information and must not be exposed in client Settings.
-- **AI Settings** separates runtime/configuration status from one-time bootstrap and must never expose credentials.
-- **Settings Features & Roadmap** reflects the actual Available supplier-payment and client-invoice collection behavior. Do not add internal audit IDs, PRs, CI, migration names, SHAs, or agent terminology there.
-
-## Initial AI bootstrap gate — PENDING
-
-The privileged bootstrap contract remains service-role-only. Live QA still requires its own approved synthetic-company AI bootstrap and provider validation before QA can be READY.
-
-Use the normal authenticated Settings initial AI setup flow with an approved QA Gemini credential. Store only the encrypted credential envelope. Never place plaintext provider secrets in SQL, repository files, browser storage, logs, or handoff documentation.
-
-## Recovery gate — PARTIALLY EVIDENCED / NOT READY
-
-Paid managed automatic backup/PITR absence is not a Free-tier blocker.
-
-Recorded completed evidence:
-
-- QA PostgreSQL `public,private` schema/data export created outside the database;
-- successful restore into fresh isolated PostgreSQL 17;
-- representative restored counts matched recorded QA;
-- deployment resolver and AI bootstrap RPC present in the restored schema.
-
-Remaining achievable recovery evidence:
-
-1. retain/transfer the PostgreSQL export in an approved off-site operator location;
-2. separate backup of representative Supabase Storage object bytes;
-3. isolated byte restore/read/hash/path-permission verification.
-
-Database backup evidence does not prove Storage object recovery.
-
-## Production separation — PASS
-
-Client A production remains read-only during QA/readiness work unless explicitly authorized under repository policy. Application SHA and database migration level are independent release facts; do not infer one from the other.
-
-## QA CERTIFICATION result
-
-`QA CERTIFICATION: NOT READY`
-
-Recorded passed/no-longer-blocking items include:
-
-- prior certified application-bearing QA deployment synchronization;
-- guarded QA migration/parity evidence for the retained baseline;
-- server-only AI RPC compatibility checks;
-- repository-derived migration truth;
-- deployment/promotion separation and migration-first ordering;
-- retained Hosted QA Auth/routes/Storage evidence;
-- off-provider database export/restore drill;
-- corrected QA Auth URL/redirect allow-list;
-- leaked-password protection correctly classified as a non-blocking Free-tier limitation;
-- production separation/read-only policy.
-
-Remaining achievable gates:
-
-1. live QA initial AI bootstrap + provider validation with an approved QA Gemini credential;
-2. approved off-site retention of the QA PostgreSQL export;
-3. separate Storage byte backup + isolated restore/read/hash/path-permission evidence;
-4. because Wave 1A is a newer application-bearing main, establish the required exact deployed-SHA/migration-parity/Hosted-QA evidence for the current application before declaring that newer baseline certified.
-
-Do **not** block READY on paid-only provider controls unavailable on the current Free plan. Do **not** mark READY until the achievable gates are evidenced.
-
-## Broader approved product roadmap after audit waves
-
-The audit reprioritization does not delete or cancel these phases:
-
-1. Email/SMS + Documents improvements;
-2. Worker Registration foundation: `project/site QR -> PENDING worker submission -> supervisor/admin duplicate/identity/project review -> canonical Worker/payroll/project assignment`;
-3. Site Attendance state machine + registered site/device + explicit time-in/time-out + duplicate-punch/offline/correction audit;
-4. Face-Recognition Attendance only after explicit consent/privacy, retention/deletion, liveness, confidence/fallback, device binding, offline/concurrency, and payroll-boundary design;
-5. final pre-production security/data-integrity certification before broad rollout.
-
-Worker registration begins `PENDING`; ambiguous identity/duplicates require human review; approval creates or links canonical workforce truth; uploaded images are evidence/enrollment input, not authoritative identity by themselves; face recognition is out of scope until its dedicated design phase.
-
-## Permanent invariants
-
-1. `one deployment -> one client company -> active membership/RBAC -> permitted workflows`.
-2. Unrelated clients do not share operational databases/Auth/Storage/secrets.
-3. Keep company-scoped RLS, permissions, company-bound integrity, audit history and company-prefixed Storage paths.
-4. Supplier evidence linked to an Expense must not become duplicate payable/Actual Cost truth.
-5. Actual Cost and Committed Cost remain distinct.
-6. Client Invoices/Collections remain distinct from supplier obligations/project Actual Cost.
-7. Cash/bank settlement/reconciliation evidence must not double-count collection or payable truth.
-8. Preserve original currency; never invent FX.
-9. Finalized/auditable financial, inventory, engineering, payroll, document and future attendance history changes only through deliberate lifecycle/correction paths.
-10. Imported/AI identity is evidence when ambiguous, not canonical truth by default.
-11. Inventory stock remains explainable from authoritative movements.
-12. Biometric attendance requires explicit privacy/identity/device/correction/audit semantics before production use.
-13. Consequential AI-assisted mutations preserve prepare/validate/human-confirm/execute boundaries.
-
-Still unresolved by design: VAT rate, VAT-inclusive vs VAT-exclusive contract value, withholding/BIR classification, automatic/external FX-provider policy, and broader accounting-period policy. Do not infer them.
+**Worker Registration remains paused and is not the next product phase.**
