@@ -5,7 +5,6 @@ import {
   Document,
   Footer,
   HeadingLevel,
-  PageOrientation,
   Packer,
   Paragraph,
   Table,
@@ -355,7 +354,7 @@ function templateParagraph(label: string, tag: string) {
 
 export async function buildDocxTemplateFromBlueprint(input: unknown, requestedType: DocumentTemplateType): Promise<{ bytes: Uint8Array; blueprint: TemplateBlueprint; bindings: readonly DocumentTemplateBinding[] }> {
   const validated = validateTemplateBlueprint(input, requestedType);
-  if (!validated.ok) throw new DocumentTemplateValidationError(`The template blueprint is invalid: ${validated.errors.join(" ")}`);
+  if (validated.ok === false) throw new DocumentTemplateValidationError(`The template blueprint is invalid: ${validated.errors.join(" ")}`);
   const blueprint = validated.blueprint;
   const isPo = requestedType === "PURCHASE_ORDER";
   const scalarChildren: Array<Paragraph | Table> = [];
@@ -409,7 +408,6 @@ export async function buildDocxTemplateFromBlueprint(input: unknown, requestedTy
       properties: {
         page: {
           margin: { top: 720, right: 720, bottom: 720, left: 720 },
-          orientation: blueprint.lineColumns.length > 5 ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
         },
       },
       children: scalarChildren,
