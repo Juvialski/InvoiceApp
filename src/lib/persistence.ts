@@ -43,10 +43,25 @@ export async function ensureWorkspaceProfile() {
   const { data, error } = await client.auth.getUser();
   if (error || !data.user) throw new Error("Sign in before loading workspace data.");
   const metadata = data.user.user_metadata || {};
+  const { data: existingProfile, error: existingProfileError } = await client
+    .from("profiles")
+    .select("full_name")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  if (existingProfileError) throw existingProfileError;
+  const metadataName = typeof metadata.full_name === "string" ? metadata.full_name.trim() : typeof metadata.name === "string" ? metadata.name.trim() : "";
+  const emailAlias = (data.user.email || "").split("@")[0]?.trim().toLowerCase() || "";
+  const existingName = typeof existingProfile?.full_name === "string" ? existingProfile.full_name.trim() : "";
+  // Older bootstrapping used the email local-part as a display name. Do not
+  // preserve that fallback into new issued-document snapshots.
+  const legacyEmailFallback = Boolean(existingName && emailAlias && existingName.toLowerCase() === emailAlias && !metadataName);
+  const fullName = existingProfile
+    ? (legacyEmailFallback ? null : existingName || null)
+    : (metadataName || null);
   const { error: profileError } = await client.from("profiles").upsert({
     id: data.user.id,
     email: data.user.email || null,
-    full_name: metadata.full_name || metadata.name || data.user.email?.split("@")[0] || null,
+    full_name: fullName,
     avatar_url: metadata.avatar_url || null,
     updated_at: new Date().toISOString(),
   }, { onConflict: "id" });

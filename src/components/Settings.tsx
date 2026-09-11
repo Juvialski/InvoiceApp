@@ -8,6 +8,7 @@ import { CompanyProfileSettings } from "./access/CompanyProfileSettings.tsx";
 import { CompanyDocumentProfileSettings } from "./access/CompanyDocumentProfileSettings.tsx";
 import { CompanyDocumentTemplatesSettings } from "./access/CompanyDocumentTemplatesSettings.tsx";
 import { DeploymentAiBootstrapSettings } from "./access/DeploymentAiBootstrapSettings.tsx";
+import { UserDocumentIdentitySettings } from "./access/UserDocumentIdentitySettings.tsx";
 import { ProductFeaturesRoadmap } from "./ProductFeaturesRoadmap.tsx";
 
 interface SettingsProps {
@@ -116,6 +117,8 @@ export const Settings: React.FC<SettingsProps> = ({ settings, onChange, showDepl
       <CompanyDocumentTemplatesSettings demoMode={!showDeploymentAccessManagement} />
 
       {showDeploymentAccessManagement && <CompanyDocumentProfileSettings />}
+
+      {showDeploymentAccessManagement && <UserDocumentIdentitySettings />}
 
       {showDeploymentAccessManagement && <DeploymentAiBootstrapSettings />}
 

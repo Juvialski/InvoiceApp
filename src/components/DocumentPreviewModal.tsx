@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Download, FileText, History, Loader2, Mail
 import type { FinancialDocumentSnapshot } from "../lib/documentGeneration.ts";
 import { documentFileName, downloadPdfBytes, generateFinancialDocumentPdf } from "../lib/documentGeneration.ts";
 import { loadCompanyDocumentProfileFromSupabase } from "../lib/companyDocumentProfile.ts";
+import { loadCurrentUserDocumentIdentity } from "../lib/userProfile.ts";
 import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "../lib/documentSnapshots.ts";
 import { loadIssuedDocumentPdf } from "../lib/documentSnapshots.ts";
 import { DocumentSendError, sendFinancialDocumentByGmail } from "../lib/documentEmail.ts";
@@ -85,6 +86,10 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
     void (async () => {
       try {
         const profile = await loadCompanyDocumentProfileFromSupabase();
+        let documentIdentity = "";
+        if (initialDocument.status !== "ISSUED") {
+          try { documentIdentity = (await loadCurrentUserDocumentIdentity()).displayName; } catch { /* Keep the neutral local-draft fallback. */ }
+        }
         if (cancelled) return;
         if (initialDocument.status === "ISSUED") {
           const persisted = initialDocument.documentType === "PURCHASE_ORDER"
@@ -93,7 +98,11 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
           if (!cancelled && persisted) setDocument(persisted);
           else if (!cancelled) setDocument((current) => ({ ...current, company: { ...current.company, ...profile } }));
         } else {
-          setDocument((current) => ({ ...current, company: { ...current.company, ...profile } }));
+          setDocument((current) => ({
+            ...current,
+            company: { ...current.company, ...profile },
+            ...(documentIdentity ? { processor: { ...current.processor, name: documentIdentity } } : {}),
+          }));
         }
       } catch {
         // The deterministic local snapshot remains a truthful preview if the
