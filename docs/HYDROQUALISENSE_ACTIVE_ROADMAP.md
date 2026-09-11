@@ -24,10 +24,11 @@ Wave 4B High-Fidelity PDF Finalization Foundation is complete through PR #135.
 Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History is complete through PR #136.
 Wave 4D Email/SMS + Documents workspace implementation is integrated through PR #138, but Wave 4D remains incomplete until approved provider-backed SMS is configured and runtime-tested in QA.
 PR #140 merged the full live-QA harness plus regression-covered hardening for the project-create identity, RFQ quotation payload, mixed-unit PO receipt continuation, payroll-run persistence, and hosted Documents assertion findings observed during the 2026-09-11 QA simulation.
+PR #144 merged the focused UI/UX remediation and connected Gmail QA audit, including responsive operational registers, receipt-entry fixes, Gmail incremental-queue retention, document-preview mobile hardening, and programmatic PDF separator safety. It did not resolve the broader preview-versus-downloaded-PDF fidelity gap, which remains the next targeted UI/document-quality work.
 
 Current merged application and QA-hardening baseline:
 
-`ec51c29f2b1bdf6927f41746f38a4c967aeb5bff`
+`46e0af036b7a66e6a6f86e0a4557bea576b605bf` (PR #144)
 
 Wave 4A-4C are **supporting foundations**, not completion of the broader Email/SMS + Documents product experience.
 
@@ -249,8 +250,8 @@ The follow-up UI audit is recorded in `artifacts/ui-ux-audit/REPORT.md` and
 `findings.json`. It covers the authenticated major workspaces and the bounded
 local demo visual run: 76 scenarios across 34 routes and four viewport
 profiles, with zero console/page errors, failed requests, overflow failures,
-or failed scenarios. The branch fixes preserve the existing source, document,
-financial, permission, and delivery-history authorities.
+or failed scenarios. The merged PR #144 fixes preserve the existing source,
+document, financial, permission, and delivery-history authorities.
 
 QA remains **NOT READY**. SMS is not configured, native high-fidelity PDF
 conversion is unavailable, inbound provider routing and separate mailbox
