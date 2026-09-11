@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "run": {
-    "commitSha": "2b48ea14b462c42577fc7ce9fd63ae2c6f34654b",
+    "commitSha": "0e5c05fe614326f7c0c60351ee7fc963548117aa",
     "branch": "codex/ui-ux-audit-20260911",
-    "timestamp": "2026-09-11T03:43:06.899Z",
+    "timestamp": "2026-09-11T03:52:06.493Z",
     "trigger": "local",
     "appMode": "demo"
   },
@@ -77,8 +77,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 2378,
-      "timestamp": "2026-09-11T03:43:07.033Z",
+      "durationMs": 3009,
+      "timestamp": "2026-09-11T03:52:06.587Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -137,8 +137,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1891,
-      "timestamp": "2026-09-11T03:43:09.412Z",
+      "durationMs": 1643,
+      "timestamp": "2026-09-11T03:52:09.597Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -197,8 +197,8 @@
           "details": "0px beyond 1366px viewport"
         }
       ],
-      "durationMs": 1618,
-      "timestamp": "2026-09-11T03:43:11.303Z",
+      "durationMs": 1727,
+      "timestamp": "2026-09-11T03:52:11.240Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -262,8 +262,8 @@
           "details": "close-navigation controls: 2"
         }
       ],
-      "durationMs": 1705,
-      "timestamp": "2026-09-11T03:43:12.921Z",
+      "durationMs": 1697,
+      "timestamp": "2026-09-11T03:52:12.967Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -337,8 +337,8 @@
           "details": "remaining-to-bill labels: 8"
         }
       ],
-      "durationMs": 1702,
-      "timestamp": "2026-09-11T03:43:14.626Z",
+      "durationMs": 2106,
+      "timestamp": "2026-09-11T03:52:14.664Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -412,8 +412,8 @@
           "details": "flagged project result nodes: 3"
         }
       ],
-      "durationMs": 1389,
-      "timestamp": "2026-09-11T03:43:16.329Z",
+      "durationMs": 1356,
+      "timestamp": "2026-09-11T03:52:16.770Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -487,8 +487,8 @@
           "details": "remaining-to-bill labels: 8"
         }
       ],
-      "durationMs": 1332,
-      "timestamp": "2026-09-11T03:43:17.718Z",
+      "durationMs": 1173,
+      "timestamp": "2026-09-11T03:52:18.127Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -562,8 +562,8 @@
           "details": "remaining-to-bill labels: 8"
         }
       ],
-      "durationMs": 1342,
-      "timestamp": "2026-09-11T03:43:19.050Z",
+      "durationMs": 1179,
+      "timestamp": "2026-09-11T03:52:19.301Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -637,8 +637,8 @@
           "details": "remaining-to-bill labels: 8"
         }
       ],
-      "durationMs": 1257,
-      "timestamp": "2026-09-11T03:43:20.392Z",
+      "durationMs": 1159,
+      "timestamp": "2026-09-11T03:52:20.480Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -697,8 +697,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1202,
-      "timestamp": "2026-09-11T03:43:21.649Z",
+      "durationMs": 1126,
+      "timestamp": "2026-09-11T03:52:21.639Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -777,8 +777,8 @@
           "details": "subcontract row nodes: 2"
         }
       ],
-      "durationMs": 1334,
-      "timestamp": "2026-09-11T03:43:22.852Z",
+      "durationMs": 1230,
+      "timestamp": "2026-09-11T03:52:22.765Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -857,8 +857,8 @@
           "details": "Record Payment links: 1"
         }
       ],
-      "durationMs": 1418,
-      "timestamp": "2026-09-11T03:43:24.186Z",
+      "durationMs": 1385,
+      "timestamp": "2026-09-11T03:52:23.995Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -947,8 +947,8 @@
           "details": "disconnected delivery-history notices: 1"
         }
       ],
-      "durationMs": 1305,
-      "timestamp": "2026-09-11T03:43:25.604Z",
+      "durationMs": 1253,
+      "timestamp": "2026-09-11T03:52:25.380Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1037,8 +1037,8 @@
           "details": "disconnected delivery-history notices: 1"
         }
       ],
-      "durationMs": 1291,
-      "timestamp": "2026-09-11T03:43:26.909Z",
+      "durationMs": 1252,
+      "timestamp": "2026-09-11T03:52:26.633Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1132,8 +1132,8 @@
           "details": "final source path: http://127.0.0.1:3000/demo/app/procurement?poId=demo-po-wh-002&receiptId=demo-po-rec-wh-01&from=%2Fwarehouse%3FmovementId%3Ddemo-inventory-movement-concrete-receipt"
         }
       ],
-      "durationMs": 1771,
-      "timestamp": "2026-09-11T03:43:28.200Z",
+      "durationMs": 1919,
+      "timestamp": "2026-09-11T03:52:27.885Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1184,7 +1184,7 @@
         {
           "id": "page-has-content",
           "passed": true,
-          "details": "body text length: 5597"
+          "details": "body text length: 5403"
         },
         {
           "id": "horizontal-overflow",
@@ -1227,8 +1227,8 @@
           "details": "final source path: http://127.0.0.1:3000/demo/app/procurement?poId=demo-po-wh-002&receiptId=demo-po-rec-wh-01&from=%2Fwarehouse%3FmovementId%3Ddemo-inventory-movement-concrete-receipt"
         }
       ],
-      "durationMs": 1659,
-      "timestamp": "2026-09-11T03:43:29.973Z",
+      "durationMs": 1709,
+      "timestamp": "2026-09-11T03:52:29.804Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1307,8 +1307,8 @@
           "details": "history controls: 5"
         }
       ],
-      "durationMs": 1134,
-      "timestamp": "2026-09-11T03:43:31.632Z",
+      "durationMs": 1194,
+      "timestamp": "2026-09-11T03:52:31.513Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1372,8 +1372,8 @@
           "details": "matching project headings: 1"
         }
       ],
-      "durationMs": 1768,
-      "timestamp": "2026-09-11T03:43:32.766Z",
+      "durationMs": 1857,
+      "timestamp": "2026-09-11T03:52:32.707Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1472,8 +1472,8 @@
           "details": "project warehouse read-through labels: 1"
         }
       ],
-      "durationMs": 1737,
-      "timestamp": "2026-09-11T03:43:34.534Z",
+      "durationMs": 1587,
+      "timestamp": "2026-09-11T03:52:34.564Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1557,8 +1557,8 @@
           "details": "financial metric cards: 13"
         }
       ],
-      "durationMs": 1421,
-      "timestamp": "2026-09-11T03:43:36.271Z",
+      "durationMs": 1570,
+      "timestamp": "2026-09-11T03:52:36.151Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1642,8 +1642,8 @@
           "details": "financial metric cards: 13"
         }
       ],
-      "durationMs": 1593,
-      "timestamp": "2026-09-11T03:43:37.692Z",
+      "durationMs": 1516,
+      "timestamp": "2026-09-11T03:52:37.721Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1727,8 +1727,8 @@
           "details": "financial metric cards: 13"
         }
       ],
-      "durationMs": 1506,
-      "timestamp": "2026-09-11T03:43:39.285Z",
+      "durationMs": 1399,
+      "timestamp": "2026-09-11T03:52:39.237Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1812,8 +1812,8 @@
           "details": "financial metric cards: 13"
         }
       ],
-      "durationMs": 1433,
-      "timestamp": "2026-09-11T03:43:40.791Z",
+      "durationMs": 1453,
+      "timestamp": "2026-09-11T03:52:40.637Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1892,8 +1892,8 @@
           "details": "available financial metrics: 13"
         }
       ],
-      "durationMs": 1698,
-      "timestamp": "2026-09-11T03:43:42.224Z",
+      "durationMs": 1431,
+      "timestamp": "2026-09-11T03:52:42.090Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -1952,8 +1952,8 @@
           "details": "0px beyond 768px viewport"
         }
       ],
-      "durationMs": 1467,
-      "timestamp": "2026-09-11T03:43:43.922Z",
+      "durationMs": 1535,
+      "timestamp": "2026-09-11T03:52:43.521Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2012,8 +2012,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1236,
-      "timestamp": "2026-09-11T03:43:45.389Z",
+      "durationMs": 1171,
+      "timestamp": "2026-09-11T03:52:45.057Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2072,8 +2072,8 @@
           "details": "0px beyond 390px viewport"
         }
       ],
-      "durationMs": 1153,
-      "timestamp": "2026-09-11T03:43:46.625Z",
+      "durationMs": 1212,
+      "timestamp": "2026-09-11T03:52:46.228Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2137,8 +2137,8 @@
           "details": "demo drawing preview panels: 1"
         }
       ],
-      "durationMs": 1385,
-      "timestamp": "2026-09-11T03:43:47.778Z",
+      "durationMs": 1285,
+      "timestamp": "2026-09-11T03:52:47.441Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2217,8 +2217,8 @@
           "details": "template management controls: 1"
         }
       ],
-      "durationMs": 1450,
-      "timestamp": "2026-09-11T03:43:49.163Z",
+      "durationMs": 1501,
+      "timestamp": "2026-09-11T03:52:48.726Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2297,8 +2297,8 @@
           "details": "template management controls: 1"
         }
       ],
-      "durationMs": 1364,
-      "timestamp": "2026-09-11T03:43:50.613Z",
+      "durationMs": 1320,
+      "timestamp": "2026-09-11T03:52:50.227Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2377,8 +2377,8 @@
           "details": "template management controls: 1"
         }
       ],
-      "durationMs": 1401,
-      "timestamp": "2026-09-11T03:43:51.977Z",
+      "durationMs": 1257,
+      "timestamp": "2026-09-11T03:52:51.547Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2447,8 +2447,8 @@
           "details": "handoff URL: http://127.0.0.1:3000/demo/app/email-sms?view=compose&documentType=PURCHASE_ORDER&documentId=demo-po-sol-001&from=%2Fdocuments"
         }
       ],
-      "durationMs": 1531,
-      "timestamp": "2026-09-11T03:43:53.378Z",
+      "durationMs": 2054,
+      "timestamp": "2026-09-11T03:52:52.804Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2507,8 +2507,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1415,
-      "timestamp": "2026-09-11T03:43:54.910Z",
+      "durationMs": 1421,
+      "timestamp": "2026-09-11T03:52:54.858Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2567,8 +2567,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1126,
-      "timestamp": "2026-09-11T03:43:56.325Z",
+      "durationMs": 1117,
+      "timestamp": "2026-09-11T03:52:56.279Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2627,8 +2627,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1251,
-      "timestamp": "2026-09-11T03:43:57.451Z",
+      "durationMs": 1129,
+      "timestamp": "2026-09-11T03:52:57.396Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2687,8 +2687,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1240,
-      "timestamp": "2026-09-11T03:43:58.702Z",
+      "durationMs": 1100,
+      "timestamp": "2026-09-11T03:52:58.525Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2747,8 +2747,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1134,
-      "timestamp": "2026-09-11T03:43:59.942Z",
+      "durationMs": 1131,
+      "timestamp": "2026-09-11T03:52:59.625Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2807,8 +2807,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1159,
-      "timestamp": "2026-09-11T03:44:01.076Z",
+      "durationMs": 1148,
+      "timestamp": "2026-09-11T03:53:00.756Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2867,8 +2867,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1241,
-      "timestamp": "2026-09-11T03:44:02.235Z",
+      "durationMs": 1219,
+      "timestamp": "2026-09-11T03:53:01.905Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2927,8 +2927,8 @@
           "details": "0px beyond 768px viewport"
         }
       ],
-      "durationMs": 1127,
-      "timestamp": "2026-09-11T03:44:03.476Z",
+      "durationMs": 1130,
+      "timestamp": "2026-09-11T03:53:03.124Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -2987,8 +2987,8 @@
           "details": "0px beyond 390px viewport"
         }
       ],
-      "durationMs": 1171,
-      "timestamp": "2026-09-11T03:44:04.604Z",
+      "durationMs": 1118,
+      "timestamp": "2026-09-11T03:53:04.254Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3047,8 +3047,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1481,
-      "timestamp": "2026-09-11T03:44:05.775Z",
+      "durationMs": 1680,
+      "timestamp": "2026-09-11T03:53:05.372Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3107,8 +3107,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1548,
-      "timestamp": "2026-09-11T03:44:07.256Z",
+      "durationMs": 1494,
+      "timestamp": "2026-09-11T03:53:07.052Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3167,8 +3167,8 @@
           "details": "0px beyond 768px viewport"
         }
       ],
-      "durationMs": 1484,
-      "timestamp": "2026-09-11T03:44:08.804Z",
+      "durationMs": 1415,
+      "timestamp": "2026-09-11T03:53:08.546Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3232,8 +3232,8 @@
           "details": "matching headings: 1"
         }
       ],
-      "durationMs": 1122,
-      "timestamp": "2026-09-11T03:44:10.288Z",
+      "durationMs": 1460,
+      "timestamp": "2026-09-11T03:53:09.961Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3312,8 +3312,8 @@
           "details": "Gmail connection controls: 1"
         }
       ],
-      "durationMs": 1158,
-      "timestamp": "2026-09-11T03:44:11.411Z",
+      "durationMs": 1150,
+      "timestamp": "2026-09-11T03:53:11.421Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3392,8 +3392,8 @@
           "details": "Gmail connection controls: 1"
         }
       ],
-      "durationMs": 1085,
-      "timestamp": "2026-09-11T03:44:12.569Z",
+      "durationMs": 1078,
+      "timestamp": "2026-09-11T03:53:12.571Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3472,8 +3472,8 @@
           "details": "Gmail connection controls: 1"
         }
       ],
-      "durationMs": 1126,
-      "timestamp": "2026-09-11T03:44:13.654Z",
+      "durationMs": 1089,
+      "timestamp": "2026-09-11T03:53:13.649Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3552,8 +3552,8 @@
           "details": "confirm controls: 1"
         }
       ],
-      "durationMs": 1123,
-      "timestamp": "2026-09-11T03:44:14.781Z",
+      "durationMs": 1116,
+      "timestamp": "2026-09-11T03:53:14.738Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3632,8 +3632,8 @@
           "details": "confirm controls: 1"
         }
       ],
-      "durationMs": 1070,
-      "timestamp": "2026-09-11T03:44:15.904Z",
+      "durationMs": 1108,
+      "timestamp": "2026-09-11T03:53:15.854Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3692,8 +3692,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1066,
-      "timestamp": "2026-09-11T03:44:16.974Z",
+      "durationMs": 1077,
+      "timestamp": "2026-09-11T03:53:16.962Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3757,8 +3757,8 @@
           "details": "SMS not-configured panels/text: 1/1"
         }
       ],
-      "durationMs": 1121,
-      "timestamp": "2026-09-11T03:44:18.040Z",
+      "durationMs": 1087,
+      "timestamp": "2026-09-11T03:53:18.039Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3822,8 +3822,8 @@
           "details": "SMS not-configured panels/text: 1/1"
         }
       ],
-      "durationMs": 1091,
-      "timestamp": "2026-09-11T03:44:19.161Z",
+      "durationMs": 1051,
+      "timestamp": "2026-09-11T03:53:19.126Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3887,8 +3887,8 @@
           "details": "matching headings: 1"
         }
       ],
-      "durationMs": 1120,
-      "timestamp": "2026-09-11T03:44:20.252Z",
+      "durationMs": 1093,
+      "timestamp": "2026-09-11T03:53:20.177Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -3962,8 +3962,8 @@
           "details": "Supplier documents child routes: 1"
         }
       ],
-      "durationMs": 1307,
-      "timestamp": "2026-09-11T03:44:21.372Z",
+      "durationMs": 1308,
+      "timestamp": "2026-09-11T03:53:21.270Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4022,8 +4022,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1198,
-      "timestamp": "2026-09-11T03:44:22.679Z",
+      "durationMs": 1177,
+      "timestamp": "2026-09-11T03:53:22.578Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4117,8 +4117,8 @@
           "details": "correction continuation controls: 1"
         }
       ],
-      "durationMs": 1331,
-      "timestamp": "2026-09-11T03:44:23.877Z",
+      "durationMs": 1338,
+      "timestamp": "2026-09-11T03:53:23.755Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4212,8 +4212,8 @@
           "details": "correction continuation controls: 1"
         }
       ],
-      "durationMs": 1356,
-      "timestamp": "2026-09-11T03:44:25.208Z",
+      "durationMs": 1346,
+      "timestamp": "2026-09-11T03:53:25.093Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4272,8 +4272,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1192,
-      "timestamp": "2026-09-11T03:44:26.564Z",
+      "durationMs": 1170,
+      "timestamp": "2026-09-11T03:53:26.439Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4337,8 +4337,8 @@
           "details": "matching headings: 1"
         }
       ],
-      "durationMs": 1248,
-      "timestamp": "2026-09-11T03:44:27.757Z",
+      "durationMs": 1139,
+      "timestamp": "2026-09-11T03:53:27.609Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4397,8 +4397,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1241,
-      "timestamp": "2026-09-11T03:44:29.005Z",
+      "durationMs": 1498,
+      "timestamp": "2026-09-11T03:53:28.748Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4457,8 +4457,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1335,
-      "timestamp": "2026-09-11T03:44:30.246Z",
+      "durationMs": 1212,
+      "timestamp": "2026-09-11T03:53:30.246Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4517,8 +4517,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1513,
-      "timestamp": "2026-09-11T03:44:31.582Z",
+      "durationMs": 1530,
+      "timestamp": "2026-09-11T03:53:31.459Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4592,8 +4592,8 @@
           "details": "supplier invoice source links: 1"
         }
       ],
-      "durationMs": 1521,
-      "timestamp": "2026-09-11T03:44:33.095Z",
+      "durationMs": 1506,
+      "timestamp": "2026-09-11T03:53:32.990Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4667,8 +4667,8 @@
           "details": "supplier invoice source links: 1"
         }
       ],
-      "durationMs": 1505,
-      "timestamp": "2026-09-11T03:44:34.616Z",
+      "durationMs": 1337,
+      "timestamp": "2026-09-11T03:53:34.496Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4742,8 +4742,8 @@
           "details": "recovered register headings: 1"
         }
       ],
-      "durationMs": 1693,
-      "timestamp": "2026-09-11T03:44:36.121Z",
+      "durationMs": 1581,
+      "timestamp": "2026-09-11T03:53:35.833Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4822,8 +4822,8 @@
           "details": "returned Expense panels: 1"
         }
       ],
-      "durationMs": 1976,
-      "timestamp": "2026-09-11T03:44:37.814Z",
+      "durationMs": 1876,
+      "timestamp": "2026-09-11T03:53:37.414Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -4902,8 +4902,8 @@
           "details": "returned Expense panels: 1"
         }
       ],
-      "durationMs": 1836,
-      "timestamp": "2026-09-11T03:44:39.790Z",
+      "durationMs": 1805,
+      "timestamp": "2026-09-11T03:53:39.290Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -5007,8 +5007,8 @@
           "details": "returned invoice position/history panels: 1/1"
         }
       ],
-      "durationMs": 2219,
-      "timestamp": "2026-09-11T03:44:41.626Z",
+      "durationMs": 2067,
+      "timestamp": "2026-09-11T03:53:41.095Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -5112,8 +5112,8 @@
           "details": "returned invoice position/history panels: 1/1"
         }
       ],
-      "durationMs": 2205,
-      "timestamp": "2026-09-11T03:44:43.845Z",
+      "durationMs": 2039,
+      "timestamp": "2026-09-11T03:53:43.162Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -5202,8 +5202,8 @@
           "details": "disconnected delivery-history notices: 1"
         }
       ],
-      "durationMs": 1296,
-      "timestamp": "2026-09-11T03:44:46.050Z",
+      "durationMs": 1264,
+      "timestamp": "2026-09-11T03:53:45.201Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -5292,8 +5292,8 @@
           "details": "disconnected delivery-history notices: 1"
         }
       ],
-      "durationMs": 1376,
-      "timestamp": "2026-09-11T03:44:47.346Z",
+      "durationMs": 1217,
+      "timestamp": "2026-09-11T03:53:46.466Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -5352,8 +5352,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1292,
-      "timestamp": "2026-09-11T03:44:48.722Z",
+      "durationMs": 1238,
+      "timestamp": "2026-09-11T03:53:47.683Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -5447,8 +5447,8 @@
           "details": "template PDF unavailable states: 1"
         }
       ],
-      "durationMs": 1412,
-      "timestamp": "2026-09-11T03:44:50.014Z",
+      "durationMs": 1386,
+      "timestamp": "2026-09-11T03:53:48.921Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -5507,8 +5507,8 @@
           "details": "0px beyond 1440px viewport"
         }
       ],
-      "durationMs": 1087,
-      "timestamp": "2026-09-11T03:44:51.426Z",
+      "durationMs": 1014,
+      "timestamp": "2026-09-11T03:53:50.307Z",
       "status": "PASS",
       "failureReasons": []
     },
@@ -5572,8 +5572,8 @@
           "details": "tour panels: 1"
         }
       ],
-      "durationMs": 2001,
-      "timestamp": "2026-09-11T03:44:52.513Z",
+      "durationMs": 2024,
+      "timestamp": "2026-09-11T03:53:51.321Z",
       "status": "PASS",
       "failureReasons": []
     }
