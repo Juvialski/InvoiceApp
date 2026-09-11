@@ -1,4 +1,5 @@
 import { requireActiveCompanyId } from "./companyContext.ts";
+import { companyApiRequest } from "./companyApi.ts";
 import { supabase } from "./supabase.ts";
 import type { ClientBilling } from "./clientBilling.ts";
 import type { CompanyDocumentProfile } from "./companyDocumentProfile.ts";
@@ -11,6 +12,13 @@ import {
 } from "./documentGeneration.ts";
 
 export type IssuedDocumentSnapshot = PurchaseOrderDocumentSnapshot | ClientInvoiceDocumentSnapshot;
+
+export interface IssuedDocumentPdfResult {
+  readonly bytes: Uint8Array;
+  readonly fileName: string;
+  readonly source: "COMPANY_TEMPLATE_PDF" | "PROGRAMMATIC_PDF_FALLBACK";
+  readonly sha256?: string;
+}
 
 function record(value: unknown): Record<string, any> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
@@ -60,6 +68,31 @@ export async function ensureClientInvoiceDocumentSnapshot(
   });
   if (error) throw error;
   return snapshotFromRpc(data);
+}
+
+/** Fetch the exact server-rendered bytes used for an issued-document preview/download. */
+export async function loadIssuedDocumentPdf(snapshot: IssuedDocumentSnapshot): Promise<IssuedDocumentPdfResult> {
+  if (!snapshot.documentId || !snapshot.snapshotId) throw new Error("An immutable issued snapshot is required before loading its PDF.");
+  const companyId = requireActiveCompanyId();
+  const response = await companyApiRequest(
+    `/api/issued-documents/${encodeURIComponent(snapshot.documentType)}/${encodeURIComponent(snapshot.documentId)}/pdf?snapshotId=${encodeURIComponent(snapshot.snapshotId)}`,
+    { companyId },
+  );
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || "The issued document PDF could not be rendered safely.");
+  }
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const fileName = /filename="([^"]+)"/i.exec(disposition)?.[1] || "HydroQualiSense_Document.pdf";
+  const source = response.headers.get("X-Document-Pdf-Source") === "COMPANY_TEMPLATE_PDF"
+    ? "COMPANY_TEMPLATE_PDF"
+    : "PROGRAMMATIC_PDF_FALLBACK";
+  return {
+    bytes: new Uint8Array(await response.arrayBuffer()),
+    fileName,
+    source,
+    sha256: response.headers.get("X-Document-Pdf-Sha256") || undefined,
+  };
 }
 
 export function buildLocalPurchaseOrderSnapshot(

@@ -105,10 +105,11 @@ test("Wave 4D workspace surfaces reuse existing intake, send, history, and templ
   assert.match(migration, /document_send_intents_delivery_shape_check/);
 });
 
-test("financial document preview stacks mobile branding and document number without overlap", () => {
-  assert.match(documentPreview, /flex min-h-16 flex-col items-center justify-center gap-2 text-center sm:block/);
-  assert.match(documentPreview, /flex min-h-10 flex-col items-center justify-center gap-2 sm:block/);
-  assert.match(documentPreview, /sm:absolute sm:right-0 sm:top-1\/2 sm:-translate-y-1\/2/);
+test("financial document preview renders the exact issued PDF bytes instead of a divergent HTML approximation", () => {
+  assert.match(documentPreview, /loadIssuedDocumentPdf/);
+  assert.match(documentPreview, /<PdfBytePreview/);
+  assert.match(documentPreview, /data-pdf-preview-source/);
+  assert.match(documentPreview, /Generate \/ Download PDF/);
   assert.match(documentPreview, /useDialogFocus\(\{ open: true, onClose, initialFocusRef: closeButtonRef \}\)/);
   assert.match(documentPreview, /ref=\{closeButtonRef\} type="button"/);
 });

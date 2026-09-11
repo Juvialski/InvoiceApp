@@ -22,6 +22,7 @@ import { COMPANY_AI_FALLBACK_MODEL, COMPANY_AI_PRIMARY_MODEL, CompanyAiError } f
 import { InvitationDeliveryError, createInvitationServerClient, deliverCompanyInvitationEmail, invitationRedirectUrl } from "./src/server/access/invitationDelivery.ts";
 import { validatePublicProspectSubmission } from "./src/lib/publicProspect.ts";
 import { releaseMetadataFromEnv } from "./src/server/releaseMetadata.ts";
+import { loadServerPdfLogo } from "./src/server/documentPdfLogo.ts";
 import { getDocumentPdfFinalizationHealth } from "./src/server/documentTemplates/documentPdfFinalizer.ts";
 import { getSmsProviderStatus } from "./src/server/messaging/smsProvider.ts";
 import {
@@ -2206,7 +2207,7 @@ function documentSendResponseData(intent: Record<string, any>, extras: Record<st
   };
 }
 
-function renderTrustedIssuedPdf(row: { id: string; document_type: string; document_id: string; document_number: string; template_version: string; snapshot: unknown }, documentType: "PURCHASE_ORDER" | "CLIENT_INVOICE") {
+async function renderTrustedIssuedPdf(row: { id: string; document_type: string; document_id: string; document_number: string; template_version: string; snapshot: unknown }, documentType: "PURCHASE_ORDER" | "CLIENT_INVOICE") {
   if (!row.snapshot || typeof row.snapshot !== "object" || Array.isArray(row.snapshot)) {
     throw new ApiAuthorizationError(409, "COMPANY_REQUIRED", "The immutable issued snapshot cannot be rendered for sending.");
   }
@@ -2219,15 +2220,58 @@ function renderTrustedIssuedPdf(row: { id: string; document_type: string; docume
     templateVersion: row.template_version,
     status: "ISSUED",
   };
+  const image = await loadServerPdfLogo((snapshot as any).company?.logoPath);
   const bytes = documentType === "PURCHASE_ORDER"
-    ? buildPurchaseOrderPdf(snapshot as PurchaseOrderDocumentSnapshot)
-    : buildClientInvoicePdf(snapshot as ClientInvoiceDocumentSnapshot);
+    ? buildPurchaseOrderPdf(snapshot as PurchaseOrderDocumentSnapshot, image)
+    : buildClientInvoicePdf(snapshot as ClientInvoiceDocumentSnapshot, image);
   const pdfBytes = Buffer.from(bytes);
   if (pdfBytes.length === 0 || pdfBytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
     throw new ApiAuthorizationError(503, "SERVER_AUTH_UNAVAILABLE", "The immutable issued document could not be rendered safely.");
   }
   return pdfBytes;
 }
+
+app.get("/api/issued-documents/:documentType/:documentId/pdf", async (req, res) => {
+  try {
+    const documentType = issuedDocumentType(req.params.documentType);
+    const documentId = String(req.params.documentId || "").trim();
+    const snapshotId = String(req.query.snapshotId || "").trim();
+    if (!documentType || !UUID_PATTERN.test(documentId) || !UUID_PATTERN.test(snapshotId)) {
+      return res.status(400).json({ success: false, error: "An issued document type, document ID, and immutable snapshot ID are required." });
+    }
+    const auth = await authorizeCompanyRequest(req, documentReadPermission(documentType));
+    await assertIssuedDocumentDeliveryLifecycle(auth, documentType, documentId);
+    const { data: snapshot, error } = await auth.supabase
+      .from("issued_document_snapshots")
+      .select("id,document_type,document_id,document_number,template_version,template_version_id,template_sha256,snapshot")
+      .eq("company_id", auth.companyId)
+      .eq("id", snapshotId)
+      .eq("document_type", documentType)
+      .eq("document_id", documentId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!snapshot) return res.status(409).json({ success: false, error: "The immutable issued document snapshot is unavailable." });
+
+    const templatePdf = await finalizeIssuedDocumentTemplatePdfForDelivery(
+      { accessToken: auth.accessToken, companyId: auth.companyId, supabase: auth.supabase, user: auth.user },
+      {},
+      { snapshotId, documentType, documentId },
+    );
+    const source = templatePdf ? "COMPANY_TEMPLATE_PDF" : "PROGRAMMATIC_PDF_FALLBACK";
+    const pdfBytes = templatePdf ? Buffer.from(templatePdf.bytes) : await renderTrustedIssuedPdf(snapshot as any, documentType);
+    const sha256 = createHash("sha256").update(pdfBytes).digest("hex");
+    const fileName = `${documentType === "PURCHASE_ORDER" ? "Purchase_Order" : "Client_Invoice"}_${String(snapshot.document_number || "document").replace(/[^A-Za-z0-9._-]+/g, "_")}.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename="${fileName}"`);
+    res.setHeader("X-Document-Pdf-Source", source);
+    res.setHeader("X-Document-Pdf-Sha256", sha256);
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.send(pdfBytes);
+  } catch (error: any) {
+    const status = error instanceof ApiAuthorizationError ? error.status : 503;
+    return res.status(status).json({ success: false, error: error instanceof Error ? error.message : "The issued document PDF could not be rendered safely." });
+  }
+});
 
 async function recordDocumentSendAudit(auth: CompanyRequestAuthorization, input: {
   sendIntentId: string;
@@ -2299,7 +2343,7 @@ app.post("/api/gmail/send", async (req, res) => {
         { snapshotId, documentType, documentId },
       );
       attachmentSource = templatePdf ? "COMPANY_TEMPLATE_PDF" : "PROGRAMMATIC_PDF_FALLBACK";
-      pdfBytes = templatePdf ? Buffer.from(templatePdf.bytes) : renderTrustedIssuedPdf(snapshot, documentType);
+      pdfBytes = templatePdf ? Buffer.from(templatePdf.bytes) : await renderTrustedIssuedPdf(snapshot, documentType);
     }
     const trustedSha256 = pdfBytes ? createHash("sha256").update(pdfBytes).digest("hex") : null;
     const messageBodySha256 = createHash("sha256").update(message, "utf8").digest("hex");

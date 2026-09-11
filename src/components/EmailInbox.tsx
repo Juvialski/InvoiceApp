@@ -569,6 +569,7 @@ export const EmailInbox: React.FC<EmailInboxProps> = ({
               <p><strong>Read-only Gmail intake.</strong> Search and sync finance-related messages after the user authorizes Gmail.</p>
               <p><strong>Reviewable source records.</strong> Choose which messages or attachments to preserve and route for invoice, statement, or expense review.</p>
               <p><strong>Forwarded-email fallback.</strong> Paste a supplier invoice email or attach its source file when a connected mailbox is not available.</p>
+              <p><strong>SMS boundary.</strong> No SMS provider is configured here; sending remains unavailable until an approved provider is configured and runtime-tested in QA.</p>
             </div>
             <p className="mt-3 border-t border-indigo-200/70 pt-3 text-[10px] leading-4 text-indigo-800"><strong>Inbox access: read-only.</strong> Outbound email is sent from Compose and recorded in Delivery History; SMS is not configured here.</p>
           </div>
