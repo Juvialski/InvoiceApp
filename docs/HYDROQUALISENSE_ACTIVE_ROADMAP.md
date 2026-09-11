@@ -24,7 +24,7 @@ Wave 4B High-Fidelity PDF Finalization Foundation is complete through PR #135.
 Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History is complete through PR #136.
 Wave 4D Email/SMS + Documents workspace implementation is integrated through PR #138, but Wave 4D remains incomplete until approved provider-backed SMS is configured and runtime-tested in QA.
 PR #140 merged the full live-QA harness plus regression-covered hardening for the project-create identity, RFQ quotation payload, mixed-unit PO receipt continuation, payroll-run persistence, and hosted Documents assertion findings observed during the 2026-09-11 QA simulation.
-PR #144 merged the focused UI/UX remediation and connected Gmail QA audit, including responsive operational registers, receipt-entry fixes, Gmail incremental-queue retention, document-preview mobile hardening, and programmatic PDF separator safety. It did not resolve the broader preview-versus-downloaded-PDF fidelity gap, which remains the next targeted UI/document-quality work.
+PR #144 merged the focused UI/UX remediation and connected Gmail QA audit, including responsive operational registers, receipt-entry fixes, Gmail incremental-queue retention, document-preview mobile hardening, and programmatic PDF separator safety. The current targeted UI/document-quality phase now converges issued-document preview and download on the same PDF bytes and adds a local QA development loop; hosted exact-SHA QA remains a separate release gate.
 
 Current merged application and QA-hardening baseline:
 
@@ -59,6 +59,29 @@ this phase:
   Engineering records and routes actions back to their canonical owners;
 - company document templates remain administered through the existing Settings
   workflow and are discoverable from Documents.
+
+## Current local-QA and PDF-fidelity phase — implementation in progress
+
+The current Codex branch adds an ignored `.env.qa.local` setup and a deliberate
+`npm run qa:local` harness. It proves the exact isolated QA Supabase project,
+refuses the configured production project, authenticates the existing QA user,
+checks reload and fresh-route session persistence, exercises authenticated
+synthetic records, performs one bounded synthetic project write, and records
+sanitized evidence under ignored local artifacts. This is pre-merge functional
+validation; it is not QA release certification and does not authorize production.
+
+Issued programmatic PDF preview and download now use the same server-rendered
+immutable snapshot bytes, while draft preview uses the shared programmatic
+renderer and PDF.js. The renderer has shared title centering, aspect-preserving
+logo placement, width-aware wrapping, continuation-page handling, and deliberate
+Purchase Order / Client Invoice torture-case artifact checks. Company-template
+PDF output remains separately identified and truthful when the optional converter
+is unavailable.
+
+This branch's local evidence does not replace the normal post-merge sequence:
+exact intended app SHA, QA deployment identity, migration parity when required,
+then Hosted QA/provider/runtime checks. SMS remains not configured and Wave 4D
+remains incomplete.
 
 SMS provider activation remains blocked externally: no approved provider is
 configured, so SMS is not active and real provider-backed delivery/status QA has

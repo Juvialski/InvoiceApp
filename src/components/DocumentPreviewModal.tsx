@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Download, FileText, History, Loader2, Mail, MessageSquareText, Printer, RotateCcw, ShieldCheck, X } from "lucide-react";
 import type { FinancialDocumentSnapshot } from "../lib/documentGeneration.ts";
 import { documentFileName, downloadPdfBytes, generateFinancialDocumentPdf } from "../lib/documentGeneration.ts";
 import { loadCompanyDocumentProfileFromSupabase } from "../lib/companyDocumentProfile.ts";
 import { ensureClientInvoiceDocumentSnapshot, ensurePurchaseOrderDocumentSnapshot } from "../lib/documentSnapshots.ts";
+import { loadIssuedDocumentPdf } from "../lib/documentSnapshots.ts";
 import { DocumentSendError, sendFinancialDocumentByGmail } from "../lib/documentEmail.ts";
 import { documentDeliveryAttachmentLabel, loadDocumentDeliveryHistory, newDocumentDeliveryAttemptKey, type DocumentDeliveryHistoryEntry } from "../lib/documentDelivery.ts";
 import { downloadDocxBytes, generateDocumentTemplateDocument, generateDocumentTemplatePdf } from "../lib/documentTemplates.ts";
@@ -11,6 +12,7 @@ import { useAppPermission } from "../app/AppPermissionContext.tsx";
 import { useOptionalCompanyAccess } from "../context/CompanyAccessContext.tsx";
 import { PERMISSION_KEYS } from "../utils/accessControl.ts";
 import { useDialogFocus } from "./ui/useDialogFocus.ts";
+import { PdfBytePreview } from "./PdfBytePreview.tsx";
 
 interface DocumentPreviewModalProps {
   document: FinancialDocumentSnapshot;
@@ -64,6 +66,12 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
   const [deliveryHistoryLoading, setDeliveryHistoryLoading] = useState(false);
   const [deliveryHistoryError, setDeliveryHistoryError] = useState("");
   const [deliveryReconciliationBlocked, setDeliveryReconciliationBlocked] = useState(false);
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
+  const [pdfFileName, setPdfFileName] = useState("");
+  const [pdfSource, setPdfSource] = useState<"COMPANY_TEMPLATE_PDF" | "PROGRAMMATIC_PDF_FALLBACK" | "LOCAL_DRAFT" | "">("");
+  const [pdfHash, setPdfHash] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(true);
+  const [pdfError, setPdfError] = useState("");
   const [to, setTo] = useState(() => initialDocument.documentType === "PURCHASE_ORDER" ? initialDocument.supplier.email || "" : initialDocument.billTo.email || "");
   const [cc, setCc] = useState("");
   const [subject, setSubject] = useState(() => initialDocument.documentType === "PURCHASE_ORDER" ? `Purchase Order ${initialDocument.documentNumber}` : `Client Invoice ${initialDocument.documentNumber}`);
@@ -96,6 +104,40 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
     })();
     return () => { cancelled = true; };
   }, [initialDocument.documentId, initialDocument.documentType, initialDocument.status]);
+
+  const handlePdfHash = useCallback((hash: string) => setPdfHash(hash), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (loadingSnapshot) return () => { cancelled = true; };
+    setPdfLoading(true);
+    setPdfError("");
+    setPdfBytes(null);
+    setPdfHash("");
+    void (async () => {
+      try {
+        if (document.status === "ISSUED") {
+          const result = await loadIssuedDocumentPdf(document);
+          if (cancelled) return;
+          setPdfBytes(result.bytes);
+          setPdfFileName(result.fileName);
+          setPdfSource(result.source);
+          if (result.sha256) setPdfHash(result.sha256);
+        } else {
+          const bytes = await generateFinancialDocumentPdf(document);
+          if (cancelled) return;
+          setPdfBytes(bytes);
+          setPdfFileName(documentFileName(document));
+          setPdfSource("LOCAL_DRAFT");
+        }
+      } catch (error) {
+        if (!cancelled) setPdfError(error instanceof Error ? error.message : "The document PDF could not be prepared safely.");
+      } finally {
+        if (!cancelled) setPdfLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [document, loadingSnapshot]);
 
   const refreshDeliveryHistory = async () => {
     if (!companyAccess?.activeCompanyId || !document.documentId) {
@@ -141,7 +183,10 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
   const fileName = useMemo(() => documentFileName(document), [document]);
   const download = async () => {
     setDownloadBusy(true);
-    try { downloadPdfBytes(await generateFinancialDocumentPdf(document), fileName); }
+    try {
+      if (!pdfBytes) throw new Error("The exact PDF bytes are still rendering. Try again in a moment.");
+      downloadPdfBytes(pdfBytes, pdfFileName || fileName);
+    }
     finally { setDownloadBusy(false); }
   };
 
@@ -168,6 +213,10 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
     setTemplatePdfBusy(true);
     setTemplatePdfError("");
     try {
+      if (pdfSource === "COMPANY_TEMPLATE_PDF" && pdfBytes) {
+        downloadPdfBytes(pdfBytes, pdfFileName || fileName);
+        return;
+      }
       if (document.status !== "ISSUED" || !document.snapshotId || !document.templateVersionId) {
         throw new Error("This issued snapshot has no pinned company template version. Use the existing PDF fallback or issue a new document after activating a template.");
       }
@@ -269,50 +318,9 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({ docu
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-5">
-          <article className="mx-auto min-h-[760px] w-full max-w-[720px] bg-white px-7 py-8 text-slate-900 shadow-lg sm:px-12" id="financial-document-preview">
-            <div className="relative flex min-h-16 flex-col items-center justify-center gap-2 text-center sm:block">
-              {document.company.logoPath && <img src={document.company.logoPath} alt={`${document.company.legalName} logo`} className="h-12 w-20 object-contain sm:absolute sm:left-0 sm:top-0 sm:h-16 sm:w-24" />}
-              <div className="w-full text-center">
-                <p className="text-lg font-black uppercase tracking-tight text-[#0d2e6b] sm:text-2xl">{document.company.legalName}</p>
-                {document.company.address && <p className="mt-1 text-[10px] font-bold text-[#0d2e6b]">{document.company.address}</p>}
-                {document.company.contactNumber && <p className="text-[10px] text-[#0d2e6b]">Cel No.: {document.company.contactNumber}</p>}
-                {document.company.email && <p className="text-[10px] text-[#0d2e6b]">Email: {document.company.email}</p>}
-              </div>
-            </div>
-            <div className="mt-5 space-y-1"><div className="h-0.5 bg-[#0ba9df]" /><div className="h-1 bg-slate-500" /></div>
-            <div className="relative mt-8 flex min-h-10 flex-col items-center justify-center gap-2 sm:block">
-              <h3 className="w-full text-center text-xl font-black text-black sm:text-2xl">{isPo ? "PURCHASE ORDER" : "INVOICE"}</h3>
-              <div className="border border-black px-3 py-2 text-xs font-bold sm:absolute sm:right-0 sm:top-1/2 sm:-translate-y-1/2">No: {document.documentNumber}</div>
-            </div>
-
-            {isPo ? (
-              <>
-                <p className="mt-7 text-xs font-bold">VAT TIN: {document.company.vatTin || ""}</p>
-                <div className="mt-5 grid grid-cols-[5.5rem_minmax(0,1fr)_7rem] gap-x-2 gap-y-1 text-xs font-bold">
-                  <span>Supplier</span><span>: {document.supplier.name}</span><span className="text-right">{shortDate(document.issueDate)}</span>
-                  <span>Address</span><span>: {document.supplier.address || ""}</span><span className="text-right">Date</span>
-                  <span>Attention</span><span>: {document.supplier.attention || ""}</span><span />
-                  <span>VAT TIN</span><span>: {document.supplier.vatTin || ""}</span><span />
-                </div>
-                <table className="mt-7 w-full table-fixed border-collapse text-[10px]"><thead><tr className="bg-slate-100">{["Item No.", "Qty", "Unit", "Description", "Unit Price", "Amount"].map((header) => <th key={header} className="border border-slate-400 px-1.5 py-2 text-center font-black">{header}</th>)}</tr></thead><tbody>{document.lines.map((line) => <tr key={`${line.lineNumber}-${line.description}`}><td className="border border-slate-300 px-1.5 py-2 text-center">{line.lineNumber}</td><td className="border border-slate-300 px-1.5 py-2 text-center">{line.quantity ?? ""}</td><td className="border border-slate-300 px-1.5 py-2 text-center">{line.unit || ""}</td><td className="break-words border border-slate-300 px-1.5 py-2">{line.description}</td><td className="break-words border border-slate-300 px-1.5 py-2 text-right">{line.unitPrice === undefined ? "" : money(line.unitPrice, document.currency)}</td><td className="break-words border border-slate-300 px-1.5 py-2 text-right">{money(line.amount, document.currency)}</td></tr>)}<tr><td colSpan={4} className="break-words border border-slate-400 px-1.5 py-2 font-semibold">{document.amountInWords}</td><td className="break-words border border-slate-400 px-1.5 py-2 text-right font-black">Total ({document.currency})</td><td className="break-words border border-slate-400 px-1.5 py-2 text-right font-black">{money(document.totalAmount, document.currency)}</td></tr></tbody></table>
-                <div className="mt-3 border border-slate-400 px-2 py-2 text-xs"><p>Deliver to: {document.project.deliverTo || ""}</p><p className="mt-1">Remarks: {document.notes || document.description || ""}</p></div>
-                <div className="mt-1 border border-slate-400 px-2 py-2 text-xs"><strong>Terms and Conditions:</strong> {document.termsAndConditions || "Not specified"}</div>
-                <div className="mt-16 grid grid-cols-2 gap-8 text-xs"><div><p className="font-black">Processed by: <span className="ml-2 underline">{document.processor.name}</span></p>{document.processor.title && <p className="ml-[6.2rem] text-[10px]">{document.processor.title}</p>}</div><div className="text-right"><p className="font-black">Conforme: __________________</p><p className="text-[10px]">Supplier's Authorized Representative</p></div></div>
-              </>
-            ) : (
-              <>
-                <div className="mt-7 grid gap-2 text-xs sm:grid-cols-2"><p><strong>Invoice date:</strong> {shortDate(document.invoiceDate)}</p><p><strong>Due date:</strong> {shortDate(document.dueDate)}</p><p><strong>Project:</strong> {document.project.projectCode || ""} {document.project.projectName || ""}</p><p><strong>Terms:</strong> {document.paymentTerms || ""}</p></div>
-                <div className="mt-5 border border-slate-400 p-3 text-xs"><p className="font-black">Bill To</p><p className="mt-1 font-bold">{document.billTo.name || ""}</p><p>{document.billTo.contactName || ""}</p><p>{document.billTo.email || ""}</p><p>{document.billTo.address || ""}</p><p>{document.billTo.reference ? `Reference: ${document.billTo.reference}` : ""}</p></div>
-                <table className="mt-5 w-full table-fixed border-collapse text-[10px]"><thead><tr className="bg-slate-100"><th className="border border-slate-400 px-1.5 py-2 text-center">#</th><th className="border border-slate-400 px-1.5 py-2 text-left">Description</th><th className="border border-slate-400 px-1.5 py-2 text-right">Amount</th></tr></thead><tbody>{document.lines.map((line) => <tr key={`${line.lineNumber}-${line.description}`}><td className="border border-slate-300 px-1.5 py-2 text-center">{line.lineNumber}</td><td className="break-words border border-slate-300 px-1.5 py-2">{line.description}</td><td className="break-words border border-slate-300 px-1.5 py-2 text-right">{money(line.amount, document.currency)}</td></tr>)}</tbody></table>
-                <div className="mt-5 ml-auto max-w-xs space-y-2 text-xs"><div className="flex justify-between gap-5"><span>Subtotal</span><strong>{money(document.subtotal, document.currency)}</strong></div>{document.taxAmount !== undefined && document.taxAmount > 0 && <div className="flex justify-between gap-5"><span>{document.taxLabel || "Tax"}</span><strong>{money(document.taxAmount, document.currency)}</strong></div>}<div className="flex justify-between gap-5 border-t border-slate-400 pt-2 text-sm font-black"><span>Total ({document.currency})</span><span>{money(document.totalAmount, document.currency)}</span></div></div>
-                <p className="mt-5 text-xs">{document.amountInWords}</p>
-                {document.company.paymentInstructions && <p className="mt-3 text-xs">Payment instructions: {document.company.paymentInstructions}</p>}
-                {document.notes && <p className="mt-3 text-xs">Notes: {document.notes}</p>}
-                {document.termsAndConditions && <p className="mt-3 text-xs">Terms: {document.termsAndConditions}</p>}
-                <div className="mt-12 text-xs"><p className="font-black">Prepared by: <span className="ml-2 underline">{document.processor.name}</span></p>{document.processor.title && <p className="ml-[5.6rem] text-[10px]">{document.processor.title}</p>}</div>
-              </>
-            )}
-          </article>
+          <section className="mx-auto min-h-[760px] w-full max-w-[720px] bg-white p-2 text-slate-900 shadow-lg sm:p-4" id="financial-document-preview" data-pdf-preview-hash={pdfHash} data-pdf-preview-source={pdfSource}>
+            {pdfBytes ? <PdfBytePreview bytes={pdfBytes} label={`${isPo ? "Purchase Order" : "Client Invoice"} ${document.documentNumber}`} onHash={handlePdfHash} /> : pdfLoading ? <div role="status" className="flex min-h-[760px] items-center justify-center text-xs font-semibold text-slate-500">Preparing the exact document PDF…</div> : <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">{pdfError || "The document PDF could not be prepared safely."}</div>}
+          </section>
         </div>
 
         <footer className="border-t border-slate-200 bg-white px-4 py-3 sm:px-5">

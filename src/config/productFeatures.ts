@@ -190,7 +190,7 @@ export const CLIENT_PRODUCT_FEATURES: readonly ProductFeatureDefinition[] = Obje
     details: [
       "Save sender and template routing rules where needed, and use the forwarded supplier invoice fallback when a mailbox is not connected.",
       "Compose ordinary email or send an eligible issued Purchase Order or Client Invoice through the shared permission-aware delivery history.",
-      "Browse permission-approved document records and artifacts, preview supported issued documents, and return to the authoritative owning workflow.",
+      "Browse permission-approved document records and artifacts, preview issued documents using the same generated PDF artifact used for download when available, and return to the authoritative owning workflow.",
       "SMS status is visible in the workspace but remains not configured until an approved provider is connected and tested.",
     ],
     sortOrder: 120,

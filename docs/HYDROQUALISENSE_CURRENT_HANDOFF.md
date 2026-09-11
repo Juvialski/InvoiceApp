@@ -21,7 +21,8 @@ Completed product work through that baseline:
 - Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History — complete through PR #136;
 - Wave 4D Email/SMS + Documents workspace implementation — integrated through PR #138, with SMS provider activation/runtime QA still blocking phase completion;
 - Full live-QA company simulation harness and observed-flow hardening — integrated through PR #140, including fixes for project-create identity, RFQ quotation payload persistence, mixed-unit receipt continuation, payroll-run persistence, and hosted Documents semantic-text verification;
-- Focused UI/UX remediation and connected Gmail QA audit — integrated through PR #144, including responsive Expense/PO/RFQ/receipt surfaces, Gmail incremental-queue retention, project dialog wording, Cash page hierarchy, mobile document-preview hardening, and programmatic PDF separator safety. The broader preview-versus-downloaded-PDF fidelity gap remains unresolved and is the next targeted UI/document-quality phase.
+- Focused UI/UX remediation and connected Gmail QA audit — integrated through PR #144, including responsive Expense/PO/RFQ/receipt surfaces, Gmail incremental-queue retention, project dialog wording, Cash page hierarchy, mobile document-preview hardening, and programmatic PDF separator safety.
+- The current local-QA/PDF-fidelity phase converges issued preview and download on the same PDF bytes and adds a deliberate pre-merge QA harness; hosted exact-SHA QA remains a separate release gate.
 
 The detailed current priority is `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
@@ -70,6 +71,30 @@ No SMS provider is approved or configured in the current deployment. SMS remains
 
 The focused UI/UX remediation and live-provider evidence are recorded in
 `artifacts/ui-ux-audit/REPORT.md` and `artifacts/ui-ux-audit/findings.json`.
+
+## Current local-QA and PDF-fidelity implementation handoff
+
+The current branch contains an ignored `.env.qa.local` credential/configuration
+set and `npm run qa:local`. The harness is fail-closed to QA project
+`vrpuznofrntyqsbugrib`, explicitly refuses production project
+`qijjshdwiylojvqojxyz`, uses the existing QA account, persists browser state
+only under `.qa-e2e/`, and writes sanitized evidence only under ignored local
+artifacts. It proves authenticated reload/fresh-route persistence, several
+authenticated routes including 390px Documents, one bounded synthetic project
+write, and exact preview/download hash equality for synthetic issued Purchase
+Order and Client Invoice records.
+
+The programmatic PDF path now renders the actual server PDF bytes in the modal
+with PDF.js and reuses those bytes for download. Shared renderer hardening
+covers true title centering, logo aspect/transparent handling, long values,
+multi-page line content, long notes/terms, and document-number containment.
+Deliberate PO and Client Invoice torture cases are generated and rendered to
+ignored local artifacts. Native high-fidelity company-template conversion
+remains truthfully unavailable when the optional converter is absent.
+
+The local branch evidence is pre-merge functional evidence only. It does not
+replace exact-head Hosted QA, provider validation, recovery evidence, migration
+parity, or production separation checks after merge.
 
 ## Current product phase — Wave 4D
 
@@ -123,9 +148,9 @@ If Wave 4D implementation reaches the external-provider boundary before the user
 Modern `sb_secret_` server keys are accepted only by protected server-side
 operations. Legacy JWT `service_role` keys are not exposed to browser code.
 Missing or unavailable AI metadata remains distinct from the legitimate
-`NOT_CONFIGURED` company state, and database migration promotion remains
-separate from application deployment. Production remains read-only unless
-explicitly authorized.
+`NOT_CONFIGURED` company state. Database migration promotion remains separate
+from application deployment. Production remains read-only unless explicitly
+authorized.
 
 ## Gmail provider state
 
