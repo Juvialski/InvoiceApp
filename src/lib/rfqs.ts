@@ -416,7 +416,8 @@ export async function saveRFQ(
 
   if (error) throw error;
   const result = data as { rfq: Row; lines: Row[] };
-  return rfqFromRow(result.rfq, result.lines || []);
+  const saved = rfqFromRow(result.rfq, result.lines || []);
+  return await fetchRFQ(saved.id) || saved;
 }
 
 export async function transitionRFQStatus(
@@ -481,7 +482,8 @@ export async function transitionRFQStatus(
   });
 
   if (error) throw error;
-  return rfqFromRow(data as Row);
+  const updated = rfqFromRow(data as Row);
+  return await fetchRFQ(updated.id) || updated;
 }
 
 export async function deleteDraftRFQ(rfqId: string): Promise<void> {

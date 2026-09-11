@@ -33,6 +33,11 @@ export function hostedQaRouteReadinessState(bodyText: unknown): HostedQaRouteRea
   return "resolved";
 }
 
+export function hostedQaRequiredTextPresent(bodyText: unknown, requiredText: string): boolean {
+  const body = typeof bodyText === "string" ? bodyText : "";
+  return body.toLocaleLowerCase().includes(requiredText.toLocaleLowerCase());
+}
+
 export interface HostedQaReadinessPage {
   waitForFunction: (...args: any[]) => Promise<unknown>;
 }

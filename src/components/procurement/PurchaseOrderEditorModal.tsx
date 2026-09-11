@@ -4,7 +4,7 @@ import type { InvoiceData, Project, ProjectCostCode, PurchaseOrder, PurchaseOrde
 import { useDialogFocus } from "../ui/useDialogFocus.ts";
 import { formatDate, formatMoney } from "../../utils/invoiceLogic.ts";
 import { isCommittedPurchaseOrder } from "../../utils/projectCosting.ts";
-import { calculatePOReceiptProgress, getReceiptsForPO } from "../../utils/purchaseOrderReceipts.ts";
+import { calculatePOReceiptProgress, getReceiptsForPO, hasOutstandingReceiptQuantity } from "../../utils/purchaseOrderReceipts.ts";
 import { RecordReceiptModal } from "./RecordReceiptModal.tsx";
 
 export interface PurchaseOrderEditorModalProps {
@@ -758,7 +758,7 @@ export const PurchaseOrderEditorModal: React.FC<PurchaseOrderEditorModalProps> =
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isIssued && canManage && (poReceiptProgress?.totalRemainingQuantity || 0) > 0 && (
+                  {isIssued && canManage && hasOutstandingReceiptQuantity(poReceiptProgress) && (
                     <button
                       type="button"
                       onClick={() => setShowRecordReceiptModal(true)}

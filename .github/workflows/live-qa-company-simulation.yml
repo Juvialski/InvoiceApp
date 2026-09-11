@@ -1,0 +1,80 @@
+name: Full Live QA Company Simulation
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_deployed_sha:
+        description: Exact application SHA currently deployed to the QA Render service.
+        required: true
+        type: string
+      expected_migration_level:
+        description: Exact canonical migration level currently applied to the QA Supabase project.
+        required: true
+        type: string
+      run_id:
+        description: Optional synthetic run identifier; generated when omitted.
+        required: false
+        type: string
+      existing_document_number:
+        description: Optional issued QA PO or Client Invoice number for real PDF/DOCX download testing.
+        required: false
+        type: string
+      send_gmail:
+        description: Enable a controlled Gmail send only when a QA recipient secret is configured.
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: full-live-qa-company-simulation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  live-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: qa
+    env:
+      QA_E2E_BASE_URL: https://hydroqualisense-qa.onrender.com
+      QA_E2E_EXPECTED_DEPLOYMENT_ID: qa-hydroqualisense
+      QA_E2E_EXPECTED_REPOSITORY_SHA: ${{ inputs.expected_deployed_sha }}
+      QA_E2E_EXPECTED_MIGRATION_LEVEL: ${{ inputs.expected_migration_level }}
+      QA_E2E_RUN_ID: ${{ inputs.run_id }}
+      QA_E2E_EXISTING_DOCUMENT_NUMBER: ${{ inputs.existing_document_number }}
+      QA_E2E_SEND_GMAIL: ${{ inputs.send_gmail && '1' || '0' }}
+      QA_E2E_EMAIL: ${{ secrets.QA_E2E_EMAIL }}
+      QA_E2E_PASSWORD: ${{ secrets.QA_E2E_PASSWORD }}
+      QA_E2E_CONTROLLED_RECIPIENT: ${{ secrets.QA_E2E_CONTROLLED_RECIPIENT }}
+      QA_E2E_OUTPUT_DIR: artifacts/live-qa
+    steps:
+      - name: Checkout harness branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install Playwright for live QA only
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run full live QA company simulation
+        run: npm run qa:live
+
+      - name: Upload live QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-qa-company-simulation-${{ github.run_id }}
+          path: artifacts/live-qa
+          if-no-files-found: error
+          retention-days: 14

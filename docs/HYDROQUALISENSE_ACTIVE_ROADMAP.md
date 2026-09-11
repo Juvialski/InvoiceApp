@@ -180,6 +180,39 @@ Preserve:
 
 `QA CERTIFICATION: NOT READY`
 
+## Full live QA company simulation — 2026-09-11
+
+The live QA company simulation was run against the exact deployed QA
+application SHA `36c0736a6f3d8703b1c6d0ab47519123a79a1acb`, deployment
+`qa-hydroqualisense`, and canonical QA migration level `20260910131014`.
+The synthetic run identifier was `QA-E2E-7F4K`; its records remain in the
+isolated QA company for audit and downstream verification. Production was
+read-only throughout.
+
+The run proved working project, RFQ, vendor, PO, issue/approval, receipt,
+Warehouse movement, equipment assignment/lifecycle, engineering revision,
+client billing/collection/cash-linkage, manual Expense, and synthetic worker
+setup flows. It also proved the Documents projection, Reports, Dashboard,
+review-before-send compose state, truthful Gmail reconnect state, and truthful
+SMS `Not configured` state.
+
+QA is still **NOT READY**. The live blockers/findings are: Gmail authorization
+is expired; no SMS provider is configured; high-fidelity PDF finalization is
+unavailable on this deployment; starter template creation failed safely and
+the configured AI template response was rejected as an invalid blueprint; a
+new project save submitted `id=""`; quotation line values were persisted as
+zero despite non-zero UI input; mixed-unit PO receipt continuation was hidden;
+and payroll calculation failed while persisting a valid DRAFT run. All four
+application defects have regression-covered fixes prepared in the current
+unmerged change, and the hosted literal Documents assertion was corrected to
+be presentation-case-insensitive. Those fixes are not yet the deployed QA
+SHA and must be re-tested after an authorized QA release.
+
+The authoritative detailed evidence is retained in the local
+`artifacts/live-qa` output, including the exact deployment metadata, record
+IDs, screenshots, generated-output boundary, provider results, and cleanup
+decision. Wave 4D remains incomplete and Worker Registration remains paused.
+
 QA certification, provider validation, recovery evidence, deployment identity, migration parity, and production separation remain a parallel release/readiness track.
 
 The last retained hosted certification artifact predates the newer Wave 1A-4C application-bearing changes and must not be used as proof for the current application baseline.

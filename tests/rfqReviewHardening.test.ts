@@ -16,6 +16,10 @@ const selectionConsistency = fs.readFileSync(
   path.join(migrationDir, "20260903122000_rfqs_po_selection_consistency.sql"),
   "utf8",
 );
+const currentClient = fs.readFileSync(
+  path.join(process.cwd(), "src/lib/rfqs.ts"),
+  "utf8",
+);
 
 test("rfqReviewHardening: case-insensitive quotation number uniqueness uses an expression index", () => {
   assert.doesNotMatch(
@@ -78,4 +82,9 @@ test("rfqReviewHardening: authenticated clients have read plus guarded RPC execu
   assert.match(integrity, /revoke\s+insert,\s*update,\s*delete\s+on\s+table[\s\S]*?from\s+authenticated,\s*anon/i);
   assert.match(integrity, /revoke\s+all\s+on\s+function\s+public\.convert_quotation_to_draft_po\(uuid,\s*text,\s*text\)\s+from\s+public,\s*anon/i);
   assert.match(integrity, /grant\s+execute\s+on\s+function\s+public\.convert_quotation_to_draft_po\(uuid,\s*text,\s*text\)\s+to\s+authenticated/i);
+});
+
+test("rfqReviewHardening: RPC RFQ mutations rehydrate child lines and invitations", () => {
+  assert.match(currentClient, /return await fetchRFQ\(saved\.id\) \|\| saved/);
+  assert.match(currentClient, /return await fetchRFQ\(updated\.id\) \|\| updated/);
 });

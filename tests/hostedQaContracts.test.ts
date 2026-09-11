@@ -4,6 +4,7 @@ import {
   assertHostedQaTarget,
   createHostedQaEngineeringStorageFixture,
   hostedQaHealthFailureReasons,
+  hostedQaRequiredTextPresent,
   hostedQaRouteReadinessState,
   probeHostedQaStorageObject,
   sanitizeHostedQaStorageError,
@@ -185,4 +186,9 @@ test("hosted QA production-host refusal remains intact", () => {
   assert.throws(() => assertHostedQaTarget("https://hydroqualisense.com"), /production host/i);
   assert.throws(() => assertHostedQaTarget("https://example.com"), /unapproved host/i);
   assert.doesNotThrow(() => assertHostedQaTarget("https://hydroqualisense-qa.onrender.com"));
+});
+
+test("hosted QA required-text contracts ignore presentation-only casing", () => {
+  assert.equal(hostedQaRequiredTextPresent("UNIFIED ACCESS SURFACE", "Unified access surface"), true);
+  assert.equal(hostedQaRequiredTextPresent("Documents register", "Unified access surface"), false);
 });

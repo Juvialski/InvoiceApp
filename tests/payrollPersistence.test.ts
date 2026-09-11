@@ -198,6 +198,14 @@ test("authoritative loader includes every payroll domain table", () => {
   }
 });
 
+test("payroll run persistence updates existing lifecycle rows without an upsert fallback", () => {
+  const source = readFileSync(new URL("../src/lib/payroll.ts", import.meta.url), "utf8");
+  assert.match(source, /from\("payroll_runs"\)[\s\S]*\.select\("id"\)/);
+  assert.match(source, /from\("payroll_runs"\)[\s\S]*\.update\(updateRow\)/);
+  assert.match(source, /from\("payroll_runs"\)\.insert\(row\)/);
+  assert.doesNotMatch(source, /from\("payroll_runs"\)\.upsert\(/);
+});
+
 test("payroll run transitions follow the database state machine", () => {
   assert.equal(canTransitionPayrollRun("DRAFT", "CALCULATED"), true);
   assert.equal(canTransitionPayrollRun("CALCULATED", "APPROVED"), true);

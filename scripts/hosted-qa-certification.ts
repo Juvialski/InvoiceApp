@@ -16,6 +16,7 @@ import {
   createHostedQaEngineeringStorageFixture,
   createHostedQaStorageFailure,
   HOSTED_QA_ROUTE_READINESS_TIMEOUT_MS,
+  hostedQaRequiredTextPresent,
   probeHostedQaStorageObject,
   sanitizeHostedQaStorageError,
   waitForHostedQaHealth,
@@ -291,7 +292,7 @@ async function runRoute(context: any, contract: HostedRouteContract, expectedEma
     const headingCount = await page.getByRole("heading", { name: contract.heading }).count();
     assertions.push({ id: `${route}-heading-visible`, passed: headingCount > 0, details: `matching route headings: ${headingCount}` });
     for (const requiredText of contract.requiredText) {
-      const present = body.includes(requiredText);
+      const present = hostedQaRequiredTextPresent(body, requiredText);
       assertions.push({ id: `${route}-${requiredText.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-visible`, passed: present, details: present ? `Found: ${requiredText}` : `Missing: ${requiredText}` });
     }
     if (route === "/settings") {

@@ -166,6 +166,11 @@ export function calculatePOReceiptProgress(
   };
 }
 
+/** Mixed-unit POs cannot expose an aggregate remaining quantity. */
+export function hasOutstandingReceiptQuantity(progress: Pick<POReceiptProgress, "lines"> | null | undefined): boolean {
+  return Object.values(progress?.lines || {}).some((line) => line.remainingQuantity > 0);
+}
+
 export function validateReceiptLineInput(
   line: PurchaseOrderLine,
   inputQty: number,

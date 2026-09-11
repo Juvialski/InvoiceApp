@@ -7,6 +7,10 @@ const migrationPath = path.resolve(
   process.cwd(),
   "supabase/migrations/20260903120000_rfqs_and_supplier_quotations.sql",
 );
+const quotationPayloadFixPath = path.resolve(
+  process.cwd(),
+  "supabase/migrations/20260910233915_rfq_quotation_line_payload_case_fix.sql",
+);
 
 test("rfqMigrationSafety: migration file exists and is monotonic with predecessor migrations", () => {
   assert.equal(fs.existsSync(migrationPath), true);
@@ -105,4 +109,15 @@ test("rfqMigrationSafety: defines all required guarded security-definer RPCs", (
   // Conversion RPC must enforce DRAFT purchase order status
   assert.match(sql, /'DRAFT'/i);
   assert.match(sql, /convert_quotation_to_draft_po[\s\S]*?'DRAFT'/);
+});
+
+test("rfqMigrationSafety: quotation payload fix preserves camelCase line values", () => {
+  const sql = fs.readFileSync(quotationPayloadFixPath, "utf8");
+  assert.match(sql, /create or replace function public\.save_supplier_quotation/i);
+  assert.match(sql, /"rfqLineId"\s+text/);
+  assert.match(sql, /"unitPrice"\s+numeric/);
+  assert.match(sql, /"leadTimeDays"\s+integer/);
+  assert.match(sql, /"isNoBid"\s+boolean/);
+  assert.match(sql, /v_line\."unitPrice"/);
+  assert.match(sql, /v_line\."leadTimeDays"/);
 });
