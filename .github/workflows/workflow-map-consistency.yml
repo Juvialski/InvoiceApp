@@ -32,6 +32,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,20 +43,71 @@ jobs:
     name: Graph and Source Contract Consistency
     runs-on: ubuntu-latest
     steps:
+      - name: Determine validation scope
+        id: scope
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName !== 'pull_request') {
+              core.setOutput('run', 'true');
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const relevant = files.some(({ filename }) =>
+              filename.startsWith('src/utils/') ||
+              filename.startsWith('src/features/') ||
+              filename === 'src/lib/engineeringCoordination.ts' ||
+              filename === 'src/lib/dailySiteLogs.ts' ||
+              filename === 'src/lib/financialSettlement.ts' ||
+              filename === 'src/lib/payroll.ts' ||
+              filename === 'src/types.ts' ||
+              filename.startsWith('src/assistant/') ||
+              filename.startsWith('src/server/assistant/') ||
+              filename === 'src/app/applicationMode.ts' ||
+              filename.startsWith('src/demo/') ||
+              filename === 'src/main.tsx' ||
+              filename.startsWith('scripts/workflow-map/') ||
+              filename.startsWith('scripts/qa/') ||
+              /^tests\/workflowMap.*\.test\.ts$/.test(filename) ||
+              filename.startsWith('supabase/migrations/') ||
+              filename.startsWith('docs/architecture/') ||
+              filename === 'docs/ENGORYX_ENGINEERING_QA_AGENT_CONTEXT.md' ||
+              filename === 'package.json' ||
+              filename === 'package-lock.json' ||
+              filename === 'tsconfig.json' ||
+              filename === '.github/workflows/workflow-map-consistency.yml'
+            );
+            core.setOutput('run', relevant ? 'true' : 'false');
+            if (!relevant) {
+              core.notice('Fast-pass: no workflow-map or source-contract inputs changed.');
+            }
+
       - name: Checkout repository
+        if: steps.scope.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - name: Setup Node.js
+        if: steps.scope.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - name: Install dependencies
+        if: steps.scope.outputs.run == 'true'
         run: npm ci
       - name: Check generated workflow map
+        if: steps.scope.outputs.run == 'true'
         run: npm run workflow-map:check
       - name: Check graph/source consistency
+        if: steps.scope.outputs.run == 'true'
         run: npm run workflow-map:consistency
       - name: Run focused workflow-map tests
+        if: steps.scope.outputs.run == 'true'
         run: npm run test:workflow-map
