@@ -28,6 +28,13 @@ test("Local-QA runner waits for delayed authentication and does not persist the 
   assert.match(localQaSource, /runLocalQaScenarios/);
 });
 
+test("Local-QA comprehensive gate refuses blocked, untested, or unavailable scenario coverage", () => {
+  assert.match(localQaSource, /const coverageGaps = scenarioRun\.scenarios\.filter/);
+  assert.match(localQaSource, /scenario\.status !== "PASS"/);
+  assert.match(localQaSource, /item\.id\.endsWith\("-available"\)/);
+  assert.match(localQaSource, /Authenticated Local-QA coverage incomplete/);
+});
+
 test("Local-QA scenario evidence keeps AI-unconfigured responses explicit and SMS non-mutating", () => {
   const scenarios = readFileSync(new URL("../scripts/qa/localQaScenarios.ts", import.meta.url), "utf8");
   assert.match(scenarios, /api\/deployment\/company-ai/);
