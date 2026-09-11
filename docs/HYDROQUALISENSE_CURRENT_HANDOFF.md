@@ -1,265 +1,255 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — WAVE 4D EMAIL/SMS + DOCUMENTS IMPLEMENTATION ACTIVE / SMS NOT CONFIGURED / QA CERTIFICATION NOT READY**
+Status: **CURRENT — COMPREHENSIVE LOCAL-QA UI/UX REDO NEXT / PDF VISUAL CERTIFICATION PENDING / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**  
 Date: **2026-09-11**  
 Repository: `Juvialski/InvoiceApp`
 
-## Exact current product baseline
+## Current merged application / QA-hardening baseline
 
-Current merged application and QA-hardening baseline:
+`f1851b0c347da2ea29466d9748909889b67f03ed` (PR #148)
 
-`46e0af036b7a66e6a6f86e0a4557bea576b605bf` (PR #144)
+Relevant integrated work through this application baseline:
 
-Completed product work through that baseline:
+- Wave 1A Supplier Payable Lifecycle UX — PR #126;
+- Wave 1B Client Receivable Lifecycle UX — PR #129;
+- Wave 2 Cross-module Routing and Handoffs — PR #131;
+- Wave 3 Payroll/Subcontract/PO Workflow Decisions — PRs #132 and #133;
+- Wave 4A Company Document Templates / Mail Merge Foundation — PR #134;
+- Wave 4B High-Fidelity PDF Finalization Foundation — PR #135;
+- Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History — PR #136;
+- Wave 4D Email/SMS + Documents workspaces — integrated through PR #138 but still incomplete;
+- full live-QA simulation harness and observed-flow hardening — PR #140;
+- focused UI/UX remediation + connected Gmail QA audit — PR #144;
+- local branch -> real QA development harness + canonical issued-PDF preview/download foundation + initial PDF renderer hardening — PR #146;
+- staged local-QA/UI/PDF quality plan — PR #147;
+- local-QA browser-key hardening, including rejection of privileged legacy Supabase `service_role` JWTs — PR #148.
 
-- Wave 1A Supplier Payable Lifecycle UX — complete through PR #126;
-- Wave 1B Client Receivable Lifecycle UX — complete through PR #129;
-- Wave 2 Cross-module Routing and Handoffs — complete through PR #131;
-- Wave 3 Payroll/Subcontract/PO Workflow Decisions — complete through PRs #132 and #133;
-- Wave 4A Company Document Templates / Mail Merge Foundation — complete through PR #134;
-- Wave 4B High-Fidelity PDF Finalization — complete through PR #135;
-- Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History — complete through PR #136;
-- Wave 4D Email/SMS + Documents workspace implementation — integrated through PR #138, with SMS provider activation/runtime QA still blocking phase completion;
-- Full live-QA company simulation harness and observed-flow hardening — integrated through PR #140, including fixes for project-create identity, RFQ quotation payload persistence, mixed-unit receipt continuation, payroll-run persistence, and hosted Documents semantic-text verification;
-- Focused UI/UX remediation and connected Gmail QA audit — integrated through PR #144, including responsive Expense/PO/RFQ/receipt surfaces, Gmail incremental-queue retention, project dialog wording, Cash page hierarchy, mobile document-preview hardening, and programmatic PDF separator safety.
-- The current local-QA/PDF-fidelity phase converges issued preview and download on the same PDF bytes and adds a deliberate pre-merge QA harness; hosted exact-SHA QA remains a separate release gate.
+Read with:
 
-The detailed current priority is `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
+- `AGENTS.md`;
+- `docs/AGENT_EXECUTION_EFFICIENCY.md`;
+- `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
+- `docs/HYDROQUALISENSE_LOCAL_QA_UI_PDF_PLAN.md`;
+- `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`;
+- deployment/migration runbooks only when release/DB/provider work actually requires them.
 
-## Explicit user correction — do not skip this again
+## Critical correction — do not treat PR #146 as final UI/PDF certification
 
-The broader Email/SMS + Documents product phase is **not complete**.
+PR #146 completed the enabling Local-QA/PDF foundation and an initial remediation pass.
 
-The user intended:
+It established:
 
-1. the current top-level **Email Intake** item to evolve into the top-level **Email / SMS** communications workspace;
-2. a separate top-level **Documents** workspace to manage unified access to company documents/document-bearing records and artifacts;
-3. the Wave 4A-4C foundations to be integrated into those workspaces;
-4. actual SMS sending to remain incomplete until a real provider is selected/configured and runtime-tested;
-5. Worker Registration to remain paused until the Email/SMS + Documents experience is genuinely complete and the user explicitly resumes Worker Registration.
+- ignored `.env.qa.local` configuration;
+- `npm run qa:local` against the exact isolated QA project;
+- explicit production-project refusal;
+- normal QA-user authentication and persisted ignored browser state;
+- bounded synthetic writes and sanitized local evidence;
+- issued Purchase Order / Client Invoice Preview using the same exact generated PDF bytes as Download;
+- PDF.js rendering of those bytes;
+- initial renderer improvements for centering, logos, wrapping, long content, and pagination;
+- synthetic PDF torture cases.
 
-Do not interpret merged Wave 4A, 4B, or 4C as permission to proceed to Worker Registration.
+PR #148 additionally ensures browser/local-QA configuration cannot accept modern secret keys or legacy privileged `service_role` JWTs.
 
-## What Waves 4A-4C delivered
+These are foundations, not the end of the quality program.
 
-### Wave 4A — COMPLETE
+**Preview/download hash equality proves byte identity only. It does not prove that title placement, logo separation, table geometry, page breaks, totals, signatures, or long content are visually correct.**
 
-Company-bound editable DOCX templates for supported issued financial documents, deterministic immutable-snapshot merge, template validation/versioning/pinning, safe Storage/evidence contracts, and bounded AI-assisted mapping proposals.
+## Immediate next phase — Comprehensive authenticated Local-QA UI/UX redo
 
-### Wave 4B — COMPLETE
+This is the next Codex implementation phase.
 
-Server-side company-template PDF finalization using the supported LibreOffice path where available, with bounded isolated conversion and exact PDF/DOCX/template provenance. Native Node/Render deployments without the converter truthfully retain the programmatic PDF fallback.
+Run the current feature branch locally against the real isolated QA backend and perform a comprehensive workflow-oriented UI/UX pass.
 
-### Wave 4C — COMPLETE through PR #136
+Priority surfaces:
 
-Eligible issued Purchase Orders and Client Invoices can be sent through connected Gmail using the exact supported PDF. Durable send intents and append-only history preserve recipients, status, attachment identity/source, and template/generation provenance. Explicit resend creates a new attempt; ambiguous/incomplete delivery states remain fail-closed pending reconciliation. Cancelled/voided lifecycle restrictions and permission checks remain intact.
+- Dashboard;
+- Projects;
+- Procurement / RFQ / quotations;
+- Purchase Orders / receipts;
+- Supplier invoices / linked Expenses;
+- Expenses;
+- Cash & Banking;
+- Client Billing / Collections;
+- Payroll;
+- Warehouse / Inventory;
+- Equipment;
+- Engineering Documents;
+- Email / SMS;
+- Documents;
+- Reports;
+- Settings.
 
-Wave 4C did **not** create a unified communications center and did **not** activate SMS.
+Exercise meaningful states, as applicable:
 
-## Wave 4D implementation progress — incomplete
+`create -> edit -> view/detail -> modal -> navigation/handoff -> preview -> download -> empty/error/long-content`
 
-The active implementation now provides:
+Cover desktop, tablet, and narrow/mobile layouts where applicable.
 
-- a top-level Email / SMS workspace with Inbox / Intake, Compose, Sent / Delivery History, and SMS / Provider Status sections;
-- preserved Gmail-assisted source discovery and routing, with the existing OAuth identity and read/send scopes reused;
-- shared audited Gmail delivery for ordinary messages and eligible issued-document attachments, retaining idempotency and reconciliation safeguards;
-- a top-level Documents index over permission-approved existing records and artifacts, with owner-aware navigation and exact document handoff into Compose;
-- a discoverable link from Documents to the existing company document-template administration in Settings;
-- Assistant entry from Compose for reviewable drafting; the Assistant cannot silently send.
+For each safe schema-compatible application issue:
 
-No SMS provider is approved or configured in the current deployment. SMS remains visibly not configured, and provider-backed delivery/status QA has not been performed. Wave 4D is **NOT COMPLETE**. Worker Registration remains **PAUSED**.
+`observe -> diagnose -> fix -> reload current local branch -> retest same QA workflow -> add regression coverage where appropriate`
 
-The focused UI/UX remediation and live-provider evidence are recorded in
-`artifacts/ui-ux-audit/REPORT.md` and `artifacts/ui-ux-audit/findings.json`.
+Do not stop at an audit-only report when the issue can be fixed and verified in the same phase.
 
-## Current local-QA and PDF-fidelity implementation handoff
+## Following phase — Deep PDF/export visual certification
 
-The current branch contains an ignored `.env.qa.local` credential/configuration
-set and `npm run qa:local`. The harness is fail-closed to QA project
-`vrpuznofrntyqsbugrib`, explicitly refuses production project
-`qijjshdwiylojvqojxyz`, uses the existing QA account, persists browser state
-only under `.qa-e2e/`, and writes sanitized evidence only under ignored local
-artifacts. It proves authenticated reload/fresh-route persistence, several
-authenticated routes including 390px Documents, one bounded synthetic project
-write, and exact preview/download hash equality for synthetic issued Purchase
-Order and Client Invoice records.
+After the comprehensive UI/UX redo is stable, perform a dedicated PDF/export certification pass.
 
-The programmatic PDF path now renders the actual server PDF bytes in the modal
-with PDF.js and reuses those bytes for download. Shared renderer hardening
-covers true title centering, logo aspect/transparent handling, long values,
-multi-page line content, long notes/terms, and document-number containment.
-Deliberate PO and Client Invoice torture cases are generated and rendered to
-ignored local artifacts. Native high-fidelity company-template conversion
-remains truthfully unavailable when the optional converter is absent.
+Explicitly inspect actual rendered pages for both Purchase Orders and Client Invoices, including:
 
-The local branch evidence is pre-merge functional evidence only. It does not
-replace exact-head Hosted QA, provider validation, recovery evidence, migration
-parity, or production separation checks after merge.
+- with/without logos;
+- wide/tall/transparent logos;
+- long company/legal names and addresses;
+- long supplier/client/project values;
+- long document numbers;
+- one-line, many-line, and multi-page tables;
+- very long descriptions;
+- long terms, notes, payment instructions, delivery details, and amount-in-words content;
+- large amounts and representative currencies;
+- missing optional data.
 
-## Current product phase — Wave 4D
+A PDF fails this phase if any of these remain:
 
-**Wave 4D — Email/SMS Workspace + Documents Workspace** remains the active blocking product phase.
+- title not visually centered;
+- title/logo/company-name collision;
+- document-number/title collision;
+- text outside boxes or cells;
+- clipped/overlapping totals or amounts;
+- content crossing page edges;
+- missing content between pages;
+- unreadable continuation pages;
+- bad page breaks;
+- footer/signature overlap;
+- material Preview/Download discrepancy.
 
-### Email / SMS target
+For representative cases, compare in-app preview with the exact downloaded PDF and render every page to images for visual inspection. Generic DOM overflow checks or SHA equality are not sufficient certification.
 
-The existing Email Intake workflow must be preserved but moved/evolved into the broader Email / SMS communications experience.
+## Then — Functional regression sweep
 
-Required product direction:
+After UI and PDF remediation, perform a focused functional sweep over workflows touched during the audit/fixes.
 
-- Inbox / Intake using the current read-only Gmail-assisted import flow;
-- Gmail reconnect/re-consent from the communications workspace;
-- Compose / New Message for outbound email;
-- eligible document attachment selection from Documents or owning records;
-- Assistant-assisted drafting while preserving human review/confirmation;
-- unified Sent / Delivery History using the existing Wave 4C history/idempotency/reconciliation foundation;
-- SMS compose/provider state;
-- actual provider-backed SMS only after approved provider configuration and QA runtime proof.
+Schema-compatible defects should be fixed immediately against local QA.
 
-The Assistant must not silently send consequential messages and must not exceed the current user's permissions.
+If a discovered issue requires migration/RLS/RPC/trigger/financial-guard/company-integrity/concurrency work, use local Docker/Supabase for the unmerged branch. Do not apply unmerged schema/migration changes to shared QA merely to make the branch work.
 
-### Documents target
+## Then — Hosted exact-SHA QA certification
 
-Add a separate top-level Documents workspace that provides permission-aware unified access to supported document-bearing records and immutable/generated artifacts.
+After the quality/regression PR merges:
 
-Documents is an index/access surface, not a new authoritative business-record system.
+`exact merged main SHA -> intended Render QA deployment live -> deployment identity -> migration parity/promotion when required -> production separation -> hosted authenticated/provider/runtime checks`
 
-Canonical ownership remains:
+Local QA is pre-merge functional evidence. It never replaces hosted exact-SHA release certification.
 
-- Purchase Orders -> Procurement;
-- Client Invoices -> Client Billing/Collections;
-- Supplier Invoice source evidence -> Supplier Invoice workflow / authoritative linked Expense semantics;
-- Expense receipts/source -> Expense;
-- statements -> Cash & Banking;
-- Engineering Documents/revisions -> Engineering;
-- generated DOCX/PDF artifacts -> their immutable source/snapshot/template/version evidence.
+Do not declare the UI/PDF quality sequence complete before the applicable hosted checks are clean on the exact merged head.
 
-The Documents workspace should support useful search/filtering, preview/open/download, authoritative-context navigation, delivery/history visibility where applicable, handoff into Email / SMS compose, and company-template administration using the existing Wave 4A engine.
+## Only after those phases — Wave 4D provider completion
 
-## SMS provider state
+The broader Email/SMS + Documents product phase remains incomplete.
 
-No outbound SMS provider is currently approved/configured as HydroQualiSense product truth.
+Current product surfaces include:
 
-Do not claim SMS is Available and do not fake provider health/delivery. A future approved provider must use server-side credentials and the existing company-scoped permission/history/idempotency principles.
+- top-level Email / SMS workspace with Inbox/Intake, Compose, Sent/Delivery History, and SMS/Provider Status;
+- connected Gmail read/send workflows with audited delivery history;
+- top-level Documents workspace as a permission-filtered index over existing canonical domains;
+- document handoff into Compose;
+- company document-template administration through the existing template workflow;
+- Assistant-assisted drafting with human review/confirmation.
 
-If Wave 4D implementation reaches the external-provider boundary before the user creates/configures an SMS account, report that blocker precisely, leave SMS truthfully not configured, and keep Wave 4D incomplete rather than moving on to Worker Registration.
+No outbound SMS provider is currently approved/configured/runtime-tested. SMS must remain truthfully `Not configured` until a real provider is selected and proven in QA.
 
-## Server-side Supabase key and AI state
+Provider work is **not the next phase**. It follows the UI/UX redo, deep PDF visual certification, functional sweep, and hosted exact-SHA QA certification unless the user explicitly reprioritizes.
 
-Modern `sb_secret_` server keys are accepted only by protected server-side
-operations. Legacy JWT `service_role` keys are not exposed to browser code.
-Missing or unavailable AI metadata remains distinct from the legitimate
-`NOT_CONFIGURED` company state. Database migration promotion remains separate
-from application deployment. Production remains read-only unless explicitly
-authorized.
+## Wave 4D completion gate
 
-## Gmail provider state
+The authoritative requirements remain in `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`.
 
-Inbound Gmail intake currently uses read-only Gmail access. Outbound email requires the existing OAuth connection to include Gmail send authorization. The current code already requests `gmail.readonly` plus `gmail.send` during explicit reconnect/re-consent; do not create a second Google-account system.
+Wave 4D is not complete until the current Email/SMS + Documents experience satisfies its product/permission/history requirements and real provider-backed SMS is QA-proven, unless the user explicitly changes the completion definition.
 
-The full live company simulation on the prior exact QA baseline observed an expired Gmail authorization. The exact-head protected Hosted QA after PR #140 proved application authentication, route, Storage, and release contracts, but it did not convert that provider result into a successful Gmail send. Treat Gmail provider-backed send as requiring explicit reconnect/re-consent and live QA proof.
+Worker Registration remains paused until Wave 4D is genuinely complete **and the user explicitly resumes it**.
 
-Follow-up live QA on 2026-09-11 proved the current connected state: the QA
-mailbox remained healthy after navigation and reload; a bounded 30-day finance
-scan succeeded; incremental `Sync new` returned no new messages; one ordinary
-synthetic email and one synthetic issued Client Invoice attachment were
-accepted through Gmail and recorded as `SENT` in company delivery history. The
-attachment history opened the exact authoritative Client Billing record. No
-unrelated mailbox content was imported or retained. Actual mailbox arrival and
-inbound routing were not separately exercised because no controlled synthetic
-inbound candidate was available.
+## Current Gmail / provider state
 
-## Financial / security invariants
+Gmail reconnect/re-consent and bounded read/send checks were previously proven in QA with controlled synthetic outbound tests and company delivery history.
 
-Wave 4D must preserve all existing source-of-truth and history contracts, including:
+Do not generalize historical provider evidence to future exact heads beyond the behavior actually retested.
 
-- Supplier Invoice evidence remains separate from authoritative linked Expense payable/cost truth;
-- Client Invoice/Collection commercial truth remains separate from Cash settlement evidence;
-- no duplicate Actual Cost/payable/collection truth;
+Inbound routing/separate mailbox-arrival proof and other remaining provider/readiness evidence should be closed later under the release/readiness track where safe controlled inputs exist.
+
+SMS remains not configured.
+
+## PDF output-path truth
+
+HydroQualiSense has distinct document-output paths:
+
+1. programmatic PDF fallback;
+2. company-template DOCX;
+3. finalized company-template PDF when the supported converter is operational.
+
+The current native Node/Render deployment must continue to represent the optional high-fidelity conversion limitation truthfully when the converter is unavailable.
+
+The deep PDF certification phase must not confuse exact-byte programmatic preview/download parity with certification of the company-template conversion path.
+
+## Financial / security / history invariants
+
+Preserve throughout all remaining work:
+
+- one deployment -> one client company;
+- active company membership / RLS / RBAC isolation;
+- Supplier Invoice evidence remains distinct from authoritative linked Expense payable/cost truth;
+- Client Invoice/Collection receivable truth remains distinct from Cash settlement evidence;
 - Actual Cost remains distinct from Committed Cost;
-- original currency and explicit FX semantics remain intact;
-- payroll settlement and Purchase Order lifecycle guards remain intact;
-- immutable issued/finalized snapshots and document provenance remain intact;
-- send/delivery history stays append-only and company-bound;
-- permissions remain capability-based and Assistant parity remains fail-closed;
-- one deployment -> one client company -> active membership/RBAC -> permitted workflows.
+- original-currency and explicit FX semantics remain intact;
+- payroll settlement history remains intact;
+- Purchase Order receipt/close rules remain intact;
+- immutable issued/finalized snapshots and artifact provenance remain intact;
+- send/delivery history remains append-only and company-bound;
+- permissions remain capability-based;
+- Assistant consequential actions retain `prepare -> review -> human confirm -> execute`.
 
-## Worker Registration gate
+Do not weaken these boundaries to make UI testing easier.
 
-**PAUSED by explicit user instruction.**
-
-Worker Registration must not be suggested or prepared as the next phase until:
-
-- Wave 4D's Email / SMS workspace is implemented;
-- the separate Documents workspace is implemented;
-- existing Wave 4A-4C foundations are integrated coherently;
-- real SMS provider-backed sending is QA-proven unless the user explicitly changes the completion definition;
-- the user explicitly resumes Worker Registration.
-
-Site Attendance and Face-Recognition Attendance remain later phases in that order, with biometric work requiring its dedicated privacy/security design.
-
-## QA / release-readiness track
+## QA / production boundary
 
 `QA CERTIFICATION: NOT READY`
 
-### Full live QA company simulation — 2026-09-11
+Production remains read-only unless the user explicitly authorizes the intended production operation under the migration/operator policy.
 
-The original full live company simulation tested exact QA SHA
-`36c0736a6f3d8703b1c6d0ab47519123a79a1acb` with QA migration level
-`20260910131014` and deployment identity `qa-hydroqualisense`. Synthetic run
-`QA-E2E-7F4K` remains in the isolated QA company; production remained strictly
-read-only.
+A green PR, merge, Render deployment, local-QA success, hosted-QA success, or documentation update does not itself authorize production database/Auth/Storage/secret writes or migration promotion.
 
-That run exercised the cross-module project, procurement/RFQ/PO, warehouse,
-equipment, engineering-document revision, client billing/collection/cash
-linkage, manual Expense, worker setup, Documents, Reports, Dashboard, and
-Email/SMS review surfaces. It also exposed project-create identity, RFQ
-quotation-payload, mixed-unit receipt, and payroll-run persistence defects. The
-hosted Documents failure was a stale case-sensitive test contract rather than
-missing live wording.
+## Required sequence from this handoff
 
-PR #140 merged regression-covered fixes for those four business-flow defects
-and the hosted Documents assertion. Protected QA Release run `34551019443`
-then deployed exact SHA `ec51c29f2b1bdf6927f41746f38a4c967aeb5bff`, promoted
-canonical migration `20260910233915`, independently verified post-promotion
-migration parity and production separation, and ran authenticated Hosted QA on
-the exact deployed state. That exact-head Hosted QA reported deployment
-readiness/authentication/reload/fresh-navigation PASS, `9/9` hosted routes,
-Storage PASS, and `0` contract failures.
+1. **Comprehensive authenticated Local-QA UI/UX redo — NEXT**
+2. **Deep PDF/export visual certification**
+3. **Functional regression sweep**
+4. **Hosted exact-SHA QA certification**
+5. **Wave 4D messaging-provider selection/integration**
+6. **Wave 4D remaining readiness/completion evidence**
+7. **Worker Registration — PAUSED until explicit user resume**
+8. Site Attendance
+9. Face-Recognition Attendance — design/privacy/security first
+10. Final pre-production security/data-integrity certification
 
-QA remains **NOT READY**. The expired Gmail authorization from the original
-simulation has been resolved; the follow-up provider-backed Gmail read/send
-checks passed as recorded above. SMS is not configured, the optional
-high-fidelity PDF converter is unavailable on the native Node/Render
-deployment, and the template/AI provider path did not produce an acceptable
-live blueprint. The exact-head Hosted QA is valid evidence for
-release/auth/route/Storage contracts only; it does not replace a direct live UI
-retest of the four repaired business workflows. The current live retest covered
-all four repaired flows; inbound import/routing and separate mailbox-arrival
-proof remain unexercised. Keep the `QA-E2E-7F4K` records and original
-`artifacts/live-qa` evidence for downstream audit.
+Do not skip from the PR #146 foundation directly to provider work.
 
-The normal release sequence for current application/migration-bearing work remains:
+## Implementation workflow
 
-`exact intended app SHA -> intended QA deployment live -> inspect/promote canonical QA migration history when required -> verify parity -> hosted authenticated QA / provider / runtime checks`
+For the next Codex phase:
 
-Remaining readiness work continues under `docs/CHATGPT_MIGRATION_OPERATOR_POLICY.md` and `docs/HYDROQUALISENSE_DEPLOYMENT_RUNBOOK.md`, including exact-head full live regression of the repaired flows, approved QA AI/provider validation, SMS provider-backed validation if/when configured, and required recovery evidence.
-
-Production remains read-only unless the user explicitly authorizes promotion for the intended deployment/client. A green PR, merge, Render deploy, or QA success does not imply production-write permission.
-
-## Implementation workflow for Wave 4D
-
-Use this handoff with:
-
-- `AGENTS.md`;
-- `docs/AGENTS_BASELINE_20260909.md`;
-- `docs/AGENT_EXECUTION_EFFICIENCY.md`;
-- `docs/HYDROQUALISENSE_ACTIVE_ROADMAP.md`;
-- `docs/HYDROQUALISENSE_MESSAGING_DOCUMENTS_WAVE4D.md`;
-- `docs/HYDROQUALISENSE_WORKFLOW_UX_AUDIT_20260909.md`;
-- deployment/migration docs when QA, provider, or release work is involved.
-
-Start from exact current latest green `main`, generate one bounded lead context packet, inspect existing implementation before designing, preserve shared authority/history contracts, run focused then affected validation, use Docker/local Supabase only when DB contracts change, review the complete final diff, push a feature branch, and open a PR. The implementation Codex agent must not merge its own PR.
+- fetch and fast-forward current `main` and record the exact SHA once;
+- create a fresh feature branch;
+- read live `AGENTS.md`, efficiency guide, roadmap, this handoff, and the Local-QA/UI/PDF plan;
+- default to zero subagents, hard maximum two genuinely independent bounded subagents;
+- generate at most one bounded context packet when useful;
+- inspect existing implementation before designing;
+- use the local-QA harness as the fast feedback loop for schema-compatible application work;
+- run new/edited tests -> focused tests -> `npm.cmd run test:affected:agent` -> only relevant lint/build/browser/Workflow Map checks;
+- use Docker/local Supabase only if DB/security/integrity contracts change;
+- do not run `test:full` by ritual;
+- review the complete final diff;
+- push a feature branch and open a PR;
+- Codex must not merge its own PR.
 
 ## Stop boundary
 
-Do not allow Wave 4D to expand into Worker Registration, Site Attendance, Face Recognition, broad CRM/contact-master redesign, marketing campaigns, bulk unsolicited messaging, new accounting policy, or unrelated visual cleanup.
+Do not allow the next UI/UX quality phase to expand into SMS provider implementation, Worker Registration, Site Attendance, Face Recognition, broad CRM redesign, marketing/bulk messaging, new accounting semantics, or unrelated scope creep.
