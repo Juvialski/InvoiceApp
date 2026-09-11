@@ -117,7 +117,13 @@ Never certify a stale app SHA or divergent migration history. Never infer produc
 
 ## Model / implementation workflow
 
-Codex remains the default lead implementation/integration engine. During the currently authorized pre-demo sprint, Luna may be used up to the ceiling defined in `docs/AGENTS_BASELINE_20260909.md`; that is a ceiling, not a quota. The lead owns shared contracts, migrations/RLS/RPC interpretation, security/financial semantics, final diff review, validation, commit/push/PR delivery, and must not merge its own implementation PR.
+Codex is the default implementation engine.
+
+Default to **zero subagents**. Hard maximum: **2 concurrent Codex subagents**, and only for genuinely independent, tightly bounded work. Do not assume Luna, Gemini, Antigravity, or another external coding agent is available unless the user explicitly enables it for a specific task.
+
+The lead Codex agent must continue implementation and must not block waiting for subagents. Stop stalled subagents instead of restarting broad tasks repeatedly.
+
+The lead owns architecture/source-of-truth decisions, shared files and integration, financial semantics, migrations/RLS/RPC interpretation, security, App/router/provider integration, final diff review, validation, commit/push/PR delivery, and must not merge its own implementation PR.
 
 When ChatGPT is performing the repository-native PR review/fix/finalization role, it must inspect exact current head and exact-head CI, fix concrete issues, and merge automatically if safe as defined by the baseline rules.
 
