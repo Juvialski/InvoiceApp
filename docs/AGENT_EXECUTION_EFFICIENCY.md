@@ -1,25 +1,30 @@
 # HydroQualiSense Agent Execution Efficiency
 
-This document defines the repository-native low-context workflow for ChatGPT + Codex/Luna execution. It complements `AGENTS.md`; correctness, security, financial truth, RLS, migration safety, runtime evidence, and exact-head CI remain higher priority than speed.
+This document defines the repository-native low-context workflow for ChatGPT + Codex execution. It complements `AGENTS.md`; correctness, security, financial truth, RLS, migration safety, runtime evidence, and exact-head CI remain higher priority than speed.
 
 ## Goal
 
-Accelerate the pre-demo push for **Thursday, September 10, 2026** without duplicating discovery, tests, logs, or architecture decisions.
+Optimize the recurring workflow:
+
+`ChatGPT prompt -> Codex implementation + PR -> ChatGPT review/fix/merge -> next ChatGPT prompt`
+
+ChatGPT owns the expensive live-repository PR review/merge confirmation. A fresh Codex implementation run should not repeat that remote-history work. Its first action is to synchronize its local checkout to current remote `main`, confirm the resulting SHA once, and start the assigned task.
 
 Default accelerated flow:
 
-1. trust the exact green `main` baseline from the previous merged phase;
-2. generate one bounded lead `agent:context` packet;
-3. inspect only the supplied working set and exact symbols needed;
-4. keep Codex as the lead implementation/integration owner;
-5. split genuinely independent work across Luna subagents when useful;
-6. use up to **5 concurrent Luna subagents** during the authorized pre-demo sprint;
-7. integrate early rather than waiting for every subagent to finish;
-8. run new/focused tests;
-9. run `npm.cmd run test:affected:agent` on the integrated branch;
-10. run lint/build/browser/Workflow Map checks only when relevant;
-11. run Docker-backed local Supabase validation when DB contracts change;
-12. open the PR and use exact-head CI as the final automated gate.
+1. fetch/pull the latest remote `main` before inspecting stale local implementation state;
+2. record the resulting exact `main` SHA once;
+3. read `AGENTS.md` and only the task-relevant product/workflow documents;
+4. generate one bounded lead `agent:context` packet when useful;
+5. inspect only the supplied working set and exact symbols needed;
+6. keep Codex as the lead implementation/integration owner;
+7. default to zero subagents and use at most 2 Codex subagents only for genuinely independent bounded work;
+8. integrate early rather than waiting for every subagent to finish;
+9. run new/focused tests;
+10. run `npm.cmd run test:affected:agent` on the integrated branch;
+11. run lint/build/browser/Workflow Map checks only when relevant;
+12. run Docker-backed local Supabase validation when DB contracts change;
+13. open the PR and use exact-head CI as the final automated gate during ChatGPT review.
 
 ## 1. Single bounded lead context packet
 
@@ -39,13 +44,13 @@ Normal first-pass budget:
 - about 6-8 primary source files;
 - exact symbols/ranges instead of whole-file dumps.
 
-Do not make every Luna subagent independently rediscover the repository. The lead should turn the source-of-truth context into narrow assignments containing only the files/contracts each subagent needs.
+Do not make every subagent independently rediscover the repository. The lead should turn the source-of-truth context into narrow assignments containing only the files/contracts each subagent needs.
 
 If no Workflow Map node matches, accept the changed-file/impact fallback packet. Do not retry speculative keyword variants simply to force a match.
 
 Workflow Map is advisory navigation only. Source, runtime behavior, migrations, RLS, tests, and CI remain authoritative.
 
-## 2. Accelerated lead + Luna execution
+## 2. Accelerated Codex execution
 
 ### Lead
 
@@ -60,15 +65,15 @@ Codex remains the default lead and owns:
 - integrated validation;
 - commit/push/PR.
 
-The lead must continue working while Luna subagents run. Do not turn the lead into an idle coordinator.
+The lead must continue working while any subagents run. Do not turn the lead into an idle coordinator.
 
-### Luna subagents
+### Optional Codex subagents
 
-Luna is explicitly enabled for the current pre-demo sprint.
+Default to **zero subagents**.
 
-Hard maximum: **5 concurrent Luna subagents**.
+Hard maximum: **2 concurrent Codex subagents**.
 
-Use them for genuinely independent bounded work such as:
+Use them only for genuinely independent bounded work such as:
 
 - separate UI surfaces;
 - isolated service/helper implementations;
@@ -88,7 +93,7 @@ Each assignment should state:
 
 Avoid:
 
-- five agents solving the same issue;
+- multiple agents solving the same issue;
 - duplicate repository-wide audits;
 - competing edits to central routing/providers/shared financial helpers;
 - multiple agents independently deciding migration/RLS/financial semantics;
@@ -107,7 +112,7 @@ Parallelism only helps if results integrate cleanly.
 - Review the actual subagent diff before retaining it.
 - Resolve shared-contract conflicts centrally in the lead branch.
 - Run final validation against the integrated branch, not only inside isolated subagent worktrees.
-- If a task is too coupled to divide safely, keep it with the lead even if Luna capacity is unused.
+- If a task is too coupled to divide safely, keep it with the lead even if subagent capacity is unused.
 
 ## 4. Compact affected-test execution
 
@@ -152,7 +157,7 @@ For normal UI/application work:
 7. Workflow Map checks only when mapped contracts/generated inputs changed;
 8. exact-head PR CI.
 
-Luna subagents may perform targeted checks in parallel, but the lead must still confirm the integrated branch satisfies the applicable ladder.
+Optional Codex subagents may perform targeted checks in parallel, but the lead must still confirm the integrated branch satisfies the applicable ladder.
 
 Do not start Docker/Supabase for UI-only, documentation-only, or unrelated non-DB work.
 
@@ -191,7 +196,7 @@ Do not close Docker Desktop itself.
 
 ## 8. Full-suite rule
 
-Do not run `npm.cmd run test:full` at the start of a phase from a just-merged green `main`.
+Do not run `npm.cmd run test:full` at the start of a phase from a just-pulled green `main`.
 
 Run it only when:
 
@@ -206,24 +211,46 @@ Parallel capacity is not a reason to run unnecessary full suites.
 
 ## 9. Review path
 
-Review diff-first:
+For **Codex implementation**, review diff-first after implementation:
 
 - acceptance criteria;
 - changed filenames/hunks;
 - touched shared contracts;
 - bounded lead context packet;
-- subagent assignments and returned diffs/findings;
+- optional subagent assignments and returned diffs/findings;
 - focused/affected validation results.
 
 Expand scope only for a concrete dependency, financial/security boundary, or failure.
 
-## 10. Prompt-creation default during the pre-demo sprint
+For **ChatGPT PR review/fix/merge**, the repository-native exact-head review rules still apply in full: inspect the live PR/head, complete relevant diff, exact-head CI, blockers, mergeability, and unresolved review state before merging.
 
-Future implementation prompts through the September 10 presentation should use wording equivalent to:
+## 10. Prompt-creation default — pull first, then work
 
-> Start from current latest `main` and confirm the exact green base SHA. Read `AGENTS.md` and the current HydroQualiSense active roadmap first. Do not use retired Engoryx roadmap phases as implementation authority. Generate one bounded `npm.cmd run agent:context -- ...` packet for the lead. Codex owns the critical path, shared contracts, integration, final diff review, and validation. Luna is explicitly available for this accelerated sprint: use up to five concurrent Luna subagents for genuinely independent bounded work, with non-overlapping ownership and explicit stop boundaries. Keep the lead implementing while subagents run; do not duplicate repository discovery or broad tests across agents. Run focused/new tests while iterating, then `npm.cmd run test:affected:agent` on the integrated branch. For migrations, RLS, RPCs, triggers, DB contracts, financial DB guards, inventory DB guards, or concurrency changes, use Docker Desktop/local Supabase for clean replay, pgTAP, migration upgrade, and relevant runtime/concurrency checks before PR completion. Do not start Docker for UI-only/non-DB work. Run lint/build/browser/Workflow Map checks only when relevant. Open the PR but do not merge it; the GitHub-native lead will review exact-head CI and merge when safe.
+Every normal ChatGPT -> Codex implementation prompt should begin with wording equivalent to:
 
-After the September 10 presentation, explicitly reassess whether five-Luna parallelism should remain before carrying this policy into later work.
+> **FIRST ACTION: synchronize this local checkout to the latest remote `main`.** Run `git fetch origin main`, switch to `main`, and `git pull --ff-only origin main` (or use a clean worktree from current `origin/main` if local work must be preserved). Record the resulting `main` SHA once, create the task branch from it, then proceed immediately. Do not spend startup time inspecting whether the pre-pull local checkout was current, checking old PRs/CI/history, or reconfirming the previous prompt SHA. After syncing, read `AGENTS.md` and only the documents/files needed for this task, generate at most one bounded `agent:context` packet when useful, inspect the relevant implementation, and start coding.
+
+Prompt rules:
+
+- Do not ask Codex to independently discover the latest remote `main` through a long GitHub/CI audit before pulling it.
+- Do not require open-PR inspection at implementation startup unless the task actually depends on another open PR.
+- Do not make Codex re-check historical CI from the previous merged phase. ChatGPT already owns PR review/merge validation.
+- Include an exact starting SHA in the prompt as useful handoff evidence when available, but treat it as informational only. The freshly fetched/pulled `origin/main` is authoritative if ChatGPT made another remote correction before Codex starts.
+- One post-pull SHA check is enough for ordinary implementation startup.
+- Preserve local uncommitted/local-only work rather than resetting it destructively; use a clean worktree/branch from `origin/main` when necessary.
+- After the pull, proceed directly to task-specific inspection and implementation. No ritual repository-wide audit or baseline full-suite run.
+- Default to zero subagents; hard maximum 2 concurrent Codex subagents for genuinely independent bounded work.
+- Run focused/new tests while iterating, then `npm.cmd run test:affected:agent` on the integrated branch.
+- For migrations, RLS, RPCs, triggers, DB contracts, financial DB guards, inventory DB guards, or concurrency changes, use Docker Desktop/local Supabase for clean replay, pgTAP, migration upgrade, and relevant runtime/concurrency checks before PR completion.
+- Do not start Docker for UI-only/non-DB work.
+- Run lint/build/browser/Workflow Map checks only when relevant.
+- Open the PR but do not merge it. ChatGPT will perform the live exact-head PR review, fix concrete issues if necessary, verify CI, and merge when safe.
+
+This section intentionally separates the two jobs:
+
+`Codex = pull latest main -> implement -> validate -> open PR`
+
+`ChatGPT = inspect live PR -> review/fix -> verify exact head -> merge -> prepare next prompt`
 
 ## 11. Efficiency evidence
 
@@ -231,7 +258,7 @@ Useful per-PR metrics:
 
 - changed-file count;
 - context packet size;
-- Luna subagents started/completed/stopped;
+- subagents started/completed/stopped;
 - each subagent's bounded assignment;
 - selected test files / total test files;
 - impact fallback yes/no + reason;
