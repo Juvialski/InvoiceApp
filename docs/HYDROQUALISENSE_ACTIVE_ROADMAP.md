@@ -22,10 +22,11 @@ Wave 4A Company Document Templates / Mail Merge Foundation is complete through P
 Wave 4B High-Fidelity PDF Finalization Foundation is complete through PR #135.  
 Wave 4C Outbound Issued-Document Gmail Delivery & Delivery History is complete through PR #136.
 Wave 4D Email/SMS + Documents workspace implementation is integrated through PR #138, but Wave 4D remains incomplete until approved provider-backed SMS is configured and runtime-tested in QA.
+PR #140 merged the full live-QA harness plus regression-covered hardening for the project-create identity, RFQ quotation payload, mixed-unit PO receipt continuation, payroll-run persistence, and hosted Documents assertion findings observed during the 2026-09-11 QA simulation.
 
-Current merged application baseline after the Wave 4D workspace implementation:
+Current merged application and QA-hardening baseline:
 
-`41fff7149c88bbadba6e40d3e5e2da7bcdb24d4a`
+`ec51c29f2b1bdf6927f41746f38a4c967aeb5bff`
 
 Wave 4A-4C are **supporting foundations**, not completion of the broader Email/SMS + Documents product experience.
 
@@ -182,40 +183,51 @@ Preserve:
 
 ## Full live QA company simulation — 2026-09-11
 
-The live QA company simulation was run against the exact deployed QA
+The original live QA company simulation was run against exact deployed QA
 application SHA `36c0736a6f3d8703b1c6d0ab47519123a79a1acb`, deployment
 `qa-hydroqualisense`, and canonical QA migration level `20260910131014`.
-The synthetic run identifier was `QA-E2E-7F4K`; its records remain in the
-isolated QA company for audit and downstream verification. Production was
-read-only throughout.
+Synthetic run `QA-E2E-7F4K` remains in the isolated QA company for audit and
+downstream verification. Production was read-only throughout.
 
-The run proved working project, RFQ, vendor, PO, issue/approval, receipt,
+That run proved working project, RFQ, vendor, PO, issue/approval, receipt,
 Warehouse movement, equipment assignment/lifecycle, engineering revision,
 client billing/collection/cash-linkage, manual Expense, and synthetic worker
 setup flows. It also proved the Documents projection, Reports, Dashboard,
 review-before-send compose state, truthful Gmail reconnect state, and truthful
-SMS `Not configured` state.
+SMS `Not configured` state. The same run exposed four application defects:
+new-project persistence submitted an empty UUID, supplier quotation camelCase
+line values persisted as zero, mixed-unit PO receipt continuation was hidden,
+and payroll calculation could fall through to an invalid insert while saving an
+existing lifecycle row.
 
-QA is still **NOT READY**. The live blockers/findings are: Gmail authorization
-is expired; no SMS provider is configured; high-fidelity PDF finalization is
-unavailable on this deployment; starter template creation failed safely and
-the configured AI template response was rejected as an invalid blueprint; a
-new project save submitted `id=""`; quotation line values were persisted as
-zero despite non-zero UI input; mixed-unit PO receipt continuation was hidden;
-and payroll calculation failed while persisting a valid DRAFT run. All four
-application defects have regression-covered fixes prepared in the current
-unmerged change, and the hosted literal Documents assertion was corrected to
-be presentation-case-insensitive. Those fixes are not yet the deployed QA
-SHA and must be re-tested after an authorized QA release.
+PR #140 merged regression-covered fixes for all four defects plus the hosted
+Documents semantic-text assertion. Protected QA Release run `34551019443`
+then deployed exact SHA `ec51c29f2b1bdf6927f41746f38a4c967aeb5bff`, promoted
+canonical QA migration `20260910233915`, independently re-verified migration
+parity and production separation, and completed authenticated Hosted QA
+successfully. The retained exact-head Hosted QA evidence reports deployment
+readiness/authentication/reload/fresh-navigation PASS, `9/9` hosted routes,
+Storage PASS, and `0` contract failures.
 
-The authoritative detailed evidence is retained in the local
-`artifacts/live-qa` output, including the exact deployment metadata, record
-IDs, screenshots, generated-output boundary, provider results, and cleanup
-decision. Wave 4D remains incomplete and Worker Registration remains paused.
+QA remains **NOT READY**. The provider/runtime blockers from the full company
+simulation remain truthful: Gmail authorization was expired during that run; no
+SMS provider is configured; the optional high-fidelity PDF converter is not
+available on the current native Node/Render deployment; and the template/AI
+provider path did not produce an acceptable live blueprint. In addition, the
+exact-head Hosted QA run validates release/auth/route/Storage contracts but is
+not a substitute for rerunning the four repaired business workflows through the
+full live company simulation. Those repaired flows therefore still need direct
+live UI retest on the current QA deployment before their live findings can be
+closed.
+
+The authoritative original simulation evidence is retained in local
+`artifacts/live-qa` output and the durable `QA-E2E-7F4K` QA records. The current
+exact-head Hosted QA artifact belongs only to SHA
+`ec51c29f2b1bdf6927f41746f38a4c967aeb5bff` and must not be generalized beyond
+the contracts it actually exercised. Wave 4D remains incomplete and Worker
+Registration remains paused.
 
 QA certification, provider validation, recovery evidence, deployment identity, migration parity, and production separation remain a parallel release/readiness track.
-
-The last retained hosted certification artifact predates the newer Wave 1A-4C application-bearing changes and must not be used as proof for the current application baseline.
 
 A newer application/runtime/migration-bearing main requires the normal sequence before becoming the certified QA baseline:
 
@@ -223,7 +235,7 @@ A newer application/runtime/migration-bearing main requires the normal sequence 
 
 Paid-only provider controls unavailable on the current Supabase Free plan are not blockers by themselves when an approved alternative validation path exists. Do not claim unavailable controls are enabled.
 
-Remaining readiness work continues to include current-main hosted certification, approved QA AI/provider validation, and remaining recovery/Storage evidence as required by the deployment runbook and migration-operator policy.
+Remaining readiness work includes the exact-head full live regression of the repaired business flows, approved QA AI/provider validation, SMS provider-backed validation if/when configured, and remaining recovery evidence required by the deployment runbook and migration-operator policy.
 
 ## Production boundary
 
