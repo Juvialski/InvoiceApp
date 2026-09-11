@@ -18,6 +18,28 @@ export function projectRefFromSupabaseUrl(value: string) {
   return match[1].toLowerCase();
 }
 
+function legacySupabaseJwtRole(value: string) {
+  const parts = value.trim().split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    const decoded = globalThis.atob(padded);
+    const parsed = JSON.parse(decoded) as { role?: unknown };
+    return typeof parsed.role === "string" ? parsed.role.trim().toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Browser config may contain only a modern publishable key or a legacy anon JWT. */
+export function isBrowserSafeSupabaseKey(value: string) {
+  const key = value.trim();
+  if (!key) return false;
+  if (/^sb_publishable_/i.test(key)) return true;
+  return legacySupabaseJwtRole(key) === "anon";
+}
+
 export function assertLocalQaTarget(input: LocalQaTargetInput) {
   const projectRef = projectRefFromSupabaseUrl(input.supabaseUrl);
   const expectedQaProjectRef = input.expectedQaProjectRef.trim().toLowerCase();
@@ -28,7 +50,7 @@ export function assertLocalQaTarget(input: LocalQaTargetInput) {
   if (String(projectRef) === productionProjectRef) throw new Error("Local QA refuses a QA/production project collision.");
   if (input.environment.trim().toLowerCase() !== "qa") throw new Error("Local QA requires HYDROQUALISENSE_ENVIRONMENT=qa.");
   if (input.deploymentId.trim() !== LOCAL_QA_DEPLOYMENT_ID) throw new Error("Local QA requires the local-qa-harness deployment identity.");
-  if (!input.publishableKey.trim() || /service[_-]?role|sb_secret_|secret/i.test(input.publishableKey)) throw new Error("Local QA browser configuration must use only a publishable or legacy anon key.");
+  if (!isBrowserSafeSupabaseKey(input.publishableKey)) throw new Error("Local QA browser configuration must use only a publishable or legacy anon key.");
   return { projectRef, productionProjectRef, deploymentId: input.deploymentId.trim() } as const;
 }
 
