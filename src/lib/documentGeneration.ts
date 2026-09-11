@@ -319,32 +319,18 @@ function wrapToWidth(value: unknown, maxWidth: number, size: number, maxLines?: 
   return bounded;
 }
 
-function wrap(value: unknown, maxChars: number) {
-  const source = ascii(value).trim();
-  if (!source) return [""];
-  const words = source.split(/\s+/);
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    if (word.length > maxChars) {
-      if (current) lines.push(current);
-      for (let index = 0; index < word.length; index += maxChars) lines.push(word.slice(index, index + maxChars));
-      current = "";
-    } else if (!current) current = word;
-    else if (`${current} ${word}`.length <= maxChars) current += ` ${word}`;
-    else { lines.push(current); current = word; }
+function fittedFontSize(value: unknown, size: number, maxWidth: number, minimum = 5.5) {
+  let fitted = size;
+  while (fitted > minimum && helveticaTextWidth(value, fitted) > maxWidth) {
+    fitted = Math.max(minimum, fitted - 0.25);
   }
-  if (current) lines.push(current);
-  return lines.length ? lines : [""];
+  return fitted;
 }
 
-function boundedWrap(value: unknown, maxChars: number, maxLines: number) {
-  const lines = wrap(value, maxChars);
-  if (lines.length <= maxLines) return lines;
-  const bounded = lines.slice(0, maxLines);
-  const last = bounded[maxLines - 1] || "";
-  bounded[maxLines - 1] = `${last.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
-  return bounded;
+function centeredFittedText(page: PdfPage, value: unknown, center: number, top: number, maxWidth: number, size = 8, bold = false, color = "0 0 0") {
+  const fitted = fittedFontSize(value, size, maxWidth);
+  const width = helveticaTextWidth(value, fitted);
+  page.text(value, Math.max(center - maxWidth / 2, center - width / 2), top, fitted, bold, color);
 }
 
 const PAGE_WIDTH = 595;
@@ -406,7 +392,11 @@ function drawLetterhead(page: PdfPage, company: DocumentCompanySnapshot, compact
     page.image(image, 72, (compact ? 24 : 26) + (boxHeight - imageHeight) / 2, imageWidth, imageHeight);
   }
   const companySize = compact ? 13 : 15;
-  const companyLines = wrapToWidth(company.legalName.toUpperCase(), 280, companySize);
+  // Keep the legal name centered on the page while reserving the left header
+  // band for a logo. A full-width centered line can otherwise cross a wide or
+  // tall logo even though both elements individually fit their boxes.
+  const companyWidth = image ? (compact ? 248 : 250) : 360;
+  const companyLines = wrapToWidth(company.legalName.toUpperCase(), companyWidth, companySize);
   companyLines.forEach((line, index) => page.centered(line, (compact ? 28 : 34) + index * (companySize + 2), companySize, true, NAVY));
   let cursor = (compact ? 28 : 35) + companyLines.length * (companySize + 2) + 3;
   if (!compact) {
@@ -451,27 +441,52 @@ function drawTableGrid(page: PdfPage, x: number, top: number, widths: number[], 
 interface PdfLineSegment {
   readonly source: DocumentLineSnapshot;
   readonly descriptionLines: readonly string[];
+  readonly detailLines: readonly string[];
+  readonly rowHeight: number;
   readonly continuation: boolean;
 }
 
-function splitPdfLine(row: DocumentLineSnapshot, descriptionWidth: number, fontSize: number, linesPerSegment: number): PdfLineSegment[] {
+function splitPdfLine(
+  row: DocumentLineSnapshot,
+  descriptionWidth: number,
+  fontSize: number,
+  linesPerSegment: number,
+  detailLines: readonly string[] = [""],
+): PdfLineSegment[] {
   const lines = wrapToWidth(row.description, descriptionWidth, fontSize);
   const segments: PdfLineSegment[] = [];
   for (let index = 0; index < lines.length; index += linesPerSegment) {
-    segments.push({ source: row, descriptionLines: lines.slice(index, index + linesPerSegment), continuation: index > 0 });
+    const descriptionLines = lines.slice(index, index + linesPerSegment);
+    const continuation = index > 0;
+    const detailHeight = continuation ? 24 : detailLines.length * 10 + 10;
+    segments.push({
+      source: row,
+      descriptionLines,
+      detailLines: continuation ? [] : detailLines,
+      rowHeight: Math.max(24, descriptionLines.length * 10 + 10, detailHeight),
+      continuation,
+    });
   }
-  return segments.length ? segments : [{ source: row, descriptionLines: [""], continuation: false }];
+  return segments.length
+    ? segments
+    : [{ source: row, descriptionLines: [""], detailLines, rowHeight: Math.max(24, detailLines.length * 10 + 10), continuation: false }];
 }
 
-function splitPdfLines(rows: readonly DocumentLineSnapshot[], descriptionWidth: number, fontSize: number, linesPerSegment: number) {
-  return rows.flatMap((row) => splitPdfLine(row, descriptionWidth, fontSize, linesPerSegment));
+function splitPdfLines(
+  rows: readonly DocumentLineSnapshot[],
+  descriptionWidth: number,
+  fontSize: number,
+  linesPerSegment: number,
+  detailLinesForRow?: (row: DocumentLineSnapshot) => readonly string[],
+) {
+  return rows.flatMap((row) => splitPdfLine(row, descriptionWidth, fontSize, linesPerSegment, detailLinesForRow?.(row)));
 }
 
 function takePdfSegments(segments: readonly PdfLineSegment[], start: number, maxBottom: number, tableTop: number) {
   let end = start;
   let bottom = tableTop + 25;
   while (end < segments.length) {
-    const nextHeight = Math.max(24, segments[end].descriptionLines.length * 10 + 10);
+    const nextHeight = segments[end].rowHeight;
     if (end > start && bottom + nextHeight > maxBottom) break;
     bottom += nextHeight;
     end += 1;
@@ -479,15 +494,9 @@ function takePdfSegments(segments: readonly PdfLineSegment[], start: number, max
   return Math.max(end, start + 1);
 }
 
-function purchaseOrderDetailBottom(snapshot: PurchaseOrderDocumentSnapshot) {
-  let detailTop = 218;
-  const detailRows = [snapshot.supplier.name, snapshot.supplier.address || "", snapshot.supplier.attention || "", snapshot.supplier.vatTin || ""];
-  for (const value of detailRows) {
-    const valueLines = wrapToWidth(value, 245, 9.5);
-    detailTop += Math.max(18, valueLines.length * 10 + 8);
-  }
-  return detailTop;
-}
+const TABLE_CONTENT_BOTTOM = 620;
+const PO_UNIT_FONT_SIZE = 7.2;
+const INVOICE_QUANTITY_FONT_SIZE = 7.5;
 
 function drawDocumentHeading(page: PdfPage, title: string, documentNumber: string, top: number, size: number) {
   page.centered(title, top, size, true);
@@ -495,6 +504,7 @@ function drawDocumentHeading(page: PdfPage, title: string, documentNumber: strin
   const boxHeight = Math.max(25, numberLines.length * 9 + 8);
   page.rect(422, top - 2, 101, boxHeight, "0 0 0", 0.7);
   numberLines.forEach((line, index) => page.text(line, 428, top + 5 + index * 9, 7.5, false));
+  return Math.max(top + size + 2, top - 2 + boxHeight);
 }
 
 function drawPoFooterPages(firstPage: PdfPage, snapshot: PurchaseOrderDocumentSnapshot, image: PdfImage | undefined, top: number) {
@@ -532,9 +542,9 @@ function drawPoFooterPages(firstPage: PdfPage, snapshot: PurchaseOrderDocumentSn
   if (cursor + 42 > 790) nextPage();
   const signatureTop = cursor + 16;
   page.text("Processed by:", x, signatureTop, 9, true);
-  page.text(snapshot.processor.name, x + 108, signatureTop, 9, true);
+  page.text(snapshot.processor.name, x + 108, signatureTop, fittedFontSize(snapshot.processor.name, 9, 107), true);
   page.line(x + 108, signatureTop + 12, x + 215, signatureTop + 12, "0 0 0", 0.6);
-  if (snapshot.processor.title) page.text(snapshot.processor.title, x + 108, signatureTop + 16, 8, false);
+  if (snapshot.processor.title) page.text(snapshot.processor.title, x + 108, signatureTop + 16, fittedFontSize(snapshot.processor.title, 8, 107), false);
   page.text("Conforme :", x + 270, signatureTop, 9, true);
   page.line(x + 334, signatureTop + 11, x + 445, signatureTop + 11, "0 0 0", 0.6);
   page.text("Supplier's Authorized Representative", x + 330, signatureTop + 16, 7.5, false);
@@ -542,17 +552,17 @@ function drawPoFooterPages(firstPage: PdfPage, snapshot: PurchaseOrderDocumentSn
 }
 
 function drawPoTotalRow(page: PdfPage, tableX: number, tableBottom: number, widths: number[], snapshot: PurchaseOrderDocumentSnapshot) {
-  const height = 28;
   const totalWidth = widths.reduce((sum, width) => sum + width, 0);
   const firstFourWidth = widths.slice(0, 4).reduce((sum, width) => sum + width, 0);
   const firstFiveWidth = widths.slice(0, 5).reduce((sum, width) => sum + width, 0);
+  const amountWords = wrapToWidth(snapshot.amountInWords || amountInWords(snapshot.totalAmount, snapshot.currency), firstFourWidth - 16, 8);
+  const height = Math.max(28, amountWords.length * 9 + 12);
   page.rect(tableX, tableBottom, totalWidth, height, "0.25 0.25 0.25", 0.6);
   page.line(tableX + firstFourWidth, tableBottom, tableX + firstFourWidth, tableBottom + height, "0.45 0.45 0.45", 0.45);
   page.line(tableX + firstFiveWidth, tableBottom, tableX + firstFiveWidth, tableBottom + height, "0.45 0.45 0.45", 0.45);
-  boundedWrap(snapshot.amountInWords || amountInWords(snapshot.totalAmount, snapshot.currency), 46, 2)
-    .forEach((line, index) => page.text(line, tableX + 8, tableBottom + 6 + index * 9, 8, false));
-  page.text(`Total (${snapshot.currency})`, tableX + firstFourWidth + 5, tableBottom + 6, 8.2, true);
-  page.text(formatAmount(snapshot.totalAmount, snapshot.currency), tableX + firstFiveWidth + 5, tableBottom + 7, 7.8, true);
+  amountWords.forEach((line, index) => page.text(line, tableX + 8, tableBottom + 6 + index * 9, 8, false));
+  page.text(`Total (${snapshot.currency})`, tableX + firstFourWidth + 5, tableBottom + 6, fittedFontSize(`Total (${snapshot.currency})`, 8.2, widths[4] - 8), true);
+  centeredFittedText(page, formatAmount(snapshot.totalAmount, snapshot.currency), tableX + firstFiveWidth + widths[5] / 2, tableBottom + 7, widths[5] - 10, 7.8, true);
   return tableBottom + height;
 }
 
@@ -589,8 +599,8 @@ function drawClientFooterPages(firstPage: PdfPage, snapshot: ClientInvoiceDocume
   if (cursor + 42 > 790) nextPage();
   const preparedTop = Math.max(150, cursor + 8);
   page.text("Prepared by:", 72, preparedTop, 9, true);
-  page.text(snapshot.processor.name, 140, preparedTop, 9, true);
-  if (snapshot.processor.title) page.text(snapshot.processor.title, 140, preparedTop + 16, 8, false);
+  page.text(snapshot.processor.name, 140, preparedTop, fittedFontSize(snapshot.processor.name, 9, 380), true);
+  if (snapshot.processor.title) page.text(snapshot.processor.title, 140, preparedTop + 16, fittedFontSize(snapshot.processor.title, 8, 380), false);
   return pages;
 }
 
@@ -598,8 +608,9 @@ function drawPoPage(snapshot: PurchaseOrderDocumentSnapshot, rows: readonly PdfL
   const page = new PdfPage();
   const letterheadBottom = drawLetterhead(page, snapshot.company, continuation, image);
   const contentTop = continuation ? 116 : Math.max(154, letterheadBottom + 23);
-  drawDocumentHeading(page, "PURCHASE ORDER", snapshot.documentNumber, contentTop, 14);
-  let detailBottom = 290;
+  const headingBottom = drawDocumentHeading(page, "PURCHASE ORDER", snapshot.documentNumber, contentTop, 14);
+  const detailStart = Math.max(218, headingBottom + 18);
+  let detailBottom = Math.max(290, detailStart);
   if (!continuation) {
     page.text(`VAT TIN: ${snapshot.company.vatTin || ""}`, 72, 190, 10, true);
     const detailRows = [
@@ -608,7 +619,7 @@ function drawPoPage(snapshot: PurchaseOrderDocumentSnapshot, rows: readonly PdfL
       ["Attention", snapshot.supplier.attention || ""],
       ["VAT TIN", snapshot.supplier.vatTin || ""],
     ] as const;
-    let detailTop = 218;
+    let detailTop = detailStart;
     for (const [label, value] of detailRows) {
       const valueLines = wrapToWidth(value, 245, 9.5);
       const rowHeight = Math.max(18, valueLines.length * 10 + 8);
@@ -618,8 +629,8 @@ function drawPoPage(snapshot: PurchaseOrderDocumentSnapshot, rows: readonly PdfL
       detailTop += rowHeight;
     }
     detailBottom = detailTop;
-    page.text(formatDate(snapshot.issueDate), 435, 218, 10, true);
-    page.text("Date", 448, 236, 10, true);
+    page.text(formatDate(snapshot.issueDate), 435, detailStart, 10, true);
+    page.text("Date", 448, detailStart + 18, 10, true);
   } else {
     wrapToWidth(`Supplier: ${snapshot.supplier.name}`, 330, 9).forEach((line, index) => page.text(line, 72, 190 + index * 10, 9, true));
     page.text(`Date: ${formatDate(snapshot.issueDate)}`, 430, 190, 9, true);
@@ -629,7 +640,7 @@ function drawPoPage(snapshot: PurchaseOrderDocumentSnapshot, rows: readonly PdfL
   const tableTop = continuation ? 222 : Math.max(300, detailBottom + 10);
   const widths = [52, 34, 38, 178, 75, 74];
   const headers = ["Item No.", "Qty", "Unit", "Description", "Unit Price", "Amount"];
-  const rowHeights = rows.map((row) => Math.max(24, row.descriptionLines.length * 10 + 10));
+  const rowHeights = rows.map((row) => row.rowHeight);
   const headerHeight = 25;
   page.filledRect(tableX, tableTop, widths.reduce((sum, width) => sum + width, 0), headerHeight, "0.92 0.94 0.97");
   drawTableGrid(page, tableX, tableTop, widths, rowHeights, headerHeight);
@@ -644,28 +655,31 @@ function drawPoPage(snapshot: PurchaseOrderDocumentSnapshot, rows: readonly PdfL
     const row = segment.source;
     if (!segment.continuation) {
       page.text(String(row.lineNumber || index + 1), tableX + 20, y + 7, 8.5, false);
-      page.text(row.quantity === undefined ? "" : String(row.quantity), tableX + widths[0] + 8, y + 7, 8.5, false);
-      page.text(row.unit || "", tableX + widths[0] + widths[1] + 8, y + 7, 8.5, false);
-      page.text(row.unitPrice === undefined ? "" : formatAmount(row.unitPrice, snapshot.currency), tableX + widths[0] + widths[1] + widths[2] + widths[3] + 5, y + 7, 7.8, false);
-      page.text(formatAmount(row.amount, snapshot.currency), tableX + widths.slice(0, 5).reduce((sum, width) => sum + width, 0) + 5, y + 7, 7.8, false);
+      centeredFittedText(page, row.quantity === undefined ? "" : String(row.quantity), tableX + widths[0] + widths[1] / 2, y + 7, widths[1] - 10, 8.5);
+      segment.detailLines.forEach((line, lineIndex) => centeredFittedText(page, line, tableX + widths[0] + widths[1] + widths[2] / 2, y + 6 + lineIndex * 10, widths[2] - 6, PO_UNIT_FONT_SIZE));
+      centeredFittedText(page, row.unitPrice === undefined ? "" : formatAmount(row.unitPrice, snapshot.currency), tableX + widths.slice(0, 4).reduce((sum, width) => sum + width, 0) + widths[4] / 2, y + 7, widths[4] - 10, 7.8);
+      centeredFittedText(page, formatAmount(row.amount, snapshot.currency), tableX + widths.slice(0, 5).reduce((sum, width) => sum + width, 0) + widths[5] / 2, y + 7, widths[5] - 10, 7.8);
     }
     segment.descriptionLines.forEach((line, lineIndex) => page.text(line, tableX + widths[0] + widths[1] + widths[2] + 6, y + 6 + lineIndex * 10, 8.2, false));
     y += rowHeights[index];
   });
-  return { page, tableBottom: y, tableX, widths };
+  return { page, tableTop, tableBottom: y, tableX, widths };
 }
 
 export function buildPurchaseOrderPdf(snapshot: PurchaseOrderDocumentSnapshot, image?: PdfImage) {
   const lines = snapshot.lines.length ? snapshot.lines : [{ lineNumber: 1, description: "", amount: 0 }];
-  const segments = splitPdfLines(lines, 166, 8.2, 2);
+  const segments = splitPdfLines(lines, 166, 8.2, 2, (row) => wrapToWidth(row.unit || "", 30, PO_UNIT_FONT_SIZE));
   const pages: PdfPage[] = [];
   let rowIndex = 0;
   let continuation = false;
   while (rowIndex < segments.length) {
-    const tableTop = continuation ? 222 : Math.max(300, purchaseOrderDetailBottom(snapshot) + 10);
-    const nextIndex = takePdfSegments(segments, rowIndex, 520, tableTop);
-    const chunk = segments.slice(rowIndex, nextIndex);
-    const result = drawPoPage(snapshot, chunk, image, continuation);
+    const firstCandidate = drawPoPage(snapshot, [segments[rowIndex]], image, continuation);
+    let nextIndex = takePdfSegments(segments, rowIndex, TABLE_CONTENT_BOTTOM, firstCandidate.tableTop);
+    let result = drawPoPage(snapshot, segments.slice(rowIndex, nextIndex), image, continuation);
+    while (result.tableBottom > TABLE_CONTENT_BOTTOM && nextIndex > rowIndex + 1) {
+      nextIndex -= 1;
+      result = drawPoPage(snapshot, segments.slice(rowIndex, nextIndex), image, continuation);
+    }
     if (nextIndex < segments.length) {
       pages.push(result.page);
       rowIndex = nextIndex;
@@ -683,14 +697,16 @@ function drawClientPage(snapshot: ClientInvoiceDocumentSnapshot, rows: readonly 
   const page = new PdfPage();
   const letterheadBottom = drawLetterhead(page, snapshot.company, continuation, image);
   const titleTop = continuation ? 116 : Math.max(154, letterheadBottom + 23);
-  drawDocumentHeading(page, "INVOICE", snapshot.documentNumber, titleTop, 15);
+  const headingBottom = drawDocumentHeading(page, "INVOICE", snapshot.documentNumber, titleTop, 15);
   let tableTop = continuation ? 222 : 330;
   if (!continuation) {
-    page.text(`Invoice date: ${formatDate(snapshot.invoiceDate)}`, 72, 194, 9, true);
-    page.text(`Due date: ${formatDate(snapshot.dueDate)}`, 72, 212, 9, false);
+    const metadataTop = Math.max(194, headingBottom + 16);
+    page.text(`Invoice date: ${formatDate(snapshot.invoiceDate)}`, 72, metadataTop, 9, true);
+    page.text(`Due date: ${formatDate(snapshot.dueDate)}`, 72, metadataTop + 18, 9, false);
+    const projectTop = metadataTop + 36;
     const projectLines = wrapToWidth(`Project: ${snapshot.project.projectCode || ""} ${snapshot.project.projectName || ""} - Tax: ${snapshot.taxTreatment || "Unclassified"}`, 451, 8.5);
-    projectLines.forEach((line, index) => page.text(line, 72, 230 + index * 10, 8.5, false));
-    const billTop = 258 + Math.max(0, projectLines.length - 1) * 10;
+    projectLines.forEach((line, index) => page.text(line, 72, projectTop + index * 10, 8.5, false));
+    const billTop = projectTop + Math.max(1, projectLines.length) * 10 + 8;
     page.text("Bill To", 72, billTop, 10, true);
     const leftLines = [
       ...wrapToWidth(snapshot.billTo.name || "", 210, 9),
@@ -705,13 +721,15 @@ function drawClientPage(snapshot: ClientInvoiceDocumentSnapshot, rows: readonly 
     rightLines.forEach((line, index) => page.text(line, 310, billTop + 17 + index * 10, 8.5, false));
     tableTop = Math.max(330, billTop + 17 + Math.max(leftLines.length, rightLines.length) * 10 + 8);
   } else {
-    wrapToWidth(`Bill To: ${snapshot.billTo.name || ""}`, 285, 8.5).forEach((line, index) => page.text(line, 72, 190 + index * 10, 8.5, true));
-    page.text(`Date: ${formatDate(snapshot.invoiceDate)}`, 430, 190, 9, true);
+    const continuationTop = Math.max(190, headingBottom + 16);
+    wrapToWidth(`Bill To: ${snapshot.billTo.name || ""}`, 285, 8.5).forEach((line, index) => page.text(line, 72, continuationTop + index * 10, 8.5, true));
+    page.text(`Date: ${formatDate(snapshot.invoiceDate)}`, 430, continuationTop, 9, true);
+    tableTop = Math.max(222, continuationTop + 18 + wrapToWidth(`Bill To: ${snapshot.billTo.name || ""}`, 285, 8.5).length * 10);
   }
   const tableX = 72;
   const widths = [35, 268, 58, 90];
   const headers = ["#", "Description", "Qty / Unit", "Amount"];
-  const rowHeights = rows.map((row) => Math.max(24, row.descriptionLines.length * 10 + 10));
+  const rowHeights = rows.map((row) => row.rowHeight);
   const headerHeight = 25;
   page.filledRect(tableX, tableTop, widths.reduce((sum, width) => sum + width, 0), headerHeight, "0.92 0.94 0.97");
   drawTableGrid(page, tableX, tableTop, widths, rowHeights, headerHeight);
@@ -725,27 +743,32 @@ function drawClientPage(snapshot: ClientInvoiceDocumentSnapshot, rows: readonly 
     const row = segment.source;
     if (!segment.continuation) {
       page.text(String(row.lineNumber || index + 1), tableX + 14, y + 7, 8.5, false);
-      const qty = row.quantity === undefined ? "" : `${row.quantity}${row.unit ? ` ${row.unit}` : ""}`;
-      page.text(qty, tableX + widths[0] + widths[1] + 6, y + 7, 8, false);
-      page.text(formatAmount(row.amount, snapshot.currency), tableX + widths.slice(0, 3).reduce((sum, width) => sum + width, 0) + 6, y + 7, 8, false);
+      segment.detailLines.forEach((line, lineIndex) => centeredFittedText(page, line, tableX + widths[0] + widths[1] + widths[2] / 2, y + 6 + lineIndex * 10, widths[2] - 8, INVOICE_QUANTITY_FONT_SIZE));
+      centeredFittedText(page, formatAmount(row.amount, snapshot.currency), tableX + widths.slice(0, 3).reduce((sum, width) => sum + width, 0) + widths[3] / 2, y + 7, widths[3] - 12, 8);
     }
     segment.descriptionLines.forEach((line, lineIndex) => page.text(line, tableX + widths[0] + 6, y + 6 + lineIndex * 10, 8.2, false));
     y += rowHeights[index];
   });
-  return { page, tableBottom: y };
+  return { page, tableTop, tableBottom: y };
 }
 
 export function buildClientInvoicePdf(snapshot: ClientInvoiceDocumentSnapshot, image?: PdfImage) {
   const lines = snapshot.lines.length ? snapshot.lines : [{ lineNumber: 1, description: "", amount: 0 }];
-  const segments = splitPdfLines(lines, 256, 8.2, 3);
+  const segments = splitPdfLines(lines, 256, 8.2, 3, (row) => {
+    const quantity = row.quantity === undefined ? "" : `${row.quantity}${row.unit ? ` ${row.unit}` : ""}`;
+    return wrapToWidth(quantity, 46, INVOICE_QUANTITY_FONT_SIZE);
+  });
   const pages: PdfPage[] = [];
   let rowIndex = 0;
   let continuation = false;
   while (rowIndex < segments.length) {
-    const tableTop = continuation ? 222 : 330;
-    const nextIndex = takePdfSegments(segments, rowIndex, 520, tableTop);
-    const chunk = segments.slice(rowIndex, nextIndex);
-    const result = drawClientPage(snapshot, chunk, image, continuation);
+    const firstCandidate = drawClientPage(snapshot, [segments[rowIndex]], image, continuation);
+    let nextIndex = takePdfSegments(segments, rowIndex, TABLE_CONTENT_BOTTOM, firstCandidate.tableTop);
+    let result = drawClientPage(snapshot, segments.slice(rowIndex, nextIndex), image, continuation);
+    while (result.tableBottom > TABLE_CONTENT_BOTTOM && nextIndex > rowIndex + 1) {
+      nextIndex -= 1;
+      result = drawClientPage(snapshot, segments.slice(rowIndex, nextIndex), image, continuation);
+    }
     const hasMore = nextIndex < segments.length;
     if (hasMore) {
       pages.push(result.page);
@@ -755,12 +778,13 @@ export function buildClientInvoicePdf(snapshot: ClientInvoiceDocumentSnapshot, i
     }
     let y = result.tableBottom + 30;
     result.page.text("Subtotal", 390, y, 8.5, true);
-    result.page.text(formatAmount(snapshot.subtotal, snapshot.currency), 490, y, 8, false);
-    if (snapshot.taxAmount !== undefined && money(snapshot.taxAmount) > 0) { result.page.text(snapshot.taxLabel || "Tax", 390, y + 18, 8.5, false); result.page.text(formatAmount(snapshot.taxAmount, snapshot.currency), 490, y + 18, 8, false); y += 18; }
+    centeredFittedText(result.page, formatAmount(snapshot.subtotal, snapshot.currency), 478, y, 90, 8);
+    if (snapshot.taxAmount !== undefined && money(snapshot.taxAmount) > 0) { result.page.text(snapshot.taxLabel || "Tax", 390, y + 18, 8.5, false); centeredFittedText(result.page, formatAmount(snapshot.taxAmount, snapshot.currency), 478, y + 18, 90, 8); y += 18; }
     result.page.text(`Total (${snapshot.currency})`, 390, y + 36, 9, true);
-    result.page.text(formatAmount(snapshot.totalAmount, snapshot.currency), 490, y + 36, 9, true);
-    result.page.text(snapshot.amountInWords || amountInWords(snapshot.totalAmount, snapshot.currency), 80, y + 72, 8, false);
-    pages.push(...drawClientFooterPages(result.page, snapshot, image, y + 105));
+    centeredFittedText(result.page, formatAmount(snapshot.totalAmount, snapshot.currency), 478, y + 36, 90, 9, true);
+    const amountWords = wrapToWidth(snapshot.amountInWords || amountInWords(snapshot.totalAmount, snapshot.currency), 443, 8);
+    amountWords.forEach((line, index) => result.page.text(line, 80, y + 72 + index * 10, 8, false));
+    pages.push(...drawClientFooterPages(result.page, snapshot, image, y + 72 + amountWords.length * 10 + 15));
     rowIndex = nextIndex;
   }
   return buildPdfBytes(pages, image);

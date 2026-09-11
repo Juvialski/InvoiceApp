@@ -35,6 +35,14 @@ test("Local-QA comprehensive gate refuses blocked, untested, or unavailable scen
   assert.match(localQaSource, /Authenticated Local-QA coverage incomplete/);
 });
 
+test("Local-QA PDF evidence captures preview screenshots and exact rendered page counts", () => {
+  assert.match(localQaSource, /preview\.screenshot\(\{ path: previewScreenshotPath \}\)/);
+  assert.match(localQaSource, /renderedPages !== pageCount/);
+  assert.match(localQaSource, /previewScreenshotPath/);
+  assert.match(localQaSource, /downloadedPdfPath/);
+  assert.match(localQaSource, /evidence\.pdfChecks = await pdfEvidence\(session\.page\)/);
+});
+
 test("Local-QA scenario evidence keeps AI-unconfigured responses explicit and SMS non-mutating", () => {
   const scenarios = readFileSync(new URL("../scripts/qa/localQaScenarios.ts", import.meta.url), "utf8");
   assert.match(scenarios, /api\/deployment\/company-ai/);
@@ -42,5 +50,6 @@ test("Local-QA scenario evidence keeps AI-unconfigured responses explicit and SM
   assert.match(scenarios, /interactiveOverflowCount/);
   assert.match(scenarios, /details:not\(\[open\]\)/);
   assert.match(scenarios, /No SMS provider or send action is used/);
+  assert.match(scenarios, /Prepared by \/ Processed by name/);
   assert.doesNotMatch(scenarios, /sendEmailMessageByGmail|sendSms/i);
 });

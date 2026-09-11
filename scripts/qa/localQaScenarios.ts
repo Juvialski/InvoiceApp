@@ -439,11 +439,14 @@ async function verifySettings(page: any, _viewport: QaViewport): Promise<Scenari
     await featureDetails.first().click();
     await page.waitForTimeout(50);
   }
+  const documentIdentity = page.getByRole("textbox", { name: "Prepared by / Processed by name", exact: true });
   return {
     assertions: [
       assertion("settings-surface", await page.getByRole("heading", { name: /Operational settings|Settings/i }).count() > 0, "Settings landing is visible."),
       assertion("client-roadmap", await page.getByText(/HydroQualiSense Features & Roadmap/i).count() > 0, "Client-facing feature roadmap is visible."),
       assertion("sms-truthful-status", await page.getByText(/SMS provider-backed messaging/i).count() > 0, "SMS remains represented as a future/provider-gated capability."),
+      assertion("document-identity-field", await documentIdentity.count() > 0, "The authenticated user can set a human-readable Prepared by / Processed by name."),
+      assertion("document-identity-editable", await documentIdentity.isEnabled().catch(() => false), "The document identity field is editable without changing the sign-in email."),
     ],
     details: "Settings was inspected without changing company, permission, regional, template, or AI configuration.",
   };

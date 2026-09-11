@@ -1,6 +1,6 @@
 # HydroQualiSense Current Handoff
 
-Status: **CURRENT — COMPREHENSIVE LOCAL-QA UI/UX REDO COMPLETE / DEEP PDF VISUAL CERTIFICATION NEXT / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
+Status: **CURRENT — LOCAL-QA UI/UX REDO COMPLETE / PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / FUNCTIONAL REGRESSION NEXT / WAVE 4D INCOMPLETE / QA CERTIFICATION NOT READY**
 Date: **2026-09-11**  
 Repository: `Juvialski/InvoiceApp`
 
@@ -76,11 +76,9 @@ PR #150 also hardens the Local-QA completion gate so the harness cannot report o
 
 The Local-QA evidence proves the existing QA session recovery, route readiness, owner navigation, compose review gate, truthful SMS state, and issued-PDF preview/download byte identity for the exercised implementation. No database contract or provider implementation changed.
 
-## Immediate next phase — Deep PDF/export visual certification
+## Phase 2 result — Deep PDF/export visual certification complete for the programmatic fallback
 
-Perform a dedicated PDF/export certification pass.
-
-Explicitly inspect actual rendered pages for both Purchase Orders and Client Invoices, including:
+The dedicated visual certification pass is complete for the programmatic PDF fallback. Actual rendered pages for both Purchase Orders and Client Invoices were inspected, including:
 
 - with/without logos;
 - wide/tall/transparent logos;
@@ -91,9 +89,10 @@ Explicitly inspect actual rendered pages for both Purchase Orders and Client Inv
 - very long descriptions;
 - long terms, notes, payment instructions, delivery details, and amount-in-words content;
 - large amounts and representative currencies;
-- missing optional data.
+- missing optional data;
+- long unit/quantity labels and extremely long document numbers.
 
-A PDF fails this phase if any of these remain:
+The renderer fixes addressed the discovered risks: logo/header reservation, title/document-number metadata spacing, wrapped narrow-cell values, centered fitted currency values, dynamic amount-in-words height, and safe continuation/footer pagination. The visual acceptance gates now pass for the programmatic fallback:
 
 - title not visually centered;
 - title/logo/company-name collision;
@@ -107,7 +106,13 @@ A PDF fails this phase if any of these remain:
 - footer/signature overlap;
 - material Preview/Download discrepancy.
 
-For representative cases, compare in-app preview with the exact downloaded PDF and render every page to images for visual inspection. Generic DOM overflow checks or SHA equality are not sufficient certification.
+Authenticated Local-QA PDF evidence also passed on the real isolated QA backend: Purchase Order and Client Invoice both reported `PROGRAMMATIC_PDF_FALLBACK`, exact Preview/Download SHA equality, and rendered-page counts matching the PDF page count (1/1 each). Sanitized preview screenshots and downloaded PDFs were retained under the ignored `artifacts/local-qa/` evidence directory.
+
+Settings now provides an editable per-user document identity. New issued documents use that human-readable name in the Prepared by / Processed by line rather than the sign-in email; existing issued snapshots remain immutable.
+
+The overall Local-QA command remains fail-closed because the QA account does not expose `New RFQ` for the three Procurement viewport scenarios. That is a separate coverage blocker and must not be described as PDF failure or overall QA certification.
+
+This result does not certify company-template DOCX or finalized company-template PDF output. The supported high-fidelity converter remains truthfully unavailable where it is not operational.
 
 ## Then — Functional regression sweep
 
@@ -204,7 +209,7 @@ A green PR, merge, Render deployment, local-QA success, hosted-QA success, or do
 ## Required sequence from this handoff
 
 1. **Comprehensive authenticated Local-QA UI/UX redo — COMPLETE in PR #150**
-2. **Deep PDF/export visual certification — NEXT**
+2. **Deep PDF/export visual certification — COMPLETE for programmatic fallback**
 3. **Functional regression sweep**
 4. **Hosted exact-SHA QA certification**
 5. **Wave 4D messaging-provider selection/integration**

@@ -1,6 +1,6 @@
 # HydroQualiSense Active Roadmap
 
-Status: **ACTIVE — DEEP PDF/EXPORT VISUAL CERTIFICATION NEXT / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
+Status: **ACTIVE — DEEP PDF/EXPORT VISUAL CERTIFICATION COMPLETE FOR PROGRAMMATIC FALLBACK / PHASE 3 NEXT / WAVE 4D STILL INCOMPLETE / QA CERTIFICATION NOT READY**
 Repository: `Juvialski/InvoiceApp`  
 Last updated: **2026-09-11**
 
@@ -65,10 +65,12 @@ The next work must follow this order unless the user explicitly reprioritizes it
    - the final run recorded zero failed, blocked, not-tested, page-overflow, dialog-overflow, or clipped-interactive-control scenarios;
    - the Local-QA completion gate now refuses blocked, not-tested, or explicitly unavailable expected scenario coverage.
 
-2. **Deep PDF/export visual certification — NEXT / REQUIRED P0 GATE**
-   - visually inspect rendered Purchase Order and Client Invoice PDFs, not only byte/hash identity;
-   - cover with/without logos, long branding/counterparties/projects/document numbers, long table content, long terms/notes, large amounts, multi-page output, and representative currencies;
-   - fail the phase for title-centering errors, logo/title collisions, text outside boxes/cells, clipping, bad page breaks, unreadable continuation pages, or footer/signature overlap.
+2. **Deep PDF/export visual certification — COMPLETE for the programmatic PDF fallback**
+   - the shared renderer now keeps full-page title centering independent of the logo, reserves safe logo/header space, wraps long units and quantities, fits large currency values inside their cells, keeps long document-number metadata below the heading, and preserves full amount-in-words content;
+   - the expanded matrix covers 12 Purchase Order / Client Invoice cases with no, normal, wide, tall, and transparent-normalized logos, missing optional values, long names/addresses/projects/document numbers, long descriptions/units, large EUR/USD/PHP values, one-line and multi-page tables, long notes/terms/payment/delivery content, and every generated page was rendered and checked for page-boundary, continuation, total, signature, and footer defects;
+   - authenticated Local-QA exercised real issued Purchase Order and Client Invoice Preview/Download output. Both PDF sub-checks passed as `PROGRAMMATIC_PDF_FALLBACK` with exact preview/download SHA equality and rendered-page counts matching `pdfinfo` (1/1 each). The overall Local-QA run remains fail-closed because the QA account does not expose `New RFQ` in the Procurement scenarios; that unrelated coverage blocker is not represented as PDF success;
+   - Settings now provides an editable per-user document identity, so new issued documents use a human-readable Prepared by / Processed by name independent of the sign-in email; existing issued snapshots remain immutable;
+   - company-template DOCX and finalized company-template PDF remain separate output paths. This phase does not claim high-fidelity template conversion where the supported converter is unavailable.
 
 3. **Functional regression sweep using local QA**
    - retest the workflows changed or touched during the UI/PDF remediation;
@@ -127,7 +129,7 @@ Do not apply unmerged migrations to shared QA merely to make a branch work. Migr
 
 Issued programmatic PDF Preview and Download use the same canonical PDF bytes where available. This eliminates the old independent HTML-preview renderer divergence for that path.
 
-However, byte equality does not certify layout quality. Deep visual certification remains outstanding and must explicitly inspect actual rendered pages for:
+However, byte equality does not certify layout quality. Deep visual certification is now complete for the programmatic fallback and explicitly inspected actual rendered pages for:
 
 - correct title centering;
 - safe logo/header separation;
@@ -137,6 +139,8 @@ However, byte equality does not certify layout quality. Deep visual certificatio
 - complete multi-page content;
 - safe page breaks;
 - notes/terms/signature/footer containment.
+
+The certification remains scoped to the programmatic fallback path. Company-template DOCX and finalized company-template PDF require their own converter-backed evidence when that capability is operational.
 
 Programmatic PDF fallback, company-template DOCX, and finalized company-template PDF remain distinct output paths and must be represented truthfully. The current native Node/Render deployment must not claim high-fidelity conversion when the optional supported converter is unavailable.
 

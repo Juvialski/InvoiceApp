@@ -1,6 +1,6 @@
 # HydroQualiSense Local QA, UI/UX, and PDF Quality Plan
 
-Status: **ACTIVE — PHASE 1 COMPLETE / DEEP PDF VISUAL CERTIFICATION NEXT**
+Status: **ACTIVE — PHASE 1 COMPLETE / PHASE 2 PROGRAMMATIC PDF VISUAL CERTIFICATION COMPLETE / PHASE 3 NEXT**
 Repository: `Juvialski/InvoiceApp`  
 Last corrected: **2026-09-11**
 
@@ -74,11 +74,9 @@ The completion gate was then hardened so an overall Local-QA PASS is refused whe
 
 No database contract, provider, SMS, production, or deep PDF visual-certification behavior changed in Phase 1.
 
-## Phase 2 — Deep PDF/export visual certification — NEXT / REQUIRED P0 GATE
+## Phase 2 — Deep PDF/export visual certification — COMPLETE FOR PROGRAMMATIC PDF FALLBACK
 
-Perform a dedicated document-quality phase.
-
-The purpose is not merely to prove that Preview and Download share bytes. It is to prove that the actual rendered pages are visually correct.
+The dedicated document-quality phase is complete for the programmatic PDF fallback. The purpose was not merely to prove that Preview and Download share bytes, but to prove that the actual rendered pages are visually correct.
 
 For supported Purchase Orders and Client Invoices, exercise representative and deliberate edge cases including:
 
@@ -95,7 +93,8 @@ For supported Purchase Orders and Client Invoices, exercise representative and d
 - large currency values;
 - supported non-PHP currency where relevant;
 - long notes, terms, payment instructions, delivery information, and amount-in-words content;
-- missing optional values.
+- missing optional values;
+- long unit/quantity labels, large PHP/EUR/USD amounts, and extremely long document numbers.
 
 For representative cases:
 
@@ -107,7 +106,7 @@ For representative cases:
 6. fix defects;
 7. regenerate and repeat until the acceptance gates pass.
 
-A document fails this phase if any of the following remain:
+A document failed this phase if any of the following remained:
 
 - visibly incorrect title centering;
 - title/logo/company-name collision;
@@ -121,6 +120,16 @@ A document fails this phase if any of the following remain:
 - bad page breaks that split important sections incorrectly;
 - footer/signature overlap;
 - material preview-versus-download disagreement.
+
+The shared renderer was remediated for logo/header reservation, full-page title centering, long document-number spacing, narrow unit/quantity wrapping, centered fitted currency values, complete amount-in-words wrapping, and safe continuation/footer pagination. The expanded matrix covered 12 cases, rendered every generated page, and visually checked first, continuation, and final page structures across no-logo, normal, wide, tall, and transparent-normalized logo variants.
+
+Real isolated authenticated Local-QA PDF evidence passed for both issued document types: `PROGRAMMATIC_PDF_FALLBACK`, exact preview/download SHA equality, and rendered page count equal to the PDF page count (1/1 for each QA document). Sanitized preview screenshots were captured.
+
+The authenticated Settings surface also exposes an editable per-user document identity. New issued documents use that human-readable Prepared by / Processed by name instead of the sign-in email; existing issued snapshots remain immutable.
+
+The overall Local-QA run remains `FAIL` only because the QA account does not expose `New RFQ` for Procurement at desktop, tablet, or mobile; the completion gate remains intentionally fail-closed. This is a separate Phase 1 coverage/data-state blocker, not a PDF rendering failure.
+
+This phase certifies only the programmatic fallback. Company-template DOCX and finalized company-template PDF remain separate paths and are not represented as high-fidelity conversion evidence when the optional converter is unavailable.
 
 Programmatic PDF fallback, company-template DOCX, and finalized company-template PDF are separate output paths and must remain labeled truthfully. Do not claim high-fidelity conversion on a runtime where the supported converter is unavailable.
 

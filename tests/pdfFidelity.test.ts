@@ -38,6 +38,14 @@ function pageCount(bytes: Uint8Array) {
   return (new TextDecoder().decode(bytes).match(/\/Type \/Page \/Parent/g) || []).length;
 }
 
+function textCoordinates(bytes: Uint8Array) {
+  const source = new TextDecoder().decode(bytes);
+  return [...source.matchAll(/1 0 0 1 (-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?) Tm/g)].map((match) => ({
+    x: Number(match[1]),
+    y: Number(match[2]),
+  }));
+}
+
 test("programmatic PDF torture cases paginate long PO/invoice content without invalid output", () => {
   const po = buildPurchaseOrderPdf(purchaseOrder(), image);
   const invoice = buildClientInvoicePdf(clientInvoice(), image);
@@ -54,4 +62,72 @@ test("PDF title and document-number geometry use the shared renderer contract", 
   assert.match(source, /PURCHASE ORDER/);
   assert.match(source, /PO-FIDELITY-LONG-0001/);
   assert.match(source, /\/MediaBox \[0 0 595 842\]/);
+});
+
+test("edge-case PO and invoice content remains inside the PDF media box", () => {
+  const poLines = [{
+    lineNumber: 1,
+    description: "A single item with a long description and a deliberately long unit label.",
+    quantity: 999999,
+    unit: "kilowatt-hours-per-square-meter-installed",
+    unitPrice: 987654321.99,
+    amount: 987654321.99,
+  }];
+  const poAmount = poLines[0].amount;
+  const po = buildPurchaseOrderPdf({
+    documentType: "PURCHASE_ORDER",
+    documentNumber: `PO-${"EXTREMELY-LONG-DOCUMENT-NUMBER-".repeat(5)}`,
+    status: "DRAFT",
+    currency: "EUR",
+    company: { legalName: "Short Company", address: "", contactNumber: "", email: "" },
+    supplier: { name: "", address: "", email: "", phone: "", vatTin: "", attention: "" },
+    project: { projectCode: "", projectName: "", deliverTo: "" },
+    lines: poLines,
+    totalAmount: poAmount,
+    amountInWords: amountInWords(poAmount, "EUR"),
+    processor: { name: "QA" },
+    templateVersion: "edge-case",
+  });
+
+  const invoiceLines = [{
+    lineNumber: 1,
+    description: "One invoice line with a supported non-PHP currency and a large amount.",
+    quantity: 123456,
+    unit: "service-hours-per-installation-phase",
+    amount: 987654321.99,
+  }];
+  const invoice = buildClientInvoicePdf({
+    documentType: "CLIENT_INVOICE",
+    documentNumber: `CI-${"LONG-".repeat(28)}`,
+    status: "DRAFT",
+    currency: "USD",
+    company: { legalName: "", address: "", contactNumber: "", email: "", paymentInstructions: "" },
+    project: { projectCode: "", projectName: "" },
+    billTo: { name: "", contactName: "", email: "", address: "", reference: "" },
+    lines: invoiceLines,
+    subtotal: invoiceLines[0].amount,
+    totalAmount: invoiceLines[0].amount,
+    amountInWords: amountInWords(invoiceLines[0].amount, "USD"),
+    notes: "",
+    termsAndConditions: "",
+    processor: { name: "QA" },
+    templateVersion: "edge-case",
+  });
+
+  for (const bytes of [po, invoice]) {
+    assert.match(new TextDecoder().decode(bytes), /^%PDF-1\.4/);
+    assert.ok(pageCount(bytes) >= 1);
+    for (const coordinate of textCoordinates(bytes)) {
+      assert.ok(coordinate.x >= -0.01 && coordinate.x <= 595.01, `text x-coordinate escaped media box: ${coordinate.x}`);
+      assert.ok(coordinate.y >= -0.01 && coordinate.y <= 842.01, `text y-coordinate escaped media box: ${coordinate.y}`);
+    }
+  }
+  const poSource = new TextDecoder().decode(po);
+  const invoiceSource = new TextDecoder().decode(invoice);
+  assert.match(poSource, /kilowatt/);
+  assert.match(poSource, /meter-in/);
+  assert.match(poSource, /EUR 987654321\.99/);
+  assert.match(invoiceSource, /service/);
+  assert.match(invoiceSource, /installa/);
+  assert.match(invoiceSource, /USD 987654321\.99/);
 });

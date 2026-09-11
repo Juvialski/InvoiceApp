@@ -57,7 +57,7 @@ interface LocalQaEvidence {
   networkFailures?: string[];
   networkRequests?: string[];
   syntheticWrite?: { projectCode: string; created: boolean; persistedAfterReload: boolean };
-  pdfChecks?: Array<{ kind: string; source: string; pageCount: number; previewHash: string; downloadHash: string; exactMatch: boolean; renderedPages: number }>;
+  pdfChecks?: Array<{ kind: string; source: string; pageCount: number; previewHash: string; downloadHash: string; exactMatch: boolean; renderedPages: number; previewScreenshotPath: string; downloadedPdfPath: string }>;
   scenarios?: readonly LocalQaScenarioEvidence[];
   scenarioSummary?: LocalQaScenarioRunResult["summary"];
   failure?: string;
@@ -276,9 +276,19 @@ async function boundedProjectWrite(page: any) {
 
 async function renderPdfPages(filePath: string, prefix: string) {
   try {
+    const outputDirectory = path.dirname(prefix);
+    const prefixName = path.basename(prefix);
+    const existing = await fs.readdir(outputDirectory);
+    for (const file of existing) {
+      if (!file.startsWith(prefixName) || !file.endsWith(".png")) continue;
+      await fs.unlink(path.join(outputDirectory, file));
+    }
     await execFile("pdftoppm", ["-png", "-r", "120", filePath, prefix], { cwd: REPOSITORY_ROOT });
-    const files = await fs.readdir(path.dirname(prefix));
-    return files.filter((file) => file.startsWith(path.basename(prefix)) && file.endsWith(".png")).length;
+    const info = await execFile("pdfinfo", [filePath], { cwd: REPOSITORY_ROOT });
+    const pageCount = Number(/^Pages:\s+(\d+)/m.exec(info.stdout)?.[1] || 0);
+    const files = await fs.readdir(outputDirectory);
+    const renderedPages = files.filter((file) => file.startsWith(prefixName) && file.endsWith(".png")).length;
+    return pageCount > 0 && renderedPages === pageCount ? renderedPages : 0;
   } catch { return 0; }
 }
 
@@ -304,6 +314,10 @@ async function pdfEvidence(page: any) {
     const previewHash = (await root.getAttribute("data-pdf-preview-hash")) || "";
     const source = (await root.getAttribute("data-pdf-preview-source")) || "";
     const pageCount = Number((await preview.getAttribute("data-pdf-preview-page-count")) || 0);
+    const previewScreenshotRelative = path.join("screenshots", `pdf-${kind.toLowerCase()}-preview.png`).replaceAll("\\", "/");
+    const previewScreenshotPath = path.join(OUTPUT_DIR, previewScreenshotRelative);
+    await fs.mkdir(path.dirname(previewScreenshotPath), { recursive: true });
+    await preview.screenshot({ path: previewScreenshotPath });
     const downloadPromise = page.waitForEvent("download", { timeout: QA_TIMEOUT_MS });
     await page.getByRole("button", { name: /Generate \/ Download PDF/ }).click();
     const download = await downloadPromise;
@@ -315,8 +329,8 @@ async function pdfEvidence(page: any) {
     const renderPrefix = path.join(OUTPUT_DIR, `${kind.toLowerCase()}-page`);
     const renderedPages = await renderPdfPages(filePath, renderPrefix);
     const exactMatch = Boolean(previewHash) && previewHash === downloadHash;
-    if (!exactMatch || !pageCount || !renderedPages) throw new Error(`PDF preview/download evidence failed for ${kind}.`);
-    checks.push({ kind, source, pageCount, previewHash, downloadHash, exactMatch, renderedPages });
+    if (!exactMatch || !pageCount || !renderedPages || renderedPages !== pageCount) throw new Error(`PDF preview/download evidence failed for ${kind}.`);
+    checks.push({ kind, source, pageCount, previewHash, downloadHash, exactMatch, renderedPages, previewScreenshotPath: previewScreenshotRelative, downloadedPdfPath: path.relative(REPOSITORY_ROOT, filePath).replaceAll("\\", "/") });
     await page.getByRole("button", { name: "Close document preview", exact: true }).click();
   }
   if (!checks.length) {
@@ -396,11 +410,14 @@ async function main() {
     const coverageGaps = scenarioRun.scenarios.filter((scenario) =>
       scenario.status !== "PASS" || scenario.assertions.some((item) => item.id.endsWith("-available")),
     );
-    if (coverageGaps.length > 0) {
-      const incompleteIds = coverageGaps.map((scenario) => `${scenario.id}:${scenario.status}`).slice(0, 8);
-      throw new Error(`Authenticated Local-QA coverage incomplete: ${incompleteIds.join(", ") || "unknown scenario"}.`);
-    }
+    const coverageFailure = coverageGaps.length > 0
+      ? `Authenticated Local-QA coverage incomplete: ${coverageGaps.map((scenario) => `${scenario.id}:${scenario.status}`).slice(0, 8).join(", ") || "unknown scenario"}.`
+      : "";
+    // PDF evidence is an independent Phase 2 gate. Capture it even when a
+    // broader route scenario exposes an unrelated coverage gap, so the final
+    // artifact distinguishes PDF evidence from the separate Local-QA blocker.
     evidence.pdfChecks = await pdfEvidence(session.page);
+    if (coverageFailure) throw new Error(coverageFailure);
     evidence.status = "PASS";
   } catch (error) {
     evidence.failure = safeError(error);
